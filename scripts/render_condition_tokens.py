@@ -30,6 +30,19 @@ changed is the colour, which is the whole point of the rewrite --
 **injury is red and exhaustion is blue**, where it used to be the other
 way round.
 
+**The word grew and the rays behind it were cut out, 2026-09-19.** The
+first cut of this art set the word to a fifth of the face's height,
+which read fine at the 1254px canvas and turned to an unreadable smear
+at the 26px the board actually draws -- the sunburst rays crossed every
+letter at close to the same width as the strokes, so downsampling blended
+letter and ray into noise. `CLEAR_PAD_X`/`CLEAR_PAD_Y` punch a
+rounded-rectangle hole in the ray mask around the word's own box before
+the rays are composited, so a letter now sits on a plain black ground
+with nothing crossing it, and `TEXT_WIDTH`/`TEXT_HEIGHT` grew to spend
+the room that clearing freed. The badge, the ring and the sunburst's
+existence are otherwise unchanged -- this is a legibility pass, not a
+redesign.
+
 **Drained and Damaged are a Cyborg's own words for Exhausted and
 Injured** (see "Lithium Powered" in docs/living-rules.md) -- the same
 mechanic under a different name, so they get their own art rather than
@@ -86,14 +99,21 @@ RAY_HALF_ANGLE = 1.4  # degrees
 # which is what gives it the condensed face the bundled DejaVu does not
 # have. Both words fill the same box, so INJURED and EXHAUSTED read as
 # one set rather than as two sizes.
-TEXT_WIDTH = 0.72
-TEXT_HEIGHT = 0.19
+TEXT_WIDTH = 0.86
+TEXT_HEIGHT = 0.34
 
 # The word sits on the sunburst and is the same colour as it, so it
 # carries a face-coloured halo -- without it a letter crossing a ray
 # disappears into it, which is the one thing this art cannot afford at
 # 26px.
-TEXT_HALO = 0.07  # of the font size
+TEXT_HALO = 0.10  # of the font size
+
+# How far past the word's own box the ray mask is cleared, as a fraction
+# of the canvas -- wide enough that a ray's antialiased edge doesn't
+# reach a letter, narrow enough that the sunburst still reads as
+# unbroken past the word rather than cut clean in half.
+CLEAR_PAD_X = 0.06
+CLEAR_PAD_Y = 0.10
 
 # The swap. These were the other way round until 2026-08-15; red for
 # injury and blue for exhaustion is the pairing coaches expect, and the
@@ -141,7 +161,7 @@ def draw_word(
     the squash that has to do the work, or EXHAUSTED would set two
     thirds the height of INJURED and the pair would not read as a set.
     """
-    font_size = size // 4
+    font_size = size // 3
     halo = int(font_size * TEXT_HALO)
     font = ImageFont.truetype(str(FONT_PATH), font_size)
     measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
@@ -200,6 +220,27 @@ def render_token(word: str, accent: tuple[int, int, int, int]) -> Image.Image:
         radius=max(radius - edge - ring, 0),
         fill=255,
     )
+
+    word_layer = draw_word(word, size, accent)
+    word_x = (size - word_layer.width) // 2
+    word_y = (size - word_layer.height) // 2
+
+    # Punch the word's own box (plus a little air) out of the ray mask
+    # before the rays are drawn, so no ray reaches a letter -- see "The
+    # word grew and the rays behind it were cut out" above for why a ray
+    # crossing a letter is the one thing this art cannot afford at 26px.
+    clear_pad_x = size * CLEAR_PAD_X
+    clear_pad_y = size * CLEAR_PAD_Y
+    clear_box = (
+        word_x - clear_pad_x,
+        word_y - clear_pad_y,
+        word_x + word_layer.width + clear_pad_x,
+        word_y + word_layer.height + clear_pad_y,
+    )
+    ImageDraw.Draw(face_mask).rounded_rectangle(
+        clear_box, radius=(clear_box[3] - clear_box[1]) / 2, fill=0
+    )
+
     # Masked into the rays' own alpha rather than pasted through the
     # mask: a paste copies the layer's transparency as well, which
     # takes the black face away everywhere a ray is not.
@@ -207,11 +248,7 @@ def render_token(word: str, accent: tuple[int, int, int, int]) -> Image.Image:
     rays.putalpha(ImageChops.multiply(rays.getchannel("A"), face_mask))
     token.alpha_composite(rays)
 
-    word_layer = draw_word(word, size, accent)
-    token.alpha_composite(
-        word_layer,
-        ((size - word_layer.width) // 2, (size - word_layer.height) // 2),
-    )
+    token.alpha_composite(word_layer, (word_x, word_y))
 
     return token.resize((CANVAS, CANVAS), Image.LANCZOS)
 

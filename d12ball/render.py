@@ -387,6 +387,16 @@ EXHAUST_ICON_PATH = (
 )
 EXHAUST_ICON_SIZE = 26
 
+# A Cyborg's own token count -- the same triangle, recoloured teal by
+# `scripts/recolor_exhaust_token.py` so it reads as one thing with their
+# Drained badge rather than an amber count sitting beside a teal
+# condition. `draw_card`'s `cyborg` flag picks it the same way it picks
+# Drained over Exhausted -- see the comment on that flag below.
+EXHAUST_CYBORG_ICON_PATH = (
+    Path(__file__).resolve().parent / "images" / "emoji" / "exhaust_cyborg.png"
+)
+EXHAUST_CYBORG_ICON_SIZE = 26
+
 EXHAUSTED_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "exhausted.png"
 )
@@ -475,6 +485,16 @@ def load_exhaust_icon() -> Optional[Image.Image]:
     is not available so rendering can gracefully skip it.
     """
     return _load_icon(EXHAUST_ICON_PATH, EXHAUST_ICON_SIZE, "exhaust")
+
+
+def load_exhaust_cyborg_icon() -> Optional[Image.Image]:
+    """
+    Load (and cache) a Cyborg's own exhaustion token icon. Returns None
+    if the image is not available so rendering can gracefully skip it.
+    """
+    return _load_icon(
+        EXHAUST_CYBORG_ICON_PATH, EXHAUST_CYBORG_ICON_SIZE, "exhaust_cyborg"
+    )
 
 
 def load_exhausted_icon() -> Optional[Image.Image]:
@@ -998,7 +1018,16 @@ def draw_card(
 
     if exhaustion > 0:
         draw_exhaustion_badge(
-            canvas, draw, x, y, exhaustion, player, profile, row_top, row_bottom
+            canvas,
+            draw,
+            x,
+            y,
+            exhaustion,
+            player,
+            profile,
+            row_top,
+            row_bottom,
+            cyborg=cyborg,
         )
     # Injured and Exhausted share the same slot on the stats row: a
     # player who becomes injured loses the Exhausted condition (and
@@ -1006,14 +1035,14 @@ def draw_card(
     # once. The injured badge used to sit in the card's top-left
     # corner, over the name.
     #
-    # `cyborg` only ever changes which icon fills that slot, never
-    # whether one is drawn -- Drained and Damaged are Exhausted and
-    # Injured under a Cyborg's own words (see "Lithium Powered" in
-    # docs/living-rules.md), so the caller who already answered
-    # `exhausted`/`injured` off the match answers this off
-    # `RulesEngine.has_species_ability` the same way `species_icons`
-    # is answered, rather than this module reading the player's own
-    # species to decide it.
+    # `cyborg` only ever changes which icon fills that slot (and, on the
+    # exhaustion badge above, which triangle), never whether one is
+    # drawn -- Drained and Damaged are Exhausted and Injured under a
+    # Cyborg's own words (see "Lithium Powered" in docs/living-rules.md),
+    # so the caller who already answered `exhausted`/`injured` off the
+    # match answers this off `RulesEngine.has_species_ability` the same
+    # way `species_icons` is answered, rather than this module reading
+    # the player's own species to decide it.
     if injured:
         if cyborg:
             draw_damaged_badge(canvas, draw, x, y, row_top, row_bottom)
@@ -1036,6 +1065,7 @@ def draw_exhaustion_badge(
     profile: RoleProfile,
     row_top: int,
     row_bottom: int,
+    cyborg: bool = False,
 ) -> None:
     """
     Draws the exhaust-token badge between the skill numbers and the role
@@ -1044,8 +1074,11 @@ def draw_exhaustion_badge(
     the horizontal center is computed per-card (from the actual offense
     digit width and role label width) to keep the overlap as small as
     possible instead of guessing a fixed position.
+
+    `cyborg` only ever changes which icon fills the slot, the same as
+    `draw_card`'s own flag -- see the comment there.
     """
-    icon = load_exhaust_icon()
+    icon = load_exhaust_cyborg_icon() if cyborg else load_exhaust_icon()
 
     offense_bbox = draw.textbbox(
         (0, 0), str(profile.offense), font=FONT_CARD_STAT
