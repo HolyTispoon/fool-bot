@@ -24,6 +24,7 @@ See "Gambits" in docs/living-rules.md and the matrix in
 docs/gambit-matrix.md.
 """
 
+import inspect
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -109,6 +110,26 @@ def build_game(**overrides) -> D12BallGame:
     )
     fields.update(overrides)
     return D12BallGame(**fields)
+
+
+def loose_ball_distance(call) -> int:
+    """
+    The `distance_moved` a recorded `begin_loose_ball` was called with,
+    read through the real method's signature rather than off
+    `call.args`.
+
+    A Setup Pass that lands on nobody reaches it as a `FollowOn` since
+    rank O3 of docs/model-discord-split.md, and `dispatch_step_result`
+    passes a follow-on's arguments **by keyword** -- so an argument the
+    cog used to hand over positionally now arrives named. Binding the
+    call to the signature answers for both shapes, which is the reading
+    rank D2 wrote down: fix the assertion, not the call. The same
+    helper is in `tests/test_d12ball_loose_ball.py` and
+    `tests/test_d12ball_components.py`, from rank D1.
+    """
+    return inspect.signature(D12Ball.begin_loose_ball).bind(
+        None, *call.args, **call.kwargs,
+    ).arguments["distance_moved"]
 
 
 def build_interaction() -> SimpleNamespace:
@@ -1448,7 +1469,9 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         # landing decides otherwise -- and the pass costs its own 2
         # minutes however far it travelled.
         self.assertEqual(match.ball.possession, TeamSide.HOME)
-        self.assertEqual(cog.begin_loose_ball.await_args.args[3], 2)
+        self.assertEqual(
+            loose_ball_distance(cog.begin_loose_ball.await_args), 2,
+        )
 
     def test_a_fullback_may_also_set_up_at_four(self) -> None:
         """

@@ -27,7 +27,7 @@ it happened to have.
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
-| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a-3e done (PR #229, PR #232, PR #233, PR #235, PR #236); 3f open |
+| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
@@ -112,9 +112,10 @@ may not do** (principle 9). `send_low_pass`, `throw_high_pass`,
 `knock_ball_back`, `take_ball_by_steal` and `apply_own_goal_outcome` each
 called `self.persist(game, match)` in their own body. So they are on the
 model's side in everything but their address *and* their save, and lifting
-one means stripping the persist out of it first. **Two are left**: Phase 2
-took `send_low_pass`, rank D2 took `take_ball_by_steal` and rank D3 took
-`apply_own_goal_outcome`.
+one means stripping the persist out of it first. **All five have moved**:
+Phase 2 took `send_low_pass`, rank D2 `take_ball_by_steal`, rank D3
+`apply_own_goal_outcome`, rank D1 `knock_ball_back` and rank O3
+`throw_high_pass`.
 
 **That is not a free deletion, because the wrapper was not saving either.**
 `apply_low_pass` never persisted: it relied on `send_low_pass` having done
@@ -284,7 +285,7 @@ so the pattern is settled before it meets the hard cases.
 | 3c | D2 | Steal, Intercept | **Done (PR #233).** One step and a sign for both cards, and the first hand-off into the spine: `BEGIN_RUN_BACK` and `BEGIN_SHOOTER_CHOICE` |
 | 3d | D3 | Pressure, Double Team | **Done (PR #235).** The own-goal branch, and the first follow-on whose method had no `lead_in` |
 | 3e | D1 | Deflect, Clear | **Done (PR #236).** Called `begin_loose_ball` directly, and settled what `board_changed` means where the next step draws the board itself |
-| 3f | O3 | High Pass, Setup Pass | Hardest by a distance: 169 lines, 10 awaits, the overshoot, the contest, the out-of-bounds |
+| 3f | O3 | High Pass, Setup Pass | **Done (PR #241).** The one rank whose cards are not each other parameterised, and the one that had to widen the board answer to a follow-on's arguments |
 
 Through this phase the spine (`finish_maneuver_resolution`, `begin_run_back`,
 `begin_loose_ball`) is **still async and still in the cog**. Each lifted
@@ -457,6 +458,42 @@ turned out to be about the seam rather than about either card:
   `await_args.args[3]`. Rank D2's `inspect.signature` lesson, turning
   up in tests that are not the rank's own: expect it wherever a lifted
   card hands off to a step the suite already drives.
+
+
+**What 3f settled, and it is the last rank.** It was the hardest of
+the six, and what it had to answer was rank D1's question one level
+further out:
+
+- **Two steps, two members.** `BEGIN_HIGH_PASS_CONTEST` rather than
+  `BEGIN_LOOSE_BALL` with a `headline=` and `is_high_pass=True`, which
+  is what this section's own brief expected. A High Pass is not a
+  loose ball: `begin_loose_ball` announces it plainly and draws no
+  board, so the board the pass moved has to be written *before* it --
+  and naming the loose ball's member would have put the branch in
+  `FOLLOW_ONS_THAT_DRAW_THE_BOARD` and lost that write. Keyed to the
+  step, exactly as D1 intended; the two steps are simply two steps.
+- **A follow-on's own arguments can decide the board.**
+  `begin_run_back` is the first that draws one only sometimes -- a new
+  play posts and pins one, an ordinary run back after a steal does
+  not -- so `follow_on_draws_the_board` in `cogs/d12ball/core.py`
+  reads `new_play` beside the set. It is still the frontend's
+  arithmetic and still keyed to the step rather than to the calling
+  card.
+- **A card can be three steps.** Setup Pass asks the speed *first*,
+  which is the only card that does, so the continuation it leaves
+  behind is a step of its own and the dead end its menu falls to is a
+  third. And this rank's two cards are the only pair that are not each
+  other parameterised: they share a landing space and nothing else.
+- **Step-then-save was the rule rather than a fix**, the fourth time
+  of five. `self.persist` in `cogs/` went 95 -> 91.
+- **`begin_ball_recovery` was not needed**, although this section's
+  brief expected it: both passes that run out of play reach the
+  recovery through `begin_run_back(new_play=True)`, and it is what the
+  restart owes afterwards rather than something a card names.
+- **What it did not move**, the same as D1: `resolve_low_pass`'s
+  no-teammate-to-receive branch, with rank O1's two rules questions
+  still open on it. It is now the **last** caller of `begin_loose_ball`
+  in the `resolve_*` half, and it is due whenever the author answers.
 
 **Bot stop, per rank:** play both cards of the rank, contested and
 unchallenged, on two board sizes, in a basic and an advanced game. Watch the

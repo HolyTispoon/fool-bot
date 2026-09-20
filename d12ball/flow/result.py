@@ -102,6 +102,20 @@ class FollowOnStep(Enum):
     #: side of the coach's answer, rather than in front of a question
     #: whose answer moves the ball again.
     OFFER_SETUP_PASS_PUSH_BACK = auto()
+    #: The long pass's contest: the receiver standing where a High
+    #: Pass of 3 or 4 landed still has to win a skill test to keep it.
+    #: Rank O3's, and a member of its own rather than `BEGIN_LOOSE_BALL`
+    #: with a `headline=` and `is_high_pass=True`, because the two
+    #: steps do different things with the board: a High Pass is on a
+    #: receiver both coaches watched catch it, so the contest is
+    #: announced plainly and the board the pass moved has to be written
+    #: **before** it. Folding it into the loose ball's member would
+    #: have put it in `FOLLOW_ONS_THAT_DRAW_THE_BOARD` and lost that
+    #: write, which is the answer being keyed to the step working
+    #: exactly as rank D1 intended. `D12Ball.begin_high_pass_contest`
+    #: already existed as a step, with a second caller in the declined
+    #: set-up, so nothing moved to make room for it.
+    BEGIN_HIGH_PASS_CONTEST = auto()
 
 
 @dataclass(frozen=True)

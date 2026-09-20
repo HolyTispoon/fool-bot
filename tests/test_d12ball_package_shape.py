@@ -218,6 +218,7 @@ class FollowOnStepTests(unittest.TestCase):
         "BEGIN_OWN_GOAL_ROLL",
         "BEGIN_LOOSE_BALL",
         "OFFER_SETUP_PASS_PUSH_BACK",
+        "BEGIN_HIGH_PASS_CONTEST",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(

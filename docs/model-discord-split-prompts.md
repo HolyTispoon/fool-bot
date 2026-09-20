@@ -13,10 +13,10 @@ Phase 1 on.
 
 Phase 0 has landed (PR #201), and so has Phase 1, in the two halves the
 worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
-PR #225), and so has Phase 2 (PR #227) -- so there are no prompts for any
-of them. Phase 3 is one template run six times, and **3a, 3b, 3c, 3d and 3e
-have landed (PR #229, PR #232, PR #233, PR #235, PR #236)**; the
-template stays until 3f does.
+PR #225), and so has Phase 2 (PR #227), and so has the whole of Phase 3 --
+one template run six times, **3a to 3f (PR #229, PR #232, PR #233,
+PR #235, PR #236, PR #241)**. So there are no prompts for any of them, and
+what is left here is Phases 4, 5 and 6.
 
 ---
 
@@ -148,139 +148,6 @@ still being planned.
 
 ---
 
-## Phase 3 -- one rank per PR (template; run six times)
-
-Fill in the `RANK` block from the table below and paste the rest unchanged.
-Do them in the order given; each assumes the previous has landed.
-
-| Run | RANK block |
-| --- | --- |
-| 3a | **Landed (PR #229).** `Rank O2 -- Dribble Advance and Dribble Burst.` It handed off to `finish_maneuver_resolution` not at all: both cards end on `offer_speed_choice`, a new `FollowOnStep` member rather than a prompt the step returns. |
-| 3b | **Landed (PR #232).** `Rank O1 -- Skilled Pass, and the shared key= parameter.` It was whole: Phase 2's `low_pass_step(key=)` is both cards, and nothing moved. What it added is ten fixtures on branches the golden cannot see, and the round trip proving `key` survives a save -- it is read back out of `offense_maneuver`, or out of `pending_effect_continuation` for the free pass, rather than being a field of its own. |
-| 3c | **Landed (PR #233).** `Rank D2 -- Steal and Intercept.` Both cards were one step and a sign, and it was the first hand-off into the spine: `BEGIN_RUN_BACK` carrying `speed_choice_after=True`, and `BEGIN_SHOOTER_CHOICE` for the Intercept that overshoots. Two persists became one and nothing was being lost. One ordering was left open for the author -- an overshooting Intercept collects no beaten Skilled Pass -- and deliberately not pinned. |
-| 3d | **Landed (PR #235).** `Rank D3 -- Pressure and Double Team.` `pressure_step` is both cards, parameterised by the push and the partner; `apply_own_goal_outcome` came with it as a free function and `run_own_goal_roll` stayed in the cog and now saves for it. It added `BEGIN_OWN_GOAL_ROLL` and was the first rank whose follow-on had no `lead_in` to take -- the method grew one, and the overshoot went from two messages to one. `pending_double_team` needed nothing but a restart assertion. |
-| 3e | **Landed (PR #236).** `Rank D1 -- Deflect and Clear.` `apply_deflection` was already both cards under one `key`, so it moved whole as `deflection_step`, with `deflection_numbers` and `knock_ball_back` as free functions. It added `BEGIN_LOOSE_BALL` and `OFFER_SETUP_PASS_PUSH_BACK`, and settled the question two ranks had deferred: a step reports `board_changed` honestly and `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in the cog is what keeps the frontend from writing a board the next step is about to write itself -- keyed to the step, so it is the answer for all eight of `begin_loose_ball`'s callers. It did **not** lift rank O1's no-teammate branch: the two rules questions on it are still unanswered and they decide where a lifted step would put it. |
-| 3f | `Rank O3 -- High Pass and Setup Pass. The hardest by a distance: the overshoot, the contest, out-of-bounds into begin_ball_recovery. throw_high_pass saves itself today -- strip it and the wrapper persists. Read docs/design/shooting.md and docs/design/loose-balls.md (the High Pass exemption). Four things 3e found that this rank inherits. (1) board_changed is settled: a step says the board moved and FOLLOW_ONS_THAT_DRAW_THE_BOARD in cogs/d12ball/core.py decides whether that costs a write -- do not re-decide it, and add a member to that set if this rank hands off to another step that draws its own board. (2) BEGIN_LOOSE_BALL and OFFER_SETUP_PASS_PUSH_BACK already exist as FollowOnStep members with rows in follow_on_methods, so a High Pass contest reaching begin_loose_ball needs neither added -- but a High Pass passes is_high_pass=True and a headline= of its own, which no existing follow-on does, so check what those arrive as. (3) begin_ball_recovery is a new member and nothing has named it yet. (4) offer_speed_choice's last direct caller in cogs/ is resolve_setup_pass, which is this rank's -- it is OFFER_SPEED_CHOICE, already a member since 3a. Expect pre-existing assertions reading await_args.args[n] on begin_loose_ball and begin_shooter_choice to break on arguments that now arrive named; 3e added a loose_ball_distance helper to tests/test_d12ball_loose_ball.py and tests/test_d12ball_components.py for exactly that, and fixing the assertion rather than the call is the rule.` |
-
-```
-[PREAMBLE]
-
-This is one rank of Phase 3 of docs/model-discord-split.md, "the effects, a
-rank per pull request". Phases 1 and 2 have landed, and so has every rank
-listed before this one in the worksheet's Phase 3 table.
-
-Probe: `grep -q "def low_pass_step" d12ball/flow/effects.py`, and the
-worksheet's Status column names a PR for every rank listed before this one.
-Do not probe for a function per card: a rank whose two cards are the same
-card parameterised has one step between them, which is the shape Phase 2
-landed -- Skilled Pass is `low_pass_step(key="skilled_pass")` and there is
-no `skilled_pass` function to find. If either check fails, stop.
-
-Read docs/design/maneuvers.md and the "The
-model and the Discord layer" section of CLAUDE.md, plus the design doc the
-rank block names.
-
-RANK: <paste the rank block here>
-
-The pattern is Phase 2's, applied to both cards of this rank, and this PR
-does not invent a new one. Read `low_pass_step` and `D12Ball.apply_low_pass`
-before you start; they are the worked example. For each card's `apply_*` in
-cogs/d12ball/effects.py: the mutation and the wording move into
-d12ball/flow/effects.py as a sync function `<card key>_step(engine, match,
-...)` returning StepResult -- taking `game` only where it actually reads the
-record, and never an `interaction`; any `self.persist` inside the moved code
-is stripped; and the cog wrapper becomes step -> `self.persist(game, match)`
--> `await self.dispatch_step_result(interaction, game, match, result)`.
-That last call is already written (cogs/d12ball/core.py) and does the rest:
-it redraws the board if `board_changed` and then asks or continues. **Do not
-post the narration as a message of its own** -- `dispatch_step_result` joins
-the lines and hands them to whatever `next` names as its `lead_in`, which is
-what keeps a resolved maneuver at one message and one board refresh.
-
-Where the effect hands off to machinery that is still the cog's
-(finish_maneuver_resolution, offer_speed_choice, begin_run_back,
-begin_loose_ball, offer_scoring_attempt_choice, run_own_goal_roll,
-begin_ball_recovery), `next` is a `FollowOn` naming it -- the spine does not
-move in this phase, under any provocation. `FollowOnStep` is a closed enum
-in d12ball/flow/result.py and `D12Ball.follow_on_methods` is the table under
-it, so a spine step this rank is the first to hand off to needs a member in
-the one, a row in the other, and its name in `FollowOnStepTests.EXPECTED` in
-tests/test_d12ball_package_shape.py, which is where the whole membership is
-asserted. **A step that ends somewhere a coach may or may not be asked is a
-follow-on, not a `PendingPrompt`**: 3a found that `offer_speed_choice`
-answers for Dinky itself and holds a tutorial beat's prompt behind a note,
-so returning the prompt from the model would have moved a decision the
-frontend still owns. A follow-on whose method does not take a `lead_in` is a case
-`dispatch_step_result` has not met yet; widen it there rather than posting
-around it. **3d met this first**, on `begin_own_goal_roll`: the answer was
-to give the method the parameter and have it carry the narration above its
-own prompt with a blank line between (`begin_loose_ball`'s shape), which
-took that branch from two messages to one. Expect the same of any spine
-step that has never been handed narration before; the wording does not
-change, only who posts it. **`dispatch_step_result` passes a follow-on's arguments by
-keyword** -- `method(interaction, game, match, lead_in=..., **kwargs)` --
-so a parameter the cog used to hand over positionally arrives named, and
-an existing test reading `await_args.args[n]` fails on a move that changed
-nothing. 3c met this on `begin_shooter_choice`; fix the assertion, not the
-call, and bind a recorded call to the real method's `inspect.signature` so
-one fixture table answers for the old shape and the new one at once. Advanced-mode cost and benefit (`gambit_cost`,
-`settled_maneuver_winner`) are engine questions already; the step asks them,
-it does not re-derive them. A rank may also lift something that is not a card at all -- 3d took
-`apply_own_goal_outcome`, the verdict of the roll a Pressure risks, as a
-free function returning its text rather than as a second `StepResult`,
-because the roll around it is a coach's dice and a dice image and stays
-the cog's until Phase 4. **So is exhaustion**, since 3a:
-`RulesEngine.apply_exhaustion` and `describe_exhaustion_gain` live on the
-engine with `condition_emojis`, and the cog keeps a forwarding method for
-each -- a step that charges a token calls the engine and needs no cog. Such
-a step takes `game` as well as `match`, because the Exhausted threshold is
-the game record's.
-
-Before you move anything, pin the rank's wording. The golden transcript
-reaches only one card of this rank (the tutorial plays Dribble Advance, Low
-Pass, Pressure, Steal, High Pass and Deflect -- one per rank -- and none of
-Dribble Burst, Skilled Pass, Intercept, Double Team, Clear or Setup Pass,
-and no advanced cost). So: on the old code, on fixtures that reach both
-cards contested and unchallenged, basic and advanced, record the exact
-narration lines and the refresh decision, and write those into the
-model-side tests for the new step, committed before the move as the
-branch's first commit. A rank whose lifted narration differs by
-a character from the recording is a rank that moved a rule, and that is a
-finding, not a regeneration. tests/low_pass_fixtures.py with
-tests/test_d12ball_low_pass_recording.py (the cog) and
-tests/test_d12ball_low_pass_flow.py (the model) is the worked pair: one
-discord-free fixture table, read twice. Name the follow-on by `FollowOnStep`
-member name in the table, so the recording can be written before the step
-exists.
-
-Expect the persist rule to be a **fix** somewhere in the rank, not only a
-rule: 3a found `apply_dribble_advance` saving and *then* charging a beaten
-Clear, so those two tokens and the Exhausted flag they set never reached the
-file. Step-then-save fixes that with nothing decided; say so in the PR
-rather than passing over it.
-
-Tests, beyond that: the step does not save (under save_patches suppression);
-the wrapper saves between step and dispatch; `next` is right on every
-branch, including the ones that end in a prompt (restart mid-effect is the
-Phase 1 effect-choice branch catching it -- assert pending_prompt returns
-the same kind before and after a to_dict/from_dict round trip in that
-state); golden transcript byte-identical; test_model_purity green;
-EveryMatchupResolvesTests green.
-
-Docs: docs/design/maneuvers.md (and the rank block's doc) gain a line only
-where the move changed something worth recording. Most ranks change nothing
-there; a rank that wants a paragraph is a rank that moved a rule -- say so
-in the PR if that happened. The worksheet's Phase 3 table marks this rank
-done.
-
-Bot stop for the author (in the PR): both cards of this rank, contested and
-unchallenged, on two board sizes, in a basic and an advanced game; watch the
-advanced cost fire; one restart mid-effect. Plus whatever this rank's
-hand-off adds (a run back, a loose ball, an own goal, a ball recovery).
-```
-
----
-
 ## Phase 4 -- the spine
 
 ```
@@ -292,7 +159,10 @@ six Phase 3 ranks have landed.
 
 Probe: the worksheet's Status column names a PR for every rank 3a-3f, and
 `grep -c "self.persist" cogs/d12ball/effects.py` has fallen to the
-wrappers alone -- say what the number is.
+wrappers alone -- say what the number is. It was **32** when 3f landed, of
+which the twelve cards account for one apiece; the rest are the
+`resolve_*`/prompt half and the spine this phase is here to move, so
+expect it to fall a long way rather than to zero.
 
 Read
 docs/design/sending-a-player.md, docs/design/possession-and-turnovers.md,
@@ -319,7 +189,13 @@ What moves into d12ball/flow/ as sync functions returning StepResult, with
   function's docstring. These move together or not at all: the gates and
   the loose-ball check are ordered against each other on purpose and moving
   half the ordering is worse than moving none.
-- `begin_loose_ball`'s contest and `begin_loose_ball_skill_test`.
+- `begin_loose_ball`'s contest and `begin_loose_ball_skill_test`, and
+  with them `begin_high_pass_contest` (effects.py), which rank 3f made a
+  dispatched follow-on (`BEGIN_HIGH_PASS_CONTEST`) and this list did not
+  name at all. It is two lines over `begin_loose_ball` and it is a
+  **separate** member on purpose: a High Pass draws no board of its own,
+  so the write in front of it is the one thing that distinguishes the
+  two. Do not collapse them back into one member while moving them.
 - `begin_shooter_choice` (effects.py), which rank 3c made a dispatched
   follow-on (`BEGIN_SHOOTER_CHOICE`) and this list did not originally
   name. Move it or leave its member in the enum knowingly, but say which
@@ -343,7 +219,14 @@ What moves into d12ball/flow/ as sync functions returning StepResult, with
 `FollowOn` shrinks as each spine step moves; whatever the cog still
 dispatches at the end of this phase is the list Phase 5/6 inherits. The
 enum is that list -- prune it to exactly what is still dispatched, and
-repeat the members in the PR description.
+repeat the members in the PR description. **`follow_on_draws_the_board`
+in cogs/d12ball/core.py shrinks with it**: it is the frontend's answer to
+"is the step I am handing to about to draw this board itself", and since
+3f it reads `BEGIN_RUN_BACK`'s own `new_play` as well as the set of
+members that always draw. Whatever of that is still true once these steps
+are the driver's belongs wherever the driver's own board decision ends up
+-- it is rate-limit arithmetic and stays the frontend's (principle 8), so
+it does not follow the steps into d12ball/flow/.
 
 Golden coverage is the risk here. The tutorial golden covers one basic solo
 game on board 7 -- no gambit, no species ability, no Mind Pull,
@@ -364,8 +247,9 @@ real cog and are where a flow change is tested); both goldens
 byte-identical; test_model_purity green.
 
 Docs: docs/design/possession-and-turnovers.md, loose-balls.md,
-species-abilities.md (arrival gate), sending-a-player.md, maneuvers.md each
-get their paths corrected and, where the reasoning now lives in a flow
+species-abilities.md (arrival gate), sending-a-player.md, maneuvers.md and
+shooting.md (whose High Pass section names the flow's function names since
+3f) each get their paths corrected and, where the reasoning now lives in a flow
 function's docstring, a pointer to it. CLAUDE.md's map row for
 d12ball/flow/ grows; the cog-structure.md description of what the six
 mixins hold is corrected. The worksheet's Phase 4 section is cut down.
