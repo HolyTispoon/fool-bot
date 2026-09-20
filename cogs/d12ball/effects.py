@@ -450,7 +450,7 @@ class ManeuverEffectsMixin:
         match: MatchState,
     ) -> None:
         """
-        Setup Pass, the advanced High Pass: **adjust ball speed up to
+        Setup Pass, the High Pass gambit: **adjust ball speed up to
         the passer's offensive skill, and then** set up a scoring
         opportunity at 0, 1 or 3 spaces, with the speed benefit
         counting toward the shot.
@@ -892,7 +892,7 @@ class ManeuverEffectsMixin:
         # branch it is not: a pass of 2, an overshoot's set-up and a
         # pass reaching nobody have all already returned above, and
         # none of them had a contest to skip.
-        if self.engine.advanced_cost(match, "high_pass") == "intercept":
+        if self.engine.gambit_cost(match, "high_pass") == "intercept":
             receiver = self.engine.get_player_definition(
                 receiver_candidates[0]
             )
@@ -2592,7 +2592,7 @@ class ManeuverEffectsMixin:
         )
         await self.refresh_match_image(interaction, game)
 
-        # An advanced effect can reach past its own maneuver, and a
+        # A gambit's effect can reach past its own maneuver, and a
         # speed choice is the last human step of the two that do -- see
         # `MatchState.pending_effect_continuation`.
         if match.pending_effect_continuation is not None:
@@ -2622,7 +2622,7 @@ class ManeuverEffectsMixin:
         turnover_occurred: bool = False,
     ) -> None:
         """
-        Run whatever an advanced effect still owes once its last prompt
+        Run whatever a gambit's effect still owes once its last prompt
         has been answered.
 
         **The record is cleared by whatever applies the step, not

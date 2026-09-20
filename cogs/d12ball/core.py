@@ -27,8 +27,9 @@ from d12ball.components import (
     EVENT_MANEUVER,
     EVENT_SKILL_TEST,
     EVENT_TURN_ACTION,
-    MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
+    MANEUVER_TIER_GAMBIT,
+    MANEUVER_TIER_WORDS,
     MatchState,
     PlayerDefinition,
     PlayerRole,
@@ -47,7 +48,10 @@ from d12ball.game import (
     Team,
     team_display_name,
 )
-from d12ball.cards import render_maneuver_hands
+from d12ball.cards import (
+    maneuver_hand_combinations,
+    render_maneuver_hands,
+)
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.prompts import (
     PendingPrompt,
@@ -278,37 +282,35 @@ class CoreMixin:
         reference hexagon depends on the match, so none of these can go
         stale.
         """
-        # One hexagon per tier: a basic-mode coach has no advanced
-        # cards to read a matchup for, so its hexagon shows one box a
+        # One hexagon per tier: a basic-mode coach has no gambits
+        # to read a matchup for, so its hexagon shows one box a
         # rank rather than the pair an advanced game's does -- see
         # render_maneuver_reference_image.
         self.maneuver_reference_image_bytes = {
             tier: render_maneuver_reference_image(
                 self.maneuver_catalog, tier
             ).read()
-            for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+            for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
         }
         # The cards the maneuver prompt carries.
         #
-        # **Keyed by the sides on the prompt and the tiers they may
-        # play.** The prompt is public and carries a hand for every side
-        # that still has a human pick to make, so the sides are the two
-        # of them, or one alone when the maneuver is unchallenged or the
-        # other side is Dinky's -- see `RulesEngine.maneuver_pick_sides`
-        # and `maneuver_tiers`.
+        # **Keyed by the hands on the prompt: one `(side, tiers)` pair
+        # per hand.** The prompt is public and carries a hand for every
+        # side that still has a human pick to make, so the sides are the
+        # two of them, or one alone when the maneuver is unchallenged or
+        # the other side is Dinky's -- see
+        # `RulesEngine.maneuver_pick_sides`.
+        #
+        # **The tiers are per side**, which is what makes this eight
+        # images rather than six: since 2026-09-20 a gambit is held only
+        # by a coach whose team is behind, so a contested prompt can
+        # carry six cards for one side and three for the other -- see
+        # `RulesEngine.maneuver_tiers`.
         self.maneuver_hand_image_bytes = {
-            (sides, tiers): render_maneuver_hands(
-                self.maneuver_catalog, self.player_catalog, sides, tiers
+            hands: render_maneuver_hands(
+                self.maneuver_catalog, self.player_catalog, hands
             ).read()
-            for sides in (
-                ("offense",),
-                ("defense",),
-                ("offense", "defense"),
-            )
-            for tiers in (
-                (MANEUVER_TIER_BASIC,),
-                (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
-            )
+            for hands in maneuver_hand_combinations()
         }
 
     def restore_saved_views(self) -> None:
@@ -765,15 +767,21 @@ class CoreMixin:
 
     def reference_tier(self, game: Optional[D12BallGame]) -> str:
         """
-        Which hexagon to post: the advanced one for a game actually
-        playing the advanced maneuvers, the basic one everywhere else
+        Which hexagon to post: the one with the gambits on it for a
+        game actually playing them, the basic one everywhere else
         -- including outside a game's channel, where there is nothing
-        to ask. Through `advanced_maneuvers_apply` rather than off
+        to ask. Through `gambits_apply` rather than off
         `game.mode`, or an advanced game that opted the maneuvers out
         would be handed a reference to six cards it will never hold.
+
+        **The game's, deliberately, rather than the asking coach's.**
+        A coach the 2026-09-20 gate has closed this turn still needs to
+        read what the *other* side may be about to play, and the
+        hexagon is the twelve relations rather than a hand -- so it
+        asks the module and not `may_play_gambits`.
         """
-        if game is not None and self.engine.advanced_maneuvers_apply(game):
-            return MANEUVER_TIER_ADVANCED
+        if game is not None and self.engine.gambits_apply(game):
+            return MANEUVER_TIER_GAMBIT
         return MANEUVER_TIER_BASIC
 
     def build_maneuver_reference_file(
@@ -781,24 +789,33 @@ class CoreMixin:
     ) -> discord.File:
         return discord.File(
             io.BytesIO(self.maneuver_reference_image_bytes[tier]),
-            filename=f"maneuver_reference_{tier}.png",
+            filename=(
+                f"maneuver_reference_{MANEUVER_TIER_WORDS[tier]}.png"
+            ),
         )
 
     def build_maneuver_hand_file(
         self,
-        sides: Sequence[str],
-        tiers: tuple[str, ...] = (MANEUVER_TIER_BASIC,),
+        hands: Sequence[tuple[str, Sequence[str]]] = (
+            ("offense", (MANEUVER_TIER_BASIC,)),
+        ),
     ) -> discord.File:
         """
         The cards on offer this maneuver, wrapped fresh each time:
         uploading a `discord.File` consumes the stream inside it, so the
         bytes are what is kept and the file is built per send -- the
         same reason `render_match_png` returns bytes rather than a File.
+
+        `hands` is one `(side, tiers)` pair per hand on the prompt, as
+        `maneuver_hand_combinations` keys them -- the tiers are each
+        side's own, since a gambit is held one coach at a time.
         """
-        sides = tuple(sides)
+        key = tuple((side, tuple(tiers)) for side, tiers in hands)
         return discord.File(
-            io.BytesIO(self.maneuver_hand_image_bytes[(sides, tuple(tiers))]),
-            filename=f"maneuver_hand_{'_'.join(sides)}.png",
+            io.BytesIO(self.maneuver_hand_image_bytes[key]),
+            filename=(
+                f"maneuver_hand_{'_'.join(side for side, _ in key)}.png"
+            ),
         )
 
 
@@ -1037,11 +1054,26 @@ class CoreMixin:
             # which would halve the width of both hands. See
             # render_maneuver_hands for why showing both gives nothing
             # away.
+            # Who holds their gambits, under the instruction and above
+            # the cards. It is public knowledge either coach could work
+            # out from the scoreboard and the board (see
+            # `RulesEngine.may_play_gambits`), and `""` in the games
+            # and positions where the question does not arise -- so
+            # this adds a paragraph to an advanced prompt and nothing
+            # at all to a basic one.
+            gambit_access = self.engine.describe_gambit_access(game, match)
+            prompt_text = f"{' and '.join(waiting_on)}, {instruction}"
+            if gambit_access:
+                prompt_text = f"{prompt_text}\n\n{gambit_access}"
+
             prompt_message = await send_new_prompt(
                 inner_interaction,
-                f"{' and '.join(waiting_on)}, {instruction}",
+                prompt_text,
                 file=self.build_maneuver_hand_file(
-                    sides, self.engine.maneuver_tiers(game, match),
+                    tuple(
+                        (side, self.engine.maneuver_tiers(game, match, side))
+                        for side in sides
+                    ),
                 ),
                 view=prompt_view,
                 allowed_mentions=discord.AllowedMentions(
@@ -1961,9 +1993,9 @@ class CoreMixin:
             "double_team": self.resolve_double_team,
         }
         # **A tie settled by a skill test resolves as the basic card.**
-        # An advanced effect follows the cards, so a winner that only
+        # A gambit's effect follows the cards, so a winner that only
         # won on the dice runs its counterpart's effect and the loser
-        # pays nothing -- see `RulesEngine.advanced_cost_applies`.
+        # pays nothing -- see `RulesEngine.gambit_cost_applies`.
         # Substituting the key here rather than branching inside six
         # handlers is what keeps that one rule in one place.
         handler = handlers.get(

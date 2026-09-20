@@ -51,10 +51,13 @@ extra click bought a round trip and nothing else.
 - **Each side gets its own rows and its own colour** -- offense red, defense
   green, the cards' and the reference hexagon's own two colours, so a coach
   finds their row without reading the labels. `even_button_rows` splits a hand
-  into as few rows as Discord allows and then evenly across them: six advanced
-  cards chunked at the five-per-row limit would read five and one. An advanced
-  contested prompt is exactly five rows -- two a side plus the reference -- which
-  is Discord's ceiling and worth knowing before adding a seventh card.
+  into as few rows as Discord allows and then evenly across them: a hand of
+  six chunked at the five-per-row limit would read five and one. A contested
+  prompt with both coaches holding their gambits is exactly five rows -- two a
+  side plus the reference -- which is Discord's ceiling and worth knowing
+  before adding a seventh card. Since 2026-09-20 the two hands can differ
+  (`RulesEngine.maneuver_tiers` takes a side), so a prompt is anywhere from
+  three rows to that ceiling.
   - **The wording above the prompt names the colour by looking it up**, in
     `MANEUVER_ROW_COLOURS`, rather than by knowing which side a lone row
     belongs to. A one-row prompt is the *defense's* whenever Dinky has the

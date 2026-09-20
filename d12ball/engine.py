@@ -48,8 +48,8 @@ from d12ball.components import (
     SETUP_PASS_DISTANCES,
     SETUP_PASS_FULLBACK_DISTANCE,
     SKILLED_PASS_REACH,
-    MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
+    MANEUVER_TIER_GAMBIT,
     CYBORG_DRAINED_AT,
     OVERDRIVE_BONUS,
     OVERDRIVE_DRAIN_COST,
@@ -405,9 +405,9 @@ class RulesEngine:
                 )
         return text
 
-    def advanced_maneuvers_apply(self, game: D12BallGame) -> bool:
+    def gambits_apply(self, game: D12BallGame) -> bool:
         """
-        Whether this game is playing the **advanced maneuvers** -- the
+        Whether this game is playing the **gambits** -- the
         first of the two modules advanced mode turns on.
 
         Advanced mode is one switch and brings both modules with it; a
@@ -421,7 +421,7 @@ class RulesEngine:
     def species_abilities_apply(self, game: D12BallGame) -> bool:
         """
         Whether this game is playing the **species abilities** -- the
-        second module, and the twin of `advanced_maneuvers_apply`.
+        second module, and the twin of `gambits_apply`.
 
         In a basic game species is only a name on the card and every
         player follows the standard rules; see "Species abilities" in
@@ -801,23 +801,23 @@ class RulesEngine:
     ) -> bool:
         """
         Whether Volatile's tier rider fires on a settled maneuver skill
-        test -- **the winner's maneuver resolves at its advanced
-        version**.
+        test -- **the winner's maneuver resolves as the gambit on
+        its rank**.
 
         The rules name two cases and they are the same case. "A surge
         on the winning side resolves *that side's* maneuver as its
-        advanced version"; "a backfire on the losing side resolves *the
+        gambit"; "a backfire on the losing side resolves *the
         opponent's*" -- and the opponent of the losing side is the
         winning side. So both raise the winner's card, which is why
         `MatchState.volatile_tier_upgrade` is one flag and not a side.
 
-        Gated on the advanced maneuvers as well as the species
+        Gated on the gambits as well as the species
         abilities: in a game that took one module without the other
         there is no tier to change and the ignite is only the number.
         Asking here rather than at the read is what lets
         `resolving_maneuver` stay a question about the match alone.
         """
-        if not self.advanced_maneuvers_apply(game):
+        if not self.gambits_apply(game):
             return False
         return winner.surge or loser.backfire
 
@@ -825,7 +825,7 @@ class RulesEngine:
         self, game: D12BallGame, loser: IgnitedRoll,
     ) -> Optional[bool]:
         """
-        What the losing side's own ignite does to the advanced cost
+        What the losing side's own ignite does to the gambit's cost
         they would otherwise pay -- the other half of Volatile's rider
         (the author, 2026-09-07).
 
@@ -834,7 +834,7 @@ class RulesEngine:
         **backfired and lost**: they pay theirs even where the cards
         alone would not, which makes a backfire the one thing in the
         game that puts a cost in force off the dice. `None` otherwise,
-        leaving `advanced_cost_applies` the whole answer.
+        leaving `gambit_cost_applies` the whole answer.
 
         Read from the losing player's own die rather than from the
         matchup, which is why this is separate from
@@ -843,10 +843,10 @@ class RulesEngine:
         backfire that loses charges one *and* raises the opponent's
         card.
 
-        Gated on the advanced maneuvers for the same reason the tier
-        is: with no advanced cards in play there is no cost to change.
+        Gated on the gambits for the same reason the tier
+        is: with no gambits in play there is no cost to change.
         """
-        if not self.advanced_maneuvers_apply(game):
+        if not self.gambits_apply(game):
             return None
         if loser.surge:
             return False
@@ -854,34 +854,155 @@ class RulesEngine:
             return True
         return None
 
+    def trailing(self, match: MatchState, side: TeamSide) -> bool:
+        """Whether this team has scored fewer goals than the other."""
+        side = TeamSide(side)
+        home = match.scoreboard.home_score
+        visiting = match.scoreboard.visiting_score
+        return home < visiting if side == TeamSide.HOME else visiting < home
+
+    def carrying_more_injuries(
+        self, match: MatchState, side: TeamSide,
+    ) -> bool:
+        """
+        Whether this team **fields** more injured players than the
+        other -- the bench does not count, and a Cyborg's Damaged is
+        injured under their own word (`match.injured` holds both; the
+        word is `injured_word_and_emoji`'s).
+
+        Strictly more, so it is false for both sides on a level count,
+        exactly as `trailing` is on a level score.
+        """
+        side = TeamSide(side)
+        other = TeamSide.VISITING if side == TeamSide.HOME else TeamSide.HOME
+        return (
+            len(match.injured_field_players(side))
+            > len(match.injured_field_players(other))
+        )
+
+    def may_play_gambits(
+        self, game: D12BallGame, match: MatchState, side: TeamSide,
+    ) -> bool:
+        """
+        Whether this team's coach holds their gambits **right now** --
+        the author, 2026-09-20: a gambit needs a reason, and the reason
+        is that the team is behind.
+
+        Two positions count and either is enough: behind on the
+        scoreboard, or fielding more injured players than the opponent.
+        Both coaches can hold them at once -- one trailing while the
+        other is the more hurt -- which is why this is a question about
+        one team rather than a comparison returning a side.
+
+        **Both are on the board, which is the point.** The author
+        called it out as public knowledge: a coach can work out what
+        the other is holding from the scoreboard and the meeples,
+        without being told and without either side hiding anything.
+        `describe_gambit_access` is the bot saying it out loud anyway,
+        because Dinky's hand is never drawn on the prompt.
+
+        **Nothing is persisted for it.** It is read when the hand is
+        drawn, so a restart mid-maneuver draws the same hand; and a
+        gambit already played keeps its benefit and its cost however
+        the position moves afterwards, since those are read off the two
+        stored keys (see `gambit_benefit_applies`).
+
+        Gated on the module as well, so no caller can ask this and
+        forget that a basic game has no gambits at all.
+        """
+        if not self.gambits_apply(game):
+            return False
+        return self.trailing(match, side) or self.carrying_more_injuries(
+            match, side,
+        )
+
+    def maneuver_side_team(self, match: MatchState, side: str) -> TeamSide:
+        """Which team is playing this side of the maneuver."""
+        return (
+            match.ball.possession
+            if side == "offense"
+            else match.defending_side()
+        )
+
     def maneuver_tiers(
         self,
         game: D12BallGame,
         match: MatchState,
+        side: str,
     ) -> tuple[str, ...]:
         """
-        Which tiers a coach may pick from **this turn** -- the whole of
-        who holds which cards, asked in one place so the hand a coach
-        is shown, the buttons built under it and the click that answers
-        cannot disagree.
+        Which tiers **this side** may pick from this turn -- the whole
+        of who holds which cards, asked in one place so the hand a
+        coach is shown, the buttons built under it and the click that
+        answers cannot disagree.
 
-        Two things narrow it, and both are rules rather than settings:
+        Three things narrow it, and all three are rules rather than
+        settings:
 
         - **A basic game is the basic three**, and so is an advanced
           game that took the species abilities without this module --
-          `advanced_maneuvers_apply` is both halves of that.
+          `gambits_apply` is both halves of that.
         - **An unchallenged maneuver is always basic** (the author):
-          *"Advanced maneuver can only be played when a maneuver is
+          *"Gambit can only be played when a maneuver is
           challenged."* That is answerable here because all three
           routes into the unopposed branch settle it before the offense
           is prompted, so `maneuver_uncontested` is already set by the
           time a hand is drawn. It also makes declining a challenge a
           defensive weapon rather than only a saving -- sending nobody
-          denies the offense their advanced cards.
+          denies the offense their gambits.
+        - **A coach holds their gambits only while their team is
+          behind** -- `may_play_gambits`, the author's 2026-09-20 rule.
+
+        **`side` is what that last one added**, and it is the one
+        structural change it makes: the two coaches no longer
+        necessarily hold the same cards, so nothing may ask this
+        question without saying whose hand it is asking about. The
+        callers that draw a hand already had a side; the one that did
+        not was the prompt's own image, which now asks once per side.
         """
-        if not self.advanced_maneuvers_apply(game) or match.maneuver_uncontested:
+        if not self.gambits_apply(game) or match.maneuver_uncontested:
             return (MANEUVER_TIER_BASIC,)
-        return (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+        if not self.may_play_gambits(
+            game, match, self.maneuver_side_team(match, side),
+        ):
+            return (MANEUVER_TIER_BASIC,)
+        return (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
+
+    def describe_gambit_access(
+        self, game: D12BallGame, match: MatchState,
+    ) -> str:
+        """
+        Who holds their gambits this maneuver, for the public prompt --
+        `""` where nobody does, or where the question does not arise.
+
+        **Said out loud even though it is public knowledge**, because
+        the prompt only draws a hand for a side a *person* still picks
+        for (`maneuver_pick_sides`): in a solo game Dinky's cards are
+        never on the message, and in a contested one a coach would
+        otherwise be counting the other side's meeples to work out
+        whether six cards are coming back at them.
+
+        Nothing is said where neither coach holds them -- three cards a
+        side is the basic game the coaches already know, and a line
+        saying so would be answering a question nobody asked.
+        """
+        if not self.gambits_apply(game) or match.maneuver_uncontested:
+            return ""
+
+        holders = [
+            side
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+            if self.may_play_gambits(game, match, side)
+        ]
+        if not holders:
+            return ""
+        if len(holders) == 2:
+            return "Both coaches may play a gambit this maneuver."
+
+        coach = format_player_with_team(
+            game, self.side_player_number(game, holders[0]), self.team_emojis,
+        )
+        return f"{coach} may play a gambit this maneuver."
 
     def maneuver_pick_sides(
         self,
@@ -934,7 +1055,7 @@ class RulesEngine:
         side: str,
     ) -> tuple[ManeuverDefinition, ...]:
         """One side's playable cards this turn, in the order they read."""
-        tiers = self.maneuver_tiers(game, match)
+        tiers = self.maneuver_tiers(game, match, side)
         return tuple(
             sorted(
                 (
@@ -956,7 +1077,7 @@ class RulesEngine:
         contest to decide.
 
         An unchallenged maneuver has no opposing card, so it answers
-        None and every advanced effect falls away with it.
+        None and every gambit's effect falls away with it.
         """
         if match.maneuver_uncontested:
             return None
@@ -986,11 +1107,11 @@ class RulesEngine:
             return "defense"
         return None
 
-    def advanced_benefit_applies(
+    def gambit_benefit_applies(
         self, match: MatchState, key: Optional[str],
     ) -> bool:
         """
-        Whether this card carries its advanced **benefit** -- which is
+        Whether this card carries its gambit **benefit** -- which is
         exactly "it won on the cards" (the author, 2026-09-07).
 
         **Not "the cards were decisive".** That was the shape this took
@@ -999,7 +1120,7 @@ class RulesEngine:
         card-winner is injured is settled by a skill test, and the
         *other* side can win it. Their card lost on the cards, so it
         resolves basic -- where "the cards were decisive" would have
-        handed it an advanced benefit it never earned.
+        handed it a benefit it never earned.
 
         A tie is still the common case where nothing fires, but it is
         no longer the test.
@@ -1007,13 +1128,13 @@ class RulesEngine:
         side = self.maneuver_side(match, key)
         return side is not None and self.cards_outcome(match) == side
 
-    def advanced_cost_applies(
+    def gambit_cost_applies(
         self, match: MatchState, key: Optional[str],
     ) -> bool:
         """
-        Whether this card owes its advanced **cost** -- which is
+        Whether this card owes its gambit **cost** -- which is
         exactly "it lost on the cards" (the author, 2026-09-07), and
-        the mirror of `advanced_benefit_applies`.
+        the mirror of `gambit_benefit_applies`.
 
         The case this corrects: a player who **won** on the cards, was
         injured, and lost the forced skill test. Their card never lost
@@ -1036,9 +1157,9 @@ class RulesEngine:
     def resolving_maneuver(self, match: MatchState, winner_key: str) -> str:
         """
         Which card's effect actually runs. It is the winner's own,
-        except that an advanced card resolves at its own tier only
+        except that a gambit resolves at its own tier only
         where it **won on the cards** -- see
-        `advanced_benefit_applies`. An advanced card that wins a tie,
+        `gambit_benefit_applies`. A gambit that wins a tie,
         or that wins an injury-forced skill test the cards had gone
         against it, resolves as the basic card on its rank.
 
@@ -1048,16 +1169,16 @@ class RulesEngine:
         backfired. It beats the tie downgrade above -- the rules say
         "even where the cards tied and the basic card would otherwise
         resolve" -- and it only ever raises: a card already resolving
-        at advanced gains nothing, which falls out of the counterpart
-        of an advanced card being itself.
+        as a gambit gains nothing, which falls out of the counterpart
+        of a gambit being itself.
 
         The flag is already gated on both modules being in play (see
         `volatile_raises_tier`), so nothing here needs the game.
 
         **It raises the winner's card and nothing else.** The loser's
-        cost is `advanced_cost`'s, which asks whether the *cards* were
+        cost is `gambit_cost`'s, which asks whether the *cards* were
         decisive -- an ignite decides a tier, not who won -- so a tie
-        raised to advanced by a surge still carries no cost. That is
+        raised to a gambit by a surge still carries no cost. That is
         the rules read literally: the rider speaks only to the card
         that resolves.
         """
@@ -1065,22 +1186,22 @@ class RulesEngine:
         if maneuver is None:
             return winner_key
 
-        if match.volatile_tier_upgrade and not maneuver.is_advanced:
+        if match.volatile_tier_upgrade and not maneuver.is_gambit:
             return self.maneuver_catalog.counterpart(maneuver).key
 
-        if not maneuver.is_advanced:
+        if not maneuver.is_gambit:
             return winner_key
-        if match.volatile_tier_upgrade or self.advanced_benefit_applies(
+        if match.volatile_tier_upgrade or self.gambit_benefit_applies(
             match, winner_key,
         ):
             return winner_key
         return self.maneuver_catalog.counterpart(maneuver).key
 
-    def advanced_cost(
+    def gambit_cost(
         self, match: MatchState, winner_key: str,
     ) -> Optional[str]:
         """
-        The **losing** card's key, when that card is advanced and its
+        The **losing** card's key, when that card is a gambit and its
         cost is in force -- otherwise None.
 
         Each of the six costs is a rule the *opponent* gets to use, and
@@ -1098,20 +1219,20 @@ class RulesEngine:
             if loser_key is not None
             else None
         )
-        if loser is None or not loser.is_advanced:
+        if loser is None or not loser.is_gambit:
             return None
 
         # **Volatile overrides the cards, both ways.** A surge that
         # lost pays nothing even where the card lost on the cards; a
         # backfire that lost pays even where it did not. Asked before
-        # `advanced_cost_applies` because that is exactly what it
+        # `gambit_cost_applies` because that is exactly what it
         # overrides -- see `volatile_loser_cost`.
         if match.volatile_loser_cost is False:
             return None
         if match.volatile_loser_cost is True:
             return loser.key
 
-        if not self.advanced_cost_applies(match, loser.key):
+        if not self.gambit_cost_applies(match, loser.key):
             return None
         return loser.key
 
@@ -1217,14 +1338,24 @@ class RulesEngine:
     ) -> PlayerDefinition:
         return self.player_catalog.player_by_id(player_id)
 
+    def side_player_number(
+        self,
+        game: D12BallGame,
+        side: TeamSide,
+    ) -> Optional[int]:
+        """Which coach plays this side of the board."""
+        return (
+            game.home_player_number
+            if TeamSide(side) == TeamSide.HOME
+            else game.visiting_player_number
+        )
+
     def possession_player_number(
         self,
         game: D12BallGame,
         match: MatchState,
     ) -> Optional[int]:
-        if match.ball.possession == TeamSide.HOME:
-            return game.home_player_number
-        return game.visiting_player_number
+        return self.side_player_number(game, match.ball.possession)
 
     def possession_user_id(
         self,

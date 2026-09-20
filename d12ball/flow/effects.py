@@ -132,7 +132,7 @@ def pay_double_team_cost(
     when Double Team was not the card beaten, which is nearly
     always.
     """
-    if engine.advanced_cost(match, winner_key) != "double_team":
+    if engine.gambit_cost(match, winner_key) != "double_team":
         return ""
     defense_side = match.defending_side()
     moved = []
@@ -197,7 +197,7 @@ def low_pass_step(
     # `pay_double_team_cost`.
     double_team_partner = (
         engine.double_team_partner(match)
-        if engine.advanced_cost(match, key) == "double_team"
+        if engine.gambit_cost(match, key) == "double_team"
         else None
     )
 
@@ -280,10 +280,10 @@ def pay_clear_cost(
 
     It is a flat 2 exhaustion rather than 2 on top of a maneuver's own
     charge, because a maneuver charges none: only a skill test, a
-    walk, a shot and a run back do. See "Advanced maneuvers" in
+    walk, a shot and a run back do. See "Gambits" in
     docs/design/maneuvers.md.
     """
-    if engine.advanced_cost(match, winner_key) != "clear":
+    if engine.gambit_cost(match, winner_key) != "clear":
         return ""
     defender_id = match.challenger_id
     if defender_id is None:
@@ -592,7 +592,7 @@ def steal_step(
     # steal is not finished: the run back and then the speed choice
     # both come first, and the pass is played from wherever that
     # leaves the interceptor. See `pending_effect_continuation`.
-    if engine.advanced_cost(match, key) == "skilled_pass":
+    if engine.gambit_cost(match, key) == "skilled_pass":
         match.pending_effect_continuation = {
             "kind": "free_low_pass",
             "player_id": challenger_id,
@@ -728,7 +728,7 @@ def apply_pressure_turnover(
     # have. It is also **the first exception to "every turnover
     # resets ball speed to 1"**, and the reason nothing here sets
     # `match.ball.speed = 1`.
-    burst_cost = engine.advanced_cost(match, key) == "dribble_burst"
+    burst_cost = engine.gambit_cost(match, key) == "dribble_burst"
     if burst_cost:
         match.ball.possession = defense_side
         match.set_ball_carrier(match.challenger_id)
@@ -1081,7 +1081,7 @@ def deflection_step(
     # deflection overshot into a shot above: the ball is already as far
     # back as the field goes and the shot is the bigger thing
     # happening.
-    if engine.advanced_cost(match, key) == "setup_pass":
+    if engine.gambit_cost(match, key) == "setup_pass":
         return StepResult(
             narration=[content],
             board_changed=True,

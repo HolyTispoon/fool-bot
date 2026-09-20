@@ -201,7 +201,7 @@ def stand_a_beaten_clear(match: MatchState, key: str) -> str:
     leaves it in, and hand back the defender who played it.
 
     The cost is charged inside the dribble that beat it -- see
-    "Advanced maneuvers" in docs/design/maneuvers.md -- so this is the
+    "Gambits" in docs/design/maneuvers.md -- so this is the
     whole of what the fixture needs: a challenger, the two keys, and
     an advanced game around them.
 

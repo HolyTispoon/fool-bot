@@ -127,7 +127,7 @@ class StepResult:
     the frontend joins them -- the Discord cog joins on a single
     space, which is how the messages in a channel already read. A
     block that wants a paragraph of its own carries its own leading
-    newlines, the way an advanced card's cost does; it is part of the
+    newlines, the way a gambit's cost does; it is part of the
     sentence it is charged inside rather than a message after it.
 
     `board_changed` is what `refresh_match_image` used to decide at the

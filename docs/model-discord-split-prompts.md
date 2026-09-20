@@ -81,7 +81,7 @@ Ground rules for every phase:
   of it was done. The live bot is the Windows checkout; nothing you do here
   reaches it until that tree pulls and restarts.
 - When the phase lands, the worksheet is edited the way
-  advanced-maneuver-matrix.md is: the phase's section is cut down to what
+  gambit-matrix.md is: the phase's section is cut down to what
   is still open (or deleted if nothing is), and the phase table's Status
   column marks it done with the PR number. The design doc for each area
   the move touched is corrected in the same PR, with the reasoning, not
@@ -223,7 +223,7 @@ so a parameter the cog used to hand over positionally arrives named, and
 an existing test reading `await_args.args[n]` fails on a move that changed
 nothing. 3c met this on `begin_shooter_choice`; fix the assertion, not the
 call, and bind a recorded call to the real method's `inspect.signature` so
-one fixture table answers for the old shape and the new one at once. Advanced-mode cost and benefit (`advanced_cost`,
+one fixture table answers for the old shape and the new one at once. Advanced-mode cost and benefit (`gambit_cost`,
 `settled_maneuver_winner`) are engine questions already; the step asks them,
 it does not re-derive them. A rank may also lift something that is not a card at all -- 3d took
 `apply_own_goal_outcome`, the verdict of the roll a Pressure risks, as a
@@ -346,7 +346,7 @@ enum is that list -- prune it to exactly what is still dispatched, and
 repeat the members in the PR description.
 
 Golden coverage is the risk here. The tutorial golden covers one basic solo
-game on board 7 -- no advanced maneuver, no species ability, no Mind Pull,
+game on board 7 -- no gambit, no species ability, no Mind Pull,
 no injury test, no own goal, no stacked run back. The worksheet says this
 phase adds a golden for what it moves. Add at least one: a seeded, scripted
 advanced game (both modules on, a board with stacks, a species that can

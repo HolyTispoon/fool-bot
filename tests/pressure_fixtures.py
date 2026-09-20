@@ -513,7 +513,7 @@ def pressure_by_a_defender_beats_a_dribble_burst() -> PressureFixture:
 
 def double_team_plain() -> PressureFixture:
     """
-    The advanced card is Pressure at two spaces with a second defender
+    The gambit is Pressure at two spaces with a second defender
     brought in free of exhaustion -- **placed** on the handler's new
     space rather than run to it, which is what "no exhaustion cost"
     means in a game where every other way to reach a space charges a

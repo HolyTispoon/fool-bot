@@ -30,9 +30,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   three cards instead of reading three sentences. It went with the change --
   don't reintroduce it alongside the image.
 - **The hand is a side's cards, laid out a tier to a row**, and the "Maneuver
-  Reference" button is beside them. A basic hand is one row of three; an
-  advanced hand is two, the basic three above the advanced card of each rank
-  (the author), so every advanced card sits under the basic one it shares a
+  Reference" button is beside them. A basic hand is one row of three; a
+  hand holding gambits is two, the basic three above the gambit of each rank
+  (the author), so every gambit sits under the basic one it shares a
   rank with -- which is the relation that decides the matchup, and the thing a
   hand wrapped at four and three split down the middle. `hand_card_rows` is the
   split and `lay_out_hand` takes each block's rows as given rather than
@@ -55,12 +55,16 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   thirteen cards on every maneuver. Nothing about a card depends on the match,
   so they cannot go stale. `build_maneuver_hand_file` re-wraps the bytes per
   send, because uploading a `discord.File` consumes the stream inside it.
-  - **Six images, not four**, keyed by the sides on the prompt *and* by the
-    tiers they may play -- offense alone, defense alone, or both, against the
-    basic three or all six of an advanced game. Which sides is
+  - **Eight images, not four**, keyed by the hands on the prompt -- one
+    `(side, tiers)` pair each: offense alone, defense alone, or both, against
+    the basic three or all six. Which sides is
     `RulesEngine.maneuver_pick_sides` and which tiers is
     `RulesEngine.maneuver_tiers`, the same two questions the buttons under the
-    image ask. **The reference hexagon is keyed by tier the same way** (see
+    image ask, and `maneuver_hand_combinations` is the enumeration the cog
+    draws at startup. **The tiers are each side's own, which is what makes it
+    eight**: since 2026-09-20 a gambit is held only by a coach whose team is
+    behind, so a contested prompt can carry six cards for one side and three
+    for the other. **The reference hexagon is keyed by tier the same way** (see
     below): the button posts the hexagon for the tiers the game is actually
     playing, so what a coach reads a matchup off cannot show cards their hand
     does not hold.
@@ -76,7 +80,8 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     and a coach has to find *their* row before reading a label. `lay_out_hand`
     takes a `headings` list parallel to `blocks` and reserves a band above each
     captioned block's first row; a block with no heading reserves nothing. An
-    advanced hand is two rows under one caption, which is the other half of why
+    a hand holding gambits is two rows under one caption, which is the other
+    half of why
     the tier split lives in `hand_card_rows` rather than in the layout: a
     block is a side, however many rows it takes. The player's name and team are deliberately *not*
     on the image -- the mention line right above the prompt already names both
@@ -87,10 +92,12 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     game -- all six cards, each carrying its own beats/ties/loses row -- so the
     hexagon is the same six relations drawn a second time, for the width of a
     card, and dropping it leaves two clean rows of three instead of a ragged
-    four and three. An **advanced** prompt, either one hand or two: a back on
-    the end of the basic row makes the image four columns wide to hold rows of
-    three, so every card is drawn narrower for a card that is not part of the
-    pairing the layout exists to show. What is left is the unchallenged
+    four and three. A prompt with a **gambit** on it anywhere, one hand or
+    two: a back on the end of the basic row makes the image four columns wide
+    to hold rows of three, so every card is drawn narrower for a card that is
+    not part of the pairing the layout exists to show. Anywhere rather than in
+    the hand the back would ride on, since the image is one canvas and its
+    widest row sizes every card on it. What is left is the unchallenged
     maneuver and the solo basic game against Dinky -- half a cycle, and the one
     hand that cannot read the relations off the cards in front of it. The
     "Maneuver Reference" button is still there for anyone who wants the
@@ -140,18 +147,18 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   editing them.
   - **Each column names the rank it faces, not one maneuver.** Every column
     used to narrow to the card's own tier -- naming only the basic opponent on
-    a basic card and only the advanced one on its counterpart -- on the
+    a basic card and only the gambit on its counterpart -- on the
     reasoning that rank decides and each rank carries one card per tier, so
     the second name was the same relation read twice. That reads backwards on
-    an advanced card: naming only its own tier's opponent makes the twelve
+    a gambit: naming only its own tier's opponent makes the twelve
     maneuvers look like two cycles with no relation between them, which is
     exactly wrong when a tie on the cards resolves as the basic pair (see
     `tie_note` below). `matchup_rank_groups` names the rank instead --
     `O2`/`D1`/etc, coloured the opposing side's colour -- with **both** tiers'
-    names under it, basic in ink and advanced in its own colour. This is true
-    of a basic card as well as an advanced one: what a basic card beats is
-    still a rank, and that rank still has an advanced card on it once
-    advanced mode is in play.
+    names under it, basic in ink and the gambit in its own colour. This is
+    true of a basic card as well as of a gambit: what a basic card beats is
+    still a rank, and that rank still has a gambit on it once advanced mode is
+    in play.
   - **The row's own height is measured, not a fixed constant.** It used to be
     sized for a name long enough to wrap to two lines, which left every card
     whose names were shorter than that -- almost all of them -- a band of
@@ -173,11 +180,11 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     "Steal" on 2026-08-18, and "steal" is inside "Steals the ball when
     resolving Pressure" -- so the Defender's ability, which is Pressure's,
     silently appeared on Steal's card as well.
-  - **No role ability names an advanced maneuver**, and that is the data being
+  - **No role ability names a gambit**, and that is the data being
     honest rather than a gap: the sheet's `Advanced` ability column is empty
-    for all thirty-six. What an advanced card carries instead is the one thing
+    for all thirty-six. What a gambit carries instead is the one thing
     settled about how it resolves -- `tie_note`, which says a tie resolves it
-    as the basic card on its rank with no advanced effect, and that a skill
+    as the basic card on its rank with no gambit's effect, and that a skill
     test forced by injury still carries them. The counterpart it names is
     looked up by rank rather than written down.
   - **Two things the match cannot find are listed explicitly**, and both are
@@ -199,7 +206,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   drawn on the standard seven-space board with the ball on the third space,
   which is the only position from which every basic maneuver fits: a High Pass
   of 4 lands on the last space and a Fullback's Deflect of 2 on the
-  first. **An advanced card is drawn on the nine-space board** with the ball on
+  first. **A gambit is drawn on the nine-space board** with the ball on
   the fourth, because Clear drives the ball back 3 and Dribble Burst runs it 4
   forward -- 4 either way once a Fullback is near a Clear, which the seven-space
   strip has no room for. `STRIP_GEOMETRY` is the pair, per tier, and the nine-space board is a
@@ -223,9 +230,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     to the next caption on its row, and ability variants get a second row.
 - **The offense red and defense green are the maneuver reference image's**, so
   a coach reading a card and a coach reading the bot's hexagon are looking at
-  the same two colours. **An advanced card is a distinct shade, not a tint of
+  the same two colours. **A gambit is a distinct shade, not a tint of
   the basic one** -- a darker red/green rather than a lighter or darker version
-  of the same hue, since a basic and its advanced counterpart sit side by side
+  of the same hue, since a basic and its gambit sit side by side
   in the reference image and back to back in the print run, and two cards that
   read as the same colour under different lighting is exactly what a coach
   must not confuse.
@@ -242,18 +249,18 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   corner radius is drawn rather than implied and why `FRAME` is small enough
   that the outline is the card's own edge.
 - **The back is keyed by tier -- `render_maneuver_card_back(catalog, bleed,
-  tier=...)`.** `MANEUVER_TIER_ADVANCED` (the default) is one back for all
-  twelve: a coach holding both sets in advanced mode must not show which side
+  tier=...)`.** `MANEUVER_TIER_GAMBIT` (the default) is one back for all
+  twelve: a coach holding both sets must not show which side
   of the ball -- or which tier -- they are reading, and the offense there
   holds six. `MANEUVER_TIER_BASIC` draws six nodes with one name apiece
   instead: a basic-mode coach's hand is never anything but the three basic
   cards, so there is no tier to hide, and a name with no counterpart stacked
   under it reads larger in the same circle. `render_maneuver_hands` picks
-  between them off its own `tiers` argument -- `MANEUVER_TIER_ADVANCED` in it
+  between them off its own `tiers` argument -- `MANEUVER_TIER_GAMBIT` in it
   or not -- so a hand and the back riding along with it can't disagree about
   which a coach is holding.
   - **A node is a rank**, and in advanced mode carries the two cards on it,
-    basic name over advanced, split by a hairline. Rank alone decides who
+    the basic name over the gambit, split by a hairline. Rank alone decides who
     beats whom, so the hexagon is six nodes however many cards there are -- a
     second back was never available, and two cycles laid on top of each other
     is not a hexagon.
@@ -398,7 +405,7 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   line. Both the icon and the badge are drawn in `high_contrast_ink`, which is
   the whole reason the art is one flat silhouette -- see "The species icons".
 
-- **The back is the player's advanced version**, drawn by
+- **The back is the player's gambit**, drawn by
   `render_player_card_back`. Not a shared back like a maneuver's: player cards
   are dealt face up and sit on the field and team boards all game, so there is
   nothing to hide -- the other side of the card is the same player in advanced

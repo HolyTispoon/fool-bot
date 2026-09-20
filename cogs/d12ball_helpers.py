@@ -896,14 +896,14 @@ def build_full_time_summary(
 # cannot come to offer different modules or disagree about which of
 # them may be turned off.
 ADVANCED_MODULES: dict[str, tuple[str, str]] = {
-    "maneuvers": ("advanced_maneuvers", "Maneuvers"),
+    "maneuvers": ("advanced_maneuvers", "Gambits"),
     "species": ("species_abilities", "Species"),
 }
 # What each module is, for the setup and lobby messages -- a button
 # reading "Maneuvers: on" says which half is on and nothing about what
 # it does.
 ADVANCED_MODULE_DESCRIPTIONS: dict[str, str] = {
-    "maneuvers": "six maneuvers a side",
+    "maneuvers": "a gambit on every rank",
     "species": "species abilities",
 }
 
@@ -1532,8 +1532,8 @@ async def add_full_image_button(
 
     `row` pins the link to a specific action row. Without it discord.py
     drops the button into the first row with space, which on a prompt
-    whose rows are not packed to five (the advanced maneuver prompt)
-    leaves it wedged between a side's basic and advanced cards.
+    whose rows are not packed to five (the gambit prompt)
+    leaves it wedged between a side's basic and gambits.
     """
     button = build_full_image_button(message)
 
