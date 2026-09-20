@@ -810,6 +810,56 @@ class DeployNoticeRangeTests(unittest.TestCase):
 
         self.assertEqual(carrying, frozenset({self.conflict_merge}))
 
+    def test_a_resolution_is_read_as_utf8_whatever_the_locale(self) -> None:
+        # The patch prints file contents, and this is the only git call
+        # that does. Decoding it with the locale is what broke the live
+        # bot: cp1252 on the Windows host, a byte it cannot decode in
+        # the resolved file, and Windows subprocess answering that with
+        # a None stdout rather than an exception. So the read must name
+        # its encoding, and a resolution with a non-ASCII character in
+        # it must still be found.
+        self.git("checkout", "--quiet", "-b", "wording")
+        self.commit("shared.txt", "wording\n", "Change the wording")
+        self.git("checkout", "--quiet", "main")
+        self.commit("shared.txt", "main wording\n", "Change it differently")
+        self.git("merge", "--no-ff", "wording")
+        (self.repo / "shared.txt").write_text(
+            "resolved \u2014 with an em dash\n", encoding="utf-8",
+        )
+        self.git("add", "shared.txt")
+        self.git("commit", "-m", "Merge branch 'wording'")
+        merge = self.git("rev-parse", "--short", "HEAD")
+
+        real_run = subprocess.run
+        encodings = []
+
+        def run(*args, **kwargs):
+            encodings.append(kwargs.get("encoding"))
+            self.assertNotIn("text", kwargs)
+
+            return real_run(*args, **kwargs)
+
+        with mock.patch.object(subprocess, "run", run):
+            carrying = deploy_notice.merges_with_content(self.base, self.repo)
+
+        self.assertIn(merge, carrying)
+        self.assertEqual(encodings, ["utf-8"])
+
+    def test_a_missing_stdout_is_a_failure_not_a_crash(self) -> None:
+        # What Windows hands back when the reader thread died: exit code
+        # 0 and no output at all. The notice must degrade to nothing
+        # rather than take announce_startup down with it.
+        completed = subprocess.CompletedProcess(
+            ["git"], returncode=0, stdout=None, stderr=None,
+        )
+
+        with mock.patch.object(subprocess, "run", return_value=completed):
+            self.assertIsNone(deploy_notice.commits_since(self.base, self.repo))
+            self.assertEqual(
+                deploy_notice.merges_with_content(self.base, self.repo),
+                frozenset(),
+            )
+
     def test_an_unreadable_range_is_none(self) -> None:
         self.assertIsNone(deploy_notice.commits_since("f" * 40, self.repo))
 

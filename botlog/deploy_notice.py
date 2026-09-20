@@ -124,19 +124,30 @@ def _git(repo_dir: Path, *args: str) -> Optional[str]:
     all -- git missing, not a repository, a bad revision, a hang. Never
     raises: the notice is a nicety and must not be able to break
     startup.
+
+    Decoded as UTF-8 explicitly, never as the locale. Git writes UTF-8,
+    and the one call that prints file contents (the patch behind
+    merges_with_content) can carry any byte the repository holds. On
+    Windows the locale is cp1252, and there subprocess reads the pipe on
+    a thread: a byte that will not decode kills the thread quietly, the
+    process still exits 0, and CompletedProcess.stdout comes back as
+    None -- which is what took the startup notice down. errors="replace"
+    keeps a stray byte in some file from doing the same to UTF-8; the
+    patch is only ever checked for emptiness.
     """
     try:
         completed = subprocess.run(
             ["git", "-C", str(repo_dir), *args],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=GIT_TIMEOUT,
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return None
 
-    if completed.returncode != 0:
+    if completed.returncode != 0 or completed.stdout is None:
         return None
 
     return completed.stdout.strip()
