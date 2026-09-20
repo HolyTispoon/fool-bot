@@ -103,6 +103,7 @@ from cogs.d12ball_views import (
     HomeAwaySelectionView,
     InjuryTestView,
     MindPullView,
+    SmoothView,
     LobbyView,
     LooseBallChoiceView,
     LooseBallSkillTestView,
@@ -194,6 +195,7 @@ PLAIN_PROMPT_VIEWS = {
 PARAMETERISED_PROMPT_KINDS = frozenset({
     PromptKind.HALFTIME_EXTRA_TOKEN,
     PromptKind.MIND_PULL,
+    PromptKind.SMOOTH,
     PromptKind.INJURY_TEST,
     PromptKind.RUN_BACK_SPACE,
     PromptKind.RUN_BACK_PLAYER,
@@ -1725,6 +1727,8 @@ class CoreMixin:
             return HalftimeExtraTokenView(self, game_id, prompt.side)
         if kind is PromptKind.MIND_PULL:
             return MindPullView(self, game_id, prompt.player_id)
+        if kind is PromptKind.SMOOTH:
+            return SmoothView(self, game_id, prompt.player_id)
         if kind is PromptKind.INJURY_TEST:
             return InjuryTestView(self, game_id, prompt.player_id)
         if kind is PromptKind.RUN_BACK_SPACE:

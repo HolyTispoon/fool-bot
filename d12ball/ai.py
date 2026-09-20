@@ -239,8 +239,8 @@ class DinkyAI(AIStrategy):
         Dinky always challenges. Sending nobody rather than paying the
         walk-in's exhaustion is legal since 2026-08-12, and it is a
         judgement about a game two turns from now -- the same kind of
-        call Dinky does not make when it declines to slip in or to leave a
-        loose ball alone.
+        call Dinky does not make when it declines to Smooth the ball or
+        to leave a loose ball alone.
         """
         candidates = match.challenge_candidates()
         if not candidates:
@@ -264,13 +264,15 @@ class DinkyAI(AIStrategy):
         leaves nothing to pick -- turn_handler_candidates narrows to
         them, so this is a one-element list and the skill sort is moot.
 
-        **Dinky never slips in**, which is why this asks the match
-        rather than the engine: Slimey lets an Ooze on the ball take
-        the carrier's turn, and weighing that is a judgement call --
-        the same call as never ceding, never declining a challenge and
-        never leaving a loose ball uncontested. So a carrier still
-        narrows this to one, and in a solo game the option is the
-        human's alone.
+        **Dinky never takes a Smooth**, so a carrier still narrows
+        this to one. That is decided at the arrival gate rather than
+        here -- `continue_smooth` skips an AI side's Telekinetics the
+        way `continue_mind_pull` skips them -- which is the same call
+        as never ceding, never declining a challenge and never leaving
+        a loose ball uncontested. In a solo game the option is the
+        human's alone. This asks the match rather than the engine
+        because the two now answer identically and the match is the
+        shorter road.
         """
         candidates = match.turn_handler_candidates()
         if not candidates:
@@ -298,7 +300,7 @@ class DinkyAI(AIStrategy):
         **The time out is the one call Dinky makes that looks like
         judgement and is not** (the author, 2026-09-16). Everything
         else Dinky declines to do -- ceding, as this used to be,
-        declining a challenge, slipping in, pulling the ball -- is a
+        declining a challenge, taking a Smooth, pulling the ball -- is a
         weighing-up with no right answer. Getting an injured player off
         is not: an injured player rolls without their skill modifier
         for the rest of the game and can never recover, so there is

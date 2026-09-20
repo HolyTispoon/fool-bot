@@ -106,10 +106,7 @@ class BallHandlerSelectionView(SafeView):
             return
 
         try:
-            match.select_ball_handler(
-                player_id,
-                self.cog.engine.slip_in_candidates(game, match),
-            )
+            match.select_ball_handler(player_id)
         except ValueError as error:
             await interaction.response.send_message(
                 str(error),

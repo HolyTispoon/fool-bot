@@ -1120,12 +1120,125 @@ class ShooterChoiceView(SafeView):
         await self.cog.start_set_up_shot(interaction, game, match, shooter_id)
 
 
+class SmoothView(SafeView):
+    """
+    Whether a Telekinetic their **own** side's ball has just moved to
+    or through takes it over -- Mind Pull's other half, and the same
+    interrupt with the price taken off. See "Mind Pull (Telekinetic)"
+    in docs/living-rules.md.
+
+    **One button, not two.** A pull is a decision worth two (the token
+    is spent whether or not it lands, so "Let it go" is declining a
+    cost); a Smooth costs nothing and cannot fail, so the only reason
+    to decline is not wanting the ball on that space. That is still a
+    real choice -- it moves who takes the next turn, and it stops the
+    ball short of where the pass was going -- so it is still asked,
+    and "Leave it" is the decline.
+
+    **Only that player's own coach may answer.** The same rule the
+    pull has, for a simpler reason: it is their player and their turn
+    it changes.
+
+    The player is in both custom_ids as well as in
+    `match.pending_smooth`, so a coach who scrolls back to an earlier
+    offer in the same turn cannot answer it for somebody else. A
+    restart while one of these is up leaves the queue on the match,
+    which `pending_turn_view` puts back.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        player_id: str,
+    ):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.player_id = player_id
+
+        player = cog.engine.get_player_definition(player_id)
+        take = discord.ui.Button(
+            label=f"{player_with_role(player)} takes it over"[:80],
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:smooth:{game_id}:{player_id}",
+        )
+        take.callback = self.take
+        self.add_item(take)
+
+        leave = discord.ui.Button(
+            label="Leave it",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:smooth_decline:{game_id}:{player_id}",
+        )
+        leave.callback = self.decline
+        self.add_item(leave)
+
+    async def claim(self, interaction: discord.Interaction):
+        """
+        The game and match if this click may answer this offer, or
+        `(None, None)` after replying with why it may not -- the twin
+        of `MindPullView.claim`, reading its own queue.
+        """
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return None, None
+
+        if self.player_id not in match.pending_smooth:
+            await interaction.response.send_message(
+                "That Smooth has already been answered.",
+                ephemeral=True,
+            )
+            return None, None
+
+        if not self.may_act_for(
+            interaction,
+            self.cog.engine.controlling_user_id(game, match, self.player_id),
+        ):
+            await interaction.response.send_message(
+                "Only the coach whose player that is can answer this.",
+                ephemeral=True,
+            )
+            return None, None
+        return game, match
+
+    async def take(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None:
+            return
+
+        # Deferred for the reason the pull defers: taking the ball
+        # over ends the maneuver and everything that follows it, which
+        # does not fit in the three-second window.
+        await interaction.response.edit_message(view=None)
+        await self.cog.run_smooth(
+            interaction, game, match, self.player_id,
+        )
+
+    async def decline(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None:
+            return
+
+        player = self.cog.engine.get_player_definition(self.player_id)
+        match.pending_smooth.remove(self.player_id)
+        self.cog.persist(game, match)
+
+        await interaction.response.edit_message(
+            content=(
+                f"{self.cog.player_label(match, player)} lets it run."
+            ),
+            view=None,
+        )
+        await self.cog.continue_smooth(interaction, game, match)
+
+
 class MindPullView(SafeView):
     """
     Whether a Telekinetic the ball has just crossed reaches out for it
-    -- Slimey's opposite number, and the one ability that interrupts a
-    maneuver rather than modifying it. See "Mind Pull (Telekinetic)" in
-    docs/living-rules.md.
+    -- Smooth's opposite number, and half of the one ability that
+    interrupts a maneuver rather than modifying it. See "Mind Pull
+    (Telekinetic)" in docs/living-rules.md.
 
     **Only that player's own coach may answer**, unlike the roll
     buttons either coach may press: the token is theirs to spend and

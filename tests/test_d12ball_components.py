@@ -2987,7 +2987,7 @@ class D12BallManeuverTests(unittest.TestCase):
     def test_a_mind_pull_die_says_what_it_was_chasing(self) -> None:
         # Read off the rule, so a face added upstream reaches the image
         # with the roll rather than leaving the caption behind.
-        self.assertEqual(mind_pull_target_label(), "pulls on 1-2")
+        self.assertEqual(mind_pull_target_label(), "pulls on 11-12")
 
     def test_a_volatile_die_is_wider_than_the_die_it_draws(self) -> None:
         # The flame, like the Mind Pull spiral, is drawn larger than

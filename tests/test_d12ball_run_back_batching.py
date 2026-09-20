@@ -495,7 +495,7 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
         # Mind Pull's gate is check_for_loose_ball's twin -- it sits
         # one line above it in finish_maneuver_resolution and answers
         # the same way. Nothing in this file is about it.
-        cog.check_for_mind_pull = mock.AsyncMock(return_value=False)
+        cog.check_for_ball_arrival = mock.AsyncMock(return_value=False)
 
         match = MatchState.standard(
             catalog=self.catalog,
