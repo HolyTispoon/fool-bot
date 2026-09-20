@@ -34,6 +34,30 @@ class FollowOnStep(Enum):
     is what collapses that: the driver runs follow-ons itself and this
     enum goes with the cog's dispatch table.
 
+    **Phase 4 widened what "has not moved" means, and the enum grew
+    rather than shrank because of it.** Before it, a member named a
+    step still wholly in `cogs/`. After it, most members name a step
+    whose *decisions* are in `d12ball/flow/` and whose cog method is
+    the wrapper that persists and posts -- so the enum still reads
+    exactly as "what the cog still dispatches", which is the claim
+    Phase 6 needs, but not as "what has not been lifted". Three kinds
+    of member are here now, and each says which it is:
+
+    - a step Phase 4 genuinely did not touch, because it is Phase 5's
+      ground (`END_PERIOD`, `BEGIN_SUBSTITUTION_WINDOW`) or because it
+      is pictures and no decision (`SEND_TURN_PROMPT`,
+      `START_SET_UP_SHOT`);
+    - a step whose model half moved but whose **prompt cannot be a
+      `PendingPrompt`**, because the view carries arguments match
+      state does not hold (`SEND_SET_UP_ATTEMPT_PROMPT`,
+      `SEND_SHOOTER_PROMPT`) or the prompt carries a picture
+      (`SEND_RUN_BACK_PROMPT`);
+    - a step whose model half moved but whose lines are **their own
+      message**, so the ordinary "carry the narration forward" would
+      merge two events into one paragraph (`BEGIN_LOOSE_BALL`,
+      `RESOLVE_LOOSE_BALL`, `ANNOUNCE_RUN_BACK`, `FINISH_RUN_BACK`).
+      See `D12Ball.post_then_dispatch`.
+
     A closed set rather than a callable or a method name the cog
     `getattr`s, because then **the enum itself is the record of what
     the cog still dispatches**. Phases 3 to 5 add and remove members;
@@ -102,6 +126,72 @@ class FollowOnStep(Enum):
     #: side of the coach's answer, rather than in front of a question
     #: whose answer moves the ball again.
     OFFER_SETUP_PASS_PUSH_BACK = auto()
+    #: The whistle. Phase 5's ground, so Phase 4 names it rather than
+    #: moving it: both `finish_maneuver_resolution` and
+    #: `begin_run_back` end a period when a turnover lands under a last
+    #: possession already in force, and neither may run the window,
+    #: the shootout or the game-over announcement itself.
+    END_PERIOD = auto()
+    #: The offensive choice, handed back to whoever now has the ball --
+    #: the last thing an ordinary turn does. It is three uploads and a
+    #: pin decision (see `send_turn_prompt`), so what the model settles
+    #: is that the turn is over and whose it is; the pictures are the
+    #: frontend's.
+    SEND_TURN_PROMPT = auto()
+    #: A new play's coaching window, which sits between the reset and
+    #: the run back. Phase 5's ground, named here for the same reason
+    #: as `END_PERIOD`.
+    BEGIN_SUBSTITUTION_WINDOW = auto()
+    #: The score attempt a set-up leads into. It posts the composition
+    #: image and the roll prompt, which is two uploads and no decision.
+    START_SET_UP_SHOT = auto()
+    #: The set-up's own attempt-or-decline prompt. A follow-on rather
+    #: than a `PendingPrompt` because the view carries `distance_moved`
+    #: and `contest_on_decline`, neither of which is anywhere in match
+    #: state -- so a prompt carrying them would be a shape
+    #: `pending_prompt` can never produce. The wording is still the
+    #: model's and rides in `ask`.
+    SEND_SET_UP_ATTEMPT_PROMPT = auto()
+    #: Which of several players takes the shot. A follow-on for
+    #: `SEND_SET_UP_ATTEMPT_PROMPT`'s reason: the candidate list lives
+    #: on the view and a scoring opportunity is not a state
+    #: `pending_prompt` has a branch for.
+    SEND_SHOOTER_PROMPT = auto()
+    #: A run-back choice, put up over **the field strip** -- the one
+    #: prompt in the game that carries a picture as well as buttons.
+    #: The question, the candidates and the wording are all the
+    #: model's; which of the two questions it is is read off the
+    #: position by `d12ball.prompts.run_back_prompt`, the same chain a
+    #: restart comes back through.
+    SEND_RUN_BACK_PROMPT = auto()
+    #: The run-back cascade, one pass at a time. The loop is the
+    #: model's (`d12ball.flow.turnovers.run_back_passes`); what stays
+    #: here is the batching of its automatic placements into one
+    #: message and one board refresh, which is a Discord economy and
+    #: not a rule (principle 8), and the **per-pass persist**, which is
+    #: a named exception to principle 9 -- see the generator.
+    CONTINUE_RUN_BACK = auto()
+    #: Settling a loose ball once both sides have answered. A member
+    #: rather than a call inside `begin_loose_ball`, because the
+    #: announcement above it is **its own message**: the line naming
+    #: where the ball is and the line naming who came away with it are
+    #: two events, and the ordinary "carry the lines forward" would
+    #: make them one paragraph. See `D12Ball.post_then_dispatch`.
+    RESOLVE_LOOSE_BALL = auto()
+    #: The "Players run back!" note and the cascade behind it. A member
+    #: for `RESOLVE_LOOSE_BALL`'s reason, and because a new play's
+    #: reset -- the message the board is pinned to -- must not carry it.
+    ANNOUNCE_RUN_BACK = auto()
+    #: The tail of a settled cascade. A member rather than a plain call
+    #: because the cog has batched narration in hand that has to be
+    #: flushed before it runs -- the ordering is the frontend's, so the
+    #: generator names the step and the cog decides when.
+    FINISH_RUN_BACK = auto()
+    #: An AI side's out-of-bounds pickup, applied without asking. It
+    #: posts and redraws, and it is also what `BallRecoveryView`'s own
+    #: click runs, so it stayed whole in the cog rather than being
+    #: split for one of its two callers.
+    APPLY_BALL_RECOVERY = auto()
     #: Where a drained injury-test queue puts the turn back. Phase 4's,
     #: and a member rather than a lift because two of the three
     #: arrivals it names are not the spine's: a maneuver's skill test

@@ -661,8 +661,11 @@ class D12BallRunBackAnnouncementTests(
         # them -- see "What a message says".
         self.assertNotIn("which of two teammates sharing one", announcement)
         self.assertIn("ball speed goes down to **1**", announcement)
+        # `lead_in=""`: the run-back note is posted as its own message
+        # and carries nothing into the cascade -- see
+        # `D12Ball.post_then_dispatch`.
         cog.continue_run_back.assert_awaited_once_with(
-            interaction, game, match,
+            interaction, game, match, lead_in="",
         )
         cog.begin_substitution_window.assert_not_awaited()
 
@@ -747,8 +750,11 @@ class D12BallRunBackAnnouncementTests(
             )
 
         cog.begin_substitution_window.assert_not_awaited()
+        # `lead_in=""`: the run-back note is posted as its own message
+        # and carries nothing into the cascade -- see
+        # `D12Ball.post_then_dispatch`.
         cog.continue_run_back.assert_awaited_once_with(
-            interaction, game, match,
+            interaction, game, match, lead_in="",
         )
         self.assertTrue(match.pending_run_back)
 

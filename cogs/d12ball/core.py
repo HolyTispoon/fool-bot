@@ -1804,6 +1804,146 @@ class CoreMixin:
             )
         return PLAIN_PROMPT_VIEWS[kind](self, game_id)
 
+    async def post_then_dispatch(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        result: StepResult,
+        with_board: bool = False,
+    ) -> None:
+        """
+        Post this step's own lines as their own message, then run what
+        comes next with **nothing carried forward**.
+
+        `dispatch_step_result` does the opposite: it hands the lines to
+        the next step as its `lead_in`, so a cascade of the bot's own
+        steps reads as one message. That is right for a maneuver
+        resolving into its effect and wrong for the handful of places
+        where the line is an event in its own right -- where the ball
+        came down, that a new play has started, that everybody is
+        running back. Those were separate messages before the lift and
+        a coach reads the channel expecting them to be.
+
+        **Which of the two a step gets is the frontend's decision**,
+        which is why it is a second method here rather than a flag on
+        `StepResult`: principle 8 puts batching on this side of the
+        seam, and the model says only what was said and in what order.
+
+        `with_board` puts the message up with a snapshot attached (see
+        `announce_board_update`) rather than merely keeping the
+        persistent board in sync -- a loose ball is announced by
+        showing where it is.
+        """
+        lines = " ".join(result.narration)
+        if lines:
+            if with_board:
+                await self.announce_board_update(interaction, game, lines)
+            else:
+                await send_new_prompt(interaction, lines)
+                if result.board_changed:
+                    await self.refresh_match_image(interaction, game)
+        elif result.board_changed:
+            await self.refresh_match_image(interaction, game)
+
+        await self.dispatch_step_result(
+            interaction, game, match, StepResult(next=result.next),
+        )
+
+    # -- Follow-on adapters ------------------------------------------
+    #
+    # Every follow-on is called as
+    # `(interaction, game, match, lead_in=..., **kwargs)`, and three of
+    # the steps the model now names predate that shape: `send_turn_prompt`
+    # takes no match, `begin_substitution_window` no lead-in, and
+    # `start_set_up_shot` neither. Each is called from elsewhere with its
+    # own signature, so the adapter is here rather than a signature change
+    # rippling through their other callers. They go with the table in
+    # Phase 6.
+
+    async def send_turn_prompt_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """
+        `send_turn_prompt` as a follow-on.
+
+        `finish_maneuver_resolution` handles this member itself, to
+        draw the board once and upload it twice; this is the row that
+        keeps the table total over the enum, and the path any later
+        caller of `SEND_TURN_PROMPT` would take.
+        """
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
+        try:
+            await self.send_turn_prompt(interaction, game)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+
+    async def begin_substitution_window_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        *,
+        side: TeamSide,
+        lead_in: str = "",
+    ) -> None:
+        """`begin_substitution_window` as a follow-on."""
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
+        await self.begin_substitution_window(interaction, game, match, side)
+
+    async def start_set_up_shot_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        *,
+        shooter_id: str,
+        maneuver_cost: int = 1,
+        lead_in: str = "",
+    ) -> None:
+        """`start_set_up_shot` as a follow-on."""
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
+        await self.start_set_up_shot(
+            interaction, game, match, shooter_id,
+            maneuver_cost=maneuver_cost,
+        )
+
+    async def announce_run_back_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        *,
+        speed_reset: bool = True,
+        lead_in: str = "",
+    ) -> None:
+        """`announce_run_back` as a follow-on."""
+        await self.announce_run_back(
+            interaction, game, match,
+            lead_in=lead_in, speed_reset=speed_reset,
+        )
+
+    async def apply_ball_recovery_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        *,
+        player_id: str,
+        lead_in: str = "",
+    ) -> None:
+        """`apply_ball_recovery` as a follow-on."""
+        await self.apply_ball_recovery(
+            interaction, game, match, player_id, lead_in=lead_in,
+        )
+
     def follow_on_methods(self) -> dict[FollowOnStep, Callable]:
         """
         Which method each `FollowOnStep` names.
@@ -1837,6 +1977,20 @@ class CoreMixin:
                 self.begin_high_pass_contest,
             FollowOnStep.DISPATCH_INJURY_RESUME:
                 self.dispatch_injury_resume,
+            FollowOnStep.END_PERIOD: self.end_period,
+            FollowOnStep.SEND_TURN_PROMPT: self.send_turn_prompt_step,
+            FollowOnStep.BEGIN_SUBSTITUTION_WINDOW:
+                self.begin_substitution_window_step,
+            FollowOnStep.START_SET_UP_SHOT: self.start_set_up_shot_step,
+            FollowOnStep.SEND_SET_UP_ATTEMPT_PROMPT:
+                self.send_set_up_attempt_prompt,
+            FollowOnStep.SEND_SHOOTER_PROMPT: self.send_shooter_prompt,
+            FollowOnStep.SEND_RUN_BACK_PROMPT: self.send_run_back_prompt,
+            FollowOnStep.CONTINUE_RUN_BACK: self.continue_run_back,
+            FollowOnStep.FINISH_RUN_BACK: self.finish_run_back,
+            FollowOnStep.APPLY_BALL_RECOVERY: self.apply_ball_recovery_step,
+            FollowOnStep.RESOLVE_LOOSE_BALL: self.resolve_loose_ball,
+            FollowOnStep.ANNOUNCE_RUN_BACK: self.announce_run_back_step,
         }
 
     async def dispatch_step_result(

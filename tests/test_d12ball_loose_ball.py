@@ -30,6 +30,8 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
+from d12ball.flow.arrivals import check_for_loose_ball
+
 from save_patches import suppressed_cog_saves
 
 
@@ -386,10 +388,16 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
 
         interaction = build_interaction()
+        # The gate is a flow step since Phase 4 and the posting is
+        # `dispatch_step_result`'s, so the chain is written out rather
+        # than reached through a cog method that no longer exists.
         with suppressed_cog_saves():
-            handled = await cog.check_for_loose_ball(
-                interaction, game, match, 2,
-            )
+            detour = check_for_loose_ball(cog.engine, game, match, 2)
+            handled = detour is not None
+            if handled:
+                await cog.dispatch_step_result(
+                    interaction, game, match, detour,
+                )
 
         # The defender standing on it is put up without being asked;
         # the side that lost it is pre-declined and never put on the
@@ -506,11 +514,20 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         # The join between the two: once nobody is left to run back,
         # continue_run_back owes the pickup before the clock moves.
         cog = build_cog()
-        cog.begin_ball_recovery = mock.AsyncMock()
         game = build_game()
         match = self.build_match()
         # Straight off a kickoff nobody is out of position, so the run
-        # back is already finished the moment it starts.
+        # back is already finished the moment it starts. The ball's own
+        # space is cleared, because that is what an out-of-bounds ball
+        # leaves behind and what the pickup is for -- with somebody
+        # still standing on it the step correctly finds nothing to do.
+        # The ball is put on the midfield space the possessing side
+        # does not cover -- two players in a three-space zone, so one
+        # index is always theirs to be absent from. That leaves the
+        # pickup genuinely owed without displacing anybody, which a
+        # move within the zone would not: the coverage rule would then
+        # owe a run back as well and the cascade would stop to ask.
+        match.set_ball_space(match.ball.zone, 2)
         match.pending_run_back = True
         match.pending_run_back_distance = 2
         match.pending_run_back_turnover = True
@@ -518,10 +535,19 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
-        with suppressed_cog_saves():
+        # The pickup is a flow step since Phase 4, so the join is
+        # asserted on what reaches the channel rather than on a cog
+        # method the chain no longer hops through: `finish_run_back`
+        # hands `begin_ball_recovery`'s own result straight back.
+        with suppressed_cog_saves(), mock.patch(
+            "cogs.d12ball.core.send_new_prompt", mock.AsyncMock(),
+        ) as send:
             await cog.continue_run_back(build_interaction(), game, match)
 
-        cog.begin_ball_recovery.assert_awaited_once()
+        self.assertIn(
+            "send the nearest player either side of the ball",
+            send.await_args.args[1],
+        )
         cog.finish_maneuver_resolution.assert_not_awaited()
 
     def test_the_recovery_window_survives_validate(self) -> None:

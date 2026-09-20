@@ -299,9 +299,12 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
             "Decline -- resolve as a normal pass",
         )
 
-        await cog.decline_scoring_attempt(
-            build_interaction(), game, match, 2,
-        )
+        # The wrapper persists after the step since Phase 4 --
+        # principle 9's transition rule.
+        with suppressed_cog_saves():
+            await cog.decline_scoring_attempt(
+                build_interaction(), game, match, 2,
+            )
         cog.begin_loose_ball.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
 
@@ -324,9 +327,10 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
             "Decline -- contest for the ball",
         )
 
-        await cog.decline_scoring_attempt(
-            build_interaction(), game, match, 2, contest=True,
-        )
+        with suppressed_cog_saves():
+            await cog.decline_scoring_attempt(
+                build_interaction(), game, match, 2, contest=True,
+            )
         cog.finish_maneuver_resolution.assert_not_awaited()
         cog.begin_loose_ball.assert_awaited_once()
         _, kwargs = cog.begin_loose_ball.await_args

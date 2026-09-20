@@ -466,3 +466,32 @@ def format_goal_time(goal: GoalRecord) -> str:
     return f"{goal.time:02d}" + (
         " (FH)" if goal.in_first_half_overrun else ""
     )
+
+
+# A High Pass *is* the loose-ball contest (see begin_loose_ball) -- a
+# 3+ space pass, or a declined 2-space one, makes the receiver win a
+# skill test to keep the ball, and since 2026-08-18 that is the
+# ordinary rule rather than this maneuver's own: they contest because
+# they are standing on the ball. This headline replaces the wording
+# build_loose_ball_headline would give it, which says the ball is loose
+# -- true, but not what either coach watched happen. It mentions
+# nobody being sent because both sides usually have their contestant
+# standing there already.
+HIGH_PASS_CONTEST_HEADLINE = (
+    "**High Pass:** the receiving player must win a skill test to keep "
+    "possession."
+)
+
+
+def ball_location_line(match: MatchState) -> str:
+    """
+    Where the ball has come to rest, in a sentence, with the zone
+    spelled out beside the space code -- a coach who is about to be
+    asked whether to send somebody after it is being asked about a
+    distance, and "M2" alone means nothing to anyone who is not
+    already looking at the board.
+    """
+    zone = destination_display_name(
+        match.ball.zone.value, match.board.layout.board_size
+    )
+    return f"The ball is at **{ball_space_label(match)}** ({zone})."

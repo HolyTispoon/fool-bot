@@ -212,6 +212,7 @@ class FollowOnStepTests(unittest.TestCase):
     #: cog used to dispatch takes its member back out. Phase 6 empties
     #: both.
     EXPECTED = {
+        # Phase 3's, and still dispatched.
         "FINISH_MANEUVER_RESOLUTION",
         "OFFER_SCORING_ATTEMPT_CHOICE",
         "OFFER_SPEED_CHOICE",
@@ -221,7 +222,23 @@ class FollowOnStepTests(unittest.TestCase):
         "BEGIN_LOOSE_BALL",
         "OFFER_SETUP_PASS_PUSH_BACK",
         "BEGIN_HIGH_PASS_CONTEST",
+        # Phase 4's. The enum grew rather than shrank, which is the
+        # honest reading of the phase: the spine's decisions moved and
+        # the frontend edges they end on are now named. See the
+        # `FollowOnStep` docstring for the three kinds.
         "DISPATCH_INJURY_RESUME",
+        "END_PERIOD",
+        "SEND_TURN_PROMPT",
+        "BEGIN_SUBSTITUTION_WINDOW",
+        "START_SET_UP_SHOT",
+        "SEND_SET_UP_ATTEMPT_PROMPT",
+        "SEND_SHOOTER_PROMPT",
+        "SEND_RUN_BACK_PROMPT",
+        "CONTINUE_RUN_BACK",
+        "RESOLVE_LOOSE_BALL",
+        "ANNOUNCE_RUN_BACK",
+        "FINISH_RUN_BACK",
+        "APPLY_BALL_RECOVERY",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(

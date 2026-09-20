@@ -19,6 +19,17 @@ from d12ball.components import (
     TeamSide,
     Zone,
 )
+from d12ball.flow import FollowOnStep, StepResult
+from d12ball.prompts import PendingPrompt
+from d12ball.flow.turnovers import (
+    announce_run_back,
+    begin_ball_recovery,
+    begin_run_back,
+    finish_run_back,
+    run_back_passes,
+    run_back_player_ask,
+    run_back_space_ask,
+)
 from d12ball.game import (
     D12BallGame,
     Formation,
@@ -991,252 +1002,44 @@ class TurnoverMixin:
         lead_in: str = "",
     ) -> None:
         """
-        `distance_moved`/`turnover_occurred` describe the maneuver that
-        triggered this run-back, stashed on `match` so they survive the
-        multi-turn choice flow and reach finish_maneuver_resolution
-        correctly once run-back itself (which only ever costs
-        exhaustion, never time) is done.
+        The Discord half of a turnover's run back. The step is
+        `d12ball.flow.turnovers.begin_run_back`, and with it the
+        arrival gate it opens with, the new play's reset, and the
+        "Players run back!" note.
 
-        `speed_reset` is announce_run_back's own note, and only ever
-        False for Dribble Burst's cost: every caller here has already
-        set `match.ball.speed` to whatever it should read by the time
-        this runs, so this is wording, not state -- it says whether
-        that was a reset to 1 (every other turnover) or the burst's
-        speed carrying over (see the comment on `gambit_cost`).
-
-        `new_play` says the ball changed hands because play stopped and
-        is restarting -- a goal, an own goal, a missed attempt, a ball
-        out of bounds -- rather than because the other team took it off
-        them. Only a new play opens a substitution window; a steal
-        (Steal, a Defender's Pressure steal, a loose ball or
-        a long High Pass the other side wins) runs everyone back and
-        plays straight on. See "Steals and new plays",
-        docs/living-rules.md. It is not persisted: it is consumed here,
-        and by the time anything is saved the state already says which
-        of the two happened -- a window open, or a run back pending.
-
-        **The player holding the ball does not run back**, whoever they
-        are -- see "Choosing the handler" and "Running back after a
-        steal"
-        in docs/living-rules.md. The exemption is read off
-        `ball_carrier_id` rather than passed in, because the two are
-        the same fact: a run back that moved the ball's holder would
-        run them off the ball and charge them for it. It used to be a
-        `stays_player_id` argument that only Steal and a
-        Defender's Pressure steal passed, which left a loose-ball or
-        High Pass winner -- equally the holder -- being run back off
-        the ball they had just won.
-
-        A new play exempts nobody: the ball went dead, so nobody is
-        carrying it, and the reset that follows moves both sides
-        whatever they were doing.
-
-        `speed_choice_after` is set only for Steal -- once
-        run-back finishes, its defender still gets to manipulate the
-        ball's speed, offered only after players are back in position
-        rather than before (see continue_run_back).
-
-        `lead_in` is narration from the triggering effect that hasn't
-        been posted yet -- it rides along on whichever message this
-        run-back sends first (see continue_run_back).
-
-        A turnover that happens while last possession is already in
-        force ends the period immediately instead: no run-back, no
-        substitution window, and (for a steal) no run-back or
-        speed-manipulation follow-up either -- the triggering effect's
-        own state change (e.g. Steal's turnover and 1-space
-        fallback) has already been applied and saved by the caller,
-        this just skips everything downstream of that. The maneuver
-        that *declares* last possession is not that turnover and isn't
-        caught here: its own clock advance happens later, in
-        finish_maneuver_resolution, so it runs back like any other.
-
-        A resolution that left possession where it was doesn't run a
-        run-back at all: "every time there's a turnover for any
-        reason (steal, goal etc.) players have to run back" is the
-        whole of when one happens ("Turnovers, resets, and running back",
-        docs/living-rules.md).
-        Keeping the ball -- a receiver winning their High Pass, a
-        loose ball the possessing side recovers -- leaves whoever is
-        out of position out of position, and charges nobody, until a
-        turnover does come. This is called with turnover_occurred
-        False anyway so the tail of the flow (the clock, the next
-        offensive choice) stays in one place.
+        **A new play's board is pinned, and that is the one thing that
+        stayed.** `post_new_play_board` is the only pinning site in the
+        game (see "Discord's rate limits" in
+        docs/design/rate-limits.md), and which message gets a pin is
+        not something the model may know.
         """
-        if turnover_occurred and match.scoreboard.last_possession:
-            await self.end_period(interaction, game, match, lead_in=lead_in)
-            return
-
-        if not turnover_occurred:
-            await self.finish_maneuver_resolution(
-                interaction,
-                game,
-                match,
-                distance_moved=distance_moved,
-                turnover_occurred=False,
-                lead_in=lead_in,
-            )
-            return
-
-        # **Mind Pull, before anyone runs back.** `mind_pull_candidates`
-        # reads current board occupancy of `last_ball_path`, so a
-        # Telekinetic who merely runs back onto a space the ball crossed
-        # must never be offered a pull meant for whoever actually stood
-        # there when it moved. A maneuver that settles its own turnover
-        # and calls this directly (Steal, Intercept, a Defender's
-        # pressure steal, an own goal avoided) never passes through the
-        # three ordinary arrival gates, so this is the one place
-        # guaranteed to run before positions change.
-        if await self.check_for_ball_arrival(
-            interaction,
+        result = begin_run_back(
+            self.engine,
             game,
             match,
-            {
-                "kind": "run_back",
-                "distance_moved": distance_moved,
-                "turnover_occurred": turnover_occurred,
-                "new_play": new_play,
-                "speed_choice_after": speed_choice_after,
-                "speed_reset": speed_reset,
-                "lead_in": lead_in,
-            },
-        ):
+            distance_moved=distance_moved,
+            turnover_occurred=turnover_occurred,
+            new_play=new_play,
+            speed_choice_after=speed_choice_after,
+            speed_reset=speed_reset,
+            lead_in=lead_in,
+        )
+        self.persist(game, match)
+
+        if not new_play or result.next is None:
+            await self.dispatch_step_result(
+                interaction, game, match, result,
+            )
             return
 
-        if new_play:
-            # The ball is dead. Clearing here as well as in
-            # announce_new_play_reset is what keeps the exemption below
-            # honest: a goal scored off a High Pass set-up leaves the
-            # receiver still recorded as carrying it, and they are not
-            # -- the ball is on its way back to the kickoff space.
-            match.clear_ball_carrier()
-
-        match.pending_run_back = True
-        match.pending_run_back_distance = distance_moved
-        match.pending_run_back_turnover = turnover_occurred
-        match.pending_run_back_stays_player_id = match.ball_carrier_id
-        match.pending_run_back_speed_choice = speed_choice_after
-        # **Charge-up is armed here and awarded at the end**, because
-        # who actually moved is only known once the cascade has run --
-        # a stack is a real decision (see `charge_up_players`). A new
-        # play is not a run back and triggers none, and this flag is
-        # what remembers that: `new_play` is not persisted, and by the
-        # time the reset leaves nobody displaced the cascade can no
-        # longer tell the two apart.
-        match.run_back_moved = []
-        match.pending_run_back_charge_up = not new_play
-        self.persist(game, match)
-
-        # A new play resets both sides to the shape their coaches set,
-        # free of exhaustion, and only then opens the substitution
-        # window -- a coach who declares rearranges from their own
-        # formation rather than from wherever open play scattered them,
-        # and a coach who passes has already got what passing gives
-        # them. It also leaves nobody displaced, so the run back that
-        # follows finds nothing to do and falls through to whatever the
-        # restart still owes (the kickoff space, an out-of-bounds
-        # pickup).
-        #
-        # A steal does none of this: the ball is still live, so the
-        # coaches get no pause and the ordinary run back stands.
-        if new_play:
-            await self.announce_new_play_reset(interaction, game, match, lead_in)
-            lead_in = ""
-            winning_side = match.ball.possession
-            if match.may_take_time_out(winning_side):
-                await self.begin_substitution_window(
-                    interaction, game, match, winning_side,
-                )
-                return
-        await self.announce_run_back(
-            interaction, game, match, lead_in, speed_reset=speed_reset,
-        )
-
-    def apply_charge_up(
-        self, game: D12BallGame, match: MatchState,
-    ) -> str:
-        """
-        Take a drain token off every Cyborg this run back leaves where
-        they are, and word it -- or "" when there is nobody to charge
-        up, which is every game not playing the species abilities and
-        most turns of the ones that are.
-
-        Who qualifies is `RulesEngine.charge_up_players`; this is the
-        removal and the sentence. The re-test matters: a Cyborg sitting
-        on exactly 7 is Drained, and dropping to 6 clears it, so this
-        goes through `recover_exhaustion` rather than decrementing the
-        count by hand.
-        """
-        charged = self.engine.charge_up_players(game, match)
-        if not charged:
-            return ""
-
-        lines = []
-        for player_id in charged:
-            player = self.engine.get_player_definition(player_id)
-            removed = match.recover_exhaustion(
-                player_id, 1, self.engine.exhaustion_threshold(
-                    game, player_id,
-                ),
-            )
-            if not removed:
-                continue
-            remaining = match.exhaustion.get(player_id, 0)
-            lines.append(
-                f"{self.player_label(match, player)} holds position — "
-                f"**Charge-up** removes 1 drain "
-                f"(now {remaining})."
-            )
-        return "\n".join(lines)
-
-    async def announce_new_play_reset(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
-        """
-        Put both sides back on the arrangement their coaches last set
-        and say so. Nobody pays a token for it -- see
-        MatchState.restore_assigned_positions.
-
-        This is where a new play's board goes out and gets pinned: the
-        reset is the arrangement the play starts from, and it is the
-        one moment in the restart where nothing is still moving. What
-        the restart still owes (a kickoff fill, an out-of-bounds
-        pickup) lands on the persistent board afterwards.
-        """
-        # The ball went dead and is being brought back into play, so
-        # nobody is carrying it -- whoever ends up on it chooses.
-        match.clear_ball_carrier()
-        # **A new play is the one thing that ends a Double Team**, and
-        # the card says so outright: "so long as it's not a new play,
-        # on their next maneuver, both defending players challenge".
-        # Cleared here rather than in `reset_maneuver`, which runs at
-        # the end of every turn -- including the turn that set it.
-        match.pending_double_team = []
-        moved: list[str] = []
-        for side in (TeamSide.HOME, TeamSide.VISITING):
-            for player_id, zone, space_index in (
-                match.restore_assigned_positions(side)
-            ):
-                player = self.engine.get_player_definition(player_id)
-                moved.append(
-                    f"{self.player_label(match, player)} to "
-                    f"{space_label(zone, space_index)}"
-                )
-        self.persist(game, match)
-
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-        body = (
-            "Both teams reset to the positions their coaches last "
-            "set:\n" + "\n".join(moved)
-            if moved
-            else "Players return to positions assigned by their coach."
-        )
+        # A new play says its reset on the pinned board, and nothing
+        # after it rides along: the window or the run-back note that
+        # follows is its own message.
         await self.post_new_play_board(
-            interaction, game, f"{prefix}# New play\n{body}",
+            interaction, game, " ".join(result.narration),
+        )
+        await self.dispatch_step_result(
+            interaction, game, match, StepResult(next=result.next),
         )
 
     async def announce_run_back(
@@ -1248,47 +1051,23 @@ class TurnoverMixin:
         speed_reset: bool = True,
     ) -> None:
         """
-        The run back proper, split out of begin_run_back because a new
-        play's substitution window sits in between and has to resolve
-        before this can start.
+        The run back proper, split out of `begin_run_back` because a
+        new play's substitution window sits in between and has to
+        resolve before this can start -- which is why
+        `finish_substitution_window` is its second caller and why this
+        wrapper stayed after the step moved.
 
-        With nobody displaced there is nothing to explain, and heading
-        an empty run back "Players run back!" reads as a bug. That is
-        every new play: the reset put both sides back on their own
-        arrangement, so only the speed note is left to say.
+        The note itself is
+        `d12ball.flow.turnovers.announce_run_back`.
         """
-        turnover_occurred = match.pending_run_back_turnover
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-        # Speed manipulation (Steal) always happens after
-        # run-back now, so a turnover's ball speed is still at its
-        # reset value of 1 here -- except Dribble Burst's cost, whose
-        # caller passes speed_reset=False because the ball kept the
-        # burst's own speed instead, and that is already said in the
-        # lead-in this note would otherwise contradict.
-        speed_note = (
-            "The ball speed goes down to **1**."
-            if turnover_occurred and speed_reset
-            else ""
+        result = announce_run_back(
+            self.engine, game, match,
+            lead_in=lead_in, speed_reset=speed_reset,
         )
-        displaced = any(
-            self.engine.run_back_movers(game, match, side)
-            for side in (TeamSide.HOME, TeamSide.VISITING)
-        )
-        if displaced:
-            await send_new_prompt(
-                interaction,
-                f"{prefix}# Players run back!\n"
-                "Players return to an open space in their assigned zone and "
-                "gain 1 exhaustion token for every space traveled. "
-                f"{speed_note}".rstrip()
-            )
-        elif prefix or speed_note:
-            await send_new_prompt(interaction, f"{prefix}{speed_note}".strip())
-        await self.continue_run_back(interaction, game, match)
-
-
-
-
+        self.persist(game, match)
+        # Its own message: "Players run back!" announces the cascade,
+        # and the cascade's own batched placements are the next one.
+        await self.post_then_dispatch(interaction, game, match, result)
 
     def run_back_space_prompt(
         self,
@@ -1299,181 +1078,58 @@ class TurnoverMixin:
         mention: str,
     ) -> str:
         """
-        Where does this player run back to -- the question every run
-        back ends on, whether the player was displaced or has just been
-        picked out of a stack. It is a function rather than a string at
-        the call site because those are two different places now: the
-        cascade asks it directly, and RunBackPlayerChoiceView asks it
-        again over the top of its own answer, and the two have to word
-        it identically.
+        Where does this player run back to, worded.
+
+        A forwarding method over
+        `d12ball.flow.turnovers.run_back_space_ask`, kept because
+        `RunBackPlayerChoiceView` asks the question again over the top
+        of its own answer and the two have to word it identically --
+        the same reason it was a function rather than a string at the
+        call site before the lift.
         """
-        player = self.engine.get_player_definition(player_id)
-        return (
-            f"{mention}, choose where "
-            f"{self.player_label(match, player)} runs back "
-            "to:\n"
-            f"{self.engine.describe_run_back_options(game, match, side, player_id)}"
+        return run_back_space_ask(
+            self.engine, game, match, side, player_id, mention,
         )
-
-    def run_back_player_prompt(
-        self,
-        match: MatchState,
-        side: TeamSide,
-        candidates: list[str],
-        mention: str,
-    ) -> str:
-        """
-        Which of a stack runs back, and where each of them is standing
-        -- a coach choosing between two teammates on one space is
-        choosing which of them pays for the walk, so the prompt says
-        who they are rather than leaving it to the buttons alone.
-        """
-        lines = []
-        for player_id in candidates:
-            player = self.engine.get_player_definition(player_id)
-            position = match.board.meeple_position(player_id)
-            lines.append(
-                f"{self.player_label(match, player)} on "
-                f"{space_label(*position)}"
-                if position is not None
-                else self.player_label(match, player)
-            )
-        return (
-            f"{mention}, your players are doubled up while their zone "
-            "still has a space with nobody on it — choose which of them "
-            "runs back:\n" + "\n".join(lines)
-        )
-
-
-
-    def run_back_ai_placement(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        side: TeamSide,
-        candidates: list[str],
-    ) -> str:
-        """
-        Place one of an AI side's run-backs and describe it, without
-        posting anything: the line comes back for the cascade in
-        continue_run_back to batch with every other automatic
-        placement. See "Discord's rate limits" in docs/design/rate-limits.md.
-        """
-        # One candidate is a settled player and only the space is
-        # open; several is a stack Dinky picks out of, the same call a
-        # coach is given in send_run_back_prompt.
-        player_id = (
-            candidates[0]
-            if len(candidates) == 1
-            else self.engine.get_ai_strategy(game).choose_run_back_player(
-                match, candidates,
-            )
-        )
-        zone = match.setup_for_side(side).assigned_zone(player_id)
-        player = self.engine.get_player_definition(player_id)
-        exempt_ids = self.engine.spread_exempt_ids(game, match, side)
-        space_index = self.engine.get_ai_strategy(game).choose_run_back_space(
-            match.placement_spaces_in_zone(side, zone, player_id, exempt_ids)
-        )
-        distance = match.run_back_player(
-            player_id, zone, space_index, exempt_ids,
-        )
-        exhaustion_text = self.apply_exhaustion(
-            game, match, player_id, distance,
-        )
-        self.persist(game, match)
-
-        return (
-            f"{self.player_label(match, player)} "
-            f"runs back to {space_label(zone, space_index)}."
-            f"\n{exhaustion_text}"
-        )
-
-    def run_back_kickoff_fill(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> tuple[bool, Optional[str]]:
-        """
-        Settle a pending kickoff fill, and say whether the cascade goes
-        round again -- with the line describing the drop back, when
-        somebody actually moved.
-
-        A goal (or own goal) restarts play with nobody necessarily
-        standing on the kickoff space -- the conceding side's two
-        midfield players could easily both be elsewhere in the zone
-        from open play. Whoever's closest drops back to start the
-        kickoff, at the usual run-back cost, once every other run-back
-        is settled.
-
-        Asked here rather than back in restart_after_goal because
-        everyone has moved since: the new play's reset, and any
-        placement its substitution window made. Somebody standing on
-        the space already settles it for nothing.
-        """
-        if match.eligible_ball_handlers():
-            match.pending_kickoff_fill = False
-            self.persist(game, match)
-            return True, None
-
-        candidates = match.kickoff_fill_candidates()
-        if candidates:
-            player_id = candidates[0]
-            player = self.engine.get_player_definition(player_id)
-            distance = match.fill_kickoff(player_id)
-            exhaustion_text = self.apply_exhaustion(
-                game, match, player_id, distance,
-            )
-            self.persist(game, match)
-
-            return True, (
-                f"{self.player_label(match, player)} "
-                "drops back to "
-                f"{space_label(match.ball.zone, match.ball.space_index)} "
-                f"to start the kickoff.\n{exhaustion_text}"
-            )
-
-        # Nobody fielded in midfield at all (both benched or injured)
-        # -- nothing to place. Clear the flag and let the loose-ball
-        # check downstream handle the empty kickoff. The save is the
-        # caller's, which is about to write the settled run back out
-        # anyway.
-        match.pending_kickoff_fill = False
-        return False, None
 
     async def send_run_back_prompt(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        *,
         side: TeamSide,
         candidates: list[str],
+        prompt: Optional[PendingPrompt],
         lead_in: str = "",
     ) -> None:
         """
         Put a coach's run-back choice up, over **the field strip**.
+
         Both questions a run back asks -- which of these players goes,
         and which space they go to -- are questions about where
         everybody is standing and how far each space is, and the
         persistent message has scrolled away up the channel by the time
         a turn has resolved.
 
-        **The strip rather than the whole match image**, which is what
-        this carried before: the jumbotron, the assignment cards, the
-        team boards and the benches are not what either question turns
-        on, and dropping them is what makes the field itself legible
-        inline. It is a crop of that same board (`render_field_image`),
-        so it cannot show a different position from the one the
-        persistent message settles on -- and it is the same picture the
-        five distance prompts carry, for the same reason.
+        **The strip rather than the whole match image.** The
+        jumbotron, the assignment cards, the team boards and the
+        benches are not what either question turns on, and dropping
+        them is what makes the field itself legible inline. It is a
+        crop of that same board (`render_field_image`), so it cannot
+        show a different position from the one the persistent message
+        settles on -- and it is the same picture the five distance
+        prompts carry.
 
         It costs a second render rather than a second upload: the
         cascade's own board settles the persistent message, and this
-        draws the strip beside it. Both are `asyncio.to_thread` like
-        every other render, and the request count is unchanged -- see
-        "Discord's rate limits". The picture goes with the prompt: the
-        click edits both away together, so the field a coach is reading
-        is never one of a position that has moved on.
+        draws the strip beside it. The picture goes with the prompt:
+        the click edits both away together, so the field a coach is
+        reading is never one of a position that has moved on.
+
+        **Which of the two questions this is, and how it is worded, is
+        the model's**: `d12ball.prompts.run_back_prompt` reads it off
+        the position, which is the same chain a restart comes back
+        through. What is decided here is the picture and the view.
         """
         controller_id = self.engine.side_controller_id(game, side)
         mention = f"<@{controller_id}>" if controller_id else "Someone"
@@ -1485,13 +1141,15 @@ class TurnoverMixin:
         # for a second one. See RunBackPlayerChoiceView.
         if len(candidates) == 1:
             prompt_view = RunBackChoiceView(self, game.game_id, candidates[0])
-            body = self.run_back_space_prompt(
-                game, match, side, candidates[0], mention,
+            body = run_back_space_ask(
+                self.engine, game, match, side, candidates[0], mention,
             )
         else:
-            prompt_view = RunBackPlayerChoiceView(self, game.game_id, candidates)
-            body = self.run_back_player_prompt(
-                match, side, candidates, mention,
+            prompt_view = RunBackPlayerChoiceView(
+                self, game.game_id, candidates,
+            )
+            body = run_back_player_ask(
+                self.engine, match, side, candidates, mention,
             )
 
         prompt_message = await send_new_prompt(
@@ -1519,65 +1177,13 @@ class TurnoverMixin:
     ) -> None:
         """
         Nobody is displaced on either side: clear the run back and hand
-        the turn on to whatever it was still holding up.
+        the turn on to whatever it was still holding up. The Discord
+        half of `d12ball.flow.turnovers.finish_run_back`, which is
+        where the charge-up and the three ways out live.
         """
-        match.pending_run_back = False
-        distance_moved = match.pending_run_back_distance
-        turnover_occurred = match.pending_run_back_turnover
-        speed_choice_after = match.pending_run_back_speed_choice
-        stays_player_id = match.pending_run_back_stays_player_id
-        match.pending_run_back_speed_choice = False
-
-        # **Charge-up, now that everybody who was going to move has.**
-        # It rides on `lead_in` rather than being sent on its own: this
-        # is the tail of a cascade that has been batching its messages
-        # all the way down, and a line about drain tokens does not earn
-        # a message of its own -- see "Discord's rate limits".
-        if match.pending_run_back_charge_up:
-            match.pending_run_back_charge_up = False
-            charge_up = self.apply_charge_up(game, match)
-            if charge_up:
-                lead_in = "\n\n".join(filter(None, (lead_in, charge_up)))
-        match.run_back_moved = []
+        result = finish_run_back(self.engine, game, match, lead_in=lead_in)
         self.persist(game, match)
-
-        if match.pending_ball_recovery:
-            # An out-of-bounds ball is still lying there with nobody
-            # on it. Now that everyone is back in position, the side
-            # that won it sends the nearest player either side of it,
-            # at the usual per-space cost.
-            await self.begin_ball_recovery(
-                interaction, game, match, lead_in=lead_in,
-            )
-            return
-
-        if speed_choice_after:
-            # Steal: the defender who stole the ball still
-            # gets to manipulate its speed, now that everyone is back
-            # in position.
-            await self.offer_speed_choice(
-                interaction,
-                game,
-                match,
-                player_id=stays_player_id,
-                skill_type="defense",
-                turnover_occurred=turnover_occurred,
-                distance_moved=distance_moved,
-                lead_in=lead_in,
-            )
-            return
-
-        # Run-back itself only ever costs exhaustion, not time -- the
-        # time cost is whatever the triggering maneuver's own ball
-        # movement was, stashed by begin_run_back.
-        await self.finish_maneuver_resolution(
-            interaction,
-            game,
-            match,
-            distance_moved=distance_moved,
-            turnover_occurred=turnover_occurred,
-            lead_in=lead_in,
-        )
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def continue_run_back(
         self,
@@ -1587,40 +1193,36 @@ class TurnoverMixin:
         lead_in: str = "",
     ) -> None:
         """
-        Auto-place every forced run-back (no real choice: the open
-        spaces in a zone exactly match the players who need one) right
-        away, then either present a choice for the next player who has
-        a real one, or finish once nobody is displaced.
+        Drive the cascade and **batch what it says**.
+
+        The loop is `d12ball.flow.turnovers.run_back_passes`, which
+        yields one `StepResult` per pass. What is here is the two
+        things principle 8 and principle 9's named exception put here:
+
+        - **the batching.** Every placement made without asking anyone
+          -- the forced ones, the AI's choices, the drop back that
+          fills an empty kickoff -- collects into one message and one
+          board refresh, flushed when the cascade reaches a coach's
+          choice or runs out. It used to post a message and re-upload
+          the board per player, which after a steal that scatters a
+          4-1-1 side is a dozen-odd REST calls into one channel with
+          nothing between them, and enough to be rate limited for it.
+          Nobody is reading the intermediate boards anyway.
+        - **the per-pass persist.** A pass that ends on a question
+          leaves the turn waiting on a click that reloads the match off
+          disk, so that pass's placements have to be written before the
+          prompt goes out. This is the one place a step's caller saves
+          inside a loop rather than once after it, and collapsing it
+          loses placements on every cascade that stops to ask.
 
         `lead_in` only ever applies to the first message this call (or
-        the resumption in RunBackChoiceView) sends -- every call site
+        the resumption in `RunBackChoiceView`) sends -- every call site
         that already consumed it passes none.
-
-        Every placement made without asking anyone -- the forced ones,
-        the AI's choices, the drop back that fills an empty kickoff --
-        collects into one message and one board refresh, flushed when
-        the cascade reaches a coach's choice or runs out. It used to
-        post a message and re-upload the board per player, which after
-        a steal that scatters a 4-1-1 side is a dozen-odd REST calls
-        into one channel with nothing between them, and enough to be
-        rate limited for it. Nobody is reading the intermediate boards
-        anyway: the one worth looking at is the one where everyone has
-        finished moving.
         """
         # Lines describing placements already applied and saved, and
         # not yet posted. `lead_in` is consumed by whichever message
         # goes out first, which may be this one or the prompt below.
         notes: list[str] = []
-
-        # Every pass either places somebody or ends the cascade, so
-        # this can only be reached if a placement left the player it
-        # moved still owed one. That should not be possible -- see
-        # placement_spaces_in_zone -- but as a recursion it was bounded
-        # by the interpreter and as a loop it is not, and a spin here
-        # hangs the event loop for every game at once. An ERROR,
-        # because a run back that will not settle needs someone to
-        # look at it.
-        remaining_passes = MAX_RUN_BACK_PASSES
 
         async def flush(png: Optional[bytes] = None) -> bool:
             """
@@ -1643,67 +1245,44 @@ class TurnoverMixin:
             await self.refresh_match_image(interaction, game, png=png)
             return True
 
-        while True:
-            remaining_passes -= 1
-            if remaining_passes < 0:
-                LOGGER.error(
-                    "Giving up on the run back for D12 Ball game %s after "
-                    "%d placements: it is not settling. The match is saved "
-                    "as it stands.",
-                    game.game_id,
-                    MAX_RUN_BACK_PASSES,
-                )
-                break
-
-            self.engine.apply_forced_run_backs(game, match)
+        for result in run_back_passes(self.engine, game, match):
             self.persist(game, match)
+            notes.extend(result.narration)
 
-            step = self.engine.next_run_back_step(game, match)
+            following = result.next
+            if following is None:
+                continue
 
-            if step is not None:
-                side, candidates = step
-
-                if self.engine.side_is_ai(game, side):
-                    notes.append(
-                        self.run_back_ai_placement(
-                            game, match, side, candidates,
-                        )
-                    )
-                    continue
-
+            if following.step is FollowOnStep.SEND_RUN_BACK_PROMPT:
                 # A coach's choice ends the cascade here: say what has
                 # happened so far, settle the board it left, and ask.
                 #
                 # The board goes on the persistent message; the prompt
                 # draws its own field strip (see send_run_back_prompt).
                 # Two renders, two uploads -- the requests are what the
-                # gate counts, and they are unchanged. See "Discord's
-                # rate limits" in docs/design/rate-limits.md.
+                # gate counts, and they are unchanged.
                 png = await self.render_match_png(game)
                 if not await flush(png):
-                    await self.refresh_match_image(interaction, game, png=png)
-
+                    await self.refresh_match_image(
+                        interaction, game, png=png,
+                    )
                 await self.send_run_back_prompt(
                     interaction,
                     game,
                     match,
-                    side,
-                    candidates,
                     lead_in=lead_in,
+                    **following.kwargs,
                 )
                 return
 
-            if match.pending_kickoff_fill:
-                keep_going, note = self.run_back_kickoff_fill(game, match)
-                if note is not None:
-                    notes.append(note)
-                if keep_going:
-                    continue
-
-            break
-
-        await flush()
-        await self.finish_run_back(interaction, game, match, lead_in=lead_in)
+            # The cascade is done. Flush, then finish -- the ordering
+            # is why the generator names the step rather than the model
+            # simply running it.
+            await flush()
+            await self.finish_run_back(
+                interaction, game, match, lead_in=lead_in,
+            )
+            return
 
     # -- Out-of-bounds recovery (after the run back) ------------------
 
@@ -1715,83 +1294,12 @@ class TurnoverMixin:
         lead_in: str = "",
     ) -> None:
         """
-        Ask the side that won an out-of-bounds ball, or called a
-        time out, which of
-        their players goes and stands on it: the nearest either side of
-        it, from any zone, at one exhaustion token per space traveled.
-        It is the same choice a loose ball and a challenge put, and
-        since 2026-08-16 it is the same pool -- it used to offer the
-        whole field, which is a distance sum the coach had to do off
-        the board.
-
-        Deliberately the last thing that happens: both callers reset
-        everyone to their arrangement first, so this player is placed
-        once and stays, where placing them before it would only have
-        them run back off the ball and leave it loose all over again.
-
-        **Which is also why it asks whether there is anything to do.**
-        A reset can perfectly well put one of the gaining side on the
-        ball's space by itself -- that is the arrangement's own doing,
-        and the rules ask for a pickup "unless one of theirs is
-        already on it". `finish_time_out` decides this before it sets the
-        flag, because it has a second branch to run either way; the
-        out-of-bounds path sets the flag before the reset, so the
-        question can only be asked here.
+        The Discord half of the pickup an out-of-bounds ball, or a time
+        out, still owes -- `d12ball.flow.turnovers.begin_ball_recovery`.
         """
-        side = match.ball.possession
-        candidates = (
-            [] if match.eligible_ball_handlers()
-            else match.contest_candidates(side)
-        )
-        if not candidates:
-            # Somebody of theirs is already standing on it, or nobody
-            # is fielded at all. Either way nothing is placed: let the
-            # loose-ball check downstream deal with it, the same way
-            # an empty kickoff is handled.
-            match.pending_ball_recovery = False
-            self.persist(game, match)
-            await self.finish_maneuver_resolution(
-                interaction, game, match,
-                distance_moved=match.pending_run_back_distance,
-                turnover_occurred=True,
-                lead_in=lead_in,
-            )
-            return
-
-        if self.engine.side_is_ai(game, side):
-            # Nearest, not best: this walk costs a token per space and
-            # wins nothing, so the only thing worth optimizing is how
-            # much it costs.
-            await self.apply_ball_recovery(
-                interaction,
-                game,
-                match,
-                min(candidates, key=match.distance_to_ball),
-                lead_in=lead_in,
-            )
-            return
-
-        number = (
-            game.home_player_number
-            if side == TeamSide.HOME
-            else game.visiting_player_number
-        )
-        mention = format_player_with_team(
-            game, number, self.team_emojis, mention=True,
-        )
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-        prompt_message = await send_new_prompt(
-            interaction,
-            f"{prefix}{mention}, everyone is back in position -- send "
-            "the nearest player either side of the ball to pick it up "
-            f"at {space_label(match.ball.zone, match.ball.space_index)}:",
-            view=BallRecoveryView(self, game.game_id),
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
+        result = begin_ball_recovery(self.engine, game, match, lead_in=lead_in)
+        self.persist(game, match)
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def apply_ball_recovery(
         self,

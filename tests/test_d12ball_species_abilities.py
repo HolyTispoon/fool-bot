@@ -96,6 +96,12 @@ from d12ball.game import (
 from cogs.d12ball_helpers import get_damaged_emoji, get_injured_emoji
 
 from roster import field_players, fielded_of_species
+from d12ball.flow.arrivals import (
+    check_for_ball_arrival,
+    check_for_mind_pull,
+    check_for_smooth,
+)
+
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
@@ -2293,7 +2299,6 @@ def build_mind_pull_cog() -> D12Ball:
     )
     cog.refresh_match_image = mock.AsyncMock()
     cog.send_turn_prompt = mock.AsyncMock()
-    cog.check_for_loose_ball = mock.AsyncMock(return_value=False)
     cog.begin_run_back = mock.AsyncMock()
     cog.render_match_png = mock.AsyncMock(return_value=b"png")
     cog.match_file_from_png = mock.Mock(return_value=None)
@@ -2395,10 +2400,10 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         self.match.board.place_meeple(self.puller, Zone.HOME_GOAL, 0)
         self.match.last_ball_path = []
         with suppressed_cog_saves():
-            interrupted = await self.cog.check_for_mind_pull(
-                self.interaction, self.game, self.match, {"kind": "x"},
+            interrupted = check_for_mind_pull(
+                self.cog.engine, self.game, self.match, {"kind": "x"},
             )
-        self.assertFalse(interrupted)
+        self.assertIsNone(interrupted)
         self.assertEqual(self.match.pending_mind_pull, [])
 
     async def test_a_basic_game_never_interrupts(self):
@@ -2409,10 +2414,10 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         )
         self.cog.games[basic.game_id] = basic
         with suppressed_cog_saves():
-            interrupted = await self.cog.check_for_mind_pull(
-                self.interaction, basic, self.match, {"kind": "x"},
+            interrupted = check_for_mind_pull(
+                self.cog.engine, basic, self.match, {"kind": "x"},
             )
-        self.assertFalse(interrupted)
+        self.assertIsNone(interrupted)
 
     async def test_declining_the_last_offer_resumes_the_arrival(self):
         # The queue's one exit: a coach who declines has to leave the
@@ -2660,11 +2665,11 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
             self.puller, self.crossed_zone, self.crossed_index,
         )
         with suppressed_cog_saves():
-            interrupted = await self.cog.check_for_mind_pull(
-                self.interaction, self.game, self.match,
+            interrupted = check_for_mind_pull(
+                self.cog.engine, self.game, self.match,
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
-        self.assertFalse(interrupted)
+        self.assertIsNone(interrupted)
         self.assertEqual(self.match.pending_mind_pull, [])
 
 
@@ -2892,11 +2897,30 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
         self.match.board.place_meeple(player_id, *self.crossed)
         self.match.set_ball_space(*self.crossed)
 
+    async def arrive(self, resume: dict) -> bool:
+        """
+        Run the arrival gate and put what it decided into the channel.
+
+        The gate is `d12ball.flow.arrivals.check_for_ball_arrival`
+        since Phase 4 and the posting is `dispatch_step_result`'s, so
+        this is the same chain the flow runs, written once. True when
+        the gate took over, which is what the cog method it replaced
+        returned.
+        """
+        result = check_for_ball_arrival(
+            self.cog.engine, self.game, self.match, resume,
+        )
+        if result is None:
+            return False
+        await self.cog.dispatch_step_result(
+            self.interaction, self.game, self.match, result,
+        )
+        return True
+
     async def test_the_arrival_gate_offers_the_smooth(self):
         self.cross(self.taker)
         with suppressed_cog_saves():
-            took_over = await self.cog.check_for_ball_arrival(
-                self.interaction, self.game, self.match,
+            took_over = await self.arrive(
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
         self.assertTrue(took_over)
@@ -2914,8 +2938,8 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
         # crossed both sides' Telekinetics would offer only the first.
         self.cross(self.taker)
         with suppressed_cog_saves():
-            await self.cog.check_for_smooth(
-                self.interaction, self.game, self.match,
+            check_for_smooth(
+                self.cog.engine, self.game, self.match,
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
         self.assertNotEqual(self.match.last_ball_path, [])
@@ -2931,8 +2955,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
         self.match.board.place_meeple(opponent, *self.crossed)
 
         with suppressed_cog_saves():
-            await self.cog.check_for_ball_arrival(
-                self.interaction, self.game, self.match,
+            await self.arrive(
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
             self.match.pending_smooth.remove(self.taker)
@@ -2949,8 +2972,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
     async def test_nobody_wanting_it_falls_through_to_the_arrival(self):
         self.cross(self.taker)
         with suppressed_cog_saves():
-            await self.cog.check_for_ball_arrival(
-                self.interaction, self.game, self.match,
+            await self.arrive(
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
             self.match.pending_smooth.remove(self.taker)
@@ -2965,8 +2987,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
         self.cross(self.taker)
         was = self.match.ball.possession
         with suppressed_cog_saves():
-            await self.cog.check_for_ball_arrival(
-                self.interaction, self.game, self.match,
+            await self.arrive(
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
             await self.cog.run_smooth(
@@ -3043,8 +3064,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
         setattr(self.game, f"player_{number}_id", None)
         self.cross(self.taker)
         with suppressed_cog_saves():
-            await self.cog.check_for_ball_arrival(
-                self.interaction, self.game, self.match,
+            await self.arrive(
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
         self.assertFalse(
@@ -3195,8 +3215,8 @@ class MovedWithTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.match.last_ball_movers = [self.handler]
         self.match.last_ball_path = [[Zone.MIDFIELD.value, 1]]
         with suppressed_cog_saves():
-            await self.cog.check_for_mind_pull(
-                self.interaction, self.game, self.match,
+            check_for_mind_pull(
+                self.cog.engine, self.game, self.match,
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
         self.assertEqual(self.match.last_ball_path, [])
