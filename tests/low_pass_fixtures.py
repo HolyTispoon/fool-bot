@@ -35,6 +35,13 @@ chose are facts about the fixture rather than about the roster.
 **The follow-on step is named by its `FollowOnStep` member name**, a
 string, so this module needs no import from `d12ball/flow/` -- which is
 what let it be written before that package existed.
+
+Rank O1 of Phase 3 (Skilled Pass and the shared `key=`) added the
+second table at the bottom, `FAILED_PASS_CASES`. A pass with nobody in
+reach never reaches `apply_low_pass` at all -- `resolve_low_pass`
+handled it inline -- so it is a different entry point and a different
+follow-on, and it gets its own fixture shape rather than four unused
+fields on the one above.
 """
 
 from __future__ import annotations
@@ -76,6 +83,8 @@ GAME_ID = "g1"
 #: package under test -- see the note on the roster above.
 FINISH = "FINISH_MANEUVER_RESOLUTION"
 SCORING_CHOICE = "OFFER_SCORING_ATTEMPT_CHOICE"
+#: And the one a pass with nobody to receive it ends on instead.
+LOOSE_BALL = "BEGIN_LOOSE_BALL"
 
 
 @dataclass
@@ -105,12 +114,59 @@ class LowPassFixture:
     ball_speed: int = 0
 
 
+@dataclass
+class FailedPassFixture:
+    """
+    One match mid-pass with nobody in reach, and what resolving it
+    should produce.
+
+    A separate shape from `LowPassFixture` because it is a separate
+    entry point: the branch is reached through `resolve_low_pass`
+    rather than `apply_low_pass`, it names a different follow-on, and
+    no receiver is chosen for it. The fields it does share are spelled
+    the same way, so the two tables read alike.
+    """
+
+    game: D12BallGame
+    match: MatchState
+    key: str = "low_pass"
+    free: bool = False
+
+    #: The narration, as one string: what the old cog built inline and
+    #: handed `begin_loose_ball` as its `lead_in`.
+    narration: str = ""
+    #: False for every branch here, and deliberately: the loose ball
+    #: draws this same board under its own announcement, so a refresh
+    #: from the pass would be a second write of an identical board.
+    #: See "Discord's rate limits" in docs/design/rate-limits.md.
+    board_changed: bool = False
+    #: Which step runs next, by `FollowOnStep` member name.
+    follow_on: str = LOOSE_BALL
+    #: The arguments that step is called with, `lead_in` aside.
+    follow_on_kwargs: dict[str, Any] = field(
+        default_factory=lambda: {"distance_moved": 1},
+    )
+
+    #: What the match looks like afterwards. Nobody carries a loose
+    #: ball, so there is no carrier to name.
+    ball_space: Optional[tuple[Zone, int]] = None
+    ball_speed: int = 0
+
+
 @dataclass(frozen=True)
 class LowPassCase:
     """A fixture and the name it is reported under."""
 
     name: str
     build: Callable[[], LowPassFixture]
+
+
+@dataclass(frozen=True)
+class FailedPassCase:
+    """A failed-pass fixture and the name it is reported under."""
+
+    name: str
+    build: Callable[[], FailedPassFixture]
 
 
 def build_game(**overrides) -> D12BallGame:
@@ -174,6 +230,63 @@ def stand_at(
     )
     match.move_meeple(player_id, zone, space_index)
     return zone, space_index
+
+
+def stand_the_handler_at(
+    match: MatchState,
+    flat_index: int,
+    side: TeamSide = TeamSide.HOME,
+) -> str:
+    """
+    Put the dealt handler on a named space of the board with the ball,
+    and hand back who it is.
+
+    `take_the_ball` leaves them where the standard deal put them,
+    which is mid-field and in reach of most of their side; a pass with
+    nobody to receive it needs the handler somewhere specific, and the
+    space is named by flat index because what matters is the distance
+    to everyone else rather than the zone it falls in.
+    """
+    zone, space_index = match.board.position_at_flat_index(flat_index)
+    # Chosen off the side's own roster rather than through
+    # `eligible_ball_handlers`, which reads whoever is standing on the
+    # ball's *current* space -- and the whole point here is to move the
+    # ball somewhere nobody is.
+    team = match.home if side is TeamSide.HOME else match.visiting
+    handler = team.field_players[0]
+    match.move_meeple(handler, zone, space_index)
+    match.set_ball_space(zone, space_index)
+    match.ball.possession = side
+    match.select_ball_handler(handler)
+    return handler
+
+
+def park_the_rest(
+    match: MatchState,
+    flat_indices: list[int],
+    side: TeamSide = TeamSide.HOME,
+) -> None:
+    """
+    Walk every other player of `side` out to the given spaces, so the
+    handler has nobody in reach of a pass.
+
+    They stack: occupancy is coverage rather than a limit, so three
+    teammates on one space is a legal position and the shortest way to
+    empty the field around the ball -- see
+    docs/design/formations-and-occupancy.md.
+    """
+    others = [
+        player_id
+        for player_id in (
+            match.home if side is TeamSide.HOME else match.visiting
+        ).field_players
+        if player_id != match.active_player_id
+    ]
+    for index, player_id in enumerate(others):
+        zone, space_index = match.board.position_at_flat_index(
+            flat_indices[index % len(flat_indices)]
+        )
+        match.move_meeple(player_id, zone, space_index)
 
 
 # -- The ordinary pass -------------------------------------------------
@@ -439,6 +552,146 @@ def double_team_cost() -> LowPassFixture:
     )
 
 
+def contested_in_a_basic_game() -> LowPassFixture:
+    """
+    The same pass with a defender having actually played a card
+    against it. Nothing about the resolution reads the contest -- the
+    cost is the *loser's* card and a basic one owes none -- and that
+    is what is pinned: a contested basic pass says exactly what an
+    unchallenged one says.
+    """
+    match = build_match()
+    take_the_ball(match)
+    match.ball.speed = 1
+    challenger = min(match.visiting.field_players, key=match.distance_to_ball)
+    match.choose_challenger(challenger)
+    match.choose_offense_maneuver("low_pass")
+    match.choose_defense_maneuver("pressure")
+    receiver = fielded(match, PlayerRole.WINGER)
+    stand_at(match, receiver, 2)
+    return LowPassFixture(
+        game=build_game(),
+        match=match,
+        distance=2,
+        receiver_id=receiver,
+        narration=(
+            "**Low Pass:** the ball moves 2 spaces forward. "
+            "Ball speed is now 2."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=receiver,
+        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_speed=2,
+    )
+
+
+# -- The same branches, played as a Skilled Pass -----------------------
+
+
+def skilled_pass_shared_space() -> LowPassFixture:
+    """
+    Skilled Pass across a shared space. The reach the card buys is no
+    help at distance 0, so what changes from `shared_space` is the
+    banner and the +3 -- the passer still steps forward and the ball
+    still does not travel.
+    """
+    match = build_match()
+    handler = take_the_ball(match)
+    match.ball.speed = 4
+    receiver = fielded(match, PlayerRole.MIDFIELDER)
+    stand_at(match, receiver, 0)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=0,
+        receiver_id=receiver,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** the ball goes to a teammate in the same "
+            f"space, and {label(match, handler)} moves a space forward. "
+            "Ball speed is now 7."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=receiver,
+        ball_space=(Zone.MIDFIELD, 1),
+        ball_speed=7,
+    )
+
+
+def skilled_pass_winger_set_up() -> LowPassFixture:
+    """
+    A Winger's set-up off a Skilled Pass -- the one branch that ends
+    somewhere other than `finish_maneuver_resolution`, reached with
+    the other key. The ability is the passer's role and the shot is
+    the receiver's, neither of which the card changes.
+    """
+    match = build_match()
+    winger = fielded(match, PlayerRole.WINGER)
+    zone, space_index = match.board.meeple_position(winger)
+    match.set_ball_space(zone, space_index)
+    match.ball.possession = TeamSide.HOME
+    match.select_ball_handler(winger)
+    match.ball.speed = 1
+    receiver = fielded(match, PlayerRole.STRIKER)
+    stand_at(match, receiver, 1)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=1,
+        receiver_id=receiver,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** the ball moves 1 space forward. "
+            "Ball speed is now 4. "
+            f"{label(match, winger)}'s Winger ability can turn this "
+            "into a scoring opportunity!"
+        ),
+        follow_on=SCORING_CHOICE,
+        follow_on_kwargs={"distance_moved": 1, "shooter_id": receiver},
+        carrier_id=receiver,
+        ball_space=(Zone.VISITORS_GOAL, 1),
+        ball_speed=4,
+    )
+
+
+def skilled_pass_beats_double_team() -> LowPassFixture:
+    """
+    **Double Team's cost** charged inside a Skilled Pass rather than a
+    Low Pass. The cost is the beaten card's, so it is read off the
+    loser and not off the winner -- which is the thing worth pinning
+    on the second key, since `advanced_cost` is asked with the
+    winner's.
+    """
+    match = build_match()
+    take_the_ball(match)
+    match.ball.speed = 1
+    challenger = min(match.visiting.field_players, key=match.distance_to_ball)
+    match.choose_challenger(challenger)
+    match.choose_offense_maneuver("skilled_pass")
+    match.choose_defense_maneuver("double_team")
+    partner = ENGINE.double_team_partner(match)
+    receiver = fielded(match, PlayerRole.WINGER)
+    stand_at(match, receiver, 2)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=2,
+        receiver_id=receiver,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** the ball moves 2 spaces forward. "
+            "Ball speed is now 4."
+            "\n\n**Double Team** was beaten -- "
+            f"{label(match, challenger)} and {label(match, partner)} "
+            "are each shoved a space forward, away from their own goal."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=receiver,
+        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_speed=4,
+    )
+
+
 LOW_PASS_CASES: tuple[LowPassCase, ...] = (
     LowPassCase("plain_forward", plain_forward),
     LowPassCase("backward_pass", backward_pass),
@@ -451,4 +704,138 @@ LOW_PASS_CASES: tuple[LowPassCase, ...] = (
     ),
     LowPassCase("skilled_pass", skilled_pass),
     LowPassCase("double_team_cost", double_team_cost),
+    LowPassCase("contested_in_a_basic_game", contested_in_a_basic_game),
+    LowPassCase("skilled_pass_shared_space", skilled_pass_shared_space),
+    LowPassCase("skilled_pass_winger_set_up", skilled_pass_winger_set_up),
+    LowPassCase(
+        "skilled_pass_beats_double_team", skilled_pass_beats_double_team,
+    ),
+)
+
+
+# -- The pass with nobody to receive it ---------------------------------
+
+
+def low_pass_with_no_receiver() -> FailedPassFixture:
+    """
+    A handler with no teammate within two spaces has won the maneuver
+    and has nowhere to put the ball. The ball goes a space forward and
+    is loose, and its speed still rises -- the bonus does not depend
+    on the pass finding anyone (2026-08-07).
+
+    The board is not redrawn here: the loose ball draws the same board
+    under its own announcement.
+    """
+    match = build_match()
+    stand_the_handler_at(match, 3)
+    park_the_rest(match, [0, 6])
+    match.ball.speed = 1
+    return FailedPassFixture(
+        game=build_game(),
+        match=match,
+        narration=(
+            "**Low Pass:** there is no teammate within two spaces to "
+            "receive it, and a pass can't be played to the passer -- "
+            "the ball rolls a space forward. Ball speed is now 2."
+        ),
+        ball_space=(Zone.MIDFIELD, 2),
+        ball_speed=2,
+    )
+
+
+def skilled_pass_with_no_receiver() -> FailedPassFixture:
+    """
+    The same branch on the other key, and the one place the two cards
+    are worded differently: Skilled Pass reaches any teammate within
+    `SKILLED_PASS_REACH`, so a Skilled Pass that finds nobody has
+    nobody on the field to find rather than nobody within two spaces.
+    The speed bonus is still the card's own +3.
+    """
+    match = build_match()
+    stand_the_handler_at(match, 0)
+    park_the_rest(match, [4, 5, 6])
+    match.ball.speed = 4
+    return FailedPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** there is nobody on the field to receive "
+            "it, and a pass can't be played to the passer -- the ball "
+            "rolls a space forward. Ball speed is now 7."
+        ),
+        ball_space=(Zone.HOME_GOAL, 1),
+        ball_speed=7,
+    )
+
+
+def no_receiver_at_the_far_end() -> FailedPassFixture:
+    """
+    The same branch with nowhere for the ball to roll: the handler is
+    already on the last space of the field they attack, so the ball is
+    loose where it is standing. The speed still rises, and it is
+    capped at 12 like every speed change -- which is what the 12 here
+    pins.
+    """
+    match = build_match()
+    stand_the_handler_at(match, 6)
+    park_the_rest(match, [0, 1, 2])
+    match.ball.speed = 12
+    return FailedPassFixture(
+        game=build_game(),
+        match=match,
+        narration=(
+            "**Low Pass:** there is no teammate within two spaces to "
+            "receive it, and a pass can't be played to the passer -- "
+            "the ball stays where it is. Ball speed is now 12."
+        ),
+        ball_space=(Zone.VISITORS_GOAL, 1),
+        ball_speed=12,
+    )
+
+
+def free_pass_with_no_receiver() -> FailedPassFixture:
+    """
+    The unopposed pass **Skilled Pass's cost** hands the defense,
+    played with nobody in reach.
+
+    **This branch does not read `free` at all**, and the fixture
+    records that rather than correcting it: the clock is charged a
+    space minute where a completed free pass charges none, and the
+    continuation that produced it is left standing where applying a
+    free pass spends it. Both are questions for the author, raised in
+    the pull request and not answered here -- see `low_pass_step`,
+    which does read it.
+    """
+    match = build_match()
+    passer = stand_the_handler_at(match, 3, TeamSide.VISITING)
+    park_the_rest(match, [0, 6], TeamSide.VISITING)
+    match.ball.speed = 1
+    match.pending_effect_continuation = {
+        "kind": "free_low_pass",
+        "player_id": passer,
+    }
+    return FailedPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        free=True,
+        narration=(
+            "**Low Pass:** there is no teammate within two spaces to "
+            "receive it, and a pass can't be played to the passer -- "
+            "the ball rolls a space forward. Ball speed is now 2."
+        ),
+        # The visitors attack from high flat indices to low, so a space
+        # forward from midfield 1 is midfield 0.
+        ball_space=(Zone.MIDFIELD, 0),
+        ball_speed=2,
+    )
+
+
+FAILED_PASS_CASES: tuple[FailedPassCase, ...] = (
+    FailedPassCase("low_pass_with_no_receiver", low_pass_with_no_receiver),
+    FailedPassCase(
+        "skilled_pass_with_no_receiver", skilled_pass_with_no_receiver,
+    ),
+    FailedPassCase("no_receiver_at_the_far_end", no_receiver_at_the_far_end),
+    FailedPassCase("free_pass_with_no_receiver", free_pass_with_no_receiver),
 )
