@@ -32,6 +32,7 @@ from d12ball.components import (
     PlayerDefinition,
     PlayerRole,
     SETUP_PASS_CLOCK_COST,
+    SPECIES_TELEKINETIC,
     TeamSide,
 )
 from d12ball.game import (
@@ -52,6 +53,7 @@ from cogs.d12ball_helpers import (
     format_goal_time,
     format_player_with_team,
     format_team_side_label,
+    get_species_ability_emoji,
     send_new_prompt,
 )
 from cogs.d12ball_views import (
@@ -1310,11 +1312,14 @@ class ManeuverEffectsMixin:
                 continue
 
             player = self.engine.get_player_definition(player_id)
+            smooth_emoji = get_species_ability_emoji(
+                self.species_ability_emojis, SPECIES_TELEKINETIC,
+            )
             await send_new_prompt(
                 interaction,
-                f"🔮 **Smooth** — the ball runs through "
+                f"{smooth_emoji} **Smooth** — the ball runs through "
                 f"{self.player_label(match, player)}, who may take it "
-                "over: no roll, no token.",
+                "over.",
                 view=SmoothView(self, game.game_id, player_id),
             )
             return
@@ -1377,9 +1382,13 @@ class ManeuverEffectsMixin:
         # the end -- so drawing it now would be a second write to the
         # same five-in-five bucket for one click. See
         # docs/design/rate-limits.md.
+        smooth_emoji = get_species_ability_emoji(
+            self.species_ability_emojis, SPECIES_TELEKINETIC,
+        )
         lead_in = (
-            f"🔮 **Smooth** — {self.player_label(match, player)} takes "
-            f"the ball over on {ball_location_line(match)}."
+            f"{smooth_emoji} **Smooth** — "
+            f"{self.player_label(match, player)} takes the ball over on "
+            f"{ball_location_line(match)}."
         )
 
         # **A turnover-driven arrival is the exception**, and the only
@@ -1516,9 +1525,12 @@ class ManeuverEffectsMixin:
                 continue
 
             player = self.engine.get_player_definition(player_id)
+            mind_pull_emoji = get_species_ability_emoji(
+                self.species_ability_emojis, SPECIES_TELEKINETIC,
+            )
             await send_new_prompt(
                 interaction,
-                f"🔮 **Mind Pull** — the ball crossed "
+                f"{mind_pull_emoji} **Mind Pull** — the ball crossed "
                 f"{self.player_label(match, player)}, who may reach out "
                 f"for it: {MIND_PULL_TOKEN_COST} exhaustion token and a "
                 f"d12, pulling it in on a "
@@ -1697,9 +1709,13 @@ class ManeuverEffectsMixin:
             interaction, match, (player_id, ignite),
         )
 
+        mind_pull_emoji = get_species_ability_emoji(
+            self.species_ability_emojis, SPECIES_TELEKINETIC,
+        )
         note = "\n".join(filter(None, (
-            f"🔮 **Mind Pull** — {self.player_label(match, player)} "
-            f"reaches for the ball{ignite_note}.",
+            f"{mind_pull_emoji} **Mind Pull** — "
+            f"{self.player_label(match, player)} reaches for the "
+            f"ball{ignite_note}.",
             exhaustion_text,
         )))
 

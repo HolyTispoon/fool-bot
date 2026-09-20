@@ -77,7 +77,6 @@ from d12ball.components import (
     zone_for_area,
 )
 from d12ball.formatting import (
-    TEAM_EMOJI_FALLBACKS,
     ball_space_label,
     contest_noun,
     destination_display_name,
@@ -296,6 +295,16 @@ class RulesEngine:
         # cogs/d12ball_helpers.py beside `load_condition_emojis`, which
         # is the half that needs discord.py.
         self.condition_emojis: dict[str, str] = {}
+        # `"telekinetic" -> "<:telekinetic_color:id>"`, each species'
+        # own ink icon in colour, the emoji an ability's own banner is
+        # flagged with. Its readers today are Mind Pull's and Smooth's
+        # banners in cogs/d12ball/effects.py, which could have read a
+        # cog attribute -- it is here with the other three so there is
+        # one dict rather than two that can disagree about which
+        # upload exists, and so the wording still has it once those
+        # steps lift into d12ball/flow/. `D12Ball.species_ability_
+        # emojis` is a property over this one dict.
+        self.species_ability_emojis: dict[str, str] = {}
 
     def apply_exhaustion(
         self,

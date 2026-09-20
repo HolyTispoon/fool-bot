@@ -21,7 +21,16 @@ with their team emoji, so the fallbacks and the lookup live here.
 
 from typing import Optional
 
-from d12ball.components import GoalRecord, MatchState, PlayerRole, Zone
+from d12ball.components import (
+    GoalRecord,
+    MatchState,
+    PlayerRole,
+    SPECIES_CYBORG,
+    SPECIES_FIRE_DEMON,
+    SPECIES_OOZE,
+    SPECIES_TELEKINETIC,
+    Zone,
+)
 from d12ball.game import AIOpponent, D12BallGame, Team, team_display_name
 
 
@@ -117,6 +126,29 @@ def get_drained_emoji(condition_emojis: dict[str, str]) -> str:
 
 def get_damaged_emoji(condition_emojis: dict[str, str]) -> str:
     return condition_emojis.get("damaged", DAMAGED_EMOJI_FALLBACK)
+
+
+# What a species ability is drawn as before its application emoji has
+# been fetched, or when the upload is missing -- the same team badge
+# that species' own fallback above uses, so a coach who has never seen
+# the real upload still reads the ability as belonging to that team's
+# species. The uploaded emoji (the species' own ink icon, in colour)
+# are looked up by name in cogs/d12ball_helpers.py's
+# load_species_ability_emojis; this is the half that needs no Discord.
+SPECIES_ABILITY_EMOJI_FALLBACKS = {
+    SPECIES_FIRE_DEMON: TEAM_EMOJI_FALLBACKS[Team.FIRE_DEMONS],
+    SPECIES_CYBORG: TEAM_EMOJI_FALLBACKS[Team.CYBORGS],
+    SPECIES_TELEKINETIC: TEAM_EMOJI_FALLBACKS[Team.TELEKINETICS],
+    SPECIES_OOZE: TEAM_EMOJI_FALLBACKS[Team.OOZES],
+}
+
+
+def get_species_ability_emoji(
+    species_ability_emojis: dict[str, str], species: str,
+) -> str:
+    return species_ability_emojis.get(
+        species, SPECIES_ABILITY_EMOJI_FALLBACKS[species],
+    )
 
 
 def contest_noun(match: MatchState) -> str:

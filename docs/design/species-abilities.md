@@ -807,3 +807,52 @@ Telekinetics the way `continue_mind_pull` skips them, rather than
 Taking the ball over moves who plays the next turn, which is a judgement, and
 Dinky makes none -- the same call as never ceding, never declining a challenge
 and never pulling. In a solo game the ability is the human's alone.
+
+### Application emoji for the four abilities (2026-09-20)
+
+Each species' own ink icon, uploaded to the application in colour under the
+name its file already carries (`telekinetic_color`, `cyborg_color`,
+`fire_demon_color`, `ooze_color`, from `d12ball/images/species/`), is looked
+up the same way the team, role and condition emoji are:
+`load_species_ability_emojis` in `cogs/d12ball_helpers.py` fetches it once in
+`cog_load` off the one `fetch_application_emojis` call the others share, and
+`get_species_ability_emoji(species_ability_emojis, species)` in
+`d12ball/formatting.py` answers the lookup, falling back to that species' own
+team badge (`TEAM_EMOJI_FALLBACKS`) until an upload exists.
+
+**It is an ability's banner that gets one, not a player.** A player is already
+named with their team emoji and role badge (see
+[naming-and-wording.md](naming-and-wording.md)); this is the mark at the head
+of the line that says *which ability just fired* -- Mind Pull's offer and its
+resolution, and Smooth's offer and its take-over, four lines in
+`cogs/d12ball/effects.py` that each opened with a bare 🔮 literal before this
+landed. 🔮 was `TEAM_EMOJI_FALLBACKS[Team.TELEKINETICS]` spelled out by hand,
+so a coach with the uploads in place still read the crystal ball where every
+other mention of a Telekinetic had become the spiral.
+
+- **The dict lives on the engine, not the cog**, beside `team_emojis`,
+  `role_emojis` and `condition_emojis`. Its readers today are all cog-side and
+  could have read a plain cog attribute; it is here so there is one dict
+  rather than two that can disagree about which upload exists, and so the
+  wording keeps it when Mind Pull's and Smooth's narration lifts into
+  `d12ball/flow/`. `condition_emojis` is already there because
+  `describe_exhaustion_gain` words a charge model-side and cannot ask a cog;
+  these two banners are the next lines in that queue.
+  `D12Ball.species_ability_emojis` is a property over
+  `self.engine.species_ability_emojis`, exactly mirroring the other three.
+- **This is still a plain `dict[str, str]`, not a discord.py object.**
+  `RulesEngine` holding it is no different from it already holding
+  `team_emojis`: what the engine may not do is fetch one, only read a dict a
+  cog handed it.
+- **The fallback is per species, not one shared default**, so an application
+  with three of the four uploaded draws the fourth as its own team badge
+  rather than as one anonymous mark. Nothing fails when an upload is missing
+  -- `fetch_application_emojis` already swallows its errors, because the
+  emoji are decoration.
+- **Volatile's own banners still spell 🔥 by hand**, at five sites across
+  `d12ball/engine.py` and `cogs/d12ball_views/rolls.py`. Two of those are
+  `IgniteResult.explain`, a dataclass method with no engine to read the dict
+  off, so wiring them is a change to its signature and its callers rather
+  than a lookup swapped for a literal -- kept apart from the Telekinetic
+  swap deliberately. Overdrive's ⚡ is not the same case: it is a mark chosen
+  for that ability, not a team badge standing in for a missing upload.

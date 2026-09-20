@@ -20,6 +20,10 @@ from d12ball.components import (
     PlayerCatalog,
     PlayerDefinition,
     PlayerRole,
+    SPECIES_CYBORG,
+    SPECIES_FIRE_DEMON,
+    SPECIES_OOZE,
+    SPECIES_TELEKINETIC,
     Zone,
 )
 from d12ball.formatting import (
@@ -47,6 +51,7 @@ from d12ball.formatting import (
     get_exhaust_emoji,
     get_exhausted_emoji,
     get_injured_emoji,
+    get_species_ability_emoji,
     get_team_emoji,
     player_with_role,
     space_label,
@@ -224,6 +229,26 @@ CONDITION_EMOJI_NAMES = {
 }
 
 
+# The four species-ability icons -- the species' own ink icon in
+# colour, uploaded from images/species/*_color.png under the same name
+# as the file -- are uploaded to the application the same way as the
+# emoji above and looked up by name via load_species_ability_emojis
+# below. SPECIES_ABILITY_EMOJI_FALLBACKS and get_species_ability_emoji
+# are imported above from d12ball.formatting, which is where the
+# fallback lives so a model-side line may word one too.
+FIRE_DEMON_ABILITY_EMOJI_NAME = "fire_demon_color"
+CYBORG_ABILITY_EMOJI_NAME = "cyborg_color"
+TELEKINETIC_ABILITY_EMOJI_NAME = "telekinetic_color"
+OOZE_ABILITY_EMOJI_NAME = "ooze_color"
+
+SPECIES_ABILITY_EMOJI_NAMES = {
+    SPECIES_FIRE_DEMON: FIRE_DEMON_ABILITY_EMOJI_NAME,
+    SPECIES_CYBORG: CYBORG_ABILITY_EMOJI_NAME,
+    SPECIES_TELEKINETIC: TELEKINETIC_ABILITY_EMOJI_NAME,
+    SPECIES_OOZE: OOZE_ABILITY_EMOJI_NAME,
+}
+
+
 async def fetch_application_emojis(
     bot: commands.Bot,
 ) -> Optional[dict[str, discord.Emoji]]:
@@ -338,6 +363,41 @@ async def load_team_emojis(
         )
 
     return team_emojis
+
+
+async def load_species_ability_emojis(
+    bot: commands.Bot,
+    emojis_by_name: Optional[dict[str, discord.Emoji]] = None,
+) -> dict[str, str]:
+    """
+    Look up the four species-ability icons among the application's
+    emoji, the same way load_team_emojis does.
+
+    `emojis_by_name` is an already-fetched list -- see
+    fetch_application_emojis.
+    """
+    if emojis_by_name is None:
+        emojis_by_name = await fetch_application_emojis(bot) or {}
+
+    species_ability_emojis: dict[str, str] = {}
+    missing: list[str] = []
+
+    for species, name in SPECIES_ABILITY_EMOJI_NAMES.items():
+        emoji = emojis_by_name.get(name)
+
+        if emoji is None:
+            missing.append(name)
+        else:
+            species_ability_emojis[species] = str(emoji)
+
+    if missing:
+        LOGGER.info(
+            "This application has no species-ability emoji named %s; "
+            "those abilities will show their plain emoji instead.",
+            ", ".join(missing),
+        )
+
+    return species_ability_emojis
 
 
 async def load_role_emojis(
