@@ -77,6 +77,7 @@ from d12ball.components import (
     zone_for_area,
 )
 from d12ball.formatting import (
+    TEAM_EMOJI_FALLBACKS,
     ball_space_label,
     contest_noun,
     destination_display_name,
@@ -2816,7 +2817,8 @@ class RulesEngine:
                 return (
                     f"{controller}, it is your turn.\n\n"
                     f"{carrier_name} has the ball, but {slip_in_names} "
-                    "may slip in! Who should handle the ball?"
+                    f"may slip in! {TEAM_EMOJI_FALLBACKS[Team.OOZES]} Who "
+                    "should handle the ball?"
                 )
             return (
                 f"{controller}, it is your turn.\n\n"

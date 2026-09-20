@@ -405,8 +405,12 @@ resolution named one, and Slimey is the rule that keeps the Oozes in it.
   named yet) and for a carrier standing there with an Ooze beside them. It
   now checks `carrier_id in candidates` (true only when Slimey is what
   widened the list) and says "{carrier} has the ball, but {Ooze(s)} may
-  slip in! Who should handle the ball?" instead, so a coach reads who
+  slip in! 🫧 Who should handle the ball?" instead, so a coach reads who
   already has it before being asked whether to hand it off (2026-09-19).
+  The bubble is `TEAM_EMOJI_FALLBACKS[Team.OOZES]`, the same one already
+  drawn for the Oozes team -- there is no ability emoji of its own, and
+  reusing the species' own mark flags what just fired without inventing
+  a second symbol for the same species.
 - **"Of the same side" is `eligible_ball_handlers`' own answer**, which is what
   makes this safe on a space both sides are standing on -- that helper is
   already "everyone of the possessing team on the ball", so an opponent's Ooze
