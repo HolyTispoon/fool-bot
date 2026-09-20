@@ -26,6 +26,7 @@ from d12ball.components import (
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.game import D12BallGame, team_display_name
+from d12ball.flow.maneuver import challenger_walk_in_note
 from d12ball import tutorial
 from d12ball.render import (
     TEAM_COLORS,
@@ -173,15 +174,14 @@ class PresentationMixin:
         Like every other exhaustion message this tests the Exhausted
         threshold as it writes it, so it has to be built before `match`
         is saved -- see apply_exhaustion.
-        """
-        if distance <= 0:
-            return ""
 
-        defender = self.engine.get_player_definition(defender_id)
-        space_word = "space" if distance == 1 else "spaces"
-        return (
-            f"{defender.name} has moved {distance} {space_word}."
-            f"\n{self.describe_exhaustion_gain(game, match, defender_id, distance)}"
+        The wording is `d12ball.flow.maneuver.challenger_walk_in_note`'s
+        since Phase 4, so the cog's own challenger pick and the view's
+        cannot come to word one walk-in differently. This forwards, so
+        neither call site moved.
+        """
+        return challenger_walk_in_note(
+            self.engine, game, match, defender_id, distance,
         )
 
 
@@ -341,18 +341,24 @@ class PresentationMixin:
         interaction: discord.Interaction,
         match: MatchState,
         defender_id: str,
-        walk_in_text: str,
+        lead_in: str = "",
     ) -> None:
         """
         Post the matchup image, with the challenger's walk-in above it
         rather than below: the image is meant to sit directly on top of
         the maneuver prompt, which is the message a coach is reading it
         for.
+
+        `lead_in` is that walk-in. It used to arrive as
+        `walk_in_text`, built by the cog a line before the call; since
+        Phase 4 it is `challenger_step`'s narration and reaches here
+        through `dispatch_step_result`, which is what every other
+        lifted step's lines do.
         """
-        if walk_in_text:
+        if lead_in:
             await send_new_prompt(
                 interaction,
-                walk_in_text,
+                lead_in,
                 allowed_mentions=discord.AllowedMentions(
                     users=False, roles=False, everyone=False,
                 ),

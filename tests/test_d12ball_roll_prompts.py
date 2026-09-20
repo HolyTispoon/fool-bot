@@ -14,6 +14,7 @@ underneath it. See `begin_own_goal_roll` and `begin_injury_tests` in
 cogs/d12ball.py.
 """
 
+import inspect
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -37,6 +38,25 @@ from d12ball.components import (
 from d12ball.game import D12BallGame, GameStatus, Team
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
+
+def effect_winner_key(cog) -> str:
+    """
+    The `winner_key` a recorded `begin_effect_resolution` was called
+    with, read through the real method's signature rather than off
+    `call.args`.
+
+    Since Phase 4 of docs/model-discord-split.md `resolve_maneuver`
+    reaches it as a `FollowOn`, and `dispatch_step_result` passes a
+    follow-on's arguments **by keyword** -- so an argument the cog
+    used to hand over positionally now arrives named. Binding the call
+    to the signature answers for both shapes: fix the assertion, not
+    the call.
+    """
+    return inspect.signature(D12Ball.begin_effect_resolution).bind(
+        None,
+        *cog.begin_effect_resolution.await_args.args,
+        **cog.begin_effect_resolution.await_args.kwargs,
+    ).arguments["winner_key"]
 
 def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
@@ -321,7 +341,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
 
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "low_pass",
+            effect_winner_key(cog), "low_pass",
         )
         saved = cog.engine.load_match_state(game)
         self.assertEqual(saved.pending_injury_tests, [])

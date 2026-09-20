@@ -34,10 +34,13 @@ step and before dispatching whatever comes next -- see
 
 from __future__ import annotations
 
+import random
+from dataclasses import dataclass
 from typing import Optional
 
 from d12ball.components import (
     BALL_SPEED_MAX,
+    EVENT_OWN_GOAL_ROLL,
     MatchState,
     PlayerDefinition,
     PlayerRole,
@@ -1652,4 +1655,91 @@ def setup_pass_out_step(match: MatchState) -> StepResult:
                 "distance_moved": SETUP_PASS_CLOCK_COST,
             },
         ),
+    )
+
+
+@dataclass(frozen=True)
+class OwnGoalRoll:
+    """
+    What an own-goal roll turned out to be, before anything is drawn
+    or said about it.
+
+    A record rather than a `StepResult` for `apply_own_goal_outcome`'s
+    reason: the roll is a coach's dice and a dice image, and the two
+    messages it becomes are shaped around that image. What is a rule
+    is the arithmetic, the token and the event -- and that is all of
+    this.
+    """
+
+    rolls: tuple[int, int]
+    offense_skill: int
+    ignite: object
+    overdrive: int
+    safe: bool
+    exhaustion_text: str
+    distance_moved: int
+
+
+def roll_own_goal(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> OwnGoalRoll:
+    """
+    The roll itself, off the button the own-goal prompt posted: 2d12
+    at an advantage (take the higher), plus the ball-handler's
+    offensive skill, safe on 7+.
+
+    Making the attempt costs the rolling player 1 exhaust token, win
+    or lose, on top of whatever the maneuver that triggered the risk
+    already charged. It is not a skill test, so it owes no injury
+    check.
+    """
+    distance_moved = match.pending_own_goal_distance
+    match.pending_own_goal = False
+
+    offense_player = engine.get_player_definition(match.active_player_id)
+    offense_skill = engine.player_catalog.effective_profile(
+        offense_player,
+    ).offense
+
+    rolls = (random.randint(1, 12), random.randint(1, 12))
+    # Volatile reads the die that is **kept**, not both: an own goal is
+    # rolled at an advantage, and the rules name "the die kept in an
+    # own-goal roll".
+    ignite = engine.ignite(game, offense_player.player_id, max(rolls))
+    overdrive = match.overdrive_modifier(offense_player.player_id)
+    match.consume_overdrive()
+    safe = max(rolls) + offense_skill + ignite.modifier + overdrive >= 7
+
+    # Logged ahead of `apply_own_goal_outcome`, which is what concedes
+    # the goal, so the risk sits above the goal it sometimes produced.
+    # Both outcomes, for the reason the injury test logs both: the
+    # interesting number is how often a Pressure that risks an own goal
+    # actually costs one, and that needs the attempts as well as the
+    # concessions.
+    match.record_event(
+        EVENT_OWN_GOAL_ROLL,
+        side=match.ball.possession,
+        player_id=offense_player.player_id,
+        conceded=not safe,
+        rolls=list(rolls),
+        offense_skill=offense_skill,
+    )
+
+    # Charged before either branch saves the match, so the token and
+    # any Exhausted flag it sets are written out with the rest of the
+    # roll's outcome -- see `RulesEngine.apply_exhaustion`.
+    exhaustion_text = engine.apply_exhaustion(
+        game, match, offense_player.player_id, 1,
+    )
+
+    return OwnGoalRoll(
+        rolls=rolls,
+        offense_skill=offense_skill,
+        ignite=ignite,
+        overdrive=overdrive,
+        safe=safe,
+        exhaustion_text=exhaustion_text,
+        distance_moved=distance_moved,
     )

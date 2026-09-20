@@ -343,6 +343,28 @@ class RulesEngine:
         match.add_exhaustion(player_id, amount)
         return self.describe_exhaustion_gain(game, match, player_id, amount)
 
+    def injured_word_and_emoji(
+        self,
+        game: D12BallGame,
+        player_id: str,
+    ) -> tuple[str, str]:
+        """
+        "injured"/"damaged" and the matching emoji for `player_id` --
+        Damaged is a Cyborg's own word for Injured (see "Lithium
+        Powered" in docs/living-rules.md), asked the same way
+        `describe_exhaustion_gain` asks it for Exhausted/Drained.
+
+        Here rather than on the cog since Phase 4 of
+        docs/model-discord-split.md, for `describe_exhaustion_gain`'s
+        reason: a maneuver settled by an injury has to be able to say
+        so, narration is the model's, and a cog method cannot be
+        called from a flow step. `D12Ball` keeps a forwarding method,
+        so no call site moved.
+        """
+        if self.has_species_ability(game, player_id, SPECIES_CYBORG):
+            return "damaged", get_damaged_emoji(self.condition_emojis)
+        return "injured", get_injured_emoji(self.condition_emojis)
+
     def describe_exhaustion_gain(
         self,
         game: D12BallGame,

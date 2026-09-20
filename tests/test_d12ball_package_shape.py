@@ -243,6 +243,14 @@ class FollowOnStepTests(unittest.TestCase):
         "BEGIN_BALL_RECOVERY",
         "ASK_BALL_RECOVERY",
         "APPLY_BALL_RECOVERY",
+        "ANNOUNCE_MANEUVER_CHALLENGE",
+        "BEGIN_MANEUVER_ACTION_SELECTION",
+        "ASK_MANEUVER_ACTION",
+        "RESOLVE_MANEUVER",
+        "BEGIN_EFFECT_RESOLUTION",
+        "BEGIN_MANEUVER_SKILL_TEST",
+        "CONTINUE_INJURY_TESTS",
+        "DISPATCH_INJURY_RESUME",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(

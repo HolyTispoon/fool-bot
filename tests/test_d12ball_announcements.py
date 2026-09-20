@@ -147,7 +147,11 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
+        # **Both suppressions**, since Phase 4: a skill test that owes
+        # no injury tests now saves once through the cog's own
+        # `persist`, because the wrapper saves after the step rather
+        # than the step saving itself (principle 9).
+        with suppressed_cog_saves(), suppressed_view_saves(), mock.patch(
             "random.randint", side_effect=[12, 1],
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
             "discord.File",
@@ -325,13 +329,19 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves():
             await cog.resolve_maneuver(interaction, game, match)
 
-        announcement = sent_texts(interaction)[0]
+        # **Read off what the effect was handed**, not off the
+        # channel: since Phase 4 the reveal is `resolve_maneuver_step`'s
+        # narration and `begin_effect_resolution` -- mocked here -- is
+        # what posts it, on its own, a line before the effect's own
+        # message. Same two messages in the same order; one hop later
+        # in the code.
+        cog.begin_effect_resolution.assert_awaited_once()
+        announcement = cog.begin_effect_resolution.await_args.kwargs["lead_in"]
         self.assertIn(
             f"## **{cog.engine.maneuver_name(winner)}** wins!", announcement,
         )
         self.assertNotIn("resolves the effect", announcement)
         self.assertNotIn("<@", announcement)
-        cog.begin_effect_resolution.assert_awaited_once()
 
     # -- Score attempt -------------------------------------------------
 

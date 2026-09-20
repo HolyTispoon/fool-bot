@@ -22,6 +22,7 @@ pays nothing for it.
 `DeclinedChallengeTests` covers the decision itself.
 """
 
+import inspect
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -223,7 +224,14 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[-1],
+            # Read through the real signature: since Phase 4 the
+            # effect is reached as a `FollowOn`, whose arguments
+            # `dispatch_step_result` passes by keyword.
+            inspect.signature(D12Ball.begin_effect_resolution).bind(
+                None,
+                *cog.begin_effect_resolution.await_args.args,
+                **cog.begin_effect_resolution.await_args.kwargs,
+            ).arguments["winner_key"],
             "dribble_advance",
         )
 

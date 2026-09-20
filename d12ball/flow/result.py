@@ -161,6 +161,33 @@ class FollowOnStep(Enum):
     #: That pickup made for an AI side, which picks the nearest.
     #: Phase 4's.
     APPLY_BALL_RECOVERY = auto()
+    #: The matchup a challenge sets up, drawn, and then the maneuver
+    #: pick. Phase 4's: the announcement is a picture, which is the
+    #: frontend's.
+    ANNOUNCE_MANEUVER_CHALLENGE = auto()
+    #: Both sides pick their maneuver -- Dinky inline, a coach on a
+    #: prompt. Phase 4's.
+    BEGIN_MANEUVER_ACTION_SELECTION = auto()
+    #: That pick put to the coaches. Phase 4's, and a follow-on rather
+    #: than a `PendingPrompt` because the prompt carries the hand
+    #: image, the gambit-access paragraph, the full-image link and,
+    #: in a tutorial, a note held behind Continue -- all of it *how*
+    #: the question reaches somebody.
+    ASK_MANEUVER_ACTION = auto()
+    #: Both picks are in. Phase 4's.
+    RESOLVE_MANEUVER = auto()
+    #: A decisively-won maneuver, dispatched to its effect by key.
+    #: Phase 4's, and the one member that leads back into the twelve
+    #: cards Phase 3 already moved.
+    BEGIN_EFFECT_RESOLUTION = auto()
+    #: A maneuver the cards did not settle: both participants pay a
+    #: token and the roll goes behind a button. Phase 4's.
+    BEGIN_MANEUVER_SKILL_TEST = auto()
+    #: The next injury test a contest still owes. Phase 4's.
+    CONTINUE_INJURY_TESTS = auto()
+    #: What the contest that owed the injury tests was going to do.
+    #: Phase 4's; the dispatcher itself is Phase 5/6's.
+    DISPATCH_INJURY_RESUME = auto()
     #: The turnover that closes out last possession: the second half,
     #: or full time -- which on a level score means the shootout
     #: rather than the end of anything. Phase 4's; Phase 5 is where

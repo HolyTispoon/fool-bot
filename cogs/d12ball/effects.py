@@ -17,6 +17,7 @@ from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.flow import arrival
 from d12ball.flow.effects import (
     apply_own_goal_outcome,
+    roll_own_goal,
     deflection_step,
     dribble_advance_step,
     dribble_burst_step,
@@ -2393,57 +2394,23 @@ class ManeuverEffectsMixin:
         win or lose, on top of whatever the maneuver that triggered the
         risk already charged. It is not a skill test, so it owes no
         injury check.
+
+        **The arithmetic, the token and the event are
+        `d12ball.flow.effects.roll_own_goal`'s** since Phase 4; the
+        image and the two messages shaped around it are not.
         """
-        distance_moved = match.pending_own_goal_distance
-        match.pending_own_goal = False
-
-        offense_player = self.engine.get_player_definition(match.active_player_id)
-        offense_skill = self.player_catalog.effective_profile(
-            offense_player,
-        ).offense
-
-        rolls = (random.randint(1, 12), random.randint(1, 12))
-        # Volatile reads the die that is **kept**, not both: an own
-        # goal is rolled at an advantage, and the rules name "the die
-        # kept in an own-goal roll".
-        ignite = self.engine.ignite(
-            game, offense_player.player_id, max(rolls),
+        offense_player = self.engine.get_player_definition(
+            match.active_player_id,
         )
-        overdrive = match.overdrive_modifier(offense_player.player_id)
-        match.consume_overdrive()
-        safe = (
-            max(rolls) + offense_skill + ignite.modifier + overdrive >= 7
-        )
-
-        # Logged ahead of `apply_own_goal_outcome`, which is what
-        # concedes the goal, so the risk sits above the goal it
-        # sometimes produced. Both outcomes, for the reason the injury
-        # test logs both: the interesting number is how often a
-        # Pressure that risks an own goal actually costs one, and that
-        # needs the attempts as well as the concessions.
-        match.record_event(
-            EVENT_OWN_GOAL_ROLL,
-            side=match.ball.possession,
-            player_id=offense_player.player_id,
-            conceded=not safe,
-            rolls=list(rolls),
-            offense_skill=offense_skill,
-        )
-
-        # Charged before either branch saves the match, so the token
-        # and any Exhausted flag it sets are written out with the rest
-        # of the roll's outcome -- see apply_exhaustion.
-        exhaustion_text = self.apply_exhaustion(
-            game, match, offense_player.player_id, 1,
-        )
+        roll = roll_own_goal(self.engine, game, match)
 
         dice_file, breakdown = await self.own_goal_roll_message(
-            match, offense_player, rolls, offense_skill, safe, ignite,
-            overdrive,
+            match, offense_player, roll.rolls, roll.offense_skill,
+            roll.safe, roll.ignite, roll.overdrive,
         )
         verdict = apply_own_goal_outcome(
-            self.engine, match, offense_player, distance_moved, safe,
-            exhaustion_text,
+            self.engine, match, offense_player, roll.distance_moved,
+            roll.safe, roll.exhaustion_text,
         )
         # The step settled it; this writes it down, on both branches
         # and before anything is posted. The conceded branch used to
@@ -2467,7 +2434,7 @@ class ManeuverEffectsMixin:
         # its second die goes up between the roll and the verdict like
         # every other -- see post_volatile_ignition.
         await self.post_volatile_ignition(
-            interaction, match, (offense_player.player_id, ignite),
+            interaction, match, (offense_player.player_id, roll.ignite),
         )
         await send_new_prompt(interaction, verdict)
         await self.refresh_match_image(interaction, game)
@@ -2483,7 +2450,7 @@ class ManeuverEffectsMixin:
             interaction,
             game,
             match,
-            distance_moved=distance_moved,
+            distance_moved=roll.distance_moved,
             turnover_occurred=True,
             new_play=True,
         )

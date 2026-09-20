@@ -21,6 +21,7 @@ boundaries are what the middle three classes are for; each of them has
 been on the wrong side of this at least once.
 """
 
+import inspect
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -45,6 +46,25 @@ from d12ball.components import (
 from d12ball.game import D12BallGame, GameStatus, Team
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
+
+def effect_winner_key(cog) -> str:
+    """
+    The `winner_key` a recorded `begin_effect_resolution` was called
+    with, read through the real method's signature rather than off
+    `call.args`.
+
+    Since Phase 4 of docs/model-discord-split.md `resolve_maneuver`
+    reaches it as a `FollowOn`, and `dispatch_step_result` passes a
+    follow-on's arguments **by keyword** -- so an argument the cog
+    used to hand over positionally now arrives named. Binding the call
+    to the signature answers for both shapes: fix the assertion, not
+    the call.
+    """
+    return inspect.signature(D12Ball.begin_effect_resolution).bind(
+        None,
+        *cog.begin_effect_resolution.await_args.args,
+        **cog.begin_effect_resolution.await_args.kwargs,
+    ).arguments["winner_key"]
 
 def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
@@ -133,9 +153,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         await self.resolve(cog, game, match)
 
         cog.begin_effect_resolution.assert_awaited_once()
-        self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "low_pass",
-        )
+        self.assertEqual(effect_winner_key(cog), "low_pass")
 
     async def test_decisive_win_by_injured_player_forces_a_skill_test(
         self,
@@ -177,7 +195,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         # The healthy side (defense) wins outright, no skill test.
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "deflect",
+            effect_winner_key(cog), "deflect",
         )
 
     async def test_an_auto_loss_charges_neither_side_a_token(self) -> None:
@@ -223,9 +241,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         # Nobody to be disadvantaged against and no challenge to lose,
         # so the disadvantage has nothing to bite on.
         cog.begin_effect_resolution.assert_awaited_once()
-        self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "low_pass",
-        )
+        self.assertEqual(effect_winner_key(cog), "low_pass")
 
 
 class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
@@ -276,7 +292,11 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
             followup=SimpleNamespace(send=send),
         )
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
+        # **Both suppressions**, since Phase 4: a skill test that owes
+        # no injury tests now saves once through the cog's own
+        # `persist` -- the wrapper saves after the step rather than
+        # the step saving itself (principle 9).
+        with suppressed_cog_saves(), suppressed_view_saves(), mock.patch(
             "discord.File",
         ), mock.patch(
             "random.randint", return_value=7,
