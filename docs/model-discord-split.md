@@ -29,7 +29,7 @@ it happened to have.
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Done (PR #249) |
-| **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Done (PR #TBD) |
+| **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Done (PR #254) |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
 
 The Status column is the record of what has landed; a phase's PR updates
