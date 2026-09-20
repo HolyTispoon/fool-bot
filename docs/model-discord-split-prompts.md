@@ -14,7 +14,8 @@ Phase 1 on.
 Phase 0 has landed (PR #201), and so has Phase 1, in the two halves the
 worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
 PR #225), and so has Phase 2 (PR #227) -- so there are no prompts for any
-of them. Phase 3 is one template run six times.
+of them. Phase 3 is one template run six times, and **3a has landed
+(PR #229)**; the template stays until 3f does.
 
 ---
 
@@ -153,9 +154,9 @@ Do them in the order given; each assumes the previous has landed.
 
 | Run | RANK block |
 | --- | --- |
-| 3a | `Rank O2 -- Dribble Advance and Dribble Burst. Self-contained: moves the handler and ends; the speed choice is the only prompt. No hand-off to the spine beyond finish_maneuver_resolution.` |
+| 3a | **Landed (PR #229).** `Rank O2 -- Dribble Advance and Dribble Burst.` It handed off to `finish_maneuver_resolution` not at all: both cards end on `offer_speed_choice`, a new `FollowOnStep` member rather than a prompt the step returns. |
 | 3b | `Rank O1 -- Skilled Pass, and the shared key= parameter. Low Pass moved in Phase 2 and Skilled Pass already rides its step: d12ball/flow/effects.py's low_pass_step takes key= and cogs/d12ball/effects.py's apply_low_pass wrapper passes it through, so this rank may already be whole. Check resolve_skilled_pass and the free-pass continuation, add the fixtures and tests Phase 2 did not, and if nothing is left to move say so in the PR rather than inventing work.` |
-| 3c | `Rank D2 -- Steal and Intercept. A turnover, so this is the first hand-off to begin_run_back: the step's next is a FollowOn naming it; begin_run_back stays async in the cog. take_ball_by_steal saves itself today -- strip it and the wrapper persists.` |
+| 3c | `Rank D2 -- Steal and Intercept. A turnover, so this is the first hand-off to begin_run_back: the step's next is a FollowOn naming it; begin_run_back stays async in the cog. take_ball_by_steal saves itself today -- strip it and the wrapper persists. A steal that does not turn the ball over ends on the same offer_speed_choice the dribbles did, so OFFER_SPEED_CHOICE already exists: inherit it, do not add a second member for it.` |
 | 3d | `Rank D3 -- Pressure and Double Team. The own-goal branch (run_own_goal_roll stays in the cog; apply_own_goal_outcome saves itself today -- strip it and the wrapper persists) and pending_double_team reaching into the next turn. Read docs/design/possession-and-turnovers.md.` |
 | 3e | `Rank D1 -- Deflect and Clear. Calls begin_loose_ball directly rather than through finish_maneuver_resolution; knock_ball_back saves itself today -- strip it and the wrapper persists. Read docs/design/loose-balls.md.` |
 | 3f | `Rank O3 -- High Pass and Setup Pass. The hardest by a distance: the overshoot, the contest, out-of-bounds into begin_ball_recovery. throw_high_pass saves itself today -- strip it and the wrapper persists. Read docs/design/shooting.md and docs/design/loose-balls.md (the High Pass exemption).` |
@@ -195,18 +196,29 @@ post the narration as a message of its own** -- `dispatch_step_result` joins
 the lines and hands them to whatever `next` names as its `lead_in`, which is
 what keeps a resolved maneuver at one message and one board refresh.
 
-Where the effect hands off to spine machinery that is still the cog's
-(finish_maneuver_resolution, begin_run_back, begin_loose_ball,
-offer_scoring_attempt_choice, run_own_goal_roll, begin_ball_recovery), `next`
-is a `FollowOn` naming it -- the spine does not move in this phase, under
-any provocation. `FollowOnStep` is a closed enum in d12ball/flow/result.py
-and `D12Ball.follow_on_methods` is the table under it, so a spine step this
-rank is the first to hand off to needs a member in the one and a row in the
-other. A follow-on whose method does not take a `lead_in` is a case
+Where the effect hands off to machinery that is still the cog's
+(finish_maneuver_resolution, offer_speed_choice, begin_run_back,
+begin_loose_ball, offer_scoring_attempt_choice, run_own_goal_roll,
+begin_ball_recovery), `next` is a `FollowOn` naming it -- the spine does not
+move in this phase, under any provocation. `FollowOnStep` is a closed enum
+in d12ball/flow/result.py and `D12Ball.follow_on_methods` is the table under
+it, so a spine step this rank is the first to hand off to needs a member in
+the one, a row in the other, and its name in `FollowOnStepTests.EXPECTED` in
+tests/test_d12ball_package_shape.py, which is where the whole membership is
+asserted. **A step that ends somewhere a coach may or may not be asked is a
+follow-on, not a `PendingPrompt`**: 3a found that `offer_speed_choice`
+answers for Dinky itself and holds a tutorial beat's prompt behind a note,
+so returning the prompt from the model would have moved a decision the
+frontend still owns. A follow-on whose method does not take a `lead_in` is a case
 `dispatch_step_result` has not met yet; widen it there rather than posting
 around it. Advanced-mode cost and benefit (`advanced_cost`,
 `settled_maneuver_winner`) are engine questions already; the step asks them,
-it does not re-derive them.
+it does not re-derive them. **So is exhaustion**, since 3a:
+`RulesEngine.apply_exhaustion` and `describe_exhaustion_gain` live on the
+engine with `condition_emojis`, and the cog keeps a forwarding method for
+each -- a step that charges a token calls the engine and needs no cog. Such
+a step takes `game` as well as `match`, because the Exhausted threshold is
+the game record's.
 
 Before you move anything, pin the rank's wording. The golden transcript
 reaches only one card of this rank (the tutorial plays Dribble Advance, Low
@@ -224,6 +236,12 @@ tests/test_d12ball_low_pass_flow.py (the model) is the worked pair: one
 discord-free fixture table, read twice. Name the follow-on by `FollowOnStep`
 member name in the table, so the recording can be written before the step
 exists.
+
+Expect the persist rule to be a **fix** somewhere in the rank, not only a
+rule: 3a found `apply_dribble_advance` saving and *then* charging a beaten
+Clear, so those two tokens and the Exhausted flag they set never reached the
+file. Step-then-save fixes that with nothing decided; say so in the PR
+rather than passing over it.
 
 Tests, beyond that: the step does not save (under save_patches suppression);
 the wrapper saves between step and dispatch; `next` is right on every

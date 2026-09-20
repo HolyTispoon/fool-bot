@@ -83,6 +83,11 @@ from d12ball.formatting import (
     destination_display_name,
     format_player_with_team,
     format_team_side_label,
+    get_damaged_emoji,
+    get_drained_emoji,
+    get_exhaust_emoji,
+    get_exhausted_emoji,
+    get_injured_emoji,
     get_team_emoji,
     player_with_role,
     role_initials,
@@ -280,6 +285,125 @@ class RulesEngine:
         # fetch and a reference handed to the engine at construction
         # would go stale the moment that landed.
         self.team_emojis: dict[Team, str] = {}
+        # `"exhaust" -> "<:exhaust:id>"` and the four conditions beside
+        # it, the application emoji an exhaustion charge is written
+        # with (see `describe_exhaustion_gain` below). Here for the
+        # same reason as the two dicts above and arrived for the same
+        # one: `describe_exhaustion_gain` is narration, narration is
+        # the model's (principle 5 in CLAUDE.md), and it cannot ask a
+        # cog for the emoji. `D12Ball.condition_emojis` is a property
+        # over this one dict. The *names* these are fetched by stay in
+        # cogs/d12ball_helpers.py beside `load_condition_emojis`, which
+        # is the half that needs discord.py.
+        self.condition_emojis: dict[str, str] = {}
+
+    def apply_exhaustion(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+        amount: int,
+    ) -> str:
+        """
+        Charge `amount` exhaustion tokens, re-test Exhausted, and
+        describe both.
+
+        Charging and testing belong in one step. They used to be two:
+        callers added the tokens, saved the match, and only then built
+        the message that ran the threshold test -- so the flag the
+        test set was never written out. The next interaction reloaded
+        the saved state and saw a player over their defensive skill
+        who was not marked Exhausted, which cost a skill test the
+        injury check for anyone the test's own tokens pushed over.
+        Anything that charges exhaustion should call this and save
+        afterwards.
+
+        It takes the `game` because the threshold is not always the
+        player's defensive skill: a Cyborg's tokens are **drain** and
+        the line is a flat 7 -- see `exhaustion_threshold`. Nothing
+        else about charging a token differs by species, which is why
+        this stayed one method rather than growing a branch.
+
+        `D12Ball.apply_exhaustion` forwards to this so no call site
+        moved. It came down here with rank O2 of the model/Discord
+        split: a Dribble Burst charges a token a space and a beaten
+        Clear charges two, and a flow step that cannot word what it
+        charged would have to hand the sentence back to the cog to
+        write.
+        """
+        match.add_exhaustion(player_id, amount)
+        return self.describe_exhaustion_gain(game, match, player_id, amount)
+
+    def describe_exhaustion_gain(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+        amount: int,
+    ) -> str:
+        """
+        Text describing an exhaustion-token gain that has already been
+        applied to `match` — the running total, plus a line the moment
+        it pushes the player's token count past their own threshold.
+
+        Testing the threshold is a state change, so this has to be
+        called before `match` is saved -- prefer `apply_exhaustion`,
+        which keeps the two together, wherever the tokens are being
+        charged here rather than inside `MatchState`.
+        """
+        player = self.get_player_definition(player_id)
+        # A Cyborg's tokens are drain, and are called that everywhere a
+        # coach reads them -- the mechanic is the same and the word is
+        # the ability. See "Lithium Powered" in docs/living-rules.md.
+        drain = self.has_species_ability(game, player_id, SPECIES_CYBORG)
+        if player_id in match.injured:
+            if drain:
+                return (
+                    f"{self.format_player_label(match, player)} is damaged "
+                    f"{get_damaged_emoji(self.condition_emojis)} and gains "
+                    "no drain tokens."
+                )
+            return (
+                f"{self.format_player_label(match, player)} is injured "
+                f"{get_injured_emoji(self.condition_emojis)} and gains no "
+                "exhaustion tokens."
+            )
+        if amount <= 0:
+            # Nothing to say, and the silence is the answer (the
+            # author, 2026-08-27). Every move that costs a token says
+            # so right here, so a result carrying no exhaustion line
+            # already tells a coach none was charged -- where "no
+            # exhaustion cost" answered a question the message had not
+            # raised, and "free" left it to the coach to work out what
+            # was free about it. Callers join on what is there rather
+            # than interpolating, or the empty string shows as a blank
+            # line.
+            return ""
+
+        exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
+        total = match.exhaustion.get(player_id, 0)
+        token_word = "token" if amount == 1 else "tokens"
+        noun = "drain" if drain else "exhaustion"
+        text = (
+            f"{self.format_player_label(match, player)} gains {amount} "
+            f"{noun} {token_word} {exhaust_emoji * amount} (now {total} "
+            "total)."
+        )
+
+        if self.retest_exhausted(game, match, player_id):
+            if drain:
+                drained_emoji = get_drained_emoji(self.condition_emojis)
+                text += (
+                    f"\n{self.format_player_label(match, player)} is now "
+                    f"*drained* {drained_emoji}"
+                )
+            else:
+                exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
+                text += (
+                    f"\n{self.format_player_label(match, player)} is now "
+                    f"*exhausted* {exhausted_emoji}"
+                )
+        return text
 
     def advanced_maneuvers_apply(self, game: D12BallGame) -> bool:
         """

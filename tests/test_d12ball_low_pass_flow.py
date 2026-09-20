@@ -85,13 +85,19 @@ class LowPassStepTests(unittest.TestCase):
         self,
     ) -> None:
         """
-        `FollowOnStep` is the record of what the cog still dispatches,
-        so the members are asserted rather than only used -- Phase 6
-        reads the enum to learn what is left.
+        Low Pass ends on one of exactly these two, and both are real
+        members rather than strings this module happens to agree with
+        itself about.
+
+        The **whole** of `FollowOnStep` is asserted in
+        `tests/test_d12ball_package_shape.py`, not here: the enum is
+        the record of what the cog still dispatches and every rank of
+        Phase 3 adds to it, so a list of its members belongs
+        somewhere no one rank owns.
         """
-        self.assertEqual(
-            {member.name for member in FollowOnStep},
+        self.assertLessEqual(
             {FINISH, SCORING_CHOICE},
+            {member.name for member in FollowOnStep},
         )
 
     def test_a_free_pass_spends_its_continuation(self) -> None:

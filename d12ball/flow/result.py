@@ -49,6 +49,14 @@ class FollowOnStep(Enum):
     #: A set-up -- the offense is offered a scoring attempt instead of
     #: letting the maneuver resolve normally.
     OFFER_SCORING_ATTEMPT_CHOICE = auto()
+    #: The ball-speed manipulation a dribble (and a steal) ends on:
+    #: always the last human choice in an effect, and it leads into
+    #: `finish_maneuver_resolution` itself once answered. It is a
+    #: follow-on rather than a `PendingPrompt` because whether anyone
+    #: is asked at all is a decision the cog still owns -- Dinky
+    #: answers for itself, and a tutorial beat holds the prompt behind
+    #: a note.
+    OFFER_SPEED_CHOICE = auto()
 
 
 @dataclass(frozen=True)

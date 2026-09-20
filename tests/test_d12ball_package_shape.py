@@ -15,6 +15,8 @@ import unittest
 from pathlib import Path
 
 import cogs.d12ball_views as views
+from cogs.d12ball import D12Ball
+from d12ball.flow.result import FollowOnStep
 from save_patches import (
     LINKING_COG_MODULES,
     SAVING_COG_MODULES,
@@ -192,6 +194,46 @@ class CogPackageTests(unittest.TestCase):
             if base.__name__.endswith("Mixin")
         ]
         self.assertEqual(len(bases), len(self.MIXINS))
+
+
+class FollowOnStepTests(unittest.TestCase):
+    """
+    `FollowOnStep` is the record of what the cog still dispatches --
+    see `d12ball/flow/result.py` and principle 9's transition note in
+    CLAUDE.md. Phase 6 of docs/model-discord-split.md reads the enum
+    rather than six pull request descriptions to learn what is left,
+    so what is in it is asserted here rather than inside any one
+    rank's own tests.
+    """
+
+    #: Every spine step a lifted effect may end by naming, as of rank
+    #: O2. A rank that hands off to a new one adds its member here and
+    #: a row to `D12Ball.follow_on_methods`; Phase 6 empties both.
+    EXPECTED = {
+        "FINISH_MANEUVER_RESOLUTION",
+        "OFFER_SCORING_ATTEMPT_CHOICE",
+        "OFFER_SPEED_CHOICE",
+    }
+
+    def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(
+        self,
+    ) -> None:
+        self.assertEqual(
+            {member.name for member in FollowOnStep}, self.EXPECTED,
+        )
+
+    def test_the_cog_has_a_row_for_every_member(self) -> None:
+        """
+        A member with no row raises a `KeyError` inside a resolved
+        maneuver, one card at a time, so the table is asserted to
+        cover the enum exactly rather than merely to contain it.
+        """
+        cog = object.__new__(D12Ball)
+        for member in FollowOnStep:
+            setattr(cog, member.name.lower(), lambda *a, **k: None)
+        self.assertEqual(
+            set(D12Ball.follow_on_methods(cog)), set(FollowOnStep),
+        )
 
 
 class StraySaveGuardTests(unittest.TestCase):

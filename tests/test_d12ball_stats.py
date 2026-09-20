@@ -964,7 +964,6 @@ class RollsReachTheLogTests(unittest.IsolatedAsyncioTestCase):
     def build_cog(self) -> D12Ball:
         cog = build_cog()
         cog.team_emojis = {}
-        cog.condition_emojis = {}
         cog.refresh_match_image = mock.AsyncMock()
         cog.begin_run_back = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()

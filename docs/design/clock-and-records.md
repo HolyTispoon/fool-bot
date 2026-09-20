@@ -138,7 +138,7 @@ fact.
   the open turn's own event rather than writing one apiece: a game makes around
   a hundred of those calls, and what a statistic asks is what a maneuver cost,
   never in what order the tokens were handed out. Every path that charges
-  bottoms out there -- the cog's `apply_exhaustion`, the run back's own charge,
+  bottoms out there -- `RulesEngine.apply_exhaustion`, the run back's own charge,
   and the AI's -- which is why the attribution is at the model and not at those
   three. A charge between turns (a halftime recovery) belongs to no turn and is
   simply not attributed.

@@ -82,6 +82,43 @@ def get_team_emoji(team_emojis: dict[Team, str], team: Team) -> str:
     return team_emojis.get(team, TEAM_EMOJI_FALLBACKS[team])
 
 
+# The condition emoji a message shows when the application has no
+# upload of its own by that name -- the exhaustion token, the
+# Exhausted and Injured conditions, and a Cyborg's own words for the
+# last two (see "Lithium Powered" in docs/living-rules.md). The
+# *names* the uploads are looked up by stay in
+# cogs/d12ball_helpers.py beside `load_condition_emojis`, which is
+# what fetches them; a fallback and a `.get` are plain data over a
+# plain dict, and they live here for the same reason
+# `TEAM_EMOJI_FALLBACKS` does -- `RulesEngine.describe_exhaustion_gain`
+# words an exhaustion charge and cannot import from `cogs/`.
+EXHAUST_EMOJI_FALLBACK = "😮‍💨"
+EXHAUSTED_EMOJI_FALLBACK = "🥵"
+INJURED_EMOJI_FALLBACK = "🤕"
+DRAINED_EMOJI_FALLBACK = "🪫"
+DAMAGED_EMOJI_FALLBACK = "💥"
+
+
+def get_exhaust_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("exhaust", EXHAUST_EMOJI_FALLBACK)
+
+
+def get_exhausted_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("exhausted", EXHAUSTED_EMOJI_FALLBACK)
+
+
+def get_injured_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("injured", INJURED_EMOJI_FALLBACK)
+
+
+def get_drained_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("drained", DRAINED_EMOJI_FALLBACK)
+
+
+def get_damaged_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("damaged", DAMAGED_EMOJI_FALLBACK)
+
+
 def contest_noun(match: MatchState) -> str:
     """
     What to call the ball currently being fought over -- "high pass",

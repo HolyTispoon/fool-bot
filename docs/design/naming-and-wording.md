@@ -117,6 +117,21 @@ position, which is what the choice usually turns on.
       `RulesEngine.format_player_label` is `format_role_bracket`'s body
       moved onto the engine to read both dicts off itself, with
       `D12Ball.player_label` forwarding to it so no call site moved.
+    - **`RulesEngine.condition_emojis` was the third and last of them
+      (2026-09-20), with rank O2 of the split.** A Dribble Burst
+      charges a token a space and a beaten Clear charges two, and both
+      sentences are written by `describe_exhaustion_gain` -- so a flow
+      step that charges exhaustion would have had to hand its own
+      wording back to the cog to find out what an exhaustion token
+      looks like. `apply_exhaustion` and `describe_exhaustion_gain`
+      moved onto the engine with the dict; `D12Ball` keeps a
+      forwarding method for each, so none of the nineteen call sites
+      moved, and `D12Ball.condition_emojis` is the third property over
+      an engine dict. The five `get_*_emoji` fallback lookups went to
+      `d12ball/formatting.py` beside `get_team_emoji` for the same
+      reason; the *names* the uploads are fetched by stayed in
+      `cogs/d12ball_helpers.py` beside `load_condition_emojis`, which
+      is the half that needs discord.py.
   - **A square, not a ring.** The team emoji is a white circle with a
     coloured ring and a letter, so `🟠 Hellguard [FB]` as two rings would
     read as two teams; the badge is a rounded square in ink for that

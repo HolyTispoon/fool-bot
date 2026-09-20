@@ -2,18 +2,20 @@
 What a maneuver does when it wins, as flow steps.
 
 One function per card, each taking the engine and the match, changing
-the match, and handing back a `StepResult`. Low Pass is here; the other
-eleven are still `cogs/d12ball/effects.py`'s until Phase 3 of
+the match, and handing back a `StepResult`. Low Pass (rank O1) and the
+two dribbles (rank O2) are here; the other nine are still
+`cogs/d12ball/effects.py`'s until Phase 3 of
 docs/model-discord-split.md lifts them a rank at a time. See
 "Maneuvers" in docs/design/maneuvers.md for what each card actually
 does.
 
-A step takes `(engine, match, ...)`. The game record is not a
-parameter here because nothing Low Pass decides reads it -- a step that
-does read it (an advanced-mode switch, an AI side) takes `game` as
-well, the way `d12ball.prompts.pending_prompt` does. None of them takes
-an `interaction`, ever: that is the single clearest test of which side
-of the seam a function has ended up on, and it is greppable.
+A step takes `(engine, match, ...)`, and `game` only where it
+actually reads the record -- `low_pass_step` does not and so does not
+take one; both dribbles do, because charging an exhaustion token tests
+a threshold the game record decides (a Cyborg's is a flat 7, see
+`RulesEngine.exhaustion_threshold`). None of them takes an
+`interaction`, ever: that is the single clearest test of which side of
+the seam a function has ended up on, and it is greppable.
 
 **Nothing here saves.** The caller persists once, immediately after the
 step and before dispatching whatever comes next -- see
@@ -31,6 +33,7 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.engine import RulesEngine
+from d12ball.game import D12BallGame
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 
 
@@ -248,5 +251,179 @@ def low_pass_step(
         next=FollowOn(
             FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
             {"shooter_id": receiver_id, "distance_moved": distance_moved},
+        ),
+    )
+
+
+def pay_clear_cost(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    winner_key: str,
+) -> str:
+    """
+    Clear's cost, charged where it is due -- inside the dribble that
+    beat it -- and worded for the message that dribble is already
+    sending. Empty string when Clear was not the card beaten, which
+    is nearly always.
+
+    It is a flat 2 exhaustion rather than 2 on top of a maneuver's own
+    charge, because a maneuver charges none: only a skill test, a
+    walk, a shot and a run back do. See "Advanced maneuvers" in
+    docs/design/maneuvers.md.
+    """
+    if engine.advanced_cost(match, winner_key) != "clear":
+        return ""
+    defender_id = match.challenger_id
+    if defender_id is None:
+        return ""
+    text = engine.apply_exhaustion(game, match, defender_id, 2)
+    return f"\n\n**Clear** was beaten -- 2 exhaustion.\n{text}"
+
+
+def dribble_advance_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    distance: int,
+) -> StepResult:
+    """
+    Play a won Dribble Advance: the handler carries the ball forward
+    and keeps it, then manipulates ball speed the way every dribble
+    ends.
+
+    Role ability -- Playmaker: 2 spaces instead of the usual 1. The
+    note says which of the two was taken, so it rides on the distance
+    rather than on the player; whether the coach was even asked is
+    `resolve_dribble_advance`'s, above the seam.
+
+    `distance` is what was chosen; `actual_distance` is what the move
+    came to, since `move_player_relative` clamps at the end of the
+    field. The wording reads the second, because what a coach watched
+    is where the handler actually got to.
+
+    It takes the `game` for the exhaustion a beaten Clear is charged
+    -- the Exhausted threshold is the game record's (see
+    `RulesEngine.exhaustion_threshold`) -- and for nothing else.
+    """
+    offense_side = match.ball.possession
+    actual_distance = match.move_player_relative(
+        match.active_player_id, offense_side, distance,
+    )
+    match.set_ball_space(
+        *match.board.meeple_position(match.active_player_id)
+    )
+    # They dribbled it there, so they still have it: the same player
+    # takes the next turn rather than the coach choosing again off the
+    # space they landed on.
+    match.set_ball_carrier(match.active_player_id)
+
+    handler = engine.get_player_definition(match.active_player_id)
+    space_word = "space" if actual_distance == 1 else "spaces"
+    ability_note = (
+        " (Playmaker ability)"
+        if handler.role == PlayerRole.PLAYMAKER and distance > 1
+        else ""
+    )
+    content = (
+        f"**Dribble Advance:** "
+        f"{engine.format_player_label(match, handler)} and the "
+        f"ball move forward {actual_distance} {space_word}"
+        f"{ability_note}."
+        # **Clear's cost**: beaten by a dribble, the defender who
+        # played it gains 2 exhaustion, said inside this sentence
+        # rather than as a message after it.
+        + pay_clear_cost(engine, game, match, "dribble_advance")
+    )
+
+    return StepResult(
+        narration=[content],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.OFFER_SPEED_CHOICE,
+            {
+                "player_id": match.active_player_id,
+                "skill_type": "offense",
+            },
+        ),
+    )
+
+
+def dribble_burst_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    distance: int,
+) -> StepResult:
+    """
+    Play a won Dribble Burst: the handler carries the ball up to
+    `DRIBBLE_BURST_MAX_DISTANCE` spaces forward, defenders no
+    obstacle, at a token a space -- then manipulates ball speed
+    exactly as a Dribble Advance does.
+
+    Role ability -- Playmaker: one token fewer for the run (the
+    author, 2026-08-26) rather than the extra space their sentence
+    names, which is the only ability that reads differently on the two
+    cards of a rank. Floored at 0 rather than allowed to go negative:
+    a burst that moved nowhere costs nothing, and the discount cannot
+    turn a run into a token back.
+
+    `distance` is what the coach picked (or what the field left);
+    `actual_distance` is what the move came to. The exhaustion and the
+    wording both read the second, since what a coach pays for is where
+    the handler actually got to.
+    """
+    offense_side = match.ball.possession
+    handler = engine.get_player_definition(match.active_player_id)
+
+    actual_distance = match.move_player_relative(
+        match.active_player_id, offense_side, distance,
+    )
+    match.set_ball_space(
+        *match.board.meeple_position(match.active_player_id)
+    )
+    match.set_ball_carrier(match.active_player_id)
+    playmaker_bonus = handler.role == PlayerRole.PLAYMAKER
+    tokens = max(0, actual_distance - (1 if playmaker_bonus else 0))
+    exhaustion_text = engine.apply_exhaustion(
+        game, match, match.active_player_id, tokens,
+    )
+
+    space_word = "space" if actual_distance == 1 else "spaces"
+    handler_label = engine.format_player_label(match, handler)
+    if actual_distance:
+        content = (
+            f"**Dribble Burst:** {handler_label} bursts "
+            f"{actual_distance} {space_word} forward, past everyone in "
+            "the way."
+        )
+    else:
+        # The handler was already on the last space of the field, so
+        # the burst had nowhere to go -- said plainly rather than
+        # reported as a run of 0 spaces, which is the same call
+        # `apply_high_pass` makes for a clamped throw.
+        content = (
+            f"**Dribble Burst:** {handler_label} is already as far "
+            "forward as the field goes, so the ball stays where it is."
+        )
+    # Only worth saying where a token was actually saved: a burst that
+    # moved nowhere is free for everybody.
+    if playmaker_bonus and actual_distance:
+        content += " That costs them a token less (Playmaker ability)."
+    if exhaustion_text:
+        content += f"\n{exhaustion_text}"
+
+    # **Clear's cost**, the same charge the advance collects.
+    content += pay_clear_cost(engine, game, match, "dribble_burst")
+
+    return StepResult(
+        narration=[content],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.OFFER_SPEED_CHOICE,
+            {
+                "player_id": match.active_player_id,
+                "skill_type": "offense",
+            },
         ),
     )

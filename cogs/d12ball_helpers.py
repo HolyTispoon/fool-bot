@@ -25,6 +25,11 @@ from d12ball.components import (
 from d12ball.formatting import (
     AI_OPPONENT_NAMES,
     BENCH_DESTINATIONS,
+    DAMAGED_EMOJI_FALLBACK,
+    DRAINED_EMOJI_FALLBACK,
+    EXHAUSTED_EMOJI_FALLBACK,
+    EXHAUST_EMOJI_FALLBACK,
+    INJURED_EMOJI_FALLBACK,
     TEAM_EMOJI_FALLBACKS,
     ZONE_LETTERS,
     ball_space_label,
@@ -36,6 +41,11 @@ from d12ball.formatting import (
     format_player_with_team,
     format_player_with_team_name,
     format_team_side_label,
+    get_damaged_emoji,
+    get_drained_emoji,
+    get_exhaust_emoji,
+    get_exhausted_emoji,
+    get_injured_emoji,
     get_team_emoji,
     player_with_role,
     space_label,
@@ -131,9 +141,7 @@ EXHAUST_EMOJI_NAME = "exhaust"
 # badge on a card show the player the same icon. The plain emoji below
 # are only reached when an application has no upload by that name.
 EXHAUSTED_EMOJI_NAME = "exhausted"
-EXHAUSTED_EMOJI_FALLBACK = "🥵"
 INJURED_EMOJI_NAME = "injured"
-INJURED_EMOJI_FALLBACK = "🤕"
 # A Cyborg's own words for the same two conditions -- see "Lithium
 # Powered" in docs/living-rules.md. Drained and Damaged are Exhausted
 # and Injured under different names and nothing else, so they get
@@ -141,9 +149,7 @@ INJURED_EMOJI_FALLBACK = "🤕"
 # rather than a recolour of the human tokens, and fall back to their
 # own plain emoji on an application with no upload.
 DRAINED_EMOJI_NAME = "drained"
-DRAINED_EMOJI_FALLBACK = "🪫"
 DAMAGED_EMOJI_NAME = "damaged"
-DAMAGED_EMOJI_FALLBACK = "💥"
 
 # Team emoji (a letter in a team-colored ring, images/emoji/team_*.png)
 # are uploaded to the application (Developer Portal "Emojis" tab) and
@@ -160,8 +166,10 @@ TEAM_EMOJI_NAMES = {
     Team.OOZES: "team_oozes",
 }
 # TEAM_EMOJI_FALLBACKS and get_team_emoji are imported above from
-# d12ball.formatting, where format_player_with_team reads them.
-EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
+# d12ball.formatting, where format_player_with_team reads them. So
+# are the five condition-emoji fallbacks and their lookups -- see
+# the note beside them there; what stays here is the *names* the
+# uploads are fetched by.
 
 # Role emoji (the two initials in a white rounded square,
 # images/emoji/role_*.png, drawn by scripts/render_role_emoji.py) are
@@ -292,24 +300,8 @@ async def load_condition_emojis(
     return condition_emojis
 
 
-def get_exhaust_emoji(condition_emojis: dict[str, str]) -> str:
-    return condition_emojis.get("exhaust", EXHAUST_EMOJI_FALLBACK)
-
-
-def get_exhausted_emoji(condition_emojis: dict[str, str]) -> str:
-    return condition_emojis.get("exhausted", EXHAUSTED_EMOJI_FALLBACK)
-
-
-def get_injured_emoji(condition_emojis: dict[str, str]) -> str:
-    return condition_emojis.get("injured", INJURED_EMOJI_FALLBACK)
-
-
-def get_drained_emoji(condition_emojis: dict[str, str]) -> str:
-    return condition_emojis.get("drained", DRAINED_EMOJI_FALLBACK)
-
-
-def get_damaged_emoji(condition_emojis: dict[str, str]) -> str:
-    return condition_emojis.get("damaged", DAMAGED_EMOJI_FALLBACK)
+# The five get_*_emoji lookups are imported above, from
+# d12ball.formatting.
 
 
 async def load_team_emojis(

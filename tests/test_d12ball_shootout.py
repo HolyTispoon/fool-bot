@@ -71,7 +71,6 @@ def build_cog() -> D12Ball:
         cog.ai_strategies,
     )
     cog.team_emojis = {}
-    cog.condition_emojis = {}
     cog.coin_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
     # The board the game ends on, which announce_game_over posts under

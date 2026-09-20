@@ -65,7 +65,6 @@ def build_cog() -> D12Ball:
         cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
     )
     cog.team_emojis = {}
-    cog.condition_emojis = {}
     cog.coin_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
     cog.build_match_file = mock.AsyncMock(return_value=None)
