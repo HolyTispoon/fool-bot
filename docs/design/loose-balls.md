@@ -2,6 +2,21 @@
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md).
 
+## Where the code is
+
+Since **Phase 4** of the model/Discord split the loose ball is a flow
+step: `begin_loose_ball`, `resolve_loose_ball`,
+`begin_loose_ball_skill_test`, `resolve_unopposed_loose_ball` and
+`send_loose_ball_out_of_bounds` all live in
+[`d12ball/flow/arrivals.py`](../../d12ball/flow/arrivals.py), with the two
+arrival gates they are ordered against. `D12Ball.begin_loose_ball` and
+`D12Ball.resolve_loose_ball` are the cog wrappers that persist and post.
+Names below without a path are the flow functions.
+
+**`begin_loose_ball` is still two different things with one name**: the
+flow step, and `MatchState.begin_loose_ball`, the state change it calls
+into. The shorter one is the older.
+
 ## Loose balls and the board
 
 A loose ball is announced **with the board under it and the space named**, and
@@ -11,8 +26,14 @@ after it -- is a question about how far away everybody is. Who a coach may
 send is [Sending a player](sending-a-player.md#sending-a-player), the same pool a challenge and a
 pickup use.
 
-- **`begin_loose_ball` posts through `announce_board_update`**, which is why
-  that helper is no longer only for manual corrections. The snapshot is drawn
+- **`begin_loose_ball`'s announcement posts through
+  `announce_board_update`**, which is why that helper is no longer only for
+  manual corrections. Since Phase 4 the step says only that the board moved
+  and what the line is, and `D12Ball.begin_loose_ball` decides that this
+  particular line is worth an upload -- a Discord economy, and the frontend's
+  (principle 8). It goes through `D12Ball.post_then_dispatch`, which is what
+  keeps it a message of its own rather than a lead-in to whatever settles the
+  contest next. The snapshot is drawn
   once and the persistent message is brought in line from the same bytes, so it
   costs the render everything else costs; the callers that used to refresh
   immediately before it (the receiverless Low Pass) no longer do, or the same
@@ -53,7 +74,7 @@ built: `restrict_to_occupants` landed on 2026-08-24 as Deflect/Clear's own
 narrowing and **is** the rule above -- what was wrong is that it was a flag, so
 the two paths that did not pass it kept the old behaviour.
 
-- **The rule is unconditional and the flag is gone.** `D12Ball.begin_loose_ball`
+- **The rule is unconditional and the flag is gone.** `begin_loose_ball`
   reads both sides' `loose_ball_occupants` and, when exactly one is empty, calls
   `match.decline_loose_ball` on it *before* `auto_resolve_loose_ball_picks`
   runs -- so that side is never put on the clock, `LooseBallChoiceView` is never

@@ -221,13 +221,17 @@ the more hurt.
     around it. Nothing either card says changed.
     - **The overshoot names a new follow-on**,
       `BEGIN_OWN_GOAL_ROLL`, and it is the first whose method posts a
-      prompt of its own. So `begin_own_goal_roll` grew a `lead_in`
+      prompt of its own. So `begin_own_goal_roll` (a flow step in
+      [`d12ball/flow/arrivals.py`](../../d12ball/flow/arrivals.py)
+      since Phase 4) grew a `lead_in`
       and carries the shove above its question: an overshooting
       Pressure is one message now where it used to be two. The roll,
       its dice image and the messages around it did not move.
     - **`apply_own_goal_outcome` moved with the rank** and stopped
       saving. It is the verdict rather than the card, but it is the
-      Pressure's verdict; `run_own_goal_roll` saves once,
+      Pressure's verdict; `own_goal_roll_step` in
+      [`d12ball/flow/effects.py`](../../d12ball/flow/effects.py) is the
+      roll and the two sentences it is worth, and the cog wrapper saves once,
       immediately after it, on both branches. Both branches already
       wrote the same state, so this is the rule and not a fix --
       unlike rank O2's beaten Clear.
@@ -400,7 +404,14 @@ rules for why the ranking is no longer the whole story.
   nobody owed, or an effect choice for a test that had not been rolled.
 - **`resolve_maneuver` branches on it, and on `outcome` only for wording.**
   There are four ways a maneuver lands and each reads differently, but which
-  one is a *win* is not decided there.
+  one is a *win* is not decided there. Since **Phase 4** of the model/Discord
+  split it is a flow step in
+  [`d12ball/flow/turn.py`](../../d12ball/flow/turn.py), with
+  `maneuver_winner_text` and `skill_test_headline` -- the four sentences
+  themselves -- beside it. The skill test's reveal rides as that step's
+  `headline` **argument** rather than as narration, because
+  `begin_maneuver_skill_test` embeds it in its own message instead of
+  posting one above it.
 - **An uncontested maneuver wins whatever the offense picked, injured or
   not** -- no opponent to be disadvantaged against, no challenge to lose. Same
   for a tie where *both* participants are injured: it is an ordinary tie,
@@ -441,7 +452,12 @@ Both are now places a turn can **stop**, and that is the whole cost of it:
   already cleared itself. Both are persisted, and `reset_maneuver` clears them
   with everything else the turn set.
 - **`pending_injury_tests` is a queue, and `continue_injury_tests` is its only
-  exit.** A contest can owe two tests; they are asked one at a time and the
+  exit.** Both are flow steps in
+  [`d12ball/flow/injuries.py`](../../d12ball/flow/injuries.py) since Phase 4.
+  `dispatch_injury_resume` stayed in the cog, and knowingly: two of the three
+  arrivals it names -- a maneuver's effect and a shootout test -- are not the
+  spine's, so it is a `FollowOnStep` rather than a lift until Phase 5 takes
+  the shootout. A contest can owe two tests; they are asked one at a time and the
   continuation fires when the last one is answered. A test that turns out not to
   be owed -- the player is already injured -- leaves by the same door rather
   than returning, so this can never be where a turn stops for good. **Nothing is

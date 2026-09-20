@@ -174,8 +174,8 @@ from cogs.d12ball_boards import BoardRefresher
 #:
 #: A set rather than a check on one member, because the answer is the
 #: **step's** and not the calling card's: rank D1 lifted the first two
-#: callers of `begin_loose_ball` and there are six more to come, and
-#: every one of them should get this without deciding it again.
+#: callers of `begin_loose_ball`, Phase 4 lifted the rest, and every one
+#: of them gets this without deciding it again.
 FOLLOW_ONS_THAT_DRAW_THE_BOARD = frozenset({
     FollowOnStep.BEGIN_LOOSE_BALL,
     FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK,
@@ -197,9 +197,9 @@ def follow_on_draws_the_board(following: FollowOn) -> bool:
     model being asked to report a board that did not move.
 
     Still keyed to the step and its own arguments rather than to the
-    card that named it, which is rank D1's rule and the reason the
-    six callers of `begin_loose_ball` still to be lifted inherit this
-    without deciding it again.
+    card that named it, which is rank D1's rule and the reason every
+    caller of `begin_loose_ball` Phase 4 lifted inherited this without
+    deciding it again.
     """
     if following.step in FOLLOW_ONS_THAT_DRAW_THE_BOARD:
         return True

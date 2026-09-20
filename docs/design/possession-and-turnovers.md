@@ -2,6 +2,23 @@
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md).
 
+## Where the code is
+
+Since **Phase 4** of the model/Discord split the run back is a flow step:
+`begin_run_back`, `announce_new_play_reset`, `announce_run_back`,
+`run_back_passes`, `finish_run_back`, `apply_charge_up` and
+`begin_ball_recovery` all live in
+[`d12ball/flow/turnovers.py`](../../d12ball/flow/turnovers.py). Names below
+without a path are the flow functions; `D12Ball.begin_run_back` and the
+rest are the cog wrappers that persist and post.
+
+**Two things deliberately did not move**, and both are principle 8 -- the
+frontend owns batching and therefore the rate limits: the cascade's
+batching, which is `D12Ball.continue_run_back`, and the run-back prompt's
+field strip, which is `D12Ball.send_run_back_prompt`. **And one exception
+to principle 9 stayed with them**: the per-pass persist, which the loop's
+own docstring explains.
+
 ## The ball carrier
 
 Possession is a team's, but the ball is a *player's*: a resolution that
@@ -149,17 +166,37 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   - Neither pick is persisted. A restart reads the question back off the
     position through `build_run_back_view`, so a coach who had already answered
     the first is asked it again -- the same as a part-made Coaching Choice.
-- **`continue_run_back` is one loop, not a recursion, and it batches.** Every
-  placement it makes without asking anyone -- the forced ones, the AI's
-  choices, the drop back that fills an empty kickoff -- goes into a list, and
-  that list is posted as a single message with a single board refresh when the
-  cascade reaches a coach's choice or runs out. It used to send a message and
-  re-upload the board per player, which after a steal that scatters a six-card
-  side is a dozen-odd requests into one channel with nothing between them --
-  see "Discord's rate limits" in [rate-limits.md](rate-limits.md). Anything added to the cascade should append to
-  `notes` and `continue`, not send. `MAX_RUN_BACK_PASSES` bounds it: as a
-  recursion the interpreter did that, and a loop that will not settle would
-  hang the event loop for every game at once.
+- **The cascade is one loop, not a recursion, and it batches.** Since Phase
+  4 the loop is `run_back_passes`, a generator yielding one `StepResult` per
+  pass, and the batching is `D12Ball.continue_run_back`: every placement made
+  without asking anyone -- the forced ones, the AI's choices, the drop back
+  that fills an empty kickoff -- goes into a list, and that list is posted as
+  a single message with a single board refresh when the cascade reaches a
+  coach's choice or runs out. It used to send a message and re-upload the
+  board per player, which after a steal that scatters a six-card side is a
+  dozen-odd requests into one channel with nothing between them -- see
+  "Discord's rate limits" in [rate-limits.md](rate-limits.md). Anything added
+  to the cascade should `yield` a result with its line on it, not send.
+  `MAX_RUN_BACK_PASSES` bounds it: as a recursion the interpreter did that,
+  and a loop that will not settle would hang the event loop for every game at
+  once.
+  - **The generator shape is what keeps the per-pass save possible.** The
+    cascade persists after *every* pass, which is the one named exception to
+    "the driver persists; steps do not": when the loop comes back with a
+    question it stops there and the turn waits on a click that reloads the
+    match off disk, so that pass's placements have to already be written.
+    Collapsing it to one save after the loop loses placements on every
+    cascade that stops to ask. Yielding a result per pass is what lets the
+    loop be the model's and the saving stay the caller's.
+  - **The give-up-after-`MAX_RUN_BACK_PASSES` branch is not that path**,
+    though it reads like it: it leaves the loop rather than returning from
+    inside it, and `finish_run_back` persists after it. Its ERROR ("the match
+    is saved as it stands") is kept by that save whatever happens to the
+    per-pass one. Worth writing down because the branch *looks* like the
+    fragile one and is the safe one, and the genuinely fragile path has no
+    log line drawing attention to itself. The ERROR now comes from
+    `d12ball.flow.turnovers` rather than `cogs.d12ball.turnovers`; the sink
+    is on the root logger, so it still reaches #logs.
 - **A coach's run-back prompt carries the field strip, and prices every space
   it offers.** Both questions a run back asks -- which of these players goes,
   and which space they go to -- are questions about where everybody is standing

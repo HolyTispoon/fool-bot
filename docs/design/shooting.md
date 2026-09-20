@@ -167,7 +167,11 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
 - **The shot and the contest are two halves of one choice.** Declining an
   overshoot lands in the long-pass contest, still with the modifier against it;
   nothing about an overshoot settles the ball quietly.
-  `begin_high_pass_contest` is that contest, reached both from the ordinary
+  `begin_high_pass_contest` is that contest -- a flow step in
+  [`d12ball/flow/arrivals.py`](../../d12ball/flow/arrivals.py) since
+  Phase 4, which names `BEGIN_LOOSE_BALL` with the High Pass headline
+  and flag rather than calling it, so the contest is announced on a
+  message of its own. Reached both from the ordinary
   3-or-4 path and from `decline_scoring_attempt(contest=True)`.
 - **`contest_on_decline` rides on the view, not on the match.** By the time the
   decline arrives, an overshot pass and an ordinary 2-space one have left the
