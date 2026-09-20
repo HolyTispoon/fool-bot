@@ -207,12 +207,15 @@ class FollowOnStepTests(unittest.TestCase):
     """
 
     #: Every spine step a lifted effect may end by naming, as of rank
-    #: O2. A rank that hands off to a new one adds its member here and
+    #: D2. A rank that hands off to a new one adds its member here and
     #: a row to `D12Ball.follow_on_methods`; Phase 6 empties both.
     EXPECTED = {
         "FINISH_MANEUVER_RESOLUTION",
         "OFFER_SCORING_ATTEMPT_CHOICE",
         "OFFER_SPEED_CHOICE",
+        "BEGIN_RUN_BACK",
+        "BEGIN_SHOOTER_CHOICE",
+        "BEGIN_OWN_GOAL_ROLL",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(

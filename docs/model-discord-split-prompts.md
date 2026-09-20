@@ -14,8 +14,9 @@ Phase 1 on.
 Phase 0 has landed (PR #201), and so has Phase 1, in the two halves the
 worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
 PR #225), and so has Phase 2 (PR #227) -- so there are no prompts for any
-of them. Phase 3 is one template run six times, and **3a and 3b have
-landed (PR #229, PR #232)**; the template stays until 3f does.
+of them. Phase 3 is one template run six times, and **3a, 3b, 3c and 3d have
+landed (PR #229, PR #232, PR #233, PR #235)**; the template stays until
+3f does.
 
 ---
 
@@ -156,8 +157,8 @@ Do them in the order given; each assumes the previous has landed.
 | --- | --- |
 | 3a | **Landed (PR #229).** `Rank O2 -- Dribble Advance and Dribble Burst.` It handed off to `finish_maneuver_resolution` not at all: both cards end on `offer_speed_choice`, a new `FollowOnStep` member rather than a prompt the step returns. |
 | 3b | **Landed (PR #232).** `Rank O1 -- Skilled Pass, and the shared key= parameter.` It was whole: Phase 2's `low_pass_step(key=)` is both cards, and nothing moved. What it added is ten fixtures on branches the golden cannot see, and the round trip proving `key` survives a save -- it is read back out of `offense_maneuver`, or out of `pending_effect_continuation` for the free pass, rather than being a field of its own. |
-| 3c | `Rank D2 -- Steal and Intercept. A turnover, so this is the first hand-off to begin_run_back: the step's next is a FollowOn naming it; begin_run_back stays async in the cog, and apply_steal calls it with speed_choice_after=True. Two saves to strip, not one: take_ball_by_steal persists, and so does apply_steal itself, in the Skilled Pass cost branch -- the wrapper persists once for both. Intercept has a second ending: an interceptor already on the last space toward the goal they now attack overshoots into begin_shooter_choice instead, which needs a follow-on member of its own. Do NOT expect to inherit OFFER_SPEED_CHOICE -- 3b re-measured this and no steal reaches offer_speed_choice directly: the speed choice rides on begin_run_back's speed_choice_after flag and is offered by finish_run_back once the run back is done. The two direct callers left in cogs/ are resolve_setup_pass (rank O3) and finish_run_back.` |
-| 3d | `Rank D3 -- Pressure and Double Team. The own-goal branch (run_own_goal_roll stays in the cog; apply_own_goal_outcome saves itself today -- strip it and the wrapper persists) and pending_double_team reaching into the next turn. Read docs/design/possession-and-turnovers.md.` |
+| 3c | **Landed (PR #233).** `Rank D2 -- Steal and Intercept.` Both cards were one step and a sign, and it was the first hand-off into the spine: `BEGIN_RUN_BACK` carrying `speed_choice_after=True`, and `BEGIN_SHOOTER_CHOICE` for the Intercept that overshoots. Two persists became one and nothing was being lost. One ordering was left open for the author -- an overshooting Intercept collects no beaten Skilled Pass -- and deliberately not pinned. |
+| 3d | **Landed (PR #235).** `Rank D3 -- Pressure and Double Team.` `pressure_step` is both cards, parameterised by the push and the partner; `apply_own_goal_outcome` came with it as a free function and `run_own_goal_roll` stayed in the cog and now saves for it. It added `BEGIN_OWN_GOAL_ROLL` and was the first rank whose follow-on had no `lead_in` to take -- the method grew one, and the overshoot went from two messages to one. `pending_double_team` needed nothing but a restart assertion. |
 | 3e | `Rank D1 -- Deflect and Clear. Calls begin_loose_ball directly rather than through finish_maneuver_resolution; knock_ball_back saves itself today -- strip it and the wrapper persists. Read docs/design/loose-balls.md. Two things 3b found: begin_loose_ball has eight call sites in cogs/d12ball/effects.py and one of them is rank O1's own -- resolve_low_pass's no-teammate-to-receive branch, which moves the ball, words it and persists before handing over, and which 3b deliberately left where it is; take a view on whether it comes along. And settle what board_changed means here, because the cog does NOT refresh before begin_loose_ball even though the ball moved: begin_loose_ball draws the same board under its own announcement, so a step returning board_changed=True on that path would cost a second write of an identical board (see docs/design/rate-limits.md). Whatever you decide is the answer for all eight callers, not for one card. Two rules questions are open on that branch and must be answered before it moves, not while it moves -- they are written out in PR #232 under "Questions for the author": a *failed* free pass charges a space minute where a completed one charges none (the branch hardcodes distance_moved=1 and never reads free), and it leaves its free_low_pass continuation standing, which apply_speed_choice then re-offers. Both are pre-existing on main. Lift the branch to wherever the author's answers put it; do not pin the current behaviour in a test before they are answered.` |
 | 3f | `Rank O3 -- High Pass and Setup Pass. The hardest by a distance: the overshoot, the contest, out-of-bounds into begin_ball_recovery. throw_high_pass saves itself today -- strip it and the wrapper persists. Read docs/design/shooting.md and docs/design/loose-balls.md (the High Pass exemption).` |
 
@@ -211,9 +212,24 @@ answers for Dinky itself and holds a tutorial beat's prompt behind a note,
 so returning the prompt from the model would have moved a decision the
 frontend still owns. A follow-on whose method does not take a `lead_in` is a case
 `dispatch_step_result` has not met yet; widen it there rather than posting
-around it. Advanced-mode cost and benefit (`advanced_cost`,
+around it. **3d met this first**, on `begin_own_goal_roll`: the answer was
+to give the method the parameter and have it carry the narration above its
+own prompt with a blank line between (`begin_loose_ball`'s shape), which
+took that branch from two messages to one. Expect the same of any spine
+step that has never been handed narration before; the wording does not
+change, only who posts it. **`dispatch_step_result` passes a follow-on's arguments by
+keyword** -- `method(interaction, game, match, lead_in=..., **kwargs)` --
+so a parameter the cog used to hand over positionally arrives named, and
+an existing test reading `await_args.args[n]` fails on a move that changed
+nothing. 3c met this on `begin_shooter_choice`; fix the assertion, not the
+call, and bind a recorded call to the real method's `inspect.signature` so
+one fixture table answers for the old shape and the new one at once. Advanced-mode cost and benefit (`advanced_cost`,
 `settled_maneuver_winner`) are engine questions already; the step asks them,
-it does not re-derive them. **So is exhaustion**, since 3a:
+it does not re-derive them. A rank may also lift something that is not a card at all -- 3d took
+`apply_own_goal_outcome`, the verdict of the roll a Pressure risks, as a
+free function returning its text rather than as a second `StepResult`,
+because the roll around it is a coach's dice and a dice image and stays
+the cog's until Phase 4. **So is exhaustion**, since 3a:
 `RulesEngine.apply_exhaustion` and `describe_exhaustion_gain` live on the
 engine with `condition_emojis`, and the cog keeps a forwarding method for
 each -- a step that charges a token calls the engine and needs no cog. Such
@@ -304,6 +320,10 @@ What moves into d12ball/flow/ as sync functions returning StepResult, with
   the loose-ball check are ordered against each other on purpose and moving
   half the ordering is worse than moving none.
 - `begin_loose_ball`'s contest and `begin_loose_ball_skill_test`.
+- `begin_shooter_choice` (effects.py), which rank 3c made a dispatched
+  follow-on (`BEGIN_SHOOTER_CHOICE`) and this list did not originally
+  name. Move it or leave its member in the enum knowingly, but say which
+  in the PR -- the enum is the list Phase 5/6 inherits.
 - `begin_run_back` / `continue_run_back` / `finish_run_back` (turnovers.py).
   The loop moves; the batching of its cascade into one message and one
   board refresh stays in the cog (principle 8). And -- named exception to

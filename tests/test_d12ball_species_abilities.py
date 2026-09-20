@@ -54,7 +54,12 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_views import MindPullView, SkillTestView, SmoothView
+from cogs.d12ball_views import (
+    MindPullView,
+    OwnGoalRollView,
+    SkillTestView,
+    SmoothView,
+)
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     CYBORG_DRAINED_AT,
@@ -74,6 +79,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.flow.effects import shove_pressured_handler
 from d12ball.engine import (
     VOLATILE_IGNITE_FACES,
     VOLATILE_SURGE_MINIMUM,
@@ -2681,9 +2687,11 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
         self.cog = build_mind_pull_cog()
-        # The two ends of the branch under test: the gate is real, and
-        # what it is supposed to defer stands in for itself.
-        self.cog.begin_own_goal_roll = mock.AsyncMock()
+        # `begin_own_goal_roll` is emphatically not mocked: since the
+        # Phase 3d lift made `pressure_step` the model's, the gate
+        # lives inside it, and stubbing it out would stub out the
+        # thing under test. Whether the roll was reached is read off
+        # `pending_own_goal` and the view that was posted instead.
         self.game = build_game(
             player_1_team=Team.PURPLE, player_2_team=Team.ORANGE,
         )
@@ -2756,8 +2764,12 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
             self.match.pending_mind_pull_resume["kind"], "own_goal",
         )
         # The whole point of the gate's position: the roll has not been
-        # put yet, so a pull that lands still pre-empts it.
-        self.cog.begin_own_goal_roll.assert_not_awaited()
+        # set up yet, so a pull that lands still pre-empts it -- and a
+        # restart here reads the offer rather than the roll.
+        self.assertFalse(self.match.pending_own_goal)
+        self.assertFalse(
+            any(isinstance(v, OwnGoalRollView) for v in self.sent_views()),
+        )
         # Spent on the way through, like every other gate.
         self.assertEqual(self.match.last_ball_path, [])
 
@@ -2789,11 +2801,12 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
             )
 
         # The arrival the gate interrupted, put back exactly where it
-        # was -- the roll the branch was about to ask for.
-        self.cog.begin_own_goal_roll.assert_awaited_once()
-        self.assertEqual(
-            self.cog.begin_own_goal_roll.await_args.kwargs["distance_moved"],
-            1,
+        # was -- the roll the shove was about to ask for. Re-entering
+        # the gate on the way is a no-op, because the path is spent.
+        self.assertTrue(self.match.pending_own_goal)
+        self.assertEqual(self.match.pending_own_goal_distance, 1)
+        self.assertTrue(
+            any(isinstance(v, OwnGoalRollView) for v in self.sent_views()),
         )
         self.assertIsNone(self.match.pending_mind_pull_resume)
 
@@ -2812,7 +2825,7 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(self.offered_a_pull())
         self.assertEqual(self.match.pending_mind_pull, [])
-        self.cog.begin_own_goal_roll.assert_awaited_once()
+        self.assertTrue(self.match.pending_own_goal)
 
     async def test_the_gate_is_silent_when_the_module_is_off(self):
         # Species abilities off is the ordinary game, and the branch has
@@ -2826,7 +2839,7 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(self.offered_a_pull())
         self.assertEqual(self.match.pending_mind_pull, [])
-        self.cog.begin_own_goal_roll.assert_awaited_once()
+        self.assertTrue(self.match.pending_own_goal)
 
 
 class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
@@ -3077,7 +3090,7 @@ class MovedWithTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.match.challenger_id = self.challenger
         self.match.restart_ball_at(Zone.MIDFIELD, 1)
 
-        self.cog.shove_pressured_handler(self.match, 1, None)
+        shove_pressured_handler(self.match, 1, None)
 
         # The shove really does leave the challenger standing on the
         # ball -- the card says "onto the same space" -- so this is the
@@ -3101,7 +3114,7 @@ class MovedWithTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.match.challenger_id = self.challenger
         self.match.restart_ball_at(Zone.MIDFIELD, 2)
 
-        self.cog.shove_pressured_handler(self.match, 2, partner)
+        shove_pressured_handler(self.match, 2, partner)
 
         candidates = self.cog.engine.mind_pull_candidates(
             self.game, self.match,
@@ -3121,7 +3134,7 @@ class MovedWithTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.match.challenger_id = self.challenger
         self.match.restart_ball_at(Zone.MIDFIELD, 1)
 
-        self.cog.shove_pressured_handler(self.match, 1, None)
+        shove_pressured_handler(self.match, 1, None)
 
         self.assertIn(self.handler, self.match.last_ball_movers)
         self.assertNotIn(
@@ -3141,7 +3154,7 @@ class MovedWithTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.match.challenger_id = self.challenger
         self.match.restart_ball_at(Zone.MIDFIELD, 1)
 
-        self.cog.shove_pressured_handler(self.match, 1, None)
+        shove_pressured_handler(self.match, 1, None)
 
         # The ball arrived on MIDFIELD 0, where the bystander was
         # standing before the play and stayed.

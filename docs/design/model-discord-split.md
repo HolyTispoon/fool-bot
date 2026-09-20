@@ -67,11 +67,12 @@ match is waiting on; a flow step is what *changes* it. Each takes the
 engine and the match, mutates, and hands back a `StepResult` -- the
 narration, whether the board moved, and what happens next. Phase 2 cut
 this on Low Pass alone and nothing else; Phase 3 follows a rank at a
-time, and rank O2 brought the two dribbles -- so `effects.py` holds
-four cards (two of them one function parameterised) and
-`cogs/d12ball/effects.py` still holds nine. Rank O1 landed after it
-and moved none of them: Skilled Pass had come across with Low Pass
-already, as the same step under a different `key=`.
+time, and rank O2 brought the two dribbles, rank D2 the two steals and
+rank D3 the two pressures -- so `effects.py` holds eight cards as six
+functions (four of the cards are their rank-mate parameterised) and
+`cogs/d12ball/effects.py` still holds four: ranks D1 and O3. Rank O1
+landed in between and moved none of them: Skilled Pass had come across
+with Low Pass already, as the same step under a different `key=`.
 
 - **Low Pass was the slice because it is not a toy.** Mid-sized, with a
   role-ability branch (the Winger's set-up, the one path that ends
@@ -113,9 +114,11 @@ already, as the same step under a different `key=`.
   step ending in a prompt hands the turn to a click that reloads the
   match from the file. That is the beat-1 event-log bug in
   [gotchas.md](gotchas.md) reintroduced by the refactor meant to fix it.
-  The `self.persist` count in `cogs/` is unchanged at 95 across this
-  phase, which is the shape of the transition in one number: one left
-  the step, one arrived in the wrapper.
+  The `self.persist` count in `cogs/` was unchanged at 95 across
+  Phase 2, which is the shape of the transition in one number: one
+  left the step, one arrived in the wrapper. It has moved since only
+  where a step held more saves than its wrapper needed -- rank D2 took
+  it to 94, below.
 - **A step takes `game` only where it reads the record.**
   `low_pass_step` does not and so does not take one; both dribbles do,
   because charging an exhaustion token tests a threshold the *game*
@@ -184,6 +187,99 @@ already, as the same step under a different `key=`.
   mean "the frontend should redraw" rather than "the board moved".
   That is one decision for all eight of `begin_loose_ball`'s callers
   rather than for one card, and rank D1 is where it is due.
+- **Rank D2 was the first hand-off into the spine, and it cost two
+  members.** `steal_step` is a Steal and an Intercept both -- the
+  cards differ by the sign of the carry and nothing else, so they are
+  one function and a `direction`, the way Low Pass and Skilled Pass
+  are one function and a `key`. What it ends on is not
+  `OFFER_SPEED_CHOICE`, which rank O2 had expected it to inherit: a
+  steal owes the ball-speed choice but reaches it through
+  `finish_run_back`, so the step names `BEGIN_RUN_BACK` and lets
+  `speed_choice_after=True` carry the question. The Intercept that
+  runs out of field names `BEGIN_SHOOTER_CHOICE` instead, and drops
+  the speed choice with the run back.
+  - **A follow-on's arguments arrive by keyword.**
+    `dispatch_step_result` calls
+    `method(interaction, game, match, lead_in=..., **kwargs)`, so a
+    parameter the cog used to pass positionally is named now --
+    `begin_shooter_choice`'s candidate list was one, and the one
+    existing assertion that read it off `await_args.args[3]` had to
+    move to `kwargs`. The call changed shape, not answer; the fixture
+    table binds a recorded call to the real method's
+    `inspect.signature` so it can answer for both at once, which is
+    the trick the later ranks should copy rather than recording two
+    tables.
+  - **Step-then-save is not always a fix.** Rank O2's beaten Clear
+    was a write being lost; D2's two persists -- one inside
+    `take_ball_by_steal`, one in the Skilled Pass cost branch on top
+    of it -- both already carried everything, so collapsing them
+    changed the number of writes and nothing else. Both read alike in
+    a diff, which is why a rank should say which of the two it found.
+    `self.persist` in `cogs/` went 95 -> 94 here rather than staying
+    level, and that is the whole of the difference.
+  - **A defense rank has no unchallenged branch.** A defense card only
+    resolves where a defender was sent, so `match.challenger_id` is
+    always set in `steal_step` and "contested and unchallenged" is
+    one half only in a defense rank's bot stop.
+  - **The overshoot's extra paragraph is one narration block, not
+    two.** The blocks are joined on a single space and that paragraph
+    is separated by a blank line, so a second block would have put a
+    stray space in front of its newlines. It rides inside the
+    turnover's own block, the way a beaten Clear's cost rides inside
+    the dribble's.
+  - **One ordering was left open rather than settled.** An Intercept
+    that overshoots returns before the Skilled Pass cost is read, so
+    it collects none; the behaviour is lifted exactly as it stood and
+    the question is in PR #233, deliberately unpinned by any fixture
+    -- the same way rank D1's two questions were left in PR #232.
+- **Rank D3 was the first follow-on to post a prompt of its own,
+  and that is where `lead_in` stopped being free.** `pressure_step`
+  is a Pressure and a Double Team both -- the push and the partner
+  are the whole of the difference, so they are one function and a
+  `key` -- and the branch that overshoots toward a side's own goal
+  ends on `BEGIN_OWN_GOAL_ROLL`. `begin_own_goal_roll` took no
+  `lead_in`, because the old branch posted the shove as a message and
+  *then* asked for the roll, so an overshooting Pressure cost two
+  messages where every other resolved maneuver costs one.
+  - **The method grew the parameter rather than the step posting
+    around it.** The narration rides above the prompt with a blank
+    line between, which is exactly `begin_loose_ball`'s shape, and
+    the branch is one message and one board refresh like the rest.
+    Nothing either card says changed -- this is batching, and
+    batching is the frontend's (principle 8). It is the only thing a
+    coach sees differently in the whole rank, and the later ranks
+    should expect to meet it again: a spine step that has never been
+    handed narration has no reason to take any yet.
+  - **The refresh also swapped places with the message**, on that
+    branch alone. The old code posted and then redrew;
+    `dispatch_step_result` redraws first. Same requests, same bucket
+    -- see [rate-limits.md](rate-limits.md).
+  - **A rank can lift something that is not a card.**
+    `apply_own_goal_outcome` settles the roll a Pressure risked and
+    words it, so it belongs to this rank, but the roll itself is a
+    coach's dice and a dice image and stays `run_own_goal_roll`'s
+    until Phase 4. It moved as a free function returning its verdict
+    rather than as a second `StepResult`, and the cog saves once,
+    unconditionally, immediately after it.
+  - **Step-then-save was the rule rather than a fix**, the same as
+    rank D2. The conceded branch saved inside the outcome and the
+    avoided one saved two messages and a board refresh later; nothing
+    between them mutates the match, so both wrote the same state.
+    What collapsing them buys is that the write no longer sits behind
+    three things that can fail. `self.persist` in `cogs/` went
+    94 -> 92.
+  - **`format_goal_time` came down with it**, from
+    `cogs/d12ball_helpers.py` into `d12ball/formatting.py`, which
+    re-exports it the way it re-exports everything else there: the
+    own-goal verdict names the minute a goal went in, and a function
+    that only formats a `GoalRecord` has no Discord in it. No call
+    site moved.
+  - **`pending_double_team` needed nothing at all.** It is set inside
+    the shove's own wording and it was already in
+    `MATCH_SAVED_FIELDS`; what the rank added is the assertion that
+    it survives a `to_dict`/`from_dict` round trip, because it
+    reaches into the *following* maneuver and a restart that lost it
+    would give the next turn one challenger instead of two.
 - **What is in `FollowOnStep` is asserted in
   `tests/test_d12ball_package_shape.py`**, not in any one rank's own
   tests, along with `D12Ball.follow_on_methods` covering it exactly --

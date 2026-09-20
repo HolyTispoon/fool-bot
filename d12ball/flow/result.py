@@ -49,14 +49,34 @@ class FollowOnStep(Enum):
     #: A set-up -- the offense is offered a scoring attempt instead of
     #: letting the maneuver resolve normally.
     OFFER_SCORING_ATTEMPT_CHOICE = auto()
-    #: The ball-speed manipulation a dribble (and a steal) ends on:
-    #: always the last human choice in an effect, and it leads into
+    #: The ball-speed manipulation a dribble ends on: always the last
+    #: human choice in an effect, and it leads into
     #: `finish_maneuver_resolution` itself once answered. It is a
     #: follow-on rather than a `PendingPrompt` because whether anyone
     #: is asked at all is a decision the cog still owns -- Dinky
     #: answers for itself, and a tutorial beat holds the prompt behind
-    #: a note.
+    #: a note. A steal owes the same choice and does **not** name this
+    #: member: it rides on `BEGIN_RUN_BACK`'s `speed_choice_after`
+    #: flag and `finish_run_back` offers it, once everybody is back.
     OFFER_SPEED_CHOICE = auto()
+    #: The tail of a turnover: everyone who is not carrying the ball
+    #: runs back to their own half, and the speed choice a steal still
+    #: owes is offered at the end of it rather than before it. Rank
+    #: D2's, and the first hand-off from a lifted effect into the
+    #: spine proper.
+    BEGIN_RUN_BACK = auto()
+    #: A scoring opportunity, and the candidates who may take it. An
+    #: Intercept with no field left ahead of it ends here instead of
+    #: on a run back: the play never stopped, so there is nothing to
+    #: run back from -- and that drops the speed choice with it.
+    BEGIN_SHOOTER_CHOICE = auto()
+    #: The own-goal risk a Pressure can create, put behind a button
+    #: for the coach whose player is about to concede. Rank D3's, and
+    #: the only member so far that names a step which posts a prompt
+    #: of its own: the shove that overshot has nothing further to say
+    #: and the roll is where the turn stops, so the narration opens
+    #: that prompt rather than a message before it.
+    BEGIN_OWN_GOAL_ROLL = auto()
 
 
 @dataclass(frozen=True)

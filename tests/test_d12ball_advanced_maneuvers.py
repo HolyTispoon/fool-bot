@@ -1075,8 +1075,12 @@ class InterceptTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
 
         cog.begin_shooter_choice.assert_awaited_once()
         cog.begin_run_back.assert_not_awaited()
+        # Named rather than positional since rank D2: the step returns
+        # a `FollowOn` and `dispatch_step_result` hands every follow-on
+        # its arguments by keyword.
         self.assertEqual(
-            cog.begin_shooter_choice.await_args.args[3], [challenger],
+            cog.begin_shooter_choice.await_args.kwargs["candidates"],
+            [challenger],
         )
 
     async def test_its_cost_leaves_a_long_high_pass_uncontested(

@@ -111,6 +111,60 @@ weapon rather than only a saving.
       charged. Moving the whole effect into the step, with the
       wrapper saving after it, is what fixes it; it is the bug
       principle 9 is written for, and the rule is unchanged.
+  - **Both steals followed them (rank D2).** `steal_step` is the
+    whole of a Steal and of an Intercept -- the two differ by the
+    sign of the carry and nothing else, so they are one function and
+    a `direction`, the way Low Pass and Skilled Pass are one function
+    and a `key`. `take_ball_by_steal` and `steal_result_text` went
+    with it as free functions, and `D12Ball.apply_steal` is four
+    lines around it. Nothing either card says changed.
+    - **It is the first effect to hand off to the spine**, so it
+      named two new `FollowOnStep` members:
+      `BEGIN_RUN_BACK`, carrying `speed_choice_after=True` (a steal
+      owes the ball-speed choice but does not reach
+      `offer_speed_choice` directly -- `finish_run_back` offers it,
+      once everybody is back), and `BEGIN_SHOOTER_CHOICE`, for the
+      Intercept that overshoots into a scoring opportunity.
+      `begin_run_back` and `begin_shooter_choice` themselves did not
+      move.
+    - **Two persists became one, and nothing was being lost.**
+      `take_ball_by_steal` saved inside itself and the Skilled Pass
+      cost branch saved again on top of it, so one branch wrote the
+      file twice and the other once; both writes already carried
+      everything. Unlike the beaten Clear above, this is the rule
+      rather than a fix -- worth saying so, because the two read
+      alike in a diff.
+    - **One ordering is open.** An Intercept that overshoots returns
+      before `advanced_cost` is read, so it collects no beaten
+      Skilled Pass. Whether that is the rule (nobody goes back in
+      position, so the free pass has no moment) or an oversight is
+      the author's; the behaviour is preserved exactly and the
+      question is written out in PR #233.
+  - **Both pressures followed them (rank D3).** `pressure_step` is
+    the whole of a Pressure and of a Double Team -- the two differ by
+    the push and by the partner the advanced card brings in, so they
+    are one function and a `key`. `shove_pressured_handler`,
+    `pressure_result_text` and `apply_pressure_turnover` went with it
+    as free functions, and `D12Ball.apply_pressure` is four lines
+    around it. Nothing either card says changed.
+    - **The overshoot names a new follow-on**,
+      `BEGIN_OWN_GOAL_ROLL`, and it is the first whose method posts a
+      prompt of its own. So `begin_own_goal_roll` grew a `lead_in`
+      and carries the shove above its question: an overshooting
+      Pressure is one message now where it used to be two. The roll,
+      its dice image and the messages around it did not move.
+    - **`apply_own_goal_outcome` moved with the rank** and stopped
+      saving. It is the verdict rather than the card, but it is the
+      Pressure's verdict; `run_own_goal_roll` saves once,
+      immediately after it, on both branches. Both branches already
+      wrote the same state, so this is the rule and not a fix --
+      unlike rank O2's beaten Clear.
+    - **The pair a Double Team leaves is unchanged.**
+      `pending_double_team` is still set inside the shove's own
+      wording, still cleared by `announce_new_play_reset` alone, and
+      still survives a restart mid-effect -- which the rank asserts
+      rather than assumes, since it is the one record here that
+      reaches into the next turn.
 - **Every cost bites inside the winning maneuver's own resolution**,
   which is why there is no cost dispatcher. `advanced_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2

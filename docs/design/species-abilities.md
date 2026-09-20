@@ -519,8 +519,8 @@ split is the whole design.
   `offer_scoring_attempt_choice` (a set-up), `begin_run_back` (a
   turnover a maneuver settles for itself -- Steal, Intercept, a Defender's
   pressure steal, an own goal avoided -- and hands straight to run-back
-  without passing through any of the other three), and `apply_pressure`'s
-  own overshoot branch. Between them they are every one of the four things
+  without passing through any of the other three), and
+  `begin_own_goal_roll` (the shove that overshot into an own-goal risk). Between them they are every one of the four things
   the rules say a pull pre-empts, plus the two the first three don't reach
   on their own: a steal's own carry, and a shove that ends in an own-goal
   roll.
@@ -544,11 +544,11 @@ split is the whole design.
     is reached, so this reading is a no-op there, the same as the existing
     "second gate reached with the path already spent" case.
   - **The fifth was missing until 2026-09-20 as well**, and for a reason
-    the fourth did not cover: `apply_pressure`'s overshoot branch is
-    neither a settling nor a turnover. `shove_pressured_handler` drives the
-    ball back through `set_ball_space` like every other effect, so the
-    shove has a path; the branch then handed straight to
-    `begin_own_goal_roll`. That put the pull in the wrong place **both**
+    the fourth did not cover: an overshot shove is neither a settling nor
+    a turnover. `shove_pressured_handler` drives the ball back through
+    `set_ball_space` like every other effect, so the shove has a path;
+    `apply_pressure` then handed straight to `begin_own_goal_roll`
+    without reading it. That put the pull in the wrong place **both**
     ways the roll can go. An own goal *avoided* eventually reaches
     `begin_run_back` with the path still intact, so the offer did come --
     after the roll, which is too late for "a pull that lands pre-empts
@@ -567,6 +567,14 @@ split is the whole design.
       and clamps on the second. So the gate is a no-op for the ordinary
       Pressure and is asked there anyway, the way every other arrival asks
       it rather than deciding for itself that it has nothing to offer.
+    - **It gates inside `begin_own_goal_roll`, not at the call site.**
+      The Phase 3d lift made Pressure and Double Team a pure
+      `pressure_step` that returns
+      `FollowOn(FollowOnStep.BEGIN_OWN_GOAL_ROLL)`, and a model step
+      cannot ask a gate -- so the arrival gates itself the way the other
+      four do, and any later caller gets it for free. The gate was
+      briefly at the call site, before the lift landed; there is nothing
+      to regret in that, but the lift is what settled where it belongs.
     - **`pending_own_goal` is not set yet when the gate runs**, because
       `begin_own_goal_roll` is what sets it. That is what keeps a restart
       mid-offer unambiguous: `pending_prompt` reads `pending_mind_pull`
