@@ -104,40 +104,73 @@ between cards on a sheet are for a guillotine; TTS wants none of them and
 a sheet with margins slices wrong. So the renderers grow a mode rather
 than the module reusing the kit's output.
 
-## The scripts, and the line they do not cross
+## The scripts, and how they relate to the model
 
-**The scripts move objects and remember where they were. They never
-judge a play.** No legality check, no resolution, no "who won", and --
-the CLAUDE.md rule holds on the table as it does in the channel --
-**nothing rolls dice on its own**.
+**The scripts are a frontend over the model, exactly as the web app is:
+the model answers, the script applies.** Principle 2 of the split ("a
+rule is a question the model answers; the frontend asks it and renders
+the answer") and principle 10 ("the web app may not reach past the
+flow") hold on the table as they do in the channel. The author's review
+of this worksheet's first draft caught it saying otherwise: "Set up a
+game" as first written had the Lua standing each meeple on a space
+worked out from `standard_setup` and `board_layouts`, which is
+re-deriving the deal -- and the deal is a rule
+(`RulesEngine.placement_spaces_in_zone`, `apply_formation`,
+`kickoff_space_index`; board 9 packs midfield from a side's own end, and
+formations-and-occupancy.md is a whole file about why). A Lua that
+filled each zone in order would agree with the model on boards 6 and 7
+and disagree on board 9, which is exactly the two-frontends failure
+principle 3 describes.
 
-The reasoning is the model/Discord split's principle 10, applied to a
-third frontend: the moment the table has a rule of its own it has a
-second copy of the rules, in Lua, that no import script regenerates and
-no test in this repo runs. The web app is forbidden exactly that, and the
-web app at least shares a language with the model. The engine is Python
-and TTS scripts are Lua (MoonSharp, Lua 5.2); there is no way to run
-`RulesEngine` on the table, and porting it is the failure mode the split
-exists to prevent.
+What differs from the web app is only **when the question is asked**,
+and that is decided by what the question is about:
 
-What an *enforced* table would look like, so nobody reaches for the Lua
-port when the itch comes: TTS scripts can make HTTP requests
-(`WebRequest`), so once the split's Phase 6 has produced a driver that
-runs a turn from a request, a hosted service over `d12ball/flow` could
-referee a TTS game the way it will referee the web app, with the Lua
-reduced to "send the click, apply the `StepResult`". That is a phase of
-the *other* worksheet and not of this one. Until then the coaches are the
-referee, as they are at a physical table, with the living rules in a PDF
-beside the board.
+- **A question about the position** -- whose turn it is, what the
+  handler may do, where a Low Pass lands -- has the live match as its
+  input and can only be asked at runtime. That is the web app's shape,
+  and on the table it is TTS's `WebRequest` from the host's Lua to a
+  hosted service over `d12ball/flow`, with the Lua reduced to "send the
+  click, apply the `StepResult`". It needs the split's Phase 6 driver (a
+  turn run from a request) and a server that every host's game then
+  depends on being up. Both are the other worksheet's, and this one does
+  not start them.
+- **A question about the ruleset** -- how each side is dealt on each
+  board, where each formation puts six cards, which space is a side's
+  kickoff, what each player is called -- has a finite input space: three
+  boards, two sides, five shapes. Those are asked **at build time**:
+  `scripts/build_tts_mod.py` imports the model, puts the questions to
+  `RulesEngine` and `MatchState`, and writes the answers into `data.lua`,
+  which the save carries inline. The Lua applies a table it never
+  computes, and the tag pins the answers with the assets. The suite
+  asserts that the table is what the engine gives when asked afresh (see
+  "Tests"), so a rules import that changes the deal reaches the table by
+  rebuilding, and cannot reach it any other way.
 
-Within that line, the convenience the module ships:
+Build time rather than a live call for the second kind because a public
+Workshop item that cannot deal a game while the author's server is down
+is a worse table than one that carries its deal, and because nothing
+about the deal changes between builds that the tag would not pin anyway.
+If one of those questions ever grows a live input (a shape that depends
+on the score, say) it moves to the first list and waits for the service.
 
-| Script | What it does | What it reads |
+**Within that, the line the scripts do not cross: they never judge a
+play.** No legality check, no resolution, no "who won", and -- the
+CLAUDE.md rule holds on the table as it does in the channel -- **nothing
+rolls dice on its own**. A script may put things where the model said;
+it may not decide anything the model was not asked. The Lua contains no
+rule, ported or improvised: the moment it does, the table has a second
+copy of the rules that no import regenerates and no test runs, in a
+language the model does not share.
+
+The convenience the module ships, and what the model answered for each:
+
+| Script | What it does | What the model answered, and when |
 | --- | --- | --- |
-| **Set up a game** | Puts the field on the chosen size, deals each side's nine player cards onto its team board, stands each meeple on the space the standard deal gives its card's zone, deals twelve maneuver cards to each hand, zeroes the clock and score, and puts the ball on home's kickoff space showing 1 | `standard_setup`, `board_layouts` and the kickoff space, generated from `basic_rules.json`; the team pairs, from `TEAM_PAIRS` |
-| **Save arrangement** (one button per side) | Reads each of that side's fielded meeples against the field's snap points and records a space code per meeple in the script state, which TTS carries inside the save | The field's snap points, labelled with `space_code` |
-| **Reset to arrangement** (one per side) | Moves that side's meeples back to the recorded spaces. This is what a new play does in the rules ("Every fielded meeple on both sides goes back to the space its coach's arrangement puts it on"); the coaches press it after a goal, a miss or a ball out of bounds. It does not decide that a new play has happened | The saved state |
-| **Clock and score** | Nudge buttons on the jumbotron that move the markers a cell at a time, so a coach never has to drag a cube along a track of sixteen | `cell_inches` and the cell geometry, generated |
+| **Set up a game** | Puts the field on the chosen size, deals each side's nine player cards onto its team board, stands each meeple on the space the standard deal gives it, deals twelve maneuver cards to each hand, zeroes the clock and score, and puts the ball on home's kickoff space showing 1 | The deal per board and side as space codes, and the two kickoff spaces: asked of `RulesEngine` and `MatchState` at build time and baked into `data.lua`. The rosters and each meeple's `player_with_role` name, from the catalog, likewise |
+| **Formation** (one button per shape a side may play on this board) | Moves that side's six fielded cards into the shape's zones and their meeples onto the placement | Which shapes the board allows (`formations_for_board`) and where `apply_formation` puts the cards on it, per board and side, at build time |
+| **Save arrangement** (one per side) | Reads each of that side's fielded meeples against the field's snap points and records a space code per meeple in the script state, which TTS carries inside the save | Nothing. An arrangement is a position read off the table, not a rule |
+| **Reset to arrangement** (one per side) | Moves that side's meeples back to the recorded spaces. This is what a new play does in the rules ("Every fielded meeple on both sides goes back to the space its coach's arrangement puts it on"); the coaches press it after a goal, a miss or a ball out of bounds. It does not decide that a new play has happened | Nothing |
+| **Clock and score** | Nudge buttons on the jumbotron that move the markers a cell at a time, so a coach never has to drag a cube along a track of sixteen | The cell geometry, from `cell_inches` at build time |
 
 Halftime, substitutions and exhaustion are deliberately not scripted.
 Each is coaches moving things, which is what a Coaching Choice is, and a
@@ -149,15 +182,10 @@ the shape the coach *finished on*, and only the coach knows when they
 have finished. Recording on every drop would record the scramble a steal
 forces, which the rules say never changes an arrangement.
 
-**The scripts' data is generated, never written.** The builder emits a
-`data.lua` (the standard deal, the layouts, the kickoff spaces, the
-rosters with `player_with_role` for each meeple's name, the team hexes)
-from the JSON files and the model, and the hand-written `Global.lua`
-requires it. A rules import that changes the standard deal reaches the
-table by rebuilding, and the suite can assert the generated table against
-the JSON it came from. The CLAUDE.md rule on abilities holds: an ability's
-text reaches a meeple's description from `players.json` through the
-builder, and is never shortened in Lua.
+**Nothing in `data.lua` is typed.** The builder writes all of it from the
+model and the catalogs, so the CLAUDE.md rule on abilities holds on the
+table: an ability reaches a meeple's description from `players.json`
+through the builder, and is never shortened in Lua.
 
 ## Two repositories
 
@@ -274,8 +302,11 @@ What the suite can hold without TTS present:
 - **Counts.** A snap point per space per board size (6, 7, 9), plus the
   zone-assignment rows; a card per maneuver in each maneuver deck; nine
   per team; the clock's sixteen cells and the score track's thirteen.
-- **The generated `data.lua` round-trips** to the JSON it was built from,
-  so the standard deal on the table is the one in `basic_rules.json`.
+- **The answers baked into `data.lua` are the model's.** The test asks
+  `RulesEngine` and `MatchState` afresh -- the deal on every board for
+  both sides, each formation's placement, the kickoff spaces, the
+  rosters -- and compares, so the table can only ever deal what the bot
+  deals.
 - **The builder is deterministic**: two builds from one checkout and one
   tag produce byte-identical saves, which is what lets a diff of the
   asset repository mean something.
