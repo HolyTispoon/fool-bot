@@ -17,6 +17,7 @@ from d12ball.flow.effects import (
     dribble_advance_step,
     dribble_burst_step,
     low_pass_step,
+    steal_step,
 )
 from d12ball.prompts import loose_ball_pick_prompt
 from d12ball.components import (
@@ -2310,83 +2311,6 @@ class ManeuverEffectsMixin:
         """
         await self.apply_steal(interaction, game, match, "intercept")
 
-    def take_ball_by_steal(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        challenger_id: str,
-        new_possession_side: TeamSide,
-        direction: int,
-    ) -> tuple[bool, int]:
-        """
-        Turn the ball over and carry it off, returning whether the
-        carry ran out of field and how far it actually went.
-
-        The turnover happens first, then both the interceptor and the
-        ball move -- relative to the *new* possessing side, not the old
-        one. Moving the challenger's meeple (not just the ball) and
-        re-deriving the ball's space from it keeps the two in the same
-        space, so possession can be assigned directly without
-        set_possession's occupancy check.
-        """
-        match.ball.possession = new_possession_side
-        # Every turnover drops the ball's speed back to 1 -- the
-        # defender's manipulate-speed choice applies to that reset
-        # value, not whatever the speed was before the steal.
-        match.ball.speed = 1
-
-        # Intercept moving forward can run out of field, which a Steal
-        # falling back never can: the ball was in play, so there is
-        # always a space behind it. Read before the move, the way every
-        # other overshoot is.
-        origin_flat = match.board.flat_index(
-            *match.board.meeple_position(challenger_id)
-        )
-        target_flat = match.relative_flat_index(
-            origin_flat, new_possession_side, direction,
-        )
-        overshot = abs(target_flat - origin_flat) < 1
-
-        actual_distance = match.move_player_relative(
-            challenger_id, new_possession_side, direction,
-        )
-        match.set_ball_space(*match.board.meeple_position(challenger_id))
-        # The interceptor took the ball off someone and moved with it,
-        # so they carry it into their side's next turn -- the same
-        # player the run back exempts.
-        match.set_ball_carrier(challenger_id)
-        self.persist(game, match)
-
-        return overshot, actual_distance
-
-    def steal_result_text(
-        self,
-        match: MatchState,
-        key: str,
-        name: str,
-        challenger_id: str,
-        actual_distance: int,
-    ) -> str:
-        """The turnover, and which way the thief carried it."""
-        space_word = "space" if actual_distance == 1 else "spaces"
-        challenger = self.engine.get_player_definition(challenger_id)
-        challenger_label = self.player_label(match, challenger)
-        new_possession = match.setup_for_side(match.ball.possession)
-        travel = (
-            f"then carries it {actual_distance} {space_word} forward, "
-            "toward the goal they now attack"
-            if key == "intercept"
-            else f"then falls back {actual_distance} {space_word} toward "
-            "their own goal with the ball"
-        )
-        return (
-            f"**{name}:**\n"
-            "# Turnover!\n"
-            f"{challenger_label} steals the ball. "
-            f"{format_team_side_label(new_possession)} now has possession, "
-            f"{travel}."
-        )
-
     async def apply_steal(
         self,
         interaction: discord.Interaction,
@@ -2394,77 +2318,25 @@ class ManeuverEffectsMixin:
         match: MatchState,
         key: str,
     ) -> None:
-        new_possession_side = match.defending_side()
-        challenger_id = match.challenger_id
-        name = self.engine.maneuver_name(key)
-        # Toward the new possessor's own goal for a Steal, toward the
-        # goal they now attack for an Intercept -- so the two are one
-        # function and a sign.
-        direction = 1 if key == "intercept" else -1
+        """
+        The Discord half of a won Steal or Intercept: run the step,
+        save what it did, then post and dispatch what it handed back.
 
-        overshot, actual_distance = self.take_ball_by_steal(
-            game, match, challenger_id, new_possession_side, direction,
-        )
-        content = self.steal_result_text(
-            match, key, name, challenger_id, actual_distance,
-        )
+        Four lines over `steal_step`, which is where the turnover, the
+        carry, the wording and a beaten Skilled Pass's cost live -- see
+        `apply_low_pass` for the shape and principle 9 in CLAUDE.md for
+        why the save is here rather than inside the step.
 
-        if key == "intercept" and overshot:
-            # **The interceptor was already on the last space toward
-            # the goal they now attack, so there is nowhere to carry
-            # it: it is a scoring opportunity instead** (the author,
-            # 2026-08-19).
-            #
-            # Straight to the shot, the same as a deflection's
-            # overshoot and for the same reason: the run back and the
-            # speed step both belong after a turnover that left the
-            # play running, and this one has not. That drops
-            # Intercept's own speed-manipulation step, which is the one
-            # thing about this branch worth watching -- a set-up shot
-            # already reads the ball speed the turnover reset.
-            await self.refresh_match_image(interaction, game)
-            await self.begin_shooter_choice(
-                interaction,
-                game,
-                match,
-                [challenger_id],
-                lead_in=(
-                    f"{content}\n\nThere is no field left ahead of them -- "
-                    "a scoring opportunity!"
-                ),
-            )
-            return
-
-        # **Skilled Pass's cost**: beaten by a steal, the passing side
-        # hands the defender an unopposed Low Pass once the steal has
-        # settled. It is recorded rather than played here because the
-        # steal is not finished: the run back and then the speed choice
-        # both come first, and the pass is played from wherever that
-        # leaves the interceptor. See `pending_effect_continuation`.
-        if self.engine.advanced_cost(match, key) == "skilled_pass":
-            match.pending_effect_continuation = {
-                "kind": "free_low_pass",
-                "player_id": challenger_id,
-            }
-            content += (
-                "\n\n**Skilled Pass** was beaten -- the defense gets an "
-                "unopposed Low Pass once everyone is back in position."
-            )
-            self.persist(game, match)
-
-        await self.refresh_match_image(interaction, game)
-
-        # Ball-speed manipulation is offered after run-back finishes,
-        # not here -- see begin_run_back's speed_choice_after.
-        # No stays_player_id: begin_run_back exempts the ball carrier,
-        # which take_ball_by_steal has already made the interceptor.
-        await self.begin_run_back(
-            interaction,
-            game,
-            match,
-            speed_choice_after=True,
-            lead_in=content,
-        )
+        **Two saves became this one.** `take_ball_by_steal` persisted
+        inside itself and the Skilled Pass branch persisted again on
+        top of it, so a steal that collected that cost wrote the file
+        twice and one that did not wrote it once. The step no longer
+        saves at all and the wrapper always does, which is the same
+        state written the same number of times on either branch.
+        """
+        result = steal_step(self.engine, match, key)
+        self.persist(game, match)
+        await self.dispatch_step_result(interaction, game, match, result)
 
     # -- Pressure --------------------------------------------------------
 
