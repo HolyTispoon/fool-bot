@@ -69,7 +69,9 @@ narration, whether the board moved, and what happens next. Phase 2 cut
 this on Low Pass alone and nothing else; Phase 3 follows a rank at a
 time, and rank O2 brought the two dribbles -- so `effects.py` holds
 four cards (two of them one function parameterised) and
-`cogs/d12ball/effects.py` still holds nine.
+`cogs/d12ball/effects.py` still holds nine. Rank O1 landed after it
+and moved none of them: Skilled Pass had come across with Low Pass
+already, as the same step under a different `key=`.
 
 - **Low Pass was the slice because it is not a toy.** Mid-sized, with a
   role-ability branch (the Winger's set-up, the one path that ends
@@ -154,6 +156,34 @@ four cards (two of them one function parameterised) and
   `tests/test_d12ball_dribble_recording.py` and
   `tests/test_d12ball_dribble_flow.py` is rank O2's copy of the same
   three files, ten branches over the two cards.
+- **A rank can also turn out to be empty, and O1 did.** Phase 2 cut
+  the slice on Low Pass, and Skilled Pass is that same card
+  parameterised -- `low_pass_step(key="skilled_pass")`, with the
+  `key=` threaded from `resolve_skilled_pass` through
+  `apply_low_pass`. So rank O1 moved no code at all; the `self.persist`
+  count in `cogs/` did not change, and neither did the golden
+  transcript. What it added is the evidence Phase 2 had no reason to
+  write: ten more fixtures in the shared table, all on branches the
+  golden cannot see (the tutorial plays a Low Pass and never a Skilled
+  Pass), and the one assertion a fixture table cannot make -- that
+  `key` survives a save. It is not a field on the match: a restart
+  mid-effect reads the card back out of `offense_maneuver`, or out of
+  `pending_effect_continuation` for the free pass, so the round trip
+  through `to_dict`/`from_dict` is the whole of what stands between
+  the prompt a coach was looking at and the one they are handed back.
+  A rank that lifts nothing is still worth its pull request for that.
+- **Rank O1 left one thing behind, deliberately.**
+  `resolve_low_pass`'s no-teammate-to-receive branch moves the ball a
+  space, raises its speed, words it and persists, then hands off to
+  `begin_loose_ball` -- mutate-and-say-what-happened, in the `resolve_*`
+  half this phase does not touch. Lifting it would have meant adding
+  `BEGIN_LOOSE_BALL` and settling what `board_changed` means for a
+  step whose follow-on redraws the board itself: the cog deliberately
+  does **not** refresh there, because `begin_loose_ball` draws the
+  same board under its own announcement, so the flag would have to
+  mean "the frontend should redraw" rather than "the board moved".
+  That is one decision for all eight of `begin_loose_ball`'s callers
+  rather than for one card, and rank D1 is where it is due.
 - **What is in `FollowOnStep` is asserted in
   `tests/test_d12ball_package_shape.py`**, not in any one rank's own
   tests, along with `D12Ball.follow_on_methods` covering it exactly --
