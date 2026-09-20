@@ -59,6 +59,7 @@ python3 -m unittest discover -s tests
 | `docs/rules-log.md` | Every rules change, dated and sourced; what is still open; where upstream is behind |
 | `docs/gambit-matrix.md` | The worksheet the gambits were built from, cut to what is still open. **Nothing in it is a rule** |
 | `docs/model-discord-split.md` | The worksheet the model/Discord split is being built from -- the phases still open, what deliberately does not move, the bot-testing stop each phase ends on. **Nothing in it is a rule**; the principles it was written around now live in "The model and the Discord layer" below, moved there when Phase 1 landed |
+| `docs/tts-module.md` | The worksheet the Tabletop Simulator module is being built from -- the four decisions already taken, the five phases and the in-TTS stop each ends on, what the convenience scripts may and may not do. **Nothing in it is a rule** |
 | `docs/model-discord-split-prompts.md` | The prompt each phase of that worksheet is run from, one conversation per phase. Deleted phase by phase as they land, and with the worksheet at the end |
 | `docs/design/` | The design notes this file points at -- one topic per file |
 
