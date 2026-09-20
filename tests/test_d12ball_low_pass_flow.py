@@ -81,18 +81,20 @@ class LowPassStepTests(unittest.TestCase):
                 )
                 self.assertEqual(match.ball.speed, fixture.ball_speed)
 
-    def test_the_two_follow_on_steps_are_the_ones_low_pass_can_name(
-        self,
-    ) -> None:
+    def test_the_two_steps_low_pass_can_name_are_members(self) -> None:
         """
-        `FollowOnStep` is the record of what the cog still dispatches,
-        so the members are asserted rather than only used -- Phase 6
-        reads the enum to learn what is left.
+        The two spine steps this card ends on, asserted by name rather
+        than only used.
+
+        It used to assert the *whole* enum, which was right when Low
+        Pass was the only step that had moved and wrong the moment a
+        second rank landed -- the membership is a fact about the seam,
+        not about this card. It is asserted whole in
+        `tests/test_d12ball_follow_on_steps.py`, which is where a rank
+        that adds a member goes to say so.
         """
-        self.assertEqual(
-            {member.name for member in FollowOnStep},
-            {FINISH, SCORING_CHOICE},
-        )
+        members = {member.name for member in FollowOnStep}
+        self.assertLessEqual({FINISH, SCORING_CHOICE}, members)
 
     def test_a_free_pass_spends_its_continuation(self) -> None:
         fixture = next(

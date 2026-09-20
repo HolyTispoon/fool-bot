@@ -49,6 +49,12 @@ class FollowOnStep(Enum):
     #: A set-up -- the offense is offered a scoring attempt instead of
     #: letting the maneuver resolve normally.
     OFFER_SCORING_ATTEMPT_CHOICE = auto()
+    #: The last human choice in a maneuver's effect: manipulate the
+    #: ball's speed, up to the skill the move was made on. Both
+    #: dribbles end here rather than at
+    #: `FINISH_MANEUVER_RESOLUTION` -- the speed choice is what runs
+    #: that afterwards, so a step that named both would run it twice.
+    OFFER_SPEED_CHOICE = auto()
 
 
 @dataclass(frozen=True)
