@@ -23,13 +23,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.cards import (  # noqa: E402
     SHEET_COLUMNS,
+    maneuver_hand_combinations,
     print_sheet,
     render_maneuver_card,
     render_maneuver_card_back,
     render_maneuver_hands,
 )
 from d12ball.components import (  # noqa: E402
-    MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
     load_maneuver_catalog,
     load_player_catalog,
@@ -107,28 +107,23 @@ def main() -> None:
         print(f"wrote {sheet_path}")
 
     if args.hands:
-        # Every image the maneuver prompt can carry, which is the six
-        # the bot draws at startup: the sides a person still picks for
-        # (`RulesEngine.maneuver_pick_sides`) against the tiers they may
-        # play (`RulesEngine.maneuver_tiers`). Both sides is the
-        # ordinary contested prompt; one alone is an unchallenged
-        # maneuver or a solo game against Dinky.
-        for sides in (("offense",), ("defense",), ("offense", "defense")):
-            for label, tiers in (
-                ("basic", (MANEUVER_TIER_BASIC,)),
-                (
-                    "gambits",
-                    (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT),
-                ),
-            ):
-                hand_path = args.out / f"hand-{'-'.join(sides)}-{label}.png"
-                hand_path.write_bytes(
-                    render_maneuver_hands(
-                        catalog, players, sides, tiers,
-                    ).getvalue()
-                )
-                print(f"wrote {hand_path}")
-
+        # Every image the maneuver prompt can carry, which is what the
+        # bot draws at startup: one `(side, tiers)` pair per hand on the
+        # prompt, from the one list the bot itself reads
+        # (`maneuver_hand_combinations`). Both sides is the ordinary
+        # contested prompt; one alone is an unchallenged maneuver or a
+        # solo game against Dinky. The tiers are per side, since a
+        # gambit is held only by a coach whose team is behind.
+        for hands in maneuver_hand_combinations():
+            name = "-".join(
+                f"{side}-{'gambits' if MANEUVER_TIER_GAMBIT in tiers else 'basic'}"
+                for side, tiers in hands
+            )
+            hand_path = args.out / f"hand-{name}.png"
+            hand_path.write_bytes(
+                render_maneuver_hands(catalog, players, hands).getvalue()
+            )
+            print(f"wrote {hand_path}")
 
 if __name__ == "__main__":
     main()
