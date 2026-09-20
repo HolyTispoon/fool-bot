@@ -105,6 +105,60 @@ with Low Pass already, as the same step under a different `key=`.
     per pass, which is what lets the loop be the model's while the
     per-pass persist stays the caller's -- the one named exception to
     principle 9.
+- **Phase 5 made it seven modules.** `periods.py` holds the whistle and
+  the three stage machines hanging off it -- halftime, the window before
+  the shootout, and the shootout itself -- and `windows.py` the Coaching
+  Choice on all five of its occasions, with the time out that buys one.
+  The two are one phase because they are one loop: a stage machine hands
+  out a window and `finish_substitution_window` routes back into
+  whichever machine is running, which is the junction all five occasions
+  come back through. Splitting that across the seam would have left half
+  an ordering on each side, which is the mistake `arrivals.py` was moved
+  whole to avoid.
+  - **`advance_shootout` is still the one reading of what a shootout is
+    waiting on.** It moved; it did not fork. The claim was already
+    load-bearing -- two of the shootout's four steps are the bot's own,
+    so a restart between them has no button and `/d12ball resume` has to
+    ask -- and a lift that produced a second reading would have been the
+    exact failure principle 3 names.
+  - **`post_blocks_then_dispatch` is the third dispatcher**, and it
+    posts one message per narration block. A period transition is a run
+    of separate events -- the whistle, the halftime recovery, an AI
+    side's extra token, the shootout's explainer -- which both existing
+    dispatchers would have joined into one paragraph. Three methods
+    rather than a flag on `StepResult`, for `post_then_dispatch`'s
+    reason: which of them a step gets is the frontend's decision
+    (principle 8). Its one exception is
+    `FOLLOW_ONS_THAT_SPEAK_THE_LINES`: `announce_game_over` puts the
+    final board and the rematch buttons on a message whose *content* is
+    those lines.
+  - **The enum went 27 -> 29, and two members Phase 4 expected to lose
+    are still there.** `DISPATCH_INJURY_RESUME` did go: taking the
+    shootout is what let the dispatcher move, since two of its three
+    arrivals now answer in the model and the third names a follow-on
+    like any other step would.
+    `FINISH_SETUP_COACHING`, `FINISH_HALFTIME` and `ANNOUNCE_GAME_OVER`
+    arrived, and all three are the third kind -- a board this phase may
+    not post and pin, and the message the rematch buttons hang off.
+    `END_PERIOD` stayed because the whistle's cascade is a run of
+    separate messages and the two steps that name it hand their results
+    to dispatchers that would merge them.
+    `BEGIN_SUBSTITUTION_WINDOW` stayed because the window's prompt is
+    the one in the game that carries the coach's own half-field, with
+    the tutorial's Continue gate over the top of it -- a picture and a
+    gate, which is the enum's second kind.
+  - **`heading` in `FollowOn.kwargs` is not the narration coming back.**
+    A window's own opening line goes *inside* the prompt, above the
+    allowance; a preceding step's narration is its own message. Two
+    different things that both used to be called `lead_in`, and the
+    follow-on carries only the first.
+  - **Three pure builders came down with them**, into
+    `d12ball/formatting.py`: `build_goal_log`, `build_full_time_summary`
+    and `format_goal_scorer`. Neither fetches an emoji nor touches
+    discord.py -- which is that file's own stated rule for what belongs
+    in it -- and the whistle needs both to word itself.
+    `cogs/d12ball_helpers.py` re-exports all three, so no call site
+    moved.
 - **Low Pass was the slice because it is not a toy.** Mid-sized, with a
   role-ability branch (the Winger's set-up, the one path that ends
   somewhere other than `finish_maneuver_resolution`), a continuation
@@ -453,12 +507,13 @@ code starts moving across the line.
   trip that one too (naming `discord` itself, which is not the useful
   message).
 
-## `tests/test_golden_transcript.py` and `tests/test_golden_advanced.py`
+## The three goldens
 
-There are **two** goldens since Phase 4, and they are separate files rather
-than two seeds of one: they share the fixtures, the diff and the final-save
-rendering, and what they do not share is the press rule, because the
-tutorial is driven by its own rails and the advanced game has none.
+There are **three** since Phase 5, and they are separate files rather than
+three seeds of one: they share the fixtures, the diff and the final-save
+rendering, and what they do not share is the press rule -- the tutorial is
+driven by its own rails, the advanced game has none, and the windows game
+has a script written to reach the windows.
 
 ### The tutorial golden
 
@@ -523,6 +578,36 @@ merged two messages into one, which the tutorial golden does not reach.
 - **What it still does not reach**: the free pickup after a time-out, the
   stacked run back's *player* prompt, and full time and the shootout, which
   are past where the step budget stops. Those are Phase 5's ground.
+
+### The windows golden
+
+`tests/test_golden_windows.py`, Phase 5's, and the one that reaches what the
+advanced golden's own docstring said it could not: full time, the shootout,
+and the windows either side of them. It plays a **solo basic** game on board
+7 from the standard deal, both halves out, to 1-1 at the whistle and 3-4 in
+a shootout that goes to sudden death.
+
+- **Basic and plain on purpose.** The advanced modules are the advanced
+  golden's ground, and every press spent on a gambit here is a press not
+  spent getting to minute 30. A whole game is about 100 presses.
+- **Seed 31 was picked for the two things a script cannot arrange**, both of
+  them dice: a level score at full time (eight seeds in forty) and a first
+  shootout round level enough to go to sudden death (one of those eight). A
+  game that finishes 2-1 ends at the whistle and guards none of
+  `begin_full_time_coaching`, `begin_shootout` or `advance_shootout`, so the
+  level score is asserted rather than hoped for.
+- **Four press rules on top of the advanced golden's two.** Take a time out
+  the moment one is offered (`may_call_time_out` is once a half, so "always"
+  is exactly once each); make one substitution in a halftime window, read off
+  `pending_coaching_swaps` rather than counted in the script; take the first
+  player on either ephemeral shootout menu; and roll on the roll prompt
+  rather than reading the order six times.
+- **The one window it does not pin is a halftime substitution by the AI
+  side.** Dinky only ever swaps to get an injured player off, so no script
+  can make it, and no seed in the sweep had an injured Purple player on the
+  field at the break. Both halftime windows do run, and Dinky's substitution
+  routine is covered where it does fire -- in the time out it calls itself,
+  at press 32. A halftime where both benches move is the author's bot stop.
 
 ## Two things about running the suite that cost time to rediscover
 

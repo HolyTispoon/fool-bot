@@ -2,6 +2,30 @@
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md).
 
+## Where the code is
+
+Since **Phase 5** of the model/Discord split the whistle is a flow step:
+`end_period` lives in
+[`d12ball/flow/periods.py`](../../d12ball/flow/periods.py), with the whole
+cascade it opens -- halftime's recovery and stages, the window before the
+shootout, and the shootout itself. Names below without a path are the flow
+functions; `D12Ball.end_period` and its neighbours are the cog wrappers
+that persist and post.
+
+**The clock itself never moved and never will.** `MatchState.advance_time`
+is `d12ball/components.py`'s and always was, as are `record_goal` and
+`record_event`. What Phase 5 moved is the *sequencing* around them -- which
+minute ends a period and what happens next -- and that is the half a web
+app would otherwise have had to reimplement.
+
+**What stayed in the cog**, and each is principle 8 or principle 2's
+"nothing in `d12ball/` may know what a message is": the board a half kicks
+off from, which is posted and **pinned** (`D12Ball.finish_halftime`,
+`D12Ball.finish_setup_coaching`); the final board with the rematch buttons
+(`D12Ball.announce_game_over`); and the decision that a period transition
+is a run of **separate** messages rather than one paragraph, which is
+`D12Ball.post_blocks_then_dispatch`.
+
 ## The running clock
 
 One clock over both periods -- 00-15 in the first half, 16-30 in the second --

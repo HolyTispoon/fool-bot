@@ -12,7 +12,11 @@ writes nothing to disk.
 import unittest
 
 from d12ball.flow import FollowOn, FollowOnStep
-from d12ball.flow.injuries import begin_injury_tests, continue_injury_tests
+from d12ball.flow.injuries import (
+    begin_injury_tests,
+    continue_injury_tests,
+    dispatch_injury_resume,
+)
 from d12ball.prompts import PromptKind
 
 from d12ball.components import PlayerRole
@@ -45,10 +49,14 @@ class InjuryTestFlowTests(unittest.TestCase):
         result = begin_injury_tests(
             self.engine, self.game, self.match, [], self.resume,
         )
+        # Phase 5 lifted the dispatcher too, so the continuation is
+        # answered here rather than named: a `maneuver_effect` resume
+        # is the one of the three kinds still dispatched by the cog.
         self.assertEqual(
             result.next,
             FollowOn(
-                FollowOnStep.DISPATCH_INJURY_RESUME, {"resume": self.resume},
+                FollowOnStep.BEGIN_EFFECT_RESOLUTION,
+                {"winner_key": "low_pass"},
             ),
         )
         self.assertEqual(self.match.pending_injury_tests, [])
@@ -112,10 +120,53 @@ class InjuryTestFlowTests(unittest.TestCase):
         self.assertEqual(
             result.next,
             FollowOn(
-                FollowOnStep.DISPATCH_INJURY_RESUME, {"resume": self.resume},
+                FollowOnStep.BEGIN_EFFECT_RESOLUTION,
+                {"winner_key": "low_pass"},
             ),
         )
         self.assertIsNone(self.match.pending_injury_resume)
+
+    def test_a_run_back_resume_names_the_step_and_keeps_its_arguments(
+        self,
+    ) -> None:
+        """
+        The second of the three resume kinds. It is **named** rather
+        than called, unlike the shootout's: `D12Ball.begin_run_back`
+        is what decides whether a new play's board is posted and
+        pinned, which the model may not know.
+        """
+        resume = {
+            "kind": "run_back",
+            "distance_moved": 3,
+            "turnover_occurred": True,
+        }
+        result = dispatch_injury_resume(
+            self.engine, self.game, self.match, resume,
+        )
+        self.assertEqual(
+            result.next,
+            FollowOn(
+                FollowOnStep.BEGIN_RUN_BACK,
+                {"distance_moved": 3, "turnover_occurred": True},
+            ),
+        )
+
+    def test_a_resume_it_cannot_read_stops_rather_than_guessing(
+        self,
+    ) -> None:
+        """
+        A game in this state needs `/d12ball resume`, and the step has
+        nothing true to say about a position it cannot find. It is
+        logged at ERROR, which is what reaches #logs.
+        """
+        with self.assertLogs(
+            "d12ball.flow.injuries", level="ERROR",
+        ) as logs:
+            result = dispatch_injury_resume(
+                self.engine, self.game, self.match, None,
+            )
+        self.assertIsNone(result.next)
+        self.assertIn("needs /d12ball resume", logs.output[0])
 
     def test_the_ask_names_the_player_and_their_tokens(self) -> None:
         """

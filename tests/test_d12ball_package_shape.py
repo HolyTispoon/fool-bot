@@ -207,7 +207,7 @@ class FollowOnStepTests(unittest.TestCase):
     """
 
     #: Every spine step a lifted step may end by naming, as of Phase
-    #: 4. A phase that hands off to a new one adds its member here and
+    #: 5. A phase that hands off to a new one adds its member here and
     #: a row to `D12Ball.follow_on_methods`; one that lifts a step the
     #: cog used to dispatch takes its member back out. Phase 6 empties
     #: both.
@@ -226,10 +226,7 @@ class FollowOnStepTests(unittest.TestCase):
         # honest reading of the phase: the spine's decisions moved and
         # the frontend edges they end on are now named. See the
         # `FollowOnStep` docstring for the three kinds.
-        "DISPATCH_INJURY_RESUME",
-        "END_PERIOD",
         "SEND_TURN_PROMPT",
-        "BEGIN_SUBSTITUTION_WINDOW",
         "START_SET_UP_SHOT",
         "SEND_SET_UP_ATTEMPT_PROMPT",
         "SEND_SHOOTER_PROMPT",
@@ -247,6 +244,18 @@ class FollowOnStepTests(unittest.TestCase):
         "RESOLVE_MANEUVER",
         "BEGIN_EFFECT_RESOLUTION",
         "BEGIN_MANEUVER_SKILL_TEST",
+        # Phase 5's, and the same reading again. `END_PERIOD` and
+        # `BEGIN_SUBSTITUTION_WINDOW` were Phase 4's guess at what this
+        # phase would take back out and are still here -- the first
+        # because the whistle's cascade is a run of separate messages,
+        # the second because the window's prompt carries the coach's
+        # own half-field and a tutorial gate. `DISPATCH_INJURY_RESUME`
+        # did go, which is what taking the shootout bought.
+        "END_PERIOD",
+        "BEGIN_SUBSTITUTION_WINDOW",
+        "FINISH_SETUP_COACHING",
+        "FINISH_HALFTIME",
+        "ANNOUNCE_GAME_OVER",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(

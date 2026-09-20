@@ -95,9 +95,23 @@ Two things follow from that:
   whole difference between resume's two callers, and the reason
   `pending_prompt` returns a prompt, and `pending_turn_view` a view, rather
   than either posting it.
+  - **Each of those eight is still a method on the cog, and since Phase 5 of
+    the model/Discord split most of them are wrappers** over a step in
+    `d12ball/flow/` -- see
+    [model-discord-split.md](model-discord-split.md). `resume_pending_prompt`
+    is unchanged and calls the same eight by the same names; what changed is
+    that the routine behind each is now a function the web app can call too.
+    **The shootout's own reading did not fork**: `advance_shootout` moved
+    whole, and `pending_prompt` still answers its three sub-states in the same
+    order.
+  - **That every one of those states reads back the same after a save and a
+    load is asserted**, window by window and shootout sub-state by sub-state,
+    in `WindowStateSurvivesASaveTests` (`tests/test_d12ball_periods_flow.py`).
+    A window is the longest wait in the game, so it is where a lift would show
+    up as a game that comes back asking something else.
 
 - **An open Coaching Choice is re-posted, never re-opened.**
-  `repost_coaching_prompt` exists because `begin_substitution_window` calls
+  `repost_coaching_prompt` exists because opening a window calls
   `open_coaching_window`, which resets the substitution counter — resuming
   through it would hand a coach back the swaps they had already spent. It is
   checked ahead of the setup, halftime and full-time stages for the same

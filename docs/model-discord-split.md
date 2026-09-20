@@ -28,8 +28,8 @@ it happened to have.
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
-| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Done (PR #TBD) |
-| **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
+| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Done (PR #249) |
+| **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Done (PR #254) |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
 
 The Status column is the record of what has landed; a phase's PR updates
@@ -549,21 +549,42 @@ inside a run back that stopped to ask, and inside a Mind Pull offer.
 
 ---
 
-## Phase 5 -- periods and windows
+## Phase 5 -- periods and windows (done)
 
-- the Coaching Choice and its five occasions
-- halftime, full time, the shootout
-- the time out
-- the clock and `end_period`
+Landed whole. The clock's own machinery is
+[`d12ball/flow/periods.py`](../d12ball/flow/periods.py) -- the whistle,
+halftime, the window before the shootout and the shootout itself -- and
+the Coaching Choice on all five occasions, with the time out that buys
+one, is [`windows.py`](../d12ball/flow/windows.py).
 
-These are more self-contained than the spine and mostly already read as
-stage machines (`SETUP_STAGES`, `HALFTIME_STAGES`, `FULL_TIME_STAGES`,
-`advance_shootout`). The work is mechanical; the risk is the two ephemeral
-shootout menus, which are Discord-specific and stay where they are.
+**What is still open out of this phase**, for whoever runs Phase 6:
+
+- **`FollowOnStep` is at 29 members.** `DISPATCH_INJURY_RESUME` went;
+  `FINISH_SETUP_COACHING`, `FINISH_HALFTIME` and `ANNOUNCE_GAME_OVER`
+  arrived. **`END_PERIOD` and `BEGIN_SUBSTITUTION_WINDOW` did not go**,
+  which the Phase 5 prompt expected them to: the first because the
+  whistle's cascade is a run of separate messages and the two steps that
+  name it hand their results to dispatchers that would merge them, the
+  second because the window's prompt carries the coach's own half-field
+  and a tutorial Continue gate. Both now say so on their own enum entry.
+- **There are three dispatchers now, not two.**
+  `post_blocks_then_dispatch` posts one message per narration block.
+  Phase 6's driver needs all three distinctions under whatever names.
+- **Four prompts still cannot be `PendingPrompt`s**, one more than Phase
+  4 left: `SEND_SET_UP_ATTEMPT_PROMPT`, `SEND_SHOOTER_PROMPT`,
+  `SEND_RUN_BACK_PROMPT` and the coaching window. The first two carry
+  arguments match state does not hold; the last two carry a picture.
+  Closing any of them is `pending_prompt` growing a branch or
+  `PendingPrompt` growing a field, which is a change to the game's
+  recovery behaviour and belongs in its own commit.
+- **The one window no golden pins is a halftime substitution by the AI
+  side.** Dinky only swaps to get an injured player off, so no script
+  can make it happen at the break. See the windows golden's docstring.
 
 **Bot stop:** a game taken to a level score at full time and through a
 shootout to sudden death. A halftime with substitutions on both sides. A
-time out in each half. Restart inside each window.
+time out in each half. A restart inside each window and inside each
+shootout sub-state.
 
 ---
 

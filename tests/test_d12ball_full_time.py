@@ -22,7 +22,7 @@ from unittest import mock
 
 import discord
 
-from cogs.d12ball import D12Ball
+from cogs.d12ball import HALFTIME_STAGES, D12Ball
 from cogs.d12ball_helpers import (
     FULL_IMAGE_BUTTON_LABEL,
     PBD_ARCHIVE_CATEGORY_NAME,
@@ -248,7 +248,6 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         half stopped.
         """
         cog = build_cog()
-        cog.begin_halftime = mock.AsyncMock()
         game = build_game()
         match = self.build_match()
         match.scoreboard.time = 19
@@ -264,10 +263,15 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.scoreboard.time, 16)
         self.assertFalse(match.scoreboard.last_possession)
         self.assertEqual(match.scoreboard.last_minute, 30)
-        cog.begin_halftime.assert_awaited_once()
+        # The whistle carries straight on into halftime, which is one
+        # step in `d12ball.flow.periods` since Phase 5 -- so what says
+        # it happened is the halftime message under the whistle rather
+        # than a call on the cog.
+        self.assertEqual(match.pending_halftime_stage, HALFTIME_STAGES[0])
         # The half is reported where it actually ended, since that is
         # no longer the same number for every game.
         self.assertIn("at 19", sent_texts(interaction)[0])
+        self.assertIn("# Halftime", sent_texts(interaction)[1])
 
     async def test_reaching_15_without_a_turnover_reads_the_old_way(
         self,
