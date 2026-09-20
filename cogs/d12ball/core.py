@@ -24,6 +24,7 @@ from d12ball.components import (
     DECISION_SKILL_TEST,
     DECISION_UNCONTESTED,
     EVENT_INJURY_TEST,
+    CoachingOccasion,
     EVENT_MANEUVER,
     EVENT_SKILL_TEST,
     EVENT_TURN_ACTION,
@@ -36,7 +37,6 @@ from d12ball.components import (
     SPECIES_CYBORG,
     TeamSetup,
     TeamSide,
-    legacy_maneuver_key,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -179,6 +179,33 @@ from cogs.d12ball_boards import BoardRefresher
 FOLLOW_ONS_THAT_DRAW_THE_BOARD = frozenset({
     FollowOnStep.BEGIN_LOOSE_BALL,
     FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK,
+})
+
+
+#: The two prompt kinds whose message carries **the coach's own
+#: half-field** -- the one picture in the game that is not the board,
+#: the field strip or a hand of cards. `D12Ball.begin_substitution_window`
+#: posts these itself rather than letting `dispatch_step_result` do it,
+#: because the file has to be rendered and attached; see
+#: "Working on the board image" in docs/design/board-image.md.
+COACHING_PROMPT_KINDS = frozenset({
+    PromptKind.COACHING_HUB,
+    PromptKind.COACHING_OFFER,
+})
+
+
+#: Every follow-on whose own message **is** the lines handed to it, so
+#: a caller posting a step's narration block by block must not post
+#: them and then run it.
+#:
+#: One member, and it earns the set rather than an `is` check for
+#: `FOLLOW_ONS_THAT_DRAW_THE_BOARD`'s reason: the answer is the step's.
+#: `announce_game_over` is handed a string and puts the final board and
+#: the rematch buttons on the message it makes of it -- so the whistle
+#: and the scoresheet are its content, not a message above it. See
+#: `D12Ball.post_blocks_then_dispatch`.
+FOLLOW_ONS_THAT_SPEAK_THE_LINES = frozenset({
+    FollowOnStep.ANNOUNCE_GAME_OVER,
 })
 
 
@@ -1230,75 +1257,6 @@ class CoreMixin:
         self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
-    async def dispatch_injury_resume(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        resume: Optional[dict],
-        lead_in: str = "",
-    ) -> None:
-        """
-        Pick the turn back up where the injury tests interrupted it.
-        The kinds are the contests that hand them out: a maneuver's
-        skill test goes on to the winner's effect, a loose ball (or
-        the long High Pass that borrows its machinery) goes on to its
-        run back, and a shootout skill test goes on to the next one --
-        or to the end of the game.
-
-        **This is a `FollowOnStep` rather than a lifted step**, because
-        two of those three arrivals are not the spine's and Phase 4 did
-        not move them. See `FollowOnStep.DISPATCH_INJURY_RESUME`.
-
-        `lead_in` is here because every follow-on is called with one,
-        and it is passed on to the only kind with somewhere to put it.
-        It is always `""` today: an injury test interrupts a contest
-        that has already posted its own message, so there is no
-        narration waiting when the queue drains. The parameter is what
-        makes that true by construction rather than by accident -- a
-        later caller that does batch into here reaches `begin_run_back`
-        with its lines instead of dropping them silently.
-        """
-        kind = (resume or {}).get("kind")
-        if kind == "shootout_test":
-            # Nothing writes this any more -- a shootout test stopped
-            # owing injury checks on 2026-08-15 and goes straight to
-            # `continue_shootout` itself. It is still read, because a
-            # game saved between that roll and its tests outlives the
-            # change: the same reason `TeamSetup.from_dict` still
-            # answers to `player_board`. It dies out on its own.
-            await self.continue_shootout(interaction, game, match)
-            return
-        if kind == "maneuver_effect":
-            # `winner_name` is what this carried before maneuvers had
-            # keys, and a game saved mid-injury-test outlives the
-            # change -- so the old spelling is still read and never
-            # written. Same tolerance as `legacy_maneuver_key`.
-            await self.begin_effect_resolution(
-                interaction,
-                game,
-                match,
-                resume.get("winner_key")
-                or legacy_maneuver_key(resume.get("winner_name")),
-            )
-            return
-        if kind == "run_back":
-            await self.begin_run_back(
-                interaction,
-                game,
-                match,
-                distance_moved=resume.get("distance_moved", 1),
-                turnover_occurred=resume.get("turnover_occurred", True),
-                lead_in=lead_in,
-            )
-            return
-        LOGGER.error(
-            "Game %s finished its injury tests with nothing to resume "
-            "(%r); it needs /d12ball resume.",
-            game.game_id,
-            resume,
-        )
-
     async def run_injury_test(
         self,
         interaction: discord.Interaction,
@@ -1637,6 +1595,63 @@ class CoreMixin:
             interaction, game, match, StepResult(next=result.next),
         )
 
+    async def post_blocks_then_dispatch(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        result: StepResult,
+    ) -> None:
+        """
+        Post this step's narration **one message per block**, then run
+        what comes next with nothing carried forward.
+
+        The third dispatcher, and the one the periods need.
+        `dispatch_step_result` joins the blocks and hands them to the
+        next step as its lead-in; `post_then_dispatch` joins them into
+        one message of their own; this posts each block separately.
+        A period's whistle is a cascade of the bot's own steps that
+        were **several messages each** before the lift -- the whistle,
+        the halftime recovery, an AI side's extra token, the shootout's
+        explainer -- and a coach reads them as the separate events they
+        are.
+
+        `StepResult.narration` is already "the blocks in the order they
+        were said" (see `StepResult`); which of the three dispatchers a
+        step gets is the frontend's decision, which is why this is a
+        third method here rather than a flag on the result. See
+        principle 8 in CLAUDE.md.
+
+        **One board refresh for the cascade, not one per block.** The
+        model reports that the board moved; how many writes that costs
+        is this side's, and the whole of a period transition is one
+        position settling. It is written first, so the board is right
+        by the time the first line naming it is read.
+
+        A follow-on in `FOLLOW_ONS_THAT_SPEAK_THE_LINES` is handed the
+        blocks instead of having them posted above it.
+        """
+        following = result.next
+        if result.board_changed:
+            await self.refresh_match_image(interaction, game)
+
+        lines = ""
+        if (
+            isinstance(following, FollowOn)
+            and following.step in FOLLOW_ONS_THAT_SPEAK_THE_LINES
+        ):
+            lines = " ".join(result.narration)
+        else:
+            for block in result.narration:
+                await send_new_prompt(interaction, block)
+
+        await self.dispatch_step_result(
+            interaction,
+            game,
+            match,
+            StepResult(narration=[lines] if lines else [], next=following),
+        )
+
     # -- Follow-on adapters ------------------------------------------
     #
     # Every follow-on is called as
@@ -1677,12 +1692,77 @@ class CoreMixin:
         match: MatchState,
         *,
         side: TeamSide,
+        occasion: CoachingOccasion = CoachingOccasion.NEW_PLAY,
+        is_response: bool = False,
+        heading: str = "",
         lead_in: str = "",
     ) -> None:
-        """`begin_substitution_window` as a follow-on."""
+        """
+        `begin_substitution_window` as a follow-on.
+
+        **`heading` and `lead_in` are two different things and both are
+        here.** `lead_in` is the narration of whatever step named this
+        one -- a new play's reset, the full-time whistle -- and is its
+        own message above the menu. `heading` is the window's own
+        opening line, which goes *inside* the prompt above the
+        allowance; see `d12ball.flow.windows.open_substitution_window`.
+        """
         if lead_in:
             await send_new_prompt(interaction, lead_in)
-        await self.begin_substitution_window(interaction, game, match, side)
+        await self.begin_substitution_window(
+            interaction,
+            game,
+            match,
+            side,
+            occasion=occasion,
+            is_response=is_response,
+            lead_in=heading,
+        )
+
+    async def finish_setup_coaching_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """`finish_setup_coaching` as a follow-on: the kickoff board's
+        caption is the step's own line, so it rides in rather than
+        being posted above it."""
+        await self.finish_setup_coaching(
+            interaction, game, match, lead_in=lead_in,
+        )
+
+    async def finish_halftime_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """`finish_halftime` as a follow-on -- the same, for the second
+        half's kickoff board."""
+        await self.finish_halftime(interaction, game, match, lead_in=lead_in)
+
+    async def announce_game_over_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """
+        `announce_game_over` as a follow-on.
+
+        **The game record is saved here rather than in the step.** The
+        step that named this one called `game.finish_game()`, which is
+        the record and not the match, so `persist` did not write it --
+        and a process that died between the two would come back to a
+        finished game that still reads as in progress. See principle 9
+        in CLAUDE.md for why the match's own save is the caller's.
+        """
+        save_games(self.games)
+        await self.announce_game_over(interaction, game, lead_in)
 
     async def start_set_up_shot_step(
         self,
@@ -1762,9 +1842,11 @@ class CoreMixin:
                 self.offer_setup_pass_push_back,
             FollowOnStep.BEGIN_HIGH_PASS_CONTEST:
                 self.begin_high_pass_contest,
-            FollowOnStep.DISPATCH_INJURY_RESUME:
-                self.dispatch_injury_resume,
             FollowOnStep.END_PERIOD: self.end_period,
+            FollowOnStep.FINISH_SETUP_COACHING:
+                self.finish_setup_coaching_step,
+            FollowOnStep.FINISH_HALFTIME: self.finish_halftime_step,
+            FollowOnStep.ANNOUNCE_GAME_OVER: self.announce_game_over_step,
             FollowOnStep.SEND_TURN_PROMPT: self.send_turn_prompt_step,
             FollowOnStep.BEGIN_SUBSTITUTION_WINDOW:
                 self.begin_substitution_window_step,

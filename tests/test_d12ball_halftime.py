@@ -40,9 +40,16 @@ def build_cog() -> D12Ball:
     )
     cog.team_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
-    cog.advance_halftime_stage = mock.AsyncMock()
+    # **The window and the run back, not the stage machine.** Halftime
+    # walks its own stages inside `d12ball.flow.periods` since Phase 5,
+    # so a mock on `advance_halftime_stage` would stop nothing; what is
+    # still the cog's -- and so still worth holding a game inside -- is
+    # the window's prompt, the run back, and the board a second half
+    # kicks off from.
     cog.begin_substitution_window = mock.AsyncMock()
     cog.announce_run_back = mock.AsyncMock()
+    cog.post_new_play_board = mock.AsyncMock()
+    cog.send_turn_prompt = mock.AsyncMock()
     return cog
 
 
@@ -192,8 +199,9 @@ class HalftimeRecoveryTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(match.exhaustion[home_player], 2)
         self.assertEqual(match.exhaustion[visiting_player], 1)
+        # And it carries straight on into the first stage, which is a
+        # question for a coach rather than anything the bot settles.
         self.assertEqual(match.pending_halftime_stage, HALFTIME_STAGES[0])
-        cog.advance_halftime_stage.assert_awaited_once()
 
     async def test_begin_halftime_recovery_never_drops_below_zero(
         self,
@@ -229,6 +237,8 @@ class HalftimeExtraTokenTests(unittest.IsolatedAsyncioTestCase):
         game = build_solo_game()
         match = self.build_match()
         match.pending_halftime_stage = "extra_token_visiting"
+        cog.games[game.game_id] = game
+        game.match_state = match.to_dict()
 
         low, high = match.visiting.field_players[:2]
         match.exhaustion[low] = 1
@@ -242,9 +252,9 @@ class HalftimeExtraTokenTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.exhaustion[high], 3)
         self.assertEqual(match.exhaustion[low], 1)
         # The visitors go first at halftime, since they kick off the
-        # second half, so home's extra token comes next.
+        # second half, so home's extra token comes next -- and home is
+        # human here, so the sequence stops there to ask.
         self.assertEqual(match.pending_halftime_stage, "extra_token_home")
-        cog.advance_halftime_stage.assert_awaited_once()
 
     async def test_human_side_is_prompted_and_does_not_advance_yet(
         self,
@@ -261,7 +271,6 @@ class HalftimeExtraTokenTests(unittest.IsolatedAsyncioTestCase):
                 build_interaction(), game, match, TeamSide.HOME,
             )
 
-        cog.advance_halftime_stage.assert_not_awaited()
         self.assertEqual(match.pending_halftime_stage, "extra_token_home")
 
 
@@ -297,11 +306,18 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
             )
 
         # Halftime never offers the other side a "response" the way a
-        # turnover does, and never falls through to a run back.
-        cog.begin_substitution_window.assert_not_awaited()
+        # turnover does, and never falls through to a run back: what
+        # comes next is the *next stage's* window, opened in its own
+        # right.
         cog.announce_run_back.assert_not_awaited()
-        cog.advance_halftime_stage.assert_awaited_once()
         self.assertEqual(match.pending_halftime_stage, "coaching_home")
+        cog.begin_substitution_window.assert_awaited_once()
+        opened = cog.begin_substitution_window.await_args
+        self.assertEqual(opened.args[3], TeamSide.HOME)
+        self.assertEqual(
+            opened.kwargs["occasion"], CoachingOccasion.HALFTIME,
+        )
+        self.assertFalse(opened.kwargs["is_response"])
 
     async def test_a_window_used_for_nothing_still_advances_the_stage(
         self,
@@ -322,6 +338,9 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_substitution_window.assert_not_awaited()
         cog.announce_run_back.assert_not_awaited()
         self.assertIsNone(match.pending_halftime_stage)
+        # The second half kicks off from a board of its own, posted and
+        # pinned like any other new play's.
+        cog.post_new_play_board.assert_awaited_once()
 
     async def test_halftime_substitutes_without_asking_or_charging(
         self,
@@ -473,7 +492,12 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
             )
 
         cog.begin_substitution_window.assert_awaited_once()
-        cog.advance_halftime_stage.assert_not_awaited()
+        # A response, not the next stage of a sequence: the halftime
+        # branch is the one thing this must not take.
+        self.assertTrue(
+            cog.begin_substitution_window.await_args.kwargs["is_response"]
+        )
+        self.assertIsNone(match.pending_halftime_stage)
 
 
 class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):

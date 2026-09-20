@@ -24,6 +24,7 @@ from typing import Optional
 from d12ball.components import (
     GoalRecord,
     MatchState,
+    PlayerCatalog,
     PlayerRole,
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
@@ -513,3 +514,156 @@ def ball_location_line(match: MatchState) -> str:
     already somebody else's.
     """
     return f"The ball is at {ball_space_phrase(match)}."
+
+
+def format_goal_scorer(
+    goal: GoalRecord,
+    catalog: PlayerCatalog,
+    role_emojis: Optional[dict[tuple[PlayerRole, Optional[Team]], str]] = None,
+) -> str:
+    """
+    Who put it in, with **(OG)** where that is not who it counts for.
+    The name carries no team emoji: every line of the log is already
+    under the heading of the side the goal counts for, which for an own
+    goal is not the scorer's own -- so an emoji here would be the one
+    thing on the line contradicting it. The *role* emoji says nothing
+    about a side, so it stays -- **the plain cut of it**, which is why
+    this is the one message in the game that names a player and passes
+    `role_badge` no team. A team-coloured badge says exactly what the
+    team emoji would have said, and would contradict the heading in
+    exactly the same way.
+    """
+    player = catalog.player_by_id(goal.player_id)
+    name = player_with_role(player, role_emojis)
+    return f"{name} (OG)" if goal.own_goal else name
+
+
+def build_goal_log(
+    match: MatchState,
+    catalog: PlayerCatalog,
+    team_emojis: dict[Team, str],
+    role_emojis: Optional[dict[tuple[PlayerRole, Optional[Team]], str]] = None,
+) -> str:
+    """
+    The scoresheet at full time: every goal of the game, under the side
+    it counts for, in the order it was scored.
+
+    **A column per side, not one list.** A goal log read as a running
+    order says who was ahead and when; read as two columns it says who
+    scored, which is the question a coach asks afterwards. An own goal
+    is under the side it counted for and marked (OG), which is the one
+    line where the name and the heading disagree -- deliberately, since
+    that is exactly what an own goal is.
+
+    **The shootout is listed apart.** Its goals go on the scoreboard
+    like any other (see `award_shootout_goal`), but they have no minute
+    and no run of play, so listing them among the game's would put six
+    goals at whatever the clock stopped on.
+
+    **A game older than the log says so.** The log was added mid-life
+    and a game already under way keeps loading with an empty one, so
+    the count is checked against the scoreboard rather than trusted:
+    two goals on the board and none in the log is a game that predates
+    this, not a bug in it.
+    """
+    # A blank line between the blocks, which is what makes them read as
+    # columns down a phone rather than as one list with headings in it.
+    sections = ["## Goals"]
+    for setup in (match.home, match.visiting):
+        heading = (
+            f"**{get_team_emoji(team_emojis, setup.team)} "
+            f"{format_team_side_label(setup)}**"
+        )
+        scored = [
+            goal
+            for goal in match.goals_for(setup.side)
+            if not goal.shootout
+        ]
+        if not scored:
+            sections.append(f"{heading} -- none")
+            continue
+        sections.append(
+            "\n".join(
+                [heading]
+                + [
+                    f"`{format_goal_time(goal)}`  "
+                    f"{format_goal_scorer(goal, catalog, role_emojis)}"
+                    for goal in scored
+                ]
+            )
+        )
+
+    shootout = [goal for goal in match.goals if goal.shootout]
+    if shootout:
+        lines = ["**Extreme shootout**"]
+        for setup in (match.home, match.visiting):
+            scorers = [
+                format_goal_scorer(goal, catalog, role_emojis)
+                for goal in shootout
+                if goal.side == setup.side
+            ]
+            lines.append(
+                f"{get_team_emoji(team_emojis, setup.team)} "
+                f"{team_display_name(setup.team)}: "
+                + (", ".join(scorers) if scorers else "none")
+            )
+        sections.append("\n".join(lines))
+
+    logged = len(match.goals)
+    scored_total = (
+        match.scoreboard.home_score + match.scoreboard.visiting_score
+    )
+    if logged < scored_total:
+        sections.append(
+            f"-# {scored_total - logged} earlier goal(s) were scored "
+            "before this game kept a log of them."
+        )
+
+    return "\n\n".join(sections)
+
+
+def build_full_time_summary(
+    game: D12BallGame,
+    match: MatchState,
+) -> str:
+    """
+    The final score and who won it, for the full-time announcement.
+
+    Called twice for a game that goes to the
+    [extreme shootout](docs/living-rules.md): once at the whistle,
+    where a level score is not a result but the thing that sends the
+    game there, and again when the shootout has settled it. There is
+    no third reading -- a shootout always produces a winner, and its
+    goals go on the scoreboard, so the second call takes the ordinary
+    branch below and only the parenthetical says how it was won.
+    """
+    home_score = match.scoreboard.home_score
+    visiting_score = match.scoreboard.visiting_score
+    score_line = (
+        f"**Final score:** {team_display_name(match.home.team)} "
+        f"{home_score}:{visiting_score} "
+        f"{team_display_name(match.visiting.team)}"
+    )
+
+    shootout = match.shootout_score_line()
+    if shootout:
+        score_line = f"{score_line}\n{shootout}"
+
+    if home_score == visiting_score:
+        return (
+            f"{score_line}\n\n"
+            "# It's a tie! The game goes to the extreme shootout."
+        )
+
+    home_won = home_score > visiting_score
+    winning_setup = match.home if home_won else match.visiting
+    winning_player_number = (
+        game.home_player_number if home_won else game.visiting_player_number
+    )
+    winner = format_player(game, winning_player_number, mention=True)
+
+    return (
+        f"{score_line}\n\n"
+        f"# {team_display_name(winning_setup.team)} wins!\n"
+        f"Congratulations, {winner}!"
+    )
