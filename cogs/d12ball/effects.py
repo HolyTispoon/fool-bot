@@ -13,6 +13,7 @@ import time
 from typing import Optional
 
 from d12ball.engine import IgnitedRoll, RulesEngine
+from d12ball.prompts import loose_ball_pick_prompt
 from d12ball.components import (
     EVENT_OWN_GOAL_ROLL,
     MIND_PULL_SUCCESS_FACES,
@@ -1758,22 +1759,17 @@ class ManeuverEffectsMixin:
         match: MatchState,
     ) -> Optional[discord.ui.View]:
         """
-        Reconstruct the loose-ball pick prompt for the one side
-        currently on the clock -- purely from match state, so a bot
-        restart mid-pick reconstructs correctly, same as
-        build_run_back_view.
+        The loose-ball pick prompt for the one side currently on the
+        clock, as a view -- `d12ball.prompts.loose_ball_pick_prompt`'s
+        answer through `view_for_prompt`, so a bot restart mid-pick
+        reconstructs it from match state the same way
+        `build_run_back_view` does, and None once the contest is
+        settled either way.
         """
-        skill_type = self.engine.loose_ball_side_on_the_clock(match)
-        if skill_type is None:
+        prompt = loose_ball_pick_prompt(self.engine, match)
+        if prompt is None:
             return None
-        side = self.engine.loose_ball_prompt_side(match)
-        return LooseBallChoiceView(
-            self,
-            game_id,
-            skill_type,
-            self.engine.loose_ball_candidates(match, side),
-            match,
-        )
+        return self.view_for_prompt(game_id, match, prompt)
 
 
     async def begin_loose_ball(
