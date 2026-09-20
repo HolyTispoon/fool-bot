@@ -124,6 +124,33 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-20 (newest) -- author, the gambit gate counts Exhausted players as well as Injured
+
+A revision to the same-day ruling below ("advanced maneuvers become gambits, and a gambit needs
+a reason"). The trailing half of the gate is unchanged; the injury half is widened. The author:
+who may play gambits is (still) the team that is trailing, or the team that fields a higher
+combined count of Exhausted, Drained, Injured and Damaged players than the other -- not only
+Injured and Damaged as the entry below had it.
+
+**Drained and Damaged were already Exhausted and Injured under a Cyborg's own words** -- the
+species changes the token art and the noun, not the mechanic (see "Lithium Powered" below and in
+the living rules). So this is one comparison widened from two conditions to four spellings of
+two: `RulesEngine.carrying_more_conditions` (renamed from `carrying_more_injuries`) now counts a
+side's field players who are in `match.injured` **or** `match.exhausted`, where it used to read
+`match.injured` alone. `MatchState.conditioned_field_players` is the new query beside
+`injured_field_players`, and it is a plain union with nothing to double-count: `mark_injured`
+already discards a player from `exhausted` the moment they go down, so the two sets never
+overlap.
+
+**Nothing else about the gate moves.** It is still read off the scoreboard and the field when a
+hand is drawn, still nothing persisted for it, still both coaches able to hold their gambits at
+once, and still strictly *more* -- a level combined count closes both hands exactly as a level
+score or a level injury count already did. An Exhausted player who has not yet failed an injury
+check now counts toward this the same way an Injured one always did, which is the whole of the
+change: a side already down to fewer healthy bodies was undercounted before, since a player two
+tokens from Exhausted and one already Exhausted were being weighed the same as a side with
+nobody hurt at all.
+
 ### 2026-09-20 (newest, 2 of 2) -- author, the player a movement delivers the ball to is offered no Smooth
 
 Found in play and reported with a screenshot: a Low Pass aimed at Dravox completed, and the
