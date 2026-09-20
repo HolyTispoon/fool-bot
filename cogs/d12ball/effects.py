@@ -1318,7 +1318,7 @@ class ManeuverEffectsMixin:
                 interaction,
                 f"{smooth_emoji} **Smooth** — the ball runs through "
                 f"{self.player_label(match, player)}, who may take it "
-                "over: no roll, no token.",
+                "over.",
                 view=SmoothView(self, game.game_id, player_id),
             )
             return
