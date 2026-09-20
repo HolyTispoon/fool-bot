@@ -25,9 +25,14 @@ from unittest import mock
 
 import cogs.d12ball_views as views
 from cogs.d12ball import D12Ball
+from cogs.d12ball.core import (
+    PARAMETERISED_PROMPT_KINDS,
+    PLAIN_PROMPT_VIEWS,
+)
 from cogs.d12ball_boards import BoardRefresher
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
+from d12ball.prompts import PromptKind
 from prompt_fixtures import (
     CASES,
     CATALOG,
@@ -86,6 +91,23 @@ class PendingTurnViewEquivalenceTests(unittest.TestCase):
                 case.view,
                 f"{case.kind} maps to two views",
             )
+
+    def test_every_kind_has_a_view(self) -> None:
+        """
+        A `PromptKind` the table does not name is a question the bot
+        cannot put up -- `view_for_prompt` would raise on it, and it
+        would raise inside a restart, one game at a time. The two
+        halves are asserted disjoint as well, so a kind moved from one
+        to the other cannot be left in both.
+        """
+        self.assertEqual(
+            set(PLAIN_PROMPT_VIEWS) | PARAMETERISED_PROMPT_KINDS,
+            set(PromptKind),
+        )
+        self.assertEqual(
+            set(PLAIN_PROMPT_VIEWS) & PARAMETERISED_PROMPT_KINDS,
+            set(),
+        )
 
 
 if __name__ == "__main__":
