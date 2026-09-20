@@ -124,7 +124,35 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-09-20 (newest) -- sheet and author, a won Dribble Burst leaves the ball at speed 12
+### 2026-09-20 (newest, 2 of 2) -- author, the player a movement delivers the ball to is offered no Smooth
+
+Found in play and reported with a screenshot: a Low Pass aimed at Dravox completed, and the
+bot then offered Dravox a Smooth on it. The author: *"smooth isn't right. in this case the
+ball was passed to dravox, and then it was suggested Dravox can take over with smooth. but
+Dravox was already the recipient of the ball so it doesn't make sense"*.
+
+**So "you may take it over" means taking it over from somebody.** A pass's receiver, a
+Telekinetic who catches a High Pass or a Setup Pass, a Telekinetic who has just taken the ball
+by Steal or Intercept -- each ends the movement holding the ball whether they press the button
+or not, so the offer changes nothing and reads as a mechanic firing for its own sake.
+
+**It is the 2026-09-20 "nobody the resolution moved" ruling read at the other end.** That one
+disqualifies a player the ball arrived *with*; this one disqualifies the player the ball is
+arriving *for*. Both are the same sentence -- a Smooth is for a ball that was going somewhere
+else -- and between them they close the two ways a Telekinetic could be offered a ball that was
+already theirs.
+
+`MatchState.ball_carrier_id` is who that is: every effect that completes a delivery sets it
+before the arrival gate is asked, which is why the answer needed no new state. **Mind Pull
+needs no such clause**, because a carrier is by definition on the side in possession and a
+pull is only ever offered to the side that is not.
+
+**What is still offered, and is the whole point of the ability**: a Telekinetic the ball passes
+*through* on its way somewhere else, and a Telekinetic standing on the landing space beside the
+player the pass was aimed at. Taking it there is what makes them the carrier instead, which is
+the case Slip in used to cover before Smooth replaced it.
+
+### 2026-09-20 (newest, 1 of 2) -- sheet and author, a won Dribble Burst leaves the ball at speed 12
 
 The maneuvers tab's Dribble Burst row now reads *"Adjust ball speed up to 12"* where it read
 *"up to oSkill"*; the beaten branch (*"defender adjusts it up to dSkill"*) is unchanged. The

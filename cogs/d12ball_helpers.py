@@ -689,18 +689,36 @@ def format_role_bracket(
 # imported above, from d12ball.formatting.
 
 
-def ball_location_line(match: MatchState) -> str:
+def ball_space_phrase(match: MatchState) -> str:
     """
-    Where the ball has come to rest, in a sentence, with the zone
-    spelled out beside the space code -- a coach who is about to be
-    asked whether to send somebody after it is being asked about a
-    distance, and "M2" alone means nothing to anyone who is not
-    already looking at the board.
+    Where the ball is, as a phrase a sentence can be built around --
+    "**M2** (Midfield)".
+
+    The zone is spelled out beside the space code because "M2" alone
+    means nothing to anyone who is not already looking at the board.
+    This is the half `ball_location_line` puts a sentence around, split
+    out so a caller with a sentence of its own does not have to
+    swallow one whole -- Smooth's and Mind Pull's take-over lines each
+    read "... takes the ball over on The ball is at **V1** (Visitors
+    Third).." until 2026-09-20, which is what a sentence-shaped helper
+    used mid-sentence gets you. The two are one wording in two shapes
+    for `travel_space_label` and `travel_space_phrase`'s reason: what
+    the two say about a space cannot drift apart.
     """
     zone = destination_display_name(
         match.ball.zone.value, match.board.layout.board_size
     )
-    return f"The ball is at **{ball_space_label(match)}** ({zone})."
+    return f"**{ball_space_label(match)}** ({zone})"
+
+
+def ball_location_line(match: MatchState) -> str:
+    """
+    Where the ball has come to rest, in a sentence -- a coach who is
+    about to be asked whether to send somebody after it is being asked
+    about a distance. Use `ball_space_phrase` where the sentence is
+    already somebody else's.
+    """
+    return f"The ball is at {ball_space_phrase(match)}."
 
 
 def space_choices(match: MatchState) -> list[tuple[str, str]]:
