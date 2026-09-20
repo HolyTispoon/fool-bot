@@ -8,7 +8,26 @@ from unittest import mock
 
 import discord
 
+import inspect
+
 from cogs.d12ball import D12Ball
+
+
+def follow_on_argument(method, call, name):
+    """
+    One argument of a recorded call, read through the real method's
+    signature rather than off `call.args`.
+
+    Since Phase 4 of docs/model-discord-split.md the spine reaches
+    these methods through `dispatch_step_result`, which passes a
+    follow-on's arguments **by keyword** -- so an argument the cog
+    used to hand over positionally now arrives named. Binding the
+    call to the signature answers for both shapes, which is the
+    reading rank D2 wrote down: fix the assertion, not the call.
+    """
+    return inspect.signature(method).bind(
+        None, *call.args, **call.kwargs,
+    ).arguments[name]
 from cogs.d12ball_helpers import (
     COIN_EMOJI_FALLBACK,
     COIN_EMOJI_NAMES,
@@ -695,7 +714,11 @@ class D12BallRunBackAnnouncementTests(
 
         cog.begin_substitution_window.assert_awaited_once()
         self.assertEqual(
-            cog.begin_substitution_window.await_args.args[3],
+            follow_on_argument(
+                D12Ball.begin_substitution_window,
+                cog.begin_substitution_window.await_args,
+                "side",
+            ),
             TeamSide.HOME,
         )
         cog.continue_run_back.assert_not_awaited()
@@ -776,7 +799,6 @@ class D12BallRunBackAnnouncementTests(
             match,
             distance_moved=3,
             turnover_occurred=False,
-            lead_in="",
         )
 
     async def test_a_turnover_during_last_possession_ends_the_period(
@@ -798,9 +820,7 @@ class D12BallRunBackAnnouncementTests(
                 speed_choice_after=True,
             )
 
-        cog.end_period.assert_awaited_once_with(
-            interaction, game, match, lead_in="",
-        )
+        cog.end_period.assert_awaited_once_with(interaction, game, match)
         cog.begin_substitution_window.assert_not_awaited()
         cog.continue_run_back.assert_not_awaited()
         self.assertFalse(match.pending_run_back)

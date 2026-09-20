@@ -136,6 +136,31 @@ class FollowOnStep(Enum):
     #: cannot reconstruct and has no `PromptKind` -- see
     #: docs/design/shooting.md. Phase 4's.
     ASK_SET_UP_ATTEMPT = auto()
+    #: A new play: both sides back on the arrangement their coaches
+    #: set, and then either the window or the (empty) run back.
+    #: Phase 4's, and the reset stays the cog's because it posts and
+    #: pins a board.
+    OPEN_NEW_PLAY = auto()
+    #: The window a new play opens for the side that gained
+    #: possession. Phase 4's; Phase 5 is where the window itself
+    #: moves.
+    BEGIN_SUBSTITUTION_WINDOW = auto()
+    #: "Players run back!", and then the cascade. Phase 4's.
+    ANNOUNCE_RUN_BACK = auto()
+    #: A run-back pass that needs a coach: which of a stack goes, and
+    #: where. Phase 4's, and a follow-on rather than a
+    #: `PendingPrompt` because the prompt carries a rendered field
+    #: strip and the cascade's own board settles beside it -- two
+    #: renders that the frontend orders.
+    ASK_RUN_BACK = auto()
+    #: The pickup an out-of-bounds ball, a time out or a missed shot
+    #: still owes, once everybody is back in position. Phase 4's.
+    BEGIN_BALL_RECOVERY = auto()
+    #: That pickup put to the coach. Phase 4's.
+    ASK_BALL_RECOVERY = auto()
+    #: That pickup made for an AI side, which picks the nearest.
+    #: Phase 4's.
+    APPLY_BALL_RECOVERY = auto()
     #: The turnover that closes out last possession: the second half,
     #: or full time -- which on a level score means the shootout
     #: rather than the end of anything. Phase 4's; Phase 5 is where

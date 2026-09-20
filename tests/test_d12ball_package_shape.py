@@ -236,6 +236,13 @@ class FollowOnStepTests(unittest.TestCase):
         "ANNOUNCE_LAST_POSSESSION",
         "DECLINE_SCORING_ATTEMPT",
         "ASK_SET_UP_ATTEMPT",
+        "OPEN_NEW_PLAY",
+        "BEGIN_SUBSTITUTION_WINDOW",
+        "ANNOUNCE_RUN_BACK",
+        "ASK_RUN_BACK",
+        "BEGIN_BALL_RECOVERY",
+        "ASK_BALL_RECOVERY",
+        "APPLY_BALL_RECOVERY",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(

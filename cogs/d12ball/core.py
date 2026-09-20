@@ -1880,6 +1880,14 @@ class CoreMixin:
             FollowOnStep.DECLINE_SCORING_ATTEMPT:
                 self.decline_scoring_attempt,
             FollowOnStep.ASK_SET_UP_ATTEMPT: self.ask_set_up_attempt,
+            FollowOnStep.OPEN_NEW_PLAY: self.open_new_play,
+            FollowOnStep.BEGIN_SUBSTITUTION_WINDOW:
+                self.begin_substitution_window,
+            FollowOnStep.ANNOUNCE_RUN_BACK: self.announce_run_back,
+            FollowOnStep.ASK_RUN_BACK: self.send_run_back_prompt,
+            FollowOnStep.BEGIN_BALL_RECOVERY: self.begin_ball_recovery,
+            FollowOnStep.ASK_BALL_RECOVERY: self.ask_ball_recovery,
+            FollowOnStep.APPLY_BALL_RECOVERY: self.apply_ball_recovery,
         }
 
     async def dispatch_step_result(
