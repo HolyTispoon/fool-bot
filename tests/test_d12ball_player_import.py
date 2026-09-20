@@ -194,7 +194,11 @@ class ShortAbilityTests(unittest.TestCase):
                     self.assertEqual(
                         text, importer.strip_formula_escape(text),
                     )
-                self.assertLess(
+                # Never longer, rather than strictly shorter: a sentence
+                # that already fits (the Fullback's, since 2026-09-20)
+                # is its own abbreviation, and the sheet says so by
+                # carrying it in both columns.
+                self.assertLessEqual(
                     len(profile.ability_short), len(profile.ability),
                 )
 

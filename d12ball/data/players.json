@@ -6,8 +6,8 @@
     "fullback": {
       "offense": 1,
       "defense": 6,
-      "ability": "High pass up to 4. Block deflect: ball goes back 2 spaces.",
-      "ability_short": "High pass: up to 4; Block Deflect: back 2."
+      "ability": "Deflect/High Pass: +1 distance",
+      "ability_short": "Deflect/High Pass: +1 distance"
     },
     "defender": {
       "offense": 2,
@@ -30,8 +30,8 @@
     "winger": {
       "offense": 5,
       "defense": 2,
-      "ability": "May set up a scoring opportunity with a low pass.",
-      "ability_short": "May set up with low pass"
+      "ability": "May set up a scoring opportunity with a Low Pass",
+      "ability_short": "May set up with Low Pass"
     },
     "striker": {
       "offense": 6,
