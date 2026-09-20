@@ -23,16 +23,18 @@ neighbours rather than overlapping.
 **The first draft overlapped the three Zs and undersold the corner.** It
 read as one interlocking zigzag rather than three letters, and its largest
 Z sat well short of the top-right corner because it was placed by eye
-rather than measured against where the ring actually is. This draft
-searches for every glyph's position instead: the biggest Z's spot is
-whichever clears the face's row-by-row width (the triangle narrowing
-toward its point, sampled the same way the erase mask is built) while
-maximising how far into the corner it sits; the other two are placed as
-close as they can get to their target spot -- the smallest near the first
-draft's own position, the middle roughly between its neighbours -- while
-keeping a 10px gap from every other glyph's actual ink, not just its
-bounding box, so letters that lean past their own rectangle (the shear, or
-a stroke's own diagonal) still can't touch.
+rather than measured against where the ring actually is. The second draft
+placed every glyph by search instead, scoring the biggest Z's spot by how
+far into the corner a plain "maximise x, minimise y" reading put it -- and
+still landed short, since that score has no way to know a position further
+into the corner exists along a slightly different path than straight up
+and right. **The author moved it the rest of the way by hand**, and the
+other two Zs are built out from that spot rather than the search's: the
+smallest as close as it can get to the first draft's own position, the
+middle roughly between its neighbours, both while keeping a 10px gap from
+every other glyph's actual ink, not just its bounding box, so letters that
+lean past their own rectangle (the shear, or a stroke's own diagonal)
+still can't touch.
 
     python3 scripts/redraw_exhaust_zs.py                 # dry run
     python3 scripts/redraw_exhaust_zs.py --in-place
@@ -92,10 +94,15 @@ SUPERSAMPLE = 4
 # draft's spot (the smallest) or the midpoint between its neighbours (the
 # middle) that both clears the ring and keeps a 10px gap from the other
 # glyphs' own ink, not just their boxes -- the first draft let them touch.
+# The biggest Z's own spot is the author's, not the search's: a plain
+# top-right-ness score (maximise x, minimise y) still left it well short of
+# the actual corner, short enough that the author moved it by hand and had
+# the rest built out from there -- (901, 327), 4px clear of the ring at its
+# closest, is that position read back off the art.
 ZS = [
-    (300, (858, 399)),
-    (220, (684, 492)),
-    (170, (523, 635)),
+    (300, (900, 327)),
+    (220, (686, 480)),
+    (170, (524, 635)),
 ]
 
 # A horizontal shear (not a rotation, so the strokes across each Z stay
