@@ -1,0 +1,309 @@
+--- message
+# Welcome to D12 Ball
+You are playing **Dinky**, and the next five turns are a guided warm-up. I will tell you what is on the board, what each button does and which card to pick; everything else is greyed out while we go, so you cannot get lost.
+
+**It is one continuous game, not five demonstrations.** Nothing is reset between lessons -- every turn is played from wherever the last one left the ball, and the score and the clock carry into the real game afterwards. Play it well and you will start that game a goal up.
+
+The board above is the whole game state: the field with both sides' meeples, every card with its skills and tokens, the benches, the clock and the score. It is re-posted as it changes, and **View full image** under it opens it large. Both line-ups have been set for you; normally each coach sets their own before kickoff, in a **Coaching Choice**, which the game will offer you in its own time.
+
+*You can leave at any time with `/d12ball skip_tutorial`.*
+=== press 1: TutorialContinueView -> 'Continue'
+--- message
+## 1. Your first turn
+Both sides are dealt the standard **2-2-2** -- two cards in your own zone, two in midfield, two in the zone you are attacking -- and the ball is yours, on **M2**.
+
+The field is **seven spaces** across in three zones: your own Zone (H1-H2), midfield (M1-M3), and the Zone you are attacking (V1-V2). Your six cards are on the board as meeples and three more wait on your bench. The two numbers on a card are that player's **offensive** and **defensive skill**.
+
+A turn starts with whoever is standing on the ball -- the **handler**. You have one player there, your playmaker, so they are chosen for you. Then you decide what they do.
+
+A handler can do three things: shoot, maneuver, or call a time out to buy both coaches a pause. **You are not offered the shot** -- a shot may only be taken from inside your shooting range, which is M3 and beyond, and you are one space short of it.
+
+**Press Maneuver.**
+=== press 2: TutorialContinueView -> 'Continue'
+--- message
+🟠 <@111>, it is your turn.
+
+Sizzifizik [PM] will be handling the ball.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 3: PlayerActionView -> 'Maneuver'
+--- message
+### Choosing a maneuver
+A maneuver is a fight for the ball between two players, and both sides pick a card **secretly and at the same time**. Your hand holds three:
+
+- **Low Pass** -- ball to the nearest teammate ahead or behind, up to 2 spaces. Ball speed +1.
+- **Dribble Advance** -- your player *and* the ball move forward, and you may change the ball's speed.
+- **High Pass** -- the ball flies 2 or more spaces forward.
+
+Which card wins is not a roll. The six form a **cycle**, like rock-paper-scissors with six hands: each beats one of the other side's, ties with one, and loses to one. The Maneuver Reference button draws the whole thing, and you can open it whenever you like.
+
+Dinky's playmaker is standing on the ball, so they are the one challenging you.
+
+**Pick Dribble Advance.** It beats Deflect, which is what Dinky has played, and it is the card that carries the ball up the field.
+=== press 4: TutorialContinueView -> 'Continue'
+--- message
+🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 5: ManeuverActionPromptView -> 'Dribble Advance'
+--- message
+You chose **Dribble Advance**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟠 Player 1 chose **Dribble Advance**.
+🟣 Dinky AI chose **Deflect**.
+
+## **Dribble Advance** wins!
+--- message
+🟠 <@111>, choose your Dribble Advance distance (Playmaker ability):
+=== press 6: DribbleAdvanceChoiceView -> 'Advance 2 spaces (V1)'
+--- message
+Chose **2 spaces**.
+--- message
+### Ball speed
+You get a choice here too: the ball's own speed, up to your player's skill. It cuts both ways -- a faster ball adds to *your* next score attempt, but it adds just as much to a defense stealing it off you with Steal. We will come back to it properly in a few turns, when it actually matters. This turn it does not: the turnover in beat 2 resets it to 1 regardless, so **pick whatever you like.**
+=== press 7: TutorialContinueView -> 'Continue'
+--- message
+**Dribble Advance:** 🟠 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+
+<@111>, manipulate the ball's speed (up to 4):
+=== press 8: SpeedDeltaChoiceView -> '1 (no change)'
+--- message
+Ball speed is now **1**.
+--- message
+Ball is now V1, Orange (Home) has possession. Time has advanced 1, now at 01.
+--- message
+## 2. Every role has an ability
+Dribble Advance beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from M2 to **V1**.
+
+Moving forward two spaces is not the ordinary move. A dribble advances typically moves the playerone space. But your **Playmaker** is a skilled dribbler and can move up to two: that is the Playmaker role ability. **Every player has a role and every role has an ability**, printed on their card and worth reading before you pick a maneuver -- the Fullback throws a longer High Pass, the Midfielder gets +3 on a Low Pass or Pressure test, the Defender steals the ball off a won Pressure. Two commands list them whenever you want: **`/d12ball role_abilities`** for all six, and **`/d12ball team_roster`** gives you a list of your team with their roles.
+
+You are on V1 now, which is inside your shooting range, so the **Shoot** button has appeared. It is greyed out here, and it would be a poor shot anyway: your playmaker's offensive skill is 4, Dinky's defender is standing on the ball and their fullback is behind them -- roughly d12+4 against d12+8. We will make a much better one shortly.
+
+**Press Maneuver.**
+=== press 9: TutorialContinueView -> 'Continue'
+--- message
+🟠 <@111>, it is your turn.
+
+The ball was left with Sizzifizik [PM], who takes this turn.
+
+Choose an action:
+=== press 10: PlayerActionView -> 'Maneuver'
+--- message
+### When both cards are the same rank
+Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is not a draw -- it goes to a **skill test**: both players roll a d12 and add their skill, the attacker their offensive and the defender their defensive, plus whatever their ability is worth. Highest total takes it, and both players pick up an **exhaustion token** for the effort. Tokens are the game's running cost; enough of them and a player risks getting injured.
+
+**Pick Low Pass.** It is rank 1, just like the Deflect Dinky has played, so this one goes to the dice -- and Dinky is going to win it. Watch what a won Deflect does: it knocks the ball back a space, nothing more. It only comes **loose** -- open to both sides -- when it lands where nobody is standing. Dinky already has a midfielder right there on M3, so the ball is simply theirs: no roll, no contest, never loose.
+=== press 11: TutorialContinueView -> 'Continue'
+--- message
+🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 12: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟠 Player 1 chose **Low Pass**.
+🟣 Dinky AI chose **Deflect**.
+
+**Low Pass** ties with **Deflect** — skill test!
+
+🟠 Sizzifizik [PM]: offense skill 4
+🟣 Dravox [DD]: defense skill 5
+
+🟠 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🟣 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
+--- message
+Either player can roll:
+=== press 13: SkillTestView -> 'Roll the skill test'
+--- message
+## **Deflect** wins the skill test!
+--- message
+# Turnover!
+🟣 Glompex [MF] picks up the ball. Purple (Visiting) now has possession.
+--- message
+# Players run back!
+Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+--- message
+<@111>, choose where 🟠 Sizzifizik [PM] runs back to:
+M2 (2 spaces away) or M3 (1 space away).
+=== press 14: RunBackChoiceView -> 'M2 (2 spaces)'
+--- message
+🟠 Sizzifizik [PM] runs back to M2.
+🟠 Sizzifizik [PM] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 3 total).
+--- message
+Ball is now M3, Purple (Visiting) has possession. Time has advanced 1, now at 02.
+--- message
+## 3. Your turn to defend
+Dang it. You lost possession. Dinky won the skill test, and their Deflect knocked the ball back to **M3** -- right onto one of their own midfielders, who was already standing there. Nobody of yours was, so it went straight to them: no roll, and never loose at all. Your playmaker, left standing outside her own zone at V1, has run back into midfield -- and paid an exhaustion token per space to do it.
+
+Dinky is coming at your goal now, and this time **nobody of yours is anywhere near the ball**. Before anything else, you'll be asked to send a challenger to it -- pick either of the two offered, it costs the same either way. Sending nobody would let Dinky's maneuver straight through unchallenged, so that button is greyed out here.
+
+Once your challenger is in position, Dinky moves, and then you are asked for a card.
+=== press 15: TutorialContinueView -> 'Continue'
+--- message
+Dinky AI will maneuver with 🟣 Glompex [MF].
+
+🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== press 16: ManeuverChallengeView -> 'Sizzifizik [PM] (1)'
+--- message
+Sizzifizik has moved 1 space.
+🟠 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 4 total).
+🟠 Sizzifizik [PM] now has the condition **exhausted** 🥵 — 4 exhaustion tokens exceeds their defense skill of 3.
+--- message
+### The other three cards
+Defending, your hand is the other half of the cycle:
+
+- **Deflect** -- knocks the ball back a space, nothing more. Land on an empty space and *that's* what makes it loose, open to both sides; land where only one side already is and it's simply theirs, no contest -- you were on the wrong end of that last turn; land where both are and they contest it.
+- **Steal** -- takes the ball outright. A turnover.
+- **Pressure** -- drives the handler and the ball back a space and moves your challenger forward onto them. Push a handler past their own goal line with it and they have an **own goal** to roll for.
+
+**Pick Pressure.** Dinky is dribbling, and Pressure beats Dribble Advance -- so instead of losing a space you will take one off them.
+=== press 17: TutorialContinueView -> 'Continue'
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 18: ManeuverActionPromptView -> 'Pressure'
+--- message
+You chose **Pressure**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **Dribble Advance**.
+🟠 Player 1 chose **Pressure**.
+
+## **Pressure** wins!
+--- message
+**Pressure:** 🟣 Glompex [MF] and the ball go back 1 space. 🟠 Sizzifizik [PM] moves forward.
+
+Ball is now V1, Purple (Visiting) has possession. Time has advanced 1, now at 03.
+--- message
+## 4. Winning the ball back
+Pressure drove them backwards: their handler and the ball went back a space to **V1**, and your challenger moved up onto them. Dinky still has it -- but they have lost ground, and you are standing on the ball.
+
+Now take it off them.
+=== press 19: TutorialContinueView -> 'Continue'
+--- message
+Dinky AI will maneuver with 🟣 Glompex [MF].
+
+🟠 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
+=== press 20: ManeuverChallengeView -> 'Sizzifizik [PM] (0)'
+--- message
+### Turnovers, the run back, and ball speed
+**Pick Steal.** Dinky is playing Low Pass, and Steal beats it -- the ball will be yours again!
+
+Two things happen after it. Your player takes the ball back a space with them, and **anyone left standing outside their own zone runs back into it** =gainin an exhaustion per space, the same cost you watched Dinky pay two turns ago.
+
+Then you get to set the **ball's speed**, up to your stealer's defensive skill. Speed is worth half itself, rounded down, **added to a score attempt** -- and it is reset by every turnover, so a speed set now is one that survives. You are about to shoot. **Take the highest number offered**; the rest are greyed out.
+=== press 21: TutorialContinueView -> 'Continue'
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 22: ManeuverActionPromptView -> 'Steal'
+--- message
+You chose **Steal**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **Low Pass**.
+🟠 Player 1 chose **Steal**.
+
+## **Steal** wins!
+--- message
+**Steal:**
+# Turnover!
+🟠 Sizzifizik [PM] steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
+
+# Players run back!
+Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+--- message
+🟣 Glompex [MF] runs back to M1.
+🟣 Glompex [MF] gains 3 exhaustion tokens 😮‍💨😮‍💨😮‍💨 (now 3 total).
+--- message
+<@111>, manipulate the ball's speed (up to 3):
+=== press 23: SpeedDeltaChoiceView -> '4 (+3)'
+--- message
+Ball speed is now **4**.
+--- message
+Ball is now M3, Orange (Home) has possession. Time has advanced 1, now at 04.
+--- message
+## 5. A shot at goal
+The ball is yours again, on **M3**, and moving fast. This is the last lesson, and it is worth a goal.
+
+M3 is inside your shooting range, so **Shoot** is offered again -- and again it is the wrong button. Your midfielder has an offensive skill of 3 and Dinky's players are between you and the goal.
+
+Look at **V2** instead. Your striker has been standing there all game, inside shooting range, offensive skill **6** -- the best on your team.
+
+A High Pass of exactly 2 spaces lands on V2. A pass that reaches a teammate already inside shooting range is a **scoring opportunity**: they shoot immediately, out of turn. And the Striker's ability is worth **+3** on precisely that shot.
+
+**Press Maneuver.**
+=== press 24: TutorialContinueView -> 'Continue'
+--- message
+🟠 <@111>, it is your turn.
+
+The ball was left with Sizzifizik [PM], who takes this turn.
+
+Choose an action:
+=== press 25: PlayerActionView -> 'Maneuver'
+--- message
+Dravox has moved 1 space.
+🟣 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 2 total).
+--- message
+### High Pass, and what a shot is up against
+**Pick High Pass.** Dinky is playing Steal, and High Pass beats it, so the pass gets through.
+
+You will be asked how far to throw. **2 spaces** is the only distance offered here -- a longer throw would run off the end of the field, and the menu never offers one that would. It is also the distance you want: a pass of 2 is caught cleanly, where a 3-space throw has to be *won* by whoever it lands near, with the ball's speed counting against them.
+
+Then take the shot. A score attempt is your d12 plus the shooter's offensive skill and half the ball's speed, against Dinky's d12 plus every defender in the way -- one standing **on** the ball adds all of their defensive skill, one further back adds half, rounded up. Ties go to the shooter.
+
+Their fullback is standing on V2, so you get their whole defensive skill of 6 against you. Even so: your striker rolls **d12+11** against their **d12+6**. That is a real roll and it can miss -- but you should score about six times in seven.
+=== press 26: TutorialContinueView -> 'Continue'
+--- message
+🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 27: ManeuverActionPromptView -> 'High Pass'
+--- message
+You chose **High Pass**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟠 Player 1 chose **High Pass**.
+🟣 Dinky AI chose **Steal**.
+
+## **High Pass** wins!
+--- message
+🟠 <@111>, choose your High Pass distance:
+=== press 28: HighPassChoiceView -> '2 spaces (V2-Noxar [SK])'
+--- message
+Chose **2 spaces**.
+--- message
+**High Pass:** the ball moves 2 spaces forward. That reaches a teammate -- a scoring opportunity!
+
+🟠 Noxar [SK] can attempt the scoring opportunity, or let it go:
+=== press 29: SetUpAttemptChoiceView -> 'Noxar [SK] takes the shot'
+--- message
+🟠 Noxar [SK] takes the shot.
+--- message
+🟠 Noxar [SK] takes the shot off the set-up.
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+=== press 30: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# GOAL!
+🟠 Noxar [SK] scores for Orange (Home) on **04**!
+Orange 1:0 Purple
+
+🟠 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now M2, Purple (Visiting) has possession. Time has advanced 3, now at 07.
+--- message
+# That's the tutorial
+The rails are off -- every button is live from here, and Dinky is playing for real.
+
+What the warm-up did not cover, the game will: halftime, injuries and recovery, out-of-bounds balls, ceding possession, and the extreme shootout that settles a level score at full time. The first time the game offers you a **Coaching Choice** -- your own window to substitute and rearrange -- I will explain that one too.
+
+Worth knowing:
+- `/d12ball rules_search` -- any one section of the rules.
+- `/d12ball role_abilities` -- what each role can do.
+- `/d12ball maneuver_reference` -- the defeat cycle.
+- `/d12ball resume` -- puts the current question back up if a prompt ever goes missing.
+
+Good luck.
