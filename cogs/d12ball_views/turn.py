@@ -843,12 +843,14 @@ class ManeuverActionPromptView(SafeView):
 
         for side in sides:
             # **The hand is the engine's answer, not the whole
-            # catalog.** A basic game is three cards and an advanced one
-            # is six, and an unchallenged maneuver is basic whatever the
-            # mode -- see `RulesEngine.maneuver_tiers`. Asking there is
-            # what keeps these buttons, the hand image above them and
-            # `pick`'s own check from disagreeing about what a coach may
-            # play.
+            # catalog**, and it is asked **per side**: a basic game is
+            # three cards, an unchallenged maneuver is basic whatever
+            # the mode, and a gambit is held only by a coach whose team
+            # is behind -- so one row here can be six buttons and the
+            # other three. See `RulesEngine.maneuver_tiers`. Asking
+            # there is what keeps these buttons, the hand image above
+            # them and `pick`'s own check from disagreeing about what a
+            # coach may play.
             maneuvers = (
                 cog.engine.maneuver_hand(game, match, side)
                 if game is not None and match is not None

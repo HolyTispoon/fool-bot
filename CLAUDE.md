@@ -79,6 +79,7 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 - **`d12ball/prompts.py`'s `pending_prompt` is the only reading of "what is this match waiting on?"**; `pending_turn_view` is the Discord mapping over it, and `view_for_prompt` the only place a `PromptKind` becomes a view. A second copy of that chain is how a resume comes to offer a different prompt from the one a restart restores. -- [recovery.md](docs/design/recovery.md)
 - `MatchState.record_goal` and `record_event` are the only writers of the goal log and the event log; nothing in the game may read the event log to decide a rule. -- [clock-and-records.md](docs/design/clock-and-records.md)
 - **Maneuvers are keyed** (`low_pass`, `double_team`), never held or compared by display name; `RulesEngine.maneuver_name` is the only way back to a name, for wording alone. -- [maneuvers.md](docs/design/maneuvers.md)
+- **`RulesEngine.maneuver_tiers` is the only answer to which cards a coach may play, and it is asked per side.** A gambit is held only by a coach whose team is behind (`may_play_gambits`), so the two hands on one prompt can be six cards and three -- the buttons, the hand image and the click that answers all ask it, once each per side. -- [maneuvers.md](docs/design/maneuvers.md)
 - **Nothing reads `game.advanced_maneuvers`, `game.species_abilities` or `PlayerDefinition.species` to decide a rule.** `RulesEngine.gambits_apply`, `species_abilities_apply` and `has_species_ability` are the answers. -- [species-abilities.md](docs/design/species-abilities.md)
 
 **Discord**

@@ -2601,7 +2601,7 @@ class D12BallManeuverTests(unittest.TestCase):
                 f"{offense_key} vs {defense_key}",
             )
 
-    def test_an_advanced_card_resolves_exactly_as_its_counterpart(
+    def test_a_gambit_resolves_exactly_as_its_counterpart(
         self,
     ) -> None:
         """
@@ -2630,7 +2630,7 @@ class D12BallManeuverTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
 
-    def test_an_advanced_hand_is_a_row_a_tier(self) -> None:
+    def test_a_hand_with_gambits_is_a_row_a_tier(self) -> None:
         """
         The basic three above their gambits, three
         columns wide either way, so every gambit sits under the
@@ -2672,7 +2672,7 @@ class D12BallManeuverTests(unittest.TestCase):
             for tiers, columns, card_rows in cases:
                 with self.subTest(side=side, tiers=tiers):
                     hand = render_maneuver_hands(
-                        self.catalog, players, (side,), tiers,
+                        self.catalog, players, ((side, tiers),),
                     )
                     with Image.open(hand) as image:
                         self.assertEqual(image.format, "PNG")
@@ -2684,8 +2684,8 @@ class D12BallManeuverTests(unittest.TestCase):
         Both basic hands together are the whole game -- all six cards,
         each carrying its own beats/ties/loses row -- so the back's
         hexagon is those same six relations drawn a second time, for
-        the width of a card (the author). An advanced hand drops it for
-        a second reason: it is what lets the two tiers line up three
+        the width of a card (the author). A hand holding gambits drops
+        it for a second reason: it is what lets the two tiers line up three
         columns wide instead of being squeezed to fit a fourth.
 
         So the back belongs to a lone basic hand and nothing else --
@@ -2703,19 +2703,23 @@ class D12BallManeuverTests(unittest.TestCase):
                 + HAND_GAP * (columns - 1)
             )
 
-        both = ("offense", "defense")
-        advanced = (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
+        basic = (MANEUVER_TIER_BASIC,)
+        gambits = (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
         cases = (
-            # sides, tiers, columns -- the widest row of the image
-            (both, (MANEUVER_TIER_BASIC,), 3),
-            (both, advanced, 3),
-            (("offense",), advanced, 3),
-            (("offense",), (MANEUVER_TIER_BASIC,), 4),
+            # hands, columns -- the widest row of the image
+            ((("offense", basic), ("defense", basic)), 3),
+            ((("offense", gambits), ("defense", gambits)), 3),
+            # One side holding gambits and the other not is a hand of
+            # three beside a hand of six, and still no back: the six
+            # are what the three columns are sized for.
+            ((("offense", gambits), ("defense", basic)), 3),
+            ((("offense", gambits),), 3),
+            ((("offense", basic),), 4),
         )
-        for sides, tiers, columns in cases:
-            with self.subTest(sides=sides, tiers=tiers):
+        for hands, columns in cases:
+            with self.subTest(hands=hands):
                 hand = render_maneuver_hands(
-                    self.catalog, players, sides, tiers,
+                    self.catalog, players, hands,
                 )
                 with Image.open(hand) as image:
                     self.assertEqual(image.width, width(columns))
@@ -2727,7 +2731,9 @@ class D12BallManeuverTests(unittest.TestCase):
         The suite cannot read the words, but every captioned block adds
         a fixed band above its first row, so the image is exactly that
         much taller than the same cards laid out with no captions --
-        one band per side, and none for the lone shared back.
+        one band per hand, and none for the lone shared back. The
+        last case is the one the 2026-09-20 gate added: one coach
+        holding their gambits and the other not, three card rows.
         """
         players = load_player_catalog()
         scale = HAND_CARD_WIDTH / CARD_WIDTH
@@ -2741,25 +2747,24 @@ class D12BallManeuverTests(unittest.TestCase):
                 + HAND_GAP * (card_rows - 1)
             )
 
-        # sides, tiers, total card rows across the image
+        basic = (MANEUVER_TIER_BASIC,)
+        gambits = (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
+        # hands, total card rows across the image
         cases = (
-            (("offense",), (MANEUVER_TIER_BASIC,), 1),
-            (("offense", "defense"), (MANEUVER_TIER_BASIC,), 2),
-            (
-                ("offense", "defense"),
-                (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT),
-                4,
-            ),
+            ((("offense", basic),), 1),
+            ((("offense", basic), ("defense", basic)), 2),
+            ((("offense", gambits), ("defense", gambits)), 4),
+            ((("offense", gambits), ("defense", basic)), 3),
         )
-        for sides, tiers, card_rows in cases:
-            with self.subTest(sides=sides, tiers=tiers):
+        for hands, card_rows in cases:
+            with self.subTest(hands=hands):
                 hand = render_maneuver_hands(
-                    self.catalog, players, sides, tiers,
+                    self.catalog, players, hands,
                 )
                 with Image.open(hand) as image:
                     self.assertEqual(
                         image.height,
-                        bare_height(card_rows) + band * len(sides),
+                        bare_height(card_rows) + band * len(hands),
                     )
 
     def test_the_back_joins_every_pair_that_ties(self) -> None:

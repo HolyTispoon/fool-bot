@@ -40,19 +40,73 @@ tutorial rails and every game saved mid-turn.
 
 ## Gambits
 
-Six more cards, one per basic card's rank, turned on by
-`GameMode.ADVANCED`. See "Gambits" in the living rules;
-what is left open is in
+Six more maneuvers, one on each basic card's rank, turned on by
+`GameMode.ADVANCED`. They were "advanced maneuvers" until 2026-09-20;
+the author renamed them to say what the old name argued against --
+**a gambit is a maneuver of its rank**, Double Team a kind of
+Pressure, which is why rank alone decides. See "Gambits" in the living
+rules; what is left open is in
 [docs/gambit-matrix.md](../gambit-matrix.md).
+
+The rename is the rules' word and not the sheet's. `maneuvers.json`
+still carries `"tier": "advanced"` from the `Mode` column, so
+`MANEUVER_TIER_GAMBIT` is the constant and `"advanced"` is its value,
+and `MANEUVER_TIER_WORDS` is the one table between that value and
+anything a person reads -- the card's corner label (GAMBIT MANEUVER)
+and the reference image's filename. Same shape as `legacy_maneuver_key`
+above: the code says what the rules say, one line says what upstream
+still says, and a sheet edit plus a re-import retires it.
 
 **`RulesEngine.maneuver_tiers` is the only answer to who holds what**,
 and the buttons, the hand image and the click that answers all read
-it. Two things narrow it, and both are rules: a basic game is the
-basic three, and **an unchallenged maneuver is always basic** (the
-author) -- which is answerable at the moment a hand is drawn because
-all three routes into the unopposed branch settle it before the
-offense is prompted. That also makes declining a challenge a defensive
-weapon rather than only a saving.
+it. Three things narrow it, and all three are rules:
+
+- a basic game is the basic three;
+- **an unchallenged maneuver is always basic** (the author) -- which
+  is answerable at the moment a hand is drawn because all three routes
+  into the unopposed branch settle it before the offense is prompted.
+  That also makes declining a challenge a defensive weapon rather than
+  only a saving;
+- **a gambit needs a reason** (the author, 2026-09-20), below.
+
+### A gambit needs a reason
+
+`may_play_gambits(game, match, side)` is the gate: a coach holds their
+gambits only while their team is **behind**, which is `trailing` (fewer
+goals) or `carrying_more_injuries` (more injured players *on the field*
+than the opponent). Either is enough and both are asked of one team, so
+both coaches can hold them at once -- one trailing while the other is
+the more hurt.
+
+- **It is what gave `maneuver_tiers` a `side`, and that is the whole
+  structural change.** The two coaches no longer necessarily hold the
+  same cards, so the question cannot be asked about a match alone. Every
+  caller that draws a hand already had a side; the one that did not was
+  the prompt's own image, which is why `render_maneuver_hands` now takes
+  one `(side, tiers)` pair per hand and the cog pre-renders eight
+  combinations rather than six (`maneuver_hand_combinations`).
+- **Nothing is persisted for it**, the same as the outright rule below:
+  it is read off the scoreboard and the field when the hand is drawn, so
+  a restart mid-maneuver draws the same hand, and a gambit already
+  played keeps its benefit and pays its cost however the score moves
+  afterwards -- those are read off the two stored keys.
+- **The gate is on the hand and nothing else.** Volatile still upgrades
+  a maneuver to its rank's gambit off an ignite whether or not that
+  coach may play one: the ability is about the dice, and gating it would
+  make a Fire Demon's ignite quietly worthless to the side in front.
+  The reference hexagon is not gated either (`D12Ball.reference_tier`)
+  -- a coach who holds nothing still has to read what is coming at them.
+- **Dinky needed no policy.** It rolls a rank and picks at random among
+  the cards on it that are in the hand it was handed, so a closed Dinky
+  plays the basic three without knowing why -- the same indifference it
+  brings to the tier itself, below.
+- **The bot says who holds them anyway.** `describe_gambit_access` puts
+  one line under the maneuver prompt. The rule is public knowledge by
+  construction -- the author's point in setting it on the scoreboard and
+  the meeples -- but the prompt only draws a hand for a side a *person*
+  picks for, so in a solo game Dinky's cards are never on the message.
+  Nothing is said where neither coach holds them: three cards a side is
+  the basic game the coaches already know.
 
 - **The outright rule is two questions about two cards**, not one
   about the matchup: `gambit_benefit_applies` (this card **won on

@@ -1928,12 +1928,13 @@ def hand_card_rows(
     shares a rank with, which is the relation that decides the matchup.
     Each row is in rank order, so the columns line up.
 
-    **`tiers` is what a coach may actually play, not a display
-    option.** A basic game is the three basic cards; an advanced game
-    is all six, and an *unchallenged* maneuver in an advanced game is
-    the three basic ones again -- a gambit can only be
-    played when a maneuver is challenged (the author). So the caller
-    passes the hand, and this draws it.
+    **`tiers` is what this coach may actually play, not a display
+    option**, and it is *this* coach's rather than the game's: an
+    unchallenged maneuver is basic for everybody, but a gambit is held
+    only by a coach whose team is behind (the author, 2026-09-20), so
+    the two hands on one prompt can be six cards and three.
+    `RulesEngine.maneuver_tiers` answers it a side at a time; this
+    draws what it was handed.
     """
     rows: list[list[Image.Image]] = []
     for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT):
@@ -2057,11 +2058,41 @@ def lay_out_hand(
     return buffer
 
 
+def maneuver_hand_combinations() -> tuple[
+    tuple[tuple[str, tuple[str, ...]], ...], ...
+]:
+    """
+    Every hand layout the maneuver prompt can carry, as the
+    `(side, tiers)` pairs `render_maneuver_hands` takes.
+
+    **It exists so the images can be drawn once at startup.** The bot
+    pre-renders all of them rather than drawing up to thirteen cards on
+    every maneuver (see `D12Ball.maneuver_hand_image_bytes`), which
+    needs the set to be enumerable -- three side combinations against
+    each side's two possible tiers, eight in all.
+
+    Eight rather than six since 2026-09-20: a gambit is held only by a
+    coach whose team is behind, so a contested prompt has two hands
+    that can differ from each other.
+    """
+    options = ((MANEUVER_TIER_BASIC,), (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT))
+    combinations: list[tuple[tuple[str, tuple[str, ...]], ...]] = []
+    for sides in (("offense",), ("defense",), ("offense", "defense")):
+        for first in options:
+            if len(sides) == 1:
+                combinations.append(((sides[0], first),))
+                continue
+            for second in options:
+                combinations.append(
+                    ((sides[0], first), (sides[1], second))
+                )
+    return tuple(combinations)
+
+
 def render_maneuver_hands(
     catalog: ManeuverCatalog,
     players: PlayerCatalog,
-    sides: Sequence[str],
-    tiers: Sequence[str] = (MANEUVER_TIER_BASIC,),
+    hands: Sequence[tuple[str, Sequence[str]]],
 ) -> BytesIO:
     """
     Every hand in play on one image, offense over defense.
@@ -2075,6 +2106,12 @@ def render_maneuver_hands(
     hexagon to the whole channel), and what stays secret is the *pick*,
     which is hidden by the ephemeral reply to the click rather than by
     the menu being private. See "The maneuver cards" in docs/design/cards.md.
+
+    **`hands` is one `(side, tiers)` pair per hand on the prompt**, not
+    a list of sides and one set of tiers for all of them: since
+    2026-09-20 a gambit is held only by a coach whose team is behind,
+    so the offense can be drawing six cards while the defense draws
+    three. See `RulesEngine.maneuver_tiers`.
 
     **A hand holding gambits is two rows -- the basic three, and the
     gambit on each rank under it -- and carries no back at all** (the
@@ -2097,12 +2134,15 @@ def render_maneuver_hands(
     prompt went public -- three cards and the back, one row of four.
     """
     blocks = [
-        hand_card_rows(catalog, players, side, tiers) for side in sides
+        hand_card_rows(catalog, players, side, tiers)
+        for side, tiers in hands
     ]
     headings: list[Optional[tuple[str, str]]] = [
-        (HAND_HEADINGS[side], SIDE_COLORS[side]) for side in sides
+        (HAND_HEADINGS[side], SIDE_COLORS[side]) for side, _ in hands
     ]
-    if len(sides) < 2 and MANEUVER_TIER_GAMBIT not in tiers:
+    if len(hands) < 2 and not any(
+        MANEUVER_TIER_GAMBIT in tiers for _, tiers in hands
+    ):
         # The back rides on the end of the hand's own row rather than
         # starting one of its own: alone it is a row one card wide,
         # which pushes the whole image to a second row for one card.

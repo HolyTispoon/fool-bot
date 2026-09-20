@@ -816,18 +816,90 @@ class RulesEngine:
             return True
         return None
 
+    def trailing(self, match: MatchState, side: TeamSide) -> bool:
+        """Whether this team has scored fewer goals than the other."""
+        side = TeamSide(side)
+        home = match.scoreboard.home_score
+        visiting = match.scoreboard.visiting_score
+        return home < visiting if side == TeamSide.HOME else visiting < home
+
+    def carrying_more_injuries(
+        self, match: MatchState, side: TeamSide,
+    ) -> bool:
+        """
+        Whether this team **fields** more injured players than the
+        other -- the bench does not count, and a Cyborg's Damaged is
+        injured under their own word (`match.injured` holds both; the
+        word is `injured_word_and_emoji`'s).
+
+        Strictly more, so it is false for both sides on a level count,
+        exactly as `trailing` is on a level score.
+        """
+        side = TeamSide(side)
+        other = TeamSide.VISITING if side == TeamSide.HOME else TeamSide.HOME
+        return (
+            len(match.injured_field_players(side))
+            > len(match.injured_field_players(other))
+        )
+
+    def may_play_gambits(
+        self, game: D12BallGame, match: MatchState, side: TeamSide,
+    ) -> bool:
+        """
+        Whether this team's coach holds their gambits **right now** --
+        the author, 2026-09-20: a gambit needs a reason, and the reason
+        is that the team is behind.
+
+        Two positions count and either is enough: behind on the
+        scoreboard, or fielding more injured players than the opponent.
+        Both coaches can hold them at once -- one trailing while the
+        other is the more hurt -- which is why this is a question about
+        one team rather than a comparison returning a side.
+
+        **Both are on the board, which is the point.** The author
+        called it out as public knowledge: a coach can work out what
+        the other is holding from the scoreboard and the meeples,
+        without being told and without either side hiding anything.
+        `describe_gambit_access` is the bot saying it out loud anyway,
+        because Dinky's hand is never drawn on the prompt.
+
+        **Nothing is persisted for it.** It is read when the hand is
+        drawn, so a restart mid-maneuver draws the same hand; and a
+        gambit already played keeps its benefit and its cost however
+        the position moves afterwards, since those are read off the two
+        stored keys (see `gambit_benefit_applies`).
+
+        Gated on the module as well, so no caller can ask this and
+        forget that a basic game has no gambits at all.
+        """
+        if not self.gambits_apply(game):
+            return False
+        return self.trailing(match, side) or self.carrying_more_injuries(
+            match, side,
+        )
+
+    def maneuver_side_team(self, match: MatchState, side: str) -> TeamSide:
+        """Which team is playing this side of the maneuver."""
+        return (
+            match.ball.possession
+            if side == "offense"
+            else match.defending_side()
+        )
+
     def maneuver_tiers(
         self,
         game: D12BallGame,
         match: MatchState,
+        side: str,
     ) -> tuple[str, ...]:
         """
-        Which tiers a coach may pick from **this turn** -- the whole of
-        who holds which cards, asked in one place so the hand a coach
-        is shown, the buttons built under it and the click that answers
-        cannot disagree.
+        Which tiers **this side** may pick from this turn -- the whole
+        of who holds which cards, asked in one place so the hand a
+        coach is shown, the buttons built under it and the click that
+        answers cannot disagree.
 
-        Two things narrow it, and both are rules rather than settings:
+        Three things narrow it, and all three are rules rather than
+        settings:
 
         - **A basic game is the basic three**, and so is an advanced
           game that took the species abilities without this module --
@@ -840,10 +912,59 @@ class RulesEngine:
           time a hand is drawn. It also makes declining a challenge a
           defensive weapon rather than only a saving -- sending nobody
           denies the offense their gambits.
+        - **A coach holds their gambits only while their team is
+          behind** -- `may_play_gambits`, the author's 2026-09-20 rule.
+
+        **`side` is what that last one added**, and it is the one
+        structural change it makes: the two coaches no longer
+        necessarily hold the same cards, so nothing may ask this
+        question without saying whose hand it is asking about. The
+        callers that draw a hand already had a side; the one that did
+        not was the prompt's own image, which now asks once per side.
         """
         if not self.gambits_apply(game) or match.maneuver_uncontested:
             return (MANEUVER_TIER_BASIC,)
+        if not self.may_play_gambits(
+            game, match, self.maneuver_side_team(match, side),
+        ):
+            return (MANEUVER_TIER_BASIC,)
         return (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
+
+    def describe_gambit_access(
+        self, game: D12BallGame, match: MatchState,
+    ) -> str:
+        """
+        Who holds their gambits this maneuver, for the public prompt --
+        `""` where nobody does, or where the question does not arise.
+
+        **Said out loud even though it is public knowledge**, because
+        the prompt only draws a hand for a side a *person* still picks
+        for (`maneuver_pick_sides`): in a solo game Dinky's cards are
+        never on the message, and in a contested one a coach would
+        otherwise be counting the other side's meeples to work out
+        whether six cards are coming back at them.
+
+        Nothing is said where neither coach holds them -- three cards a
+        side is the basic game the coaches already know, and a line
+        saying so would be answering a question nobody asked.
+        """
+        if not self.gambits_apply(game) or match.maneuver_uncontested:
+            return ""
+
+        holders = [
+            side
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+            if self.may_play_gambits(game, match, side)
+        ]
+        if not holders:
+            return ""
+        if len(holders) == 2:
+            return "Both coaches may play a gambit this maneuver."
+
+        coach = format_player_with_team(
+            game, self.side_player_number(game, holders[0]), self.team_emojis,
+        )
+        return f"{coach} may play a gambit this maneuver."
 
     def maneuver_pick_sides(
         self,
@@ -896,7 +1017,7 @@ class RulesEngine:
         side: str,
     ) -> tuple[ManeuverDefinition, ...]:
         """One side's playable cards this turn, in the order they read."""
-        tiers = self.maneuver_tiers(game, match)
+        tiers = self.maneuver_tiers(game, match, side)
         return tuple(
             sorted(
                 (
@@ -1179,14 +1300,24 @@ class RulesEngine:
     ) -> PlayerDefinition:
         return self.player_catalog.player_by_id(player_id)
 
+    def side_player_number(
+        self,
+        game: D12BallGame,
+        side: TeamSide,
+    ) -> Optional[int]:
+        """Which coach plays this side of the board."""
+        return (
+            game.home_player_number
+            if TeamSide(side) == TeamSide.HOME
+            else game.visiting_player_number
+        )
+
     def possession_player_number(
         self,
         game: D12BallGame,
         match: MatchState,
     ) -> Optional[int]:
-        if match.ball.possession == TeamSide.HOME:
-            return game.home_player_number
-        return game.visiting_player_number
+        return self.side_player_number(game, match.ball.possession)
 
     def possession_user_id(
         self,

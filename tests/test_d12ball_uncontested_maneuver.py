@@ -34,6 +34,7 @@ from cogs.d12ball_views import (
 )
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
+from d12ball.cards import maneuver_hand_combinations
 from d12ball.components import (
     MatchState,
     TeamSide,
@@ -67,8 +68,7 @@ def build_cog() -> D12Ball:
     # The hand images are drawn once at startup, which `object.__new__`
     # skips; only the key matters here, not the bytes.
     cog.maneuver_hand_image_bytes = {
-        (sides, ("basic",)): b""
-        for sides in (("offense",), ("defense",), ("offense", "defense"))
+        hands: b"" for hands in maneuver_hand_combinations()
     }
     return cog
 

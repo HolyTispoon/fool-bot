@@ -46,7 +46,7 @@ may then take just one.
   `RulesEngine.gambits_apply` and `species_abilities_apply` are
   the two answers, and each folds `mode` in so a caller cannot check the
   opt-out and forget the mode. `maneuver_tiers` reads the first -- it used to
-  ask `game.mode` directly, which would have dealt six cards to a game that
+  ask `game.mode` directly, which would have dealt the gambits to a game that
   opted the maneuvers out, and `D12Ball.reference_tier` was the same reading
   one step removed: the hexagon a coach is posted is the six-card one only
   when the game is actually playing those six.

@@ -182,10 +182,17 @@ class ModuleSwitchTests(unittest.TestCase):
         engine = self.engine
         game = build_game(advanced_maneuvers=False)
         match = build_match(engine, game)
-        self.assertEqual(len(engine.maneuver_tiers(game, match)), 1)
+        # A goal down, so the module is the only thing left that can
+        # close the hand -- see `RulesEngine.may_play_gambits`.
+        match.scoreboard.visiting_score += 1
+        self.assertEqual(
+            len(engine.maneuver_tiers(game, match, "offense")), 1,
+        )
 
         both = build_game()
-        self.assertEqual(len(engine.maneuver_tiers(both, match)), 2)
+        self.assertEqual(
+            len(engine.maneuver_tiers(both, match, "offense")), 2,
+        )
 
     def test_a_save_written_before_the_modules_reads_as_both_on(self):
         # Every advanced game played before the opt-out existed was

@@ -22,7 +22,7 @@ and beats exactly what that card beats, so the grid is the existing 3×3 cycle r
 times and there is nothing to tabulate.
 
 `ManeuverCatalog.resolve` is that, and
-`tests/test_d12ball_gambits.py::test_an_advanced_card_resolves_exactly_as_its_counterpart`
+`tests/test_d12ball_components.py::test_a_gambit_resolves_exactly_as_its_counterpart`
 walks the whole grid asserting that swapping either card for its counterpart cannot change the
 outcome. That test is the table now. It is worth more than a table was, because it fails when
 the data drifts.
@@ -36,9 +36,9 @@ the data drifts.
 The other half of what the author asked for on 2026-08-17, and the half with no data: the
 sheet's `Advanced` ability column is empty for all thirty-six players. Nothing can be imported
 and nothing can be built until it is filled. It also holds up the back of a printed player
-card, which is that player's gambit (the author, 2026-08-12).
+card, which is that player's advanced card (the author, 2026-08-12).
 
-A coach playing advanced mode today gets six cards a side and the roster they already know.
+A coach playing advanced mode today gets the gambits and the roster they already know.
 
 ### Setup Pass × Intercept may be inert
 
