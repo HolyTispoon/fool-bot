@@ -322,7 +322,8 @@ with Low Pass already, as the same step under a different `key=`.
   - **Step-then-save was the rule rather than a fix**, the third time
     of four: `knock_ball_back`'s own persist and the shot branch's
     both wrote the same state, with nothing between them that could
-    fail. `self.persist` in `cogs/` went 92 -> 91.
+    fail. One `self.persist` site fewer in `cogs/` -- 96 -> 95 as
+    merged: two left the step and one arrived in the wrapper.
   - **What did not move**, deliberately: `resolve_low_pass`'s
     no-teammate-to-receive branch, which is the eighth caller of
     `begin_loose_ball` and rank O1's. Two rules questions on it are
