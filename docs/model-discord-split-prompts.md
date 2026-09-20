@@ -34,9 +34,53 @@ you have.
 
 Ground rules for every phase:
 
-- Branch off a fresh `origin/main` before the first edit; never work on
-  main; never force-push. One phase is one pull request, landed on main by
-  PR, and the bot must be fully working at the end of it.
+- **Claim the phase before you do anything else, and stop if you cannot.**
+  Branch off a fresh `origin/main`, then push the branch empty, before the
+  first edit:
+
+      git fetch origin main
+      git checkout -B split-phase-<phase> origin/main
+      git push origin split-phase-<phase>:refs/heads/split-phase-<phase> \
+          --force-with-lease=refs/heads/split-phase-<phase>:
+
+  The empty value after the colon means **"only if this ref does not
+  exist"**, and it is the git server that decides, atomically. If the push
+  is rejected, another run is already on this phase: **stop, and say so.**
+  Do not pick a different branch name and carry on -- that is the failure
+  this exists to prevent.
+
+  Why this and not the obvious check: on 2026-09-20 four runs of the
+  scheduled routine built Phase 4 at once. Every one of them looked for a
+  competing branch or pull request and correctly found none, because none
+  of the others had pushed yet -- the gate samples shared state once and
+  then works for an hour before publishing anything. Three complete
+  implementations of the largest phase in the plan were thrown away. A
+  check that reads cannot fix that; only a write that exactly one racer
+  can win. Verified against git rather than assumed: with the ref already
+  present, this push is rejected even when it would be a fast-forward,
+  which a plain push accepts.
+
+  **Ask only about your own phase's branch, never `split-phase-*`.** Every
+  branch survives its pull request being merged or closed, so a pattern
+  match over all of them reports a phase that finished weeks ago and stops
+  every future run forever.
+
+  A dead run leaves its claim behind, and that is deliberate -- an
+  abandoned branch with no pull request is visible, and taking it over
+  automatically is how two runs end up on one phase again. Delete the
+  branch by hand to release it.
+
+  **This is not the force-push CLAUDE.md forbids**, and the difference is
+  worth being exact about because the flag's name says otherwise. That
+  rule protects a branch somebody may have checked out, by refusing to
+  rewrite history under them. This invocation cannot rewrite anything: the
+  lease it takes is "the ref is absent", so the push either creates a
+  branch that did not exist or fails. Used once, before the first edit,
+  with `<phase>` in the ref name. Everything after it is an ordinary
+  push.
+- Never work on main; never force-push. One phase is one pull request,
+  landed on main by PR, and the bot must be fully working at the end of
+  it.
 - The principles in the worksheet (or, from Phase 2 on, the "The model and
   the Discord layer" section of CLAUDE.md) are the review standard. In
   particular: nothing under d12ball/ imports discord or is async;
