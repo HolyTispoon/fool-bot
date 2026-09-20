@@ -102,6 +102,29 @@ class FollowOnStep(Enum):
     #: side of the coach's answer, rather than in front of a question
     #: whose answer moves the ball again.
     OFFER_SETUP_PASS_PUSH_BACK = auto()
+    #: The Smooth queue: the ball is running through one or more of
+    #: the possessing side's own Telekinetics, who may take it over.
+    #: Phase 4's, and one of the two the arrival gate ends on -- the
+    #: queue is drained a click at a time and the offer is an AI-aware
+    #: prompt, both of which are the cog's.
+    CONTINUE_SMOOTH = auto()
+    #: The Mind Pull queue, the other half of the same gate. Separate
+    #: from `CONTINUE_SMOOTH` because the two are different offers to
+    #: different sides -- see "Smooth" in
+    #: docs/design/species-abilities.md.
+    CONTINUE_MIND_PULL = auto()
+    #: A loose ball with nobody left to ask: settle it on what is
+    #: already on the board. Phase 4's.
+    RESOLVE_LOOSE_BALL = auto()
+    #: A scoring opportunity nobody is being asked about -- one
+    #: candidate, or an AI offense that has already chosen. Phase 4's.
+    START_SET_UP_SHOT = auto()
+    #: A scoring opportunity the coach picks the shooter for. It is a
+    #: follow-on rather than a `PendingPrompt` because
+    #: `ShooterChoiceView` has no `PromptKind`: a restart mid-pick
+    #: comes back through the score attempt rather than through this
+    #: question. Phase 4's.
+    ASK_SHOOTER_CHOICE = auto()
     #: The long pass's contest: the receiver standing where a High
     #: Pass of 3 or 4 landed still has to win a skill test to keep it.
     #: Rank O3's, and a member of its own rather than `BEGIN_LOOSE_BALL`

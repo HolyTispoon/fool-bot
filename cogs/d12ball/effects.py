@@ -10,9 +10,11 @@ import asyncio
 import discord
 import random
 import time
+from dataclasses import replace
 from typing import Optional
 
 from d12ball.engine import IgnitedRoll, RulesEngine
+from d12ball.flow import arrival
 from d12ball.flow.effects import (
     apply_own_goal_outcome,
     deflection_step,
@@ -771,12 +773,17 @@ class ManeuverEffectsMixin:
         loose ball whoever is standing on the landing space, so its own
         effect calls begin_loose_ball directly rather than answering a
         question whose answer would be "not loose".
+
+        **The question itself is `d12ball.flow.arrival`'s** since
+        Phase 4; what is left here is the `bool` its callers still read
+        and the dispatch of what it answered.
         """
-        if match.eligible_ball_handlers():
+        detour = arrival.check_for_loose_ball(match, distance_moved)
+        if detour is None:
             return False
 
-        await self.begin_loose_ball(
-            interaction, game, match, distance_moved, lead_in=lead_in,
+        await self.dispatch_step_result(
+            interaction, game, match, detour, lead_in=lead_in,
         )
         return True
 
@@ -811,12 +818,24 @@ class ManeuverEffectsMixin:
         **The path is spent by `check_for_mind_pull`, which is the last
         reader**, so Smooth deliberately does not clear it -- a Smooth
         that nobody wanted must still leave the pull its movement.
+
+        **Both halves and their order are
+        `d12ball.flow.arrival.check_for_ball_arrival`'s** since Phase
+        4 -- which of the two is asked first is a rule, so it may not
+        be decided in `cogs/`. What is left here is the save and the
+        dispatch: a gate that took over has written `pending_smooth`
+        or `pending_mind_pull` onto the match, and the offer it leads
+        to is a click that reloads the match off the file.
         """
-        if await self.check_for_smooth(interaction, game, match, resume):
-            return True
-        return await self.check_for_mind_pull(
-            interaction, game, match, resume,
+        taken = arrival.check_for_ball_arrival(
+            self.engine, game, match, resume,
         )
+        if taken is None:
+            return False
+
+        self.persist(game, match)
+        await self.dispatch_step_result(interaction, game, match, taken)
+        return True
 
     async def check_for_smooth(
         self,
@@ -836,16 +855,16 @@ class ManeuverEffectsMixin:
         `check_for_ball_arrival`. That is the one way the two gates
         differ mechanically, and it is why they are not the same
         function with a side argument.
+
+        The reading is `d12ball.flow.arrival.check_for_smooth`'s since
+        Phase 4; this is the save and the dispatch around it.
         """
-        candidates = self.engine.smooth_candidates(game, match)
-        if not candidates:
+        taken = arrival.check_for_smooth(self.engine, game, match, resume)
+        if taken is None:
             return False
 
-        match.pending_smooth = candidates
-        match.pending_smooth_resume = resume
         self.persist(game, match)
-
-        await self.continue_smooth(interaction, game, match)
+        await self.dispatch_step_result(interaction, game, match, taken)
         return True
 
     async def continue_smooth(
@@ -1041,23 +1060,24 @@ class ManeuverEffectsMixin:
         uses, and for the same reason: a coach may take minutes over
         the offer, and between the interrupt and the answer nothing
         else on the match says what the ball was about to do.
+
+        The reading, **and the spending of the path**, are
+        `d12ball.flow.arrival.check_for_mind_pull`'s since Phase 4.
+        Spending it is the half that had to move with the ordering:
+        two gates in a row only work because the first one leaves the
+        second nothing.
         """
-        candidates = self.engine.mind_pull_candidates(game, match)
-        # Spent either way, and before the early return: a movement
-        # that offered nobody a pull must not offer one at the next
-        # arrival point either. The movers go with it -- they are only
-        # disqualified from the movement that moved them, so a second
-        # movement in the same turn must find them eligible again.
-        match.last_ball_path = []
-        match.last_ball_movers = []
-        if not candidates:
+        taken = arrival.check_for_mind_pull(
+            self.engine, game, match, resume,
+        )
+        if taken is None:
+            # The path is spent even so, and deliberately not saved
+            # here: the caller carries on and persists, exactly as it
+            # did when this function cleared the path itself.
             return False
 
-        match.pending_mind_pull = candidates
-        match.pending_mind_pull_resume = resume
         self.persist(game, match)
-
-        await self.continue_mind_pull(interaction, game, match)
+        await self.dispatch_step_result(interaction, game, match, taken)
         return True
 
     async def continue_mind_pull(
@@ -1401,82 +1421,51 @@ class ManeuverEffectsMixin:
         That is a property of the pass and not of the space, which is
         why it rides on the same flag that carries the ball speed
         modifier.
+
+        **What is left here is how it reaches a channel.** The
+        position, the pre-decline, the auto-picks and the headline are
+        `d12ball.flow.arrival.loose_ball_step`'s; this posts the one
+        block it words, with the board drawn under it when the ball is
+        genuinely loose and plainly when it is a High Pass contest --
+        which is a question about what a coach can already see rather
+        than about the position. See principle 8 in CLAUDE.md.
         """
-        # **Mind Pull pre-empts a contest and a loose ball alike**, so
-        # the offer goes out before any of this side's state is set.
-        # `finish_maneuver_resolution` has usually gated already and
-        # spent the path; the callers that reach here directly -- a
-        # Deflect, and the High Pass contest -- have not.
-        if await self.check_for_ball_arrival(
-            interaction,
+        result = arrival.loose_ball_step(
+            self.engine,
             game,
             match,
-            {
-                "kind": "loose_ball",
-                "distance_moved": distance_moved,
-                "lead_in": lead_in,
-                "headline": headline,
-                "is_high_pass": is_high_pass,
-            },
-        ):
-            return
-
-        match.begin_loose_ball(distance_moved, is_high_pass=is_high_pass)
-        # The ball is free and about to be contested, so nobody is
-        # carrying it -- including the long High Pass, where a receiver
-        # who has to win a test to keep it is not yet in possession of
-        # anything. Whoever comes out of the contest with it is chosen
-        # off the ball's space in the ordinary way.
-        match.clear_ball_carrier()
-
-        if not is_high_pass:
-            offense_side = match.ball.possession
-            defense_side = match.defending_side()
-            offense_occupied = bool(match.loose_ball_occupants(offense_side))
-            defense_occupied = bool(match.loose_ball_occupants(defense_side))
-            if offense_occupied != defense_occupied:
-                empty_side = (
-                    defense_side if offense_occupied else offense_side
-                )
-                match.decline_loose_ball(empty_side)
-
-        self.engine.auto_resolve_loose_ball_picks(game, match)
+            distance_moved,
+            lead_in=lead_in,
+            headline=headline,
+            is_high_pass=is_high_pass,
+        )
         self.persist(game, match)
 
-        if headline is None:
-            headline = self.engine.build_loose_ball_headline(match)
-        prefix = f"{lead_in}\n\n" if lead_in else ""
+        if not result.narration:
+            # The arrival gate took the ball over: nothing is announced
+            # and the `lead_in` has gone into the resume with the rest
+            # of the arrival, to be posted when it comes back.
+            await self.dispatch_step_result(interaction, game, match, result)
+            return
+
+        # A blank line between the blocks rather than the dispatcher's
+        # single space: the pass's own lines are a paragraph and the
+        # headline is the announcement under them.
+        body = "\n\n".join(result.narration)
         if is_high_pass:
             # A High Pass is not a loose ball: the ball is on a player
             # everyone can already see, and the board it is standing on
             # was posted by the pass itself.
-            await send_new_prompt(interaction, f"{prefix}{headline}")
+            await send_new_prompt(interaction, body)
         else:
             # A genuine loose ball is the one position nobody can read
-            # off the last thing they were told -- the ball is lying in
-            # an empty space some number of spaces from wherever the
-            # pass started, and the very next question is who to send
-            # after it. So it is named and drawn, together.
-            await self.announce_board_update(
-                interaction,
-                game,
-                f"{prefix}{headline}\n{ball_location_line(match)}",
-            )
+            # off the last thing they were told, so it is named and
+            # drawn together.
+            await self.announce_board_update(interaction, game, body)
 
-        if self.engine.loose_ball_side_on_the_clock(match) is None:
-            await self.resolve_loose_ball(interaction, game, match)
-            return
-
-        prompt_message = await send_new_prompt(
-            interaction,
-            self.engine.build_loose_ball_prompt(game, match),
-            view=self.build_loose_ball_view(game.game_id, match),
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
+        await self.dispatch_step_result(
+            interaction, game, match, replace(result, narration=[]),
         )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
 
     async def send_loose_ball_out_of_bounds(
         self,
@@ -1620,74 +1609,18 @@ class ManeuverEffectsMixin:
         Both sides have a candidate: move them both in, charge each
         their own recovery distance in exhaustion, and put the skill
         test up.
+
+        Both of them walking in, what it cost each of them and the
+        sentence that says so are
+        `d12ball.flow.arrival.loose_ball_skill_test_step`'s since
+        Phase 4; the whole of it is the prompt's own ask, because
+        there is nothing in it that is not part of asking.
         """
-        offense_recovery_distance = match.distance_to_ball(offense_player_id)
-        defense_recovery_distance = match.distance_to_ball(defense_player_id)
-        match.move_meeple(
-            offense_player_id, match.ball.zone, match.ball.space_index,
-        )
-        match.move_meeple(
-            defense_player_id, match.ball.zone, match.ball.space_index,
-        )
-        # Filtered: a contestant already standing on the ball is
-        # charged nothing and says nothing, and an unfiltered join
-        # would leave their blank line in the message.
-        exhaustion_text = "\n".join(
-            filter(
-                None,
-                [
-                    self.apply_exhaustion(
-                        game,
-                        match,
-                        offense_player_id,
-                        offense_recovery_distance,
-                    ),
-                    self.apply_exhaustion(
-                        game,
-                        match,
-                        defense_player_id,
-                        defense_recovery_distance,
-                    ),
-                ],
-            )
+        result = arrival.loose_ball_skill_test_step(
+            self.engine, game, match, offense_player_id, defense_player_id,
         )
         self.persist(game, match)
-        await self.refresh_match_image(interaction, game)
-
-        offense_player = self.engine.get_player_definition(offense_player_id)
-        defense_player = self.engine.get_player_definition(defense_player_id)
-        offense_skill = self.player_catalog.effective_profile(
-            offense_player,
-        ).offense
-        defense_skill = self.player_catalog.effective_profile(
-            defense_player,
-        ).defense
-
-        # Who is defending what differs between the two: a High Pass's
-        # receiver already has the ball and is being challenged for it,
-        # where a loose ball belongs to nobody yet and both sides are
-        # going for it.
-        contest_line = (
-            f"{self.player_label(match, defense_player)} "
-            f"(defense skill {defense_skill}) challenges "
-            f"{self.player_label(match, offense_player)} "
-            f"(offense skill {offense_skill}) for the high pass -- the "
-            "receiver must win this skill test to keep possession!"
-            if match.pending_loose_ball_is_high_pass
-            else f"{self.player_label(match, offense_player)} "
-            f"(offense skill {offense_skill}) and "
-            f"{self.player_label(match, defense_player)} "
-            f"(defense skill {defense_skill}) both contest the "
-            f"{contest_noun(match)} -- skill test!"
-        )
-        test_message = await send_new_prompt(
-            interaction,
-            f"{contest_line}\n{exhaustion_text}\n\nEither "
-            "player can roll:",
-            view=LooseBallSkillTestView(self, game.game_id),
-        )
-        game.turn_message_id = test_message.id
-        save_games(self.games)
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def resolve_loose_ball(
         self,
@@ -1747,21 +1680,40 @@ class ManeuverEffectsMixin:
         shot" prompt when a human has to pick. When the pick is
         automatic there's no prompt to attach it to, so it's posted on
         its own instead of being dropped.
-        """
-        if len(candidates) == 1 or self.engine.side_controlled_by_ai(
-            game, match, "offense",
-        ):
-            if len(candidates) == 1:
-                shooter_id = candidates[0]
-            else:
-                shooter_id = self.engine.get_ai_strategy(game).choose_shooter(
-                    candidates, match,
-                )
-            if lead_in:
-                await send_new_prompt(interaction, lead_in)
-            await self.start_set_up_shot(interaction, game, match, shooter_id)
-            return
 
+        Who may take it -- and whether anybody is being asked at all
+        -- is `d12ball.flow.arrival.shooter_choice_step`'s since Phase
+        4. The two answers reach a channel differently and that is
+        what is left here: a pick the coach makes has a prompt for the
+        narration to open, and a pick nobody makes has none, so the
+        pass's lines are posted on their own rather than dropped.
+        """
+        result = arrival.shooter_choice_step(
+            self.engine, game, match, candidates,
+        )
+        await self.dispatch_step_result(
+            interaction, game, match, result, lead_in=lead_in,
+        )
+
+    async def ask_shooter_choice(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        candidates: list[str],
+        lead_in: str = "",
+    ) -> None:
+        """
+        Put the shooter pick to the coach whose side has the
+        opportunity.
+
+        It is a method of its own because it is what
+        `FollowOnStep.ASK_SHOOTER_CHOICE` names: a step that has been
+        lifted cannot post, and `ShooterChoiceView` has no
+        `PromptKind` to go through `view_for_prompt` with -- a restart
+        mid-pick comes back through the score attempt rather than
+        through this question.
+        """
         mention = format_player_with_team(
             game,
             self.engine.possession_player_number(game, match),
@@ -1787,6 +1739,7 @@ class ManeuverEffectsMixin:
         match: MatchState,
         shooter_id: str,
         maneuver_cost: int = 1,
+        lead_in: str = "",
     ) -> None:
         """
         `maneuver_cost` is the flat cost of the maneuver that offered
@@ -1795,7 +1748,17 @@ class ManeuverEffectsMixin:
         Stored so ScoreAttemptView.roll can charge it on top of the
         shot's own extra minute (2026-08-16): the two stack now,
         instead of the shot's cost replacing the maneuver's.
+
+        `lead_in` is narration from the pass that set this up, and it
+        is posted **on its own** rather than opening the line below:
+        there is no prompt here for it to open, and a shot taken off a
+        set-up is its own announcement. It used to be posted by
+        `begin_shooter_choice` a line before calling this, which is
+        the same two messages in the same order.
         """
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
+
         match.active_player_id = shooter_id
         match.pending_action = "shoot"
         match.pending_shot_is_set_up = True

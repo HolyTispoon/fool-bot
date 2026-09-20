@@ -1868,6 +1868,11 @@ class CoreMixin:
                 self.offer_setup_pass_push_back,
             FollowOnStep.BEGIN_HIGH_PASS_CONTEST:
                 self.begin_high_pass_contest,
+            FollowOnStep.CONTINUE_SMOOTH: self.continue_smooth,
+            FollowOnStep.CONTINUE_MIND_PULL: self.continue_mind_pull,
+            FollowOnStep.RESOLVE_LOOSE_BALL: self.resolve_loose_ball,
+            FollowOnStep.START_SET_UP_SHOT: self.start_set_up_shot,
+            FollowOnStep.ASK_SHOOTER_CHOICE: self.ask_shooter_choice,
         }
 
     async def dispatch_step_result(
@@ -1876,6 +1881,7 @@ class CoreMixin:
         game: D12BallGame,
         match: MatchState,
         result: StepResult,
+        lead_in: str = "",
     ) -> None:
         """
         Turn a `StepResult` into Discord: redraw the board if anything
@@ -1908,8 +1914,20 @@ class CoreMixin:
         table a restart restores through. Two tables is how the live
         flow and the resume come to offer different questions -- see
         "d12ball/prompts.py" in docs/design/model-discord-split.md.
+        The prompt it puts up **is the turn's**, so it records
+        `turn_message_id` and allows a user mention, exactly as every
+        hand-written prompt site does: a prompt the game cannot find
+        again is one `drop_turn_prompt` leaves live in the channel.
+        Phase 4 is the first phase to reach this branch in
+        production, which is why it had nothing to record before.
+
+        `lead_in` is narration the **caller** holds and has not
+        posted -- the lines a wrapper was handed rather than the ones
+        its own step produced. It goes in front of the result's own,
+        which is what keeps a cascade one message when a lifted step
+        sits between two that have not moved.
         """
-        lead_in = " ".join(result.narration)
+        lead_in = " ".join(filter(None, (lead_in, *result.narration)))
         following = result.next
 
         if result.board_changed and not (
@@ -1919,17 +1937,32 @@ class CoreMixin:
             await self.refresh_match_image(interaction, game)
 
         if isinstance(following, FollowOn):
+            # **`lead_in` is passed only when there is one**, so a step
+            # that is never handed narration does not have to declare a
+            # parameter it would ignore -- the arrival gates' two
+            # queues and the loose ball's own resolution are all named
+            # after their announcement has gone out. A step that *is*
+            # handed lines and cannot take them raises here, at the one
+            # dispatch that would have dropped them.
+            kwargs = dict(following.kwargs)
+            if lead_in:
+                kwargs["lead_in"] = lead_in
             await self.follow_on_methods()[following.step](
-                interaction, game, match, lead_in=lead_in, **following.kwargs,
+                interaction, game, match, **kwargs,
             )
             return
 
         if isinstance(following, PendingPrompt):
-            await send_new_prompt(
+            prompt_message = await send_new_prompt(
                 interaction,
                 " ".join(filter(None, (lead_in, following.ask))),
                 view=self.view_for_prompt(game.game_id, match, following),
+                allowed_mentions=discord.AllowedMentions(
+                    users=True, roles=False, everyone=False,
+                ),
             )
+            game.turn_message_id = prompt_message.id
+            save_games(self.games)
             return
 
         if lead_in:

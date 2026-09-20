@@ -3183,9 +3183,11 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertTrue(detoured)
-        cog.begin_loose_ball.assert_awaited_once_with(
-            interaction, game, match, 2, lead_in="Lead-in.",
-        )
+        cog.begin_loose_ball.assert_awaited_once()
+        call = cog.begin_loose_ball.await_args
+        self.assertEqual(call.args[:3], (interaction, game, match))
+        self.assertEqual(loose_ball_distance(call), 2)
+        self.assertEqual(call.kwargs["lead_in"], "Lead-in.")
         cog.begin_run_back.assert_not_awaited()
 
     async def test_opposing_player_alone_on_the_space_is_contested(
@@ -3232,9 +3234,11 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         # until somebody wins the contest.
         self.assertEqual(match.ball.possession, TeamSide.HOME)
         cog.begin_run_back.assert_not_awaited()
-        cog.begin_loose_ball.assert_awaited_once_with(
-            interaction, game, match, 1, lead_in="Deflect happened.",
-        )
+        cog.begin_loose_ball.assert_awaited_once()
+        call = cog.begin_loose_ball.await_args
+        self.assertEqual(call.args[:3], (interaction, game, match))
+        self.assertEqual(loose_ball_distance(call), 1)
+        self.assertEqual(call.kwargs["lead_in"], "Deflect happened.")
 
 
 class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):

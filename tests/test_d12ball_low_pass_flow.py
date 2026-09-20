@@ -39,6 +39,7 @@ from low_pass_fixtures import (
     SCORING_CHOICE,
 )
 from prompt_fixtures import CASES as PROMPT_CASES
+from save_patches import suppressed_cog_saves
 from prompt_fixtures import ENGINE as PROMPT_ENGINE
 from save_patches import suppressed_cog_saves
 from test_d12ball_low_pass_recording import build_cog
@@ -242,8 +243,12 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
 
         No Low Pass branch ends on a prompt today -- the receiver pick
         is asked before the pass is applied -- so this is asserted on
-        the dispatcher directly, which is where Phase 3's effects will
-        meet it.
+        the dispatcher directly. Phase 4 is what finally reaches the
+        branch in production, and what the assertions below gained
+        with it: the prompt a dispatch puts up **is the turn's**, so
+        it records `turn_message_id` and allows a user mention, the
+        same as every prompt the cog posts by hand. A prompt the game
+        cannot find again is one `drop_turn_prompt` leaves live.
         """
         fixture = next(
             case.build() for case in LOW_PASS_CASES
@@ -257,8 +262,9 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
             maneuver_key="low_pass",
         )
 
-        with mock.patch(
-            "cogs.d12ball.core.send_new_prompt", mock.AsyncMock(),
+        with suppressed_cog_saves(), mock.patch(
+            "cogs.d12ball.core.send_new_prompt",
+            mock.AsyncMock(return_value=SimpleNamespace(id=4242)),
         ) as send:
             await cog.dispatch_step_result(
                 SimpleNamespace(),
@@ -281,6 +287,41 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIsInstance(
             send.await_args.kwargs["view"], LowPassChoiceView,
+        )
+        self.assertEqual(fixture.game.turn_message_id, 4242)
+        self.assertFalse(
+            send.await_args.kwargs["allowed_mentions"].everyone,
+        )
+
+    async def test_a_caller_s_own_lead_in_goes_in_front(self) -> None:
+        """
+        A wrapper that was handed narration it has not posted passes
+        it to the dispatcher, and it opens the message rather than
+        being dropped.
+
+        Phase 4's: a lifted step sitting between two that have not
+        moved is how a cascade stays one message, and `lead_in=` is
+        what carries the lines across it.
+        """
+        fixture = next(
+            case.build() for case in LOW_PASS_CASES
+            if case.name == "plain_forward"
+        )
+        cog = build_cog()
+
+        with mock.patch(
+            "cogs.d12ball.core.send_new_prompt", mock.AsyncMock(),
+        ) as send:
+            await cog.dispatch_step_result(
+                SimpleNamespace(),
+                fixture.game,
+                fixture.match,
+                StepResult(narration=["Its own."]),
+                lead_in="The caller's.",
+            )
+
+        self.assertEqual(
+            send.await_args.args[1], "The caller's. Its own.",
         )
 
     async def test_a_step_with_nothing_next_posts_its_own_lines(

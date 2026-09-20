@@ -206,9 +206,16 @@ class FollowOnStepTests(unittest.TestCase):
     rank's own tests.
     """
 
-    #: Every spine step a lifted effect may end by naming, as of rank
-    #: D2. A rank that hands off to a new one adds its member here and
+    #: Every spine step a lifted step may end by naming, as of Phase
+    #: 4. A phase that hands off to a new one adds its member here and
     #: a row to `D12Ball.follow_on_methods`; Phase 6 empties both.
+    #:
+    #: **Phase 4 is where it stopped only growing from the cards'
+    #: end.** The five it added are not effects at all: they are the
+    #: Discord tails the spine steps now hand back to -- the two
+    #: queues an arrival gate opens, the settling of a loose ball
+    #: nobody is left to ask about, and the two ways a scoring
+    #: opportunity reaches a shooter.
     EXPECTED = {
         "FINISH_MANEUVER_RESOLUTION",
         "OFFER_SCORING_ATTEMPT_CHOICE",
@@ -219,6 +226,11 @@ class FollowOnStepTests(unittest.TestCase):
         "BEGIN_LOOSE_BALL",
         "OFFER_SETUP_PASS_PUSH_BACK",
         "BEGIN_HIGH_PASS_CONTEST",
+        "CONTINUE_SMOOTH",
+        "CONTINUE_MIND_PULL",
+        "RESOLVE_LOOSE_BALL",
+        "START_SET_UP_SHOT",
+        "ASK_SHOOTER_CHOICE",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(
