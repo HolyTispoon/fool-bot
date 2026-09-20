@@ -49,6 +49,12 @@ class FollowOnStep(Enum):
     #: A set-up -- the offense is offered a scoring attempt instead of
     #: letting the maneuver resolve normally.
     OFFER_SCORING_ATTEMPT_CHOICE = auto()
+    #: The loose ball a pass with nobody to receive it rolls into.
+    #: Rank O1 of Phase 3 added it and rank D1 (Deflect and Clear)
+    #: inherits it, the way D2 inherits `OFFER_SPEED_CHOICE` -- both
+    #: reach `begin_loose_ball` without going through
+    #: `finish_maneuver_resolution` first.
+    BEGIN_LOOSE_BALL = auto()
     #: The ball-speed manipulation a dribble (and a steal) ends on:
     #: always the last human choice in an effect, and it leads into
     #: `finish_maneuver_resolution` itself once answered. It is a

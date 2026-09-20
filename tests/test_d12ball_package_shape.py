@@ -210,6 +210,7 @@ class FollowOnStepTests(unittest.TestCase):
     #: O2. A rank that hands off to a new one adds its member here and
     #: a row to `D12Ball.follow_on_methods`; Phase 6 empties both.
     EXPECTED = {
+        "BEGIN_LOOSE_BALL",
         "FINISH_MANEUVER_RESOLUTION",
         "OFFER_SCORING_ATTEMPT_CHOICE",
         "OFFER_SPEED_CHOICE",

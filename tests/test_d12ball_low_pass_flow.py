@@ -27,10 +27,17 @@ from unittest import mock
 
 from cogs.d12ball_views import LowPassChoiceView
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.effects import low_pass_step
+from d12ball.flow.effects import failed_pass_step, low_pass_step
 from d12ball.prompts import PendingPrompt, PromptKind
 
-from low_pass_fixtures import ENGINE, FINISH, LOW_PASS_CASES, SCORING_CHOICE
+from low_pass_fixtures import (
+    ENGINE,
+    FAILED_PASS_CASES,
+    FINISH,
+    LOOSE_BALL,
+    LOW_PASS_CASES,
+    SCORING_CHOICE,
+)
 from save_patches import suppressed_cog_saves
 from test_d12ball_low_pass_recording import build_cog
 
@@ -148,6 +155,61 @@ class LowPassStepTests(unittest.TestCase):
         recorder.assert_not_called()
 
 
+class FailedPassStepTests(unittest.TestCase):
+    """
+    `failed_pass_step`, asked directly -- the other half of rank O1.
+    `tests/test_d12ball_low_pass_recording.py` asked the cog the same
+    questions off the same fixtures and was run green before the
+    branch moved out of `resolve_low_pass`.
+    """
+
+    def test_every_branch_answers_what_the_cog_recorded(self) -> None:
+        for case in FAILED_PASS_CASES:
+            with self.subTest(case=case.name):
+                fixture = case.build()
+                result = failed_pass_step(ENGINE, fixture.match, fixture.key)
+
+                self.assertEqual(
+                    " ".join(result.narration), fixture.narration,
+                )
+                self.assertEqual(result.board_changed, fixture.board_changed)
+
+                self.assertIsInstance(result.next, FollowOn)
+                self.assertEqual(result.next.step.name, fixture.follow_on)
+                self.assertEqual(
+                    dict(result.next.kwargs), fixture.follow_on_kwargs,
+                )
+                self.assertNotIn("lead_in", result.next.kwargs)
+                # `headline` is not carried either: what to call the
+                # space the ball stopped on is read off the position by
+                # the loose ball itself.
+                self.assertNotIn("headline", result.next.kwargs)
+
+                match = fixture.match
+                # Nobody carries a loose ball -- and nothing here hands
+                # it to anyone, because there was nobody to hand it to.
+                self.assertIsNone(match.ball_carrier_id)
+                self.assertEqual(
+                    (match.ball.zone, match.ball.space_index),
+                    fixture.ball_space,
+                )
+                self.assertEqual(match.ball.speed, fixture.ball_speed)
+
+    def test_the_loose_ball_is_a_real_member(self) -> None:
+        self.assertIn(LOOSE_BALL, {member.name for member in FollowOnStep})
+
+    def test_the_step_does_not_save(self) -> None:
+        recorder = mock.Mock()
+        with suppressed_cog_saves(), mock.patch(
+            "gamesaves.d12ball.storage.save_games", recorder,
+        ):
+            for case in FAILED_PASS_CASES:
+                fixture = case.build()
+                failed_pass_step(ENGINE, fixture.match, fixture.key)
+
+        recorder.assert_not_called()
+
+
 class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
     """
     `D12Ball.apply_low_pass` and `D12Ball.dispatch_step_result` -- the
@@ -201,6 +263,50 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
             calls, ["persist", "refresh", "finish_maneuver_resolution"],
         )
         self.assertEqual(carrier_when_saved, [fixture.carrier_id])
+
+    async def test_a_failed_pass_saves_between_the_step_and_the_loose_ball(
+        self,
+    ) -> None:
+        """
+        The same ordering on the branch `resolve_low_pass` still
+        enters directly, and the same reason: `begin_loose_ball` ends
+        on a prompt either side may answer hours later, off a match
+        reloaded from the file.
+
+        It also pins that the board is **not** redrawn on the way --
+        the loose ball draws it under its own announcement, and the
+        move was not allowed to cost a request.
+        """
+        fixture = next(
+            case.build() for case in FAILED_PASS_CASES
+            if case.name == "low_pass_with_no_receiver"
+        )
+        cog = build_cog()
+        cog.games[fixture.game.game_id] = fixture.game
+        match = fixture.match
+        calls: list[str] = []
+        speed_when_saved: list[int] = []
+
+        def persist(game, saved_match) -> None:
+            calls.append("persist")
+            speed_when_saved.append(saved_match.ball.speed)
+
+        async def refresh(*args, **kwargs) -> None:
+            calls.append("refresh")
+
+        async def loose_ball(*args, **kwargs) -> None:
+            calls.append("begin_loose_ball")
+
+        cog.persist = persist
+        cog.refresh_match_image = refresh
+        cog.begin_loose_ball = loose_ball
+
+        await cog.resolve_low_pass(
+            SimpleNamespace(), fixture.game, match, key=fixture.key,
+        )
+
+        self.assertEqual(calls, ["persist", "begin_loose_ball"])
+        self.assertEqual(speed_when_saved, [fixture.ball_speed])
 
     async def test_a_board_that_did_not_move_is_not_redrawn(self) -> None:
         """

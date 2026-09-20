@@ -1738,6 +1738,7 @@ class CoreMixin:
             FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE:
                 self.offer_scoring_attempt_choice,
             FollowOnStep.OFFER_SPEED_CHOICE: self.offer_speed_choice,
+            FollowOnStep.BEGIN_LOOSE_BALL: self.begin_loose_ball,
         }
 
     async def dispatch_step_result(

@@ -255,6 +255,79 @@ def low_pass_step(
     )
 
 
+def failed_pass_step(
+    engine: RulesEngine,
+    match: MatchState,
+    key: str,
+) -> StepResult:
+    """
+    Play a won Low Pass -- or Skilled Pass -- that has nobody to throw
+    it to.
+
+    A pass has to reach a different player, so a handler with no
+    teammate in reach has won the maneuver and has nowhere to put the
+    ball. The ball goes a space forward and is loose, and its speed
+    still rises by the card's own bonus (2026-08-07): the bonus does
+    not depend on the pass finding anyone.
+
+    Whether there is anybody in reach is `RulesEngine.pass_candidates`'
+    answer and the caller's to ask -- it is the same question that
+    decides whether a coach is offered a menu at all, which is why it
+    stays above this rather than being re-derived here.
+
+    **`board_changed` is False, and that is the one deliberate thing in
+    it.** The ball moved, so a board does look different -- but
+    `begin_loose_ball` draws this same board under its own
+    announcement and brings the persistent message in line with it, so
+    a refresh from here would be a second write of an identical board.
+    See "Discord's rate limits" in docs/design/rate-limits.md.
+
+    **It does not read `free`**, and neither did the branch it was
+    lifted from: the space minute is charged and the continuation that
+    produced a free pass is left standing, where `low_pass_step`
+    spends it and charges nothing. That difference is recorded in
+    `tests/low_pass_fixtures.py` and raised with the author rather
+    than settled here -- a rule the move found is a finding, not a
+    licence.
+    """
+    offense_side = match.ball.possession
+    actual_distance = match.move_ball_relative(offense_side, 1)
+    match.ball.speed = min(
+        12, match.ball.speed + engine.pass_speed_bonus(key)
+    )
+
+    # Nothing to move onto at the far end of the field: the ball is
+    # loose where it already is.
+    movement_note = (
+        "the ball rolls a space forward"
+        if actual_distance
+        else "the ball stays where it is"
+    )
+    return StepResult(
+        narration=[
+            f"**{engine.maneuver_name(key)}:** there is "
+            + (
+                "nobody on the field to receive it"
+                if key == "skilled_pass"
+                else "no teammate within two spaces to receive it"
+            )
+            + ", and a pass can't be played to the passer -- "
+            f"{movement_note}. "
+            f"Ball speed is now {match.ball.speed}."
+        ],
+        board_changed=False,
+        # No headline of its own: the ball rolls a space forward and
+        # may well roll onto somebody, so what to call it is a
+        # question about the space it stopped on rather than about the
+        # pass that failed. It used to assert an empty space here and
+        # say each side could send -- which was wrong the moment it
+        # landed on a defender.
+        next=FollowOn(
+            FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1},
+        ),
+    )
+
+
 def pay_clear_cost(
     engine: RulesEngine,
     game: D12BallGame,

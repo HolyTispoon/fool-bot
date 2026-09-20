@@ -16,6 +16,7 @@ from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.flow.effects import (
     dribble_advance_step,
     dribble_burst_step,
+    failed_pass_step,
     low_pass_step,
 )
 from d12ball.prompts import loose_ball_pick_prompt
@@ -113,55 +114,15 @@ class ManeuverEffectsMixin:
         candidates = self.engine.pass_candidates(match, key)
 
         if not candidates:
-            # A Low Pass has to reach a different player, so a handler
-            # with no teammate within two spaces has won the maneuver
-            # and has nowhere to put the ball. The ball goes a space
-            # forward and is loose, and its speed still rises by 1
-            # (2026-08-07) -- the maneuver's speed bonus doesn't depend
-            # on the pass finding anyone.
-            offense_side = match.ball.possession
-            actual_distance = match.move_ball_relative(offense_side, 1)
-            match.ball.speed = min(
-                12, match.ball.speed + self.engine.pass_speed_bonus(key)
-            )
+            # A pass has to reach a different player, so a handler with
+            # nobody in reach has won the maneuver and has nowhere to
+            # put the ball -- which is a resolution rather than a
+            # question, so it goes through the flow like any other:
+            # step, save, dispatch. `failed_pass_step` carries the
+            # reasoning, including why it asks for no board refresh.
+            result = failed_pass_step(self.engine, match, key)
             self.persist(game, match)
-
-            # Nothing to move onto at the far end of the field: the
-            # ball is loose where it already is.
-            movement_note = (
-                "the ball rolls a space forward"
-                if actual_distance
-                else "the ball stays where it is"
-            )
-            # No refresh here: begin_loose_ball draws this same board
-            # under its own announcement and brings the persistent
-            # message in line with it, so one here would be a second
-            # write of an identical board (see "Discord's rate limits"
-            # in docs/design/rate-limits.md).
-            await self.begin_loose_ball(
-                interaction,
-                game,
-                match,
-                distance_moved=1,
-                lead_in=(
-                    f"**{self.engine.maneuver_name(key)}:** there is "
-                    + (
-                        "nobody on the field to receive it"
-                        if key == "skilled_pass"
-                        else "no teammate within two spaces to receive it"
-                    )
-                    + ", and a pass can't be played to the passer -- "
-                    f"{movement_note}. "
-                    f"Ball speed is now {match.ball.speed}."
-                ),
-                # No headline of its own: the ball rolls a space
-                # forward and may well roll onto somebody, so what to
-                # call it is a question about the space it stopped on
-                # rather than about the pass that failed. It used to
-                # assert an empty space here and say each side could
-                # send -- which was wrong the moment it landed on a
-                # defender.
-            )
+            await self.dispatch_step_result(interaction, game, match, result)
             return
 
         if self.engine.side_controlled_by_ai(game, match, "offense"):
