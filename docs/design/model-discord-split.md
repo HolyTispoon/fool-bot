@@ -66,8 +66,10 @@ move had no rules risk to weigh against it.
 match is waiting on; a flow step is what *changes* it. Each takes the
 engine and the match, mutates, and hands back a `StepResult` -- the
 narration, whether the board moved, and what happens next. Phase 2 cut
-this on Low Pass alone and nothing else, which is why `effects.py` holds
-one card and `cogs/d12ball/effects.py` still holds eleven.
+this on Low Pass alone and nothing else; Phase 3 follows a rank at a
+time, and rank O2 brought the two dribbles -- so `effects.py` holds
+four cards (two of them one function parameterised) and
+`cogs/d12ball/effects.py` still holds nine.
 
 - **Low Pass was the slice because it is not a toy.** Mid-sized, with a
   role-ability branch (the Winger's set-up, the one path that ends
@@ -112,6 +114,34 @@ one card and `cogs/d12ball/effects.py` still holds eleven.
   The `self.persist` count in `cogs/` is unchanged at 95 across this
   phase, which is the shape of the transition in one number: one left
   the step, one arrived in the wrapper.
+- **A step takes `game` only where it reads the record.**
+  `low_pass_step` does not and so does not take one; both dribbles do,
+  because charging an exhaustion token tests a threshold the *game*
+  decides -- a Cyborg's is a flat 7. That is what brought
+  `apply_exhaustion` and `describe_exhaustion_gain` onto `RulesEngine`,
+  with `condition_emojis` (the third emoji dict to land there) and the
+  five `get_*_emoji` fallback lookups into `formatting.py`: a step that
+  charges a token has to be able to say so, narration is the model's,
+  and a cog method cannot be called from down here. `D12Ball` keeps a
+  forwarding method for each, so none of the nineteen call sites moved
+  -- the shape `team_emojis` took in Phase 1a. See
+  [naming-and-wording.md](naming-and-wording.md).
+- **A rank can add a `FollowOnStep` member, and O2 did.**
+  `OFFER_SPEED_CHOICE` is the ball-speed manipulation every dribble
+  (and every steal) ends on. It is a follow-on rather than a
+  `PendingPrompt` because the model has not decided anybody is being
+  asked: `offer_speed_choice` answers for Dinky itself and holds a
+  tutorial beat's prompt behind a note, and both of those are the
+  frontend's. A step returning the prompt directly would have moved
+  that decision without meaning to.
+- **The persist rule paid for itself here.** `apply_dribble_advance`
+  persisted and *then* called `pay_clear_cost`, which charges a beaten
+  Clear's two tokens and re-tests the Exhausted threshold -- so both
+  writes landed after the save, and the next click read the match back
+  off a file that never had them. Lifting the whole effect into the
+  step, with the wrapper saving after it, fixes it without anybody
+  deciding anything: it is the beat-1 bug in [gotchas.md](gotchas.md)
+  one more time, and principle 9 is the general answer to it.
 - **The fixtures were recorded first, the same way Phase 1b's were.**
   `tests/low_pass_fixtures.py` stands a match in every branch with no
   discord in scope; `tests/test_d12ball_low_pass_recording.py` asserts
@@ -120,7 +150,17 @@ one card and `cogs/d12ball/effects.py` still holds eleven.
   `tests/test_d12ball_low_pass_flow.py` asks the model the same
   questions. The table names the follow-on by `FollowOnStep` member
   name, a string, which is what let it be written before the package
-  existed.
+  existed. `tests/dribble_fixtures.py` with
+  `tests/test_d12ball_dribble_recording.py` and
+  `tests/test_d12ball_dribble_flow.py` is rank O2's copy of the same
+  three files, ten branches over the two cards.
+- **What is in `FollowOnStep` is asserted in
+  `tests/test_d12ball_package_shape.py`**, not in any one rank's own
+  tests, along with `D12Ball.follow_on_methods` covering it exactly --
+  a member with no row raises inside a resolved maneuver, one card at
+  a time. It started out in Low Pass's module, where every later rank
+  would have had to edit an assertion about a card it was not
+  touching.
 
 ## `tests/test_model_purity.py`
 

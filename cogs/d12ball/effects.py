@@ -13,7 +13,11 @@ import time
 from typing import Optional
 
 from d12ball.engine import IgnitedRoll, RulesEngine
-from d12ball.flow.effects import low_pass_step
+from d12ball.flow.effects import (
+    dribble_advance_step,
+    dribble_burst_step,
+    low_pass_step,
+)
 from d12ball.prompts import loose_ball_pick_prompt
 from d12ball.components import (
     EVENT_OWN_GOAL_ROLL,
@@ -286,43 +290,18 @@ class ManeuverEffectsMixin:
         match: MatchState,
         distance: int,
     ) -> None:
-        offense_side = match.ball.possession
-        actual_distance = match.move_player_relative(
-            match.active_player_id, offense_side, distance,
-        )
-        match.set_ball_space(
-            *match.board.meeple_position(match.active_player_id)
-        )
-        # They dribbled it there, so they still have it: the same
-        # player takes the next turn rather than the coach choosing
-        # again off the space they landed on.
-        match.set_ball_carrier(match.active_player_id)
+        """
+        Run the advance and hand over to the speed choice every
+        dribble ends with.
+
+        Four lines over `dribble_advance_step`, which is where the
+        move, the wording and a beaten Clear's cost live -- see
+        `apply_low_pass` for the shape and principle 9 in CLAUDE.md
+        for why the save is here rather than inside the step.
+        """
+        result = dribble_advance_step(self.engine, game, match, distance)
         self.persist(game, match)
-
-        handler = self.engine.get_player_definition(match.active_player_id)
-        await self.refresh_match_image(interaction, game)
-
-        space_word = "space" if actual_distance == 1 else "spaces"
-        ability_note = (
-            " (Playmaker ability)"
-            if handler.role == PlayerRole.PLAYMAKER and distance > 1
-            else ""
-        )
-
-        await self.offer_speed_choice(
-            interaction,
-            game,
-            match,
-            player_id=match.active_player_id,
-            skill_type="offense",
-            lead_in=(
-                f"**Dribble Advance:** "
-                f"{self.player_label(match, handler)} and the "
-                f"ball move forward {actual_distance} {space_word}"
-                f"{ability_note}."
-                + self.pay_clear_cost(game, match, "dribble_advance")
-            ),
-        )
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def resolve_dribble_burst(
         self,
@@ -398,92 +377,16 @@ class ManeuverEffectsMixin:
         distance: int,
     ) -> None:
         """
-        Run the burst `distance` spaces, charge a token a space, and
-        hand over to the speed choice every dribble ends with.
+        Run the burst, charge a token a space, and hand over to the
+        speed choice every dribble ends with.
 
-        `distance` is what the coach picked (or what the field left);
-        `actual_distance` is what the move came to, since
-        `move_player_relative` clamps at the end of the field. The
-        exhaustion and the wording both read the second, because what
-        a coach pays for is where the handler actually got to.
+        The same four lines as `apply_dribble_advance` over
+        `dribble_burst_step`, which is where the run, its exhaustion
+        and the Playmaker's discount live.
         """
-        offense_side = match.ball.possession
-        handler = self.engine.get_player_definition(match.active_player_id)
-
-        actual_distance = match.move_player_relative(
-            match.active_player_id, offense_side, distance,
-        )
-        match.set_ball_space(
-            *match.board.meeple_position(match.active_player_id)
-        )
-        match.set_ball_carrier(match.active_player_id)
-        playmaker_bonus = handler.role == PlayerRole.PLAYMAKER
-        # Floored at 0 rather than allowed to go negative: a burst that
-        # moved nowhere costs nothing, and a Playmaker's discount
-        # cannot turn a run into a token back.
-        tokens = max(0, actual_distance - (1 if playmaker_bonus else 0))
-        exhaustion_text = self.apply_exhaustion(
-            game, match, match.active_player_id, tokens,
-        )
+        result = dribble_burst_step(self.engine, game, match, distance)
         self.persist(game, match)
-
-        await self.refresh_match_image(interaction, game)
-
-        space_word = "space" if actual_distance == 1 else "spaces"
-        handler_label = self.player_label(match, handler)
-        if actual_distance:
-            lead_in = (
-                f"**Dribble Burst:** {handler_label} bursts "
-                f"{actual_distance} {space_word} forward, past everyone in "
-                "the way."
-            )
-        else:
-            # The handler was already on the last space of the field,
-            # so the burst had nowhere to go -- said plainly rather
-            # than reported as a run of 0 spaces, which is the same
-            # call `apply_high_pass` makes for a clamped throw.
-            lead_in = (
-                f"**Dribble Burst:** {handler_label} is already as far "
-                "forward as the field goes, so the ball stays where it is."
-            )
-        # Only worth saying where a token was actually saved: a burst
-        # that moved nowhere is free for everybody.
-        if playmaker_bonus and actual_distance:
-            lead_in += " That costs them a token less (Playmaker ability)."
-        if exhaustion_text:
-            lead_in += f"\n{exhaustion_text}"
-
-        # **Clear's cost**: beaten by a dribble, the defender who
-        # played it gains 2 exhaustion. It is a flat 2 rather than 2 on
-        # top of a maneuver's own charge, because a maneuver charges
-        # none -- only a skill test, a walk, a shot and a run back do.
-        lead_in += self.pay_clear_cost(game, match, "dribble_burst")
-
-        await self.offer_speed_choice(
-            interaction,
-            game,
-            match,
-            player_id=match.active_player_id,
-            skill_type="offense",
-            lead_in=lead_in,
-        )
-
-    def pay_clear_cost(
-        self, game: D12BallGame, match: MatchState, winner_key: str,
-    ) -> str:
-        """
-        Clear's cost, charged where it is due -- inside the dribble
-        that beat it -- and worded for the message that dribble is
-        already sending. Empty string when Clear was not the card
-        beaten, which is nearly always.
-        """
-        if self.engine.advanced_cost(match, winner_key) != "clear":
-            return ""
-        defender_id = match.challenger_id
-        if defender_id is None:
-            return ""
-        text = self.apply_exhaustion(game, match, defender_id, 2)
-        return f"\n\n**Clear** was beaten -- 2 exhaustion.\n{text}"
+        await self.dispatch_step_result(interaction, game, match, result)
 
     # -- High Pass -----------------------------------------------------
 

@@ -27,7 +27,7 @@ it happened to have.
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
-| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Open |
+| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a done (PR #PRNUM); 3b-3f open |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
@@ -278,7 +278,7 @@ so the pattern is settled before it meets the hard cases.
 
 | # | Rank | Cards | Why here |
 | --- | --- | --- | --- |
-| 3a | O2 | Dribble Advance, Dribble Burst | Moves the handler and ends. Speed choice is the only prompt. |
+| 3a | O2 | Dribble Advance, Dribble Burst | **Done (PR #PRNUM.)** Moved the handler and ended; the speed choice was the only prompt |
 | 3b | O1 | Low Pass, Skilled Pass | Already done in Phase 2 -- this is Skilled Pass and the shared `apply_low_pass(key=)` |
 | 3c | D2 | Steal, Intercept | A turnover, so it meets `begin_run_back` -- the first hand-off |
 | 3d | D3 | Pressure, Double Team | The own-goal branch, and `pending_double_team` reaching into the next turn |
@@ -290,6 +290,27 @@ Through this phase the spine (`finish_maneuver_resolution`, `begin_run_back`,
 effect returns a `StepResult` whose `next` names the spine step, and the cog
 dispatches it. That is what keeps every one of these six shippable on its
 own.
+
+**What 3a settled, so the ranks after it do not reopen it** (the detail is
+in [design/model-discord-split.md](design/model-discord-split.md)):
+
+- **A rank may add a `FollowOnStep` member**, and `OFFER_SPEED_CHOICE` is
+  3a's. `offer_speed_choice` is not a `PendingPrompt` the step returns,
+  because whether anybody is asked at all is still the cog's decision --
+  Dinky answers for itself and a tutorial beat holds the prompt behind a
+  note. 3c inherits the member rather than adding it: a steal ends on the
+  same choice.
+- **A step takes `game` where it reads the record**, which for anything
+  charging exhaustion is always: `RulesEngine.apply_exhaustion` and
+  `describe_exhaustion_gain` moved onto the engine with
+  `condition_emojis` in 3a, so 3c to 3f charge tokens through the engine
+  and neither method has to move again.
+- **The persist rule is load-bearing rather than tidy.**
+  `apply_dribble_advance` saved and *then* charged a beaten Clear, so
+  those two tokens and the Exhausted flag they set were never written
+  out. Step-then-save fixed it with nothing decided. Expect one of these
+  per rank where a cost is paid after the old save, and say so in the PR
+  rather than treating it as noise.
 
 **Bot stop, per rank:** play both cards of the rank, contested and
 unchallenged, on two board sizes, in a basic and an advanced game. Watch the

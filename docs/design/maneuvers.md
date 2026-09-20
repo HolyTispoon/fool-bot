@@ -94,6 +94,23 @@ weapon rather than only a saving.
     eleven follow; the rule it settled is that the **step does not
     save and the wrapper does**, immediately, before dispatching. See
     "The model and the Discord layer" in CLAUDE.md.
+  - **Both dribbles followed it (rank O2).**
+    `dribble_advance_step` and `dribble_burst_step` are beside it,
+    with `pay_clear_cost` moved down as a free function -- its only
+    two callers were those two cards. Each ends by naming
+    `FollowOnStep.OFFER_SPEED_CHOICE`, the ball-speed manipulation
+    every dribble finishes on, which stays in the cog because
+    *whether anyone is asked* is still Discord's decision: Dinky
+    answers for itself and a tutorial beat holds the prompt behind a
+    note. Nothing either card says changed.
+    - **A beaten Clear's exhaustion is now saved.** The old
+      `apply_dribble_advance` persisted and *then* called
+      `pay_clear_cost`, which charges two tokens and re-tests the
+      Exhausted threshold -- so both writes happened after the save
+      and the next click reloaded a defender who had never been
+      charged. Moving the whole effect into the step, with the
+      wrapper saving after it, is what fixes it; it is the bug
+      principle 9 is written for, and the rule is unchanged.
 - **Every cost bites inside the winning maneuver's own resolution**,
   which is why there is no cost dispatcher. `advanced_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2

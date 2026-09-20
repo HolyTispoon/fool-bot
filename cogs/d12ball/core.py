@@ -1737,6 +1737,7 @@ class CoreMixin:
                 self.finish_maneuver_resolution,
             FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE:
                 self.offer_scoring_attempt_choice,
+            FollowOnStep.OFFER_SPEED_CHOICE: self.offer_speed_choice,
         }
 
     async def dispatch_step_result(
