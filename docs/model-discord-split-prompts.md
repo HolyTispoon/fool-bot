@@ -156,12 +156,12 @@ still being planned.
 This is the rest of Phase 4 of docs/model-discord-split.md, "the spine"
 -- the biggest single phase and the one the worksheet says to resist
 splitting badly. All six Phase 3 ranks have landed, and so has Phase 4's
-**front half** (PR #TBD): `resolve_maneuver_step` and
+**front half** (PR #245): `resolve_maneuver_step` and
 `maneuver_selection_step` in d12ball/flow/turn.py, four wording methods
 down onto RulesEngine, and the advanced golden the rest of this phase is
 to be compared against. Read that pull request's "Questions for the
-author" before you start -- the open one is about `StepResult` and it is
-this half's to answer.
+author" (PR #245) before you start -- the open one is about `StepResult`
+and it is this half's to answer.
 
 Probe: `grep -q "def resolve_maneuver_step" d12ball/flow/turn.py` and
 `test -f tests/golden/advanced_transcript.txt`, and

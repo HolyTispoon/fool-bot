@@ -28,7 +28,7 @@ it happened to have.
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
-| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | **Front half done (PR #TBD)**; the arrival cluster open |
+| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | **Front half done (PR #245)**; the arrival cluster open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
 
@@ -511,7 +511,7 @@ it, and a rank that wants a paragraph is a rank that moved a rule.
 The turn's own machinery, and where `interaction` dies from everything
 Phases 1-3 didn't already reach.
 
-**The front half is done (PR #TBD)**, and with it the golden the rest of
+**The front half is done (PR #245)**, and with it the golden the rest of
 this phase is to be compared against. What it moved is in
 [design/model-discord-split.md](design/model-discord-split.md) under
 `d12ball/flow/` and `tests/test_golden_advanced_transcript.py`; three
@@ -589,7 +589,8 @@ which is principle 8 read backwards. Two ways out, and it is the author's
 call which: split each such arrival into two steps with the cog's wrapper
 posting between them, or let a step return blocks and have the wrapper --
 which knows the arrival it is wrapping -- decide where the message
-boundaries are. See the pull request for the front half.
+boundaries are. Both are written out under "Questions for the author" in
+PR #245, with the code.
 
 **Bot stop:** a full game, two humans, advanced mode with both modules on,
 on board 6 and again on board 9. Then a solo game against Dinky. Then the
