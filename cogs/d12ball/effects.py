@@ -24,7 +24,6 @@ from d12ball.flow.effects import (
 )
 from d12ball.prompts import loose_ball_pick_prompt
 from d12ball.components import (
-    BALL_SPEED_MAX,
     EVENT_OWN_GOAL_ROLL,
     MIND_PULL_SUCCESS_FACES,
     MIND_PULL_TOKEN_COST,
@@ -318,9 +317,8 @@ class ManeuverEffectsMixin:
         """
         Dribble Burst: the handler carries the ball **up to
         `DRIBBLE_BURST_MAX_DISTANCE` spaces forward**, defenders no
-        obstacle, at a token a space -- then sets ball speed to anything
-        from 1 to 12, where a Dribble Advance moves it by oSkill (the
-        sheet, 2026-09-20).
+        obstacle, at a token a space -- then manipulates ball speed up
+        to their offensive skill, exactly as a Dribble Advance does.
 
         **The distance is the coach's, and it used to be the board's**
         (the author, 2026-08-26). The run was to the last space of the
@@ -2506,7 +2504,6 @@ class ManeuverEffectsMixin:
         turnover_occurred: bool = False,
         distance_moved: int = 1,
         lead_in: str = "",
-        maneuver_key: Optional[str] = None,
     ) -> None:
         """
         Always the last human choice in a maneuver's effect -- speed is
@@ -2519,22 +2516,18 @@ class ManeuverEffectsMixin:
         rides along on the speed-choice prompt when a human picks, or
         gets forwarded to apply_speed_choice to ride along on its own
         message when the pick is automatic.
-
-        `maneuver_key` is the resolving card, where it matters to the
-        bound: a Dribble Burst sets any speed, everything else moves it
-        by the chooser's skill -- `RulesEngine.speed_choice_reach`.
         """
-        reach = self.engine.speed_choice_reach(
-            player_id, skill_type, maneuver_key,
+        skill = self.player_catalog.effective_profile(
+            self.engine.get_player_definition(player_id),
         )
-        unbounded = reach >= BALL_SPEED_MAX - 1
+        skill_value = skill.offense if skill_type == "offense" else skill.defense
 
         controller_id = self.engine.controlling_user_id(game, match, player_id)
         is_ai = game.is_solo_game and controller_id == game.player_2_id
 
         if is_ai:
-            delta = self.engine.get_ai_strategy(game).choose_speed_delta(reach)
-            target_speed = max(1, min(BALL_SPEED_MAX, match.ball.speed + delta))
+            delta = self.engine.get_ai_strategy(game).choose_speed_delta(skill_value)
+            target_speed = max(1, min(12, match.ball.speed + delta))
             await self.apply_speed_choice(
                 interaction,
                 game,
@@ -2549,18 +2542,13 @@ class ManeuverEffectsMixin:
         mention = f"<@{controller_id}>" if controller_id else "Someone"
         prefix = f"{lead_in}\n\n" if lead_in else ""
 
-        ask = (
-            f"set the ball's speed (anything from 1 to {BALL_SPEED_MAX}):"
-            if unbounded
-            else f"manipulate the ball's speed (up to {reach}):"
-        )
-
         async def show_prompt(inner_interaction: discord.Interaction) -> None:
             prompt_message = await send_new_prompt(
                 inner_interaction,
-                f"{prefix}{mention}, {ask}",
+                f"{prefix}{mention}, manipulate the ball's speed (up to "
+                f"{skill_value}):",
                 view=SpeedDeltaChoiceView(
-                    self, game.game_id, player_id, skill_type, maneuver_key,
+                    self, game.game_id, player_id, skill_type,
                 ),
                 allowed_mentions=discord.AllowedMentions(
                     users=True, roles=False, everyone=False,

@@ -1781,11 +1781,7 @@ class CoreMixin:
             )
         if kind is PromptKind.SPEED_DELTA_CHOICE:
             return SpeedDeltaChoiceView(
-                self,
-                game_id,
-                prompt.player_id,
-                prompt.skill_type,
-                prompt.maneuver_key,
+                self, game_id, prompt.player_id, prompt.skill_type,
             )
         return PLAIN_PROMPT_VIEWS[kind](self, game_id)
 

@@ -401,11 +401,7 @@ def burst_plain() -> DribbleFixture:
             f"\n{label(match, handler)} gains 3 exhaustion tokens "
             f"{EXHAUST * 3} (now 3 total)."
         ),
-        follow_on_kwargs={
-            "player_id": handler,
-            "skill_type": "offense",
-            "maneuver_key": "dribble_burst",
-        },
+        follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
@@ -437,11 +433,7 @@ def burst_playmaker_discount() -> DribbleFixture:
             f"\n{label(match, handler)} gains 2 exhaustion tokens "
             f"{EXHAUST * 2} (now 2 total)."
         ),
-        follow_on_kwargs={
-            "player_id": handler,
-            "skill_type": "offense",
-            "maneuver_key": "dribble_burst",
-        },
+        follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
@@ -471,11 +463,7 @@ def burst_playmaker_one_space_is_free() -> DribbleFixture:
             "space forward, past everyone in the way."
             " That costs them a token less (Playmaker ability)."
         ),
-        follow_on_kwargs={
-            "player_id": handler,
-            "skill_type": "offense",
-            "maneuver_key": "dribble_burst",
-        },
+        follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
@@ -505,11 +493,7 @@ def burst_with_nowhere_to_go() -> DribbleFixture:
             "far forward as the field goes, so the ball stays where it "
             "is."
         ),
-        follow_on_kwargs={
-            "player_id": handler,
-            "skill_type": "offense",
-            "maneuver_key": "dribble_burst",
-        },
+        follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
         carrier_id=handler,
         ball_space=where,
         handler_space=where,
@@ -546,11 +530,7 @@ def burst_beats_a_clear() -> DribbleFixture:
             f"{EXHAUST * 2} (now 3 total)."
             f"\n{label(match, defender)} is now *exhausted* {EXHAUSTED}"
         ),
-        follow_on_kwargs={
-            "player_id": handler,
-            "skill_type": "offense",
-            "maneuver_key": "dribble_burst",
-        },
+        follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,

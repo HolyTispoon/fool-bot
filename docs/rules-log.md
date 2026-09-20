@@ -124,26 +124,27 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-09-20 (newest) -- sheet, a Dribble Burst sets the ball's speed to anything from 1 to 12
+### 2026-09-20 (newest) -- sheet and author, a won Dribble Burst leaves the ball at speed 12
 
 The maneuvers tab's Dribble Burst row now reads *"Adjust ball speed up to 12"* where it read
 *"up to oSkill"*; the beaten branch (*"defender adjusts it up to dSkill"*) is unchanged. The
 author, on the re-import that carried it: *"the dribble burst change (speed up to 12) isn't in
-the rules/engine so update that"*.
+the rules/engine so update that"* -- and, when the first build read the cell as a choice from
+the whole range: *"dribble burst should set the speed to precisely 12, not to any number."*
 
-**The sheet is authoritative here**, as for the Mind Pull faces below: a card's effect is
-component data. What changes in play is that the burst's speed step stops being a Dribble
-Advance's -- the handler picks any speed outright rather than moving it by their offensive
-skill, so a 1-skill Fullback who somehow bursts can leave the ball at 12. The defender's
-step after a beaten burst is still a steal's, up to dSkill.
+**So the burst has no speed step.** The ball is left with the handler at 12, nobody is asked,
+and the maneuver goes straight to its tail -- the one dribble that ends on no choice, and with
+a handler already on the last space of the field (no distance to pick either) the one gambit
+whose effect is entirely choiceless, resolving like a Deflect. The speed is said the way a
+speed choice would have said it, "Ball speed is now **12**.", and only where it changed: a
+ball already at 12 gets no line. A 1-skill Fullback who somehow bursts leaves the ball at 12
+like anybody else. The defender's step after a beaten burst is still a steal's, up to dSkill,
+and a beaten burst still hands the ball over at whatever speed it had.
 
-**Built as one bound with one reading.** `RulesEngine.speed_choice_reach` answers how far a
-speed choice may go -- the chooser's skill, or the whole range after a burst -- and the
-buttons, the AI's pick and the prompt's wording all read it; nothing in `cogs/` computes a
-speed bound any more. The burst's follow-on names its card so the choice knows which bound it
-is under, and it is the *resolving* card that is named: a burst that only won a tie on the
-dice resolves as the advance (2026-09-07) and stays bounded by oSkill. `BALL_SPEED_MAX` is
-new as a name for the 12 that was written out at every clamp.
+**The sheet's wording is the author's to settle.** "Adjust ball speed up to 12" is what the
+card prints, and read on its own it is the choice this entry rules out; the rule is the
+author's sentence above. `BALL_SPEED_MAX` is new as a name for the 12 that was written out at
+every clamp, and is what the step sets.
 
 ### 2026-09-20 (latest) -- author, advanced maneuvers become gambits, and a gambit needs a reason
 

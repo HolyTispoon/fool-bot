@@ -44,7 +44,6 @@ from typing import Optional
 
 from d12ball.ai import AIStrategy
 from d12ball.components import (
-    BALL_SPEED_MAX,
     DRIBBLE_BURST_MAX_DISTANCE,
     SETUP_PASS_DISTANCES,
     SETUP_PASS_FULLBACK_DISTANCE,
@@ -1704,62 +1703,6 @@ class RulesEngine:
         speed change is.
         """
         return 3 if maneuver_key == "skilled_pass" else 1
-
-    def speed_choice_reach(
-        self,
-        player_id: str,
-        skill_type: str,
-        maneuver_key: Optional[str] = None,
-    ) -> int:
-        """
-        How far, either way, a speed choice may move the ball from
-        where it stands: the chooser's own skill of `skill_type` --
-        except after a **Dribble Burst**, which sets the speed to
-        anything at all.
-
-        The burst's card reads "adjust ball speed up to 12" (the sheet,
-        2026-09-20) where a Dribble Advance's reads "up to oSkill", and
-        the difference is the whole of what the gambit buys on
-        the ball: a run of up to 4 at a token a space, and then the
-        speed the coach wants rather than the speed the handler can
-        manage. The reach is `BALL_SPEED_MAX - 1`, which puts every
-        speed from 1 to 12 within one step of any current speed, so the
-        choice is built by the same loop as every other.
-
-        `maneuver_key` is the card whose effect is running -- the
-        *resolving* card, so a burst that won a tie on the dice and
-        resolves as the advance is bounded like one. The beaten burst's
-        defender is a steal's shape (dSkill) and never names the burst
-        here.
-        """
-        if maneuver_key == "dribble_burst" and skill_type == "offense":
-            return BALL_SPEED_MAX - 1
-        profile = self.player_catalog.effective_profile(
-            self.get_player_definition(player_id),
-        )
-        return profile.offense if skill_type == "offense" else profile.defense
-
-    def speed_choice_targets(
-        self,
-        match: MatchState,
-        player_id: str,
-        skill_type: str,
-        maneuver_key: Optional[str] = None,
-    ) -> list[int]:
-        """
-        The speeds a choice may set, in rising order, from the current
-        speed and `speed_choice_reach`. Clamped to the ball's range and
-        deduplicated, so a ball at 12 with a reach of 3 offers 9 to 12
-        and nothing twice.
-        """
-        reach = self.speed_choice_reach(player_id, skill_type, maneuver_key)
-        current = match.ball.speed
-        targets: list[int] = []
-        for delta in range(-reach, reach + 1):
-            target = max(1, min(BALL_SPEED_MAX, current + delta))
-            if target not in targets:
-                targets.append(target)
-        return targets
 
     def skilled_pass_candidates(
         self,
