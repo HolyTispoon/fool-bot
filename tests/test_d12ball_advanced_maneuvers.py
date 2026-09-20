@@ -791,6 +791,88 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(cog.engine.dribble_burst_distances(match), [])
 
+    def test_the_speed_after_a_burst_is_anything_from_one_to_twelve(
+        self,
+    ) -> None:
+        """
+        The card reads "adjust ball speed up to 12" (the sheet,
+        2026-09-20) where a Dribble Advance's reads "up to oSkill":
+        the burst sets the speed outright, the advance moves it by the
+        handler's skill. `speed_choice_reach` is the one reading, and
+        the targets built from it are what the buttons and the AI see.
+        """
+        cog, game, match = self.build("dribble_burst", "clear")
+        handler = fielded(match, PlayerRole.MIDFIELDER)
+        match.active_player_id = handler
+        match.ball.speed = 5
+        skill = cog.player_catalog.effective_profile(
+            cog.engine.get_player_definition(handler),
+        ).offense
+
+        self.assertEqual(
+            cog.engine.speed_choice_targets(
+                match, handler, "offense", "dribble_burst",
+            ),
+            list(range(1, 13)),
+        )
+        # The advance is still bounded, and so is a burst that resolves
+        # as one -- the key the caller passes is the resolving card's.
+        self.assertEqual(
+            cog.engine.speed_choice_targets(
+                match, handler, "offense", "dribble_advance",
+            ),
+            list(range(5 - skill, 5 + skill + 1)),
+        )
+
+    async def test_the_burst_names_its_card_to_the_speed_choice(
+        self,
+    ) -> None:
+        """
+        The bound is decided by the card the follow-on names, so the
+        burst has to say which it is -- a follow-on without the key is
+        a Dribble Advance's, and would offer oSkill either way.
+        """
+        cog, game, match = self.build("dribble_burst", "clear")
+        handler = fielded(match, PlayerRole.MIDFIELDER)
+        match.active_player_id = handler
+        match.move_meeple(handler, match.ball.zone, match.ball.space_index)
+        cog.offer_speed_choice = mock.AsyncMock()
+
+        with suppressed_cog_saves():
+            await cog.apply_dribble_burst(
+                build_interaction(), game, match, 1,
+            )
+
+        self.assertEqual(
+            cog.offer_speed_choice.await_args.kwargs["maneuver_key"],
+            "dribble_burst",
+        )
+
+    async def test_the_beaten_bursts_defender_is_still_bounded_by_skill(
+        self,
+    ) -> None:
+        """
+        The cost hands the defense the speed step, and that step is a
+        steal's: the challenger adjusts by dSkill. Nothing on the
+        beaten path names the burst to the speed choice.
+        """
+        cog, game, match = self.build("dribble_burst", "double_team")
+        match.ball.speed = 9
+        cog.begin_run_back = mock.AsyncMock()
+
+        with suppressed_cog_saves():
+            await cog.resolve_double_team(build_interaction(), game, match)
+
+        self.assertNotIn(
+            "maneuver_key", cog.begin_run_back.await_args.kwargs,
+        )
+        self.assertEqual(
+            cog.engine.speed_choice_reach(match.challenger_id, "defense"),
+            cog.player_catalog.effective_profile(
+                cog.engine.get_player_definition(match.challenger_id),
+            ).defense,
+        )
+
     async def test_a_handler_on_the_last_space_is_asked_nothing(
         self,
     ) -> None:

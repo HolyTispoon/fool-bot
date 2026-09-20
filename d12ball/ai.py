@@ -150,7 +150,9 @@ class AIStrategy(ABC):
     def choose_speed_delta(self, skill: int) -> int:
         """A change to apply to the ball's speed, magnitude at most
         `skill` in either direction. The caller clamps the result to a
-        valid speed."""
+        valid speed. `skill` is `RulesEngine.speed_choice_reach`, so
+        after a Dribble Burst it is the whole range and the clamp is
+        what lands the answer on 1 or 12."""
         ...
 
     @abstractmethod

@@ -103,6 +103,21 @@ weapon rather than only a saving.
     *whether anyone is asked* is still Discord's decision: Dinky
     answers for itself and a tutorial beat holds the prompt behind a
     note. Nothing either card says changed.
+    - **The burst's follow-on names its card**, since 2026-09-20,
+      because the two speed choices are no longer the same choice: a
+      burst sets any speed from 1 to 12 where an advance moves it by
+      oSkill. `RulesEngine.speed_choice_reach` is the one reading of
+      that bound and `speed_choice_targets` the list built from it;
+      `offer_speed_choice`, `SpeedDeltaChoiceView` and the restart
+      restore all carry `maneuver_key` to them and compute nothing
+      themselves. It is the *resolving* card that is passed -- a burst
+      that won a tie on the dice resolves as the advance and is
+      bounded like one -- and the beaten burst's defender never names
+      it, because their step is a steal's (dSkill). Derived from match
+      state instead, the key would be wrong exactly where it matters:
+      `settled_maneuver_winner` is None after an injury-forced skill
+      test, and that is the one way a burst resolves at its own tier
+      without having won on the cards outright.
     - **A beaten Clear's exhaustion is now saved.** The old
       `apply_dribble_advance` persisted and *then* called
       `pay_clear_cost`, which charges two tokens and re-tests the

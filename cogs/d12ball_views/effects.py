@@ -6,7 +6,7 @@ they are the same shape -- one prompt answering one question.
 """
 
 import discord
-from typing import Awaitable, Callable, TYPE_CHECKING
+from typing import Awaitable, Callable, Optional, TYPE_CHECKING
 
 from d12ball import tutorial
 from d12ball.components import PlayerRole
@@ -918,6 +918,10 @@ class SpeedDeltaChoiceView(SafeView):
     even though possession has already flipped to their side by the
     time this is shown -- `player_id` pins down whose skill and whose
     controller apply, sidestepping that ambiguity entirely).
+
+    `maneuver_key` is the resolving card, for the one that changes the
+    bound: a Dribble Burst offers every speed from 1 to 12 rather than
+    the handler's skill either way -- `RulesEngine.speed_choice_targets`.
     """
 
     def __init__(
@@ -926,31 +930,27 @@ class SpeedDeltaChoiceView(SafeView):
         game_id: str,
         player_id: str,
         skill_type: str,
+        maneuver_key: Optional[str] = None,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
         self.player_id = player_id
         self.skill_type = skill_type
+        self.maneuver_key = maneuver_key
 
         game, match = self.load_match()
         if game is None:
             return
-        profile = cog.player_catalog.effective_profile(
-            cog.engine.get_player_definition(player_id),
-        )
-        skill = profile.offense if skill_type == "offense" else profile.defense
         current = match.ball.speed
 
         # The targets are collected before any button is built, because
         # the tutorial's speed rail is "take the highest offered" -- the
         # cap is the stealer's own defensive skill, so the script cannot
         # name a number. See D12Ball.tutorial_railed_option.
-        targets: list[int] = []
-        for delta in range(-skill, skill + 1):
-            target = max(1, min(12, current + delta))
-            if target not in targets:
-                targets.append(target)
+        targets = cog.engine.speed_choice_targets(
+            match, player_id, skill_type, maneuver_key,
+        )
         railed = cog.tutorial_railed_option(game, "speed", targets)
 
         for target in targets:

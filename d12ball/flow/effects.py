@@ -368,8 +368,11 @@ def dribble_burst_step(
     """
     Play a won Dribble Burst: the handler carries the ball up to
     `DRIBBLE_BURST_MAX_DISTANCE` spaces forward, defenders no
-    obstacle, at a token a space -- then manipulates ball speed
-    exactly as a Dribble Advance does.
+    obstacle, at a token a space -- then sets ball speed to anything
+    from 1 to 12, where a Dribble Advance is bounded by oSkill (the
+    sheet, 2026-09-20). The follow-on names the card so the speed
+    choice knows which bound it is under: `RulesEngine.speed_choice_reach`
+    is the one reading of that.
 
     Role ability -- Playmaker: one token fewer for the run (the
     author, 2026-08-26) rather than the extra space their sentence
@@ -434,6 +437,7 @@ def dribble_burst_step(
             {
                 "player_id": match.active_player_id,
                 "skill_type": "offense",
+                "maneuver_key": "dribble_burst",
             },
         ),
     )
