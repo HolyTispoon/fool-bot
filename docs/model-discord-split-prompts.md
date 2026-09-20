@@ -23,8 +23,12 @@ split in two because the worksheet itself said its emoji prerequisite
 ```
 You are working in the fool-bot repository, on the model/Discord split. Read
 CLAUDE.md first, then docs/model-discord-split.md whole -- it is the
-worksheet this work is being done from -- and then only the docs/design/
-files this phase's section names. Everything below assumes you have.
+worksheet this work is being done from -- then
+docs/design/model-discord-split.md (the safety net, and the two things
+about running the suite that cost time to rediscover: the Python 3.13 pin
+and the five tests that fail only as root), and then only the other
+docs/design/ files this phase's section names. Everything below assumes
+you have.
 
 Ground rules for every phase:
 
@@ -38,9 +42,18 @@ Ground rules for every phase:
   (no new key, default or fallback); narration text stays the model's and
   is not replaced by structured events; steps do not persist, the caller
   does; BoardRefresher and the mixin layout are not touched.
-- Line numbers quoted in the worksheet are stale -- it says so itself.
-  Find every function by symbol name (grep or an Explore agent), never by
-  line, and re-measure any count you quote in a commit or PR from the tree.
+- Line numbers quoted in the worksheet are stale (they were measured when
+  it was written). Find every function by symbol name (grep or an Explore
+  agent), never by line, and re-measure any count you quote in a commit or
+  PR from the tree.
+- Each prompt opens with a probe -- a shell check that the phase it
+  depends on has landed on origin/main. Run it against a fresh
+  `git fetch`; if it fails, stop and say so rather than working on top of
+  a branch that has not merged.
+- Whenever a phase records something on the old code first (a View class
+  per fixture, a narration line per branch), the recording is the branch's
+  first commit and the move comes after it, so the PR's own history shows
+  the recording predates the code it is compared against.
 - The safety net is tests/test_model_purity.py and
   tests/test_golden_transcript.py. Run the full suite
   (`python3 -m unittest discover -s tests`) before your first edit on the
@@ -67,12 +80,18 @@ Ground rules for every phase:
   reaches it until that tree pulls and restarts.
 - When the phase lands, the worksheet is edited the way
   advanced-maneuver-matrix.md is: the phase's section is cut down to what
-  is still open (or deleted if nothing is), and the phase table at the
-  top marks it done. The design doc for each area the move touched is
-  corrected in the same PR, with the reasoning, not only the new path.
-  Your own prompt in docs/model-discord-split-prompts.md is deleted in the
-  same PR. CLAUDE.md's map table changes only for a new module or a moved
-  responsibility.
+  is still open (or deleted if nothing is), and the phase table's Status
+  column marks it done with the PR number. The design doc for each area
+  the move touched is corrected in the same PR, with the reasoning, not
+  only the new path. Your own prompt in docs/model-discord-split-prompts.md
+  is deleted in the same PR. CLAUDE.md's map table changes only for a new
+  module or a moved responsibility.
+- Prompt errata: every later prompt in docs/model-discord-split-prompts.md
+  was written from the same worksheet you just found stale in places. In
+  the same PR, correct the next phase's prompt for anything this run
+  learned that it gets wrong -- a symbol name, a location, a count, a
+  branch it did not know about -- and say in the PR description what you
+  changed there. Do not rewrite its intent; fix its facts.
 - PR description in the house shape: what this changes, why it is built
   this way, what was settled so nobody reopens it in review, testing (what
   ran, what did not and why), the bot-stop checklist, and the PR template's
@@ -90,19 +109,31 @@ Ground rules for every phase:
 
 This is Phase 1 of docs/model-discord-split.md, "PendingPrompt, and the
 keystone". Phase 1a (team_emojis on the engine, RulesEngine.format_player_label)
-has landed on main; confirm that before starting, because the two `ask`
-lines that name a player depend on it. Read docs/design/recovery.md and
-docs/design/cog-structure.md as well. This phase is a pure read: nothing in
-it mutates a match, so if you find yourself writing to one, stop.
+has landed on main; the two `ask` lines that name a player depend on it.
+
+Probe:
+`grep -q "def format_player_label" d12ball/engine.py && grep -q "self.team_emojis" d12ball/engine.py`
+
+Read docs/design/recovery.md, docs/design/cog-structure.md and the "Naming
+a player" section of docs/design/naming-and-wording.md (where 1a's
+reasoning now lives) as well. This phase is a pure read: nothing in it
+mutates a match, so if you find yourself writing to one, stop.
 
 What moves -- new module `d12ball/prompts.py`:
 
 - `PromptKind`, one value per distinct prompt the chain can return. The
   worksheet measured 26: the chain's own View classes plus the 9 the three
-  builders add (6 effect prompts, 2 run-back, 1 loose-ball). Count them
-  yourself from `pending_turn_view`, `build_effect_choice_view`,
-  `build_run_back_view` and `build_loose_ball_view`; if you get a different
-  number, say which the worksheet missed or double-counted.
+  builders add (6 effect prompts, 2 run-back, 1 loose-ball). The counting
+  rule is one kind per View class; a View built with different arguments
+  for different situations is one kind with the difference in the
+  parameters, not several. That matters for `SpeedDeltaChoiceView`, which
+  `build_effect_choice_view` returns for Setup Pass, for the dribbles when
+  their own view does not apply, and for Steal/Intercept (`maneuver_key`
+  tells them apart), and for `LowPassChoiceView`, built once plain and once
+  with `free=True`. Count them yourself from `pending_turn_view`,
+  `build_effect_choice_view`, `build_run_back_view` and
+  `build_loose_ball_view`; if you get a different number, say which the
+  worksheet missed or double-counted.
 - `PendingPrompt`: `kind`, `ask` (the line put above the view), and only the
   parameters the branches actually carry (`player_ids`, `player_id`,
   `side`, `maneuver_key`, `skill_type`, `free` -- verify against the
@@ -124,9 +155,13 @@ What moves -- new module `d12ball/prompts.py`:
 What stays in the cog:
 
 - `pending_turn_view` becomes a mapping table: `PromptKind` -> the View
-  constructor, and nothing else. Its two callers -- `on_ready`'s restore in
-  core.py and `resume_pending_prompt` in turnovers.py -- keep their
-  signatures and are otherwise untouched. Make the mapping a single function
+  constructor, and nothing else. Its two production callers --
+  `restore_saved_views` in core.py, which the cog's `__init__` runs (there
+  is no restore in `on_ready`; the worksheet used to say there was), and
+  `resume_pending_prompt` in turnovers.py -- keep their signatures and are
+  otherwise untouched. The tests call it directly at some thirty sites
+  across five files; those are the fixtures the equivalence test below is
+  built from. Make the mapping a single function
   (`view_for_prompt(prompt)` or similar) that later phases can also use to
   render a `StepResult.next`, and say in its docstring that it is the only
   place a PromptKind becomes a View.
@@ -142,7 +177,9 @@ Tests:
 - The equivalence test that matters most: for every existing test fixture
   that reaches `pending_turn_view` today, the View class the new table
   returns is the class the old chain returned. Build it before you move the
-  chain, run it against the old code to see it pass, then move.
+  chain, run it against the old code to see it pass, commit it on its own
+  as the branch's first commit, then move. It stays in the suite afterwards
+  as the mapping table's own test.
 - Golden transcript unchanged; test_model_purity green.
 
 Docs, in this PR:
@@ -182,11 +219,25 @@ Build the smallest thing that proves that: a local web page that, for one
 saved game, shows the board as a PNG and the line "waiting on: <kind>
 <parameters> -- <ask>". Use only: `gamesaves/d12ball/storage.load_games`
 for the record, `pending_prompt` for the wait, and
-`d12ball.render.render_match_image(match, catalog)` -- NOT the cog's
+`d12ball.render.render_match_image(match, catalog, ...)` -- NOT the cog's
 `render_match_png`, which is async, Discord-shaped and builds a caption out
 of fetched emoji. Its `title` is optional and it captions itself from the
 team names and period; put the PBD number and coaches on the page around
-the image instead.
+the image instead. The catalog is `load_player_catalog()` from
+d12ball/components.py.
+
+Two more arguments matter, and the cog passes both: `species_icons`, which
+it takes from `engine.species_abilities_apply(game)`, and `cyborg_ids`,
+which it takes from `D12Ball.cyborg_condition_ids(game, match)` in
+cogs/d12ball/presentation.py. The first the page can ask the engine for.
+The second is a cog method that reads only the match and
+`engine.has_species_ability`, so the page cannot call it without importing
+a cog -- which is exactly the kind of gap this milestone exists to find.
+Either report it as the first item on the list below and render advanced
+games knowingly without their Cyborg markers, or, better, move
+`cyborg_condition_ids` onto `RulesEngine` first as its own small PR (the
+shape `team_emojis` took in Phase 1a: the cog keeps a forwarding method,
+no call site moves) and have the page call the engine's.
 
 Rules: the page imports nothing from cogs/, derives no candidate list and no
 "what is it waiting on" of its own (principle 10 -- if something is missing
@@ -204,7 +255,12 @@ anything, as a list; that list is the input to Phase 2.
 
 This is Phase 2 of docs/model-discord-split.md, "StepResult, on one
 vertical slice". Phase 1 has landed (d12ball/prompts.py exists and
-pending_turn_view is a mapping table); confirm before starting. Read
+pending_turn_view is a mapping table).
+
+Probe:
+`grep -q "class PromptKind" d12ball/prompts.py && grep -q "def pending_prompt" d12ball/prompts.py`
+
+Read
 docs/design/maneuvers.md, docs/design/gotchas.md (the swallowed save) and
 the "The model and the Discord layer" section of CLAUDE.md, which is now
 the principles' home.
@@ -221,7 +277,10 @@ Two things to settle first, and write down in the PR as settled:
    transitional: Phase 6's driver runs follow-ons itself and the cog's
    dispatch of them goes. Design it as a closed set of keys, not a
    callable or a method name string the cog `getattr`s, and mark it
-   transitional in its docstring.
+   transitional in its docstring. Because it is a closed set, the enum
+   itself is the record of what the cog still dispatches: Phases 3-5 add
+   and remove members, and Phase 6 reads the enum rather than a PR
+   description to learn what is left.
 2. A `PendingPrompt` in `next` is rendered by the same
    `view_for_prompt` the restore path uses. From this phase on, the live
    flow and the restart flow build the prompt through one table, which is
@@ -252,7 +311,8 @@ Tests:
 
 - Model-side tests for the new step, no discord: narration lines exactly
   equal to what the cog produced before (record them from the old code
-  first, on the same fixtures, then move), board_changed true/false where
+  first, on the same fixtures, commit the recording as the branch's first
+  commit, then move), board_changed true/false where
   the old `refresh_match_image` decision was, `next` correct for a plain
   pass, a pass into a stack (receiver pick), a Winger set-up, a free
   Skilled Pass.
@@ -296,8 +356,14 @@ Do them in the order given; each assumes the previous has landed.
 
 This is one rank of Phase 3 of docs/model-discord-split.md, "the effects, a
 rank per pull request". Phases 1 and 2 have landed, and so has every rank
-listed before this one in the worksheet's Phase 3 table; confirm on
-origin/main before starting. Read docs/design/maneuvers.md and the "The
+listed before this one in the worksheet's Phase 3 table.
+
+Probe: d12ball/flow/effects.py exists, and for each card of every rank
+listed before this one the worksheet's Status column names its PR and
+`grep -c "def .*<card key>" d12ball/flow/effects.py` is not 0. If either
+fails, stop.
+
+Read docs/design/maneuvers.md and the "The
 model and the Discord layer" section of CLAUDE.md, plus the design doc the
 rank block names.
 
@@ -324,7 +390,8 @@ Dribble Burst, Skilled Pass, Intercept, Double Team, Clear or Setup Pass,
 and no advanced cost). So: on the old code, on fixtures that reach both
 cards contested and unchallenged, basic and advanced, record the exact
 narration lines and the refresh decision, and write those into the
-model-side tests for the new step. A rank whose lifted narration differs by
+model-side tests for the new step, committed before the move as the
+branch's first commit. A rank whose lifted narration differs by
 a character from the recording is a rank that moved a rule, and that is a
 finding, not a regeneration.
 
@@ -357,7 +424,13 @@ hand-off adds (a run back, a loose ball, an own goal, a ball recovery).
 
 This is Phase 4 of docs/model-discord-split.md, "the spine" -- the biggest
 single phase and the one the worksheet says to resist splitting badly. All
-six Phase 3 ranks have landed; confirm on origin/main. Read
+six Phase 3 ranks have landed.
+
+Probe: the worksheet's Status column names a PR for every rank 3a-3f, and
+`grep -c "self.persist" cogs/d12ball/effects.py` has fallen to the
+wrappers alone -- say what the number is.
+
+Read
 docs/design/sending-a-player.md, docs/design/possession-and-turnovers.md,
 docs/design/loose-balls.md, docs/design/species-abilities.md (the arrival
 gate) and docs/design/maneuvers.md (injury tests, own goals), and the "The
@@ -373,9 +446,13 @@ What moves into d12ball/flow/ as sync functions returning StepResult, with
   `resolve_maneuver` (cogs/d12ball/core.py). Nothing in Phases 1-3 touched
   these; both a human's pick and play_ai_turn's pass through them.
 - the three arrival points: `finish_maneuver_resolution` (periods.py),
-  `begin_loose_ball` and `offer_scoring_attempt_choice` (effects.py), and
-  the two gates each opens with, `check_for_mind_pull` and
-  `check_for_loose_ball`. These move together or not at all: the gates and
+  `D12Ball.begin_loose_ball` and `offer_scoring_attempt_choice`
+  (effects.py), and the two gates each opens with, `check_for_mind_pull`
+  and `check_for_loose_ball`. Two things are called `begin_loose_ball`:
+  the cog's, which is what moves, and `MatchState.begin_loose_ball` in
+  d12ball/components.py, which is already the model's and is what the
+  cog's calls into. Keep the names apart in the PR and in the flow
+  function's docstring. These move together or not at all: the gates and
   the loose-ball check are ordered against each other on purpose and moving
   half the ordering is worse than moving none.
 - `begin_loose_ball`'s contest and `begin_loose_ball_skill_test`.
@@ -396,8 +473,9 @@ What moves into d12ball/flow/ as sync functions returning StepResult, with
   `run_own_goal_roll` (effects.py), `begin_ball_recovery` (turnovers.py).
 
 `FollowOn` shrinks as each spine step moves; whatever the cog still
-dispatches at the end of this phase is the list Phase 5/6 inherits -- write
-that list in the PR.
+dispatches at the end of this phase is the list Phase 5/6 inherits. The
+enum is that list -- prune it to exactly what is still dispatched, and
+repeat the members in the PR description.
 
 Golden coverage is the risk here. The tutorial golden covers one basic solo
 game on board 7 -- no advanced maneuver, no species ability, no Mind Pull,
@@ -439,25 +517,35 @@ inside a Mind Pull offer.
 [PREAMBLE]
 
 This is Phase 5 of docs/model-discord-split.md, "periods and windows".
-Phase 4 has landed; confirm on origin/main and read the FollowOn list its
-PR left behind. Read docs/design/coaching-choice.md, docs/design/shootout.md,
+Phase 4 has landed.
+
+Probe: `grep -q "def finish_maneuver_resolution" d12ball/flow/*.py`, and
+`FollowOn` in d12ball/flow/result.py has only the members Phase 4 left
+(read the enum; it is the list).
+
+Read docs/design/coaching-choice.md, docs/design/shootout.md,
 docs/design/time-out.md, docs/design/clock-and-records.md, and the "The
 model and the Discord layer" section of CLAUDE.md.
 
-What moves, as sync flow functions returning StepResult:
+What moves, as sync flow functions returning StepResult. Much of the
+vocabulary here is already the model's -- `CoachingOccasion`,
+`may_call_time_out` and `pending_time_out` live on `MatchState` in
+d12ball/components.py, and the stage lists live in d12ball/engine.py --
+so what crosses the seam is the cog's driving of them, not those names:
 
-- the Coaching Choice and its five occasions (`CoachingOccasion`, the
-  substitution budgets, what survives on the match) -- one flow, one
-  message, per coaching-choice.md; the *message* part stays the cog's.
-- halftime, full time and the shootout: the stage machines
-  (`SETUP_STAGES`, `HALFTIME_STAGES`, `FULL_TIME_STAGES`,
-  `advance_shootout`) are already most of the way there. `advance_shootout`
-  is the one reading of the shootout's state (shootout.md) and stays that.
-- the time out (`may_call_time_out`, `pending_time_out`, `finish_time_out`)
-  -- charged, not asked; the free pickup.
-- the clock and `end_period`. The clock never stops; `record_goal` and
-  `record_event` remain the only writers of their logs and nothing reads
-  the event log to decide a rule.
+- the Coaching Choice and its five occasions -- the cog flow that walks a
+  window (the substitution budgets, what survives on the match), one flow,
+  one message, per coaching-choice.md; the *message* part stays the cog's.
+- halftime, full time and the shootout: the cog methods that step the
+  stage machines (`SETUP_STAGES`, `HALFTIME_STAGES`, `FULL_TIME_STAGES`)
+  and `advance_shootout` (periods.py), which is the one reading of the
+  shootout's state (shootout.md) and stays that.
+- the time out: `finish_time_out` (turnovers.py) and whatever charges it --
+  charged, not asked; the free pickup. `may_call_time_out` is already the
+  model's answer; the flow asks it.
+- the clock and `end_period` (periods.py). The clock never stops;
+  `record_goal` and `record_event` remain the only writers of their logs
+  and nothing reads the event log to decide a rule.
 
 What stays: the two ephemeral shootout menus (the secret orders). They are
 Discord-specific. The flow exposes what they need to submit and what to
@@ -500,9 +588,13 @@ inside each shootout sub-state.
 [PREAMBLE]
 
 This is Phase 6 of docs/model-discord-split.md, "the driver" -- the last
-phase, after which the cog is a frontend. Phases 1-5 have landed; confirm
-on origin/main and read Phase 5's PR for whatever FollowOn keys the cog
-still dispatches. Read docs/design/cog-structure.md, docs/design/recovery.md,
+phase, after which the cog is a frontend. Phases 1-5 have landed.
+
+Probe: the worksheet's Status column names a PR for Phases 0-5, and the
+`FollowOn` enum in d12ball/flow/result.py is what the cog still dispatches
+(read the enum; it is the list, and it dies in this phase).
+
+Read docs/design/cog-structure.md, docs/design/recovery.md,
 docs/design/rate-limits.md and docs/design/permissions.md, and the "The
 model and the Discord layer" section of CLAUDE.md.
 
@@ -549,11 +641,16 @@ Tests:
   test_model_purity green.
 - Report the two figures the worksheet says the split is measured by: the
   count of async cog methods taking `interaction` (from the AST, by the
-  worksheet's counting rule) and `grep -c interaction cogs/d12ball/*.py`,
-  before and after; and how many of the test files still need discord.py
-  installed to import.
+  worksheet's counting rule under "Where the line already is") and
+  `grep -c interaction cogs/d12ball/*.py`, before and after; and how many
+  of the test files still need discord.py installed to import. "Before" is
+  measured on this branch's base, not taken from the worksheet, whose
+  figures date from before Phase 1. This PR deletes the worksheet, so
+  first move the counting rule and the final figures into
+  docs/design/model-discord-split.md under a heading of their own; the
+  rule outlives the plan because it is how a regression would be noticed.
 
-Docs: CLAUDE.md's cog-structure.md ("Why the cog is mixins") is rewritten to
+Docs: docs/design/cog-structure.md ("Why the cog is mixins") is rewritten to
 say what the cog is now rather than what it used to defend -- the reasoning
 "these methods co-operate through the cog's own state and call each other
 by the hundred" stops being true and the section must not keep saying it.

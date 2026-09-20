@@ -6,6 +6,11 @@ should be deleted as they land rather than kept in parallel with the code.
 The principles in it have one permanent home, and it is CLAUDE.md -- see
 Phase 1. When the last phase is done this file goes.
 
+**Line numbers quoted below are stale.** They were measured when the
+worksheet was written and the files have moved under them since. Find a
+function by its symbol name, never by the line quoted here, and re-measure
+any count before quoting it in a commit or a PR.
+
 The goal is a web app and the Discord bot playing the same game off the same
 model, so that a rules change is made once and governs both.
 
@@ -16,15 +21,19 @@ seven of them. Each leaves the bot fully working and lands on `main` on its
 own -- that is the constraint the ordering was chosen under, not a property
 it happened to have.
 
-| Phase | What it does | Moves rules code? |
-| --- | --- | --- |
-| **0** | The safety net: the purity guard and the golden transcript | No |
-| **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) |
-| **2** | `StepResult`, proved on Low Pass alone | One maneuver |
-| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks |
-| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes |
-| **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes |
-| **6** | The driver, and the cog becomes a frontend | The last of it |
+| Phase | What it does | Moves rules code? | Status |
+| --- | --- | --- | --- |
+| **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
+| **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | 1a done (PR #223); 1b open |
+| **2** | `StepResult`, proved on Low Pass alone | One maneuver | Open |
+| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Open |
+| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
+| **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
+| **6** | The driver, and the cog becomes a frontend | The last of it | Open |
+
+The Status column is the record of what has landed; a phase's PR updates
+its row (and, for Phase 3, names the ranks done) in the same commit that
+cuts the section down.
 
 A **read-only web app is possible after Phase 1** and a **playable one after
 Phase 6**; everything between the two is how much of a turn the web app can
@@ -399,9 +408,9 @@ it is now.
 ### What stays
 
 `pending_turn_view` survives in the cog as a **mapping table** -- kind to
-`View`, nothing else. Both its callers (`on_ready`'s restore and
-`resume_pending_prompt`) are untouched, which is the point: they are the two
-that must not drift.
+`View`, nothing else. Both its callers (`restore_saved_views`, which the
+cog's `__init__` runs, and `resume_pending_prompt`) are untouched, which is
+the point: they are the two that must not drift.
 
 ### Sizing
 
