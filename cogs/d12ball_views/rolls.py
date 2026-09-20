@@ -7,7 +7,7 @@ in docs/design/maneuvers.md -- nothing in the game rolls on its own.
 import asyncio
 import discord
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from d12ball.components import (
     EVENT_SHOT,
@@ -601,11 +601,17 @@ class ScoreAttemptView(SafeView):
         self,
         cog: "D12Ball",
         game_id: str,
+        composition_message_id: Optional[int] = None,
     ):
         super().__init__(timeout=None)
 
         self.cog = cog
         self.game_id = game_id
+        # Only known on the live view `begin_score_attempt` just built --
+        # a restart rebuilds this view from the cog and the game id alone
+        # (see PLAIN_PROMPT_VIEWS), so a resumed "Back" leaves that image
+        # as the harmless remnant it always was.
+        self.composition_message_id = composition_message_id
 
         button = discord.ui.Button(
             label="Roll the score attempt",
@@ -1000,8 +1006,11 @@ class ScoreAttemptView(SafeView):
     async def back(self, interaction: discord.Interaction) -> None:
         """
         Walk an unrolled "shoot" choice back to wherever it was chosen.
-        The composition image already posted stays in the channel as a
-        harmless remnant -- the same tradeoff a picked maneuver's hand
+        The composition image already posted is deleted with it, when
+        this view is the one that just posted it -- see
+        `composition_message_id`. A view rebuilt on restart has no
+        message id to delete, so a resumed "Back" leaves that image as
+        a harmless remnant, the same tradeoff a picked maneuver's hand
         image makes.
 
         An ordinary turn's shot and a set-up's are two different
@@ -1031,6 +1040,17 @@ class ScoreAttemptView(SafeView):
                 ephemeral=True,
             )
             return
+
+        if (
+            self.composition_message_id is not None
+            and interaction.channel is not None
+        ):
+            try:
+                await interaction.channel.get_partial_message(
+                    self.composition_message_id,
+                ).delete()
+            except (discord.NotFound, discord.HTTPException):
+                pass
 
         if match.pending_shot_is_set_up:
             await self.back_from_set_up_shot(interaction, game, match)

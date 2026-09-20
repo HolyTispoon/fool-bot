@@ -754,7 +754,7 @@ class CoreMixin:
         build_maneuver_challenge_file): a shot is decided by skills and
         abilities that a line of prose lists without showing.
         """
-        await send_new_prompt(
+        composition_message = await send_new_prompt(
             interaction,
             file=await self.build_score_attempt_file(match),
         )
@@ -768,7 +768,10 @@ class CoreMixin:
             "Either player can roll. Both sides roll one d12; the "
             "attacker scores on a total equal to or higher than the "
             "defence.",
-            view=ScoreAttemptView(self, game.game_id),
+            view=ScoreAttemptView(
+                self, game.game_id,
+                composition_message_id=composition_message.id,
+            ),
         )
         game.turn_message_id = prompt_message.id
         save_games(self.games)
