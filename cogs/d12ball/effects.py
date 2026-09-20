@@ -1228,9 +1228,9 @@ class ManeuverEffectsMixin:
         movement was going -- so whichever is asked first decides
         whether the other is asked at all. Asking the possessing side
         first means their own Telekinetic can take the ball off a
-        movement before an opponent's gets to reach for it. The reverse
-        order is defensible too and the rules do not say; see the open
-        question in docs/rules-log.md.
+        movement before an opponent's gets to reach for it -- the
+        author, 2026-09-20, asked directly because the sheet settles
+        what each half does and says nothing about the race.
 
         **The path is spent by `check_for_mind_pull`, which is the last
         reader**, so Smooth deliberately does not clear it -- a Smooth

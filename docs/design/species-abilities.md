@@ -731,8 +731,11 @@ load-bearing:
   either one taken stops the ball and ends the movement. It is written down
   in three places that must agree -- `check_for_ball_arrival`,
   `continue_smooth`'s hand-off, and `pending_prompt`'s branch order, which is
-  what a restart comes back to -- and recorded as an open question in
-  [rules-log.md](../rules-log.md), since the sheet does not say.
+  what a restart comes back to. The sheet does not say; the author
+  settled it on 2026-09-20 (*"smooth goes first"*), and the cost that
+  buys -- an opposing Telekinetic gets no roll at all whenever one of
+  the possessing side's is also on the path -- is recorded with the
+  ruling in [rules-log.md](../rules-log.md).
 
 **A landed Smooth ends the maneuver; it does not run a turnover.** That is
 the one place it parts company with a landed pull, and it falls straight out

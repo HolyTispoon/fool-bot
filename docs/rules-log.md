@@ -119,29 +119,6 @@ halftime and the shootout window hand them their own.
 Left alone until asked: it is a real change to how many players can pass through
 a game, and the current number was settled deliberately.
 
-### Which comes first on one movement, Smooth or Mind Pull?
-
-**Raised by building Smooth, 2026-09-20. Answered one way in the code, deliberately, and worth
-confirming.**
-
-A ball can cross a Telekinetic of each side on the same movement. Both abilities read the same
-path, and either one taken stops the ball -- so whichever is asked first decides whether the
-other is asked at all. The sheet's wording settles what each ability does and says nothing
-about the race.
-
-`check_for_ball_arrival` asks **Smooth first**: the side that has the ball may take it out of
-the air before the other side reaches for it. That is what the build was asked for, and it has
-an argument -- it is your ball, and a pull is a 1-in-6 gamble against a certainty.
-
-The other reading is that the ball meets whoever it meets **in path order**, which is what
-Mind Pull's own sentence says within itself ("each may try in the order the ball reaches them")
-and which would interleave the two queues rather than running one after the other. That is a
-real machinery change -- one ordered queue, not two -- so it was not guessed at.
-
-Worth noting which way this actually bites: a Smooth costs nothing and cannot fail, so asking
-it first means an opposing Telekinetic on the path gets **no roll at all** whenever any of the
-possessing side's Telekinetics is also on it. Against a species team that is most movements.
-
 ### Does a Telekinetic challenger get a Mind Pull on the ball they just pressured?
 
 **Found while gating `apply_pressure`'s overshoot branch, 2026-09-20. Not a question about
@@ -185,6 +162,31 @@ once.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-20 (later) -- author, Smooth is asked before Mind Pull
+
+Put to the author while building Smooth, because the sheet settles what each half of the
+ability does and says nothing about the race between them. A ball can cross a Telekinetic of
+each side on one movement; both read the same path, and either one taken stops the ball, so
+whichever is asked first decides whether the other is asked at all.
+
+The author, in chat: *"smooth goes first"*.
+
+So the possessing side takes its own ball out of the air before the opponent reaches for it.
+`check_for_ball_arrival` already ran in that order, so nothing changed -- this entry is the
+ruling catching up with the code rather than the other way round.
+
+**What it costs, recorded because it was argued before it was asked.** A Smooth is free and
+cannot fail, where a pull is a token and a 1-in-6. Asking Smooth first therefore means an
+opposing Telekinetic on the path gets no roll at all whenever any of the possessing side's
+Telekinetics is also on it -- against a Telekinetic team, most movements. The alternative
+reading, that the ball meets whoever it meets in path order (which is what Mind Pull's own
+sentence says *within* itself), would have interleaved the two into one ordered queue. It is
+not what the author wanted, and the two-queue shape stands.
+
+**Three places encode this and have to agree**: `check_for_ball_arrival`, `continue_smooth`'s
+hand-off to the pull, and `pending_prompt`'s branch order, which is what a restart mid-offer
+comes back to.
 
 ### 2026-09-20 -- sheet, Slip in becomes Smooth, and reads the ball's path
 
