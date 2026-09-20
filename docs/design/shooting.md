@@ -168,7 +168,13 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
   overshoot lands in the long-pass contest, still with the modifier against it;
   nothing about an overshoot settles the ball quietly.
   `begin_high_pass_contest` is that contest, reached both from the ordinary
-  3-or-4 path and from `decline_scoring_attempt(contest=True)`.
+  3-or-4 path and from `decline_scoring_attempt(contest=True)`. Its model
+  twin is `high_pass_contest_step` in `d12ball/flow/arrival.py` since Phase
+  4, two lines over `loose_ball_step`; the offer that precedes it is
+  `scoring_attempt_choice_step` in the same module, and the set-up prompt is
+  a follow-on rather than a `PendingPrompt` for the reason below --
+  `contest_on_decline` rides on the view, so `SetUpAttemptChoiceView` has no
+  `PromptKind` for a restart to come back through.
 - **`contest_on_decline` rides on the view, not on the match.** By the time the
   decline arrives, an overshot pass and an ordinary 2-space one have left the
   match in the same state, and `SetUpAttemptChoiceView` was already the one view

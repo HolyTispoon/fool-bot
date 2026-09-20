@@ -28,7 +28,7 @@ it happened to have.
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
-| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
+| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Done (PR #TBD) |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
 
@@ -508,64 +508,34 @@ it, and a rank that wants a paragraph is a rank that moved a rule.
 
 ## Phase 4 -- the spine
 
-The turn's own machinery, and where `interaction` dies from everything
-Phases 1-3 didn't already reach:
+**Done.** The turn's own machinery is in `d12ball/flow/` -- `arrival.py`,
+`resolution.py`, `turnovers.py` and `maneuver.py` -- and what is left in
+`cogs/d12ball/` is the posting. The reasoning is in
+[design/model-discord-split.md](design/model-discord-split.md); what
+follows is only what a later phase still has to know.
 
-- **the front half of a turn**: choosing and announcing a challenger
-  (`auto_resolve_challenger`, `announce_uncontested_maneuver` -- see
-  [sending-a-player.md](design/sending-a-player.md)),
-  `begin_maneuver_action_selection` and `resolve_maneuver`. Easy to read as
-  already covered by "the spine" below, and it isn't -- nothing in Phases
-  1-3 touches it. Both a human's pick and `play_ai_turn`'s pass through it,
-  which is also why "`interaction` dies" above is qualified: it doesn't,
-  until this moves too.
-- the **three arrival points**, which are where a ball that has moved is
-  settled: `finish_maneuver_resolution` (the tail of every ordinary path),
-  `begin_loose_ball` (a Deflect, and the High Pass contest behind it) and
-  `offer_scoring_attempt_choice` (a set-up). Between them they are every
-  one of the four things a Mind Pull pre-empts.
-- the **two gates** each of those opens with, `check_for_mind_pull` and
-  `check_for_loose_ball` -- which are not the arrival points but the `if
-  ...: return` at the top of them
-- `begin_loose_ball`'s contest
-- `begin_run_back` / `continue_run_back` (the cascade; note principle 8 --
-  the batching stays in the cog, the loop moves). **The loop's own
-  per-pass `self.persist(game, match)` (`turnovers.py:1622`) stays too**, as
-  a named exception to principle 9, and the path that needs it is the
-  **coach's-choice `return`** (`:1657`): when `next_run_back_step` comes
-  back with a question, the loop posts the prompt and returns from inside
-  itself, so nothing after the loop runs. The turn is then waiting on a
-  click that reloads the match out of the save file -- which means this
-  pass's placements have to already be on disk, and the intra-loop persist
-  is what puts them there. Collapse it to one save after the loop and every
-  cascade that stops to ask somebody loses the placements it just made.
-  - **The give-up-after-`MAX_RUN_BACK_PASSES` branch is not that path**,
-    though it reads like it: it `break`s rather than returning, and the two
-    statements after the loop are `flush()` and `finish_run_back`, which
-    persists at `:1505`. So its log line ("the match is saved as it
-    stands") is kept by that save whatever happens to the one in the loop.
-    Worth writing down because the branch *looks* like the fragile one and
-    is the safe one, and the genuinely fragile path has no log line drawing
-    attention to itself.
-- `begin_injury_tests` / `continue_injury_tests`
-- `run_own_goal_roll`
-- `begin_ball_recovery`
+- **The cascade's per-pass `self.persist` stays**, as a named exception to
+  principle 9, and `run_back_passes` is a generator so that it can: the cog
+  saves between yields. The path that needs it is the **coach's-choice
+  return**, when `next_run_back_step` comes back with a question and the turn
+  is handed to a click that reloads the match out of the save file. The
+  give-up-after-`MAX_RUN_BACK_PASSES` branch is **not** that path -- it is
+  followed by a flush and `finish_run_back`, which saves -- and it is now a
+  question asked of the position rather than a count, because a generator
+  cannot tell "used every pass" from "could not settle".
+- **`FollowOnStep` is 34 members and is the list Phase 5/6 inherits.** Phase
+  4's twenty-five name the Discord tails the spine hands back to rather than
+  spine steps, which is the shape the last two phases will be collapsing.
+- **`follow_on_draws_the_board` in `cogs/d12ball/core.py` did not change**,
+  and that is worth knowing rather than a loose end: it is rate-limit
+  arithmetic and stays the frontend's, so it is where the driver's own board
+  decision will end up rather than something that follows the steps into
+  `d12ball/flow/`.
 
-This is the biggest single phase and the one to resist splitting badly: the
-arrival gates and the loose-ball check are ordered against each other on
-purpose ("the path is spent whether or not anybody may pull"), and moving
-half of that ordering is worse than moving none of it.
-
-**Bot stop:** a full game, two humans, advanced mode with both modules on,
-on board 6 and again on board 9. Then a solo game against Dinky. Then the
-tutorial end to end -- it is five real turns through the real flow and it
-asserts possession changes hands the three scripted times.
-
-**CLAUDE.md:** "The ball carrier", "Turnovers", "Loose balls and the board"
-and "Mind Pull, and the arrival gate" all describe functions that have moved
-module. Each gets its path corrected in the same commit.
-
----
+**Left open, for the author.** `MatchState.may_take_time_out`'s own docstring
+says it "no longer gates a new play's window", and `begin_run_back` has been
+gating exactly that on it since before this phase. Lifted as it stood into
+`after_new_play_reset_step`; the question is in the phase's pull request.
 
 ## Phase 5 -- periods and windows
 

@@ -512,7 +512,18 @@ split is the whole design.
 - **Reading is five places, through one gate.** Each arrival point calls
   `check_for_ball_arrival`, which asks Smooth and then Mind Pull -- see
   "Smooth" below for why that order is load-bearing and why only the second
-  of the two spends the path. The five are the functions that settle an
+  of the two spends the path.
+  - **The gate is `d12ball/flow/arrival.py`'s since Phase 4**, with its two
+    halves, and it moved **as a group with the loose-ball check and the
+    loose ball itself**. Which of the three is asked before which is the
+    rule this whole section is about, so half of that ordering left in
+    `cogs/` would have been a rule decided in the frontend. The three
+    functions keep their names; what changed is that they answer with an
+    `Optional[StepResult]` -- `None` for "carry on", a result for "the
+    arrival has been interrupted and this is what happens instead" --
+    which is the cog's `if ...: return` read from the model's side. The
+    two queues they open (`continue_smooth`, `continue_mind_pull`) are
+    still the cog's and are named as follow-ons. The five are the functions that settle an
   arrival: `finish_maneuver_resolution` (the tail of every ordinary path,
   receptions included), `begin_loose_ball` (a Deflect, which calls it
   directly, and the High Pass contest, which comes through it),

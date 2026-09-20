@@ -15,8 +15,8 @@ Phase 0 has landed (PR #201), and so has Phase 1, in the two halves the
 worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
 PR #225), and so has Phase 2 (PR #227), and so has the whole of Phase 3 --
 one template run six times, **3a to 3f (PR #229, PR #232, PR #233,
-PR #235, PR #236, PR #241)**. So there are no prompts for any of them, and
-what is left here is Phases 4, 5 and 6.
+PR #235, PR #236, PR #241)** -- and so has Phase 4, the spine. So there
+are no prompts for any of them, and what is left here is Phases 5 and 6.
 
 ---
 
@@ -148,121 +148,6 @@ still being planned.
 
 ---
 
-## Phase 4 -- the spine
-
-```
-[PREAMBLE]
-
-This is Phase 4 of docs/model-discord-split.md, "the spine" -- the biggest
-single phase and the one the worksheet says to resist splitting badly. All
-six Phase 3 ranks have landed.
-
-Probe: the worksheet's Status column names a PR for every rank 3a-3f, and
-`grep -c "self.persist" cogs/d12ball/effects.py` has fallen to the
-wrappers alone -- say what the number is. It was **32** when 3f landed, of
-which the twelve cards account for one apiece; the rest are the
-`resolve_*`/prompt half and the spine this phase is here to move, so
-expect it to fall a long way rather than to zero.
-
-Read
-docs/design/sending-a-player.md, docs/design/possession-and-turnovers.md,
-docs/design/loose-balls.md, docs/design/species-abilities.md (the arrival
-gate) and docs/design/maneuvers.md (injury tests, own goals), and the "The
-model and the Discord layer" section of CLAUDE.md. Do not begin editing
-until you have read the arrival-gate ordering in species-abilities.md and
-can say back why "the path is spent whether or not anybody may pull".
-
-What moves into d12ball/flow/ as sync functions returning StepResult, with
-`interaction` leaving each of them:
-
-- the front half of a turn: `auto_resolve_challenger`,
-  `announce_uncontested_maneuver`, `begin_maneuver_action_selection`,
-  `resolve_maneuver` (cogs/d12ball/core.py). Nothing in Phases 1-3 touched
-  these; both a human's pick and play_ai_turn's pass through them.
-- the three arrival points: `finish_maneuver_resolution` (periods.py),
-  `D12Ball.begin_loose_ball` and `offer_scoring_attempt_choice`
-  (effects.py), and the two gates each opens with, `check_for_mind_pull`
-  and `check_for_loose_ball`. Two things are called `begin_loose_ball`:
-  the cog's, which is what moves, and `MatchState.begin_loose_ball` in
-  d12ball/components.py, which is already the model's and is what the
-  cog's calls into. Keep the names apart in the PR and in the flow
-  function's docstring. These move together or not at all: the gates and
-  the loose-ball check are ordered against each other on purpose and moving
-  half the ordering is worse than moving none.
-- `begin_loose_ball`'s contest and `begin_loose_ball_skill_test`, and
-  with them `begin_high_pass_contest` (effects.py), which rank 3f made a
-  dispatched follow-on (`BEGIN_HIGH_PASS_CONTEST`) and this list did not
-  name at all. It is two lines over `begin_loose_ball` and it is a
-  **separate** member on purpose: a High Pass draws no board of its own,
-  so the write in front of it is the one thing that distinguishes the
-  two. Do not collapse them back into one member while moving them.
-- `begin_shooter_choice` (effects.py), which rank 3c made a dispatched
-  follow-on (`BEGIN_SHOOTER_CHOICE`) and this list did not originally
-  name. Move it or leave its member in the enum knowingly, but say which
-  in the PR -- the enum is the list Phase 5/6 inherits.
-- `begin_run_back` / `continue_run_back` / `finish_run_back` (turnovers.py).
-  The loop moves; the batching of its cascade into one message and one
-  board refresh stays in the cog (principle 8). And -- named exception to
-  principle 9, keep it and keep its comment -- the loop's per-pass persist
-  stays: when `next_run_back_step` comes back with a question the loop
-  returns from inside itself, so that pass's placements must already be on
-  disk before the prompt goes out. In the lifted shape that means the loop
-  yields a StepResult per pass and the cog persists after each, or the
-  driver-to-be does; either way, collapsing it to one save after the loop
-  loses placements on every cascade that stops to ask. The
-  MAX_RUN_BACK_PASSES give-up branch is not that path (it breaks, and
-  finish_run_back saves) -- the worksheet explains, and the PR should
-  restate it so a reviewer does not "fix" the wrong one.
-- `begin_injury_tests` / `continue_injury_tests` (core.py),
-  `run_own_goal_roll` (effects.py), `begin_ball_recovery` (turnovers.py).
-
-`FollowOn` shrinks as each spine step moves; whatever the cog still
-dispatches at the end of this phase is the list Phase 5/6 inherits. The
-enum is that list -- prune it to exactly what is still dispatched, and
-repeat the members in the PR description. **`follow_on_draws_the_board`
-in cogs/d12ball/core.py shrinks with it**: it is the frontend's answer to
-"is the step I am handing to about to draw this board itself", and since
-3f it reads `BEGIN_RUN_BACK`'s own `new_play` as well as the set of
-members that always draw. Whatever of that is still true once these steps
-are the driver's belongs wherever the driver's own board decision ends up
--- it is rate-limit arithmetic and stays the frontend's (principle 8), so
-it does not follow the steps into d12ball/flow/.
-
-Golden coverage is the risk here. The tutorial golden covers one basic solo
-game on board 7 -- no gambit, no species ability, no Mind Pull,
-no injury test, no own goal, no stacked run back. The worksheet says this
-phase adds a golden for what it moves. Add at least one: a seeded, scripted
-advanced game (both modules on, a board with stacks, a species that can
-Mind Pull) driven through the real cog by the same harness
-tests/test_golden_transcript.py uses, recorded on the old code before the
-move so the move is what it is compared against. Say in the PR which
-branches it reaches and which it still does not.
-
-Tests otherwise: every moved step has a model-side test with no discord;
-nothing moved saves; the cog wrapper (or per-pass loop) saves where the
-transition rule says; pending_prompt agrees before and after a save/load
-round trip in every state this phase can leave a match in;
-EveryMatchupResolvesTests and TutorialPlaythroughTests green (they drive the
-real cog and are where a flow change is tested); both goldens
-byte-identical; test_model_purity green.
-
-Docs: docs/design/possession-and-turnovers.md, loose-balls.md,
-species-abilities.md (arrival gate), sending-a-player.md, maneuvers.md and
-shooting.md (whose High Pass section names the flow's function names since
-3f) each get their paths corrected and, where the reasoning now lives in a flow
-function's docstring, a pointer to it. CLAUDE.md's map row for
-d12ball/flow/ grows; the cog-structure.md description of what the six
-mixins hold is corrected. The worksheet's Phase 4 section is cut down.
-
-Bot stop for the author (in the PR): a full game, two humans, advanced mode
-with both modules on, on board 6 and again on board 9; a solo game against
-Dinky; the tutorial end to end (it asserts possession changes hands the
-three scripted times). A restart inside a run back that stopped to ask, and
-inside a Mind Pull offer.
-```
-
----
-
 ## Phase 5 -- periods and windows
 
 ```
@@ -271,9 +156,13 @@ inside a Mind Pull offer.
 This is Phase 5 of docs/model-discord-split.md, "periods and windows".
 Phase 4 has landed.
 
-Probe: `grep -q "def finish_maneuver_resolution" d12ball/flow/*.py`, and
-`FollowOn` in d12ball/flow/result.py has only the members Phase 4 left
-(read the enum; it is the list).
+Probe: `grep -q "def finish_maneuver_resolution_step"
+d12ball/flow/resolution.py` (Phase 4 named the lifted functions `*_step`,
+to keep them apart from the cog wrappers that kept the old names), and
+`FollowOn` in d12ball/flow/result.py has the 34 members Phase 4 left (read
+the enum; it is the list, and `END_PERIOD`,
+`BEGIN_SUBSTITUTION_WINDOW`, `OPEN_NEW_PLAY` and
+`DISPATCH_INJURY_RESUME` are the ones this phase is about).
 
 Read docs/design/coaching-choice.md, docs/design/shootout.md,
 docs/design/time-out.md, docs/design/clock-and-records.md, and the "The
@@ -297,29 +186,45 @@ so what crosses the seam is the cog's driving of them, not those names:
   model's answer; the flow asks it.
 - the clock and `end_period` (periods.py). The clock never stops;
   `record_goal` and `record_event` remain the only writers of their logs
-  and nothing reads the event log to decide a rule.
+  and nothing reads the event log to decide a rule. **The clock's own
+  advance already moved**: Phase 4 took `advance_time`, the last-possession
+  notice and the decision to end the period into
+  `finish_maneuver_resolution_step`, so what is left here is `end_period`
+  itself -- the half transition, full time, and the shootout behind it.
 
 What stays: the two ephemeral shootout menus (the secret orders). They are
 Discord-specific. The flow exposes what they need to submit and what to
 show; the menus themselves, and `restore_shootout_menus`, stay in the cog.
 
-Golden: the tutorial golden reaches none of this (no halftime, no shootout,
-no time out). Add a seeded, scripted golden that runs a game through
-halftime with substitutions on both sides, a time out in each half, a level
-score at full time and a shootout into sudden death, recorded on the old
-code before the move. If the harness cannot drive one of those (the
-worksheet notes the tutorial is the only multi-turn game the suite can
-drive today), extending the harness is in scope for this PR and the
-extension is described in docs/design/model-discord-split.md; say which
-window remains unpinned if any does.
+Golden: **there are two goldens now, and the advanced one already reaches
+halftime and the coaching window** -- Phase 4 added
+`AdvancedGoldenTranscriptTests` in tests/test_golden_transcript.py, a whole
+advanced solo game on board 9 played to full time, and its press rule and
+seed are documented there. What it does **not** reach is the shootout (its
+seed does not finish level), a time out, and `BallRecoveryView`. So this
+phase's golden work is narrower than this prompt was written expecting:
+extend that harness -- it is a recorder plus a press rule, and the press
+rule is the part to change -- to reach a level score at full time and a
+shootout into sudden death, and a time out in each half, recorded on the
+old code before the move. Say which window remains unpinned if any does.
 
 Tests otherwise as in Phase 4: model-side tests with no discord for each
 moved step; nothing moved saves; the wrapper saves where the transition rule
 says; pending_prompt agrees before and after a save/load round trip in every
 window state, including each shootout sub-state (recovery.md: these are
 handed back to the routine that drives them -- check that still holds);
-MatchStateSerializationTests green with no new saved field; goldens
-byte-identical; test_model_purity green.
+MatchStateSerializationTests green with no new saved field; **both**
+goldens byte-identical; test_model_purity green.
+
+Two things Phase 4 learned that will save you an hour. A method the
+dispatcher reaches with narration must take a `lead_in`, and where the old
+flow posted those lines as a message of their own the method has to post
+them itself rather than prefixing them onto its own -- five methods do
+that now and `announce_last_possession` is the clearest. And an assertion
+reading a follow-on's argument off `await_args.args[N]` breaks on a move
+that changed nothing, because the dispatcher passes them by keyword: six
+test modules now carry a small `inspect.signature` helper for it, and
+copying one is the fix.
 
 Docs: coaching-choice.md, shootout.md, time-out.md, clock-and-records.md
 paths corrected; recovery.md's account of what a restart strands and how
@@ -344,7 +249,12 @@ phase, after which the cog is a frontend. Phases 1-5 have landed.
 
 Probe: the worksheet's Status column names a PR for Phases 0-5, and the
 `FollowOn` enum in d12ball/flow/result.py is what the cog still dispatches
-(read the enum; it is the list, and it dies in this phase).
+(read the enum; it is the list, and it dies in this phase). It was 34
+members after Phase 4 and most of them name *Discord tails* -- an
+announcement, a prompt without a `PromptKind`, a queue the cog drains --
+rather than spine steps, so "the driver runs follow-ons itself" means
+those tails become the frontend's rendering of a `PendingPrompt` or of
+narration, not model functions.
 
 Read docs/design/cog-structure.md, docs/design/recovery.md,
 docs/design/rate-limits.md and docs/design/permissions.md, and the "The
@@ -369,7 +279,11 @@ What this phase builds:
   exact about what that means: every `self.persist(game, match)` in cogs/
   that follows a step the driver now runs goes; the run-back per-pass
   persist is either the driver's, one save per yielded pass, or is
-  documented as the one exception with its reason. The `save_games` calls
+  documented as the one exception with its reason. **Phase 4 left it as a
+  generator for exactly this**: `run_back_passes` yields a `StepResult` per
+  pass and the cog saves between yields, so the driver can take that loop
+  over unchanged. `self.persist` in cogs/ was 90 and `save_games` 52 when
+  Phase 4 landed -- re-measure both rather than quoting these. The `save_games` calls
   that save the game record alone (a message id, a status, a tutorial
   flag) are not touched -- count them before and after and put both
   numbers in the PR.
@@ -395,7 +309,13 @@ Tests:
   count of async cog methods taking `interaction` (from the AST, by the
   worksheet's counting rule under "Where the line already is") and
   `grep -c interaction cogs/d12ball/*.py`, before and after; and how many
-  of the test files still need discord.py installed to import. "Before" is
+  of the test files still need discord.py installed to import. **Expect
+  the async and `interaction` counts to have gone up across Phase 4 and
+  not down** (188 -> 198 and 161 -> 171): that phase added wrappers while
+  the decisions left, and the figures that fell are the other two -- the
+  methods that touch the match, 139 -> 96, and those that write to it
+  directly, 61 -> 29. Report all four, and say which of them the split is
+  actually measured by. "Before" is
   measured on this branch's base, not taken from the worksheet, whose
   figures date from before Phase 1. This PR deletes the worksheet, so
   first move the counting rule and the final figures into

@@ -11,6 +11,18 @@ after it -- is a question about how far away everybody is. Who a coach may
 send is [Sending a player](sending-a-player.md#sending-a-player), the same pool a challenge and a
 pickup use.
 
+- **Since Phase 4 the position is `d12ball/flow/arrival.py`'s and only the
+  posting is the cog's.** `loose_ball_step` sets the contest up, pre-declines
+  the side with nobody there, runs the auto-picks and words the headline;
+  `D12Ball.begin_loose_ball` decides that a genuine loose ball goes out with
+  the board drawn under it and a High Pass contest goes out plainly. That
+  split is the line itself: *what the position is* is a rule, and *whether a
+  coach can already see it* is a question about this channel. `is_high_pass`
+  is on both sides of it because it is a property of the pass.
+  - **Not to be confused with `MatchState.begin_loose_ball`**, which is the
+    state change the step calls into. Three things in the codebase have nearly
+    that name and they are the model's state change, the model's step, and the
+    cog's wrapper.
 - **`begin_loose_ball` posts through `announce_board_update`**, which is why
   that helper is no longer only for manual corrections. The snapshot is drawn
   once and the persistent message is brought in line from the same bytes, so it
@@ -30,8 +42,10 @@ pickup use.
   since 2026-08-18 both are loose. A caller passing its own `headline=` is
   saying the wording would be a lie, which is the High Pass's case and nobody
   else's.
-- `ball_location_line` and `ball_space_label` in `cogs/d12ball_helpers.py` are
-  the wording, over `space_label`. The line spells the zone out beside the code
+- `ball_location_line` and `ball_space_label` are the wording, over
+  `space_label`. Both are in `d12ball/formatting.py` since Phase 4 --
+  `cogs/d12ball_helpers.py` re-exports them, so no call site moved -- because
+  a loose ball's announcement names the space and narration is the model's. The line spells the zone out beside the code
   because "M2" alone means nothing to anyone not already looking at the board.
 
 ## Where the ball comes to rest

@@ -398,9 +398,14 @@ rules for why the ranking is no longer the whole story.
   to decide whether an effect is pending at all. Both used to ask whether the
   ranking was a tie, which after a restart would have offered a skill test
   nobody owed, or an effect choice for a test that had not been rolled.
-- **`resolve_maneuver` branches on it, and on `outcome` only for wording.**
-  There are four ways a maneuver lands and each reads differently, but which
-  one is a *win* is not decided there.
+- **`resolve_maneuver_step` branches on it, and on `outcome` only for
+  wording.** There are four ways a maneuver lands and each reads differently,
+  but which one is a *win* is not decided there. It is
+  `d12ball/flow/maneuver.py`'s since Phase 4, with `maneuver_winner_text` and
+  `skill_test_headline`: which of the four a position reads as is a rule
+  about the cards and the injuries, and a frontend wording it a second time
+  is a second voice. `RulesEngine.injured_word_and_emoji` came up from the cog
+  with them, for `describe_exhaustion_gain`'s reason.
 - **An uncontested maneuver wins whatever the offense picked, injured or
   not** -- no opponent to be disadvantaged against, no challenge to lose. Same
   for a tie where *both* participants are injured: it is an ordinary tie,
@@ -441,7 +446,11 @@ Both are now places a turn can **stop**, and that is the whole cost of it:
   already cleared itself. Both are persisted, and `reset_maneuver` clears them
   with everything else the turn set.
 - **`pending_injury_tests` is a queue, and `continue_injury_tests` is its only
-  exit.** A contest can owe two tests; they are asked one at a time and the
+  exit.** Both halves are `d12ball/flow/maneuver.py`'s since Phase 4 --
+  `begin_injury_tests_step` and `continue_injury_tests_step` -- and the prompt
+  each test goes out on is a `PendingPrompt` of kind `INJURY_TEST`, rendered
+  through `view_for_prompt` like a restart's.
+ A contest can owe two tests; they are asked one at a time and the
   continuation fires when the last one is answered. A test that turns out not to
   be owed -- the player is already injured -- leaves by the same door rather
   than returning, so this can never be where a turn stops for good. **Nothing is

@@ -36,3 +36,23 @@ design.
   and into `d12ball/prompts.py` (Phase 1 of
   [model-discord-split.md](../model-discord-split.md)); what `core` keeps is
   the mapping from a `PromptKind` to a view, which carries no ordering at all.
+- **What the six mixins hold has changed under the split, and the names have
+  not.** After Phase 4 of [model-discord-split.md](../model-discord-split.md)
+  the spine's *decisions* are `d12ball/flow/`'s and what is left in each mixin
+  is the posting: `core` is the lifecycle, the lookups, `persist`,
+  `dispatch_step_result` and the follow-on table; `effects` is one banner per
+  maneuver plus how a loose ball reaches a channel; `turnovers` is the run
+  back's batching and the prompts either side of it; `periods` is the clock's
+  messages, halftime and the shootout. The mixin a method lives in is still
+  the run of the old file it came from -- what changed is that most of them
+  are now four lines around a flow step. See
+  [model-discord-split.md](model-discord-split.md) for which.
+  - **The wrappers are where the phase's one repeated shape lives.** A
+    follow-on that is handed narration but has no prompt of its own for it to
+    open posts it first -- `begin_effect_resolution`,
+    `begin_maneuver_action_selection`, `start_set_up_shot`,
+    `decline_scoring_attempt` and `announce_last_possession` all do. Each is
+    the same two messages in the same order as before the phase; what moved is
+    which function sends the first one. A wrapper may read *which shape* a
+    result took, because how it goes out is the frontend's; what it may not do
+    is decide which it is.

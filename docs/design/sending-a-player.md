@@ -108,6 +108,13 @@ nothing downstream has to know which happened.
       so a prompt offering "or send nobody" offers what
       `ManeuverChallengeView` does not build. The AI's route said it
       regardless, which is what having the sentence twice buys you.
+- **Since Phase 4 the wording is `d12ball/flow/maneuver.py`'s.**
+  `uncontested_maneuver_note` is the sentence and
+  `challenger_walk_in_note` the walk-in's;
+  `D12Ball.describe_challenger_walk_in` forwards to the second so the cog's
+  own challenger pick and `ManeuverChallengeView`'s cannot come to word one
+  walk-in differently. Both are rules about the position rather than about a
+  message -- see [model-discord-split.md](model-discord-split.md).
 - **Which way it happened is read off the candidates, never stored.** Anybody
   still eligible to challenge means the defense was offered the challenge and
   passed, since a defense with nobody to send is never asked.

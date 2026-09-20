@@ -39,13 +39,15 @@ ball's space -- see "Choosing the handler" in the living rules.
   maneuver has to decide, the same way it decides steal-or-new-play.
   - **Five of the nine are no longer in `cogs/`**, and the list was
     renamed as each one moved rather than annotated: Phase 3 of
-    [model-discord-split.md](../model-discord-split.md) has been lifting
+    [model-discord-split.md](../model-discord-split.md) lifted
     the effects a rank at a time, and `dribble_advance_step`,
     `take_ball_by_steal`, `send_low_pass` and the two pressure sites
-    are free functions in `d12ball/flow/effects.py` now. Which side of
-    the seam a site sits on changes nothing about the rule -- the point
-    of the bullet is that there are nine of them and each decides for
-    itself.
+    are free functions in `d12ball/flow/effects.py`. The two unopposed
+    branches of `resolve_loose_ball` and `LooseBallSkillTestView.roll`
+    are still the cog's after Phase 4, which moved the loose ball's
+    *setup* and not its settling. Which side of the seam a site sits
+    on changes nothing about the rule -- the point of the bullet is
+    that there are nine of them and each decides for itself.
 - **Pressure sets it before the overshoot branch returns.** An own goal
   survived is still a handler who was pressured and kept the ball; a conceded
   one is a new play and gets cleared with everything else. The shove is
@@ -92,6 +94,13 @@ new plays" in the living rules for which is which. (A third kind,
 [a time out](time-out.md#the-time-out), goes nowhere near `begin_run_back`: nothing was
 contested and nothing went dead, so nobody runs back and nothing restarts.)
 
+- **Since Phase 4 the whole of this is `d12ball/flow/turnovers.py`'s**, and
+  the cog keeps the batching and the two announcements. `run_back_step` is
+  `begin_run_back`'s decisions, `after_new_play_reset_step` is whether a new
+  play's window opens, `run_back_passes` is the cascade and
+  `finish_run_back_step` its tail. `D12Ball.open_new_play` sits between the
+  first two because the reset is a message and a pinned board. See
+  [model-discord-split.md](model-discord-split.md).
 - **A steal runs back; a new play resets.** A steal keeps the old behaviour --
   the stealer stays, everyone else displaced picks a space in their zone at a
   token a space. A new play calls `announce_new_play_reset`, which puts *both*
@@ -149,6 +158,23 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   - Neither pick is persisted. A restart reads the question back off the
     position through `build_run_back_view`, so a coach who had already answered
     the first is asked it again -- the same as a part-made Coaching Choice.
+  - **The per-pass save survived the lift, deliberately.** It is the one named
+    exception to "the driver persists; steps do not" (principle 9 in
+    CLAUDE.md): when a pass ends on a coach's question the turn is handed to a
+    click that reloads the match out of the save file, so that pass's
+    placements have to already be on disk. The generator is what makes the
+    exception expressible -- the cog saves between yields. Collapsing it to one
+    save after the loop loses the placements of every cascade that stops to
+    ask.
+- **The cascade is a generator now, and the loop around it is the cog's.**
+  `run_back_passes` yields one `StepResult` per pass -- a placement's line, or
+  the question a coach is owed -- because whether a pass needs anybody is only
+  known once it has run, and one result could not say "these four placements
+  happened and then somebody has to choose". The give-up branch stopped being
+  a count and became a question: after the generator ends, the cog asks
+  `next_run_back_step` and `pending_kickoff_fill` whether anything is still
+  owed, which is what its log line claims. A cascade that genuinely used every
+  pass it was given used to read as a failure under a count.
 - **`continue_run_back` is one loop, not a recursion, and it batches.** Every
   placement it makes without asking anyone -- the forced ones, the AI's
   choices, the drop back that fills an empty kickoff -- goes into a list, and

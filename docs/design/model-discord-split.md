@@ -383,6 +383,104 @@ with Low Pass already, as the same step under a different `key=`.
     last caller of `begin_loose_ball` in the `resolve_*` half and it
     is due whenever the author answers, not with a rank.
 
+- **Phase 4 moved the spine, and what it had to settle was the message
+  boundary.** `d12ball/flow/` grew four modules -- `arrival.py` (the two
+  gates, the loose-ball check, the loose ball, the High Pass contest, the
+  set-up offer), `resolution.py` (the tail of a maneuver),
+  `turnovers.py` (the run back and the pickup after it) and
+  `maneuver.py` (challenger to settled maneuver, and the injury queue).
+  `cogs/d12ball/` fell from 11,706 to 11,417 lines, but the number that
+  says what happened is a different one: the methods there that **touch
+  the match** went 139 -> 96 and the ones that **write to it directly**
+  61 -> 29, counted the worksheet's own way. The async and
+  `interaction`-taking counts went *up* (188 -> 198, 161 -> 171),
+  because the phase added wrappers; the decisions left.
+  - **A step says one thing, because a `StepResult`'s narration blocks
+    are one message by contract.** Where the old flow said two things in
+    two messages, the step ends on the first and *names* the second. The
+    clock reaching the period's last minute is the case that forced it:
+    a step returning both would have joined them, and a coach would read
+    "this is now last possession" inside a board caption -- a batching
+    change smuggled in under a refactor, which is exactly what the golden
+    exists to refuse.
+  - **So five cog methods grew a `lead_in` they post on their own**, and
+    the shape is worth a name: a follow-on that is handed narration but
+    has no prompt of its own for it to open posts it first.
+    `announce_last_possession`, `begin_effect_resolution`,
+    `begin_maneuver_action_selection`, `start_set_up_shot` and
+    `decline_scoring_attempt`. Each is the same two messages in the same
+    order as before; what moved is which function sends the first one.
+  - **A wrapper may read which shape a result took; it may not decide
+    which it is.** `D12Ball.begin_loose_ball` posts a genuine loose ball
+    with the board under it and a High Pass contest plainly, because
+    whether a coach can already see the position is a question about this
+    channel. What the position *is* -- the pre-decline, the auto-picks,
+    the headline -- is `loose_ball_step`'s.
+  - **The cascade is a generator, and that is the one place the phase
+    departs from the shape.** Every run-back pass either places somebody
+    or ends the cascade, and whether it needs a coach is only known once
+    it has run, so one `StepResult` could not say "these four placements
+    happened and then somebody has to choose". `run_back_passes` yields
+    one per pass; the cog batches them into one message and saves between
+    yields, which is the named exception to principle 9 kept exactly
+    where the worksheet said to keep it.
+    - **Its give-up branch stopped being a count and became a question.**
+      A generator bounded by `range(max_passes)` cannot tell "used every
+      pass it was given" from "could not settle", so the cog asks
+      `next_run_back_step` and `pending_kickoff_fill` after the generator
+      ends -- which is what the log line claims, said the way it is
+      checked.
+  - **`dispatch_step_result` gained the three things the spine needed.**
+    A `lead_in=` of its own, for narration the *caller* holds and has not
+    posted; `turn_message_id` and `allowed_mentions` on the
+    `PendingPrompt` branch, because Phase 4 is the first phase to reach
+    that branch in production and a prompt the game cannot find again is
+    one `drop_turn_prompt` leaves live; and `lead_in` passed to a
+    follow-on **only when there is one**, so a step that is never handed
+    narration does not declare a parameter it would ignore, and one that
+    is handed lines and cannot take them raises at the dispatch that
+    would have dropped them.
+  - **The enum grew rather than shrank, and the members are a different
+    kind.** Phases 2 and 3 added members naming spine steps; Phase 4's
+    twenty-five name the *Discord tails* the spine now hands back to --
+    the two queues an arrival gate opens, the settling of a loose ball,
+    the announcements, the prompts without a `PromptKind`. It is 34
+    members, and it is still exactly what the cog dispatches. Phase 6
+    reads it rather than six pull request descriptions.
+  - **Three prompts are follow-ons rather than `PendingPrompt`s, each for
+    a reason.** `ShooterChoiceView` and `SetUpAttemptChoiceView` have no
+    `PromptKind` -- the second because `contest_on_decline` rides on the
+    view rather than on the match (see [shooting.md](shooting.md)), so a
+    restart cannot rebuild it; `ASK_RUN_BACK`'s prompt carries a rendered
+    field strip beside the cascade's own board, which is two renders the
+    frontend orders. `ASK_MANEUVER_ACTION` is a fourth, and the clearest:
+    the hand image, the gambit-access paragraph and a tutorial note held
+    behind Continue are all *how* the question reaches somebody.
+  - **The headline of a skill test is narration, not an argument.** It
+    was the obvious thing to put in `FollowOn.kwargs` and would have been
+    narration riding in a follow-on's arguments -- the one shape
+    `StepResult` is built to prevent.
+  - **Three wordings came down from `cogs/d12ball_helpers.py` into
+    `d12ball/formatting.py`**, which re-exports them:
+    `HIGH_PASS_CONTEST_HEADLINE`, `ball_location_line` and
+    `ball_space_phrase`. `RulesEngine` gained `injured_word_and_emoji`
+    the same way, with a forwarding method on the cog. All four are
+    `format_goal_time`'s shape from rank D3: narration is the model's,
+    and a flow step cannot call a cog method.
+  - **The advanced golden earned its commit on the first try.** The first
+    version of `finish_maneuver_resolution_step` returned early on the
+    last-possession branch and never reached `reset_maneuver`, so the
+    game stopped dead at minute 16 with the turn never handed back.
+    Nothing else in the 1,784-test suite noticed; the golden failed on
+    the next 580 lines of transcript being gone. That is the whole
+    argument for Phase 0, met once.
+  - **Six test modules had assertions reading a follow-on's arguments
+    positionally**, which is rank D2's `inspect.signature` lesson met
+    once per module rather than once per rank. Two more needed
+    `suppressed_cog_saves` beside `suppressed_view_saves`, because a
+    skill test owing no injury tests now saves once through the wrapper
+    rather than not at all -- principle 9 rather than an accident.
+
 - **What is in `FollowOnStep` is asserted in
   `tests/test_d12ball_package_shape.py`**, not in any one rank's own
   tests, along with `D12Ball.follow_on_methods` covering it exactly --
