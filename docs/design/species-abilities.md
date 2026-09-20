@@ -259,6 +259,52 @@ ask it.
   `describe_exhaustion_gain` branching on the same predicate. The mechanic is
   identical and the word is the ability.
 
+**A Cyborg who fails an injury check is Damaged, not Injured** (the author,
+2026-09-19), the same extension one level down: *"the cyborgs use Drain rather
+than exhausted [...] this is only in advanced mode when the spec ability is
+turned on"* -- Drained already existed for Exhausted, and Damaged is the
+missing other half for Injured, scoped the same way.
+
+- **Cyborgs only, not a rename of Injured itself.** Every other species stays
+  Exhausted/Injured; only a Cyborg with the ability active (`has_species_ability`,
+  never `PlayerDefinition.species` read bare) reads Drained/Damaged. A global
+  rename was considered and dropped -- Drained already means something
+  narrower than "Exhausted" (the flat-7 threshold), so reusing it as a generic
+  replacement would have made the Lithium Powered rules text self-contradictory.
+- **One word, not a new mechanic.** Nothing about the injury check, the
+  disadvantage or a substitution differs for a Damaged Cyborg; `match.injured`
+  is untouched; `mark_injured`/`run_injury_test` ask no species question at
+  all. Every site that already branched Exhausted/Drained on
+  `has_species_ability` picked up the matching Injured/Damaged branch beside
+  it -- `CoreMixin.injured_word_and_emoji` is the shared word+emoji answer for
+  the cog's own message-building sites (mirroring the inline `drain = ...`
+  branch `describe_exhaustion_gain` already used for Exhausted/Drained), and
+  the handful of sites the cog doesn't reach -- `RulesEngine.shootout_button_label`,
+  the contest dice images' `contestant_detail` -- ask `has_species_ability`
+  directly, since a button label and a drawn die face carry no emoji to look
+  up.
+- **The board badge is a fourth argument, not a fourth boolean pair.**
+  `render.py` already drew Exhausted/Injured as mutually exclusive badges in
+  one card-stats slot; `draw_card`'s new `cyborg` flag only ever picks which
+  *icon* fills that slot (Drained instead of Exhausted, Damaged instead of
+  Injured), never whether one is drawn. The flag is threaded down from
+  `render_match_image`/`render_coaching_image` as a `cyborg_ids` set the same
+  way `species_icons` already threads a bool -- this module still never reads
+  a player's species or the game's own bools to decide it (see the
+  `species_icons` comment in `render.py`). `D12Ball.cyborg_condition_ids`
+  answers it once, off `match.exhausted | match.injured` filtered through
+  `has_species_ability`, for both render entry points to share.
+- **New art, not a recolour.** `drained.png`/`damaged.png`
+  (`scripts/render_condition_tokens.py`) are their own icons and application
+  emoji (`DRAINED_EMOJI_NAME`/`DAMAGED_EMOJI_NAME`), teal/amber rather than the
+  human pair's blue/red -- teal because it is the Cyborgs' own team colour,
+  amber because a card carrying an amber Damaged badge and a red Injured
+  badge in the same slot would otherwise be the same picture with new words
+  stapled on. The teal is a shade brighter than a literal `TEAM_COLORS` teal:
+  the author's read on a first draft using the exact team hex was that the
+  lettering got lost in the sunburst behind it at the 26px the board actually
+  draws it.
+
 **Overdrive is the only thing in the game declared before a roll**, which is
 what it cost to build. Every roll already sits behind a button any coach may
 press, so the declaration is a **second button on that same prompt** rather
@@ -280,10 +326,10 @@ seventh gets it in one line.
   another coach's tokens. The button carries the player in its custom_id for
   the reason the injury test's does -- an older prompt in the channel must not
   declare for somebody else's roll.
-- **A Drained Cyborg may still Overdrive, and an injured one may not.** The
+- **A Drained Cyborg may still Overdrive, and a Damaged one may not.** The
   first is the rules ("the drain stacks"); the second is not a rule about
-  Overdrive at all -- an injured player carries no tokens and cannot gain any,
-  so the price cannot be paid. Overdrive itself survives injury, being a flat
+  Overdrive at all -- a Damaged player carries no tokens and cannot gain any,
+  so the price cannot be paid. Overdrive itself survives Damaged, being a flat
   bonus rather than the withheld skill modifier.
 
 **Charge-up is about movement, not about being obliged to move** (the author,

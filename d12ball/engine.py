@@ -2590,6 +2590,7 @@ class RulesEngine:
 
     def shootout_button_label(
         self,
+        game: D12BallGame,
         match: Optional[MatchState],
         player_id: str,
     ) -> str:
@@ -2602,7 +2603,12 @@ class RulesEngine:
         player = self.get_player_definition(player_id)
         name = player_with_role(player)
         if match is not None and player_id in match.injured:
-            return f"{name} injured"
+            word = (
+                "damaged"
+                if self.has_species_ability(game, player_id, SPECIES_CYBORG)
+                else "injured"
+            )
+            return f"{name} {word}"
         offense = self.player_catalog.effective_profile(player).offense
         return f"{name} +{offense}"
 

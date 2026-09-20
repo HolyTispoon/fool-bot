@@ -932,6 +932,7 @@ class PeriodMixin:
 
     def shootout_order_text(
         self,
+        game: D12BallGame,
         match: MatchState,
         side: TeamSide,
     ) -> str:
@@ -941,7 +942,11 @@ class PeriodMixin:
             match.shootout_order(side), start=1,
         ):
             player = self.engine.get_player_definition(player_id)
-            note = " — injured" if player_id in match.injured else ""
+            if player_id in match.injured:
+                word, _ = self.injured_word_and_emoji(game, player_id)
+                note = f" — {word}"
+            else:
+                note = ""
             lines.append(
                 f"{position}. "
                 f"{self.player_label(match, player)}{note}"
@@ -982,11 +987,11 @@ class PeriodMixin:
                 await self.advance_shootout(interaction, game, match)
                 return
             player = self.engine.get_player_definition(shooter_id)
-            note = (
-                " — injured, no skill modifier"
-                if shooter_id in match.injured
-                else ""
-            )
+            if shooter_id in match.injured:
+                word, _ = self.injured_word_and_emoji(game, shooter_id)
+                note = f" — {word}, no skill modifier"
+            else:
+                note = ""
             lines.append(
                 f"{self.player_label(match, player)}{note}"
             )

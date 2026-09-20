@@ -397,6 +397,21 @@ INJURED_ICON_PATH = (
 )
 INJURED_ICON_SIZE = 26
 
+# A Cyborg's own Exhausted/Injured badges -- see "Lithium Powered" in
+# docs/living-rules.md. Same slot on the card, same rule, different
+# word and art; `draw_card`'s `cyborg` flag is what picks between the
+# two pairs, and this module never asks a species question itself to
+# decide which one -- see the `species_icons` comment above.
+DRAINED_ICON_PATH = (
+    Path(__file__).resolve().parent / "images" / "emoji" / "drained.png"
+)
+DRAINED_ICON_SIZE = 26
+
+DAMAGED_ICON_PATH = (
+    Path(__file__).resolve().parent / "images" / "emoji" / "damaged.png"
+)
+DAMAGED_ICON_SIZE = 26
+
 PLAYER_IMAGES_DIR = Path(__file__).resolve().parent / "images" / "player_images"
 _PLAYER_PORTRAIT_CACHE: dict[str, Optional[Image.Image]] = {}
 
@@ -476,6 +491,22 @@ def load_injured_icon() -> Optional[Image.Image]:
     image is not available so rendering can gracefully skip it.
     """
     return _load_icon(INJURED_ICON_PATH, INJURED_ICON_SIZE, "injured")
+
+
+def load_drained_icon() -> Optional[Image.Image]:
+    """
+    Load (and cache) a Cyborg's Drained-condition icon. Returns None if
+    the image is not available so rendering can gracefully skip it.
+    """
+    return _load_icon(DRAINED_ICON_PATH, DRAINED_ICON_SIZE, "drained")
+
+
+def load_damaged_icon() -> Optional[Image.Image]:
+    """
+    Load (and cache) a Cyborg's Damaged-condition icon. Returns None if
+    the image is not available so rendering can gracefully skip it.
+    """
+    return _load_icon(DAMAGED_ICON_PATH, DAMAGED_ICON_SIZE, "damaged")
 
 
 def load_player_portrait(name: str) -> Optional[Image.Image]:
@@ -953,6 +984,7 @@ def draw_card(
     exhaustion: int = 0,
     exhausted: bool = False,
     injured: bool = False,
+    cyborg: bool = False,
 ) -> None:
     card, row_top, row_bottom = rendered_player_card(player, profile)
 
@@ -973,10 +1005,25 @@ def draw_card(
     # every token with it), so the two badges can never be drawn at
     # once. The injured badge used to sit in the card's top-left
     # corner, over the name.
+    #
+    # `cyborg` only ever changes which icon fills that slot, never
+    # whether one is drawn -- Drained and Damaged are Exhausted and
+    # Injured under a Cyborg's own words (see "Lithium Powered" in
+    # docs/living-rules.md), so the caller who already answered
+    # `exhausted`/`injured` off the match answers this off
+    # `RulesEngine.has_species_ability` the same way `species_icons`
+    # is answered, rather than this module reading the player's own
+    # species to decide it.
     if injured:
-        draw_injured_badge(canvas, draw, x, y, row_top, row_bottom)
+        if cyborg:
+            draw_damaged_badge(canvas, draw, x, y, row_top, row_bottom)
+        else:
+            draw_injured_badge(canvas, draw, x, y, row_top, row_bottom)
     if exhausted:
-        draw_exhausted_badge(canvas, draw, x, y, row_top, row_bottom)
+        if cyborg:
+            draw_drained_badge(canvas, draw, x, y, row_top, row_bottom)
+        else:
+            draw_exhausted_badge(canvas, draw, x, y, row_top, row_bottom)
 
 
 def draw_exhaustion_badge(
@@ -1122,6 +1169,70 @@ def draw_injured_badge(
         )
 
 
+def draw_drained_badge(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    card_x: int,
+    card_y: int,
+    row_top: int,
+    row_bottom: int,
+) -> None:
+    """
+    A Cyborg's Exhausted badge -- same slot as `draw_exhausted_badge`,
+    which `draw_card`'s `cyborg` flag picks between.
+    """
+    icon = load_drained_icon()
+    badge_x = card_x + CARD_SIZE[0] - DRAINED_ICON_SIZE - 1
+    badge_y = card_y + row_top + (row_bottom - row_top - DRAINED_ICON_SIZE) // 2
+
+    if icon is not None:
+        canvas.alpha_composite(icon, (badge_x, badge_y))
+    else:
+        draw.ellipse(
+            (
+                badge_x,
+                badge_y,
+                badge_x + DRAINED_ICON_SIZE,
+                badge_y + DRAINED_ICON_SIZE,
+            ),
+            fill="#0e5c5c",
+            outline="#ffffff",
+            width=1,
+        )
+
+
+def draw_damaged_badge(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    card_x: int,
+    card_y: int,
+    row_top: int,
+    row_bottom: int,
+) -> None:
+    """
+    A Cyborg's Injured badge -- same slot as `draw_injured_badge`,
+    which `draw_card`'s `cyborg` flag picks between.
+    """
+    icon = load_damaged_icon()
+    badge_x = card_x + CARD_SIZE[0] - DAMAGED_ICON_SIZE - 1
+    badge_y = card_y + row_top + (row_bottom - row_top - DAMAGED_ICON_SIZE) // 2
+
+    if icon is not None:
+        canvas.alpha_composite(icon, (badge_x, badge_y))
+    else:
+        draw.ellipse(
+            (
+                badge_x,
+                badge_y,
+                badge_x + DAMAGED_ICON_SIZE,
+                badge_y + DAMAGED_ICON_SIZE,
+            ),
+            fill="#8a5a1f",
+            outline="#ffffff",
+            width=1,
+        )
+
+
 def draw_assignment_cards(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -1134,6 +1245,7 @@ def draw_assignment_cards(
     exhausted: set[str] = frozenset(),
     injured: set[str] = frozenset(),
     gap: int = 12,
+    cyborg_ids: frozenset[str] = frozenset(),
 ) -> None:
     for zone in Zone:
         left, right = bounds[zone]
@@ -1156,6 +1268,7 @@ def draw_assignment_cards(
                 exhaustion=exhaustion.get(player_id, 0),
                 exhausted=player_id in exhausted,
                 injured=player_id in injured,
+                cyborg=player_id in cyborg_ids,
             )
             x += CARD_SIZE[0] + gap
 
@@ -4379,6 +4492,7 @@ def draw_team_board(
     exhaustion: dict[str, int],
     exhausted: set[str] = frozenset(),
     injured: set[str] = frozenset(),
+    cyborg_ids: frozenset[str] = frozenset(),
 ) -> None:
     color = TEAM_COLORS[setup.team]
     draw.rounded_rectangle(
@@ -4426,6 +4540,7 @@ def draw_team_board(
             exhaustion=exhaustion.get(player_id, 0),
             exhausted=player_id in exhausted,
             injured=player_id in injured,
+            cyborg=player_id in cyborg_ids,
         )
         card_x += CARD_SIZE[0] + 14
 
@@ -4464,6 +4579,7 @@ def draw_team_board(
                 exhaustion=exhaustion.get(player_id, 0),
                 exhausted=player_id in exhausted,
                 injured=player_id in injured,
+                cyborg=player_id in cyborg_ids,
             )
             card_x += CARD_SIZE[0] + 14
 
@@ -4531,6 +4647,7 @@ def render_coaching_image(
     side: TeamSide,
     title: str,
     species_icons: bool = False,
+    cyborg_ids: frozenset[str] = frozenset(),
 ) -> BytesIO:
     """
     One coach's own half of the field, for the
@@ -4622,8 +4739,11 @@ def render_coaching_image(
         match.exhausted,
         match.injured,
         gap=COACHING_CARD_GAP,
+        cyborg_ids=cyborg_ids,
     )
-    draw_coaching_benches(canvas, draw, setup, players, catalog, match)
+    draw_coaching_benches(
+        canvas, draw, setup, players, catalog, match, cyborg_ids=cyborg_ids,
+    )
 
     return png_bytes(canvas)
 
@@ -4635,6 +4755,7 @@ def draw_coaching_benches(
     players: dict[str, PlayerDefinition],
     catalog: PlayerCatalog,
     match: MatchState,
+    cyborg_ids: frozenset[str] = frozenset(),
 ) -> None:
     """
     The coach's two pools under the card rows. Which pool a player is
@@ -4679,6 +4800,7 @@ def draw_coaching_benches(
                 exhaustion=match.exhaustion.get(player_id, 0),
                 exhausted=player_id in match.exhausted,
                 injured=player_id in match.injured,
+                cyborg=player_id in cyborg_ids,
             )
             card_x += CARD_SIZE[0] + COACHING_CARD_GAP
 
@@ -4734,6 +4856,7 @@ def render_match_image(
     catalog: PlayerCatalog,
     title: str | None = None,
     species_icons: bool = False,
+    cyborg_ids: frozenset[str] = frozenset(),
 ) -> BytesIO:
     players = player_index(catalog)
     canvas = Image.new(
@@ -4774,6 +4897,7 @@ def render_match_image(
         match.exhaustion,
         match.exhausted,
         match.injured,
+        cyborg_ids=cyborg_ids,
     )
     draw_board(canvas, draw, match, players, species_icons=species_icons)
     draw_assignment_cards(
@@ -4787,6 +4911,7 @@ def render_match_image(
         match.exhaustion,
         match.exhausted,
         match.injured,
+        cyborg_ids=cyborg_ids,
     )
     team_board_width = (
         FIELD_FAR_RIGHT - FIELD_FAR_LEFT - TEAM_BOARD_GAP
@@ -4803,6 +4928,7 @@ def render_match_image(
         match.exhaustion,
         match.exhausted,
         match.injured,
+        cyborg_ids=cyborg_ids,
     )
     draw_team_board(
         canvas,
@@ -4816,6 +4942,7 @@ def render_match_image(
         match.exhaustion,
         match.exhausted,
         match.injured,
+        cyborg_ids=cyborg_ids,
     )
 
     # BILINEAR here, not LANCZOS: this is a pure 1.5x upscale of an

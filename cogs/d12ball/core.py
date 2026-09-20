@@ -32,6 +32,7 @@ from d12ball.components import (
     MatchState,
     PlayerDefinition,
     PlayerRole,
+    SPECIES_CYBORG,
     TeamSetup,
     TeamSide,
     legacy_maneuver_key,
@@ -71,6 +72,7 @@ from cogs.d12ball_helpers import (
     format_player_with_team,
     format_role_bracket,
     format_team_side_label,
+    get_damaged_emoji,
     get_injured_emoji,
     load_coin_emojis,
     load_condition_emojis,
@@ -970,8 +972,24 @@ class CoreMixin:
         await show_prompt(interaction)
 
 
+    def injured_word_and_emoji(
+        self,
+        game: D12BallGame,
+        player_id: str,
+    ) -> tuple[str, str]:
+        """
+        "injured"/"damaged" and the matching emoji for `player_id` --
+        Damaged is a Cyborg's own word for Injured (see "Lithium
+        Powered" in docs/living-rules.md), asked the same way
+        `describe_exhaustion_gain` asks it for Exhausted/Drained.
+        """
+        if self.engine.has_species_ability(game, player_id, SPECIES_CYBORG):
+            return "damaged", get_damaged_emoji(self.condition_emojis)
+        return "injured", get_injured_emoji(self.condition_emojis)
+
     def maneuver_winner_text(
         self,
+        game: D12BallGame,
         match: MatchState,
         reveal: str,
         outcome: str,
@@ -995,23 +1013,26 @@ class CoreMixin:
         # A tie with exactly one injured participant: they lose it
         # outright. Nothing is rolled, so neither side pays the token a
         # skill test would have cost them.
-        injured_player = self.engine.get_player_definition(
+        injured_player_id = (
             match.challenger_id
             if match.challenger_id in match.injured
             else match.active_player_id
         )
+        injured_player = self.engine.get_player_definition(injured_player_id)
+        word, emoji = self.injured_word_and_emoji(game, injured_player_id)
         return (
             f"{reveal}\n\n"
             f"**{offense_name}** ties with **{defense_name}**, but "
             f"{self.player_label(match, injured_player)}"
-            " is **injured** "
-            f"{get_injured_emoji(self.condition_emojis)} and "
+            f" is **{word}** "
+            f"{emoji} and "
             "automatically loses the tie.\n\n"
             f"## **{winner_name}** wins!"
         )
 
     def skill_test_headline(
         self,
+        game: D12BallGame,
         match: MatchState,
         reveal: str,
         outcome: str,
@@ -1036,16 +1057,18 @@ class CoreMixin:
         would_be_winner = (
             offense_name if outcome == "offense" else defense_name
         )
-        injured_player = self.engine.get_player_definition(
+        injured_player_id = (
             match.active_player_id
             if outcome == "offense"
             else match.challenger_id
         )
+        injured_player = self.engine.get_player_definition(injured_player_id)
+        word, emoji = self.injured_word_and_emoji(game, injured_player_id)
         return (
             f"{reveal}\n\n"
             f"**{would_be_winner}** would win, but "
             f"{self.player_label(match, injured_player)} is "
-            f"**injured** {get_injured_emoji(self.condition_emojis)} -- "
+            f"**{word}** {emoji} -- "
             "a skill test decides it instead!\n\n"
         )
 
@@ -1155,6 +1178,7 @@ class CoreMixin:
             await send_new_prompt(
                 interaction,
                 self.maneuver_winner_text(
+                    game,
                     match,
                     reveal,
                     outcome,
@@ -1173,7 +1197,7 @@ class CoreMixin:
             game,
             match,
             self.skill_test_headline(
-                match, reveal, outcome, offense_name, defense_name,
+                game, match, reveal, outcome, offense_name, defense_name,
             ),
         )
 
@@ -1411,13 +1435,19 @@ class CoreMixin:
             injured=not safe,
         )
 
+        drain = self.engine.has_species_ability(
+            game, player.player_id, SPECIES_CYBORG,
+        )
+        exhausted_word = "drained" if drain else "exhausted"
+        token_noun = "drain" if drain else "exhaustion"
+
         if safe:
             self.persist(game, match)
 
             content = (
-                f"{self.player_label(match, player)} is exhausted and rolls "
-                f"an injury test: {roll}{ignite_note} beats their "
-                f"{current_tokens} exhaustion tokens — safe."
+                f"{self.player_label(match, player)} is {exhausted_word} "
+                f"and rolls an injury test: {roll}{ignite_note} beats "
+                f"their {current_tokens} {token_noun} tokens — safe."
             )
         else:
             match.mark_injured(player.player_id)
@@ -1429,11 +1459,12 @@ class CoreMixin:
             # recited on every injury in the game, and the board says
             # all of it a moment later: the tokens come off the card
             # and the badge goes on.
+            word, emoji = self.injured_word_and_emoji(game, player.player_id)
             content = (
-                f"{self.player_label(match, player)} is exhausted and rolls "
-                f"an injury test: {roll}{ignite_note} does not beat their "
-                f"{current_tokens} exhaustion tokens — injury! They are "
-                f"**injured** {get_injured_emoji(self.condition_emojis)}."
+                f"{self.player_label(match, player)} is {exhausted_word} "
+                f"and rolls an injury test: {roll}{ignite_note} does not "
+                f"beat their {current_tokens} {token_noun} tokens — "
+                f"injury! They are **{word}** {emoji}."
             )
 
         # The prompt becomes the die, and what it says follows in its

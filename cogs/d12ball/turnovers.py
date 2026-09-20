@@ -15,6 +15,7 @@ from d12ball.components import (
     EVENT_TIME_OUT,
     CoachingOccasion,
     MatchState,
+    SPECIES_CYBORG,
     TeamSide,
     Zone,
 )
@@ -85,10 +86,15 @@ class TurnoverMixin:
 
         outgoing = self.engine.get_player_definition(outgoing_player_id)
         incoming = self.engine.get_player_definition(incoming_player_id)
+        outgoing_drain = self.engine.has_species_ability(
+            game, outgoing_player_id, SPECIES_CYBORG,
+        )
+        was_damaged = was_injured and outgoing_drain
         text = (
             f"{self.player_label(match, incoming)} comes on "
             f"for {self.player_label(match, outgoing)}"
-            f"{' (injured)' if was_injured else ''}."
+            f"{' (damaged)' if was_damaged else ''}"
+            f"{' (injured)' if was_injured and not outgoing_drain else ''}."
         )
 
         if from_back_bench:
@@ -104,18 +110,23 @@ class TurnoverMixin:
             threshold = self.engine.exhaustion_threshold(
                 game, incoming_player_id,
             )
+            incoming_drain = self.engine.has_species_ability(
+                game, incoming_player_id, SPECIES_CYBORG,
+            )
+            noun = "drain" if incoming_drain else "exhaustion"
             remaining = match.exhaustion.get(incoming_player_id, 0)
             exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
             text += (
                 f"\nBack on from the back bench, down to {remaining} "
-                f"exhaustion {'token' if remaining == 1 else 'tokens'} "
+                f"{noun} {'token' if remaining == 1 else 'tokens'} "
                 f"{exhaust_emoji * remaining}."
             )
             if match.mark_exhausted_if_needed(
                 incoming_player_id, threshold,
             ):
+                condition = "Drained" if incoming_drain else "Exhausted"
                 text += (
-                    f" Still **Exhausted** -- {remaining} is over "
+                    f" Still **{condition}** -- {remaining} is over "
                     f"{threshold}."
                 )
 
@@ -213,6 +224,7 @@ class TurnoverMixin:
             side,
             self.engine.coaching_title(match, side),
             species_icons=self.engine.species_abilities_apply(game),
+            cyborg_ids=self.cyborg_condition_ids(game, match),
         )
         return discord.File(
             io.BytesIO(png.getvalue()),

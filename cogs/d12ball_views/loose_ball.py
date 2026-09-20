@@ -12,6 +12,7 @@ from d12ball import tutorial
 from d12ball.components import (
     MatchState,
     PlayerDefinition,
+    SPECIES_CYBORG,
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.game import (
@@ -462,10 +463,16 @@ class LooseBallSkillTestView(SafeView):
         offense_detail = contestant_detail(
             offense_player, "Offensive", offense_skill,
             injured=offense_injured,
+            cyborg=self.cog.engine.has_species_ability(
+                game, offense_player.player_id, SPECIES_CYBORG,
+            ),
         )
         defense_detail = contestant_detail(
             defense_player, "Defensive", defense_skill,
             injured=defense_injured,
+            cyborg=self.cog.engine.has_species_ability(
+                game, defense_player.player_id, SPECIES_CYBORG,
+            ),
         )
         for detail, line in (
             (offense_detail, offense_ignite.detail),
