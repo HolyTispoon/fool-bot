@@ -89,6 +89,7 @@ from cogs.d12ball_helpers import (
     load_d12_emoji,
     load_d12_button_emoji,
     load_role_emojis,
+    load_species_ability_emojis,
     load_team_emojis,
     send_error_fallback,
     send_new_prompt,
@@ -240,10 +241,11 @@ class CoreMixin:
         # as it comes up, 0.0 reads as "asked a moment ago" and skips
         # the first retry.
         self.coin_emojis_checked_at: Optional[float] = None
-        # The condition, team and role emoji all live on the engine --
-        # see `condition_emojis`, `team_emojis` and `role_emojis`
-        # below. The engine's `__init__` starts each of the three at
-        # `{}`, so there is nothing to initialise here.
+        # The condition, team, role and species-ability emoji all live
+        # on the engine -- see `condition_emojis`, `team_emojis`,
+        # `role_emojis` and `species_ability_emojis` below. The
+        # engine's `__init__` starts each of the four at `{}`, so there
+        # is nothing to initialise here.
         # The `<:d12dice:id>` string for the hub message and the lobby
         # heading, and the lighter `<:d12dicecream:id>` for the hub
         # button (its blue fill swallowed the darker die) -- both None
@@ -471,6 +473,9 @@ class CoreMixin:
             self.bot, application_emojis,
         )
         self.condition_emojis = await load_condition_emojis(
+            self.bot, application_emojis,
+        )
+        self.species_ability_emojis = await load_species_ability_emojis(
             self.bot, application_emojis,
         )
         self.team_emojis = await load_team_emojis(
@@ -730,6 +735,26 @@ class CoreMixin:
         self, role_emojis: dict[tuple[PlayerRole, Optional[Team]], str],
     ) -> None:
         self.engine.role_emojis = role_emojis
+
+    @property
+    def species_ability_emojis(self) -> dict[str, str]:
+        """
+        The species-ability emoji, `"telekinetic" -> "<:telekinetic_
+        color:id>"`, once cog_load has fetched them and `{}` before --
+        the mark at the head of Mind Pull's and Smooth's own banners.
+        On the engine with `team_emojis`, `role_emojis` and
+        `condition_emojis` rather than a second dict assigned beside
+        it, so the wording still has them once those steps lift into
+        `d12ball/flow/` -- see "Application emoji for the four
+        abilities" in docs/design/species-abilities.md.
+        """
+        return self.engine.species_ability_emojis
+
+    @species_ability_emojis.setter
+    def species_ability_emojis(
+        self, species_ability_emojis: dict[str, str],
+    ) -> None:
+        self.engine.species_ability_emojis = species_ability_emojis
 
     def player_label(
         self,
