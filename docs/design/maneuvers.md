@@ -79,10 +79,18 @@ it. Three things narrow it, and all three are rules:
 
 `may_play_gambits(game, match, side)` is the gate: a coach holds their
 gambits only while their team is **behind**, which is `trailing` (fewer
-goals) or `carrying_more_injuries` (more injured players *on the field*
-than the opponent). Either is enough and both are asked of one team, so
-both coaches can hold them at once -- one trailing while the other is
-the more hurt.
+goals) or `carrying_more_conditions` (more Exhausted-or-Injured players
+*on the field* than the opponent -- Drained and Damaged count too,
+being a Cyborg's own words for the same two conditions). Either is
+enough and both are asked of one team, so both coaches can hold them at
+once -- one trailing while the other is the more hurt.
+
+- **Widened from injured-only on 2026-09-20**, the same day the gate
+  itself landed: `MatchState.conditioned_field_players` reads
+  `match.injured` **or** `match.exhausted` rather than `injured` alone,
+  a plain union since `mark_injured` already discards a player from
+  `exhausted` the moment they go down. See the dated entry in
+  [rules-log.md](../rules-log.md).
 
 - **It is what gave `maneuver_tiers` a `side`, and that is the whole
   structural change.** The two coaches no longer necessarily hold the
