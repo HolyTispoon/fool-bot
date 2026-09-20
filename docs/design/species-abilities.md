@@ -304,6 +304,29 @@ missing other half for Injured, scoped the same way.
   the author's read on a first draft using the exact team hex was that the
   lettering got lost in the sunburst behind it at the 26px the board actually
   draws it.
+- **The exhaustion-token counter got a Cyborg variant the same way,
+  2026-09-19** -- `exhaust_cyborg.png`, in the same teal as Drained, so a
+  Cyborg's own tally and their Drained badge read as one colour rather than
+  an amber count sitting beside a teal condition. Unlike the four condition
+  tokens above, this one is a **recolour, not a redraw**:
+  `exhaust.png` (the amber triangle `draw_exhaustion_badge` draws on any
+  card carrying tokens at all) predates `render_condition_tokens.py` and has
+  no generator of its own, so `scripts/recolor_exhaust_token.py` reads the
+  source's two flat colours (a warm near-black ink and the amber fill,
+  sampled off the art rather than assumed) and re-expresses every pixel at
+  the same position on the ink-to-teal line -- which carries every
+  anti-aliased edge across exactly, rather than risking a redrawn triangle
+  that doesn't quite match the one it sits beside on the card.
+  `draw_card`'s `cyborg` flag now also picks this icon in
+  `draw_exhaustion_badge`, the same "which icon, never whether one is
+  drawn" rule as Drained/Damaged above. That meant widening what
+  `D12Ball.cyborg_condition_ids` answers: it used to be "currently
+  Exhausted or Injured", which left a Cyborg mid-count (tokens above zero
+  but below `CYBORG_DRAINED_AT`) drawing the amber triangle, so it now
+  unions in `match.exhaustion.keys()` too. Board art only, for now -- it
+  has no application emoji of its own, since nothing in the cog's own text
+  messages names an exhaustion *count* the way `describe_exhaustion_gain`
+  names the Drained/Exhausted condition.
 
 **Overdrive is the only thing in the game declared before a roll**, which is
 what it cost to build. Every roll already sits behind a button any coach may
