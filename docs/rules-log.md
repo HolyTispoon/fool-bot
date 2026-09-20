@@ -119,49 +119,47 @@ halftime and the shootout window hand them their own.
 Left alone until asked: it is a real change to how many players can pass through
 a game, and the current number was settled deliberately.
 
-### Does a Telekinetic challenger get a Mind Pull on the ball they just pressured?
-
-**Found while gating `apply_pressure`'s overshoot branch, 2026-09-20. Not a question about
-that branch -- it is true of every Pressure and Double Team on main today.**
-
-Pressure says "the handler and the ball go 1 space back [...] and the challenger moves 1
-space forward onto the same space", and `shove_pressured_handler` implements exactly that:
-it moves the handler, calls `set_ball_space` on where they ended up, and *then* places the
-challenger (and a Double Team's partner) on that same space. Two facts about Mind Pull then
-collide:
-
-- `MatchState.ball_path_to` excludes where the ball starts, because "the ball's own starting
-  space does not count as moved to". The challenger was standing on that starting space -- on
-  the ball, which is where a challenger stands -- so the crossing itself gave them nothing.
-- `RulesEngine.mind_pull_candidates` reads **current** board occupancy of the path. By the
-  time any gate asks, the shove has already placed the challenger on the arrival space.
-
-So a Telekinetic who challenges a Pressure is offered a pull on the ball they just shoved,
-every time. That is the same shape as the bug the fourth gate was added to fix on 2026-09-20
--- a Telekinetic offered a pull because a later step put them on a crossed space, rather than
-because the ball crossed them -- except that here the later step is part of the maneuver
-itself, and the two are genuinely simultaneous in the rules' own wording ("go back [...] and
-the challenger moves forward onto the same space").
-
-Which makes it a reading, not plainly a bug, and both readings are defensible:
-
-- **They are there as it lands**, the shove being one motion, so the ball has moved to their
-  space and the pull is owed. A defender who drives the handler back into their own half and
-  reaches out for the loose contact is a scene the ability is for.
-- **They were on the origin**, which the rules exclude outright, and a defender should not be
-  able to manufacture a pull on any ball they can reach by pressuring it -- which is a 1-in-6
-  steal bolted onto a card that already wins possession for Defenders.
-
-**Nothing has been changed either way.** The new gate in the overshoot branch inherits
-whatever the other four do, deliberately, so there is one answer across all five rather than a
-new divergence; if the answer is the second reading, the fix belongs in
-`mind_pull_candidates` or in `shove_pressured_handler`'s ordering and reaches every gate at
-once.
-
 ## Change log
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-20 (later still) -- author, nobody the resolution moved is offered either half
+
+The question this answers was found while gating the overshoot branch, and was true of every
+Pressure and Double Team in the bot: `shove_pressured_handler` places the challenger on the
+handler's new space, as the card says ("the challenger moves 1 space forward onto the same
+space"), and `mind_pull_candidates` read *current* occupancy of the path -- so a Telekinetic
+who challenged a Pressure was offered a pull on the ball they had just shoved, every time.
+
+The author, in chat: *"No they should not get that. they move with the ball while mind pull
+only works when the ball moves after"*.
+
+**So the test is whether the player was carried, not where they are standing when the gate
+asks.** A player the resolution moved never had the ball move *to or through* their space --
+they and it arrived together. `MatchState.last_ball_movers` records them, and both
+`mind_pull_candidates` and `smooth_candidates` subtract it.
+
+**It is a general rule and it reaches further than the case that found it.** The same sentence
+disqualifies:
+
+- the **challenger** of a Pressure, and a **Double Team's partner**, both placed on the ball
+  by the shove;
+- the **shoved handler**, who is on the *possessing* side and ends up standing on the ball --
+  so without this they would have been offered a **Smooth on a ball they were already
+  holding**, which is the same bug wearing the other half of the ability;
+- the **handler of every dribble**, who moves with the ball by definition, for the same
+  reason.
+
+**Recorded where the path is recorded, and spent with it.** `move_meeple` and
+`move_player_relative` are the two ways a player moves during play, and both note the mover;
+the deal, a substitution and the run-back reset go to `BoardState.place_meeple` directly and
+are deliberately not noted, because none of them happens while a movement is waiting on a
+gate. A move that goes nowhere -- a clamped shove that leaves a player where they stood -- is
+not a move, the same reading `ball_path_to` already makes of a ball that does not travel. The
+movers are cleared wherever the path is, because the disqualification belongs to the movement
+that caused it and not to the turn: a second movement in the same turn finds everyone eligible
+again.
 
 ### 2026-09-20 (later) -- author, Smooth is asked before Mind Pull
 

@@ -1462,8 +1462,11 @@ class ManeuverEffectsMixin:
         candidates = self.engine.mind_pull_candidates(game, match)
         # Spent either way, and before the early return: a movement
         # that offered nobody a pull must not offer one at the next
-        # arrival point either.
+        # arrival point either. The movers go with it -- they are only
+        # disqualified from the movement that moved them, so a second
+        # movement in the same turn must find them eligible again.
         match.last_ball_path = []
+        match.last_ball_movers = []
         if not candidates:
             return False
 

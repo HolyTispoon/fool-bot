@@ -1542,6 +1542,9 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
         read=lambda path: [list(step) for step in path],
     ),
     SavedField(
+        "last_ball_movers", factory=list, write=list, read=list,
+    ),
+    SavedField(
         "pending_mind_pull", factory=list, write=list, read=list,
     ),
     SavedField("pending_mind_pull_resume"),
@@ -1781,6 +1784,14 @@ class MatchState:
     # and between the interrupt and the answer these are the only thing
     # on the match saying what the ball was about to do.
     last_ball_path: list[list] = field(default_factory=list)
+    # **Who this resolution moved**, and therefore who neither half of
+    # the ability may be offered to. "They move with the ball, while
+    # Mind Pull only works when the ball moves after" (the author,
+    # 2026-09-20): a player the maneuver relocated never had the ball
+    # move *to or through* their space -- they and it arrived
+    # together. Recorded beside the path because it has exactly the
+    # path's lifetime, and cleared everywhere the path is.
+    last_ball_movers: list[str] = field(default_factory=list)
     pending_mind_pull: list[str] = field(default_factory=list)
     pending_mind_pull_resume: Optional[dict] = None
     # **Smooth.** The same two fields again, for the Telekinetic's
@@ -3006,6 +3017,7 @@ class MatchState:
         self.ball.possession = self.side_for_player(player_id)
         self.set_ball_carrier(player_id)
         self.last_ball_path = []
+        self.last_ball_movers = []
         self.pending_mind_pull = []
 
     def apply_smooth(self, player_id: str) -> None:
@@ -3029,6 +3041,7 @@ class MatchState:
         self.ball.space_index = space_index
         self.set_ball_carrier(player_id)
         self.last_ball_path = []
+        self.last_ball_movers = []
         self.pending_smooth = []
         self.pending_mind_pull = []
 
@@ -3355,6 +3368,7 @@ class MatchState:
         self.volatile_loser_cost = None
         self.pending_overdrive = []
         self.last_ball_path = []
+        self.last_ball_movers = []
         self.pending_mind_pull = []
         self.pending_mind_pull_resume = None
         self.pending_smooth = []
@@ -3398,6 +3412,7 @@ class MatchState:
         )
         if player_id not in fielded_players:
             raise ValueError("Only a fielded player's meeple can move.")
+        self.note_mover(player_id, Zone(zone), space_index)
         self.board.place_meeple(player_id, zone, space_index)
 
     def move_card(
@@ -3500,6 +3515,33 @@ class MatchState:
         """
         self.set_ball_space(zone, space_index)
         self.last_ball_path = []
+        self.last_ball_movers = []
+
+    def note_mover(
+        self, player_id: str, zone: Zone, space_index: int,
+    ) -> None:
+        """
+        Record that this resolution moved `player_id`, so neither Mind
+        Pull nor Smooth is offered to them on the movement that moved
+        them -- "they move with the ball, while Mind Pull only works
+        when the ball moves after" (the author, 2026-09-20).
+
+        **A move that goes nowhere is not a move.** A clamped shove
+        that leaves a player exactly where they stood has carried them
+        nowhere, so it does not disqualify them -- the same reading
+        `ball_path_to` already makes of a ball that does not travel.
+
+        Called by `move_meeple` and `move_player_relative`, which are
+        the two ways a player moves *during play*. The deal, a
+        substitution and the run-back reset reach
+        `BoardState.place_meeple` directly and are deliberately not
+        recorded: none of them happens while a movement is waiting on
+        a gate.
+        """
+        if self.board.meeple_position(player_id) == (Zone(zone), space_index):
+            return
+        if player_id not in self.last_ball_movers:
+            self.last_ball_movers.append(player_id)
 
     def ball_path_to(
         self, zone: Zone, space_index: int,
@@ -3565,6 +3607,7 @@ class MatchState:
         origin_flat = self.board.flat_index(*position)
         target_flat = self.relative_flat_index(origin_flat, side, spaces)
         zone, space_index = self.board.position_at_flat_index(target_flat)
+        self.note_mover(player_id, zone, space_index)
         self.board.place_meeple(player_id, zone, space_index)
         return abs(target_flat - origin_flat)
 

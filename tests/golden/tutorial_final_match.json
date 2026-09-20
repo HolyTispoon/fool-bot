@@ -327,6 +327,7 @@
     }
   },
   "injured": [],
+  "last_ball_movers": [],
   "last_ball_path": [],
   "loose_ball_defense_declined": false,
   "loose_ball_defense_player": null,

@@ -586,6 +586,42 @@ split is the whole design.
   `check_for_loose_ball`, which reaches the second gate with the path already
   empty.
 
+**The path says where the ball went; `last_ball_movers` says who went with
+it, and a candidate has to fail the second test as well as pass the first.**
+"They move with the ball, while Mind Pull only works when the ball moves
+after" (the author, 2026-09-20). A player the resolution carried never had the
+ball move *to or through* their space, because they and it arrived together --
+so reading occupancy alone was wrong in a way the path could not see.
+
+- **It was a live bug on every Pressure and Double Team.**
+  `shove_pressured_handler` places the challenger on the handler's *new*
+  space, which is exactly what the card says ("the challenger moves 1 space
+  forward onto the same space"), and `mind_pull_candidates` read current
+  occupancy -- so a Telekinetic who challenged a Pressure was offered a pull
+  on the ball they had just shoved, every time. It is the same shape as the
+  bug the fourth gate fixed, except that here the step that moves them is
+  part of the maneuver rather than the run-back afterwards, which is why the
+  fourth gate's answer (gate earlier) could not reach it.
+- **Smooth made it worse before it made it visible.** The shoved handler is
+  on the *possessing* side and ends up standing on the ball, so the moment
+  Smooth existed they would have been offered a Smooth on a ball they were
+  already holding -- as would the handler of every dribble. One exclusion
+  answers all of it.
+- **Recorded at the two ways a player moves during play**, `move_meeple` and
+  `move_player_relative`, both of which call `MatchState.note_mover`. The
+  deal, a substitution and the run-back reset reach
+  `BoardState.place_meeple` directly and are deliberately *not* recorded:
+  none of them happens while a movement is waiting on a gate, and noting
+  them would disqualify players for having been dealt onto a space.
+- **A move that goes nowhere is not a move**, the same reading `ball_path_to`
+  makes of a ball that does not travel. A 1-space Pressure against the goal
+  clamps to nothing, and that handler is offered whatever standing still
+  would have offered them.
+- **Spent with the path, not with the turn.** The disqualification belongs to
+  the movement that caused it, so a second movement in the same turn finds
+  everyone eligible again -- which is why the gate clears both together and
+  `reset_maneuver` clears both as well.
+
 **A restart goes through `restart_ball_at`, not `set_ball_space`, and that
 distinction is the caller's to make.** A dead ball being brought back into
 play -- the kickoff after a goal, the ball put out again after a shot that

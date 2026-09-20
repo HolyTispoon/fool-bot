@@ -453,6 +453,8 @@ A [new-play reset](#resetting-after-a-new-play) is not a run back and triggers n
 
 The token is paid whether or not the pull lands, and Mind Pull is a choice. The roll is not a skill test and owes no [injury check](#the-injury-check). The ball's own starting space does not count as "moved to" — only a ball changing spaces can be pulled, and only the opposing team's ball.
 
+**Whoever the movement itself moved is not offered a pull, or a Smooth.** The ball has to move to or through a space the player was *already standing on* and stayed on: a player the maneuver carried never had it move to them, because they and it arrived together. So the challenger a [Pressure](#pressure) brings forward onto the ball is owed nothing for it, nor is a [Double Team](#double-team)'s partner, nor the handler either card shoves back, nor the handler of a [dribble](#dribble-advance) who moves with the ball by definition. A player shoved nowhere — already against their own goal, with the push clamped to nothing — has not been carried, and is offered whatever they would have been offered standing still.
+
 **One roll per Telekinetic per ball movement.** Where the ball's path crosses two Telekinetics, each may try in the order the ball reaches them; the first to succeed stops the ball there and the rest get no roll.
 
 **Only a live ball can be pulled.** A ball being brought back into play after it has gone dead — the kickoff after a [goal](#score-attempt), the restart after a shot that missed, a [second-half kickoff](#halftime) — is carried to where play starts again rather than travelling over the spaces between, so it crosses nobody and offers nobody a pull however far it goes.

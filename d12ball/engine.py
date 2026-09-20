@@ -583,6 +583,12 @@ class RulesEngine:
           therefore never share a name on one movement, which is what
           lets the two queues run one after the other without either
           having to know about the other's members.
+        - **Anyone this resolution moved is out**, the same as the
+          pull and for the author's same sentence. It matters more
+          here than there: the handler a dribble or a shove carries is
+          on the possessing side and ends up standing on the ball, so
+          without this they would be offered a Smooth on the ball they
+          are already holding.
         - **Injured players are in.** A pull excludes them because it
           costs an exhaustion token and an injured player cannot gain
           one, so `add_exhaustion` would silently hand them a free
@@ -601,11 +607,14 @@ class RulesEngine:
         ours = set(
             match.setup_for_side(match.ball.possession).field_players
         )
+        moved = set(match.last_ball_movers)
 
         candidates: list[str] = []
         for zone_value, space_index in match.last_ball_path:
             for player_id in match.board.spaces[Zone(zone_value)][space_index]:
                 if player_id not in ours or player_id in candidates:
+                    continue
+                if player_id in moved:
                     continue
                 if not self.has_species_ability(
                     game, player_id, SPECIES_TELEKINETIC,
@@ -649,6 +658,14 @@ class RulesEngine:
           -- a Telekinetic never pulls their own side's ball in, so
           this is the side *not* in possession at the moment the ball
           moved.
+        - **Anyone this resolution moved is out.** "They move with the
+          ball, while Mind Pull only works when the ball moves after"
+          (the author, 2026-09-20). A player the maneuver carried never
+          had the ball move *to or through* their space -- they and it
+          arrived together -- so a Telekinetic who challenges a Pressure
+          is not owed a pull on the ball they just shoved, even though
+          the shove leaves them standing on it.
+          `MatchState.last_ball_movers` is who those are.
         - **Injured players are out**, because a pull costs an
           exhaustion token and an injured player cannot gain one. That
           is the ordinary rule reaching here rather than an exception:
@@ -664,11 +681,14 @@ class RulesEngine:
 
         defending = match.defending_side()
         theirs = set(match.setup_for_side(defending).field_players)
+        moved = set(match.last_ball_movers)
 
         candidates: list[str] = []
         for zone_value, space_index in match.last_ball_path:
             for player_id in match.board.spaces[Zone(zone_value)][space_index]:
                 if player_id not in theirs or player_id in candidates:
+                    continue
+                if player_id in moved:
                     continue
                 if player_id in match.injured:
                     continue
