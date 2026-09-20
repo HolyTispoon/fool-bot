@@ -53,7 +53,6 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         cog.player_catalog = self.catalog
         cog.basic_ruleset = self.rules
         cog.maneuver_catalog = self.maneuvers
-        cog.condition_emojis = {}
         cog.ai_strategies = build_ai_strategies(
             self.catalog, self.maneuvers,
         )
@@ -61,6 +60,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
             cog.ai_strategies,
         )
+        cog.condition_emojis = {}
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         # The cascade settles the persistent message with a board, and
@@ -429,10 +429,10 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
         cog.player_catalog = self.catalog
         cog.basic_ruleset = self.rules
         cog.maneuver_catalog = self.maneuvers
-        cog.condition_emojis = {}
         cog.engine = RulesEngine(
             cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
         )
+        cog.condition_emojis = {}
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.engine.apply_forced_run_backs = mock.Mock()
@@ -489,7 +489,9 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.player_catalog = self.catalog
-        cog.condition_emojis = {}
+        # No engine and no condition emoji: this test mocks everything
+        # that would word a result, and `condition_emojis` is a
+        # property over the engine now (see `D12Ball.condition_emojis`).
         cog.render_match_png = mock.AsyncMock(return_value=b"png")
         cog.match_file_from_png = mock.Mock(return_value="file")
         cog.refresh_match_image = mock.AsyncMock()

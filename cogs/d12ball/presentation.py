@@ -127,26 +127,17 @@ class PresentationMixin:
     ) -> str:
         """
         Charge `amount` exhaustion tokens, re-test Exhausted, and
-        describe both.
+        describe both -- then save, because the threshold test is a
+        state change and this is what runs it.
 
-        Charging and testing belong in one step. They used to be two:
-        callers added the tokens, saved the match, and only then built
-        the message that ran the threshold test -- so the flag the
-        test set was never written out. The next interaction reloaded
-        the saved state and saw a player over their defensive skill
-        who was not marked Exhausted, which cost a skill test the
-        injury check for anyone the test's own tokens pushed over.
-        Anything that charges exhaustion should call this and save
-        afterwards.
-
-        It takes the `game` because the threshold is not always the
-        player's defensive skill: a Cyborg's tokens are **drain** and
-        the line is a flat 7 -- see `RulesEngine.exhaustion_threshold`.
-        Nothing else about charging a token differs by species, which
-        is why this stayed one method rather than growing a branch.
+        A forwarding method over `RulesEngine.apply_exhaustion`, which
+        moved to the engine when a flow step first needed to charge a
+        token and say so in its own narration (rank O2 of
+        docs/model-discord-split.md). Kept here so no call site moved:
+        twenty-odd sites across the cog and the views already read this
+        rather than reaching through `self.engine`.
         """
-        match.add_exhaustion(player_id, amount)
-        return self.describe_exhaustion_gain(game, match, player_id, amount)
+        return self.engine.apply_exhaustion(game, match, player_id, amount)
 
     def describe_exhaustion_gain(
         self,
@@ -156,69 +147,13 @@ class PresentationMixin:
         amount: int,
     ) -> str:
         """
-        Text describing an exhaustion-token gain that has already been
-        applied to `match` — the running total, plus a line the moment
-        it pushes the player's token count past their own threshold.
-
-        Testing the threshold is a state change, so this has to be
-        called before `match` is saved -- prefer `apply_exhaustion`,
-        which keeps the two together, wherever the tokens are being
-        charged here rather than inside `MatchState`.
+        `apply_exhaustion` without the charge, for a caller whose
+        tokens `MatchState` added for them. Forwards to the engine for
+        the same reason.
         """
-        player = self.engine.get_player_definition(player_id)
-        # A Cyborg's tokens are drain, and are called that everywhere a
-        # coach reads them -- the mechanic is the same and the word is
-        # the ability. See "Lithium Powered" in docs/living-rules.md.
-        drain = self.engine.has_species_ability(
-            game, player_id, SPECIES_CYBORG,
+        return self.engine.describe_exhaustion_gain(
+            game, match, player_id, amount,
         )
-        if player_id in match.injured:
-            if drain:
-                return (
-                    f"{self.player_label(match, player)} is damaged "
-                    f"{get_damaged_emoji(self.condition_emojis)} and gains "
-                    "no drain tokens."
-                )
-            return (
-                f"{self.player_label(match, player)} is injured "
-                f"{get_injured_emoji(self.condition_emojis)} and gains no "
-                "exhaustion tokens."
-            )
-        if amount <= 0:
-            # Nothing to say, and the silence is the answer (the
-            # author, 2026-08-27). Every move that costs a token says
-            # so right here, so a result carrying no exhaustion line
-            # already tells a coach none was charged -- where "no
-            # exhaustion cost" answered a question the message had not
-            # raised, and "free" left it to the coach to work out what
-            # was free about it. Callers join on what is there rather
-            # than interpolating, or the empty string shows as a blank
-            # line.
-            return ""
-
-        exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
-        total = match.exhaustion.get(player_id, 0)
-        token_word = "token" if amount == 1 else "tokens"
-        noun = "drain" if drain else "exhaustion"
-        text = (
-            f"{self.player_label(match, player)} gains {amount} {noun} "
-            f"{token_word} {exhaust_emoji * amount} (now {total} total)."
-        )
-
-        if self.engine.retest_exhausted(game, match, player_id):
-            if drain:
-                drained_emoji = get_drained_emoji(self.condition_emojis)
-                text += (
-                    f"\n{self.player_label(match, player)} is now "
-                    f"*drained* {drained_emoji}"
-                )
-            else:
-                exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
-                text += (
-                    f"\n{self.player_label(match, player)} is now "
-                    f"*exhausted* {exhausted_emoji}"
-                )
-        return text
 
     def describe_challenger_walk_in(
         self,

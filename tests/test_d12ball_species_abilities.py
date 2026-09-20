@@ -418,7 +418,6 @@ def build_ignition_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
-    cog.condition_emojis = {}
     cog.coin_emojis = {}
     cog.ai_strategies = build_ai_strategies(
         cog.player_catalog, cog.maneuver_catalog,
@@ -429,6 +428,7 @@ def build_ignition_cog() -> D12Ball:
         cog.maneuver_catalog,
         cog.ai_strategies,
     )
+    cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
     cog.begin_injury_tests = mock.AsyncMock()
     return cog
@@ -2190,7 +2190,6 @@ def build_mind_pull_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
-    cog.condition_emojis = {}
     cog.coin_emojis = {}
     cog.ai_strategies = build_ai_strategies(
         cog.player_catalog, cog.maneuver_catalog,
@@ -2201,6 +2200,7 @@ def build_mind_pull_cog() -> D12Ball:
         cog.maneuver_catalog,
         cog.ai_strategies,
     )
+    cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
     cog.send_turn_prompt = mock.AsyncMock()
     cog.check_for_loose_ball = mock.AsyncMock(return_value=False)

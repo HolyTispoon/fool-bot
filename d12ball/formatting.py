@@ -9,14 +9,23 @@ it formats, and cogs/d12ball_helpers.py re-imports every name below
 for the many call sites (and other cog-level helpers, like
 format_role_bracket) that already read them from there.
 
-What stayed behind in cogs/d12ball_helpers.py either needs live
-Discord data (condition_emojis) or touches discord.py directly --
-format_role_bracket needs an emoji dict this module has no business
-*fetching*, which is the whole difference between the two files. A
+What stayed behind in cogs/d12ball_helpers.py is the *fetching* --
+`load_team_emojis`, `load_condition_emojis` and the `*_EMOJI_NAME`
+constants naming what to look up -- and everything that touches
+discord.py directly. That is the whole difference between the two
+files: this module has no business asking an application which emoji
+it has uploaded, and every business writing one into a sentence. A
 dict of `Team -> "<:team_purple:id>"` strings, once fetched, is plain
 data, and `format_player_with_team` takes one the way
 `format_role_bracket` does: the engine's prompt builders name a coach
 with their team emoji, so the fallbacks and the lookup live here.
+
+The condition emoji came down the same way, when rank O2 of the
+model/Discord split moved `RulesEngine.describe_exhaustion_gain` --
+which writes the exhaustion token into the sentence charging it -- to
+the model's side. Nothing about "which emoji stands for a drained
+Cyborg" needed Discord; only finding out whether it had been uploaded
+did.
 """
 
 from typing import Optional
@@ -80,6 +89,46 @@ TEAM_EMOJI_FALLBACKS = {
 
 def get_team_emoji(team_emojis: dict[Team, str], team: Team) -> str:
     return team_emojis.get(team, TEAM_EMOJI_FALLBACKS[team])
+
+
+# What a condition is drawn as in *text* before its application emoji
+# has been fetched, or when the upload is missing -- the exhaustion
+# token a charge is counted out in, and the four conditions a player
+# can be in. The uploads are the same art the board draws these with,
+# so a line of text and the badge on a card show a coach the same
+# icon; these are the plain stand-ins for an application that has
+# neither uploaded them nor been given them by a server.
+#
+# Looked up by name in cogs/d12ball_helpers.py's
+# `load_condition_emojis`, which is the half that needs Discord. The
+# five accessors below are the half that does not, and they are down
+# here because `RulesEngine.describe_exhaustion_gain` writes them into
+# the sentence that charges the tokens.
+EXHAUST_EMOJI_FALLBACK = "😮‍💨"
+EXHAUSTED_EMOJI_FALLBACK = "🥵"
+INJURED_EMOJI_FALLBACK = "🤕"
+DRAINED_EMOJI_FALLBACK = "🪫"
+DAMAGED_EMOJI_FALLBACK = "💥"
+
+
+def get_exhaust_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("exhaust", EXHAUST_EMOJI_FALLBACK)
+
+
+def get_exhausted_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("exhausted", EXHAUSTED_EMOJI_FALLBACK)
+
+
+def get_injured_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("injured", INJURED_EMOJI_FALLBACK)
+
+
+def get_drained_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("drained", DRAINED_EMOJI_FALLBACK)
+
+
+def get_damaged_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("damaged", DAMAGED_EMOJI_FALLBACK)
 
 
 def contest_noun(match: MatchState) -> str:

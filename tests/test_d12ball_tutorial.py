@@ -72,10 +72,10 @@ def build_cog() -> D12Ball:
     cog.player_catalog = CATALOG
     cog.maneuver_catalog = MANEUVERS
     cog.basic_ruleset = RULES
-    cog.condition_emojis = {}
     cog.coin_emojis = {}
     cog.ai_strategies = build_ai_strategies(CATALOG, MANEUVERS)
     cog.engine = RulesEngine(CATALOG, RULES, MANEUVERS, cog.ai_strategies)
+    cog.condition_emojis = {}
     # Everything that draws or uploads.
     cog.refresh_match_image = mock.AsyncMock()
     cog.announce_board_update = mock.AsyncMock()

@@ -65,12 +65,12 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
-    cog.condition_emojis = {}
     cog.d12_emoji = None
     cog.coin_emojis = {}
     cog.engine = RulesEngine(
         cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
     )
+    cog.condition_emojis = {}
     return cog
 
 

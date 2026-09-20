@@ -1440,7 +1440,6 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
         cog = object.__new__(D12Ball)
         cog.bot = bot
         cog.coin_emojis = {}
-        cog.condition_emojis = {}
         # cog_load hands the team and role emoji to the engine, which
         # is where they live -- see `D12Ball.team_emojis` and
         # `D12Ball.role_emojis`.
@@ -1450,6 +1449,7 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
             load_maneuver_catalog(),
             {},
         )
+        cog.condition_emojis = {}
         cog.coin_emojis_checked_at = None
         return cog
 

@@ -200,9 +200,11 @@ class CoreMixin:
         # as it comes up, 0.0 reads as "asked a moment ago" and skips
         # the first retry.
         self.coin_emojis_checked_at: Optional[float] = None
-        self.condition_emojis: dict[str, str] = {}
-        # The team and role emoji live on the engine -- see
-        # `team_emojis` and `role_emojis` below.
+        # The team, role and condition emoji live on the engine -- see
+        # `team_emojis`, `role_emojis` and `condition_emojis` below.
+        # Nothing is assigned here: each is a property over the
+        # engine's own dict, and the engine is not built until further
+        # down this method.
         # The `<:d12dice:id>` string for the hub message and the lobby
         # heading, and the lighter `<:d12dicecream:id>` for the hub
         # button (its blue fill swallowed the darker die) -- both None
@@ -668,6 +670,27 @@ class CoreMixin:
         self, role_emojis: dict[tuple[PlayerRole, Optional[Team]], str],
     ) -> None:
         self.engine.role_emojis = role_emojis
+
+    @property
+    def condition_emojis(self) -> dict[str, str]:
+        """
+        The condition emoji, `"exhaust" -> "<:exhaust:id>"`, once
+        cog_load has fetched them and `{}` before -- the token a charge
+        is counted out in, and the four conditions a player can be in
+        (see `load_condition_emojis`).
+
+        The dict lives on the engine, whose `describe_exhaustion_gain`
+        writes them into the sentence charging the tokens, and this is
+        a view of that one copy for the same reason as `team_emojis`
+        and `role_emojis` above: cog_load *replaces* the dict on every
+        fetch, so a reference handed over at construction would go
+        stale the moment that landed.
+        """
+        return self.engine.condition_emojis
+
+    @condition_emojis.setter
+    def condition_emojis(self, condition_emojis: dict[str, str]) -> None:
+        self.engine.condition_emojis = condition_emojis
 
     def player_label(
         self,

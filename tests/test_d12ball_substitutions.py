@@ -34,10 +34,10 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.basic_ruleset = load_basic_ruleset()
     cog.maneuver_catalog = load_maneuver_catalog()
-    cog.condition_emojis = {}
     cog.engine = RulesEngine(
         cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
     )
+    cog.condition_emojis = {}
     cog.announce_run_back = mock.AsyncMock()
     cog.begin_substitution_window = mock.AsyncMock()
     return cog
@@ -473,8 +473,8 @@ class ContinueRunBackKickoffFillTests(unittest.IsolatedAsyncioTestCase):
         cog.games = {}
         cog.player_catalog = self.catalog
         cog.basic_ruleset = self.rules
-        cog.condition_emojis = {}
         cog.engine = RulesEngine(cog.player_catalog, cog.basic_ruleset, None, {})
+        cog.condition_emojis = {}
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         return cog

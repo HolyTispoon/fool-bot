@@ -57,7 +57,6 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
-    cog.condition_emojis = {}
     cog.ai_strategies = build_ai_strategies(
         cog.player_catalog, cog.maneuver_catalog,
     )
@@ -65,6 +64,7 @@ def build_cog() -> D12Ball:
         cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
         cog.ai_strategies,
     )
+    cog.condition_emojis = {}
     cog.boards = BoardRefresher(cog)
     cog.refresh_match_image = mock.AsyncMock()
     cog.send_turn_prompt = mock.AsyncMock()

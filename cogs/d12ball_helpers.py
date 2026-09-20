@@ -25,6 +25,11 @@ from d12ball.components import (
 from d12ball.formatting import (
     AI_OPPONENT_NAMES,
     BENCH_DESTINATIONS,
+    DAMAGED_EMOJI_FALLBACK,
+    DRAINED_EMOJI_FALLBACK,
+    EXHAUST_EMOJI_FALLBACK,
+    EXHAUSTED_EMOJI_FALLBACK,
+    INJURED_EMOJI_FALLBACK,
     TEAM_EMOJI_FALLBACKS,
     ZONE_LETTERS,
     ball_space_label,
@@ -36,6 +41,11 @@ from d12ball.formatting import (
     format_player_with_team,
     format_player_with_team_name,
     format_team_side_label,
+    get_damaged_emoji,
+    get_drained_emoji,
+    get_exhaust_emoji,
+    get_exhausted_emoji,
+    get_injured_emoji,
     get_team_emoji,
     player_with_role,
     space_label,
@@ -128,22 +138,21 @@ EXHAUST_EMOJI_NAME = "exhaust"
 # Same deal for the "exhausted" and "injured" conditions, from
 # images/emoji/exhausted.png and images/emoji/injured.png -- the same
 # art the board draws those conditions with, so a line of text and the
-# badge on a card show the player the same icon. The plain emoji below
-# are only reached when an application has no upload by that name.
+# badge on a card show the player the same icon.
 EXHAUSTED_EMOJI_NAME = "exhausted"
-EXHAUSTED_EMOJI_FALLBACK = "🥵"
 INJURED_EMOJI_NAME = "injured"
-INJURED_EMOJI_FALLBACK = "🤕"
 # A Cyborg's own words for the same two conditions -- see "Lithium
 # Powered" in docs/living-rules.md. Drained and Damaged are Exhausted
 # and Injured under different names and nothing else, so they get
 # their own art (images/emoji/drained.png, images/emoji/damaged.png)
-# rather than a recolour of the human tokens, and fall back to their
-# own plain emoji on an application with no upload.
+# rather than a recolour of the human tokens.
 DRAINED_EMOJI_NAME = "drained"
-DRAINED_EMOJI_FALLBACK = "🪫"
 DAMAGED_EMOJI_NAME = "damaged"
-DAMAGED_EMOJI_FALLBACK = "💥"
+# The five fallbacks these fall back to, and the five accessors that
+# read them, are imported above from d12ball.formatting -- the names
+# are what to *fetch*, which is Discord's, and the stand-ins are what
+# to *write*, which RulesEngine.describe_exhaustion_gain does. Same
+# split as TEAM_EMOJI_NAMES and TEAM_EMOJI_FALLBACKS just below.
 
 # Team emoji (a letter in a team-colored ring, images/emoji/team_*.png)
 # are uploaded to the application (Developer Portal "Emojis" tab) and
@@ -161,7 +170,6 @@ TEAM_EMOJI_NAMES = {
 }
 # TEAM_EMOJI_FALLBACKS and get_team_emoji are imported above from
 # d12ball.formatting, where format_player_with_team reads them.
-EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
 
 # Role emoji (the two initials in a white rounded square,
 # images/emoji/role_*.png, drawn by scripts/render_role_emoji.py) are
@@ -292,24 +300,9 @@ async def load_condition_emojis(
     return condition_emojis
 
 
-def get_exhaust_emoji(condition_emojis: dict[str, str]) -> str:
-    return condition_emojis.get("exhaust", EXHAUST_EMOJI_FALLBACK)
-
-
-def get_exhausted_emoji(condition_emojis: dict[str, str]) -> str:
-    return condition_emojis.get("exhausted", EXHAUSTED_EMOJI_FALLBACK)
-
-
-def get_injured_emoji(condition_emojis: dict[str, str]) -> str:
-    return condition_emojis.get("injured", INJURED_EMOJI_FALLBACK)
-
-
-def get_drained_emoji(condition_emojis: dict[str, str]) -> str:
-    return condition_emojis.get("drained", DRAINED_EMOJI_FALLBACK)
-
-
-def get_damaged_emoji(condition_emojis: dict[str, str]) -> str:
-    return condition_emojis.get("damaged", DAMAGED_EMOJI_FALLBACK)
+# get_exhaust_emoji, get_exhausted_emoji, get_injured_emoji,
+# get_drained_emoji and get_damaged_emoji are imported above, from
+# d12ball.formatting.
 
 
 async def load_team_emojis(
