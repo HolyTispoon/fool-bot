@@ -64,6 +64,20 @@ rather than borrowing it -- see
   Setup Pass -- so `begin_ball_recovery` asks the restarting side once the
   reset has settled, and asks nobody at all when the reset already covers the
   space, which the standard deal and every formation usually do.
+  - **The three branches are `ball_recovery_step` in
+    `d12ball/flow/turnovers.py`** since Phase 4 of
+    [model-discord-split.md](model-discord-split.md); `begin_ball_recovery`
+    is the wrapper that saves and dispatches. The placement itself stayed
+    `D12Ball.apply_ball_recovery`, reached from the step by
+    `FollowOnStep.APPLY_BALL_RECOVERY` when the AI is sending and from
+    `BallRecoveryView` when a coach is -- one placement with two routes
+    into it rather than one per route.
+  - **The live ask is `RulesEngine.build_ball_recovery_prompt` and is not
+    `pending_prompt`'s**, which words the same position cold for a resume.
+    Two readings of one position, which is the split the live flow and the
+    restart already made everywhere else: this one is read directly under
+    the reset it follows, so it names the coach and says why everybody has
+    just moved.
 
 ## The maneuver with nobody to challenge it
 

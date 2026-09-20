@@ -452,9 +452,24 @@ Both are now places a turn can **stop**, and that is the whole cost of it:
   exit.** A contest can owe two tests; they are asked one at a time and the
   continuation fires when the last one is answered. A test that turns out not to
   be owed -- the player is already injured -- leaves by the same door rather
-  than returning, so this can never be where a turn stops for good. **Nothing is
-  written when nothing is owed**: `begin_injury_tests` goes straight to the
-  continuation, which is the common case and the one that has to stay free.
+  than returning, so this can never be where a turn stops for good.
+  - **Both halves are flow steps** since Phase 4 of
+    [model-discord-split.md](model-discord-split.md):
+    `begin_injury_tests_step` and `continue_injury_tests_step` in
+    `d12ball/flow/rolls.py` hold the queue, the filter and the exit, and
+    the cog keeps a wrapper each for the prompt and the save. The one door
+    out is also one door *in*: the first step ends by calling the second
+    rather than returning a prompt of its own, so a queue of one and a
+    queue of two leave the same way.
+  - **"Nothing is written when nothing is owed" is no longer true, and the
+    arithmetic went the right way.** It used to be the point that
+    `begin_injury_tests` reached the continuation without a save on the
+    common path, while the path that *did* queue wrote twice -- once for
+    the queue and once for the prompt. Under principle 9 the driver writes
+    once after a step whatever the step did, so it is one write either
+    way: one more than before on the common path, one fewer on the other.
+    What bought the change is that the prompt no longer goes out in front
+    of its own queue reaching the disk.
 - **Both are checked ahead of everything else in `pending_turn_view`**, because
   both interrupt a turn whose own state is still set underneath them -- a skill
   test comes back with its challenger and both maneuvers in place, an own goal

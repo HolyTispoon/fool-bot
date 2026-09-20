@@ -391,6 +391,104 @@ with Low Pass already, as the same step under a different `key=`.
   would have had to edit an assertion about a card it was not
   touching.
 
+### What Phase 4 settled, and the question it could not answer
+
+Phase 4 is "the spine" -- the front half of a turn, the three arrival
+points, the run back, the injury tests and the own-goal roll. **Two of
+those moved and the rest are held**, and the reason is one shape the
+first three phases never met.
+
+- **The two that moved are the ones that post at most one message and
+  end on a prompt a restart can rebuild.** `ball_recovery_step` in
+  `d12ball/flow/turnovers.py` (three branches: nobody to send, an AI
+  to send for itself, a coach to ask) and `begin_injury_tests_step` /
+  `continue_injury_tests_step` in `d12ball/flow/rolls.py` (the queue,
+  its filter, its one exit). Both goldens are byte-identical across
+  both moves.
+- **`dispatch_step_result`'s `PendingPrompt` branch had never run in
+  production, and it did not do what the spine does.** Nothing in
+  Phases 2 and 3 ends on a prompt -- every lifted effect ends on a
+  `FollowOn` or on nothing -- so that branch existed and was asserted
+  by one test and had never posted a message a coach read. What the
+  cog's own prompt sites did and it did not: join the lead-in to the
+  ask on a **blank line** rather than a space, pass `allowed_mentions`
+  so the coach it names is actually pinged, and record the message id
+  on the game record, which is what `drop_turn_prompt` and
+  `close_maneuver_prompt` take a prompt down by. It now does all
+  three for every kind, which is what `resume_pending_prompt` already
+  did for every kind it re-posts. The goldens being unchanged is the
+  evidence that the space-join had never reached anybody.
+- **A step's live ask is not `pending_prompt`'s ask, and that is not a
+  second wording of one position.** The two were already different
+  before the split and deliberately: a resume posts the question cold,
+  with nothing above it, and the live one is read under the thing that
+  caused it, so it names the coach and says what just happened. So a
+  lifted step builds its own ask -- `build_ball_recovery_prompt` and
+  `build_injury_test_prompt` on the engine, beside
+  `build_loose_ball_prompt`, which is where that pattern already was.
+  `PromptKind` is what the two share, and `view_for_prompt` is still
+  the one place a kind becomes a view.
+- **The driver's save is one write where the old shape had nought or
+  two.** The injury queue is the clearest case and it is written up in
+  [maneuvers.md](maneuvers.md): the old pair wrote nothing when no test
+  was owed and twice when one was, and principle 9's "the driver
+  persists" makes it once either way. Three existing tests met the new
+  write as a stray save.
+
+**The open question is what a spine step returns when it posts a
+message and then calls the next step.** `StepResult` carries one
+narration and one `next`, and `dispatch_step_result` renders that as
+*one* message -- the narration opens whatever comes next. That is
+exactly right for an effect, which is why Phases 2 and 3 fit it
+without strain: a resolved maneuver is one message and one board
+refresh, and the lines it produces are the opening of the prompt that
+follows. The rest of the spine is not shaped like that:
+
+- `begin_loose_ball` posts the headline **with the board drawn under
+  it** (`announce_board_update`) and then posts the pick prompt: two
+  messages, one of which carries an image, and `board_changed` cannot
+  say "post a board in a message of its own" because it means
+  "refresh the persistent one".
+- `begin_maneuver_action_selection` posts a prompt carrying the hand
+  image, then edits a full-image button onto it, then posts the field
+  strip -- and in a tutorial holds all of that behind a Continue gate,
+  as a callback.
+- `announce_uncontested_maneuver`, `auto_resolve_challenger`,
+  `begin_shooter_choice` and `offer_scoring_attempt_choice` each post
+  a message and *then* hand off, where a `FollowOn` would instead make
+  those lines the lead-in of the next step's message.
+- `continue_run_back` batches a cascade into one message and one board
+  refresh and returns from inside its own loop to ask a question, with
+  a per-pass save that is a named exception to principle 9.
+- `run_own_goal_roll` edits the interaction's original response into a
+  die image.
+
+Three readings are open and they are not equivalent:
+
+1. **The wrapper keeps the choreography.** The step returns the
+   narration and the `next`, and the cog wrapper decides that the
+   narration is its own message (with a board under it where the
+   position calls for one) and then dispatches the `next` itself. No
+   model change; principle 8 says batching is the frontend's, and this
+   is that read literally. The cost is that `dispatch_step_result`
+   stops being the one renderer and Phase 6's driver inherits a
+   bespoke wrapper per spine step.
+2. **`StepResult` grows a shape for it** -- narration that is its own
+   message, distinct from narration that opens the next one. One
+   renderer still, at the price of the model carrying a distinction
+   that is about messages.
+3. **The messages merge.** Cheapest to write and it changes what a
+   coach reads, so it is a wording change rather than a refactor.
+
+`ShooterChoiceView` and `SetUpAttemptChoiceView` sharpen the same
+question from the other end: they are the two prompts with no
+`PromptKind`, because a restart cannot rebuild either (see the note in
+`d12ball/prompts.py`). A step ending on one of them has to name a
+`FollowOn` that posts it, which is the `BEGIN_OWN_GOAL_ROLL` precedent
+and works -- but it means the answer to "what does a step return when
+it asks something" is different for those two than for everything
+else.
+
 ## `tests/test_model_purity.py`
 
 **Is the line itself.** Every module under `d12ball/` **and
@@ -447,12 +545,31 @@ rewords a result has changed the game.
   is identical under `PYTHONHASHSEED` 0, 1 and 42 (checked by hand) -- a set
   of player ids iterated into a message would otherwise vary by machine
   rather than by the change that broke it.
-- **It covers one basic-mode solo game on board 7**, the only multi-turn game
-  the suite can drive today -- no gambit, no species ability, no
-  halftime, no shootout, no time out. Rewording two of the three `Ball speed
-  is now` sites in `effects.py` did not fail it, because the tutorial only
-  reaches the third. Don't read a green golden as "the wording is covered";
-  a phase that moves narration the golden doesn't reach should add its own.
+- **The tutorial golden covers one basic-mode solo game on board 7** -- no
+  gambit, no species ability, no halftime, no shootout, no time out.
+  Rewording two of the three `Ball speed is now` sites in `effects.py` did
+  not fail it, because the tutorial only reaches the third. Don't read a
+  green golden as "the wording is covered".
+- **Phase 4 added two more, and they are where the spine is watched.**
+  `advanced_board6_*` and `advanced_board9_*` are whole advanced solo games
+  played to full time through the same harness: both modules on, the human
+  side Telekinetic so the arrival gate has somebody to offer a Mind Pull
+  and a Smooth to, on the board the deal stacks players on and on the
+  widest board there is. Between them they reach fifteen of the nineteen
+  prompt views a solo game can put up -- everything the tutorial cannot see
+  except the shooter pick, the out-of-bounds pickup, halftime and the
+  coaching window.
+  - **Their press rule is round-robin over the live buttons**, not the
+    tutorial's first-enabled. Taking the first button every time picks the
+    first card in the hand every turn, which plays one maneuver for a whole
+    game and reaches almost none of the flow. It deliberately does not draw
+    from `random`: a rule that spent the module RNG would put every choice
+    downstream of every die, so one changed roll would rewrite the whole
+    transcript instead of the part it touched.
+  - **They end at full time rather than at a step cap**, and
+    `test_the_recorded_game_finishes` is what stops a golden quietly
+    becoming a truncated run -- the advanced twin of "the recorded run is
+    the one that scores".
 
 ## Two things about running the suite that cost time to rediscover
 
