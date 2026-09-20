@@ -327,6 +327,33 @@ missing other half for Injured, scoped the same way.
   has no application emoji of its own, since nothing in the cog's own text
   messages names an exhaustion *count* the way `describe_exhaustion_gain`
   names the Drained/Exhausted condition.
+- **`exhaust.png`'s content got its own redraw, same day.** The pill and its
+  small "ZZZ" (black ink on an amber pill, both at the same tiny scale that
+  read as an unbroken bar at 26px) are gone; `scripts/redraw_exhaust_zs.py`
+  erases the pill back to the face's own ink and draws three bold "Z"s
+  straight onto the face in the ring's own amber, stepped down in size
+  top-right to bottom-left, the largest tucked into the triangle's own
+  corner. **The triangle itself is still not regenerated** -- the edge,
+  ring and face are the same pixels they always were, only the content
+  inside the ring changed, for the same "don't risk a shape that doesn't
+  match" reason `recolor_exhaust_token.py` never redraws it either. That
+  leaves `exhaust_cyborg.png` still exactly the **recolour, not a redraw**
+  described above: it is derived from whatever `exhaust.png` currently
+  holds, so `recolor_exhaust_token.py --in-place` has to run again after
+  any change to the amber art, including this one, or the two drift apart.
+  - **The first draft placed each glyph by eye and let them overlap** into
+    one interlocking zigzag, with the biggest Z well short of the corner.
+    The second draft placed every glyph by search instead, scoring the
+    biggest Z's spot by how far a plain "maximise x, minimise y" reading
+    pushed it into the corner -- and still fell short, since that score
+    can't find a position further in along a path other than straight up
+    and right. **The author moved it the rest of the way by hand**
+    (2026-09-19), and the other two Zs are built out from that spot rather
+    than the search's: the smallest as close as it can get to the first
+    draft's own position, the middle roughly between its neighbours, both
+    while keeping a 10px gap from every other glyph's actual ink, not just
+    its bounding box, so a glyph's own diagonal stroke still can't touch
+    its neighbour.
 
 **Overdrive is the only thing in the game declared before a roll**, which is
 what it cost to build. Every roll already sits behind a button any coach may
