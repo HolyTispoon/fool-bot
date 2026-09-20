@@ -4179,9 +4179,12 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # check on the end of an ordinary maneuver (2026-08-18).
         cog.finish_maneuver_resolution.assert_not_awaited()
         cog.begin_loose_ball.assert_awaited_once()
-        args, kwargs = cog.begin_loose_ball.await_args
+        _, kwargs = cog.begin_loose_ball.await_args
         # Its clock cost is a flat 1 whatever the deflection travelled.
-        self.assertEqual(args[3], 1)
+        # Read by name rather than by position since rank D1 of
+        # docs/model-discord-split.md: `dispatch_step_result` hands a
+        # follow-on's arguments over as keywords.
+        self.assertEqual(kwargs["distance_moved"], 1)
         self.assertIn("Fullback ability", kwargs["lead_in"])
         self.assertIn("2 spaces back", kwargs["lead_in"])
 

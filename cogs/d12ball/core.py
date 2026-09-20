@@ -1744,8 +1744,46 @@ class CoreMixin:
             FollowOnStep.OFFER_SPEED_CHOICE: self.offer_speed_choice,
             FollowOnStep.BEGIN_RUN_BACK: self.begin_run_back,
             FollowOnStep.BEGIN_SHOOTER_CHOICE: self.begin_shooter_choice,
+            FollowOnStep.BEGIN_LOOSE_BALL: self.begin_loose_ball,
+            FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK:
+                self.offer_setup_pass_push_back,
             FollowOnStep.BEGIN_OWN_GOAL_ROLL: self.begin_own_goal_roll,
         }
+
+    def follow_on_posts_its_own_board(self, following: FollowOn) -> bool:
+        """
+        Whether this follow-on puts the board in the channel itself,
+        so `dispatch_step_result` should not redraw before running it.
+
+        **The one place a Discord economy is read off a `StepResult`,
+        and it is read here rather than written there.** A step reports
+        `board_changed` as a fact about the position (see `StepResult`);
+        every deflection moves the ball and every one of them says so.
+        But `begin_loose_ball` names the new position and draws the
+        board it is in, together, under its own announcement -- so a
+        refresh first is a second write of an identical board, which is
+        what the old cog's call sites said in a comment apiece and what
+        this says once. Five edits in five seconds is the budget; see
+        "Discord's rate limits" in docs/design/rate-limits.md.
+
+        `OFFER_SETUP_PASS_PUSH_BACK` is here for the same reason at one
+        remove: the push-back prompt draws nothing, and every road out
+        of it ends on a `begin_loose_ball` that does. A coach reading
+        that prompt is looking at the board the deflection started
+        from, which is the position they are being asked about.
+
+        **A High Pass is the exemption**, and it is the same exemption
+        `begin_loose_ball` already carries: the ball is on a player
+        everybody can see and the board was posted by the pass itself,
+        so that path announces without drawing. Rank D1 hands over no
+        high passes -- it is rank O3 that will -- but the rule belongs
+        with the reading rather than with the caller.
+        """
+        if following.step is FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK:
+            return True
+        if following.step is not FollowOnStep.BEGIN_LOOSE_BALL:
+            return False
+        return not following.kwargs.get("is_high_pass", False)
 
     async def dispatch_step_result(
         self,
@@ -1756,7 +1794,8 @@ class CoreMixin:
     ) -> None:
         """
         Turn a `StepResult` into Discord: redraw the board if anything
-        moved, then ask what it asks or run what it names.
+        moved and nothing downstream is going to draw it anyway, then
+        ask what it asks or run what it names.
 
         **The caller persists before calling this**, and that ordering
         is the transition rule for Phases 2 to 5 -- a lifted step no
@@ -1778,11 +1817,14 @@ class CoreMixin:
         flow and the resume come to offer different questions -- see
         "d12ball/prompts.py" in docs/design/model-discord-split.md.
         """
-        if result.board_changed:
+        following = result.next
+        if result.board_changed and not (
+            isinstance(following, FollowOn)
+            and self.follow_on_posts_its_own_board(following)
+        ):
             await self.refresh_match_image(interaction, game)
 
         lead_in = " ".join(result.narration)
-        following = result.next
 
         if isinstance(following, FollowOn):
             await self.follow_on_methods()[following.step](

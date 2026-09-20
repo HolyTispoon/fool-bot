@@ -221,7 +221,10 @@ def deflected_to(match: MatchState, distance: int):
 
 
 def deflected_distance(match: MatchState, distance: int) -> int:
-    """How far that deflection actually travels once the board has clamped it."""
+    """
+    How far that deflection actually travels once the board has
+    clamped it.
+    """
     origin = ball_flat(match)
     target = match.board.flat_index(*deflected_to(match, distance))
     return abs(target - origin)

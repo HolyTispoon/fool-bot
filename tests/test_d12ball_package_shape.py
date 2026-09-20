@@ -215,6 +215,8 @@ class FollowOnStepTests(unittest.TestCase):
         "OFFER_SPEED_CHOICE",
         "BEGIN_RUN_BACK",
         "BEGIN_SHOOTER_CHOICE",
+        "BEGIN_LOOSE_BALL",
+        "OFFER_SETUP_PASS_PUSH_BACK",
         "BEGIN_OWN_GOAL_ROLL",
     }
 

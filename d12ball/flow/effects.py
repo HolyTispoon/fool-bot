@@ -2,17 +2,18 @@
 What a maneuver does when it wins, as flow steps.
 
 One function per card, each taking the engine and the match, changing
-the match, and handing back a `StepResult`. Eight of the twelve are
-here -- rank O1's two, rank O2's two, rank D2's two and rank D3's two
--- as six functions, since four of the cards are their rank-mate
-parameterised. The four still `cogs/d12ball/effects.py`'s are rank
-D1's (Deflect, Clear) and rank O3's (High Pass, Setup Pass), until
-Phase 3 of docs/model-discord-split.md lifts them. See "Maneuvers" in
+the match, and handing back a `StepResult`. Ten of the twelve are
+here -- rank O1's two, rank O2's two, rank D1's two, rank D2's two and
+rank D3's two -- as seven functions, since six of the cards are their
+rank-mate parameterised. The two still `cogs/d12ball/effects.py`'s are
+rank O3's (High Pass, Setup Pass), until Phase 3 of
+docs/model-discord-split.md lifts them. See "Maneuvers" in
 docs/design/maneuvers.md for what each card actually does.
 
 A step takes `(engine, match, ...)`, and `game` only where it
-actually reads the record -- `low_pass_step`, `steal_step` and
-`pressure_step` do not and so do not take one; both dribbles do,
+actually reads the record -- `low_pass_step`, `steal_step`,
+`pressure_step` and `deflect_step` do not and so do not take one;
+both dribbles do,
 because charging an
 exhaustion token tests a threshold the game record decides (a
 Cyborg's is a flat 7, see `RulesEngine.exhaustion_threshold`). None of
@@ -23,8 +24,9 @@ greppable.
 **A rank's two cards are one function wherever they differ by a
 parameter**: Low Pass and Skilled Pass by `key`, Steal and Intercept
 by the sign of the carry, Pressure and Double Team by the push and the
-partner it brings in. Only the dribbles needed two, and they have
-different costs rather than different signs.
+partner it brings in, Deflect and Clear by the distance driven and the
+speed taken off. Only the dribbles needed two, and they have different
+costs rather than different signs.
 
 **Nothing here saves.** The caller persists once, immediately after the
 step and before dispatching whatever comes next -- see
@@ -924,4 +926,208 @@ def apply_own_goal_outcome(
         f"{match.scoreboard.visiting_score} "
         f"{team_display_name(match.visiting.team)}\n\n"
         f"{exhaustion_text}"
+    )
+
+
+def deflection_numbers(
+    defender: PlayerDefinition,
+    key: str,
+) -> tuple[int, int, bool]:
+    """
+    How far a deflection drives the ball, how much speed it takes
+    off, and whether a Fullback's ability is in it.
+
+    **The speed drop is the card's, not the distance's.** A
+    Fullback's Deflect has always moved the ball 2 and dropped the
+    speed by 1, so the two are separate numbers that happen to
+    match on an ordinary deflection -- and a Clear's -3 stays -3
+    when the Fullback pushes it to 4 spaces. Derived from the
+    distance instead, this read correctly right up until the
+    Fullback was let near a Clear, which is why they are returned
+    as two numbers rather than one.
+    """
+    # Role ability -- Fullback: +1 space on a deflection, which
+    # takes a Deflect from 1 to 2 and a Clear from 3 to 4.
+    fullback_bonus = defender.role == PlayerRole.FULLBACK
+    base_distance = 3 if key == "clear" else 1
+
+    return (
+        base_distance + (1 if fullback_bonus else 0),
+        base_distance,
+        fullback_bonus,
+    )
+
+
+def knock_ball_back(
+    match: MatchState,
+    offense_side: TeamSide,
+    deflect_distance: int,
+    speed_drop: int,
+) -> tuple[bool, int]:
+    """
+    Drive the ball back toward the offense's own goal and take the
+    speed off it. Returns whether it ran out of field and how far
+    it actually went.
+
+    The overshoot is read before the ball moves, the way every
+    other overshoot in the game is. It no longer risks an own goal
+    -- only Pressure does -- it sets up a scoring opportunity for
+    the defense instead, who are now the side standing next to the
+    goal the ball just reached.
+    """
+    origin_flat = match.board.flat_index(
+        match.ball.zone, match.ball.space_index,
+    )
+    target_flat = match.relative_flat_index(
+        origin_flat, offense_side, -deflect_distance,
+    )
+    overshot = abs(target_flat - origin_flat) < deflect_distance
+
+    actual_distance = match.move_ball_relative(
+        offense_side, -deflect_distance,
+    )
+    match.ball.speed = max(1, match.ball.speed - speed_drop)
+
+    return overshot, actual_distance
+
+
+def deflect_step(
+    engine: RulesEngine,
+    match: MatchState,
+    key: str,
+) -> StepResult:
+    """
+    Play a won Deflect -- or a Clear, which is Deflect at three
+    spaces with three steps of speed taken off instead of one.
+    Everything else about it, the overshoot and the loose ball it
+    leaves behind alike, is the same card, so the two are one
+    function and a `key`.
+
+    **A Fullback's Clear goes back 4** (the author, 2026-08-19). Its
+    sentence reads "Block deflect: ball goes back 2 spaces", which
+    read as a number is a *reduction* against a 3-space clearance and
+    read as the rule behind the number is the +1 that takes a basic
+    deflection from 1 to 2. The rule is what carries -- see
+    `deflection_numbers`, where the distance and the speed drop are
+    two numbers for exactly this reason.
+
+    Rank D1 has no unchallenged branch: a defense card only resolves
+    where a defender was sent, so `match.challenger_id` is always the
+    player who plays it.
+
+    It reads nothing off the game record -- a deflection charges no
+    exhaustion, and the cost it can collect is an engine question --
+    so it takes no `game`.
+    """
+    offense_side = match.ball.possession
+    defense_side = match.defending_side()
+    defender = engine.get_player_definition(match.challenger_id)
+    name = engine.maneuver_name(key)
+
+    deflect_distance, speed_drop, fullback_bonus = deflection_numbers(
+        defender, key,
+    )
+
+    overshot, actual_distance = knock_ball_back(
+        match, offense_side, deflect_distance, speed_drop,
+    )
+
+    space_word = "space" if actual_distance == 1 else "spaces"
+    ability_note = " (Fullback ability)" if fullback_bonus else ""
+    content = (
+        f"**{name}:** the ball moves {actual_distance} "
+        f"{space_word} back{ability_note}. Ball speed is now "
+        f"{match.ball.speed}."
+    )
+
+    # **The board moved on every branch below**, and it moved here:
+    # the ball has been driven back and has lost a step of speed,
+    # which the last branch is worth saying out loud about because
+    # the field clamped its distance to nothing. `board_changed` is
+    # what is true of the position; how many times the persistent
+    # board message is actually written is the frontend's, and two
+    # of the three branches hand over to something that draws it
+    # under its own announcement -- see
+    # `D12Ball.follow_on_posts_its_own_board` and "Discord's rate
+    # limits" in docs/design/rate-limits.md.
+    #
+    # A shot has to be within shooting range, and this one always
+    # is: an overshoot means the ball reached the space closest to
+    # the offense's own goal, which is as deep into the deflecting
+    # team's range as the field goes. So this asks
+    # scoring_opportunity_candidates with no range check over it --
+    # the check could never fail here, and a branch that cannot be
+    # taken reads as if it could.
+    candidates = []
+    if overshot:
+        candidates = engine.scoring_opportunity_candidates(
+            match, defense_side,
+        )
+
+    if candidates:
+        # A defender standing right where the ball ends up gets a
+        # shot at the goal it's now next to -- that's a turnover
+        # before the shot, same as any other change of possession,
+        # so the score attempt reads the correct attacking and
+        # defending sides.
+        #
+        # **After the sentence, not before it**: the speed the
+        # deflection left is what the narration reports, and the
+        # turnover's reset to 1 is a separate thing happening to the
+        # same number.
+        match.ball.possession = defense_side
+        match.ball.speed = 1
+        return StepResult(
+            narration=[
+                content,
+                "That overshoots the field -- a scoring opportunity!",
+            ],
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.BEGIN_SHOOTER_CHOICE,
+                {"candidates": candidates},
+            ),
+        )
+
+    # **Setup Pass's cost**: beaten by a deflection, the defending
+    # coach drives the ball a further 1, 2 or 3 spaces back and it
+    # is loose where it stops. It is charged here rather than as a
+    # step after the maneuver because a deflection already ends in
+    # a loose ball -- the cost only decides where it lies. Not
+    # charged when the deflection overshot into a shot above: the
+    # ball is already as far back as the field goes and the shot is
+    # the bigger thing happening.
+    #
+    # A follow-on rather than a prompt this step returns, for
+    # `offer_speed_choice`'s reason: whether anybody is asked at all
+    # is still the cog's, since Dinky drives it back itself and a
+    # push with no room left is not offered to anyone.
+    if engine.advanced_cost(match, key) == "setup_pass":
+        return StepResult(
+            narration=[content],
+            board_changed=True,
+            next=FollowOn(FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK),
+        )
+
+    # A deflection knocks the ball out of anybody's possession, so
+    # it does not go through finish_maneuver_resolution's ordinary
+    # loose-ball check: that check asks whether the possessing team
+    # has somebody on the ball, and here the answer does not
+    # matter -- either side's occupant is equally dispossessed.
+    #
+    # **Occupancy decides how it is won**, which since 2026-08-26
+    # is the rule everywhere rather than this card's own: an empty
+    # landing space is a loose ball (each side may send someone); a
+    # space only one side occupies is theirs outright, with no send
+    # offered to the other; a space both occupy is a contest
+    # between the players already there. See begin_loose_ball.
+    #
+    # A deflection's time cost is a fixed 1 space minute per the
+    # rules table, not "distance traveled" like Low/High Pass, so
+    # this doesn't shrink if the move was clamped at the edge (or
+    # grow with the Fullback's extra distance, or Clear's).
+    return StepResult(
+        narration=[content],
+        board_changed=True,
+        next=FollowOn(FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1}),
     )

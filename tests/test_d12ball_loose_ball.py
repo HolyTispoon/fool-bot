@@ -683,7 +683,12 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(teammate, match.eligible_ball_handlers())
         cog.finish_maneuver_resolution.assert_not_awaited()
         cog.begin_loose_ball.assert_awaited_once()
-        self.assertEqual(cog.begin_loose_ball.await_args.args[3], 1)
+        # By name rather than by position since rank D1 of
+        # docs/model-discord-split.md: `dispatch_step_result` hands a
+        # follow-on's arguments over as keywords.
+        self.assertEqual(
+            cog.begin_loose_ball.await_args.kwargs["distance_moved"], 1,
+        )
 
     def test_the_headline_names_which_of_the_three_arrivals_it_is(
         self,

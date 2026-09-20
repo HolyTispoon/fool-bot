@@ -70,6 +70,20 @@ class FollowOnStep(Enum):
     #: on a run back: the play never stopped, so there is nothing to
     #: run back from -- and that drops the speed choice with it.
     BEGIN_SHOOTER_CHOICE = auto()
+    #: Where a deflection ends: the ball is out of everybody's
+    #: possession on the space it stopped on, and occupancy decides
+    #: who -- if anyone -- comes away with it. Rank D1's, and the
+    #: first member whose method **draws the board itself**, under
+    #: its own announcement: a step naming it still reports
+    #: `board_changed` truthfully and the frontend declines the
+    #: second write, which is `D12Ball.follow_on_posts_its_own_board`.
+    BEGIN_LOOSE_BALL = auto()
+    #: **Setup Pass's cost**, charged inside the deflection that beat
+    #: it: the coach who beat the card drives the ball a further 1, 2
+    #: or 3 spaces before it is loose. Rank D1's, and a follow-on for
+    #: `OFFER_SPEED_CHOICE`'s reason -- Dinky answers it itself, and a
+    #: push with no room left is not offered to anybody.
+    OFFER_SETUP_PASS_PUSH_BACK = auto()
     #: The own-goal risk a Pressure can create, put behind a button
     #: for the coach whose player is about to concede. Rank D3's, and
     #: the only member so far that names a step which posts a prompt
@@ -106,10 +120,19 @@ class StepResult:
     newlines, the way an advanced card's cost does; it is part of the
     sentence it is charged inside rather than a message after it.
 
-    `board_changed` is what `refresh_match_image` used to decide at the
-    call site: whether anything a board draws actually moved. The cog
-    turns it into at most one write of the persistent board message --
-    see "Discord's rate limits" in docs/design/rate-limits.md.
+    `board_changed` is **whether anything a board draws actually
+    moved**, and nothing more: it is a fact about the position, not a
+    request for a redraw. Rank D1 is where those two readings came
+    apart -- a deflection always moves the ball, and the cog
+    deliberately did *not* refresh before handing over to
+    `begin_loose_ball`, which draws the same board under its own
+    announcement one message later. So the frontend turns this into at
+    most one write of the persistent board message and declines it
+    where whatever comes next posts a board of its own (see
+    `D12Ball.follow_on_posts_its_own_board` and "Discord's rate
+    limits" in docs/design/rate-limits.md). Which is principle 8: the
+    model says what is true, the frontend owns the batching and
+    therefore the rate limits.
     """
 
     narration: list[str] = field(default_factory=list)
