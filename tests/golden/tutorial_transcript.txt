@@ -148,7 +148,7 @@ Dinky AI will maneuver with 🟣 Glompex [MF].
 --- message
 Sizzifizik has moved 1 space.
 🟠 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 4 total).
-🟠 Sizzifizik [PM] now has the condition **exhausted** 🥵 — 4 exhaustion tokens exceeds their defense skill of 3.
+🟠 Sizzifizik [PM] is now *exhausted* 🥵
 --- message
 ### The other three cards
 Defending, your hand is the other half of the cycle:
