@@ -38,7 +38,12 @@ the run needs a rule that is deterministic *and* makes progress:
 - `"Done coaching"` wins whenever a coaching hub offers it. Taking the
   first enabled button instead walks into the Formation menu, comes back
   to the hub, and walks into it again forever -- the window has no
-  natural end and the hub is the only view in the game that loops.
+  natural end.
+- **"Back" is never pressed.** It is the one button that undoes rather
+  than advances: a retracted score attempt is the set-up choice again,
+  whose first button takes the shot again, and a rotating press
+  ping-pongs between the two for the rest of the budget. That is the
+  second circle in the game and it is a button rather than a view.
 - Otherwise the press **rotates**: `live[step % len(live)]`. Always
   taking the first enabled button is deterministic too, and it plays Low
   Pass and Deflect for the whole game -- the first card of each hand --
@@ -52,17 +57,24 @@ that quietly stops reaching the own-goal roll fails here rather than
 going unnoticed.
 
 **What it reaches**: all twelve maneuvers, the Mind Pull offer and the
-Smooth offer, a loose ball (both the contest pick and the skill test),
-an injury test, an own-goal roll, a run back that stops to ask, a score
-attempt, a time-out, the halftime extra token and a coaching window.
+Smooth offer, a loose-ball skill test, an injury test, an own-goal roll,
+a run back that stops to ask **both** of its questions (which space, and
+which of a stack goes), a score attempt, a set-up, a time-out, the
+halftime extra token and a coaching window.
 
-**What it still does not.** The free pickup after a time-out
-(`begin_ball_recovery`) needs the ball loose at the moment a coach calls
-one, which no seed swept reached; the stacked run back's *player* prompt
-(`RunBackPlayerChoiceView`, "which of these runs back") appears in other
-seeds but not this one, which asks only "where"; and full time, the
-shootout and a High Pass overshoot are past where the step budget stops.
-Those are Phase 5's ground and want goldens of their own.
+**What it still does not.** The loose ball's *contest pick*
+(`LooseBallChoiceView`, "choose who goes after it") -- this run's loose
+balls all come down where somebody is already standing, which
+pre-declines the other side and settles without asking; the free pickup
+after a time-out (`begin_ball_recovery`), which needs the ball loose at
+the moment a coach calls one; and full time and the shootout, which are
+past where the step budget stops. Those are Phase 5's ground and want a
+golden of their own.
+
+**The seed was re-picked once**, when PR #243 and PR #244 landed on main
+under this branch: both are rule changes in the code this phase moves,
+so the game seed 44 had played was no longer the game it plays. See the
+pull request for what that cost and what was checked.
 
 Regenerating is the tutorial golden's rule, and for the same reason --
 see that module's docstring:
@@ -115,16 +127,24 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 #: module rather than patching `randint` is what makes the run
 #: reproducible at all: the flow also reaches `random.shuffle` and
 #: `random.choice`, which a patch on `randint` leaves free.
-ADVANCED_SEED = 44
+ADVANCED_SEED = 37
 
 #: The game is not played to full time: the budget stops it in the
 #: second half, which is as far as Phase 4's ground goes. Full time and
 #: the shootout are Phase 5's and want a golden of their own.
 MAX_STEPS = 90
 
-#: The hub is the one view in the game that can be walked in a circle,
-#: so the script leaves it deliberately rather than by rotation.
+#: The hub is one of two views in the game that can be walked in a
+#: circle, so the script leaves it deliberately rather than by rotation.
 COACHING_ESCAPE = "Done coaching"
+
+#: The other circle, and it is not a view but a button. "Back" undoes
+#: rather than advances -- a score attempt retracted is the set-up
+#: choice again, whose first button takes the shot again -- so a
+#: rotating press ping-pongs between the two until the budget runs out.
+#: A script trying to play a game never wants it, which is the whole
+#: rule: **press nothing that goes backwards.**
+NEVER_PRESSED = ("Back",)
 
 UPDATING = os.environ.get("FOOLBOT_UPDATE_GOLDEN") == "1"
 
@@ -178,12 +198,15 @@ def build_advanced_match() -> MatchState:
 def choose_button(live: list, step: int):
     """
     Which of the enabled buttons this step presses -- the script, in one
-    function, so the rule a reviewer has to trust is four lines long.
+    function, so the rule a reviewer has to trust is short.
     """
     for item in live:
         if item.label == COACHING_ESCAPE:
             return item
-    return live[step % len(live)]
+    forward = [item for item in live if item.label not in NEVER_PRESSED]
+    # A view offering nothing but "Back" would deadlock the script
+    # rather than the game; take it and let the budget stop the run.
+    return (forward or live)[step % len(forward or live)]
 
 
 async def record_playthrough() -> tuple[str, dict]:
@@ -341,9 +364,10 @@ class AdvancedGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
             "SmoothView",
             "OwnGoalRollView",
             "RunBackChoiceView",
-            "LooseBallChoiceView",
+            "RunBackPlayerChoiceView",
             "LooseBallSkillTestView",
             "ScoreAttemptView",
+            "SetupPassChoiceView",
             "ManeuverChallengeView",
             "BallHandlerSelectionView",
         ):
