@@ -26,11 +26,20 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball_views import LowPassChoiceView
+from d12ball.components import MatchState
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.effects import low_pass_step
-from d12ball.prompts import PendingPrompt, PromptKind
+from d12ball.prompts import PendingPrompt, PromptKind, pending_prompt
 
-from low_pass_fixtures import ENGINE, FINISH, LOW_PASS_CASES, SCORING_CHOICE
+from low_pass_fixtures import (
+    ENGINE,
+    FINISH,
+    LOW_PASS_CASES,
+    RULESET,
+    SCORING_CHOICE,
+)
+from prompt_fixtures import CASES as PROMPT_CASES
+from prompt_fixtures import ENGINE as PROMPT_ENGINE
 from save_patches import suppressed_cog_saves
 from test_d12ball_low_pass_recording import build_cog
 
@@ -299,6 +308,62 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
 
         send.assert_awaited_once()
         self.assertEqual(send.await_args.args[1], "One. Two.")
+
+
+class LowPassRestartTests(unittest.TestCase):
+    """
+    A restart in the middle of a pass, which is the branch of Phase 1
+    that catches a step whose `next` is wrong.
+
+    Rank O1 has no branch that *ends* on a `PendingPrompt` -- the
+    receiver is picked before the pass is applied -- so what a restart
+    can land in the middle of is the choice **before** the step runs.
+    The thing worth asserting there is the one the two cards share:
+    `key` is what tells a Skilled Pass from a Low Pass all the way
+    down to `low_pass_step`, and it is not a field on the match. It is
+    read back out of `offense_maneuver` (or, for the free pass, out of
+    `pending_effect_continuation`), so a save round trip is the whole
+    of what stands between the prompt a coach was looking at and the
+    one they get handed back.
+    """
+
+    #: The mid-effect states of this rank, by `prompt_fixtures` case
+    #: name. All three are `LOW_PASS_CHOICE`; what a restart has to
+    #: preserve is which card is under it.
+    CASES = (
+        "low pass",
+        "skilled pass",
+        "free low pass",
+    )
+
+    def test_a_restart_mid_effect_offers_the_same_card(self) -> None:
+        for name in self.CASES:
+            with self.subTest(case=name):
+                case = next(c for c in PROMPT_CASES if c.name == name)
+                fixture = case.build()
+
+                before = pending_prompt(
+                    PROMPT_ENGINE, fixture.game, fixture.match,
+                )
+                restored = MatchState.from_dict(
+                    fixture.match.to_dict(), RULESET,
+                )
+                after = pending_prompt(
+                    PROMPT_ENGINE, fixture.game, restored,
+                )
+
+                self.assertIs(after.kind, PromptKind.LOW_PASS_CHOICE)
+                self.assertIs(after.kind, before.kind)
+                self.assertEqual(after.ask, before.ask)
+                # The two parameters that decide which card the
+                # reconstructed prompt applies, and the ones
+                # `apply_low_pass` is handed.
+                self.assertEqual(after.maneuver_key, before.maneuver_key)
+                self.assertEqual(after.free, before.free)
+                self.assertEqual(
+                    after.maneuver_key, fixture.params["maneuver_key"],
+                )
+                self.assertEqual(after.free, fixture.params["free"])
 
 
 if __name__ == "__main__":

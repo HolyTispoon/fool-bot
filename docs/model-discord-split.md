@@ -27,7 +27,7 @@ it happened to have.
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
-| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a done (PR #229); 3b-3f open |
+| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a-3b done (PR #229, PR #232); 3c-3f open |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
@@ -279,7 +279,7 @@ so the pattern is settled before it meets the hard cases.
 | # | Rank | Cards | Why here |
 | --- | --- | --- | --- |
 | 3a | O2 | Dribble Advance, Dribble Burst | **Done (PR #229).** Moved the handler and ended; the speed choice was the only prompt |
-| 3b | O1 | Low Pass, Skilled Pass | Already done in Phase 2 -- this is Skilled Pass and the shared `apply_low_pass(key=)` |
+| 3b | O1 | Low Pass, Skilled Pass | **Done (PR #232).** Nothing was left to move -- Phase 2's step already carried both cards -- so the rank is its evidence: ten fixtures and the `key=` round trip |
 | 3c | D2 | Steal, Intercept | A turnover, so it meets `begin_run_back` -- the first hand-off |
 | 3d | D3 | Pressure, Double Team | The own-goal branch, and `pending_double_team` reaching into the next turn |
 | 3e | D1 | Deflect, Clear | Calls `begin_loose_ball` directly rather than going through `finish_maneuver_resolution` |
@@ -311,6 +311,37 @@ in [design/model-discord-split.md](design/model-discord-split.md)):
   out. Step-then-save fixed it with nothing decided. Expect one of these
   per rank where a cost is paid after the old save, and say so in the PR
   rather than treating it as noise.
+
+**What 3b found, for the ranks that have not run yet.** The rank
+itself was empty -- `low_pass_step(key="skilled_pass")` is the whole of
+a Skilled Pass and Phase 2 landed it -- so what it produced is two
+corrections to what the later ranks expect:
+
+- **A steal does not reach `offer_speed_choice` directly.**
+  `apply_steal` ends on `begin_run_back(speed_choice_after=True)`, and
+  `finish_run_back` is what offers the speed choice; the only two
+  direct callers left in `cogs/` are `resolve_setup_pass` (rank O3)
+  and `finish_run_back` itself. So 3c's follow-on is `BEGIN_RUN_BACK`
+  carrying that flag rather than the `OFFER_SPEED_CHOICE` it was
+  expected to inherit -- and the Intercept overshoot branch needs a
+  third one, for `begin_shooter_choice`. `apply_steal` also holds a
+  **second** `self.persist`, in the Skilled Pass cost branch, on top
+  of the one inside `take_ball_by_steal`.
+- **`begin_loose_ball` is not rank D1's alone.** Eight call sites in
+  `cogs/d12ball/effects.py` reach it, and one of them is rank O1's own
+  -- `resolve_low_pass`'s no-teammate-to-receive branch, which moves
+  the ball, words it and persists before handing over. It was left
+  where it is: it is in the `resolve_*` half this phase does not
+  touch, and lifting it would settle `board_changed` for every loose
+  ball rather than for one card. See 3e, which is where that is due.
+  A second scheduled run reached that branch before standing down, and
+  turned up **two rules questions on it** that have to be answered
+  before it moves rather than while it moves: a *failed* free pass
+  charges a space minute where a completed one charges none (the
+  branch hardcodes `distance_moved=1` and never reads `free`), and it
+  leaves its `free_low_pass` continuation standing, which
+  `apply_speed_choice` then re-offers. Both are pre-existing on `main`
+  and both are written out in PR #232.
 
 **Bot stop, per rank:** play both cards of the rank, contested and
 unchallenged, on two board sizes, in a basic and an advanced game. Watch the

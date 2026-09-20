@@ -172,5 +172,102 @@ class LowPassRecordingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(fixture.match.pending_effect_continuation)
 
 
+class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The cog surface rank O1 still has, which is the `key=` parameter
+    and the two callers that set it.
+
+    `resolve_skilled_pass` is two lines and `continue_effect`'s free
+    branch is a handful, and neither moves in this phase -- both are
+    the *ask* half: whether anybody is put a question at all. What is
+    worth pinning is that the card's identity survives the delegation,
+    because from `resolve_low_pass` down to `low_pass_step` there is
+    one function for two cards and `key` is the only thing telling
+    them apart.
+    """
+
+    def _stand_a_pass_up(self):
+        """A match with a pass to make and a coach to ask about it."""
+        fixture = next(
+            case.build() for case in LOW_PASS_CASES
+            if case.name == "skilled_pass"
+        )
+        cog = build_cog()
+        cog.games[fixture.game.game_id] = fixture.game
+        cog.send_field_prompt = mock.AsyncMock()
+        cog.apply_low_pass = mock.AsyncMock()
+        cog.begin_loose_ball = mock.AsyncMock()
+        return cog, fixture
+
+    async def test_a_skilled_pass_is_asked_as_a_skilled_pass(self) -> None:
+        cog, fixture = self._stand_a_pass_up()
+
+        with suppressed_cog_saves():
+            await cog.resolve_skilled_pass(
+                SimpleNamespace(), fixture.game, fixture.match,
+            )
+
+        cog.send_field_prompt.assert_awaited_once()
+        content, view = cog.send_field_prompt.await_args.args[3:5]
+        self.assertIn("Skilled Pass", content)
+        self.assertEqual(view.key, "skilled_pass")
+        self.assertFalse(view.free)
+        # Nothing was applied: the coach has not answered yet.
+        cog.apply_low_pass.assert_not_awaited()
+
+    async def test_the_free_pass_is_asked_as_a_low_pass(self) -> None:
+        """
+        **Skilled Pass's cost.** The defense's unopposed pass is a Low
+        Pass -- the card that was beaten does not come with it -- and
+        it is `free`, which is what will charge it no space minute
+        when it is applied.
+        """
+        cog, fixture = self._stand_a_pass_up()
+        match = fixture.match
+        passer = match.active_player_id
+        match.pending_effect_continuation = {
+            "kind": "free_low_pass",
+            "player_id": passer,
+        }
+
+        with suppressed_cog_saves():
+            await cog.continue_effect(
+                SimpleNamespace(), fixture.game, match,
+            )
+
+        cog.send_field_prompt.assert_awaited_once()
+        content, view = cog.send_field_prompt.await_args.args[3:5]
+        self.assertIn("Low Pass", content)
+        self.assertNotIn("Skilled Pass", content)
+        self.assertEqual(view.key, "low_pass")
+        self.assertTrue(view.free)
+
+    async def test_the_continuation_outlives_the_prompt(self) -> None:
+        """
+        The record is cleared by whatever **applies** the pass -- see
+        `continue_effect`, and `low_pass_step`'s `free` branch. A
+        coach can take hours over the prompt, and between dispatching
+        it and the click that answers, this field is the only thing on
+        the match saying what is owed: clear it here and a restart in
+        that window reads the maneuver's winner instead and re-offers
+        a choice that was already made.
+        """
+        cog, fixture = self._stand_a_pass_up()
+        match = fixture.match
+        match.pending_effect_continuation = {
+            "kind": "free_low_pass",
+            "player_id": match.active_player_id,
+        }
+
+        with suppressed_cog_saves():
+            await cog.continue_effect(
+                SimpleNamespace(), fixture.game, match,
+            )
+
+        self.assertEqual(
+            match.pending_effect_continuation.get("kind"), "free_low_pass",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
