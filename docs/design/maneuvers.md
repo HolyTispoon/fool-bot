@@ -111,6 +111,35 @@ weapon rather than only a saving.
       charged. Moving the whole effect into the step, with the
       wrapper saving after it, is what fixes it; it is the bug
       principle 9 is written for, and the rule is unchanged.
+  - **Both steals followed them (rank D2).** `steal_step` is the
+    whole of a Steal and of an Intercept -- the two differ by the
+    sign of the carry and nothing else, so they are one function and
+    a `direction`, the way Low Pass and Skilled Pass are one function
+    and a `key`. `take_ball_by_steal` and `steal_result_text` went
+    with it as free functions, and `D12Ball.apply_steal` is four
+    lines around it. Nothing either card says changed.
+    - **It is the first effect to hand off to the spine**, so it
+      named two new `FollowOnStep` members:
+      `BEGIN_RUN_BACK`, carrying `speed_choice_after=True` (a steal
+      owes the ball-speed choice but does not reach
+      `offer_speed_choice` directly -- `finish_run_back` offers it,
+      once everybody is back), and `BEGIN_SHOOTER_CHOICE`, for the
+      Intercept that overshoots into a scoring opportunity.
+      `begin_run_back` and `begin_shooter_choice` themselves did not
+      move.
+    - **Two persists became one, and nothing was being lost.**
+      `take_ball_by_steal` saved inside itself and the Skilled Pass
+      cost branch saved again on top of it, so one branch wrote the
+      file twice and the other once; both writes already carried
+      everything. Unlike the beaten Clear above, this is the rule
+      rather than a fix -- worth saying so, because the two read
+      alike in a diff.
+    - **One ordering is open.** An Intercept that overshoots returns
+      before `advanced_cost` is read, so it collects no beaten
+      Skilled Pass. Whether that is the rule (nobody goes back in
+      position, so the free pass has no moment) or an oversight is
+      the author's; the behaviour is preserved exactly and the
+      question is written out in PR #233.
 - **Every cost bites inside the winning maneuver's own resolution**,
   which is why there is no cost dispatcher. `advanced_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2

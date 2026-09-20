@@ -2,20 +2,26 @@
 What a maneuver does when it wins, as flow steps.
 
 One function per card, each taking the engine and the match, changing
-the match, and handing back a `StepResult`. Low Pass (rank O1) and the
-two dribbles (rank O2) are here; the other nine are still
-`cogs/d12ball/effects.py`'s until Phase 3 of
+the match, and handing back a `StepResult`. Low Pass (rank O1), the
+two dribbles (rank O2) and the two steals (rank D2) are here; the
+other seven are still `cogs/d12ball/effects.py`'s until Phase 3 of
 docs/model-discord-split.md lifts them a rank at a time. See
 "Maneuvers" in docs/design/maneuvers.md for what each card actually
 does.
 
 A step takes `(engine, match, ...)`, and `game` only where it
-actually reads the record -- `low_pass_step` does not and so does not
-take one; both dribbles do, because charging an exhaustion token tests
-a threshold the game record decides (a Cyborg's is a flat 7, see
-`RulesEngine.exhaustion_threshold`). None of them takes an
-`interaction`, ever: that is the single clearest test of which side of
-the seam a function has ended up on, and it is greppable.
+actually reads the record -- `low_pass_step` and `steal_step` do not
+and so do not take one; both dribbles do, because charging an
+exhaustion token tests a threshold the game record decides (a
+Cyborg's is a flat 7, see `RulesEngine.exhaustion_threshold`). None of
+them takes an `interaction`, ever: that is the single clearest test of
+which side of the seam a function has ended up on, and it is
+greppable.
+
+**A rank's two cards are one function wherever they differ by a
+parameter**: Low Pass and Skilled Pass by `key`, Steal and Intercept
+by the sign of the carry. Only the dribbles needed two, and they have
+different costs rather than different signs.
 
 **Nothing here saves.** The caller persists once, immediately after the
 step and before dispatching whatever comes next -- see
@@ -33,6 +39,7 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.engine import RulesEngine
+from d12ball.formatting import format_team_side_label
 from d12ball.game import D12BallGame
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 
@@ -425,5 +432,180 @@ def dribble_burst_step(
                 "player_id": match.active_player_id,
                 "skill_type": "offense",
             },
+        ),
+    )
+
+
+def take_ball_by_steal(
+    match: MatchState,
+    challenger_id: str,
+    new_possession_side: TeamSide,
+    direction: int,
+) -> tuple[bool, int]:
+    """
+    Turn the ball over and carry it off, returning whether the carry
+    ran out of field and how far it actually went.
+
+    The turnover happens first, then both the interceptor and the
+    ball move -- relative to the *new* possessing side, not the old
+    one. Moving the challenger's meeple (not just the ball) and
+    re-deriving the ball's space from it keeps the two in the same
+    space, so possession can be assigned directly without
+    set_possession's occupancy check.
+    """
+    match.ball.possession = new_possession_side
+    # Every turnover drops the ball's speed back to 1 -- the
+    # defender's manipulate-speed choice applies to that reset
+    # value, not whatever the speed was before the steal.
+    match.ball.speed = 1
+
+    # Intercept moving forward can run out of field, which a Steal
+    # falling back never can: the ball was in play, so there is
+    # always a space behind it. Read before the move, the way every
+    # other overshoot is.
+    origin_flat = match.board.flat_index(
+        *match.board.meeple_position(challenger_id)
+    )
+    target_flat = match.relative_flat_index(
+        origin_flat, new_possession_side, direction,
+    )
+    overshot = abs(target_flat - origin_flat) < 1
+
+    actual_distance = match.move_player_relative(
+        challenger_id, new_possession_side, direction,
+    )
+    match.set_ball_space(*match.board.meeple_position(challenger_id))
+    # The interceptor took the ball off someone and moved with it,
+    # so they carry it into their side's next turn -- the same
+    # player the run back exempts.
+    match.set_ball_carrier(challenger_id)
+
+    return overshot, actual_distance
+
+
+def steal_result_text(
+    engine: RulesEngine,
+    match: MatchState,
+    key: str,
+    name: str,
+    challenger_id: str,
+    actual_distance: int,
+) -> str:
+    """The turnover, and which way the thief carried it."""
+    space_word = "space" if actual_distance == 1 else "spaces"
+    challenger = engine.get_player_definition(challenger_id)
+    challenger_label = engine.format_player_label(match, challenger)
+    new_possession = match.setup_for_side(match.ball.possession)
+    travel = (
+        f"then carries it {actual_distance} {space_word} forward, "
+        "toward the goal they now attack"
+        if key == "intercept"
+        else f"then falls back {actual_distance} {space_word} toward "
+        "their own goal with the ball"
+    )
+    return (
+        f"**{name}:**\n"
+        "# Turnover!\n"
+        f"{challenger_label} steals the ball. "
+        f"{format_team_side_label(new_possession)} now has possession, "
+        f"{travel}."
+    )
+
+
+def steal_step(
+    engine: RulesEngine,
+    match: MatchState,
+    key: str,
+) -> StepResult:
+    """
+    Play a won Steal -- or an Intercept, which is the same card with
+    the sign flipped: the thief carries the ball **forward**, toward
+    the goal they now attack, rather than falling back toward their
+    own. It is the only card in the game that moves the ball against
+    the way the offense was going, and that is the whole of the
+    difference, so the two are one function and a `direction`.
+
+    Rank D2 has no unchallenged branch: a defense card only resolves
+    where a defender was sent, so `match.challenger_id` is always the
+    player who plays it.
+
+    It reads nothing off the game record -- the exhaustion a run back
+    charges is `begin_run_back`'s, and the cost this card can collect
+    is an engine question -- so it takes no `game`.
+    """
+    new_possession_side = match.defending_side()
+    challenger_id = match.challenger_id
+    name = engine.maneuver_name(key)
+    # Toward the new possessor's own goal for a Steal, toward the
+    # goal they now attack for an Intercept.
+    direction = 1 if key == "intercept" else -1
+
+    overshot, actual_distance = take_ball_by_steal(
+        match, challenger_id, new_possession_side, direction,
+    )
+    content = steal_result_text(
+        engine, match, key, name, challenger_id, actual_distance,
+    )
+
+    # Both endings below have moved a meeple and the ball with it, so
+    # `board_changed` is True either way -- which is exactly where
+    # `refresh_match_image` sat in the cog, on both paths.
+    if key == "intercept" and overshot:
+        # **The interceptor was already on the last space toward
+        # the goal they now attack, so there is nowhere to carry
+        # it: it is a scoring opportunity instead** (the author,
+        # 2026-08-19).
+        #
+        # Straight to the shot, the same as a deflection's
+        # overshoot and for the same reason: the run back and the
+        # speed step both belong after a turnover that left the
+        # play running, and this one has not. That drops
+        # Intercept's own speed-manipulation step, which is the one
+        # thing about this branch worth watching -- a set-up shot
+        # already reads the ball speed the turnover reset.
+        #
+        # It returns **before** the cost below, exactly as the cog
+        # did: an Intercept that overshoots collects no beaten
+        # Skilled Pass. Preserved rather than corrected, because
+        # whether that is the rule is the author's to say -- see the
+        # questions on the pull request for rank D2.
+        return StepResult(
+            narration=[
+                content
+                + "\n\nThere is no field left ahead of them -- "
+                "a scoring opportunity!"
+            ],
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.BEGIN_SHOOTER_CHOICE,
+                {"candidates": [challenger_id]},
+            ),
+        )
+
+    # **Skilled Pass's cost**: beaten by a steal, the passing side
+    # hands the defender an unopposed Low Pass once the steal has
+    # settled. It is recorded rather than played here because the
+    # steal is not finished: the run back and then the speed choice
+    # both come first, and the pass is played from wherever that
+    # leaves the interceptor. See `pending_effect_continuation`.
+    if engine.advanced_cost(match, key) == "skilled_pass":
+        match.pending_effect_continuation = {
+            "kind": "free_low_pass",
+            "player_id": challenger_id,
+        }
+        content += (
+            "\n\n**Skilled Pass** was beaten -- the defense gets an "
+            "unopposed Low Pass once everyone is back in position."
+        )
+
+    # Ball-speed manipulation is offered after run-back finishes,
+    # not here -- see begin_run_back's speed_choice_after.
+    # No stays_player_id: begin_run_back exempts the ball carrier,
+    # which take_ball_by_steal has already made the interceptor.
+    return StepResult(
+        narration=[content],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.BEGIN_RUN_BACK, {"speed_choice_after": True},
         ),
     )
