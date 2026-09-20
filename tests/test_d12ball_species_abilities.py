@@ -1409,6 +1409,51 @@ class SlipInTests(unittest.TestCase):
                 self.engine.slip_in_candidates(self.game, self.match),
             )
 
+    def test_the_prompt_names_both_the_carrier_and_the_slip_in(self):
+        # Not a wording assertion: names are read off the same lookup
+        # the prompt itself uses, so a rename cannot break this. The
+        # claim under test is that a coach reading this prompt is told
+        # who already has the ball, not just handed an unlabelled
+        # choice between two buttons.
+        carrier, teammate = self.put_two_on_the_ball()
+        prompt = self.engine.build_turn_prompt(self.game, self.match, {})
+        self.assertIn(
+            self.engine.format_roster_player_for_message(
+                carrier, self.match.team_for_player(carrier),
+            ),
+            prompt,
+        )
+        self.assertIn(
+            self.engine.format_roster_player_for_message(
+                teammate, self.match.team_for_player(teammate),
+            ),
+            prompt,
+        )
+
+    def test_no_carrier_is_never_read_as_a_slip_in(self):
+        # No carrier named at all (a fresh pickup with nobody resolved
+        # yet) is an ordinary open choice, not Slimey -- more than one
+        # candidate here must not trip the same branch a real slip-in
+        # does, even though both put more than one candidate in play.
+        self.match.clear_ball_carrier()
+        teammate = next(
+            player_id
+            for player_id in field_players(self.match)
+            if player_id != self.match.eligible_ball_handlers()[0]
+        )
+        self.match.board.place_meeple(
+            teammate, self.match.ball.zone, self.match.ball.space_index,
+        )
+        candidates = self.engine.turn_handler_candidates(
+            self.game, self.match,
+        )
+        self.assertGreater(len(candidates), 1)
+        self.assertNotIn(self.match.ball_carrier_id, candidates)
+        self.assertNotIn(
+            "slip in",
+            self.engine.build_turn_prompt(self.game, self.match, {}),
+        )
+
 
 class MergeTests(unittest.TestCase):
     """
