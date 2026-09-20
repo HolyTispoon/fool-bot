@@ -459,6 +459,59 @@ class NamingAPlayerTests(unittest.TestCase):
             None, None, player.player_id,
         )[: len(plain)], plain)
 
+    def test_format_player_label_agrees_with_the_old_inline_body(
+        self,
+    ) -> None:
+        """
+        `RulesEngine.format_player_label` is `D12Ball.player_label`'s
+        old body -- `format_role_bracket` with the team read off the
+        match -- moved onto the engine, reading both emoji dicts off
+        itself instead of taking them as arguments (see the unlisted
+        prerequisite to Phase 1 in docs/model-discord-split.md). A
+        divergence between the two would otherwise only show up as a
+        wording change in the golden transcript, which does not cover
+        every combination below.
+        """
+        from cogs.d12ball_helpers import format_role_bracket
+        from d12ball.components import (
+            load_basic_ruleset,
+            load_maneuver_catalog,
+            load_player_catalog,
+        )
+        from d12ball.engine import RulesEngine
+        from d12ball.game import Team
+
+        catalog = load_player_catalog()
+        engine = RulesEngine(
+            catalog, load_basic_ruleset(), load_maneuver_catalog(), {},
+        )
+        player = catalog.teams[Team.ORANGE].players[0]
+        badge = f"<:role_{player.role.value}_orange:100>"
+        team_emoji = "<:team_orange:1>"
+
+        class FakeMatch:
+            def team_for_player(self, player_id: str) -> Team:
+                return Team.ORANGE
+
+        match = FakeMatch()
+
+        # A player with a team emoji and one without, crossed with a
+        # role with an uploaded badge and one without.
+        for team_emojis, role_emojis in (
+            ({}, {}),
+            ({Team.ORANGE: team_emoji}, {}),
+            ({}, {(player.role, Team.ORANGE): badge}),
+            ({Team.ORANGE: team_emoji}, {(player.role, Team.ORANGE): badge}),
+        ):
+            engine.team_emojis = team_emojis
+            engine.role_emojis = role_emojis
+            self.assertEqual(
+                engine.format_player_label(match, player),
+                format_role_bracket(
+                    player, team_emojis, Team.ORANGE, role_emojis,
+                ),
+            )
+
     def test_a_role_with_no_upload_keeps_its_brackets(self) -> None:
         """
         Three of six uploaded is three badges and three bracketed

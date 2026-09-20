@@ -1040,9 +1040,7 @@ class ScoreAttemptView(SafeView):
         self.cog.persist(game, match)
 
         await interaction.response.edit_message(
-            content=self.cog.engine.build_turn_prompt(
-                game, match, self.cog.team_emojis,
-            ),
+            content=self.cog.engine.build_turn_prompt(game, match),
             view=PlayerActionView(self.cog, self.game_id),
         )
 

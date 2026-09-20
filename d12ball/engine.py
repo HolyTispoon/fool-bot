@@ -83,6 +83,7 @@ from d12ball.formatting import (
     destination_display_name,
     format_player_with_team,
     format_team_side_label,
+    get_team_emoji,
     player_with_role,
     role_initials,
     space_label,
@@ -269,6 +270,16 @@ class RulesEngine:
         # needs discord.py -- what the engine still cannot do is fetch
         # it.
         self.role_emojis: dict[tuple[PlayerRole, Optional[Team]], str] = {}
+        # `Team -> "<:team_orange:id>"`, the application emoji a coach
+        # or a player is named with in place of the plain-circle
+        # fallback (see `format_player_with_team`, `format_player_label`
+        # below). Empty until cog_load has fetched them, same as
+        # `role_emojis` just above and for the same reason:
+        # `D12Ball.team_emojis` is a property over this one dict, not a
+        # second copy, since cog_load *replaces* the dict on every
+        # fetch and a reference handed to the engine at construction
+        # would go stale the moment that landed.
+        self.team_emojis: dict[Team, str] = {}
 
     def advanced_maneuvers_apply(self, game: D12BallGame) -> bool:
         """
@@ -2337,7 +2348,6 @@ class RulesEngine:
         self,
         game: D12BallGame,
         match: MatchState,
-        team_emojis: dict[Team, str],
     ) -> str:
         """
         Who is being asked, and for what.
@@ -2347,10 +2357,9 @@ class RulesEngine:
         it back up on its own, and a restart re-arms it wherever it is
         in the channel.
 
-        `team_emojis` is the cog's, passed in rather than held: the
-        coach is named with their side's emoji (see
-        `format_player_with_team`), and the engine is built before
-        cog_load has fetched them and is read-only from there on.
+        The coach is named with their side's emoji (see
+        `format_player_with_team`), read off `self.team_emojis` --
+        see the comment above it in `__init__`.
         """
         skill_type = self.loose_ball_side_on_the_clock(match)
         number = (
@@ -2359,7 +2368,7 @@ class RulesEngine:
             else self.defending_player_number(game, match)
         )
         mention = format_player_with_team(
-            game, number, team_emojis, mention=True,
+            game, number, self.team_emojis, mention=True,
         )
         noun = contest_noun(match)
         where = ball_space_label(match)
@@ -2690,6 +2699,31 @@ class RulesEngine:
             self.get_player_definition(player_id), self.role_emojis, team,
         )
 
+    def format_player_label(
+        self, match: MatchState, player: PlayerDefinition,
+    ) -> str:
+        """
+        "🟠 Hellguard [FB]" -- a player named the way every message
+        outside this engine's own two builders names them, with the
+        team emoji in front as well as the role badge.
+        `D12Ball.player_label` forwards to this so no call site moved.
+
+        **Distinct from `format_roster_player_for_message` on
+        purpose, not a flag on it.** That one is the narrower form --
+        role badge only, no team emoji -- for `apply_formation` and
+        `build_turn_prompt`, where a team emoji next to a card already
+        on that team's board would say nothing new. This one wants
+        both, for the run-back and injury-test prompts and every other
+        message that names a player without a board already in view.
+        Two methods by name keeps each caller asking for the form it
+        actually wants, rather than threading a flag through both.
+        """
+        team = match.team_for_player(player.player_id)
+        return (
+            f"{get_team_emoji(self.team_emojis, team)} "
+            f"{player_with_role(player, self.role_emojis, team)}"
+        )
+
     def format_roster_player_with_team(
         self, player_id: str, team: Team,
     ) -> str:
@@ -2781,15 +2815,14 @@ class RulesEngine:
         self,
         game: D12BallGame,
         match: MatchState,
-        team_emojis: dict[Team, str],
         carrying: bool = False,
     ) -> str:
-        # `team_emojis` is the cog's -- see build_loose_ball_prompt.
+        # `self.team_emojis` -- see build_loose_ball_prompt.
         player_number = self.possession_player_number(game, match)
         controller = format_player_with_team(
             game,
             player_number,
-            team_emojis,
+            self.team_emojis,
             mention=player_number is not None,
         )
 

@@ -1891,9 +1891,7 @@ class ManeuverEffectsMixin:
 
         prompt_message = await send_new_prompt(
             interaction,
-            self.engine.build_loose_ball_prompt(
-                game, match, self.team_emojis,
-            ),
+            self.engine.build_loose_ball_prompt(game, match),
             view=self.build_loose_ball_view(game.game_id, match),
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,

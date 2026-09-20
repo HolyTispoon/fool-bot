@@ -370,48 +370,27 @@ each is *already* a pure decision over match state that happens to end in a
 
 ### The prerequisite: where a fetched emoji dict lives
 
-`player_label` is **not** Discord-free as its signature stands.
-`format_role_bracket` underneath it is, but `D12Ball.player_label` reads
-`self.team_emojis`, and that dict lives on the cog alone -- so
-`pending_prompt(engine, game, match)` as specified cannot word the two
-branches that use it (`core.py:1690` and `:1703`, the Mind Pull and
-injury-test `ask` lines).
+**Done, landed on its own ahead of the rest of Phase 1** -- see "Naming
+a player" in docs/design/naming-and-wording.md for the settled
+reasoning, which now covers both dicts the same way.
 
-**The codebase currently answers "where does a fetched emoji dict live" two
-different ways.** `role_emojis` sits on the `RulesEngine` with a cog
-property over it (`engine.py:270`), because `cog_load` *replaces* the dict
-and a reference handed over at construction would go stale. `team_emojis`
-is threaded through as a parameter instead -- `build_turn_prompt` and
-`build_loose_ball_prompt` both take it -- on the reasoning that the engine
-is read-only once built.
+`team_emojis` joined `role_emojis` on `RulesEngine`, in the same shape:
+the engine owns the dict, `D12Ball.team_emojis` is a property over it
+whose setter assigns to `engine.team_emojis`, and `cog_load`'s
+`self.team_emojis = await load_team_emojis(...)` rebinds the engine's
+own attribute rather than a second copy existing beside it.
+`build_turn_prompt` and `build_loose_ball_prompt` read it off `self`
+now, rather than taking it as a parameter.
 
-**Decide it once, here: `team_emojis` joins `role_emojis` on the engine**,
-in exactly that shape -- the engine owns the dict and `D12Ball.team_emojis`
-becomes a property whose setter assigns to `engine.team_emojis`, so
-`cog_load`'s existing `self.team_emojis = await load_team_emojis(...)`
-rebinds the engine's own attribute and there is only ever one dict. Two
-reasons. The parameter reasoning was already overturned by `role_emojis`:
-the engine holding a string-per-team dict needs no discord.py, and what it
-still cannot do is *fetch* one. And Phase 1 hits this on its first `ask`
-line while every narration step in Phases 2-5 hits it again, so the
-alternative is the same ad-hoc decision made five times. The two
-both-sides autocompletes stay as they are; they are plain text and can
-render no emoji either way.
-
-**So `player_label` crossing the seam is a Phase 1 prerequisite, not a
-consequence of it** -- it is an unlisted step that has to land before
-anything with a player's name in it can be lifted. **Not by becoming
-`RulesEngine.format_roster_player_for_message`** -- that method already
-exists (`engine.py:2661`) and is a different, narrower thing: role badge
-only, no team emoji, for its two current callers (`apply_formation`,
-`build_turn_prompt`), where a team emoji next to a card already on that
-team's board would say nothing new. `player_label` wants both. It becomes
-a new method beside it, `RulesEngine.format_player_label`: engine-side,
-reading both `team_emojis` and `role_emojis` off the engine, with
-`D12Ball.player_label` left as the forwarding method so no call site
-moves. The two methods stay distinct on purpose -- a caller that wants the
-narrower form keeps asking for it by name, rather than a flag threading
-through both.
+That was the prerequisite because `player_label` crossing the seam is
+what `pending_prompt`'s two `ask` lines (Mind Pull, injury test) need,
+and `player_label` wants both dicts. `RulesEngine.format_player_label`
+is that, engine-side -- **not** `format_roster_player_for_message` with
+a flag added, since that method is a distinct, narrower thing already:
+role badge only, no team emoji, for `apply_formation` and
+`build_turn_prompt`, where a team emoji next to a card already on that
+team's board would say nothing new. `D12Ball.player_label` forwards to
+the new method so no call site moved.
 
 Each returns `None` today and falls back to `PlayerActionView`; that becomes
 `PromptKind.PLAYER_ACTION`, and the fallback stays exactly as deliberate as
@@ -432,9 +411,9 @@ that must not drift.
 table of 26 entries and the `View` constructors they name -- call it 150
 lines, which is the one number here that is a guess.
 
-**The emoji prerequisite above is not in that 405.** It is a small,
+**The emoji prerequisite above is not in that 405.** It was a small,
 separable change -- one dict moved, one property added, two engine builders
-losing a parameter -- and it lands first, on its own.
+losing a parameter -- and it landed first, on its own.
 
 ### Test stop -- and this is a real one
 

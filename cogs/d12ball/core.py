@@ -70,7 +70,6 @@ from cogs.d12ball_helpers import (
     contest_noun,
     fetch_application_emojis,
     format_player_with_team,
-    format_role_bracket,
     format_team_side_label,
     get_damaged_emoji,
     get_injured_emoji,
@@ -156,8 +155,8 @@ class CoreMixin:
         # the first retry.
         self.coin_emojis_checked_at: Optional[float] = None
         self.condition_emojis: dict[str, str] = {}
-        self.team_emojis: dict[Team, str] = {}
-        # The role emoji live on the engine -- see `role_emojis` below.
+        # The team and role emoji live on the engine -- see
+        # `team_emojis` and `role_emojis` below.
         # The `<:d12dice:id>` string for the hub message and the lobby
         # heading, and the lighter `<:d12dicecream:id>` for the hub
         # button (its blue fill swallowed the darker die) -- both None
@@ -587,6 +586,21 @@ class CoreMixin:
         )
 
     @property
+    def team_emojis(self) -> dict[Team, str]:
+        """
+        The team emoji, `Team -> "<:team_orange:id>"`, once cog_load
+        has fetched them and `{}` before -- read by
+        `format_player_with_team` and `format_player_label` (see
+        `role_emojis` just below, for why this lives on the engine
+        rather than being a second dict assigned beside it).
+        """
+        return self.engine.team_emojis
+
+    @team_emojis.setter
+    def team_emojis(self, team_emojis: dict[Team, str]) -> None:
+        self.engine.team_emojis = team_emojis
+
+    @property
     def role_emojis(self) -> dict[tuple[PlayerRole, Optional[Team]], str]:
         """
         The role emoji, `(PlayerRole, Team | None) ->
@@ -620,25 +634,14 @@ class CoreMixin:
         brackets once they are uploaded (see `role_emojis`), drawn
         with that side's own colour on its edge.
 
-        This is `format_role_bracket` with the two arguments that are
-        the same at every call site already filled in. The emoji dict
-        is the cog's, and the team is **always** the one the match is
-        fielding this card as: a player belongs to two rosters, so
-        their definition cannot answer it and `match.team_for_player`
-        has to (see "One player, both sides" in docs/design/teams-and-players.md). Ninety-odd
-        sites wrote out all three, which put the same forty characters
-        of lookup in front of every player's name in the codebase.
-
-        `format_role_bracket` itself is still the right call for the
-        few places that have a `TeamSetup` rather than a match, and
-        so already know the side without asking.
+        A forwarding method over `RulesEngine.format_player_label`,
+        which reads both emoji dicts off the engine itself now that
+        they live there -- see `team_emojis` and `role_emojis` above.
+        Kept here so no call site moved: ninety-odd sites already read
+        this rather than spelling out `format_role_bracket` and its
+        three arguments for themselves.
         """
-        return format_role_bracket(
-            player,
-            self.team_emojis,
-            match.team_for_player(player.player_id),
-            self.role_emojis,
-        )
+        return self.engine.format_player_label(match, player)
 
     def player_id_label(
         self,

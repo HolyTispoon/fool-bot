@@ -904,7 +904,7 @@ class PresentationMixin:
             turn_message = await send_new_prompt(
                 inner_interaction,
                 self.engine.build_turn_prompt(
-                    game, match, self.team_emojis, carrying=carrying,
+                    game, match, carrying=carrying,
                 ),
                 view=view,
                 allowed_mentions=discord.AllowedMentions(

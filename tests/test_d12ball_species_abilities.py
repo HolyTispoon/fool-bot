@@ -418,7 +418,6 @@ def build_ignition_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
-    cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.coin_emojis = {}
     cog.ai_strategies = build_ai_strategies(
@@ -1416,7 +1415,7 @@ class SlipInTests(unittest.TestCase):
         # who already has the ball, not just handed an unlabelled
         # choice between two buttons.
         carrier, teammate = self.put_two_on_the_ball()
-        prompt = self.engine.build_turn_prompt(self.game, self.match, {})
+        prompt = self.engine.build_turn_prompt(self.game, self.match)
         self.assertIn(
             self.engine.format_roster_player_for_message(
                 carrier, self.match.team_for_player(carrier),
@@ -1451,7 +1450,7 @@ class SlipInTests(unittest.TestCase):
         self.assertNotIn(self.match.ball_carrier_id, candidates)
         self.assertNotIn(
             "slip in",
-            self.engine.build_turn_prompt(self.game, self.match, {}),
+            self.engine.build_turn_prompt(self.game, self.match),
         )
 
 
@@ -2191,7 +2190,6 @@ def build_mind_pull_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
-    cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.coin_emojis = {}
     cog.ai_strategies = build_ai_strategies(

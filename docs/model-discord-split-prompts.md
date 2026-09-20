@@ -11,9 +11,10 @@ when that phase lands, and the file goes when the worksheet does. Nothing
 in it is a rule -- the principles are the worksheet's, and CLAUDE.md's from
 Phase 1 on.
 
-Phase 0 has landed (PR #201), so there is no prompt for it. Phase 1 is split
-in two because the worksheet itself says its emoji prerequisite "lands
-first, on its own". Phase 3 is one template run six times.
+Phase 0 has landed (PR #201), so there is no prompt for it. Phase 1 was
+split in two because the worksheet itself said its emoji prerequisite
+"lands first, on its own"; that half (1a) has now landed too, so only
+1b's prompt remains. Phase 3 is one template run six times.
 
 ---
 
@@ -78,67 +79,6 @@ Ground rules for every phase:
   checkboxes (suite passes / rules change? / architecture change? / board
   image change? / new persisted field? / more Discord requests per click? /
   no data/ or one-off scripts in the diff).
-```
-
----
-
-## Phase 1a -- the emoji prerequisite: `team_emojis` onto the engine, `format_player_label`
-
-```
-[PREAMBLE]
-
-This is the unlisted prerequisite of Phase 1 in docs/model-discord-split.md,
-under "The prerequisite: where a fetched emoji dict lives". It lands on its
-own, before the PendingPrompt move, and it moves no flow code. Read
-docs/design/naming-and-wording.md and docs/design/teams-and-players.md as
-well.
-
-What to do, exactly as the worksheet settles it:
-
-1. `team_emojis` joins `role_emojis` on `RulesEngine`, in the same shape
-   `role_emojis` already has (see the comment above `self.role_emojis` in
-   d12ball/engine.py): the engine owns the dict, `D12Ball.team_emojis`
-   becomes a property whose setter assigns to `engine.team_emojis`, so
-   `cog_load`'s existing `self.team_emojis = await load_team_emojis(...)`
-   rebinds the engine's attribute and there is only ever one dict. Do not
-   hand the dict over at construction -- cog_load replaces it, which is the
-   whole reason role_emojis is a property.
-
-2. `RulesEngine.build_turn_prompt` and `build_loose_ball_prompt` stop taking
-   `team_emojis` as a parameter and read it off `self`. Fix their callers
-   and the comments that say "team_emojis is the cog's, passed in rather
-   than held" -- that reasoning is the one being overturned.
-
-3. Add `RulesEngine.format_player_label`, engine-side, reading both
-   `team_emojis` and `role_emojis` off the engine, producing exactly what
-   `D12Ball.player_label` produces today (team emoji in front, role badge
-   where uploaded). `D12Ball.player_label` becomes a forwarding method so
-   no call site moves. Keep `format_roster_player_for_message` as the
-   distinct, narrower method it is (role badge only, no team emoji, for
-   apply_formation and build_turn_prompt) -- two methods by name, not one
-   with a flag. Say so in a comment beside them.
-
-4. The two both-sides autocompletes stay as they are; they are plain text.
-
-Verification, and what I want to see in the PR:
-
-- The output of every message that names a player is byte-identical
-  before and after. The golden transcript is one witness; also write a
-  focused unit test that `format_player_label` and the old inline body
-  agree for a player with a team emoji, one without, a role with an
-  uploaded badge and one without (fake the two dicts, name players by
-  role).
-- tests/test_model_purity.py still passes -- the engine gained a dict of
-  strings and no discord import.
-- Show me the grep that finds every reader of `team_emojis` in cogs/ and
-  d12ball/ and say what happened to each.
-- Bot stop for the author: start the bot, confirm the team and role emoji
-  still render in a turn prompt, a loose-ball prompt, and one message that
-  goes through player_label (a Mind Pull or injury-test ask is the one
-  Phase 1 needs). Confirm the emoji still appear after a hot reload of the
-  cog if the bot supports one.
-
-Do not start the PendingPrompt move in this PR.
 ```
 
 ---

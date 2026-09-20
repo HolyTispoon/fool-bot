@@ -1441,9 +1441,9 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
         cog.bot = bot
         cog.coin_emojis = {}
         cog.condition_emojis = {}
-        cog.team_emojis = {}
-        # cog_load hands the role emoji to the engine, which is where
-        # they live -- see `D12Ball.role_emojis`.
+        # cog_load hands the team and role emoji to the engine, which
+        # is where they live -- see `D12Ball.team_emojis` and
+        # `D12Ball.role_emojis`.
         cog.engine = RulesEngine(
             load_player_catalog(),
             load_basic_ruleset(),

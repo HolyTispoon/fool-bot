@@ -72,7 +72,6 @@ def build_cog() -> D12Ball:
     cog.player_catalog = CATALOG
     cog.maneuver_catalog = MANEUVERS
     cog.basic_ruleset = RULES
-    cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.coin_emojis = {}
     cog.ai_strategies = build_ai_strategies(CATALOG, MANEUVERS)
