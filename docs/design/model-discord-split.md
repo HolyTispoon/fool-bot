@@ -67,10 +67,11 @@ match is waiting on; a flow step is what *changes* it. Each takes the
 engine and the match, mutates, and hands back a `StepResult` -- the
 narration, whether the board moved, and what happens next. Phase 2 cut
 this on Low Pass alone and nothing else; Phase 3 follows a rank at a
-time, and rank O2 brought the two dribbles, rank D2 the two steals and
-rank D3 the two pressures -- so `effects.py` holds eight cards as six
-functions (four of the cards are their rank-mate parameterised) and
-`cogs/d12ball/effects.py` still holds four: ranks D1 and O3. Rank O1
+time, and rank O2 brought the two dribbles, rank D2 the two steals,
+rank D3 the two pressures and rank D1 the two deflections -- so
+`effects.py` holds ten cards as seven functions (five of the cards are
+their rank-mate parameterised) and `cogs/d12ball/effects.py` still
+holds two: rank O3. Rank O1
 landed in between and moved none of them: Skilled Pass had come across
 with Low Pass already, as the same step under a different `key=`.
 
@@ -280,6 +281,56 @@ with Low Pass already, as the same step under a different `key=`.
     it survives a `to_dict`/`from_dict` round trip, because it
     reaches into the *following* maneuver and a restart that lost it
     would give the next turn one challenger instead of two.
+- **Rank D1 settled what `board_changed` means, which is the one
+  question a rank had left open for another rank to answer.**
+  `deflection_step` is a Deflect and a Clear both, and it calls
+  `begin_loose_ball` directly rather than going through
+  `finish_maneuver_resolution` -- the ball is out of everybody's hands
+  where it stopped, so the question that step asks has an answer that
+  does not matter. The old cog did **not** refresh the board before
+  handing over, even though the ball had plainly moved, because
+  `begin_loose_ball` draws the board under its own announcement.
+  - **The step reports `board_changed=True` anyway, and the frontend
+    skips the write.** The alternative was a step returning False
+    because a Discord bucket says so, which is principle 8 read
+    backwards: the model would have been carrying this channel's
+    five-in-five arithmetic on behalf of every frontend that ever
+    reads a `StepResult`. `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in
+    `cogs/d12ball/core.py` is where it went instead, and
+    `dispatch_step_result` reads it. See
+    [rate-limits.md](rate-limits.md).
+  - **It is keyed to the step, not to the card.** Eight sites in
+    `cogs/d12ball/effects.py` reach `begin_loose_ball` and this rank
+    lifted two of them; the other six inherit the answer as they move,
+    rather than each deciding it again. That is the same failure this
+    flow has already had once -- `restrict_to_occupants` was a flag,
+    and the two call sites that did not pass it kept the old
+    behaviour for two days.
+  - **`OFFER_SETUP_PASS_PUSH_BACK` is in the set one step removed**,
+    and the rank's own recording is what found that: it was written
+    expecting a refresh on that branch and the old cog had not made
+    one. All three of the push-back's branches end in
+    `begin_loose_ball`, so the board arrives with the loose ball, on
+    the far side of the coach's answer rather than in front of a
+    question whose answer moves the ball again.
+  - **Two pre-existing tests read `distance_moved` off
+    `await_args.args[3]`** and broke on a move that changed nothing,
+    which is rank D2's `inspect.signature` lesson turning up in tests
+    that are not the rank's own. The fix is the assertion; the rank
+    added a `loose_ball_distance` helper to each of the two modules
+    rather than making the call positional again.
+  - **Step-then-save was the rule rather than a fix**, the third time
+    of four: `knock_ball_back`'s own persist and the shot branch's
+    both wrote the same state, with nothing between them that could
+    fail. One `self.persist` site fewer in `cogs/` -- 96 -> 95 as
+    merged: two left the step and one arrived in the wrapper.
+  - **What did not move**, deliberately: `resolve_low_pass`'s
+    no-teammate-to-receive branch, which is the eighth caller of
+    `begin_loose_ball` and rank O1's. Two rules questions on it are
+    open (PR #232) and they decide where the lifted step would put it,
+    so lifting it now would have baked in an answer. Its
+    `distance_moved` reaches `begin_loose_ball` positionally still,
+    which is fine -- only a `FollowOn` names arguments.
 - **What is in `FollowOnStep` is asserted in
   `tests/test_d12ball_package_shape.py`**, not in any one rank's own
   tests, along with `D12Ball.follow_on_methods` covering it exactly --
@@ -345,7 +396,7 @@ rewords a result has changed the game.
   of player ids iterated into a message would otherwise vary by machine
   rather than by the change that broke it.
 - **It covers one basic-mode solo game on board 7**, the only multi-turn game
-  the suite can drive today -- no advanced maneuver, no species ability, no
+  the suite can drive today -- no gambit, no species ability, no
   halftime, no shootout, no time out. Rewording two of the three `Ball speed
   is now` sites in `effects.py` did not fail it, because the tutorial only
   reaches the third. Don't read a green golden as "the wording is covered";

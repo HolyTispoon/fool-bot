@@ -29,8 +29,8 @@ from d12ball.cards import (  # noqa: E402
     render_maneuver_hands,
 )
 from d12ball.components import (  # noqa: E402
-    MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
+    MANEUVER_TIER_GAMBIT,
     load_maneuver_catalog,
     load_player_catalog,
 )
@@ -117,8 +117,8 @@ def main() -> None:
             for label, tiers in (
                 ("basic", (MANEUVER_TIER_BASIC,)),
                 (
-                    "advanced",
-                    (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
+                    "gambits",
+                    (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT),
                 ),
             ):
                 hand_path = args.out / f"hand-{'-'.join(sides)}-{label}.png"

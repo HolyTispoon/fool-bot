@@ -1,7 +1,7 @@
 """
 Picking which halves of advanced mode a game plays.
 
-Advanced mode is one switch over two modules -- the advanced maneuvers
+Advanced mode is one switch over two modules -- the gambits
 and the species abilities -- and the game record has carried an opt-out
 for each since they landed (see "Species abilities in the bot"). What
 is tested here is the *offer*: the two toggles the setup settings block
@@ -127,7 +127,7 @@ class ToggleRuleTests(unittest.TestCase):
         game = build_game(species_abilities=False)
 
         self.assertEqual(
-            advanced_module_label(game, "maneuvers"), "Maneuvers: on",
+            advanced_module_label(game, "maneuvers"), "Gambits: on",
         )
         self.assertEqual(
             advanced_module_label(game, "species"), "Species: off",
@@ -146,7 +146,7 @@ class ModeWordingTests(unittest.TestCase):
     ) -> None:
         self.assertEqual(
             describe_game_mode(build_game()),
-            "six maneuvers a side, species abilities",
+            "a gambit on every rank, species abilities",
         )
         self.assertEqual(
             describe_game_mode(build_game(advanced_maneuvers=False)),
@@ -154,14 +154,14 @@ class ModeWordingTests(unittest.TestCase):
         )
         self.assertEqual(
             describe_game_mode(build_game(species_abilities=False)),
-            "six maneuvers a side",
+            "a gambit on every rank",
         )
 
     def test_both_setup_screens_say_what_the_game_is_playing(self) -> None:
         game = build_game(advanced_maneuvers=False)
 
         self.assertIn("species abilities", build_setup_message(game, {}))
-        self.assertNotIn("six maneuvers", build_setup_message(game, {}))
+        self.assertNotIn("gambit", build_setup_message(game, {}))
         self.assertIn("species abilities", build_lobby_message(build_lobby(
             advanced_maneuvers=False,
         )))

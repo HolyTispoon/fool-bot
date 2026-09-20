@@ -356,7 +356,7 @@ def steal_beats_a_skilled_pass() -> StealFixture:
 
 def intercept_plain() -> StealFixture:
     """
-    The advanced card is the basic Steal with the sign flipped: the
+    The gambit is the basic Steal with the sign flipped: the
     interceptor carries the ball **forward**, toward the goal they now
     attack. It is the only card in the game that moves the ball
     against the way the offense was going.

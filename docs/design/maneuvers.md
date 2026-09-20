@@ -1,4 +1,4 @@
-# Maneuvers: keys, advanced mode, who wins, and every roll
+# Maneuvers: keys, gambits, who wins, and every roll
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md).
 
@@ -27,7 +27,7 @@ tutorial rails and every game saved mid-turn.
   print it asks; a caller that wants to *decide* something compares
   keys.
 - **Relations are by rank.** `ManeuverDefinition.defeats_rank`
-  replaced `defeats`, because since advanced mode each rank carries
+  replaced `defeats`, because since the gambits each rank carries
   two cards -- the basic one and its counterpart -- and **rank alone
   decides** who wins (the author, 2026-08-18). Naming one of the two
   would be naming half a relation. `ManeuverCatalog.counterpart` is
@@ -38,28 +38,82 @@ tutorial rails and every game saved mid-turn.
   rewriting its own four references to it -- which can be dropped once
   upstream catches up.
 
-## Advanced maneuvers
+## Gambits
 
-Six more cards, one per basic card's rank, turned on by
-`GameMode.ADVANCED`. See "Advanced maneuvers" in the living rules;
-what is left open is in
-[docs/advanced-maneuver-matrix.md](../advanced-maneuver-matrix.md).
+Six more maneuvers, one on each basic card's rank, turned on by
+`GameMode.ADVANCED`. They were "advanced maneuvers" until 2026-09-20;
+the author renamed them to say what the old name argued against --
+**a gambit is a maneuver of its rank**, Double Team a kind of
+Pressure, which is why rank alone decides. See "Gambits" in the living
+rules; what is left open is in
+[docs/gambit-matrix.md](../gambit-matrix.md).
+
+The rename is the rules' word and not the sheet's. `maneuvers.json`
+still carries `"tier": "advanced"` from the `Mode` column, so
+`MANEUVER_TIER_GAMBIT` is the constant and `"advanced"` is its value,
+and `MANEUVER_TIER_WORDS` is the one table between that value and
+anything a person reads -- the card's corner label (GAMBIT MANEUVER)
+and the reference image's filename. Same shape as `legacy_maneuver_key`
+above: the code says what the rules say, one line says what upstream
+still says, and a sheet edit plus a re-import retires it.
 
 **`RulesEngine.maneuver_tiers` is the only answer to who holds what**,
 and the buttons, the hand image and the click that answers all read
-it. Two things narrow it, and both are rules: a basic game is the
-basic three, and **an unchallenged maneuver is always basic** (the
-author) -- which is answerable at the moment a hand is drawn because
-all three routes into the unopposed branch settle it before the
-offense is prompted. That also makes declining a challenge a defensive
-weapon rather than only a saving.
+it. Three things narrow it, and all three are rules:
+
+- a basic game is the basic three;
+- **an unchallenged maneuver is always basic** (the author) -- which
+  is answerable at the moment a hand is drawn because all three routes
+  into the unopposed branch settle it before the offense is prompted.
+  That also makes declining a challenge a defensive weapon rather than
+  only a saving;
+- **a gambit needs a reason** (the author, 2026-09-20), below.
+
+### A gambit needs a reason
+
+`may_play_gambits(game, match, side)` is the gate: a coach holds their
+gambits only while their team is **behind**, which is `trailing` (fewer
+goals) or `carrying_more_injuries` (more injured players *on the field*
+than the opponent). Either is enough and both are asked of one team, so
+both coaches can hold them at once -- one trailing while the other is
+the more hurt.
+
+- **It is what gave `maneuver_tiers` a `side`, and that is the whole
+  structural change.** The two coaches no longer necessarily hold the
+  same cards, so the question cannot be asked about a match alone. Every
+  caller that draws a hand already had a side; the one that did not was
+  the prompt's own image, which is why `render_maneuver_hands` now takes
+  one `(side, tiers)` pair per hand and the cog pre-renders eight
+  combinations rather than six (`maneuver_hand_combinations`).
+- **Nothing is persisted for it**, the same as the outright rule below:
+  it is read off the scoreboard and the field when the hand is drawn, so
+  a restart mid-maneuver draws the same hand, and a gambit already
+  played keeps its benefit and pays its cost however the score moves
+  afterwards -- those are read off the two stored keys.
+- **The gate is on the hand and nothing else.** Volatile still upgrades
+  a maneuver to its rank's gambit off an ignite whether or not that
+  coach may play one: the ability is about the dice, and gating it would
+  make a Fire Demon's ignite quietly worthless to the side in front.
+  The reference hexagon is not gated either (`D12Ball.reference_tier`)
+  -- a coach who holds nothing still has to read what is coming at them.
+- **Dinky needed no policy.** It rolls a rank and picks at random among
+  the cards on it that are in the hand it was handed, so a closed Dinky
+  plays the basic three without knowing why -- the same indifference it
+  brings to the tier itself, below.
+- **The bot says who holds them anyway.** `describe_gambit_access` puts
+  one line under the maneuver prompt. The rule is public knowledge by
+  construction -- the author's point in setting it on the scoreboard and
+  the meeples -- but the prompt only draws a hand for a side a *person*
+  picks for, so in a solo game Dinky's cards are never on the message.
+  Nothing is said where neither coach holds them: three cards a side is
+  the basic game the coaches already know.
 
 - **The outright rule is two questions about two cards**, not one
-  about the matchup: `advanced_benefit_applies` (this card **won on
-  the cards**) and `advanced_cost_applies` (this card **lost on
+  about the matchup: `gambit_benefit_applies` (this card **won on
+  the cards**) and `gambit_cost_applies` (this card **lost on
   them**) -- the author, 2026-09-07. `resolving_maneuver` asks the
   first and substitutes the basic counterpart when it answers no;
-  `advanced_cost` asks the second.
+  `gambit_cost` asks the second.
   - **It replaced a single `advanced_effects_apply`**, which asked
     only whether the cards were decisive. That is right in every case
     but one, and the one is real: a decisive matchup whose card-winner
@@ -150,14 +204,14 @@ weapon rather than only a saving.
       rather than a fix -- worth saying so, because the two read
       alike in a diff.
     - **One ordering is open.** An Intercept that overshoots returns
-      before `advanced_cost` is read, so it collects no beaten
+      before `gambit_cost` is read, so it collects no beaten
       Skilled Pass. Whether that is the rule (nobody goes back in
       position, so the free pass has no moment) or an oversight is
       the author's; the behaviour is preserved exactly and the
       question is written out in PR #233.
   - **Both pressures followed them (rank D3).** `pressure_step` is
     the whole of a Pressure and of a Double Team -- the two differ by
-    the push and by the partner the advanced card brings in, so they
+    the push and by the partner the gambit brings in, so they
     are one function and a `key`. `shove_pressured_handler`,
     `pressure_result_text` and `apply_pressure_turnover` went with it
     as free functions, and `D12Ball.apply_pressure` is four lines
@@ -180,8 +234,37 @@ weapon rather than only a saving.
       still survives a restart mid-effect -- which the rank asserts
       rather than assumes, since it is the one record here that
       reaches into the next turn.
+  - **Both deflections followed them (rank D1).** `deflection_step` is
+    the whole of a Deflect and of a Clear -- the two differ by the
+    distance and by how much speed comes off, so they are one function
+    and a `key`. `deflection_numbers` and `knock_ball_back` went with
+    it as free functions, and `D12Ball.apply_deflection` is four lines
+    around it. Nothing either card says changed.
+    - **The Fullback's +1 is still two numbers rather than one.**
+      `deflection_numbers` returns the distance and the speed drop
+      separately, and the ability moves only the first: a Deflect they
+      play goes back 2 and still drops the speed 1, a Clear goes back 4
+      and still drops it 3. Derived from the distance instead, this
+      read correctly right up until the Fullback was let near a Clear.
+    - **The rank named two new follow-ons**, `BEGIN_LOOSE_BALL` and
+      `OFFER_SETUP_PASS_PUSH_BACK`. The push-back is a follow-on rather
+      than a prompt the step returns for rank O2's reason: whether
+      anybody is asked at all is still the cog's, since Dinky drives it
+      as far back as it goes and a ball already at the end of the field
+      has nothing to offer.
+    - **The overshoot's ordering is unchanged and now pinned.** A
+      deflection that runs out of field and finds a defender standing
+      where the ball stopped turns into a scoring opportunity, and the
+      Setup Pass cost is **not** asked on that branch -- the ball is
+      already as far back as it goes. An overshoot onto an empty space
+      is an ordinary loose ball. Neither was asserted anywhere before
+      the rank's fixtures.
+    - **Step-then-save was the rule rather than a fix**, the third time
+      of four. `knock_ball_back` saved the moved ball and the shot
+      branch saved again over the turnover it then applied; nothing
+      between them mutates the match, so both wrote the same state.
 - **Every cost bites inside the winning maneuver's own resolution**,
-  which is why there is no cost dispatcher. `advanced_cost` names the
+  which is why there is no cost dispatcher. `gambit_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2
   exhaustion and Double Team's shove are charged by the card that beat
   them, Intercept's uncontested reception is a branch of the High
@@ -253,8 +336,8 @@ weapon rather than only a saving.
 - **A role ability is inherited by rank, and what carries is the rule
   rather than the number.** Each sentence in `players.json` was written
   against one card and states a number, so read literally three of them
-  are nonsense on their advanced counterpart: a Fullback's "ball goes
-  back 2" is a *reduction* on a 3-space Clear, its "high pass up to 4"
+  are nonsense on the gambit that inherits it: a Fullback's "ball
+  goes back 2" is a *reduction* on a 3-space Clear, its "high pass up to 4"
   is a fourth number against a card offering 0/1/3, and a Playmaker's
   "may advance 2" was no bonus at all on a run to the end of the field.
   The author settled all three on 2026-08-19 -- **the Fullback's
@@ -283,9 +366,9 @@ weapon rather than only a saving.
     hatch Steal's ball speed modifier uses, and for the same reason.
 - **Dinky rolls its rank as it always has and picks the tier at
   random.** That is not a policy and is not meant to be one: an
-  advanced card carries a cost as well as a benefit, and weighing the
+  gambit carries a cost as well as a benefit, and weighing the
   two is judgement, which Dinky makes none of. The alternative was
-  Dinky never playing an advanced card, which leaves half of advanced
+  Dinky never playing a gambit, which leaves half of advanced
   mode unreachable in a solo game.
 - **`EveryMatchupResolvesTests` is the guard worth keeping.** It walks
   all thirty-six pairings on all three boards through the real

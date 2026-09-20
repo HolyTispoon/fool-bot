@@ -1,38 +1,37 @@
 """
-What the cog's Pressure and Double Team say and do next, recorded off
-the old code.
+What the cog's Deflect and Clear say and do next, recorded off the old
+code.
 
-This is the equivalence half of rank D3 of Phase 3 of
-docs/model-discord-split.md. It drives `D12Ball.apply_pressure` over
-`tests/pressure_fixtures.py` and asserts the narration byte for byte,
-whether the board moved, and which step the resolution hands the turn
-to with which arguments -- the four things a `StepResult` carries --
-plus where the handler, the ball and the defenders ended up, and the
-pair a Double Team leaves challenging the next maneuver.
+This is the equivalence half of rank D1 of Phase 3 of
+docs/model-discord-split.md. It drives `D12Ball.apply_deflection` over
+`tests/deflection_fixtures.py` and asserts the narration byte for
+byte, whether the board was written, and which step the resolution
+hands the turn to with which arguments -- the four things a
+`StepResult` carries -- plus where the ball ended up, how fast it is
+going and who has it.
 
 **It was written and run green before the move**, which is what makes
-it evidence: `tests/test_d12ball_pressure_flow.py` asks the model the
-same questions off the same fixtures, so the two agreeing afterwards
-is the move having changed nothing rather than new code agreeing with
-itself. `tests/steal_fixtures.py` with
-`tests/test_d12ball_steal_recording.py` is rank D2's copy of the same
-shape.
+it evidence: `tests/test_d12ball_deflection_flow.py` asks the model
+the same questions off the same fixtures, so the two agreeing
+afterwards is the move having changed nothing rather than new code
+agreeing with itself. `tests/pressure_fixtures.py` with
+`tests/test_d12ball_pressure_recording.py` is rank D3's copy of the
+same shape.
 
-**The narration is read off whichever thing carried it**, because
-this rank is the one where that changes. On six of the eight branches
-it is the follow-on's `lead_in` and a pressure posts nothing of its
-own; on the two overshoots the old cog posted the shove as a message
-and then asked for the own-goal roll separately, so the branch cost
-two messages where every other resolved maneuver costs one. Accepting
-either is what lets one table answer for the shape before the move and
-the shape after it -- the trick rank D2 used on `inspect.signature`,
-applied to a message rather than to an argument. Which of the two
-carried it is asserted, so the branch cannot quietly start doing both.
+**The refresh is recorded, not assumed.** Rank D1 is the one rank
+where "the board moved" and "the board was written" are different
+answers: every branch drives the ball back, and only the branch that
+ends in a shot called `refresh_match_image`. The other two hand over
+to steps that draw the board under their own announcement, so a
+refresh in front of them would write the same board twice. This
+asserts the count either way, so the move cannot quietly add one.
 
 **The follow-on's arguments are read through the real method's
 signature**, not off `call.args`, for the reason rank D2 wrote down:
 the old cog hands some of them positionally where a `FollowOn` names
-them.
+them. `begin_loose_ball(interaction, game, match, 1, lead_in=...)` is
+exactly that case -- `distance_moved` is the fourth positional
+argument today and arrives named after the move.
 """
 
 from __future__ import annotations
@@ -53,11 +52,11 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 
-from pressure_fixtures import (
-    FINISH,
-    OWN_GOAL_ROLL,
-    PRESSURE_CASES,
-    RUN_BACK,
+from deflection_fixtures import (
+    DEFLECTION_CASES,
+    LOOSE_BALL,
+    SETUP_PASS_PUSH_BACK,
+    SHOOTER_CHOICE,
 )
 from save_patches import suppressed_cog_saves
 
@@ -89,9 +88,9 @@ def build_cog() -> D12Ball:
         cog.ai_strategies,
     )
     cog.refresh_match_image = mock.AsyncMock()
-    cog.finish_maneuver_resolution = mock.AsyncMock()
-    cog.begin_run_back = mock.AsyncMock()
-    cog.begin_own_goal_roll = mock.AsyncMock()
+    cog.begin_loose_ball = mock.AsyncMock()
+    cog.begin_shooter_choice = mock.AsyncMock()
+    cog.offer_setup_pass_push_back = mock.AsyncMock()
     cog.maneuver_hand_image_bytes = {
         hands: b"" for hands in maneuver_hand_combinations()
     }
@@ -150,13 +149,15 @@ def named_arguments(method, call) -> dict:
 
 
 FOLLOW_ONS = {
-    FINISH: ("finish_maneuver_resolution", D12Ball.finish_maneuver_resolution),
-    RUN_BACK: ("begin_run_back", D12Ball.begin_run_back),
-    OWN_GOAL_ROLL: ("begin_own_goal_roll", D12Ball.begin_own_goal_roll),
+    LOOSE_BALL: ("begin_loose_ball", D12Ball.begin_loose_ball),
+    SHOOTER_CHOICE: ("begin_shooter_choice", D12Ball.begin_shooter_choice),
+    SETUP_PASS_PUSH_BACK: (
+        "offer_setup_pass_push_back", D12Ball.offer_setup_pass_push_back,
+    ),
 }
 
 
-class PressureRecordingTests(unittest.IsolatedAsyncioTestCase):
+class DeflectionRecordingTests(unittest.IsolatedAsyncioTestCase):
     """
     One subtest per branch, each reading the fixture table's own
     answer. A branch that stops matching here is a branch whose
@@ -167,7 +168,7 @@ class PressureRecordingTests(unittest.IsolatedAsyncioTestCase):
     async def test_every_branch_says_and_dispatches_what_it_recorded(
         self,
     ) -> None:
-        for case in PRESSURE_CASES:
+        for case in DEFLECTION_CASES:
             with self.subTest(case=case.name):
                 await self._check(case)
 
@@ -179,7 +180,7 @@ class PressureRecordingTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.apply_pressure(
+            await cog.apply_deflection(
                 interaction, fixture.game, match, fixture.key,
             )
 
@@ -195,48 +196,23 @@ class PressureRecordingTests(unittest.IsolatedAsyncioTestCase):
             named_arguments(method, call), fixture.follow_on_kwargs,
         )
 
-        # Either the next step opened with it, or the branch posted it
-        # itself -- never both, and never neither.
-        posted = posted_messages(interaction)
-        carried = call.kwargs.get("lead_in") or ""
-        if carried:
-            self.assertEqual(posted, [])
-        else:
-            self.assertEqual(len(posted), 1)
-            carried = posted[0]
-        self.assertEqual(carried, fixture.narration)
+        # Every branch of this rank carries its narration into the next
+        # step. Nothing here posts a message of its own -- the
+        # overshoot included, which is where rank D3 differed.
+        self.assertEqual(posted_messages(interaction), [])
+        self.assertEqual(call.kwargs.get("lead_in"), fixture.narration)
 
-        # Every branch moves a meeple -- even a shove with nowhere to
-        # go walks the challenger onto the handler's space -- so the
-        # persistent board message is redrawn once.
+        # The board was written only where the old cog wrote it; see
+        # the module docstring.
         self.assertEqual(
             cog.refresh_match_image.await_count,
-            1 if fixture.board_changed else 0,
+            1 if fixture.refreshes else 0,
         )
 
         self.assertEqual(match.ball.possession, fixture.possession)
         self.assertEqual(match.ball.speed, fixture.ball_speed)
-        self.assertEqual(match.ball_carrier_id, fixture.carrier_id)
         self.assertEqual(
             (match.ball.zone, match.ball.space_index), fixture.ball_space,
-        )
-        self.assertEqual(
-            match.board.meeple_position(fixture.handler_id),
-            fixture.handler_space,
-        )
-        self.assertEqual(
-            match.board.meeple_position(fixture.challenger_id),
-            fixture.challenger_space,
-        )
-        if fixture.partner_id is not None:
-            # A Double Team's partner is placed on the handler's new
-            # space beside the challenger, free of exhaustion.
-            self.assertEqual(
-                match.board.meeple_position(fixture.partner_id),
-                fixture.challenger_space,
-            )
-        self.assertEqual(
-            match.pending_double_team, fixture.pending_double_team,
         )
 
 

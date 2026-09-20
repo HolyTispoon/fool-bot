@@ -54,6 +54,31 @@ invariants read as ordinary cog surface among 223 methods.
   of it, not one of each per step -- see `continue_run_back`. Nobody reads the
   intermediate boards; the one worth looking at is the one where everything
   has finished moving.
+- **A step says the board moved; the frontend decides what that costs.**
+  `StepResult.board_changed` is a fact about the position -- the ball moved,
+  a meeple moved -- and `dispatch_step_result` turns it into *at most* one
+  write of the persistent board message. At most, because some of the steps
+  it hands off to draw the board themselves: `begin_loose_ball` announces the
+  position with the board under it, since the ball is lying somewhere nothing
+  in the channel has named. Drawing it again in front of that is the same
+  bytes twice for one click, so `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in
+  `cogs/d12ball/core.py` names the follow-ons it is skipped for.
+  - **The answer is the step's, not the calling card's.** Eight sites in
+    `cogs/d12ball/effects.py` reach `begin_loose_ball`, and they are being
+    lifted a rank at a time; keying the suppression to the step means each
+    one inherits it rather than deciding it again -- which is how the two
+    paths that opted out of `restrict_to_occupants` survived, one floor up in
+    this same flow.
+  - **`OFFER_SETUP_PASS_PUSH_BACK` is in the set one step removed**, because
+    all three of its branches end in `begin_loose_ball`: the fallback where
+    no distance fits, Dinky's maximum, and the coach's own answer. The board
+    reaches the channel a beat later rather than in front of a question whose
+    answer moves the ball again.
+  - **It lives in the cog on purpose.** This is a five-in-five economy, and
+    rate limits are the frontend's -- principle 8 in CLAUDE.md. A web app
+    reading the same `StepResult` has no such bucket and should redraw every
+    time. Putting the suppression in the step would have shipped this
+    channel's arithmetic to every frontend that ever reads it.
 - **Render the board once per state, not once per upload.** `render_match_png`
   returns bytes and `match_file_from_png` wraps them, because uploading a
   `discord.File` consumes the stream inside it. The end of a maneuver puts the

@@ -635,7 +635,7 @@ def skilled_pass_contested_without_a_cost() -> LowPassFixture:
 def skilled_pass_double_team_cost() -> LowPassFixture:
     """
     **Double Team's cost**, collected by a Skilled Pass rather than a
-    Low Pass. `advanced_cost(match, key)` is asked with whichever card
+    Low Pass. `gambit_cost(match, key)` is asked with whichever card
     is resolving, so this is the branch that proves the cost rides on
     the `key=` parameter and not on the function's name.
     """

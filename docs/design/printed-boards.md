@@ -60,7 +60,7 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   rather than a divergence from it.** Maneuvers are chosen with the cards, so
   the two selection d6s are off the team board and the head coach cell lists
   the maneuvers by rank (O1, D2) instead of by face -- **a row is a rank with
-  both its cards on it**, the basic name in ink and its advanced counterpart
+  both its cards on it**, the basic name in ink and its gambit
   under it in grey. Three rows a column however many cards exist: listing them
   per card would print two O1s with nothing saying they are the same rank, in a
   panel sized for three. The author retired

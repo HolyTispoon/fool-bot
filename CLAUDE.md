@@ -36,7 +36,7 @@ python3 -m unittest discover -s tests
 | `d12ball/components.py` | Game state model -- `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog`, `MATCH_SAVED_FIELDS` |
 | `d12ball/engine.py` | `RulesEngine` -- every decision and candidate list that never touches Discord, over the fixed catalogs and AI strategies. `D12Ball.engine` is the one instance; call sites read `self.engine.foo(...)`. Includes the prompt-text and matchup-data builders that need only the match and the catalogs |
 | `d12ball/prompts.py` | `PromptKind`, `PendingPrompt` and `pending_prompt` -- the one reading of what a match is waiting on, with no Discord in it. The cog maps a kind to a view and renders the `ask` -- [model-discord-split.md](docs/design/model-discord-split.md) |
-| `d12ball/flow/` | The turn's flow with no Discord in it: `StepResult` and the transitional `FollowOn` in `result.py`, and the maneuver steps lifted so far in `effects.py` (Low Pass and Skilled Pass; Dribble Advance and Dribble Burst; Steal and Intercept; Pressure and Double Team). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
+| `d12ball/flow/` | The turn's flow with no Discord in it: `StepResult` and the transitional `FollowOn` in `result.py`, and the maneuver steps lifted so far in `effects.py` (Low Pass and Skilled Pass; Dribble Advance and Dribble Burst; Steal and Intercept; Pressure and Double Team; Deflect and Clear). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
 | `d12ball/formatting.py` | Plain-text formatting over match/game/zone data with no Discord dependency -- space codes, side labels, player names |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `TEAM_PAIRS`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board, matchup and dice image rendering (Pillow); `TEAM_COLORS` |
@@ -57,7 +57,7 @@ python3 -m unittest discover -s tests
 | `tests/roster.py`, `tests/save_patches.py` | Naming a test's player by role; suppressing saves -- [testing.md](docs/design/testing.md) |
 | `docs/living-rules.md` | **The whole ruleset as it currently stands.** The one thing to check a mechanic against |
 | `docs/rules-log.md` | Every rules change, dated and sourced; what is still open; where upstream is behind |
-| `docs/advanced-maneuver-matrix.md` | The worksheet advanced mode was built from, cut to what is still open. **Nothing in it is a rule** |
+| `docs/gambit-matrix.md` | The worksheet the gambits were built from, cut to what is still open. **Nothing in it is a rule** |
 | `docs/model-discord-split.md` | The worksheet the model/Discord split is being built from -- the phases still open, what deliberately does not move, the bot-testing stop each phase ends on. **Nothing in it is a rule**; the principles it was written around now live in "The model and the Discord layer" below, moved there when Phase 1 landed |
 | `docs/model-discord-split-prompts.md` | The prompt each phase of that worksheet is run from, one conversation per phase. Deleted phase by phase as they land, and with the worksheet at the end |
 | `docs/design/` | The design notes this file points at -- one topic per file |
@@ -79,7 +79,8 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 - **`d12ball/prompts.py`'s `pending_prompt` is the only reading of "what is this match waiting on?"**; `pending_turn_view` is the Discord mapping over it, and `view_for_prompt` the only place a `PromptKind` becomes a view. A second copy of that chain is how a resume comes to offer a different prompt from the one a restart restores. -- [recovery.md](docs/design/recovery.md)
 - `MatchState.record_goal` and `record_event` are the only writers of the goal log and the event log; nothing in the game may read the event log to decide a rule. -- [clock-and-records.md](docs/design/clock-and-records.md)
 - **Maneuvers are keyed** (`low_pass`, `double_team`), never held or compared by display name; `RulesEngine.maneuver_name` is the only way back to a name, for wording alone. -- [maneuvers.md](docs/design/maneuvers.md)
-- **Nothing reads `game.advanced_maneuvers`, `game.species_abilities` or `PlayerDefinition.species` to decide a rule.** `RulesEngine.advanced_maneuvers_apply`, `species_abilities_apply` and `has_species_ability` are the answers. -- [species-abilities.md](docs/design/species-abilities.md)
+- **`RulesEngine.maneuver_tiers` is the only answer to which cards a coach may play, and it is asked per side.** A gambit is held only by a coach whose team is behind (`may_play_gambits`), so the two hands on one prompt can be six cards and three -- the buttons, the hand image and the click that answers all ask it, once each per side. -- [maneuvers.md](docs/design/maneuvers.md)
+- **Nothing reads `game.advanced_maneuvers`, `game.species_abilities` or `PlayerDefinition.species` to decide a rule.** `RulesEngine.gambits_apply`, `species_abilities_apply` and `has_species_ability` are the answers. -- [species-abilities.md](docs/design/species-abilities.md)
 
 **Discord**
 - **Rate limits: the fix is always fewer requests, never slower ones.** Every edit to any message in a channel shares one ~five-in-five-seconds bucket; only the board message may be edited through the channel; `BOARD_REFRESH_INTERVAL` stays above five seconds; a cascade of the bot's own steps is one message and one board refresh at the end; render once, upload twice (`png=`); only `post_new_play_board` pins. **Read [rate-limits.md](docs/design/rate-limits.md) before adding any send, edit or pin to a game flow.**
@@ -226,8 +227,10 @@ bot stop each phase ends on.
    five-in-five arithmetic stay exactly where they are; what reaches them
    is `StepResult.board_changed`.
 
-9. **The driver persists; steps do not.** `self.persist(...)` is called at
-   **95 sites** in `cogs/` today, and CLAUDE.md already records the class
+9. **The driver persists; steps do not.** `self.persist(...)` was called at
+   **95 sites** in `cogs/` when this was written -- the phases have been
+   collapsing them a rank at a time since, so measure rather than quote it --
+   and CLAUDE.md already records the class
    of bug that produces: an event recorded without a save in the same
    breath is one the next interaction never sees, which is how beat 1 of
    the tutorial vanished from the log. A step mutates and returns; the
@@ -268,7 +271,7 @@ bot stop each phase ends on.
 | Setup, halftime, full time, the coaching window, substitutions, `CoachingOccasion`, the kickoff-space hold | [coaching-choice.md](docs/design/coaching-choice.md) | Five occasions on one flow and one message; four substitution budgets; what survives on the match |
 | Challengers, walk-ins, `contest_candidates`, declining a challenge, the uncontested maneuver | [sending-a-player.md](docs/design/sending-a-player.md) | Distance is the measure; two candidates and ties; a count not a flag |
 | `ManeuverActionPromptView`, `send_field_prompt`, any prompt that asks a distance | [maneuver-prompt.md](docs/design/maneuver-prompt.md) | Why the prompt is public and never edited; the field strip under six prompts |
-| Maneuver keys, advanced mode, `resolving_maneuver`, `advanced_cost`, `settled_maneuver_winner`, injury tests, own goals | [maneuvers.md](docs/design/maneuvers.md) | Rank decides; benefit and cost are two questions; every roll is a coach's and what outlives the wait |
+| Maneuver keys, gambits and who may play one, `maneuver_tiers`, `resolving_maneuver`, `gambit_cost`, `settled_maneuver_winner`, injury tests, own goals | [maneuvers.md](docs/design/maneuvers.md) | Rank decides; a gambit needs a reason; benefit and cost are two questions; every roll is a coach's and what outlives the wait |
 | Volatile, Lithium Powered, Slimey, Mind Pull, Smooth, `check_for_ball_arrival`, `ignite`, `exhaustion_threshold`, Overdrive, `set_ball_space` / `restart_ball_at` | [species-abilities.md](docs/design/species-abilities.md) | One switch, two modules; the roll funnel and the ignition die; the arrival gate, and which of its two halves spends the path |
 | The clock, `advance_time`, `GoalRecord`, `events`, `stats.py` | [clock-and-records.md](docs/design/clock-and-records.md) | The clock never stops; the goal log; what the statistics are and are not |
 | `end_period`, the shootout, its two ephemeral menus | [shootout.md](docs/design/shootout.md) | Every game is settled; `advance_shootout` is the one reading; the secret orders |

@@ -77,6 +77,30 @@ class FollowOnStep(Enum):
     #: and the roll is where the turn stops, so the narration opens
     #: that prompt rather than a message before it.
     BEGIN_OWN_GOAL_ROLL = auto()
+    #: The ball is out of everybody's hands where it stopped, and what
+    #: is standing on that space decides how it is won. Rank D1's, and
+    #: the first member whose step **puts the board up itself**: it
+    #: announces the position with the board under it, because the ball
+    #: is lying somewhere nothing in the channel has named. A step
+    #: naming this one still reports `board_changed` honestly -- the
+    #: ball moved; a frontend that would otherwise draw the same board
+    #: twice for one click skips its own write, which is the Discord
+    #: cog's business and not the model's (principle 8). See
+    #: `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in `cogs/d12ball/core.py`.
+    BEGIN_LOOSE_BALL = auto()
+    #: **Setup Pass's cost**: beaten by a deflection, the coach who
+    #: beat it drives the ball a further 1, 2 or 3 spaces back, and it
+    #: is loose where it stops. Rank D1's, and a follow-on rather than
+    #: a `PendingPrompt` for 3a's reason -- whether anybody is asked at
+    #: all is still the cog's: Dinky pushes the maximum itself, and a
+    #: ball already at the end of the field has nothing to offer, so
+    #: the cost is simply spent. Every one of those three branches ends
+    #: in `BEGIN_LOOSE_BALL`, which is why it keeps that member's
+    #: company in `FOLLOW_ONS_THAT_DRAW_THE_BOARD`: the board a
+    #: deflection moved reaches the channel a beat later, from the far
+    #: side of the coach's answer, rather than in front of a question
+    #: whose answer moves the ball again.
+    OFFER_SETUP_PASS_PUSH_BACK = auto()
 
 
 @dataclass(frozen=True)
@@ -103,7 +127,7 @@ class StepResult:
     the frontend joins them -- the Discord cog joins on a single
     space, which is how the messages in a channel already read. A
     block that wants a paragraph of its own carries its own leading
-    newlines, the way an advanced card's cost does; it is part of the
+    newlines, the way a gambit's cost does; it is part of the
     sentence it is charged inside rather than a message after it.
 
     `board_changed` is what `refresh_match_image` used to decide at the

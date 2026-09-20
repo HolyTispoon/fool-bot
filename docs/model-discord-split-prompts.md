@@ -14,9 +14,9 @@ Phase 1 on.
 Phase 0 has landed (PR #201), and so has Phase 1, in the two halves the
 worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
 PR #225), and so has Phase 2 (PR #227) -- so there are no prompts for any
-of them. Phase 3 is one template run six times, and **3a, 3b, 3c and 3d have
-landed (PR #229, PR #232, PR #233, PR #235)**; the template stays until
-3f does.
+of them. Phase 3 is one template run six times, and **3a, 3b, 3c, 3d and 3e
+have landed (PR #229, PR #232, PR #233, PR #235, PR #236)**; the
+template stays until 3f does.
 
 ---
 
@@ -81,7 +81,7 @@ Ground rules for every phase:
   of it was done. The live bot is the Windows checkout; nothing you do here
   reaches it until that tree pulls and restarts.
 - When the phase lands, the worksheet is edited the way
-  advanced-maneuver-matrix.md is: the phase's section is cut down to what
+  gambit-matrix.md is: the phase's section is cut down to what
   is still open (or deleted if nothing is), and the phase table's Status
   column marks it done with the PR number. The design doc for each area
   the move touched is corrected in the same PR, with the reasoning, not
@@ -159,8 +159,8 @@ Do them in the order given; each assumes the previous has landed.
 | 3b | **Landed (PR #232).** `Rank O1 -- Skilled Pass, and the shared key= parameter.` It was whole: Phase 2's `low_pass_step(key=)` is both cards, and nothing moved. What it added is ten fixtures on branches the golden cannot see, and the round trip proving `key` survives a save -- it is read back out of `offense_maneuver`, or out of `pending_effect_continuation` for the free pass, rather than being a field of its own. |
 | 3c | **Landed (PR #233).** `Rank D2 -- Steal and Intercept.` Both cards were one step and a sign, and it was the first hand-off into the spine: `BEGIN_RUN_BACK` carrying `speed_choice_after=True`, and `BEGIN_SHOOTER_CHOICE` for the Intercept that overshoots. Two persists became one and nothing was being lost. One ordering was left open for the author -- an overshooting Intercept collects no beaten Skilled Pass -- and deliberately not pinned. |
 | 3d | **Landed (PR #235).** `Rank D3 -- Pressure and Double Team.` `pressure_step` is both cards, parameterised by the push and the partner; `apply_own_goal_outcome` came with it as a free function and `run_own_goal_roll` stayed in the cog and now saves for it. It added `BEGIN_OWN_GOAL_ROLL` and was the first rank whose follow-on had no `lead_in` to take -- the method grew one, and the overshoot went from two messages to one. `pending_double_team` needed nothing but a restart assertion. |
-| 3e | `Rank D1 -- Deflect and Clear. Calls begin_loose_ball directly rather than through finish_maneuver_resolution; knock_ball_back saves itself today -- strip it and the wrapper persists. Read docs/design/loose-balls.md. Two things 3b found: begin_loose_ball has eight call sites in cogs/d12ball/effects.py and one of them is rank O1's own -- resolve_low_pass's no-teammate-to-receive branch, which moves the ball, words it and persists before handing over, and which 3b deliberately left where it is; take a view on whether it comes along. And settle what board_changed means here, because the cog does NOT refresh before begin_loose_ball even though the ball moved: begin_loose_ball draws the same board under its own announcement, so a step returning board_changed=True on that path would cost a second write of an identical board (see docs/design/rate-limits.md). Whatever you decide is the answer for all eight callers, not for one card. Two rules questions are open on that branch and must be answered before it moves, not while it moves -- they are written out in PR #232 under "Questions for the author": a *failed* free pass charges a space minute where a completed one charges none (the branch hardcodes distance_moved=1 and never reads free), and it leaves its free_low_pass continuation standing, which apply_speed_choice then re-offers. Both are pre-existing on main. Lift the branch to wherever the author's answers put it; do not pin the current behaviour in a test before they are answered.` |
-| 3f | `Rank O3 -- High Pass and Setup Pass. The hardest by a distance: the overshoot, the contest, out-of-bounds into begin_ball_recovery. throw_high_pass saves itself today -- strip it and the wrapper persists. Read docs/design/shooting.md and docs/design/loose-balls.md (the High Pass exemption).` |
+| 3e | **Landed (PR #236).** `Rank D1 -- Deflect and Clear.` `apply_deflection` was already both cards under one `key`, so it moved whole as `deflection_step`, with `deflection_numbers` and `knock_ball_back` as free functions. It added `BEGIN_LOOSE_BALL` and `OFFER_SETUP_PASS_PUSH_BACK`, and settled the question two ranks had deferred: a step reports `board_changed` honestly and `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in the cog is what keeps the frontend from writing a board the next step is about to write itself -- keyed to the step, so it is the answer for all eight of `begin_loose_ball`'s callers. It did **not** lift rank O1's no-teammate branch: the two rules questions on it are still unanswered and they decide where a lifted step would put it. |
+| 3f | `Rank O3 -- High Pass and Setup Pass. The hardest by a distance: the overshoot, the contest, out-of-bounds into begin_ball_recovery. throw_high_pass saves itself today -- strip it and the wrapper persists. Read docs/design/shooting.md and docs/design/loose-balls.md (the High Pass exemption). Four things 3e found that this rank inherits. (1) board_changed is settled: a step says the board moved and FOLLOW_ONS_THAT_DRAW_THE_BOARD in cogs/d12ball/core.py decides whether that costs a write -- do not re-decide it, and add a member to that set if this rank hands off to another step that draws its own board. (2) BEGIN_LOOSE_BALL and OFFER_SETUP_PASS_PUSH_BACK already exist as FollowOnStep members with rows in follow_on_methods, so a High Pass contest reaching begin_loose_ball needs neither added -- but a High Pass passes is_high_pass=True and a headline= of its own, which no existing follow-on does, so check what those arrive as. (3) begin_ball_recovery is a new member and nothing has named it yet. (4) offer_speed_choice's last direct caller in cogs/ is resolve_setup_pass, which is this rank's -- it is OFFER_SPEED_CHOICE, already a member since 3a. Expect pre-existing assertions reading await_args.args[n] on begin_loose_ball and begin_shooter_choice to break on arguments that now arrive named; 3e added a loose_ball_distance helper to tests/test_d12ball_loose_ball.py and tests/test_d12ball_components.py for exactly that, and fixing the assertion rather than the call is the rule.` |
 
 ```
 [PREAMBLE]
@@ -223,7 +223,7 @@ so a parameter the cog used to hand over positionally arrives named, and
 an existing test reading `await_args.args[n]` fails on a move that changed
 nothing. 3c met this on `begin_shooter_choice`; fix the assertion, not the
 call, and bind a recorded call to the real method's `inspect.signature` so
-one fixture table answers for the old shape and the new one at once. Advanced-mode cost and benefit (`advanced_cost`,
+one fixture table answers for the old shape and the new one at once. Advanced-mode cost and benefit (`gambit_cost`,
 `settled_maneuver_winner`) are engine questions already; the step asks them,
 it does not re-derive them. A rank may also lift something that is not a card at all -- 3d took
 `apply_own_goal_outcome`, the verdict of the roll a Pressure risks, as a
@@ -346,7 +346,7 @@ enum is that list -- prune it to exactly what is still dispatched, and
 repeat the members in the PR description.
 
 Golden coverage is the risk here. The tutorial golden covers one basic solo
-game on board 7 -- no advanced maneuver, no species ability, no Mind Pull,
+game on board 7 -- no gambit, no species ability, no Mind Pull,
 no injury test, no own goal, no stacked run back. The worksheet says this
 phase adds a golden for what it moves. Add at least one: a seeded, scripted
 advanced game (both modules on, a board with stacks, a species that can
