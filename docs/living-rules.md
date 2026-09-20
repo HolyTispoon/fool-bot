@@ -459,9 +459,9 @@ The token is paid whether or not the pull lands, and Mind Pull is a choice. The 
 
 Mind Pull resolves **before** the ball settles [where it comes to rest](#where-the-ball-comes-to-rest): a pull that lands pre-empts whatever the movement would have led to — a reception, a scoring opportunity, a contest, a loose ball. A pull that misses or is declined leaves all of that to resolve as normal, the Telekinetic included if the ball comes down where they stand. A successful pull is a [steal](#turnovers): ball speed resets to 1, players run back, and the Telekinetic is the carrier who does not. The maneuver that moved the ball still costs its space minute.
 
-### Slimey (Ooze)
+**Slip in.** Where a resolution leaves the ball with a particular player and a Telekinetic **of the same side** is standing on that space, the coach may hand the ball to the Telekinetic instead — the Telekinetic becomes the [carrier](#choosing-the-handler) and takes the turn. Where several Telekinetics are there, the coach picks one. This only arises where possession stays with the side that had it — a [Dribble Advance or Burst](#dribble-advance) onto a teammate, a handler [shoved back](#pressure) onto one, a [Setup Pass](#setup-pass) received into a group; a turnover [runs the others back](#running-back-after-a-steal) and leaves the carrier alone.
 
-**Slip in.** Where a resolution leaves the ball with a particular player and an Ooze **of the same side** is standing on that space, the coach may hand the ball to the Ooze instead — the Ooze becomes the [carrier](#choosing-the-handler) and takes the turn. Where several Oozes are there, the coach picks one. This only arises where possession stays with the side that had it — a [Dribble Advance or Burst](#dribble-advance) onto a teammate, a handler [shoved back](#pressure) onto one, a [Setup Pass](#setup-pass) received into a group; a turnover [runs the others back](#running-back-after-a-steal) and leaves the carrier alone.
+### Slimey (Ooze)
 
 **Merge.** In a [maneuver skill test](#the-skill-test), a [contest for the ball](#where-the-ball-comes-to-rest) or a [High Pass contest](#the-high-pass-contest) fought out on the ball's space, an Ooze standing there who is **not** one of the two players rolling adds to their own side's total: their **offensive** skill on the attacking side, their **defensive** skill on the defending side. Every such Ooze adds — two of them add twice. An [injured](#playing-injured) Ooze adds nothing.
 
@@ -824,8 +824,8 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 | --- | --- |
 | Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test: a surge that wins resolves that maneuver at its advanced tier, a backfire that loses upgrades the opponent's and pays its own advanced cost, and a surge that loses pays none. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7, Damaged rather than Injured. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: −1 drain for not moving at all during a run back. |
-| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 1–2 pull it in and take possession. |
-| Ooze | **Slimey.** Slip in: an Ooze on the ball may take the handler's turn. Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
+| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 1–2 pull it in and take possession. Slip in: a resolution leaves the ball with a teammate on your space — take over and handle it instead. |
+| Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 
 **A turn:** choose the player → choose the action → resolve it → settle the ball → turnover → clock → last-possession check.
 

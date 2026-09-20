@@ -52,9 +52,9 @@ class BallHandlerSelectionView(SafeView):
         # choice in it. send_turn_prompt normally skips the view
         # entirely in that case; this is the restore path.
         #
-        # Through the engine, so an Ooze standing on the ball gets a
-        # button of their own -- see "Slimey (Ooze)" in the living
-        # rules.
+        # Through the engine, so a Telekinetic standing on the ball
+        # gets a button of their own -- see "Mind Pull (Telekinetic)"
+        # in the living rules.
         for player_id in cog.engine.turn_handler_candidates(game, match):
             player = self.cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(

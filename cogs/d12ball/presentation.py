@@ -805,10 +805,11 @@ class PresentationMixin:
             # way a single candidate is selected below without asking,
             # so the rule costs a coach a click rather than adding one.
             #
-            # Through the engine, so **Slimey** is in it: an Ooze on
-            # the ball may take the handler's turn, which turns the
-            # one-candidate case back into a real choice and is
-            # therefore the one thing that can add a click here.
+            # Through the engine, so **Slip in** is in it: a
+            # Telekinetic on the ball may take the handler's turn,
+            # which turns the one-candidate case back into a real
+            # choice and is therefore the one thing that can add a
+            # click here.
             eligible_handlers = self.engine.turn_handler_candidates(
                 game, match,
             )

@@ -568,19 +568,22 @@ class RulesEngine:
         self, game: D12BallGame, match: MatchState,
     ) -> list[str]:
         """
-        **Slip in**: the Oozes standing on the ball who may take the
-        handler's turn from whoever the resolution left it with.
+        **Slip in** (Mind Pull, Telekinetic): the Telekinetics standing
+        on the ball who may take the handler's turn from whoever the
+        resolution left it with.
 
-        Every one of them is already an eligible ball handler -- an
-        Ooze on the ball's space, for the side in possession, is one by
-        definition -- so this narrows that list rather than adding to
-        it. `MatchState.turn_handler_candidates` is where it is spent.
+        Every one of them is already an eligible ball handler -- a
+        Telekinetic on the ball's space, for the side in possession, is
+        one by definition -- so this narrows that list rather than
+        adding to it. `MatchState.turn_handler_candidates` is where it
+        is spent.
 
         **"Of the same side" is `eligible_ball_handlers`' own
         answer**, which is what makes this safe on a space both sides
         are standing on: that helper is already "everyone of the
-        possessing team on the ball", so an opponent's Ooze is never
-        in it. The rules say the same thing twice for the same reason.
+        possessing team on the ball", so an opponent's Telekinetic is
+        never in it. The rules say the same thing twice for the same
+        reason.
 
         It answers `[]` for the common case -- a resolution that named
         no carrier at all leaves the coach the whole choice already,
@@ -593,14 +596,14 @@ class RulesEngine:
         return [
             player_id
             for player_id in match.eligible_ball_handlers()
-            if self.has_species_ability(game, player_id, SPECIES_OOZE)
+            if self.has_species_ability(game, player_id, SPECIES_TELEKINETIC)
         ]
 
     def turn_handler_candidates(
         self, game: D12BallGame, match: MatchState,
     ) -> list[str]:
         """
-        Who may take this turn, Slimey included -- the answer every
+        Who may take this turn, Slip in included -- the answer every
         prompt, the AI and the click that answers should ask, so none
         of them can offer a different list from the others.
         """
@@ -2954,12 +2957,12 @@ class RulesEngine:
             candidates = self.turn_handler_candidates(game, match)
             carrier_id = match.ball_carrier_id
             # More than one candidate with a carrier among them is
-            # Slimey and nothing else -- MatchState.turn_handler_
+            # Slip in and nothing else -- MatchState.turn_handler_
             # candidates only ever widens past a named carrier for a
-            # slip-in Ooze. Say so, rather than the generic line, or a
-            # coach reads a plain multiple-choice where one player
-            # already has the ball and another is only offering to
-            # take it off them.
+            # slip-in Telekinetic. Say so, rather than the generic
+            # line, or a coach reads a plain multiple-choice where one
+            # player already has the ball and another is only offering
+            # to take it off them.
             if carrier_id in candidates and len(candidates) > 1:
                 carrier_name = self.format_roster_player_for_message(
                     carrier_id, match.team_for_player(carrier_id),
@@ -2974,8 +2977,8 @@ class RulesEngine:
                 return (
                     f"{controller}, it is your turn.\n\n"
                     f"{carrier_name} has the ball, but {slip_in_names} "
-                    f"may slip in! {TEAM_EMOJI_FALLBACKS[Team.OOZES]} Who "
-                    "should handle the ball?"
+                    f"may slip in! {TEAM_EMOJI_FALLBACKS[Team.TELEKINETICS]} "
+                    "Who should handle the ball?"
                 )
             return (
                 f"{controller}, it is your turn.\n\n"

@@ -2131,15 +2131,15 @@ class MatchState:
         state saved before this field existed, from narrowing the
         choice to a player who cannot take the turn.
 
-        **`slip_in_ids` is Slimey**, and it widens the narrow case: an
-        Ooze standing on the ball may take the handler's turn from
-        whoever the resolution left it with (see "Slimey (Ooze)" in
-        docs/living-rules.md). They are already eligible handlers --
-        an Ooze on the ball's space for the side in possession is one
-        by definition -- so this does not add anybody, it declines to
-        narrow past them. Which ids those are is
-        `RulesEngine.slip_in_candidates`; passing them in rather than
-        asking is what keeps `MatchState` from having to know what a
+        **`slip_in_ids` is Slip in**, and it widens the narrow case: a
+        Telekinetic standing on the ball may take the handler's turn
+        from whoever the resolution left it with (see "Mind Pull
+        (Telekinetic)" in docs/living-rules.md). They are already
+        eligible handlers -- a Telekinetic on the ball's space for the
+        side in possession is one by definition -- so this does not
+        add anybody, it declines to narrow past them. Which ids those
+        are is `RulesEngine.slip_in_candidates`; passing them in rather
+        than asking is what keeps `MatchState` from having to know what a
         species is, the same way `mark_exhausted_if_needed` takes a
         threshold rather than a player's skills.
 
