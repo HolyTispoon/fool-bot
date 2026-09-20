@@ -217,14 +217,9 @@ class PresentationMixin:
                 )
             else:
                 exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
-                defense_skill = self.player_catalog.effective_profile(
-                    player,
-                ).defense
                 text += (
-                    f"\n{self.player_label(match, player)} now has the "
-                    f"condition **exhausted** {exhausted_emoji} — {total} "
-                    "exhaustion tokens exceeds their defense skill of "
-                    f"{defense_skill}."
+                    f"\n{self.player_label(match, player)} is now "
+                    f"*exhausted* {exhausted_emoji}"
                 )
         return text
 
