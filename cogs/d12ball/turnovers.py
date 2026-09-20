@@ -1078,6 +1078,31 @@ class TurnoverMixin:
             )
             return
 
+        # **Mind Pull, before anyone runs back.** `mind_pull_candidates`
+        # reads current board occupancy of `last_ball_path`, so a
+        # Telekinetic who merely runs back onto a space the ball crossed
+        # must never be offered a pull meant for whoever actually stood
+        # there when it moved. A maneuver that settles its own turnover
+        # and calls this directly (Steal, Intercept, a Defender's
+        # pressure steal, an own goal avoided) never passes through the
+        # three ordinary arrival gates, so this is the one place
+        # guaranteed to run before positions change.
+        if await self.check_for_mind_pull(
+            interaction,
+            game,
+            match,
+            {
+                "kind": "run_back",
+                "distance_moved": distance_moved,
+                "turnover_occurred": turnover_occurred,
+                "new_play": new_play,
+                "speed_choice_after": speed_choice_after,
+                "speed_reset": speed_reset,
+                "lead_in": lead_in,
+            },
+        ):
+            return
+
         if new_play:
             # The ball is dead. Clearing here as well as in
             # announce_new_play_reset is what keeps the exemption below

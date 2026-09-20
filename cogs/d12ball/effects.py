@@ -1328,6 +1328,16 @@ class ManeuverEffectsMixin:
         Between them they are every one of "a reception, a scoring
         opportunity, a contest, a loose ball".
 
+        A fourth site, `begin_run_back`, gates the same way for a
+        turnover that never passed through any of the three -- Steal,
+        Intercept, a Defender's pressure steal, and an own goal avoided
+        all settle their own turnover and call `begin_run_back`
+        directly. Without a gate there, that movement's `last_ball_path`
+        would sit unread until run-back had already repositioned
+        players, and `mind_pull_candidates` would then be checking who
+        a run-back just placed on those spaces rather than who was
+        actually standing there when the ball crossed.
+
         **The path is consumed whether or not anybody may pull.** That
         is what stops the same movement being offered twice when two
         gates run in a row -- `finish_maneuver_resolution` gates and
@@ -1448,6 +1458,20 @@ class ManeuverEffectsMixin:
                 distance_moved=resume.get("distance_moved", 1),
                 lead_in=resume.get("lead_in", ""),
                 contest_on_decline=resume.get("contest_on_decline", False),
+            )
+            return
+
+        if kind == "run_back":
+            await self.begin_run_back(
+                interaction,
+                game,
+                match,
+                distance_moved=resume.get("distance_moved", 1),
+                turnover_occurred=resume.get("turnover_occurred", True),
+                new_play=resume.get("new_play", False),
+                speed_choice_after=resume.get("speed_choice_after", False),
+                speed_reset=resume.get("speed_reset", True),
+                lead_in=resume.get("lead_in", ""),
             )
             return
 

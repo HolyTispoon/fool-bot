@@ -2474,5 +2474,109 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("reach", prompt)
 
 
+class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
+    """
+    Steal, Intercept, a Defender's pressure steal, and an own goal
+    avoided all move the ball with `set_ball_space` and call
+    `begin_run_back` directly, never passing through any of the three
+    ordinary arrival gates. Before 2026-09-20 that left
+    `last_ball_path` sitting unread until `finish_run_back`'s own tail
+    call into `finish_maneuver_resolution` -- by which point run-back
+    had already repositioned players, so a Telekinetic who merely ran
+    back onto a crossed space was wrongly offered a pull that belonged
+    to whoever was actually standing there when the ball moved.
+    """
+
+    def setUp(self) -> None:
+        self.cog = build_mind_pull_cog()
+        # This class asserts `begin_run_back` itself, not the stand-in
+        # `build_mind_pull_cog` mocks out for the tests above.
+        self.cog.begin_run_back = D12Ball.begin_run_back.__get__(self.cog)
+        self.cog.announce_run_back = mock.AsyncMock()
+        self.game = build_game(
+            player_1_team=Team.PURPLE, player_2_team=Team.TELEKINETICS,
+        )
+        self.cog.games[self.game.game_id] = self.game
+        self.match = self.cog.engine.initialize_standard_match(self.game)
+        self.interaction = build_mind_pull_interaction()
+
+        defending = self.match.defending_side()
+        for player_id in self.match.setup_for_side(defending).field_players:
+            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+        self.puller = self.match.setup_for_side(defending).field_players[0]
+
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        self.crossed_zone, self.crossed_index = (
+            self.match.board.position_at_flat_index(origin + 1)
+        )
+
+    def sent_views(self) -> list:
+        return [
+            call.kwargs.get("view")
+            for call in self.interaction.followup.send.await_args_list
+        ]
+
+    async def test_a_steal_style_movement_offers_a_crossed_telekinetic(self):
+        # Mirrors what `apply_steal`/`take_ball_by_steal` does: the ball
+        # moves via `set_ball_space` and `begin_run_back` is called
+        # directly, with nothing else having gated it first.
+        self.match.board.place_meeple(
+            self.puller, self.crossed_zone, self.crossed_index,
+        )
+        self.match.set_ball_space(self.crossed_zone, self.crossed_index)
+        with suppressed_cog_saves():
+            await self.cog.begin_run_back(
+                self.interaction, self.game, self.match,
+                turnover_occurred=True,
+            )
+        self.assertTrue(
+            any(isinstance(view, MindPullView) for view in self.sent_views()),
+        )
+        self.assertEqual(self.match.pending_mind_pull, [self.puller])
+        self.assertEqual(
+            self.match.pending_mind_pull_resume["kind"], "run_back",
+        )
+        self.cog.announce_run_back.assert_not_awaited()
+
+    async def test_a_telekinetic_reaching_the_space_only_via_run_back_is_never_offered(
+        self,
+    ):
+        # Nobody is standing on the crossed space when the ball moves --
+        # the puller is still back on their own goal line, exactly where
+        # a run-back might later send them if that space is open. The
+        # gate has to read occupancy now, not whatever run-back leaves
+        # there afterwards.
+        self.match.set_ball_space(self.crossed_zone, self.crossed_index)
+        with suppressed_cog_saves():
+            await self.cog.begin_run_back(
+                self.interaction, self.game, self.match,
+                turnover_occurred=True,
+            )
+        self.assertFalse(
+            any(isinstance(view, MindPullView) for view in self.sent_views()),
+        )
+        self.assertEqual(self.match.pending_mind_pull, [])
+        self.assertEqual(self.match.last_ball_path, [])
+        self.cog.announce_run_back.assert_awaited()
+
+        # Even once a run-back moves the puller onto that same space --
+        # exactly what the reported bug had happen -- the path is
+        # already spent, so the arrival that eventually runs
+        # (`finish_run_back`'s own tail call) must not retroactively
+        # offer them the pull.
+        self.match.board.place_meeple(
+            self.puller, self.crossed_zone, self.crossed_index,
+        )
+        with suppressed_cog_saves():
+            interrupted = await self.cog.check_for_mind_pull(
+                self.interaction, self.game, self.match,
+                {"kind": "finish_maneuver", "distance_moved": 1},
+            )
+        self.assertFalse(interrupted)
+        self.assertEqual(self.match.pending_mind_pull, [])
+
+
 if __name__ == "__main__":
     unittest.main()
