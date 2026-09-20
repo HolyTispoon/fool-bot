@@ -239,6 +239,14 @@ class FollowOnStepTests(unittest.TestCase):
         "ANNOUNCE_RUN_BACK",
         "FINISH_RUN_BACK",
         "APPLY_BALL_RECOVERY",
+        # The front half of a turn, which nothing in Phases 1-3
+        # touched. Each of these is pictures, a bespoke view, or a
+        # dispatch table Phase 6 collapses.
+        "BEGIN_MANEUVER_ACTION_SELECTION",
+        "SEND_MANEUVER_ACTION_PROMPT",
+        "RESOLVE_MANEUVER",
+        "BEGIN_EFFECT_RESOLUTION",
+        "BEGIN_MANEUVER_SKILL_TEST",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(

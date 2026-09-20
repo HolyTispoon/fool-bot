@@ -171,6 +171,24 @@ class FollowOnStep(Enum):
     #: not a rule (principle 8), and the **per-pass persist**, which is
     #: a named exception to principle 9 -- see the generator.
     CONTINUE_RUN_BACK = auto()
+    #: The front half of a turn, named rather than lifted because each
+    #: is pictures, a bespoke view, or Phase 5's:
+    #:
+    #: `BEGIN_MANEUVER_ACTION_SELECTION` is where a challenger's pick
+    #: hands on; `SEND_MANEUVER_ACTION_PROMPT` is the prompt it ends on,
+    #: which carries the hand image, the full-size link, the field strip
+    #: and a tutorial's Continue gate. `RESOLVE_MANEUVER` is the reveal.
+    #: `BEGIN_EFFECT_RESOLUTION` dispatches a won card to its effect --
+    #: one `if` per key over `cogs/d12ball/effects.py`, which Phase 6
+    #: collapses. `BEGIN_MANEUVER_SKILL_TEST` charges both participants
+    #: and puts the roll behind a button, and takes the reveal as its
+    #: `headline` rather than as narration: it embeds the line in its
+    #: own message instead of posting one above it.
+    BEGIN_MANEUVER_ACTION_SELECTION = auto()
+    SEND_MANEUVER_ACTION_PROMPT = auto()
+    RESOLVE_MANEUVER = auto()
+    BEGIN_EFFECT_RESOLUTION = auto()
+    BEGIN_MANEUVER_SKILL_TEST = auto()
     #: Settling a loose ball once both sides have answered. A member
     #: rather than a call inside `begin_loose_ball`, because the
     #: announcement above it is **its own message**: the line naming

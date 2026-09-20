@@ -407,9 +407,9 @@ class OwnGoalOutcomeTests(unittest.IsolatedAsyncioTestCase):
                     owed_when_saved.append(saved_match.pending_own_goal)
 
                 cog.persist = persist
-                cog.own_goal_roll_message = mock.AsyncMock(
-                    return_value=(None, "breakdown"),
-                )
+                # The arithmetic is the step's narration since Phase
+                # 4; what the cog builds is the picture alone.
+                cog.own_goal_roll_file = mock.AsyncMock(return_value=None)
                 cog.post_volatile_ignition = mock.AsyncMock()
                 cog.apply_exhaustion = mock.Mock(return_value="")
                 interaction = build_interaction()

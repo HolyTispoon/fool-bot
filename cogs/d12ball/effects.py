@@ -13,6 +13,7 @@ import time
 from typing import Optional
 
 from d12ball.engine import IgnitedRoll, RulesEngine
+from d12ball.flow import StepResult
 from d12ball.prompts import PendingPrompt
 from d12ball.flow.arrivals import (
     begin_high_pass_contest,
@@ -27,6 +28,7 @@ from d12ball.flow.arrivals import (
     resolve_loose_ball,
 )
 from d12ball.flow.effects import (
+    own_goal_roll_step,
     apply_own_goal_outcome,
     deflection_step,
     dribble_advance_step,
@@ -1619,26 +1621,26 @@ class ManeuverEffectsMixin:
         self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
-    async def own_goal_roll_message(
+    async def own_goal_roll_file(
         self,
         match: MatchState,
-        offense_player: PlayerDefinition,
         rolls: tuple[int, int],
-        offense_skill: int,
         safe: bool,
-        ignite: Optional[IgnitedRoll] = None,
         overdrive: int = 0,
-    ) -> tuple[discord.File, str]:
+    ) -> discord.File:
         """
-        The dice image and the arithmetic that produced it, which is
-        posted above it because it is what built it.
+        The two dice an own-goal roll produced, drawn.
 
-        `ignite` is Volatile on the **kept** die -- an own goal is
-        rolled at an advantage and the rules name "the die kept", so
-        the discarded one never ignites even when it is a 6 or a 7.
+        **The arithmetic that produced them is not here any more**: it
+        is `own_goal_roll_step`'s narration, because it is a sentence
+        about the position and the wording rules are rules (principle
+        5). This is the picture alone, which is the one half a web app
+        would not want.
+
+        Drawn in a worker thread for the same reason the board is.
         """
         offense_setup = match.setup_for_side(match.ball.possession)
-        dice_file = discord.File(
+        return discord.File(
             await asyncio.to_thread(
                 render_own_goal_dice,
                 list(rolls),
@@ -1649,22 +1651,6 @@ class ManeuverEffectsMixin:
             filename="own_goal_dice.png",
         )
 
-        taken = max(rolls)
-        modifier = ignite.modifier if ignite else 0
-        breakdown = (
-            f"**Own goal risk!** "
-            f"{self.player_label(match, offense_player)} "
-            f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
-            f"is {taken}, + {offense_skill} (offensive skill)"
-        )
-        if ignite and ignite.detail:
-            breakdown += f", {ignite.detail}"
-        if overdrive:
-            breakdown += f", +{overdrive} Overdrive"
-        breakdown += f" = {taken + offense_skill + modifier + overdrive}"
-
-        return dice_file, breakdown
-
     async def run_own_goal_roll(
         self,
         interaction: discord.Interaction,
@@ -1672,79 +1658,31 @@ class ManeuverEffectsMixin:
         match: MatchState,
     ) -> None:
         """
-        The roll itself, off the button `begin_own_goal_roll` posted:
-        2d12 at an advantage (take the higher), plus the ball-handler's
-        offensive skill, safe on 7+.
+        The Discord half of the own-goal roll --
+        `d12ball.flow.effects.own_goal_roll_step`, which rolls, charges
+        the token, logs the attempt and settles the outcome.
 
-        Making the attempt costs the rolling player 1 exhaust token,
-        win or lose, on top of whatever the maneuver that triggered the
-        risk already charged. It is not a skill test, so it owes no
-        injury check.
+        **A bespoke wrapper, because the image goes between the two
+        lines.** The step hands back its arithmetic and its verdict in
+        order; a message's attachments render below its content, so a
+        verdict written above the roll would be read before it. The
+        prompt becomes the dice, taking its own explanation with it
+        once the roll it was asking for has happened -- the same trade
+        a score attempt makes. See `SkillTestView.roll`.
         """
-        distance_moved = match.pending_own_goal_distance
-        match.pending_own_goal = False
-
-        offense_player = self.engine.get_player_definition(match.active_player_id)
-        offense_skill = self.player_catalog.effective_profile(
-            offense_player,
-        ).offense
-
-        rolls = (random.randint(1, 12), random.randint(1, 12))
-        # Volatile reads the die that is **kept**, not both: an own
-        # goal is rolled at an advantage, and the rules name "the die
-        # kept in an own-goal roll".
-        ignite = self.engine.ignite(
-            game, offense_player.player_id, max(rolls),
-        )
-        overdrive = match.overdrive_modifier(offense_player.player_id)
-        match.consume_overdrive()
-        safe = (
-            max(rolls) + offense_skill + ignite.modifier + overdrive >= 7
-        )
-
-        # Logged ahead of `apply_own_goal_outcome`, which is what
-        # concedes the goal, so the risk sits above the goal it
-        # sometimes produced. Both outcomes, for the reason the injury
-        # test logs both: the interesting number is how often a
-        # Pressure that risks an own goal actually costs one, and that
-        # needs the attempts as well as the concessions.
-        match.record_event(
-            EVENT_OWN_GOAL_ROLL,
-            side=match.ball.possession,
-            player_id=offense_player.player_id,
-            conceded=not safe,
-            rolls=list(rolls),
-            offense_skill=offense_skill,
-        )
-
-        # Charged before either branch saves the match, so the token
-        # and any Exhausted flag it sets are written out with the rest
-        # of the roll's outcome -- see apply_exhaustion.
-        exhaustion_text = self.apply_exhaustion(
-            game, match, offense_player.player_id, 1,
-        )
-
-        dice_file, breakdown = await self.own_goal_roll_message(
-            match, offense_player, rolls, offense_skill, safe, ignite,
-            overdrive,
-        )
-        verdict = apply_own_goal_outcome(
-            self.engine, match, offense_player, distance_moved, safe,
-            exhaustion_text,
-        )
+        roll, result = own_goal_roll_step(self.engine, game, match)
         # The step settled it; this writes it down, on both branches
-        # and before anything is posted. The conceded branch used to
-        # save inside the step and the avoided one two messages later,
-        # which is the shape principle 9 exists to collapse.
+        # and before anything is posted.
         self.persist(game, match)
 
-        # The prompt becomes the dice, taking its own explanation with
-        # it once the roll it was asking for has happened -- the same
-        # trade a score attempt makes. The arithmetic rides above the
-        # image because it is what built it; the verdict follows in a
-        # message of its own, since a message's attachments render
-        # below its content and a verdict written here would be read
-        # before the roll that decided it. See SkillTestView.roll.
+        offense_player = self.engine.get_player_definition(
+            match.active_player_id,
+        )
+        dice_file = await self.own_goal_roll_file(
+            match, roll.rolls, roll.safe, roll.overdrive,
+        )
+        breakdown, verdict = result.narration
+
         await interaction.edit_original_response(
             content=breakdown,
             attachments=[dice_file],
@@ -1754,23 +1692,12 @@ class ManeuverEffectsMixin:
         # its second die goes up between the roll and the verdict like
         # every other -- see post_volatile_ignition.
         await self.post_volatile_ignition(
-            interaction, match, (offense_player.player_id, ignite),
+            interaction, match, (offense_player.player_id, roll.ignite),
         )
         await send_new_prompt(interaction, verdict)
-        await self.refresh_match_image(interaction, game)
+        if result.board_changed:
+            await self.refresh_match_image(interaction, game)
 
-        # **Both outcomes are new plays.** A conceded own goal restarts
-        # from the kickoff space as any other goal does; avoiding one
-        # is a stoppage too, not a play that carries on -- both sides
-        # reset to their saved arrangement and the side with the ball
-        # may declare. If this closes out last possession,
-        # begin_run_back's own check ends the period here instead. See
-        # "Own goal" in docs/living-rules.md.
-        await self.begin_run_back(
-            interaction,
-            game,
-            match,
-            distance_moved=distance_moved,
-            turnover_occurred=True,
-            new_play=True,
+        await self.dispatch_step_result(
+            interaction, game, match, StepResult(next=result.next),
         )

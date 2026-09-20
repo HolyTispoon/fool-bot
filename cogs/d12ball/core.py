@@ -53,6 +53,14 @@ from d12ball.cards import (
     render_maneuver_hands,
 )
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.turn import (
+    announce_uncontested_maneuver,
+    auto_resolve_challenger,
+    begin_maneuver_action_selection,
+    injured_word_and_emoji,
+    maneuver_prompt_wording,
+    resolve_maneuver,
+)
 from d12ball.flow.injuries import (
     begin_injury_tests,
     continue_injury_tests,
@@ -918,26 +926,28 @@ class CoreMixin:
         challenger_id: str,
     ) -> None:
         """
-        Apply an already-decided challenger pick and move straight on
-        to maneuver-action selection -- no human choice involved,
-        either because the AI made the pick or because a defender
-        already shares the ball's space, leaving nothing to choose
-        (see PlayerActionView.choose_action).
+        The Discord half of an already-decided challenger pick --
+        `d12ball.flow.turn.auto_resolve_challenger`.
+
+        **A bespoke wrapper rather than `dispatch_step_result`**,
+        because the walk-in line is not a message of its own: it rides
+        above the matchup image, which is meant to sit directly on top
+        of the maneuver prompt a coach is reading it for. See
+        `announce_maneuver_challenge`.
         """
-        distance = match.choose_challenger(challenger_id)
-        # Built before the save: the walk-in's tokens can cross the
-        # Exhausted threshold, and that flag is set while the
-        # description is put together. See apply_exhaustion.
-        walk_in_text = self.describe_challenger_walk_in(
-            game, match, challenger_id, distance,
+        result = auto_resolve_challenger(
+            self.engine, game, match, challenger_id,
         )
         self.persist(game, match)
 
         await self.announce_maneuver_challenge(
-            interaction, match, challenger_id, walk_in_text,
+            interaction, match, challenger_id, " ".join(result.narration),
         )
-        await self.refresh_match_image(interaction, game)
-        await self.begin_maneuver_action_selection(interaction, game, match)
+        if result.board_changed:
+            await self.refresh_match_image(interaction, game)
+        await self.dispatch_step_result(
+            interaction, game, match, StepResult(next=result.next),
+        )
 
     async def announce_uncontested_maneuver(
         self,
@@ -946,164 +956,61 @@ class CoreMixin:
         match: MatchState,
     ) -> None:
         """
-        Say that there is nobody to challenge, then go straight to the
-        offense's pick. No matchup image: it draws two players against
-        each other and there is only one.
-
-        Two ways to get here and they read differently, so the message
-        asks the state which one it was rather than taking a flag:
-        anyone still eligible means the defense was offered the
-        challenge and sent nobody, since a defense with somebody to
-        send is the only defense that gets the choice. Since 2026-08-16
-        that is practically always the answer -- the other branch needs
-        a side with nobody on the field.
+        The Discord half of "there is nobody to challenge" --
+        `d12ball.flow.turn.announce_uncontested_maneuver`. Its own
+        message: the pick that follows is a prompt of its own.
         """
-        handler = self.engine.get_player_definition(match.active_player_id)
-        defense_setup = match.setup_for_side(match.defending_side())
-
-        if match.eligible_challengers():
-            reason = "have sent nobody in to challenge"
-        else:
-            reason = "have nobody left to challenge"
-
-        await send_new_prompt(
-            interaction,
-            f"**Unchallenged!** {format_team_side_label(defense_setup)} "
-            f"{reason} "
-            f"{self.player_label(match, handler)}, "
-            "so whichever maneuver the offense picks succeeds."
-        )
-        await self.begin_maneuver_action_selection(interaction, game, match)
-
-    def write_ai_maneuver_picks(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """
-        Dinky answers before the prompt is built, which is what makes a
-        solo game's prompt one hand and one row --
-        `RulesEngine.maneuver_pick_sides` is read afterwards, so it
-        already knows the AI has picked.
-
-        A tutorial beat names the card Dinky plays, and it is written
-        straight into the match here rather than through the strategy:
-        `choose_maneuver_action` takes a side and nothing else, so it
-        has no way to know which beat is running, and changing its
-        signature for one caller would put the script inside the AI.
-        Dinky's pick is made before the coach's exactly as it always is
-        -- the rails decide what the coach may answer with, not the
-        other way round.
-        """
-        if not game.is_solo_game:
-            return
-
-        ai_strategy = self.engine.get_ai_strategy(game)
-        beat = self.tutorial_beat(game)
-
-        if self.engine.possession_player_number(game, match) == 2:
-            scripted = beat.dinky_maneuver_for("offense") if beat else None
-            match.choose_offense_maneuver(
-                scripted
-                or ai_strategy.choose_maneuver_action(
-                    "offense",
-                    self.engine.maneuver_hand(game, match, "offense"),
-                )
-            )
-        if (
-            not match.maneuver_uncontested
-            and self.engine.defending_player_number(game, match) == 2
-        ):
-            scripted = beat.dinky_maneuver_for("defense") if beat else None
-            match.choose_defense_maneuver(
-                scripted
-                or ai_strategy.choose_maneuver_action(
-                    "defense",
-                    self.engine.maneuver_hand(game, match, "defense"),
-                )
-            )
-
-    def maneuver_prompt_wording(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        sides: list[str],
-    ) -> tuple[list[str], str]:
-        """
-        Who is mentioned above the prompt, and what they are told to do.
-
-        Both come off the same `sides` list the buttons are built from,
-        which is the point: a coach named here and given no row to
-        press would stall a game, and nothing else would catch it.
-        """
-        waiting_on = [
-            format_player_with_team(
-                game,
-                self.engine.possession_player_number(game, match)
-                if side == "offense"
-                else self.engine.defending_player_number(game, match),
-                self.team_emojis,
-                mention=True,
-            )
-            for side in sides
-        ]
-
-        # The buttons are on the message, so there is nothing to tell a
-        # coach to open. What the wording has to do instead is say which
-        # row is theirs, since a contested prompt carries both.
-        #
-        # A lone side is not always the offense: a solo game's prompt
-        # is one row, and it is the *defense's* whenever Dinky has the
-        # ball. So the colour is read off the side rather than written
-        # down -- it is the row's own colour either way (offense red,
-        # defense green; see ManeuverActionPromptView).
-        instruction = (
-            "choose a maneuver from the "
-            f"{MANEUVER_ROW_COLOURS[sides[0]]} row -- only you can "
-            "see what you picked."
-            if len(sides) == 1
-            else (
-                "both sides pick privately from the same message: red "
-                "for the offense, green for the defense. Only you can "
-                "see what you picked."
-            )
-        )
-
-        return waiting_on, instruction
+        result = announce_uncontested_maneuver(self.engine, game, match)
+        self.persist(game, match)
+        await self.post_then_dispatch(interaction, game, match, result)
 
     async def begin_maneuver_action_selection(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        lead_in: str = "",
     ) -> None:
         """
-        Kick off the simultaneous maneuver-action choice once a
-        challenger has been chosen: the AI opponent picks immediately,
-        and every human side gets its own row of buttons on **one
-        public prompt** -- see `ManeuverActionPromptView` for why the
-        cards can be public while the pick stays secret.
+        The Discord half of the simultaneous maneuver-action choice --
+        `d12ball.flow.turn.begin_maneuver_action_selection`, which
+        writes the AI's pick and says whether anybody is still owed
+        one.
 
-        An uncontested maneuver comes through here too, and waits on
-        the offense alone -- there is no defender to pick a defensive
-        maneuver, and nothing secret about a pick with nobody to
-        conceal it from, but the prompt is the same one so the coach
-        reads the same cards they always do.
+        `lead_in` is always "" -- both steps that hand here post their
+        own line first (the challenge image, the unchallenged notice)
+        -- and is carried into whatever comes next rather than dropped.
         """
-        self.write_ai_maneuver_picks(game, match)
-
+        result = begin_maneuver_action_selection(self.engine, game, match)
+        if lead_in:
+            result.narration.insert(0, lead_in)
         self.persist(game, match)
+        await self.dispatch_step_result(interaction, game, match, result)
 
-        if match.maneuver_selections_complete:
-            await self.resolve_maneuver(interaction, game, match)
-            return
+    async def send_maneuver_action_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        *,
+        sides: list[str],
+        ask: str,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Put the maneuver hands up on **one public prompt** -- see
+        `ManeuverActionPromptView` for why the cards can be public
+        while the pick stays secret.
 
-        sides = self.engine.maneuver_pick_sides(game, match)
-        waiting_on, instruction = self.maneuver_prompt_wording(
-            game, match, sides,
-        )
+        Everything here is a picture or a gate: the hand image, the
+        link to the full-size version, the field strip, and (in a
+        tutorial) the note held behind Continue. Who is being asked
+        and what they are told arrives in `ask`.
+        """
 
-        async def show_prompt(inner_interaction: discord.Interaction) -> None:
+        async def show_prompt(
+            inner_interaction: discord.Interaction,
+        ) -> None:
             prompt_view = ManeuverActionPromptView(self, game.game_id)
             # The cards ride on the prompt itself. One image, not one
             # per side: Discord lays two attachments out side by side,
@@ -1118,7 +1025,7 @@ class CoreMixin:
             # this adds a paragraph to an advanced prompt and nothing
             # at all to a basic one.
             gambit_access = self.engine.describe_gambit_access(game, match)
-            prompt_text = f"{' and '.join(waiting_on)}, {instruction}"
+            prompt_text = " ".join(filter(None, (lead_in, ask)))
             if gambit_access:
                 prompt_text = f"{prompt_text}\n\n{gambit_access}"
 
@@ -1171,106 +1078,34 @@ class CoreMixin:
 
         await show_prompt(interaction)
 
-
     def injured_word_and_emoji(
         self,
         game: D12BallGame,
         player_id: str,
     ) -> tuple[str, str]:
         """
-        "injured"/"damaged" and the matching emoji for `player_id` --
-        Damaged is a Cyborg's own word for Injured (see "Lithium
-        Powered" in docs/living-rules.md), asked the same way
-        `describe_exhaustion_gain` asks it for Exhausted/Drained.
-        """
-        if self.engine.has_species_ability(game, player_id, SPECIES_CYBORG):
-            return "damaged", get_damaged_emoji(self.condition_emojis)
-        return "injured", get_injured_emoji(self.condition_emojis)
+        What a player out of the contest is called, and the mark for
+        it -- a forwarding method over
+        `d12ball.flow.turn.injured_word_and_emoji`.
 
-    def maneuver_winner_text(
+        Kept here so none of its four call sites moved: a coaching
+        prompt, a shootout, and the injury test itself all name the
+        condition, and only one of the four is in the flow.
+        """
+        return injured_word_and_emoji(self.engine, game, player_id)
+
+    def maneuver_prompt_wording(
         self,
         game: D12BallGame,
         match: MatchState,
-        reveal: str,
-        outcome: str,
-        winner_name: str,
-        offense_name: str,
-        defense_name: str,
-    ) -> str:
+        sides: list[str],
+    ) -> tuple[list[str], str]:
         """
-        How a maneuver settled on the cards reads. Two wordings: an
-        ordinary decisive win, and a tie one injured participant loses
-        outright.
+        Who is mentioned above the maneuver prompt, and what they are
+        told to do -- a forwarding method over
+        `d12ball.flow.turn.maneuver_prompt_wording`.
         """
-        if outcome != "tie":
-            # Headed the same way a won skill test is (see
-            # SkillTestView.roll), so the two ways a maneuver can be
-            # won read alike. Whoever resolves the effect isn't named
-            # here: an effect with a choice in it prompts them by name
-            # itself, and one without needs nobody to do anything.
-            return f"{reveal}\n\n## **{winner_name}** wins!"
-
-        # A tie with exactly one injured participant: they lose it
-        # outright. Nothing is rolled, so neither side pays the token a
-        # skill test would have cost them.
-        injured_player_id = (
-            match.challenger_id
-            if match.challenger_id in match.injured
-            else match.active_player_id
-        )
-        injured_player = self.engine.get_player_definition(injured_player_id)
-        word, emoji = self.injured_word_and_emoji(game, injured_player_id)
-        return (
-            f"{reveal}\n\n"
-            f"**{offense_name}** ties with **{defense_name}**, but "
-            f"{self.player_label(match, injured_player)}"
-            f" is **{word}** "
-            f"{emoji} and "
-            "automatically loses the tie.\n\n"
-            f"## **{winner_name}** wins!"
-        )
-
-    def skill_test_headline(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        reveal: str,
-        outcome: str,
-        offense_name: str,
-        defense_name: str,
-    ) -> str:
-        """
-        Why a maneuver the cards did not settle is going to a skill
-        test: the two ranked the same, or the one that would have won
-        is owed to an injured player.
-        """
-        if outcome == "tie":
-            # An ordinary tie -- both or neither participant is injured.
-            return (
-                f"{reveal}\n\n"
-                f"**{offense_name}** ties with **{defense_name}** — skill "
-                "test!\n\n"
-            )
-
-        # An injured player's maneuver never wins outright -- they
-        # still have to win a skill test to make it stick.
-        would_be_winner = (
-            offense_name if outcome == "offense" else defense_name
-        )
-        injured_player_id = (
-            match.active_player_id
-            if outcome == "offense"
-            else match.challenger_id
-        )
-        injured_player = self.engine.get_player_definition(injured_player_id)
-        word, emoji = self.injured_word_and_emoji(game, injured_player_id)
-        return (
-            f"{reveal}\n\n"
-            f"**{would_be_winner}** would win, but "
-            f"{self.player_label(match, injured_player)} is "
-            f"**{word}** {emoji} -- "
-            "a skill test decides it instead!\n\n"
-        )
+        return maneuver_prompt_wording(self.engine, game, match, sides)
 
     async def begin_maneuver_skill_test(
         self,
@@ -1278,11 +1113,19 @@ class CoreMixin:
         game: D12BallGame,
         match: MatchState,
         headline: str,
+        lead_in: str = "",
     ) -> None:
         """
         Charge both participants their token, post what is at stake,
         and put the roll behind a button -- every roll is a coach's.
+
+        `lead_in` is here because every follow-on is called with one.
+        It is always "" for this step: `resolve_maneuver` hands the
+        reveal over as `headline`, which the message below embeds,
+        rather than as narration that would have been posted above it.
         """
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
         exhaustion_text = (
             self.apply_exhaustion(game, match, match.active_player_id, 1)
             + "\n"
@@ -1331,75 +1174,19 @@ class CoreMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        lead_in: str = "",
     ) -> None:
-        # Keys are what the match holds and what everything below
-        # dispatches on; the names are only ever printed.
-        offense_key = match.offense_maneuver
-        defense_key = match.defense_maneuver
-        offense_name = self.engine.maneuver_name(offense_key)
-        defense_name = self.engine.maneuver_name(defense_key)
-        offense_number = self.engine.possession_player_number(game, match)
-        defense_number = self.engine.defending_player_number(game, match)
-        offense_display = format_player_with_team(
-            game, offense_number, self.team_emojis,
-        )
-        defense_display = format_player_with_team(
-            game, defense_number, self.team_emojis,
-        )
+        """
+        The Discord half of the reveal -- `d12ball.flow.turn.resolve_maneuver`.
 
-        if match.maneuver_uncontested:
-            # Nothing to reveal against and nothing to rank: the
-            # offense's pick is the winner, and its effect runs the
-            # same pipeline a decisive win always does.
-            await send_new_prompt(
-                interaction,
-                f"{offense_display} chose **{offense_name}**, "
-                f"unchallenged.\n\n## **{offense_name}** succeeds!"
-            )
-            await self.begin_effect_resolution(
-                interaction, game, match, offense_key,
-            )
-            return
-
-        reveal = (
-            f"{offense_display} chose **{offense_name}**.\n"
-            f"{defense_display} chose **{defense_name}**."
-        )
-
-        # Who wins is settled_maneuver_winner's alone to say; what is
-        # decided here is only how the four ways it can land are
-        # worded. `outcome` is the ranking on its own, which is what
-        # separates a win on the cards from a win handed over by the
-        # other player's injury.
-        outcome = self.maneuver_catalog.resolve(offense_key, defense_key)
-        winner_key = self.engine.settled_maneuver_winner(match)
-
-        if winner_key is not None:
-            await send_new_prompt(
-                interaction,
-                self.maneuver_winner_text(
-                    game,
-                    match,
-                    reveal,
-                    outcome,
-                    self.engine.maneuver_name(winner_key),
-                    offense_name,
-                    defense_name,
-                )
-            )
-            await self.begin_effect_resolution(
-                interaction, game, match, winner_key,
-            )
-            return
-
-        await self.begin_maneuver_skill_test(
-            interaction,
-            game,
-            match,
-            self.skill_test_headline(
-                game, match, reveal, outcome, offense_name, defense_name,
-            ),
-        )
+        Its own message, because the effect that follows posts its own:
+        a coach reads "X wins!" and then watches the card resolve.
+        """
+        result = resolve_maneuver(self.engine, game, match)
+        if lead_in:
+            result.narration.insert(0, lead_in)
+        self.persist(game, match)
+        await self.post_then_dispatch(interaction, game, match, result)
 
     async def begin_injury_tests(
         self,
@@ -1991,6 +1778,15 @@ class CoreMixin:
             FollowOnStep.APPLY_BALL_RECOVERY: self.apply_ball_recovery_step,
             FollowOnStep.RESOLVE_LOOSE_BALL: self.resolve_loose_ball,
             FollowOnStep.ANNOUNCE_RUN_BACK: self.announce_run_back_step,
+            FollowOnStep.BEGIN_MANEUVER_ACTION_SELECTION:
+                self.begin_maneuver_action_selection,
+            FollowOnStep.SEND_MANEUVER_ACTION_PROMPT:
+                self.send_maneuver_action_prompt,
+            FollowOnStep.RESOLVE_MANEUVER: self.resolve_maneuver,
+            FollowOnStep.BEGIN_EFFECT_RESOLUTION:
+                self.begin_effect_resolution,
+            FollowOnStep.BEGIN_MANEUVER_SKILL_TEST:
+                self.begin_maneuver_skill_test,
         }
 
     async def dispatch_step_result(
@@ -2166,6 +1962,7 @@ class CoreMixin:
         game: D12BallGame,
         match: MatchState,
         winner_key: str,
+        lead_in: str = "",
     ) -> None:
         """
         Dispatch a decisively-won maneuver to its effect, by **key**.
@@ -2176,6 +1973,12 @@ class CoreMixin:
         restart mid-choice can still reconstruct exactly where things
         left off (see build_effect_choice_view).
         """
+        # Always "" today: `resolve_maneuver` posts its reveal before
+        # handing over, so nothing is waiting. Accepted and posted
+        # rather than dropped, because every follow-on is called with
+        # one.
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
         self.record_maneuver(game, match, winner_key)
 
         handlers = {

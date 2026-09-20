@@ -223,7 +223,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[-1],
+            cog.begin_effect_resolution.await_args.kwargs["winner_key"],
             "dribble_advance",
         )
 
