@@ -371,6 +371,8 @@
   "pending_shootout": false,
   "pending_shot_is_set_up": false,
   "pending_shot_setup_cost": 0,
+  "pending_smooth": [],
+  "pending_smooth_resume": null,
   "pending_time_out": false,
   "player_data_version": 1,
   "ruleset_id": "basic-v1",

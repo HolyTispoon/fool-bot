@@ -54,7 +54,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_views import MindPullView, SkillTestView
+from cogs.d12ball_views import MindPullView, SkillTestView, SmoothView
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     CYBORG_DRAINED_AT,
@@ -1291,11 +1291,185 @@ class ChargeUpTests(unittest.TestCase):
         self.assertFalse(restored.pending_run_back_charge_up)
 
 
-class SlipInTests(unittest.TestCase):
+class SmoothCandidateTests(unittest.TestCase):
     """
-    "Where a resolution leaves the ball with a particular player and a
-    Telekinetic of the same side is standing on that space, the coach
-    may hand the ball to the Telekinetic instead."
+    **Smooth**: "When your team has possession and the ball moves to
+    or through your space, you may take it over instead."
+
+    It replaced Slip in on 2026-09-20 and is a different shape: Slip
+    in narrowed *who may take the turn* after a resolution had already
+    left the ball somewhere, where Smooth reads the ball's own path and
+    stops it. So these are `mind_pull_candidates`' tests with the side
+    flipped, not `turn_handler_candidates`' tests.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game(player_1_team=Team.TELEKINETICS)
+        self.match = build_match(self.engine, self.game)
+        self.taker = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, self.match.ball.possession,
+        )
+
+    def cross(self, player_id: str) -> None:
+        """Move the ball one space onto `player_id`, recording a path."""
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        zone, index = self.match.board.position_at_flat_index(origin + 1)
+        self.match.board.place_meeple(player_id, zone, index)
+        self.match.set_ball_space(zone, index)
+
+    def test_a_telekinetic_the_ball_reaches_may_take_it_over(self):
+        self.cross(self.taker)
+        self.assertEqual(
+            self.engine.smooth_candidates(self.game, self.match),
+            [self.taker],
+        )
+
+    def test_the_ball_s_own_starting_space_is_not_moved_to(self):
+        # The path excludes where the ball starts, so standing on it
+        # when the movement begins offers nothing -- the same sentence
+        # of the rule the pull is held to.
+        self.match.board.place_meeple(
+            self.taker, self.match.ball.zone, self.match.ball.space_index,
+        )
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        zone, index = self.match.board.position_at_flat_index(origin + 1)
+        self.match.set_ball_space(zone, index)
+        self.assertNotIn(
+            self.taker,
+            self.engine.smooth_candidates(self.game, self.match),
+        )
+
+    def test_an_opposing_telekinetic_is_never_a_smooth(self):
+        # "When your team has possession" -- the other side's
+        # Telekinetic on that space is a Mind Pull, and the two lists
+        # can never share a name on one movement.
+        opponent = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, self.match.defending_side(),
+        )
+        self.cross(opponent)
+        self.assertEqual(
+            self.engine.smooth_candidates(self.game, self.match), [],
+        )
+        self.assertIn(
+            opponent,
+            self.engine.mind_pull_candidates(self.game, self.match),
+        )
+
+    def test_a_non_telekinetic_teammate_may_not(self):
+        # A colour side fields two of each other species, so this is a
+        # real case rather than a hypothetical.
+        game = build_game(player_1_team=Team.SLIME)
+        match = build_match(self.engine, game)
+        teammate = next(
+            player_id
+            for player_id in field_players(match, match.ball.possession)
+            if self.engine.species_of(player_id) != SPECIES_TELEKINETIC
+        )
+        origin = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        zone, index = match.board.position_at_flat_index(origin + 1)
+        match.board.place_meeple(teammate, zone, index)
+        match.set_ball_space(zone, index)
+        self.assertEqual(self.engine.smooth_candidates(game, match), [])
+
+    def test_without_the_module_nobody_may(self):
+        self.cross(self.taker)
+        basic = build_game(
+            player_1_team=Team.TELEKINETICS, mode=GameMode.BASIC,
+        )
+        self.assertEqual(
+            self.engine.smooth_candidates(basic, self.match), [],
+        )
+
+    def test_an_injured_telekinetic_may_still_take_it(self):
+        # Unlike a pull. The pull excludes the injured because it costs
+        # a token they cannot gain; Smooth costs nothing, so that
+        # reasoning does not reach here.
+        self.cross(self.taker)
+        self.match.injured.add(self.taker)
+        self.assertEqual(
+            self.engine.smooth_candidates(self.game, self.match),
+            [self.taker],
+        )
+        self.assertEqual(
+            self.engine.mind_pull_candidates(self.game, self.match), [],
+        )
+
+    def test_a_dead_ball_crosses_nobody(self):
+        # `restart_ball_at` clears the path, so a kickoff offers no
+        # Smooth however far it travels -- the same exemption the pull
+        # has, and for the same reason.
+        self.match.board.place_meeple(self.taker, Zone.MIDFIELD, 0)
+        self.match.restart_ball_at(Zone.MIDFIELD, 0)
+        self.assertEqual(
+            self.engine.smooth_candidates(self.game, self.match), [],
+        )
+
+    def test_taking_it_over_is_not_a_turnover(self):
+        # The one place Smooth parts company with a landed pull:
+        # possession never changed hands, so there is nothing to run
+        # back from.
+        self.cross(self.taker)
+        was = self.match.ball.possession
+        self.match.apply_smooth(self.taker)
+        self.assertEqual(self.match.ball.possession, was)
+        self.assertEqual(self.match.ball_carrier_id, self.taker)
+        self.assertEqual(
+            (self.match.ball.zone, self.match.ball.space_index),
+            self.match.board.meeple_position(self.taker),
+        )
+        # Spent, so the next arrival point cannot offer the same ball
+        # again -- and the opposing side's queue goes with it.
+        self.assertEqual(self.match.last_ball_path, [])
+        self.assertEqual(self.match.pending_smooth, [])
+        self.assertEqual(self.match.pending_mind_pull, [])
+
+    def test_the_turn_reset_clears_the_queue(self):
+        self.match.pending_smooth = [self.taker]
+        self.match.pending_smooth_resume = {"kind": "finish_maneuver"}
+        self.match.reset_maneuver()
+        self.assertEqual(self.match.pending_smooth, [])
+        self.assertIsNone(self.match.pending_smooth_resume)
+
+    def test_the_queue_survives_a_save(self):
+        self.match.pending_smooth = [self.taker]
+        self.match.pending_smooth_resume = {
+            "kind": "own_goal", "distance_moved": 1,
+        }
+        restored = MatchState.from_dict(
+            self.match.to_dict(), self.engine.basic_ruleset,
+        )
+        self.assertEqual(restored.pending_smooth, [self.taker])
+        self.assertEqual(
+            restored.pending_smooth_resume,
+            {"kind": "own_goal", "distance_moved": 1},
+        )
+
+    def test_a_save_written_before_smooth_existed_still_loads(self):
+        # The fallback the save format owes every added field: a
+        # half-finished game outlives the commit, and both developers
+        # run the bot against their own saves.
+        saved = self.match.to_dict()
+        del saved["pending_smooth"]
+        del saved["pending_smooth_resume"]
+        restored = MatchState.from_dict(
+            saved, self.engine.basic_ruleset,
+        )
+        self.assertEqual(restored.pending_smooth, [])
+        self.assertIsNone(restored.pending_smooth_resume)
+
+
+class TurnHandlerNarrowingTests(unittest.TestCase):
+    """
+    What is left of `turn_handler_candidates` now that Smooth has taken
+    Slip in's job: a named carrier is the whole list, and nobody widens
+    past them.
     """
 
     def setUp(self) -> None:
@@ -1303,8 +1477,7 @@ class SlipInTests(unittest.TestCase):
         self.game = build_game(player_1_team=Team.TELEKINETICS)
         self.match = build_match(self.engine, self.game)
 
-    def put_two_on_the_ball(self) -> tuple[str, str]:
-        """A carrier and a teammate sharing the ball's space."""
+    def test_a_named_carrier_takes_the_turn_alone(self):
         carrier = self.match.eligible_ball_handlers()[0]
         teammate = next(
             player_id
@@ -1315,128 +1488,12 @@ class SlipInTests(unittest.TestCase):
             teammate, self.match.ball.zone, self.match.ball.space_index,
         )
         self.match.set_ball_carrier(carrier)
-        return carrier, teammate
-
-    def test_a_telekinetic_on_the_ball_may_take_the_carrier_s_turn(self):
-        carrier, teammate = self.put_two_on_the_ball()
-        candidates = self.engine.turn_handler_candidates(
-            self.game, self.match,
-        )
-        self.assertIn(carrier, candidates)
-        self.assertIn(teammate, candidates)
-
-    def test_the_carrier_is_named_first(self):
-        # They won the ball; the slip-in is the option beside them.
-        carrier, _ = self.put_two_on_the_ball()
         self.assertEqual(
-            self.engine.turn_handler_candidates(self.game, self.match)[0],
-            carrier,
-        )
-
-    def test_without_the_module_the_carrier_takes_the_turn_alone(self):
-        carrier, _ = self.put_two_on_the_ball()
-        basic = build_game(
-            player_1_team=Team.TELEKINETICS, mode=GameMode.BASIC,
-        )
-        self.assertEqual(
-            self.engine.turn_handler_candidates(basic, self.match),
+            self.engine.turn_handler_candidates(self.game, self.match),
             [carrier],
         )
 
-    def test_a_non_telekinetic_teammate_may_not_slip_in(self):
-        # A colour side fields two of each other species, so this is a
-        # real case rather than a hypothetical.
-        game = build_game(player_1_team=Team.SLIME)
-        match = build_match(self.engine, game)
-        carrier = match.eligible_ball_handlers()[0]
-        teammate = next(
-            (
-                player_id
-                for player_id in field_players(match)
-                if player_id != carrier
-                and self.engine.species_of(player_id) != SPECIES_TELEKINETIC
-            ),
-            None,
-        )
-        self.assertIsNotNone(teammate)
-        match.board.place_meeple(
-            teammate, match.ball.zone, match.ball.space_index,
-        )
-        match.set_ball_carrier(carrier)
-        self.assertEqual(
-            self.engine.turn_handler_candidates(game, match), [carrier],
-        )
-
-    def test_an_opposing_telekinetic_may_not_slip_in(self):
-        # "Of the same side" -- and `eligible_ball_handlers` is already
-        # only the possessing team, which is what makes it safe on a
-        # space both sides are standing on.
-        carrier, _ = self.put_two_on_the_ball()
-        opponent = self.match.visiting.field_players[0]
-        self.match.board.place_meeple(
-            opponent, self.match.ball.zone, self.match.ball.space_index,
-        )
-        self.assertNotIn(
-            opponent,
-            self.engine.turn_handler_candidates(self.game, self.match),
-        )
-
-    def test_nothing_to_widen_when_no_carrier_was_named(self):
-        # A resolution that named nobody leaves the coach the whole
-        # choice already.
-        self.match.clear_ball_carrier()
-        self.assertEqual(
-            self.engine.slip_in_candidates(self.game, self.match), [],
-        )
-
-    def test_the_click_accepts_the_slip_in(self):
-        # `select_ball_handler` validates against the same list the
-        # prompt was built from, or the button would be refused.
-        carrier, teammate = self.put_two_on_the_ball()
-        self.match.select_ball_handler(
-            teammate, self.engine.slip_in_candidates(self.game, self.match),
-        )
-        self.assertEqual(self.match.active_player_id, teammate)
-
-    def test_the_click_still_refuses_somebody_off_the_ball(self):
-        self.put_two_on_the_ball()
-        away = next(
-            player_id
-            for player_id in field_players(self.match)
-            if player_id not in self.match.eligible_ball_handlers()
-        )
-        with self.assertRaises(ValueError):
-            self.match.select_ball_handler(
-                away,
-                self.engine.slip_in_candidates(self.game, self.match),
-            )
-
-    def test_the_prompt_names_both_the_carrier_and_the_slip_in(self):
-        # Not a wording assertion: names are read off the same lookup
-        # the prompt itself uses, so a rename cannot break this. The
-        # claim under test is that a coach reading this prompt is told
-        # who already has the ball, not just handed an unlabelled
-        # choice between two buttons.
-        carrier, teammate = self.put_two_on_the_ball()
-        prompt = self.engine.build_turn_prompt(self.game, self.match)
-        self.assertIn(
-            self.engine.format_roster_player_for_message(
-                carrier, self.match.team_for_player(carrier),
-            ),
-            prompt,
-        )
-        self.assertIn(
-            self.engine.format_roster_player_for_message(
-                teammate, self.match.team_for_player(teammate),
-            ),
-            prompt,
-        )
-
-    def test_no_carrier_is_never_read_as_a_slip_in(self):
-        # No carrier named at all (a fresh pickup with nobody resolved
-        # yet) is an ordinary open choice, not Slip in -- more than one
-        # candidate here must not trip the same branch a real slip-in
-        # does, even though both put more than one candidate in play.
+    def test_no_carrier_leaves_the_whole_choice(self):
         self.match.clear_ball_carrier()
         teammate = next(
             player_id
@@ -1450,11 +1507,15 @@ class SlipInTests(unittest.TestCase):
             self.game, self.match,
         )
         self.assertGreater(len(candidates), 1)
-        self.assertNotIn(self.match.ball_carrier_id, candidates)
-        self.assertNotIn(
-            "slip in",
-            self.engine.build_turn_prompt(self.game, self.match),
+
+    def test_the_click_still_refuses_somebody_off_the_ball(self):
+        away = next(
+            player_id
+            for player_id in field_players(self.match)
+            if player_id not in self.match.eligible_ball_handlers()
         )
+        with self.assertRaises(ValueError):
+            self.match.select_ball_handler(away)
 
 
 class MergeTests(unittest.TestCase):
@@ -2766,6 +2827,210 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.offered_a_pull())
         self.assertEqual(self.match.pending_mind_pull, [])
         self.cog.begin_own_goal_roll.assert_awaited_once()
+
+
+class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
+    """
+    **The Smooth gate, through the real cog.** Smooth is asked first at
+    every arrival, and a Smooth that is taken pre-empts what the
+    movement was going to lead to -- including, and this is the case
+    the author settled on 2026-09-20, the own-goal roll an overshot
+    Double Team was about to ask for.
+
+    The gate is emphatically **not** mocked here; what stands in for
+    itself is only what the gate defers to.
+    """
+
+    def setUp(self) -> None:
+        self.cog = build_mind_pull_cog()
+        self.cog.begin_own_goal_roll = mock.AsyncMock()
+        self.cog.finish_maneuver_resolution = mock.AsyncMock()
+        self.game = build_game(
+            player_1_team=Team.ORANGE, player_2_team=Team.PURPLE,
+        )
+        self.cog.games[self.game.game_id] = self.game
+        self.match = self.cog.engine.initialize_standard_match(self.game)
+        self.interaction = build_mind_pull_interaction()
+
+        offense = self.match.ball.possession
+        self.taker = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, offense,
+        )
+
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        self.crossed = self.match.board.position_at_flat_index(origin + 1)
+
+    def sent_views(self) -> list:
+        return [
+            call.kwargs.get("view")
+            for call in self.interaction.followup.send.await_args_list
+        ]
+
+    def cross(self, player_id: str) -> None:
+        self.match.board.place_meeple(player_id, *self.crossed)
+        self.match.set_ball_space(*self.crossed)
+
+    async def test_the_arrival_gate_offers_the_smooth(self):
+        self.cross(self.taker)
+        with suppressed_cog_saves():
+            took_over = await self.cog.check_for_ball_arrival(
+                self.interaction, self.game, self.match,
+                {"kind": "finish_maneuver", "distance_moved": 1},
+            )
+        self.assertTrue(took_over)
+        self.assertTrue(
+            any(isinstance(v, SmoothView) for v in self.sent_views()),
+        )
+        self.assertEqual(self.match.pending_smooth, [self.taker])
+        self.assertEqual(
+            self.match.pending_smooth_resume["kind"], "finish_maneuver",
+        )
+
+    async def test_the_smooth_gate_leaves_the_path_for_the_pull(self):
+        # The one mechanical difference between the two gates: the
+        # pull spends the path, Smooth must not, or a movement that
+        # crossed both sides' Telekinetics would offer only the first.
+        self.cross(self.taker)
+        with suppressed_cog_saves():
+            await self.cog.check_for_smooth(
+                self.interaction, self.game, self.match,
+                {"kind": "finish_maneuver", "distance_moved": 1},
+            )
+        self.assertNotEqual(self.match.last_ball_path, [])
+
+    async def test_declining_hands_the_movement_to_the_pull(self):
+        # A Telekinetic of each side on the same crossed space: the
+        # teammate is asked first, and letting it run must still leave
+        # the opponent their roll.
+        opponent = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, self.match.defending_side(),
+        )
+        self.cross(self.taker)
+        self.match.board.place_meeple(opponent, *self.crossed)
+
+        with suppressed_cog_saves():
+            await self.cog.check_for_ball_arrival(
+                self.interaction, self.game, self.match,
+                {"kind": "finish_maneuver", "distance_moved": 1},
+            )
+            self.match.pending_smooth.remove(self.taker)
+            await self.cog.continue_smooth(
+                self.interaction, self.game, self.match,
+            )
+
+        self.assertEqual(self.match.pending_mind_pull, [opponent])
+        self.assertTrue(
+            any(isinstance(v, MindPullView) for v in self.sent_views()),
+        )
+        self.cog.finish_maneuver_resolution.assert_not_awaited()
+
+    async def test_nobody_wanting_it_falls_through_to_the_arrival(self):
+        self.cross(self.taker)
+        with suppressed_cog_saves():
+            await self.cog.check_for_ball_arrival(
+                self.interaction, self.game, self.match,
+                {"kind": "finish_maneuver", "distance_moved": 1},
+            )
+            self.match.pending_smooth.remove(self.taker)
+            await self.cog.continue_smooth(
+                self.interaction, self.game, self.match,
+            )
+        self.cog.finish_maneuver_resolution.assert_awaited()
+        # And the path is spent on the way past, by the pull.
+        self.assertEqual(self.match.last_ball_path, [])
+
+    async def test_taking_it_is_not_a_turnover(self):
+        self.cross(self.taker)
+        was = self.match.ball.possession
+        with suppressed_cog_saves():
+            await self.cog.check_for_ball_arrival(
+                self.interaction, self.game, self.match,
+                {"kind": "finish_maneuver", "distance_moved": 1},
+            )
+            await self.cog.run_smooth(
+                self.interaction, self.game, self.match, self.taker,
+            )
+        self.assertEqual(self.match.ball.possession, was)
+        self.assertEqual(self.match.ball_carrier_id, self.taker)
+        self.cog.begin_run_back.assert_not_awaited()
+        self.cog.finish_maneuver_resolution.assert_awaited()
+        self.assertFalse(
+            self.cog.finish_maneuver_resolution.await_args.kwargs[
+                "turnover_occurred"
+            ],
+        )
+
+    async def test_a_turnover_driven_arrival_still_runs_back(self):
+        # The one arrival a Smooth cannot pre-empt: `begin_run_back` is
+        # not a question about where the ball settles, it is the
+        # consequence of a turnover that already happened. Smooth only
+        # changes who is holding it when everyone runs back.
+        self.cross(self.taker)
+        with suppressed_cog_saves():
+            await self.cog.run_smooth(
+                self.interaction, self.game, self.match, self.taker,
+            )
+        self.cog.finish_maneuver_resolution.assert_awaited()
+
+        self.cog.finish_maneuver_resolution.reset_mock()
+        self.cross(self.taker)
+        self.match.pending_smooth_resume = {
+            "kind": "run_back", "distance_moved": 2,
+        }
+        with suppressed_cog_saves():
+            await self.cog.run_smooth(
+                self.interaction, self.game, self.match, self.taker,
+            )
+        self.cog.begin_run_back.assert_awaited()
+        self.assertEqual(
+            self.cog.begin_run_back.await_args.kwargs["distance_moved"], 2,
+        )
+        self.cog.finish_maneuver_resolution.assert_not_awaited()
+
+    async def test_taking_it_skips_the_own_goal_roll(self):
+        # The author's ruling, 2026-09-20: if the offense's own
+        # Telekinetic takes the ball during the shove, before the roll,
+        # there is no own-goal risk at all. It falls out of "a Smooth
+        # pre-empts what the movement led to" rather than being a case
+        # of its own -- which is why there is no "own_goal" branch in
+        # run_smooth to read.
+        self.cross(self.taker)
+        self.match.pending_smooth_resume = {
+            "kind": "own_goal", "distance_moved": 1,
+        }
+        with suppressed_cog_saves():
+            await self.cog.run_smooth(
+                self.interaction, self.game, self.match, self.taker,
+            )
+        self.cog.begin_own_goal_roll.assert_not_awaited()
+        self.cog.finish_maneuver_resolution.assert_awaited()
+        self.assertFalse(self.match.pending_own_goal)
+
+    async def test_an_ai_side_is_never_offered_one(self):
+        # Dinky never takes a Smooth, the same call as never ceding and
+        # never pulling.
+        self.game.ai_opponent = AIOpponent.DINKY
+        # An AI side is one with no Discord user behind it, which is
+        # what `controlling_user_id` actually reads -- see
+        # `continue_smooth`'s skip.
+        number = (
+            self.game.home_player_number
+            if self.match.ball.possession is TeamSide.HOME
+            else self.game.visiting_player_number
+        )
+        setattr(self.game, f"player_{number}_id", None)
+        self.cross(self.taker)
+        with suppressed_cog_saves():
+            await self.cog.check_for_ball_arrival(
+                self.interaction, self.game, self.match,
+                {"kind": "finish_maneuver", "distance_moved": 1},
+            )
+        self.assertFalse(
+            any(isinstance(v, SmoothView) for v in self.sent_views()),
+        )
+        self.assertEqual(self.match.pending_smooth, [])
 
 
 if __name__ == "__main__":

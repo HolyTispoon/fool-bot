@@ -805,11 +805,11 @@ class PresentationMixin:
             # way a single candidate is selected below without asking,
             # so the rule costs a coach a click rather than adding one.
             #
-            # Through the engine, so **Slip in** is in it: a
-            # Telekinetic on the ball may take the handler's turn,
-            # which turns the one-candidate case back into a real
-            # choice and is therefore the one thing that can add a
-            # click here.
+            # Through the engine, which is where the single answer
+            # to "who may take this turn" lives even now that it adds
+            # nothing of its own: Slip in used to widen this list, and
+            # Smooth replaced it on 2026-09-20 by settling the same
+            # question one step earlier, at the arrival gate.
             eligible_handlers = self.engine.turn_handler_candidates(
                 game, match,
             )
@@ -826,10 +826,7 @@ class PresentationMixin:
                 return
 
             if len(eligible_handlers) == 1:
-                match.select_ball_handler(
-                    eligible_handlers[0],
-                    self.engine.slip_in_candidates(game, match),
-                )
+                match.select_ball_handler(eligible_handlers[0])
                 game.match_state = match.to_dict()
                 view: discord.ui.View = PlayerActionView(
                     self,

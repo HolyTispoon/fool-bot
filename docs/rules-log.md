@@ -119,6 +119,29 @@ halftime and the shootout window hand them their own.
 Left alone until asked: it is a real change to how many players can pass through
 a game, and the current number was settled deliberately.
 
+### Which comes first on one movement, Smooth or Mind Pull?
+
+**Raised by building Smooth, 2026-09-20. Answered one way in the code, deliberately, and worth
+confirming.**
+
+A ball can cross a Telekinetic of each side on the same movement. Both abilities read the same
+path, and either one taken stops the ball -- so whichever is asked first decides whether the
+other is asked at all. The sheet's wording settles what each ability does and says nothing
+about the race.
+
+`check_for_ball_arrival` asks **Smooth first**: the side that has the ball may take it out of
+the air before the other side reaches for it. That is what the build was asked for, and it has
+an argument -- it is your ball, and a pull is a 1-in-6 gamble against a certainty.
+
+The other reading is that the ball meets whoever it meets **in path order**, which is what
+Mind Pull's own sentence says within itself ("each may try in the order the ball reaches them")
+and which would interleave the two queues rather than running one after the other. That is a
+real machinery change -- one ordered queue, not two -- so it was not guessed at.
+
+Worth noting which way this actually bites: a Smooth costs nothing and cannot fail, so asking
+it first means an opposing Telekinetic on the path gets **no roll at all** whenever any of the
+possessing side's Telekinetics is also on it. Against a species team that is most movements.
+
 ### Does a Telekinetic challenger get a Mind Pull on the ball they just pressured?
 
 **Found while gating `apply_pressure`'s overshoot branch, 2026-09-20. Not a question about
@@ -162,6 +185,45 @@ once.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-20 -- sheet, Slip in becomes Smooth, and reads the ball's path
+
+The `spec_abilities` tab's Telekinetic cell now names the second ability and rewrites it:
+*"Smooth: When your team has possession and the ball moves to or through your space, you may
+take it over instead."* Abbreviated: *"Smooth: your own ball moves to or through you -- take
+it over free."*
+
+**This is a bigger change than the name.** Slip in asked its question *after* a resolution had
+already put the ball somewhere -- "a resolution leaves the ball with a teammate on your space"
+-- and answered it by widening who could take the turn. Smooth asks the same question of the
+ball's **path**, in the same words Mind Pull uses, and answers it by stopping the ball. So it
+moved from `turn_handler_candidates` to the arrival gate, and the three cases the living rules
+used to list for Slip in (a dribble onto a teammate, a handler shoved back onto one, a Setup
+Pass received into a group) are now just three movements that end on a Telekinetic, with no
+list needed.
+
+**What the author settled on top of the sheet's wording** (in chat, 2026-09-20):
+
+- **It stops the ball mid-flight**, pre-empting the arrival, exactly as a landed pull does --
+  so a pass can be taken out of the air by a teammate it merely passes over.
+- **An overshooting Double Team's own-goal roll never happens** if the offense's own
+  Telekinetic takes the ball during the shove: *"there is no own goal risk at all"*. This
+  needed no branch of its own -- it falls out of the pre-emption rule, which is the sign the
+  rule was the right shape.
+
+**It is not a turnover**, which is the one place it parts company with a pull: possession never
+changed hands, so ball speed is untouched and nobody runs back. The single exception is a run
+back a turnover has *already* caused -- `begin_run_back` is a consequence, not a question about
+where the ball settles -- where the Telekinetic takes the ball over and the run back still
+happens with them as the carrier who stays.
+
+**Not yet done: the sheet's own data file.** `d12ball/data/species.json` is regenerated whole
+by `scripts/import_d12ball_species.py` and is never hand-edited, so its Ooze row still owns
+"Slip in", its Telekinetic row still says "on 1-2", and neither mentions Smooth. The import
+could not be run from the session that made this change -- its container's egress policy
+denies `docs.google.com` -- so it wants a re-run on a developer machine, followed by
+`scripts/render_species_cards.py` and `scripts/render_player_cards.py`, before the printed
+cards agree with this entry.
 
 ### 2026-09-20 -- sheet, Mind Pull succeeds on 11-12 rather than 1-2
 

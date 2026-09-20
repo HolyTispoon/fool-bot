@@ -444,7 +444,7 @@ tried and dropped in the same conversation that settled this one, which is
 why there is no `spread_link` on `MatchState` and no `CoachingSpreadView`.
 
 - **The exemption is an id set threaded through three readings, never a fact
-  `MatchState` looks up itself.** Same split as `slip_in_candidates` and
+  `MatchState` looks up itself.** Same split as `smooth_candidates` and
   `merge_bonus`: this module does not know what a species is, so
   `open_spaces_in_zone`, `placement_spaces_in_zone` and `crowded_candidates`
   each take a `spread_exempt_ids` collection and simply subtract it from the
@@ -509,7 +509,10 @@ split is the whole design.
   exactly "to or through" plus "the ball's own starting space does not count
   as moved to". A move that goes nowhere is an empty path, so a clamped pass
   offers nobody a pull.
-- **Reading is five places**, and they are the functions that settle an
+- **Reading is five places, through one gate.** Each arrival point calls
+  `check_for_ball_arrival`, which asks Smooth and then Mind Pull -- see
+  "Smooth" below for why that order is load-bearing and why only the second
+  of the two spends the path. The five are the functions that settle an
   arrival: `finish_maneuver_resolution` (the tail of every ordinary path,
   receptions included), `begin_loose_ball` (a Deflect, which calls it
   directly, and the High Pass contest, which comes through it),
@@ -669,47 +672,91 @@ the same door.
   is still exactly as it was and every branch below would resolve the arrival
   this is holding back.
 
-**Slip in declines to narrow; it adds nobody** (moved here from Slimey,
-2026-09-20, when the ability changed species -- the author: *"remove slip in
-as an ability for oozes. Add a new ability for telekinetics ... they can do
-the same thing slip in"*; see the 2026-09-20 entry in
-[rules-log.md](../rules-log.md)). The mechanic itself is untouched, only
-`SPECIES_OOZE` becoming `SPECIES_TELEKINETIC` throughout. A Telekinetic
-standing on the ball for the side in possession is *already* an eligible ball
-handler -- what `turn_handler_candidates` does is cut that list down to the
-carrier when a resolution named one, and this is the rule that keeps the
-Telekinetics in it.
+### Smooth
 
-- **`MatchState.turn_handler_candidates` takes the ids rather than asking.**
-  `slip_in_ids` is a parameter for the reason `mark_exhausted_if_needed` takes
-  a threshold: `MatchState` does not know what a species is, let alone which
-  modules the game is playing. `RulesEngine.slip_in_candidates` computes them
-  and `RulesEngine.turn_handler_candidates` is the wrapper every prompt, the
-  click and the AI should ask.
-- **The prompt says a slip-in is on offer, rather than posing it as a plain
-  choice.** `build_turn_prompt` used to ask "Choose which player in the
-  ball's space will take an action" whether or not anybody had already won
-  the ball -- which reads the same for a genuine open choice (no carrier
-  named yet) and for a carrier standing there with a Telekinetic beside them.
-  It now checks `carrier_id in candidates` (true only when Slip in is what
-  widened the list) and says "{carrier} has the ball, but {Telekinetic(s)}
-  may slip in! 🔮 Who should handle the ball?" instead, so a coach reads who
-  already has it before being asked whether to hand it off (2026-09-19). The
-  bubble is `TEAM_EMOJI_FALLBACKS[Team.TELEKINETICS]`, the same one already
-  drawn for the Telekinetics team -- there is no ability emoji of its own,
-  and reusing the species' own mark flags what just fired without inventing
-  a second symbol for the same species.
-- **"Of the same side" is `eligible_ball_handlers`' own answer**, which is what
-  makes this safe on a space both sides are standing on -- that helper is
-  already "everyone of the possessing team on the ball", so an opponent's
-  Telekinetic is never in the list to be filtered out.
-- **The carrier stays first**, so a coach reads who actually won the ball ahead
-  of who may take it off them.
-- **Dinky never slips in**, which is why `DinkyAI.choose_ball_handler` still
-  asks the *match* rather than the engine. Weighing whether to hand the ball to
-  a different player is a judgement call, and Dinky makes none -- the same call
-  as never declining a challenge and never leaving a loose ball
-  uncontested. In a solo game the option is the human's alone.
-- **It is the one thing that can add a click to a turn.** Everywhere else a
-  single candidate is selected without asking; a carrier with a Telekinetic
-  beside them is two buttons where there was none.
+**Smooth is Mind Pull with the price taken off, and it lives on the same
+gate.** "When your team has possession and the ball moves to or through your
+space, you may take it over instead" (the sheet's `spec_abilities` tab,
+2026-09-20). Free, no roll, cannot fail. It replaced **Slip in**, which had
+moved to the Telekinetics from the Oozes only days earlier -- see both
+2026-09-20 entries in [rules-log.md](../rules-log.md).
+
+**The replacement changed the shape, not just the name, and that is the whole
+of this section.** Slip in asked *after* the fact: a resolution had already
+left the ball with somebody, and Slip in widened `turn_handler_candidates`
+so a Telekinetic standing there could take the turn instead. Smooth asks of
+the ball's **path**, in Mind Pull's own words, and answers by stopping the
+ball. Three consequences, and each one deleted code rather than adding it:
+
+- **`slip_in_ids` is gone from `MatchState.turn_handler_candidates` and
+  `select_ball_handler`.** A carrier is now always the whole list, because by
+  the time the turn is handed out the arrival gate has already settled who
+  holds the ball. Both production callers dropped their second argument.
+- **`build_turn_prompt`'s slip-in line is gone**, and could not have fired
+  anyway: it keyed on `carrier_id in candidates and len(candidates) > 1`,
+  which the paragraph above makes unreachable. The prompt it used to
+  replace -- "Choose which player in the ball's space will take an action" --
+  is once again the only one, because the case it distinguished now happens
+  a step earlier, in a message of its own.
+- **The three cases the rules used to list for Slip in** (a dribble onto a
+  teammate, a handler shoved back onto one, a Setup Pass received into a
+  group) stopped needing a list. They are three movements that end on a
+  Telekinetic, and the path sees all three the same way.
+
+**Two queues, not one, and they can never both be owed to the same player.**
+A pull needs the ball to be the opponents'; a Smooth needs it to be yours.
+`smooth_candidates` reads `match.ball.possession` exactly where
+`mind_pull_candidates` reads `defending_side()`, and that single difference is
+what makes the two lists disjoint on any one movement. They stay separate
+queues because the offer a coach is shown is a different offer -- one button
+that spends a token on a 1-in-6, or one that simply takes the ball.
+
+- **Injured players are in Smooth's list and out of the pull's.** Not an
+  inconsistency: the pull excludes them because it costs a token an injured
+  player cannot gain, so `add_exhaustion` would silently hand them a free
+  roll. Smooth costs nothing, so the reasoning does not reach it, and an
+  injured player is still playing.
+
+**`check_for_ball_arrival` is the single gate the five arrival points call**,
+and it runs Smooth then Mind Pull. Two things about that order are
+load-bearing:
+
+- **Smooth does not spend `last_ball_path`; the pull does.** The pull is the
+  last reader, so it keeps the unconditional `last_ball_path = []` it always
+  had, and Smooth deliberately leaves the path alone -- a Smooth that nobody
+  wanted must still leave the pull its movement. This is the one mechanical
+  difference between the two gate functions and the reason they are not one
+  function with a side argument.
+- **Smooth first is a rules decision, not an ordering convenience**, because
+  either one taken stops the ball and ends the movement. It is written down
+  in three places that must agree -- `check_for_ball_arrival`,
+  `continue_smooth`'s hand-off, and `pending_prompt`'s branch order, which is
+  what a restart comes back to -- and recorded as an open question in
+  [rules-log.md](../rules-log.md), since the sheet does not say.
+
+**A landed Smooth ends the maneuver; it does not run a turnover.** That is
+the one place it parts company with a landed pull, and it falls straight out
+of possession never having changed: no speed reset, no run back, no
+`set_possession`. `apply_smooth` is `apply_mind_pull` minus the possession
+line, and it clears `pending_mind_pull` along with the path -- the opposing
+side's pulls were owed on a movement that no longer ends where it was going.
+
+- **The arrival it pre-empted does not happen**, which is the pull's rule
+  reaching Smooth unchanged, and it is what makes an overshooting Double Team
+  safe: `run_smooth` has no `"own_goal"` branch to read, because "the roll
+  never happens" is just what pre-emption already means (the author,
+  2026-09-20). A rule that needs no code is usually the right rule.
+- **`"run_back"` is the one kind it cannot pre-empt**, and the one branch
+  `run_smooth` does carry. `begin_run_back` is not a question about where the
+  ball settles -- it is the consequence of a turnover that already happened --
+  so a Smooth there only changes who is standing on the ball when everyone
+  runs back, and the carrier it sets is the one who stays.
+- **The clock is not dropped**, the same as a pull: the maneuver that moved
+  the ball still costs its space minute, carried out in `distance_moved`.
+
+**Dinky never takes a Smooth**, so `continue_smooth` skips an AI side's
+Telekinetics the way `continue_mind_pull` skips them, rather than
+`DinkyAI.choose_ball_handler` declining to widen a list that no longer widens.
+Taking the ball over moves who plays the next turn, which is a judgement, and
+Dinky makes none -- the same call as never ceding, never declining a challenge
+and never pulling. In a solo game the ability is the human's alone.

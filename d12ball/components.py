@@ -1545,6 +1545,10 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
         "pending_mind_pull", factory=list, write=list, read=list,
     ),
     SavedField("pending_mind_pull_resume"),
+    SavedField(
+        "pending_smooth", factory=list, write=list, read=list,
+    ),
+    SavedField("pending_smooth_resume"),
     SavedField("pending_run_back", default=False),
     SavedField("pending_run_back_distance", default=1),
     SavedField("pending_run_back_turnover", default=True),
@@ -1779,6 +1783,17 @@ class MatchState:
     last_ball_path: list[list] = field(default_factory=list)
     pending_mind_pull: list[str] = field(default_factory=list)
     pending_mind_pull_resume: Optional[dict] = None
+    # **Smooth.** The same two fields again, for the Telekinetic's
+    # other half -- "when your team has possession and the ball moves
+    # to or through your space, you may take it over instead". It is
+    # the same interrupt as a pull with the price taken off: no token,
+    # no roll, and possession does not change because it was already
+    # theirs. Two queues rather than one because the offer a coach is
+    # shown is a different offer, and because the two can never be
+    # owed to the same player on the same movement -- a pull needs the
+    # ball to be the opponents', and a Smooth needs it to be yours.
+    pending_smooth: list[str] = field(default_factory=list)
+    pending_smooth_resume: Optional[dict] = None
     exhaustion: dict[str, int] = field(default_factory=dict)
     exhausted: set[str] = field(default_factory=set)
     injured: set[str] = field(default_factory=set)
@@ -2117,9 +2132,7 @@ class MatchState:
             if player_id in possessing_players
         ]
 
-    def turn_handler_candidates(
-        self, slip_in_ids: Collection[str] = (),
-    ) -> list[str]:
+    def turn_handler_candidates(self) -> list[str]:
         """
         Who may take this turn: the ball carrier alone when the last
         resolution left the ball in somebody's hands, otherwise every
@@ -2131,29 +2144,18 @@ class MatchState:
         state saved before this field existed, from narrowing the
         choice to a player who cannot take the turn.
 
-        **`slip_in_ids` is Slip in**, and it widens the narrow case: a
-        Telekinetic standing on the ball may take the handler's turn
-        from whoever the resolution left it with (see "Mind Pull
-        (Telekinetic)" in docs/living-rules.md). They are already
-        eligible handlers -- a Telekinetic on the ball's space for the
-        side in possession is one by definition -- so this does not
-        add anybody, it declines to narrow past them. Which ids those
-        are is `RulesEngine.slip_in_candidates`; passing them in rather
-        than asking is what keeps `MatchState` from having to know what a
-        species is, the same way `mark_exhausted_if_needed` takes a
-        threshold rather than a player's skills.
-
-        The carrier stays **first**, so a coach reading the prompt sees
-        who actually won the ball ahead of who may take it off them.
+        **This used to take `slip_in_ids`**, the Telekinetics who could
+        take the handler's turn off whoever the resolution left the
+        ball with. Smooth replaced Slip in on 2026-09-20 and answers
+        the same question one step earlier: a Telekinetic who wants the
+        ball takes it *as it arrives*, through the arrival gate, so by
+        the time this is asked `ball_carrier_id` is already them. There
+        is nothing left here to widen -- see "Smooth" in
+        docs/design/species-abilities.md.
         """
         candidates = self.eligible_ball_handlers()
         if self.ball_carrier_id in candidates:
-            return [self.ball_carrier_id] + [
-                player_id
-                for player_id in candidates
-                if player_id != self.ball_carrier_id
-                and player_id in slip_in_ids
-            ]
+            return [self.ball_carrier_id]
         return candidates
 
     def set_ball_carrier(self, player_id: Optional[str]) -> None:
@@ -2167,10 +2169,8 @@ class MatchState:
         """
         self.ball_carrier_id = None
 
-    def select_ball_handler(
-        self, player_id: str, slip_in_ids: Collection[str] = (),
-    ) -> None:
-        if player_id not in self.turn_handler_candidates(slip_in_ids):
+    def select_ball_handler(self, player_id: str) -> None:
+        if player_id not in self.turn_handler_candidates():
             raise ValueError(
                 "The selected player is not an eligible ball handler."
             )
@@ -3008,6 +3008,30 @@ class MatchState:
         self.last_ball_path = []
         self.pending_mind_pull = []
 
+    def apply_smooth(self, player_id: str) -> None:
+        """
+        A Smooth that was taken: the ball stops on the Telekinetic's
+        space and they hold it. The twin of `apply_mind_pull` with the
+        turnover taken out -- **possession is not touched, because the
+        ball was already this side's**, which is the whole of what
+        makes Smooth free where a pull costs a token and a roll.
+
+        The path is cleared with it for the same reason a pull clears
+        it: the movement that offered this Smooth is over, and leaving
+        it set would offer the ball again at the next arrival point.
+        `pending_mind_pull` is cleared too -- the opposing side's
+        pulls were owed on a movement that no longer ends where it
+        was going to, and `check_for_ball_arrival` asks Smooth first
+        precisely so that this is the only order it can happen in.
+        """
+        zone, space_index = self.board.meeple_position(player_id)
+        self.ball.zone = zone
+        self.ball.space_index = space_index
+        self.set_ball_carrier(player_id)
+        self.last_ball_path = []
+        self.pending_smooth = []
+        self.pending_mind_pull = []
+
     def declare_overdrive(self, player_id: str, threshold: int) -> None:
         """
         Take Overdrive's 3 drain tokens and record the declaration, so
@@ -3333,6 +3357,8 @@ class MatchState:
         self.last_ball_path = []
         self.pending_mind_pull = []
         self.pending_mind_pull_resume = None
+        self.pending_smooth = []
+        self.pending_smooth_resume = None
         self.pending_run_back = False
         self.pending_run_back_distance = 1
         self.pending_run_back_turnover = True

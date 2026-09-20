@@ -173,7 +173,19 @@ def halftime_coaching() -> PromptFixture:
     return PromptFixture(build_game(), match, "Halftime Coaching Choice:")
 
 
-# -- The three interrupts, ahead of everything they interrupt ----------
+# -- The four interrupts, ahead of everything they interrupt ----------
+
+
+def smooth() -> PromptFixture:
+    match = build_match()
+    taker = fielded(match, PlayerRole.WINGER)
+    match.pending_smooth = [taker]
+    return PromptFixture(
+        build_game(),
+        match,
+        f"{label(match, taker)} can still take the ball over:",
+        {"player_id": taker},
+    )
 
 
 def mind_pull() -> PromptFixture:
@@ -585,6 +597,7 @@ CASES: tuple[PromptCase, ...] = (
                "HalftimeExtraTokenView", halftime_extra_token),
     PromptCase("halftime coaching", "COACHING_HUB", "CoachingHubView",
                halftime_coaching),
+    PromptCase("smooth", "SMOOTH", "SmoothView", smooth),
     PromptCase("mind pull", "MIND_PULL", "MindPullView", mind_pull),
     PromptCase("injury test", "INJURY_TEST", "InjuryTestView", injury_test),
     PromptCase("own goal", "OWN_GOAL_ROLL", "OwnGoalRollView", own_goal),

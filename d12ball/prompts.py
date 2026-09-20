@@ -63,6 +63,7 @@ class PromptKind(Enum):
 
     # Interrupts, which outrank the turn they interrupt
     MIND_PULL = "mind_pull"
+    SMOOTH = "smooth"
     INJURY_TEST = "injury_test"
     OWN_GOAL_ROLL = "own_goal_roll"
 
@@ -368,6 +369,23 @@ def pending_prompt(
         # run-back choice makes.
         return PendingPrompt(
             PromptKind.COACHING_HUB, "Halftime Coaching Choice:",
+        )
+
+    if match.pending_smooth:
+        # Ahead of the pull for the reason `check_for_ball_arrival`
+        # asks it first: both are owed on one movement, and a Smooth
+        # that is taken stops the ball short of where the pull would
+        # have reached for it. A restart has to come back to the same
+        # offer the flow was on, so the two orderings are one ordering
+        # written twice -- which is exactly the second copy this file
+        # exists to prevent, and is why the reason is written down
+        # here rather than only in the cog.
+        player = engine.get_player_definition(match.pending_smooth[0])
+        return PendingPrompt(
+            PromptKind.SMOOTH,
+            f"{engine.format_player_label(match, player)} can still take "
+            "the ball over:",
+            player_id=player.player_id,
         )
 
     if match.pending_mind_pull:
