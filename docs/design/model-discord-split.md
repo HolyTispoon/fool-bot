@@ -67,12 +67,13 @@ match is waiting on; a flow step is what *changes* it. Each takes the
 engine and the match, mutates, and hands back a `StepResult` -- the
 narration, whether the board moved, and what happens next. Phase 2 cut
 this on Low Pass alone and nothing else; Phase 3 follows a rank at a
-time, and rank O2 brought the two dribbles, rank D2 the two steals and
-rank D3 the two pressures -- so `effects.py` holds eight cards as six
-functions (four of the cards are their rank-mate parameterised) and
-`cogs/d12ball/effects.py` still holds four: ranks D1 and O3. Rank O1
-landed in between and moved none of them: Skilled Pass had come across
-with Low Pass already, as the same step under a different `key=`.
+time, and rank O2 brought the two dribbles, rank D2 the two steals,
+rank D3 the two pressures and rank D1 the two deflections -- so
+`effects.py` holds ten cards as seven functions (six of the cards are
+their rank-mate parameterised) and `cogs/d12ball/effects.py` still
+holds two: rank O3. Rank O1 landed in between and moved none of them:
+Skilled Pass had come across with Low Pass already, as the same step
+under a different `key=`.
 
 - **Low Pass was the slice because it is not a toy.** Mid-sized, with a
   role-ability branch (the Winger's set-up, the one path that ends
@@ -181,12 +182,11 @@ with Low Pass already, as the same step under a different `key=`.
   `begin_loose_ball` -- mutate-and-say-what-happened, in the `resolve_*`
   half this phase does not touch. Lifting it would have meant adding
   `BEGIN_LOOSE_BALL` and settling what `board_changed` means for a
-  step whose follow-on redraws the board itself: the cog deliberately
-  does **not** refresh there, because `begin_loose_ball` draws the
-  same board under its own announcement, so the flag would have to
-  mean "the frontend should redraw" rather than "the board moved".
-  That is one decision for all eight of `begin_loose_ball`'s callers
-  rather than for one card, and rank D1 is where it is due.
+  step whose follow-on redraws the board itself -- one decision for
+  all eight of `begin_loose_ball`'s callers rather than for one card.
+  Rank D1 settled it (below) and the branch itself is **still there**,
+  because the two rules questions PR #232 raised on it are open and
+  neither is the refactor's to answer.
 - **Rank D2 was the first hand-off into the spine, and it cost two
   members.** `steal_step` is a Steal and an Intercept both -- the
   cards differ by the sign of the carry and nothing else, so they are
@@ -280,6 +280,53 @@ with Low Pass already, as the same step under a different `key=`.
     it survives a `to_dict`/`from_dict` round trip, because it
     reaches into the *following* maneuver and a restart that lost it
     would give the next turn one challenger instead of two.
+- **Rank D1 is where `board_changed` was settled.** `deflect_step` is
+  a Deflect and a Clear both -- the distance driven and the speed
+  taken off are the whole of the difference, so they are one function
+  and a `key` -- and `deflection_numbers` and `knock_ball_back` came
+  with it as free functions. It added two members, neither of them the
+  tail of a maneuver: `BEGIN_LOOSE_BALL`, because a deflection knocks
+  the ball out of possession and goes straight to the contest, and
+  `OFFER_SETUP_PASS_PUSH_BACK` for the cost a beaten Setup Pass
+  charges inside it.
+  - **`board_changed` means the board moved, and nothing else.** The
+    reading it could have had -- "the frontend should redraw" -- was
+    available and is wrong: a deflection always moves the ball, and
+    the cog deliberately does not refresh before `begin_loose_ball`,
+    which draws that same board under its own announcement one
+    message later. So the step says what is true of the position and
+    `D12Ball.follow_on_posts_its_own_board` declines the duplicate
+    write. That keeps [rate-limits.md](rate-limits.md)'s five-in-five
+    arithmetic out of the model (principle 8), and it is the answer
+    for every caller rather than for one card. The High Pass
+    exemption `begin_loose_ball` already carries -- the ball is on a
+    player everybody can see, so that path announces without drawing
+    -- rides on the same `is_high_pass` flag inside the predicate,
+    which is how rank O3 inherits it rather than rediscovering it.
+  - **The push-back is a follow-on, not a `PendingPrompt`.**
+    `offer_setup_pass_push_back` decides whether anybody is asked at
+    all: Dinky drives the ball back itself, and a push with no room
+    left goes straight to the loose ball. That is rank O2's
+    `OFFER_SPEED_CHOICE` reasoning met a second time, and it is what
+    "a step that ends somewhere a coach may or may not be asked is a
+    follow-on" is for.
+  - **Step-then-save was the rule again**, the third time of four.
+    `knock_ball_back` saved the moment the ball moved and the
+    overshoot branch saved again after the turnover; nothing between
+    them can fail and both wrote the same state. `self.persist` in
+    `cogs/` went 96 -> 95.
+  - **Two assertions moved from `args` to `kwargs`**, in
+    `tests/test_d12ball_components.py` and
+    `tests/test_d12ball_loose_ball.py`: `begin_loose_ball`'s
+    `distance_moved` was the positional rank D2 warned the later
+    ranks about.
+  - **The fixture table carries two numbers where the earlier ranks
+    carried one.** `board_changed` is the model's answer and
+    `refreshes` is what the cog wrote, and rank D1 is exactly where
+    those stop being the same -- so
+    `tests/test_d12ball_deflect_recording.py` asserts the second and
+    `tests/test_d12ball_deflect_flow.py` asserts that dispatching the
+    moved step still writes the board that many times.
 - **What is in `FollowOnStep` is asserted in
   `tests/test_d12ball_package_shape.py`**, not in any one rank's own
   tests, along with `D12Ball.follow_on_methods` covering it exactly --

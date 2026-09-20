@@ -27,7 +27,7 @@ it happened to have.
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
-| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a-3d done (PR #229, PR #232, PR #233, PR #235); 3e-3f open |
+| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a-3e done (PR #229, PR #232, PR #233, PR #235, PR #PENDING); 3f open |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
@@ -112,9 +112,10 @@ may not do** (principle 9). `send_low_pass`, `throw_high_pass`,
 `knock_ball_back`, `take_ball_by_steal` and `apply_own_goal_outcome` each
 called `self.persist(game, match)` in their own body. So they are on the
 model's side in everything but their address *and* their save, and lifting
-one means stripping the persist out of it first. **Two are left**: Phase 2
-took `send_low_pass`, rank D2 took `take_ball_by_steal` and rank D3 took
-`apply_own_goal_outcome`.
+one means stripping the persist out of it first. **One is left**, rank
+O3's `throw_high_pass`: Phase 2 took `send_low_pass`, rank D2 took
+`take_ball_by_steal`, rank D3 took `apply_own_goal_outcome` and rank D1
+took `knock_ball_back`.
 
 **That is not a free deletion, because the wrapper was not saving either.**
 `apply_low_pass` never persisted: it relied on `send_low_pass` having done
@@ -283,7 +284,7 @@ so the pattern is settled before it meets the hard cases.
 | 3b | O1 | Low Pass, Skilled Pass | **Done (PR #232).** Nothing was left to move -- Phase 2's step already carried both cards -- so the rank is its evidence: ten fixtures and the `key=` round trip |
 | 3c | D2 | Steal, Intercept | **Done (PR #233).** One step and a sign for both cards, and the first hand-off into the spine: `BEGIN_RUN_BACK` and `BEGIN_SHOOTER_CHOICE` |
 | 3d | D3 | Pressure, Double Team | **Done (PR #235).** The own-goal branch, and the first follow-on whose method had no `lead_in` |
-| 3e | D1 | Deflect, Clear | Calls `begin_loose_ball` directly rather than going through `finish_maneuver_resolution` |
+| 3e | D1 | Deflect, Clear | **Done (PR #PENDING).** Called `begin_loose_ball` directly, and settled what `board_changed` means for a step whose follow-on draws the board itself |
 | 3f | O3 | High Pass, Setup Pass | Hardest by a distance: 169 lines, 10 awaits, the overshoot, the contest, the out-of-bounds |
 
 Through this phase the spine (`finish_maneuver_resolution`, `begin_run_back`,
@@ -383,7 +384,7 @@ of what it produced is about the seam rather than about the cards:
   for the author", and deliberately **not** pinned in a fixture, the
   same way 3e's two questions were left unpinned in PR #232.
 
-**What 3d settled, for 3e, 3f and Phase 5.** It was the first rank
+**What 3d settled, for 3f and Phase 5.** It was the first rank
 whose follow-on posted a prompt of its own, and the first to move
 something out of a roll rather than out of a maneuver:
 
@@ -395,8 +396,9 @@ something out of a roll rather than out of a maneuver:
   prompt instead, above it with a blank line between, which is
   `begin_loose_ball`'s shape. **That is the one visible change in the
   rank** and it is a batching decision, which is the frontend's
-  (principle 8); nothing either card says changed. 3e and 3f should
-  expect the same of whatever they hand off to.
+  (principle 8); nothing either card says changed. 3f should expect
+  the same of whatever it hands off to -- 3e did not meet it, since
+  both of the spine steps it named already take a `lead_in`.
 - **Step-then-save was the rule again, not a fix** -- the second time
   of three so far. The conceded own goal saved inside
   `apply_own_goal_outcome` and the avoided one saved two messages and
@@ -415,6 +417,45 @@ something out of a roll rather than out of a maneuver:
   round trip is asserted in the rank's own restart test -- it reaches
   into the *following* maneuver, so a restart that lost it would give
   the next turn one challenger instead of two, silently.
+
+**What 3e settled, for 3f.** It was the rank the `board_changed`
+question had been deferred to since 3b, and most of what it produced
+is that answer rather than anything about the two cards:
+
+- **`board_changed` is a fact about the position, not a request for a
+  redraw.** Every deflection moves the ball and every branch says so;
+  the cog declines the write where the follow-on draws the board
+  itself, through `D12Ball.follow_on_posts_its_own_board`. That is the
+  answer for all eight `begin_loose_ball` callers rather than for one
+  card, and it keeps the five-in-five arithmetic out of the model
+  (principle 8). **3f inherits it rather than deciding it again**, and
+  the High Pass exemption -- `begin_loose_ball` announces without
+  drawing when `is_high_pass` -- is already in the predicate, so a
+  high pass that hands over still gets its refresh.
+- **Two members, and the second is a cost's prompt.**
+  `BEGIN_LOOSE_BALL` and `OFFER_SETUP_PASS_PUSH_BACK`. The push-back
+  is a follow-on rather than a `PendingPrompt` for rank O2's reason:
+  Dinky drives the ball back itself and a push with no room left is
+  offered to nobody, so whether anyone is asked is still the cog's.
+  Rank O3 owns the *other* end of that cost -- the card being beaten
+  -- and neither `offer_setup_pass_push_back` nor
+  `apply_setup_pass_push_back` moved.
+- **The fixture table grew a second column**, `refreshes` beside
+  `board_changed`, because rank D1 is where the two stop being the
+  same number. A rank whose branches all refresh can keep one.
+- **Step-then-save was the rule again**, the third time of four:
+  `knock_ball_back`'s save and the overshoot's both wrote the same
+  state. `self.persist` in `cogs/` went 96 -> 95.
+- **`resolve_low_pass`'s no-teammate branch stayed where it is.** 3e
+  was asked to take a view on whether it comes along, and the view is
+  no: the two rules questions PR #232 raised on it are still
+  unanswered -- a *failed* free pass charging a space minute where a
+  completed one charges none, and the `free_low_pass` continuation it
+  leaves standing for `apply_speed_choice` to re-offer -- and lifting
+  it means writing down an answer to both. The `board_changed`
+  question that was the *other* reason to defer it is now settled, so
+  the branch is a one-commit lift the day the author answers: it names
+  `BEGIN_LOOSE_BALL`, which now exists.
 
 **Bot stop, per rank:** play both cards of the rank, contested and
 unchallenged, on two board sizes, in a basic and an advanced game. Watch the

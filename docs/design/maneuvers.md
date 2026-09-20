@@ -78,8 +78,8 @@ weapon rather than only a saving.
   - **Nothing is persisted for this**; it is read off the two stored
     keys, so a restart mid-effect answers the same way.
 - **Each benefit is its basic counterpart parameterised, not a second
-  function.** `apply_deflection`, `apply_steal`, `apply_pressure` and
-  `apply_low_pass` each take a key and serve both cards on their rank.
+  function.** `deflect_step`, `steal_step`, `pressure_step` and
+  `low_pass_step` each take a key and serve both cards on their rank.
   A change to what a deflection *is* reaches Clear for free, which is
   the point -- the two differ by a distance and a speed drop and
   nothing else.
@@ -165,6 +165,33 @@ weapon rather than only a saving.
       still survives a restart mid-effect -- which the rank asserts
       rather than assumes, since it is the one record here that
       reaches into the next turn.
+  - **Both deflections followed them (rank D1).** `deflect_step` is
+    the whole of a Deflect and of a Clear -- the two differ by the
+    distance driven and the speed taken off, so they are one function
+    and a `key`. `deflection_numbers` and `knock_ball_back` went with
+    it as free functions, and `D12Ball.apply_deflection` is four lines
+    around it. Nothing either card says changed.
+    - **Two more members, and neither is the tail of a maneuver.**
+      `BEGIN_LOOSE_BALL`, because a deflection knocks the ball out of
+      possession and goes straight to the contest, and
+      `OFFER_SETUP_PASS_PUSH_BACK` for the cost a beaten Setup Pass
+      charges inside it. The second is a follow-on rather than a
+      prompt the step returns for `OFFER_SPEED_CHOICE`'s reason:
+      whether anybody is asked is still the cog's, since Dinky drives
+      the ball back itself and a push with no room left is offered to
+      nobody. `begin_loose_ball`, `offer_setup_pass_push_back` and
+      `apply_setup_pass_push_back` did not move.
+    - **It is where `board_changed` was settled.** A step says the
+      ball moved; whether the persistent board message is written is
+      `D12Ball.follow_on_posts_its_own_board`'s, because
+      `begin_loose_ball` draws that same board under its own
+      announcement a moment later. The reasoning, and why it is the
+      answer for all eight callers rather than for this card, is in
+      [rate-limits.md](rate-limits.md) and
+      [loose-balls.md](loose-balls.md).
+    - **Two persists became one**, `knock_ball_back`'s and the
+      overshoot branch's, and both already wrote the same state.
+      The rule rather than a fix, like rank D2's and D3's.
 - **Every cost bites inside the winning maneuver's own resolution**,
   which is why there is no cost dispatcher. `advanced_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2

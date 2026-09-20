@@ -126,6 +126,18 @@ the two paths that did not pass it kept the old behaviour.
   possessing team have somebody on the ball -- has an answer that does not
   matter. It also stops refreshing the board first, since `begin_loose_ball`
   posts one.
+- **Who declines that refresh moved, and the reason it is worth saying
+  where.** Since rank D1 of [model-discord-split.md](model-discord-split.md)
+  the deflection is `d12ball/flow/effects.py`'s `deflect_step`, and a step
+  says whether the board moved rather than whether to redraw it -- the ball
+  went back a space, so it says so. `D12Ball.follow_on_posts_its_own_board`
+  is what then declines the write, for `BEGIN_LOOSE_BALL` and for the
+  `OFFER_SETUP_PASS_PUSH_BACK` whose every road ends on one. The economy is
+  the frontend's and the position is the model's, which is why a web app
+  showing a live board is not made to inherit a comment about Discord's
+  five-in-five. The High Pass path announces without drawing, so it is
+  exempt from the decline on the same `is_high_pass` flag it is exempt from
+  everything else on.
 - **`check_for_loose_ball` has one detour now, not two.** Its guard still
   earns its keep: the maneuvers that leave the ball with a named player are not
   loose, and that is what it asks. What changed on 2026-08-26 is what happens

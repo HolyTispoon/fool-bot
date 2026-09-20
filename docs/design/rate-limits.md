@@ -54,6 +54,20 @@ invariants read as ordinary cog surface among 223 methods.
   of it, not one of each per step -- see `continue_run_back`. Nobody reads the
   intermediate boards; the one worth looking at is the one where everything
   has finished moving.
+- **A `StepResult` says the board moved; the frontend decides whether to
+  write it.** `board_changed` is a fact about the position, and
+  `D12Ball.dispatch_step_result` is the only thing that turns one into a
+  request -- which it declines where whatever runs next posts a board of its
+  own, through `D12Ball.follow_on_posts_its_own_board`. `begin_loose_ball` is
+  the case that settled it, in rank D1 of
+  [model-discord-split.md](model-discord-split.md): the deflection that
+  reaches it has moved the ball and says so, and the announcement one message
+  later draws that same board under its own headline, so a refresh in between
+  is a second write of an identical board. The alternative -- a step
+  returning `board_changed=False` because Discord happens to redraw a moment
+  later -- is this file's arithmetic inside the rules, and a web app with no
+  five-in-five would inherit it. Principle 8 in [CLAUDE.md](../../CLAUDE.md)
+  is that sentence stated once.
 - **Render the board once per state, not once per upload.** `render_match_png`
   returns bytes and `match_file_from_png` wraps them, because uploading a
   `discord.File` consumes the stream inside it. The end of a maneuver puts the
