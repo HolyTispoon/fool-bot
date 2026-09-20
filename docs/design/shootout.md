@@ -2,6 +2,29 @@
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md).
 
+## Where the code is
+
+Since **Phase 5** of the model/Discord split the shootout is flow steps in
+[`d12ball/flow/periods.py`](../../d12ball/flow/periods.py):
+`begin_shootout`, `advance_shootout`, `ask_shootout_orders`,
+`ask_shootout_shooters`, `reveal_shootout_test`, `continue_shootout` and
+`shootout_order_text`, alongside `begin_full_time_coaching` and the
+window that comes before them. Names below without a path are the flow
+functions; `D12Ball.advance_shootout` and the rest are the cog wrappers
+that persist and post. `advance_shootout` is still **the one reading** of
+what a shootout is waiting on -- it moved, it did not fork.
+
+**The two ephemeral menus stayed**, with `D12Ball.restore_shootout_menus`:
+a secret order has no public message to live on, which is Discord's own
+trick and not a rule. The flow says what to ask and what a coach's own
+order reads as; `ShootoutOrderSelectView` and `ShootoutPickSelectView` are
+how it reaches one person and not the other.
+
+**`D12Ball.post_shootout_prompt` is gone.** All three shootout questions
+are `PendingPrompt`s now -- `SHOOTOUT_ORDER`, `SHOOTOUT_PICK`,
+`SHOOTOUT_TEST` -- so `dispatch_step_result` posts them through
+`view_for_prompt`, the same table a restart restores through.
+
 ## The extreme shootout
 
 **Every game is settled.** A level score at full time opens the shootout -- see
@@ -18,11 +41,11 @@ dies out on its own.
   `begin_shootout` -- so **the six who shoot are the six on the field when the
   shooting starts**, which is after that window and not at the whistle.
   `pending_full_time_stage` and `pending_shootout` are therefore never both
-  set, and `pending_turn_view` reads the first ahead of everything a turn
+  set, and `pending_prompt` reads the first ahead of everything a turn
   leaves behind, exactly as it does for setup and halftime.
 
-- **`D12Ball.advance_shootout` is the only reading of "what is this shootout
-  waiting on?"**, and `pending_turn_view` answers the same three questions in
+- **`advance_shootout` is the only reading of "what is this shootout
+  waiting on?"**, and `pending_prompt` answers the same three questions in
   the same order. Two of the four steps are the bot's own -- the reveal, and
   setting the next test up -- so a restart between them has no button anywhere,
   which is why `resume_pending_prompt` hands a shootout back to

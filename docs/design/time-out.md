@@ -2,6 +2,22 @@
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md).
 
+## Where the code is
+
+Since **Phase 5** of the model/Discord split both halves of a time out are
+flow steps in [`d12ball/flow/windows.py`](../../d12ball/flow/windows.py):
+`begin_time_out` and `finish_time_out`, beside the Coaching Choice they
+buy. Names below without a path are the flow functions;
+`D12Ball.begin_time_out` and `D12Ball.finish_time_out` are the cog
+wrappers that persist and post.
+
+**What stayed is the confirm and the prompt it replaces.**
+`TimeOutConfirmView` puts the cost in front of the coach and restores the
+turn prompt verbatim on Back, and `D12Ball.begin_time_out` drops the
+prompt the click came from. Both are edits to a message, which is the
+frontend's by principle 2. `MatchState.may_call_time_out` was always the
+model's and is unchanged.
+
 ## The time out
 
 A side out of [shooting range](shooting.md#where-a-shot-may-be-taken-from) may stop play
@@ -50,7 +66,7 @@ two kinds now, not three.
   Choices, and `call_time_out` resets the turn before the first one opens -- so
   by the time the second closes, nothing else in the match says how it got
   there and `finish_substitution_window` would fall through to a run back
-  nobody owes. It is checked in `pending_turn_view` ahead of the "no ball
+  nobody owes. It is checked in `pending_prompt` ahead of the "no ball
   handler yet" branch for exactly the reason setup and halftime are, and
   `finish_time_out` clears it before dispatching so the state that follows
   speaks for itself.

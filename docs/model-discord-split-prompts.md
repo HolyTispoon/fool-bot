@@ -15,8 +15,9 @@ Phase 0 has landed (PR #201), and so has Phase 1, in the two halves the
 worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
 PR #225), and so has Phase 2 (PR #227), and so has the whole of Phase 3 --
 one template run six times, **3a to 3f (PR #229, PR #232, PR #233,
-PR #235, PR #236, PR #241)** -- and so has Phase 4. So there are no
-prompts for any of them, and what is left here is Phases 5 and 6.
+PR #235, PR #236, PR #241)** -- and so has Phase 4 (PR #249), and so has
+Phase 5. So there are no prompts for any of them, and what is left here is
+Phase 6, the last one.
 
 ---
 
@@ -100,8 +101,11 @@ Ground rules for every phase:
   per fixture, a narration line per branch), the recording is the branch's
   first commit and the move comes after it, so the PR's own history shows
   the recording predates the code it is compared against.
-- The safety net is tests/test_model_purity.py and
-  tests/test_golden_transcript.py. Run the full suite
+- The safety net is tests/test_model_purity.py and the three goldens --
+  tests/test_golden_transcript.py (the tutorial),
+  tests/test_golden_advanced.py (a free advanced game) and
+  tests/test_golden_windows.py (a whole game to full time and through a
+  shootout). Run the full suite
   (`python3 -m unittest discover -s tests`) before your first edit on the
   branch, to baseline it, and again before opening the PR. A phase that
   moves code must leave the golden transcript byte-identical; if it does
@@ -192,103 +196,6 @@ still being planned.
 
 ---
 
-## Phase 5 -- periods and windows
-
-```
-[PREAMBLE]
-
-This is Phase 5 of docs/model-discord-split.md, "periods and windows".
-Phase 4 has landed.
-
-Probe: `grep -q "def finish_maneuver_resolution" d12ball/flow/arrivals.py`,
-and `FollowOn` in d12ball/flow/result.py has the members Phase 4 left (read
-the enum; it is the list). It has **27** of them -- Phase 4 grew it rather
-than shrinking it, and the enum's own docstring says why and names the
-three kinds now in it. **You should expect to remove members**:
-`END_PERIOD` and `BEGIN_SUBSTITUTION_WINDOW` are yours, and
-`DISPATCH_INJURY_RESUME` goes when you take the shootout.
-
-Read docs/design/coaching-choice.md, docs/design/shootout.md,
-docs/design/time-out.md, docs/design/clock-and-records.md, and the "The
-model and the Discord layer" section of CLAUDE.md.
-
-What moves, as sync flow functions returning StepResult. Much of the
-vocabulary here is already the model's -- `CoachingOccasion`,
-`may_call_time_out` and `pending_time_out` live on `MatchState` in
-d12ball/components.py, and the stage lists live in d12ball/engine.py --
-so what crosses the seam is the cog's driving of them, not those names:
-
-- the Coaching Choice and its five occasions -- the cog flow that walks a
-  window (the substitution budgets, what survives on the match), one flow,
-  one message, per coaching-choice.md; the *message* part stays the cog's.
-- halftime, full time and the shootout: the cog methods that step the
-  stage machines (`SETUP_STAGES`, `HALFTIME_STAGES`, `FULL_TIME_STAGES`)
-  and `advance_shootout` (periods.py), which is the one reading of the
-  shootout's state (shootout.md) and stays that.
-- the time out: `finish_time_out` (turnovers.py) and whatever charges it --
-  charged, not asked; the free pickup. `may_call_time_out` is already the
-  model's answer; the flow asks it.
-- the clock and `end_period` (periods.py). The clock never stops;
-  `record_goal` and `record_event` remain the only writers of their logs
-  and nothing reads the event log to decide a rule. Two lifted steps
-  already name `END_PERIOD` as a follow-on (`finish_maneuver_resolution`
-  and `begin_run_back`), so taking it is a removal from the enum rather
-  than an addition to it.
-
-Two things Phase 4 built that this phase should use rather than reinvent:
-
-- **`D12Ball.post_then_dispatch`** is the second dispatcher, beside
-  `dispatch_step_result`. The first carries a step's lines forward as the
-  next step's lead-in; the second posts them as their own message and
-  carries nothing. Which of the two a step gets is the frontend's decision
-  (principle 8). A window's messages are almost certainly the second kind,
-  and getting it wrong shows up as two events merged into one paragraph --
-  which is exactly what the advanced golden caught three times in Phase 4.
-- **A gate returns `Optional[StepResult]`**, not a bool, so a caller stays
-  one `if ...: return`. `check_for_ball_arrival` is the shape to copy.
-
-What stays: the two ephemeral shootout menus (the secret orders). They are
-Discord-specific. The flow exposes what they need to submit and what to
-show; the menus themselves, and `restore_shootout_menus`, stay in the cog.
-
-Golden: there are **two** goldens now, and the second is the one to build
-on. `tests/test_golden_advanced.py` (Phase 4's) already drives a free
-advanced game with no rails, reaching a time out and the halftime extra
-token; what it does not reach is full time, the shootout, and a halftime
-with substitutions, because its step budget stops it in the second half.
-So the tutorial is **no longer** the only multi-turn game the suite can
-drive -- extending the advanced harness is likely cheaper than a third
-file. Add a seeded, scripted golden that runs a game through halftime with
-substitutions on both sides, a time out in each half, a level score at full
-time and a shootout into sudden death, recorded on the old code before the
-move; say which window remains unpinned if any does. Read the advanced
-golden's docstring first: its press rule ("Done coaching" wherever a
-coaching hub offers it, otherwise a rotation) is what makes a rail-less
-game both deterministic and able to make progress, and a coaching window is
-exactly where a naive press rule walks in a circle.
-
-Tests otherwise as in Phase 4: model-side tests with no discord for each
-moved step; nothing moved saves; the wrapper saves where the transition rule
-says; pending_prompt agrees before and after a save/load round trip in every
-window state, including each shootout sub-state (recovery.md: these are
-handed back to the routine that drives them -- check that still holds);
-MatchStateSerializationTests green with no new saved field; goldens
-byte-identical; test_model_purity green.
-
-Docs: coaching-choice.md, shootout.md, time-out.md, clock-and-records.md
-paths corrected (Phase 4 added a "Where the code is" section at the top of
-each design doc it touched -- copy that shape); recovery.md's account of what a restart strands and how
-the shootout menus are re-armed re-checked against the code. The
-worksheet's Phase 5 section is cut down.
-
-Bot stop for the author (in the PR): a game taken to a level score at full
-time and through a shootout to sudden death; a halftime with substitutions
-on both sides; a time out in each half; a restart inside each window and
-inside each shootout sub-state.
-```
-
----
-
 ## Phase 6 -- the driver
 
 ```
@@ -299,7 +206,11 @@ phase, after which the cog is a frontend. Phases 1-5 have landed.
 
 Probe: the worksheet's Status column names a PR for Phases 0-5, and the
 `FollowOn` enum in d12ball/flow/result.py is what the cog still dispatches
-(read the enum; it is the list, and it dies in this phase).
+(read the enum; it is the list, and it dies in this phase). It has **29**
+members: Phase 5 removed `DISPATCH_INJURY_RESUME` and added
+`FINISH_SETUP_COACHING`, `FINISH_HALFTIME` and `ANNOUNCE_GAME_OVER`.
+`END_PERIOD` and `BEGIN_SUBSTITUTION_WINDOW` are still there despite Phase
+5 being expected to take them; each says on its own entry why.
 
 Read docs/design/cog-structure.md, docs/design/recovery.md,
 docs/design/rate-limits.md and docs/design/permissions.md, and the "The
@@ -313,9 +224,12 @@ What this phase builds:
   whose turn it is), apply the step, run any follow-ons, and return
   `(narration, board_changed, PendingPrompt)`. `FollowOn` dies here: the
   driver runs follow-ons itself, so the cog dispatches nothing -- note that
-  Phase 4 left **27** members, not a handful, and that most of them name a
+  Phase 5 left **29** members, not a handful, and that most of them name a
   cog *wrapper* whose model half has already moved, so collapsing one is
-  usually deleting three lines rather than lifting a step. Authorization
+  usually deleting three lines rather than lifting a step. The handful that
+  are genuinely still the cog's are pictures, pins and gates: the coaching
+  window's half-field image, the three board postings, the tutorial's
+  Continue gates, the run-back field strip, the maneuver hand. Authorization
   (`may_act_for`, `may_act_in_game`, the helper exception) is NOT the
   driver's; it is a fact about a Discord user and stays in `SafeView`. The
   driver takes an already-authorized action naming a side.
@@ -330,28 +244,39 @@ What this phase builds:
   documented as the one exception with its reason. The `save_games` calls
   that save the game record alone (a message id, a status, a tutorial
   flag) are not touched -- count them before and after and put both
-  numbers in the PR.
+  numbers in the PR. **Measure both counts from this branch's base rather
+  than quoting CLAUDE.md**, which deliberately stopped naming a number for
+  the second one: `dispatch_step_result` absorbed a batch of "remember this
+  prompt's message id" saves in Phases 4 and 5, so the figure has moved
+  twice since it was written.
 - The cog becomes: click -> authorize -> `driver.apply(...)` -> persist ->
   render (`view_for_prompt`, one message for the narration, one board
-  refresh through BoardRefresher if board_changed). **The driver needs
-  both of Phase 4's dispatchers**, under whatever names: some steps' lines
-  are carried into the next step and some are their own message, and
-  `D12Ball.post_then_dispatch` is the existing answer to that. BoardRefresher and its
+  refresh through BoardRefresher if board_changed). **The driver needs all
+  three of the existing dispatchers**, under whatever names: some steps'
+  lines are carried into the next step as its lead-in
+  (`dispatch_step_result`), some are one message of their own
+  (`post_then_dispatch`), and a period transition's are **a message per
+  block** (`post_blocks_then_dispatch`, Phase 5's). Which of the three a
+  step gets is the frontend's decision, so the distinction has to survive
+  the driver rather than be collapsed into it. BoardRefresher and its
   timing are not touched. Rate-limit rule: no click may make more Discord
   requests than it did before this phase; say how you checked.
 
 Tests:
 
 - Driver tests with no discord: for each PromptKind, an action that answers
-  it and one that does not; the returned PendingPrompt matches
+  it and one that does not (`tests/prompt_fixtures.py` already stands a
+  match in every one of them); the returned PendingPrompt matches
   pending_prompt on the resulting match; a full scripted game plays to a
   result through the driver alone, with no cog imported -- this is the test
   the web app inherits.
 - A stray-save guard on the driver (it saves nothing); an ordering test on
   the cog that persist happens after driver.apply and before any send.
-- All goldens byte-identical, EveryMatchupResolvesTests,
-  TutorialPlaythroughTests, MatchStateSerializationTests, StraySaveGuardTests,
-  test_model_purity green.
+- All **three** goldens byte-identical (tutorial, advanced, and Phase 5's
+  windows game, which plays a whole game to full time and through a
+  shootout), EveryMatchupResolvesTests, TutorialPlaythroughTests,
+  MatchStateSerializationTests, StraySaveGuardTests, test_model_purity
+  green.
 - Report the two figures the worksheet says the split is measured by: the
   count of async cog methods taking `interaction` (from the AST, by the
   worksheet's counting rule under "Where the line already is") and

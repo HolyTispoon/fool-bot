@@ -2,6 +2,40 @@
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md).
 
+## Where the code is
+
+Since **Phase 5** of the model/Discord split the window is a flow step:
+`open_substitution_window`, `run_ai_substitution_window`,
+`finish_substitution_window`, `coaching_window_note`, `coaching_summary`,
+`apply_substitution` and `cover_kickoff_space` all live in
+[`d12ball/flow/windows.py`](../../d12ball/flow/windows.py), and the three
+stage sequences that hand windows out (`advance_setup_stage`,
+`advance_halftime_stage`, `advance_full_time_stage`) in
+[`periods.py`](../../d12ball/flow/periods.py) beside it. Names below
+without a path are the flow functions; `D12Ball.begin_substitution_window`
+and the rest are the cog wrappers.
+
+**The window is the one prompt in the game whose message carries the
+coach's own half-field**, so `D12Ball.begin_substitution_window` posts it
+itself rather than letting `dispatch_step_result` do it -- and that, with
+the tutorial's Continue gate over the top of it, is why
+`FollowOnStep.BEGIN_SUBSTITUTION_WINDOW` outlived the phase that was
+expected to remove it. A step that wants to open a window **names** it.
+
+**The menu's own clicks did not move and are not meant to.** Every step
+inside the flow is an `interaction.response.edit_message` on one message
+(see "The whole flow lives on one message" below), which is a Discord
+economy rather than a rule. The views call the forwarding methods above
+for the two things that *are* rules -- what a swap does, and what the
+window changed.
+
+**`heading` is not a lead-in.** The window's own opening line ("## Before
+kickoff", "## Halftime") goes *inside* the prompt, above the allowance,
+so it rides in `FollowOn.kwargs` as `heading` rather than as narration the
+frontend would post above the menu. Narration named `lead_in` is whatever
+step opened the window talking -- a new play's reset, the full-time
+whistle -- and is its own message.
+
 ## The Coaching Choice
 
 Setup, a new play's substitution window and halftime are **one flow offering
