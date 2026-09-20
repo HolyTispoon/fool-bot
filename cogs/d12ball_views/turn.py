@@ -88,9 +88,7 @@ class BallHandlerSelectionView(SafeView):
 
         if match.active_player_id is not None:
             await interaction.response.edit_message(
-                content=self.cog.engine.build_turn_prompt(
-                    game, match, self.cog.team_emojis,
-                ),
+                content=self.cog.engine.build_turn_prompt(game, match),
                 view=PlayerActionView(self.cog, self.game_id),
             )
             await interaction.followup.send(
@@ -121,9 +119,7 @@ class BallHandlerSelectionView(SafeView):
 
         self.cog.persist(game, match)
         await interaction.response.edit_message(
-            content=self.cog.engine.build_turn_prompt(
-                    game, match, self.cog.team_emojis,
-                ),
+            content=self.cog.engine.build_turn_prompt(game, match),
             view=PlayerActionView(self.cog, self.game_id),
         )
 
@@ -655,9 +651,7 @@ class ManeuverChallengeView(SafeView):
 
         if match.challenger_id is not None or match.maneuver_uncontested:
             await interaction.response.edit_message(
-                content=self.cog.engine.build_turn_prompt(
-                    game, match, self.cog.team_emojis,
-                ),
+                content=self.cog.engine.build_turn_prompt(game, match),
                 view=PlayerActionView(self.cog, self.game_id),
             )
             await interaction.followup.send(

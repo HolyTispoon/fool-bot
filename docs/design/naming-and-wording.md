@@ -20,7 +20,7 @@ position, which is what the choice usually turns on.
 
 | Where | Form | Built by |
 | --- | --- | --- |
-| A message | `🟠 Hellguard [FB]` -- and once the role emoji are uploaded, `🟠 Hellguard <:role_fullback_orange:id>`, the badge edged in that side's own colour | `format_role_bracket`, via `D12Ball.player_label` / `player_id_label`; `RulesEngine.format_roster_player_for_message` inside the engine's own two message builders |
+| A message | `🟠 Hellguard [FB]` -- and once the role emoji are uploaded, `🟠 Hellguard <:role_fullback_orange:id>`, the badge edged in that side's own colour | `RulesEngine.format_player_label`, via `D12Ball.player_label` / `player_id_label`; `RulesEngine.format_roster_player_for_message` inside the engine's own two message builders |
 | A button | `Hellguard [FB]`, plus the position or the price the choice turns on | `player_with_role` |
 | Anywhere holding a card id rather than a definition | `Hellguard [FB]` | `RulesEngine.format_roster_player` |
 | The two both-sides autocompletes | `Hellguard [FB] (Orange)` | `RulesEngine.format_roster_player_with_team` |
@@ -36,11 +36,14 @@ position, which is what the choice usually turns on.
   glance, and the position is the player label's for the same reason
   the emoji is: one rule for "whose is this", not two. A coach with no
   team yet (setup, before the picker) is named bare -- "(Unknown team)"
-  answered a question nobody asked. The function takes the emoji dict
-  rather than reaching for one, which is why `build_turn_prompt` and
-  `build_loose_ball_prompt` on the engine take `team_emojis` too: the
-  engine is built before `cog_load` has fetched them and is read-only
-  from there on, so it cannot hold the dict itself. The two both-sides
+  answered a question nobody asked. `format_player_with_team` takes
+  the emoji dict as a parameter, since it lives in
+  `d12ball/formatting.py` and every caller already has one in scope
+  (the cog's `self.team_emojis`, or `self.cog.team_emojis` from a
+  view). The engine's own two prompt builders, `build_turn_prompt` and
+  `build_loose_ball_prompt`, instead read `self.team_emojis` -- see
+  "The dict lives on the engine" below, which now covers `team_emojis`
+  the same way it always covered `role_emojis`. The two both-sides
   autocompletes are the deliberate exception -- an autocomplete choice
   is plain text and cannot render an emoji.
 - **`player_with_role` in `d12ball/formatting.py` is the whole of the
@@ -97,11 +100,23 @@ position, which is what the choice usually turns on.
   - **The dict lives on the engine** (`RulesEngine.role_emojis`, empty until
     `cog_load`) and `D12Ball.role_emojis` is a property over it, not a second
     dict: `cog_load` *replaces* the dict, so a reference handed to the engine
-    at construction would go stale the moment the fetch landed. It is the
-    one Discord-shaped thing the engine holds, and it is a string per role
+    at construction would go stale the moment the fetch landed. It is a
+    Discord-shaped thing the engine holds, and it is a string per role
     that needs no discord.py -- what the engine still cannot do is fetch it.
     A test fixture that builds a cog with `object.__new__` and reads a
     message off it needs an engine for the same reason.
+    - **`RulesEngine.team_emojis` joined it the same way (2026-09-20),
+      ahead of the `PendingPrompt` move.** `player_label`'s two `ask`
+      lines (Mind Pull, an injury test) need a player named with both
+      dicts, and `pending_prompt`'s single chain has to answer them
+      from the model side of the seam -- so the reasoning above, which
+      had applied to `role_emojis` alone, now applies to both:
+      `D12Ball.team_emojis` is the second property over the engine's
+      dict, `build_turn_prompt` and `build_loose_ball_prompt` read
+      `self.team_emojis` instead of taking it as a parameter, and
+      `RulesEngine.format_player_label` is `format_role_bracket`'s body
+      moved onto the engine to read both dicts off itself, with
+      `D12Ball.player_label` forwarding to it so no call site moved.
   - **A square, not a ring.** The team emoji is a white circle with a
     coloured ring and a letter, so `🟠 Hellguard [FB]` as two rings would
     read as two teams; the badge is a rounded square in ink for that

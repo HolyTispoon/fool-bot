@@ -76,14 +76,17 @@ anywhere in the code.
     `cogs/d12ball.py`'s `/ref` command side-detection. Both now check
     board/roster membership directly instead.
   - **A message names a player through `D12Ball.player_label`**, which
-    is `format_role_bracket` with the two arguments that never vary
-    already filled in: the emoji dict is the cog's, and the team is
-    always `match.team_for_player`, since the definition cannot answer
-    it. Ninety-odd sites spelled all three out, which put the same
-    forty characters of lookup in front of every player's name in the
-    codebase and was the whole of why two files carried eighty-odd
-    lines past 100 columns. `player_id_label` is the same thing for a
-    caller holding a card id rather than a definition.
+    forwards to `RulesEngine.format_player_label`, `format_role_bracket`'s
+    body moved onto the engine so it can read both emoji dicts off
+    itself (see "The dict lives on the engine" in
+    [naming-and-wording.md](naming-and-wording.md), which now covers
+    `team_emojis` the same way it always covered `role_emojis`), with
+    the team always `match.team_for_player`, since the definition
+    cannot answer it. Ninety-odd sites spelled all three out, which put
+    the same forty characters of lookup in front of every player's name
+    in the codebase and was the whole of why two files carried
+    eighty-odd lines past 100 columns. `player_id_label` is the same
+    thing for a caller holding a card id rather than a definition.
     `format_role_bracket` itself is still right for a caller with a
     `TeamSetup` rather than a match, which already knows the side.
     Not to be confused with `CoachingView.player_button_label`, which

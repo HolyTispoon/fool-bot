@@ -3095,7 +3095,6 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog.games = {}
         cog.player_catalog = self.catalog
         cog.basic_ruleset = self.rules
-        cog.team_emojis = {}
         cog.engine = RulesEngine(
             cog.player_catalog,
             cog.basic_ruleset,
@@ -3237,7 +3236,6 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog.games = {}
         cog.player_catalog = self.catalog
         cog.basic_ruleset = self.rules
-        cog.team_emojis = {}
         cog.engine = RulesEngine(
             cog.player_catalog,
             cog.basic_ruleset,

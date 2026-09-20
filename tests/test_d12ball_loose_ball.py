@@ -627,7 +627,7 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Send nobody", labels)
         self.assertEqual(len(labels), 2)
         # And the prompt says which question it is asking.
-        prompt = cog.engine.build_loose_ball_prompt(game, match, {})
+        prompt = cog.engine.build_loose_ball_prompt(game, match)
         self.assertIn("which of them contests", prompt)
 
     def test_both_sides_on_the_ball_go_straight_to_the_test(self) -> None:

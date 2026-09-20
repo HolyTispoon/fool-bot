@@ -252,9 +252,7 @@ class LooseBallChoiceView(SafeView):
 
         prompt_message = await send_new_prompt(
             interaction,
-            self.cog.engine.build_loose_ball_prompt(
-                game, match, self.cog.team_emojis,
-            ),
+            self.cog.engine.build_loose_ball_prompt(game, match),
             view=self.cog.build_loose_ball_view(self.game_id, match),
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,

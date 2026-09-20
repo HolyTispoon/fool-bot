@@ -160,14 +160,14 @@ class TimeOutOfferTests(unittest.TestCase):
         cog.games[game.game_id] = game
 
         self.assertIn(
-            "take a time out", cog.engine.build_turn_prompt(game, match, {}),
+            "take a time out", cog.engine.build_turn_prompt(game, match),
         )
 
         match.time_outs_used.add(TeamSide.HOME.value)
         # Why the cede went too, said once. The prompt names the
         # reason and then what is left; it does not also list the two
         # buttons that are not on it.
-        prompt = cog.engine.build_turn_prompt(game, match, {})
+        prompt = cog.engine.build_turn_prompt(game, match)
         self.assertIn("no time out available", prompt)
         self.assertNotIn("take a time out", prompt)
 
