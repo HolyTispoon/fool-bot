@@ -140,6 +140,31 @@ weapon rather than only a saving.
       position, so the free pass has no moment) or an oversight is
       the author's; the behaviour is preserved exactly and the
       question is written out in PR #233.
+  - **Both pressures followed them (rank D3).** `pressure_step` is
+    the whole of a Pressure and of a Double Team -- the two differ by
+    the push and by the partner the advanced card brings in, so they
+    are one function and a `key`. `shove_pressured_handler`,
+    `pressure_result_text` and `apply_pressure_turnover` went with it
+    as free functions, and `D12Ball.apply_pressure` is four lines
+    around it. Nothing either card says changed.
+    - **The overshoot names a new follow-on**,
+      `BEGIN_OWN_GOAL_ROLL`, and it is the first whose method posts a
+      prompt of its own. So `begin_own_goal_roll` grew a `lead_in`
+      and carries the shove above its question: an overshooting
+      Pressure is one message now where it used to be two. The roll,
+      its dice image and the messages around it did not move.
+    - **`apply_own_goal_outcome` moved with the rank** and stopped
+      saving. It is the verdict rather than the card, but it is the
+      Pressure's verdict; `run_own_goal_roll` saves once,
+      immediately after it, on both branches. Both branches already
+      wrote the same state, so this is the rule and not a fix --
+      unlike rank O2's beaten Clear.
+    - **The pair a Double Team leaves is unchanged.**
+      `pending_double_team` is still set inside the shove's own
+      wording, still cleared by `announce_new_play_reset` alone, and
+      still survives a restart mid-effect -- which the rank asserts
+      rather than assumes, since it is the one record here that
+      reaches into the next turn.
 - **Every cost bites inside the winning maneuver's own resolution**,
   which is why there is no cost dispatcher. `advanced_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2

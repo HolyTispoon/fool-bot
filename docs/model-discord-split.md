@@ -27,7 +27,7 @@ it happened to have.
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
-| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a-3c done (PR #229, PR #232, PR #233); 3d-3f open |
+| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a-3d done (PR #229, PR #232, PR #233, PR #235); 3e-3f open |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
@@ -112,8 +112,9 @@ may not do** (principle 9). `send_low_pass`, `throw_high_pass`,
 `knock_ball_back`, `take_ball_by_steal` and `apply_own_goal_outcome` each
 called `self.persist(game, match)` in their own body. So they are on the
 model's side in everything but their address *and* their save, and lifting
-one means stripping the persist out of it first. **Three are left**: Phase 2
-took `send_low_pass` and rank D2 took `take_ball_by_steal`.
+one means stripping the persist out of it first. **Two are left**: Phase 2
+took `send_low_pass`, rank D2 took `take_ball_by_steal` and rank D3 took
+`apply_own_goal_outcome`.
 
 **That is not a free deletion, because the wrapper was not saving either.**
 `apply_low_pass` never persisted: it relied on `send_low_pass` having done
@@ -281,7 +282,7 @@ so the pattern is settled before it meets the hard cases.
 | 3a | O2 | Dribble Advance, Dribble Burst | **Done (PR #229).** Moved the handler and ended; the speed choice was the only prompt |
 | 3b | O1 | Low Pass, Skilled Pass | **Done (PR #232).** Nothing was left to move -- Phase 2's step already carried both cards -- so the rank is its evidence: ten fixtures and the `key=` round trip |
 | 3c | D2 | Steal, Intercept | **Done (PR #233).** One step and a sign for both cards, and the first hand-off into the spine: `BEGIN_RUN_BACK` and `BEGIN_SHOOTER_CHOICE` |
-| 3d | D3 | Pressure, Double Team | The own-goal branch, and `pending_double_team` reaching into the next turn |
+| 3d | D3 | Pressure, Double Team | **Done (PR #235).** The own-goal branch, and the first follow-on whose method had no `lead_in` |
 | 3e | D1 | Deflect, Clear | Calls `begin_loose_ball` directly rather than going through `finish_maneuver_resolution` |
 | 3f | O3 | High Pass, Setup Pass | Hardest by a distance: 169 lines, 10 awaits, the overshoot, the contest, the out-of-bounds |
 
@@ -381,6 +382,39 @@ of what it produced is about the seam rather than about the cards:
   the author's to say; it is written out in PR #233 under "Questions
   for the author", and deliberately **not** pinned in a fixture, the
   same way 3e's two questions were left unpinned in PR #232.
+
+**What 3d settled, for 3e, 3f and Phase 5.** It was the first rank
+whose follow-on posted a prompt of its own, and the first to move
+something out of a roll rather than out of a maneuver:
+
+- **A follow-on's method grows a `lead_in`; the step does not post
+  around it.** `begin_own_goal_roll` had none, because the old
+  overshoot branch posted the shove itself and then asked for the
+  roll -- two messages where every other resolved maneuver costs one.
+  The member (`BEGIN_OWN_GOAL_ROLL`) carries the narration into the
+  prompt instead, above it with a blank line between, which is
+  `begin_loose_ball`'s shape. **That is the one visible change in the
+  rank** and it is a batching decision, which is the frontend's
+  (principle 8); nothing either card says changed. 3e and 3f should
+  expect the same of whatever they hand off to.
+- **Step-then-save was the rule again, not a fix** -- the second time
+  of three so far. The conceded own goal saved inside
+  `apply_own_goal_outcome` and the avoided one saved two messages and
+  a board refresh later; both wrote the same state, since nothing
+  between them mutates the match. What the collapse buys is that the
+  write no longer sits behind three things that can fail, which is
+  worth saying but is not rank O2's lost tokens.
+- **A rank can lift something that is not a maneuver.**
+  `apply_own_goal_outcome` belongs to the roll rather than to the
+  card, and it moved as a free function returning its verdict rather
+  than as a second `StepResult`: `run_own_goal_roll` is a coach's
+  dice and a dice image, which is the frontend's half, and Phase 4 is
+  where the rest of it is due.
+- **`pending_double_team` needed nothing.** It is set inside the
+  shove's own wording, it is already in `MATCH_SAVED_FIELDS`, and the
+  round trip is asserted in the rank's own restart test -- it reaches
+  into the *following* maneuver, so a restart that lost it would give
+  the next turn one challenger instead of two, silently.
 
 **Bot stop, per rank:** play both cards of the rank, contested and
 unchallenged, on two board sizes, in a basic and an advanced game. Watch the

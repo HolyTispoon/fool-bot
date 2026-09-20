@@ -70,6 +70,13 @@ class FollowOnStep(Enum):
     #: on a run back: the play never stopped, so there is nothing to
     #: run back from -- and that drops the speed choice with it.
     BEGIN_SHOOTER_CHOICE = auto()
+    #: The own-goal risk a Pressure can create, put behind a button
+    #: for the coach whose player is about to concede. Rank D3's, and
+    #: the only member so far that names a step which posts a prompt
+    #: of its own: the shove that overshot has nothing further to say
+    #: and the roll is where the turn stops, so the narration opens
+    #: that prompt rather than a message before it.
+    BEGIN_OWN_GOAL_ROLL = auto()
 
 
 @dataclass(frozen=True)
