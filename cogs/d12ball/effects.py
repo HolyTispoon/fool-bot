@@ -15,6 +15,7 @@ from typing import Optional
 from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.flow.effects import (
     apply_own_goal_outcome,
+    deflection_step,
     dribble_advance_step,
     dribble_burst_step,
     low_pass_step,
@@ -2254,70 +2255,6 @@ class ManeuverEffectsMixin:
         """
         await self.apply_deflection(interaction, game, match, "clear")
 
-    def deflection_numbers(
-        self,
-        defender: PlayerDefinition,
-        key: str,
-    ) -> tuple[int, int, bool]:
-        """
-        How far a deflection drives the ball, how much speed it takes
-        off, and whether a Fullback's ability is in it.
-
-        **The speed drop is the card's, not the distance's.** A
-        Fullback's Deflect has always moved the ball 2 and dropped the
-        speed by 1, so the two are separate numbers that happen to
-        match on an ordinary deflection -- and a Clear's -3 stays -3
-        when the Fullback pushes it to 4 spaces. Derived from the
-        distance instead, this read correctly right up until the
-        Fullback was let near a Clear, which is why they are returned
-        as two numbers rather than one.
-        """
-        # Role ability -- Fullback: +1 space on a deflection, which
-        # takes a Deflect from 1 to 2 and a Clear from 3 to 4.
-        fullback_bonus = defender.role == PlayerRole.FULLBACK
-        base_distance = 3 if key == "clear" else 1
-
-        return (
-            base_distance + (1 if fullback_bonus else 0),
-            base_distance,
-            fullback_bonus,
-        )
-
-    def knock_ball_back(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        offense_side: TeamSide,
-        deflect_distance: int,
-        speed_drop: int,
-    ) -> tuple[bool, int]:
-        """
-        Drive the ball back toward the offense's own goal and take the
-        speed off it. Returns whether it ran out of field and how far
-        it actually went.
-
-        The overshoot is read before the ball moves, the way every
-        other overshoot in the game is. It no longer risks an own goal
-        -- only Pressure does -- it sets up a scoring opportunity for
-        the defense instead, who are now the side standing next to the
-        goal the ball just reached.
-        """
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
-        target_flat = match.relative_flat_index(
-            origin_flat, offense_side, -deflect_distance,
-        )
-        overshot = abs(target_flat - origin_flat) < deflect_distance
-
-        actual_distance = match.move_ball_relative(
-            offense_side, -deflect_distance,
-        )
-        match.ball.speed = max(1, match.ball.speed - speed_drop)
-        self.persist(game, match)
-
-        return overshot, actual_distance
-
     async def apply_deflection(
         self,
         interaction: discord.Interaction,
@@ -2325,99 +2262,36 @@ class ManeuverEffectsMixin:
         match: MatchState,
         key: str,
     ) -> None:
-        offense_side = match.ball.possession
-        defense_side = match.defending_side()
-        defender = self.engine.get_player_definition(match.challenger_id)
-        name = self.engine.maneuver_name(key)
+        """
+        The Discord half of a won Deflect or Clear: run the step, save
+        what it did, then post and dispatch what it handed back.
 
-        deflect_distance, speed_drop, fullback_bonus = (
-            self.deflection_numbers(defender, key)
-        )
+        Four lines over `deflection_step`, which is where the distance,
+        the speed drop, the Fullback's extra space, the overshoot that
+        becomes a shot and a beaten Setup Pass's cost live -- see
+        `apply_low_pass` for the shape and principle 9 in CLAUDE.md for
+        why the save is here rather than inside the step.
 
-        overshot, actual_distance = self.knock_ball_back(
-            game, match, offense_side, deflect_distance, speed_drop,
-        )
+        **Two saves became this one**, and neither was losing anything:
+        `knock_ball_back` persisted the moved ball and the shot branch
+        persisted again over the turnover it then applied, with nothing
+        between them that could fail. The step no longer saves at all
+        and the wrapper always does, which is the same state written
+        the same number of times on every branch -- the rule, not rank
+        O2's fix.
 
-        space_word = "space" if actual_distance == 1 else "spaces"
-        ability_note = " (Fullback ability)" if fullback_bonus else ""
-        content = (
-            f"**{name}:** the ball moves {actual_distance} "
-            f"{space_word} back{ability_note}. Ball speed is now "
-            f"{match.ball.speed}."
-        )
-
-        # A shot has to be within shooting range, and this one always
-        # is: an overshoot means the ball reached the space closest to
-        # the offense's own goal, which is as deep into the deflecting
-        # team's range as the field goes. So this asks
-        # scoring_opportunity_candidates with no range check over it --
-        # the check could never fail here, and a branch that cannot be
-        # taken reads as if it could.
-        candidates = []
-        if overshot:
-            candidates = self.engine.scoring_opportunity_candidates(
-                match, defense_side,
-            )
-
-        if candidates:
-            # A defender standing right where the ball ends up gets a
-            # shot at the goal it's now next to -- that's a turnover
-            # before the shot, same as any other change of possession,
-            # so the score attempt reads the correct attacking and
-            # defending sides.
-            match.ball.possession = defense_side
-            match.ball.speed = 1
-            self.persist(game, match)
-
-            await self.refresh_match_image(interaction, game)
-            await self.begin_shooter_choice(
-                interaction,
-                game,
-                match,
-                candidates,
-                lead_in=f"{content} That overshoots the field -- a scoring "
-                "opportunity!",
-            )
-            return
-
-        # **Setup Pass's cost**: beaten by a deflection, the defending
-        # coach drives the ball back a further 1, 2 or 3 spaces and it
-        # is loose where it stops. It is asked here rather than as a
-        # step after the maneuver because a deflection already ends in
-        # a loose ball -- the cost only decides where it lies. Not
-        # asked when the deflection overshot into a shot above: the
-        # ball is already as far back as the field goes and the shot is
-        # the bigger thing happening.
-        if self.engine.advanced_cost(match, key) == "setup_pass":
-            await self.offer_setup_pass_push_back(
-                interaction, game, match, lead_in=content,
-            )
-            return
-
-        # A deflection knocks the ball out of anybody's possession, so
-        # it does not go through finish_maneuver_resolution's ordinary
-        # loose-ball check: that check asks whether the possessing team
-        # has somebody on the ball, and here the answer does not
-        # matter -- either side's occupant is equally dispossessed.
-        #
-        # **Occupancy decides how it is won**, which since 2026-08-26
-        # is the rule everywhere rather than this card's own: an empty
-        # landing space is a loose ball (each side may send someone); a
-        # space only one side occupies is theirs outright, with no send
-        # offered to the other; a space both occupy is a contest
-        # between the players already there. See begin_loose_ball.
-        #
-        # No refresh_match_image first: begin_loose_ball posts the
-        # board with the announcement, and refreshing here would write
-        # the same board twice (see "Discord's rate limits").
-        #
-        # A deflection's time cost is a fixed 1 space minute per the
-        # rules table, not "distance traveled" like Low/High Pass, so
-        # this doesn't shrink if the move was clamped at the edge (or
-        # grow with the Fullback's extra distance, or Clear's).
-        await self.begin_loose_ball(
-            interaction, game, match, 1, lead_in=content,
-        )
+        **The board is not refreshed on two of the three branches**,
+        and it was not before either: `begin_loose_ball` draws it under
+        its own announcement. The step reports `board_changed=True`
+        regardless, because the ball really did move; the write is
+        suppressed by `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in
+        `dispatch_step_result`, which is where a rate-limit economy
+        belongs -- see "Discord's rate limits" in
+        docs/design/rate-limits.md.
+        """
+        result = deflection_step(self.engine, match, key)
+        self.persist(game, match)
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def offer_setup_pass_push_back(
         self,

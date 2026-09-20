@@ -126,6 +126,25 @@ the two paths that did not pass it kept the old behaviour.
   possessing team have somebody on the ball -- has an answer that does not
   matter. It also stops refreshing the board first, since `begin_loose_ball`
   posts one.
+  - **Since rank D1 of the model/Discord split it reaches it as a
+    follow-on.** `deflection_step` in `d12ball/flow/effects.py` is both
+    cards, and it ends by naming `FollowOnStep.BEGIN_LOOSE_BALL` rather than
+    by awaiting anything -- see
+    [model-discord-split.md](model-discord-split.md). Two things about the
+    paragraph above changed shape and neither changed behaviour: the
+    `distance_moved` of 1 arrives as a keyword, because
+    `dispatch_step_result` passes a follow-on's arguments by name; and "stops
+    refreshing the board first" is now a rule rather than an absent call. The
+    step reports `board_changed=True` honestly -- the ball moved -- and
+    `FOLLOW_ONS_THAT_DRAW_THE_BOARD` is what keeps the cog from writing a
+    board this function is about to write itself. Keyed to the step, so the
+    seven callers still to be lifted inherit it; see "Discord's rate limits"
+    in [rate-limits.md](rate-limits.md).
+  - **Setup Pass's cost rides inside the deflection**, so it is in that set
+    too. `offer_setup_pass_push_back` asks the coach who beat the pass how
+    much further back the ball goes, and all three of its branches end here
+    anyway -- so the board arrives with the loose ball, once, on the far side
+    of the answer.
 - **`check_for_loose_ball` has one detour now, not two.** Its guard still
   earns its keep: the maneuvers that leave the ball with a named player are not
   loose, and that is what it asks. What changed on 2026-08-26 is what happens

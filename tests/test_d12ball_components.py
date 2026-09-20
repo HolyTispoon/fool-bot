@@ -137,6 +137,23 @@ from save_patches import suppressed_cog_saves
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def loose_ball_distance(call) -> int:
+    """
+    The `distance_moved` a recorded `begin_loose_ball` was called with,
+    read through the real method's signature rather than off
+    `call.args`.
+
+    A deflection reaches it as a `FollowOn` since rank D1 of
+    docs/model-discord-split.md, and `dispatch_step_result` passes a
+    follow-on's arguments **by keyword** -- so an argument the cog used
+    to hand over positionally now arrives named. Binding the call to
+    the signature answers for both shapes, which is the reading rank D2
+    wrote down: fix the assertion, not the call.
+    """
+    return inspect.signature(D12Ball.begin_loose_ball).bind(
+        None, *call.args, **call.kwargs,
+    ).arguments["distance_moved"]
+
 class D12BallComponentTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -4179,9 +4196,10 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # check on the end of an ordinary maneuver (2026-08-18).
         cog.finish_maneuver_resolution.assert_not_awaited()
         cog.begin_loose_ball.assert_awaited_once()
-        args, kwargs = cog.begin_loose_ball.await_args
+        call = cog.begin_loose_ball.await_args
+        kwargs = call.kwargs
         # Its clock cost is a flat 1 whatever the deflection travelled.
-        self.assertEqual(args[3], 1)
+        self.assertEqual(loose_ball_distance(call), 1)
         self.assertIn("Fullback ability", kwargs["lead_in"])
         self.assertIn("2 spaces back", kwargs["lead_in"])
 
