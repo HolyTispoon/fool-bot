@@ -134,18 +134,25 @@ player is in is the whole of who may come on -- so without them the flow would
 be asking a coach to remember numbers off a board they cannot see while the
 menu is up.
 
-**A card carries its player's species icon, on the stats row to the right of
-the role initials** -- the pairing the printed card makes across its header
-band, so a coach reading one is reading the other. Two things follow from
-where it sits. It is drawn in ink rather than in a colour, which is what keeps
-`rendered_player_card`'s cache key honest: that key is the player and their
-two skills, and a colour would be a third thing in it -- the shape is the
-identity anyway, and the Oozes' green is the one colour a white card could not
-carry. And it shares the row with the Exhausted and Injured badges, which are
-drawn over the card afterwards at its right edge and cover it while either is
-showing. That is the right way round: a condition is what has just changed and
-what a coach has to act on, where a species is the same every turn of the
-game. See "The species icons" in [cards.md](cards.md).
+**A card carries its player's species icon, stacked under the role initials
+on the stats row** -- the same pairing a meeple makes (below), so a coach
+reading one is reading the other. It used to sit beside the role initials, in
+the space to their right, which put it in the same right-edge column the
+Exhausted, Injured, Drained and Damaged badges are drawn in afterward (see
+`draw_card`) -- and on a wide role label (`WG`) that column left next to
+nothing between them, so the badge covered the icon completely rather than
+partially, on every one of those four conditions, not only some. Stacking
+clears that column for a badge regardless of how wide a role's own initials
+run, and costs neither element its own tested size: the icon keeps its 18px
+floor (see "The species icons" in [cards.md](cards.md)) and a badge keeps the
+26px `scripts/render_condition_tokens.py` was resized to on 2026-09-19,
+because the card is not wide enough to hold both a floor-sized icon and a
+floor-sized badge side by side, on the widest role label, and neither floor is
+the one to give up. It is drawn in ink rather than in a colour, which is what
+keeps `rendered_player_card`'s cache key honest: that key is the player and
+their two skills, and a colour would be a third thing in it -- the shape is
+the identity anyway, and the Oozes' green is the one colour a white card could
+not carry.
 
 **A meeple is the species icon over the role initials, and it is 76px
 because it carries both -- in a game playing species abilities.** `draw_meeple_face` is the face; `draw_meeple_group`

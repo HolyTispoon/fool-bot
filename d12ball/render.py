@@ -869,22 +869,14 @@ def build_player_card(
     role_bbox = draw.textbbox((0, 0), role_label, font=FONT_CARD_ROLE)
     role_width = role_bbox[2] - role_bbox[0]
     role_height = role_bbox[3] - role_bbox[1]
-    draw.text(
-        (
-            (width - role_width) / 2,
-            name_zone_height
-            + (stats_row_height - role_height) / 2
-            - role_bbox[1],
-        ),
-        role_label,
-        font=FONT_CARD_ROLE,
-        fill="#111111",
-    )
 
-    # The species icon answers the role initials across the stats row,
-    # in the space to their right -- the same pairing the printed card
-    # makes across its header band, so a coach reading one is reading
-    # the other.
+    # The species icon answers the role initials, stacked under them
+    # as one centered block -- not beside them. Beside left the icon
+    # in the same right-edge column the Exhausted, Injured, Drained
+    # and Damaged badges are drawn in afterward (see draw_card), which
+    # covered it completely on the widest role labels rather than the
+    # partial overlap the layout was judged against: that column is
+    # for a badge alone now, whatever a card's own role reads.
     #
     # **It is drawn in ink rather than in a colour**, which is what
     # keeps `rendered_player_card`'s cache key honest: that key is the
@@ -892,27 +884,25 @@ def build_player_card(
     # third thing in it. The shape is the identity here anyway -- and
     # the Oozes' green on a white card is the one colour that could not
     # be read.
-    #
-    # It shares the row with the Exhausted and Injured badges, which
-    # are drawn over the card afterwards at its right edge and will
-    # cover this when either is showing. That is the right way round:
-    # a condition is what has just changed and what a coach has to act
-    # on, where a species is the same every turn of the game.
+    species_icon_gap = 8
+    block_height = role_height + species_icon_gap + CARD_SPECIES_ICON_SIZE
+    block_top = name_zone_height + (stats_row_height - block_height) / 2
+    draw.text(
+        ((width - role_width) / 2, block_top - role_bbox[1]),
+        role_label,
+        font=FONT_CARD_ROLE,
+        fill="#111111",
+    )
+
     icon = species_icon(
         player.species, CARD_SPECIES_ICON_INK, CARD_SPECIES_ICON_SIZE
     )
     if icon is not None:
-        role_right = (width + role_width) / 2
         card.alpha_composite(
             icon,
             (
-                round(
-                    (role_right + width - CARD_SPECIES_ICON_SIZE) / 2
-                ),
-                round(
-                    name_zone_height
-                    + (stats_row_height - CARD_SPECIES_ICON_SIZE) / 2
-                ),
+                round((width - CARD_SPECIES_ICON_SIZE) / 2),
+                round(block_top + role_height + species_icon_gap),
             ),
         )
 
