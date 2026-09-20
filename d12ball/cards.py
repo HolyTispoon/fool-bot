@@ -325,17 +325,20 @@ def fitted_bold_font(
 
 
 def fitted_title(
-    pen: Pen, name: str, max_width: float
+    pen: Pen, name: str, max_width: float, max_size: int = 54,
 ) -> tuple[list[str], ImageFont.ImageFont]:
     """
     The largest title that fits the header, on one line if it can and
     two if it cannot. "Steal Intercept" and "Dribble Advance" are the
     long ones and both break cleanly at their space.
+
+    `max_size` is lower on a gambit's card, which carries a
+    subtitle under the name -- see `draw_card_header`.
     """
-    face = fitted_bold_font(pen, name, max_width, max_size=54, min_size=30)
+    face = fitted_bold_font(pen, name, max_width, max_size=max_size, min_size=30)
     if face is not None:
         return [name], face
-    return name.split(" ", 1), font(40, bold=True)
+    return name.split(" ", 1), font(min(max_size, 40), bold=True)
 
 
 # A role whose ability does not name the maneuver but belongs on its
@@ -1227,6 +1230,7 @@ CARD_HEADER_HEIGHT = 152
 
 def draw_card_header(
     pen: Pen,
+    catalog: ManeuverCatalog,
     maneuver: ManeuverDefinition,
     is_offense: bool,
     color: str,
@@ -1234,6 +1238,14 @@ def draw_card_header(
     """
     The band across the top of a face: the rank badge, the name fit to
     the room between it and the tier label, and the tier label itself.
+
+    **A gambit's header also carries which basic maneuver it is the
+    advanced version of, in words, under its own name.** The matchup
+    band already said this once, by naming the rank both cards share --
+    but a coach who has just picked the card up reads the header
+    first, and rank alone asks them to infer the relation rather than
+    read it. So the header states it outright: "ADVANCED VERSION OF
+    {name}", the same phrase the living rules' own gambit table uses.
     """
     # Header: the rank badge and the name, in a band whose top corners
     # follow the card's own.
@@ -1281,19 +1293,41 @@ def draw_card_header(
 
     title_left = FRAME + 140
     title_right = CARD_WIDTH - FRAME - 118
-    lines, title_font = fitted_title(pen, maneuver.name, title_right - title_left)
+    title_width = title_right - title_left
+
+    # The subtitle is drawn only on a gambit's face -- a basic card is
+    # not the advanced version of anything, so it keeps the title at
+    # full size and centred alone, exactly as it always has.
+    subtitle = None
+    subtitle_font = None
+    if maneuver.is_gambit:
+        counterpart = catalog.counterpart(maneuver)
+        subtitle = f"ADVANCED VERSION OF {counterpart.name.upper()}"
+        subtitle_font = fitted_bold_font(
+            pen, subtitle, title_width, max_size=20, min_size=13, step=1,
+        ) or font(13, bold=True)
+
+    lines, title_font = fitted_title(
+        pen, maneuver.name, title_width, max_size=44 if subtitle else 54,
+    )
     title_center = (title_left + title_right) / 2
     title_step = line_height(pen, title_font)
-    title_y = (
-        header_top
-        + header_height / 2
-        - title_step * (len(lines) - 1) / 2
-    )
+    subtitle_step = line_height(pen, subtitle_font) if subtitle else 0
+    block_height = title_step * len(lines) + subtitle_step
+    title_y = header_top + header_height / 2 - block_height / 2 + title_step / 2
     for line in lines:
         pen.text(
             (title_center, title_y), line, title_font, "#ffffff", anchor="mm"
         )
         title_y += title_step
+    if subtitle:
+        pen.text(
+            (title_center, title_y - title_step / 2 + subtitle_step / 2),
+            subtitle,
+            subtitle_font,
+            "#ffffff",
+            anchor="mm",
+        )
 
 
 
@@ -1391,7 +1425,7 @@ def render_maneuver_card(
         width=EDGE_WIDTH,
     )
 
-    draw_card_header(pen, maneuver, is_offense, color)
+    draw_card_header(pen, catalog, maneuver, is_offense, color)
 
     strip_top = FRAME + CARD_HEADER_HEIGHT + 22
     strip_height = 288

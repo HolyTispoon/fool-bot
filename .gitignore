@@ -7,6 +7,8 @@ __pycache__/
 board.png
 cards/
 print/
+print-and-play/
+print-and-play.zip
 data/d12ball_games.json
 data/d12ball_games.tmp
 data/d12ball_hubs.json

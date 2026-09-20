@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Render the three boards of the physical game.
 
-Print-ready at 300dpi, A3 landscape by default -- which is the size the
-team board's card areas take a real poker card at:
+Print-ready at 300dpi, tabloid (11 x 17) by default -- a home or
+copy-shop printer's own size, where A3 is not; see `PAPERS` and
+`DEFAULT_PAPER` in `d12ball/boards.py`. Both the field board's own
+size and the team board's card areas hold a real poker card at
+tabloid:
 
     python3 scripts/render_boards.py --out print/
     python3 scripts/render_boards.py --teams --bleed --pdf
@@ -95,9 +98,10 @@ def main() -> None:
         default=DEFAULT_PAPER,
         choices=sorted(PAPERS),
         help=(
-            "Sheet size (default: a3). The team board's card areas "
-            "are cut for a poker card at a3; every other size scales "
-            "the whole board, and its areas, down with it."
+            f"Sheet size (default: {DEFAULT_PAPER}). The team board's "
+            f"card areas are cut for a poker card at {DEFAULT_PAPER}; "
+            "every other size scales the whole board, and its areas, "
+            "down with it."
         ),
     )
     parser.add_argument(
