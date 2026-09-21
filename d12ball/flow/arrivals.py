@@ -47,7 +47,6 @@ from d12ball.formatting import (
     HIGH_PASS_CONTEST_HEADLINE,
     ball_location_line,
     contest_noun,
-    format_player_with_team,
     format_team_side_label,
     get_species_ability_emoji,
     space_label,
@@ -57,6 +56,8 @@ from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
     loose_ball_pick_prompt,
+    scoring_opportunity_prompt,
+    shooter_mention,
 )
 
 
@@ -594,30 +595,36 @@ def offer_scoring_attempt_choice(
             lead_in=lead_in,
         )
 
-    # **A follow-on rather than a `PendingPrompt`**, and the reason is
-    # the one `PendingPrompt`'s own docstring gives: it carries only
-    # what a branch of `pending_prompt` carries, and neither
-    # `distance_moved` nor `contest_on_decline` is anywhere in match
-    # state. A prompt carrying them would be a shape the restart chain
-    # can never produce -- one kind with two meanings, which is the
-    # second copy principle 3 is about. `effect_choice_prompt` already
-    # records that a restart in this window comes back to the
-    # first-stage distance choice instead; this phase did not close
-    # that gap and did not widen it either.
-    shooter = engine.get_player_definition(shooter_id)
+    # **A `PendingPrompt` since Phase 6**, and what it took was
+    # `MatchState.pending_scoring_opportunity`. It was a follow-on
+    # until then for the reason `PendingPrompt`'s own docstring gives:
+    # a prompt carries only what a branch of `pending_prompt` carries,
+    # and neither `distance_moved` nor `contest_on_decline` was
+    # anywhere in match state -- so a prompt carrying them was a shape
+    # the restart chain could never produce, and a game that went down
+    # here came back to the maneuver's first-stage distance choice
+    # instead. The offer is recorded on the match now and
+    # `scoring_opportunity_prompt` reads it, so the live question and
+    # the restored one are the same question.
+    #
+    # The `ask` opens with the pass's own lines because the offer is
+    # where this turn stops and there is nothing else to hang them on.
+    # A restart has not got them and does not invent them, which is the
+    # difference the run back's prompt has carried since Phase 4.
+    match.pending_scoring_opportunity = {
+        "kind": "attempt",
+        "shooter_id": shooter_id,
+        "distance_moved": distance_moved,
+        "contest_on_decline": contest_on_decline,
+    }
+    restored = scoring_opportunity_prompt(engine, game, match)
     return StepResult(
-        next=FollowOn(
-            FollowOnStep.SEND_SET_UP_ATTEMPT_PROMPT,
-            {
-                "shooter_id": shooter_id,
-                "distance_moved": distance_moved,
-                "contest_on_decline": contest_on_decline,
-                "ask": (
-                    f"{lead_in}\n\n"
-                    f"{engine.format_player_label(match, shooter)} can "
-                    "attempt the scoring opportunity, or let it go:"
-                ),
-            },
+        next=PendingPrompt(
+            restored.kind,
+            f"{lead_in}\n\n{restored.ask}" if lead_in else restored.ask,
+            player_id=restored.player_id,
+            distance_moved=restored.distance_moved,
+            contest_on_decline=restored.contest_on_decline,
         ),
     )
 
@@ -637,7 +644,12 @@ def decline_scoring_attempt(
     For an overshot High Pass that is the long-pass contest, not a
     settled ball -- the shot and the contest are the two halves of one
     choice. See `offer_scoring_attempt_choice`.
+
+    **The offer is spent here**, whichever way it goes: the field that
+    records it is what `pending_prompt` reads, so a match that still
+    held it would be asked the same question again on the next click.
     """
+    match.pending_scoring_opportunity = None
     if contest:
         return begin_high_pass_contest(
             engine,
@@ -1102,24 +1114,21 @@ def begin_shooter_choice(
             ),
         )
 
-    # A follow-on for `SEND_SET_UP_ATTEMPT_PROMPT`'s reason: the view
-    # holds the candidate list, and a scoring opportunity is not a
-    # state `pending_prompt` has a branch for. The wording is still the
-    # model's -- it rides in `ask`.
-    mention = format_player_with_team(
-        game,
-        engine.possession_player_number(game, match),
-        engine.team_emojis,
-        mention=True,
-    )
+    # **A `PendingPrompt` since Phase 6**, for
+    # `offer_scoring_attempt_choice`'s reason and closed the same way:
+    # nothing in match state said a scoring opportunity was being
+    # asked about, so the candidate list lived on the view. It is
+    # recorded on the match now -- the *fact* only, since the
+    # candidates are whoever is standing on the ball's space and
+    # `scoring_opportunity_prompt` reads them back off the board.
+    match.pending_scoring_opportunity = {"kind": "shooter"}
     prefix = f"{lead_in}\n\n" if lead_in else ""
+    mention = shooter_mention(engine, game, match)
     return StepResult(
-        next=FollowOn(
-            FollowOnStep.SEND_SHOOTER_PROMPT,
-            {
-                "candidates": list(candidates),
-                "ask": f"{prefix}{mention}, choose who takes the shot:",
-            },
+        next=PendingPrompt(
+            PromptKind.SHOOTER_CHOICE,
+            f"{prefix}{mention}, choose who takes the shot:",
+            player_ids=list(candidates),
         ),
     )
 
@@ -1198,3 +1207,187 @@ def begin_own_goal_roll(
             "more and the own goal is avoided.",
         ),
     )
+
+
+# -- Answering the loose ball's and the set-up's own prompts -----------
+#
+# Phase 6 of docs/model-discord-split.md. Each was in a view body --
+# `LooseBallChoiceView` in `cogs/d12ball_views/loose_ball.py`,
+# `SetUpAttemptChoiceView` and `ShooterChoiceView` in
+# `cogs/d12ball_views/effects.py` -- with the rule and the edit that
+# renders it in one method. The rule is here now;
+# `d12ball.flow.driver.apply` runs one over a prompt it has checked,
+# and the views call the same function.
+
+
+def choose_loose_ball_contestant(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    skill_type: str,
+    player_id: str,
+) -> StepResult:
+    """
+    Send this player after the loose ball, for the side on the clock.
+
+    Ends on the other side's pick where one is still owed, and on
+    `RESOLVE_LOOSE_BALL` once both have answered -- the same reading
+    `loose_ball_pick_prompt` makes, because it is that reading.
+    """
+    if skill_type == "offense":
+        match.choose_loose_ball_offense_player(player_id)
+    else:
+        match.choose_loose_ball_defense_player(player_id)
+
+    player = engine.get_player_definition(player_id)
+    return _loose_ball_answered(
+        engine,
+        game,
+        match,
+        f"{engine.format_player_label(match, player)} "
+        f"contests the {contest_noun(match)} ({skill_type}).",
+    )
+
+
+def loose_ball_decline_refusal(
+    match: MatchState,
+    skill_type: str,
+) -> Optional[str]:
+    """
+    Why this side may not send nobody after the loose ball, or None.
+
+    A **pure read**, and separate from the step for one reason: the
+    frontend has to be able to refuse *before* anything is applied.
+    `LooseBallChoiceView.decline` asks this, then its own tutorial
+    rail, and only then runs the step -- and a step that raised on the
+    way out would already have recorded the decline by the time the
+    rail refused it. `decline_loose_ball_contest` asks the same
+    question on its own account, so a frontend that skips this one
+    still cannot get past it.
+
+    The answer is `MatchState.may_decline_loose_ball`'s; what is here
+    is the sentence for it.
+    """
+    side = (
+        match.ball.possession
+        if skill_type == "offense"
+        else match.defending_side()
+    )
+    if match.may_decline_loose_ball(side):
+        return None
+    return (
+        "Somebody of theirs is standing on the ball -- they "
+        "contest it, and cannot be held back."
+    )
+
+
+def decline_loose_ball_contest(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    skill_type: str,
+) -> StepResult:
+    """
+    Send nobody after the loose ball.
+
+    Raises `ValueError` where the side has somebody standing on the
+    ball and therefore cannot be held back -- which is a stale click on
+    a prompt a restart re-attached from before the ball reached them.
+    See `loose_ball_decline_refusal`, which is the same answer asked
+    without applying anything.
+    """
+    refusal = loose_ball_decline_refusal(match, skill_type)
+    if refusal is not None:
+        raise ValueError(refusal)
+    side = (
+        match.ball.possession
+        if skill_type == "offense"
+        else match.defending_side()
+    )
+    match.decline_loose_ball(side)
+    return _loose_ball_answered(
+        engine,
+        game,
+        match,
+        f"{format_team_side_label(match.setup_for_side(side))} send "
+        f"nobody after the {contest_noun(match)}.",
+    )
+
+
+def _loose_ball_answered(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    announcement: str,
+) -> StepResult:
+    """
+    One side has answered: put the question to the other, or settle it.
+
+    The announcement is **its own message** -- it is the edit the view
+    makes over the question it answers -- so it is the result's
+    narration and the frontend decides that it replaces the prompt
+    rather than standing above the next one.
+    """
+    pick = loose_ball_pick_prompt(engine, match)
+    if pick is not None:
+        return StepResult(
+            narration=[announcement],
+            next=PendingPrompt(
+                pick.kind,
+                engine.build_loose_ball_prompt(game, match),
+                side=pick.side,
+                skill_type=pick.skill_type,
+            ),
+        )
+    return StepResult(
+        narration=[announcement],
+        next=FollowOn(FollowOnStep.RESOLVE_LOOSE_BALL),
+    )
+
+
+def take_scoring_opportunity(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    shooter_id: str,
+    maneuver_cost: int = 1,
+) -> StepResult:
+    """
+    Take the scoring opportunity: this player shoots.
+
+    `maneuver_cost` is the flat cost of the maneuver that offered the
+    set-up -- 1 for everything but a High Pass, which is why it
+    defaults to 1 and only a High Pass call site overrides it. Stored
+    so the score attempt can charge it on top of the shot's own extra
+    minute (2026-08-16): the two stack, instead of the shot's cost
+    replacing the maneuver's.
+
+    **The offer is spent here.** `pending_scoring_opportunity` is what
+    `pending_prompt` reads, so a match that still held it would be
+    asked the same question again on the next click.
+    """
+    match.pending_scoring_opportunity = None
+    match.active_player_id = shooter_id
+    match.pending_action = "shoot"
+    match.pending_shot_is_set_up = True
+    match.pending_shot_setup_cost = maneuver_cost
+
+    shooter = engine.get_player_definition(shooter_id)
+    return StepResult(
+        narration=[
+            f"{engine.format_player_label(match, shooter)} takes the "
+            "shot off the set-up.",
+        ],
+    )
+
+
+# **It names nothing**, although the shot plainly follows it. What
+# follows is `START_SET_UP_SHOT`, and that member is now the composition
+# image and the roll prompt alone -- two uploads and no decision, which
+# is a picture and therefore the frontend's. The position this leaves
+# reads as `PromptKind.SCORE_ATTEMPT` to `pending_prompt`, so a
+# frontend that draws no pictures (and `driver.apply`, which ends by
+# asking) reaches the right next question without this step naming one.

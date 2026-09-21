@@ -34,6 +34,7 @@ from d12ball.components import (
 from d12ball.game import D12BallGame, GameStatus, Team
 from d12ball.flow.turnovers import announce_new_play_reset
 
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
@@ -670,7 +671,10 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
         winner = self.displaced_winner(cog, match)
 
-        with suppressed_cog_saves():
+        # `ANNOUNCE_RUN_BACK` is the driver's since Phase 6; without the
+        # shim the real note runs the cascade and there is nobody left
+        # displaced to read. See tests/flow_stubs.py.
+        with suppressed_cog_saves(), driver_reaches_cog_stubs(cog):
             await cog.begin_run_back(build_interaction(), game, match)
 
         self.assertIsNone(match.pending_run_back_stays_player_id)

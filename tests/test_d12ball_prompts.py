@@ -16,8 +16,9 @@ tables that have to be kept level by hand.
 import unittest
 from dataclasses import fields
 
+from d12ball.components import MatchState
 from d12ball.prompts import PendingPrompt, PromptKind, pending_prompt
-from prompt_fixtures import CASES, ENGINE
+from prompt_fixtures import CASES, ENGINE, RULESET
 
 
 class PendingPromptTests(unittest.TestCase):
@@ -66,6 +67,36 @@ class PendingPromptTests(unittest.TestCase):
                     self.assertEqual(
                         getattr(prompt, name), getattr(blank, name), name,
                     )
+
+    def test_a_prompt_survives_a_save_and_a_load(self) -> None:
+        """
+        **The restart, in a test.** A frontend puts up what a run hands
+        back and a restart puts up what this chain reads off the save
+        file; if the two disagree, a game comes back asking a different
+        question from the one it was on -- which is the failure
+        `pending_prompt` exists to prevent (principle 3 in CLAUDE.md,
+        and "Recovering a stuck game" in docs/design/recovery.md).
+
+        Every case, not only the new ones: the two scoring-opportunity
+        kinds are what Phase 6 added and are the reason this test is
+        here -- they are the first prompts whose arguments had to be
+        written into the save to survive one -- but a branch that
+        answers from a field the table forgets is the same bug
+        wherever it is, and the assertion costs one round trip apiece.
+        """
+        for case in CASES:
+            with self.subTest(case.name):
+                fixture = case.build()
+
+                before = pending_prompt(
+                    ENGINE, fixture.game, fixture.match,
+                )
+                reloaded = MatchState.from_dict(
+                    fixture.match.to_dict(), RULESET,
+                )
+                after = pending_prompt(ENGINE, fixture.game, reloaded)
+
+                self.assertEqual(after, before)
 
     def test_the_fixtures_reach_every_kind(self) -> None:
         """

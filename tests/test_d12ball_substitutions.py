@@ -25,6 +25,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, GameMode, Team
 from roster import benched, fielded
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
 
 
@@ -86,7 +87,10 @@ class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock())
         )
-        with suppressed_cog_saves():
+        # `ANNOUNCE_RUN_BACK` is the driver's since Phase 6, so the
+        # `cog.announce_run_back` these cases stub is reached through
+        # tests/flow_stubs.py rather than by the cog dispatching it.
+        with suppressed_cog_saves(), driver_reaches_cog_stubs(cog):
             await cog.finish_substitution_window(interaction, game, match)
         return game
 

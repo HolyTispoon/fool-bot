@@ -15,6 +15,12 @@ from d12ball.components import (
     SPECIES_CYBORG,
 )
 from d12ball.engine import IgnitedRoll
+from d12ball.flow import FollowOn, StepResult
+from d12ball.flow.arrivals import (
+    choose_loose_ball_contestant,
+    decline_loose_ball_contest,
+    loose_ball_decline_refusal,
+)
 from d12ball.game import (
     D12BallGame,
     Team,
@@ -23,7 +29,6 @@ from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     contest_noun,
     format_player_with_team,
-    format_team_side_label,
     player_with_role,
     send_new_prompt,
     space_label,
@@ -176,18 +181,17 @@ class LooseBallChoiceView(SafeView):
         if game is None or match is None:
             return
 
-        if self.side == "offense":
-            match.choose_loose_ball_offense_player(player_id)
-        else:
-            match.choose_loose_ball_defense_player(player_id)
-
-        player = self.cog.engine.get_player_definition(player_id)
         await self.settled(
             interaction,
             game,
             match,
-            f"{self.cog.player_label(match, player)} "
-            f"contests the {contest_noun(match)} ({self.side}).",
+            choose_loose_ball_contestant(
+                self.cog.engine,
+                game,
+                match,
+                skill_type=self.side,
+                player_id=player_id,
+            ),
         )
 
     async def decline(self, interaction: discord.Interaction) -> None:
@@ -195,20 +199,16 @@ class LooseBallChoiceView(SafeView):
         if game is None or match is None:
             return
 
-        side = (
-            match.ball.possession
-            if self.side == "offense"
-            else match.defending_side()
-        )
-        # The button is not built for a side with somebody on the ball,
-        # so this is a stale click -- a prompt a restart re-attached
-        # from before the ball reached them. Same reason
-        # ManeuverChallengeView.decline re-checks its own.
-        if not match.may_decline_loose_ball(side):
+        # **Both refusals come before anything is applied**, and in
+        # this order, which is the one this method has always had. The
+        # button is not built for a side with somebody on the ball, so
+        # reaching that branch means a stale click -- a prompt a
+        # restart re-attached from before the ball got there. Same
+        # reason ManeuverChallengeView.decline re-checks its own.
+        refusal = loose_ball_decline_refusal(match, self.side)
+        if refusal is not None:
             await interaction.response.send_message(
-                "Somebody of theirs is standing on the ball -- they "
-                "contest it, and cannot be held back.",
-                ephemeral=True,
+                refusal, ephemeral=True,
             )
             return
 
@@ -222,13 +222,13 @@ class LooseBallChoiceView(SafeView):
             )
             return
 
-        match.decline_loose_ball(side)
         await self.settled(
             interaction,
             game,
             match,
-            f"{format_team_side_label(match.setup_for_side(side))} send "
-            f"nobody after the {contest_noun(match)}.",
+            decline_loose_ball_contest(
+                self.cog.engine, game, match, skill_type=self.side,
+            ),
         )
 
     async def settled(
@@ -236,24 +236,36 @@ class LooseBallChoiceView(SafeView):
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
-        announcement: str,
+        result: StepResult,
     ) -> None:
-        """Save this side's answer, then either put the prompt up for
-        the other side or resolve."""
+        """
+        Save this side's answer, then either put the prompt up for the
+        other side or resolve.
+
+        **Which of the two it is is the step's answer** since Phase 6
+        (`d12ball.flow.arrivals`): the announcement is its narration and
+        the other side's pick, or the settling, is its `next`. What is
+        left here is that the announcement *replaces* the question it
+        answers rather than standing above the next one, which is a
+        Discord economy and therefore the frontend's (principle 8).
+        """
         self.cog.persist(game, match)
 
         await interaction.response.edit_message(
-            content=announcement, view=None,
+            content=" ".join(result.narration), view=None,
         )
 
-        if self.cog.engine.loose_ball_side_on_the_clock(match) is None:
-            await self.cog.resolve_loose_ball(interaction, game, match)
+        following = result.next
+        if isinstance(following, FollowOn):
+            await self.cog.dispatch_step_result(
+                interaction, game, match, StepResult(next=following),
+            )
             return
 
         prompt_message = await send_new_prompt(
             interaction,
-            self.cog.engine.build_loose_ball_prompt(game, match),
-            view=self.cog.build_loose_ball_view(self.game_id, match),
+            following.ask,
+            view=self.cog.view_for_prompt(self.game_id, match, following),
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),

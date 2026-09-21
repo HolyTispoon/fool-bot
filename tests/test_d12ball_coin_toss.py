@@ -61,6 +61,8 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
+from d12ball.flow import FollowOnStep
+from flow_stubs import chain_stops_at, lead_in_of, was_reached
 from save_patches import (
     LINKING_COG_MODULES,
     suppressed_cog_saves,
@@ -794,7 +796,13 @@ class D12BallRunBackAnnouncementTests(
         cog, interaction, game, match = self.build_stubs(may_declare=True)
         match.scoreboard.last_possession = True
 
-        with suppressed_cog_saves():
+        # `END_PERIOD` is the driver's since Phase 6, so the whistle is
+        # stopped at through `chain_stops_at` -- the two sides of the
+        # seam differ in their first argument, which is why this reads
+        # the `lead_in` by name rather than asserting a whole call.
+        with suppressed_cog_saves(), chain_stops_at(
+            cog, FollowOnStep.END_PERIOD,
+        ) as whistle:
             await cog.begin_run_back(
                 interaction,
                 game,
@@ -804,9 +812,8 @@ class D12BallRunBackAnnouncementTests(
                 speed_choice_after=True,
             )
 
-        cog.end_period.assert_awaited_once_with(
-            interaction, game, match, lead_in="",
-        )
+        self.assertTrue(was_reached(whistle))
+        self.assertEqual(lead_in_of(whistle), "")
         cog.begin_substitution_window.assert_not_awaited()
         cog.continue_run_back.assert_not_awaited()
         self.assertFalse(match.pending_run_back)
@@ -821,12 +828,14 @@ class D12BallRunBackAnnouncementTests(
         cog, interaction, game, match = self.build_stubs(may_declare=True)
         match.scoreboard.last_possession = True
 
-        with suppressed_cog_saves():
+        with suppressed_cog_saves(), chain_stops_at(
+            cog, FollowOnStep.END_PERIOD,
+        ) as whistle:
             await cog.begin_run_back(
                 interaction, game, match, turnover_occurred=False,
             )
 
-        cog.end_period.assert_not_awaited()
+        self.assertFalse(was_reached(whistle))
         cog.continue_run_back.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
 

@@ -35,6 +35,7 @@ from d12ball.formatting import (
     get_injured_emoji,
 )
 from d12ball.game import D12BallGame
+from d12ball.prompts import PendingPrompt, PromptKind
 
 #: Which row a lone side is told to press, by name. The buttons carry
 #: the colour themselves (see `ManeuverActionPromptView`); this is the
@@ -493,5 +494,45 @@ def begin_maneuver_action_selection(
                 "sides": list(sides),
                 "ask": f"{' and '.join(waiting_on)}, {instruction}",
             },
+        ),
+    )
+
+
+# -- Answering the turn's own prompts ---------------------------------
+#
+# Phase 6 of docs/model-discord-split.md: a click answers a
+# `PendingPrompt`, and what that answer *does* is a rule. These are the
+# model halves of the three that open a turn -- who takes the ball,
+# what they do with it, and who challenges -- lifted out of
+# `cogs/d12ball_views/turn.py`, where each was mixed in with the edit
+# that renders it. `d12ball.flow.driver.apply` is what runs one over a
+# prompt it has checked; the views call the same function, so there is
+# one answer to each question rather than one per frontend.
+
+
+def select_ball_handler_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+) -> StepResult:
+    """
+    The kickoff pick: whose hands the ball starts this play in.
+
+    Raises `ValueError` where the pick is not a legal one, which is
+    `MatchState.select_ball_handler`'s own refusal and is left to
+    propagate -- a frontend turns it into whatever it turns a refusal
+    into (the cog, an ephemeral reply).
+
+    The prompt it ends on is the turn's own, worded by
+    `RulesEngine.build_turn_prompt` -- the fuller line a coach reads in
+    the channel rather than `pending_prompt`'s bare "Choose an action:",
+    which is what a restart falls back to when the message is gone.
+    """
+    match.select_ball_handler(player_id)
+    return StepResult(
+        next=PendingPrompt(
+            PromptKind.PLAYER_ACTION,
+            engine.build_turn_prompt(game, match),
         ),
     )

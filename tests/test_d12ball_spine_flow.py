@@ -27,6 +27,9 @@ from d12ball.components import MatchState, PlayerRole, TeamSide, Zone
 from d12ball.flow import FollowOn, FollowOnStep
 from d12ball.flow.arrivals import (
     begin_loose_ball,
+    choose_loose_ball_contestant,
+    decline_loose_ball_contest,
+    loose_ball_decline_refusal,
     begin_own_goal_roll,
     begin_shooter_choice,
     check_for_loose_ball,
@@ -46,6 +49,7 @@ from d12ball.flow.turnovers import (
     finish_run_back,
     run_back_passes,
 )
+from d12ball.formatting import contest_noun, format_team_side_label
 from d12ball.prompts import PromptKind, pending_prompt
 
 from roster import fielded
@@ -266,10 +270,159 @@ class ShooterChoiceTests(SpineFixture):
         result = begin_shooter_choice(
             self.engine, self.game, self.match, candidates,
         )
-        following = result.next
-        self.assertEqual(following.step, FollowOnStep.SEND_SHOOTER_PROMPT)
-        self.assertEqual(following.kwargs["candidates"], candidates)
-        self.assertIn("choose who takes the shot", following.kwargs["ask"])
+        # **A `PendingPrompt` since Phase 6.** It was a follow-on while
+        # nothing in match state said a scoring opportunity was being
+        # asked about; `pending_scoring_opportunity` records that now,
+        # and the candidates are read back off the ball's space rather
+        # than stored -- see `d12ball.prompts.scoring_opportunity_prompt`.
+        prompt = result.next
+        self.assertEqual(prompt.kind, PromptKind.SHOOTER_CHOICE)
+        self.assertEqual(prompt.player_ids, candidates)
+        self.assertIn("choose who takes the shot", prompt.ask)
+        self.assertEqual(
+            self.match.pending_scoring_opportunity, {"kind": "shooter"},
+        )
+        self.assertEqual(
+            pending_prompt(self.engine, self.game, self.match).kind,
+            PromptKind.SHOOTER_CHOICE,
+        )
+
+
+class LooseBallAnswerTests(SpineFixture):
+    """
+    Answering the loose ball's pick -- the two steps Phase 6 lifted out
+    of `LooseBallChoiceView`.
+
+    **These are here because nothing else in the suite reaches them.**
+    `test_golden_advanced` says so in its own docstring: every loose
+    ball its seed produces comes down where somebody is already
+    standing, which pre-declines the other side and settles without
+    asking, so the contest pick has never been pressed by a test. The
+    lift would have been the one in this phase with nothing behind it.
+    """
+
+    def loose_ball(self) -> None:
+        """
+        A ball lying on an empty space, with nobody yet sent.
+
+        The handler is chosen first, as every real loose ball's was:
+        `pending_prompt` reads "no ball handler yet" ahead of the loose
+        ball, because a match that has neither is at the kickoff. See
+        the ordering comments in `d12ball/prompts.py`.
+        """
+        self.match.active_player_id = self.match.eligible_ball_handlers()[0]
+        for occupant in list(
+            self.match.board.spaces[self.match.ball.zone][
+                self.match.ball.space_index
+            ]
+        ):
+            self.match.board.remove_meeple(occupant)
+        self.match.begin_loose_ball(1)
+
+    def test_a_pick_names_the_player_and_asks_the_other_side(
+        self,
+    ) -> None:
+        self.loose_ball()
+        striker = fielded(self.match, PlayerRole.STRIKER)
+
+        result = choose_loose_ball_contestant(
+            self.engine,
+            self.game,
+            self.match,
+            skill_type="offense",
+            player_id=striker,
+        )
+
+        self.assertEqual(self.match.loose_ball_offense_player, striker)
+        self.assertEqual(
+            result.narration,
+            [
+                f"{self.engine.format_player_label(self.match, self.engine.get_player_definition(striker))} "
+                f"contests the {contest_noun(self.match)} (offense).",
+            ],
+        )
+        # The other side is on the clock now, and the prompt is the one
+        # `loose_ball_pick_prompt` reads off the position -- the same
+        # one a restart comes back to.
+        self.assertEqual(result.next.kind, PromptKind.LOOSE_BALL_PICK)
+        self.assertEqual(result.next.skill_type, "defense")
+        self.assertEqual(
+            pending_prompt(self.engine, self.game, self.match).kind,
+            PromptKind.LOOSE_BALL_PICK,
+        )
+
+    def test_the_second_answer_hands_on_to_the_settling(self) -> None:
+        self.loose_ball()
+        choose_loose_ball_contestant(
+            self.engine,
+            self.game,
+            self.match,
+            skill_type="offense",
+            player_id=fielded(self.match, PlayerRole.STRIKER),
+        )
+
+        result = choose_loose_ball_contestant(
+            self.engine,
+            self.game,
+            self.match,
+            skill_type="defense",
+            player_id=fielded(
+                self.match, PlayerRole.FULLBACK, TeamSide.VISITING,
+            ),
+        )
+
+        self.assertEqual(
+            self.follow_on(result), FollowOnStep.RESOLVE_LOOSE_BALL,
+        )
+
+    def test_a_decline_says_so_and_puts_it_to_the_other_side(
+        self,
+    ) -> None:
+        self.loose_ball()
+        side = self.match.ball.possession
+
+        result = decline_loose_ball_contest(
+            self.engine, self.game, self.match, skill_type="offense",
+        )
+
+        self.assertTrue(self.match.loose_ball_offense_declined)
+        self.assertEqual(
+            result.narration,
+            [
+                f"{format_team_side_label(self.match.setup_for_side(side))} "
+                f"send nobody after the {contest_noun(self.match)}.",
+            ],
+        )
+        self.assertEqual(result.next.kind, PromptKind.LOOSE_BALL_PICK)
+
+    def test_a_side_standing_on_the_ball_may_not_be_held_back(
+        self,
+    ) -> None:
+        """
+        **The refusal is asked without applying anything**, which is
+        the whole reason it is a function of its own: the frontend has
+        its own refusals to put in front of the step (the tutorial's
+        rail is one), and a step that raised on the way *out* would
+        already have recorded the decline by the time one of those
+        fired.
+        """
+        self.loose_ball()
+        striker = fielded(self.match, PlayerRole.STRIKER)
+        self.match.board.remove_meeple(striker)
+        self.match.board.place_meeple(
+            striker, self.match.ball.zone, self.match.ball.space_index,
+        )
+
+        refusal = loose_ball_decline_refusal(self.match, "offense")
+
+        self.assertIsNotNone(refusal)
+        self.assertIn("cannot be held back", refusal)
+        self.assertFalse(self.match.loose_ball_offense_declined)
+        with self.assertRaises(ValueError):
+            decline_loose_ball_contest(
+                self.engine, self.game, self.match, skill_type="offense",
+            )
+        self.assertFalse(self.match.loose_ball_offense_declined)
 
 
 class OwnGoalRiskTests(SpineFixture):

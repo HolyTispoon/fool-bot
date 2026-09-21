@@ -292,6 +292,185 @@ class LoopTests(DriverFixture):
         )
 
 
+class NarrationGroupTests(DriverFixture):
+    """
+    Where one message ends and the next begins.
+
+    Until Phase 6's second increment the loop could only *carry* a
+    step's lines forward, so a step whose lines were an event in their
+    own right -- the reveal, a settled loose ball, "Players run
+    back!", the whistle -- could not be in the table at all: the
+    distinction was the cog calling `post_then_dispatch` instead of
+    `dispatch_step_result`. `own_message` is that distinction as an
+    argument, and it stays the frontend's: a web app with no
+    five-in-five bucket may want every step's lines separately.
+    """
+
+    def steps(self, table):
+        patched = dict(driver.MODEL_STEPS)
+        patched.update(table)
+        return mock.patch.object(driver, "MODEL_STEPS", patched)
+
+    def two_steps(self):
+        """A step that names a second, and the second."""
+        def first(engine, game, match, *, lead_in="", **kwargs):
+            return StepResult(
+                narration=[line for line in (lead_in, "the first") if line],
+                next=FollowOn(FollowOnStep.BEGIN_SHOOTER_CHOICE),
+            )
+
+        def second(engine, game, match, *, lead_in="", **kwargs):
+            return StepResult(
+                narration=[line for line in (lead_in, "the second") if line],
+            )
+
+        return {
+            FollowOnStep.FINISH_RUN_BACK: first,
+            FollowOnStep.BEGIN_SHOOTER_CHOICE: second,
+        }
+
+    def test_without_own_message_every_line_is_carried(self) -> None:
+        """The ordinary run, and still the common one: no groups."""
+        with self.steps(self.two_steps()):
+            run = self.advance(
+                StepResult(next=FollowOn(FollowOnStep.FINISH_RUN_BACK)),
+            )
+
+        self.assertEqual(run.groups, ())
+        self.assertEqual(run.result.narration, ["the first", "the second"])
+
+    def test_own_message_closes_a_group_and_carries_nothing_on(
+        self,
+    ) -> None:
+        """
+        The step's lines come back as a group of their own, tagged with
+        the step that said them, and the step after it opens with no
+        lead-in -- which is exactly what `post_then_dispatch` did.
+        """
+        with self.steps(self.two_steps()):
+            run = self.advance(
+                StepResult(next=FollowOn(FollowOnStep.FINISH_RUN_BACK)),
+                own_message={FollowOnStep.FINISH_RUN_BACK},
+            )
+
+        self.assertEqual(
+            run.groups,
+            (
+                driver.NarrationGroup(
+                    ("the first",), FollowOnStep.FINISH_RUN_BACK,
+                ),
+            ),
+        )
+        self.assertEqual(run.result.narration, ["the second"])
+
+    def test_the_caller_s_own_lines_ride_into_the_first_step(self) -> None:
+        """
+        `own_message` closes a group *after* a step, never in front of
+        one: the lines said before it are its `lead_in`, the way they
+        always were.
+        """
+        with self.steps(self.two_steps()):
+            run = self.advance(
+                StepResult(
+                    narration=["said before"],
+                    next=FollowOn(FollowOnStep.FINISH_RUN_BACK),
+                ),
+                own_message={FollowOnStep.FINISH_RUN_BACK},
+            )
+
+        self.assertEqual(
+            run.groups[0].narration, ("said before", "the first"),
+        )
+
+    def test_a_step_that_speaks_the_lines_is_handed_them_instead(
+        self,
+    ) -> None:
+        """
+        The whistle's lines are the *content* of the game-over message
+        -- the final board rides on them -- so a group that would close
+        in front of one of those is carried across instead. This is
+        `FOLLOW_ONS_THAT_SPEAK_THE_LINES` in `cogs/d12ball/core.py`,
+        which the cog passes in.
+        """
+        def whistle(engine, game, match, *, lead_in="", **kwargs):
+            return StepResult(
+                narration=["full time"],
+                next=FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
+            )
+
+        with self.steps({FollowOnStep.END_PERIOD: whistle}):
+            run = self.advance(
+                StepResult(next=FollowOn(FollowOnStep.END_PERIOD)),
+                own_message={FollowOnStep.END_PERIOD},
+                speaks_lines={FollowOnStep.ANNOUNCE_GAME_OVER},
+            )
+
+        self.assertEqual(run.groups, ())
+        self.assertEqual(run.result.narration, ["full time"])
+        self.assertEqual(
+            run.result.next, FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
+        )
+
+    def test_a_group_that_said_nothing_is_not_reported(self) -> None:
+        """
+        A step in `own_message` that had nothing to say is not an empty
+        message; the frontend would have to filter it, so the loop does
+        not hand it one.
+        """
+        def silent(engine, game, match, *, lead_in="", **kwargs):
+            return StepResult()
+
+        with self.steps({FollowOnStep.RESOLVE_LOOSE_BALL: silent}):
+            run = self.advance(
+                StepResult(next=FollowOn(FollowOnStep.RESOLVE_LOOSE_BALL)),
+                own_message={FollowOnStep.RESOLVE_LOOSE_BALL},
+            )
+
+        self.assertEqual(run.groups, ())
+        self.assertEqual(run.result.narration, [])
+
+    def test_several_groups_come_back_in_the_order_they_were_said(
+        self,
+    ) -> None:
+        def first(engine, game, match, *, lead_in="", **kwargs):
+            return StepResult(
+                narration=["one"],
+                next=FollowOn(FollowOnStep.RESOLVE_LOOSE_BALL),
+            )
+
+        def second(engine, game, match, *, lead_in="", **kwargs):
+            return StepResult(
+                narration=["two"],
+                next=FollowOn(FollowOnStep.BEGIN_SHOOTER_CHOICE),
+            )
+
+        def third(engine, game, match, *, lead_in="", **kwargs):
+            return StepResult(narration=["three"])
+
+        with self.steps({
+            FollowOnStep.RESOLVE_MANEUVER: first,
+            FollowOnStep.RESOLVE_LOOSE_BALL: second,
+            FollowOnStep.BEGIN_SHOOTER_CHOICE: third,
+        }):
+            run = self.advance(
+                StepResult(next=FollowOn(FollowOnStep.RESOLVE_MANEUVER)),
+                own_message={
+                    FollowOnStep.RESOLVE_MANEUVER,
+                    FollowOnStep.RESOLVE_LOOSE_BALL,
+                },
+            )
+
+        self.assertEqual(
+            [group.step for group in run.groups],
+            [FollowOnStep.RESOLVE_MANEUVER, FollowOnStep.RESOLVE_LOOSE_BALL],
+        )
+        self.assertEqual(
+            [group.narration for group in run.groups],
+            [("one",), ("two",)],
+        )
+        self.assertEqual(run.result.narration, ["three"])
+
+
 class TableTests(unittest.TestCase):
     """What the loop can run, and what it says about it."""
 

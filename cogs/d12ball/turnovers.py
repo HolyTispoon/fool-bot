@@ -16,7 +16,7 @@ from d12ball.components import (
     MatchState,
     TeamSide,
 )
-from d12ball.flow import FollowOnStep, StepResult
+from d12ball.flow import StepResult
 from d12ball.prompts import PendingPrompt
 from d12ball.flow.windows import (
     apply_substitution,
@@ -30,12 +30,12 @@ from d12ball.flow.windows import (
     run_ai_substitution_window,
 )
 from d12ball.flow.turnovers import (
+    recover_ball_step,
     announce_run_back,
     begin_ball_recovery,
     begin_run_back,
     finish_run_back,
     run_back_passes,
-    run_back_player_ask,
     run_back_space_ask,
 )
 from d12ball.game import (
@@ -58,8 +58,6 @@ from cogs.d12ball_views import (
     BallRecoveryView,
     CoachingHubView,
     CoachingOfferView,
-    RunBackChoiceView,
-    RunBackPlayerChoiceView,
 )
 
 from cogs.d12ball.core import COACHING_PROMPT_KINDS
@@ -678,15 +676,12 @@ class TurnoverMixin:
             self.engine, game, match, side, player_id, mention,
         )
 
-    async def send_run_back_prompt(
+    async def post_run_back_prompt(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
-        *,
-        side: TeamSide,
-        candidates: list[str],
-        prompt: Optional[PendingPrompt],
+        prompt: PendingPrompt,
         lead_in: str = "",
     ) -> None:
         """
@@ -714,34 +709,24 @@ class TurnoverMixin:
         reading is never one of a position that has moved on.
 
         **Which of the two questions this is, and how it is worded, is
-        the model's**: `d12ball.prompts.run_back_prompt` reads it off
-        the position, which is the same chain a restart comes back
-        through. What is decided here is the picture and the view.
-        """
-        controller_id = self.engine.side_controller_id(game, side)
-        mention = f"<@{controller_id}>" if controller_id else "Someone"
-        prefix = f"{lead_in}\n\n" if lead_in else ""
+        the model's**: `d12ball.flow.turnovers.run_back_choice_prompt`
+        reads it off the position over `d12ball.prompts.run_back_prompt`,
+        which is the same chain a restart comes back through. What is
+        decided here is the picture and the view -- which is why the
+        question stopped being a `FollowOnStep` in Phase 6 and became
+        an ordinary prompt this renders.
 
-        # A stack asks who before it asks where, and the two share one
-        # message: the second question is an edit of the first, which
-        # keeps the field that was uploaded for it rather than paying
-        # for a second one. See RunBackPlayerChoiceView.
-        if len(candidates) == 1:
-            prompt_view = RunBackChoiceView(self, game.game_id, candidates[0])
-            body = run_back_space_ask(
-                self.engine, game, match, side, candidates[0], mention,
-            )
-        else:
-            prompt_view = RunBackPlayerChoiceView(
-                self, game.game_id, candidates,
-            )
-            body = run_back_player_ask(
-                self.engine, match, side, candidates, mention,
-            )
+        A stack asks who before it asks where, and the two share one
+        message: the second question is an edit of the first (see
+        `RunBackPlayerChoiceView`), which keeps the field that was
+        uploaded for it rather than paying for a second one.
+        """
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+        prompt_view = self.view_for_prompt(game.game_id, match, prompt)
 
         prompt_message = await send_new_prompt(
             interaction,
-            f"{prefix}{body}",
+            f"{prefix}{prompt.ask}",
             file=await self.build_field_file(game),
             view=prompt_view,
             allowed_mentions=discord.AllowedMentions(
@@ -839,12 +824,12 @@ class TurnoverMixin:
             if following is None:
                 continue
 
-            if following.step is FollowOnStep.SEND_RUN_BACK_PROMPT:
+            if isinstance(following, PendingPrompt):
                 # A coach's choice ends the cascade here: say what has
                 # happened so far, settle the board it left, and ask.
                 #
                 # The board goes on the persistent message; the prompt
-                # draws its own field strip (see send_run_back_prompt).
+                # draws its own field strip (see post_run_back_prompt).
                 # Two renders, two uploads -- the requests are what the
                 # gate counts, and they are unchanged.
                 png = await self.render_match_png(game)
@@ -852,12 +837,8 @@ class TurnoverMixin:
                     await self.refresh_match_image(
                         interaction, game, png=png,
                     )
-                await self.send_run_back_prompt(
-                    interaction,
-                    game,
-                    match,
-                    lead_in=lead_in,
-                    **following.kwargs,
+                await self.post_run_back_prompt(
+                    interaction, game, match, following, lead_in=lead_in,
                 )
                 return
 
@@ -894,46 +875,16 @@ class TurnoverMixin:
         player_id: str,
         lead_in: str = "",
     ) -> None:
-        player = self.engine.get_player_definition(player_id)
-        # The triggering maneuver's own travel, for the clock. It
-        # outlives the run back that just finished (only
-        # reset_maneuver clears it) precisely so this step, which can
-        # span a restart, can still read it back.
-        distance_moved = match.pending_run_back_distance
-        # Read before the pickup clears it. A time out's is the one
-        # walk to the ball that charges nothing, and it is not a
-        # turnover either -- the side fetching the ball is the side
-        # that has had it all along, so nothing resets and nothing
-        # ends. See finish_time_out.
-        from_time_out = match.pending_recovery_from_time_out
-        distance = match.recover_out_of_bounds_ball(player_id)
-        exhaustion_text = (
-            "" if from_time_out
-            else self.apply_exhaustion(game, match, player_id, distance)
+        """
+        The Discord half of sending somebody after an out-of-bounds
+        ball -- `d12ball.flow.turnovers.recover_ball_step`, which says
+        where the clock cost comes from and why a time out's pickup
+        charges nothing.
+        """
+        result = recover_ball_step(
+            self.engine, game, match, player_id=player_id, lead_in=lead_in,
         )
         self.persist(game, match)
-
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-        # Joined rather than interpolated: a free pickup has no
-        # exhaustion line at all, and interpolating one would leave a
-        # blank line under the sentence. See "What a message says".
-        await send_new_prompt(
-            interaction,
-            "\n".join(
-                part for part in (
-                    f"{prefix}"
-                    f"{self.player_label(match, player)} picks the "
-                    f"ball up at "
-                    f"{space_label(match.ball.zone, match.ball.space_index)}.",
-                    exhaustion_text,
-                ) if part
-            )
-        )
-        await self.refresh_match_image(interaction, game)
-        await self.finish_maneuver_resolution(
-            interaction,
-            game,
-            match,
-            distance_moved=distance_moved,
-            turnover_occurred=not from_time_out,
-        )
+        # Its own message: the pickup is an event, and the maneuver's
+        # tail behind it is the next one.
+        await self.post_then_dispatch(interaction, game, match, result)
