@@ -12,6 +12,12 @@ from d12ball.components import (
     TeamSide,
     Zone,
 )
+from d12ball.flow import StepResult
+from d12ball.flow.windows import (
+    decline_coaching_step,
+    declare_coaching_step,
+    finish_coaching_step,
+)
 from d12ball.game import (
     D12BallGame,
     Formation,
@@ -224,7 +230,11 @@ class CoachingOfferView(CoachingView):
         if game is None or match is None:
             return
 
-        match.declare_coaching()
+        # **The rule is
+        # `d12ball.flow.windows.declare_coaching_step`** since Phase 6.
+        # It says nothing: the hub that replaces the offer is what a
+        # coach reads next.
+        declare_coaching_step(self.cog.engine, game, match)
         self.cog.persist(game, match)
 
         # No attachments: the offer this replaces already carried the
@@ -241,16 +251,28 @@ class CoachingOfferView(CoachingView):
         if game is None or match is None:
             return
 
-        setup = match.setup_for_side(self.side(match))
-        await interaction.response.edit_message(
-            content=(
-                f"# Coaching Choice\n"
-                f"**{get_team_emoji(self.cog.team_emojis, setup.team)} "
-                f"{interaction.user.display_name} passed.**"
-            ),
-            view=None,
+        # **The rule is
+        # `d12ball.flow.windows.decline_coaching_step`** since Phase 6.
+        # The coach's own name is the one thing it takes rather than
+        # decides: nothing in the match knows what to call a Discord
+        # account, so it arrives as a label the way a shot's does.
+        result = decline_coaching_step(
+            self.cog.engine,
+            game,
+            match,
+            side=self.side(match),
+            coach_name=interaction.user.display_name,
         )
-        await self.cog.finish_substitution_window(interaction, game, match)
+
+        # No save here: the step changed nothing a coach can lose, and
+        # the dispatcher below writes the match once for the whole
+        # click (principle 9 in CLAUDE.md).
+        await interaction.response.edit_message(
+            content=result.narration[0], view=None,
+        )
+        await self.cog.dispatch_step_result(
+            interaction, game, match, StepResult(next=result.next),
+        )
 
 
 class CoachingHubView(CoachingView):
@@ -446,32 +468,31 @@ class CoachingHubView(CoachingView):
         if game is None or match is None:
             return
 
-        side = self.side(match)
-        refusal = self.cog.engine.coaching_finish_refusal(match, side)
-        if refusal is not None:
-            await interaction.response.send_message(refusal, ephemeral=True)
+        # **The rule is
+        # `d12ball.flow.windows.finish_coaching_step`** since Phase 6,
+        # the refusal included: the summary is read while the window
+        # still remembers it, because closing it clears the record and
+        # this message is the only place a coach's substitutions
+        # survive.
+        try:
+            result = finish_coaching_step(
+                self.cog.engine, game, match, side=self.side(match),
+            )
+        except ValueError as refusal:
+            await interaction.response.send_message(
+                str(refusal), ephemeral=True,
+            )
             return
 
-        # What they did, while the window still remembers it: closing
-        # it clears the record, and every note the flow put up along
-        # the way was written over by the step after it -- this
-        # message is the only place a coach's substitutions survive.
-        setup = match.setup_for_side(side)
-        changes = self.cog.coaching_summary(match, side)
+        # No save here either, for `decline`'s reason: closing the
+        # window is `finish_substitution_window`'s and the dispatcher
+        # writes once, after it.
         await interaction.response.edit_message(
-            content="\n".join(
-                [
-                    "# Coaching Choice",
-                    f"**{format_team_side_label(setup)} are done.**",
-                    *(
-                        changes
-                        or ["No substitutions, and no change of shape."]
-                    ),
-                ]
-            ),
-            view=None,
+            content=result.narration[0], view=None,
         )
-        await self.cog.finish_substitution_window(interaction, game, match)
+        await self.cog.dispatch_step_result(
+            interaction, game, match, StepResult(next=result.next),
+        )
 
 
 class CoachingFormationView(CoachingView):

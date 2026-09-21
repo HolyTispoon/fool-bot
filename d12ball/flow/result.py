@@ -281,6 +281,15 @@ class FollowOnStep(Enum):
     #: **challenge image**, the matchup drawn, and a picture is the
     #: frontend's.
     AUTO_RESOLVE_CHALLENGER = auto()
+    #: The junction all five coaching occasions come back through:
+    #: hand the window on, or give up on it and let the run back go
+    #: ahead. Added by Phase 6, when the window's own two answers
+    #: became steps and needed a name for what they end on.
+    #: `d12ball.flow.windows.finish_substitution_window` has been the
+    #: model's since Phase 5 and the loop runs it; what its cog wrapper
+    #: added was the choice of dispatcher, which is a row in the
+    #: frontend's `own_message` set now like the whistle's.
+    FINISH_SUBSTITUTION_WINDOW = auto()
 
 
 @dataclass(frozen=True)

@@ -246,6 +246,7 @@ DRIVER_OWN_MESSAGE = frozenset({
     FollowOnStep.ANNOUNCE_RUN_BACK,
     FollowOnStep.END_PERIOD,
     FollowOnStep.CONTINUE_SHOOTOUT,
+    FollowOnStep.FINISH_SUBSTITUTION_WINDOW,
 })
 
 
@@ -265,6 +266,11 @@ DRIVER_BLOCKS_PER_MESSAGE = frozenset({
     # apiece through `post_blocks_then_dispatch` before the test
     # that reaches it became a step.
     FollowOnStep.CONTINUE_SHOOTOUT,
+    # The junction the five coaching occasions come back through,
+    # for the same reason: a window closing can hand out the next
+    # side's, or open a kickoff, or let a run back go ahead, and
+    # those are separate events.
+    FollowOnStep.FINISH_SUBSTITUTION_WINDOW,
 })
 
 

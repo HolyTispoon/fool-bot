@@ -29,9 +29,11 @@ from __future__ import annotations
 
 import random
 import unittest
+from unittest import mock
 
 from d12ball.components import MatchState, TeamSide
 from d12ball.flow import driver
+from d12ball.flow.windows import open_substitution_window
 from d12ball.prompts import PromptKind, pending_prompt
 
 from prompt_fixtures import CASES, ENGINE, RULESET, PromptFixture
@@ -78,6 +80,44 @@ def _loose_ball_pick(fixture: PromptFixture) -> tuple[str, dict]:
 def _shooter_choice(fixture: PromptFixture) -> tuple[str, dict]:
     prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
     return "", {"shooter_id": prompt.player_ids[0]}
+
+
+def _coaching_side(fixture: PromptFixture) -> TeamSide:
+    """
+    The side whose window is open, opening one where the fixture has
+    not.
+
+    The setup and full-time hubs stand in their branch off
+    `pending_setup_stage` alone -- `pending_prompt` needs nothing else
+    to read them -- but answering one needs the window itself, which
+    `begin_setup_coaching` opens a step earlier. The fixture finishing
+    its own position, the same as the own-goal roll's ball handler.
+    """
+    match = fixture.match
+    if match.pending_coaching_side is None:
+        open_substitution_window(
+            ENGINE, fixture.game, match, TeamSide.HOME,
+        )
+    return match.pending_coaching_side
+
+
+def _coaching_offer(fixture: PromptFixture) -> tuple[str, dict]:
+    return "declare", {"side": _coaching_side(fixture)}
+
+
+def _coaching_hub(fixture: PromptFixture) -> tuple[str, dict]:
+    """
+    A substitution, which is the hub answer every occasion offers --
+    the three positional ones are not on a full-time window's menu.
+    """
+    match = fixture.match
+    side = _coaching_side(fixture)
+    setup = match.setup_for_side(side)
+    return "substitute", {
+        "side": side,
+        "outgoing_player_id": setup.field_players[0],
+        "incoming_player_id": setup.team_board.bench[0],
+    }
 
 
 def _shootout_order(fixture: PromptFixture) -> tuple[str, dict]:
@@ -209,6 +249,8 @@ LEGAL_ACTIONS = {
     PromptKind.SHOOTOUT_TEST: lambda fixture: ("", {}),
     PromptKind.INJURY_TEST: lambda fixture: ("", {}),
     PromptKind.PLAYER_ACTION: _player_action,
+    PromptKind.COACHING_OFFER: _coaching_offer,
+    PromptKind.COACHING_HUB: _coaching_hub,
     PromptKind.SHOOTOUT_ORDER: _shootout_order,
     PromptKind.SHOOTOUT_PICK: _shootout_pick,
     PromptKind.MANEUVER_CHALLENGE: _maneuver_challenge,
@@ -384,11 +426,7 @@ class ChoiceTests(ApplyFixture):
                         ENGINE,
                         fixture.game,
                         fixture.match,
-                        driver.Action(
-                            kind,
-                            choice,
-                            arguments if choice != "decline" else {},
-                        ),
+                        driver.Action(kind, choice, arguments),
                     )
                     if isinstance(run, driver.Refusal):
                         self.assertNotEqual(run.reason, unknown)
@@ -427,35 +465,46 @@ class PositionRefusalTests(ApplyFixture):
 class SeamTests(unittest.TestCase):
     """What `apply` is not, and what it says about itself."""
 
+    def test_every_prompt_kind_has_a_model_answer(self) -> None:
+        """
+        **The claim Phase 6 was for**: a frontend that authorises a
+        person and calls `apply` can drive every question this game
+        asks. It is asserted as an equality rather than a subset so a
+        new kind arriving without an answer fails here, once, rather
+        than in whatever corner of a game reaches it.
+        """
+        self.assertEqual(set(driver.ANSWERS), set(PromptKind))
+
     def test_a_kind_with_no_model_answer_raises_rather_than_refuses(
         self,
     ) -> None:
         """
-        A question this module cannot answer yet is a fact about the
-        seam, not about the position -- so it is not a refusal, which
-        a frontend would show to a coach as though they had done
+        A question this module cannot answer is a fact about the seam,
+        not about the position -- so it is not a refusal, which a
+        frontend would show to a coach as though they had done
         something wrong.
+
+        Every kind has an answer today, which is what the test above
+        says, so the missing row is staged here rather than found: the
+        guard has to outlive the day the table was first complete.
         """
-        unanswered = [
-            kind for kind in PromptKind if not driver.can_answer(kind)
-        ]
-        self.assertTrue(unanswered, "every kind has an answer now")
         fixture = next(
-            case.build()
-            for case in CASES
-            if PromptKind[case.kind] in unanswered
+            case.build() for case in CASES if case.name == "skill test"
         )
-        with self.assertRaises(LookupError):
-            driver.apply(
-                ENGINE,
-                fixture.game,
-                fixture.match,
-                driver.Action(
-                    pending_prompt(
-                        ENGINE, fixture.game, fixture.match,
-                    ).kind,
-                ),
-            )
+        thinner = {
+            kind: answer
+            for kind, answer in driver.ANSWERS.items()
+            if kind is not PromptKind.SKILL_TEST
+        }
+        with mock.patch.object(driver, "ANSWERS", thinner):
+            self.assertFalse(driver.can_answer(PromptKind.SKILL_TEST))
+            with self.assertRaises(LookupError):
+                driver.apply(
+                    ENGINE,
+                    fixture.game,
+                    fixture.match,
+                    driver.Action(PromptKind.SKILL_TEST),
+                )
 
     def test_every_answer_takes_the_same_shape(self) -> None:
         """

@@ -27,6 +27,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import AIOpponent, D12BallGame, Formation, GameStatus, Team
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
@@ -616,7 +617,12 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         click = build_click()
-        with suppressed_view_saves():
+        # The junction the window closes into is the driver's since
+        # Phase 6, so the cog stub is routed rather than reached --
+        # see `tests/flow_stubs.py`.
+        with suppressed_view_saves(), suppressed_cog_saves(), (
+            driver_reaches_cog_stubs(cog)
+        ):
             await CoachingHubView(cog, game.game_id).finish(click)
 
         content = click.response.edit_message.await_args.kwargs["content"]
@@ -634,7 +640,12 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         cog.finish_substitution_window = mock.AsyncMock()
 
         click = build_click()
-        with suppressed_view_saves():
+        # The junction the window closes into is the driver's since
+        # Phase 6, so the cog stub is routed rather than reached --
+        # see `tests/flow_stubs.py`.
+        with suppressed_view_saves(), suppressed_cog_saves(), (
+            driver_reaches_cog_stubs(cog)
+        ):
             await CoachingHubView(cog, game.game_id).finish(click)
 
         self.assertIn(

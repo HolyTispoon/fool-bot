@@ -271,6 +271,10 @@ class FollowOnStepTests(unittest.TestCase):
         # became a step and needed a name for the route that puts
         # the challenge image up.
         "AUTO_RESOLVE_CHALLENGER",
+        # And once more, for the coaching window's own two
+        # answers: both end on the junction all five occasions
+        # come back through.
+        "FINISH_SUBSTITUTION_WINDOW",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(
@@ -313,6 +317,7 @@ class FollowOnStepTests(unittest.TestCase):
         # and what its cog wrapper added was the choice of dispatcher,
         # which is a row in the frontend's own sets now.
         "CONTINUE_SHOOTOUT",
+        "FINISH_SUBSTITUTION_WINDOW",
     }
 
     def test_the_two_tables_cover_the_enum_between_them(self) -> None:

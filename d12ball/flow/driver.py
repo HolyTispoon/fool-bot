@@ -78,6 +78,7 @@ from d12ball.flow import (
     rolls,
     turn,
     turnovers,
+    windows,
 )
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.game import D12BallGame
@@ -190,6 +191,8 @@ MODEL_STEPS: Mapping[FollowOnStep, Callable[..., StepResult]] = {
     FollowOnStep.END_PERIOD: periods.end_period,
     FollowOnStep.CONTINUE_SHOOTOUT:
         _lead_in_first(periods.continue_shootout),
+    FollowOnStep.FINISH_SUBSTITUTION_WINDOW:
+        _lead_in_first(windows.finish_substitution_window),
 }
 
 
@@ -657,6 +660,104 @@ def _answer_smooth(
     )
 
 
+def _answer_coaching_offer(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    side: TeamSide,
+    coach_name: str = "",
+) -> StepResult:
+    """
+    A coaching window that was *offered* rather than given, taken up or
+    passed.
+
+    `coach_name` is what to call the person who passed -- a label the
+    frontend supplies rather than a rule, the way a shot's
+    `action_label` is. Nothing in the match knows what to call a
+    Discord account.
+    """
+    if choice == "decline":
+        return windows.decline_coaching_step(
+            engine, game, match, side=side, coach_name=coach_name,
+        )
+    return windows.declare_coaching_step(engine, game, match)
+
+
+def _answer_coaching_hub(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    side: TeamSide,
+    formation: Optional[object] = None,
+    outgoing_player_id: Optional[str] = None,
+    incoming_player_id: Optional[str] = None,
+    player_id: Optional[str] = None,
+    other_player_id: Optional[str] = None,
+    space_index: Optional[int] = None,
+    swap_with: Optional[str] = None,
+) -> StepResult:
+    """
+    The Coaching Choice's own five answers, on one message.
+
+    **The hub is the one prompt with several answers that are not
+    alternatives**: a coach changes shape, substitutes, exchanges two
+    players' zones and moves a meeple within its zone, in any order and
+    as often as their allowance lets them, and then says they are done.
+    So `choice` names which of the five it is, and the four that change
+    something return the note the hub puts back above its own buttons.
+
+    **Its sub-menus are not prompts and never were.** They are steps of
+    one answer on one Discord message -- pick a player, then pick where
+    -- and what they read off the match to build themselves they read
+    from the engine. A restart re-opens at the hub, which is why a
+    part-made pick has never been in the save.
+    """
+    if choice == "done":
+        return windows.finish_coaching_step(engine, game, match, side=side)
+    if choice == "formation":
+        return StepResult(
+            narration=[engine.apply_formation(match, side, formation)],
+            board_changed=True,
+        )
+    if choice == "substitute":
+        return StepResult(
+            narration=[
+                windows.apply_substitution(
+                    engine,
+                    game,
+                    match,
+                    side,
+                    outgoing_player_id,
+                    incoming_player_id,
+                )
+            ],
+            board_changed=True,
+        )
+    if choice == "swap":
+        return StepResult(
+            narration=[
+                windows.apply_position_swap(
+                    engine, match, side, player_id, other_player_id,
+                )
+            ],
+            board_changed=True,
+        )
+    return StepResult(
+        narration=[
+            windows.apply_reposition(
+                engine, match, side, player_id, space_index, swap_with,
+            )
+        ],
+        board_changed=True,
+    )
+
+
 def _answer_shootout_order(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1089,6 +1190,8 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.SMOOTH: _answer_smooth,
     PromptKind.OWN_GOAL_ROLL: _answer_own_goal_roll,
     PromptKind.PLAYER_ACTION: _answer_player_action,
+    PromptKind.COACHING_OFFER: _answer_coaching_offer,
+    PromptKind.COACHING_HUB: _answer_coaching_hub,
     PromptKind.SHOOTOUT_ORDER: _answer_shootout_order,
     PromptKind.SHOOTOUT_PICK: _answer_shootout_pick,
     PromptKind.MANEUVER_CHALLENGE: _answer_maneuver_challenge,
@@ -1125,6 +1228,10 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.MANEUVER_CHALLENGE: ("send", "decline"),
     PromptKind.PLAYER_ACTION: ("shoot", "maneuver"),
     PromptKind.SHOOTOUT_ORDER: ("send", "restart"),
+    PromptKind.COACHING_OFFER: ("declare", "decline"),
+    PromptKind.COACHING_HUB: (
+        "formation", "substitute", "swap", "reposition", "done",
+    ),
     PromptKind.SCORE_ATTEMPT: ("roll", "back"),
 }
 

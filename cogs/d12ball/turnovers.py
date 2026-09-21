@@ -19,6 +19,8 @@ from d12ball.components import (
 from d12ball.flow import StepResult
 from d12ball.prompts import PendingPrompt
 from d12ball.flow.windows import (
+    apply_position_swap,
+    apply_reposition,
     apply_substitution,
     begin_time_out,
     coaching_summary,
@@ -104,29 +106,14 @@ class TurnoverMixin:
         other_player_id: str,
     ) -> str:
         """
-        The Coaching Choice's zone assignment: trade two players'
-        zones, meeples included, and describe it.
+        A forwarding method over
+        `d12ball.flow.windows.apply_position_swap`, which is where the
+        Coaching Choice's zone assignment went in Phase 6. Kept so no
+        call site moved -- the shape `team_emojis` took in Phase 1a.
         """
-        match.exchange_field_players(side, player_id, other_player_id)
-
-        setup = match.setup_for_side(side)
-        board_size = match.board.layout.board_size
-        first = self.engine.get_player_definition(player_id)
-        second = self.engine.get_player_definition(other_player_id)
-        return (
-            f"{self.player_label(match, first)} and "
-            f"{self.player_label(match, second)} change "
-            "places: "
-            f"{self.player_label(match, first)} to "
-            f"{destination_display_name(setup.assigned_zone(player_id).value, board_size)}"
-            f", {self.player_label(match, second)} to "
-            f"{destination_display_name(setup.assigned_zone(other_player_id).value, board_size)}"
-            ". No exhaustion cost."
+        return apply_position_swap(
+            self.engine, match, side, player_id, other_player_id,
         )
-
-
-
-
 
     def apply_reposition(
         self,
@@ -137,28 +124,13 @@ class TurnoverMixin:
         swap_with: Optional[str] = None,
     ) -> str:
         """
-        The Coaching Choice's space positioning: move one meeple within
-        its own zone, trading with whoever is already there when the
-        rule says so, and describe what happened.
+        A forwarding method over
+        `d12ball.flow.windows.apply_reposition`, the Coaching Choice's
+        space positioning. `apply_position_swap` above for why it is
+        still here.
         """
-        setup = match.setup_for_side(side)
-        zone = setup.assigned_zone(player_id)
-        partner = match.position_meeple(
-            side, player_id, space_index, swap_with=swap_with,
-        )
-
-        player = self.engine.get_player_definition(player_id)
-        if partner is None:
-            return (
-                f"{self.player_label(match, player)} moves "
-                f"to {space_label(zone, space_index)}. No exhaustion cost."
-            )
-        other = self.engine.get_player_definition(partner)
-        return (
-            f"{self.player_label(match, player)} moves to "
-            f"{space_label(zone, space_index)} and "
-            f"{self.player_label(match, other)} takes their "
-            "place. No exhaustion cost."
+        return apply_reposition(
+            self.engine, match, side, player_id, space_index, swap_with,
         )
 
     async def coaching_file(
