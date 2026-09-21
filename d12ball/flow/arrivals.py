@@ -202,9 +202,9 @@ def continue_smooth(
         return StepResult(
             next=PendingPrompt(
                 PromptKind.SMOOTH,
-                f"{smooth_emoji} **Smooth** — the ball runs through "
+                f"{smooth_emoji} **Smooth** — the ball reaches near "
                 f"{engine.format_player_label(match, player)}, who may "
-                "take it over.",
+                "_smoothly_ pull to become handler.",
                 player_id=player_id,
             ),
         )
