@@ -536,7 +536,8 @@ already called.
   `contest_on_decline`), `SEND_SHOOTER_PROMPT`, and `SEND_RUN_BACK_PROMPT`
   (which carries a picture). Closing that means `pending_prompt` growing a
   branch, which is a change to the game's recovery behaviour and belongs in
-  its own commit rather than in a refactor.
+  its own commit rather than in a refactor. *(Superseded on 2026-09-21:
+  the author folded it into Phase 6's last pull request -- see there.)*
 - **`post_then_dispatch` is a second dispatcher and Phase 6 has to keep
   both.** Which of the two a step gets is the frontend's decision; the
   driver will need the same distinction under a different name.
@@ -576,7 +577,9 @@ one, is [`windows.py`](../d12ball/flow/windows.py).
   arguments match state does not hold; the last two carry a picture.
   Closing any of them is `pending_prompt` growing a branch or
   `PendingPrompt` growing a field, which is a change to the game's
-  recovery behaviour and belongs in its own commit.
+  recovery behaviour and belongs in its own commit. *(Superseded on
+  2026-09-21: the author folded it into Phase 6's last pull request --
+  see there.)*
 - **The one window no golden pins is a halftime substitution by the AI
   side.** Dinky only swaps to get an injured player off, so no script
   can make it happen at the break. See the windows golden's docstring.
@@ -616,8 +619,9 @@ The reasoning is in
 **The remainder is one pull request, not several** -- the author,
 2026-09-21, answering that question on PR #255. So the split the phase
 took is the only one it takes: this increment, and then the rest in one
-go. Everything below is that one pull request's brief, and the third
-bullet is the thing it cannot start without.
+go. Everything below is that one pull request's brief. **Both questions
+PR #255 asked are answered**, and the third bullet carries the second
+answer.
 
 - **The loop can only stop *after* a step, and three of the things left
   need it to stop *before* one.** `BEGIN_HIGH_PASS_CONTEST` is the
@@ -647,16 +651,32 @@ bullet is the thing it cannot start without.
   `pending_prompt` growing a branch or `PendingPrompt` growing a field,
   which Phases 4 and 5 both wrote down as **a change to the game's
   recovery behaviour, belonging in its own commit** rather than inside a
-  refactor. That commit is now the thing standing between the plan and
-  its last phase, and it is the author's to approve -- **still open as
-  of 2026-09-21**, and the one answer the remaining pull request is
-  waiting on. It decides whether that pull request opens by changing
-  `pending_prompt` (its own commit, first) or has to route round it.
+  refactor. **The author's answer, 2026-09-21, on PR #255: fold it in.**
+  The four are closed inside the remaining pull request, as plumbing,
+  because nothing a coach sees in a running game changes. What does
+  change is what a restart restores, and the goldens cannot see that,
+  so folding it in owes the evidence its own commit would have owed:
+  - `pending_prompt` grows the branches and `PendingPrompt` the fields
+    those four need. `tests/prompt_fixtures.py` stands a match in each
+    new kind, and a test per kind that a save-and-load hands back the
+    same prompt, arguments and all -- that is the restart, in a test.
+  - **Principle 6 still holds inside the pull request.** If the Set Up
+    Pass attempt's `distance_moved` and `contest_on_decline`, or the
+    shooter's candidates, cannot be re-derived from the match and need
+    persisting, that field is its own commit *within* the pull request,
+    with its `MATCH_SAVED_FIELDS` entry and a fallback an older save
+    reads cleanly -- "own commit" was never "own pull request". Prefer
+    re-deriving where the engine can; a picture is never persisted, the
+    frontend draws it from the match on the way to the view.
+  - The bot stop below gains a restart inside each of the four, and the
+    pull request says what a restart in each did *before* this phase,
+    so the reviewer reads the change rather than infers it.
 - **`play_ai_turn` has not moved.** Its decisions are already
   `d12ball/ai.py`'s; what is in the cog is the sequencing and four
-  messages. It is small, and it is blocked on the same thing: the turn it
+  messages. It is small, and it was blocked on the same thing: the turn it
   plays ends on `ManeuverChallengeView` or `ScoreAttemptView`, neither of
-  which is a `PendingPrompt` the driver could hand back.
+  which was a `PendingPrompt` the driver could hand back. The decision
+  above unblocks it; it moves in the same pull request.
 - **The cog's surface has not moved and the figures say so**: 190 async
   methods, 159 taking an `interaction`, 611 grep lines -- all three
   unchanged, because every wrapper the loop emptied is still the entry
@@ -664,7 +684,9 @@ bullet is the thing it cannot start without.
   what happens next.
 
 **Bot stop:** everything. A full game each way, the tutorial, a restart in
-ten states, and an old save. This is the phase that earns a week of the two
+ten states -- **four of them the states that could not be restored
+before**: inside a Set Up Pass attempt prompt, a shooter prompt, a run
+back prompt and a coaching window -- and an old save. This is the phase that earns a week of the two
 of you actually playing on it before it lands. The increment that has
 landed changes no wording and no picture -- all three goldens are
 byte-identical -- so what it is worth playing for is the **save**: one

@@ -213,7 +213,10 @@ tests/test_d12ball_package_shape.py. Read that assertion; it is the list of
 what is left, and the enum dies when the cog's table is empty.
 
 **The rest of this phase is one pull request** -- the author,
-2026-09-21, on PR #255. Do not split it further.
+2026-09-21, on PR #255. Do not split it further. **And the four prompts
+that could not be `PendingPrompt`s are closed inside it** -- the author,
+same day, same PR, choosing "fold it in" over a recovery commit of its
+own. The worksheet's Phase 6 section says what that choice owes.
 
 **Read the worksheet's Phase 6 section first: part of this phase has
 already landed and the section says what and what it cost.** The loop is
@@ -223,10 +226,21 @@ names. Two of them decide how much of the rest is even possible:
 
 - the loop can only stop *after* a step, and `BEGIN_HIGH_PASS_CONTEST`
   among others needs it to stop *before* one (a `stop_before`);
-- `driver.apply(action)` and the full-game-through-the-driver test are
-  **blocked** on the four prompts that cannot be `PendingPrompt`s, which
-  Phases 4 and 5 both ruled a change to recovery behaviour and its own
-  commit. Do not fake it with a fifth shape; ask.
+- `driver.apply(action)` and the full-game-through-the-driver test were
+  **blocked** on the four prompts that cannot be `PendingPrompt`s
+  (`SEND_SET_UP_ATTEMPT_PROMPT`, `SEND_SHOOTER_PROMPT`,
+  `SEND_RUN_BACK_PROMPT` and the coaching window). The author has folded
+  closing them into this pull request: `pending_prompt` grows the
+  branches, `PendingPrompt` the fields, and `play_ai_turn` comes unstuck
+  with them. Do not fake it with a fifth shape. Re-derive an argument
+  from the match where the engine can; a picture is never persisted. If
+  a field genuinely has to be saved, it is its own commit inside this
+  pull request with its `MATCH_SAVED_FIELDS` entry and a fallback an
+  older save reads cleanly (principle 6). Because a restart will then
+  restore prompts it does not restore today and no golden can see that,
+  each new kind gets a fixture in tests/prompt_fixtures.py and a
+  save-and-load test that hands back the same prompt, arguments and all,
+  and the PR says what a restart in each of the four did before.
 
 Read docs/design/cog-structure.md, docs/design/recovery.md,
 docs/design/rate-limits.md and docs/design/permissions.md, and the "The
@@ -285,7 +299,8 @@ Tests:
   does not (`tests/prompt_fixtures.py` already stands a match in every one
   of them), and a full scripted game played to a result through the driver
   alone with no cog imported. That last one is the test the web app
-  inherits and it needs the four non-`PendingPrompt` prompts closed first.
+  inherits, and closing the four non-`PendingPrompt` prompts in this pull
+  request is what makes it writable -- write it.
 - **`tests/flow_stubs.py` is how a test stubs a step now.** Sixty-odd tests
   stubbed a step by the cog method it named; which side of the seam runs a
   member is a fact about the seam, so it is answered there once. A phase
@@ -318,7 +333,9 @@ at a worksheet that no longer exists.
 
 Bot stop for the author (in the PR, and this is the one the worksheet says
 earns a week of play before it lands): a full game each way (two humans,
-solo), the tutorial, a restart in ten distinct states, an old pre-split save
-resumed and played to a result, on both machines. Open the PR as a draft
-and say so.
+solo), the tutorial, a restart in ten distinct states -- four of them the
+Set Up Pass attempt prompt, the shooter prompt, the run back prompt and the
+coaching window, which a restart could not restore before this phase -- an
+old pre-split save resumed and played to a result, on both machines. Open
+the PR as a draft and say so.
 ```
