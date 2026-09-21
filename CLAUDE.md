@@ -57,7 +57,8 @@ python3 -m unittest discover -s tests
 | `gamesaves/d12ball/hub.py` | The per-guild hub message pointers, in `data/d12ball_hubs.json` |
 | `scripts/` | CLI tools used repeatedly (not one-off scratch work) |
 | `tests/roster.py`, `tests/save_patches.py`, `tests/flow_stubs.py` | Naming a test's player by role; suppressing saves; stubbing a step on whichever side of the seam runs it -- [testing.md](docs/design/testing.md) |
-| `docs/living-rules.md` | **The whole ruleset as it currently stands.** The one thing to check a mechanic against |
+| `docs/living-rules.md` | **The D12Ball Charter: Laws of the Game -- the whole ruleset as it currently stands.** The one thing to check a mechanic against. Twenty Laws in two Parts; the printed edition numbers every paragraph at build time (`scripts/build_rulebooks.py charter`) -- [rulebooks.md](docs/design/rulebooks.md) |
+| `docs/learn-to-play.md` | The illustrated Learn to Play: basic mode in sixteen-odd pages, every rule citing its Law. Not a copy of the rules -- a lesson that cites them |
 | `docs/rules-log.md` | Every rules change, dated and sourced; what is still open; where upstream is behind |
 | `docs/gambit-matrix.md` | The worksheet the gambits were built from, cut to what is still open. **Nothing in it is a rule** |
 | `docs/model-discord-split.md` | The worksheet the model/Discord split is being built from -- the phases still open, what deliberately does not move, the bot-testing stop each phase ends on. **Nothing in it is a rule**; the principles it was written around now live in "The model and the Discord layer" below, moved there when Phase 1 landed |

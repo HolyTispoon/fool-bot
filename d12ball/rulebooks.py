@@ -363,7 +363,24 @@ class Numbering:
 NUMBERED_BLOCKS = (Paragraph_, ListBlock, TableBlock, QuoteBlock)
 # A section that is a table of contents in the source is dropped from a
 # numbered build: the builder generates its own.
-UNNUMBERED_SECTIONS = frozenset({"contents"})
+DROPPED_SECTIONS = frozenset({"contents"})
+# Level-2 headings that are not Laws: the preface, and any heading that
+# opens a Part or an Appendix. Their blocks carry no numbers either.
+FRONT_MATTER_SECTIONS = frozenset({"how-to-read-this-document"})
+UNNUMBERED_PREFIXES = ("Part ", "Appendix ")
+# A paragraph that opens with *Note* explains a rule and is never one,
+# so it is never numbered -- see "How to read this document".
+NOTE_PREFIX = "*Note"
+# "Appendix A. Quick reference" -> a cross-reference reads "(Appendix A)".
+APPENDIX_RE = re.compile(r"^Appendix ([A-Z])\b")
+
+
+def is_unnumbered_heading(block: "Heading") -> bool:
+    return block.slug in FRONT_MATTER_SECTIONS or block.text.startswith(UNNUMBERED_PREFIXES)
+
+
+def is_note(block: "Block") -> bool:
+    return isinstance(block, Paragraph_) and block.text.startswith(NOTE_PREFIX)
 
 
 def number_blocks(blocks: Sequence[Block]) -> Numbering:
@@ -381,8 +398,11 @@ def number_blocks(blocks: Sequence[Block]) -> Numbering:
     for position, block in enumerate(blocks):
         if isinstance(block, Heading):
             if block.level == 2:
-                skipping = block.slug in UNNUMBERED_SECTIONS
+                skipping = block.slug in DROPPED_SECTIONS or is_unnumbered_heading(block)
                 if skipping:
+                    appendix = APPENDIX_RE.match(block.text)
+                    if appendix:
+                        numbering.headings[block.slug] = f"Appendix {appendix.group(1)}"
                     continue
                 law += 1
                 second = 0
@@ -397,7 +417,7 @@ def number_blocks(blocks: Sequence[Block]) -> Numbering:
             elif block.level >= 4 and not skipping:
                 numbering.headings[block.slug] = f"{law}.{second}"
             continue
-        if skipping or law == 0 or not isinstance(block, NUMBERED_BLOCKS):
+        if skipping or law == 0 or not isinstance(block, NUMBERED_BLOCKS) or is_note(block):
             continue
         if in_section:
             third += 1
@@ -414,7 +434,7 @@ def dropped_positions(blocks: Sequence[Block]) -> set[int]:
     skipping = False
     for position, block in enumerate(blocks):
         if isinstance(block, Heading) and block.level <= 2:
-            skipping = block.level == 2 and block.slug in UNNUMBERED_SECTIONS
+            skipping = block.level == 2 and block.slug in DROPPED_SECTIONS
         if skipping:
             dropped.add(position)
     return dropped
@@ -521,6 +541,7 @@ def styles() -> dict[str, ParagraphStyle]:
         "CellHead": ParagraphStyle("CellHead", parent=body, fontName="DejaVu-Bold", fontSize=8.5, leading=11, spaceAfter=0),
         "Caption": ParagraphStyle("Caption", parent=body, fontSize=8.5, leading=11, textColor=MUTED, alignment=TA_CENTER, spaceBefore=3, spaceAfter=10),
         "Quote": ParagraphStyle("Quote", parent=body, leftIndent=18, textColor=MUTED, borderPadding=(2, 6, 2, 6)),
+        "Note": ParagraphStyle("Note", parent=body, fontSize=9, leading=12.5, leftIndent=40, textColor=MUTED, spaceAfter=8),
         "Code": ParagraphStyle("Code", fontName="DejaVu", fontSize=8, leading=10.5, textColor=INK_COLOR, backColor=PANEL, borderPadding=6, leftIndent=6, spaceBefore=4, spaceAfter=10),
         "TOCHeading": ParagraphStyle("TOCHeading", fontName="Display", fontSize=20, leading=24, textColor=INK_COLOR, spaceAfter=10),
         "TOC1": ParagraphStyle("TOC1", parent=body, fontName="DejaVu-Bold", spaceBefore=4),
@@ -634,7 +655,9 @@ def build_story(book: Book, blocks: Sequence[Block], available_width: float) -> 
                 story.append(Paragraph(text, style["Sub"]))
         elif isinstance(block, Paragraph_):
             markup = inline_markup(block.text, resolve_link)
-            if number:
+            if is_note(block):
+                story.append(Paragraph(markup, style["Note"]))
+            elif number:
                 story.append(Paragraph(f"<b>{number}</b>&nbsp;&nbsp;{markup}", style["Numbered"]))
             else:
                 story.append(Paragraph(markup, style["Body"]))

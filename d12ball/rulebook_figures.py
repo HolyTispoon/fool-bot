@@ -633,6 +633,19 @@ def species_figure() -> Image.Image:
     return scaled(canvas)
 
 
+def three_boards_figure(catalog: PlayerCatalog) -> Image.Image:
+    """The 6-, 7- and 9-space boards at kickoff, stacked, for the Charter's Appendix C."""
+    panels = [field_image(standard_match(size), catalog) for size in (6, 7, 9)]
+    width = max(panel.width for panel in panels)
+    gap = 30
+    canvas = Image.new("RGB", (width, sum(p.height for p in panels) + gap * (len(panels) - 1)), FACE_COLOR)
+    y = 0
+    for panel in panels:
+        canvas.paste(panel, ((width - panel.width) // 2, y))
+        y += panel.height + gap
+    return scaled(canvas)
+
+
 FigureBuilder = Callable[[PlayerCatalog], Image.Image]
 
 
@@ -659,6 +672,7 @@ FIGURES: dict[str, FigureBuilder] = {
     "fig-13-ball-speed": lambda catalog: speed_figure(),
     "fig-14-the-gambits": lambda catalog: cycle_figure(MANEUVER_TIER_GAMBIT),
     "fig-15-the-species": lambda catalog: species_figure(),
+    "fig-16-the-three-boards": three_boards_figure,
 }
 
 

@@ -113,13 +113,41 @@ class NumberingTests(unittest.TestCase):
         source = BOOKS["charter"].source
         assert source is not None
         text = source.read_text(encoding="utf-8")
-        numbering = number_blocks(parse_markdown(text))
-        self.assertIn("maneuvers", numbering.headings)
-        dangling = sorted(
-            slug for slug in set(LINK_RE.findall(text))
-            if slug not in numbering.headings
-        )
-        self.assertEqual(dangling, [], f"links with no numbered heading: {dangling}")
+        blocks = parse_markdown(text)
+        numbering = number_blocks(blocks)
+        headings = {block.slug for block in blocks if isinstance(block, Heading)}
+        dangling = sorted(slug for slug in set(LINK_RE.findall(text)) if slug not in headings)
+        self.assertEqual(dangling, [], f"links with no heading: {dangling}")
+        self.assertEqual(numbering.headings["appendix-a-quick-reference"], "Appendix A")
+        self.assertNotIn("how-to-read-this-document", numbering.headings)
+
+    def test_the_charters_numbers_are_the_ones_the_books_cite(self) -> None:
+        """
+        The Learn to Play cites Laws by number and the outline maps them,
+        so the numbers the build hands out are pinned here: a Law added
+        or moved changes every citation, and should have to say so.
+        """
+        source = BOOKS["charter"].source
+        assert source is not None
+        numbering = number_blocks(parse_markdown(source.read_text(encoding="utf-8")))
+        expected = {
+            "the-game-in-brief": "1", "components-and-definitions": "2", "the-turn": "4",
+            "score-attempt": "5", "maneuvers": "6", "ball-speed": "7", "sending-a-player": "9",
+            "contests-for-the-ball": "10", "own-goal": "11", "turnovers": "12", "time-out": "13",
+            "coaching-choice": "14", "exhaustion-and-injury": "15", "the-clock": "16",
+            "extreme-shootout": "17", "advanced-mode": "18", "gambits": "19", "species-abilities": "20",
+            "choosing-the-handler": "4.2", "what-the-defense-adds": "5.3", "the-skill-test": "6.4",
+            "high-pass": "6.7", "where-the-ball-comes-to-rest": "10.1",
+            "running-back-after-a-steal": "12.4", "resetting-after-a-new-play": "12.5",
+            "finishing-a-coaching-choice": "14.8", "the-injury-check": "15.3", "last-possession": "16.3",
+        }
+        actual = {slug: numbering.headings[slug] for slug in expected}
+        self.assertEqual(actual, expected)
+
+    def test_a_note_is_never_numbered(self) -> None:
+        blocks = parse_markdown("# T\n\n## Law\n\nA rule.\n\n*Note.* Why.\n\nAnother rule.\n")
+        numbered = [numbering for numbering in number_blocks(blocks).blocks.values()]
+        self.assertEqual(numbered, ["1.1", "1.2"])
 
 
 class BuildTests(unittest.TestCase):
@@ -140,10 +168,18 @@ class BuildTests(unittest.TestCase):
         self.assertTrue(data.startswith(b"%PDF"))
         self.assertGreaterEqual(data.count(b"/Type /Page"), 2)
 
-    def test_the_charter_draft_builds(self) -> None:
+    def test_both_books_build(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
-            out = build_book(BOOKS["charter"], pathlib.Path(folder) / "charter.pdf")
-            self.assertTrue(out.read_bytes().startswith(b"%PDF"))
+            for book in BOOKS.values():
+                out = build_book(book, pathlib.Path(folder) / f"{book.name}.pdf")
+                self.assertTrue(out.read_bytes().startswith(b"%PDF"), book.name)
+
+    def test_every_figure_the_books_show_exists(self) -> None:
+        for book in BOOKS.values():
+            source = book.source
+            assert source is not None
+            for target in IMAGE_RE.findall(source.read_text(encoding="utf-8")):
+                self.assertTrue((source.parent / target).exists(), f"{book.name}: {target}")
 
     def test_every_book_source_is_in_the_subset(self) -> None:
         """The plan and the outlines parse, so `--outlines` cannot fail on them."""

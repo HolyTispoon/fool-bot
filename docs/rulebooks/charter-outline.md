@@ -234,13 +234,13 @@ lists only the four basic changes.
 
 *From:* Turnovers.
 
-- 12.1 Every turnover resets speed to 1. The two kinds (table).
-- 12.2 Only a turnover moves anybody.
-- 12.3 **Running back after a steal.** Who runs (the two groups); who
+- 12.1 Every turnover resets speed to 1. 12.2 The two kinds (table).
+- 12.3 Only a turnover moves anybody.
+- 12.4 **Running back after a steal.** Who runs (the two groups); who
   does not (the carrier; a player alone in their zone); where to; the
   cost; a stack breaks up only while a space is uncovered; the coach's
   choice; running back never changes an arrangement.
-- 12.4 **Resetting after a new play.** Every meeple back to its
+- 12.5 **Resetting after a new play.** Every meeple back to its
   arrangement, free, before any Coaching Choice; an out-of-bounds ball
   is picked up after.
 

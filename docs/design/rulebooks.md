@@ -12,14 +12,30 @@ outlines and the illustration sketches are in
 rule**, and it goes when the books have shipped. This file is about the
 code that builds them.
 
-- **The Charter is the living rules, renumbered -- not a second file.**
-  CLAUDE.md's hard rule that there is one copy of the rules text stands:
-  the plan renames `docs/living-rules.md` to `docs/charter.md` and
-  repoints `rules_doc.py`, so the bot's rules commands and the printed
-  book read one file. Until that lands, `BOOKS["charter"]` falls back to
-  `docs/living-rules.md`, and building it is what the numbered draft
-  looks like. `BOOKS` names every source a book may have, first one
-  found wins.
+- **The Charter is the living rules, restructured in place -- not a
+  second file.** CLAUDE.md's hard rule that there is one copy of the
+  rules text stands: `docs/living-rules.md` *is* the Charter, under its
+  old filename, so the bot's rules commands and the printed book read one
+  file and nothing that linked it moved. `BOOKS["charter"]` prefers
+  `docs/charter.md` if it ever exists and falls back to the living rules,
+  so the rename is one `git mv` whenever the author wants it. `BOOKS`
+  names every source a book may have, first one found wins.
+- **The Charter's structure is load-bearing for the numbers.** Every
+  level-2 heading that is not front matter, a Part or an Appendix is a
+  Law, in file order; every level-3 heading under it a section. The
+  Learn to Play cites those numbers and `test_rulebooks.py` pins the ones
+  it cites, so inserting a Law or a section fails the suite until the
+  citations are looked at. Two headings with one slug fail
+  `test_d12ball_rules_lookup.py` (the anchor test), which is why the
+  sections are named `The own-goal roll` and `What a send costs` rather
+  than `The roll` twice.
+- **A level-2 heading is unnumbered when it is front matter
+  (`FRONT_MATTER_SECTIONS`), or begins `Part ` or `Appendix `**
+  (`UNNUMBERED_PREFIXES`); its blocks carry no numbers either, and an
+  Appendix resolves in a cross-reference as `(Appendix A)`. A paragraph
+  opening `*Note` is never numbered and is set small and indented: the
+  Charter's preface says a note is never a rule, and the layout is what
+  makes that visible.
 - **Numbering is done at build time and the source is not touched.**
   `number_blocks` gives every level-2 heading a Law number, every
   level-3 heading a section number, and every paragraph, list, table or
@@ -32,6 +48,12 @@ code that builds them.
   because the builder generates the contents page. Writing the numbers
   into the markdown (`--renumber`) is the plan's second step and is not
   built.
+- **The Learn to Play is `docs/learn-to-play.md`**, unnumbered, one
+  page break (before the appendix) and figures at the text width. It
+  cites the Charter inline as *(Law 6.4)*; it is not a copy of any rule.
+  It builds to 18 letter pages against the sixteen the plan cuts it to;
+  the cover and the artist's pieces are what the last two pages are
+  waiting on.
 - **`d12ball/rulebooks.py` holds the layout and `scripts/build_rulebooks.py`
   is the CLI**, the split `boards.py` / `render_boards.py` makes. It is
   under `d12ball/` and so under the purity ratchet: no discord, no

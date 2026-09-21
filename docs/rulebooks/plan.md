@@ -256,9 +256,9 @@ python3 scripts/build_rulebooks.py --outlines      # the two outlines as PDFs, f
 
 | Milestone | What lands | Reviewed by |
 | --- | --- | --- |
-| **1. This PR** | The plan, both outlines, fifteen figure sketches, the build script proven on the outlines. | Reading the outlines; approving or redlining each figure. |
-| 2. The Charter | The living rules renumbered into `docs/charter.md`, the preface, Law 2's definitions and the glossary; `rules_doc.py` and CLAUDE.md repointed; the builder producing the Charter PDF with build-time numbers. One PR. | Inline comments on the PR, paragraph by paragraph -- the way rules questions have been settled so far. |
-| 3. The Learn to Play text | `docs/learn-to-play.md`, sixteen pages, every rule with its Law citation; the walkthrough figures captured from the golden playthrough. | A read-through, then two people who have never played playing from it. |
+| **1. Landed** | The plan, both outlines, fifteen figure sketches, the build script proven on the outlines. | Reading the outlines; approving or redlining each figure. |
+| **2. Landed** | The living rules restructured into the Charter **in place** -- the file keeps its name, `docs/living-rules.md`, so nothing that reads it moved (see below) -- with the preface, Law 2's definitions, the Part II exceptions table and the four appendices; the builder producing the Charter PDF with build-time numbers, 40 letter pages. | Inline comments on the PR, paragraph by paragraph -- the way rules questions have been settled so far. |
+| **3. Landed, one step open** | `docs/learn-to-play.md`, 18 letter pages today against the sixteen the book is cut to, every rule with its Law citation. **Still open:** the walkthrough figures captured from the golden playthrough rather than set by hand. | A read-through, then two people who have never played playing from it. |
 | 4. Art | The artist's pieces from the list in the outline; the renderer figures redrawn or kept. | Proofs. |
 | 5. Print proof | Both PDFs at the print shop; the numbers written into the Charter's source once the text has stopped moving. | Holding the books. |
 
@@ -268,8 +268,12 @@ starts.
 
 ## Decisions to approve
 
-1. **The Charter replaces `living-rules.md`** (renamed `docs/charter.md`,
-   the bot repointed), rather than being a second file.
+1. **The Charter replaces `living-rules.md`** rather than being a second
+   file. *Done in place:* the Charter is `docs/living-rules.md` under its
+   old name, because a rename would have touched `rules_doc.py`, CLAUDE.md
+   and every design doc that links the file for no gain a reader can see.
+   The rename to `docs/charter.md` is one `git mv` and a link sweep, for
+   whenever the author wants the filename to match the title.
 2. **Numbering: build-time now, written into the source once the text
    settles.** Or written in from the start.
 3. **The Charter's section map** in [charter-outline.md](charter-outline.md)
