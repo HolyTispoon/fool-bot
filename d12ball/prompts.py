@@ -154,20 +154,28 @@ def run_back_prompt(
     Which of the two prompts it is is read back off the position,
     exactly as the cascade reads it: a stack with more than one player
     to spare comes back as the question of who runs, and everything
-    else as the question of where. A coach who had already answered the
-    first when the bot went down is asked it again -- that pick lives
-    on the view and nowhere else, the same as a part-made coaching
-    choice.
+    else as the question of where.
+
+    **A pick already made narrows the first question into the
+    second.** `MatchState.run_back_pick` is the coach's answer to
+    "who", recorded by `run_back_player_step`, and while it names one
+    of the players the position still asks about the question is
+    "where" for that player -- which is what the click that answers
+    it is checked against. It used to live on the Discord message and
+    nowhere else, so a restart asked "who" again and the driver
+    refused "where" as a question the match had moved on from; see
+    the field.
     """
     step = engine.next_run_back_step(game, match)
     if step is None:
         return None
     _, candidates = step
-    if len(candidates) == 1:
+    picked = match.run_back_pick
+    if len(candidates) == 1 or picked in candidates:
         return PendingPrompt(
             PromptKind.RUN_BACK_SPACE,
             "Choose where the next player runs back to:",
-            player_id=candidates[0],
+            player_id=picked if picked in candidates else candidates[0],
         )
     return PendingPrompt(
         PromptKind.RUN_BACK_PLAYER,

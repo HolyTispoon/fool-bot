@@ -382,13 +382,21 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             ),
             followup=SimpleNamespace(send=mock.AsyncMock()),
         )
-        with suppressed_view_saves():
+        # The pick is written down (`MatchState.run_back_pick`), so the
+        # cog's save is the one this click makes.
+        with suppressed_view_saves(), suppressed_cog_saves():
             await view.choose(click, midfield[1])
 
         click.response.edit_message.assert_awaited_once()
         edit = click.response.edit_message.await_args
         self.assertIn("choose where", edit.kwargs["content"])
         self.assertNotIn("attachments", edit.kwargs)
+        # The pick is on the match now, which is what lets the space
+        # that follows be checked against the position after a
+        # restart -- and a resume reads the same "where" question.
+        self.assertEqual(
+            cog.engine.load_match_state(game).run_back_pick, midfield[1],
+        )
         # Nothing new posted, and nobody moved until the space is
         # picked: the second question is the same message asked again.
         self.assertEqual(

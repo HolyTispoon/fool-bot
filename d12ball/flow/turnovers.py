@@ -636,6 +636,7 @@ def finish_run_back(
     turn on to whatever it was still holding up.
     """
     match.pending_run_back = False
+    match.run_back_pick = None
     distance_moved = match.pending_run_back_distance
     turnover_occurred = match.pending_run_back_turnover
     speed_choice_after = match.pending_run_back_speed_choice
@@ -794,19 +795,26 @@ def run_back_player_step(
     Which of a doubled-up pair runs back -- the answer to the first of
     the run back's two questions.
 
-    **It changes nothing**, and that is the whole of what is worth
-    saying about it: the pick narrows the second question and is not
-    itself a move, which is why `run_back_prompt` reads the position
-    back as "who" while more than one of them is spare and as "where"
-    once one has been chosen. The pick lives on the prompt and nowhere
-    else, so a restart in this window asks it again -- the same
-    simplification a part-made coaching choice makes.
+    **It moves nobody, and it is still a change to the match**: the
+    pick narrows the second question and is not itself a move, and
+    `MatchState.run_back_pick` is where it is written down, so that
+    `run_back_prompt` reads the position back as "where" for this
+    player from here on. Until Phase 6 of docs/model-discord-split.md
+    it lived on the prompt and nowhere else -- a restart asked "who"
+    again, and the driver refused the "where" that followed as a
+    question the match had moved on from, because the model's own
+    reading still said "who". Raises `ValueError` for a player the
+    position is not asking about, which is the stale click on a stack
+    the board has moved out from under.
     """
     side = (
         TeamSide.HOME
         if player_id in match.home.field_players
         else TeamSide.VISITING
     )
+    if player_id not in engine.run_back_crowded(game, match, side):
+        raise ValueError("They no longer have to run back.")
+    match.run_back_pick = player_id
     return StepResult(
         next=PendingPrompt(
             PromptKind.RUN_BACK_SPACE,
@@ -859,6 +867,8 @@ def run_back_space_step(
         space_index,
         engine.spread_exempt_ids(game, match, side),
     )
+    # The pick is spent by the move it narrowed the question to.
+    match.run_back_pick = None
     exhaustion_text = engine.apply_exhaustion(
         game, match, player_id, distance,
     )

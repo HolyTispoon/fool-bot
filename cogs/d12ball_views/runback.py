@@ -117,32 +117,25 @@ class RunBackPlayerChoiceView(SafeView):
             )
             return
 
-        side = (
-            TeamSide.HOME
-            if player_id in match.home.field_players
-            else TeamSide.VISITING
-        )
-        # Nothing is written until the space is picked, so a click on a
-        # prompt the board has moved out from under is caught by asking
-        # the position again rather than by a saved flag.
-        if player_id not in self.cog.engine.run_back_crowded(
-            game, match, side,
-        ):
-            await interaction.response.send_message(
-                "They no longer have to run back.", ephemeral=True,
-            )
-            return
-
         # **The question is the model's**, and asking it is this
         # view's: `run_back_player_step` narrows the run back's first
         # question into its second and words it, and the strip the
         # question is asked over is re-linked here because the picture
-        # is the frontend's (principle 8 in CLAUDE.md). Nothing is
-        # written, so nothing is saved -- the pick lives on the prompt
-        # and a restart asks it again.
-        prompt = run_back_player_step(
-            self.cog.engine, game, match, player_id=player_id,
-        ).next
+        # is the frontend's (principle 8 in CLAUDE.md). It refuses a
+        # click on a prompt the board has moved out from under by
+        # asking the position again, and the pick it records is
+        # written down: `MatchState.run_back_pick` is what lets the
+        # space step that follows be checked against the position.
+        try:
+            prompt = run_back_player_step(
+                self.cog.engine, game, match, player_id=player_id,
+            ).next
+        except ValueError as error:
+            await interaction.response.send_message(
+                str(error), ephemeral=True,
+            )
+            return
+        self.cog.persist(game, match)
 
         space_view = self.cog.view_for_prompt(self.game_id, match, prompt)
         link = build_full_image_button(interaction.message)
