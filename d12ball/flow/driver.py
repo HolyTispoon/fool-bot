@@ -334,7 +334,6 @@ def advance(
 
     groups: list[NarrationGroup] = []
     narration = list(result.narration)
-    said_by: Optional[FollowOnStep] = None
     board_changed = result.board_changed
     following = result.next
     steps: list[FollowOnStep] = []
@@ -351,7 +350,6 @@ def advance(
         )
         steps.append(step)
         narration = list(ran.narration)
-        said_by = step
         board_changed = board_changed or ran.board_changed
         following = ran.next
         if step in stops:
@@ -360,7 +358,6 @@ def advance(
             if narration:
                 groups.append(NarrationGroup(tuple(narration), step))
             narration = []
-            said_by = None
 
     return DriverRun(
         result=StepResult(

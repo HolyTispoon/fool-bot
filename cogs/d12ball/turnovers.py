@@ -680,6 +680,7 @@ class TurnoverMixin:
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
+        match: MatchState,
         prompt: PendingPrompt,
         lead_in: str = "",
     ) -> None:
@@ -721,11 +722,7 @@ class TurnoverMixin:
         uploaded for it rather than paying for a second one.
         """
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        prompt_view = self.view_for_prompt(
-            game.game_id,
-            self.engine.load_match_state(game),
-            prompt,
-        )
+        prompt_view = self.view_for_prompt(game.game_id, match, prompt)
 
         prompt_message = await send_new_prompt(
             interaction,
@@ -841,7 +838,7 @@ class TurnoverMixin:
                         interaction, game, png=png,
                     )
                 await self.post_run_back_prompt(
-                    interaction, game, following, lead_in=lead_in,
+                    interaction, game, match, following, lead_in=lead_in,
                 )
                 return
 

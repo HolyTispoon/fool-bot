@@ -1250,6 +1250,38 @@ def choose_loose_ball_contestant(
     )
 
 
+def loose_ball_decline_refusal(
+    match: MatchState,
+    skill_type: str,
+) -> Optional[str]:
+    """
+    Why this side may not send nobody after the loose ball, or None.
+
+    A **pure read**, and separate from the step for one reason: the
+    frontend has to be able to refuse *before* anything is applied.
+    `LooseBallChoiceView.decline` asks this, then its own tutorial
+    rail, and only then runs the step -- and a step that raised on the
+    way out would already have recorded the decline by the time the
+    rail refused it. `decline_loose_ball_contest` asks the same
+    question on its own account, so a frontend that skips this one
+    still cannot get past it.
+
+    The answer is `MatchState.may_decline_loose_ball`'s; what is here
+    is the sentence for it.
+    """
+    side = (
+        match.ball.possession
+        if skill_type == "offense"
+        else match.defending_side()
+    )
+    if match.may_decline_loose_ball(side):
+        return None
+    return (
+        "Somebody of theirs is standing on the ball -- they "
+        "contest it, and cannot be held back."
+    )
+
+
 def decline_loose_ball_contest(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1262,20 +1294,18 @@ def decline_loose_ball_contest(
 
     Raises `ValueError` where the side has somebody standing on the
     ball and therefore cannot be held back -- which is a stale click on
-    a prompt a restart re-attached from before the ball reached them,
-    and is `MatchState.may_decline_loose_ball`'s answer rather than
-    this function's.
+    a prompt a restart re-attached from before the ball reached them.
+    See `loose_ball_decline_refusal`, which is the same answer asked
+    without applying anything.
     """
+    refusal = loose_ball_decline_refusal(match, skill_type)
+    if refusal is not None:
+        raise ValueError(refusal)
     side = (
         match.ball.possession
         if skill_type == "offense"
         else match.defending_side()
     )
-    if not match.may_decline_loose_ball(side):
-        raise ValueError(
-            "Somebody of theirs is standing on the ball -- they "
-            "contest it, and cannot be held back."
-        )
     match.decline_loose_ball(side)
     return _loose_ball_answered(
         engine,

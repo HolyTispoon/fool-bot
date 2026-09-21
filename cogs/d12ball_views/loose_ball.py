@@ -19,6 +19,7 @@ from d12ball.flow import FollowOn, StepResult
 from d12ball.flow.arrivals import (
     choose_loose_ball_contestant,
     decline_loose_ball_contest,
+    loose_ball_decline_refusal,
 )
 from d12ball.game import (
     D12BallGame,
@@ -28,7 +29,6 @@ from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     contest_noun,
     format_player_with_team,
-    format_team_side_label,
     player_with_role,
     send_new_prompt,
     space_label,
@@ -199,6 +199,19 @@ class LooseBallChoiceView(SafeView):
         if game is None or match is None:
             return
 
+        # **Both refusals come before anything is applied**, and in
+        # this order, which is the one this method has always had. The
+        # button is not built for a side with somebody on the ball, so
+        # reaching that branch means a stale click -- a prompt a
+        # restart re-attached from before the ball got there. Same
+        # reason ManeuverChallengeView.decline re-checks its own.
+        refusal = loose_ball_decline_refusal(match, self.side)
+        if refusal is not None:
+            await interaction.response.send_message(
+                refusal, ephemeral=True,
+            )
+            return
+
         if self.cog.tutorial_railed_option(
             game, "loose_ball_decline", ("never",),
         ) == "never":
@@ -209,23 +222,14 @@ class LooseBallChoiceView(SafeView):
             )
             return
 
-        # The button is not built for a side with somebody on the ball,
-        # so a refusal here is a stale click -- a prompt a restart
-        # re-attached from before the ball reached them. The rule is
-        # `MatchState.may_decline_loose_ball` and the step raises on
-        # it; same reason ManeuverChallengeView.decline re-checks its
-        # own.
-        try:
-            result = decline_loose_ball_contest(
+        await self.settled(
+            interaction,
+            game,
+            match,
+            decline_loose_ball_contest(
                 self.cog.engine, game, match, skill_type=self.side,
-            )
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error), ephemeral=True,
-            )
-            return
-
-        await self.settled(interaction, game, match, result)
+            ),
+        )
 
     async def settled(
         self,

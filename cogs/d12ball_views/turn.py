@@ -9,6 +9,7 @@ from math import ceil
 from typing import Optional, TYPE_CHECKING
 
 from d12ball import tutorial
+from d12ball.flow.turn import select_ball_handler_step
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MatchState,
@@ -106,7 +107,9 @@ class BallHandlerSelectionView(SafeView):
             return
 
         try:
-            match.select_ball_handler(player_id)
+            prompt = select_ball_handler_step(
+                self.cog.engine, game, match, player_id,
+            ).next
         except ValueError as error:
             await interaction.response.send_message(
                 str(error),
@@ -115,9 +118,12 @@ class BallHandlerSelectionView(SafeView):
             return
 
         self.cog.persist(game, match)
+        # An **edit**, not a new message: the kickoff question becomes
+        # the turn question in place, which is a request the gate
+        # counts. What is asked and how it is worded is the step's.
         await interaction.response.edit_message(
-            content=self.cog.engine.build_turn_prompt(game, match),
-            view=PlayerActionView(self.cog, self.game_id),
+            content=prompt.ask,
+            view=self.cog.view_for_prompt(self.game_id, match, prompt),
         )
 
 
