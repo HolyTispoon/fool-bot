@@ -124,6 +124,28 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-21 (later) -- code only, a new play's window stops reading the half's time out
+
+**No rule changed, and none is stated here** -- the code was made to play the rule the Charter
+already carries. "A new play always offers one" (Law 14) has said since 2026-09-16 that *every*
+new play offers the side restarting play a Coaching Choice, **however many they have already
+had this half**, and it costs nothing. `d12ball/flow/turnovers.py` was still gating that window
+on `MatchState.may_take_time_out(winning_side)`, so a side that had called its time out was
+silently skipped past every later restart in that half: no offer, straight to the run back.
+
+It is the tail of the ceding change. Until 2026-09-16 a new play's declaration and the ceded
+ball shared one once-a-half count, and gating the window on it was right. That count moved onto
+the time out alone when ceding became one; `declared_substitution` became `time_outs_used` and
+the predicate became `may_take_time_out`, the docstrings were rewritten to say it no longer
+gates a new play, and the one call site that did was renamed along with everything else rather
+than removed. A test (`test_a_new_play_without_a_window_still_resets`) pinned the old behaviour
+under the new name, which is why the suite stayed green across the change; it is now inverted.
+
+Worth flagging as the shape of mistake to look for after a rule is narrowed: the state was
+renamed everywhere and the *reading* of it was left behind, and the only place the two could be
+seen to disagree was a call site whose own comment had been rewritten to describe the new rule.
+Nothing upstream moved and nothing in `docs/living-rules.md` changed.
+
 ### 2026-09-21 -- the living rules become The D12Ball Charter: Laws of the Game
 
 **No rule changed.** `docs/living-rules.md` was restructured into the Charter on the model of

@@ -41,15 +41,14 @@ because of what this file has to reach.
   The recorded run is 1-1 and the shootout settles it 3-4 in sudden
   death.
 
-**The one window it does not pin**, said plainly so nobody reads more
-into the file than is in it: **a halftime substitution by the AI
-side.** Dinky substitutes only to get an injured player off, so a
-script cannot make it swap anybody at halftime, and no seed in the
-sweep had an injured Purple player sitting on the field at the break.
-Both sides' halftime windows do run here, and Dinky's substitution
-*routine* is covered -- it swaps an injured player out in the time out
-it calls itself, at press 32. What is left for the author's bot stop is
-a halftime where both benches move.
+**The AI side's halftime substitution is pinned here**, which the seed
+before this one could not manage: Dinky substitutes only to get an
+injured player off, so a script cannot make it swap anybody, and
+whether one of its players is hurt at the break is the dice's to
+decide. On seed 39 one is -- Zytheris comes on for the injured Tachyon
+in Purple's halftime window -- so both sides' halftime windows run
+here *and* both move a player. The old seed covered Dinky's
+substitution routine only in a time out it called itself.
 
 **The press rule is the script**, and it has four rules on top of the
 advanced golden's two ("never press Back", "leave a coaching hub by
@@ -57,7 +56,11 @@ Done"), each one there to reach a window:
 
 - **A time out is taken the moment it is offered.** `may_call_time_out`
   is once a half and refuses under last possession, so "always press
-  it" is exactly one time out per half and needs no counting.
+  it" is exactly one time out per half and needs no counting. It is
+  taken early in each half, which is what makes this file the
+  regression test for a new play's window as well: every restart
+  Orange makes after press 2 offers them a Coaching Choice they had
+  a spent time out at the time of, and the first is at press 16.
 - **A halftime window makes one substitution**, read off the match
   rather than counted in the script: a hub whose side is on a halftime
   coaching stage with nothing yet in `pending_coaching_swaps` goes to
@@ -124,13 +127,22 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "windows_final_match.json"
 #: Picked by sweeping seeds 0-39 and keeping the one whose game is
 #: **level at full time** and whose first shootout round is **level
 #: too** -- the two things the script cannot arrange, since both are
-#: dice. Eight of the forty were level at full time and one of those
-#: eight went to sudden death. Every other window this file names is
+#: dice. Eleven of the forty were level at full time and two of those
+#: eleven went to sudden death. Every other window this file names is
 #: reached by the press rule and would be reached on any seed. Seeding
 #: the module rather than patching `randint` is what makes the run
 #: reproducible at all: the flow also reaches `random.shuffle` and
 #: `random.choice`.
-WINDOWS_SEED = 31
+#:
+#: **It was 31 until a new play's window stopped being gated on the
+#: half's time out** (see docs/rules-log.md, 2026-09-21). Every seed's
+#: game changed with it -- the restarting coach now gets a window they
+#: were being skipped past, and a window is presses and dice -- so the
+#: sweep was re-run rather than the old seed re-recorded. 39 is the
+#: shorter of the two that still land level and still go to sudden
+#: death, and it lands on the same 1-1 and the same 3-4 the old run
+#: did, which is coincidence rather than a property of the change.
+WINDOWS_SEED = 39
 
 #: A whole game, both halves, and a shootout -- so the budget is an
 #: order of magnitude past the advanced golden's. It is a backstop

@@ -591,7 +591,7 @@ class D12BallRunBackAnnouncementTests(
         cls.catalog = load_player_catalog()
         cls.rules = load_basic_ruleset()
 
-    def build_stubs(self, may_declare: bool, displace: bool = True):
+    def build_stubs(self, time_out_spent: bool = False, displace: bool = True):
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.player_catalog = self.catalog
@@ -635,7 +635,9 @@ class D12BallRunBackAnnouncementTests(
             # run back to announce (and a real reset to undo).
             stray = match.home.zones[Zone.HOME_GOAL][0]
             match.board.place_meeple(stray, Zone.MIDFIELD, 0)
-        if not may_declare:
+        if time_out_spent:
+            # A spent time out, which is no longer anything a new
+            # play's window reads -- see the regression test below.
             match.time_outs_used.add(TeamSide.HOME.value)
         return cog, interaction, game, match
 
@@ -643,7 +645,7 @@ class D12BallRunBackAnnouncementTests(
         # The run-back explainer belongs to steals: that is the only
         # turnover that still sends players scrambling back at a token
         # a space.
-        cog, interaction, game, match = self.build_stubs(may_declare=True)
+        cog, interaction, game, match = self.build_stubs()
 
         with suppressed_cog_saves():
             await cog.begin_run_back(
@@ -674,7 +676,7 @@ class D12BallRunBackAnnouncementTests(
     async def test_a_new_play_resets_first_then_offers_the_window(
         self,
     ) -> None:
-        cog, interaction, game, match = self.build_stubs(may_declare=True)
+        cog, interaction, game, match = self.build_stubs()
         stray = match.home.zones[Zone.HOME_GOAL][0]
         home_zone, home_space = match.assigned_positions[stray]
         self.assertEqual(
@@ -706,11 +708,17 @@ class D12BallRunBackAnnouncementTests(
         cog.continue_run_back.assert_not_awaited()
         self.assertTrue(match.pending_run_back)
 
-    async def test_a_new_play_without_a_window_still_resets(self) -> None:
-        # Passing on the window is not what triggers the reset -- a
-        # side with no declaration left never sees a window at all, and
-        # still comes back to the arrangement its coach set, free.
-        cog, interaction, game, match = self.build_stubs(may_declare=False)
+    async def test_a_spent_time_out_still_gets_the_window(self) -> None:
+        # "Every new play offers the side restarting play a Coaching
+        # Choice, however many they have already had this half, and it
+        # costs nothing" -- see "A new play always offers one" in
+        # docs/living-rules.md. This test asserted the opposite until
+        # the gate came off: a new play's declaration and the ceded
+        # ball shared one once-a-half count until 2026-09-16, and the
+        # call site kept reading it for five days after the rule
+        # stopped saying so, which skipped a coach who had called a
+        # time out past every later restart in the half.
+        cog, interaction, game, match = self.build_stubs(time_out_spent=True)
         stray = match.home.zones[Zone.HOME_GOAL][0]
         home_zone, home_space = match.assigned_positions[stray]
 
@@ -725,17 +733,39 @@ class D12BallRunBackAnnouncementTests(
             (Zone(home_zone), home_space),
         )
         self.assertEqual(match.exhaustion.get(stray, 0), 0)
-        cog.begin_substitution_window.assert_not_awaited()
 
-        # Nobody is displaced after a reset, so there is no run back to
-        # head -- only the speed note is left to say.
+        cog.begin_substitution_window.assert_awaited_once()
+        self.assertEqual(
+            cog.begin_substitution_window.await_args.args[3],
+            TeamSide.HOME,
+        )
+        # The run back waits behind the window, exactly as it does for
+        # a side with its time out still in hand.
+        cog.continue_run_back.assert_not_awaited()
+        self.assertTrue(match.pending_run_back)
+
+    async def test_a_new_plays_run_back_says_only_the_speed_note(
+        self,
+    ) -> None:
+        # The reset put everyone back on their own arrangement, so the
+        # run back behind the window finds nobody displaced -- and
+        # heading an empty one "Players run back!" reads as a bug. The
+        # window is stubbed and stepped over the way a coach passing on
+        # it does: `announce_run_back` is what closing one runs next.
+        cog, interaction, game, match = self.build_stubs()
+
+        with suppressed_cog_saves():
+            await cog.begin_run_back(
+                interaction, game, match,
+                turnover_occurred=True, new_play=True,
+            )
+            await cog.announce_run_back(interaction, game, match)
+
         texts = [
             call.args[0]
             for call in interaction.followup.send.await_args_list
         ]
-        self.assertNotIn(
-            "# Players run back!", "\n".join(texts),
-        )
+        self.assertNotIn("# Players run back!", "\n".join(texts))
         self.assertIn("ball speed goes down to **1**", texts[-1])
         cog.continue_run_back.assert_awaited_once()
 
@@ -744,7 +774,7 @@ class D12BallRunBackAnnouncementTests(
         # dead, so nobody gets to substitute and the run back starts
         # immediately, even though the winning side still holds its
         # declaration.
-        cog, interaction, game, match = self.build_stubs(may_declare=True)
+        cog, interaction, game, match = self.build_stubs()
 
         with suppressed_cog_saves():
             await cog.begin_run_back(
@@ -766,7 +796,7 @@ class D12BallRunBackAnnouncementTests(
         # Run backs belong to turnovers. Keeping the ball leaves
         # whoever is out of position where they are, at no exhaustion
         # cost, and goes straight on to the clock.
-        cog, interaction, game, match = self.build_stubs(may_declare=True)
+        cog, interaction, game, match = self.build_stubs()
 
         with suppressed_cog_saves():
             await cog.begin_run_back(
@@ -793,7 +823,7 @@ class D12BallRunBackAnnouncementTests(
         # No run-back, no substitution window, no steal-intercept
         # speed-choice follow-up -- possession lost while last
         # possession is already in force ends the half immediately.
-        cog, interaction, game, match = self.build_stubs(may_declare=True)
+        cog, interaction, game, match = self.build_stubs()
         match.scoreboard.last_possession = True
 
         # `END_PERIOD` is the driver's since Phase 6, so the whistle is
@@ -825,7 +855,7 @@ class D12BallRunBackAnnouncementTests(
         # so play continues normally even once last possession has
         # been declared -- and, not being a turnover, it runs nobody
         # back on the way there.
-        cog, interaction, game, match = self.build_stubs(may_declare=True)
+        cog, interaction, game, match = self.build_stubs()
         match.scoreboard.last_possession = True
 
         with suppressed_cog_saves(), chain_stops_at(
@@ -879,11 +909,13 @@ class D12BallNewPlayKickoffTests(
             mode=GameMode.BASIC,
             advanced_maneuvers=True, species_abilities=True,
         )
-        # Both sides out of declarations, so no window interrupts the
-        # flow and the reset runs straight into the kickoff fill.
-        match.time_outs_used.update(
-            {TeamSide.HOME.value, TeamSide.VISITING.value}
-        )
+        # A new play's window is free and unlimited, so one opens here
+        # whatever the coaches have had already -- and it is not what
+        # these tests are about. It is stubbed and then stepped over
+        # the way a coach passing on it does: `announce_run_back` is
+        # `finish_substitution_window`'s own next step, and the
+        # cascade behind it is where the kickoff fill happens.
+        cog.begin_substitution_window = mock.AsyncMock()
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves():
@@ -891,6 +923,8 @@ class D12BallNewPlayKickoffTests(
                 interaction, game, match,
                 distance_moved=2, turnover_occurred=True, new_play=True,
             )
+            cog.begin_substitution_window.assert_awaited_once()
+            await cog.announce_run_back(interaction, game, match)
         return cog, interaction
 
     def build_match(self) -> MatchState:
