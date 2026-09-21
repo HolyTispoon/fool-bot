@@ -260,6 +260,17 @@ class FollowOnStep(Enum):
     #: already existed as a step, with a second caller in the declined
     #: set-up, so nothing moved to make room for it.
     BEGIN_HIGH_PASS_CONTEST = auto()
+    #: What a settled shootout test hands back to: the next test, or
+    #: the end of the shootout. Added by Phase 6, when the test itself
+    #: moved (`d12ball.flow.rolls.shootout_test_step`) and needed a
+    #: name for what follows it -- the roll used to call
+    #: `D12Ball.continue_shootout` from inside a view. It is the loop's
+    #: from the moment it exists: `d12ball.flow.periods.continue_shootout`
+    #: is already a step, and what the cog wrapper added was
+    #: `post_blocks_then_dispatch`, which is now a row in the
+    #: frontend's `own_message` set like every other run of separate
+    #: events.
+    CONTINUE_SHOOTOUT = auto()
 
 
 @dataclass(frozen=True)

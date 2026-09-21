@@ -261,6 +261,12 @@ class FollowOnStepTests(unittest.TestCase):
         "FINISH_SETUP_COACHING",
         "FINISH_HALFTIME",
         "ANNOUNCE_GAME_OVER",
+        # Phase 6's third increment, and the enum growing for Phase
+        # 4's reason one more time: the shootout *test* became a step
+        # (`d12ball.flow.rolls.shootout_test_step`) and needed a name
+        # for what follows it, which the view used to reach by calling
+        # `D12Ball.continue_shootout` directly.
+        "CONTINUE_SHOOTOUT",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(
@@ -298,6 +304,11 @@ class FollowOnStepTests(unittest.TestCase):
         "RESOLVE_LOOSE_BALL",
         "ANNOUNCE_RUN_BACK",
         "END_PERIOD",
+        # Phase 6's third increment, and the driver's from the moment
+        # it existed: `periods.continue_shootout` was already a step,
+        # and what its cog wrapper added was the choice of dispatcher,
+        # which is a row in the frontend's own sets now.
+        "CONTINUE_SHOOTOUT",
     }
 
     def test_the_two_tables_cover_the_enum_between_them(self) -> None:

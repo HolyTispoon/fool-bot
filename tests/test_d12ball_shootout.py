@@ -39,7 +39,9 @@ from d12ball.components import (
 )
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
+from d12ball.flow import FollowOnStep
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
+from flow_stubs import chain_stops_at
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
@@ -908,16 +910,20 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         # 2026-08-10 ruling -- see the rules log.
         cog = build_cog()
         cog.begin_injury_tests = mock.AsyncMock()
-        cog.continue_shootout = mock.AsyncMock()
         game, match = self.build_shootout(cog)
         shooter = match.shootout_shooter(TeamSide.HOME)
         match.exhausted.add(shooter)
         game.match_state = match.to_dict()
 
-        await self.roll(cog, game, [9, 3])
+        # **What follows a settled test is the driver's** since Phase
+        # 6, so the stop goes on whichever side runs it rather than on
+        # the cog method the view used to call -- see
+        # `tests/flow_stubs.py`.
+        with chain_stops_at(cog, FollowOnStep.CONTINUE_SHOOTOUT) as carried:
+            await self.roll(cog, game, [9, 3])
 
         cog.begin_injury_tests.assert_not_awaited()
-        cog.continue_shootout.assert_awaited_once()
+        self.assertEqual(carried.call_count, 1)
         self.assertNotIn(shooter, cog.engine.load_match_state(game).injured)
 
     async def test_the_last_test_of_the_shootout_ends_the_game(

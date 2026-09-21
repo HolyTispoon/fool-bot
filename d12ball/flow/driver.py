@@ -180,6 +180,8 @@ MODEL_STEPS: Mapping[FollowOnStep, Callable[..., StepResult]] = {
         _lead_in_first(arrivals.resolve_loose_ball),
     FollowOnStep.ANNOUNCE_RUN_BACK: turnovers.announce_run_back,
     FollowOnStep.END_PERIOD: periods.end_period,
+    FollowOnStep.CONTINUE_SHOOTOUT:
+        _lead_in_first(periods.continue_shootout),
 }
 
 
@@ -698,6 +700,39 @@ def _answer_loose_ball_skill_test(
     return rolls.loose_ball_test_step(engine, game, match)
 
 
+def _answer_score_attempt(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+) -> object:
+    """
+    The shot -- or the coach changing their mind about taking it.
+
+    **"Back" is an answer to this prompt and not the absence of one**,
+    which is why it is a choice here rather than a second prompt: the
+    shot has been declared and not yet rolled, and walking it back is
+    a move the position allows for exactly as long as nothing else has
+    happened. `retract_shot_step` is what refuses when it no longer
+    does.
+    """
+    if choice == "back":
+        return rolls.retract_shot_step(engine, game, match)
+    return rolls.score_attempt_step(engine, game, match)
+
+
+def _answer_shootout_test(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+) -> tuple[object, StepResult]:
+    """Both shooters' dice, and the goal one of them scores."""
+    return rolls.shootout_test_step(engine, game, match)
+
+
 def _answer_low_pass_choice(
     engine: RulesEngine,
     game: D12BallGame,
@@ -860,6 +895,8 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.OWN_GOAL_ROLL: _answer_own_goal_roll,
     PromptKind.SKILL_TEST: _answer_skill_test,
     PromptKind.LOOSE_BALL_SKILL_TEST: _answer_loose_ball_skill_test,
+    PromptKind.SCORE_ATTEMPT: _answer_score_attempt,
+    PromptKind.SHOOTOUT_TEST: _answer_shootout_test,
     PromptKind.LOW_PASS_CHOICE: _answer_low_pass_choice,
     PromptKind.HIGH_PASS_CHOICE: _answer_high_pass_choice,
     PromptKind.SETUP_PASS_CHOICE: _answer_setup_pass_choice,
@@ -881,6 +918,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
     PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
     PromptKind.SMOOTH: ("take", "decline"),
+    PromptKind.SCORE_ATTEMPT: ("roll", "back"),
 }
 
 

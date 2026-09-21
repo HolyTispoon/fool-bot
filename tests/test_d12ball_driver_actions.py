@@ -146,6 +146,8 @@ LEGAL_ACTIONS = {
     # is that somebody pressed, and the position is the rest.
     PromptKind.SKILL_TEST: lambda fixture: ("", {}),
     PromptKind.LOOSE_BALL_SKILL_TEST: lambda fixture: ("", {}),
+    PromptKind.SCORE_ATTEMPT: lambda fixture: ("roll", {}),
+    PromptKind.SHOOTOUT_TEST: lambda fixture: ("", {}),
     PromptKind.LOW_PASS_CHOICE: _low_pass,
     PromptKind.HIGH_PASS_CHOICE: _high_pass,
     PromptKind.SETUP_PASS_CHOICE: _setup_pass,

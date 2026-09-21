@@ -243,6 +243,7 @@ DRIVER_OWN_MESSAGE = frozenset({
     FollowOnStep.RESOLVE_LOOSE_BALL,
     FollowOnStep.ANNOUNCE_RUN_BACK,
     FollowOnStep.END_PERIOD,
+    FollowOnStep.CONTINUE_SHOOTOUT,
 })
 
 
@@ -254,7 +255,15 @@ DRIVER_OWN_MESSAGE = frozenset({
 #: other group in the set above is one message. Keyed on the step for
 #: `FOLLOW_ONS_THAT_DRAW_THE_BOARD`'s reason: the answer is the step's,
 #: not the card's that reached it.
-DRIVER_BLOCKS_PER_MESSAGE = frozenset({FollowOnStep.END_PERIOD})
+DRIVER_BLOCKS_PER_MESSAGE = frozenset({
+    FollowOnStep.END_PERIOD,
+    # The shootout's own transitions, for the whistle's reason:
+    # the settled score, the summary and the goal log are separate
+    # events, and `D12Ball.continue_shootout` posted them a message
+    # apiece through `post_blocks_then_dispatch` before the test
+    # that reaches it became a step.
+    FollowOnStep.CONTINUE_SHOOTOUT,
+})
 
 
 def follow_on_draws_the_board(following: FollowOn) -> bool:

@@ -67,10 +67,15 @@ from d12ball.formatting import (
     contestant_detail,
     format_goal_time,
     format_player_with_team,
+    format_team_side_label,
     player_with_role,
 )
-from d12ball.game import D12BallGame, Team
-from d12ball.prompts import PendingPrompt, PromptKind
+from d12ball.game import D12BallGame, Team, team_display_name
+from d12ball.prompts import (
+    PendingPrompt,
+    PromptKind,
+    scoring_opportunity_prompt,
+)
 
 
 #: One side of a contest, exactly as `render_contest_dice` draws it.
@@ -838,3 +843,507 @@ def loose_ball_test_step(
     result.narration.insert(0, announcement)
     result.board_changed = True
     return dice, result
+
+
+# -- The score attempt -------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ShotDice(ContestDice):
+    """
+    A score attempt's numbers, and the two facts its *other* picture
+    needs.
+
+    A goal puts the scorer's portrait up under the announcement, so a
+    frontend has to know whether it went in and whose face to draw --
+    and by the time the step returns, neither is readable off the
+    position any more: `settle_score_attempt` clears
+    `active_player_id`, which is the only thing that named the shooter.
+    So they come back beside the dice, which is where everything else a
+    picture is made of comes back.
+    """
+
+    scored: bool = False
+    shooter_id: str = ""
+
+
+def score_score_attempt(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    shooter: PlayerDefinition,
+    attacking_setup,
+    defending_setup,
+) -> tuple[list[Contestant], int, int, object]:
+    """
+    Roll the shot and price the wall in front of it, as the two sides
+    the dice image draws plus the totals the verdict is read off.
+
+    Everything that built the two totals is drawn on the dice image,
+    which is why no message that posts one repeats it in text.
+
+    **Only the shooter's die can ignite.** A score attempt's second die
+    is the defence's, and the defence here is a wall of meeples rather
+    than a player rolling -- it belongs to no card, so there is no
+    species behind it. See "Volatile" in docs/living-rules.md, which
+    names "the shooter's die" and no other. It comes back with the
+    totals for the same reason: the caller is what posts the ignition
+    die, and there is only ever one of them to post here.
+
+    **The dice are never scripted here**, unlike the skill test and the
+    loose ball: the tutorial's closing shot is deliberately left to the
+    dice, so a beat that fixed it would pin the one roll the lesson
+    wants a coach to feel. See "Determinism: rails and dice" in
+    docs/design/tutorial.md.
+    """
+    offense_skill = engine.player_catalog.effective_profile(shooter).offense
+    speed_modifier = match.ball_speed_modifier()
+    defenders = engine.intervening_defenders(match)
+    # What each defender is worth here, not what they are worth -- a
+    # defender off the ball adds half their skill, rounded up. See
+    # `ShotDefender`.
+    defense_skill_total = sum(defender.value for defender in defenders)
+
+    # Two dice, one per human: the attacker adds the shooting player's
+    # offensive skill and the ball-speed modifier, the defence adds the
+    # defensive skill of every meeple in the way. The speed modifier is
+    # signed -- an overshot High Pass pays it against the shot -- so it
+    # is added, never abs()'d.
+    attack_roll = random.randint(1, 12)
+    defense_roll = random.randint(1, 12)
+    attack_ignite = engine.ignite(game, shooter.player_id, attack_roll)
+    overdrive = match.overdrive_modifier(shooter.player_id)
+    attack_total = (
+        attack_roll + offense_skill + speed_modifier
+        + attack_ignite.modifier + overdrive
+    )
+    defense_total = defense_roll + defense_skill_total
+
+    attack_detail = contestant_detail(shooter, "Offensive", offense_skill)
+    if speed_modifier:
+        attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
+    if attack_ignite.detail:
+        attack_detail.append(attack_ignite.detail)
+    overdrive_detail = engine.overdrive_detail(match, shooter.player_id)
+    if overdrive_detail:
+        attack_detail.append(overdrive_detail)
+
+    # **Merge in a score attempt is the attack alone.** An Ooze on the
+    # ball while a teammate shoots adds their offensive skill; the
+    # defence gains nothing from it, because defenders on and beyond
+    # the ball are already counted by what the defense adds and an Ooze
+    # among them must not be counted twice.
+    merge, merge_lines, merge_contributors = engine.merge_bonus(
+        game, match, match.ball.possession, (shooter.player_id,), "offense",
+    )
+    attack_total += merge
+    attack_detail.extend(merge_lines)
+
+    # Role ability -- Striker: +3 on any scoring attempt off a set-up.
+    # Injury does not withhold this one, deliberately: an injured
+    # player loses their ability modifier on a roll someone is
+    # contesting, and nobody contests a shot (see "Injured players" in
+    # docs/living-rules.md). Don't add `match.injured` here to match
+    # the skill test.
+    if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
+        attack_total += 3
+        attack_detail.append("+3 Striker ability")
+
+    if defenders:
+        defense_detail = [
+            f"{player_with_role(defender.player)} "
+            f"+{defender.value}"
+            + ("" if defender.on_ball else f" (half of {defender.defense})")
+            for defender in defenders
+        ]
+        if len(defenders) > 1:
+            defense_detail.append(
+                f"Total defensive skill +{defense_skill_total}"
+            )
+    else:
+        defense_detail = ["No one in the way"]
+
+    return (
+        [
+            (
+                attack_roll,
+                attacking_setup.team,
+                attack_detail,
+                attack_total,
+                bool(overdrive),
+                merge_contributors,
+            ),
+            (
+                defense_roll,
+                defending_setup.team,
+                defense_detail,
+                defense_total,
+                False,
+                [],
+            ),
+        ],
+        attack_total,
+        defense_total,
+        attack_ignite,
+    )
+
+
+def settle_score_attempt(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    shooter: PlayerDefinition,
+    attacking_setup,
+    defending_setup,
+    scored: bool,
+) -> tuple[str, int]:
+    """
+    Credit the goal or the miss, restart play from it, and word the
+    verdict -- with the clock cost the run back behind it is owed.
+    """
+    if scored:
+        # Logged as it is credited, and stamped with the clock as it
+        # stands: the shot's own cost is charged afterwards, so this is
+        # the minute the ball crossed the line rather than the minute
+        # play restarted.
+        match.award_goal(shooter.player_id)
+        verdict = (
+            "# GOAL!\n"
+            f"{engine.format_player_label(match, shooter)} scores "
+            f"for {format_team_side_label(attacking_setup)} on "
+            f"**{format_goal_time(match.goals[-1])}**!\n"
+            f"{team_display_name(match.home.team)} "
+            f"{match.scoreboard.home_score}:"
+            f"{match.scoreboard.visiting_score} "
+            f"{team_display_name(match.visiting.team)}"
+        )
+    else:
+        verdict = (
+            "# Missed attempt!\n"
+            f"{format_team_side_label(defending_setup)} manages to avoid a goal! (phew)"
+        )
+
+    # A plain score attempt costs no exhaustion and owes no injury
+    # check -- only a shot taken off a set-up gains a token, taken
+    # after the roll regardless of outcome, and injury checks stay
+    # exclusive to skill tests either way.
+    if match.pending_shot_is_set_up:
+        verdict += "\n\n" + engine.apply_exhaustion(
+            game, match, shooter.player_id, 1,
+        )
+
+    # Every score attempt is a turnover, win or miss: the clock cost is
+    # a flat space minute (2026-08-16), plus the cost of whatever
+    # maneuver set it up if this was a set-up shot rather than an
+    # ordinary one -- `pending_shot_setup_cost` is 0 for an ordinary
+    # shot, so this is 1 there and maneuver-cost-plus-1 for a set-up.
+    # The team that just defended restarts play -- in the middle of the
+    # midfield on a goal (the same kickoff rule as the start of a
+    # half), or at the space closest to their own goal on a miss.
+    #
+    # The shooter stops being the active player right here: unlike a
+    # maneuver's turnover (exempted from `validate`'s active-player
+    # check for as long as challenger_id/offense_maneuver/
+    # defense_maneuver stay set), a score attempt has none of those, so
+    # a stale `active_player_id` would trip that check the moment
+    # `pending_run_back` next goes false.
+    match.active_player_id = None
+    space_minutes = 1 + match.pending_shot_setup_cost
+    new_possession_side = defending_setup.side
+    if scored:
+        match.restart_after_goal(new_possession_side)
+    else:
+        # Unlike a goal's kickoff space, nothing guarantees an
+        # arrangement covers the space closest to the defending side's
+        # own goal -- so, since 2026-08-24, this restart owes the same
+        # pickup an out-of-bounds ball does rather than falling through
+        # to a two-sided loose ball. Set before the reset (in the step
+        # below, via `begin_run_back`'s `new_play`):
+        # `begin_ball_recovery` checks `eligible_ball_handlers()` first
+        # and asks nobody when the arrangement already covers it.
+        match.restart_after_missed_score(new_possession_side)
+        match.pending_ball_recovery = True
+
+    # A reconstructible run-back state, written before anything is
+    # posted. `begin_run_back` repeats this assignment idempotently
+    # when it posts the run-back announcement.
+    match.pending_run_back = True
+    match.pending_run_back_distance = space_minutes
+    match.pending_run_back_turnover = True
+
+    return verdict, space_minutes
+
+
+def score_attempt_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> tuple[ShotDice, StepResult]:
+    """
+    The shot, off the button either coach may press.
+
+    **The one contested roll with no tie in it**: level totals go to
+    the attacker, so there is nothing to re-roll and no token to
+    charge. What it always ends on is a run back -- goal or miss, the
+    ball is dead and being restarted, so this is a new play and both
+    restarts open a substitution window.
+
+    `board_changed` is reported honestly and the frontend does not
+    write one: `begin_run_back` with `new_play` posts and pins the
+    settled board itself, which `follow_on_draws_the_board` already
+    answers for every caller. See rank D1 in
+    docs/design/model-discord-split.md.
+    """
+    shooter = engine.get_player_definition(match.active_player_id)
+    attacking_setup = match.setup_for_side(match.ball.possession)
+    defending_setup = match.setup_for_side(match.defending_side())
+
+    (
+        contestants,
+        attack_total,
+        defense_total,
+        attack_ignite,
+    ) = score_score_attempt(
+        engine, game, match, shooter, attacking_setup, defending_setup,
+    )
+    match.consume_overdrive()
+
+    scored = attack_total >= defense_total
+    dice = ShotDice(
+        contestants,
+        ((shooter.player_id, attack_ignite),),
+        scored=scored,
+        shooter_id=shooter.player_id,
+    )
+    # Ahead of `settle_score_attempt`, which is what awards the goal:
+    # the shot goes into the log before the goal it produced, so a fold
+    # reading the two in order sees cause and then effect. Everything
+    # that priced the shot rides on it, because a bare conversion rate
+    # says nothing about why -- these four are what a coach can
+    # actually change: who takes it, whether it came off a set-up, at
+    # what ball speed, and through how many defenders. The two are
+    # recomputed rather than threaded out of `score_score_attempt`,
+    # which owns them and mutates nothing.
+    match.record_event(
+        EVENT_SHOT,
+        side=match.ball.possession,
+        player_id=shooter.player_id,
+        scored=scored,
+        set_up=bool(match.pending_shot_is_set_up),
+        speed_modifier=match.ball_speed_modifier(),
+        defender_count=len(engine.intervening_defenders(match)),
+        attack_total=attack_total,
+        defense_total=defense_total,
+    )
+    verdict, space_minutes = settle_score_attempt(
+        engine, game, match, shooter, attacking_setup, defending_setup,
+        scored,
+    )
+
+    return dice, StepResult(
+        narration=[verdict],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.BEGIN_RUN_BACK,
+            {
+                "distance_moved": space_minutes,
+                "turnover_occurred": True,
+                "new_play": True,
+            },
+        ),
+    )
+
+
+def retract_shot_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> StepResult:
+    """
+    Walk an unrolled "shoot" choice back to wherever it was chosen.
+
+    **An ordinary turn's shot and a set-up's are two different choices
+    with two different ways back**, so they split here:
+    `retract_pending_shot` undoes the former (the turn prompt's own
+    "Shoot to score" button) and the branch below the latter
+    (`SetUpAttemptChoiceView`'s "attempt" button). Both are real
+    choices a coach made a moment ago and neither has happened to
+    anything else in between, which is what makes either safe to undo
+    -- see `MatchState.may_cancel_pending_shot`, which is what refuses
+    when it is no longer either.
+
+    Undoing a set-up's shot **re-arms the offer**, and this is the one
+    path that puts the attempt-or-decline choice back up without going
+    through `offer_scoring_attempt_choice`. Every argument it needs is
+    still on the match because nothing has touched it since
+    `take_scoring_opportunity` wrote it: the shooter is
+    `active_player_id`, the distance is `pending_shot_setup_cost` (read
+    before it is zeroed), and whether declining lands in a contest is
+    `pending_high_pass_overshoot`, which nothing before `reset_maneuver`
+    clears.
+
+    It ends on that offer as a `PendingPrompt` -- the same one
+    `scoring_opportunity_prompt` reads back after a restart, because it
+    *is* that reading. An ordinary shot's retraction ends on nothing:
+    the position is the turn's own again, and what a frontend puts
+    there is the turn prompt it already builds.
+    """
+    if not match.may_cancel_pending_shot():
+        raise ValueError("This score attempt is no longer active.")
+
+    if not match.pending_shot_is_set_up:
+        match.retract_pending_shot()
+        return StepResult()
+
+    shooter_id = match.active_player_id
+    distance_moved = match.pending_shot_setup_cost
+    contest_on_decline = match.pending_high_pass_overshoot
+
+    match.pending_action = None
+    match.pending_shot_is_set_up = False
+    match.pending_shot_setup_cost = 0
+    # **The offer is outstanding again**, so the field that records it
+    # is armed again -- a restart here would otherwise come back to a
+    # turn that has already resolved. See
+    # `MatchState.pending_scoring_opportunity`.
+    match.pending_scoring_opportunity = {
+        "kind": "attempt",
+        "shooter_id": shooter_id,
+        "distance_moved": distance_moved,
+        "contest_on_decline": contest_on_decline,
+    }
+    return StepResult(next=scoring_opportunity_prompt(engine, game, match))
+
+
+# -- The shootout test -------------------------------------------------
+
+
+def score_shootout_test(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> tuple[list[Contestant], dict, dict, list[tuple[str, object]]]:
+    """
+    Roll both shooters and total them up, as the sides the dice image
+    draws plus the totals and the players behind them.
+
+    Both sides add their **offensive** skill -- a shootout has no
+    defender -- and an injured player adds none at all, the same
+    withholding the loose ball and the long High Pass make. See
+    "Extreme shootout" in docs/living-rules.md.
+
+    **Volatile fires here too**, on each shooter's own die: the rules
+    list a shootout test among the rolls it covers. A shootout owes no
+    injury check, which the ignite does not change -- what a backfire
+    costs here is the goal, not a card. Both ignites come back with the
+    rest, in shooting order, for the caller to post as dice of their
+    own.
+    """
+    totals: dict = {}
+    players: dict = {}
+    dice: list[Contestant] = []
+    ignites: list[tuple[str, object]] = []
+
+    for side in (TeamSide.HOME, TeamSide.VISITING):
+        player = engine.get_player_definition(match.shootout_shooter(side))
+        players[side] = player
+        injured = player.player_id in match.injured
+        skill = (
+            0
+            if injured
+            else engine.player_catalog.effective_profile(player).offense
+        )
+        roll = random.randint(1, 12)
+        ignite = engine.ignite(game, player.player_id, roll)
+        ignites.append((player.player_id, ignite))
+        overdrive = match.overdrive_modifier(player.player_id)
+        totals[side] = roll + skill + ignite.modifier + overdrive
+        detail = contestant_detail(
+            player, "Offensive", skill, injured=injured,
+            cyborg=engine.has_species_ability(
+                game, player.player_id, SPECIES_CYBORG,
+            ),
+        )
+        _with_extras(engine, match, detail, ignite, player.player_id)
+        dice.append(
+            (
+                roll,
+                match.setup_for_side(side).team,
+                detail,
+                totals[side],
+                bool(overdrive),
+                [],
+            )
+        )
+
+    return dice, totals, players, ignites
+
+
+def settle_shootout_test(
+    engine: RulesEngine,
+    match: MatchState,
+    totals: dict,
+    players: dict,
+) -> tuple[Optional[TeamSide], str]:
+    """
+    Award the goal, if there is one, and word the result.
+
+    **A shootout skill test is not re-rolled.** A tie scores for nobody
+    and the shootout moves on, which is the one place the game settles
+    a tied skill test by leaving it tied.
+    """
+    home_total = totals[TeamSide.HOME]
+    visiting_total = totals[TeamSide.VISITING]
+
+    if home_total == visiting_total:
+        return None, (
+            f"# A tie, {home_total}-{visiting_total}! Neither "
+            "side scores."
+        )
+
+    winner = (
+        TeamSide.HOME if home_total > visiting_total else TeamSide.VISITING
+    )
+    scorer = players[winner]
+    match.award_shootout_goal(winner, scorer.player_id)
+    return winner, (
+        "# " f"{engine.format_player_label(match, scorer)} " "scores!"
+    )
+
+
+def shootout_test_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> tuple[ContestDice, StepResult]:
+    """
+    The shootout test, off the button either coach may press.
+
+    **Nothing is re-rolled and nothing is charged**: a tie scores for
+    nobody, a shootout test owes no injury check (2026-08-15) and costs
+    no exhaustion, so an Exhausted shooter carries that into the
+    shootout and out the other side unchanged. What follows is the next
+    test or the end of it, which is `periods.continue_shootout`.
+
+    `board_changed` is true only where a goal went in, because that is
+    the only thing here a board draws -- the running score on the
+    jumbotron.
+    """
+    dice, totals, players, ignites = score_shootout_test(engine, game, match)
+    match.consume_overdrive()
+    winner, outcome = settle_shootout_test(engine, match, totals, players)
+
+    # The goal and the retirement go out in one save, so a restart
+    # between this roll and what follows it can never re-roll a test
+    # that has already been paid for -- see
+    # `MatchState.finish_shootout_test`.
+    match.finish_shootout_test()
+
+    return ContestDice(dice, tuple(ignites)), StepResult(
+        narration=[
+            f"{outcome}\n"
+            f"Extreme shootout: {engine.shootout_running_score(match)}",
+        ],
+        board_changed=winner is not None,
+        next=FollowOn(FollowOnStep.CONTINUE_SHOOTOUT),
+    )

@@ -670,7 +670,7 @@ class IgnitionIsShownEverywhereTests(unittest.TestCase):
             source = path.read_text(encoding="utf-8")
             if ".ignite(" not in source:
                 continue
-            asked.append(path.name)
+            asked.append((path.name, source.count(".ignite(")))
             if path.parent.name == "flow":
                 self.assertTrue(
                     self.hands_the_ignite_back(source),
@@ -682,10 +682,14 @@ class IgnitionIsShownEverywhereTests(unittest.TestCase):
                 source,
                 f"{path.name} rolls an ignite and never shows it",
             )
-        # The funnel's six roll sites live in five modules; a count
-        # that drops is a site that stopped asking rather than one
-        # that stopped showing, and is worth a look either way.
-        self.assertGreaterEqual(len(asked), 5, asked)
+        # **Counted in sites rather than modules** since Phase 6, when
+        # four of them consolidated into one file: the claim was "five
+        # modules" and consolidating is not a site going missing. A
+        # count that drops is a site that stopped asking rather than
+        # one that stopped showing, and is worth a look either way.
+        self.assertGreaterEqual(
+            sum(count for _, count in asked), 6, asked,
+        )
 
 
 class VolatileTierRiderTests(unittest.TestCase):
