@@ -193,6 +193,18 @@ class D12BallGame:
     # keeps the note to the first window the coach is offered rather
     # than every one of them.
     tutorial_coaching_explained: bool = False
+    # The tutorial note the coach has not yet pressed Continue on, and
+    # what pressing it runs -- `{"note": <key>, "then": <FollowOn as
+    # saved> | None}`, or None, which is nearly always. See
+    # `d12ball/flow/gates.py`. Every other tutorial note is posted
+    # plainly; the gated ones are the notes with a live prompt behind
+    # them, which used to be held on a `TutorialContinueView` closure
+    # and nowhere else -- so a restart lost the button, and the model
+    # had no way to say the match was waiting on a click that changed
+    # nothing. Now `pending_prompt` reads it first: the gate *is* what
+    # the match is waiting on. Absent from an older save it reads as
+    # None, which is a game with no note up.
+    tutorial_gate: Optional[dict] = None
 
     # Game configuration
     mode: GameMode = GameMode.BASIC
