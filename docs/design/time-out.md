@@ -8,12 +8,12 @@ Since **Phase 5** of the model/Discord split both halves of a time out are
 flow steps in [`d12ball/flow/windows.py`](../../d12ball/flow/windows.py):
 `begin_time_out` and `finish_time_out`, beside the Coaching Choice they
 buy. Names below without a path are the flow functions;
-`D12Ball.begin_time_out` and `D12Ball.finish_time_out` are the cog
+`d12ball.flow.windows.begin_time_out` and `D12Ball.finish_time_out` are the cog
 wrappers that persist and post.
 
 **What stayed is the confirm and the prompt it replaces.**
 `TimeOutConfirmView` puts the cost in front of the coach and restores the
-turn prompt verbatim on Back, and `D12Ball.begin_time_out` drops the
+turn prompt verbatim on Back, and `d12ball.flow.windows.begin_time_out` drops the
 prompt the click came from. Both are edits to a message, which is the
 frontend's by principle 2. `MatchState.may_call_time_out` was always the
 model's and is unchanged.

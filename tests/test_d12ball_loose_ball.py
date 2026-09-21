@@ -32,8 +32,11 @@ from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 from d12ball.flow.arrivals import check_for_loose_ball
 
+from d12ball.flow import FollowOnStep
+from flow_stubs import REAL_MODEL_STEPS
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_ball_recovery, begin_loose_ball, build_loose_ball_view, resolve_deflect, resolve_loose_ball
 
 
 def loose_ball_distance(call) -> int:
@@ -49,9 +52,9 @@ def loose_ball_distance(call) -> int:
     the signature answers for both shapes, which is the reading rank D2
     wrote down: fix the assertion, not the call.
     """
-    return inspect.signature(D12Ball.begin_loose_ball).bind(
-        None, *call.args, **call.kwargs,
-    ).arguments["distance_moved"]
+    return inspect.signature(
+        REAL_MODEL_STEPS[FollowOnStep.BEGIN_LOOSE_BALL],
+    ).bind(*call.args, **call.kwargs).arguments["distance_moved"]
 
 def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
@@ -317,7 +320,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = build_interaction()
         with suppressed_cog_saves():
-            await cog.begin_loose_ball(interaction, game, match, 2)
+            await begin_loose_ball(cog, interaction, game, match, 2)
 
         cog.announce_board_update.assert_awaited_once()
         announcement = cog.announce_board_update.await_args.args[2]
@@ -345,7 +348,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
 
         with suppressed_cog_saves():
-            await cog.resolve_loose_ball(build_interaction(), game, match)
+            await resolve_loose_ball(cog, build_interaction(), game, match)
 
         self.assertEqual(match.ball.possession, winning_side)
         self.assertNotEqual(match.ball.possession, losing_side)
@@ -436,7 +439,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(travel, 0)
 
         with suppressed_cog_saves():
-            await cog.apply_ball_recovery(
+            await apply_ball_recovery(cog, 
                 build_interaction(), game, match, recoverer,
             )
 
@@ -666,7 +669,7 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             cog.engine.loose_ball_side_on_the_clock(match), "defense",
         )
-        view = cog.build_loose_ball_view(game.game_id, match)
+        view = build_loose_ball_view(cog, game.game_id, match)
         labels = [item.label for item in view.children]
         self.assertNotIn("Send nobody", labels)
         self.assertEqual(len(labels), 2)
@@ -716,7 +719,7 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         match.move_meeple(teammate, *landing)
 
         with suppressed_cog_saves():
-            await cog.resolve_deflect(
+            await resolve_deflect(cog, 
                 SimpleNamespace(), game, match,
             )
 
@@ -831,7 +834,7 @@ class OccupancyDecidesTests(unittest.IsolatedAsyncioTestCase):
         # fact about the seam is answered, once, for every test written
         # against the cog method. See tests/flow_stubs.py.
         with suppressed_cog_saves(), driver_reaches_cog_stubs(cog):
-            await cog.begin_loose_ball(
+            await begin_loose_ball(cog, 
                 build_interaction(), game, match, 1,
             )
 
@@ -917,7 +920,7 @@ class OccupancyDecidesTests(unittest.IsolatedAsyncioTestCase):
                 cog.games[game.game_id] = game
 
                 with suppressed_cog_saves():
-                    await cog.begin_loose_ball(
+                    await begin_loose_ball(cog, 
                         build_interaction(), game, match, 3,
                         headline=HIGH_PASS_CONTEST_HEADLINE,
                         is_high_pass=True,

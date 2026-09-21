@@ -36,6 +36,7 @@ from d12ball.flow.turnovers import announce_new_play_reset
 
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+from cog_steps import apply_dribble_advance, apply_low_pass, begin_loose_ball, begin_run_back, resolve_loose_ball, resolve_pressure, resolve_steal
 
 
 def build_cog() -> D12Ball:
@@ -347,7 +348,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_dribble_advance(
+            await apply_dribble_advance(cog, 
                 build_interaction(), game, match, 1,
             )
 
@@ -363,7 +364,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_steal(
+            await resolve_steal(cog, 
                 build_interaction(), game, match,
             )
 
@@ -378,7 +379,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_pressure(build_interaction(), game, match)
+            await resolve_pressure(cog, build_interaction(), game, match)
 
         self.assertEqual(match.ball.possession, TeamSide.HOME)
         self.assertCarriedBy(match, handler)
@@ -394,7 +395,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_pressure(build_interaction(), game, match)
+            await resolve_pressure(cog, build_interaction(), game, match)
 
         self.assertEqual(match.ball.possession, TeamSide.VISITING)
         self.assertCarriedBy(match, defender)
@@ -411,7 +412,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog.finish_maneuver_resolution = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_low_pass(
+            await apply_low_pass(cog, 
                 build_interaction(), game, match, 0, receiver_id=teammate,
             )
 
@@ -429,7 +430,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog.engine.build_loose_ball_prompt = mock.Mock(return_value="prompt")
 
         with suppressed_cog_saves():
-            await cog.begin_loose_ball(build_interaction(), game, match, 1)
+            await begin_loose_ball(cog, build_interaction(), game, match, 1)
 
         self.assertIsNone(match.ball_carrier_id)
 
@@ -559,7 +560,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         match.decline_loose_ball(match.defending_side())
 
         with suppressed_cog_saves():
-            await cog.resolve_loose_ball(
+            await resolve_loose_ball(cog, 
                 build_contest_interaction(), game, match,
             )
 
@@ -574,7 +575,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         match.decline_loose_ball(match.ball.possession)
 
         with suppressed_cog_saves():
-            await cog.resolve_loose_ball(
+            await resolve_loose_ball(cog, 
                 build_contest_interaction(), game, match,
             )
 
@@ -596,7 +597,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         match.decline_loose_ball(match.defending_side())
 
         with suppressed_cog_saves():
-            await cog.resolve_loose_ball(
+            await resolve_loose_ball(cog, 
                 build_contest_interaction(), game, match,
             )
 
@@ -654,7 +655,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
         match.set_ball_carrier(winner)
 
         with suppressed_cog_saves():
-            await cog.begin_run_back(build_interaction(), game, match)
+            await begin_run_back(cog, build_interaction(), game, match)
 
         self.assertEqual(match.pending_run_back_stays_player_id, winner)
         self.assertNotIn(
@@ -675,7 +676,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
         # shim the real note runs the cascade and there is nobody left
         # displaced to read. See tests/flow_stubs.py.
         with suppressed_cog_saves(), driver_reaches_cog_stubs(cog):
-            await cog.begin_run_back(build_interaction(), game, match)
+            await begin_run_back(cog, build_interaction(), game, match)
 
         self.assertIsNone(match.pending_run_back_stays_player_id)
         self.assertIn(
@@ -693,7 +694,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
         match.set_ball_carrier(shooter)
 
         with suppressed_cog_saves():
-            await cog.begin_run_back(
+            await begin_run_back(cog, 
                 build_interaction(), game, match, new_play=True,
             )
 

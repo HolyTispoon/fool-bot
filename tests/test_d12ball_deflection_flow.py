@@ -55,6 +55,7 @@ from d12ball.flow import driver
 from flow_stubs import chain_records_at, chain_stops_at
 from save_patches import suppressed_cog_saves, suppressed_full_image_links
 from test_d12ball_deflection_recording import build_cog, build_interaction
+from cog_steps import apply_deflection
 
 
 def case_named(name):
@@ -304,7 +305,7 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
 
 class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
     """
-    `D12Ball.apply_deflection` and `dispatch_step_result` -- the
+    `None` and `dispatch_step_result` -- the
     Discord half, which is now four lines and an ordering.
     """
 
@@ -356,7 +357,7 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
                                 cog, FollowOnStep[step], calls,
                             ),
                         )
-                    await cog.apply_deflection(
+                    await apply_deflection(cog, 
                         SimpleNamespace(),
                         fixture.game,
                         fixture.match,
@@ -407,7 +408,7 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
         # again by whatever settles the contest.
         with suppressed_cog_saves(), suppressed_full_image_links(), \
                 chain_stops_at(cog, FollowOnStep.RESOLVE_LOOSE_BALL):
-            await cog.apply_deflection(
+            await apply_deflection(cog, 
                 build_interaction(),
                 fixture.game,
                 fixture.match,

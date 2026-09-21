@@ -43,6 +43,7 @@ from prompt_fixtures import ENGINE as PROMPT_ENGINE
 from flow_stubs import chain_records_at
 from save_patches import suppressed_cog_saves
 from test_d12ball_low_pass_recording import build_cog
+from cog_steps import apply_low_pass
 
 
 class LowPassStepTests(unittest.TestCase):
@@ -160,7 +161,7 @@ class LowPassStepTests(unittest.TestCase):
 
 class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
     """
-    `D12Ball.apply_low_pass` and `D12Ball.dispatch_step_result` -- the
+    `None` and `D12Ball.dispatch_step_result` -- the
     Discord half, which is now four lines and an ordering.
     """
 
@@ -198,7 +199,7 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         with chain_records_at(
             cog, FollowOnStep.FINISH_MANEUVER_RESOLUTION, calls,
         ):
-            await cog.apply_low_pass(
+            await apply_low_pass(cog, 
                 SimpleNamespace(),
                 fixture.game,
                 match,

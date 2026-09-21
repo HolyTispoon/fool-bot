@@ -200,7 +200,7 @@ def dispatch_injury_resume(
         )
     if kind == "run_back":
         # **Named rather than called**, unlike the shootout above, and
-        # for the reason the member exists: `D12Ball.begin_run_back` is
+        # for the reason the member exists: `d12ball.flow.turnovers.begin_run_back` is
         # what decides whether a new play's board is posted and pinned,
         # which is not a decision the model may take. See
         # `FollowOnStep.BEGIN_RUN_BACK`.

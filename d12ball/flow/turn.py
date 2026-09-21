@@ -378,7 +378,7 @@ def record_turn_action(
     and it records its own event kind instead -- see `EVENT_TIME_OUT`
     and `begin_time_out`.
 
-    `D12Ball.record_turn_action` forwards to this, so none of its call
+    `d12ball.flow.turn.record_turn_action` forwards to this, so none of its call
     sites moved -- the shape `team_emojis` took in Phase 1a.
     """
     match.record_event(

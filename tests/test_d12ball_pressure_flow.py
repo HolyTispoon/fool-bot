@@ -47,6 +47,7 @@ from flow_stubs import (
 )
 from save_patches import suppressed_cog_saves
 from test_d12ball_pressure_recording import build_cog, build_interaction
+from cog_steps import apply_pressure, run_own_goal_roll
 
 
 def case_named(name):
@@ -225,7 +226,7 @@ class PressureStepTests(unittest.TestCase):
 
 class PressureWrapperTests(unittest.IsolatedAsyncioTestCase):
     """
-    `D12Ball.apply_pressure` and `dispatch_step_result` -- the Discord
+    `None` and `dispatch_step_result` -- the Discord
     half, which is now four lines and an ordering.
     """
 
@@ -277,7 +278,7 @@ class PressureWrapperTests(unittest.IsolatedAsyncioTestCase):
                                 cog, FollowOnStep[step], calls,
                             ),
                         )
-                    await cog.apply_pressure(
+                    await apply_pressure(cog, 
                         SimpleNamespace(),
                         fixture.game,
                         fixture.match,
@@ -325,7 +326,7 @@ class PressureWrapperTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.apply_pressure(
+            await apply_pressure(cog, 
                 interaction, fixture.game, fixture.match, fixture.key,
             )
 
@@ -348,7 +349,7 @@ class OwnGoalOutcomeTests(unittest.IsolatedAsyncioTestCase):
     """
     The other half of what rank D3 moved. `apply_own_goal_outcome`
     settles the roll and words it; the roll itself, its dice image and
-    the messages around it stay `D12Ball.run_own_goal_roll`'s.
+    the messages around it stay `None`'s.
     """
 
     def build(self):
@@ -447,7 +448,7 @@ class OwnGoalOutcomeTests(unittest.IsolatedAsyncioTestCase):
                 with suppressed_cog_saves(), mock.patch(
                     "random.randint", side_effect=rolls,
                 ):
-                    await cog.run_own_goal_roll(
+                    await run_own_goal_roll(cog, 
                         interaction, fixture.game, match,
                     )
 

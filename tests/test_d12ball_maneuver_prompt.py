@@ -35,6 +35,7 @@ from d12ball.game import D12BallGame, Team
 from roster import fielded
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_full_image_links
+from cog_steps import auto_resolve_challenger, begin_maneuver_action_selection, maneuver_prompt_wording
 
 
 def build_cog() -> D12Ball:
@@ -196,21 +197,21 @@ class ManeuverPromptWordingTests(unittest.TestCase):
     def test_a_lone_offense_is_sent_to_the_red_row(self) -> None:
         cog, game, match = self.build()
 
-        _, instruction = cog.maneuver_prompt_wording(game, match, ["offense"])
+        _, instruction = maneuver_prompt_wording(cog, game, match, ["offense"])
 
         self.assertIn("red row", instruction)
 
     def test_a_lone_defense_is_sent_to_the_green_row(self) -> None:
         cog, game, match = self.build()
 
-        _, instruction = cog.maneuver_prompt_wording(game, match, ["defense"])
+        _, instruction = maneuver_prompt_wording(cog, game, match, ["defense"])
 
         self.assertIn("green row", instruction)
 
     def test_a_contested_prompt_names_both(self) -> None:
         cog, game, match = self.build()
 
-        waiting_on, instruction = cog.maneuver_prompt_wording(
+        waiting_on, instruction = maneuver_prompt_wording(cog, 
             game, match, ["offense", "defense"],
         )
 
@@ -284,7 +285,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = self.build_interaction()
         with suppressed_cog_saves():
-            await cog.auto_resolve_challenger(
+            await auto_resolve_challenger(cog, 
                 interaction, game, match, challenger,
             )
         return interaction
@@ -445,7 +446,7 @@ class ManeuverPickHarness:
             followup=SimpleNamespace(send=send),
         )
         with suppressed_cog_saves(), suppressed_full_image_links():
-            await cog.begin_maneuver_action_selection(
+            await begin_maneuver_action_selection(cog, 
                 interaction, game, match,
             )
         return interaction, game, match

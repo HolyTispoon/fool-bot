@@ -45,6 +45,7 @@ from flow_stubs import (
 from save_patches import suppressed_cog_saves
 from steal_fixtures import ENGINE, RUN_BACK, SHOOTER_CHOICE, STEAL_CASES
 from test_d12ball_steal_recording import build_cog
+from cog_steps import apply_steal
 
 
 def run_step(fixture):
@@ -212,7 +213,7 @@ class StealStepTests(unittest.TestCase):
 
 class StealWrapperTests(unittest.IsolatedAsyncioTestCase):
     """
-    `D12Ball.apply_steal` and `dispatch_step_result` -- the Discord
+    `None` and `dispatch_step_result` -- the Discord
     half, which is now four lines and an ordering.
     """
 
@@ -260,7 +261,7 @@ class StealWrapperTests(unittest.IsolatedAsyncioTestCase):
                                 cog, FollowOnStep[step], calls,
                             ),
                         )
-                    await cog.apply_steal(
+                    await apply_steal(cog, 
                         SimpleNamespace(),
                         fixture.game,
                         fixture.match,
@@ -306,7 +307,7 @@ class StealWrapperTests(unittest.IsolatedAsyncioTestCase):
             match.pending_effect_continuation,
         )
 
-        await cog.apply_steal(
+        await apply_steal(cog, 
             SimpleNamespace(), fixture.game, fixture.match, fixture.key,
         )
 

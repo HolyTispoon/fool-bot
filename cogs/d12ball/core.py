@@ -24,7 +24,6 @@ from d12ball.components import (
     MatchState,
     PlayerDefinition,
     PlayerRole,
-    TeamSetup,
     TeamSide,
     load_basic_ruleset,
     load_maneuver_catalog,
@@ -43,24 +42,12 @@ from d12ball.cards import (
 )
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow import driver
-from d12ball.flow.turn import (
-    announce_uncontested_maneuver,
-    injured_word_and_emoji,
-    record_turn_action,
-)
-from d12ball.flow.injuries import (
-    begin_injury_tests,
-    continue_injury_tests,
-    injury_test_step,
-)
+from d12ball.flow.turn import injured_word_and_emoji
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
-    effect_choice_prompt,
-    maneuver_prompt_wording,
     pending_prompt,
-    run_back_prompt,
 )
 from d12ball import tutorial
 from d12ball.render import (
@@ -82,9 +69,6 @@ from cogs.d12ball_helpers import (
     add_full_image_button,
     fetch_application_emojis,
     format_player_with_team,
-    format_team_side_label,
-    get_damaged_emoji,
-    get_injured_emoji,
     load_coin_emojis,
     load_condition_emojis,
     load_d12_emoji,
@@ -694,9 +678,6 @@ class CoreMixin:
         return max(existing_numbers) + 1
 
 
-
-
-
     def game_for_channel(self, channel_id: int) -> Optional[D12BallGame]:
         for game in self.games.values():
             if game.channel_id == channel_id:
@@ -765,22 +746,6 @@ class CoreMixin:
         game.match_state = match.to_dict()
         save_games(self.games)
 
-    def record_turn_action(
-        self,
-        match: MatchState,
-        action: str,
-        by_ai: bool = False,
-    ) -> None:
-        """
-        Open a turn in the event log.
-
-        A forwarding method over `d12ball.flow.turn.record_turn_action`
-        since Phase 6, which is where it belongs: a step that takes a
-        turn has to open one, and a step cannot call a cog method. The
-        reasoning is in the model's copy; this is kept so none of the
-        call sites moved -- the shape `team_emojis` took in Phase 1a.
-        """
-        record_turn_action(match, action, by_ai)
 
     @property
     def condition_emojis(self) -> dict[str, str]:
@@ -989,114 +954,6 @@ class CoreMixin:
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
-    async def auto_resolve_challenger(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        challenger_id: str,
-    ) -> None:
-        """
-        An already-decided challenger pick, as an entry point:
-        `d12ball.flow.turn.auto_resolve_challenger` through the
-        dispatcher, which posts the walk-in over the challenge image
-        (`post_narration_group`) and carries on to the maneuver pick.
-        """
-        await self.dispatch_step_result(
-            interaction,
-            game,
-            match,
-            StepResult(
-                next=FollowOn(
-                    FollowOnStep.AUTO_RESOLVE_CHALLENGER,
-                    {"challenger_id": challenger_id},
-                ),
-            ),
-        )
-
-    async def announce_uncontested_maneuver(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """"There is nobody to challenge", as an entry point -- its own
-        message, then the offense's pick."""
-        await self.post_then_dispatch(
-            interaction,
-            game,
-            match,
-            announce_uncontested_maneuver(self.engine, game, match),
-        )
-
-    async def begin_maneuver_action_selection(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
-        """The simultaneous maneuver pick, as an entry point."""
-        await self.run_step(
-            interaction,
-            game,
-            match,
-            FollowOnStep.BEGIN_MANEUVER_ACTION_SELECTION,
-            lead_in=lead_in,
-        )
-
-    async def resolve_maneuver(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
-        """The reveal, as an entry point -- `d12ball.flow.turn.resolve_maneuver`."""
-        await self.run_step(
-            interaction, game, match, FollowOnStep.RESOLVE_MANEUVER,
-            lead_in=lead_in,
-        )
-
-    async def begin_maneuver_skill_test(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        headline: str,
-        lead_in: str = "",
-    ) -> None:
-        """The skill test's reveal and prompt, as an entry point."""
-        await self.run_step(
-            interaction,
-            game,
-            match,
-            FollowOnStep.BEGIN_MANEUVER_SKILL_TEST,
-            lead_in=lead_in,
-            headline=headline,
-        )
-
-    async def begin_effect_resolution(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        winner_key: str,
-        lead_in: str = "",
-    ) -> None:
-        """
-        A settled maneuver's effect, as an entry point --
-        `d12ball.flow.effects.begin_effect_resolution`, which logs the
-        maneuver and runs the won card by key.
-        """
-        await self.run_step(
-            interaction,
-            game,
-            match,
-            FollowOnStep.BEGIN_EFFECT_RESOLUTION,
-            lead_in=lead_in,
-            winner_key=winner_key,
-        )
 
     async def send_maneuver_action_prompt(
         self,
@@ -1170,58 +1027,6 @@ class CoreMixin:
         """
         return injured_word_and_emoji(self.engine, game, player_id)
 
-    def maneuver_prompt_wording(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        sides: list[str],
-    ) -> tuple[list[str], str]:
-        """
-        Who is mentioned above the maneuver prompt, and what they are
-        told to do -- a forwarding method over
-        `d12ball.flow.turn.maneuver_prompt_wording`.
-        """
-        return maneuver_prompt_wording(self.engine, game, match, sides)
-
-    async def begin_injury_tests(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        players: list[PlayerDefinition],
-        resume: dict,
-    ) -> None:
-        """
-        The Discord half of the injury tests a resolved contest owes:
-        run the step, save what it did, then ask what it asks or run
-        what it names.
-
-        The queue, the filter and the continuation are all
-        `d12ball.flow.injuries.begin_injury_tests`'s since Phase 4 --
-        see it for why `resume` is persisted alongside the queue. What
-        is left here is the persist, which the step no longer does
-        (principle 9), and which is an **added** line rather than a
-        moved one: the wrapper was not saving before, it relied on the
-        step to.
-        """
-        result = begin_injury_tests(self.engine, game, match, players, resume)
-        await self.dispatch_step_result(interaction, game, match, result)
-
-    async def continue_injury_tests(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """
-        Ask for the next injury test still owed, or -- when there are
-        none left -- do what the contest that owed them was going to
-        do. The Discord half of
-        `d12ball.flow.injuries.continue_injury_tests`, and the one
-        exit from the queue.
-        """
-        result = continue_injury_tests(self.engine, game, match)
-        await self.dispatch_step_result(interaction, game, match, result)
 
     async def post_injury_die(
         self,
@@ -1284,43 +1089,6 @@ class CoreMixin:
             ),
         )
 
-    async def run_injury_test(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        player: PlayerDefinition,
-    ) -> None:
-        """
-        One injury test, as an entry point --
-        `d12ball.flow.injuries.injury_test_step` and the die.
-        """
-        roll, result = injury_test_step(
-            self.engine, game, match, player.player_id,
-        )
-        self.persist(game, match)
-        await self.post_injury_die(interaction, game, match, roll, result)
-
-    def build_effect_choice_view(
-        self,
-        game_id: str,
-        match: MatchState,
-    ) -> Optional[discord.ui.View]:
-        """
-        Whichever initial effect-choice prompt is pending for a
-        decisively-won maneuver, as a view -- used both to restore it
-        on a bot restart and (implicitly, by the same logic) to post it
-        the first time.
-
-        The reading is `d12ball.prompts.effect_choice_prompt`, which
-        holds what this used to decide and why; None here is None
-        there, which is a maneuver needing no choice (Deflect,
-        Pressure) or one still owed a skill test.
-        """
-        prompt = effect_choice_prompt(self.engine, self.games[game_id], match)
-        if prompt is None:
-            return None
-        return self.view_for_prompt(game_id, match, prompt)
 
     def restore_shootout_menus(
         self,
@@ -1955,19 +1723,4 @@ class CoreMixin:
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
-    def build_run_back_view(
-        self,
-        game_id: str,
-        match: MatchState,
-    ) -> Optional[discord.ui.View]:
-        """
-        The run-back prompt for whichever player still needs a real
-        choice, as a view -- `d12ball.prompts.run_back_prompt`'s answer
-        through `view_for_prompt`, and None where there is no choice
-        left to make.
-        """
-        prompt = run_back_prompt(self.engine, self.games[game_id], match)
-        if prompt is None:
-            return None
-        return self.view_for_prompt(game_id, match, prompt)
 

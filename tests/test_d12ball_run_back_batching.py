@@ -30,6 +30,7 @@ from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, GameMode, Team
 from roster import fielded
 from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
+from cog_steps import finish_maneuver_resolution
 
 
 def build_interaction() -> SimpleNamespace:
@@ -541,7 +542,7 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
             suppressed_cog_saves(),
             suppressed_full_image_links(),
         ):
-            await cog.finish_maneuver_resolution(
+            await finish_maneuver_resolution(cog, 
                 interaction, game, match,
                 distance_moved=1,
                 turnover_occurred=False,

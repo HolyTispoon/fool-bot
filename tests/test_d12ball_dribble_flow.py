@@ -23,6 +23,8 @@ put:
 
 from __future__ import annotations
 
+import functools
+
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -35,6 +37,7 @@ from d12ball.prompts import pending_prompt
 from dribble_fixtures import DRIBBLE_CASES, ENGINE, FINISH, SPEED_CHOICE
 from flow_stubs import chain_records_at
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_dribble_advance, apply_dribble_burst
 from test_d12ball_dribble_recording import build_cog
 
 
@@ -162,7 +165,7 @@ class DribbleStepTests(unittest.TestCase):
 
 class DribbleWrapperTests(unittest.IsolatedAsyncioTestCase):
     """
-    `D12Ball.apply_dribble_advance` / `apply_dribble_burst` and
+    `None` / `apply_dribble_burst` and
     `dispatch_step_result` -- the Discord half, which is now four lines
     and an ordering.
     """
@@ -199,9 +202,9 @@ class DribbleWrapperTests(unittest.IsolatedAsyncioTestCase):
                 cog.persist = persist
                 cog.refresh_match_image = refresh
                 apply = (
-                    cog.apply_dribble_advance
+                    functools.partial(apply_dribble_advance, cog)
                     if fixture.key == "dribble_advance"
-                    else cog.apply_dribble_burst
+                    else functools.partial(apply_dribble_burst, cog)
                 )
 
                 with chain_records_at(
@@ -259,9 +262,9 @@ class DribbleWrapperTests(unittest.IsolatedAsyncioTestCase):
                     dict(match.exhaustion),
                 )
                 apply = (
-                    cog.apply_dribble_advance
+                    functools.partial(apply_dribble_advance, cog)
                     if fixture.key == "dribble_advance"
-                    else cog.apply_dribble_burst
+                    else functools.partial(apply_dribble_burst, cog)
                 )
 
                 await apply(

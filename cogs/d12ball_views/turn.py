@@ -376,7 +376,7 @@ class PlayerActionView(SafeView):
 class TimeOutConfirmView(SafeView):
     """
     "Are you sure?" for the one turn action that buys something
-    instead of playing the ball -- see `D12Ball.begin_time_out`. Every
+    instead of playing the ball -- see `d12ball.flow.windows.begin_time_out`. Every
     other choice a coach makes can be argued with afterwards; this one
     spends a minute and the side's one time out for the half, and it
     sits one button along from Maneuver.

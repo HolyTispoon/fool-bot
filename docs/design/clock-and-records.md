@@ -9,7 +9,7 @@ Since **Phase 5** of the model/Discord split the whistle is a flow step:
 [`d12ball/flow/periods.py`](../../d12ball/flow/periods.py), with the whole
 cascade it opens -- halftime's recovery and stages, the window before the
 shootout, and the shootout itself. Names below without a path are the flow
-functions; `D12Ball.end_period` and its neighbours are the cog wrappers
+functions; `d12ball.flow.periods.end_period` and its neighbours are the cog wrappers
 that persist and post.
 
 **The clock itself never moved and never will.** `MatchState.advance_time`
@@ -20,8 +20,8 @@ app would otherwise have had to reimplement.
 
 **What stayed in the cog**, and each is principle 8 or principle 2's
 "nothing in `d12ball/` may know what a message is": the board a half kicks
-off from, which is posted and **pinned** (`D12Ball.finish_halftime`,
-`D12Ball.finish_setup_coaching`); the final board with the rematch buttons
+off from, which is posted and **pinned** (`d12ball.flow.periods.finish_halftime`,
+`d12ball.flow.periods.finish_setup_coaching`); the final board with the rematch buttons
 (`D12Ball.announce_game_over`); and the decision that a period transition
 is a run of **separate** messages rather than one paragraph, which is
 `D12Ball.post_blocks_then_dispatch`.
@@ -150,7 +150,7 @@ fact.
 
   | kind | recorded by | why there |
   | --- | --- | --- |
-  | `turn_action` | `D12Ball.record_turn_action`, from the three buttons on `PlayerActionView` and from `play_ai_turn` | after each one's own stale-view guard -- a refused click is not a turn |
+  | `turn_action` | `d12ball.flow.turn.record_turn_action`, from the three buttons on `PlayerActionView` and from `play_ai_turn` | after each one's own stale-view guard -- a refused click is not a turn |
   | `maneuver` | `begin_effect_resolution` | every maneuver in the game reaches it exactly once, decisive, unchallenged or through the skill test |
   | `skill_test` | `SkillTestView.roll` | before either branch, so a tie that re-rolls is in the record as well as the roll that settles it |
   | `shot` | `ScoreAttemptView.roll` | before `settle_score_attempt`, which awards the goal |

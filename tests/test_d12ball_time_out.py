@@ -36,6 +36,7 @@ from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_ball_recovery, begin_time_out, coaching_window_note, finish_substitution_window
 
 
 def build_cog() -> D12Ball:
@@ -352,7 +353,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.begin_time_out(interaction, game, match)
+            await begin_time_out(cog, interaction, game, match)
 
         cog.drop_turn_prompt.assert_awaited_once()
         cog.begin_substitution_window.assert_awaited_once()
@@ -417,7 +418,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.finish_substitution_window(interaction, game, match)
+            await finish_substitution_window(cog, interaction, game, match)
 
         cog.begin_substitution_window.assert_awaited_once()
         _, kwargs = cog.begin_substitution_window.call_args
@@ -440,7 +441,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.finish_substitution_window(interaction, game, match)
+            await finish_substitution_window(cog, interaction, game, match)
 
         cog.announce_run_back.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
@@ -491,7 +492,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.apply_ball_recovery(
+            await apply_ball_recovery(cog, 
                 interaction, game, match, fetcher,
             )
 
@@ -513,7 +514,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.apply_ball_recovery(
+            await apply_ball_recovery(cog, 
                 interaction, game, match, fetcher,
             )
 
@@ -533,7 +534,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.begin_time_out(interaction, game, match)
+            await begin_time_out(cog, interaction, game, match)
 
         kinds = [event.kind for event in match.events]
         self.assertIn(EVENT_TIME_OUT, kinds)
@@ -569,7 +570,7 @@ class CoachingNoteTests(unittest.TestCase):
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
-        return cog.coaching_window_note(
+        return coaching_window_note(cog, 
             match, TeamSide.HOME, occasion, is_response, False,
         )
 
@@ -823,7 +824,7 @@ class TimeOutConfirmTests(unittest.IsolatedAsyncioTestCase):
         who opens the confirm and presses Back has taken no turn, and
         logging one there would put a cede in the statistics that
         never happened -- followed by a second turn action for
-        whatever they did instead. See `D12Ball.record_turn_action`.
+        whatever they did instead. See `None`.
         """
         cog, game, _ = self.build()
 

@@ -727,7 +727,7 @@ class CoinFlipView(GameConfigurationView):
         # this message carries is the one the kickoff posts -- so
         # nothing is drawn until both coaches have finished setting up
         # and there is a kickoff to show. See
-        # D12Ball.finish_setup_coaching.
+        # `d12ball.flow.periods.finish_setup_coaching`.
         choice_message = await send_new_prompt(
             interaction,
             build_home_choice_message(game, self.cog.team_emojis),
@@ -911,7 +911,7 @@ class HomeAwaySelectionView(SafeView):
         )
         # The match exists from here, but its board does not go up
         # until both coaches are done setting up -- see the same note
-        # on the coin flip, and D12Ball.finish_setup_coaching.
+        # on the coin flip, and `d12ball.flow.periods.finish_setup_coaching`.
         await interaction.response.edit_message(
             content=build_home_choice_message(game, self.cog.team_emojis),
             view=refreshed_view,

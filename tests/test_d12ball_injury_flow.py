@@ -131,7 +131,7 @@ class InjuryTestFlowTests(unittest.TestCase):
     ) -> None:
         """
         The second of the three resume kinds. It is **named** rather
-        than called, unlike the shootout's: `D12Ball.begin_run_back`
+        than called, unlike the shootout's: `None`
         is what decides whether a new play's board is posted and
         pinned, which the model may not know.
         """

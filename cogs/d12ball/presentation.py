@@ -19,7 +19,6 @@ from d12ball.components import (
     MatchState,
     PlayerRole,
     TeamSetup,
-    TeamSide,
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.flow import FollowOnStep
@@ -100,75 +99,6 @@ class PresentationMixin:
 
         game.turn_message_id = None
         save_games(self.games)
-
-
-    def apply_exhaustion(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        player_id: str,
-        amount: int,
-    ) -> str:
-        """
-        Charge `amount` exhaustion tokens, re-test Exhausted, and
-        describe both -- a forwarding method over
-        `RulesEngine.apply_exhaustion`, which is where the charge and
-        its sentence live now.
-
-        Kept here so none of the nineteen call sites moved. Why it
-        went down to the engine: charging a token is a state change
-        and describing it is narration, and both are the model's --
-        rank O2 of docs/design/model-discord-split.md needed a flow step to
-        charge a Dribble Burst's token a space and say so without the
-        cog. See "The model and the Discord layer" in CLAUDE.md.
-        """
-        return self.engine.apply_exhaustion(game, match, player_id, amount)
-
-    def describe_exhaustion_gain(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        player_id: str,
-        amount: int,
-    ) -> str:
-        """
-        The sentence for an exhaustion-token gain already applied to
-        `match` -- a forwarding method over
-        `RulesEngine.describe_exhaustion_gain`.
-
-        Testing the threshold is a state change, so this has to be
-        called before `match` is saved -- prefer `apply_exhaustion`,
-        which keeps the two together, wherever the tokens are being
-        charged here rather than inside `MatchState`.
-        """
-        return self.engine.describe_exhaustion_gain(
-            game, match, player_id, amount,
-        )
-
-    def describe_challenger_walk_in(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        defender_id: str,
-        distance: int,
-    ) -> str:
-        """
-        The challenger's walk-in and what it cost, or "" when they were
-        already on the ball's space.
-
-        Like every other exhaustion message this tests the Exhausted
-        threshold as it writes it, so it has to be built before `match`
-        is saved -- see apply_exhaustion.
-        """
-        if distance <= 0:
-            return ""
-
-        defender = self.engine.get_player_definition(defender_id)
-        space_word = "space" if distance == 1 else "spaces"
-        return (
-            f"{defender.name} has moved {distance} {space_word}."
-            f"\n{self.describe_exhaustion_gain(game, match, defender_id, distance)}"
-        )
 
 
     async def build_maneuver_challenge_file(
@@ -398,41 +328,6 @@ class PresentationMixin:
     # and the reasoning for every one of them is on the method it
     # forwards to.
 
-    def schedule_board_refresh(
-        self,
-        channel: discord.TextChannel,
-        game: D12BallGame,
-        delay: float,
-    ) -> None:
-        self.boards.schedule(channel, game, delay)
-
-    def board_refresh_interval(self, game: D12BallGame) -> float:
-        return self.boards.interval(game)
-
-    def note_board_write_refused(self, game: D12BallGame) -> None:
-        self.boards.note_write_refused(game)
-
-    async def wait_out_board_interval(self, game: D12BallGame) -> None:
-        await self.boards.wait_out_interval(game)
-
-    async def write_board_message(
-        self,
-        channel: discord.TextChannel,
-        game: D12BallGame,
-        png: Optional[bytes] = None,
-        *,
-        relink: bool = True,
-    ) -> None:
-        await self.boards.write(channel, game, png, relink=relink)
-
-    async def settle_board_link(
-        self,
-        channel: discord.TextChannel,
-        game: D12BallGame,
-    ) -> None:
-        await self.boards.settle_link(channel, game)
-
-
 
     def format_team_roster_entry(
         self,
@@ -472,7 +367,6 @@ class PresentationMixin:
         return entry
 
 
-
     def build_team_roster_section(
         self,
         match: MatchState,
@@ -496,25 +390,6 @@ class PresentationMixin:
             )
         return "\n".join(lines)
 
-
-    async def play_ai_turn(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """
-        The AI opponent's turn with possession, as an entry point --
-        `d12ball.flow.turn.ai_turn_step`, through `START_TURN`.
-        """
-        await self.run_step(interaction, game, match, FollowOnStep.START_TURN)
-
-    def tutorial_player_side(self, game: D12BallGame) -> TeamSide:
-        """
-        Which side of the board the coach being taught is playing -- a
-        forwarding method over `d12ball.tutorial.player_side`.
-        """
-        return tutorial.player_side(game)
 
     def tutorial_beat(self, game: D12BallGame):
         """
@@ -554,25 +429,6 @@ class PresentationMixin:
             self.tutorial_beat(game), key, options,
         )
 
-    def tutorial_dice(
-        self,
-        game: D12BallGame,
-        kind: str,
-        count: int,
-    ) -> Optional[list[int]]:
-        """
-        The die values the script fixes for this contest, or None to
-        roll for real.
-
-        Every `random.randint(1, 12)` in a contest a tutorial can reach
-        asks this first. What it answers for, and what it deliberately
-        leaves to the dice, is in `d12ball/tutorial.py` -- the short of
-        it is that a beat only scripts a roll the *next* beat depends
-        on, and the score attempt at the end is not one of them.
-        """
-        return tutorial.scripted_dice(
-            self.tutorial_beat(game), kind, count,
-        )
 
     async def send_turn_prompt(
         self,
@@ -774,7 +630,7 @@ class PresentationMixin:
         The field on its own -- where everybody is standing and where
         the ball is, with nothing else on it -- which is what a coach
         gets under their maneuver cards. See
-        `D12Ball.begin_maneuver_action_selection`.
+        `d12ball.flow.turn.begin_maneuver_action_selection`.
 
         Unlike the maneuver hand, this cannot be drawn once at startup:
         it is the position, so it is different on every pick. Bytes are
