@@ -48,6 +48,7 @@ a deal fields is data the author revises, and no test here is about
 which one it was.
 """
 
+import ast
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -102,7 +103,10 @@ from d12ball.flow.arrivals import (
     check_for_smooth,
 )
 
-from flow_stubs import driver_reaches_cog_stubs
+from flow_stubs import (
+    driver_reaches_cog_stubs,
+    injury_queue_stops_the_chain,
+)
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
@@ -451,6 +455,10 @@ def build_ignition_cog() -> D12Ball:
         cog.ai_strategies,
     )
     cog.refresh_match_image = mock.AsyncMock()
+    # The roll's hand-off to the injury queue is the model's since
+    # Phase 6, so the stop goes on whichever side runs it -- see
+    # `injury_queue_stops_the_chain` in tests/flow_stubs.py, which is
+    # entered by the one test that rolls a real skill test.
     cog.begin_injury_tests = mock.AsyncMock()
     return cog
 
@@ -579,7 +587,9 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
         view = SkillTestView(self.cog, self.game.game_id)
         # The offense rolls a natural 6 and ignites on a 9; the
         # defense's 1 does not, whoever they are.
-        with suppressed_cog_saves(), suppressed_view_saves(), mock.patch(
+        with injury_queue_stops_the_chain(
+            self.cog,
+        ), suppressed_cog_saves(), suppressed_view_saves(), mock.patch(
             "random.randint", side_effect=[6, 1, 9],
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
@@ -615,17 +625,58 @@ class IgnitionIsShownEverywhereTests(unittest.TestCase):
     out, so nothing else would notice.
     """
 
-    def source_files(self) -> list:
-        root = Path(__file__).resolve().parent.parent / "cogs"
-        return sorted(root.rglob("*.py"))
+    def hands_the_ignite_back(self, source: str) -> bool:
+        """
+        Whether a model module carries its ignites out to a frontend.
 
-    def test_every_module_that_ignites_also_posts_the_die(self) -> None:
+        Read off the AST rather than grepped, for
+        `tests/test_model_purity.py`'s reason: the claim is that a
+        *field* on what the step returns is the ignite, and a mention
+        in a comment or a local name is not that. `OwnGoalRoll.ignite`
+        and `ContestDice.ignites` are the two today.
+        """
+        for node in ast.walk(ast.parse(source)):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for statement in node.body:
+                if (
+                    isinstance(statement, ast.AnnAssign)
+                    and isinstance(statement.target, ast.Name)
+                    and statement.target.id.startswith("ignite")
+                ):
+                    return True
+        return False
+
+    def source_files(self) -> list:
+        root = Path(__file__).resolve().parent.parent
+        return sorted(
+            list((root / "cogs").rglob("*.py"))
+            + list((root / "d12ball" / "flow").rglob("*.py"))
+        )
+
+    def test_every_module_that_ignites_also_shows_the_die(self) -> None:
+        """
+        **The claim is in two halves since Phase 6**, because the roll
+        sites are crossing the seam. A module in `cogs/` that ignites
+        has to *post* the die. A module in `d12ball/flow/` cannot post
+        anything, so what it owes instead is handing the ignites back
+        for a frontend to post -- which is what `ContestDice.ignites`
+        and `OwnGoalRoll.ignite` are. Either way the coach sees the
+        second die; what changed is which side of the line writes it
+        down.
+        """
         asked = []
         for path in self.source_files():
             source = path.read_text(encoding="utf-8")
             if ".ignite(" not in source:
                 continue
             asked.append(path.name)
+            if path.parent.name == "flow":
+                self.assertTrue(
+                    self.hands_the_ignite_back(source),
+                    f"{path.name} rolls an ignite and hands none back",
+                )
+                continue
             self.assertIn(
                 "post_volatile_ignition",
                 source,

@@ -270,9 +270,11 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch.object(
-            SkillTestView,
-            "score_skill_test",
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+            # The scoring is `d12ball.flow.rolls.score_skill_test`
+            # since Phase 6, and it is patched where the step reads it
+            # rather than on the view, which no longer has it.
+            "d12ball.flow.rolls.score_skill_test",
             # The two trailing IgnitedRolls are what Volatile did to
             # each side's die; a tie that never ignited is two bare
             # faces, which is what every roll in a basic game is.

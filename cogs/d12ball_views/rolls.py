@@ -18,6 +18,9 @@ from d12ball.components import (
     TeamSetup,
 )
 from d12ball.engine import IgnitedRoll
+from d12ball.flow import StepResult
+from d12ball.flow.rolls import skill_test_step
+from d12ball.prompts import PendingPrompt, PromptKind
 from d12ball.game import (
     D12BallGame,
     Team,
@@ -71,203 +74,6 @@ class SkillTestView(SafeView):
                 game, match, [match.active_player_id, match.challenger_id],
             )
 
-    def score_skill_test(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        offense_player: PlayerDefinition,
-        defense_player: PlayerDefinition,
-    ) -> tuple[
-        list[tuple[int, Team, list[str], int, bool, list[tuple[str, int]]]],
-        int,
-        int,
-        IgnitedRoll,
-        IgnitedRoll,
-    ]:
-        """
-        Roll the maneuver skill test and add everything that counts
-        towards it, as the two sides `render_contest_dice` draws plus
-        the totals the outcome is read off.
-
-        The dice image carries the whole arithmetic -- who rolled, what
-        they rolled, every modifier and the total -- which is why no
-        message that posts one repeats it in text.
-
-        Nothing here is withheld for injury. What an injured player
-        loses is their own offensive or defensive skill and only in a
-        contest, which is the loose ball and the shootout; a maneuver's
-        skill test pays every modifier to an injured player. See
-        "Injured players" in docs/living-rules.md.
-
-        **Both ignites come back with the totals**, because this is the
-        one roll site where Volatile does something besides arithmetic:
-        the caller needs to know which side surged or backfired to set
-        the tier rider once it knows who won. See
-        `RulesEngine.volatile_raises_tier`.
-        """
-        offense_skill = self.cog.player_catalog.effective_profile(
-            offense_player,
-        ).offense
-        defense_skill = self.cog.player_catalog.effective_profile(
-            defense_player,
-        ).defense
-
-        scripted = self.cog.tutorial_dice(game, "skill_test", 2)
-        offense_roll, defense_roll = (
-            scripted if scripted else
-            (random.randint(1, 12), random.randint(1, 12))
-        )
-
-        # Volatile, on each side's own die and before any skill is
-        # added -- the ignite reads the natural face. Both are asked
-        # even in a basic game, where they come back as the face and
-        # nothing else. "If both players rolling are Fire Demons, each
-        # checks their own" falls out of asking per side.
-        offense_ignite = self.cog.engine.ignite(
-            game, offense_player.player_id, offense_roll,
-        )
-        defense_ignite = self.cog.engine.ignite(
-            game, defense_player.player_id, defense_roll,
-        )
-
-        # Overdrive was declared and paid before this button was
-        # pressed; what is left is to add it and clear the declaration,
-        # which `roll` does once both sides have been read.
-        offense_overdrive = match.overdrive_modifier(
-            offense_player.player_id,
-        )
-        defense_overdrive = match.overdrive_modifier(
-            defense_player.player_id,
-        )
-
-        offense_total = (
-            offense_roll + offense_skill + offense_ignite.modifier
-            + offense_overdrive
-        )
-        defense_total = (
-            defense_roll + defense_skill + defense_ignite.modifier
-            + defense_overdrive
-        )
-
-        offense_detail = contestant_detail(
-            offense_player, "Offensive", offense_skill,
-        )
-        defense_detail = contestant_detail(
-            defense_player, "Defensive", defense_skill,
-        )
-        for detail, line in (
-            (offense_detail, offense_ignite.detail),
-            (offense_detail, self.cog.engine.overdrive_detail(
-                match, offense_player.player_id,
-            )),
-            (defense_detail, defense_ignite.detail),
-            (defense_detail, self.cog.engine.overdrive_detail(
-                match, defense_player.player_id,
-            )),
-        ):
-            if line:
-                detail.append(line)
-
-        # Role ability -- Midfielder: +3 on a skill test when
-        # attempting Low Pass (offense) or Pressure (defense).
-        #
-        # **Read by rank, so a gambit inherits it.** The
-        # Midfielder's +3 and the ball speed modifier below are listed
-        # against both cards on their rank in the sheet's own
-        # `Interactions` column, and neither contradicts what the
-        # gambit does. The three that *do* contradict -- the
-        # Fullback on Clear, the Playmaker on Dribble Burst, the
-        # Fullback's pass distance on Setup Pass -- are the author's to
-        # settle and are deliberately not inherited anywhere; see
-        # "Still open" in docs/gambit-matrix.md.
-        if (
-            offense_player.role == PlayerRole.MIDFIELDER
-            and match.offense_maneuver in ("low_pass", "skilled_pass")
-        ):
-            offense_total += 3
-            offense_detail.append("+3 Midfielder ability")
-
-        if (
-            defense_player.role == PlayerRole.MIDFIELDER
-            and match.defense_maneuver in ("pressure", "double_team")
-        ):
-            defense_total += 3
-            defense_detail.append("+3 Midfielder ability")
-
-        if match.defense_maneuver in ("steal", "intercept"):
-            modifier = match.ball.speed // 2
-            defense_total += modifier
-            defense_detail.append(f"+{modifier} ball speed modifier")
-
-        # **Merge**: an Ooze standing on the ball who is not one of the
-        # two rolling adds to their own side -- offensive skill on the
-        # attack, defensive on the defence. A maneuver's skill test is
-        # always fought on the ball's space, so it always qualifies.
-        rolling = (offense_player.player_id, defense_player.player_id)
-        (
-            offense_merge, offense_merge_lines, offense_merge_contributors,
-        ) = self.cog.engine.merge_bonus(
-            game, match, match.ball.possession, rolling, "offense",
-        )
-        (
-            defense_merge, defense_merge_lines, defense_merge_contributors,
-        ) = self.cog.engine.merge_bonus(
-            game, match, match.defending_side(), rolling, "defense",
-        )
-        offense_total += offense_merge
-        defense_total += defense_merge
-        offense_detail.extend(offense_merge_lines)
-        defense_detail.extend(defense_merge_lines)
-
-        # **A won Double Team lands on the *next* maneuver**: both
-        # defenders challenge the ball holder, and both add their
-        # defensive skill. `double_team_defenders` is challenger-first
-        # and holds the second only while `pending_double_team` is set,
-        # which one card sets and a new play clears -- so this is a
-        # no-op in every game that never played it.
-        double_team_detail = ""
-        partners = [
-            player_id
-            for player_id in self.cog.engine.double_team_defenders(match)
-            if player_id != match.challenger_id
-        ]
-        for player_id in partners:
-            partner = self.cog.engine.get_player_definition(player_id)
-            partner_skill = self.cog.player_catalog.effective_profile(
-                partner
-            ).defense
-            defense_total += partner_skill
-            double_team_detail = (
-                f"+{partner_skill} {partner.name} (Double Team)"
-            )
-        if double_team_detail:
-            defense_detail.append(double_team_detail)
-
-        return (
-            [
-                (
-                    offense_roll,
-                    match.team_for_player(offense_player.player_id),
-                    offense_detail,
-                    offense_total,
-                    bool(offense_overdrive),
-                    offense_merge_contributors,
-                ),
-                (
-                    defense_roll,
-                    match.team_for_player(defense_player.player_id),
-                    defense_detail,
-                    defense_total,
-                    bool(defense_overdrive),
-                    defense_merge_contributors,
-                ),
-            ],
-            offense_total,
-            defense_total,
-            offense_ignite,
-            defense_ignite,
-        )
-
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -295,137 +101,53 @@ class SkillTestView(SafeView):
         # deferring buys the rest of this method the usual 15 minutes.
         await interaction.response.defer()
 
-        offense_player = self.cog.engine.get_player_definition(
-            match.active_player_id,
-        )
-        defense_player = self.cog.engine.get_player_definition(
-            match.challenger_id,
-        )
-
-        (
-            contestants,
-            offense_total,
-            defense_total,
-            offense_ignite,
-            defense_ignite,
-        ) = self.score_skill_test(
-            game, match, offense_player, defense_player,
-        )
-        # Spent, win, lose or tie: a tie that is re-rolled is a fresh
-        # roll and has to be Overdriven again.
-        match.consume_overdrive()
-        # Logged before either branch, so a tie that re-rolls is in the
-        # record as well as the roll that settles it -- a maneuver
-        # decided on the third attempt cost three rolls and six
-        # exhaustion tokens, and only the log says so. It is also what
-        # `record_maneuver` reads to tell a win on the dice from a win
-        # on the cards, so it has to be written before the effect is
-        # dispatched.
-        match.record_event(
-            EVENT_SKILL_TEST,
-            side=match.ball.possession,
-            player_id=match.active_player_id,
-            offense_total=offense_total,
-            defense_total=defense_total,
-            tied=offense_total == defense_total,
-            offense_key=match.offense_maneuver,
-            defense_key=match.defense_maneuver,
-        )
+        # **The rule is `d12ball.flow.rolls.skill_test_step`** since
+        # Phase 6: the roll, the Midfielder's +3, Merge, Double Team's
+        # partner, the event, Volatile's tier rider and the tie's two
+        # tokens are all the model's, and the whole of them used to be
+        # in this method and the one above it. What is left here is the
+        # picture and where it goes.
+        dice, result = skill_test_step(self.cog.engine, game, match)
         dice_file = await render_contest_dice(
-            contestants, filename="skill_test_dice.png",
+            dice.contestants, filename="skill_test_dice.png",
         )
 
-        if offense_total == defense_total:
+        following = result.next
+        # **A tie is the step handing back this same question**, worded
+        # by what happened -- the two tokens are charged and the test
+        # is rolled again, which leaves the match in exactly the state
+        # `pending_prompt` reads as `SKILL_TEST`. Read by kind and not
+        # by "is it a prompt", because the win path ends on a prompt
+        # too: the injury test the contest owes.
+        if (
+            isinstance(following, PendingPrompt)
+            and following.kind is PromptKind.SKILL_TEST
+        ):
+            # A tie: the same question again, worded by what happened.
+            # It keeps its text on *this* message rather than posting
+            # it below the dice, because this message also carries the
+            # roll-again button.
+            #
+            # **The save is here and not in the dispatcher**, because
+            # this branch never reaches one: the tie charged both
+            # contestants a token and the next click reloads the match
+            # out of the file.
+            self.cog.persist(game, match)
             await interaction.edit_original_response(
-                content=self.pay_skill_test_tie(
-                    game,
-                    match,
-                    match.active_player_id,
-                    match.challenger_id,
-                    offense_total,
-                    defense_total,
-                ),
+                content=following.ask,
                 attachments=[dice_file],
-                view=SkillTestView(self.cog, self.game_id),
+                view=self.cog.view_for_prompt(
+                    self.game_id, match, following,
+                ),
             )
             # A tie is re-rolled, so the ignition dice go up here too:
             # they are what made these two totals equal, and the next
             # roll is a fresh one that may ignite again.
             await self.cog.post_volatile_ignition(
-                interaction,
-                match,
-                (offense_player.player_id, offense_ignite),
-                (defense_player.player_id, defense_ignite),
+                interaction, match, *dice.ignites,
             )
             await self.cog.refresh_match_image(interaction, game)
             return
-
-        outcome = "offense" if offense_total > defense_total else "defense"
-        winner_key = (
-            match.offense_maneuver
-            if outcome == "offense"
-            else match.defense_maneuver
-        )
-        winner_name = self.cog.engine.maneuver_name(winner_key)
-
-        # **Volatile's tier rider**, settled here because this is the
-        # first point that knows who won. Both of the rules' two cases
-        # raise the winner's card, so this is one flag -- see
-        # `RulesEngine.volatile_raises_tier`. It is written onto the
-        # match rather than passed down to the effect because the
-        # injury tests run in between: `resolving_maneuver` is asked on
-        # the far side of them, possibly after a restart.
-        winner_ignite, loser_ignite = (
-            (offense_ignite, defense_ignite)
-            if outcome == "offense"
-            else (defense_ignite, offense_ignite)
-        )
-        match.volatile_tier_upgrade = self.cog.engine.volatile_raises_tier(
-            game, winner_ignite, loser_ignite,
-        )
-        # The other half: the losing side's own ignite decides whether
-        # they pay their gambit's cost, whatever the cards said.
-        match.volatile_loser_cost = self.cog.engine.volatile_loser_cost(
-            game, loser_ignite,
-        )
-        volatile_lines = []
-        if match.volatile_tier_upgrade:
-            raised = self.cog.engine.maneuver_name(
-                self.cog.engine.resolving_maneuver(match, winner_key),
-            )
-            volatile_lines.append(
-                "🔥 **Volatile** — "
-                + ("the surge" if winner_ignite.surge else "the backfire")
-                + f" raises it to **{raised}**."
-            )
-        # Said only where there is a gambit's cost for it to have
-        # changed: a coach told "the surge spares them the cost" of a
-        # card that carried none is being answered a question nobody
-        # asked (see "What a message says" in docs/design/naming-and-wording.md).
-        loser_card = self.cog.engine.maneuver_catalog.get(
-            match.opposing_maneuver(winner_key) or "",
-        )
-        if (
-            match.volatile_loser_cost is not None
-            and loser_card is not None
-            and loser_card.is_gambit
-        ):
-            volatile_lines.append(
-                "🔥 **Volatile** — the backfire also costs them their "
-                "gambit's price."
-                if match.volatile_loser_cost
-                else "🔥 **Volatile** — the surge spares them their "
-                "gambit's cost."
-            )
-        volatile_note = (
-            "\n" + "\n".join(volatile_lines) if volatile_lines else ""
-        )
-
-        exhausted_participants = [
-            player
-            for player in (offense_player, defense_player)
-            if player.player_id in match.exhausted
-        ]
 
         # Result after the dice, not above them: a message's
         # attachments render below its content, so the winner announced
@@ -442,28 +164,24 @@ class SkillTestView(SafeView):
         # totals past the other, and the tier rider announced below is
         # read off the same two dice.
         await self.cog.post_volatile_ignition(
-            interaction,
-            match,
-            (offense_player.player_id, offense_ignite),
-            (defense_player.player_id, defense_ignite),
+            interaction, match, *dice.ignites,
         )
-        await send_new_prompt(
-            interaction,
-            f"## **{winner_name}** wins the skill test!{volatile_note}",
-        )
+        await send_new_prompt(interaction, result.narration[0])
         await self.cog.refresh_match_image(interaction, game)
 
         # The effect is on the far side of the injury tests now that
-        # each of those is a click of its own, so it is handed over as
-        # the queue's continuation rather than awaited here -- see
-        # begin_injury_tests. With nobody exhausted this still resolves
-        # in the same breath as the roll.
-        await self.cog.begin_injury_tests(
+        # each of those is a click of its own, so what the step handed
+        # back is dispatched rather than awaited here -- with nobody
+        # exhausted it still resolves in the same breath as the roll.
+        # The board is already written above, so the flag is not passed
+        # on; see principle 8 in CLAUDE.md.
+        await self.cog.dispatch_step_result(
             interaction,
             game,
             match,
-            exhausted_participants,
-            {"kind": "maneuver_effect", "winner_key": winner_key},
+            StepResult(
+                narration=result.narration[1:], next=result.next,
+            ),
         )
 
 

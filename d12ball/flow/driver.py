@@ -70,7 +70,7 @@ from typing import Any, Callable, Iterable, Mapping, Optional, Union
 
 from d12ball.components import MatchState
 from d12ball.engine import RulesEngine
-from d12ball.flow import arrivals, effects, periods, turn, turnovers
+from d12ball.flow import arrivals, effects, periods, rolls, turn, turnovers
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.game import D12BallGame
 from d12ball.prompts import PendingPrompt, PromptKind, pending_prompt
@@ -667,6 +667,37 @@ def _answer_own_goal_roll(
     return effects.own_goal_roll_step(engine, game, match)
 
 
+def _answer_skill_test(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+) -> tuple[object, StepResult]:
+    """
+    The maneuver's skill test, off the button either coach may press.
+
+    **It takes no arguments at all**, which is what "nothing rolls
+    dice on its own" looks like from this side: the action is that
+    somebody pressed, and everything the roll needs is the position.
+    A tie comes back as this same prompt worded by what happened, so a
+    frontend puts the question up again without knowing that a tie is
+    a thing.
+    """
+    return rolls.skill_test_step(engine, game, match)
+
+
+def _answer_loose_ball_skill_test(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+) -> tuple[object, StepResult]:
+    """The contest for the ball, which the long High Pass borrows."""
+    return rolls.loose_ball_test_step(engine, game, match)
+
+
 def _answer_low_pass_choice(
     engine: RulesEngine,
     game: D12BallGame,
@@ -827,6 +858,8 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.SHOOTER_CHOICE: _answer_shooter_choice,
     PromptKind.SMOOTH: _answer_smooth,
     PromptKind.OWN_GOAL_ROLL: _answer_own_goal_roll,
+    PromptKind.SKILL_TEST: _answer_skill_test,
+    PromptKind.LOOSE_BALL_SKILL_TEST: _answer_loose_ball_skill_test,
     PromptKind.LOW_PASS_CHOICE: _answer_low_pass_choice,
     PromptKind.HIGH_PASS_CHOICE: _answer_high_pass_choice,
     PromptKind.SETUP_PASS_CHOICE: _answer_setup_pass_choice,

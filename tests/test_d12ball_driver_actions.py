@@ -142,6 +142,10 @@ LEGAL_ACTIONS = {
     PromptKind.SHOOTER_CHOICE: _shooter_choice,
     PromptKind.SMOOTH: lambda fixture: ("take", {}),
     PromptKind.OWN_GOAL_ROLL: _own_goal,
+    # The two contested rolls take no arguments at all: the action
+    # is that somebody pressed, and the position is the rest.
+    PromptKind.SKILL_TEST: lambda fixture: ("", {}),
+    PromptKind.LOOSE_BALL_SKILL_TEST: lambda fixture: ("", {}),
     PromptKind.LOW_PASS_CHOICE: _low_pass,
     PromptKind.HIGH_PASS_CHOICE: _high_pass,
     PromptKind.SETUP_PASS_CHOICE: _setup_pass,
@@ -360,15 +364,15 @@ class SeamTests(unittest.TestCase):
         something wrong.
         """
         fixture = next(
-            case.build() for case in CASES if case.name == "skill test"
+            case.build() for case in CASES if case.name == "maneuver picks"
         )
-        self.assertFalse(driver.can_answer(PromptKind.SKILL_TEST))
+        self.assertFalse(driver.can_answer(PromptKind.MANEUVER_ACTION))
         with self.assertRaises(LookupError):
             driver.apply(
                 ENGINE,
                 fixture.game,
                 fixture.match,
-                driver.Action(PromptKind.SKILL_TEST),
+                driver.Action(PromptKind.MANEUVER_ACTION),
             )
 
     def test_every_answer_takes_the_same_shape(self) -> None:
