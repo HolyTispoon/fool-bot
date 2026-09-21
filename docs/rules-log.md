@@ -124,6 +124,19 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-21 -- the living rules become The D12Ball Charter: Laws of the Game
+
+**No rule changed.** `docs/living-rules.md` was restructured into the Charter on the model of
+the Law of Root: twenty Laws in two Parts, each Law in sections, one rule per paragraph, with a
+preface, a definitions section gathering every term the rules use, a table of where Part II
+(advanced mode) changes Part I, and four appendices. The printed edition numbers every
+paragraph at build time (`scripts/build_rulebooks.py charter`); the file's headings and anchors
+are otherwise the ones the rules commands and the design docs already used. Part I is basic
+mode with no mention of a gambit or a species; every advanced-mode exception moved to Part II,
+where it was stated inline before. The reasons that used to end a paragraph became *Notes*,
+which are never rules. Source: the plan in `docs/rulebooks/plan.md`, approved by the author
+asking for the books to be made.
+
 ### 2026-09-20 (newest) -- author, the gambit gate counts Exhausted players as well as Injured
 
 A revision to the same-day ruling below ("advanced maneuvers become gambits, and a gambit needs
