@@ -83,6 +83,16 @@ def command_sync_forced() -> bool:
 class GameBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
+        # Privileged, off by default. Without it, message.content on a
+        # message the bot did not author is stripped to "" unless the
+        # message is a DM or mentions the bot -- so a game channel's
+        # export shows every bot post's text but every player chat line
+        # as blank, which is indistinguishable from the channel having
+        # said nothing there. Must also be toggled on for this
+        # application in the Discord Developer Portal (Bot -> Privileged
+        # Gateway Intents -> Message Content Intent), or the gateway
+        # rejects the connection.
+        intents.message_content = True
 
         super().__init__(
             command_prefix=commands.when_mentioned,

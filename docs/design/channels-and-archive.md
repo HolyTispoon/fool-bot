@@ -120,6 +120,22 @@ frees a slot in the category.
   button dies after 24 hours" in [gotchas.md](gotchas.md)) -- a transcript that only
   recorded the URL would go quietly unreadable long before anyone opened
   the export.
+- **The bot needs the privileged Message Content intent, or every
+  player's line in the transcript reads as blank.** `read_channel_transcript`
+  puts every message's `content` in the entry with no filter by author --
+  it was never the bot-only filter it looked like from a downloaded
+  export. Without `intents.message_content = True` in `foolbot.py`,
+  Discord strips `content` to `""` on any message the bot did not author
+  itself (a DM or one that @-mentions the bot is exempt), so the bot's
+  own posts carry full text and every line a player typed does not --
+  indistinguishable in the export from the channel having said nothing
+  there. `render_transcript_html` prints that as `(no text)`. The intent
+  also has to be switched on for the application itself, in the Discord
+  Developer Portal under Bot -> Privileged Gateway Intents -> Message
+  Content Intent, or the gateway rejects the connection outright; the
+  code-side flag alone is not enough, and each of the two bots
+  (see "Two of those machines" in [collaboration.md](collaboration.md)) is
+  its own application there.
 - **No Google Drive API call exists anywhere in this bot.** "Export to
   Google Drive" means `FOOLBOT_D12BALL_ARCHIVE_EXPORT_DIR` points at a
   folder Google Drive is already syncing -- on the live host, a folder
