@@ -11,3 +11,4 @@ Pillow==12.2.0
 propcache==0.5.2
 python-dotenv==1.2.2
 yarl==1.24.5
+reportlab==5.0.1
