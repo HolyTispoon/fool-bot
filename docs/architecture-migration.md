@@ -249,8 +249,12 @@ renders a mention for a person and the name for the AI.
 `create_game`, `pick_team`, `flip_coin`, `choose_home_or_visiting`,
 `start_game` on the service; the randomness and
 `initialize_standard_match` move with them; the views call them.
-Whether the Discord ids on `D12BallGame` become optional is the
-author's (still-open 3 in `docs/web-app.md`).
+**Settled (decision 3, 2026-09-21): the Discord ids on `D12BallGame`
+become optional** -- `guild_id`, `channel_id` and `message_id` as
+`Optional[int] = None`, in their own commit under principle 6, since
+that is a change to the saved record. Every existing save reads back
+unchanged; a game the web app creates has no channel, and the startup
+sweep skips one.
 
 ### 9. Discord out of the model -- next
 
