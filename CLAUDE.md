@@ -63,6 +63,8 @@ python3 -m unittest discover -s tests
 | `docs/gambit-matrix.md` | The worksheet the gambits were built from, cut to what is still open. **Nothing in it is a rule** |
 | `docs/tts-module.md` | The worksheet the Tabletop Simulator module is being built from -- the four decisions already taken, the five phases and the in-TTS stop each ends on, what the convenience scripts may and may not do. **Nothing in it is a rule** |
 | `docs/rulebooks/` | The worksheet the two rulebooks are built from -- the plan, the Charter and Learn to Play outlines, and the committed figure sketches. **Nothing in it is a rule** |
+| `ARCHITECTURE.md` | **The target architecture**: four parts (model, `GameService`, Discord frontend, web frontend), the shared `GameResult`, what to remove and the migration order. A change under `d12ball/`, `gamesaves/d12ball/` or `cogs/` is reviewed against it |
+| `docs/architecture-migration.md` | The worksheet the migration to `ARCHITECTURE.md` is being done from -- what did not conform on 2026-09-21, and the ten steps in order. **Nothing in it is a rule** |
 | `docs/design/` | The design notes this file points at -- one topic per file |
 
 ## Hard rules
