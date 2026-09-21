@@ -48,8 +48,8 @@ the first window this coach is ever offered, whenever the game gets
 round to it, and `tutorial_coaching_explained` is what keeps it to one.
 It is held behind a Continue button like every other tutorial note with
 something after it -- the menu it explains -- so
-`begin_substitution_window` hands the window-opening tail to
-`post_tutorial_note` as the continuation. Skipping the tutorial
+`begin_substitution_window` holds the window-opening tail behind it
+(`d12ball.flow.gates.hold_behind_note`). Skipping the tutorial
 suppresses it, which is what `skip_tutorial` setting that flag is for.
 
 **The opening position is the standard deal**, and the script places

@@ -29,7 +29,7 @@ class FollowOnStep(Enum):
     them.
 
     **It was transitional, and it is not any more.** Through Phases 2
-    to 5 of docs/model-discord-split.md the spine of a turn was still
+    to 5 of docs/design/model-discord-split.md the spine of a turn was still
     async and still in `cogs/d12ball/`, so a step that had moved ended
     by naming the one that had not, and the cog dispatched it out of
     `D12Ball.follow_on_methods`. Phase 6 collapsed that table: the
@@ -46,52 +46,20 @@ class FollowOnStep(Enum):
     before what, and which line rides inside which message -- are the
     rules a second frontend has to keep.
 
-    **Phase 4 widened what "has not moved" means, and the enum grew
-    rather than shrank because of it.** Before it, a member named a
-    step still wholly in `cogs/`. After it, most members name a step
-    whose *decisions* are in `d12ball/flow/` and whose cog method is
-    the wrapper that persists and posts -- so the enum still reads
-    exactly as "what the cog still dispatches", which is the claim
-    Phase 6 needs, but not as "what has not been lifted". Three kinds
-    of member are here now, and each says which it is:
-
-    **Phase 5 grew it again, by two, and for that same widening.** It
-    took `DISPATCH_INJURY_RESUME` out -- the dispatcher is
-    `d12ball.flow.injuries.dispatch_injury_resume` now, and all three
-    of its arrivals answer in the model -- and added
-    `FINISH_SETUP_COACHING`, `FINISH_HALFTIME` and
-    `ANNOUNCE_GAME_OVER`. Every one of the three is the third kind
-    below and none of them is a rule: a pinned board, a pinned board,
-    and the message the rematch buttons hang off. `END_PERIOD` and
-    `BEGIN_SUBSTITUTION_WINDOW` were expected to leave and did not;
-    each now says on its own entry which kind it turned out to be.
-
-    - a step no phase has touched, because it is pictures and no
-      decision (`SEND_TURN_PROMPT`, `START_SET_UP_SHOT`);
-    - a step whose model half moved but whose prompt **carries a
-      picture** (`BEGIN_SUBSTITUTION_WINDOW`).
-      A third kind stood beside this one until Phase 6 -- a prompt the
-      view carried arguments for that match state did not hold
-      (`SEND_SET_UP_ATTEMPT_PROMPT`, `SEND_SHOOTER_PROMPT`) -- and it
-      is gone: `MatchState.pending_scoring_opportunity` records the
-      offer, so both are ordinary `PendingPrompt`s and a restart
-      inside either comes back to it;
-    - a step whose model half moved but whose lines are **their own
-      message**, so the ordinary "carry the narration forward" would
-      merge two events into one paragraph (`BEGIN_LOOSE_BALL`,
-      `RESOLVE_LOOSE_BALL`, `ANNOUNCE_RUN_BACK`, `FINISH_RUN_BACK`,
-      `END_PERIOD`), or is a board this phase may not post and pin
-      (`FINISH_SETUP_COACHING`, `FINISH_HALFTIME`,
-      `ANNOUNCE_GAME_OVER`). See `D12Ball.post_then_dispatch` and
-      `D12Ball.post_blocks_then_dispatch`.
-
-    A closed set rather than a callable or a method name the cog
-    `getattr`s, because then **the enum itself is the record of what
-    the cog still dispatches**. Phases 3 to 5 add and remove members;
-    Phase 6 reads this file rather than a pull request description to
-    learn what is left. The members are named for the steps they name
-    and their values carry nothing, so nothing can reach a cog method
-    by spelling one.
+    **How it grew is worth one paragraph, because the growth was not
+    the split failing.** Phase 2 started it at nine members, every one
+    a step still wholly in `cogs/`. Phase 4 widened what a member
+    meant -- most came to name a step whose decisions had moved and
+    whose cog method was the wrapper that persisted and posted -- and
+    Phases 5 and 6 each added members for steps the model already
+    owned that *needed a name* once the thing reaching them became a
+    step too. So the enum counted what a frontend still dispatched,
+    and a member arrived every time a caller crossed the seam ahead
+    of the thing it called. When the last caller crossed, the count
+    stopped meaning that and started meaning this: the joints of a
+    turn, which the loop runs and the frontend renders around. The
+    members are named for the steps they name and their values carry
+    nothing, so nothing can reach a step by spelling one.
     """
 
     #: The tail of every ordinary maneuver path: the clock, the end of
@@ -138,7 +106,7 @@ class FollowOnStep(Enum):
     #: ball moved; a frontend that would otherwise draw the same board
     #: twice for one click skips its own write, which is the Discord
     #: cog's business and not the model's (principle 8). See
-    #: `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in `cogs/d12ball/core.py`.
+    #: `stop_draws_the_board` in `cogs/d12ball/core.py`.
     BEGIN_LOOSE_BALL = auto()
     #: **Setup Pass's cost**: beaten by a deflection, the coach who
     #: beat it drives the ball a further 1, 2 or 3 spaces back, and it
@@ -147,8 +115,8 @@ class FollowOnStep(Enum):
     #: all is still the cog's: Dinky pushes the maximum itself, and a
     #: ball already at the end of the field has nothing to offer, so
     #: the cost is simply spent. Every one of those three branches ends
-    #: in `BEGIN_LOOSE_BALL`, which is why it keeps that member's
-    #: company in `FOLLOW_ONS_THAT_DRAW_THE_BOARD`: the board a
+    #: in `BEGIN_LOOSE_BALL`, which is why the prompt it puts up is
+    #: in `PROMPTS_DRAWN_LATER` in `cogs/d12ball/core.py`: the board a
     #: deflection moved reaches the channel a beat later, from the far
     #: side of the coach's answer, rather than in front of a question
     #: whose answer moves the ball again.
@@ -246,8 +214,10 @@ class FollowOnStep(Enum):
     #: The kickoff board, and the tutorial's welcome over the top of
     #: it. Phase 5's, and a member for `END_PERIOD`'s neighbours'
     #: reason: `post_new_play_board` is the one pinning site in the
-    #: game and `post_tutorial_note` is a Continue gate, neither of
-    #: which the model may know about.
+    #: game and the welcome was a Continue gate the cog ran, neither
+    #: of which the model could know about until the last increment
+    #: made the pin a stop (`StepResult.new_play`) and the gate a
+    #: prompt (`d12ball.flow.gates`).
     FINISH_SETUP_COACHING = auto()
     #: The same board for the second half's kickoff. A member of its
     #: own rather than `FINISH_SETUP_COACHING` with a flag, because
@@ -270,7 +240,7 @@ class FollowOnStep(Enum):
     #: receiver both coaches watched catch it, so the contest is
     #: announced plainly and the board the pass moved has to be written
     #: **before** it. Folding it into the loose ball's member would
-    #: have put it in `FOLLOW_ONS_THAT_DRAW_THE_BOARD` and lost that
+    #: have put it under the loose ball's stop and lost that
     #: write, which is the answer being keyed to the step working
     #: exactly as rank D1 intended. `D12Ball.begin_high_pass_contest`
     #: already existed as a step, with a second caller in the declined

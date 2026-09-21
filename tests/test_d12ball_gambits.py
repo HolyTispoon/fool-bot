@@ -122,7 +122,7 @@ def loose_ball_distance(call) -> int:
     `call.args`.
 
     A Setup Pass that lands on nobody reaches it as a `FollowOn` since
-    rank O3 of docs/model-discord-split.md, and `dispatch_step_result`
+    rank O3 of docs/design/model-discord-split.md, and `dispatch_step_result`
     passes a follow-on's arguments **by keyword** -- so an argument the
     cog used to hand over positionally now arrives named. Binding the
     call to the signature answers for both shapes, which is the reading

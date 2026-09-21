@@ -1,7 +1,7 @@
 """
 The two steals as one flow step, and the cog wrapper around it.
 
-The model half of rank D2 of Phase 3 of docs/model-discord-split.md.
+The model half of rank D2 of Phase 3 of docs/design/model-discord-split.md.
 `tests/test_d12ball_steal_recording.py` asked the cog what a steal
 says and does next, off `tests/steal_fixtures.py`, and was run green
 before anything moved. This asks `d12ball.flow.effects.steal_step` the
@@ -17,7 +17,7 @@ put:
 - the cog wrapper saves **between** the step and the dispatch, which
   is the transition rule for Phases 2 to 5,
 - the two follow-ons this rank is the first to name are real
-  `FollowOnStep` members with rows in `D12Ball.follow_on_methods`,
+  `FollowOnStep` members with rows in `driver.MODEL_STEPS`,
 - a restart in the middle of the effect still comes back to the same
   prompt, which is the Phase 1 effect-choice branch catching it.
 """
@@ -134,7 +134,7 @@ class StealStepTests(unittest.TestCase):
         """
         Rank D2 is the first hand-off into the spine proper, so it
         adds two `FollowOnStep` members -- and a member with no row in
-        `D12Ball.follow_on_methods` raises inside a resolved maneuver,
+        `driver.MODEL_STEPS` raises inside a resolved maneuver,
         one card at a time. The membership itself is asserted in
         `tests/test_d12ball_package_shape.py`; this is that the two
         this rank names are the two it recorded.

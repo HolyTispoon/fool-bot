@@ -402,9 +402,10 @@ class LegalActionTests(ApplyFixture):
         **This covers the two refusals `answer` makes before any
         adapter runs** -- the wrong kind and an unoffered choice -- and
         that is the whole of what it can claim. An adapter that runs
-        and *then* refuses is a different question, and today several
-        of them mutate on the way to raising; see "What `answer`
-        refuses, and what it does not" in
+        and *then* refuses is a different question, answered adapter
+        by adapter: each checks its argument against the candidate
+        list before it calls the step, since the last increment of
+        Phase 6; see "What `answer` refuses, and what it does not" in
         docs/design/model-discord-split.md.
         """
         for case, kind in _answerable_cases():

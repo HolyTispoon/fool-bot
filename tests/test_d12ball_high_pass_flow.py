@@ -2,7 +2,7 @@
 The two passes of rank O3 as flow steps, and the cog wrappers around
 them.
 
-The model half of rank O3 of Phase 3 of docs/model-discord-split.md.
+The model half of rank O3 of Phase 3 of docs/design/model-discord-split.md.
 `tests/test_d12ball_high_pass_recording.py` asked the cog what a High
 Pass and a Setup Pass say and do next, off
 `tests/high_pass_fixtures.py`, and was run green before anything moved.
@@ -18,10 +18,11 @@ put:
 - each cog wrapper saves **between** the step and the dispatch, which
   is the transition rule for Phases 2 to 5,
 - `BEGIN_HIGH_PASS_CONTEST`, the one member this rank adds, is real
-  and has a row in `D12Ball.follow_on_methods`,
-- and `follow_on_draws_the_board`, which is what this rank had to
-  widen: `begin_run_back` is the first follow-on that draws a board
-  only *sometimes*, and the argument that decides it is `new_play`.
+  and has a row in `driver.MODEL_STEPS`,
+- and the board suppression, which is what this rank had to widen:
+  `begin_run_back` is the first follow-on that draws a board only
+  *sometimes*, and the argument that decides it is `new_play` (its
+  own flag on `StepResult` since Phase 6 closed).
 
 Nothing a coach sees changed in this rank: the message count, the
 board writes and the text are all what the recording took off the old
@@ -215,9 +216,9 @@ class PassStepTests(unittest.TestCase):
         is `arrivals.begin_high_pass_contest` there -- the same
         function the cog wrapper called. What kept it out until then
         was the board write ordered in front of it, and what let it in
-        is that the write is now decided from the step's own arguments
+        is that the write is now decided from the step's own result
         rather than from which side of the seam ran it; see
-        `follow_on_draws_the_board` and
+        `stop_draws_the_board` in `cogs/d12ball/core.py` and
         `test_the_high_pass_contest_is_drawn_in_front_of` below. The
         cog keeps the wrapper as an entry point in its own right, which
         is the shape every step the driver runs is in.

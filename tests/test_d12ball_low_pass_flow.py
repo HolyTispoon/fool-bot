@@ -1,7 +1,7 @@
 """
 Low Pass as a flow step, and the cog wrapper around it.
 
-The model half of Phase 2 of docs/model-discord-split.md.
+The model half of Phase 2 of docs/design/model-discord-split.md.
 `tests/test_d12ball_low_pass_recording.py` asked the cog what a Low
 Pass says and does next, off `tests/low_pass_fixtures.py`, and was run
 green before anything moved. This asks `d12ball.flow.effects` the same

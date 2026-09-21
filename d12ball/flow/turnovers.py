@@ -2,7 +2,7 @@
 Running back after a turnover, and the pickup an out-of-bounds ball
 owes, as flow steps.
 
-Lifted in Phase 4 of docs/model-discord-split.md out of
+Lifted in Phase 4 of docs/design/model-discord-split.md out of
 `cogs/d12ball/turnovers.py`. See "Turnovers, resets, and running back"
 in docs/design/possession-and-turnovers.md for what a run back is and
 who is exempt from one.
@@ -834,7 +834,7 @@ def begin_ball_recovery(
 
 # -- Answering the run back's own prompts ------------------------------
 #
-# Phase 6 of docs/model-discord-split.md. Both were the view's until
+# Phase 6 of docs/design/model-discord-split.md. Both were the view's until
 # now -- `RunBackPlayerChoiceView.choose` and `RunBackChoiceView.choose`
 # in `cogs/d12ball_views/runback.py` -- and each mixed the rule with
 # the edit that renders it. The rule is here; the field strip the
@@ -856,7 +856,7 @@ def run_back_player_step(
     pick narrows the second question and is not itself a move, and
     `MatchState.run_back_pick` is where it is written down, so that
     `run_back_prompt` reads the position back as "where" for this
-    player from here on. Until Phase 6 of docs/model-discord-split.md
+    player from here on. Until Phase 6 of docs/design/model-discord-split.md
     it lived on the prompt and nowhere else -- a restart asked "who"
     again, and the driver refused the "where" that followed as a
     question the match had moved on from, because the model's own

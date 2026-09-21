@@ -73,13 +73,17 @@ statistics are tested".
 **Which side of the seam runs a step is a fact about the seam, not about
 the test**, so it is answered in one place: `tests/flow_stubs.py`.
 
-Until Phase 6 of [model-discord-split.md](../model-discord-split.md) there
-was one way to stop a turn's chain at a named step and assert what it was
-handed: stub the cog method `D12Ball.follow_on_methods` named for that
-`FollowOnStep`, and read its `await_args`. `d12ball.flow.driver` runs some
-of those steps now, and a member it runs has no cog method to stub -- which
-is how **sixty-odd tests failed on a move that changed nothing a coach can
-see**. Moving a member in a later phase would have done it again.
+Until Phase 6 of the model/Discord split there was one way to stop a
+turn's chain at a named step and assert what it was handed: stub the cog
+method `D12Ball.follow_on_methods` named for that `FollowOnStep`, and read
+its `await_args`. `d12ball.flow.driver` runs every step now and the cog's
+table is gone, so a stub goes on the driver's table, always -- but the
+phase moved members one at a time, and each move was **sixty-odd tests
+failing on a change nothing a coach can see**. `flow_stubs` is what
+absorbed that: it put the stub on whichever side owned the step that
+week, and a member crossing the seam changed this module and nothing
+else. Its two-sided helpers are still the API, and they all answer "the
+model" now.
 
 - **`chain_stops_at(cog, member)`** puts the stub on whichever side owns
   the step today and hands back the recorder. `chain_records_at` is the
@@ -90,11 +94,20 @@ see**. Moving a member in a later phase would have done it again.
   most of the sixty needed: dozens of tests build a cog with
   `cog.some_step = AsyncMock()` and assert on it afterwards, so this
   points the loop back at the stubs that are already there and leaves
-  every assertion alone. `self.enterContext(...)` beside the builder is
-  the whole edit. It reads the attribute **when the step runs**, because
-  plenty of tests stub one more method on the way into the case they are
-  about; where the attribute is not a stub the real step runs, so
-  installing it costs a test that does not use it nothing.
+  every assertion alone. It reads the attribute **when the step runs**,
+  because plenty of tests stub one more method on the way into the case
+  they are about; where the attribute is not a stub the real step runs,
+  so installing it costs a test that does not use it nothing. **Since
+  the last increment it is armed for every test cog by import**
+  (`arm_cog_stub_routing`, which wraps `D12Ball.dispatch_step_result`
+  once at the class; `save_patches` imports `flow_stubs`, so anything
+  that suppresses saves has it), because once every click went through
+  the driver, fifty-odd cog builders that had relied on the cog awaiting
+  its own attribute would each have needed the `enterContext`. The
+  precedence when both are in play is: a `chain_stops_at` recorder, then
+  this cog's own `AsyncMock`, then the real step -- so a test that asked
+  for a recorder by member reads it, and a test that stacks one routing
+  per subtest reads its own cog's stub rather than the previous one's.
 - **It drives the coroutine an `AsyncMock` returns to completion**, which
   is what an `await` would have done, so `assert_awaited_once` reads true
   from a driver-side call. The one trap it exists to avoid: a sync

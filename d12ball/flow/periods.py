@@ -2,7 +2,7 @@
 The clock's own machinery, as flow steps: the period whistle, halftime,
 the window before the shootout, and the shootout itself.
 
-Lifted in Phase 5 of docs/model-discord-split.md out of
+Lifted in Phase 5 of docs/design/model-discord-split.md out of
 `cogs/d12ball/periods.py`, which keeps a wrapper per step -- the board
 postings, the pin, the rematch buttons and the coaching image are the
 frontend's and stayed there. See "The model and the Discord layer" in

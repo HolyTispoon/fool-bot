@@ -96,7 +96,7 @@ class PromptKind(Enum):
     LOOSE_BALL_SKILL_TEST = "loose_ball_skill_test"
     SCORE_ATTEMPT = "score_attempt"
     # The two halves of a scoring opportunity, closed in Phase 6 of
-    # docs/model-discord-split.md -- until then each was a
+    # docs/design/model-discord-split.md -- until then each was a
     # `FollowOnStep` whose view carried what match state did not hold.
     SET_UP_ATTEMPT = "set_up_attempt"
     SHOOTER_CHOICE = "shooter_choice"

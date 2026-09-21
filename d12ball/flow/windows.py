@@ -1,7 +1,7 @@
 """
 The Coaching Choice and the time out that buys one, as flow steps.
 
-Lifted in Phase 5 of docs/model-discord-split.md out of
+Lifted in Phase 5 of docs/design/model-discord-split.md out of
 `cogs/d12ball/turnovers.py`. See
 [coaching-choice.md](../../docs/design/coaching-choice.md) and
 [time-out.md](../../docs/design/time-out.md) for the rules, and "The

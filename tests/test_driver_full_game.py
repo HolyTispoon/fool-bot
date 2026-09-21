@@ -2,7 +2,7 @@
 A whole game played through `d12ball.flow.driver` alone -- no cog, no
 view, no Discord -- from the kickoff board to the rematch buttons.
 
-**This is the test Phase 6 of docs/model-discord-split.md was for.**
+**This is the test Phase 6 of docs/design/model-discord-split.md was for.**
 Every earlier phase moved a piece of the turn into the model and left
 the cog running the rest, so a game with no frontend imported could
 not be written: `driver.advance` stopped at whichever members were

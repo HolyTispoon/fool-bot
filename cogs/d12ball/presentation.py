@@ -118,7 +118,7 @@ class PresentationMixin:
         Kept here so none of the nineteen call sites moved. Why it
         went down to the engine: charging a token is a state change
         and describing it is narration, and both are the model's --
-        rank O2 of docs/model-discord-split.md needed a flow step to
+        rank O2 of docs/design/model-discord-split.md needed a flow step to
         charge a Dribble Burst's token a space and say so without the
         cog. See "The model and the Discord layer" in CLAUDE.md.
         """

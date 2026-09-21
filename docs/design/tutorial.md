@@ -222,41 +222,50 @@ every beat's `maneuver_note` before the maneuver menu, beat 1's
 un-railed turn prompt, and `COACHING_NOTE` before this coach's first
 Coaching Choice menu.
 
-- **`D12Ball.post_tutorial_note`** is the whole of it: post the note
-  with a `TutorialContinueView`, and call `then` -- the continuation
-  that was going to run right after it -- only when that view's one
-  button is pressed. `then` receives the *click's* interaction, not
-  the one the note was posted with, since everything after the click
-  has to answer with that.
-- **`stage_tutorial_beat` takes `then` as an optional parameter**
-  rather than always gating, so the staging tests -- which call it
-  directly and check only which note came out -- see the old, ungated
-  behaviour when they leave it out. `send_turn_prompt` is the one real
-  caller that supplies it, wrapping everything it used to do inline
-  (the AI branch, the ball-handler selection, the ordinary prompt) in
-  a nested `continue_turn_prompt`.
-  `begin_maneuver_action_selection` and `offer_speed_choice` follow
-  the identical shape for their own notes: the prompt-building code
-  moves into a nested function, and `maneuver_note`/`speed_note`
-  decide whether it runs straight away or waits on a click.
-- **Not restart-safe, on purpose.** `TutorialContinueView` is never
-  registered with `bot.add_view`, so a restart while one is up leaves
-  it dead -- the same tradeoff the rest of the tutorial already makes
-  for a lesson's own text (see the module docstring in
-  `d12ball/tutorial.py`). The game itself is untouched; a coach whose
-  Continue button stopped answering falls back to `/d12ball resume`
-  for whatever it was gating, same as any other stuck prompt.
-- **`COACHING_NOTE` is gated too, since 2026-08-27.** The tail of
-  `begin_substitution_window` -- the arrangement restore, the AI window,
-  and the human coach's menu -- moves into a nested `open_the_window`,
-  and `post_tutorial_coaching_note` hands that to `post_tutorial_note`
-  as the continuation (returning True to tell the caller it has taken
-  over), the same shape as `offer_speed_choice`. It was left ungated at
-  first on the grounds that the branch chain was hairy and the note
-  fires once, late, outside the five scripted beats -- but an ungated
-  note sitting directly above an interactive menu is exactly the case
-  the Continue gate exists for, and the split (`coaching_window_note`
-  was already extracted) makes the tail no worse to reason about.
+- **The gate is a prompt** (`PromptKind.TUTORIAL_CONTINUE`), since the
+  last increment of the model/Discord split, and
+  `d12ball/flow/gates.py` is the whole of it. `hold_behind_note(game,
+  note, then)` writes which note is up and the `FollowOn` the click
+  should run onto `D12BallGame.tutorial_gate`, and ends the step on
+  the gate prompt with the note as its `ask` -- the step's own lines,
+  where it had any, go *above* the note in the same message, so a
+  coach reads the event, then the lesson, then (after the click) the
+  question. `continue_step` is the click: take the note down and run
+  `then`, or, where `then` is `None`, whatever question the position
+  already asks. That second shape is the common one, and it is why the
+  maneuver pick's and the speed choice's asks in `pending_prompt` are
+  the live wording rather than a bare "Choose:" -- after the note the
+  game shows what it is waiting on, and it has to be the same question
+  the note was in front of. The note's text is the model's too
+  (`tutorial.note_text`), because it is narration.
+- **Every gate is raised from inside the step it gates.**
+  `turn.begin_turn` stages the beat and holds `LESSON` (or, past the
+  last beat, `HANDOVER`) in front of `START_TURN`; `MANEUVER` is held
+  by the maneuver-action offer, `SPEED` by the speed-choice offer,
+  `WELCOME` by the setup coaching's close, and `COACHING` by
+  `begin_substitution_window` on this coach's first window
+  (`tutorial_coaching_explained` keeps it to one, and is set *before*
+  the gate so the continuation cannot raise it again). **A gate's
+  continuation must not raise the same gate again**, which is why the
+  turn prompt is two steps: `SEND_TURN_PROMPT` may gate, `START_TURN`
+  is what runs after.
+- **Restart-safe now, as the price of being a prompt.** The gate used
+  to be `D12Ball.post_tutorial_note` with the continuation in a closure
+  on a `TutorialContinueView` that was never registered, so a restart
+  left a dead button and `/d12ball resume` re-drove the position
+  *underneath* the note -- which put up the thing the note explains
+  without the note. The record on the game is what a restart reads:
+  `pending_prompt` answers `TUTORIAL_CONTINUE` ahead of everything,
+  `resume_pending_prompt` re-posts the note first, and `skip_tutorial`
+  spends a held gate the way the click would. The `then` survives as a
+  `FollowOn.to_dict()`, and the golden's every press is the proof it
+  comes back the same.
+- **`COACHING` is gated too, since 2026-08-27**, and for the reason the
+  others are: an ungated note sitting directly above an interactive
+  menu is exactly the case the Continue gate exists for. It was left
+  ungated at first because the branch chain was hairy and the note
+  fires once, late, outside the five scripted beats; the step shape
+  made the tail no worse to reason about.
 
 ### The Coaching Choice, which the script cannot schedule
 

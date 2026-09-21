@@ -1,7 +1,7 @@
 """
 The two dribbles as flow steps, and the cog wrappers around them.
 
-The model half of rank O2 of Phase 3 of docs/model-discord-split.md.
+The model half of rank O2 of Phase 3 of docs/design/model-discord-split.md.
 `tests/test_d12ball_dribble_recording.py` asked the cog what a dribble
 says and does next, off `tests/dribble_fixtures.py`, and was run green
 before anything moved. This asks `d12ball.flow.effects` the same

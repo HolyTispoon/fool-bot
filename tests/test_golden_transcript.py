@@ -3,7 +3,7 @@ A whole game played through the real cog, recorded, and compared word
 for word against a file in `tests/golden/`.
 
 **This is the guard the model/Discord split is built on top of.** Every
-phase of that split (see `docs/model-discord-split.md`) is a large
+phase of that split (see `docs/design/model-discord-split.md`) is a large
 mechanical move of flow code out of `cogs/` and into `d12ball/`, and a
 mechanical move needs something that fails loudly the moment it stops
 being mechanical. The rest of the suite asserts rules in isolation; this
@@ -263,7 +263,7 @@ class GoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
             self.fail(
                 "the saved match state changed. A refactor may not change "
                 "the save format -- see principle 6 in "
-                "docs/model-discord-split.md.\n\n"
+                "docs/design/model-discord-split.md.\n\n"
                 + golden_diff(recorded, rendered, "final match")
             )
 

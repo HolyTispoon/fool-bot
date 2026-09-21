@@ -2,7 +2,7 @@
 A whole game played to **full time and through the shootout**, recorded
 and compared word for word against a file in `tests/golden/`.
 
-The third golden, and the one Phase 5 of `docs/model-discord-split.md`
+The third golden, and the one Phase 5 of `docs/design/model-discord-split.md`
 is moved under. `test_golden_transcript.py` plays the tutorial and
 `test_golden_advanced.py` plays a free advanced game, and the second
 one's own docstring says what neither reaches: "full time and the

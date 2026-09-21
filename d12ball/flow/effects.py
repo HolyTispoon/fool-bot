@@ -1181,11 +1181,10 @@ def deflection_step(
     # no to: `begin_loose_ball` draws the board under its own
     # announcement, so the frontend skips a write it is about to make
     # anyway. That suppression lives with the frontend
-    # (`FOLLOW_ONS_THAT_DRAW_THE_BOARD` in `cogs/d12ball/core.py`), because it
-    # is a rate-limit
-    # economy and rate limits are the frontend's -- principle 8 in
-    # CLAUDE.md. A web app has no five-in-five bucket and should redraw
-    # on all three.
+    # (`stop_draws_the_board` in `cogs/d12ball/core.py`), because it
+    # is a rate-limit economy and rate limits are the frontend's --
+    # principle 8 in CLAUDE.md. A web app has no five-in-five bucket
+    # and should redraw on all three.
 
     # A shot has to be within shooting range, and this one always is:
     # an overshoot means the ball reached the space closest to the
@@ -1378,9 +1377,10 @@ def high_pass_step(
     # branch that goes out of play hands over to a new play, which
     # posts and pins a board of its own, so the frontend skips a write
     # it is about to make anyway. That suppression lives with the
-    # frontend (`follow_on_draws_the_board` in `cogs/d12ball/core.py`),
-    # because it is a rate-limit economy and rate limits are the
-    # frontend's -- principle 8 in CLAUDE.md.
+    # frontend (`StepResult.new_play` stops the driver, and
+    # `D12Ball.dispatch_step_result` skips the write in front of the
+    # pinned board), because it is a rate-limit economy and rate
+    # limits are the frontend's -- principle 8 in CLAUDE.md.
 
     # An overshoot sets up a scoring opportunity whatever distance
     # was asked for (2026-08-10), on the space closest to the goal
@@ -1717,8 +1717,8 @@ def setup_pass_step(
         #
         # The board moved and the frontend writes no board in front
         # of this: `begin_loose_ball` posts one with its own
-        # announcement, which is `FOLLOW_ONS_THAT_DRAW_THE_BOARD`'s
-        # answer and rank D1's rather than this card's.
+        # announcement, which is `stop_draws_the_board`'s answer
+        # and rank D1's rather than this card's.
         space_word = "space" if actual_distance == 1 else "spaces"
         return StepResult(
             narration=[
@@ -1798,7 +1798,7 @@ def setup_pass_out_step(match: MatchState) -> StepResult:
 
 # -- Answering an effect's own prompts ---------------------------------
 #
-# Phase 6 of docs/model-discord-split.md. Each of these was a cog
+# Phase 6 of docs/design/model-discord-split.md. Each of these was a cog
 # method or a view body that mixed the rule with the posting; what is
 # here is the rule. `d12ball.flow.driver.apply` runs one over a prompt
 # it has checked, and the cog calls the same function.
@@ -1990,7 +1990,7 @@ def setup_pass_push_back_step(
 
 # -- Offering an effect's choice --------------------------------------
 #
-# Phase 6 of docs/model-discord-split.md. Each `offer_*` is the half of
+# Phase 6 of docs/design/model-discord-split.md. Each `offer_*` is the half of
 # a won card that used to be `D12Ball.resolve_<card>`: does anybody
 # have to be asked at all, and if so what. A card with nothing to
 # choose applies itself; an AI side answers for itself; a coach is

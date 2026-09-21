@@ -3,7 +3,7 @@ The driver: the one loop that runs a turn's own steps.
 
 A flow step changes the match and returns a `StepResult` naming what
 happens next (see `result.py`). Until Phase 6 of
-docs/model-discord-split.md the *running* of that chain was the cog's:
+docs/design/model-discord-split.md the *running* of that chain was the cog's:
 `D12Ball.dispatch_step_result` read `StepResult.next`, looked the
 `FollowOnStep` up in `D12Ball.follow_on_methods`, and awaited the cog
 wrapper it found -- which called the flow function, saved, and
@@ -55,12 +55,15 @@ principle 10 in CLAUDE.md).
   dispatcher*, which is why `RESOLVE_MANEUVER` and the whistle could
   not be in the loop at all.
 
-**`MODEL_STEPS` is the record of what the loop can run**, the way
-`FollowOnStep` is the record of what the cog still dispatches. A member
-of the enum that is not a key here is one whose step is still on the
-other side of the seam -- a picture, a pin, or a gate. As those move,
-rows arrive here and leave the cog's table; when the cog's table is
-empty, `FollowOnStep` and `FollowOn` go with it.
+**`MODEL_STEPS` covers `FollowOnStep` exactly**, and
+`tests/test_d12ball_package_shape.py` asserts it. Through Phase 6 the
+two came apart -- a member with no row here was a step still on the
+other side of the seam, a picture, a pin or a gate, and the cog kept a
+table of its own for those. The pictures became stops (`stop_after`
+and `StepResult.new_play`), the pin a stop too, and the gate a prompt
+(`PromptKind.TUTORIAL_CONTINUE`, over `d12ball.flow.gates`), so the
+cog's table is gone and a member arriving without a row here fails
+the suite rather than a turn.
 """
 
 from __future__ import annotations
@@ -175,9 +178,14 @@ def _lead_in_first(
 #: step that puts up a picture of its *own* -- `BEGIN_LOOSE_BALL` and
 #: `OFFER_SETUP_PASS_PUSH_BACK` announce the position with a snapshot
 #: attached, and a snapshot taken after the run would show a position
-#: that has moved on. Those two stop the loop by being absent, and
-#: `stop_after` is there for a step in the table that later grows a
-#: picture.
+#: that has moved on. Both are in the table since the last increment
+#: and the frontend names the first in `stop_after` -- the loop runs
+#: it and stops, and the frontend takes its picture of the position
+#: it left. The second ends on a prompt, which is a stop by
+#: definition, and the board it would have drawn is drawn a beat
+#: later by the loose ball its answer starts (`PROMPTS_DRAWN_LATER`
+#: in `cogs/d12ball/core.py`). A new play stops the loop the same
+#: way, on the step's own `new_play`.
 MODEL_STEPS: Mapping[FollowOnStep, Callable[..., StepResult]] = {
     FollowOnStep.FINISH_MANEUVER_RESOLUTION:
         arrivals.finish_maneuver_resolution,
@@ -237,7 +245,7 @@ def _call(
     Run one step of the table.
 
     **The arguments arrive by keyword**, which is rank D2's lesson
-    (see docs/model-discord-split.md): every spine method the cog
+    (see docs/design/model-discord-split.md): every spine method the cog
     dispatched to was called `method(..., lead_in=..., **kwargs)`, so
     a parameter that used to be positional arrives named. Keeping that
     exactly is what makes the move invisible to the steps themselves.

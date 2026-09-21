@@ -8,7 +8,7 @@ to the dispatcher, or it names one step by its `FollowOnStep` and hands
 *that* to the dispatcher -- `D12Ball.run_step`. The decisions those
 steps used to be interleaved with (does anybody choose, what Dinky
 picks, what a card with nowhere to go does) are the `offer_*` steps in
-`d12ball/flow/effects.py` since Phase 6 of docs/model-discord-split.md.
+`d12ball/flow/effects.py` since Phase 6 of docs/design/model-discord-split.md.
 
 What is left that is genuinely Discord's: the two dice images the
 own-goal roll and the Mind Pull put between their two sentences.

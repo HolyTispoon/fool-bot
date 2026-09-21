@@ -2,7 +2,7 @@
 A match standing in each branch a Pressure or a Double Team resolves
 through, and what that resolution should produce.
 
-Rank D3 of Phase 3 of docs/model-discord-split.md moves the two cards'
+Rank D3 of Phase 3 of docs/design/model-discord-split.md moves the two cards'
 own resolution out of the cog and into `d12ball/flow/effects.py`. The
 thing worth asserting about a move like that is that **not one branch
 changed what it said or what it did next**, and that needs one table

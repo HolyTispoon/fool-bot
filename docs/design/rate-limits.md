@@ -74,8 +74,19 @@ invariants read as ordinary cog surface among 223 methods.
   it hands off to draw the board themselves: `begin_loose_ball` announces the
   position with the board under it, since the ball is lying somewhere nothing
   in the channel has named. Drawing it again in front of that is the same
-  bytes twice for one click, so `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in
-  `cogs/d12ball/core.py` names the follow-ons it is skipped for.
+  bytes twice for one click, so the write is skipped in front of the
+  steps that draw. Since Phase 6 closed, those are the loop's **stops**:
+  `driver.advance` halts after a step in `DRIVER_STOPS` (the loose ball,
+  the tail of a maneuver) or on a step that opened a new play
+  (`StepResult.new_play`), `stop_draws_the_board` in `cogs/d12ball/core.py`
+  says whether the stopped step is about to draw, and `post_stop` draws
+  it -- `announce_board_update` or `post_new_play_board`, each of which
+  brings the persistent message in line from the same render.
+  `PROMPTS_DRAWN_LATER` is the same economy for the one *prompt* whose
+  answer draws a beat later, Setup Pass's push back. Until then the same
+  answer was a set of follow-ons, `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, read
+  off `StepResult.next`; the bullets below were written against it and
+  the reasoning has not moved.
   - **The answer is the step's, not the calling card's.** Eight sites reach
     `begin_loose_ball`, and they were lifted a rank at a time and then, in
     Phase 4, the rest at once -- the step itself is
@@ -83,11 +94,12 @@ invariants read as ordinary cog surface among 223 methods.
     means each caller inherits it rather than deciding it again, which is
     how the two paths that opted out of `restrict_to_occupants` survived,
     one floor up in this same flow.
-  - **`OFFER_SETUP_PASS_PUSH_BACK` is in the set one step removed**, because
-    all three of its branches end in `begin_loose_ball`: the fallback where
-    no distance fits, Dinky's maximum, and the coach's own answer. The board
-    reaches the channel a beat later rather than in front of a question whose
-    answer moves the ball again.
+  - **Setup Pass's push back is skipped one step removed**
+    (`PROMPTS_DRAWN_LATER`), because all three of its branches end in
+    `begin_loose_ball`: the fallback where no distance fits, Dinky's
+    maximum, and the coach's own answer. The board reaches the channel a
+    beat later rather than in front of a question whose answer moves the
+    ball again.
   - **It lives in the cog on purpose.** This is a five-in-five economy, and
     rate limits are the frontend's -- principle 8 in CLAUDE.md. A web app
     reading the same `StepResult` has no such bucket and should redraw every

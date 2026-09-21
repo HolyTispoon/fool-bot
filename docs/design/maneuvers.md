@@ -158,10 +158,12 @@ once -- one trailing while the other is the more hurt.
     around it -- run the step, save, dispatch. `send_low_pass`,
     `low_pass_movement_note` and `pay_double_team_cost` went with it
     and are free functions there rather than cog methods. That is
-    Phase 2 of docs/model-discord-split.md and the pattern the other
-    eleven follow; the rule it settled is that the **step does not
-    save and the wrapper does**, immediately, before dispatching. See
-    "The model and the Discord layer" in CLAUDE.md.
+    Phase 2 of the model/Discord split and the pattern the other
+    eleven followed; the rule it settled is that the **step does not
+    save**. The wrapper did, immediately, before dispatching, until
+    Phase 6 moved that write into `dispatch_step_result`, once per run
+    of the driver's loop. See "The model and the Discord layer" in
+    CLAUDE.md and [model-discord-split.md](model-discord-split.md).
   - **Both dribbles followed it (rank O2).**
     `dribble_advance_step` and `dribble_burst_step` are beside it,
     with `pay_clear_cost` moved down as a free function -- its only

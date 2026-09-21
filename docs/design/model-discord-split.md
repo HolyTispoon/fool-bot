@@ -2,12 +2,17 @@
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are
 [living-rules.md](../living-rules.md). The rules the split is made by are
-CLAUDE.md's, in "The model and the Discord layer"; the plan is
-[model-discord-split.md](../model-discord-split.md) -- a worksheet, not settled
-history, read it for the phases still open. This file is for what has landed
-and is permanent regardless of how much of the rest of the plan does: the two
-guards from Phase 0, the seam Phase 1 cut, the write side Phase 2 opened, and
-the loop Phase 6 moved.
+CLAUDE.md's, in "The model and the Discord layer". **The split is done**:
+the worksheet it was built from (`docs/model-discord-split.md`) went with
+its last phase, as it said it would, and what it kept open is closed --
+every step of a turn is the driver's, every click goes through
+`driver.answer`, and a whole game plays through `driver.apply` with no
+frontend loaded (`tests/test_driver_full_game.py`). This file is the record
+of how it landed and why it is shaped the way it is: the two guards from
+Phase 0, the seam Phase 1 cut, the write side Phase 2 opened, the loop Phase
+6 moved, and the entry points Phase 6 closed on. The phase-by-phase history
+is kept because the *ordering* decisions it records are rules a second
+frontend has to keep, not because the phases are still open.
 
 ## `d12ball/prompts.py`
 
@@ -84,9 +89,27 @@ move had no rules risk to weigh against it.
     back's is closed -- `run_back_choice_prompt` asks `run_back_prompt`
     which of the two questions it is and replaces only the `ask`, and
     `D12Ball.post_run_back_prompt` attaches the field strip -- and the
-    coaching window's is not, because the tutorial's explainer gates
-    the whole of it behind a Continue button, which has to run *before*
-    the window opens.
+    coaching window's closed with the last increment, when the
+    tutorial's Continue gate became a prompt of its own
+    (`TUTORIAL_CONTINUE`, below) rather than a thing the cog ran
+    before the window opened.
+- **The last increment added three kinds, and two of them are not
+  questions about the position at all.** `TUTORIAL_CONTINUE` is the
+  tutorial's Continue gate: a note held up with the step it gates
+  behind it, on `D12BallGame.tutorial_gate` (`{"note": key, "then":
+  FollowOn.to_dict() | None}`), read first of all by `pending_prompt`
+  because whatever the match is waiting on, the gate is in front of
+  it. It used to be a cog routine with a callback in a closure, so a
+  restart inside one lost the continuation; now it is a prompt like
+  any other, a restart re-posts the note, and `skip_tutorial` runs
+  `gates.continue_step` to spend it. `GAME_OVER` is a finished game
+  -- read second, so the rematch buttons are what a restart hands
+  back rather than a stale prompt off the last turn. Both read the
+  *game* record rather than the match, which is why `pending_prompt`
+  has always taken the game. The third, `SETUP_PASS_PUSH_BACK`, is
+  the push back Setup Pass's cost offers, which was a follow-on
+  until the offer became a step the driver runs and its answer a
+  prompt like the other six effect choices.
 - **A prompt is asserted to survive a save and a load**, every kind of
   it, in `test_a_prompt_survives_a_save_and_a_load`. That is the
   restart in a test, and it is what a new prompt carrying a new
@@ -209,17 +232,22 @@ with Low Pass already, as the same step under a different `key=`.
   function with Skilled Pass, and an advanced cost charged in the middle
   of its own sentence. A slice with one branch would have settled
   nothing.
-- **`FollowOn` is transitional and the enum is the record.** The spine a
-  step ends by naming -- `finish_maneuver_resolution`,
+- **`FollowOn` was transitional and the enum was the record; now the
+  enum is the joints of a turn.** Through Phase 5 the spine a step
+  ends by naming -- `finish_maneuver_resolution`,
   `offer_scoring_attempt_choice`, later `begin_run_back` and
-  `begin_loose_ball` -- is still async and still in the cog through
-  Phase 5. A step names one as a member of the closed `FollowOnStep`
-  enum with its arguments, and `D12Ball.follow_on_methods` is the only
-  thing that turns a member into a call. Closed rather than a callable
-  or a method name the cog would `getattr`, for two reasons: nothing on
-  the model's side can reach into `cogs/` by spelling a string, and the
-  enum's membership *is* the list of what the cog still dispatches, so
-  Phase 6 reads the file rather than six pull request descriptions.
+  `begin_loose_ball` -- was still async and still in the cog. A step
+  named one as a member of the closed `FollowOnStep` enum with its
+  arguments, and `D12Ball.follow_on_methods` was the only thing that
+  turned a member into a call. Closed rather than a callable or a
+  method name the cog would `getattr`, for two reasons: nothing on
+  the model's side can reach into `cogs/` by spelling a string, and
+  the enum's membership *was* the list of what the cog still
+  dispatched, so Phase 6 read the file rather than six pull request
+  descriptions. That table is gone (see `driver.py` below); the enum
+  stayed, because what it records now is where one step ends and the
+  next begins, which is what a frontend reads to place a message or
+  a picture.
 - **The narration never rides in the follow-on's arguments.** A Low Pass
   posts no message of its own: what it says opens the message the next
   step sends. So `StepResult.narration` is a list of blocks, and
@@ -235,8 +263,9 @@ with Low Pass already, as the same step under a different `key=`.
   dispatcher's branch is asserted directly rather than through a
   fixture. It is there from this phase on so the branch Phase 3 needs
   cannot arrive as a second table.
-- **The step does not save; the wrapper does, immediately, before the
-  dispatch.** `send_low_pass` persisted inside itself and
+- **The step does not save; the wrapper did, immediately, before the
+  dispatch, until the dispatcher took the save in Phase 6.**
+  `send_low_pass` persisted inside itself and
   `apply_low_pass` relied on it -- so stripping the save and adding none
   would have left the match reaching the spine unwritten, and a spine
   step ending in a prompt hands the turn to a click that reloads the
@@ -423,9 +452,11 @@ with Low Pass already, as the same step under a different `key=`.
     backwards: the model would have been carrying this channel's
     five-in-five arithmetic on behalf of every frontend that ever
     reads a `StepResult`. `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in
-    `cogs/d12ball/core.py` is where it went instead, and
-    `dispatch_step_result` reads it. See
-    [rate-limits.md](rate-limits.md).
+    `cogs/d12ball/core.py` is where it went, and
+    `dispatch_step_result` read it; since the last increment the same
+    answer is `stop_draws_the_board` beside `DRIVER_STOPS`, read off
+    the step the loop stopped on, and `PROMPTS_DRAWN_LATER` for the
+    push back. See [rate-limits.md](rate-limits.md).
   - **It is keyed to the step, not to the card.** Eight sites in
     `cogs/d12ball/effects.py` reach `begin_loose_ball` and this rank
     lifted two of them; the other six inherit the answer as they move,
@@ -476,21 +507,24 @@ with Low Pass already, as the same step under a different `key=`.
     not a loose ball, so `begin_loose_ball` announces it plainly and
     draws nothing (see [loose-balls.md](loose-balls.md)), and the
     board the pass moved has to be written **before** it. Naming the
-    loose ball's member would have put the branch in
-    `FOLLOW_ONS_THAT_DRAW_THE_BOARD` and lost that write. That is the
+    loose ball's member would have put the branch under the loose
+    ball's suppression and lost that write. That is the
     answer being keyed to the step working exactly as rank D1
     intended, rather than an exception to it: two members because
     there are two steps.
   - **`begin_run_back` is the first follow-on that draws a board only
     sometimes**, and that is what `follow_on_draws_the_board` in
-    `cogs/d12ball/core.py` exists for. A new play posts and pins one
+    `cogs/d12ball/core.py` existed for. A new play posts and pins one
     (`announce_new_play_reset`); an ordinary run back after a steal
     draws nothing, and rank D2 refreshed before handing to it. Both
     passes that run out of play reach it with `new_play=True` and the
-    old cog wrote no board in front of either, so the argument is
+    old cog wrote no board in front of either, so the argument was
     read beside the set rather than the model being asked to report a
-    board that did not move. The set is still the shape of the
-    answer; this is one step whose own arguments decide it.
+    board that did not move. The last increment made it the step's
+    own flag, `StepResult.new_play`: the reset's lines are the caption
+    of the board the play starts from, so the loop stops on it
+    whoever asked, and the frontend pins that board and skips its
+    ordinary write.
   - **Step-then-save was the rule rather than a fix**, the fourth
     time of five. Every branch of both cards already persisted after
     its own mutations, and the one branch that persisted nowhere of
@@ -512,24 +546,29 @@ with Low Pass already, as the same step under a different `key=`.
 
 - **What is in `FollowOnStep` is asserted in
   `tests/test_d12ball_package_shape.py`**, not in any one rank's own
-  tests, along with the two tables covering it exactly and disjointly
-  -- a member with no row raises in the middle of a turn, one card at
-  a time. It started out in Low Pass's module, where every later rank
+  tests, along with the driver's table covering it exactly -- a
+  member with no row raises in the middle of a turn, one card at a
+  time. It started out in Low Pass's module, where every later rank
   would have had to edit an assertion about a card it was not
-  touching. Since Phase 6 there are **two** tables, and which side a
-  member is on is recorded there too (`IN_THE_DRIVER`).
-  - **The enum is 30 members now, 12 in the driver and 18 in the
-    cog**, and it grew by three in Phase 6's third increment for
-    Phase 4's reason yet again: `CONTINUE_SHOOTOUT`,
-    `AUTO_RESOLVE_CHALLENGER` and `FINISH_SUBSTITUTION_WINDOW` are
-    all steps the model already owned that *needed a name* once the
-    thing reaching them became a step too. Two of the three went
-    straight into the driver's table; `AUTO_RESOLVE_CHALLENGER` is
-    the cog's, because what a frontend puts up for it is the
-    challenge image. **A growing enum is not the phase failing**: it
-    counts what a frontend still dispatches, and a member arrives
-    every time a *caller* crosses the seam ahead of the thing it
-    calls.
+  touching. Through Phase 6 there were **two** tables, the driver's
+  and the cog's, disjoint and covering the enum together, and which
+  side a member was on was recorded there (`IN_THE_DRIVER`); the
+  last increment emptied the cog's and the assertion is now that
+  `driver.MODEL_STEPS` and the enum are the same set, and that
+  `D12Ball` has no `follow_on_methods` at all.
+  - **The enum is 31 members, all in the driver.** It grew by three
+    in Phase 6's third increment for Phase 4's reason yet again:
+    `CONTINUE_SHOOTOUT`, `AUTO_RESOLVE_CHALLENGER` and
+    `FINISH_SUBSTITUTION_WINDOW` are all steps the model already
+    owned that *needed a name* once the thing reaching them became a
+    step too -- and by one in the last, `START_TURN`, when the
+    offensive choice split into the tutorial's staging
+    (`SEND_TURN_PROMPT`, `turn.begin_turn`) and the turn itself
+    (`turn.start_turn`), so the gate could sit between them as a
+    prompt. **A growing enum was never the phase failing**: it counted
+    what a frontend still dispatched, and a member arrived every time
+    a *caller* crossed the seam ahead of the thing it called. When
+    the last caller crossed, the count stopped meaning that.
 
 ## `d12ball/flow/driver.py`
 
@@ -546,20 +585,26 @@ failure with a different noun in it.
 
 `driver.advance(engine, game, match, result)` is that walk with the
 Discord taken out. It returns a `DriverRun`: the `StepResult` it
-stopped on, and the steps it ran to get there.
+stopped on, the steps it ran to get there, the narration groups it
+closed on the way, and -- since the last increment -- `stopped_on`,
+the step it halted after where the frontend asked it to halt.
+**`MODEL_STEPS` covers `FollowOnStep` exactly.** The bullets below are
+how it got there, increment by increment, and the ones written while
+the cog still had a table of its own say so.
 
 - **The narration is carried, not collected.** A step takes the lines
   said before it as its `lead_in` and folds them into its own, which
   is how "a resolved maneuver is one message" was already written --
   the loop simply keeps doing it, and `lead_in` is the only thing it
   passes between steps. A step whose lines have to be **a message of
-  their own** is therefore not something the loop can run: the
-  frontend is handed the `FollowOn`, posts what it posts, and the
-  chain continues on the far side of that. That is why
-  `RESOLVE_MANEUVER` and the period's whistle are still the cog's
-  although their steps moved long ago -- see `post_then_dispatch` and
-  `post_blocks_then_dispatch`, which are the two batchings that
-  distinction is made of.
+  their own** was therefore not something the first increment's loop
+  could run: the frontend was handed the `FollowOn`, posted what it
+  posted, and the chain continued on the far side of that. That is
+  why `RESOLVE_MANEUVER` and the period's whistle stayed the cog's
+  for one more increment although their steps had moved long before
+  -- see `post_then_dispatch` and `post_blocks_then_dispatch`, which
+  are the two batchings that distinction is made of, and
+  `own_message` below, which is how it came into the loop.
 - **`board_changed` is or-ed across the run**, and that is the whole
   of the arithmetic the loop does about the board. The old chain wrote
   the persistent board *between* steps; `BoardRefresher` was already
@@ -571,9 +616,26 @@ stopped on, and the steps it ran to get there.
 - **`stop_after` is the frontend saying it has a picture to take.**
   A step whose line is posted with a *snapshot* of the board under it
   cannot have the position move on behind it, so the frontend names it
-  and the loop stops once it has run. It is the mirror of
-  `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, which says "do not write a board
-  in front of this step".
+  and the loop stops once it has run -- `DriverRun.stopped_on` is
+  that step with its arguments, and `result` is then the step's own
+  result verbatim, because what the frontend has stopped to draw is
+  the position *this* step left. `DRIVER_STOPS` in
+  `cogs/d12ball/core.py` names two: the loose ball, announced by
+  showing where it is, and the tail of a maneuver where it hands the
+  offensive choice back, which shows the board that choice is made
+  over. The third picture is the model's own stop: a step that opens
+  a **new play** says so on `StepResult.new_play`, and the loop halts
+  there whoever asked, because the reset's lines are the caption of
+  the board the play starts from and the next step -- an AI side's
+  coaching window -- rearranges the meeples on it. After any stop
+  `dispatch_step_result` takes the picture (`post_stop`) and re-enters
+  the loop with whatever the stopped step named, so a click still
+  runs to its prompt in one call. It is the mirror of the old
+  `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, which said "do not write a board
+  in front of this step"; that suppression is `stop_draws_the_board`
+  now, read off the stop, plus `PROMPTS_DRAWN_LATER` for the one
+  prompt (Setup Pass's push back) whose answer draws the board a beat
+  later.
 - **`own_message` is where the carrying stops, and it is what let the
   second batch of steps into the loop.** Until Phase 6's second
   increment the loop could only *carry* a step's lines forward as the
@@ -604,29 +666,37 @@ stopped on, and the steps it ran to get there.
   groups**: the pass's board goes up, then the contest is announced
   over it, exactly as when the cog dispatched the step itself. What
   did have to move is the *suppression*. The run now ends on
-  `BEGIN_LOOSE_BALL`, which is in `FOLLOW_ONS_THAT_DRAW_THE_BOARD`,
-  and suppressing there would have lost the pass's board altogether
-  -- so `follow_on_draws_the_board` reads `is_high_pass` off the
-  step's own arguments, beside `new_play`. Rank D1's rule applied one
-  argument further in.
-  - **What the loop still may not run is a step that puts up a
-    picture of its own.** `BEGIN_LOOSE_BALL` and
-    `OFFER_SETUP_PASS_PUSH_BACK` announce the position with a
+  `BEGIN_LOOSE_BALL`, which drew the board under its own line, and
+  suppressing there would have lost the pass's board altogether -- so
+  the suppression read `is_high_pass` off the step's own arguments,
+  beside `new_play`. Rank D1's rule applied one argument further in.
+  Since the last increment it reads the step's own `board_changed`
+  instead: `begin_loose_ball` reports the board moved for a genuine
+  loose ball and not for a High Pass, and `stop_draws_the_board`
+  asks that rather than the argument.
+  - **What the loop could not run, through the third increment, was
+    a step that puts up a picture of its own.** `BEGIN_LOOSE_BALL`
+    and `OFFER_SETUP_PASS_PUSH_BACK` announce the position with a
     snapshot attached, and a snapshot taken after the run would show
-    a position that has moved on. Those two stop the loop by being
-    absent from the table; `stop_after` is there for a step in it
-    that later grows a picture.
+    a position that has moved on. Those two stopped the loop by being
+    absent from the table. The last increment put both in: the loose
+    ball is a `stop_after`, and the push back ends on a prompt
+    (`SETUP_PASS_PUSH_BACK`), which is a stop by definition.
 - **It saves nothing, and its caller saves once.** This is principle 9
   and it is the one place the refactor makes the bot better rather
   than only more portable. Forty-one cog wrappers used to call their
   step, write the match, and dispatch -- so a cascade of four steps
   wrote the same file four times, and the write sat behind whatever
   the previous step had already posted. `dispatch_step_result` now
-  writes once, after everything that moves has moved and before
-  anything is posted, and `self.persist(` in `cogs/` went **83 to
-  43**. The bare `save_games` calls are untouched at **46**: they
-  write the game record alone -- a message id, a status, a tutorial
-  flag -- and have no match to save.
+  writes once per run of the loop, after everything that moves has
+  moved and before anything is posted, and `self.persist(` in
+  `cogs/` went **83 to 43** in the first increment and to **16** by
+  the last (with 28 spelled `cog.persist(` in a view; count both).
+  The bare `save_games` calls write the game record alone -- a
+  message id, a status, a tutorial flag -- and have no match to save;
+  across `cogs/d12ball/` and `cogs/d12ball_views/` they went 42 to
+  **31** (20 and 11) over the phase, mostly by a prompt's own
+  "remember this message id" folding into `dispatch_step_result`.
   - **Three paths write twice**, on purpose, and the own-goal roll
     was the first. Its wrapper saves before building the dice image,
     and being *earlier than the posting* is the point of that save;
@@ -691,53 +761,69 @@ in one call, which is what a web app wants.
 
 #### What `answer` refuses, and what it does not
 
-**Worth being exact about, because the obvious reading is wrong.**
-`answer` makes two checks of its own -- the kind, and whether the
-choice is one the prompt offers -- and after that it calls the
-adapter. Everything else a refusal can say is a refusal the *model
-already made*: a `ValueError` out of `MatchState`, the engine or the
-step. Where no such refusal existed, an argument that no frontend
-would ever have offered is applied.
+**Worth being exact about, because the obvious reading was wrong for
+one increment.** `answer` makes three checks of its own before it
+calls the adapter -- the kind, whether the choice is one the prompt
+offers, and whether the action's arguments fit the adapter's
+signature (`_argument_mismatch`, read off `inspect.signature`, so a
+missing or unknown keyword is a `Refusal` rather than a `TypeError`
+out of the middle of a step). After that, every refusal is one the
+adapter or the model makes: a `ValueError` out of `MatchState`, the
+engine or the step, or an adapter's own `_refuse`.
 
-Measured on the shared fixtures, through `apply` with no cog imported
-(the author, on PR #259):
+Measured on the shared fixtures through `apply` with no cog imported,
+the third increment found that *some* adapters refused before they
+mutated and some did not: a Dribble Burst offering 1, 2 or 3 accepted
+6 and moved the meeple, `PLAYER_ACTION` was answerable in the middle
+of a cascade, `take_scoring_opportunity` cleared the opportunity
+before raising on an unknown id, and a run back could not be completed
+through `apply` at all because `run_back_player_step` recorded
+nothing. None of it was reachable -- no view called `answer` -- and
+the worksheet made closing it the first job of the increment that
+pointed the entry points at the driver, because that is the click
+where it becomes live. That increment is the last one, and it closed
+them the way the worksheet said: **an adapter refuses an argument
+that is not on the list the frontend built its buttons from, which is
+the engine's candidate list either way.** The distance choices refuse
+a distance the card does not offer; the picks refuse a player not in
+the candidate list; `PLAYER_ACTION` in the middle of a cascade is a
+stale click now, because `pending_prompt` reads the run back, the
+loose ball, the time out and the effect continuation ahead of it; the
+tutorial's rails are asked again in the model (`_rail`, over
+`tutorial.resolve_choice`) because the prompt may be an old one still
+sitting in the channel; the coaching answers check the window is the
+side's (`_window_is`). Every adapter refuses before it mutates.
+`tests/test_d12ball_driver_actions.py` asserts a legal answer per
+kind applies, that the two refusals `answer` makes itself leave the
+match byte-for-byte as it was, and that a refused space carries the
+step's own sentence; `tests/test_driver_full_game.py` is the claim
+made whole.
 
-- **Some adapters do refuse before they mutate**: the ball handler,
-  the run-back space, the ball recovery, the challenger, the maneuver
-  pick, both shootout menus, "back" on a shot, the coaching swap and
-  reposition, Overdrive, and every roll that takes no argument.
-- **Some do not.** A Dribble Burst offering 1, 2 or 3 accepts 6 and
-  moves the meeple; the same holds for the two passes, Setup Pass, the
-  speed choice, the shooter pick, the loose-ball pick, the halftime
-  token and the coaching hub's `side`. `PLAYER_ACTION` is answerable
-  in the middle of a cascade, because `turn_action_refusal` reads the
-  tutorial rail and the two costs and nothing about a run back, a
-  loose ball, a time out or an effect continuation.
-- **A refusal is not always clean.** `take_scoring_opportunity` clears
-  the opportunity and points the turn at the shooter before
-  `get_player_definition` raises on an unknown id.
-- **`answer` catches `ValueError` and nothing else**, so a missing
-  keyword argument escapes as a `TypeError` and a malformed formation
-  as an `AttributeError` -- the second after `deploy_side` has already
-  moved every meeple.
-- **A run back cannot be completed through `apply` at all**, and this
-  one is a rule rather than an argument check. `run_back_player_step`
-  records nothing, so answering `RUN_BACK_PLAYER` leaves
-  `pending_prompt` saying `RUN_BACK_PLAYER`, and the `RUN_BACK_SPACE`
-  that follows is refused as a question the match has moved on from.
-  The cog does not meet it because its view carries the pick and hands
-  it straight to the space step. **That is principle 3's two-readings
-  failure inside the driver**, and closing it is a decision about
-  where a part-made run-back pick lives, not a guard.
+- **The run back was the one that was a decision rather than a
+  guard**, and it cost a persisted field. `RUN_BACK_PLAYER` and
+  `RUN_BACK_SPACE` are two prompts for one answer -- who, and then
+  where -- and the view carried the first in a closure while the
+  match held nothing, so a restart between them, and every answer
+  through `apply`, lost it. `MatchState.run_back_pick` is where the
+  first answer lives now; `run_back_player_step` writes it,
+  `pending_prompt` reads it to ask the second question, and the
+  space step clears it. Its own commit, with the table entry and the
+  fallback, reviewed as a change to the game (principle 6).
+- **The skill test's winner was the second**, found by the advanced
+  golden rather than the fixtures: a tie re-rolled at a token each
+  leaves the match reading as `SKILL_TEST` still, and the *settled*
+  test that follows a tie used to be told apart from an unsettled one
+  by the view that rolled it. `MatchState.skill_test_winner` holds it,
+  `settled_maneuver_winner` reads it first, and `reset_maneuver`
+  clears it with the rest.
+- **The stale-click sentences are the model's now**, in
+  `driver.STALE_CLICK`: one per kind, with `MOVED_ON` for a kind it
+  does not name. Every view used to word its own, so a stale click on
+  a skill test and one on a shootout test read differently for the
+  same reason; now the reason has one sentence and the frontend
+  repeats it (`SafeView.refuse`, ephemeral, whether or not the click
+  was already acknowledged).
 
-None of it is reachable today: no view calls `answer` or `apply`, and
-the cog's own guards are what a click actually meets.
-**Closing it is the first job of the increment that points the entry
-points at the driver**, because that is the click where it becomes
-live -- and the shape is already written: an adapter refuses an
-argument that is not on the list the frontend built its buttons from,
-which is the engine's candidate list either way. Until then, read
-"every question has an answer" as exactly that.
 - **`answer` and `apply` are two functions because the Discord
   frontend renders an answer before it runs the chain.** A prompt here
   is a message with buttons on it, and answering it *replaces* that
@@ -753,6 +839,75 @@ which is the engine's candidate list either way. Until then, read
   `own_goal_roll_step`'s `(detail, StepResult)` shape generalised: an
   answer returning a pair has its first half put here, and one with no
   picture returns the `StepResult` alone.
+
+### The last increment: every step, and every click
+
+**What closed the phase** was one pull request over the worksheet's
+remaining list, and the shape of each item is worth a line because
+none of them was a lift in the old sense -- the steps had moved;
+what moved here was *who calls them*.
+
+- **The eighteen cog-side steps went into `MODEL_STEPS`**, which now
+  covers the enum. Most were three-line wrappers already. The ones
+  that were not were the pictures and the gate, and each became one
+  of three things: a **stop** (`DRIVER_STOPS`, `StepResult.new_play`
+  -- the loop runs the step and halts, `post_stop` takes the picture,
+  the loop is re-entered), a **prompt** (`SETUP_PASS_PUSH_BACK`,
+  `TUTORIAL_CONTINUE`, `GAME_OVER`) or a **group** the frontend reads
+  the tag of (`AUTO_RESOLVE_CHALLENGER`'s group carries the challenge
+  image, and closes even when it said nothing so the frontend learns
+  the step ran). `render_prompt` is what a `PendingPrompt` reaches
+  at the end of a run: the one place a kind picks up its picture --
+  the field strip for `FIELD_PROMPT_KINDS`, the coach's half-field
+  for `COACHING_PROMPT_KINDS`, the hand for `MANEUVER_ACTION`, the
+  final board for `GAME_OVER` -- before `view_for_prompt` gives it
+  its buttons. Two tables still: one for the picture, one for the
+  view, both keyed on the kind and neither on the step.
+- **Every click goes through `driver.answer`**, by way of
+  `SafeView.answer`, which reports a `Refusal` ephemerally and hands
+  back an `Answered` otherwise, and `SafeView.dispatch_answer`, which
+  runs what the answer started once the view has edited the prompt
+  with the answer's own lines (`lines_posted`). The views' stale-click
+  guards went with it -- the kind check is that guard, once, in the
+  model. A handful of views that post a message *before* running
+  the chain still reach `post_then_dispatch` and
+  `post_blocks_then_dispatch` directly; those are dispatchers, not a
+  second door, and the answer they post came through `driver.answer`
+  like every other.
+- **`run_step(interaction, game, match, member, **kwargs)`** is the
+  entry point every cog wrapper that names a step is one line over,
+  and `play_ai_turn` is one of them: the AI's turn is
+  `turn.ai_turn_step`, reached through `START_TURN`, its four exits
+  the same four a human's turn takes. `DRIVER_BLOCKS_PER_MESSAGE`
+  posts it a message per thing said, which is how it always read.
+- **The tutorial's gates became a prompt** (`d12ball/flow/gates.py`,
+  `hold_behind_note` and `continue_step`) -- see the prompts section
+  above for the shape and the restart it fixes. The note text moved
+  with it (`tutorial.note_text`, `gate_text`, `player_side`) since a
+  note is narration and narration is the model's (principle 5). A
+  gate's continuation must not raise the gate again, which is why the
+  turn prompt is two steps.
+- **Three persisted fields, each its own commit**, per principle 6:
+  `MatchState.run_back_pick`, `MatchState.skill_test_winner` (both
+  above) and `D12BallGame.tutorial_gate`. Every one reads as absent
+  on an older save, which is the right answer for every save written
+  before it.
+- **The effect continuation is written at the speed choice.**
+  `pending_effect_continuation` used to be set by `steal_step` and
+  `setup_pass_speed_step` in front of the choice; now
+  `speed_choice_step` writes it when the choice is made, because
+  until then the match reads as `SPEED_DELTA_CHOICE` and the driver's
+  kind check has to agree with what the coach is looking at. Press 37
+  of the advanced golden is what found it.
+- **What a coach sees differently**, all of it: the tutorial's speed
+  note now follows the dribble's own line rather than preceding it
+  (the golden transcript records the reorder); the AI's time out no
+  longer drops the turn prompt it never posted; stale clicks say the
+  same thing for the same reason across every prompt; a tutorial
+  gate survives a restart and `skip_tutorial` runs whatever a held
+  note was holding; and `/d12ball resume` re-posts a held note
+  before the question behind it. Everything else is byte-identical
+  on all three goldens.
 
 ### `d12ball/flow/rolls.py`
 
@@ -902,6 +1057,32 @@ have not". A click still lands on a `discord.ui.View`; what it finds
 there is now a call into `d12ball/flow/` and a decision about what to
 show.
 
+**Measured after the last increment, against its base (`origin/main`
+at 5226ec2), and this is the figure that finally moved.** In
+`cogs/d12ball/`: **9270 lines to 7756**; **177 async methods (from
+189), 156 of them taking an `interaction`** (from 162); **528 grep
+lines** (from 607); **38 methods touching `match.`** (from 46) and
+**0 direct writes** (from 2); **16 `self.persist(`** (from 37) and
+**20 bare `save_games(`** (from 31). In `cogs/d12ball_views/`: **43
+methods touching `match.`** (from 60), **0 direct writes**, **28
+`cog.persist(`** (from 26; it moved between modules as the answers
+did, and nearly every one left is the same shape -- `answer`, persist,
+edit the prompt, `dispatch_answer` -- so the answer is on disk before
+the edit that shows it, and the dispatcher's write after the run is
+the second of the same state) and 11 bare `save_games(`, unmoved. Test files needing `discord.py`: **65
+of 79**, where the base is 65 of 78 -- the full-game test is the one
+that arrived, and it is discord-free.
+
+**Read the `interaction` figures for what they are.** A click still
+lands on a `discord.ui.View` and every entry point still takes an
+`interaction`, because that is what a Discord frontend *is*; the 156
+are the surface, and the surface is exactly what a second frontend
+replaces. What the split is about is the other column: no method in
+either directory assigns to the match, and the ones that read it do
+so to render. `tests/test_driver_full_game.py` is the proof the
+figure stands for -- a whole game, and the tutorial, through
+`driver.apply` with nothing from `cogs/` imported.
+
 ## `tests/test_model_purity.py`
 
 **Is the line itself.** Every module under `d12ball/` **and
@@ -972,6 +1153,12 @@ rewords a result has changed the game.
   tutorial only reaches the third. Don't read a green golden as "the wording
   is covered"; a phase that moves narration the golden doesn't reach should
   add its own. Phase 4 did.
+- **Its transcript has changed exactly once since Phase 5**, in the
+  last increment of Phase 6, and the diff is one reorder: the dribble's own line now
+  precedes the tutorial's speed note, because the note is held behind
+  a gate that is a prompt and a prompt comes after what was said. The
+  save gained the `tutorial_gate` key. Everything else is byte for
+  byte.
 
 ### The advanced golden
 
@@ -1035,6 +1222,32 @@ a shootout that goes to sudden death.
   field at the break. Both halftime windows do run, and Dinky's substitution
   routine is covered where it does fire -- in the time out it calls itself,
   at press 32. A halftime where both benches move is the author's bot stop.
+
+### The full game through the driver
+
+`tests/test_driver_full_game.py` is the fourth, and it is not a golden:
+it pins no transcript. It plays a whole solo game and the whole
+tutorial through `driver.apply` alone -- `pending_prompt` for the
+question, a `Policy` that takes the first legal answer to it off the
+position the way a frontend builds its buttons (with three
+exceptions that exist to reach an ending: shoot when in range, take
+every time out offered, and pick the maneuver card at random under
+the seed, because the first card in the hand never gives the ball
+away and a period under last possession never ends), `apply` for the
+answer and everything it starts -- with nothing from `cogs/`
+imported, and asserts the game finishes on the rematch prompt.
+`TutorialPolicy` follows the rails and asserts every note is held
+behind a Continue. **Both coaches are the policy**, which no Discord
+script can do (`may_act_for` refuses half the presses of a two-human
+game on one user id) and this one can, because authorisation is the
+frontend's and there is no frontend here. **Every action is checked
+against the save**: after each apply the match is written out and
+read back, and the reloaded position has to be waiting on the same
+question the live one is (principle 3) -- the restart, as a loop.
+It is the sentence "the web app is a frontend rather than a port"
+as a test. Seed 3 is the first of twenty swept on which the dumb
+policy reaches the shootout, and `test_the_run_reaches_the_shootout`
+says so.
 
 ## Two things about running the suite that cost time to rediscover
 

@@ -2,7 +2,7 @@
 The front half of a turn, as flow steps: who challenges, what each side
 picked, and which card won.
 
-Lifted in Phase 4 of docs/model-discord-split.md out of
+Lifted in Phase 4 of docs/design/model-discord-split.md out of
 `cogs/d12ball/core.py`. Nothing in Phases 1 to 3 touched this half --
 it is easy to read as covered by "the spine" and it was not -- and both
 a human's pick and `play_ai_turn`'s pass through it, which is why
@@ -1168,7 +1168,7 @@ def ai_turn_step(
 
 # -- Answering the turn's own prompts ---------------------------------
 #
-# Phase 6 of docs/model-discord-split.md: a click answers a
+# Phase 6 of docs/design/model-discord-split.md: a click answers a
 # `PendingPrompt`, and what that answer *does* is a rule. These are the
 # model halves of the three that open a turn -- who takes the ball,
 # what they do with it, and who challenges -- lifted out of

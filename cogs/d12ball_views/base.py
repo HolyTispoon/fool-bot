@@ -335,7 +335,7 @@ class SafeView(discord.ui.View):
         """
         Answer the question this match is waiting on, through
         `d12ball.flow.driver.answer` -- **the one door every click
-        goes through** since Phase 6 of docs/model-discord-split.md.
+        goes through** since Phase 6 of docs/design/model-discord-split.md.
 
         What comes back is the answer's own result and detail, before
         anything that follows it has run: a prompt in this bot is a

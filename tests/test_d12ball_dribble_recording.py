@@ -2,7 +2,7 @@
 What the cog's two dribbles say and do next, recorded off the old code.
 
 This is the equivalence half of rank O2 of Phase 3 of
-docs/model-discord-split.md. It drives `D12Ball.apply_dribble_advance`
+docs/design/model-discord-split.md. It drives `D12Ball.apply_dribble_advance`
 and `D12Ball.apply_dribble_burst` over `tests/dribble_fixtures.py` and
 asserts the narration byte for byte, whether the board moved, and which
 step the resolution hands the turn to with which arguments -- the four

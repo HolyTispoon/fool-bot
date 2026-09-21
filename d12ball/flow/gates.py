@@ -8,7 +8,7 @@ channel, so a tutorial note with a live prompt behind it -- the
 lesson before a turn, the card note before the maneuver hands, the
 speed note before the speed choice, the coaching explainer before the
 window -- is held behind a single Continue button. Until Phase 6 of
-docs/model-discord-split.md that was `D12Ball.post_tutorial_note`: the
+docs/design/model-discord-split.md that was `D12Ball.post_tutorial_note`: the
 continuation was a closure on a `TutorialContinueView`, the view was
 never registered, and a restart left a dead button. It was also a
 click the model could not see -- `pending_prompt` read the position

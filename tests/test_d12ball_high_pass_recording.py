@@ -3,7 +3,7 @@ What the cog's High Pass and Setup Pass say and do next, recorded off
 the old code.
 
 This is the equivalence half of rank O3 of Phase 3 of
-docs/model-discord-split.md. It drives the rank's four entry points
+docs/design/model-discord-split.md. It drives the rank's four entry points
 over `tests/high_pass_fixtures.py` and asserts the narration byte for
 byte, whether the board was written, and which step the resolution
 hands the turn to with which arguments -- the four things a

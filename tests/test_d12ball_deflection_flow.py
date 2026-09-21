@@ -1,7 +1,7 @@
 """
 The two deflections as one flow step, and the cog wrapper around it.
 
-The model half of rank D1 of Phase 3 of docs/model-discord-split.md.
+The model half of rank D1 of Phase 3 of docs/design/model-discord-split.md.
 `tests/test_d12ball_deflection_recording.py` asked the cog what a
 Deflect and a Clear say and do next, off
 `tests/deflection_fixtures.py`, and was run green before anything

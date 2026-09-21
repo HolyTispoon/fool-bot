@@ -55,9 +55,9 @@ ball's space -- see "Choosing the handler" in the living rules.
   derive it from after the fact, which is why each says so itself. A new
   maneuver has to decide, the same way it decides steal-or-new-play.
   - **Five of the nine are no longer in `cogs/`**, and the list was
-    renamed as each one moved rather than annotated: Phase 3 of
-    [model-discord-split.md](../model-discord-split.md) has been lifting
-    the effects a rank at a time, and `dribble_advance_step`,
+    renamed as each one moved rather than annotated: Phase 3 of the
+    model/Discord split ([model-discord-split.md](model-discord-split.md))
+    lifted the effects a rank at a time, and `dribble_advance_step`,
     `take_ball_by_steal`, `send_low_pass` and the two pressure sites
     are free functions in `d12ball/flow/effects.py` now. Which side of
     the seam a site sits on changes nothing about the rule -- the point

@@ -7,7 +7,7 @@ and no `async def` in it anywhere, and neither does `gamesaves/d12ball/`
 cleanup with work behind it. That is exactly why it is worth having: the
 purity is currently kept by habit, and habit is what erodes one
 convenience at a time once a refactor starts moving flow code across the
-line. See `docs/model-discord-split.md`.
+line. See `docs/design/model-discord-split.md`.
 
 **`gamesaves/d12ball/` is a second root, not an afterthought.** The plan
 calls `gamesaves/d12ball/storage.py` already portable and

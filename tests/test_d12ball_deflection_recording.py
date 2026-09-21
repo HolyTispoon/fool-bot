@@ -3,7 +3,7 @@ What the cog's Deflect and Clear say and do next, recorded off the old
 code.
 
 This is the equivalence half of rank D1 of Phase 3 of
-docs/model-discord-split.md. It drives `D12Ball.apply_deflection` over
+docs/design/model-discord-split.md. It drives `D12Ball.apply_deflection` over
 `tests/deflection_fixtures.py` and asserts the narration byte for
 byte, whether the board was written, and which step the resolution
 hands the turn to with which arguments -- the four things a

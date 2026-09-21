@@ -231,7 +231,7 @@ class FollowOnStepTests(unittest.TestCase):
     """
     `FollowOnStep` is the record of where one step ends and the next
     begins -- see `d12ball/flow/result.py`. Every member is run by
-    `d12ball.flow.driver` since Phase 6 of docs/model-discord-split.md
+    `d12ball.flow.driver` since Phase 6 of docs/design/model-discord-split.md
     collapsed the cog's own dispatch table, so what is in it is
     asserted here, once, rather than inside any one rank's own tests.
     """
@@ -581,7 +581,7 @@ class NamingAPlayerTests(unittest.TestCase):
         old body -- `format_role_bracket` with the team read off the
         match -- moved onto the engine, reading both emoji dicts off
         itself instead of taking them as arguments (see the unlisted
-        prerequisite to Phase 1 in docs/model-discord-split.md). A
+        prerequisite to Phase 1 in docs/design/model-discord-split.md). A
         divergence between the two would otherwise only show up as a
         wording change in the golden transcript, which does not cover
         every combination below.

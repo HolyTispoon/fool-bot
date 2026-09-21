@@ -9,7 +9,7 @@ with one or both. Which runs first, and which of the two spends
 `last_ball_path`, is a rule -- see "Mind Pull, and the arrival gate" and
 "Smooth" in docs/design/species-abilities.md. Splitting the ordering
 across the seam would have been worse than not moving it, so Phase 4 of
-docs/model-discord-split.md moved it whole.
+docs/design/model-discord-split.md moved it whole.
 
 **The one sentence to keep in mind reading this file**: *the path is
 spent whether or not anybody may pull*, before the early return. Two
@@ -1248,7 +1248,7 @@ def begin_own_goal_roll(
 
 # -- Answering the loose ball's and the set-up's own prompts -----------
 #
-# Phase 6 of docs/model-discord-split.md. Each was in a view body --
+# Phase 6 of docs/design/model-discord-split.md. Each was in a view body --
 # `LooseBallChoiceView` in `cogs/d12ball_views/loose_ball.py`,
 # `SetUpAttemptChoiceView` and `ShooterChoiceView` in
 # `cogs/d12ball_views/effects.py` -- with the rule and the edit that

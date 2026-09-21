@@ -2,7 +2,7 @@
 A match standing in each branch a Deflect or a Clear resolves through,
 and what that resolution should produce.
 
-Rank D1 of Phase 3 of docs/model-discord-split.md moves the two cards'
+Rank D1 of Phase 3 of docs/design/model-discord-split.md moves the two cards'
 own resolution out of the cog and into `d12ball/flow/effects.py`. The
 thing worth asserting about a move like that is that **not one branch
 changed what it said or what it did next**, and that needs one table

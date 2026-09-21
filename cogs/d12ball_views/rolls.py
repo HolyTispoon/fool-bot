@@ -460,10 +460,10 @@ class ScoreAttemptView(SafeView):
         # of its own branches. So this drew a board nobody reads -- the
         # restarted ball without the reset behind it -- and, worse, it
         # took the game's write window. The step reports the board
-        # moved and `follow_on_draws_the_board` is what suppresses the
-        # write, which is the same answer for every caller rather than
-        # this one's comment. See "Discord's rate limits" in
-        # docs/design/rate-limits.md.
+        # moved and `dispatch_step_result` skips the write in front of
+        # a new play's pinned board, which is the same answer for every
+        # caller rather than this one's comment. See "Discord's rate
+        # limits" in docs/design/rate-limits.md.
         await self.cog.dispatch_step_result(
             interaction,
             game,

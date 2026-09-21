@@ -1793,7 +1793,7 @@ class MatchState:
     # None for the whole of an effect the dice had decided -- so a
     # restart in a tie's effect re-offered the skill test, and, once
     # every click was checked against that reading (Phase 6 of
-    # docs/model-discord-split.md), the speed choice after a won
+    # docs/design/model-discord-split.md), the speed choice after a won
     # Intercept was refused as a roll still owed. Cleared with the
     # rest of the turn.
     skill_test_winner: Optional[str] = None
@@ -1884,7 +1884,7 @@ class MatchState:
     # **Which of a doubled-up pair the coach picked to run back**, and
     # not yet where to. The run back asks two questions of a stack --
     # who goes, then where -- and until Phase 6 of
-    # docs/model-discord-split.md the first answer lived only on the
+    # docs/design/model-discord-split.md the first answer lived only on the
     # Discord message that asked the second: `pending_prompt` read the
     # position back as "who" for as long as more than one player was
     # spare, and a restart asked it again. That was a second reading
@@ -1923,7 +1923,7 @@ class MatchState:
     # (`{"kind": "attempt", ...}`) or the pick of who takes the shot
     # when more than one player may (`{"kind": "shooter", ...}`).
     #
-    # **The one field Phase 6 of docs/model-discord-split.md added**,
+    # **The one field Phase 6 of docs/design/model-discord-split.md added**,
     # and the reason is that neither question could be a
     # `PendingPrompt` without it. The attempt's `distance_moved` and
     # `contest_on_decline` are nowhere else in match state -- by the

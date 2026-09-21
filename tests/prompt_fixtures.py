@@ -5,7 +5,7 @@ The chain that reads "what is this match waiting on?" has one branch
 per prompt the game can be sitting on, and the orderings between those
 branches carry real decisions -- see "Recovering a stuck game" in
 docs/design/recovery.md. Moving it into the model (Phase 1 of
-docs/model-discord-split.md) is a pure refactor, so the thing worth
+docs/design/model-discord-split.md) is a pure refactor, so the thing worth
 asserting is that **not one branch changed its answer**, and that needs
 a fixture standing in every one of them at once rather than the
 twenty-odd scattered ones the suite already had.

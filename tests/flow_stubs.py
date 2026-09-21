@@ -2,7 +2,7 @@
 Stopping a turn's chain at a named step.
 
 A great many tests drive one step and assert what it hands off to, and
-until Phase 6 of docs/model-discord-split.md there was one way to do
+until Phase 6 of docs/design/model-discord-split.md there was one way to do
 that: stub the cog method `D12Ball.follow_on_methods` named for the
 `FollowOnStep` in question, and read its `await_args`. That worked
 because the cog ran every follow-on.
@@ -106,7 +106,7 @@ def arguments_of(recorder: Any) -> tuple[tuple[Any, ...], Mapping[str, Any]]:
     The leading three differ by side -- `(interaction, game, match)`
     against `(engine, game, match)` -- and every argument a step
     actually carries arrives by keyword (rank D2's lesson, in
-    docs/model-discord-split.md), so a test wanting `distance_moved`
+    docs/design/model-discord-split.md), so a test wanting `distance_moved`
     or `lead_in` reads the mapping and never an index.
     """
     if not recorder.call_args_list:  # pragma: no cover - never reached
@@ -171,7 +171,7 @@ def named_arguments(
     takes no `self`, which is the whole of the difference -- the
     arguments themselves are the same, because
     `dispatch_step_result` already passed every one of them by keyword
-    (rank D2's lesson, in docs/model-discord-split.md).
+    (rank D2's lesson, in docs/design/model-discord-split.md).
     """
     call = (recorder.call_args_list)[0]
     if runs_in_the_model(member):

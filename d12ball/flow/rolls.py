@@ -4,7 +4,7 @@ The contested rolls, with no dice image in them.
 Four rolls in this game are two-sided -- a maneuver's skill test, the
 contest for a loose ball (which the long High Pass comes through), a
 score attempt against the wall of defenders, and a shootout test -- and
-until Phase 6 of docs/model-discord-split.md all four lived in a
+until Phase 6 of docs/design/model-discord-split.md all four lived in a
 `discord.ui.View`. The arithmetic and the verdict were interleaved with
 rendering the dice, so a second frontend could not roll a skill test
 without reimplementing what a skill test *is*.
@@ -1075,8 +1075,9 @@ def score_attempt_step(
 
     `board_changed` is reported honestly and the frontend does not
     write one: `begin_run_back` with `new_play` posts and pins the
-    settled board itself, which `follow_on_draws_the_board` already
-    answers for every caller. See rank D1 in
+    settled board itself -- `StepResult.new_play` stops the driver
+    there and the frontend skips its own write in front of the pinned
+    board, which is the same answer for every caller. See rank D1 in
     docs/design/model-discord-split.md.
     """
     shooter = engine.get_player_definition(match.active_player_id)

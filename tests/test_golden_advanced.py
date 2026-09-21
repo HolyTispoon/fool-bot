@@ -6,7 +6,7 @@ The twin of `tests/test_golden_transcript.py`, and it exists because
 that one's own docstring asked for it: the tutorial golden is one
 *basic*-mode solo game on board 7, so it watches no gambit, no species
 ability, no Mind Pull, no injury test, no own goal and no stacked run
-back. Phase 4 of `docs/model-discord-split.md` moves the spine of a turn
+back. Phase 4 of `docs/design/model-discord-split.md` moves the spine of a turn
 -- the arrival gates, the run-back cascade, the injury tests, the own
 goal roll -- and a mechanical move needs a guard over the code it is
 moving, not beside it.
