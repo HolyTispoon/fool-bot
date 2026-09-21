@@ -24,6 +24,7 @@ put:
 
 from __future__ import annotations
 
+import contextlib
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -34,6 +35,13 @@ from d12ball.flow import FollowOn, FollowOnStep
 from d12ball.flow.effects import steal_step
 from d12ball.prompts import pending_prompt
 
+from d12ball.flow.arrivals import begin_shooter_choice
+from d12ball.flow import driver
+from flow_stubs import (
+    REAL_MODEL_STEPS,
+    chain_records_at,
+    driver_reaches_cog_stubs,
+)
 from save_patches import suppressed_cog_saves
 from steal_fixtures import ENGINE, RUN_BACK, SHOOTER_CHOICE, STEAL_CASES
 from test_d12ball_steal_recording import build_cog
@@ -136,12 +144,19 @@ class StealStepTests(unittest.TestCase):
             FollowOnStep.BEGIN_SHOOTER_CHOICE.name, SHOOTER_CHOICE,
         )
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
+        # **The two rows are on different sides now.** Phase 6 moved
+        # the shooter choice into `d12ball.flow.driver`, which runs it
+        # itself; the run back still posts and pins a board, so it is
+        # the cog's. The two tables together cover the enum exactly --
+        # asserted in `tests/test_d12ball_package_shape.py`.
         table = D12Ball.follow_on_methods(cog)
         self.assertIs(table[FollowOnStep.BEGIN_RUN_BACK], cog.begin_run_back)
         self.assertIs(
-            table[FollowOnStep.BEGIN_SHOOTER_CHOICE],
-            cog.begin_shooter_choice,
+            REAL_MODEL_STEPS[FollowOnStep.BEGIN_SHOOTER_CHOICE],
+            begin_shooter_choice,
         )
+        self.assertNotIn(FollowOnStep.BEGIN_SHOOTER_CHOICE, table)
 
     def test_the_step_does_not_save(self) -> None:
         """
@@ -224,6 +239,7 @@ class StealWrapperTests(unittest.IsolatedAsyncioTestCase):
                     if case.name == name
                 )
                 cog = build_cog()
+                self.enterContext(driver_reaches_cog_stubs(cog))
                 cog.games[fixture.game.game_id] = fixture.game
                 calls: list[str] = []
                 carrier_when_saved: list[object] = []
@@ -235,25 +251,37 @@ class StealWrapperTests(unittest.IsolatedAsyncioTestCase):
                 async def refresh(*args, **kwargs) -> None:
                     calls.append("refresh")
 
-                async def run_back(*args, **kwargs) -> None:
-                    calls.append("begin_run_back")
-
-                async def shooter_choice(*args, **kwargs) -> None:
-                    calls.append("begin_shooter_choice")
-
                 cog.persist = persist
                 cog.refresh_match_image = refresh
-                cog.begin_run_back = run_back
-                cog.begin_shooter_choice = shooter_choice
+                member = FollowOnStep[following.upper()]
+                stack = contextlib.ExitStack()
+                with stack:
+                    for step in (RUN_BACK, SHOOTER_CHOICE):
+                        stack.enter_context(
+                            chain_records_at(
+                                cog, FollowOnStep[step], calls,
+                            ),
+                        )
+                    await cog.apply_steal(
+                        SimpleNamespace(),
+                        fixture.game,
+                        fixture.match,
+                        fixture.key,
+                    )
 
-                await cog.apply_steal(
-                    SimpleNamespace(),
-                    fixture.game,
-                    fixture.match,
-                    fixture.key,
-                )
-
-                self.assertEqual(calls, ["persist", "refresh", following])
+                # **Two saves where the driver runs the next step.**
+                # The wrapper writes its own step and
+                # `dispatch_step_result` writes what `driver.advance`
+                # ran after it (principle 9, with the dispatcher as
+                # the driver's caller); the board write follows the
+                # run rather than preceding it, which is the position
+                # `BoardRefresher` was collapsing a cascade's writes
+                # down to anyway.
+                if driver.runs(member):
+                    expected = [following, "persist", "refresh"]
+                else:
+                    expected = ["persist", "refresh", following]
+                self.assertEqual(calls, expected)
                 self.assertEqual(carrier_when_saved, [fixture.carrier_id])
 
     async def test_a_beaten_skilled_pass_is_saved_once_with_the_steal(
@@ -273,6 +301,7 @@ class StealWrapperTests(unittest.IsolatedAsyncioTestCase):
             if case.name == "steal_beats_a_skilled_pass"
         )
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.games[fixture.game.game_id] = fixture.game
         saved: list[object] = []
         cog.persist = lambda game, match: saved.append(

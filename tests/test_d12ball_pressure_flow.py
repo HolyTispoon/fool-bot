@@ -26,6 +26,7 @@ put:
 
 from __future__ import annotations
 
+import contextlib
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -37,6 +38,13 @@ from d12ball.flow.effects import apply_own_goal_outcome, pressure_step
 from d12ball.prompts import pending_prompt
 
 from pressure_fixtures import ENGINE, OWN_GOAL_ROLL, PRESSURE_CASES
+from d12ball.flow.arrivals import begin_own_goal_roll
+from d12ball.flow import driver
+from flow_stubs import (
+    REAL_MODEL_STEPS,
+    chain_records_at,
+    driver_reaches_cog_stubs,
+)
 from save_patches import suppressed_cog_saves
 from test_d12ball_pressure_recording import build_cog, build_interaction
 
@@ -156,9 +164,19 @@ class PressureStepTests(unittest.TestCase):
         """
         self.assertEqual(FollowOnStep.BEGIN_OWN_GOAL_ROLL.name, OWN_GOAL_ROLL)
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
+        # **Phase 6 moved it across.** The roll's own step is the
+        # driver's now -- it was a wrapper that called the step,
+        # saved and dispatched, which is the whole of what the loop
+        # does. The two tables together cover the enum exactly; see
+        # `tests/test_d12ball_package_shape.py`.
         self.assertIs(
-            D12Ball.follow_on_methods(cog)[FollowOnStep.BEGIN_OWN_GOAL_ROLL],
-            cog.begin_own_goal_roll,
+            REAL_MODEL_STEPS[FollowOnStep.BEGIN_OWN_GOAL_ROLL],
+            begin_own_goal_roll,
+        )
+        self.assertNotIn(
+            FollowOnStep.BEGIN_OWN_GOAL_ROLL,
+            D12Ball.follow_on_methods(cog),
         )
 
     def test_the_step_does_not_save(self) -> None:
@@ -236,6 +254,7 @@ class PressureWrapperTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(case=name):
                 fixture = case_named(name)
                 cog = build_cog()
+                self.enterContext(driver_reaches_cog_stubs(cog))
                 cog.games[fixture.game.game_id] = fixture.game
                 calls: list[str] = []
                 ball_when_saved: list[object] = []
@@ -251,25 +270,35 @@ class PressureWrapperTests(unittest.IsolatedAsyncioTestCase):
 
                 cog.persist = persist
                 cog.refresh_match_image = refresh
-                for step in (
-                    "finish_maneuver_resolution",
-                    "begin_run_back",
-                    "begin_own_goal_roll",
-                ):
-                    setattr(
-                        cog,
-                        step,
-                        self._recorder(calls, step),
+                member = FollowOnStep[following.upper()]
+                stack = contextlib.ExitStack()
+                with stack:
+                    for step in (
+                        "FINISH_MANEUVER_RESOLUTION",
+                        "BEGIN_RUN_BACK",
+                        "BEGIN_OWN_GOAL_ROLL",
+                    ):
+                        stack.enter_context(
+                            chain_records_at(
+                                cog, FollowOnStep[step], calls,
+                            ),
+                        )
+                    await cog.apply_pressure(
+                        SimpleNamespace(),
+                        fixture.game,
+                        fixture.match,
+                        fixture.key,
                     )
 
-                await cog.apply_pressure(
-                    SimpleNamespace(),
-                    fixture.game,
-                    fixture.match,
-                    fixture.key,
-                )
-
-                self.assertEqual(calls, ["persist", "refresh", following])
+                # **Two saves where the driver runs the next step**,
+                # and the board write follows the run rather than
+                # preceding it -- principle 9 with the dispatcher as
+                # the driver's caller. See `d12ball/flow/driver.py`.
+                if driver.runs(member):
+                    expected = [following, "persist", "refresh"]
+                else:
+                    expected = ["persist", "refresh", following]
+                self.assertEqual(calls, expected)
                 self.assertEqual(ball_when_saved, [fixture.ball_space])
 
     @staticmethod
@@ -294,6 +323,7 @@ class PressureWrapperTests(unittest.IsolatedAsyncioTestCase):
         """
         fixture = case_named("pressure_that_overshoots")
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.games[fixture.game.game_id] = fixture.game
         # The real prompt, so what reaches the channel is counted
         # rather than mocked away.
@@ -398,6 +428,7 @@ class OwnGoalOutcomeTests(unittest.IsolatedAsyncioTestCase):
                 match.pending_own_goal = True
                 match.pending_own_goal_distance = 1
                 cog = build_cog()
+                self.enterContext(driver_reaches_cog_stubs(cog))
                 cog.games[fixture.game.game_id] = fixture.game
                 calls: list[str] = []
                 owed_when_saved: list[object] = []
@@ -426,12 +457,33 @@ class OwnGoalOutcomeTests(unittest.IsolatedAsyncioTestCase):
                         interaction, fixture.game, match,
                     )
 
+                # **Before anything posts**, which is the rule this
+                # test is named for: the dice image and the message
+                # under it can both fail, and the outcome is already
+                # on disk when they do.
                 self.assertEqual(calls[0], "persist")
-                self.assertEqual(calls.count("persist"), 1)
+                self.assertLess(
+                    calls.index("persist"),
+                    min(
+                        (calls.index(what) for what in ("send", "edit")
+                         if what in calls),
+                        default=len(calls),
+                    ),
+                )
+                # **A second write closes the click**, since Phase 6:
+                # `dispatch_step_result` is the driver's caller and
+                # saves once for whatever the run moved (principle 9).
+                # This branch keeps its own early save because being
+                # *earlier* than the posting is the point of it, so
+                # the roll is the one path in the game that writes
+                # twice -- the same state both times, which is why the
+                # flag below is checked on every write rather than on
+                # one.
+                self.assertEqual(calls.count("persist"), 2)
                 # The flag is cleared before the outcome is settled,
                 # so the save that follows it is what retires the
                 # prompt -- on both branches now, not just the one.
-                self.assertEqual(owed_when_saved, [False])
+                self.assertEqual(owed_when_saved, [False, False])
                 cog.begin_run_back.assert_awaited_once()
 
     @staticmethod

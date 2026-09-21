@@ -17,6 +17,7 @@ from pathlib import Path
 import cogs.d12ball_views as views
 from cogs.d12ball import D12Ball
 from d12ball.flow.result import FollowOnStep
+from d12ball.flow import driver
 from save_patches import (
     LINKING_COG_MODULES,
     SAVING_COG_MODULES,
@@ -206,11 +207,14 @@ class FollowOnStepTests(unittest.TestCase):
     rank's own tests.
     """
 
-    #: Every spine step a lifted step may end by naming, as of Phase
-    #: 5. A phase that hands off to a new one adds its member here and
-    #: a row to `D12Ball.follow_on_methods`; one that lifts a step the
-    #: cog used to dispatch takes its member back out. Phase 6 empties
-    #: both.
+    #: Every step of a turn that is named rather than called inline.
+    #:
+    #: Until Phase 6 this read as "what the cog still dispatches",
+    #: because the cog ran all of them. It is now "what a step can
+    #: hand off to", and which side runs a given one is
+    #: `IN_THE_DRIVER` below. A phase that hands off to a new step
+    #: adds its member here and a row to one of the two tables; one
+    #: that lifts a step moves its name between them.
     EXPECTED = {
         # Phase 3's, and still dispatched.
         "FINISH_MANEUVER_RESOLUTION",
@@ -265,17 +269,53 @@ class FollowOnStepTests(unittest.TestCase):
             {member.name for member in FollowOnStep}, self.EXPECTED,
         )
 
-    def test_the_cog_has_a_row_for_every_member(self) -> None:
+    #: The steps `d12ball.flow.driver` runs itself, as of Phase 6.
+    #:
+    #: Each was a cog wrapper of three lines -- call the step, save,
+    #: dispatch -- so the loop took the call and dropped the other
+    #: two. A step whose wrapper does anything else (a picture, a pin,
+    #: a tutorial gate, a bespoke view) is still the cog's and is
+    #: **not** here; `BEGIN_HIGH_PASS_CONTEST` is the near miss worth
+    #: naming, held back only because a board write is ordered in
+    #: front of it (see `MODEL_STEPS` in `d12ball/flow/driver.py`).
+    IN_THE_DRIVER = {
+        "OFFER_SCORING_ATTEMPT_CHOICE",
+        "BEGIN_SHOOTER_CHOICE",
+        "BEGIN_OWN_GOAL_ROLL",
+        "FINISH_RUN_BACK",
+        "BEGIN_MANEUVER_ACTION_SELECTION",
+    }
+
+    def test_the_two_tables_cover_the_enum_between_them(self) -> None:
         """
-        A member with no row raises a `KeyError` inside a resolved
-        maneuver, one card at a time, so the table is asserted to
-        cover the enum exactly rather than merely to contain it.
+        A member with no row raises a `KeyError` in the middle of a
+        turn, one card at a time, so the tables are asserted to cover
+        the enum **exactly** rather than merely to contain it.
+
+        There are two of them since Phase 6: `driver.MODEL_STEPS` for
+        the steps the loop runs and `D12Ball.follow_on_methods` for
+        the pictures, pins and gates still owed by the frontend. They
+        are disjoint, and together they are the enum -- a member in
+        both would mean two answers to what happens next, which is
+        the failure this whole split is against.
         """
         cog = object.__new__(D12Ball)
         for member in FollowOnStep:
             setattr(cog, member.name.lower(), lambda *a, **k: None)
+        cog_rows = set(D12Ball.follow_on_methods(cog))
+        driver_rows = set(driver.MODEL_STEPS)
+        self.assertEqual(cog_rows & driver_rows, set())
+        self.assertEqual(cog_rows | driver_rows, set(FollowOnStep))
+
+    def test_the_driver_runs_exactly_the_steps_recorded_here(self) -> None:
+        """
+        The other half of the record: which side of the seam each
+        member is on. A phase that lifts a step moves its name from
+        the cog's half to `IN_THE_DRIVER`, in the same commit.
+        """
         self.assertEqual(
-            set(D12Ball.follow_on_methods(cog)), set(FollowOnStep),
+            {member.name for member in driver.MODEL_STEPS},
+            self.IN_THE_DRIVER,
         )
 
 

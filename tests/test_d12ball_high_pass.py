@@ -39,6 +39,7 @@ from d12ball.ai import DinkyAI
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from roster import display_name, fielded
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
 
 
@@ -112,6 +113,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         side's receiver and one defender both on the ball's space.
         """
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game()
         match = MatchState.standard(
             catalog=self.catalog,
@@ -462,6 +464,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
 
     def build(self, zone: Zone, space: int, role: PlayerRole):
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.apply_high_pass = mock.AsyncMock()
         cog.engine.user_controls_possession = mock.Mock(return_value=True)
         game = build_game()
@@ -610,6 +613,7 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
 
     async def roll_shot(self, overshot: bool):
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.apply_exhaustion = mock.Mock(return_value="")
         # Nobody in the way, so the attacker's row is the whole test.
         cog.engine.intervening_defenders = mock.Mock(return_value=[])
@@ -693,6 +697,7 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
         occupant list starts with the one player who may not receive.
         """
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.offer_scoring_attempt_choice = mock.AsyncMock()
         # Only this fixture reaches apply_high_pass_out's begin_run_back
         # call (the passer-alone, no-teammate case) -- every other test

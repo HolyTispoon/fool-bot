@@ -42,6 +42,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
+from d12ball.flow import FollowOnStep
 from d12ball.ai import build_ai_strategies
 from d12ball.cards import maneuver_hand_combinations
 from d12ball.components import (
@@ -59,6 +60,13 @@ from high_pass_fixtures import (
     RUN_BACK,
     SCORING_ATTEMPT,
     SPEED_CHOICE,
+)
+from flow_stubs import (
+    every_step_stubbed,
+    lead_in_of,
+    named_arguments,
+    reached_once,
+    was_reached,
 )
 from save_patches import suppressed_cog_saves
 
@@ -149,25 +157,6 @@ def posted_messages(interaction) -> list[str]:
     ]
 
 
-def named_arguments(method, call) -> dict:
-    """
-    One recorded call as named arguments, plumbing dropped.
-
-    Bound against the unbound method's signature and **without**
-    `apply_defaults`, so what comes back is what the call actually
-    passed -- which is exactly what a `FollowOn` carries in its
-    `kwargs`.
-    """
-    bound = inspect.signature(method).bind(
-        None, *call.args, **call.kwargs,
-    )
-    return {
-        name: value
-        for name, value in bound.arguments.items()
-        if name not in PLUMBING
-    }
-
-
 async def drive(cog, fixture, interaction) -> None:
     """
     The fixture's own entry point, which for this rank is one of four:
@@ -209,25 +198,33 @@ class PassRecordingTests(unittest.IsolatedAsyncioTestCase):
         match = fixture.match
         interaction = build_interaction()
 
-        with suppressed_cog_saves():
+        # **Each step is stubbed on the side that runs it.** Phase 6
+        # moved some of these into `d12ball.flow.driver`, which has no
+        # cog method to patch; `flow_stubs.chain_stops_at` answers
+        # which side owns a member so this table does not have to.
+        members = [FollowOnStep[key] for key in FOLLOW_ONS]
+        with every_step_stubbed(cog, members) as recorders, \
+                suppressed_cog_saves():
             await drive(cog, fixture, interaction)
 
-        name, method = FOLLOW_ONS[fixture.follow_on]
-        taken = getattr(cog, name)
-        for other, _ in FOLLOW_ONS.values():
-            if other != name:
-                getattr(cog, other).assert_not_awaited()
+        member = FollowOnStep[fixture.follow_on]
+        _, method = FOLLOW_ONS[fixture.follow_on]
+        for other in members:
+            if other is not member:
+                self.assertFalse(
+                    was_reached(recorders[other]), other.name,
+                )
 
-        taken.assert_awaited_once()
-        call = taken.await_args
+        self.assertTrue(reached_once(recorders[member]))
         self.assertEqual(
-            named_arguments(method, call), fixture.follow_on_kwargs,
+            named_arguments(member, method, recorders[member], PLUMBING),
+            fixture.follow_on_kwargs,
         )
 
         # Every branch of this rank carries its narration into the next
         # step. Nothing here posts a message of its own.
         self.assertEqual(posted_messages(interaction), [])
-        self.assertEqual(call.kwargs.get("lead_in"), fixture.narration)
+        self.assertEqual(lead_in_of(recorders[member]), fixture.narration)
 
         # The board was written only where the old cog wrote it; see
         # the module docstring.
