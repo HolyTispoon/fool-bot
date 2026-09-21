@@ -19,6 +19,12 @@ PR #235, PR #236, PR #241)** -- and so has Phase 4 (PR #249), and so has
 Phase 5. So there are no prompts for any of them, and what is left here is
 Phase 6, the last one.
 
+**Phase 6 has landed in two increments and is not finished** (PR #255
+and the one after it). Its prompt stays until it is, and has been
+corrected twice for what each increment learned -- read the errata at
+the top of it before anything else, because several of its facts are
+now the *opposite* of what it says.
+
 ---
 
 ## [PREAMBLE] -- paste at the top of every prompt
@@ -205,42 +211,70 @@ This is Phase 6 of docs/model-discord-split.md, "the driver" -- the last
 phase, after which the cog is a frontend. Phases 1-5 have landed.
 
 Probe: the worksheet's Status column names a PR for Phases 0-5 and marks
-Phase 6 part-landed, `d12ball/flow/driver.py` exists, and
-`driver.MODEL_STEPS` has **5** members against
-`D12Ball.follow_on_methods`'s 24 -- the two tables are disjoint and
-together they are the 29-member `FollowOn` enum, which is asserted in
+Phase 6 two-parts-landed, `d12ball/flow/driver.py` exists, and
+`driver.MODEL_STEPS` has **10** members against
+`D12Ball.follow_on_methods`'s 17 -- the two tables are disjoint and
+together they are the 27-member `FollowOn` enum, which is asserted in
 tests/test_d12ball_package_shape.py. Read that assertion; it is the list of
 what is left, and the enum dies when the cog's table is empty.
 
 **The rest of this phase is one pull request** -- the author,
-2026-09-21, on PR #255. Do not split it further. **And the four prompts
-that could not be `PendingPrompt`s are closed inside it** -- the author,
-same day, same PR, choosing "fold it in" over a recovery commit of its
-own. The worksheet's Phase 6 section says what that choice owes.
+2026-09-21, on PR #255. Do not split it further.
 
-**Read the worksheet's Phase 6 section first: part of this phase has
-already landed and the section says what and what it cost.** The loop is
-the model's (`driver.advance`) and the save has collapsed (83 -> 43); what
-is open is the frontend's entry points, and the four blockers the section
-names. Two of them decide how much of the rest is even possible:
+**Read the worksheet's Phase 6 section first: two parts of this phase
+have already landed and the section says what each did and what it
+cost.** The loop is the model's (`driver.advance`), the save has
+collapsed (83 -> 41), a run comes back as tagged `NarrationGroup`s, and
+three of the four prompts that could not be `PendingPrompt`s are
+closed. What is open is `driver.apply` and the view bodies it needs.
+The worksheet's "What is still open" is the brief; the corrections
+below are the ones the second increment learned and this prompt got
+wrong.
 
-- the loop can only stop *after* a step, and `BEGIN_HIGH_PASS_CONTEST`
-  among others needs it to stop *before* one (a `stop_before`);
-- `driver.apply(action)` and the full-game-through-the-driver test were
-  **blocked** on the four prompts that cannot be `PendingPrompt`s
-  (`SEND_SET_UP_ATTEMPT_PROMPT`, `SEND_SHOOTER_PROMPT`,
-  `SEND_RUN_BACK_PROMPT` and the coaching window). The author has folded
-  closing them into this pull request: `pending_prompt` grows the
-  branches, `PendingPrompt` the fields, and `play_ai_turn` comes unstuck
-  with them. Do not fake it with a fifth shape. Re-derive an argument
-  from the match where the engine can; a picture is never persisted. If
-  a field genuinely has to be saved, it is its own commit inside this
-  pull request with its `MATCH_SAVED_FIELDS` entry and a fallback an
-  older save reads cleanly (principle 6). Because a restart will then
-  restore prompts it does not restore today and no golden can see that,
-  each new kind gets a fixture in tests/prompt_fixtures.py and a
-  save-and-load test that hands back the same prompt, arguments and all,
-  and the PR says what a restart in each of the four did before.
+- **`stop_before` was not needed and is not built.**
+  `BEGIN_HIGH_PASS_CONTEST` is in the driver's table: the frontend
+  writes the board before it posts any of a run's groups, so the write
+  rank O3 made it a member for survives. What did have to move is the
+  suppression -- `follow_on_draws_the_board` reads `is_high_pass` now.
+  Do not add a `stop_before` unless a step you are moving actually
+  needs one.
+- **The narration-group half is done.** `driver.advance` takes
+  `own_message` and `speaks_lines` and hands back `DriverRun.groups`;
+  `RESOLVE_MANEUVER`, `RESOLVE_LOOSE_BALL`, `ANNOUNCE_RUN_BACK` and
+  `END_PERIOD` are in the table. The three dispatchers survive, keyed
+  per group on the step that said it, which is what the prompt asked
+  for.
+- **Three of the four prompts are closed**, and the fourth is a gate
+  rather than a picture. `SET_UP_ATTEMPT` and `SHOOTER_CHOICE` are
+  `PromptKind`s over one new persisted field
+  (`pending_scoring_opportunity`); `SEND_RUN_BACK_PROMPT` needed no
+  field at all, because the question was always `pending_prompt`'s and
+  only the field strip kept it a member. **`BEGIN_SUBSTITUTION_WINDOW`
+  is still a member** and the tutorial's Continue gate is why: it has
+  to run *before* `open_substitution_window`, which is the one place a
+  `stop_before` might genuinely earn itself.
+- **`driver.apply` is blocked on the answers, not the prompts.** Every
+  `PromptKind` needs a model function to run, and the ones still inside
+  a view body are the four contested rolls, the maneuver picks and the
+  challenger, the seven coaching sub-menus and the two shootout menus.
+  `own_goal_roll_step` is the pattern for a roll: it returns
+  `(OwnGoalRoll, StepResult)` -- the numbers for the picture beside the
+  sentence about them -- because the frontend puts the image *between*
+  two of its lines.
+- **Overdrive is a question for the author.** `SafeView.declare_overdrive`
+  is a button on six roll prompts and answers none of them, so "an
+  action validated against `pending_prompt`" has no answer for it. Ask
+  before inventing one.
+- **`play_ai_turn` wants a frontend that renders a prompt with its
+  picture**, keyed on the kind. `D12Ball.post_run_back_prompt` is the
+  first instance of that shape; generalising it is also what would take
+  `SEND_TURN_PROMPT`, `SEND_MANEUVER_ACTION_PROMPT`, `START_SET_UP_SHOT`
+  and the coaching window off the cog's table.
+- Every new prompt kind still gets a fixture in
+  tests/prompt_fixtures.py, and `test_a_prompt_survives_a_save_and_a_load`
+  in tests/test_d12ball_prompts.py already runs the save-and-load check
+  over every case -- it is the restart written as a test, and a new
+  kind is covered by adding the fixture alone.
 
 Read docs/design/cog-structure.md, docs/design/recovery.md,
 docs/design/rate-limits.md and docs/design/permissions.md, and the "The
@@ -268,12 +302,12 @@ What this phase builds:
   dice on its own -- the AI's rolls still wait behind a button either coach
   may press, so the AI turn ends where a human's would, on a PendingPrompt.
 - `persist` **has collapsed** to the dispatcher (principle 9): 41 wrappers
-  stopped saving and `self.persist(` in cogs/ went 83 -> 43. What is left
+  stopped saving and `self.persist(` in cogs/ went 83 -> 41. What is left
   is the wrappers that post rather than dispatch, the run-back per-pass
   persist (still the cog's, still undocumented as an exception -- do that),
   and the own-goal roll's deliberate early save, which is now the one path
   that writes twice and says so in its test. The `save_games` calls that
-  save the game record alone are untouched at **46** -- count them again
+  save the game record alone are at **44** -- count them again
   rather than quoting that, which is the worksheet's standing rule about
   every figure in this plan.
 - The cog becomes: click -> authorize -> `driver.apply(...)` -> persist ->
@@ -316,12 +350,16 @@ Tests:
   last measurement have moved** into docs/design/model-discord-split.md,
   under "How the split is measured" -- read it there rather than from the
   worksheet, and add a measurement rather than replacing one. The last
-  reading was 190 async methods, 159 taking an `interaction`, 611 grep
-  lines, 62 of 86 test files needing discord.py; none of the three moved
-  when the loop did, and the reason is written down.
+  reading was 188 async methods, 157 taking an `interaction`, 604 grep
+  lines, 49 methods touching `match.`, 5 direct writes, and 67 of 86 test
+  files needing discord.py. **The test-file figure was recorded as 62 and
+  is 67 on both sides of the second increment**: the rule was the
+  difference, and the one that can be re-run is written down beside it
+  now.
 
 Docs: docs/design/cog-structure.md ("Why the cog is mixins") already says
-which half of its reasoning the remaining work makes false; finish that
+which half of its reasoning the remaining work makes false, and the
+second increment updated its figures without rewriting it; finish that
 rewrite when the cog stops being where a click lands, and not before --
 the section must describe the code, not the plan. recovery.md is re-read
 against the code end to end. **Delete the worksheet only when the phase is
