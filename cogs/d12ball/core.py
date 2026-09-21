@@ -136,6 +136,7 @@ from cogs.d12ball_views import (
     RunBackPlayerChoiceView,
     ScoreAttemptView,
     SetUpAttemptChoiceView,
+    ShooterChoiceView,
     SetupPassChoiceView,
     ShootoutOrderPromptView,
     ShootoutOrderSelectView,
@@ -333,6 +334,8 @@ PARAMETERISED_PROMPT_KINDS = frozenset({
     PromptKind.LOOSE_BALL_PICK,
     PromptKind.LOW_PASS_CHOICE,
     PromptKind.SPEED_DELTA_CHOICE,
+    PromptKind.SET_UP_ATTEMPT,
+    PromptKind.SHOOTER_CHOICE,
 })
 
 
@@ -1602,6 +1605,16 @@ class CoreMixin:
             return SpeedDeltaChoiceView(
                 self, game_id, prompt.player_id, prompt.skill_type,
             )
+        if kind is PromptKind.SET_UP_ATTEMPT:
+            return SetUpAttemptChoiceView(
+                self,
+                game_id,
+                prompt.player_id,
+                prompt.distance_moved,
+                contest_on_decline=prompt.contest_on_decline,
+            )
+        if kind is PromptKind.SHOOTER_CHOICE:
+            return ShooterChoiceView(self, game_id, prompt.player_ids)
         return PLAIN_PROMPT_VIEWS[kind](self, game_id)
 
     async def post_then_dispatch(
@@ -1884,9 +1897,6 @@ class CoreMixin:
             FollowOnStep.BEGIN_SUBSTITUTION_WINDOW:
                 self.begin_substitution_window_step,
             FollowOnStep.START_SET_UP_SHOT: self.start_set_up_shot_step,
-            FollowOnStep.SEND_SET_UP_ATTEMPT_PROMPT:
-                self.send_set_up_attempt_prompt,
-            FollowOnStep.SEND_SHOOTER_PROMPT: self.send_shooter_prompt,
             FollowOnStep.SEND_RUN_BACK_PROMPT: self.send_run_back_prompt,
             FollowOnStep.CONTINUE_RUN_BACK: self.continue_run_back,
             FollowOnStep.APPLY_BALL_RECOVERY: self.apply_ball_recovery_step,

@@ -48,7 +48,11 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from d12ball.formatting import contest_noun, space_label
+from d12ball.formatting import (
+    contest_noun,
+    format_player_with_team,
+    space_label,
+)
 from d12ball.game import D12BallGame, Formation, GameStatus, Team
 from roster import fielded
 
@@ -421,6 +425,78 @@ def score_attempt() -> PromptFixture:
     )
 
 
+def set_up_attempt() -> PromptFixture:
+    """
+    A set-up offered and not yet answered.
+
+    **A branch only since Phase 6**, and a restart here used to come
+    back to the maneuver's first-stage distance choice instead: the
+    two numbers the offer carries were on the view and nowhere else.
+    `MatchState.pending_scoring_opportunity` is where they live now.
+    """
+    match = build_match()
+    shooter = take_the_ball(match)
+    match.pending_scoring_opportunity = {
+        "kind": "attempt",
+        "shooter_id": shooter,
+        "distance_moved": 2,
+        "contest_on_decline": True,
+    }
+    return PromptFixture(
+        build_game(),
+        match,
+        f"{label(match, shooter)} can attempt the scoring "
+        "opportunity, or let it go:",
+        {
+            "player_id": shooter,
+            "distance_moved": 2,
+            "contest_on_decline": True,
+        },
+    )
+
+
+def shooter_choice() -> PromptFixture:
+    """
+    Two players standing on an overshot ball, and the coach picking
+    which of them shoots.
+
+    The candidates are **read back off the board** rather than saved,
+    so the fixture stands them on the ball's space and lets
+    `scoring_opportunity_prompt` find them -- which is the half of
+    this prompt that did not need a new field.
+    """
+    match = build_match()
+    game = build_game()
+    candidates = [
+        fielded(match, PlayerRole.STRIKER),
+        fielded(match, PlayerRole.WINGER),
+    ]
+    for player_id in candidates:
+        match.board.remove_meeple(player_id)
+        match.board.place_meeple(
+            player_id, match.ball.zone, match.ball.space_index,
+        )
+    match.pending_scoring_opportunity = {"kind": "shooter"}
+    # Whoever else the standard deal already put on that space counts
+    # too -- the candidates are the position and not a list this
+    # fixture owns, which is the point of the branch.
+    candidates = ENGINE.scoring_opportunity_candidates(
+        match, match.ball.possession,
+    )
+    mention = format_player_with_team(
+        game,
+        ENGINE.possession_player_number(game, match),
+        ENGINE.team_emojis,
+        mention=True,
+    )
+    return PromptFixture(
+        game,
+        match,
+        f"{mention}, choose who takes the shot:",
+        {"player_ids": candidates},
+    )
+
+
 def maneuver_challenge() -> PromptFixture:
     match = build_match()
     take_the_ball(match)
@@ -628,6 +704,10 @@ CASES: tuple[PromptCase, ...] = (
                "LooseBallSkillTestView", loose_ball_skill_test),
     PromptCase("loose ball settled", "PLAYER_ACTION", "PlayerActionView",
                loose_ball_settled),
+    PromptCase("set-up attempt", "SET_UP_ATTEMPT", "SetUpAttemptChoiceView",
+               set_up_attempt),
+    PromptCase("shooter choice", "SHOOTER_CHOICE", "ShooterChoiceView",
+               shooter_choice),
     PromptCase("score attempt", "SCORE_ATTEMPT", "ScoreAttemptView",
                score_attempt),
     PromptCase("maneuver challenge", "MANEUVER_CHALLENGE",

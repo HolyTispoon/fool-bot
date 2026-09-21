@@ -232,8 +232,6 @@ class FollowOnStepTests(unittest.TestCase):
         # `FollowOnStep` docstring for the three kinds.
         "SEND_TURN_PROMPT",
         "START_SET_UP_SHOT",
-        "SEND_SET_UP_ATTEMPT_PROMPT",
-        "SEND_SHOOTER_PROMPT",
         "SEND_RUN_BACK_PROMPT",
         "CONTINUE_RUN_BACK",
         "RESOLVE_LOOSE_BALL",

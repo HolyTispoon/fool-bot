@@ -47,7 +47,6 @@ from d12ball.formatting import (
     HIGH_PASS_CONTEST_HEADLINE,
     ball_location_line,
     contest_noun,
-    format_player_with_team,
     format_team_side_label,
     get_species_ability_emoji,
     space_label,
@@ -57,6 +56,8 @@ from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
     loose_ball_pick_prompt,
+    scoring_opportunity_prompt,
+    shooter_mention,
 )
 
 
@@ -594,30 +595,36 @@ def offer_scoring_attempt_choice(
             lead_in=lead_in,
         )
 
-    # **A follow-on rather than a `PendingPrompt`**, and the reason is
-    # the one `PendingPrompt`'s own docstring gives: it carries only
-    # what a branch of `pending_prompt` carries, and neither
-    # `distance_moved` nor `contest_on_decline` is anywhere in match
-    # state. A prompt carrying them would be a shape the restart chain
-    # can never produce -- one kind with two meanings, which is the
-    # second copy principle 3 is about. `effect_choice_prompt` already
-    # records that a restart in this window comes back to the
-    # first-stage distance choice instead; this phase did not close
-    # that gap and did not widen it either.
-    shooter = engine.get_player_definition(shooter_id)
+    # **A `PendingPrompt` since Phase 6**, and what it took was
+    # `MatchState.pending_scoring_opportunity`. It was a follow-on
+    # until then for the reason `PendingPrompt`'s own docstring gives:
+    # a prompt carries only what a branch of `pending_prompt` carries,
+    # and neither `distance_moved` nor `contest_on_decline` was
+    # anywhere in match state -- so a prompt carrying them was a shape
+    # the restart chain could never produce, and a game that went down
+    # here came back to the maneuver's first-stage distance choice
+    # instead. The offer is recorded on the match now and
+    # `scoring_opportunity_prompt` reads it, so the live question and
+    # the restored one are the same question.
+    #
+    # The `ask` opens with the pass's own lines because the offer is
+    # where this turn stops and there is nothing else to hang them on.
+    # A restart has not got them and does not invent them, which is the
+    # difference the run back's prompt has carried since Phase 4.
+    match.pending_scoring_opportunity = {
+        "kind": "attempt",
+        "shooter_id": shooter_id,
+        "distance_moved": distance_moved,
+        "contest_on_decline": contest_on_decline,
+    }
+    restored = scoring_opportunity_prompt(engine, game, match)
     return StepResult(
-        next=FollowOn(
-            FollowOnStep.SEND_SET_UP_ATTEMPT_PROMPT,
-            {
-                "shooter_id": shooter_id,
-                "distance_moved": distance_moved,
-                "contest_on_decline": contest_on_decline,
-                "ask": (
-                    f"{lead_in}\n\n"
-                    f"{engine.format_player_label(match, shooter)} can "
-                    "attempt the scoring opportunity, or let it go:"
-                ),
-            },
+        next=PendingPrompt(
+            restored.kind,
+            f"{lead_in}\n\n{restored.ask}" if lead_in else restored.ask,
+            player_id=restored.player_id,
+            distance_moved=restored.distance_moved,
+            contest_on_decline=restored.contest_on_decline,
         ),
     )
 
@@ -637,7 +644,12 @@ def decline_scoring_attempt(
     For an overshot High Pass that is the long-pass contest, not a
     settled ball -- the shot and the contest are the two halves of one
     choice. See `offer_scoring_attempt_choice`.
+
+    **The offer is spent here**, whichever way it goes: the field that
+    records it is what `pending_prompt` reads, so a match that still
+    held it would be asked the same question again on the next click.
     """
+    match.pending_scoring_opportunity = None
     if contest:
         return begin_high_pass_contest(
             engine,
@@ -1102,24 +1114,21 @@ def begin_shooter_choice(
             ),
         )
 
-    # A follow-on for `SEND_SET_UP_ATTEMPT_PROMPT`'s reason: the view
-    # holds the candidate list, and a scoring opportunity is not a
-    # state `pending_prompt` has a branch for. The wording is still the
-    # model's -- it rides in `ask`.
-    mention = format_player_with_team(
-        game,
-        engine.possession_player_number(game, match),
-        engine.team_emojis,
-        mention=True,
-    )
+    # **A `PendingPrompt` since Phase 6**, for
+    # `offer_scoring_attempt_choice`'s reason and closed the same way:
+    # nothing in match state said a scoring opportunity was being
+    # asked about, so the candidate list lived on the view. It is
+    # recorded on the match now -- the *fact* only, since the
+    # candidates are whoever is standing on the ball's space and
+    # `scoring_opportunity_prompt` reads them back off the board.
+    match.pending_scoring_opportunity = {"kind": "shooter"}
     prefix = f"{lead_in}\n\n" if lead_in else ""
+    mention = shooter_mention(engine, game, match)
     return StepResult(
-        next=FollowOn(
-            FollowOnStep.SEND_SHOOTER_PROMPT,
-            {
-                "candidates": list(candidates),
-                "ask": f"{prefix}{mention}, choose who takes the shot:",
-            },
+        next=PendingPrompt(
+            PromptKind.SHOOTER_CHOICE,
+            f"{prefix}{mention}, choose who takes the shot:",
+            player_ids=list(candidates),
         ),
     )
 

@@ -644,41 +644,6 @@ class ManeuverEffectsMixin:
         )
         await self.dispatch_step_result(interaction, game, match, result)
 
-    async def send_set_up_attempt_prompt(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        *,
-        shooter_id: str,
-        distance_moved: int,
-        contest_on_decline: bool,
-        ask: str,
-        lead_in: str = "",
-    ) -> None:
-        """
-        Put the attempt-or-decline choice up.
-
-        A follow-on rather than a `PendingPrompt` because the view
-        carries `distance_moved` and `contest_on_decline`, and neither
-        is anywhere in match state -- see
-        `FollowOnStep.SEND_SET_UP_ATTEMPT_PROMPT`. The wording is the
-        model's and arrives in `ask`.
-        """
-        prompt_message = await send_new_prompt(
-            interaction,
-            " ".join(filter(None, (lead_in, ask))),
-            view=SetUpAttemptChoiceView(
-                self, game.game_id, shooter_id, distance_moved,
-                contest_on_decline=contest_on_decline,
-            ),
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
-
     async def decline_scoring_attempt(
         self,
         interaction: discord.Interaction,
@@ -1075,32 +1040,6 @@ class ManeuverEffectsMixin:
         )
         await self.dispatch_step_result(interaction, game, match, result)
 
-    async def send_shooter_prompt(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        *,
-        candidates: list[str],
-        ask: str,
-        lead_in: str = "",
-    ) -> None:
-        """
-        Put "choose who takes the shot" up. A follow-on for
-        `SEND_SET_UP_ATTEMPT_PROMPT`'s reason -- the candidate list
-        lives on the view.
-        """
-        prompt_message = await send_new_prompt(
-            interaction,
-            " ".join(filter(None, (lead_in, ask))),
-            view=ShooterChoiceView(self, game.game_id, candidates),
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
-
     async def start_set_up_shot(
         self,
         interaction: discord.Interaction,
@@ -1117,6 +1056,11 @@ class ManeuverEffectsMixin:
         shot's own extra minute (2026-08-16): the two stack now,
         instead of the shot's cost replacing the maneuver's.
         """
+        # The offer is answered, so the field that records it is
+        # spent -- `pending_prompt` reads it and would otherwise put
+        # the same question up again on the next click. See
+        # `MatchState.pending_scoring_opportunity`.
+        match.pending_scoring_opportunity = None
         match.active_player_id = shooter_id
         match.pending_action = "shoot"
         match.pending_shot_is_set_up = True

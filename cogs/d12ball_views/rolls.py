@@ -1095,6 +1095,18 @@ class ScoreAttemptView(SafeView):
         match.pending_action = None
         match.pending_shot_is_set_up = False
         match.pending_shot_setup_cost = 0
+        # **The offer is outstanding again**, so the field that records
+        # it is armed again -- this is the one path that puts the
+        # attempt-or-decline choice back up without going through
+        # `offer_scoring_attempt_choice`, and a restart here would
+        # otherwise come back to a turn that has already resolved. See
+        # `MatchState.pending_scoring_opportunity`.
+        match.pending_scoring_opportunity = {
+            "kind": "attempt",
+            "shooter_id": shooter_id,
+            "distance_moved": distance_moved,
+            "contest_on_decline": contest_on_decline,
+        }
         self.cog.persist(game, match)
 
         shooter = self.cog.engine.get_player_definition(shooter_id)

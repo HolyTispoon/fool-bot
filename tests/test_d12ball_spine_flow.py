@@ -266,10 +266,22 @@ class ShooterChoiceTests(SpineFixture):
         result = begin_shooter_choice(
             self.engine, self.game, self.match, candidates,
         )
-        following = result.next
-        self.assertEqual(following.step, FollowOnStep.SEND_SHOOTER_PROMPT)
-        self.assertEqual(following.kwargs["candidates"], candidates)
-        self.assertIn("choose who takes the shot", following.kwargs["ask"])
+        # **A `PendingPrompt` since Phase 6.** It was a follow-on while
+        # nothing in match state said a scoring opportunity was being
+        # asked about; `pending_scoring_opportunity` records that now,
+        # and the candidates are read back off the ball's space rather
+        # than stored -- see `d12ball.prompts.scoring_opportunity_prompt`.
+        prompt = result.next
+        self.assertEqual(prompt.kind, PromptKind.SHOOTER_CHOICE)
+        self.assertEqual(prompt.player_ids, candidates)
+        self.assertIn("choose who takes the shot", prompt.ask)
+        self.assertEqual(
+            self.match.pending_scoring_opportunity, {"kind": "shooter"},
+        )
+        self.assertEqual(
+            pending_prompt(self.engine, self.game, self.match).kind,
+            PromptKind.SHOOTER_CHOICE,
+        )
 
 
 class OwnGoalRiskTests(SpineFixture):
