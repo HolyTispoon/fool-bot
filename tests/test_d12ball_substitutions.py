@@ -27,6 +27,7 @@ from d12ball.game import D12BallGame, GameMode, Team
 from roster import benched, fielded
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_position_swap, apply_reposition, apply_substitution, continue_run_back, finish_substitution_window
 
 
 def build_cog() -> D12Ball:
@@ -91,7 +92,7 @@ class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
         # `cog.announce_run_back` these cases stub is reached through
         # tests/flow_stubs.py rather than by the cog dispatching it.
         with suppressed_cog_saves(), driver_reaches_cog_stubs(cog):
-            await cog.finish_substitution_window(interaction, game, match)
+            await finish_substitution_window(cog, interaction, game, match)
         return game
 
     async def test_a_declaration_hands_the_other_team_a_reply(self) -> None:
@@ -160,7 +161,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         match.declare_coaching()
 
-        text = cog.apply_substitution(
+        text = apply_substitution(cog, 
             build_basic_game(),
             match,
             TeamSide.HOME,
@@ -180,7 +181,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.declare_coaching()
         match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
-        text = cog.apply_substitution(
+        text = apply_substitution(cog, 
             build_basic_game(),
             match,
             TeamSide.HOME,
@@ -208,7 +209,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
             )
         match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
-        text = cog.apply_substitution(
+        text = apply_substitution(cog, 
             build_basic_game(),
             match,
             TeamSide.HOME,
@@ -229,7 +230,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         match.declare_coaching()
 
-        text = cog.apply_position_swap(
+        text = apply_position_swap(cog, 
             match,
             TeamSide.HOME,
             fielded(match, PlayerRole.FULLBACK),
@@ -255,7 +256,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         before = match.board.meeple_position(player_id)
         other_before = match.board.meeple_position(other_player_id)
 
-        cog.apply_position_swap(
+        apply_position_swap(cog, 
             match, TeamSide.HOME, player_id, other_player_id,
         )
 
@@ -290,7 +291,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.board.place_meeple(player_id, other_zone, 0)
         open_space = match.open_spaces_in_zone(TeamSide.HOME, zone)[0]
 
-        text = cog.apply_reposition(
+        text = apply_reposition(cog, 
             match, TeamSide.HOME, player_id, open_space,
         )
 
@@ -312,7 +313,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         player_id = fielded(match, PlayerRole.FULLBACK)
         other_player_id = fielded(match, PlayerRole.STRIKER)
 
-        text = cog.apply_position_swap(
+        text = apply_position_swap(cog, 
             match, TeamSide.HOME, player_id, other_player_id,
         )
 
@@ -511,7 +512,7 @@ class ContinueRunBackKickoffFillTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with suppressed_cog_saves():
-            await cog.continue_run_back(interaction, game, match)
+            await continue_run_back(cog, interaction, game, match)
 
         self.assertFalse(match.pending_kickoff_fill)
         self.assertFalse(match.pending_run_back)

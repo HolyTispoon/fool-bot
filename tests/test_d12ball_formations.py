@@ -53,6 +53,7 @@ from save_patches import (
     suppressed_full_image_links,
     suppressed_view_saves,
 )
+from cog_steps import resolve_low_pass
 
 
 def build_cog() -> D12Ball:
@@ -927,7 +928,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         interaction.followup.send.return_value = SimpleNamespace(id=7)
 
         with suppressed_cog_saves(), suppressed_full_image_links():
-            await cog.resolve_low_pass(interaction, game, match)
+            await resolve_low_pass(cog, interaction, game, match)
 
         self.assertEqual(
             interaction.followup.send.call_args.kwargs["file"],

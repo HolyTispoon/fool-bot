@@ -29,6 +29,7 @@ from d12ball.components import (
 from d12ball.game import AIOpponent, D12BallGame, Formation, GameStatus, Team
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+from cog_steps import apply_substitution, coaching_summary, finish_substitution_window
 
 
 def build_cog() -> D12Ball:
@@ -409,14 +410,14 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
             await cog.begin_setup_coaching(build_interaction(), game)
 
             match = cog.engine.load_match_state(game)
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
             self.assertEqual(match.pending_setup_stage, "coaching_visiting")
             self.assertEqual(match.pending_coaching_side, "visiting")
             cog.send_turn_prompt.assert_not_awaited()
 
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
 
@@ -436,13 +437,13 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves():
             await cog.begin_setup_coaching(build_interaction(), game)
             match = cog.engine.load_match_state(game)
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
             cog.refresh_match_image.assert_not_awaited()
             cog.post_new_play_board.assert_not_awaited()
 
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
 
@@ -463,7 +464,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
 
         outgoing = match.home.field_players[0]
         incoming = match.home.team_board.bench[0]
-        cog.apply_substitution(game, match, TeamSide.HOME, outgoing, incoming)
+        apply_substitution(cog, game, match, TeamSide.HOME, outgoing, incoming)
 
         # Straight back to the bench, so they can be brought on again,
         # and the half's own two are untouched.
@@ -513,7 +514,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves():
             await cog.begin_setup_coaching(interaction, game)
             match = cog.engine.load_match_state(game)
-            await cog.finish_substitution_window(interaction, game, match)
+            await finish_substitution_window(cog, interaction, game, match)
 
         self.assertIsNone(match.pending_setup_stage)
         cog.send_turn_prompt.assert_awaited_once()
@@ -557,7 +558,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         cog, _, match = self.build()
 
-        self.assertEqual(cog.coaching_summary(match, TeamSide.HOME), [])
+        self.assertEqual(coaching_summary(cog, match, TeamSide.HOME), [])
 
     def test_the_shape_is_reported_as_the_change_it_was(self) -> None:
         cog, _, match = self.build()
@@ -565,7 +566,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
 
         self.assertEqual(
-            cog.coaching_summary(match, TeamSide.HOME),
+            coaching_summary(cog, match, TeamSide.HOME),
             ["Formation: **2-2-2 → 2-3-1**."],
         )
 
@@ -579,22 +580,22 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
         cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_TWO_TWO)
 
-        self.assertEqual(cog.coaching_summary(match, TeamSide.HOME), [])
+        self.assertEqual(coaching_summary(cog, match, TeamSide.HOME), [])
 
     def test_every_swap_is_named(self) -> None:
         cog, game, match = self.build()
         first_off = match.home.field_players[0]
         first_on = match.home.team_board.bench[0]
-        cog.apply_substitution(
+        apply_substitution(cog, 
             game, match, TeamSide.HOME, first_off, first_on,
         )
         second_off = match.home.field_players[1]
         second_on = match.home.team_board.bench[0]
-        cog.apply_substitution(
+        apply_substitution(cog, 
             game, match, TeamSide.HOME, second_off, second_on,
         )
 
-        summary = cog.coaching_summary(match, TeamSide.HOME)
+        summary = coaching_summary(cog, match, TeamSide.HOME)
 
         self.assertEqual(len(summary), 2)
         for player_id, line in (
@@ -613,7 +614,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         cog.finish_substitution_window = mock.AsyncMock()
         outgoing = match.home.field_players[0]
         incoming = match.home.team_board.bench[0]
-        cog.apply_substitution(game, match, TeamSide.HOME, outgoing, incoming)
+        apply_substitution(cog, game, match, TeamSide.HOME, outgoing, incoming)
         game.match_state = match.to_dict()
 
         click = build_click()
@@ -660,15 +661,15 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
         outgoing = match.home.field_players[0]
         incoming = match.home.team_board.bench[0]
-        cog.apply_substitution(game, match, TeamSide.HOME, outgoing, incoming)
+        apply_substitution(cog, game, match, TeamSide.HOME, outgoing, incoming)
 
         reloaded = MatchState.from_dict(
             match.to_dict(), load_basic_ruleset(),
         )
 
         self.assertEqual(
-            cog.coaching_summary(reloaded, TeamSide.HOME),
-            cog.coaching_summary(match, TeamSide.HOME),
+            coaching_summary(cog, reloaded, TeamSide.HOME),
+            coaching_summary(cog, match, TeamSide.HOME),
         )
 
 

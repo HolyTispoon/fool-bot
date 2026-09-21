@@ -3,7 +3,7 @@ What the cog's Deflect and Clear say and do next, recorded off the old
 code.
 
 This is the equivalence half of rank D1 of Phase 3 of
-docs/design/model-discord-split.md. It drives `D12Ball.apply_deflection` over
+docs/design/model-discord-split.md. It drives `None` over
 `tests/deflection_fixtures.py` and asserts the narration byte for
 byte, whether the board was written, and which step the resolution
 hands the turn to with which arguments -- the four things a
@@ -68,6 +68,7 @@ from flow_stubs import (
     was_reached,
 )
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_deflection
 
 #: The parameters every follow-on takes and no fixture records: the
 #: three the cog threads through everything and the narration, which
@@ -139,10 +140,10 @@ def posted_messages(interaction) -> list[str]:
 
 
 FOLLOW_ONS = {
-    LOOSE_BALL: ("begin_loose_ball", D12Ball.begin_loose_ball),
-    SHOOTER_CHOICE: ("begin_shooter_choice", D12Ball.begin_shooter_choice),
+    LOOSE_BALL: ("begin_loose_ball", None),
+    SHOOTER_CHOICE: ("begin_shooter_choice", None),
     SETUP_PASS_PUSH_BACK: (
-        "offer_setup_pass_push_back", D12Ball.offer_setup_pass_push_back,
+        "offer_setup_pass_push_back", None,
     ),
 }
 
@@ -176,7 +177,7 @@ class DeflectionRecordingTests(unittest.IsolatedAsyncioTestCase):
         members = [FollowOnStep[key] for key in FOLLOW_ONS]
         with every_step_stubbed(cog, members) as recorders, \
                 suppressed_cog_saves():
-            await cog.apply_deflection(
+            await apply_deflection(cog, 
                 interaction, fixture.game, match, fixture.key,
             )
 

@@ -32,6 +32,7 @@ from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_high_pass, apply_low_pass
 
 
 def build_cog() -> D12Ball:
@@ -343,7 +344,7 @@ class SetUpShotRangeTests(unittest.IsolatedAsyncioTestCase):
 
     async def apply_high_pass(self, cog, game, match) -> None:
         with suppressed_cog_saves():
-            await cog.apply_high_pass(build_interaction(), game, match, 2)
+            await apply_high_pass(cog, build_interaction(), game, match, 2)
 
     async def test_a_high_pass_of_two_sets_up_only_within_range(
         self,
@@ -377,14 +378,14 @@ class SetUpShotRangeTests(unittest.IsolatedAsyncioTestCase):
         # from where a goal can be scored from.
         cog, game, match, receiver = self.build_pass(PlayerRole.WINGER, 2)
         with suppressed_cog_saves():
-            await cog.apply_low_pass(
+            await apply_low_pass(cog, 
                 build_interaction(), game, match, 2, receiver_id=receiver,
             )
         cog.offer_scoring_attempt_choice.assert_awaited_once()
 
         cog, game, match, receiver = self.build_pass(PlayerRole.WINGER, 0)
         with suppressed_cog_saves():
-            await cog.apply_low_pass(
+            await apply_low_pass(cog, 
                 build_interaction(), game, match, 2, receiver_id=receiver,
             )
         cog.offer_scoring_attempt_choice.assert_not_awaited()

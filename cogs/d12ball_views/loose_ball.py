@@ -10,13 +10,12 @@ from typing import Optional, TYPE_CHECKING
 from d12ball.components import (
     MatchState,
 )
-from d12ball.flow import FollowOn, StepResult
 from d12ball.flow.driver import Action
-from d12ball.prompts import PendingPrompt, PromptKind
+from d12ball.prompts import PromptKind
 from d12ball.game import (
     D12BallGame,
 )
-from gamesaves.d12ball.storage import save_games
+from gamesaves.d12ball.service import GameResult
 from cogs.d12ball_helpers import (
     contest_noun,
     player_with_role,
@@ -167,19 +166,18 @@ class LooseBallChoiceView(SafeView):
         # has already answered is a stale click the driver refuses.
         # This view's side goes with the action so the other side's
         # prompt, still in the channel, cannot answer for this one.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(
                 PromptKind.LOOSE_BALL_PICK,
                 "send",
                 {"player_id": player_id, "skill_type": self.side},
             ),
         )
-        if answered is None:
+        if result is None:
             return
-        await self.settled(interaction, game, match, answered.result)
+        await self.settled(interaction, game, result)
 
     async def decline(self, interaction: discord.Interaction) -> None:
         game, match = await self.claim(interaction)
@@ -191,24 +189,22 @@ class LooseBallChoiceView(SafeView):
         # re-attached from before the ball got there), and the
         # tutorial's rail -- and the driver asks them before anything
         # is applied.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(
                 PromptKind.LOOSE_BALL_PICK, "decline", {"skill_type": self.side},
             ),
         )
-        if answered is None:
+        if result is None:
             return
-        await self.settled(interaction, game, match, answered.result)
+        await self.settled(interaction, game, result)
 
     async def settled(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
-        match: MatchState,
-        result: StepResult,
+        result: GameResult,
     ) -> None:
         """
         Save this side's answer, then either put the prompt up for the
@@ -221,29 +217,12 @@ class LooseBallChoiceView(SafeView):
         answers rather than standing above the next one, which is a
         Discord economy and therefore the frontend's (principle 8).
         """
-        self.cog.persist(game, match)
-
         await interaction.response.edit_message(
-            content=" ".join(result.narration), view=None,
+            content=" ".join(result.answer), view=None,
         )
-
-        following = result.next
-        if isinstance(following, FollowOn):
-            await self.cog.dispatch_step_result(
-                interaction, game, match, StepResult(next=following),
-            )
-            return
-
-        prompt_message = await send_new_prompt(
-            interaction,
-            following.ask,
-            view=self.cog.view_for_prompt(self.game_id, match, following),
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt_message.id
-        save_games(self.cog.games)
+        # The other side's pick, or the settling: either way the
+        # presenter puts up what the service ran to.
+        await self.cog.present(interaction, game, result)
 
 
 class BallRecoveryView(SafeView):
@@ -308,20 +287,20 @@ class BallRecoveryView(SafeView):
 
         # A ball already picked up is a stale click the driver refuses
         # by kind.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(PromptKind.BALL_RECOVERY, "", {"player_id": player_id}),
         )
-        if answered is None:
+        if result is None:
             return
         await interaction.response.edit_message(view=None)
         # Its own message: the pickup is an event, and the maneuver's
         # tail behind it is the next one.
-        await self.cog.post_then_dispatch(
-            interaction, game, match, answered.result,
-        )
+        lines = " ".join(result.answer)
+        if lines:
+            await send_new_prompt(interaction, lines)
+        await self.cog.present(interaction, game, result)
 
 
 class LooseBallSkillTestView(SafeView):
@@ -386,38 +365,36 @@ class LooseBallSkillTestView(SafeView):
         # whole of them used to be in this method and the two above it.
         # What is left here is the picture and where it goes; a contest
         # no longer active is the driver's to refuse, by kind.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(PromptKind.LOOSE_BALL_SKILL_TEST, "roll"),
+            carry_from=1,
         )
-        if answered is None:
+        if result is None:
             return
-        dice, result = answered.detail, answered.result
+        dice = result.detail
         dice_file = await render_contest_dice(
             dice.contestants, filename="loose_ball_dice.png",
         )
 
-        following = result.next
+        following = result.prompt
         # A tie is the step handing back this same question, worded by
         # what happened -- read by kind and not by "is it a prompt",
         # because the settled path ends on a prompt too: the injury
         # test this contest owes. See `SkillTestView.roll`.
         if (
-            isinstance(following, PendingPrompt)
+            not result.groups
+            and following is not None
             and following.kind is PromptKind.LOOSE_BALL_SKILL_TEST
         ):
-            # **The save is here and not in the dispatcher**, because
-            # this branch never reaches one: the tie charged both
-            # contestants a token and the next click reloads the match
-            # out of the file.
-            self.cog.persist(game, match)
+            # The service saved the two tokens the tie charged before
+            # anything here was drawn.
             await interaction.response.edit_message(
                 content=following.ask,
                 attachments=[dice_file],
                 view=self.cog.view_for_prompt(
-                    self.game_id, match, following,
+                    self.game_id, result.match, following,
                 ),
             )
             # A tie is re-rolled, and the ignites that produced it are
@@ -428,15 +405,10 @@ class LooseBallSkillTestView(SafeView):
             await self.cog.refresh_match_image(interaction, game)
             return
 
-        # **Before anything is posted**, which is the point of it: the
+        # The service saved before anything here is posted: the
         # contest is settled, possession has flipped and Overdrive is
         # spent, and the dice upload below is a render and a request
-        # that can fail. Without this the channel could show the result
-        # while the file still said the contest was pending, and the
-        # next click would re-roll it. The dispatcher writes again at
-        # the end of the click; both write the same state. The fourth
-        # of the paths principle 9 names -- see the own-goal roll.
-        self.cog.persist(game, match)
+        # that can fail.
 
         # The result follows the dice in its own message, the way every
         # other skill test announces itself -- a message's attachments
@@ -456,7 +428,7 @@ class LooseBallSkillTestView(SafeView):
         )
         await send_new_prompt(
             interaction,
-            result.narration[0],
+            result.answer[0],
             # The edit this replaced never pinged the winner, and the
             # prompt that follows does; one ping per turn is plenty.
             allowed_mentions=discord.AllowedMentions(
@@ -468,18 +440,6 @@ class LooseBallSkillTestView(SafeView):
         # Winning a live ball off the other side -- a loose ball or a
         # long High Pass -- is a steal however it was contested, so no
         # substitution window either way. The run back waits behind
-        # whatever injury tests this contest owes; the step queued
-        # them, and what it handed back is dispatched here. The board
-        # is already written above, so the flag is not passed on.
-        await self.cog.dispatch_step_result(
-            interaction,
-            game,
-            match,
-            StepResult(
-                narration=result.narration[1:],
-                # Passed on rather than dropped -- see
-                # `SkillTestView.roll`, which rebuilds the same way.
-                board_changed=result.board_changed,
-                next=result.next,
-            ),
-        )
+        # whatever injury tests this contest owes; the service ran what
+        # the roll handed back.
+        await self.cog.present(interaction, game, result)

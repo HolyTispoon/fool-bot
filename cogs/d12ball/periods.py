@@ -10,22 +10,7 @@ from d12ball.components import (
     MatchState,
     TeamSide,
 )
-from d12ball.flow import FollowOnStep
-from d12ball.flow.periods import (
-    advance_full_time_stage,
-    advance_halftime_stage,
-    advance_setup_stage,
-    advance_shootout,
-    begin_full_time_coaching,
-    begin_halftime,
-    begin_halftime_extra_token,
-    begin_halftime_substitutions,
-    begin_setup_coaching,
-    begin_shootout,
-    finish_full_time_coaching,
-    goal_log,
-    shootout_order_text,
-)
+from d12ball.flow.periods import shootout_order_text
 from d12ball.game import D12BallGame
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
@@ -42,59 +27,6 @@ class PeriodMixin:
 
     # -- Clock, period transitions, and the turn loop -----------------
 
-    async def finish_maneuver_resolution(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        distance_moved: int = 1,
-        turnover_occurred: bool = False,
-        lead_in: str = "",
-    ) -> None:
-        """
-        The tail of every maneuver-effect path, as an entry point --
-        `d12ball.flow.arrivals.finish_maneuver_resolution`. The
-        snapshot the offensive choice is handed back under is the
-        dispatcher's (`D12Ball.post_stop`): the board is drawn once
-        and uploaded twice, which is a request the rate-limit gate
-        counts.
-        """
-        await self.run_step(
-            interaction,
-            game,
-            match,
-            FollowOnStep.FINISH_MANEUVER_RESOLUTION,
-            lead_in=lead_in,
-            distance_moved=distance_moved,
-            turnover_occurred=turnover_occurred,
-        )
-
-    async def end_period(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
-        """
-        The whistle, as an entry point -- `d12ball.flow.periods.end_period`,
-        one message per block (`DRIVER_BLOCKS_PER_MESSAGE`).
-        """
-        await self.run_step(
-            interaction, game, match, FollowOnStep.END_PERIOD, lead_in=lead_in,
-        )
-
-    def build_goal_log(self, match: MatchState) -> str:
-        """
-        The scoresheet, with this cog's roster and emoji behind it.
-
-        A forwarding method over `d12ball.flow.periods.goal_log`, kept
-        because `/debug` and the archive export read it from here. The
-        two callers that matter are inside the flow now: the whistle
-        and the shootout each build it into the content
-        `announce_game_over` is handed.
-        """
-        return goal_log(self.engine, match)
 
     async def announce_game_over(
         self,
@@ -147,24 +79,6 @@ class PeriodMixin:
 
     # -- Halftime ------------------------------------------------------
 
-    async def begin_halftime(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """
-        The Discord half of halftime: the step is
-        `d12ball.flow.periods.begin_halftime` -- the automatic
-        exhaustion recovery, and the stage sequence behind it.
-
-        One message per narration block, for `end_period`'s reason:
-        the recovery list and an AI side's extra token are two events.
-        """
-        result = begin_halftime(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
 
     async def begin_setup_coaching(
         self,
@@ -172,209 +86,11 @@ class PeriodMixin:
         game: D12BallGame,
     ) -> None:
         """
-        The Discord half of the pre-kickoff Coaching Choice --
-        `d12ball.flow.periods.begin_setup_coaching`, which decides
-        whether the window is offered at all (a tutorial kicks off on
-        the standard deal) and opens the sequence if it is.
-
-        It loads the match itself because both of its callers are
+        The first thing a game runs once setup has settled the teams
+        and the sides: `GameService.begin`, presented. Both callers are
         setup views holding only the game.
         """
-        match = self.engine.load_match_state(game)
-        result = begin_setup_coaching(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-    async def advance_setup_stage(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """Hand the next coach their pre-kickoff Coaching Choice, or
-        kick off -- `d12ball.flow.periods.advance_setup_stage`. Also
-        what `/d12ball resume` hands a stranded setup back to."""
-        result = advance_setup_stage(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-    async def finish_setup_coaching(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
-        """
-        Both coaches are done, so the game can start -- and this is
-        where the board first goes up, posted and pinned as a new
-        play's is (`D12Ball.post_stop`). The step is
-        `d12ball.flow.periods.finish_setup_coaching`, which arms the
-        tutorial's script too.
-        """
-        await self.run_step(
-            interaction,
-            game,
-            match,
-            FollowOnStep.FINISH_SETUP_COACHING,
-            lead_in=lead_in,
-        )
-
-    async def advance_halftime_stage(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """Dispatch to whichever halftime stage comes next, or finish
-        -- `d12ball.flow.periods.advance_halftime_stage`. Also what
-        `/d12ball resume` hands a stranded halftime back to."""
-        result = advance_halftime_stage(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-    async def begin_halftime_extra_token(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        side: TeamSide,
-    ) -> None:
-        """
-        The coach's choice of one fielded player to lose an extra
-        exhaustion token, on top of the automatic recovery every
-        fielded player already got in begin_halftime --
-        `d12ball.flow.periods.begin_halftime_extra_token`.
-        """
-        result = begin_halftime_extra_token(self.engine, game, match, side)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-    async def begin_halftime_substitutions(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        side: TeamSide,
-    ) -> None:
-        """
-        Give `side` a full substitution window --
-        `d12ball.flow.periods.begin_halftime_substitutions`, which
-        answers with the window rather than opening one, since the
-        window's own prompt carries a picture.
-        """
-        result = begin_halftime_substitutions(self.engine, game, match, side)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-    async def finish_halftime(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
-        """
-        The last step of halftime -- `d12ball.flow.periods.finish_halftime`,
-        and the second half's board, posted and pinned.
-        """
-        await self.run_step(
-            interaction,
-            game,
-            match,
-            FollowOnStep.FINISH_HALFTIME,
-            lead_in=lead_in,
-        )
-
-    # -- The window before the shootout --------------------------------
-
-    async def begin_full_time_coaching(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """
-        The last Coaching Choice of a level game, one to each coach
-        before the shootout opens --
-        `d12ball.flow.periods.begin_full_time_coaching`.
-        """
-        result = begin_full_time_coaching(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-    async def advance_full_time_stage(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """Hand the next coach their one substitution, or shoot out --
-        `d12ball.flow.periods.advance_full_time_stage`. Also what
-        `/d12ball resume` hands a stranded full-time window back to."""
-        result = advance_full_time_stage(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-    async def finish_full_time_coaching(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """Both coaches are done, so the shooting can start --
-        `d12ball.flow.periods.finish_full_time_coaching`."""
-        result = finish_full_time_coaching(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-    # -- The extreme shootout ------------------------------------------
-
-    async def begin_shootout(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """
-        Open the shootout that settles a game level at full time --
-        `d12ball.flow.periods.begin_shootout`, which explains what a
-        shootout is and then asks the first question of one. Two
-        messages, so one per block.
-        """
-        result = begin_shootout(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-    async def advance_shootout(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """
-        Put the shootout's next step in front of whoever owes it --
-        `d12ball.flow.periods.advance_shootout`, which is still the
-        one reading of "what is this shootout waiting on?".
-
-        Everything routes through here: opening the shootout, the end
-        of a skill test, and `/d12ball resume`. Two of the four steps
-        are the bot's own, so a restart between them has no button
-        anywhere to press and the resume has to be able to ask.
-        """
-        result = advance_shootout(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
+        await self.present(interaction, game, self.service.begin(game.game_id))
 
     def shootout_order_text(
         self,
@@ -417,16 +133,3 @@ class PeriodMixin:
         game.turn_message_id = None
         save_games(self.games)
 
-    async def continue_shootout(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """
-        What a settled skill test hands back to: end the shootout, or
-        set the next test up -- `d12ball.flow.periods.continue_shootout`.
-        """
-        await self.run_step(
-            interaction, game, match, FollowOnStep.CONTINUE_SHOOTOUT,
-        )

@@ -62,8 +62,11 @@ from d12ball.game import (
 )
 
 from roster import benched, fielded
+from d12ball.flow import FollowOnStep
+from flow_stubs import REAL_MODEL_STEPS
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_dribble_advance, apply_dribble_burst, apply_high_pass, apply_low_pass, apply_setup_pass, apply_setup_pass_push_back, build_effect_choice_view, offer_setup_pass_distance, offer_setup_pass_push_back, resolve_clear, resolve_deflect, resolve_double_team, resolve_dribble_burst, resolve_intercept, resolve_maneuver, resolve_pressure, resolve_setup_pass, resolve_steal
 
 
 def build_cog() -> D12Ball:
@@ -130,9 +133,9 @@ def loose_ball_distance(call) -> int:
     helper is in `tests/test_d12ball_loose_ball.py` and
     `tests/test_d12ball_components.py`, from rank D1.
     """
-    return inspect.signature(D12Ball.begin_loose_ball).bind(
-        None, *call.args, **call.kwargs,
-    ).arguments["distance_moved"]
+    return inspect.signature(
+        REAL_MODEL_STEPS[FollowOnStep.BEGIN_LOOSE_BALL],
+    ).bind(*call.args, **call.kwargs).arguments["distance_moved"]
 
 
 def build_interaction() -> SimpleNamespace:
@@ -887,7 +890,7 @@ class EveryMatchupResolvesTests(
                             game.player_2_id = None
                             game.ai_opponent = AIOpponent.DINKY
                         with suppressed_cog_saves():
-                            await cog.resolve_maneuver(
+                            await resolve_maneuver(cog, 
                                 build_interaction(), game, match,
                             )
                         self.assert_the_log_reads_back(
@@ -996,7 +999,7 @@ class SkilledPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         distance, receiver = cog.engine.skilled_pass_candidates(match)[-1]
 
         with suppressed_cog_saves():
-            await cog.apply_low_pass(
+            await apply_low_pass(cog, 
                 build_interaction(), game, match, distance,
                 receiver_id=receiver, key="skilled_pass",
             )
@@ -1022,7 +1025,7 @@ class SkilledPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         distance, receiver = cog.engine.skilled_pass_candidates(match)[-1]
 
         with suppressed_cog_saves():
-            await cog.apply_low_pass(
+            await apply_low_pass(cog, 
                 build_interaction(), game, match, distance,
                 receiver_id=receiver, key="skilled_pass",
             )
@@ -1065,7 +1068,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.finish_maneuver_resolution = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_dribble_burst(
+            await apply_dribble_burst(cog, 
                 build_interaction(), game, match, 2,
             )
 
@@ -1146,7 +1149,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.resolve_dribble_burst(interaction, game, match)
+            await resolve_dribble_burst(cog, interaction, game, match)
 
         interaction.followup.send.assert_not_awaited()
         self.assertEqual(self.flat_of(match, handler), end_flat)
@@ -1171,7 +1174,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_dribble_burst(
+            await apply_dribble_burst(cog, 
                 build_interaction(), game, match, 3,
             )
 
@@ -1194,7 +1197,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_dribble_burst(
+            await apply_dribble_burst(cog, 
                 build_interaction(), game, match, 2,
             )
 
@@ -1220,7 +1223,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.resolve_dribble_burst(interaction, game, match)
+            await resolve_dribble_burst(cog, interaction, game, match)
 
         interaction.followup.send.assert_not_awaited()
         self.assertEqual(
@@ -1239,7 +1242,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_dribble_burst(
+            await apply_dribble_burst(cog, 
                 build_interaction(), game, match, 1,
             )
 
@@ -1256,7 +1259,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_dribble_advance(
+            await apply_dribble_advance(cog, 
                 build_interaction(), game, match, 1,
             )
 
@@ -1275,7 +1278,7 @@ class ClearTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_clear(build_interaction(), game, match)
+            await resolve_clear(cog, build_interaction(), game, match)
 
         self.assertEqual(self.flat(match), start - 3)
         self.assertEqual(match.ball.speed, 5)
@@ -1306,7 +1309,7 @@ class ClearTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_clear(build_interaction(), game, match)
+            await resolve_clear(cog, build_interaction(), game, match)
 
         self.assertEqual(self.flat(match), start - 4)
 
@@ -1326,7 +1329,7 @@ class ClearTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_clear(build_interaction(), game, match)
+            await resolve_clear(cog, build_interaction(), game, match)
 
         self.assertEqual(match.ball.speed, 6)
 
@@ -1344,7 +1347,7 @@ class ClearTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_deflect(
+            await resolve_deflect(cog, 
                 build_interaction(), game, match,
             )
 
@@ -1367,7 +1370,7 @@ class InterceptTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_intercept(build_interaction(), game, match)
+            await resolve_intercept(cog, build_interaction(), game, match)
 
         defense_side = match.ball.possession
         self.assertEqual(defense_side, TeamSide.VISITING)
@@ -1386,7 +1389,7 @@ class InterceptTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_steal(build_interaction(), game, match)
+            await resolve_steal(cog, build_interaction(), game, match)
 
         self.assertEqual(
             self.flat_of(match, challenger),
@@ -1411,7 +1414,7 @@ class InterceptTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_intercept(build_interaction(), game, match)
+            await resolve_intercept(cog, build_interaction(), game, match)
 
         cog.begin_shooter_choice.assert_awaited_once()
         cog.begin_run_back.assert_not_awaited()
@@ -1446,7 +1449,7 @@ class InterceptTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.finish_maneuver_resolution = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_high_pass(build_interaction(), game, match, 3)
+            await apply_high_pass(cog, build_interaction(), game, match, 3)
 
         cog.begin_high_pass_contest.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
@@ -1467,7 +1470,7 @@ class InterceptTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_high_pass_contest = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_high_pass(build_interaction(), game, match, 3)
+            await apply_high_pass(cog, build_interaction(), game, match, 3)
 
         cog.begin_high_pass_contest.assert_awaited_once()
 
@@ -1523,7 +1526,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_setup_pass(build_interaction(), game, match, 3)
+            await apply_setup_pass(cog, build_interaction(), game, match, 3)
 
         self.assertEqual(self.flat(match), start + 3)
         cog.begin_loose_ball.assert_awaited_once()
@@ -1619,7 +1622,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_setup_pass(build_interaction(), game, match)
+            await resolve_setup_pass(cog, build_interaction(), game, match)
 
         cog.offer_speed_choice.assert_awaited_once()
         self.assertIsNone(match.pending_effect_continuation)
@@ -1634,7 +1637,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_setup_pass(build_interaction(), game, match)
+            await resolve_setup_pass(cog, build_interaction(), game, match)
         speed_choice_step(cog.engine, game, match, target_speed=3)
 
         restored = MatchState.from_dict(match.to_dict(), cog.basic_ruleset)
@@ -1658,17 +1661,17 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_setup_pass(build_interaction(), game, match)
+            await resolve_setup_pass(cog, build_interaction(), game, match)
         game.match_state = match.to_dict()
         cog.engine.load_match_state = mock.Mock(return_value=match)
 
         self.assertIsInstance(
-            cog.build_effect_choice_view(game.game_id, match),
+            build_effect_choice_view(cog, game.game_id, match),
             SpeedDeltaChoiceView,
         )
 
         speed_choice_step(cog.engine, game, match, target_speed=3)
-        restored = cog.build_effect_choice_view(game.game_id, match)
+        restored = build_effect_choice_view(cog, game.game_id, match)
 
         self.assertIsInstance(restored, SetupPassChoiceView)
 
@@ -1679,7 +1682,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_scoring_attempt_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.apply_setup_pass(build_interaction(), game, match, 3)
+            await apply_setup_pass(cog, build_interaction(), game, match, 3)
 
         self.assertIsNone(match.pending_effect_continuation)
 
@@ -1695,7 +1698,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         self.assertIn(3, cog.engine.setup_pass_distances(match))
 
         with suppressed_cog_saves():
-            await cog.apply_setup_pass(build_interaction(), game, match, 3)
+            await apply_setup_pass(cog, build_interaction(), game, match, 3)
 
         self.assertEqual(self.flat(match), start + 3)
         self.assertEqual(match.ball_carrier_id, receiver)
@@ -1726,7 +1729,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cog.engine.setup_pass_distances(match), [])
 
         with suppressed_cog_saves():
-            await cog.offer_setup_pass_distance(
+            await offer_setup_pass_distance(cog, 
                 build_interaction(), game, match,
             )
 
@@ -1745,7 +1748,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.resolve_clear(interaction, game, match)
+            await resolve_clear(cog, interaction, game, match)
 
         # The deflection did not settle the ball itself: the cost put
         # the choice to the coach who beat the card.
@@ -1770,7 +1773,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         )
 
         with suppressed_cog_saves():
-            await cog.apply_setup_pass_push_back(
+            await apply_setup_pass_push_back(cog, 
                 interaction, game, match, push,
             )
 
@@ -1811,7 +1814,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         )
 
         with suppressed_cog_saves():
-            await cog.offer_setup_pass_push_back(
+            await offer_setup_pass_push_back(cog, 
                 build_interaction(), game, match, lead_in="",
             )
 
@@ -1833,7 +1836,7 @@ class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.finish_maneuver_resolution = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_double_team(build_interaction(), game, match)
+            await resolve_double_team(cog, build_interaction(), game, match)
 
         end = self.flat_of(match, handler)
         self.assertEqual(end, start - 2)
@@ -1850,7 +1853,7 @@ class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.finish_maneuver_resolution = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_double_team(build_interaction(), game, match)
+            await resolve_double_team(cog, build_interaction(), game, match)
 
         restored = MatchState.from_dict(match.to_dict(), cog.basic_ruleset)
         self.assertEqual(
@@ -1904,7 +1907,7 @@ class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_double_team(build_interaction(), game, match)
+            await resolve_double_team(cog, build_interaction(), game, match)
 
         self.assertEqual(match.ball.possession, TeamSide.VISITING)
         self.assertEqual(match.ball.speed, 9)
@@ -1932,7 +1935,7 @@ class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await cog.resolve_pressure(build_interaction(), game, match)
+            await resolve_pressure(cog, build_interaction(), game, match)
 
         self.assertEqual(match.ball.possession, TeamSide.VISITING)
         self.assertEqual(match.ball.speed, 1)

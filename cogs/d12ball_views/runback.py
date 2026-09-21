@@ -123,18 +123,16 @@ class RunBackPlayerChoiceView(SafeView):
         # refuse, and the pick it records is written down:
         # `MatchState.run_back_pick` is what lets the space step that
         # follows be checked against the position.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(PromptKind.RUN_BACK_PLAYER, "", {"player_id": player_id}),
         )
-        if answered is None:
+        if result is None:
             return
-        prompt = answered.result.next
-        self.cog.persist(game, match)
+        prompt = result.prompt
 
-        space_view = self.cog.view_for_prompt(self.game_id, match, prompt)
+        space_view = self.cog.view_for_prompt(self.game_id, result.match, prompt)
         link = build_full_image_button(interaction.message)
         if link is not None:
             space_view.add_item(link)
@@ -218,28 +216,25 @@ class RunBackChoiceView(SafeView):
         # the action so a prompt for an earlier player, still in the
         # channel, cannot move this one. A space they may not take is
         # `MatchState.run_back_player`'s refusal, through the driver.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(
                 PromptKind.RUN_BACK_SPACE,
                 "",
                 {"player_id": self.player_id, "space_index": space_index},
             ),
         )
-        if answered is None:
+        if result is None:
             return
-        result = answered.result
-        self.cog.persist(game, match)
 
         await interaction.response.edit_message(
-            content=" ".join(result.narration),
+            content=" ".join(result.answer),
             view=None,
             # The board this prompt was asked over shows the player
             # still displaced, so it goes with the question rather than
-            # standing under the answer. The dispatcher puts the board
+            # standing under the answer. The presenter puts the board
             # they moved to on the persistent message.
             attachments=[],
         )
-        await self.dispatch_answer(interaction, game, match, answered)
+        await self.cog.present(interaction, game, result)

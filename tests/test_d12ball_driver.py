@@ -532,7 +532,7 @@ class TableTests(unittest.TestCase):
         """The table covers the enum: the loop runs every step."""
         for member in FollowOnStep:
             with self.subTest(member=member.name):
-                self.assertTrue(driver.runs(member))
+                self.assertIn(member, driver.MODEL_STEPS)
 
     def test_every_step_in_the_table_takes_the_loop_s_shape(self) -> None:
         """

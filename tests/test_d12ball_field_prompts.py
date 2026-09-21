@@ -41,6 +41,7 @@ from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, GameMode, GameStatus, Team
 from roster import fielded
 from save_patches import suppressed_cog_saves, suppressed_full_image_links
+import cog_steps
 
 
 def build_cog() -> D12Ball:
@@ -128,7 +129,9 @@ class HalfFieldPromptTests(unittest.IsolatedAsyncioTestCase):
         cog.send_field_prompt = mock.AsyncMock()
         interaction = build_interaction()
         with suppressed_cog_saves(), suppressed_full_image_links():
-            await getattr(cog, resolver)(interaction, game, match, **kwargs)
+            await getattr(cog_steps, resolver)(
+                cog, interaction, game, match, **kwargs,
+            )
         return cog.send_field_prompt
 
     async def test_every_distance_prompt_goes_through_the_funnel(

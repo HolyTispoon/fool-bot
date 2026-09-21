@@ -44,6 +44,7 @@ from d12ball.components import (
 )
 from d12ball.game import D12BallGame, GameStatus, Team
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+from cog_steps import build_effect_choice_view, resolve_maneuver
 
 
 def build_cog() -> D12Ball:
@@ -114,7 +115,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
     async def resolve(self, cog, game, match) -> SimpleNamespace:
         interaction = build_interaction()
         with suppressed_cog_saves():
-            await cog.resolve_maneuver(interaction, game, match)
+            await resolve_maneuver(cog, interaction, game, match)
         return interaction
 
     def last_view(self, interaction):
@@ -534,7 +535,7 @@ class SettledWinnerRestoreTests(unittest.TestCase):
 
         self.assertIsNone(cog.engine.settled_maneuver_winner(match))
         # The ranking says Low Pass won; the turn says roll for it.
-        self.assertIsNone(cog.build_effect_choice_view(game.game_id, match))
+        self.assertIsNone(build_effect_choice_view(cog, game.game_id, match))
 
     def test_an_auto_loss_restores_the_winners_effect_choice(self) -> None:
         cog, game, match = self.build()
@@ -546,7 +547,7 @@ class SettledWinnerRestoreTests(unittest.TestCase):
         # pending"; the injured challenger has already lost it.
         self.assertEqual(cog.engine.settled_maneuver_winner(match), "low_pass")
         self.assertIsInstance(
-            cog.build_effect_choice_view(game.game_id, match),
+            build_effect_choice_view(cog, game.game_id, match),
             LowPassChoiceView,
         )
 

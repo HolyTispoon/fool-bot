@@ -24,11 +24,10 @@ from d12ball.render import (
     TEAM_COLORS,
     render_skill_test_dice,
 )
-from d12ball.flow import StepResult
-from d12ball.flow import driver
-from d12ball.flow.driver import Action, Answered, Refusal
-from d12ball.formatting import contestant_detail
+from d12ball.flow.driver import Action
+from d12ball.formatting import contestant_detail  # noqa: F401 -- re-exported
 from d12ball.prompts import pending_prompt
+from gamesaves.d12ball.service import CarryFrom, GameResult
 from cogs.d12ball_helpers import (
     ERROR_RECOVERY_ADVICE,
     HELPER_CONFIRMED_EXTRA,
@@ -325,73 +324,48 @@ class SafeView(discord.ui.View):
         else:
             await interaction.response.send_message(reason, ephemeral=True)
 
-    async def answer(
+    async def apply(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
-        match: MatchState,
         action: Action,
-    ) -> Optional[Answered]:
+        *,
+        carry_from: CarryFrom = None,
+    ) -> Optional[GameResult]:
         """
-        Answer the question this match is waiting on, through
-        `d12ball.flow.driver.answer` -- **the one door every click
-        goes through** since Phase 6 of docs/design/model-discord-split.md.
+        Apply what the person did, through `GameService` -- **the one
+        door every click goes through** (ARCHITECTURE.md, part 3).
 
-        What comes back is the answer's own result and detail, before
-        anything that follows it has run: a prompt in this bot is a
-        message with buttons on it, and answering it *replaces* that
-        message with what the answer said, so the view needs the lines
-        first and runs the chain behind them with
-        `dispatch_answer` afterwards. A `Refusal` -- the match is
-        waiting on a different question, the answer is not one the
-        prompt offers, or the position refuses what was chosen -- is
-        reported to the person who clicked and `None` comes back, so a
-        caller reads `if answered is None: return`.
+        The service loads the match, answers the question it is
+        waiting on, runs everything that follows, saves once and hands
+        back a `GameResult`; the view renders the answer's own lines
+        as it likes (an edit of the prompt they replace, the dice
+        between two of them) and calls `cog.present` for the rest. A
+        refusal -- the match is waiting on a different question, the
+        answer is not one the prompt offers, or the position refuses
+        what was chosen -- is reported to the person who clicked and
+        `None` comes back, so a caller reads `if result is None:
+        return`. `carry_from` is which of the answer's lines the view
+        will show itself; the rest open the next step -- see
+        `GameService.apply_action`.
 
         **Authorisation is not here** and comes before this: whose
         Discord account may press the button is `may_act_for`'s, and
         every reason a refusal can give is a rule about the position.
-        The stale-click guards the views used to keep are what the
-        kind check replaces -- one reading of what the match is
-        waiting on, in the model, rather than one per view.
         """
-        answered = driver.answer(self.cog.engine, game, match, action)
-        if isinstance(answered, Refusal):
-            await self.refuse(interaction, answered.reason)
+        try:
+            result = self.cog.apply_action(
+                game, action, carry_from=carry_from,
+            )
+        except ValueError as error:
+            # A step refusing a position it should never have been
+            # handed; what ran before it is written down.
+            await send_error_fallback(interaction, str(error))
             return None
-        return answered
-
-    async def dispatch_answer(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        answered: Answered,
-        *,
-        lines_posted: bool = True,
-    ) -> None:
-        """
-        Run what an answer starts, once the view has rendered the
-        answer itself.
-
-        `lines_posted` says the view has already put the answer's own
-        lines up -- as the edit of the prompt it answered, nearly
-        always -- so they are not carried into the next step as its
-        lead-in. A view that leaves them to the dispatcher passes
-        False, and they open whatever comes next.
-        """
-        result = answered.result
-        await self.cog.dispatch_step_result(
-            interaction,
-            game,
-            match,
-            StepResult(
-                narration=[] if lines_posted else list(result.narration),
-                board_changed=result.board_changed,
-                next=result.next,
-                new_play=result.new_play,
-            ),
-        )
+        if result.refused:
+            await self.refuse(interaction, result.refusal)
+            return None
+        return result
 
     def may_act_for_possession(
         self,
@@ -510,21 +484,19 @@ class SafeView(discord.ui.View):
         # off this view -- a prompt may have been sitting in the
         # channel since before the roll it was built for, and the
         # driver refuses it by kind.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(
                 pending_prompt(self.cog.engine, game, match).kind,
                 "overdrive",
                 {"player_id": player_id},
             ),
         )
-        if answered is None:
+        if result is None:
             return
 
-        self.cog.persist(game, match)
-        await interaction.response.send_message(answered.result.narration[0])
+        await interaction.response.send_message(result.answer[0])
 
 
 # How long a helper's Confirm/Cancel stays in place of the prompt's own

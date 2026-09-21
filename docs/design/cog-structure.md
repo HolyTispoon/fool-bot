@@ -41,17 +41,17 @@ design.
   [model-discord-split.md](model-discord-split.md)) lifted every decision
   out of `core`, `effects`, `periods` and `turnovers` into `d12ball/flow/`,
   and what each mixin keeps is the same responsibility with the rules
-  taken out of it: `core` the one loop-and-render (`dispatch_step_result`,
-  `render_prompt`, `view_for_prompt`) and the entry points into a turn's
-  front half; `effects` an entry point per card and the two dice images
-  that go between a roll's lines; `periods` the clock's tail and the final
-  board; `turnovers` the coaching image, resume, and entry points into the
-  run back and the time out; `presentation` the pictures.
-  **An entry point is two lines** -- call one step, or name one by its
-  `FollowOnStep`, and dispatch -- and there are sixty-odd of them because
-  that is what a click or a command arrives at, and what the tests drive.
-  The reason an entry point is still a method on a mixin rather than a
-  function is the first bullet above: its callers spell it `self.foo(...)`.
+  taken out of it: `core` the presenter (`present`, `post_group`,
+  `render_prompt`, `view_for_prompt`) over `GameService`, which the cog
+  reaches through its `service` property; `effects` the two dice images
+  that go between a roll's lines; `periods` the final board and the
+  shootout's menus; `turnovers` the coaching image and `resume_game`;
+  `presentation` the pictures. The sixty-odd two-line entry points that
+  used to sit beside them -- call one step, or name one by its
+  `FollowOnStep`, and dispatch -- are gone: nothing in the bot called
+  them once every click went through the driver, and the tests that
+  drove a step through one drive it through `tests/cog_steps.py` now.
+  See [game-service.md](game-service.md).
 - **The first bullet is now half true, and it is the half that keeps the
   mixins.** "These methods co-operate through the cog's own state and call
   each other by the hundred" was the argument for mixins. They still call
@@ -59,7 +59,8 @@ design.
   the renderers, the renderers call the image builders -- but nothing they
   say to each other is a rule any more: `d12ball/flow/driver.py` runs every
   step of a turn and answers every prompt, and a click lands on
-  `SafeView.answer`, which is `driver.answer` with the refusal rendered.
+  `SafeView.apply`, which is `GameService.apply_action` with the refusal
+  rendered.
   Turning the remaining calls into collaborator objects would be the "far
   larger change and a different one" it always was, and it is still not
   started. What the phase changed is what the mixins are *for*: they are a

@@ -45,6 +45,7 @@ from d12ball.components import (
 )
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+from cog_steps import build_effect_choice_view
 
 
 def build_cog() -> D12Ball:
@@ -350,7 +351,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
         match.begin_uncontested_maneuver()
         match.choose_offense_maneuver("high_pass")
 
-        view = cog.build_effect_choice_view(game.game_id, match)
+        view = build_effect_choice_view(cog, game.game_id, match)
 
         self.assertIsNotNone(view)
 

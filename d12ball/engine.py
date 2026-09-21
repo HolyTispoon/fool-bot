@@ -333,7 +333,7 @@ class RulesEngine:
         else about charging a token differs by species, which is why
         this stayed one method rather than growing a branch.
 
-        `D12Ball.apply_exhaustion` forwards to this so no call site
+        `RulesEngine.apply_exhaustion` forwards to this so no call site
         moved. It came down here with rank O2 of the model/Discord
         split: a Dribble Burst charges a token a space and a beaten
         Clear charges two, and a flow step that cannot word what it
@@ -1052,7 +1052,7 @@ class RulesEngine:
           is no challenger and there never will be one, so the offense
           is the whole prompt.
         - **Dinky's side is picked before the prompt exists.**
-          `D12Ball.begin_maneuver_action_selection` writes the AI's
+          `d12ball.flow.turn.begin_maneuver_action_selection` writes the AI's
           maneuver straight into the match and only then builds the
           prompt, so a solo game's prompt is one hand and one row of
           buttons.

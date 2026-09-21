@@ -108,6 +108,7 @@ from flow_stubs import (
     injury_queue_stops_the_chain,
 )
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+from cog_steps import apply_pressure, begin_run_back, continue_mind_pull, continue_smooth, describe_exhaustion_gain, finish_maneuver_resolution, run_mind_pull, run_smooth
 
 
 def build_engine() -> RulesEngine:
@@ -1065,7 +1066,7 @@ class DamagedWordingTests(unittest.TestCase):
         self,
     ) -> None:
         self.match.mark_injured(self.cyborg)
-        text = self.cog.describe_exhaustion_gain(
+        text = describe_exhaustion_gain(self.cog, 
             self.game, self.match, self.cyborg, 1,
         )
         self.assertIn("damaged", text)
@@ -2457,7 +2458,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_crossed_telekinetic_stops_the_turn_to_ask(self):
         with suppressed_cog_saves():
-            await self.cog.finish_maneuver_resolution(
+            await finish_maneuver_resolution(self.cog, 
                 self.interaction, self.game, self.match, distance_moved=1,
             )
         self.assertTrue(
@@ -2476,7 +2477,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         # `check_for_loose_ball`, which reaches the second gate; the
         # spent path is what stops that asking again.
         with suppressed_cog_saves():
-            await self.cog.finish_maneuver_resolution(
+            await finish_maneuver_resolution(self.cog, 
                 self.interaction, self.game, self.match, distance_moved=1,
             )
         self.assertEqual(self.match.last_ball_path, [])
@@ -2516,7 +2517,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         }
         self.cog.finish_maneuver_resolution = mock.AsyncMock()
         with suppressed_cog_saves():
-            await self.cog.continue_mind_pull(
+            await continue_mind_pull(self.cog, 
                 self.interaction, self.game, self.match,
             )
         # The dispatch itself is the claim, not whatever
@@ -2541,7 +2542,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
             "kind": "finish_maneuver", "distance_moved": 1,
         }
         with suppressed_cog_saves():
-            await self.cog.continue_mind_pull(
+            await continue_mind_pull(self.cog, 
                 self.interaction, solo, self.match,
             )
         self.assertFalse(
@@ -2559,7 +2560,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "random.randint", return_value=MIND_PULL_SUCCESS_FACES[0],
         ):
-            await self.cog.run_mind_pull(
+            await run_mind_pull(self.cog, 
                 self.interaction, self.game, self.match, self.puller,
             )
 
@@ -2588,7 +2589,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "random.randint", return_value=a_face_that_misses(),
         ):
-            await self.cog.run_mind_pull(
+            await run_mind_pull(self.cog, 
                 self.interaction, self.game, self.match, self.puller,
             )
 
@@ -2612,7 +2613,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "random.randint", return_value=a_face_that_misses(),
         ):
-            await self.cog.run_mind_pull(
+            await run_mind_pull(self.cog, 
                 self.interaction, self.game, self.match, self.puller,
             )
         edit = self.interaction.edit_original_response
@@ -2635,7 +2636,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "random.randint", return_value=MIND_PULL_SUCCESS_FACES[0],
         ):
-            await self.cog.run_mind_pull(
+            await run_mind_pull(self.cog, 
                 self.interaction, self.game, self.match, self.puller,
             )
         lead_in = self.cog.begin_run_back.await_args.kwargs["lead_in"]
@@ -2674,7 +2675,7 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         self.cog = build_mind_pull_cog()
         # This class asserts `begin_run_back` itself, not the stand-in
         # `build_mind_pull_cog` mocks out for the tests above.
-        self.cog.begin_run_back = D12Ball.begin_run_back.__get__(self.cog)
+        del self.cog.begin_run_back
         self.cog.announce_run_back = mock.AsyncMock()
         self.game = build_game(
             player_1_team=Team.PURPLE, player_2_team=Team.TELEKINETICS,
@@ -2710,7 +2711,7 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         )
         self.match.set_ball_space(self.crossed_zone, self.crossed_index)
         with suppressed_cog_saves():
-            await self.cog.begin_run_back(
+            await begin_run_back(self.cog, 
                 self.interaction, self.game, self.match,
                 turnover_occurred=True,
             )
@@ -2736,7 +2737,7 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         # `cog.announce_run_back` stubbed in `setUp` is reached through
         # tests/flow_stubs.py rather than by the cog dispatching it.
         with suppressed_cog_saves(), driver_reaches_cog_stubs(self.cog):
-            await self.cog.begin_run_back(
+            await begin_run_back(self.cog, 
                 self.interaction, self.game, self.match,
                 turnover_occurred=True,
             )
@@ -2857,7 +2858,7 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         with suppressed_cog_saves():
-            await self.cog.apply_pressure(
+            await apply_pressure(self.cog, 
                 self.interaction, self.game, self.match, "double_team",
             )
 
@@ -2881,7 +2882,7 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         # Double Team from here overshoots *and* moves the ball, which
         # is what gives the gate a path to read.
         with suppressed_cog_saves():
-            await self.cog.apply_pressure(
+            await apply_pressure(self.cog, 
                 self.interaction, self.game, self.match, "double_team",
             )
         self.assertEqual(
@@ -2893,13 +2894,13 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_declining_the_pull_hands_the_own_goal_roll_back(self):
         with suppressed_cog_saves():
-            await self.cog.apply_pressure(
+            await apply_pressure(self.cog, 
                 self.interaction, self.game, self.match, "double_team",
             )
             # What the decline button does: drop this Telekinetic and
             # let the one exit from the queue run.
             self.match.pending_mind_pull.remove(self.puller)
-            await self.cog.continue_mind_pull(
+            await continue_mind_pull(self.cog, 
                 self.interaction, self.game, self.match,
             )
 
@@ -2922,7 +2923,7 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         self.match.restart_ball_at(Zone.HOME_GOAL, 0)
 
         with suppressed_cog_saves():
-            await self.cog.apply_pressure(
+            await apply_pressure(self.cog, 
                 self.interaction, self.game, self.match, "pressure",
             )
 
@@ -2936,7 +2937,7 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         self.game.species_abilities = False
 
         with suppressed_cog_saves():
-            await self.cog.apply_pressure(
+            await apply_pressure(self.cog, 
                 self.interaction, self.game, self.match, "double_team",
             )
 
@@ -3050,7 +3051,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
             self.match.pending_smooth.remove(self.taker)
-            await self.cog.continue_smooth(
+            await continue_smooth(self.cog, 
                 self.interaction, self.game, self.match,
             )
 
@@ -3067,7 +3068,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
             self.match.pending_smooth.remove(self.taker)
-            await self.cog.continue_smooth(
+            await continue_smooth(self.cog, 
                 self.interaction, self.game, self.match,
             )
         self.cog.finish_maneuver_resolution.assert_awaited()
@@ -3081,7 +3082,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
             await self.arrive(
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
-            await self.cog.run_smooth(
+            await run_smooth(self.cog, 
                 self.interaction, self.game, self.match, self.taker,
             )
         self.assertEqual(self.match.ball.possession, was)
@@ -3101,7 +3102,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
         # changes who is holding it when everyone runs back.
         self.cross(self.taker)
         with suppressed_cog_saves():
-            await self.cog.run_smooth(
+            await run_smooth(self.cog, 
                 self.interaction, self.game, self.match, self.taker,
             )
         self.cog.finish_maneuver_resolution.assert_awaited()
@@ -3112,7 +3113,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
             "kind": "run_back", "distance_moved": 2,
         }
         with suppressed_cog_saves():
-            await self.cog.run_smooth(
+            await run_smooth(self.cog, 
                 self.interaction, self.game, self.match, self.taker,
             )
         self.cog.begin_run_back.assert_awaited()
@@ -3133,7 +3134,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
             "kind": "own_goal", "distance_moved": 1,
         }
         with suppressed_cog_saves():
-            await self.cog.run_smooth(
+            await run_smooth(self.cog, 
                 self.interaction, self.game, self.match, self.taker,
             )
         self.cog.begin_own_goal_roll.assert_not_awaited()

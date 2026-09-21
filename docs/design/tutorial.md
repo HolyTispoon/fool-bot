@@ -256,7 +256,7 @@ Coaching Choice menu.
   *underneath* the note -- which put up the thing the note explains
   without the note. The record on the game is what a restart reads:
   `pending_prompt` answers `TUTORIAL_CONTINUE` ahead of everything,
-  `resume_pending_prompt` re-posts the note first, and `skip_tutorial`
+  `GameService.resume` re-posts the note first, and `skip_tutorial`
   spends a held gate the way the click would. The `then` survives as a
   `FollowOn.to_dict()`, and the golden's every press is the proof it
   comes back the same.

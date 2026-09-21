@@ -9,8 +9,8 @@ step: `begin_loose_ball`, `resolve_loose_ball`,
 `begin_loose_ball_skill_test`, `resolve_unopposed_loose_ball` and
 `send_loose_ball_out_of_bounds` all live in
 [`d12ball/flow/arrivals.py`](../../d12ball/flow/arrivals.py), with the two
-arrival gates they are ordered against. `D12Ball.begin_loose_ball` and
-`D12Ball.resolve_loose_ball` are the cog wrappers that persist and post.
+arrival gates they are ordered against. `d12ball.flow.arrivals.begin_loose_ball` and
+`d12ball.flow.arrivals.resolve_loose_ball` are the cog wrappers that persist and post.
 Names below without a path are the flow functions.
 
 **`begin_loose_ball` is still two different things with one name**: the
@@ -29,7 +29,7 @@ pickup use.
 - **`begin_loose_ball`'s announcement posts through
   `announce_board_update`**, which is why that helper is no longer only for
   manual corrections. Since Phase 4 the step says only that the board moved
-  and what the line is, and `D12Ball.begin_loose_ball` decides that this
+  and what the line is, and `d12ball.flow.arrivals.begin_loose_ball` decides that this
   particular line is worth an upload -- a Discord economy, and the frontend's
   (principle 8). The loop stops on it (`DRIVER_STOPS`) and `post_stop`
   posts the snapshot, which is what keeps it a message of its own rather

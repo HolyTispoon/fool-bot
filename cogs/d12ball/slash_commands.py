@@ -1991,7 +1991,7 @@ class CommandsMixin:
         # always starts fresh: clear that stale choice and re-derive the
         # ball handler from the board's current occupancy.
         match.reset_maneuver()
-        self.persist(game, match)
+        self.service.persist(game, match)
 
         try:
             await self.send_turn_prompt(interaction, game)
@@ -2176,7 +2176,7 @@ class CommandsMixin:
 
             match.reset_maneuver()
             match.close_coaching_window()
-            self.persist(game, match)
+            self.service.persist(game, match)
 
             try:
                 await self.send_turn_prompt(interaction, game)
@@ -2192,9 +2192,7 @@ class CommandsMixin:
             return
 
         try:
-            waiting_on = await self.resume_pending_prompt(
-                interaction, game, match,
-            )
+            waiting_on = await self.resume_game(interaction, game)
         except ValueError as error:
             # Every step this hands off to validates the state it
             # loads, so a match that no longer hangs together says so
@@ -2394,7 +2392,7 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.persist(game, match)
+        self.service.persist(game, match)
 
         player = self.engine.get_player_definition(player_card)
         await self.announce_board_update(
@@ -2524,7 +2522,7 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.persist(game, match)
+        self.service.persist(game, match)
 
         await self.announce_board_update(
             interaction,
@@ -2609,7 +2607,7 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.persist(game, match)
+        self.service.persist(game, match)
 
         player = self.engine.get_player_definition(meeple)
         await self.announce_board_update(
@@ -2674,7 +2672,7 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.persist(game, match)
+        self.service.persist(game, match)
 
         possession_team = match.setup_for_side(match.ball.possession).team
         await self.announce_board_update(
@@ -2718,7 +2716,7 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.persist(game, match)
+        self.service.persist(game, match)
 
         await interaction.followup.send(
             f"{team_display_name(match.setup_for_side(side).team)} now has "
@@ -2770,7 +2768,7 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.persist(game, match)
+        self.service.persist(game, match)
 
         await interaction.followup.send(
             f"Ball speed is now {match.ball.speed}."
@@ -2835,7 +2833,7 @@ class CommandsMixin:
         else:
             match.scoreboard.visiting_score = new_value
 
-        self.persist(game, match)
+        self.service.persist(game, match)
 
         team_name = team_display_name(match.setup_for_side(side).team)
         await interaction.followup.send(
@@ -2900,7 +2898,7 @@ class CommandsMixin:
         if period is not None:
             match.scoreboard.period = MatchPeriod(period)
 
-        self.persist(game, match)
+        self.service.persist(game, match)
 
         period_label = (
             "First Half"

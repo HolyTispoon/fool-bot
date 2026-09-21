@@ -3,7 +3,7 @@ What the cog's Steal and Intercept say and do next, recorded off the
 old code.
 
 This is the equivalence half of rank D2 of Phase 3 of
-docs/design/model-discord-split.md. It drives `D12Ball.apply_steal` over
+docs/design/model-discord-split.md. It drives `cog_steps.apply_steal` over
 `tests/steal_fixtures.py` and asserts the narration byte for byte,
 whether the board moved, and which step the resolution hands the turn
 to with which arguments -- the four things a `StepResult` carries --
@@ -53,14 +53,16 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 
-from flow_stubs import driver_reaches_cog_stubs
+from d12ball.flow import FollowOnStep
+from flow_stubs import REAL_MODEL_STEPS, driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
 from steal_fixtures import RUN_BACK, SHOOTER_CHOICE, STEAL_CASES
+from cog_steps import apply_steal
 
 #: The parameters every follow-on takes and no fixture records: the
 #: three the cog threads through everything and the narration, which
 #: is the result's rather than the follow-on's.
-PLUMBING = ("self", "interaction", "game", "match", "lead_in")
+PLUMBING = ("engine", "game", "match", "lead_in")
 
 
 def build_cog() -> D12Ball:
@@ -102,9 +104,7 @@ def named_arguments(method, call) -> dict:
     passed -- which is exactly what a `FollowOn` carries in its
     `kwargs`.
     """
-    bound = inspect.signature(method).bind(
-        None, *call.args, **call.kwargs,
-    )
+    bound = inspect.signature(method).bind(*call.args, **call.kwargs)
     return {
         name: value
         for name, value in bound.arguments.items()
@@ -135,17 +135,21 @@ class StealRecordingTests(unittest.IsolatedAsyncioTestCase):
         match = fixture.match
 
         with suppressed_cog_saves():
-            await cog.apply_steal(
+            await apply_steal(cog, 
                 SimpleNamespace(), fixture.game, match, fixture.key,
             )
 
         if fixture.follow_on == RUN_BACK:
-            taken, method = cog.begin_run_back, D12Ball.begin_run_back
+            taken, method = (
+                cog.begin_run_back,
+                REAL_MODEL_STEPS[FollowOnStep.BEGIN_RUN_BACK],
+            )
             cog.begin_shooter_choice.assert_not_awaited()
         else:
             self.assertEqual(fixture.follow_on, SHOOTER_CHOICE)
             taken, method = (
-                cog.begin_shooter_choice, D12Ball.begin_shooter_choice,
+                cog.begin_shooter_choice,
+                REAL_MODEL_STEPS[FollowOnStep.BEGIN_SHOOTER_CHOICE],
             )
             cog.begin_run_back.assert_not_awaited()
 

@@ -9,11 +9,11 @@ from d12ball.components import (
     MatchState,
     TeamSide,
 )
-from d12ball.flow import StepResult
 from d12ball.flow.driver import Action
 from d12ball.game import D12BallGame
 from d12ball.prompts import PromptKind
 
+from cogs.d12ball_helpers import send_new_prompt
 from cogs.d12ball_views.base import SafeView
 
 if TYPE_CHECKING:
@@ -118,33 +118,23 @@ class HalftimeExtraTokenView(HalftimeView):
         # `begin_halftime_extra_token` is the same three lines, which
         # is why this is a step and not a view body. A step already
         # finished, or the other side's, is the driver's to refuse.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(
                 PromptKind.HALFTIME_EXTRA_TOKEN,
                 "",
                 {"player_id": player_id, "side": self.side},
             ),
         )
-        if answered is None:
+        if result is None:
             return
-        result = answered.result
-        self.cog.persist(game, match)
 
         # The pick's own line replaces the prompt; what halftime does
         # next is its own messages, one per block.
         await interaction.response.edit_message(
-            content=result.narration[0], view=None,
+            content=result.answer[0], view=None,
         )
-        await self.cog.post_blocks_then_dispatch(
-            interaction,
-            game,
-            match,
-            StepResult(
-                narration=result.narration[1:],
-                board_changed=result.board_changed,
-                next=result.next,
-            ),
-        )
+        for block in result.answer[1:]:
+            await send_new_prompt(interaction, block)
+        await self.cog.present(interaction, game, result)

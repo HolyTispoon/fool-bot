@@ -2,8 +2,8 @@
 What the cog's two dribbles say and do next, recorded off the old code.
 
 This is the equivalence half of rank O2 of Phase 3 of
-docs/design/model-discord-split.md. It drives `D12Ball.apply_dribble_advance`
-and `D12Ball.apply_dribble_burst` over `tests/dribble_fixtures.py` and
+docs/design/model-discord-split.md. It drives `None`
+and `None` over `tests/dribble_fixtures.py` and
 asserts the narration byte for byte, whether the board moved, and which
 step the resolution hands the turn to with which arguments -- the four
 things a `StepResult` carries -- plus where everybody ended up and what
@@ -26,6 +26,8 @@ request -- see "Discord's rate limits" in docs/design/rate-limits.md.
 
 from __future__ import annotations
 
+import functools
+
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -44,6 +46,7 @@ from d12ball.engine import RulesEngine
 
 from dribble_fixtures import DRIBBLE_CASES, FINISH, SPEED_CHOICE
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_dribble_advance, apply_dribble_burst
 
 
 def build_cog() -> D12Ball:
@@ -98,9 +101,9 @@ class DribbleRecordingTests(unittest.IsolatedAsyncioTestCase):
         cog.games[fixture.game.game_id] = fixture.game
         match = fixture.match
         apply = (
-            cog.apply_dribble_advance
+            functools.partial(apply_dribble_advance, cog)
             if fixture.key == "dribble_advance"
-            else cog.apply_dribble_burst
+            else functools.partial(apply_dribble_burst, cog)
         )
 
         with suppressed_cog_saves():

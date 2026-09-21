@@ -163,21 +163,19 @@ class CoachingView(SafeView):
         side at a time and the driver checks it against the window;
         every other argument is what the coach picked.
         """
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(
                 PromptKind.COACHING_HUB,
                 choice,
                 {"side": self.side(match), **arguments},
             ),
         )
-        if answered is None:
+        if result is None:
             return
-        self.cog.persist(game, match)
         await self.back_to_hub(
-            interaction, note=answered.result.narration[0], moved=True,
+            interaction, note=result.answer[0], moved=True,
         )
 
     def add_back_button(self, row: Optional[int] = None) -> None:
@@ -262,24 +260,22 @@ class CoachingOfferView(CoachingView):
         # `d12ball.flow.windows.declare_coaching_step`** since Phase 6.
         # It says nothing: the hub that replaces the offer is what a
         # coach reads next.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(
                 PromptKind.COACHING_OFFER, "declare", {"side": self.side(match)},
             ),
         )
-        if answered is None:
+        if result is None:
             return
-        self.cog.persist(game, match)
 
         # No attachments: the offer this replaces already carried the
         # image, and taking the window up moves nobody.
         await self.show(
             interaction,
             game,
-            match,
+            result.match,
             CoachingHubView(self.cog, self.game_id),
         )
 
@@ -293,10 +289,9 @@ class CoachingOfferView(CoachingView):
         # The coach's own name is the one thing it takes rather than
         # decides: nothing in the match knows what to call a Discord
         # account, so it arrives as a label the way a shot's does.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(
                 PromptKind.COACHING_OFFER,
                 "decline",
@@ -306,16 +301,13 @@ class CoachingOfferView(CoachingView):
                 },
             ),
         )
-        if answered is None:
+        if result is None:
             return
 
-        # No save here: the step changed nothing a coach can lose, and
-        # the dispatcher below writes the match once for the whole
-        # click (principle 9 in CLAUDE.md).
         await interaction.response.edit_message(
-            content=answered.result.narration[0], view=None,
+            content=result.answer[0], view=None,
         )
-        await self.dispatch_answer(interaction, game, match, answered)
+        await self.cog.present(interaction, game, result)
 
 
 class CoachingHubView(CoachingView):
@@ -517,22 +509,18 @@ class CoachingHubView(CoachingView):
         # still remembers it, because closing it clears the record and
         # this message is the only place a coach's substitutions
         # survive.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(PromptKind.COACHING_HUB, "done", {"side": self.side(match)}),
         )
-        if answered is None:
+        if result is None:
             return
 
-        # No save here either, for `decline`'s reason: closing the
-        # window is `finish_substitution_window`'s and the dispatcher
-        # writes once, after it.
         await interaction.response.edit_message(
-            content=answered.result.narration[0], view=None,
+            content=result.answer[0], view=None,
         )
-        await self.dispatch_answer(interaction, game, match, answered)
+        await self.cog.present(interaction, game, result)
 
 
 class CoachingFormationView(CoachingView):

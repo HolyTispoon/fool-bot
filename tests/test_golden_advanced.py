@@ -115,6 +115,7 @@ from test_d12ball_tutorial import (
     build_interaction,
 )
 from test_golden_transcript import golden_diff, render_final_match
+from cog_steps import finish_setup_coaching
 
 GOLDEN_DIR = pathlib.Path(__file__).resolve().parent / "golden"
 TRANSCRIPT_FILE = GOLDEN_DIR / "advanced_transcript.txt"
@@ -245,7 +246,7 @@ async def record_playthrough() -> tuple[str, dict]:
             mock.patch.object(
                 presentation_mod, "pin_board_message", mock.AsyncMock()):
 
-        await cog.finish_setup_coaching(
+        await finish_setup_coaching(cog, 
             build_interaction(recorder),
             game,
             cog.engine.load_match_state(game),

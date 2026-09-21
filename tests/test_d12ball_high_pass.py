@@ -10,7 +10,7 @@ winning changes nothing and only losing is a turnover. These cover the
 two places that difference is visible -- what the prompts call it, and
 whether anyone runs back afterwards.
 
-See D12Ball.apply_high_pass and contest_noun in cogs/d12ball_helpers.py,
+See None and contest_noun in cogs/d12ball_helpers.py,
 and "High Pass" and "Loose ball" in docs/living-rules.md.
 """
 
@@ -41,6 +41,7 @@ from d12ball.game import D12BallGame, Team
 from roster import display_name, fielded
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
+from cog_steps import apply_high_pass, begin_loose_ball, decline_scoring_attempt, resolve_high_pass
 
 
 def build_cog() -> D12Ball:
@@ -220,7 +221,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.begin_loose_ball(
+            await begin_loose_ball(cog, 
                 interaction, game, match, 3,
                 headline=HIGH_PASS_CONTEST_HEADLINE,
                 is_high_pass=True,
@@ -304,7 +305,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         # The wrapper persists after the step since Phase 4 --
         # principle 9's transition rule.
         with suppressed_cog_saves():
-            await cog.decline_scoring_attempt(
+            await decline_scoring_attempt(cog, 
                 build_interaction(), game, match, 2,
             )
         cog.begin_loose_ball.assert_not_awaited()
@@ -330,7 +331,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with suppressed_cog_saves():
-            await cog.decline_scoring_attempt(
+            await decline_scoring_attempt(cog, 
                 build_interaction(), game, match, 2, contest=True,
             )
         cog.finish_maneuver_resolution.assert_not_awaited()
@@ -581,7 +582,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_full_image_links(), suppressed_cog_saves():
-            await cog.resolve_high_pass(interaction, game, match)
+            await resolve_high_pass(cog, interaction, game, match)
 
         sent = interaction.followup.send.await_args
         self.assertEqual(sent.kwargs["file"], "field.png")
@@ -753,7 +754,7 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
 
     async def apply(self, cog, game, match):
         with suppressed_cog_saves():
-            await cog.apply_high_pass(
+            await apply_high_pass(cog, 
                 build_interaction(), game, match, 2,
             )
 

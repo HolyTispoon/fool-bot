@@ -22,7 +22,7 @@ how it reaches one person and not the other.
 
 **`D12Ball.post_shootout_prompt` is gone.** All three shootout questions
 are `PendingPrompt`s now -- `SHOOTOUT_ORDER`, `SHOOTOUT_PICK`,
-`SHOOTOUT_TEST` -- so `dispatch_step_result` posts them through
+`SHOOTOUT_TEST` -- so `D12Ball.present` posts them through
 `view_for_prompt`, the same table a restart restores through.
 
 ## The extreme shootout
@@ -48,8 +48,8 @@ dies out on its own.
   waiting on?"**, and `pending_prompt` answers the same three questions in
   the same order. Two of the four steps are the bot's own -- the reveal, and
   setting the next test up -- so a restart between them has no button anywhere,
-  which is why `resume_pending_prompt` hands a shootout back to
-  `advance_shootout` rather than posting a view. Same shape as the run back and
+  which is why `GameService.resume` hands a shootout back to
+  `advance_shootout` rather than handing back a prompt. Same shape as the run back and
   the halftime sequence, and the same reason.
 - **The first round records no shooter.** `shootout_shooter` reads it off the
   coach's order and the count of who has been out, so the reveal has no state of

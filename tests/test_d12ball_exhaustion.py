@@ -10,7 +10,7 @@ not cosmetic: `SkillTestView` reloads the saved state to resolve the
 roll and hands out an injury check to whoever is in `match.exhausted`
 by then, so a dropped flag is a skipped injury check.
 
-See D12Ball.apply_exhaustion and D12Ball.begin_injury_tests in
+See None and None in
 cogs/d12ball.py, and "Exhaustion and injury" in
 docs/living-rules.md.
 """
@@ -31,6 +31,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+from cog_steps import apply_exhaustion, resolve_maneuver, run_own_goal_roll
 
 
 def build_cog() -> D12Ball:
@@ -134,7 +135,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves():
-            await cog.resolve_maneuver(build_interaction(), game, match)
+            await resolve_maneuver(cog, build_interaction(), game, match)
 
         self.assertIn(offense_id, cog.engine.load_match_state(game).exhausted)
 
@@ -164,7 +165,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = build_interaction()
         with suppressed_cog_saves():
-            await cog.resolve_maneuver(interaction, game, match)
+            await resolve_maneuver(cog, interaction, game, match)
         self.assertNotIn(offense_id, cog.engine.load_match_state(game).exhausted)
 
         # Rolls chosen so the two totals land level. Neither of these
@@ -198,12 +199,12 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         player_id = match.home.field_players[0]
         skill = self.defense_skill(cog, player_id)
 
-        text = cog.apply_exhaustion(build_game(), match, player_id, skill)
+        text = apply_exhaustion(cog, build_game(), match, player_id, skill)
         self.assertEqual(match.exhaustion[player_id], skill)
         self.assertNotIn(player_id, match.exhausted)
         self.assertNotIn("exhausted", text)
 
-        text = cog.apply_exhaustion(build_game(), match, player_id, 1)
+        text = apply_exhaustion(cog, build_game(), match, player_id, 1)
         self.assertEqual(match.exhaustion[player_id], skill + 1)
         self.assertIn(player_id, match.exhausted)
         self.assertIn("exhausted", text)
@@ -233,7 +234,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
                 with suppressed_cog_saves(), mock.patch(
                     "random.randint", return_value=roll,
                 ):
-                    await cog.run_own_goal_roll(
+                    await run_own_goal_roll(cog, 
                         build_interaction(), game, match,
                     )
 

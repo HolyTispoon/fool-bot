@@ -3,7 +3,7 @@ What the cog's Pressure and Double Team say and do next, recorded off
 the old code.
 
 This is the equivalence half of rank D3 of Phase 3 of
-docs/design/model-discord-split.md. It drives `D12Ball.apply_pressure` over
+docs/design/model-discord-split.md. It drives `None` over
 `tests/pressure_fixtures.py` and asserts the narration byte for byte,
 whether the board moved, and which step the resolution hands the turn
 to with which arguments -- the four things a `StepResult` carries --
@@ -68,6 +68,7 @@ from flow_stubs import (
     was_reached,
 )
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_pressure
 
 #: The parameters every follow-on takes and no fixture records: the
 #: three the cog threads through everything and the narration, which
@@ -139,9 +140,9 @@ def posted_messages(interaction) -> list[str]:
 
 
 FOLLOW_ONS = {
-    FINISH: ("finish_maneuver_resolution", D12Ball.finish_maneuver_resolution),
-    RUN_BACK: ("begin_run_back", D12Ball.begin_run_back),
-    OWN_GOAL_ROLL: ("begin_own_goal_roll", D12Ball.begin_own_goal_roll),
+    FINISH: ("finish_maneuver_resolution", None),
+    RUN_BACK: ("begin_run_back", None),
+    OWN_GOAL_ROLL: ("begin_own_goal_roll", None),
 }
 
 
@@ -174,7 +175,7 @@ class PressureRecordingTests(unittest.IsolatedAsyncioTestCase):
         members = [FollowOnStep[key] for key in FOLLOW_ONS]
         with every_step_stubbed(cog, members) as recorders, \
                 suppressed_cog_saves():
-            await cog.apply_pressure(
+            await apply_pressure(cog, 
                 interaction, fixture.game, match, fixture.key,
             )
 

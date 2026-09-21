@@ -47,8 +47,10 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
+from d12ball.flow import StepResult
 from d12ball.game import D12BallGame, Formation, GameStatus, Team
 from save_patches import suppressed_cog_saves
+from cog_steps import resume_pending_prompt
 
 
 def build_cog() -> D12Ball:
@@ -399,11 +401,19 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
             home_formation=Formation.TWO_TWO_TWO,
         )
         game.match_state = match.to_dict()
+        # The run back is a `FollowOnStep`, so a stub on the cog is
+        # reached through the routing; the other steps the service
+        # owes are flow functions, patched where the service reads
+        # them (`gamesaves.d12ball.service` imports the modules).
         cog.continue_run_back = mock.AsyncMock()
-        cog.begin_ball_recovery = mock.AsyncMock()
-        cog.advance_setup_stage = mock.AsyncMock()
-        cog.advance_halftime_stage = mock.AsyncMock()
         return cog, game, match
+
+    def owed(self, module: str, name: str):
+        """Patch a flow function the service runs for a resumed state."""
+        return mock.patch(
+            f"d12ball.flow.{module}.{name}",
+            mock.Mock(return_value=StepResult()),
+        )
 
     async def test_a_stranded_run_back_is_driven_on_not_re_asked(
         self,
@@ -418,7 +428,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            waiting_on = await cog.resume_pending_prompt(
+            waiting_on = await resume_pending_prompt(cog, 
                 interaction, game, match,
             )
 
@@ -431,12 +441,14 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = match.eligible_ball_handlers()[0]
         match.pending_ball_recovery = True
 
-        with suppressed_cog_saves():
-            await cog.resume_pending_prompt(
+        with suppressed_cog_saves(), self.owed(
+            "turnovers", "begin_ball_recovery",
+        ) as step:
+            await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
             )
 
-        cog.begin_ball_recovery.assert_awaited_once()
+        step.assert_called_once()
 
     async def test_an_open_window_is_re_posted_not_re_opened(self) -> None:
         """
@@ -455,7 +467,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            waiting_on = await cog.resume_pending_prompt(
+            waiting_on = await resume_pending_prompt(cog, 
                 interaction, game, match,
             )
 
@@ -474,18 +486,19 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         # restart in the middle of one leaves nobody to click anything.
         cog, game, match = self.build()
         game.player_2_id = None
-        cog.run_ai_substitution_window = mock.AsyncMock()
         match.active_player_id = match.eligible_ball_handlers()[0]
         match.open_coaching_window(
             TeamSide.VISITING, CoachingOccasion.NEW_PLAY,
         )
 
-        with suppressed_cog_saves():
-            waiting_on = await cog.resume_pending_prompt(
+        with suppressed_cog_saves(), self.owed(
+            "windows", "run_ai_substitution_window",
+        ) as step:
+            waiting_on = await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
             )
 
-        cog.run_ai_substitution_window.assert_awaited_once()
+        step.assert_called_once()
         self.assertEqual(waiting_on, "the AI's Coaching Choice")
 
     async def test_a_setup_window_is_re_posted_not_advanced(self) -> None:
@@ -495,12 +508,14 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         match.pending_setup_stage = "coaching_home"
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.SETUP)
 
-        with suppressed_cog_saves():
-            await cog.resume_pending_prompt(
+        with suppressed_cog_saves(), self.owed(
+            "periods", "advance_setup_stage",
+        ) as step:
+            await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
             )
 
-        cog.advance_setup_stage.assert_not_awaited()
+        step.assert_not_called()
 
     async def test_a_setup_stage_with_no_window_open_is_advanced(
         self,
@@ -510,12 +525,14 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
         match.pending_setup_stage = "coaching_home"
 
-        with suppressed_cog_saves():
-            waiting_on = await cog.resume_pending_prompt(
+        with suppressed_cog_saves(), self.owed(
+            "periods", "advance_setup_stage",
+        ) as step:
+            waiting_on = await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
             )
 
-        cog.advance_setup_stage.assert_awaited_once()
+        step.assert_called_once()
         self.assertEqual(waiting_on, "the pre-kickoff Coaching Choice")
 
     async def test_a_halftime_stage_with_no_window_open_is_advanced(
@@ -524,12 +541,14 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
         match.pending_halftime_stage = "extra_token_visiting"
 
-        with suppressed_cog_saves():
-            await cog.resume_pending_prompt(
+        with suppressed_cog_saves(), self.owed(
+            "periods", "advance_halftime_stage",
+        ) as step:
+            await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
             )
 
-        cog.advance_halftime_stage.assert_awaited_once()
+        step.assert_called_once()
 
     async def test_anything_else_posts_the_view_it_owes(self) -> None:
         cog, game, match = self.build()
@@ -538,7 +557,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.resume_pending_prompt(interaction, game, match)
+            await resume_pending_prompt(cog, interaction, game, match)
 
         _, kwargs = interaction.channel.send.await_args
         self.assertIsInstance(kwargs["view"], ScoreAttemptView)
@@ -567,7 +586,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = match.eligible_ball_handlers()[0]
         game.match_state = match.to_dict()
-        cog.resume_pending_prompt = mock.AsyncMock(
+        cog.resume_game = mock.AsyncMock(
             return_value="the run back",
         )
         return cog, game, match
@@ -582,7 +601,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
 
         await self.run_resume(cog, interaction)
 
-        cog.resume_pending_prompt.assert_awaited_once()
+        cog.resume_game.assert_awaited_once()
 
     async def test_a_bystander_may_not(self) -> None:
         cog, _, _ = self.build()
@@ -593,7 +612,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
 
         await self.run_resume(cog, interaction)
 
-        cog.resume_pending_prompt.assert_not_awaited()
+        cog.resume_game.assert_not_awaited()
         message, _ = interaction.followup.send.await_args
         self.assertIn("Only a player in this game", message[0])
 
@@ -606,14 +625,14 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
 
         await self.run_resume(cog, interaction)
 
-        cog.resume_pending_prompt.assert_awaited_once()
+        cog.resume_game.assert_awaited_once()
 
     async def test_a_finished_game_has_nothing_to_resume(self) -> None:
         cog, _, _ = self.build(status=GameStatus.FINISHED)
 
         await self.run_resume(cog, build_interaction())
 
-        cog.resume_pending_prompt.assert_not_awaited()
+        cog.resume_game.assert_not_awaited()
 
     async def test_force_clears_the_turn_and_re_asks(self) -> None:
         cog, game, match = self.build()
@@ -631,7 +650,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(resumed.pending_run_back)
         self.assertIsNone(resumed.pending_coaching_side)
         cog.send_turn_prompt.assert_awaited_once()
-        cog.resume_pending_prompt.assert_not_awaited()
+        cog.resume_game.assert_not_awaited()
 
     async def test_force_will_not_skip_setup_or_halftime(self) -> None:
         """
@@ -669,7 +688,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_state_that_will_not_load_says_so(self) -> None:
         cog, _, _ = self.build()
-        cog.resume_pending_prompt.side_effect = ValueError("nope")
+        cog.resume_game.side_effect = ValueError("nope")
         interaction = build_interaction()
 
         await self.run_resume(cog, interaction)
