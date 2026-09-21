@@ -3,15 +3,16 @@
 **This is a worksheet, not a specification.** It is the review of the
 model/Discord split read against the thing the split was for -- a
 second frontend, a web app, over the same model as the bot -- and what
-that review adds to the plan in
-[docs/architecture-migration.md](architecture-migration.md), which is
-the order the work runs in. [ARCHITECTURE.md](../ARCHITECTURE.md) is
+that review adds to the plan. **The order the work runs in is
+[docs/architecture-migration.md](architecture-migration.md)'s**, and
+nothing here re-sequences it; [ARCHITECTURE.md](../ARCHITECTURE.md) is
 the target both are held to. The decisions already taken are at the
 top so nobody re-opens them; the findings are below with where each
-now stands; the phases are the migration's own steps with the stop
-each ends on. When the web app ships, what survives of this moves to
-`docs/design/web-app.md` and this file goes. **Nothing in it is a
-rule.**
+now stands, and each names the migration step that closes it; the
+proposals are what those steps owe the web app that the migration
+worksheet does not spell out. When the web app ships, what survives
+of this moves to `docs/design/web-app.md` and this file goes.
+**Nothing in it is a rule.**
 
 The standard everything below is held to is CLAUDE.md's "The model and
 the Discord layer", and the last of its principles in particular:
@@ -69,9 +70,12 @@ byte-identical.
    one seedable `rng` per match through `RulesEngine` is what lets a
    web process replay either of two games.
 8. **The AI chooses an `Action` through the same service**, and it is
-   a phase of its own with its own PR, because the goldens change: an
-   AI answer becomes a group of its own, worded by the adapter. It
-   waits on the author's word for how Dinky's turn should read.
+   a step of its own with its own PR, because the goldens change: an
+   AI answer becomes a group of its own, worded by the adapter. The
+   author has said how it reads (migration step 7): the human's exact
+   voice, with the AI's name where the coach's mention would be --
+   the same substitution step 9's tokens make, so the two are one
+   pass. The AI answers choices, never dice.
 9. **The driver-side golden drives `GameService.apply_action`** with
    the default `Batching()` and pins the `GameResult`s -- that is what
    a web app inherits, where a golden through `driver.apply` alone
@@ -148,8 +152,13 @@ remainder.
    - The shootout's `side`: the view resolves which side a click owes
      (`claim`); `_answer_shootout_order` takes the side as given.
    The migration worksheet adds a fifth of the same shape,
-   `may_decline_challenge`. The second and third are the one question
-   still open below: rules, or button conveniences.
+   `may_decline_challenge`. The second and third were the review's
+   one question for the author -- rules, or button conveniences --
+   and the author settled both under migration step 6: a swap that
+   moves nobody is not a swap, so the same-zone case is a refusal;
+   an AI side's shot is never retracted, not as a rule of the game
+   but as a feature of how the AI plays, so `retract_shot_step`
+   refuses it and the AI's score attempt carries no Back button.
 4. **`answer` can escape as a bare exception.** *Confirmed. Open;
    with step 6.* `_argument_mismatch` flags a missing argument only
    where the adapter gives it no default, and several adapters default
@@ -256,7 +265,7 @@ remainder.
     with step 9.* A shot's `action_label` (a button's word for it,
     rewritten by the tutorial) and the coaching decline's
     `coach_name` (a Discord display name). Both are documented; both
-    are finding 6 from the other side, and belong in the same phase.
+    are finding 6 from the other side, and belong in the same step.
 13. ~~**Two frontends cannot share the save file.**~~ *Settled by
     decision 5.* `save_games` is a whole-file rewrite on every call
     and `load_games` runs once, so a second process would overwrite
@@ -272,7 +281,7 @@ remainder.
     process that loads the model pays that, and `d12ball/rulebooks.py`
     imports reportlab the same way, which is why `test_model_purity`
     fails on any machine without it.
-15. **What the driver path is not tested on.** *Open; each phase
+15. **What the driver path is not tested on.** *Open; each step
     takes its share.* The full-game run sends no hub edit (every hub
     answers `done`), no Overdrive, no decline, no `back`, never
     reaches the time-out pickup, the loose ball, the shooter's pick or
@@ -309,7 +318,7 @@ Done on the branch: the eleven dead wrappers and eighty-two more,
 `match.challenger_id is not None` rather than on the group. The clean
 fix is for the `AUTO_RESOLVE_CHALLENGER` group to carry its
 `challenger_id` (the step's own kwarg) as a small `Narration` field;
-it goes into W0. The goldens pin `--- message` boundaries and view
+it goes with step 5. The goldens pin `--- message` boundaries and view
 class names, which is the frontend's batching; that is fine while they
 drive the cog, and decision 9 is the golden a web app regresses
 against.
@@ -344,8 +353,8 @@ numbers are the migration's.
   kind.
 - **Step 7, the AI.** `AIStrategy.choose(prompt, match) -> Action`
   and a loop in `GameService.apply_action` while the prompt's side is
-  the AI's; the forks go. Its own PR, after the author has said how
-  Dinky's turn should read.
+  the AI's, stopping at a roll; the forks go. Its own PR, worded per
+  decision 8.
 - **Step 9, the voice, and the dice.** Tokens per decision 4; the
   coin winner stored as a player number (the mention-string fallback
   stays, per gotchas.md; the new write is the number); the two
@@ -363,31 +372,6 @@ numbers are the migration's.
   groups as they close, the prompt's options as controls; every
   request one `Action` through `apply_action`.
 
-## Phases
-
-The migration's steps, in the order the review re-sequenced them,
-each ending on a stop somebody can check without the web app
-existing.
-
-- **W0 -- step 5.** *Stop:* `GameService.resume` is a call to
-  `owed_step`; the three fallbacks are gone; a maneuver mid-run-back
-  is a `Refusal`; a save from either side restores on the other.
-- **W1 -- step 6, the refusals.** *Stop:* every kind's every offered
-  choice, given an illegal argument, leaves `to_dict` unchanged and
-  raises nothing.
-- **W2 -- step 6, the options.** *Stop:* `tests/test_driver_full_game.py`
-  reads no `match.` attribute to choose; the full game reaches every
-  kind.
-- **W3 -- step 7, the AI.** *Stop:* no `side_is_ai` fork in
-  `d12ball/flow/`; the goldens regenerated once with the author's
-  word on the wording.
-- **W4 -- step 9, the voice.** *Stop:* `grep "<@" d12ball/` is empty;
-  the engine imports no PIL; a game replays from its own seed.
-- **W5 -- step 8, setup.** *Stop:* `tests/test_driver_full_game.py`
-  starts from `create_game` and fabricates no id.
-- **W6 -- step 10, the web app.** *Stop:* a game played half on
-  Discord and half on the page, the same save, the same voice.
-
 ## Tests
 
 - **The `Policy` is the measure.** It reads `GameResult.prompt` and
@@ -395,26 +379,15 @@ existing.
   `service.apply_action(game_id, policy.action(result.prompt))`. A
   `Policy` that reads `result.match` to choose is a web app that
   would have to. It is principle 10 as a thing that can be run.
-- **A service-side golden**, once W4 has settled the tokens: the
+- **A service-side golden**, once step 9 has settled the tokens: the
   windows golden's press script through `GameService.apply_action`
   with the default `Batching()`, pinning the `GameResult`s and the
   final save (decision 9). The three cog goldens stay, since they pin
   the batching a coach reads.
-- **Refuse-leaves-unchanged per kind per choice**, from W1 on.
-- **Two-frontend resume**, from W0 on.
+- **Refuse-leaves-unchanged per kind per choice**, from step 6 on.
+- **Two-frontend resume**, from step 5 on.
 - **The purity probe grows one check**: `d12ball/flow/` and
   `d12ball/prompts.py` import with `PIL` refused as well as `discord`;
   and it skips, and reports, a module whose only failure is a missing
   third-party dependency, so it stops failing wherever reportlab is
   absent.
-
-## Still open
-
-One question, the author's, and it gates the second and third items
-of finding 3 in W1:
-
-1. **Are the AI-side shot retraction and the same-zone swap rules or
-   button conveniences?** Neither is in the living rules by name. The
-   review's recommendation is that both are refusals: a no-op that
-   narrates a change is the wrong voice (principle 5), and a shot the
-   model lets an AI side take back is a rule the AI never uses.
