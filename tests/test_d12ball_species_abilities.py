@@ -102,6 +102,7 @@ from d12ball.flow.arrivals import (
     check_for_smooth,
 )
 
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
@@ -2676,7 +2677,10 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         # gate has to read occupancy now, not whatever run-back leaves
         # there afterwards.
         self.match.set_ball_space(self.crossed_zone, self.crossed_index)
-        with suppressed_cog_saves():
+        # `ANNOUNCE_RUN_BACK` is the driver's since Phase 6, so the
+        # `cog.announce_run_back` stubbed in `setUp` is reached through
+        # tests/flow_stubs.py rather than by the cog dispatching it.
+        with suppressed_cog_saves(), driver_reaches_cog_stubs(self.cog):
             await self.cog.begin_run_back(
                 self.interaction, self.game, self.match,
                 turnover_occurred=True,

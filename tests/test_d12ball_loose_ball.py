@@ -32,6 +32,7 @@ from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 from d12ball.flow.arrivals import check_for_loose_ball
 
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
 
 
@@ -824,7 +825,12 @@ class OccupancyDecidesTests(unittest.IsolatedAsyncioTestCase):
         return chosen
 
     async def begin(self, cog, game, match):
-        with suppressed_cog_saves():
+        # `RESOLVE_LOOSE_BALL` is the driver's since Phase 6, so the
+        # `cog.resolve_loose_ball` these cases stub is no longer what
+        # the chain reaches -- `driver_reaches_cog_stubs` is where that
+        # fact about the seam is answered, once, for every test written
+        # against the cog method. See tests/flow_stubs.py.
+        with suppressed_cog_saves(), driver_reaches_cog_stubs(cog):
             await cog.begin_loose_ball(
                 build_interaction(), game, match, 1,
             )

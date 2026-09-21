@@ -50,6 +50,7 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_full_image_links
 
 
@@ -203,9 +204,13 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
-        await self.resolve(
-            cog, game, match, distance_moved=1, turnover_occurred=True,
-        )
+        # `END_PERIOD` is the driver's since Phase 6; the shim routes
+        # the loop back through the `cog.end_period` stub above. See
+        # tests/flow_stubs.py.
+        with driver_reaches_cog_stubs(cog):
+            await self.resolve(
+                cog, game, match, distance_moved=1, turnover_occurred=True,
+            )
 
         cog.end_period.assert_awaited_once()
         cog.send_turn_prompt.assert_not_awaited()

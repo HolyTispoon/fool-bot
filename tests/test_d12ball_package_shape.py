@@ -284,6 +284,19 @@ class FollowOnStepTests(unittest.TestCase):
         "BEGIN_OWN_GOAL_ROLL",
         "FINISH_RUN_BACK",
         "BEGIN_MANEUVER_ACTION_SELECTION",
+        # Phase 6's second increment. The first four are the steps
+        # whose lines are **a message of their own**: the loop could
+        # not run one until it could close a narration group, because
+        # carrying the lines forward was the only thing it could do
+        # with them. `BEGIN_HIGH_PASS_CONTEST` is the fifth and needed
+        # no new machinery in the end -- the frontend writes the board
+        # in front of every group, which is the ordering rank O3 made
+        # it a member for.
+        "BEGIN_HIGH_PASS_CONTEST",
+        "RESOLVE_MANEUVER",
+        "RESOLVE_LOOSE_BALL",
+        "ANNOUNCE_RUN_BACK",
+        "END_PERIOD",
     }
 
     def test_the_two_tables_cover_the_enum_between_them(self) -> None:
