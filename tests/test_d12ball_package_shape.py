@@ -245,6 +245,10 @@ class FollowOnStepTests(unittest.TestCase):
         "SEND_MANEUVER_ACTION_PROMPT",
         "RESOLVE_MANEUVER",
         "BEGIN_EFFECT_RESOLUTION",
+        # Phase 6's, and the enum growing for Phase 4's
+        # reason: the decision behind it moved and the two
+        # effect menus it dispatches to did not.
+        "CONTINUE_EFFECT",
         "BEGIN_MANEUVER_SKILL_TEST",
         # Phase 5's, and the same reading again. `END_PERIOD` and
         # `BEGIN_SUBSTITUTION_WINDOW` were Phase 4's guess at what this

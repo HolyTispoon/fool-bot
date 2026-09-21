@@ -45,10 +45,16 @@ from d12ball.components import (
     PlayerDefinition,
     PlayerRole,
     SETUP_PASS_CLOCK_COST,
+    SPECIES_TELEKINETIC,
     TeamSide,
 )
 from d12ball.engine import RulesEngine
-from d12ball.formatting import format_goal_time, format_team_side_label
+from d12ball.formatting import (
+    ball_space_phrase,
+    format_goal_time,
+    format_team_side_label,
+    get_species_ability_emoji,
+)
 from d12ball.game import D12BallGame, team_display_name
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 
@@ -1778,5 +1784,176 @@ def setup_pass_out_step(match: MatchState) -> StepResult:
                 "new_play": True,
                 "distance_moved": SETUP_PASS_CLOCK_COST,
             },
+        ),
+    )
+
+
+# -- Answering an effect's own prompts ---------------------------------
+#
+# Phase 6 of docs/model-discord-split.md. Each of these was a cog
+# method or a view body that mixed the rule with the posting; what is
+# here is the rule. `d12ball.flow.driver.apply` runs one over a prompt
+# it has checked, and the cog calls the same function.
+
+
+def take_smooth_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    player_id: str,
+) -> StepResult:
+    """
+    One Telekinetic taking the ball over, off the button they were
+    offered. There is no roll and nothing to charge, so this is the
+    whole of it: stop the ball on them, and finish the maneuver.
+
+    **A Smooth is not a turnover**, which is the one place it parts
+    company with a landed pull. Possession never changed hands, so
+    nobody runs back and the ball keeps the speed the maneuver gave it
+    -- the turn simply ends with a different player holding it.
+
+    **The arrival it pre-empted does not happen.** That is the rule the
+    pull already follows -- what the movement was going to lead to is
+    exactly what taking the ball early takes away -- and it is what
+    makes an overshot Double Team safe: the own-goal roll the shove was
+    about to ask for is never asked, because the ball is no longer
+    sitting on the handler who would have rolled it (the author,
+    2026-09-20). What it does not drop is the clock: the maneuver that
+    moved the ball still costs its space minute, which rides out in
+    `distance_moved`.
+
+    **A turnover-driven arrival is the exception**, and the only one.
+    `begin_run_back` is not a question about where the ball settles --
+    it is the consequence of a turnover that has already happened -- so
+    a Smooth cannot pre-empt it; it only changes who is standing on the
+    ball when everyone runs back. The carrier this just set is the one
+    who does not run back, exactly as a landed pull arranges it.
+
+    **`board_changed` is False on both branches**, and deliberately:
+    each of the two steps it hands to redraws as its last act (or, for
+    the run back, batches to one refresh at the end), so reporting a
+    move here would be a second write to the same five-in-five bucket
+    for one click. See docs/design/rate-limits.md.
+    """
+    player = engine.get_player_definition(player_id)
+    if player_id in match.pending_smooth:
+        match.pending_smooth.remove(player_id)
+
+    resume = match.pending_smooth_resume or {}
+    match.pending_smooth_resume = None
+    match.apply_smooth(player_id)
+
+    smooth_emoji = get_species_ability_emoji(
+        engine.species_ability_emojis, SPECIES_TELEKINETIC,
+    )
+    lead_in = (
+        f"{smooth_emoji} **Smooth** — "
+        f"{engine.format_player_label(match, player)} takes the ball "
+        f"over on {ball_space_phrase(match)}."
+    )
+
+    if resume.get("kind") == "run_back":
+        return StepResult(
+            narration=[lead_in],
+            next=FollowOn(
+                FollowOnStep.BEGIN_RUN_BACK,
+                {
+                    "distance_moved": resume.get("distance_moved", 1),
+                    "turnover_occurred": resume.get(
+                        "turnover_occurred", True,
+                    ),
+                    "new_play": resume.get("new_play", False),
+                    "speed_choice_after": resume.get(
+                        "speed_choice_after", False,
+                    ),
+                    "speed_reset": resume.get("speed_reset", True),
+                },
+            ),
+        )
+
+    return StepResult(
+        narration=[lead_in],
+        next=FollowOn(
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+            {
+                "distance_moved": resume.get("distance_moved", 1),
+                "turnover_occurred": False,
+            },
+        ),
+    )
+
+
+def speed_choice_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    target_speed: int,
+    turnover_occurred: bool = False,
+    distance_moved: int = 1,
+) -> StepResult:
+    """
+    Set the ball speed a maneuver's last human choice asks for.
+
+    A gambit's effect can reach past its own maneuver, and a speed
+    choice is the last human step of the two that do -- so a
+    continuation outstanding here is run instead of the ordinary tail.
+    See `MatchState.pending_effect_continuation`.
+    """
+    match.ball.speed = target_speed
+    line = f"Ball speed is now **{target_speed}**."
+
+    if match.pending_effect_continuation is not None:
+        return StepResult(
+            narration=[line],
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.CONTINUE_EFFECT,
+                {
+                    "distance_moved": distance_moved,
+                    "turnover_occurred": turnover_occurred,
+                },
+            ),
+        )
+
+    return StepResult(
+        narration=[line],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+            {
+                "distance_moved": distance_moved,
+                "turnover_occurred": turnover_occurred,
+            },
+        ),
+    )
+
+
+def setup_pass_push_back_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    distance: int,
+) -> StepResult:
+    """
+    **Setup Pass's cost**, spent: the coach who beat it drives the ball
+    a further 1, 2 or 3 spaces back, and it is loose where it stops.
+
+    The line is the loose ball's `lead_in` rather than a message of its
+    own, which is why it rides out as narration the next step folds in
+    -- the ball's new space and who may go after it are one event.
+    """
+    offense_side = match.ball.possession
+    actual_distance = match.move_ball_relative(offense_side, -distance)
+    space_word = "space" if actual_distance == 1 else "spaces"
+    return StepResult(
+        narration=[
+            "**Setup Pass** was beaten: the ball is driven a "
+            f"further {actual_distance} {space_word} back.",
+        ],
+        next=FollowOn(
+            FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1},
         ),
     )

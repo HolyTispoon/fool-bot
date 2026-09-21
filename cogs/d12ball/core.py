@@ -1920,6 +1920,7 @@ class CoreMixin:
                 self.send_maneuver_action_prompt,
             FollowOnStep.BEGIN_EFFECT_RESOLUTION:
                 self.begin_effect_resolution,
+            FollowOnStep.CONTINUE_EFFECT: self.continue_effect_step,
             FollowOnStep.BEGIN_MANEUVER_SKILL_TEST:
                 self.begin_maneuver_skill_test,
         }

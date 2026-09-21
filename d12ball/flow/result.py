@@ -202,6 +202,16 @@ class FollowOnStep(Enum):
     SEND_MANEUVER_ACTION_PROMPT = auto()
     RESOLVE_MANEUVER = auto()
     BEGIN_EFFECT_RESOLUTION = auto()
+    #: What a gambit's effect still owes once its last prompt has been
+    #: answered -- Skilled Pass's free Low Pass, Setup Pass's scoring
+    #: opportunity. Added by Phase 6, and the enum growing again for
+    #: Phase 4's reason: the *decision* moved (it is
+    #: `speed_choice_step` that reads whether a continuation is
+    #: outstanding, which is a rule) and the two prompts it dispatches
+    #: to are effect menus the frontend builds. See
+    #: `MatchState.pending_effect_continuation` for why the record
+    #: outlives its dispatch.
+    CONTINUE_EFFECT = auto()
     BEGIN_MANEUVER_SKILL_TEST = auto()
     #: Settling a loose ball once both sides have answered. A member
     #: rather than a call inside `begin_loose_ball`, because the

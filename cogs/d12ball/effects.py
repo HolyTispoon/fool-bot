@@ -28,6 +28,9 @@ from d12ball.flow.arrivals import (
     resolve_loose_ball,
 )
 from d12ball.flow.effects import (
+    setup_pass_push_back_step,
+    speed_choice_step,
+    take_smooth_step,
     own_goal_roll_step,
     apply_own_goal_outcome,
     deflection_step,
@@ -700,78 +703,15 @@ class ManeuverEffectsMixin:
         player_id: str,
     ) -> None:
         """
-        One Telekinetic taking the ball over, off the button they were
-        offered. There is no roll and nothing to charge, so this is the
-        whole of it: stop the ball on them, and finish the maneuver.
-
-        **A Smooth is not a turnover**, which is the one place it parts
-        company with a landed pull. Possession never changed hands, so
-        nobody runs back and the ball keeps the speed the maneuver gave
-        it -- the turn simply ends with a different player holding it.
-
-        **The arrival it pre-empted does not happen.** That is the rule
-        the pull already follows -- what the movement was going to lead
-        to is exactly what taking the ball early takes away -- and it
-        is what makes an overshot Double Team safe: the own-goal roll
-        the shove was about to ask for is never asked, because the ball
-        is no longer sitting on the handler who would have rolled it
-        (the author, 2026-09-20). What it does not drop is the clock:
-        the maneuver that moved the ball still costs its space minute,
-        which rides out in `distance_moved`.
+        The Discord half of one Telekinetic taking the ball over. The
+        step is `d12ball.flow.effects.take_smooth_step`, which says
+        why a Smooth is not a turnover, what arrival it pre-empts and
+        the one arrival it cannot.
         """
-        player = self.engine.get_player_definition(player_id)
-        if player_id in match.pending_smooth:
-            match.pending_smooth.remove(player_id)
-
-        resume = match.pending_smooth_resume
-        match.pending_smooth_resume = None
-        match.apply_smooth(player_id)
-        self.persist(game, match)
-
-        # **No refresh here.** Both branches below end in one of their
-        # own -- `finish_maneuver_resolution` redraws the board as its
-        # last act, and the run-back cascade batches to one refresh at
-        # the end -- so drawing it now would be a second write to the
-        # same five-in-five bucket for one click. See
-        # docs/design/rate-limits.md.
-        smooth_emoji = get_species_ability_emoji(
-            self.species_ability_emojis, SPECIES_TELEKINETIC,
+        result = take_smooth_step(
+            self.engine, game, match, player_id=player_id,
         )
-        lead_in = (
-            f"{smooth_emoji} **Smooth** — "
-            f"{self.player_label(match, player)} takes the ball over on "
-            f"{ball_space_phrase(match)}."
-        )
-
-        # **A turnover-driven arrival is the exception**, and the only
-        # one. `begin_run_back` is not a question about where the ball
-        # settles -- it is the consequence of a turnover that has
-        # already happened -- so a Smooth cannot pre-empt it, it only
-        # changes who is standing on the ball when everyone runs back.
-        # The carrier this just set is the one who does not run back,
-        # exactly as a landed pull arranges it.
-        if (resume or {}).get("kind") == "run_back":
-            await self.begin_run_back(
-                interaction,
-                game,
-                match,
-                distance_moved=resume.get("distance_moved", 1),
-                turnover_occurred=resume.get("turnover_occurred", True),
-                new_play=resume.get("new_play", False),
-                speed_choice_after=resume.get("speed_choice_after", False),
-                speed_reset=resume.get("speed_reset", True),
-                lead_in=lead_in,
-            )
-            return
-
-        await self.finish_maneuver_resolution(
-            interaction,
-            game,
-            match,
-            distance_moved=(resume or {}).get("distance_moved", 1),
-            turnover_occurred=False,
-            lead_in=lead_in,
-        )
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def dispatch_arrival_resume(
         self,
@@ -1212,22 +1152,12 @@ class ManeuverEffectsMixin:
         distance: int,
         lead_in: str = "",
     ) -> None:
-        offense_side = match.ball.possession
-        actual_distance = match.move_ball_relative(offense_side, -distance)
-        self.persist(game, match)
-
-        space_word = "space" if actual_distance == 1 else "spaces"
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-        await self.begin_loose_ball(
-            interaction,
-            game,
-            match,
-            1,
-            lead_in=(
-                f"{prefix}**Setup Pass** was beaten: the ball is driven a "
-                f"further {actual_distance} {space_word} back."
-            ),
+        result = setup_pass_push_back_step(
+            self.engine, game, match, distance=distance,
         )
+        if lead_in:
+            result.narration[0] = f"{lead_in}\n\n{result.narration[0]}"
+        await self.dispatch_step_result(interaction, game, match, result)
 
     # -- Steal ----------------------------------------------------------
 
@@ -1425,35 +1355,20 @@ class ManeuverEffectsMixin:
         distance_moved: int = 1,
         lead_in: str = "",
     ) -> None:
-        match.ball.speed = target_speed
-        self.persist(game, match)
-
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-        await send_new_prompt(
-            interaction, f"{prefix}Ball speed is now **{target_speed}**."
-        )
-        await self.refresh_match_image(interaction, game)
-
-        # A gambit's effect can reach past its own maneuver, and a
-        # speed choice is the last human step of the two that do -- see
-        # `MatchState.pending_effect_continuation`.
-        if match.pending_effect_continuation is not None:
-            await self.continue_effect(
-                interaction,
-                game,
-                match,
-                distance_moved=distance_moved,
-                turnover_occurred=turnover_occurred,
-            )
-            return
-
-        await self.finish_maneuver_resolution(
-            interaction,
+        result = speed_choice_step(
+            self.engine,
             game,
             match,
-            distance_moved=distance_moved,
+            target_speed=target_speed,
             turnover_occurred=turnover_occurred,
+            distance_moved=distance_moved,
         )
+        if lead_in:
+            result.narration[0] = f"{lead_in}\n\n{result.narration[0]}"
+        self.persist(game, match)
+        # Its own message: the new speed is the answer to the question
+        # this click was, and what follows it is the next event.
+        await self.post_then_dispatch(interaction, game, match, result)
 
     async def continue_effect(
         self,
@@ -1514,6 +1429,27 @@ class ManeuverEffectsMixin:
         match.pending_effect_continuation = None
         self.persist(game, match)
         await self.finish_maneuver_resolution(
+            interaction,
+            game,
+            match,
+            distance_moved=distance_moved,
+            turnover_occurred=turnover_occurred,
+        )
+
+    async def continue_effect_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        *,
+        distance_moved: int = 1,
+        turnover_occurred: bool = False,
+        lead_in: str = "",
+    ) -> None:
+        """`continue_effect` as a follow-on."""
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
+        await self.continue_effect(
             interaction,
             game,
             match,
