@@ -439,18 +439,20 @@ class PresentationMixin:
         Hand the offensive choice to whoever now has the ball, as an
         entry point: `d12ball.flow.turn.begin_turn`, which stages a
         tutorial beat and holds its lesson behind Continue, and
-        `start_turn` behind it -- the lone handler picked without
-        asking, an AI side's whole turn, or the prompt.
-
-        It loads the match itself because both of its callers, the
-        two recovery commands, hold only the game.
+        `start_turn` behind it. Both callers, the two recovery
+        commands, hold only the game.
         """
-        match = self.engine.load_match_state(game)
-        await self.run_step(
-            interaction, game, match, FollowOnStep.SEND_TURN_PROMPT,
+        await self.present(
+            interaction,
+            game,
+            self.service.run_step(game.game_id, FollowOnStep.SEND_TURN_PROMPT),
         )
 
-    async def render_match_png(self, game: D12BallGame) -> bytes:
+    async def render_match_png(
+        self,
+        game: D12BallGame,
+        snapshot: Optional[dict] = None,
+    ) -> bytes:
         """
         The board as PNG bytes. The Pillow render is pure CPU work with
         no awaits in it, so it runs in a worker thread via to_thread --
@@ -462,7 +464,13 @@ class PresentationMixin:
         in two places (the persistent message and the snapshot under
         the result) needs two Files over one render, not two renders.
         """
-        match = self.engine.load_match_state(game)
+        # `snapshot` is the position to draw where the caller has one
+        # -- the dict the service took at a stop, rebuilt here -- and
+        # the save otherwise, which is the position after the click.
+        if snapshot is not None:
+            match = MatchState.from_dict(snapshot, self.engine.basic_ruleset)
+        else:
+            match = self.engine.load_match_state(game)
         home_player = format_player_with_team_name(game, game.home_player_number)
         visiting_player = format_player_with_team_name(
             game, game.visiting_player_number,
@@ -653,6 +661,7 @@ class PresentationMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
         message: str,
+        snapshot: Optional[dict] = None,
     ) -> None:
         """
         The board at the top of a new play -- a kickoff, halftime, or
@@ -668,7 +677,7 @@ class PresentationMixin:
         rather than a second one, exactly as announce_board_update
         does.
         """
-        png = await self.render_match_png(game)
+        png = await self.render_match_png(game, snapshot)
         snapshot = await send_new_prompt(
             interaction,
             message,
@@ -683,6 +692,7 @@ class PresentationMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
         message: str,
+        snapshot: Optional[dict] = None,
     ) -> None:
         """
         A message a coach cannot read without seeing the board, with a
@@ -700,7 +710,7 @@ class PresentationMixin:
         Both show the same board, so it is rendered once and uploaded
         twice.
         """
-        png = await self.render_match_png(game)
+        png = await self.render_match_png(game, snapshot)
         snapshot = await send_new_prompt(
             interaction,
             message,

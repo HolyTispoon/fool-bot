@@ -164,7 +164,7 @@ class DeflectionStepTests(unittest.TestCase):
         """
         for member_name in (LOOSE_BALL, SETUP_PASS_PUSH_BACK):
             with self.subTest(member=member_name):
-                self.assertTrue(driver.runs(FollowOnStep[member_name]))
+                self.assertIn(FollowOnStep[member_name], driver.MODEL_STEPS)
 
     def test_the_step_does_not_save(self) -> None:
         """
@@ -309,72 +309,6 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
     Discord half, which is now four lines and an ordering.
     """
 
-    async def test_the_save_lands_between_the_step_and_the_dispatch(
-        self,
-    ) -> None:
-        """
-        Principle 9, asserted as an order *and* as content: at the
-        moment the save runs, the ball must already have been driven
-        back and the step after the deflection must already have run.
-        A persist before the step writes a match nothing was deflected
-        in, and a persist after the posting is too late for a step
-        whose next question reloads the match from the file -- which
-        the push-back prompt is, exactly.
-        """
-        for name, following in (
-            ("deflect_plain", "begin_loose_ball"),
-            ("deflect_that_overshoots_into_a_shot", "begin_shooter_choice"),
-            ("deflect_beats_a_setup_pass", "offer_setup_pass_push_back"),
-        ):
-            with self.subTest(case=name):
-                fixture = case_named(name)
-                cog = build_cog()
-                cog.games[fixture.game.game_id] = fixture.game
-                calls: list[str] = []
-                ball_when_saved: list[object] = []
-
-                def persist(game, saved_match) -> None:
-                    calls.append("persist")
-                    ball_when_saved.append(
-                        (saved_match.ball.zone, saved_match.ball.space_index)
-                    )
-
-                async def refresh(*args, **kwargs) -> None:
-                    calls.append("refresh")
-
-                cog.persist = persist
-                cog.refresh_match_image = refresh
-                member = FollowOnStep[following.upper()]
-                stack = contextlib.ExitStack()
-                with stack:
-                    for step in (
-                        LOOSE_BALL,
-                        "BEGIN_SHOOTER_CHOICE",
-                        SETUP_PASS_PUSH_BACK,
-                    ):
-                        stack.enter_context(
-                            chain_records_at(
-                                cog, FollowOnStep[step], calls,
-                            ),
-                        )
-                    await apply_deflection(cog, 
-                        SimpleNamespace(),
-                        fixture.game,
-                        fixture.match,
-                        fixture.key,
-                    )
-
-                # **One save, after the run.** `dispatch_step_result`
-                # writes whatever `driver.advance` ran -- principle 9's
-                # "the driver's caller persists" -- and the board write
-                # comes behind it for the same reason: the position it
-                # draws is the one the run finished on, which is what
-                # `BoardRefresher` was already collapsing several
-                # writes into. The next step is a recorder here, so it
-                # reports no board of its own and the dispatcher writes
-                # the one the deflection moved.
-                self.assertEqual(calls, [following, "persist", "refresh"])
-                self.assertEqual(ball_when_saved, [fixture.ball_space])
 
     @staticmethod
     def _recorder(calls: list[str], name: str):

@@ -30,7 +30,7 @@ from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, GameMode, Team
 from roster import fielded
 from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
-from cog_steps import finish_maneuver_resolution
+from cog_steps import continue_run_back, finish_maneuver_resolution
 
 
 def build_interaction() -> SimpleNamespace:
@@ -138,7 +138,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             suppressed_cog_saves(),
             suppressed_full_image_links(),
         ):
-            await cog.continue_run_back(interaction, game, match)
+            await continue_run_back(cog, interaction, game, match)
         return interaction
 
     async def test_the_ai_run_back_is_one_message_and_one_refresh(
@@ -470,7 +470,7 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
             # The give-up log moved with the cascade in Phase 4.
             mock.patch("d12ball.flow.turnovers.LOGGER") as logger,
         ):
-            await cog.continue_run_back(interaction, game, match)
+            await continue_run_back(cog, interaction, game, match)
 
         logger.error.assert_called_once()
         self.assertEqual(

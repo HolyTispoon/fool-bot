@@ -17,7 +17,7 @@ and the rest are the cog wrappers.
 
 **The window is the one prompt in the game whose message carries the
 coach's own half-field**, so `d12ball.flow.windows.begin_substitution_window` posts it
-itself rather than letting `dispatch_step_result` do it -- and that, with
+itself rather than letting the presenter do it -- and that, with
 the tutorial's Continue gate over the top of it, is why
 `FollowOnStep.BEGIN_SUBSTITUTION_WINDOW` outlived the phase that was
 expected to remove it. A step that wants to open a window **names** it.

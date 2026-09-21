@@ -24,7 +24,7 @@ off from, which is posted and **pinned** (`d12ball.flow.periods.finish_halftime`
 `d12ball.flow.periods.finish_setup_coaching`); the final board with the rematch buttons
 (`D12Ball.announce_game_over`); and the decision that a period transition
 is a run of **separate** messages rather than one paragraph, which is
-`D12Ball.post_blocks_then_dispatch`.
+`DRIVER_BLOCKS_PER_MESSAGE` in `cogs/d12ball/core.py`.
 
 ## The running clock
 

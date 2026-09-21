@@ -139,9 +139,11 @@ that commit.
 
 The architecture's migration order, mapped onto this code. Each step
 leaves the bot playable and the three goldens byte-identical unless
-the step says otherwise.
+the step says otherwise. Steps 1 to 4 landed together on the
+`architecture-simplification` branch; what they settled is in
+[docs/design/game-service.md](design/game-service.md).
 
-### 1. `GameService` and `GameResult` -- this branch
+### 1. `GameService` and `GameResult` -- done (this branch)
 
 `gamesaves/d12ball/service.py`. The service owns `games`, the engine
 and the single save. `apply_action(game_id, action)` is `driver.answer`
@@ -169,7 +171,7 @@ do at a stop (draw it, post the lines plainly, or carry them on).
 `DRIVER_STOPS`, `DRIVER_OWN_MESSAGE`, `stop_draws_the_board` and
 `post_stop`'s branches in one place.
 
-### 2. One presenter -- this branch
+### 2. One presenter -- done (this branch)
 
 `D12Ball.present(interaction, game, result)` replaces
 `dispatch_step_result`, `post_stop`, `post_then_dispatch`,
@@ -180,7 +182,7 @@ It saves nothing. `render_match_png` takes the position to draw so a
 snapshot renders from the dict the service handed back rather than
 from the save.
 
-### 3. Every view through the service -- this branch
+### 3. Every view through the service -- done (this branch)
 
 `SafeView.apply(interaction, game, action)` calls the service, reports
 a `Refusal` ephemerally, hands back the `GameResult`. A view renders
@@ -192,7 +194,7 @@ four load-bearing sites were doing by hand, made the rule. The
 shootout's three direct `driver_answer` calls go the same way.
 `Answered`, `dispatch_answer` and `lines_posted` go with them.
 
-### 4. Delete the dead cog methods -- this branch
+### 4. Delete the dead cog methods -- done (this branch)
 
 The ~95 above, the forwarders, `runs`, `can_answer`, `driver_answer`,
 `COG_METHOD_NAMES` and the cog side of `flow_stubs`. Tests that drove

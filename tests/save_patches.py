@@ -37,8 +37,6 @@ from unittest import mock
 SAVING_VIEW_MODULES = (
     "cogs.d12ball_views.setup",
     "cogs.d12ball_views.lobby",
-    "cogs.d12ball_views.turn",
-    "cogs.d12ball_views.loose_ball",
 
 )
 
@@ -57,18 +55,24 @@ def suppressed_view_saves():
 SAVING_COG_MODULES = (
     "cogs.d12ball.core",
     "cogs.d12ball.effects",
-    "cogs.d12ball.turnovers",
     "cogs.d12ball.periods",
     "cogs.d12ball.presentation",
     "cogs.d12ball.slash_commands",
 )
 
+# The service is where the one save per click lives (ARCHITECTURE.md,
+# part 2), so every cog test that suppresses saves has to reach it.
+SAVING_SERVICE_MODULES = (
+    "gamesaves.d12ball.service",
+)
+
 
 @contextlib.contextmanager
 def suppressed_cog_saves():
-    """Keep every cog mixin's `save_games` off the disk."""
+    """Keep every cog mixin's `save_games`, and the service's, off the
+    disk."""
     with contextlib.ExitStack() as stack:
-        for module in SAVING_COG_MODULES:
+        for module in (*SAVING_COG_MODULES, *SAVING_SERVICE_MODULES):
             stack.enter_context(mock.patch(f"{module}.save_games"))
         yield
 
@@ -115,6 +119,7 @@ SAVING_OTHER_MODULES = (
 SAVING_MODULES = (
     *SAVING_VIEW_MODULES,
     *SAVING_COG_MODULES,
+    *SAVING_SERVICE_MODULES,
     *SAVING_OTHER_MODULES,
 )
 

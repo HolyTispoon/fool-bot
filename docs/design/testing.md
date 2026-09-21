@@ -99,8 +99,10 @@ model" now.
   they are about; where the attribute is not a stub the real step runs,
   so installing it costs a test that does not use it nothing. **Since
   the last increment it is armed for every test cog by import**
-  (`arm_cog_stub_routing`, which wraps `D12Ball.dispatch_step_result`
-  once at the class; `save_patches` imports `flow_stubs`, so anything
+  (`arm_cog_stub_routing`, which wraps `D12Ball.dispatch_step_result`,
+  `apply_action`, `resume_game`, `begin_setup_coaching` and
+  `send_turn_prompt` once at the class -- every cog method that runs
+  the service's loop; `save_patches` imports `flow_stubs`, so anything
   that suppresses saves has it), because once every click went through
   the driver, fifty-odd cog builders that had relied on the cog awaiting
   its own attribute would each have needed the `enterContext`. The
@@ -169,3 +171,19 @@ fielded rather than who.
   roles or its ninth player -- `load_player_catalog` and
   `default_formation_deal` refuse the data outright, which is the rules
   talking and not the suite.
+
+## `tests/cog_steps.py`: the wrappers the tests drive a step through
+
+The ninety-odd two-line cog wrappers -- call one flow function, or
+name one `FollowOnStep`, and dispatch -- were deleted from the cog
+when the migration to ARCHITECTURE.md landed, because nothing in the
+bot called them once every click went through the driver. The tests
+that drove a step through one still do, through this module: the
+same functions over the cog, with `self` spelled `cog`, so
+`cog.begin_run_back(...)` became `begin_run_back(cog, ...)`. Two of
+them are the shapes every other reduces to, `run_step` and
+`dispatch`, and a new test should prefer those. The three roll
+wrappers build a `GameResult` through `cog.service.run` inside
+`driver_reaches_cog_stubs`, so a stub on the cog is still reached.
+`resume_pending_prompt` writes the test's hand-built match onto the
+record first, because `GameService.resume` reads the record.

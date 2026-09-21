@@ -43,7 +43,7 @@ from d12ball.flow import FollowOnStep
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
 from flow_stubs import chain_stops_at
 from save_patches import suppressed_cog_saves, suppressed_view_saves
-from cog_steps import apply_substitution, begin_full_time_coaching, begin_shootout, continue_shootout, end_period, finish_substitution_window
+from cog_steps import apply_substitution, begin_full_time_coaching, begin_shootout, continue_shootout, end_period, finish_substitution_window, resume_pending_prompt
 
 
 def by_role(match: MatchState, side: TeamSide) -> list[str]:
@@ -766,7 +766,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves():
-            where = await cog.resume_pending_prompt(
+            where = await resume_pending_prompt(cog, 
                 build_interaction(222), game, cog.engine.load_match_state(game),
             )
 

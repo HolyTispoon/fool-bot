@@ -17,7 +17,7 @@ own-goal roll and the Mind Pull put between their two sentences.
 import asyncio
 import discord
 
-from d12ball.flow import FollowOnStep, StepResult
+from d12ball.flow import FollowOnStep
 from d12ball.flow.effects import own_goal_roll_step
 from d12ball.components import MatchState
 from d12ball.game import D12BallGame, team_display_name
@@ -26,6 +26,7 @@ from d12ball.render import (
     render_mind_pull_die,
     render_own_goal_dice,
 )
+from gamesaves.d12ball.service import GameResult
 from cogs.d12ball_helpers import send_new_prompt
 
 
@@ -52,8 +53,7 @@ class ManeuverEffectsMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
-        roll,
-        result: StepResult,
+        result: GameResult,
     ) -> None:
         """
         The die a Mind Pull rolled, where the offer was, and then what
@@ -68,12 +68,13 @@ class ManeuverEffectsMixin:
         being queued and answering rolls nothing (`roll` is None), and
         the queue simply carries on.
 
-        The match is already written: the caller saved after the
-        roll, and the dispatcher below saves once more after the run,
-        which is the same state.
+        `match` is the position the offer was asked over, for the
+        die's colours; the service has already saved what the roll
+        settled and run what followed.
         """
+        roll = result.detail
         if roll is None:
-            await self.dispatch_step_result(interaction, game, match, result)
+            await self.present(interaction, game, result)
             return
 
         player = self.engine.get_player_definition(roll.player_id)
@@ -104,33 +105,15 @@ class ManeuverEffectsMixin:
         )
 
         if not roll.pulled:
-            await send_new_prompt(interaction, result.narration[0])
-            await self.dispatch_step_result(
-                interaction,
-                game,
-                match,
-                StepResult(
-                    narration=result.narration[1:],
-                    board_changed=result.board_changed,
-                    next=result.next,
-                ),
-            )
+            await send_new_prompt(interaction, result.answer[0])
+            await self.present(interaction, game, result)
             return
 
         # A landed pull reads like the turnover it is, and its lines
         # open the run back's own message rather than standing above
         # it -- one message and one board refresh, which is the
         # batching every resolved maneuver already gets.
-        await self.dispatch_step_result(
-            interaction,
-            game,
-            match,
-            StepResult(
-                narration=result.narration,
-                board_changed=result.board_changed,
-                next=result.next,
-            ),
-        )
+        await self.present(interaction, game, result)
 
 
     # -- Loose ball ----------------------------------------------------
@@ -186,8 +169,7 @@ class ManeuverEffectsMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
-        roll,
-        result: StepResult,
+        result: GameResult,
     ) -> None:
         """
         The own-goal roll's dice, between its two lines.
@@ -200,13 +182,14 @@ class ManeuverEffectsMixin:
         roll it was asking for has happened -- the same trade a score
         attempt makes. See `SkillTestView.roll`.
         """
+        roll = result.detail
         offense_player = self.engine.get_player_definition(
             match.active_player_id,
         )
         dice_file = await self.own_goal_roll_file(
             match, roll.rolls, roll.safe, roll.overdrive,
         )
-        breakdown, verdict = result.narration
+        breakdown, verdict = result.answer
 
         await interaction.edit_original_response(
             content=breakdown,
@@ -220,10 +203,5 @@ class ManeuverEffectsMixin:
             interaction, match, (offense_player.player_id, roll.ignite),
         )
         await send_new_prompt(interaction, verdict)
-        await self.dispatch_step_result(
-            interaction,
-            game,
-            match,
-            StepResult(board_changed=result.board_changed, next=result.next),
-        )
+        await self.present(interaction, game, result)
 

@@ -36,7 +36,7 @@ from d12ball.flow import FollowOnStep
 from flow_stubs import REAL_MODEL_STEPS
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
-from cog_steps import apply_ball_recovery, begin_loose_ball, build_loose_ball_view, resolve_deflect, resolve_loose_ball
+from cog_steps import apply_ball_recovery, begin_ball_recovery, begin_loose_ball, build_loose_ball_view, continue_run_back, resolve_deflect, resolve_loose_ball
 
 
 def loose_ball_distance(call) -> int:
@@ -482,7 +482,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(len(set(travel.values())), 1)
 
         with suppressed_cog_saves():
-            await cog.begin_ball_recovery(build_interaction(), game, match)
+            await begin_ball_recovery(cog, build_interaction(), game, match)
 
         self.assertFalse(match.pending_ball_recovery)
         recoverer = match.eligible_ball_handlers()[0]
@@ -505,7 +505,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         standing = [list(s) for s in match.board.spaces[match.ball.zone]]
 
         with suppressed_cog_saves():
-            await cog.begin_ball_recovery(build_interaction(), game, match)
+            await begin_ball_recovery(cog, build_interaction(), game, match)
 
         self.assertFalse(match.pending_ball_recovery)
         self.assertEqual(match.exhaustion, {})
@@ -546,7 +546,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "cogs.d12ball.core.send_new_prompt", mock.AsyncMock(),
         ) as send:
-            await cog.continue_run_back(build_interaction(), game, match)
+            await continue_run_back(cog, build_interaction(), game, match)
 
         self.assertIn(
             "send the nearest player either side of the ball",

@@ -27,6 +27,7 @@ import discord  # noqa: F401
 from d12ball.components import MatchState, TeamSide  # noqa: F401
 from d12ball.flow import FollowOn, FollowOnStep, StepResult  # noqa: F401
 from d12ball.game import D12BallGame  # noqa: F401
+from flow_stubs import driver_reaches_cog_stubs
 import discord  # noqa: F401
 from d12ball import (  # noqa: F401
     tutorial,
@@ -135,7 +136,7 @@ async def auto_resolve_challenger(cog, interaction: discord.Interaction, game: D
 
 
 async def announce_uncontested_maneuver(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:
-    await cog.post_then_dispatch(interaction, game, match, flow_announce_uncontested_maneuver(cog.engine, game, match))
+    await cog.dispatch_step_result(interaction, game, match, flow_announce_uncontested_maneuver(cog.engine, game, match), carry=False)
 
 
 async def begin_maneuver_action_selection(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, lead_in: str='') -> None:
@@ -170,8 +171,14 @@ async def continue_injury_tests(cog, interaction: discord.Interaction, game: D12
 
 async def run_injury_test(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, player: PlayerDefinition) -> None:
     roll, result = injury_test_step(cog.engine, game, match, player.player_id)
-    cog.persist(game, match)
-    await cog.post_injury_die(interaction, game, match, roll, result)
+    split = 0 if roll is None else 1
+    with driver_reaches_cog_stubs(cog):
+        outcome = cog.service.run(
+            game, match,
+            StepResult(narration=list(result.narration[split:]), board_changed=result.board_changed, next=result.next),
+            answer=result.narration[:split], detail=roll,
+        )
+    await cog.post_injury_die(interaction, game, match, outcome)
 
 
 def build_effect_choice_view(cog, game_id: str, match: MatchState) -> Optional[discord.ui.View]:
@@ -283,8 +290,14 @@ async def dispatch_arrival_resume(cog, interaction: discord.Interaction, game: D
 
 async def run_mind_pull(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, player_id: str) -> None:
     roll, result = attempt_mind_pull_step(cog.engine, game, match, player_id=player_id)
-    cog.persist(game, match)
-    await cog.post_mind_pull_die(interaction, game, match, roll, result)
+    split = 1 if roll is not None and not roll.pulled else 0
+    with driver_reaches_cog_stubs(cog):
+        outcome = cog.service.run(
+            game, match,
+            StepResult(narration=list(result.narration[split:]), board_changed=result.board_changed, next=result.next),
+            answer=result.narration[:split], detail=roll,
+        )
+    await cog.post_mind_pull_die(interaction, game, match, outcome)
 
 
 def build_loose_ball_view(cog, game_id: str, match: MatchState) -> Optional[discord.ui.View]:
@@ -369,7 +382,7 @@ async def apply_speed_choice(cog, interaction: discord.Interaction, game: D12Bal
     result = speed_choice_step(cog.engine, game, match, target_speed=target_speed, turnover_occurred=turnover_occurred, distance_moved=distance_moved)
     if lead_in:
         result.narration[0] = f'{lead_in}\n\n{result.narration[0]}'
-    await cog.post_then_dispatch(interaction, game, match, result)
+    await cog.dispatch_step_result(interaction, game, match, result, carry=False)
 
 
 async def continue_effect(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, distance_moved: int=1, turnover_occurred: bool=False) -> None:
@@ -382,8 +395,13 @@ async def begin_own_goal_roll(cog, interaction: discord.Interaction, game: D12Ba
 
 async def run_own_goal_roll(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:
     roll, result = own_goal_roll_step(cog.engine, game, match)
-    cog.persist(game, match)
-    await cog.post_own_goal_dice(interaction, game, match, roll, result)
+    with driver_reaches_cog_stubs(cog):
+        outcome = cog.service.run(
+            game, match,
+            StepResult(board_changed=result.board_changed, next=result.next),
+            answer=result.narration, detail=roll,
+        )
+    await cog.post_own_goal_dice(interaction, game, match, outcome)
 
 
 def apply_substitution(cog, game: D12BallGame, match: MatchState, side: TeamSide, outgoing_player_id: str, incoming_player_id: str) -> str:
@@ -420,7 +438,7 @@ async def finish_substitution_window(cog, interaction: discord.Interaction, game
 
 async def begin_time_out(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:
     result = flow_begin_time_out(cog.engine, game, match)
-    cog.persist(game, match)
+    cog.service.persist(game, match)
     await cog.drop_turn_prompt(interaction, game)
     await cog.dispatch_step_result(interaction, game, match, result)
 
@@ -459,7 +477,7 @@ def build_goal_log(cog, match: MatchState) -> str:
 
 async def begin_halftime(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:
     result = flow_begin_halftime(cog.engine, game, match)
-    await cog.post_blocks_then_dispatch(interaction, game, match, result)
+    await cog.dispatch_step_result(interaction, game, match, result, carry=False)
 
 
 async def finish_setup_coaching(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, lead_in: str='') -> None:
@@ -468,12 +486,12 @@ async def finish_setup_coaching(cog, interaction: discord.Interaction, game: D12
 
 async def begin_halftime_extra_token(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, side: TeamSide) -> None:
     result = flow_begin_halftime_extra_token(cog.engine, game, match, side)
-    await cog.post_blocks_then_dispatch(interaction, game, match, result)
+    await cog.dispatch_step_result(interaction, game, match, result, carry=False)
 
 
 async def begin_halftime_substitutions(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, side: TeamSide) -> None:
     result = flow_begin_halftime_substitutions(cog.engine, game, match, side)
-    await cog.post_blocks_then_dispatch(interaction, game, match, result)
+    await cog.dispatch_step_result(interaction, game, match, result, carry=False)
 
 
 async def finish_halftime(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, lead_in: str='') -> None:
@@ -482,17 +500,17 @@ async def finish_halftime(cog, interaction: discord.Interaction, game: D12BallGa
 
 async def begin_full_time_coaching(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:
     result = flow_begin_full_time_coaching(cog.engine, game, match)
-    await cog.post_blocks_then_dispatch(interaction, game, match, result)
+    await cog.dispatch_step_result(interaction, game, match, result, carry=False)
 
 
 async def finish_full_time_coaching(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:
     result = flow_finish_full_time_coaching(cog.engine, game, match)
-    await cog.post_blocks_then_dispatch(interaction, game, match, result)
+    await cog.dispatch_step_result(interaction, game, match, result, carry=False)
 
 
 async def begin_shootout(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:
     result = flow_begin_shootout(cog.engine, game, match)
-    await cog.post_blocks_then_dispatch(interaction, game, match, result)
+    await cog.dispatch_step_result(interaction, game, match, result, carry=False)
 
 
 async def continue_shootout(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:
@@ -549,3 +567,27 @@ def tutorial_player_side(cog, game: D12BallGame) -> TeamSide:
 
 def tutorial_dice(cog, game: D12BallGame, kind: str, count: int) -> Optional[list[int]]:
     return tutorial.scripted_dice(cog.tutorial_beat(game), kind, count)
+
+
+# -- The live routines that moved into GameService ---------------------
+
+
+async def continue_run_back(cog, interaction, game, match, lead_in=""):
+    await run_step(cog, interaction, game, match, FollowOnStep.CONTINUE_RUN_BACK, lead_in=lead_in)
+
+
+async def begin_ball_recovery(cog, interaction, game, match, lead_in=""):
+    from d12ball.flow.turnovers import begin_ball_recovery as step
+    await dispatch(cog, interaction, game, match, step(cog.engine, game, match, lead_in=lead_in))
+
+
+async def finish_time_out(cog, interaction, game, match):
+    from d12ball.flow.windows import finish_time_out as step
+    await dispatch(cog, interaction, game, match, step(cog.engine, game, match))
+
+
+async def resume_pending_prompt(cog, interaction, game, match) -> str:
+    """`GameService.resume`, over the match a test has built by hand:
+    the service reads the record, so the match is written to it first."""
+    game.match_state = match.to_dict()
+    return await cog.resume_game(interaction, game)

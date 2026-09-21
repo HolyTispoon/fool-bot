@@ -8,9 +8,8 @@ import asyncio
 import discord
 from typing import TYPE_CHECKING, Optional
 
-from d12ball.flow import StepResult
 from d12ball.flow.driver import Action
-from d12ball.prompts import PendingPrompt, PromptKind
+from d12ball.prompts import PromptKind
 from d12ball.render import render_player_portrait
 from cogs.d12ball_helpers import (
     send_new_prompt,
@@ -80,17 +79,18 @@ class SkillTestView(SafeView):
         # in this method and the one above it. What is left here is the
         # picture and where it goes. A click on a test that is no
         # longer active is the driver's to refuse, by kind.
-        answered = await self.answer(
-            interaction, game, match, Action(PromptKind.SKILL_TEST, "roll"),
+        result = await self.apply(
+            interaction, game, Action(PromptKind.SKILL_TEST, "roll"),
+            carry_from=1,
         )
-        if answered is None:
+        if result is None:
             return
-        dice, result = answered.detail, answered.result
+        dice = result.detail
         dice_file = await render_contest_dice(
             dice.contestants, filename="skill_test_dice.png",
         )
 
-        following = result.next
+        following = result.prompt
         # **A tie is the step handing back this same question**, worded
         # by what happened -- the two tokens are charged and the test
         # is rolled again, which leaves the match in exactly the state
@@ -98,24 +98,20 @@ class SkillTestView(SafeView):
         # by "is it a prompt", because the win path ends on a prompt
         # too: the injury test the contest owes.
         if (
-            isinstance(following, PendingPrompt)
+            not result.groups
+            and following is not None
             and following.kind is PromptKind.SKILL_TEST
         ):
             # A tie: the same question again, worded by what happened.
             # It keeps its text on *this* message rather than posting
             # it below the dice, because this message also carries the
-            # roll-again button.
-            #
-            # **The save is here and not in the dispatcher**, because
-            # this branch never reaches one: the tie charged both
-            # contestants a token and the next click reloads the match
-            # out of the file.
-            self.cog.persist(game, match)
+            # roll-again button. The service saved the two tokens
+            # charged before anything here was drawn.
             await interaction.edit_original_response(
                 content=following.ask,
                 attachments=[dice_file],
                 view=self.cog.view_for_prompt(
-                    self.game_id, match, following,
+                    self.game_id, result.match, following,
                 ),
             )
             # A tie is re-rolled, so the ignition dice go up here too:
@@ -144,36 +140,14 @@ class SkillTestView(SafeView):
         await self.cog.post_volatile_ignition(
             interaction, match, *dice.ignites,
         )
-        await send_new_prompt(interaction, result.narration[0])
+        await send_new_prompt(interaction, result.answer[0])
         await self.cog.refresh_match_image(interaction, game)
 
         # The effect is on the far side of the injury tests now that
-        # each of those is a click of its own, so what the step handed
-        # back is dispatched rather than awaited here -- with nobody
-        # exhausted it still resolves in the same breath as the roll.
-        # The board is already written above, so the flag is not passed
-        # on; see principle 8 in CLAUDE.md.
-        await self.cog.dispatch_step_result(
-            interaction,
-            game,
-            match,
-            StepResult(
-                narration=result.narration[1:],
-                # **Passed on, not dropped.** The view has already
-                # written the board for what the roll itself moved, but
-                # the flag belongs to the whole result -- and the day an
-                # arrival behind the injury queue moves something, this
-                # is the only thing that would say so. Handing `False`
-                # would be the call site answering a question the step
-                # answers (principle 8 in CLAUDE.md). It costs nothing:
-                # `BoardRefresher` keeps one pending pass per game, so a
-                # second want inside the window is covered by the first
-                # rather than being a second request -- see
-                # docs/design/rate-limits.md.
-                board_changed=result.board_changed,
-                next=result.next,
-            ),
-        )
+        # each of those is a click of its own; the service has already
+        # run what the roll handed back, and the rest of the answer's
+        # own lines open whatever it posted first.
+        await self.cog.present(interaction, game, result)
 
 
 class InjuryTestView(SafeView):
@@ -236,20 +210,17 @@ class InjuryTestView(SafeView):
         # built for goes with the action so the driver can refuse a
         # click on an earlier player's prompt after theirs has been
         # rolled, rather than rolling the next one with it.
-        answered = await self.answer(
+        result = await self.apply(
             interaction,
             game,
-            match,
             Action(
                 PromptKind.INJURY_TEST, "roll", {"player_id": self.player_id},
             ),
+            carry_from=lambda answered: 0 if answered.detail is None else 1,
         )
-        if answered is None:
+        if result is None:
             return
-        self.cog.persist(game, match)
-        await self.cog.post_injury_die(
-            interaction, game, match, answered.detail, answered.result,
-        )
+        await self.cog.post_injury_die(interaction, game, match, result)
 
 
 class OwnGoalRollView(SafeView):
@@ -301,19 +272,15 @@ class OwnGoalRollView(SafeView):
         # out in SkillTestView.roll.
         await interaction.response.defer()
 
-        answered = await self.answer(
-            interaction, game, match, Action(PromptKind.OWN_GOAL_ROLL, "roll"),
+        result = await self.apply(
+            interaction, game, Action(PromptKind.OWN_GOAL_ROLL, "roll"),
         )
-        if answered is None:
+        if result is None:
             return
-        # **Saved before the dice are drawn, deliberately.** A render
-        # and an upload sit between this save and the dispatcher's, and
-        # either can fail; the roll is settled, and a failed post must
-        # not let the next click roll it again.
-        self.cog.persist(game, match)
-        await self.cog.post_own_goal_dice(
-            interaction, game, match, answered.detail, answered.result,
-        )
+        # The service saved before anything here is drawn: a render and
+        # an upload can fail, the roll is settled, and a failed post
+        # must not let the next click roll it again.
+        await self.cog.post_own_goal_dice(interaction, game, match, result)
 
 
 class ScoreAttemptView(SafeView):
@@ -399,19 +366,15 @@ class ScoreAttemptView(SafeView):
         # the event, the goal or the miss and the restart behind it are
         # all the model's. What is left here is the picture, the
         # portrait, and where each goes.
-        answered = await self.answer(
-            interaction, game, match, Action(PromptKind.SCORE_ATTEMPT, "roll"),
+        result = await self.apply(
+            interaction, game, Action(PromptKind.SCORE_ATTEMPT, "roll"),
         )
-        if answered is None:
+        if result is None:
             return
-        dice, result = answered.detail, answered.result
-        # **Before anything is posted**, which is the point of it: the
-        # goal is credited and the restart written, and the portrait
-        # upload below is a render and a request that can fail. The
-        # dispatcher writes again at the end of the click; both write
-        # the same state, and this is the own-goal roll's deliberate
-        # second write for the own-goal roll's reason.
-        self.cog.persist(game, match)
+        dice = result.detail
+        # The service saved before anything here is posted: the goal is
+        # credited and the restart written, and the portrait upload
+        # below is a render and a request that can fail.
         dice_file = await render_contest_dice(
             dice.contestants, filename="score_attempt_dice.png",
         )
@@ -430,7 +393,7 @@ class ScoreAttemptView(SafeView):
         await self.cog.post_volatile_ignition(
             interaction, match, *dice.ignites,
         )
-        await send_new_prompt(interaction, result.narration[0])
+        await send_new_prompt(interaction, result.answer[0])
         if dice.scored:
             # The scorer, posted under the announcement -- its own
             # message rather than an attachment on it, which would put
@@ -453,23 +416,11 @@ class ScoreAttemptView(SafeView):
                 )
         # No board refresh here: every path out of `begin_run_back`
         # puts one up within the same click, over a position this one
-        # would draw a moment before. A new play goes to
-        # `announce_new_play_reset`, which restores both arrangements
-        # and posts the settled board through `post_new_play_board`;
-        # last possession goes to `end_period`, which refreshes in both
-        # of its own branches. So this drew a board nobody reads -- the
-        # restarted ball without the reset behind it -- and, worse, it
-        # took the game's write window. The step reports the board
-        # moved and `dispatch_step_result` skips the write in front of
-        # a new play's pinned board, which is the same answer for every
-        # caller rather than this one's comment. See "Discord's rate
-        # limits" in docs/design/rate-limits.md.
-        await self.cog.dispatch_step_result(
-            interaction,
-            game,
-            match,
-            StepResult(board_changed=result.board_changed, next=result.next),
-        )
+        # would draw a moment before -- a new play's pinned board, or
+        # the whistle's. `present` skips the plain write in front of a
+        # drawn board, which is the same answer for every caller. See
+        # "Discord's rate limits" in docs/design/rate-limits.md.
+        await self.cog.present(interaction, game, result)
 
     async def back(self, interaction: discord.Interaction) -> None:
         """
@@ -508,12 +459,11 @@ class ScoreAttemptView(SafeView):
         # are all the model's -- and so is refusing a shot that is no
         # longer there to undo. What is left here is that the answer
         # *replaces* the message it was asked on.
-        answered = await self.answer(
-            interaction, game, match, Action(PromptKind.SCORE_ATTEMPT, "back"),
+        result = await self.apply(
+            interaction, game, Action(PromptKind.SCORE_ATTEMPT, "back"),
         )
-        if answered is None:
+        if result is None:
             return
-        self.cog.persist(game, match)
 
         if (
             self.composition_message_id is not None
@@ -529,8 +479,8 @@ class ScoreAttemptView(SafeView):
         # A set-up's shot walks back to the offer that earned it, an
         # ordinary turn's to the turn prompt -- either way the same
         # prompt a restart here restores, through the same table.
-        prompt = answered.result.next
+        prompt = result.prompt
         await interaction.response.edit_message(
             content=prompt.ask,
-            view=self.cog.view_for_prompt(self.game_id, match, prompt),
+            view=self.cog.view_for_prompt(self.game_id, result.match, prompt),
         )

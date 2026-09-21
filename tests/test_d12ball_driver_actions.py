@@ -639,36 +639,6 @@ class SeamTests(unittest.TestCase):
         """
         self.assertEqual(set(driver.ANSWERS), set(PromptKind))
 
-    def test_a_kind_with_no_model_answer_raises_rather_than_refuses(
-        self,
-    ) -> None:
-        """
-        A question this module cannot answer is a fact about the seam,
-        not about the position -- so it is not a refusal, which a
-        frontend would show to a coach as though they had done
-        something wrong.
-
-        Every kind has an answer today, which is what the test above
-        says, so the missing row is staged here rather than found: the
-        guard has to outlive the day the table was first complete.
-        """
-        fixture = next(
-            case.build() for case in CASES if case.name == "skill test"
-        )
-        thinner = {
-            kind: answer
-            for kind, answer in driver.ANSWERS.items()
-            if kind is not PromptKind.SKILL_TEST
-        }
-        with mock.patch.object(driver, "ANSWERS", thinner):
-            self.assertFalse(driver.can_answer(PromptKind.SKILL_TEST))
-            with self.assertRaises(LookupError):
-                driver.apply(
-                    ENGINE,
-                    fixture.game,
-                    fixture.match,
-                    driver.Action(PromptKind.SKILL_TEST),
-                )
 
     def test_every_answer_takes_the_same_shape(self) -> None:
         """

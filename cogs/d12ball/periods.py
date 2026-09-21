@@ -10,14 +10,7 @@ from d12ball.components import (
     MatchState,
     TeamSide,
 )
-from d12ball.flow.periods import (
-    advance_full_time_stage,
-    advance_halftime_stage,
-    advance_setup_stage,
-    advance_shootout,
-    begin_setup_coaching,
-    shootout_order_text,
-)
+from d12ball.flow.periods import shootout_order_text
 from d12ball.game import D12BallGame
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
@@ -93,91 +86,11 @@ class PeriodMixin:
         game: D12BallGame,
     ) -> None:
         """
-        The Discord half of the pre-kickoff Coaching Choice --
-        `d12ball.flow.periods.begin_setup_coaching`, which decides
-        whether the window is offered at all (a tutorial kicks off on
-        the standard deal) and opens the sequence if it is.
-
-        It loads the match itself because both of its callers are
+        The first thing a game runs once setup has settled the teams
+        and the sides: `GameService.begin`, presented. Both callers are
         setup views holding only the game.
         """
-        match = self.engine.load_match_state(game)
-        result = begin_setup_coaching(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-    async def advance_setup_stage(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """Hand the next coach their pre-kickoff Coaching Choice, or
-        kick off -- `d12ball.flow.periods.advance_setup_stage`. Also
-        what `/d12ball resume` hands a stranded setup back to."""
-        result = advance_setup_stage(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-
-    async def advance_halftime_stage(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """Dispatch to whichever halftime stage comes next, or finish
-        -- `d12ball.flow.periods.advance_halftime_stage`. Also what
-        `/d12ball resume` hands a stranded halftime back to."""
-        result = advance_halftime_stage(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-
-    # -- The window before the shootout --------------------------------
-
-
-    async def advance_full_time_stage(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """Hand the next coach their one substitution, or shoot out --
-        `d12ball.flow.periods.advance_full_time_stage`. Also what
-        `/d12ball resume` hands a stranded full-time window back to."""
-        result = advance_full_time_stage(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
-
-
-    # -- The extreme shootout ------------------------------------------
-
-
-    async def advance_shootout(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """
-        Put the shootout's next step in front of whoever owes it --
-        `d12ball.flow.periods.advance_shootout`, which is still the
-        one reading of "what is this shootout waiting on?".
-
-        Everything routes through here: opening the shootout, the end
-        of a skill test, and `/d12ball resume`. Two of the four steps
-        are the bot's own, so a restart between them has no button
-        anywhere to press and the resume has to be able to ask.
-        """
-        result = advance_shootout(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
-        )
+        await self.present(interaction, game, self.service.begin(game.game_id))
 
     def shootout_order_text(
         self,

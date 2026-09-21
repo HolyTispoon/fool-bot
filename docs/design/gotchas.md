@@ -90,7 +90,7 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
   `data/d12ball_games.tmp` — the file `save_games` writes and then renames over
   the JSON — had been committed by accident and was doing exactly the same
   thing. Both are ignored now; neither belongs in a commit.
-- **Saving a match is `D12Ball.persist(game, match)`, not two lines.**
+- **Saving a match is `GameService.persist(game, match)`, not two lines** -- and from a running game it is the service's own `run` that calls it, once per click, so nothing in `cogs/` writes a match at all (see [game-service.md](game-service.md)).
   Writing the match onto its record and saving it is one step, and it
   appeared as `game.match_state = match.to_dict()` followed by
   `save_games(...)` at 111 sites. Separating the halves fails silently:

@@ -27,7 +27,7 @@ from d12ball.game import D12BallGame, GameMode, Team
 from roster import benched, fielded
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
-from cog_steps import apply_position_swap, apply_reposition, apply_substitution, finish_substitution_window
+from cog_steps import apply_position_swap, apply_reposition, apply_substitution, continue_run_back, finish_substitution_window
 
 
 def build_cog() -> D12Ball:
@@ -512,7 +512,7 @@ class ContinueRunBackKickoffFillTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with suppressed_cog_saves():
-            await cog.continue_run_back(interaction, game, match)
+            await continue_run_back(cog, interaction, game, match)
 
         self.assertFalse(match.pending_kickoff_fill)
         self.assertFalse(match.pending_run_back)

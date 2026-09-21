@@ -36,7 +36,7 @@ from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 from save_patches import suppressed_cog_saves
-from cog_steps import apply_ball_recovery, begin_time_out, coaching_window_note, finish_substitution_window
+from cog_steps import apply_ball_recovery, begin_time_out, coaching_window_note, finish_substitution_window, finish_time_out
 
 
 def build_cog() -> D12Ball:
@@ -463,7 +463,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.finish_time_out(interaction, game, match)
+            await finish_time_out(cog, interaction, game, match)
 
         # The pickup is asked for rather than the clock being charged.
         # Since Phase 5 the tail is one model step
