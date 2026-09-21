@@ -694,7 +694,7 @@ first one asked.
 ### What is still open
 
 **The third increment built `driver.apply` and every answer it
-needs**, which is what the section below used to be the brief for.
+needs**, which is what this section used to be the brief for.
 `ANSWERS` covers `PromptKind` exactly: a frontend that authorises a
 person and calls `driver.apply` can drive every question this game
 asks. The four contested rolls, the two single-die rolls, the maneuver
@@ -819,17 +819,23 @@ Naming these now so nobody widens the job mid-phase:
 
 ## How it is known to be working
 
-Two readings, both cheap:
+**The counting rule and every measurement live in
+[docs/design/model-discord-split.md](design/model-discord-split.md)**,
+under "How the split is measured", and they stay there when this
+worksheet goes -- the rule is how a regression would be noticed, and
+it outlives the plan. The figures that were quoted here were stale by
+two increments; do not re-add them, re-run them.
 
-- **`interaction` leaves the package.** Two readings, and they are not the
-  same number: 157 async methods **take** one as a parameter today, and
-  `grep -c interaction cogs/d12ball/*.py` totals **699 matching lines**. The
-  first falls as methods cross the seam and the second as the call sites
-  inside them go, so the second is the slower and more honest of the two.
-  161 was quoted here for the grep and was never a grep count -- it is the
-  signature count with the 4 sync methods added in.
-- **The test suite's discord dependency falls.** 45 of 55 test files
-  currently need `discord.py` installed just to import, because they drive
-  the cog. As the flow moves into the model, those become model tests that
-  run without it. When most of the suite is discord-free, the split is real
-  -- and the web app has a test suite waiting for it.
+The two readings the plan is judged by have not changed:
+
+- **`interaction` leaves the package**, counted twice -- how many
+  methods take one, and how many lines mention one. The second is the
+  slower and more honest, and neither moves until the *entry points*
+  cross, which they have not. **A third reading was added in Phase
+  6's third increment** and it is the one that has been moving: the
+  same AST rules over `cogs/d12ball_views/`, where the rules actually
+  were.
+- **The test suite's discord dependency falls.** As the flow moves
+  into the model, the tests that drive the cog become model tests that
+  run without discord.py. When most of the suite is discord-free the
+  split is real -- and the web app has a test suite waiting for it.
