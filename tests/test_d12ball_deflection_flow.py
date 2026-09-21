@@ -34,6 +34,7 @@ cog.
 
 from __future__ import annotations
 
+import contextlib
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -52,6 +53,8 @@ from deflection_fixtures import (
     SETUP_PASS_PUSH_BACK,
     SHOOTER_CHOICE,
 )
+from d12ball.flow import driver
+from flow_stubs import chain_records_at, chain_stops_at
 from save_patches import suppressed_cog_saves
 from test_d12ball_deflection_recording import build_cog, build_interaction
 
@@ -237,17 +240,21 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
         for member in FollowOnStep:
             with self.subTest(member=member.name):
                 cog = build_cog()
-                setattr(cog, self._method_name(member), mock.AsyncMock())
-                await cog.dispatch_step_result(
-                    build_interaction(),
-                    SimpleNamespace(game_id="g1"),
-                    SimpleNamespace(),
-                    StepResult(
-                        narration=["x"],
-                        board_changed=True,
-                        next=FollowOn(member),
-                    ),
-                )
+                # The dispatcher saves once for whatever the driver
+                # ran (principle 9), so the stand-ins have to be
+                # writable -- this test is about board writes and the
+                # save is suppressed underneath it.
+                with suppressed_cog_saves(), chain_stops_at(cog, member):
+                    await cog.dispatch_step_result(
+                        build_interaction(),
+                        SimpleNamespace(game_id="g1", match_state=None),
+                        SimpleNamespace(to_dict=dict),
+                        StepResult(
+                            narration=["x"],
+                            board_changed=True,
+                            next=FollowOn(member),
+                        ),
+                    )
                 self.assertEqual(
                     cog.refresh_match_image.await_count,
                     0 if member in FOLLOW_ONS_THAT_DRAW_THE_BOARD else 1,
@@ -262,20 +269,18 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
         for member in FollowOnStep:
             with self.subTest(member=member.name):
                 cog = build_cog()
-                setattr(cog, self._method_name(member), mock.AsyncMock())
-                await cog.dispatch_step_result(
-                    build_interaction(),
-                    SimpleNamespace(game_id="g1"),
-                    SimpleNamespace(),
-                    StepResult(next=FollowOn(member)),
-                )
+                # The dispatcher saves once for whatever the driver
+                # ran (principle 9), so the stand-ins have to be
+                # writable -- this test is about board writes and the
+                # save is suppressed underneath it.
+                with suppressed_cog_saves(), chain_stops_at(cog, member):
+                    await cog.dispatch_step_result(
+                        build_interaction(),
+                        SimpleNamespace(game_id="g1", match_state=None),
+                        SimpleNamespace(to_dict=dict),
+                        StepResult(next=FollowOn(member)),
+                    )
                 cog.refresh_match_image.assert_not_awaited()
-
-    @staticmethod
-    def _method_name(member: FollowOnStep) -> str:
-        """The cog method a member names, off the real table."""
-        cog = build_cog()
-        return D12Ball.follow_on_methods(cog)[member].__name__
 
 
 class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
@@ -318,24 +323,46 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
 
                 cog.persist = persist
                 cog.refresh_match_image = refresh
-                for step in (
-                    "begin_loose_ball",
-                    "begin_shooter_choice",
-                    "offer_setup_pass_push_back",
-                ):
-                    setattr(cog, step, self._recorder(calls, step))
+                member = FollowOnStep[following.upper()]
+                stack = contextlib.ExitStack()
+                with stack:
+                    for step in (
+                        LOOSE_BALL,
+                        "BEGIN_SHOOTER_CHOICE",
+                        SETUP_PASS_PUSH_BACK,
+                    ):
+                        stack.enter_context(
+                            chain_records_at(
+                                cog, FollowOnStep[step], calls,
+                            ),
+                        )
+                    await cog.apply_deflection(
+                        SimpleNamespace(),
+                        fixture.game,
+                        fixture.match,
+                        fixture.key,
+                    )
 
-                await cog.apply_deflection(
-                    SimpleNamespace(),
-                    fixture.game,
-                    fixture.match,
-                    fixture.key,
-                )
-
-                expected = ["persist"]
-                if fixture.refreshes:
-                    expected.append("refresh")
-                expected.append(following)
+                # **Two saves where the driver runs the next step, one
+                # where it does not.** The wrapper writes its own step
+                # (the transition rule Phases 2-5 were built on), and
+                # `dispatch_step_result` writes whatever
+                # `driver.advance` ran after it -- principle 9's "the
+                # driver's caller persists", now that the caller is
+                # the dispatcher rather than each wrapper in turn. The
+                # board write moves behind the driver's run for the
+                # same reason: the position it draws is the one the
+                # run finished on, which is what `BoardRefresher` was
+                # already collapsing several writes into.
+                if driver.runs(member):
+                    expected = [following, "persist"]
+                    if fixture.refreshes:
+                        expected.append("refresh")
+                else:
+                    expected = ["persist"]
+                    if fixture.refreshes:
+                        expected.append("refresh")
+                    expected.append(following)
                 self.assertEqual(calls, expected)
                 self.assertEqual(ball_when_saved, [fixture.ball_space])
 

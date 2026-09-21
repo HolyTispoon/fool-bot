@@ -30,7 +30,7 @@ it happened to have.
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Done (PR #249) |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Done (PR #254) |
-| **6** | The driver, and the cog becomes a frontend | The last of it | Open |
+| **6** | The driver, and the cog becomes a frontend | The last of it | Part landed (PR #255): the loop and the save. Open: the cog is still the frontend's entry points |
 
 The Status column is the record of what has landed; a phase's PR updates
 its row (and, for Phase 3, names the ranks done) in the same commit that
@@ -536,7 +536,8 @@ already called.
   `contest_on_decline`), `SEND_SHOOTER_PROMPT`, and `SEND_RUN_BACK_PROMPT`
   (which carries a picture). Closing that means `pending_prompt` growing a
   branch, which is a change to the game's recovery behaviour and belongs in
-  its own commit rather than in a refactor.
+  its own commit rather than in a refactor. *(Superseded on 2026-09-21:
+  the author folded it into Phase 6's last pull request -- see there.)*
 - **`post_then_dispatch` is a second dispatcher and Phase 6 has to keep
   both.** Which of the two a step gets is the frontend's decision; the
   driver will need the same distinction under a different name.
@@ -576,7 +577,9 @@ one, is [`windows.py`](../d12ball/flow/windows.py).
   arguments match state does not hold; the last two carry a picture.
   Closing any of them is `pending_prompt` growing a branch or
   `PendingPrompt` growing a field, which is a change to the game's
-  recovery behaviour and belongs in its own commit.
+  recovery behaviour and belongs in its own commit. *(Superseded on
+  2026-09-21: the author folded it into Phase 6's last pull request --
+  see there.)*
 - **The one window no golden pins is a halftime substitution by the AI
   side.** Dinky only swaps to get an injured player off, so no script
   can make it happen at the break. See the windows golden's docstring.
@@ -591,25 +594,108 @@ shootout sub-state.
 ## Phase 6 -- the driver
 
 The last piece, and the one that makes the web app a frontend rather than a
-port:
+port. **It did not fit in one pull request**, and the split of it is the
+first thing to read before picking it up.
 
-- `d12ball/flow/driver.py` -- receive an action, validate it, apply the
-  step, return `(narration, board_changed, PendingPrompt)`.
-- `play_ai_turn` moves in, so a web app gets Dinky for free.
-- `persist` collapses from 95 call sites to one, in the driver
-  (principle 9). The 52 bare `save_games` calls that save the *game
-  record* alone -- a message id, a status, a tutorial flag -- stay the
-  cog's, since they have no match to write.
-- The cog becomes: click -> authorize -> `driver.apply(...)` -> render.
+### What has landed
+
+`d12ball/flow/driver.py` and `driver.advance` -- **the loop**. The walk of
+a turn's follow-on chain is the model's now, and
+`D12Ball.dispatch_step_result` calls it rather than walking the chain
+itself, so there is exactly one implementation of what happens after a
+step. Five members moved with it
+(`OFFER_SCORING_ATTEMPT_CHOICE`, `BEGIN_SHOOTER_CHOICE`,
+`BEGIN_OWN_GOAL_ROLL`, `FINISH_RUN_BACK`,
+`BEGIN_MANEUVER_ACTION_SELECTION`), and `persist` collapsed the way
+principle 9 asks: 41 wrappers stopped saving, the dispatcher saves once,
+`self.persist(` in `cogs/` went **83 to 43**. That is PR #255, and it
+changed no wording and no picture -- all three goldens byte-identical.
+The reasoning is in
+[design/model-discord-split.md](design/model-discord-split.md) under
+`d12ball/flow/driver.py`, with the counting rule and the figures.
+
+### What is still open, and what it turned out to need
+
+**The remainder is one pull request, not several** -- the author,
+2026-09-21, answering that question on PR #255. So the split the phase
+took is the only one it takes: this increment, and then the rest in one
+go. Everything below is that one pull request's brief. **Both questions
+PR #255 asked are answered**, and the third bullet carries the second
+answer.
+
+- **The loop can only stop *after* a step, and three of the things left
+  need it to stop *before* one.** `BEGIN_HIGH_PASS_CONTEST` is the
+  clearest: its wrapper is the same three lines as the arrivals that
+  moved, but rank O3 made it a member of its own so the board the pass
+  moved is written *before* the contest is announced. A `stop_before` to
+  `stop_after`'s is what unblocks it and probably several others.
+- **A step whose lines are a message of their own cannot be in the
+  loop**, because the loop carries narration forward as the next step's
+  `lead_in`. `RESOLVE_MANEUVER`, `RESOLVE_LOOSE_BALL`, `ANNOUNCE_RUN_BACK`
+  (`post_then_dispatch`) and `END_PERIOD`
+  (`post_blocks_then_dispatch`) are all in that group. Moving them means
+  the driver handing back **several** narration groups rather than one,
+  each tagged with the step that said it, and the frontend deciding per
+  group which of the three dispatchers it gets -- which keeps the
+  distinction on the frontend's side of principle 8 rather than
+  collapsing it into the model.
+- **`driver.apply(action)` is not built, and the reason is worth knowing
+  before somebody tries.** The prompt asks for an action validated
+  against `pending_prompt` and for "a full scripted game played to a
+  result through the driver alone, with no cog imported". The second is
+  blocked on the first: **four prompts still cannot be
+  `PendingPrompt`s** (`SEND_SET_UP_ATTEMPT_PROMPT`,
+  `SEND_SHOOTER_PROMPT`, `SEND_RUN_BACK_PROMPT` and the coaching
+  window), so a scripted game driven through the model alone stalls at
+  the first of them with nothing to answer. Closing them is
+  `pending_prompt` growing a branch or `PendingPrompt` growing a field,
+  which Phases 4 and 5 both wrote down as **a change to the game's
+  recovery behaviour, belonging in its own commit** rather than inside a
+  refactor. **The author's answer, 2026-09-21, on PR #255: fold it in.**
+  The four are closed inside the remaining pull request, as plumbing,
+  because nothing a coach sees in a running game changes. What does
+  change is what a restart restores, and the goldens cannot see that,
+  so folding it in owes the evidence its own commit would have owed:
+  - `pending_prompt` grows the branches and `PendingPrompt` the fields
+    those four need. `tests/prompt_fixtures.py` stands a match in each
+    new kind, and a test per kind that a save-and-load hands back the
+    same prompt, arguments and all -- that is the restart, in a test.
+  - **Principle 6 still holds inside the pull request.** If the Set Up
+    Pass attempt's `distance_moved` and `contest_on_decline`, or the
+    shooter's candidates, cannot be re-derived from the match and need
+    persisting, that field is its own commit *within* the pull request,
+    with its `MATCH_SAVED_FIELDS` entry and a fallback an older save
+    reads cleanly -- "own commit" was never "own pull request". Prefer
+    re-deriving where the engine can; a picture is never persisted, the
+    frontend draws it from the match on the way to the view.
+  - The bot stop below gains a restart inside each of the four, and the
+    pull request says what a restart in each did *before* this phase,
+    so the reviewer reads the change rather than infers it.
+- **`play_ai_turn` has not moved.** Its decisions are already
+  `d12ball/ai.py`'s; what is in the cog is the sequencing and four
+  messages. It is small, and it was blocked on the same thing: the turn it
+  plays ends on `ManeuverChallengeView` or `ScoreAttemptView`, neither of
+  which was a `PendingPrompt` the driver could hand back. The decision
+  above unblocks it; it moves in the same pull request.
+- **The cog's surface has not moved and the figures say so**: 190 async
+  methods, 159 taking an `interaction`, 611 grep lines -- all three
+  unchanged, because every wrapper the loop emptied is still the entry
+  point a click arrives at. What changed is that none of them decides
+  what happens next.
 
 **Bot stop:** everything. A full game each way, the tutorial, a restart in
-ten states, and an old save. This is the phase that earns a week of the two
-of you actually playing on it before it lands.
+ten states -- **four of them the states that could not be restored
+before**: inside a Set Up Pass attempt prompt, a shooter prompt, a run
+back prompt and a coaching window -- and an old save. This is the phase that earns a week of the two
+of you actually playing on it before it lands. The increment that has
+landed changes no wording and no picture -- all three goldens are
+byte-identical -- so what it is worth playing for is the **save**: one
+write per click instead of four, and a restart after every kind of
+cascade.
 
-**CLAUDE.md:** "Why the cog is mixins" is rewritten -- much of its reasoning
-("these methods co-operate through the cog's own state and call each other
-by the hundred") stops being true once the flow is out, and the section
-should say what it is now rather than what it used to defend.
+**CLAUDE.md:** "Why the cog is mixins" now says what is still true and what
+the remaining work would make false; it is rewritten for real when the cog
+stops being where a click lands.
 
 ---
 

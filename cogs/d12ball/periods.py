@@ -144,7 +144,6 @@ class PeriodMixin:
         principle 8 in CLAUDE.md.
         """
         result = end_period(self.engine, game, match, lead_in=lead_in)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -224,7 +223,6 @@ class PeriodMixin:
         the recovery list and an AI side's extra token are two events.
         """
         result = begin_halftime(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -245,7 +243,6 @@ class PeriodMixin:
         """
         match = self.engine.load_match_state(game)
         result = begin_setup_coaching(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -260,7 +257,6 @@ class PeriodMixin:
         kick off -- `d12ball.flow.periods.advance_setup_stage`. Also
         what `/d12ball resume` hands a stranded setup back to."""
         result = advance_setup_stage(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -339,7 +335,6 @@ class PeriodMixin:
         -- `d12ball.flow.periods.advance_halftime_stage`. Also what
         `/d12ball resume` hands a stranded halftime back to."""
         result = advance_halftime_stage(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -358,7 +353,6 @@ class PeriodMixin:
         `d12ball.flow.periods.begin_halftime_extra_token`.
         """
         result = begin_halftime_extra_token(self.engine, game, match, side)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -377,7 +371,6 @@ class PeriodMixin:
         window's own prompt carries a picture.
         """
         result = begin_halftime_substitutions(self.engine, game, match, side)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -423,7 +416,6 @@ class PeriodMixin:
         `d12ball.flow.periods.begin_full_time_coaching`.
         """
         result = begin_full_time_coaching(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -438,7 +430,6 @@ class PeriodMixin:
         `d12ball.flow.periods.advance_full_time_stage`. Also what
         `/d12ball resume` hands a stranded full-time window back to."""
         result = advance_full_time_stage(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -452,7 +443,6 @@ class PeriodMixin:
         """Both coaches are done, so the shooting can start --
         `d12ball.flow.periods.finish_full_time_coaching`."""
         result = finish_full_time_coaching(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -472,7 +462,6 @@ class PeriodMixin:
         messages, so one per block.
         """
         result = begin_shootout(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -494,7 +483,6 @@ class PeriodMixin:
         anywhere to press and the resume has to be able to ask.
         """
         result = advance_shootout(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -552,7 +540,6 @@ class PeriodMixin:
         continue_shootout`.
         """
         result = continue_shootout(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )

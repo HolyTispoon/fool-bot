@@ -134,6 +134,7 @@ from roster import benched, field_players, fielded, roles
 from d12ball.flow import FollowOn, FollowOnStep
 from d12ball.flow.arrivals import check_for_loose_ball
 
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
 
 
@@ -3271,6 +3272,13 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog.offer_scoring_attempt_choice = mock.AsyncMock()
         cog.begin_loose_ball = mock.AsyncMock()
         cog.begin_shooter_choice = mock.AsyncMock()
+        # **Two of those stubs are the driver's steps now.** Phase 6
+        # moved the running of a follow-on into
+        # `d12ball.flow.driver`, which never looks at the cog, so the
+        # loop is pointed back at the stubs this builder already made
+        # -- see `tests/flow_stubs.py`. The assertions below are
+        # unchanged because of it.
+        self.enterContext(driver_reaches_cog_stubs(cog))
         return cog
 
     def build_match(self) -> MatchState:

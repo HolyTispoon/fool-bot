@@ -506,7 +506,6 @@ class TurnoverMixin:
         result = run_ai_substitution_window(
             self.engine, game, match, lead_in,
         )
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -535,7 +534,6 @@ class TurnoverMixin:
         which is the junction all five occasions come back through.
         """
         result = finish_substitution_window(self.engine, game, match)
-        self.persist(game, match)
         await self.post_blocks_then_dispatch(
             interaction, game, match, result,
         )
@@ -576,7 +574,6 @@ class TurnoverMixin:
         `/d12ball resume` hands a stranded one back to.
         """
         result = finish_time_out(self.engine, game, match)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def begin_run_back(
@@ -772,7 +769,6 @@ class TurnoverMixin:
         where the charge-up and the three ways out live.
         """
         result = finish_run_back(self.engine, game, match, lead_in=lead_in)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def continue_run_back(
@@ -888,7 +884,6 @@ class TurnoverMixin:
         out, still owes -- `d12ball.flow.turnovers.begin_ball_recovery`.
         """
         result = begin_ball_recovery(self.engine, game, match, lead_in=lead_in)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def apply_ball_recovery(

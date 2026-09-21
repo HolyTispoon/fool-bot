@@ -53,6 +53,7 @@ from d12ball.cards import (
     render_maneuver_hands,
 )
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
+from d12ball.flow import driver
 from d12ball.flow.turn import (
     announce_uncontested_maneuver,
     auto_resolve_challenger,
@@ -207,6 +208,20 @@ COACHING_PROMPT_KINDS = frozenset({
 FOLLOW_ONS_THAT_SPEAK_THE_LINES = frozenset({
     FollowOnStep.ANNOUNCE_GAME_OVER,
 })
+
+
+#: Where the frontend has a picture of the position to put up, so the
+#: driver must not run on past it.
+#:
+#: `driver.advance` stops after a step named here. It is the frontend's
+#: half of principle 8 and the mirror of `FOLLOW_ONS_THAT_DRAW_THE_BOARD`:
+#: that set says "do not write a board in front of this step", this one
+#: says "do not let the position move on behind a picture I am about to
+#: take". Empty while every step the driver runs carries its lines
+#: forward rather than showing them over a snapshot -- a step that
+#: announces the board under its own line (`begin_loose_ball`) is not in
+#: the driver's table at all yet, so it stops the loop by being absent.
+DRIVER_STOPS: frozenset = frozenset()
 
 
 def follow_on_draws_the_board(following: FollowOn) -> bool:
@@ -988,7 +1003,6 @@ class CoreMixin:
         message: the pick that follows is a prompt of its own.
         """
         result = announce_uncontested_maneuver(self.engine, game, match)
-        self.persist(game, match)
         await self.post_then_dispatch(interaction, game, match, result)
 
     async def begin_maneuver_action_selection(
@@ -1011,7 +1025,6 @@ class CoreMixin:
         result = begin_maneuver_action_selection(self.engine, game, match)
         if lead_in:
             result.narration.insert(0, lead_in)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def send_maneuver_action_prompt(
@@ -1212,7 +1225,6 @@ class CoreMixin:
         result = resolve_maneuver(self.engine, game, match)
         if lead_in:
             result.narration.insert(0, lead_in)
-        self.persist(game, match)
         await self.post_then_dispatch(interaction, game, match, result)
 
     async def begin_injury_tests(
@@ -1237,7 +1249,6 @@ class CoreMixin:
         step to.
         """
         result = begin_injury_tests(self.engine, game, match, players, resume)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def continue_injury_tests(
@@ -1254,7 +1265,6 @@ class CoreMixin:
         exit from the queue.
         """
         result = continue_injury_tests(self.engine, game, match)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def run_injury_test(
@@ -1831,17 +1841,13 @@ class CoreMixin:
         return {
             FollowOnStep.FINISH_MANEUVER_RESOLUTION:
                 self.finish_maneuver_resolution,
-            FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE:
-                self.offer_scoring_attempt_choice,
             FollowOnStep.OFFER_SPEED_CHOICE: self.offer_speed_choice,
             FollowOnStep.BEGIN_RUN_BACK: self.begin_run_back,
-            FollowOnStep.BEGIN_SHOOTER_CHOICE: self.begin_shooter_choice,
-            FollowOnStep.BEGIN_OWN_GOAL_ROLL: self.begin_own_goal_roll,
             FollowOnStep.BEGIN_LOOSE_BALL: self.begin_loose_ball,
-            FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK:
-                self.offer_setup_pass_push_back,
             FollowOnStep.BEGIN_HIGH_PASS_CONTEST:
                 self.begin_high_pass_contest,
+            FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK:
+                self.offer_setup_pass_push_back,
             FollowOnStep.END_PERIOD: self.end_period,
             FollowOnStep.FINISH_SETUP_COACHING:
                 self.finish_setup_coaching_step,
@@ -1856,12 +1862,9 @@ class CoreMixin:
             FollowOnStep.SEND_SHOOTER_PROMPT: self.send_shooter_prompt,
             FollowOnStep.SEND_RUN_BACK_PROMPT: self.send_run_back_prompt,
             FollowOnStep.CONTINUE_RUN_BACK: self.continue_run_back,
-            FollowOnStep.FINISH_RUN_BACK: self.finish_run_back,
             FollowOnStep.APPLY_BALL_RECOVERY: self.apply_ball_recovery_step,
             FollowOnStep.RESOLVE_LOOSE_BALL: self.resolve_loose_ball,
             FollowOnStep.ANNOUNCE_RUN_BACK: self.announce_run_back_step,
-            FollowOnStep.BEGIN_MANEUVER_ACTION_SELECTION:
-                self.begin_maneuver_action_selection,
             FollowOnStep.SEND_MANEUVER_ACTION_PROMPT:
                 self.send_maneuver_action_prompt,
             FollowOnStep.RESOLVE_MANEUVER: self.resolve_maneuver,
@@ -1910,6 +1913,37 @@ class CoreMixin:
         flow and the resume come to offer different questions -- see
         "d12ball/prompts.py" in docs/design/model-discord-split.md.
         """
+        # **The loop is the driver's.** This used to walk the chain
+        # itself -- look the member up in `follow_on_methods`, await
+        # the cog wrapper, which called the flow function, saved, and
+        # came back in here. `d12ball.flow.driver.advance` is that
+        # walk with the Discord taken out, so the sequencing of a turn
+        # is a rule a web app runs rather than one it would have to
+        # copy (principle 10 in CLAUDE.md). What is left below is the
+        # rendering: what becomes a message, what becomes a board
+        # write, and which of the steps the driver cannot run comes
+        # next.
+        run = driver.advance(
+            self.engine, game, match, result, stop_after=DRIVER_STOPS,
+        )
+        # **The one save, and it is here** -- principle 9. Every step
+        # of the run has mutated the match and none of them has
+        # written it: the wrappers that used to save between their own
+        # step and this call no longer do (41 of them went), and the
+        # steps the driver ran never did. So one write, after
+        # everything that moves has moved and before anything is
+        # posted, which is the ordering the whole principle is about:
+        # a prompt hands the turn to a click that reloads the match
+        # out of the save file, so the file has to be right first.
+        #
+        # It is unconditional rather than `if run.ran`, because the
+        # caller's own step has almost always changed something and
+        # the dispatcher cannot see that from here. One write per
+        # click is what it was before; what has gone is the second,
+        # third and fourth write of the same file inside one cascade.
+        self.persist(game, match)
+        result = run.result
+
         lead_in = " ".join(result.narration)
         following = result.next
 

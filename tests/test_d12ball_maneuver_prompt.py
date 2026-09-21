@@ -33,6 +33,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from roster import fielded
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_full_image_links
 
 
@@ -112,6 +113,7 @@ class ManeuverPromptLifetimeTests(unittest.IsolatedAsyncioTestCase):
         # pick changed nothing a coach could see -- it only spent a
         # request out of the bucket the board refresh needs.
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game()
         game.turn_message_id = 555
         match = self.build_match(cog)
@@ -128,6 +130,7 @@ class ManeuverPromptLifetimeTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game()
         game.turn_message_id = 555
         match = self.build_match(cog)
@@ -144,6 +147,7 @@ class ManeuverPromptLifetimeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_an_already_deleted_prompt_is_not_an_error(self) -> None:
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game()
         game.turn_message_id = 555
         match = self.build_match(cog)
@@ -178,6 +182,7 @@ class ManeuverPromptWordingTests(unittest.TestCase):
 
     def build(self):
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game()
         match = MatchState.standard(
             catalog=self.catalog,
@@ -255,6 +260,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
 
     async def resolve(self, walk_in: bool):
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.refresh_match_image = mock.AsyncMock()
         cog.begin_maneuver_action_selection = mock.AsyncMock()
         game = build_game()
@@ -313,6 +319,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         # forms differ: the Fullback's sentence is short enough that
         # the sheet carries it in both columns.
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         match = self.build_match()
         player_id = fielded(match, PlayerRole.WINGER)
         profile = cog.player_catalog.effective_profile(
@@ -328,6 +335,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_dropping_the_turn_prompt_clears_its_id(self) -> None:
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game()
         game.turn_message_id = 555
         interaction = self.build_interaction()
@@ -342,6 +350,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game()
         game.turn_message_id = 555
         interaction = self.build_interaction()
@@ -391,6 +400,7 @@ class ManeuverPickHarness:
 
     def build_ready_cog(self) -> D12Ball:
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.maneuver_hand_image_bytes = dict(self.hands)
         return cog
 

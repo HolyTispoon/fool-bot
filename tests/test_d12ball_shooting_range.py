@@ -30,6 +30,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
 
 
@@ -212,6 +213,7 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
         handler standing on it.
         """
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game()
         match = MatchState.standard(
             catalog=self.catalog,
@@ -304,6 +306,7 @@ class SetUpShotRangeTests(unittest.IsolatedAsyncioTestCase):
         receive.
         """
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game()
         match = MatchState.standard(
             catalog=self.catalog,

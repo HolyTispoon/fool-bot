@@ -6,7 +6,8 @@ CLAUDE.md's, in "The model and the Discord layer"; the plan is
 [model-discord-split.md](../model-discord-split.md) -- a worksheet, not settled
 history, read it for the phases still open. This file is for what has landed
 and is permanent regardless of how much of the rest of the plan does: the two
-guards from Phase 0, the seam Phase 1 cut, and the write side Phase 2 opened.
+guards from Phase 0, the seam Phase 1 cut, the write side Phase 2 opened, and
+the loop Phase 6 moved.
 
 ## `d12ball/prompts.py`
 
@@ -469,11 +470,113 @@ with Low Pass already, as the same step under a different `key=`.
 
 - **What is in `FollowOnStep` is asserted in
   `tests/test_d12ball_package_shape.py`**, not in any one rank's own
-  tests, along with `D12Ball.follow_on_methods` covering it exactly --
-  a member with no row raises inside a resolved maneuver, one card at
+  tests, along with the two tables covering it exactly and disjointly
+  -- a member with no row raises in the middle of a turn, one card at
   a time. It started out in Low Pass's module, where every later rank
   would have had to edit an assertion about a card it was not
-  touching.
+  touching. Since Phase 6 there are **two** tables, and which side a
+  member is on is recorded there too (`IN_THE_DRIVER`).
+
+## `d12ball/flow/driver.py`
+
+**Is the loop**, and it is the last thing about a turn that was only
+ever written in Discord's half of the bot. A step says what happens
+next; something has to keep going. Until Phase 6 that something was
+`D12Ball.dispatch_step_result`: read `StepResult.next`, look the
+`FollowOnStep` up in `D12Ball.follow_on_methods`, await the cog
+wrapper, which called the flow function, saved, and came back in. So a
+second frontend had `pending_prompt` for what a match is waiting on
+and every step for how to change it, and still had to write its own
+answer to *what happens after a Deflect* -- which is principle 10's
+failure with a different noun in it.
+
+`driver.advance(engine, game, match, result)` is that walk with the
+Discord taken out. It returns a `DriverRun`: the `StepResult` it
+stopped on, and the steps it ran to get there.
+
+- **The narration is carried, not collected.** A step takes the lines
+  said before it as its `lead_in` and folds them into its own, which
+  is how "a resolved maneuver is one message" was already written --
+  the loop simply keeps doing it, and `lead_in` is the only thing it
+  passes between steps. A step whose lines have to be **a message of
+  their own** is therefore not something the loop can run: the
+  frontend is handed the `FollowOn`, posts what it posts, and the
+  chain continues on the far side of that. That is why
+  `RESOLVE_MANEUVER` and the period's whistle are still the cog's
+  although their steps moved long ago -- see `post_then_dispatch` and
+  `post_blocks_then_dispatch`, which are the two batchings that
+  distinction is made of.
+- **`board_changed` is or-ed across the run**, and that is the whole
+  of the arithmetic the loop does about the board. The old chain wrote
+  the persistent board *between* steps; `BoardRefresher` was already
+  collapsing those, and says why in its own docstring -- "the
+  intermediate boards are worth nothing: a coach reads the board once
+  everything has finished moving". So the run's answer is "something
+  moved", the frontend writes at most one board for it, and a click
+  makes **fewer** requests than it did rather than more.
+- **`stop_after` is the frontend saying it has a picture to take.**
+  A step whose line is posted with a *snapshot* of the board under it
+  cannot have the position move on behind it, so the frontend names it
+  and the loop stops once it has run. It is the mirror of
+  `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, which says "do not write a board
+  in front of this step".
+- **`BEGIN_HIGH_PASS_CONTEST` is the one near miss**, and it is worth
+  knowing why. Its wrapper is the same three lines as the four
+  arrivals the loop took, but rank O3 made it a member of its own
+  precisely so the board the pass moved is written *before* the
+  contest is announced. The loop writes no boards and runs to the end
+  of what it can, so a step it runs has its board written after it --
+  right everywhere a cascade was being collapsed anyway, and wrong
+  here. Moving it wants the loop to stop *before* a step and be
+  re-entered once the frontend has drawn, which is a `stop_before` to
+  `stop_after`'s, and is not built.
+- **It saves nothing, and its caller saves once.** This is principle 9
+  and it is the one place the refactor makes the bot better rather
+  than only more portable. Forty-one cog wrappers used to call their
+  step, write the match, and dispatch -- so a cascade of four steps
+  wrote the same file four times, and the write sat behind whatever
+  the previous step had already posted. `dispatch_step_result` now
+  writes once, after everything that moves has moved and before
+  anything is posted, and `self.persist(` in `cogs/` went **83 to
+  43**. The bare `save_games` calls are untouched at **46**: they
+  write the game record alone -- a message id, a status, a tutorial
+  flag -- and have no match to save.
+  - **The own-goal roll is the one path that writes twice**, on
+    purpose. Its wrapper saves before building the dice image, and
+    being *earlier than the posting* is the point of that save; the
+    dispatcher's write then closes the click. Both write the same
+    state. `tests/test_d12ball_pressure_flow.py` says so rather than
+    leaving it to be rediscovered as a bug.
+- **`waiting_on` is `pending_prompt` re-exported**, so a frontend
+  imports the driver and has the whole of what it needs. It is a
+  re-export and never a second reading -- principle 3.
+
+### How the split is measured
+
+The two readings the worksheet tracks, with the rule each is counted
+by, so the next re-measure is mechanical rather than a fresh
+judgement call. **The rule outlives the plan**, because it is how a
+regression would be noticed.
+
+- A method in `cogs/d12ball/` is counted **async** by its `def`; it
+  **takes an `interaction`** when that name is in its parameter list;
+  it **touches the match** when its body holds an attribute access on
+  a name `match`; and a **direct write** is an assignment (including
+  `+=`) whose target is `match.<attr>`. All four are read off the AST,
+  so a mention in a comment or a string counts for nothing.
+- The second reading is `grep -c interaction cogs/d12ball/*.py`
+  summed, which counts *lines* rather than signatures and is the
+  slower and more honest of the two.
+- The third is how many files in `tests/` need `discord.py` installed
+  to import, which is what a web app inherits as a test suite.
+
+Measured after Phase 6's first increment, against the same commit's
+base: **190 async methods, 159 of them taking an `interaction`** (163
+with the four sync ones), **611 grep lines**, **54 methods touching
+`match.`**, **10 direct writes**, **62 of 86 test files needing
+discord.py**. Only the save counts moved: the loop moved without the
+cog's surface moving, because every wrapper it emptied is still the
+entry point a click arrives at.
 
 ## `tests/test_model_purity.py`
 
