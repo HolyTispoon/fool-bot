@@ -50,8 +50,10 @@ from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turnovers import begin_ball_recovery
 from d12ball.formatting import (
+    destination_display_name,
     format_team_side_label,
     get_exhaust_emoji,
+    get_team_emoji,
     space_label,
 )
 from d12ball.game import D12BallGame
@@ -252,6 +254,156 @@ def apply_substitution(
 
     text += f"\n{engine.substitution_allowance_label(match)}."
     return text
+
+
+def apply_position_swap(
+    engine: RulesEngine,
+    match: MatchState,
+    side: TeamSide,
+    player_id: str,
+    other_player_id: str,
+) -> str:
+    """
+    The Coaching Choice's zone assignment: trade two players' zones,
+    meeples included, and describe it.
+
+    `D12Ball.apply_position_swap` was this; it moved in Phase 6 because
+    a window's answers are the window's, and a sentence about the
+    position is the model's (principle 5 in CLAUDE.md).
+    """
+    match.exchange_field_players(side, player_id, other_player_id)
+
+    setup = match.setup_for_side(side)
+    board_size = match.board.layout.board_size
+    first = engine.get_player_definition(player_id)
+    second = engine.get_player_definition(other_player_id)
+    return (
+        f"{engine.format_player_label(match, first)} and "
+        f"{engine.format_player_label(match, second)} change "
+        "places: "
+        f"{engine.format_player_label(match, first)} to "
+        f"{destination_display_name(setup.assigned_zone(player_id).value, board_size)}"
+        f", {engine.format_player_label(match, second)} to "
+        f"{destination_display_name(setup.assigned_zone(other_player_id).value, board_size)}"
+        ". No exhaustion cost."
+    )
+
+
+def apply_reposition(
+    engine: RulesEngine,
+    match: MatchState,
+    side: TeamSide,
+    player_id: str,
+    space_index: int,
+    swap_with: Optional[str] = None,
+) -> str:
+    """
+    The Coaching Choice's space positioning: move one meeple within its
+    own zone, trading with whoever is already there when the rule says
+    so, and describe what happened.
+    """
+    setup = match.setup_for_side(side)
+    zone = setup.assigned_zone(player_id)
+    partner = match.position_meeple(
+        side, player_id, space_index, swap_with=swap_with,
+    )
+
+    player = engine.get_player_definition(player_id)
+    if partner is None:
+        return (
+            f"{engine.format_player_label(match, player)} moves "
+            f"to {space_label(zone, space_index)}. No exhaustion cost."
+        )
+    other = engine.get_player_definition(partner)
+    return (
+        f"{engine.format_player_label(match, player)} moves to "
+        f"{space_label(zone, space_index)} and "
+        f"{engine.format_player_label(match, other)} takes their "
+        "place. No exhaustion cost."
+    )
+
+
+def declare_coaching_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> StepResult:
+    """
+    Take the coaching window up. It says nothing: the hub that replaces
+    the offer is what a coach reads next.
+    """
+    match.declare_coaching()
+    return StepResult()
+
+
+def decline_coaching_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    side: TeamSide,
+    coach_name: str,
+) -> StepResult:
+    """
+    Pass on a coaching window that was offered rather than given.
+
+    `coach_name` is what to call the person who passed. **It is a
+    label the frontend supplies, not a rule** -- the same shape
+    `begin_shot_step`'s `action_label` has: this one message names the
+    human rather than the side, which nothing in the match knows, and
+    a model that guessed at it would be inventing a fact about a
+    Discord account. Everything around it is the model's, including
+    that it is a heading and that the window closes behind it.
+    """
+    setup = match.setup_for_side(side)
+    return StepResult(
+        narration=[
+            "# Coaching Choice\n"
+            f"**{get_team_emoji(engine.team_emojis, setup.team)} "
+            f"{coach_name} passed.**"
+        ],
+        next=FollowOn(FollowOnStep.FINISH_SUBSTITUTION_WINDOW),
+    )
+
+
+def finish_coaching_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    side: TeamSide,
+) -> StepResult:
+    """
+    Close a coaching window a coach has finished with, and say what
+    they did.
+
+    **The summary is read while the window still remembers it**:
+    closing it clears the record, and every note the flow put up along
+    the way was written over by the step after it, so this message is
+    the only place a coach's substitutions survive.
+
+    `RulesEngine.coaching_finish_refusal` is what says they may not
+    close it yet -- a half-made substitution -- and it is raised here
+    so it arrives as a refusal like every other.
+    """
+    refusal = engine.coaching_finish_refusal(match, side)
+    if refusal is not None:
+        raise ValueError(refusal)
+
+    setup = match.setup_for_side(side)
+    changes = coaching_summary(engine, match, side)
+    return StepResult(
+        narration=[
+            "\n".join(
+                [
+                    "# Coaching Choice",
+                    f"**{format_team_side_label(setup)} are done.**",
+                    *(changes or ["No substitutions, and no change of shape."]),
+                ]
+            )
+        ],
+        next=FollowOn(FollowOnStep.FINISH_SUBSTITUTION_WINDOW),
+    )
 
 
 def cover_kickoff_space(

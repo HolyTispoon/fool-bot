@@ -518,6 +518,18 @@ with Low Pass already, as the same step under a different `key=`.
   would have had to edit an assertion about a card it was not
   touching. Since Phase 6 there are **two** tables, and which side a
   member is on is recorded there too (`IN_THE_DRIVER`).
+  - **The enum is 30 members now, 12 in the driver and 18 in the
+    cog**, and it grew by three in Phase 6's third increment for
+    Phase 4's reason yet again: `CONTINUE_SHOOTOUT`,
+    `AUTO_RESOLVE_CHALLENGER` and `FINISH_SUBSTITUTION_WINDOW` are
+    all steps the model already owned that *needed a name* once the
+    thing reaching them became a step too. Two of the three went
+    straight into the driver's table; `AUTO_RESOLVE_CHALLENGER` is
+    the cog's, because what a frontend puts up for it is the
+    challenge image. **A growing enum is not the phase failing**: it
+    counts what a frontend still dispatches, and a member arrives
+    every time a *caller* crosses the seam ahead of the thing it
+    calls.
 
 ## `d12ball/flow/driver.py`
 
@@ -615,15 +627,202 @@ stopped on, and the steps it ran to get there.
   43**. The bare `save_games` calls are untouched at **46**: they
   write the game record alone -- a message id, a status, a tutorial
   flag -- and have no match to save.
-  - **The own-goal roll is the one path that writes twice**, on
-    purpose. Its wrapper saves before building the dice image, and
-    being *earlier than the posting* is the point of that save; the
-    dispatcher's write then closes the click. Both write the same
+  - **Three paths write twice**, on purpose, and the own-goal roll
+    was the first. Its wrapper saves before building the dice image,
+    and being *earlier than the posting* is the point of that save;
+    the dispatcher's write then closes the click. Both write the same
     state. `tests/test_d12ball_pressure_flow.py` says so rather than
-    leaving it to be rediscovered as a bug.
+    leaving it to be rediscovered as a bug. Phase 6's third increment
+    added the score attempt and the shootout test for the same
+    reason: a goal credited and a shooter retired go down before a
+    portrait render and a dice upload can fail.
 - **`waiting_on` is `pending_prompt` re-exported**, so a frontend
   imports the driver and has the whole of what it needs. It is a
   re-export and never a second reading -- principle 3.
+
+### `apply`, and the answers
+
+**`advance` runs what a step starts; `answer` is what happens when
+somebody answers.** Phase 6's third increment built the other half of
+the seam: `driver.answer(engine, game, match, action)` takes an
+`Action` naming the `PromptKind` it answers, checks it against
+`pending_prompt`, and runs the model function for that kind.
+`driver.apply` is `answer` plus `advance` -- a whole turn of the game
+in one call, which is what a web app wants.
+
+- **An action names a prompt, not a step**, and that is the whole
+  difference between it and a `FollowOn`. A step is what the bot does
+  next and the model names it; an action is what a *person* did, and
+  the only thing that makes it legal is that the match was waiting on
+  exactly that question. Checking that is a rule -- it is "whose turn
+  is it", one click later -- so it is in the model.
+- **An action carries what a person chose and nothing else.** Anything
+  the position already says is read off the `PendingPrompt`, which is
+  why every answer is handed one: the loose ball's `skill_type`, the
+  set-up's two numbers, which player the run back is asking about. A
+  frontend that had to send those back could send back different ones.
+  - **Three actions carry a `side` anyway, and all three are right.**
+    The maneuver pick, the shootout order and the shootout shooter are
+    asked of *both* sides at once -- one message with two rows, or two
+    ephemeral menus -- so which side a click is for is part of what
+    was clicked rather than something the position decides. Who may
+    click it is still `SafeView`'s.
+  - **Two carry a label rather than a rule**, and they are the two
+    strings the model could not write for itself: a shot's
+    `action_label`, which the tutorial rewrites, and the coaching
+    decline's `coach_name`, which names the human rather than the
+    side. Nothing in the match knows what to call a Discord account.
+- **`Refusal` is the model's, and `SafeView` is not.** Every reason
+  `answer` can give is a rule: the match is waiting on a different
+  question (the stale click a restart re-attaching an old prompt
+  produces), the kind offers no such answer, or the position refuses
+  what was chosen. That last one arrives as the `ValueError` the steps
+  have always raised -- `MatchState.run_back_player` and its
+  neighbours raise with the sentence already written -- and leaves as
+  a `Refusal`, so a frontend has one door rather than two. Whose
+  Discord account may press a button is not one of those reasons and
+  stays where docs/design/permissions.md puts it.
+- **`ANSWERS` covers `PromptKind` exactly**, so every question this
+  game asks has a model function behind it.
+  `test_every_prompt_kind_has_a_model_answer` asserts the equality, so
+  a new kind arriving without an answer fails there once rather than
+  in whatever corner of a game reaches it. **That is a claim about
+  coverage and not about safety** -- see below.
+
+#### What `answer` refuses, and what it does not
+
+**Worth being exact about, because the obvious reading is wrong.**
+`answer` makes two checks of its own -- the kind, and whether the
+choice is one the prompt offers -- and after that it calls the
+adapter. Everything else a refusal can say is a refusal the *model
+already made*: a `ValueError` out of `MatchState`, the engine or the
+step. Where no such refusal existed, an argument that no frontend
+would ever have offered is applied.
+
+Measured on the shared fixtures, through `apply` with no cog imported
+(the author, on PR #259):
+
+- **Some adapters do refuse before they mutate**: the ball handler,
+  the run-back space, the ball recovery, the challenger, the maneuver
+  pick, both shootout menus, "back" on a shot, the coaching swap and
+  reposition, Overdrive, and every roll that takes no argument.
+- **Some do not.** A Dribble Burst offering 1, 2 or 3 accepts 6 and
+  moves the meeple; the same holds for the two passes, Setup Pass, the
+  speed choice, the shooter pick, the loose-ball pick, the halftime
+  token and the coaching hub's `side`. `PLAYER_ACTION` is answerable
+  in the middle of a cascade, because `turn_action_refusal` reads the
+  tutorial rail and the two costs and nothing about a run back, a
+  loose ball, a time out or an effect continuation.
+- **A refusal is not always clean.** `take_scoring_opportunity` clears
+  the opportunity and points the turn at the shooter before
+  `get_player_definition` raises on an unknown id.
+- **`answer` catches `ValueError` and nothing else**, so a missing
+  keyword argument escapes as a `TypeError` and a malformed formation
+  as an `AttributeError` -- the second after `deploy_side` has already
+  moved every meeple.
+- **A run back cannot be completed through `apply` at all**, and this
+  one is a rule rather than an argument check. `run_back_player_step`
+  records nothing, so answering `RUN_BACK_PLAYER` leaves
+  `pending_prompt` saying `RUN_BACK_PLAYER`, and the `RUN_BACK_SPACE`
+  that follows is refused as a question the match has moved on from.
+  The cog does not meet it because its view carries the pick and hands
+  it straight to the space step. **That is principle 3's two-readings
+  failure inside the driver**, and closing it is a decision about
+  where a part-made run-back pick lives, not a guard.
+
+None of it is reachable today: no view calls `answer` or `apply`, and
+the cog's own guards are what a click actually meets.
+**Closing it is the first job of the increment that points the entry
+points at the driver**, because that is the click where it becomes
+live -- and the shape is already written: an adapter refuses an
+argument that is not on the list the frontend built its buttons from,
+which is the engine's candidate list either way. Until then, read
+"every question has an answer" as exactly that.
+- **`answer` and `apply` are two functions because the Discord
+  frontend renders an answer before it runs the chain.** A prompt here
+  is a message with buttons on it, and answering it *replaces* that
+  message with what the answer said -- an edit rather than a new
+  message, which is one request instead of two and therefore the
+  frontend's (principle 8). A frontend doing that has to see the
+  answer's own lines before the chain behind it runs, because the
+  chain's first step takes those lines as its lead-in. Both go through
+  `answer`, so there is still one reading of whether an action is
+  legal.
+- **`DriverRun.detail` is what an answer hands back beside its
+  lines**, where it had numbers a picture is made of. It is
+  `own_goal_roll_step`'s `(detail, StepResult)` shape generalised: an
+  answer returning a pair has its first half put here, and one with no
+  picture returns the `StepResult` alone.
+
+### `d12ball/flow/rolls.py`
+
+**The four contested rolls**, which were the largest block of rules
+still written inside a `discord.ui.View`: a maneuver's skill test, the
+contest for a loose ball (which the long High Pass comes through), a
+score attempt against the wall of defenders, and a shootout test. Each
+returns `(ContestDice, StepResult)` -- the sentences, and the same
+numbers for the picture -- because the frontend puts the image
+*between* two of the lines. `render_contest_dice` is untouched and
+still takes the tuple these functions already built, so the Pillow
+stayed in `cogs/` and only the arithmetic crossed.
+
+- **What differs between the four is a rule every time**, which is why
+  they are four functions and not one with flags. Injury withholds a
+  contestant's own skill in the loose ball and the shootout and not in
+  the other two; a tie is re-rolled at a token each in the skill test
+  and the loose ball, goes to the attacker in a score attempt, and
+  scores for nobody in a shootout; the tutorial scripts the first
+  two's dice and deliberately scripts neither of the others; only the
+  skill test and the shot write an event.
+- **A tie comes back as the prompt the position reads as**, worded by
+  what happened. Both contestants are charged and the test is rolled
+  again, which is exactly `SKILL_TEST` (or `LOOSE_BALL_SKILL_TEST`) to
+  `pending_prompt` -- so the result's `next` is that prompt with the
+  tie as its `ask`, and a frontend puts the question up again without
+  having to know that a tie is a thing. **The views read it by kind
+  and not by "is it a prompt"**, because the settled path ends on a
+  prompt too: the injury test the contest owes.
+- **Overdrive rides on all six roll prompts, as a `choice` on each.**
+  It is declared *before* a roll and spent by it, so it answers the
+  prompt without settling it and comes back on the same question --
+  which is the coaching hub's shape rather than a new one: four of the
+  hub's five choices change the position and return to it, and only
+  "done" ends the window. `OVERDRIVE_ROLLERS` is who is rolling, keyed
+  on the prompt because "which roll are we in" is the whole of what
+  decides who may take one, and it is the same six lists the views
+  build their buttons from. That puts "once per roll, not while
+  injured, not on a stale prompt" inside `ANSWERS`; who *may* press it
+  is a fact about a Discord account and stays in `SafeView`. The
+  author settled this on PR #259, against two alternatives: an action
+  of its own kind breaks "an action names the prompt it answers" and
+  needs a second door, and leaving it to the frontend makes every web
+  app re-derive which roll a Cyborg is in, which is the rule.
+- **The other two rolls went with them**, into their own modules
+  rather than this one: `injuries.injury_test_step` and
+  `arrivals.attempt_mind_pull_step`, each beside the queue it drains.
+  Both are single-die and neither is contested, and both hand back
+  `None` in place of a roll where there is nothing to roll -- an
+  already-injured player, a Telekinetic injured between being queued
+  and answering. That is how a step says "no picture here".
+- **`scripted_or_random` is in `d12ball/flow/turn.py`**, beside
+  `tutorial_beat`. `D12Ball.tutorial_dice` was two lines over
+  `tutorial.scripted_dice`; every lifted roll site needs the same
+  answer to "did the script want a number here", and a copy per module
+  is how one of them stops asking.
+- **Four paths save deliberately early, where the second increment
+  had one**, and the count that matters is that one rather than the
+  number of writes. The own-goal roll, the score attempt, the shootout
+  test and the loose-ball contest each save *before* anything is
+  posted -- a goal credited, a shooter retired, possession flipped and
+  Overdrive spent -- because a render and an upload sit between that
+  save and the dispatcher's, and a failure there would leave the
+  channel showing a result the file does not have. **Plenty of other
+  clicks also write twice** and none of them is a bug: a wrapper that
+  persists and then dispatches writes the same state twice, and the
+  auto-challenger route writes it four times. The loose-ball one was
+  *lost* in this increment's first draft and put back in review (PR
+  #259), which is the argument for the comment: an early save with no
+  sentence beside it reads like a redundancy somebody should remove.
 
 ### How the split is measured
 
@@ -643,6 +842,12 @@ regression would be noticed.
   slower and more honest of the two.
 - The third is how many files in `tests/` need `discord.py` installed
   to import, which is what a web app inherits as a test suite.
+- **A fourth was added by Phase 6's third increment**, and it is the
+  same four AST readings over **`cogs/d12ball_views/`**. The original
+  four are scoped to `cogs/d12ball/` and cannot see the views at all,
+  which was fine while the flow was the thing moving and stopped being
+  fine the moment a dozen *view bodies* lost their rules. Same rules,
+  second directory; quote both or neither.
 
 Measured after Phase 6's first increment, against the same commit's
 base: **190 async methods, 159 of them taking an `interaction`** (163
@@ -672,6 +877,30 @@ that refuses `discord`, and counting the ones that fail on it: the
 same rule `tests/test_model_purity.py` applies to `d12ball/`. Whatever
 produced 62 used another; use this one from now on, because it is the
 one that can be re-run.
+
+Measured again after Phase 6's third increment, against the same
+commit's base (`origin/main` at f899d06). In `cogs/d12ball/`: **189
+async methods, 158 of them taking an `interaction`** (162 with the
+sync ones), **607 grep lines**, **46 methods touching `match.`**, **4
+direct writes**, **37 `self.persist(`** (from 41) and **44 bare
+`save_games(`**, unmoved. In `cogs/d12ball_views/`: **61 methods
+touching `match.` (from 84)** and **0 direct writes (from 16)**.
+Test files needing `discord.py`: **67 of 88**, where the base is 67 of
+87 -- the increment's own test module is discord-free, which is the
+only way that figure moves while the cog still owns every entry point.
+
+**Read the two directories together or the increment looks like a
+regression.** `cogs/d12ball/` went *up* by one async method and one
+`interaction` parameter, because the turn's own action needed a
+follow-on wrapper (`auto_resolve_challenger_step`). What actually
+happened is in the other directory: **no view mutates a match
+attribute any more**, down from sixteen that did, and twenty-three
+fewer of them read one. That is the figure the split is about, and it
+is the second increment's own warning coming true -- "the
+`interaction` counts barely move until the *entry points* go, and they
+have not". A click still lands on a `discord.ui.View`; what it finds
+there is now a call into `d12ball/flow/` and a decision about what to
+show.
 
 ## `tests/test_model_purity.py`
 

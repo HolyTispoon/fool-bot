@@ -14,7 +14,6 @@ from d12ball.components import (
     OVERDRIVE_BONUS,
     OVERDRIVE_DRAIN_COST,
     MatchState,
-    PlayerDefinition,
 )
 from d12ball.game import (
     D12BallGame,
@@ -25,6 +24,9 @@ from d12ball.render import (
     TEAM_COLORS,
     render_skill_test_dice,
 )
+from d12ball.flow.rolls import declare_overdrive_step
+from d12ball.formatting import contestant_detail
+from d12ball.prompts import pending_prompt
 from cogs.d12ball_helpers import (
     ERROR_RECOVERY_ADVICE,
     HELPER_CONFIRMED_EXTRA,
@@ -43,39 +45,6 @@ from cogs.d12ball_helpers import (
     player_with_role,
     send_error_fallback,
 )
-
-
-def contestant_detail(
-    player: PlayerDefinition,
-    skill_word: str,
-    skill: int,
-    injured: bool = False,
-    cyborg: bool = False,
-) -> list[str]:
-    """
-    The lines naming one side of a contest on the dice image: who is
-    rolling, and what they add to it.
-
-    `injured` is only ever passed by the contests injury actually bites
-    in -- the loose ball, the long High Pass and the shootout, where an
-    injured contestant's own skill stays off the roll and nothing else
-    does. A maneuver's skill test and a score attempt are untouched by
-    it and pass nothing, which is the rule rather than an omission; see
-    "Injured players" in docs/living-rules.md.
-
-    `cyborg` only ever changes the word, to Damaged -- a Cyborg's own
-    name for Injured (see "Lithium Powered" in docs/living-rules.md).
-    Drawn text cannot carry a Discord emoji, so unlike a message this
-    has no icon to swap; the caller answers it off
-    `RulesEngine.has_species_ability` the same way it already answers
-    `injured`.
-    """
-    return [
-        player_with_role(player),
-        ("Damaged" if cyborg else "Injured") + " — no skill modifier"
-        if injured
-        else f"{skill_word} skill +{skill}",
-    ]
 
 
 async def render_contest_dice(
@@ -447,73 +416,28 @@ class SafeView(discord.ui.View):
             )
             return
 
-        # Re-checked rather than trusted: this prompt may have been
-        # sitting in the channel since before the roll it was built
-        # for, and the candidate list is what says the declaration is
-        # still available.
-        if not self.cog.engine.overdrive_candidates(
-            game, match, [player_id],
-        ):
+        # **The rule is
+        # `d12ball.flow.rolls.declare_overdrive_step`** since Phase 6:
+        # which roll this is, who is in it, whether the declaration is
+        # still available and what it costs. It is re-asked rather than
+        # trusted, because this prompt may have been sitting in the
+        # channel since before the roll it was built for.
+        try:
+            result = declare_overdrive_step(
+                self.cog.engine,
+                game,
+                match,
+                pending_prompt(self.cog.engine, game, match),
+                player_id,
+            )
+        except ValueError as refusal:
             await interaction.response.send_message(
-                "That Overdrive is no longer available.",
-                ephemeral=True,
+                str(refusal), ephemeral=True,
             )
             return
 
-        match.declare_overdrive(
-            player_id,
-            self.cog.engine.exhaustion_threshold(game, player_id),
-        )
         self.cog.persist(game, match)
-
-        player = self.cog.engine.get_player_definition(player_id)
-        await interaction.response.send_message(
-            f"⚡ **Overdrive** — {self.cog.player_label(match, player)} "
-            f"takes {OVERDRIVE_DRAIN_COST} drain for "
-            f"+{OVERDRIVE_BONUS} on this roll.",
-        )
-
-
-    def pay_skill_test_tie(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        first_player_id: str,
-        second_player_id: str,
-        offense_total: int,
-        defense_total: int,
-    ) -> str:
-        """
-        Charge both contestants the re-roll's exhaustion token, save,
-        and word the tie -- shared by the maneuver skill test and the
-        loose ball (which the long High Pass also comes through).
-
-        The token counts towards Exhausted straight away, so whoever it
-        pushes over is already flagged when the test finally resolves
-        and hands out its injury checks.
-
-        The edit that posts this stays with the caller: one of the two
-        has deferred and answers on `edit_original_response`, the other
-        has not and answers on `interaction.response.edit_message`, and
-        a flag here would hide a difference that is real.
-        """
-        exhaustion_text = "\n".join(
-            [
-                self.cog.apply_exhaustion(game, match, first_player_id, 1),
-                self.cog.apply_exhaustion(game, match, second_player_id, 1),
-            ]
-        )
-        self.cog.persist(game, match)
-
-        # Headed like the outcome it is: a tie is one of the four ways
-        # a skill test lands, and every other one is announced at `##`
-        # (see SkillTestView.roll). Left as bold body text it read as a
-        # footnote to the dice rather than the result of them.
-        return (
-            f"## **It's a tie ({offense_total}-{defense_total})!**\n"
-            f"The skill test must be rolled again.\n"
-            f"{exhaustion_text}\n\nRoll again:"
-        )
+        await interaction.response.send_message(result.narration[0])
 
 
 # How long a helper's Confirm/Cancel stays in place of the prompt's own

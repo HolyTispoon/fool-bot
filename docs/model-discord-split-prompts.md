@@ -19,11 +19,11 @@ PR #235, PR #236, PR #241)** -- and so has Phase 4 (PR #249), and so has
 Phase 5. So there are no prompts for any of them, and what is left here is
 Phase 6, the last one.
 
-**Phase 6 has landed in two increments and is not finished** (PR #255
-and the one after it). Its prompt stays until it is, and has been
-corrected twice for what each increment learned -- read the errata at
-the top of it before anything else, because several of its facts are
-now the *opposite* of what it says.
+**Phase 6 has landed in three increments and is not finished** (PR
+#255, PR #257 and the one after it). Its prompt stays until it is, and
+has been corrected three times for what each increment learned -- read
+the errata at the top of it before anything else, because most of its
+facts are now the *opposite* of what it says.
 
 ---
 
@@ -210,71 +210,76 @@ still being planned.
 This is Phase 6 of docs/model-discord-split.md, "the driver" -- the last
 phase, after which the cog is a frontend. Phases 1-5 have landed.
 
-Probe: the worksheet's Status column names a PR for Phases 0-5 and marks
-Phase 6 two-parts-landed, `d12ball/flow/driver.py` exists, and
-`driver.MODEL_STEPS` has **10** members against
-`D12Ball.follow_on_methods`'s 17 -- the two tables are disjoint and
-together they are the 27-member `FollowOn` enum, which is asserted in
-tests/test_d12ball_package_shape.py. Read that assertion; it is the list of
-what is left, and the enum dies when the cog's table is empty.
+Probe: the worksheet's Status column names a PR for Phases 0-5 and
+marks Phase 6 three-parts-landed, `d12ball/flow/driver.py` exists, and
+`driver.ANSWERS` has **29** members -- one per `PromptKind`, asserted
+in tests/test_d12ball_driver_actions.py. `driver.MODEL_STEPS` has 12
+against `D12Ball.follow_on_methods`'s 18; the two tables are disjoint
+and together they are the 30-member `FollowOn` enum, asserted in
+tests/test_d12ball_package_shape.py.
 
 **The rest of this phase is one pull request** -- the author,
-2026-09-21, on PR #255. Do not split it further.
+2026-09-21, on PR #255. Three increments have now failed to meet that
+and each said why in the worksheet; do not split it further without
+adding a fourth reason there.
 
-**Read the worksheet's Phase 6 section first: two parts of this phase
-have already landed and the section says what each did and what it
-cost.** The loop is the model's (`driver.advance`), the save has
-collapsed (83 -> 41), a run comes back as tagged `NarrationGroup`s, and
-three of the four prompts that could not be `PendingPrompt`s are
-closed. What is open is `driver.apply` and the view bodies it needs.
-The worksheet's "What is still open" is the brief; the corrections
-below are the ones the second increment learned and this prompt got
-wrong.
+**Read the worksheet's Phase 6 section first: three parts of this
+phase have already landed and the section says what each did and what
+it cost.** Most of this prompt below is now *history*. What it asks
+for has been built, and what is left is the frontend half.
 
-- **`stop_before` was not needed and is not built.**
-  `BEGIN_HIGH_PASS_CONTEST` is in the driver's table: the frontend
-  writes the board before it posts any of a run's groups, so the write
-  rank O3 made it a member for survives. What did have to move is the
-  suppression -- `follow_on_draws_the_board` reads `is_high_pass` now.
-  Do not add a `stop_before` unless a step you are moving actually
-  needs one.
-- **The narration-group half is done.** `driver.advance` takes
-  `own_message` and `speaks_lines` and hands back `DriverRun.groups`;
-  `RESOLVE_MANEUVER`, `RESOLVE_LOOSE_BALL`, `ANNOUNCE_RUN_BACK` and
-  `END_PERIOD` are in the table. The three dispatchers survive, keyed
-  per group on the step that said it, which is what the prompt asked
-  for.
-- **Three of the four prompts are closed**, and the fourth is a gate
-  rather than a picture. `SET_UP_ATTEMPT` and `SHOOTER_CHOICE` are
-  `PromptKind`s over one new persisted field
-  (`pending_scoring_opportunity`); `SEND_RUN_BACK_PROMPT` needed no
-  field at all, because the question was always `pending_prompt`'s and
-  only the field strip kept it a member. **`BEGIN_SUBSTITUTION_WINDOW`
-  is still a member** and the tutorial's Continue gate is why: it has
-  to run *before* `open_substitution_window`, which is the one place a
-  `stop_before` might genuinely earn itself.
-- **`driver.apply` is blocked on the answers, not the prompts.** Every
-  `PromptKind` needs a model function to run, and the ones still inside
-  a view body are the four contested rolls, the maneuver picks and the
-  challenger, the seven coaching sub-menus and the two shootout menus.
-  `own_goal_roll_step` is the pattern for a roll: it returns
-  `(OwnGoalRoll, StepResult)` -- the numbers for the picture beside the
-  sentence about them -- because the frontend puts the image *between*
-  two of its lines.
-- **Overdrive is a question for the author.** `SafeView.declare_overdrive`
-  is a button on six roll prompts and answers none of them, so "an
-  action validated against `pending_prompt`" has no answer for it. Ask
-  before inventing one.
-- **`play_ai_turn` wants a frontend that renders a prompt with its
-  picture**, keyed on the kind. `D12Ball.post_run_back_prompt` is the
-  first instance of that shape; generalising it is also what would take
-  `SEND_TURN_PROMPT`, `SEND_MANEUVER_ACTION_PROMPT`, `START_SET_UP_SHOT`
-  and the coaching window off the cog's table.
+- **`driver.apply` is built, and so is every answer it needs.**
+  `ANSWERS` covers `PromptKind` exactly -- the four contested rolls,
+  the injury test, the Mind Pull, the maneuver picks, the challenger,
+  the turn's own action, the two shootout menus and the coaching
+  window all moved. **There is no "twelve hundred lines of rules in a
+  view body" left**; no view mutates a match attribute at all.
+- **`answer` and `apply` are two functions**, and the prompt did not
+  anticipate that. A frontend that renders an answer before running
+  the chain -- which is every view in this bot, because answering a
+  prompt *edits the message it was asked on* -- needs the answer's own
+  lines before the chain takes them as its lead-in. `apply` is
+  `answer` plus `advance` and is the web app's door.
+- **The full scripted game through the driver alone is blocked on the
+  *steps*, not the answers**, which is the opposite of what this
+  prompt says. `advance` stops at 18 of the enum's 30 members, and
+  every one of them is a picture, a pin or a gate the worksheet
+  already says will still be the cog's at the end. A game driven with
+  no cog imported needs a **headless frontend** to run those
+  eighteen's model halves and draw nothing. Whether that belongs in
+  `tests/` or in a small `d12ball/frontends/null.py` the web app could
+  start from is the author's call, and it is the thing to ask before
+  writing the test.
+- **The cog's entry points still do not call the driver.** A click
+  lands on a view, which calls the flow step directly. That means
+  every stale-click guard in `cogs/` is still a second reading of what
+  `pending_prompt` says -- principle 3's failure mode in the one place
+  nobody had looked. Pointing them at `driver.answer` is mechanical
+  per view and is the largest remaining piece.
+- **Overdrive is still the author's question**, and the third
+  increment did not invent an answer either. The worksheet now sets
+  out the three possible ones; ask before picking.
+- **`play_ai_turn` has still not moved**, and two of its five exits
+  are steps that now exist (`begin_shot_step`, `begin_maneuver_step`),
+  so it is smaller than it was. It still ends on a picture.
+- **`FollowOnStep` grew again, 27 -> 30**, and a fourth growth is
+  likely rather than a warning sign: a member arrives every time a
+  *caller* crosses the seam ahead of the thing it calls.
+  `CONTINUE_SHOOTOUT`, `AUTO_RESOLVE_CHALLENGER` and
+  `FINISH_SUBSTITUTION_WINDOW` are the three.
+- **The figures moved in `cogs/d12ball_views/`, not `cogs/d12ball/`**,
+  and the counting rule in docs/design/model-discord-split.md now
+  covers both directories for that reason. Quote both or neither: the
+  `cogs/d12ball/` numbers went *up* by one in the third increment and
+  the honest reading is in the other column.
 - Every new prompt kind still gets a fixture in
-  tests/prompt_fixtures.py, and `test_a_prompt_survives_a_save_and_a_load`
-  in tests/test_d12ball_prompts.py already runs the save-and-load check
-  over every case -- it is the restart written as a test, and a new
-  kind is covered by adding the fixture alone.
+  tests/prompt_fixtures.py; **a new kind now also needs a row in
+  `LEGAL_ACTIONS`** in tests/test_d12ball_driver_actions.py, which is
+  asserted to cover `ANSWERS` exactly.
+- **`tests/flow_stubs.py` gained `injury_queue_stops_the_chain`.** A
+  contest's hand-off to the injury queue is the model's now, so an
+  `AsyncMock` on `cog.begin_injury_tests` is no longer on the path.
+  A phase that moves a hand-off edits that module, not each test.
 
 Read docs/design/cog-structure.md, docs/design/recovery.md,
 docs/design/rate-limits.md and docs/design/permissions.md, and the "The

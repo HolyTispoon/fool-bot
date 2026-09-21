@@ -315,3 +315,33 @@ def driver_reaches_cog_stubs(cog: Any) -> Iterator[None]:
         patched[member] = _as_a_step(cog, member, attribute)
     with mock.patch.object(driver, "MODEL_STEPS", patched):
         yield
+
+
+@contextlib.contextmanager
+def injury_queue_stops_the_chain(cog: Any) -> Iterator[Any]:
+    """
+    Stop a contest where it hands on to the injury tests it owes.
+
+    A roll that settles a contest ends by queueing whatever injury
+    tests it owes, and dozens of tests stop there -- "everything past
+    the roll is mocked" -- by putting an `AsyncMock` on
+    `cog.begin_injury_tests`. **Phase 6 moved that hand-off across the
+    seam**: `d12ball.flow.rolls` calls
+    `d12ball.flow.injuries.begin_injury_tests` itself now, so the cog
+    method is no longer on the path and a stub on it is never reached.
+
+    Which side runs it is a fact about the seam and not about the
+    test, so it is answered here, once, exactly as `chain_stops_at`
+    answers it for a `FollowOnStep`. The recorder it yields is the
+    model-side stub; it is called `(engine, game, match, players,
+    resume)` and hands back a `StepResult` that neither says nor names
+    anything, which is the "stop here" the `AsyncMock` gave for free.
+    """
+    recorder = mock.Mock(return_value=StepResult())
+    cog.begin_injury_tests = mock.AsyncMock()
+    with mock.patch(
+        "d12ball.flow.injuries.begin_injury_tests", recorder,
+    ), mock.patch(
+        "d12ball.flow.rolls.injuries.begin_injury_tests", recorder,
+    ):
+        yield recorder

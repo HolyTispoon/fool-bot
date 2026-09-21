@@ -44,6 +44,7 @@ from d12ball.formatting import (
     ball_space_phrase,
     challenger_prompt_ask,
     contest_noun,
+    contestant_detail,
     destination_display_name,
     format_ai_name,
     format_goal_scorer,

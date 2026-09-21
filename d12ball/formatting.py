@@ -25,6 +25,7 @@ from d12ball.components import (
     GoalRecord,
     MatchState,
     PlayerCatalog,
+    PlayerDefinition,
     PlayerRole,
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
@@ -667,3 +668,36 @@ def build_full_time_summary(
         f"# {team_display_name(winning_setup.team)} wins!\n"
         f"Congratulations, {winner}!"
     )
+
+
+def contestant_detail(
+    player: PlayerDefinition,
+    skill_word: str,
+    skill: int,
+    injured: bool = False,
+    cyborg: bool = False,
+) -> list[str]:
+    """
+    The lines naming one side of a contest on the dice image: who is
+    rolling, and what they add to it.
+
+    `injured` is only ever passed by the contests injury actually bites
+    in -- the loose ball, the long High Pass and the shootout, where an
+    injured contestant's own skill stays off the roll and nothing else
+    does. A maneuver's skill test and a score attempt are untouched by
+    it and pass nothing, which is the rule rather than an omission; see
+    "Injured players" in docs/living-rules.md.
+
+    `cyborg` only ever changes the word, to Damaged -- a Cyborg's own
+    name for Injured (see "Lithium Powered" in docs/living-rules.md).
+    Drawn text cannot carry a Discord emoji, so unlike a message this
+    has no icon to swap; the caller answers it off
+    `RulesEngine.has_species_ability` the same way it already answers
+    `injured`.
+    """
+    return [
+        player_with_role(player),
+        ("Damaged" if cyborg else "Injured") + " — no skill modifier"
+        if injured
+        else f"{skill_word} skill +{skill}",
+    ]

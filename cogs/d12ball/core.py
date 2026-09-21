@@ -10,7 +10,6 @@ the skill test, the injury queue, and `pending_turn_view`.
 import asyncio
 import discord
 import io
-import random
 import time
 from typing import Callable, Optional, Sequence
 
@@ -23,18 +22,15 @@ from d12ball.components import (
     DECISION_INJURY_FORFEIT,
     DECISION_SKILL_TEST,
     DECISION_UNCONTESTED,
-    EVENT_INJURY_TEST,
     CoachingOccasion,
     EVENT_MANEUVER,
     EVENT_SKILL_TEST,
-    EVENT_TURN_ACTION,
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
     MANEUVER_TIER_WORDS,
     MatchState,
     PlayerDefinition,
     PlayerRole,
-    SPECIES_CYBORG,
     TeamSetup,
     TeamSide,
     load_basic_ruleset,
@@ -63,9 +59,11 @@ from d12ball.flow.turn import (
     resolve_maneuver,
 )
 from d12ball.flow.arrivals import take_scoring_opportunity
+from d12ball.flow.turn import record_turn_action
 from d12ball.flow.injuries import (
     begin_injury_tests,
     continue_injury_tests,
+    injury_test_step,
 )
 from d12ball.prompts import (
     PendingPrompt,
@@ -243,6 +241,8 @@ DRIVER_OWN_MESSAGE = frozenset({
     FollowOnStep.RESOLVE_LOOSE_BALL,
     FollowOnStep.ANNOUNCE_RUN_BACK,
     FollowOnStep.END_PERIOD,
+    FollowOnStep.CONTINUE_SHOOTOUT,
+    FollowOnStep.FINISH_SUBSTITUTION_WINDOW,
 })
 
 
@@ -254,7 +254,20 @@ DRIVER_OWN_MESSAGE = frozenset({
 #: other group in the set above is one message. Keyed on the step for
 #: `FOLLOW_ONS_THAT_DRAW_THE_BOARD`'s reason: the answer is the step's,
 #: not the card's that reached it.
-DRIVER_BLOCKS_PER_MESSAGE = frozenset({FollowOnStep.END_PERIOD})
+DRIVER_BLOCKS_PER_MESSAGE = frozenset({
+    FollowOnStep.END_PERIOD,
+    # The shootout's own transitions, for the whistle's reason:
+    # the settled score, the summary and the goal log are separate
+    # events, and `D12Ball.continue_shootout` posted them a message
+    # apiece through `post_blocks_then_dispatch` before the test
+    # that reaches it became a step.
+    FollowOnStep.CONTINUE_SHOOTOUT,
+    # The junction the five coaching occasions come back through,
+    # for the same reason: a window closing can hand out the next
+    # side's, or open a kickoff, or let a run back go ahead, and
+    # those are separate events.
+    FollowOnStep.FINISH_SUBSTITUTION_WINDOW,
+})
 
 
 def follow_on_draws_the_board(following: FollowOn) -> bool:
@@ -779,31 +792,15 @@ class CoreMixin:
         by_ai: bool = False,
     ) -> None:
         """
-        Open a turn in the event log -- see MatchEvent.
+        Open a turn in the event log.
 
-        **Every event in a turn belongs to the `turn_action` that
-        opened it**, and belongs to it by being logged after it, so
-        this has to be called before anything the turn does.
-
-        `action` is the button's own value -- `maneuver` or `shoot`
-        -- so the share of each in the statistics is the share of the
-        choice a coach actually made, not of what it led to. **A time
-        out is not one of them**: it is a pause inside a possession
-        rather than a turn, and it records its own event kind instead
-        -- see EVENT_TIME_OUT and `begin_time_out`.
-
-        The three callers are `play_ai_turn` and the two turn
-        actions, each at the point the action is **taken**: the shot
-        and the maneuver at their button, past its own stale-view
-        guard.
+        A forwarding method over `d12ball.flow.turn.record_turn_action`
+        since Phase 6, which is where it belongs: a step that takes a
+        turn has to open one, and a step cannot call a cog method. The
+        reasoning is in the model's copy; this is kept so none of the
+        call sites moved -- the shape `team_emojis` took in Phase 1a.
         """
-        match.record_event(
-            EVENT_TURN_ACTION,
-            side=match.ball.possession,
-            player_id=match.active_player_id,
-            action=action,
-            by_ai=by_ai,
-        )
+        record_turn_action(match, action, by_ai)
 
     @property
     def condition_emojis(self) -> dict[str, str]:
@@ -1038,6 +1035,22 @@ class CoreMixin:
             await self.refresh_match_image(interaction, game)
         await self.dispatch_step_result(
             interaction, game, match, StepResult(next=result.next),
+        )
+
+    async def auto_resolve_challenger_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        *,
+        challenger_id: str,
+        lead_in: str = "",
+    ) -> None:
+        """`auto_resolve_challenger` as a follow-on."""
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
+        await self.auto_resolve_challenger(
+            interaction, game, match, challenger_id,
         )
 
     async def announce_uncontested_maneuver(
@@ -1325,114 +1338,39 @@ class CoreMixin:
     ) -> None:
         """
         One injury test, off the button `continue_injury_tests` posted
-        for it: roll a d12, and if it doesn't beat the player's current
-        exhaustion token count, they become injured.
+        for it.
 
-        Exhausted is judged when the contest resolves, not when it
-        started, and against every token they hold by then -- the one
-        each participant pays to enter the test and one more each time
-        a tie sends it back to be rolled again, all of which count. A
-        player the test itself pushed over their defensive skill rolls
-        this check for that same test.
+        **The rule is `d12ball.flow.injuries.injury_test_step`** since
+        Phase 6: the roll, what Volatile and Overdrive do to it, the
+        threshold it has to beat, the event and the verdict are all the
+        model's. What is left here is the die, and that it goes between
+        the two things said about it.
+
+        An already-injured player rolls nothing and the step says so by
+        handing back no roll at all -- nothing to draw and nothing to
+        announce, so the queue simply carries on.
         """
-        if player.player_id in match.injured:
-            # Nothing to roll, and nothing to announce either -- an
-            # injured player cannot be injured again. Back to the queue
-            # rather than out of it, so this can never be where a turn
-            # stops.
-            if player.player_id in match.pending_injury_tests:
-                match.pending_injury_tests.remove(player.player_id)
-                self.persist(game, match)
-            await self.continue_injury_tests(interaction, game, match)
+        roll, result = injury_test_step(
+            self.engine, game, match, player.player_id,
+        )
+        if roll is None:
+            await self.dispatch_step_result(interaction, game, match, result)
             return
 
-        # The script fixes injury checks to pass for the whole
-        # tutorial -- see BLANKET_ROLLS. The check still runs and the
-        # coach still watches it.
-        scripted = self.tutorial_dice(game, "injury", 1)
-        roll = scripted[0] if scripted else random.randint(1, 12)
-        # Volatile fires on an injury check like any other d12 -- so a
-        # backfire that drops the check below the token count injures
-        # the Fire Demon who rolled it, which the living rules say
-        # outright rather than leaving to be inferred.
-        ignite = self.engine.ignite(game, player.player_id, roll)
-        overdrive = match.overdrive_modifier(player.player_id)
-        match.consume_overdrive()
-        check = roll + ignite.modifier + overdrive
-        current_tokens = match.exhaustion.get(player.player_id, 0)
-        safe = check > current_tokens
-        # The die image draws the natural face, so an ignite has to be
-        # said in words or the number a coach reads and the verdict
-        # they are given would not add up.
-        modifiers = ", ".join(
-            part for part in (
-                ignite.detail,
-                f"+{overdrive} Overdrive" if overdrive else "",
-            ) if part
-        )
-        ignite_note = f" ({modifiers}, {check})" if modifiers else ""
         player_team = match.team_for_player(player.player_id)
         dice_file = discord.File(
             await asyncio.to_thread(
                 render_injury_test_die,
-                roll,
+                roll.roll,
                 TEAM_COLORS[player_team],
                 team_display_name(player_team),
                 player.name,
-                safe,
-                bool(overdrive),
+                roll.safe,
+                bool(roll.overdrive),
             ),
             filename="injury_test_die.png",
         )
-
-        if player.player_id in match.pending_injury_tests:
-            match.pending_injury_tests.remove(player.player_id)
-
-        # Both outcomes, not only the injury. What a coach wants from
-        # this is the *rate* -- how often playing a card that ties
-        # actually costs a player -- and a log holding only the
-        # failures has no denominator. `mark_injured` deliberately
-        # logs nothing for the same reason.
-        match.record_event(
-            EVENT_INJURY_TEST,
-            side=match.side_for_player(player.player_id),
-            player_id=player.player_id,
-            roll=roll,
-            tokens=current_tokens,
-            injured=not safe,
-        )
-
-        drain = self.engine.has_species_ability(
-            game, player.player_id, SPECIES_CYBORG,
-        )
-        exhausted_word = "drained" if drain else "exhausted"
-        token_noun = "drain" if drain else "exhaustion"
-
-        if safe:
-            self.persist(game, match)
-
-            content = (
-                f"{self.player_label(match, player)} is {exhausted_word} "
-                f"and rolls an injury test: {roll}{ignite_note} beats "
-                f"their {current_tokens} {token_noun} tokens — safe."
-            )
-        else:
-            match.mark_injured(player.player_id)
-            self.persist(game, match)
-
-            # What happened, and nothing about what it means from
-            # here. The rest of the rule -- tokens removed, no longer
-            # exhausted, no further tokens and no further checks -- was
-            # recited on every injury in the game, and the board says
-            # all of it a moment later: the tokens come off the card
-            # and the badge goes on.
-            word, emoji = self.injured_word_and_emoji(game, player.player_id)
-            content = (
-                f"{self.player_label(match, player)} is {exhausted_word} "
-                f"and rolls an injury test: {roll}{ignite_note} does not "
-                f"beat their {current_tokens} {token_noun} tokens — "
-                f"injury! They are **{word}** {emoji}."
-            )
+        self.persist(game, match)
 
         # The prompt becomes the die, and what it says follows in its
         # own message rather than riding above it -- see
@@ -1447,15 +1385,24 @@ class CoreMixin:
         # more here than anywhere: a backfire is the one thing in the
         # game that injures the player who rolled well.
         await self.post_volatile_ignition(
-            interaction, match, (player.player_id, ignite),
+            interaction, match, (player.player_id, roll.ignite),
         )
-        await send_new_prompt(interaction, content)
-        if not safe:
+        await send_new_prompt(interaction, result.narration[0])
+        if not roll.safe:
             await self.refresh_match_image(interaction, game)
 
-        await self.continue_injury_tests(interaction, game, match)
-
-
+        await self.dispatch_step_result(
+            interaction,
+            game,
+            match,
+            StepResult(
+                narration=result.narration[1:],
+                # Passed on rather than dropped -- see
+                # `SkillTestView.roll`.
+                board_changed=result.board_changed,
+                next=result.next,
+            ),
+        )
 
     def build_effect_choice_view(
         self,
@@ -1922,6 +1869,8 @@ class CoreMixin:
             FollowOnStep.CONTINUE_EFFECT: self.continue_effect_step,
             FollowOnStep.BEGIN_MANEUVER_SKILL_TEST:
                 self.begin_maneuver_skill_test,
+            FollowOnStep.AUTO_RESOLVE_CHALLENGER:
+                self.auto_resolve_challenger_step,
         }
 
     async def dispatch_step_result(

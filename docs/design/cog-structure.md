@@ -59,31 +59,37 @@ design.
   each other by the hundred" was the argument for mixins, and the phase
   that empties the cog is the phase that retires it. It has not happened
   yet. `d12ball/flow/driver.py` took the **loop** -- what runs after a
-  step -- and the second increment took the *answers*: a dozen view
-  bodies and cog methods that mutated the match in between rendering it
-  now call a flow step that does the mutating. The cog still holds
-  every entry point a click arrives at, and the figures say so: 188
-  async methods in `cogs/d12ball/`, 157 of them taking an
-  `interaction`, against 190 and 159 before it. What moved is the
-  figure the split is actually about -- methods touching `match.` went
-  54 to 49 and *direct writes* to a `match` attribute went **10 to 5**.
-  - **What the driver runs is ten of the enum's members, and what the
-    cog keeps is seventeen.** The seventeen are what the phase always
-    expected to find at the bottom: pictures (the coaching window's
-    half-field, the maneuver hand, the score attempt's composition,
-    the snapshot a loose ball is announced under), pins
-    (`post_new_play_board` on both kickoffs and the final board), the
-    tutorial's Continue gates, and the run-back cascade's batching.
-    None of the seventeen is a rule.
+  step -- then the *answers*: every view body and cog method that
+  mutated the match in between rendering it now calls a flow step that
+  does the mutating, and `driver.ANSWERS` covers every `PromptKind`.
+  The cog still holds every entry point a click arrives at, and the
+  figures say so: **189 async methods in `cogs/d12ball/`, 158 of them
+  taking an `interaction`, against 188 and 157 before the third
+  increment** -- both went *up* by one, because the turn's own action
+  needed a follow-on wrapper. What moved is in the other directory,
+  and it is the figure the split is actually about: methods in
+  **`cogs/d12ball_views/` touching `match.` went 84 to 61, and direct
+  writes to a `match` attribute went 16 to 0**. No view mutates a
+  match any more.
+  - **What the driver runs is twelve of the enum's members, and what
+    the cog keeps is eighteen.** The eighteen are what the phase
+    always expected to find at the bottom: pictures (the coaching
+    window's half-field, the maneuver hand, the score attempt's
+    composition, the challenge image, the snapshot a loose ball is
+    announced under), pins (`post_new_play_board` on both kickoffs and
+    the final board), the tutorial's Continue gates, and the run-back
+    cascade's batching. None of the eighteen is a rule.
   - **What is left before this section can be rewritten for real** is
-    `driver.apply` -- an action checked against `pending_prompt` and
-    then run -- and the model halves of the four contested rolls, the
-    maneuver picks, the coaching menus and the shootout menus, which
-    are the last view bodies with rules in them. Until a click lands
-    on the driver rather than on a cog method, this section says what
-    it always said, because the code it describes has not moved.
+    pointing the entry points at the driver. A click still lands on a
+    `discord.ui.View`, which calls a flow step directly rather than
+    going through `driver.answer` -- so the stale-click guards in
+    `cogs/` are still a second reading of what `pending_prompt`
+    already says. `play_ai_turn` is the other half. Until a click
+    lands on the driver, this section says what it always said,
+    because the code it describes has not moved.
 - **A method that is now only a forwarder stays where its callers are.**
   `player_label`, `apply_exhaustion`, `injured_word_and_emoji`,
-  `maneuver_prompt_wording` and `run_back_space_prompt` all forward into the
-  engine or the flow. Keeping them is what made each of those lifts a move
+  `maneuver_prompt_wording`, `run_back_space_prompt`,
+  `record_turn_action`, `apply_position_swap` and `apply_reposition`
+  all forward into the engine or the flow. Keeping them is what made each of those lifts a move
   of one function rather than a rename across ninety call sites.

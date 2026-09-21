@@ -5,21 +5,24 @@ their message after a restart -- see `restore_shootout_menus`.
 """
 
 import discord
-import random
 from typing import Optional, TYPE_CHECKING
 
 from d12ball.components import (
     MatchState,
-    SPECIES_CYBORG,
     TeamSide,
 )
-from d12ball.engine import IgnitedRoll
+from d12ball.flow import StepResult
+from d12ball.flow.periods import (
+    restart_shootout_order_step,
+    shootout_order_step,
+    shootout_pick_step,
+)
+from d12ball.flow.rolls import shootout_test_step
 from d12ball.game import D12BallGame
-from cogs.d12ball_helpers import format_team_side_label, send_new_prompt
+from cogs.d12ball_helpers import send_new_prompt
 
 from cogs.d12ball_views.base import (
     SafeView,
-    contestant_detail,
     render_contest_dice,
 )
 
@@ -262,21 +265,22 @@ class ShootoutOrderSelectView(SafeView):
             return
         game, match = loaded
 
-        if match.shootout_order_complete(self.side):
+        # **The rule is
+        # `d12ball.flow.periods.restart_shootout_order_step`** since
+        # Phase 6: an order cannot be changed once it is complete.
+        try:
+            result = restart_shootout_order_step(
+                self.cog.engine, game, match, side=self.side,
+            )
+        except ValueError as error:
             await interaction.response.edit_message(
-                content=(
-                    "Your order is already set, and an order cannot be "
-                    "changed once it is."
-                ),
-                view=None,
+                content=str(error), view=None,
             )
             return
 
-        match.clear_shootout_order(self.side)
         self.cog.persist(game, match)
-
         await interaction.response.edit_message(
-            content=self.cog.shootout_order_text(game, match, self.side),
+            content=result.narration[0],
             view=ShootoutOrderSelectView(self.cog, self.game_id, self.side),
         )
 
@@ -290,8 +294,16 @@ class ShootoutOrderSelectView(SafeView):
             return
         game, match = loaded
 
+        # **The rule is `d12ball.flow.periods.shootout_order_step`**
+        # since Phase 6: adding to the order, whether it is settled,
+        # and what to do once both sides' are. What is left here is
+        # that the order goes back on this coach's own menu and the
+        # line saying it is set goes to the channel.
         try:
-            match.add_to_shootout_order(self.side, player_id)
+            result = shootout_order_step(
+                self.cog.engine, game, match,
+                side=self.side, player_id=player_id,
+            )
         except ValueError as error:
             # A click on a stale copy of the menu -- a coach who
             # scrolled back, or one restored after a restart.
@@ -314,7 +326,7 @@ class ShootoutOrderSelectView(SafeView):
 
         settled = match.shootout_order_complete(self.side)
         await interaction.response.edit_message(
-            content=self.cog.shootout_order_text(game, match, self.side),
+            content=result.narration[0],
             view=(
                 None
                 if settled
@@ -327,15 +339,20 @@ class ShootoutOrderSelectView(SafeView):
         if not settled:
             return
 
-        await send_new_prompt(
-            interaction,
-            f"{format_team_side_label(match.setup_for_side(self.side))} "
-            "has set their shooting order.",
-        )
+        await send_new_prompt(interaction, result.narration[1])
 
         if match.shootout_orders_complete:
             await self.cog.close_shootout_prompt(interaction, game)
-            await self.cog.advance_shootout(interaction, game, match)
+            await self.cog.post_blocks_then_dispatch(
+                interaction,
+                game,
+                match,
+                StepResult(
+                    narration=result.narration[2:],
+                    board_changed=result.board_changed,
+                    next=result.next,
+                ),
+            )
 
 
 class ShootoutPickPromptView(ShootoutView):
@@ -447,15 +464,16 @@ class ShootoutPickSelectView(SafeView):
             )
             return
 
-        if match.shootout_shooter(self.side) is not None:
-            await interaction.response.edit_message(
-                content="You have already chosen your shooter.",
-                view=None,
-            )
-            return
-
+        # **The rule is `d12ball.flow.periods.shootout_pick_step`**
+        # since Phase 6, refusing a second pick included. The two lines
+        # it hands back are what this coach is told and what the
+        # channel is told, which are two messages and therefore this
+        # view's to place.
         try:
-            match.set_shootout_shooter(self.side, player_id)
+            result = shootout_pick_step(
+                self.cog.engine, game, match,
+                side=self.side, player_id=player_id,
+            )
         except ValueError as error:
             await interaction.response.edit_message(
                 content=str(error),
@@ -465,23 +483,24 @@ class ShootoutPickSelectView(SafeView):
 
         self.cog.persist(game, match)
 
-        player = self.cog.engine.get_player_definition(player_id)
         await interaction.response.edit_message(
-            content=(
-                "You send out "
-                f"{self.cog.player_label(match, player)}."
-            ),
+            content=result.narration[0],
             view=None,
         )
-        await send_new_prompt(
-            interaction,
-            f"{format_team_side_label(match.setup_for_side(self.side))} "
-            "has chosen their shooter.",
-        )
+        await send_new_prompt(interaction, result.narration[1])
 
         if match.shootout_shooters_complete:
             await self.cog.close_shootout_prompt(interaction, game)
-            await self.cog.advance_shootout(interaction, game, match)
+            await self.cog.post_blocks_then_dispatch(
+                interaction,
+                game,
+                match,
+                StepResult(
+                    narration=result.narration[2:],
+                    board_changed=result.board_changed,
+                    next=result.next,
+                ),
+            )
 
 
 class ShootoutTestView(ShootoutView):
@@ -568,109 +587,6 @@ class ShootoutTestView(ShootoutView):
             ephemeral=True,
         )
 
-    def score_shootout_test(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> tuple[list, dict, dict, list[tuple[str, IgnitedRoll]]]:
-        """
-        Roll both shooters and total them up, as the sides
-        `render_contest_dice` draws plus the totals and the players
-        behind them.
-
-        Both sides add their **offensive** skill -- a shootout has no
-        defender -- and an injured player adds none at all, the same
-        withholding the loose ball and the long High Pass make. See
-        "Extreme shootout" in docs/living-rules.md.
-
-        **Volatile fires here too**, on each shooter's own die: the
-        rules list a shootout test among the rolls it covers. A
-        shootout owes no injury check, which the ignite does not
-        change -- what a backfire costs here is the goal, not a card.
-        Both ignites come back with the rest, in shooting order, for
-        the caller to post as dice of their own.
-        """
-        totals: dict[TeamSide, int] = {}
-        players = {}
-        dice = []
-        ignites: list[tuple[str, IgnitedRoll]] = []
-
-        for side in (TeamSide.HOME, TeamSide.VISITING):
-            player = self.cog.engine.get_player_definition(
-                match.shootout_shooter(side),
-            )
-            players[side] = player
-            injured = player.player_id in match.injured
-            skill = (
-                0
-                if injured
-                else self.cog.player_catalog.effective_profile(player).offense
-            )
-            roll = random.randint(1, 12)
-            ignite = self.cog.engine.ignite(game, player.player_id, roll)
-            ignites.append((player.player_id, ignite))
-            overdrive = match.overdrive_modifier(player.player_id)
-            totals[side] = roll + skill + ignite.modifier + overdrive
-            detail = contestant_detail(
-                player, "Offensive", skill, injured=injured,
-                cyborg=self.cog.engine.has_species_ability(
-                    game, player.player_id, SPECIES_CYBORG,
-                ),
-            )
-            for line in (
-                ignite.detail,
-                self.cog.engine.overdrive_detail(match, player.player_id),
-            ):
-                if line:
-                    detail.append(line)
-            dice.append(
-                (
-                    roll,
-                    match.setup_for_side(side).team,
-                    detail,
-                    totals[side],
-                    bool(overdrive),
-                    [],
-                )
-            )
-
-        return dice, totals, players, ignites
-
-    def settle_shootout_test(
-        self,
-        match: MatchState,
-        totals: dict,
-        players: dict,
-    ) -> tuple[Optional[TeamSide], str]:
-        """
-        Award the goal, if there is one, and word the result.
-
-        **A shootout skill test is not re-rolled.** A tie scores for
-        nobody and the shootout moves on, which is the one place the
-        game settles a tied skill test by leaving it tied.
-        """
-        home_total = totals[TeamSide.HOME]
-        visiting_total = totals[TeamSide.VISITING]
-
-        if home_total == visiting_total:
-            return None, (
-                f"# A tie, {home_total}-{visiting_total}! Neither "
-                "side scores."
-            )
-
-        winner = (
-            TeamSide.HOME
-            if home_total > visiting_total
-            else TeamSide.VISITING
-        )
-        scorer = players[winner]
-        match.award_shootout_goal(winner, scorer.player_id)
-        return winner, (
-            "# "
-            f"{self.cog.player_label(match, scorer)} "
-            "scores!"
-        )
-
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -694,19 +610,21 @@ class ShootoutTestView(ShootoutView):
         # out in SkillTestView.roll.
         await interaction.response.defer()
 
-        dice, totals, players, ignites = self.score_shootout_test(game, match)
-        match.consume_overdrive()
-        dice_file = await render_contest_dice(
-            dice, filename="shootout_dice.png",
-        )
-        winner, outcome = self.settle_shootout_test(match, totals, players)
-
-        # The goal and the retirement go out in one save, so a restart
-        # between this roll and what follows it can never re-roll a
-        # test that has already been paid for -- see
-        # finish_shootout_test.
-        match.finish_shootout_test()
+        # **The rule is `d12ball.flow.rolls.shootout_test_step`** since
+        # Phase 6: both rolls, what injury withholds, the goal or the
+        # tie, and retiring the two shooters are all the model's. What
+        # is left here is the picture and where it goes.
+        dice, result = shootout_test_step(self.cog.engine, game, match)
+        # The goal and the retirement went out in one save before
+        # anything was posted, and that ordering is the point of this
+        # line: a restart between this roll and what follows it can
+        # never re-roll a test that has already been paid for. The
+        # dispatcher writes again at the end of the click, which is the
+        # own-goal roll's deliberate second write for the same reason.
         self.cog.persist(game, match)
+        dice_file = await render_contest_dice(
+            dice.contestants, filename="shootout_dice.png",
+        )
 
         # Result under the dice, not above them, for the reason
         # SkillTestView.roll gives: attachments render below content.
@@ -716,19 +634,18 @@ class ShootoutTestView(ShootoutView):
             view=None,
         )
         # Between the dice and the result, as at every other roll site.
-        await self.cog.post_volatile_ignition(interaction, match, *ignites)
-        await send_new_prompt(
-            interaction,
-            f"{outcome}\n"
-            f"Extreme shootout: {self.cog.engine.shootout_running_score(match)}",
+        await self.cog.post_volatile_ignition(
+            interaction, match, *dice.ignites,
         )
-        if winner is not None:
+        await send_new_prompt(interaction, result.narration[0])
+        if result.board_changed:
             await self.cog.refresh_match_image(interaction, game)
 
         # A shootout test owes no injury checks (2026-08-15). It costs
         # no exhaustion either -- it is not one of the ways to gain a
         # token -- so an Exhausted shooter carries that into the
         # shootout and out the other side unchanged. The round goes
-        # straight on to the next test, which is what the injury
-        # queue's continuation did once the queue drained.
-        await self.cog.continue_shootout(interaction, game, match)
+        # straight on to the next test, which is what the step names.
+        await self.cog.dispatch_step_result(
+            interaction, game, match, StepResult(next=result.next),
+        )

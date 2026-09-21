@@ -31,7 +31,8 @@ different things with one name and the shorter one is the older.
 
 from __future__ import annotations
 
-from dataclasses import replace
+import random
+from dataclasses import dataclass, replace
 from typing import Optional
 
 from d12ball.components import (
@@ -46,6 +47,7 @@ from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import (
     HIGH_PASS_CONTEST_HEADLINE,
     ball_location_line,
+    ball_space_phrase,
     contest_noun,
     format_team_side_label,
     get_species_ability_emoji,
@@ -218,6 +220,40 @@ def continue_smooth(
     if taken is not None:
         return taken
     return dispatch_arrival_resume(engine, game, match, resume)
+
+
+def decline_smooth_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    player_id: str,
+) -> StepResult:
+    """
+    A Telekinetic lets the ball run through rather than taking it over.
+
+    Taking the offer is `d12ball.flow.effects.take_smooth_step`; this
+    is the other button, and it was the one half of the pair still
+    inside a view body -- `SmoothView.decline` popped the queue and
+    worded the line itself. Both of those are the model's: which
+    Telekinetic is still owed an offer is what `pending_smooth` means,
+    and the sentence is a fact about the position (principle 5).
+
+    **The line is the first block and the queue's own lines follow
+    it**, because a frontend that put the decline up as an *edit of
+    the offer it answers* needs to tell the two apart -- which is what
+    the cog does, and why this is one result rather than two. Draining
+    the queue is `continue_smooth`'s, the one exit, so a coach who
+    declines and a Telekinetic who was never asked still leave by the
+    same door.
+    """
+    player = engine.get_player_definition(player_id)
+    match.pending_smooth.remove(player_id)
+    result = continue_smooth(engine, game, match)
+    result.narration.insert(
+        0, f"{engine.format_player_label(match, player)} lets it run.",
+    )
+    return result
 
 
 def continue_mind_pull(
@@ -1391,3 +1427,150 @@ def take_scoring_opportunity(
 # reads as `PromptKind.SCORE_ATTEMPT` to `pending_prompt`, so a
 # frontend that draws no pictures (and `driver.apply`, which ends by
 # asking) reaches the right next question without this step naming one.
+
+
+@dataclass(frozen=True)
+class MindPullRoll:
+    """
+    One Mind Pull attempt's numbers, for the picture of the die.
+
+    The same shape `InjuryRoll` and `OwnGoalRoll` take, and for the
+    same reason: what the roll came to is the sentence beside this, and
+    what is here is the face and whether it landed, which
+    `render_mind_pull_die` draws. `ignite` rides along for the second
+    die.
+
+    **A player who was injured between being queued and answering
+    rolls nothing**, and the step hands back no roll at all to say so.
+    """
+
+    player_id: str
+    roll: int
+    pulled: bool
+    ignite: object
+
+
+def decline_mind_pull_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    player_id: str,
+) -> StepResult:
+    """
+    A Telekinetic lets the ball go past rather than reaching for it.
+
+    Nothing is charged for letting it go -- the token is the price of
+    *trying* -- so this says only that they did, and hands the queue
+    on. `decline_smooth_step`'s shape and for its reasons: popping the
+    queue and wording the line are both the model's, and the line is
+    the first block so a frontend can put it up as an edit of the offer
+    it answers.
+    """
+    player = engine.get_player_definition(player_id)
+    match.pending_mind_pull.remove(player_id)
+    result = continue_mind_pull(engine, game, match)
+    result.narration.insert(
+        0,
+        f"{engine.format_player_label(match, player)} lets the ball "
+        "go past.",
+    )
+    return result
+
+
+def attempt_mind_pull_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    player_id: str,
+) -> tuple[Optional[MindPullRoll], StepResult]:
+    """
+    One Telekinetic's attempt, off the button they were offered: pay
+    the token, roll a d12, and either take the ball or hand the queue
+    on.
+
+    **The token is paid whether or not the pull lands**, which is the
+    rule and is why the charge is above the roll rather than in the
+    winning branch.
+
+    **It is not a skill test and owes no injury check** (the rules say
+    so outright), so nothing here goes through the injury queue -- a
+    Telekinetic the token pushes over their threshold is Exhausted and
+    simply carries it.
+
+    A pull that lands is a **steal**: possession flips, the ball stops
+    here, and this player is the carrier who does not run back. The
+    arrival it pre-empted never happens -- "a pull that lands pre-empts
+    whatever the movement would have led to" -- so the resume is
+    dropped rather than dispatched. Its clock cost is not: the maneuver
+    that moved the ball still charges its space minute.
+    """
+    player = engine.get_player_definition(player_id)
+    if player_id in match.pending_mind_pull:
+        match.pending_mind_pull.remove(player_id)
+
+    # Injured between being queued and answering: they cannot pay the
+    # token, and `add_exhaustion` would refuse it silently and hand
+    # them a free roll. Skipped rather than refused, the same way
+    # `continue_mind_pull` skips them -- this can never be where a turn
+    # stops.
+    if player_id in match.injured:
+        return None, continue_mind_pull(engine, game, match)
+
+    exhaustion_text = engine.apply_exhaustion(
+        game, match, player_id, MIND_PULL_TOKEN_COST,
+    )
+    roll = random.randint(1, 12)
+    # Volatile is a Fire Demon's and this is a Telekinetic's roll, so
+    # nothing ignites here -- asked anyway, through the one funnel,
+    # rather than assuming the two can never meet.
+    ignite = engine.ignite(game, player_id, roll)
+    total = roll + ignite.modifier
+    pulled = total in MIND_PULL_SUCCESS_FACES
+
+    # The die image draws the natural face, exactly as the injury
+    # test's does, so an ignite has to be said in words or the number a
+    # coach reads and the verdict they are given would not add up.
+    ignite_note = f" ({ignite.detail}, {total})" if ignite.detail else ""
+    mind_pull_emoji = get_species_ability_emoji(
+        engine.species_ability_emojis, SPECIES_TELEKINETIC,
+    )
+    note = "\n".join(filter(None, (
+        f"{mind_pull_emoji} **Mind Pull** — "
+        f"{engine.format_player_label(match, player)} reaches for the "
+        f"ball{ignite_note}.",
+        exhaustion_text,
+    )))
+    numbers = MindPullRoll(player_id, roll, pulled, ignite)
+
+    if not pulled:
+        # The resume is left exactly as it was: the next Telekinetic in
+        # the queue is owed the same offer, and the arrival behind them
+        # is still the one to fall back to.
+        result = continue_mind_pull(engine, game, match)
+        result.narration.insert(0, f"{note}\nThe ball slips past them.")
+        return numbers, result
+
+    resume = match.pending_mind_pull_resume
+    match.pending_mind_pull_resume = None
+    match.apply_mind_pull(player_id)
+    match.ball.speed = 1
+
+    return numbers, StepResult(
+        narration=[
+            f"{note}\n\n## "
+            f"{engine.format_player_label(match, player)} grabs "
+            "the ball with their telekinetic powers!\n"
+            f"**Turnover!** They take it on "
+            f"{ball_space_phrase(match)}.",
+        ],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.BEGIN_RUN_BACK,
+            {
+                "distance_moved": (resume or {}).get("distance_moved", 1),
+                "turnover_occurred": True,
+            },
+        ),
+    )

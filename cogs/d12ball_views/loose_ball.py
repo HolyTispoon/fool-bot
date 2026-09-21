@@ -5,30 +5,26 @@ contest that settles either -- which the long High Pass borrows. See
 """
 
 import discord
-import random
 from typing import Optional, TYPE_CHECKING
 
 from d12ball import tutorial
 from d12ball.components import (
     MatchState,
-    PlayerDefinition,
-    SPECIES_CYBORG,
 )
-from d12ball.engine import IgnitedRoll
 from d12ball.flow import FollowOn, StepResult
 from d12ball.flow.arrivals import (
     choose_loose_ball_contestant,
     decline_loose_ball_contest,
     loose_ball_decline_refusal,
 )
+from d12ball.flow.rolls import loose_ball_test_step
+from d12ball.prompts import PendingPrompt, PromptKind
 from d12ball.game import (
     D12BallGame,
-    Team,
 )
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     contest_noun,
-    format_player_with_team,
     player_with_role,
     send_new_prompt,
     space_label,
@@ -36,7 +32,6 @@ from cogs.d12ball_helpers import (
 
 from cogs.d12ball_views.base import (
     SafeView,
-    contestant_detail,
     render_contest_dice,
 )
 
@@ -388,262 +383,6 @@ class LooseBallSkillTestView(SafeView):
                 ],
             )
 
-    def score_loose_ball(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        offense_player: PlayerDefinition,
-        defense_player: PlayerDefinition,
-    ) -> tuple[
-        list[tuple[int, Team, list[str], int, bool, list[tuple[str, int]]]],
-        int,
-        int,
-        IgnitedRoll,
-        IgnitedRoll,
-    ]:
-        """
-        Roll the contest for the ball and add what counts towards it,
-        as the two sides `render_contest_dice` draws plus the totals
-        the winner is read off. Serves the loose ball and the long High
-        Pass alike, which is the only contest injury and the ball speed
-        modifier both bite in.
-
-        No text breakdown goes alongside it: the dice image already
-        names both players and shows every modifier that built the
-        totals. **Both ignites come back with them**, because the
-        second die each one rolled is posted on an image of its own --
-        see `D12Ball.post_volatile_ignition`.
-        """
-        # An injured contestant adds no skill modifier -- their own
-        # offensive or defensive skill stays off the roll, and that is
-        # the whole of the disadvantage here (see "Injured players" in
-        # docs/living-rules.md). It is only the skill: every other
-        # modifier still applies, which is why the ball speed modifier
-        # below is added without asking about injury.
-        offense_injured = match.loose_ball_offense_player in match.injured
-        defense_injured = match.loose_ball_defense_player in match.injured
-        offense_skill = (
-            0
-            if offense_injured
-            else self.cog.player_catalog.effective_profile(
-                offense_player,
-            ).offense
-        )
-        defense_skill = (
-            0
-            if defense_injured
-            else self.cog.player_catalog.effective_profile(
-                defense_player,
-            ).defense
-        )
-
-        scripted = self.cog.tutorial_dice(game, "loose_ball", 2)
-        offense_roll, defense_roll = (
-            scripted if scripted else
-            (random.randint(1, 12), random.randint(1, 12))
-        )
-
-        # Volatile, per side and on the natural face. **Injury does not
-        # withhold it**: what an injured contestant loses here is their
-        # own skill modifier and only that, and an ignite is the die
-        # rather than a modifier the player brings -- the same reading
-        # that leaves the ball speed modifier below alone.
-        offense_ignite = self.cog.engine.ignite(
-            game, offense_player.player_id, offense_roll,
-        )
-        defense_ignite = self.cog.engine.ignite(
-            game, defense_player.player_id, defense_roll,
-        )
-
-        offense_overdrive = match.overdrive_modifier(
-            offense_player.player_id,
-        )
-        defense_overdrive = match.overdrive_modifier(
-            defense_player.player_id,
-        )
-        offense_total = (
-            offense_roll + offense_skill + offense_ignite.modifier
-            + offense_overdrive
-        )
-        defense_total = (
-            defense_roll + defense_skill + defense_ignite.modifier
-            + defense_overdrive
-        )
-
-        offense_detail = contestant_detail(
-            offense_player, "Offensive", offense_skill,
-            injured=offense_injured,
-            cyborg=self.cog.engine.has_species_ability(
-                game, offense_player.player_id, SPECIES_CYBORG,
-            ),
-        )
-        defense_detail = contestant_detail(
-            defense_player, "Defensive", defense_skill,
-            injured=defense_injured,
-            cyborg=self.cog.engine.has_species_ability(
-                game, defense_player.player_id, SPECIES_CYBORG,
-            ),
-        )
-        for detail, line in (
-            (offense_detail, offense_ignite.detail),
-            (offense_detail, self.cog.engine.overdrive_detail(
-                match, offense_player.player_id,
-            )),
-            (defense_detail, defense_ignite.detail),
-            (defense_detail, self.cog.engine.overdrive_detail(
-                match, defense_player.player_id,
-            )),
-        ):
-            if line:
-                detail.append(line)
-
-        # A High Pass's receiver adds the ball speed modifier to keep
-        # what the pass delivered (2026-08-07). A genuine loose ball is
-        # nobody's yet, so neither side gets it there.
-        #
-        # The modifier is signed: this contest is also where a declined
-        # overshoot set-up lands, and an overshoot pays the modifier
-        # against the receiver in the contest exactly as it would have
-        # against the shot (2026-08-10). See ball_speed_modifier.
-        if match.pending_loose_ball_is_high_pass:
-            modifier = match.ball_speed_modifier()
-            offense_total += modifier
-            offense_detail.append(f"{modifier:+d} ball speed modifier")
-
-        # **Merge**, for a contest fought on the ball's space -- which
-        # this always is: both contestants have been walked onto it by
-        # the time the roll happens. An Ooze of either side standing
-        # there who is not one of the two rolling adds to their own.
-        rolling = (
-            match.loose_ball_offense_player,
-            match.loose_ball_defense_player,
-        )
-        offense_merge, offense_lines, offense_contributors = (
-            self.cog.engine.merge_bonus(
-                game, match, match.ball.possession, rolling, "offense",
-            )
-        )
-        defense_merge, defense_lines, defense_contributors = (
-            self.cog.engine.merge_bonus(
-                game, match, match.defending_side(), rolling, "defense",
-            )
-        )
-        offense_total += offense_merge
-        defense_total += defense_merge
-        offense_detail.extend(offense_lines)
-        defense_detail.extend(defense_lines)
-
-        return (
-            [
-                (
-                    offense_roll,
-                    match.team_for_player(offense_player.player_id),
-                    offense_detail,
-                    offense_total,
-                    bool(offense_overdrive),
-                    offense_contributors,
-                ),
-                (
-                    defense_roll,
-                    match.team_for_player(defense_player.player_id),
-                    defense_detail,
-                    defense_total,
-                    bool(defense_overdrive),
-                    defense_contributors,
-                ),
-            ],
-            offense_total,
-            defense_total,
-            offense_ignite,
-            defense_ignite,
-        )
-
-    def settle_loose_ball_winner(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        offense_player: PlayerDefinition,
-        defense_player: PlayerDefinition,
-        offense_total: int,
-        defense_total: int,
-    ) -> tuple[str, list[PlayerDefinition], int, bool]:
-        """
-        Give the ball to whoever won the contest and word the result:
-        the announcement, who owes an injury test, and the two things
-        the run back behind it needs -- both read off the match before
-        this clears them.
-        """
-        outcome = "offense" if offense_total > defense_total else "defense"
-        winner_side = (
-            match.ball.possession
-            if outcome == "offense"
-            else match.defending_side()
-        )
-        turnover_occurred = winner_side != match.ball.possession
-        winner_number = (
-            self.cog.engine.possession_player_number(game, match)
-            if outcome == "offense"
-            else self.cog.engine.defending_player_number(game, match)
-        )
-        winner_mention = format_player_with_team(
-            game, winner_number, self.cog.team_emojis, mention=True,
-        )
-        winner_player = (
-            offense_player if outcome == "offense" else defense_player
-        )
-
-        exhausted_participants = [
-            player
-            for player in (offense_player, defense_player)
-            if player.player_id in match.exhausted
-        ]
-        distance_moved = match.pending_loose_ball_distance
-        is_high_pass = match.pending_loose_ball_is_high_pass
-        # Read with the rest of the position, before anything below
-        # clears it: what the ball was is a fact about where it came
-        # down, and only a space nobody was standing on makes it loose
-        # (the author, 2026-08-26). Two players rolling for it is a
-        # contest, and calling that a loose ball in the result told a
-        # coach the opposite of what they had just watched.
-        noun = contest_noun(match)
-
-        match.ball.possession = winner_side
-        if turnover_occurred:
-            match.ball.speed = 1
-        # Whoever won the contest is holding the ball, and takes the
-        # next turn -- the receiver who kept a long High Pass, or
-        # either side's contestant who won a loose ball. Confirmed by
-        # the author 2026-08-09; see "Choosing the handler" in
-        # docs/living-rules.md.
-        match.set_ball_carrier(winner_player.player_id)
-        match.pending_loose_ball = False
-        match.loose_ball_offense_player = None
-        match.loose_ball_defense_player = None
-        self.cog.persist(game, match)
-
-        turnover_line = "# Turnover!\n\n" if turnover_occurred else ""
-        winner_bracket = self.cog.player_label(match, winner_player)
-        if is_high_pass:
-            outcome_line = (
-                f"{winner_bracket} wins possession off the high pass! "
-                f"{winner_mention} has possession."
-                if turnover_occurred
-                else f"{winner_bracket} keeps possession after the high "
-                f"pass! {winner_mention} has possession."
-            )
-        else:
-            outcome_line = (
-                f"{winner_bracket} wins the {noun}! {winner_mention} "
-                "has possession."
-            )
-
-        return (
-            f"{turnover_line}{outcome_line}",
-            exhausted_participants,
-            distance_moved,
-            turnover_occurred,
-        )
-
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -668,60 +407,56 @@ class LooseBallSkillTestView(SafeView):
             )
             return
 
-        offense_player = self.cog.engine.get_player_definition(
-            match.loose_ball_offense_player,
-        )
-        defense_player = self.cog.engine.get_player_definition(
-            match.loose_ball_defense_player,
-        )
-
-        (
-            contestants,
-            offense_total,
-            defense_total,
-            offense_ignite,
-            defense_ignite,
-        ) = self.score_loose_ball(
-            game, match, offense_player, defense_player,
-        )
-        match.consume_overdrive()
+        # **The rule is `d12ball.flow.rolls.loose_ball_test_step`**
+        # since Phase 6: the roll, what injury withholds, the ball
+        # speed modifier a High Pass adds, Merge, the tie's two tokens
+        # and who comes away with the ball are all the model's, and the
+        # whole of them used to be in this method and the two above it.
+        # What is left here is the picture and where it goes.
+        dice, result = loose_ball_test_step(self.cog.engine, game, match)
         dice_file = await render_contest_dice(
-            contestants, filename="loose_ball_dice.png",
+            dice.contestants, filename="loose_ball_dice.png",
         )
 
-        if offense_total == defense_total:
+        following = result.next
+        # A tie is the step handing back this same question, worded by
+        # what happened -- read by kind and not by "is it a prompt",
+        # because the settled path ends on a prompt too: the injury
+        # test this contest owes. See `SkillTestView.roll`.
+        if (
+            isinstance(following, PendingPrompt)
+            and following.kind is PromptKind.LOOSE_BALL_SKILL_TEST
+        ):
+            # **The save is here and not in the dispatcher**, because
+            # this branch never reaches one: the tie charged both
+            # contestants a token and the next click reloads the match
+            # out of the file.
+            self.cog.persist(game, match)
             await interaction.response.edit_message(
-                content=self.pay_skill_test_tie(
-                    game,
-                    match,
-                    match.loose_ball_offense_player,
-                    match.loose_ball_defense_player,
-                    offense_total,
-                    defense_total,
-                ),
+                content=following.ask,
                 attachments=[dice_file],
-                view=LooseBallSkillTestView(self.cog, self.game_id),
+                view=self.cog.view_for_prompt(
+                    self.game_id, match, following,
+                ),
             )
             # A tie is re-rolled, and the ignites that produced it are
             # still worth showing -- see SkillTestView.roll's own tie.
             await self.cog.post_volatile_ignition(
-                interaction,
-                match,
-                (offense_player.player_id, offense_ignite),
-                (defense_player.player_id, defense_ignite),
+                interaction, match, *dice.ignites,
             )
             await self.cog.refresh_match_image(interaction, game)
             return
 
-        (
-            announcement,
-            exhausted_participants,
-            distance_moved,
-            turnover_occurred,
-        ) = self.settle_loose_ball_winner(
-            game, match, offense_player, defense_player,
-            offense_total, defense_total,
-        )
+        # **Before anything is posted**, which is the point of it: the
+        # contest is settled, possession has flipped and Overdrive is
+        # spent, and the dice upload below is a render and a request
+        # that can fail. Without this the channel could show the result
+        # while the file still said the contest was pending, and the
+        # next click would re-roll it. The dispatcher writes again at
+        # the end of the click; both write the same state. The fourth
+        # of the paths principle 9 names -- see the own-goal roll.
+        self.cog.persist(game, match)
+
         # The result follows the dice in its own message, the way every
         # other skill test announces itself -- a message's attachments
         # render below its content, so writing the outcome into this
@@ -736,14 +471,11 @@ class LooseBallSkillTestView(SafeView):
         # The ignition dice sit between the roll and the result, which
         # is where they belong: they are what settled it.
         await self.cog.post_volatile_ignition(
-            interaction,
-            match,
-            (offense_player.player_id, offense_ignite),
-            (defense_player.player_id, defense_ignite),
+            interaction, match, *dice.ignites,
         )
         await send_new_prompt(
             interaction,
-            announcement,
+            result.narration[0],
             # The edit this replaced never pinged the winner, and the
             # prompt that follows does; one ping per turn is plenty.
             allowed_mentions=discord.AllowedMentions(
@@ -755,17 +487,18 @@ class LooseBallSkillTestView(SafeView):
         # Winning a live ball off the other side -- a loose ball or a
         # long High Pass -- is a steal however it was contested, so no
         # substitution window either way. The run back waits behind
-        # whatever injury tests this contest owes, and carries its two
-        # arguments through the queue because nothing left in the match
-        # still says what they were -- see begin_injury_tests.
-        await self.cog.begin_injury_tests(
+        # whatever injury tests this contest owes; the step queued
+        # them, and what it handed back is dispatched here. The board
+        # is already written above, so the flag is not passed on.
+        await self.cog.dispatch_step_result(
             interaction,
             game,
             match,
-            exhausted_participants,
-            {
-                "kind": "run_back",
-                "distance_moved": distance_moved,
-                "turnover_occurred": turnover_occurred,
-            },
+            StepResult(
+                narration=result.narration[1:],
+                # Passed on rather than dropped -- see
+                # `SkillTestView.roll`, which rebuilds the same way.
+                board_changed=result.board_changed,
+                next=result.next,
+            ),
         )

@@ -10,6 +10,11 @@ from typing import Awaitable, Callable, TYPE_CHECKING
 
 from d12ball import tutorial
 from d12ball.components import PlayerRole
+from d12ball.flow import StepResult
+from d12ball.flow.arrivals import (
+    decline_mind_pull_step,
+    decline_smooth_step,
+)
 from cogs.d12ball_helpers import (
     build_full_image_button,
     get_team_emoji,
@@ -1220,17 +1225,32 @@ class SmoothView(SafeView):
         if game is None:
             return
 
-        player = self.cog.engine.get_player_definition(self.player_id)
-        match.pending_smooth.remove(self.player_id)
+        # **The rule is `d12ball.flow.arrivals.decline_smooth_step`**
+        # since Phase 6: popping the queue and wording the line are
+        # both the model's, and this was the last of Smooth's two
+        # buttons still deciding either here. What is left is that the
+        # decline *replaces* the offer it answers -- an edit rather
+        # than a message of its own -- so the step's first block is
+        # this message and the rest is whatever the queue had to say
+        # next. Same unpacking as `run_own_goal_roll`.
+        result = decline_smooth_step(
+            self.cog.engine, game, match, player_id=self.player_id,
+        )
         self.cog.persist(game, match)
 
         await interaction.response.edit_message(
-            content=(
-                f"{self.cog.player_label(match, player)} lets it run."
-            ),
-            view=None,
+            content=result.narration[0], view=None,
         )
-        await self.cog.continue_smooth(interaction, game, match)
+        await self.cog.dispatch_step_result(
+            interaction,
+            game,
+            match,
+            StepResult(
+                narration=result.narration[1:],
+                board_changed=result.board_changed,
+                next=result.next,
+            ),
+        )
 
 
 class MindPullView(SafeView):
@@ -1330,18 +1350,27 @@ class MindPullView(SafeView):
         if game is None:
             return
 
-        player = self.cog.engine.get_player_definition(self.player_id)
-        match.pending_mind_pull.remove(self.player_id)
+        # **The rule is
+        # `d12ball.flow.arrivals.decline_mind_pull_step`** since Phase
+        # 6, the same as Smooth's decline: popping the queue and
+        # wording the line are the model's. Nothing is charged for
+        # letting it go -- the token is the price of *trying* -- so
+        # what is left here is that the answer replaces the offer.
+        result = decline_mind_pull_step(
+            self.cog.engine, game, match, player_id=self.player_id,
+        )
         self.cog.persist(game, match)
 
-        # Nothing is charged for letting it go -- the token is the
-        # price of *trying* -- so this says only that they did, and
-        # hands the queue on.
         await interaction.response.edit_message(
-            content=(
-                f"{self.cog.player_label(match, player)} lets the ball "
-                "go past."
-            ),
-            view=None,
+            content=result.narration[0], view=None,
         )
-        await self.cog.continue_mind_pull(interaction, game, match)
+        await self.cog.dispatch_step_result(
+            interaction,
+            game,
+            match,
+            StepResult(
+                narration=result.narration[1:],
+                board_changed=result.board_changed,
+                next=result.next,
+            ),
+        )

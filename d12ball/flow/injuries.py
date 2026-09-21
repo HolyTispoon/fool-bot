@@ -22,14 +22,18 @@ from __future__ import annotations
 from typing import Optional, Sequence
 
 import logging
+from dataclasses import dataclass
 
 from d12ball.components import (
+    EVENT_INJURY_TEST,
     MatchState,
     PlayerDefinition,
+    SPECIES_CYBORG,
     legacy_maneuver_key,
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.turn import injured_word_and_emoji, scripted_or_random
 from d12ball.game import D12BallGame
 from d12ball.prompts import PendingPrompt, PromptKind
 
@@ -219,3 +223,129 @@ def dispatch_injury_resume(
         resume,
     )
     return StepResult()
+
+
+@dataclass(frozen=True)
+class InjuryRoll:
+    """
+    One injury check's numbers, for the picture of the die.
+
+    **Not narration and not a `StepResult`.** What the check came to is
+    the sentence beside this; what is here is the face, whether it was
+    safe, and whether Overdrive was on it -- which is what
+    `render_injury_test_die` draws and what a frontend with no dice
+    image ignores. `ignite` rides along for the second die, the way it
+    does on every other roll.
+    """
+
+    player_id: str
+    roll: int
+    safe: bool
+    overdrive: int
+    ignite: object
+
+
+def injury_test_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+) -> tuple[Optional[InjuryRoll], StepResult]:
+    """
+    One injury test, off the button `continue_injury_tests` posted for
+    it: roll a d12, and if it does not beat the player's current
+    exhaustion token count, they become injured.
+
+    Exhausted is judged when the contest resolves, not when it started,
+    and against every token they hold by then -- the one each
+    participant pays to enter the test and one more each time a tie
+    sends it back to be rolled again, all of which count. A player the
+    test itself pushed over their defensive skill rolls this check for
+    that same test.
+
+    **An already-injured player rolls nothing**, and the roll comes
+    back as None to say so: an injured player cannot be injured again,
+    so they leave the queue in silence. Back to the queue rather than
+    out of it, so this can never be where a turn stops.
+    """
+    player = engine.get_player_definition(player_id)
+    if player_id in match.injured:
+        if player_id in match.pending_injury_tests:
+            match.pending_injury_tests.remove(player_id)
+        return None, continue_injury_tests(engine, game, match)
+
+    # The script fixes injury checks to pass for the whole tutorial --
+    # see `BLANKET_ROLLS`. The check still runs and the coach still
+    # watches it.
+    roll = scripted_or_random(game, "injury", 1)[0]
+    # Volatile fires on an injury check like any other d12 -- so a
+    # backfire that drops the check below the token count injures the
+    # Fire Demon who rolled it, which the living rules say outright
+    # rather than leaving to be inferred.
+    ignite = engine.ignite(game, player_id, roll)
+    overdrive = match.overdrive_modifier(player_id)
+    match.consume_overdrive()
+    check = roll + ignite.modifier + overdrive
+    current_tokens = match.exhaustion.get(player_id, 0)
+    safe = check > current_tokens
+    # The die image draws the natural face, so an ignite has to be said
+    # in words or the number a coach reads and the verdict they are
+    # given would not add up.
+    modifiers = ", ".join(
+        part for part in (
+            ignite.detail,
+            f"+{overdrive} Overdrive" if overdrive else "",
+        ) if part
+    )
+    ignite_note = f" ({modifiers}, {check})" if modifiers else ""
+
+    if player_id in match.pending_injury_tests:
+        match.pending_injury_tests.remove(player_id)
+
+    # Both outcomes, not only the injury. What a coach wants from this
+    # is the *rate* -- how often playing a card that ties actually
+    # costs a player -- and a log holding only the failures has no
+    # denominator. `mark_injured` deliberately logs nothing for the
+    # same reason.
+    match.record_event(
+        EVENT_INJURY_TEST,
+        side=match.side_for_player(player_id),
+        player_id=player_id,
+        roll=roll,
+        tokens=current_tokens,
+        injured=not safe,
+    )
+
+    drain = engine.has_species_ability(game, player_id, SPECIES_CYBORG)
+    exhausted_word = "drained" if drain else "exhausted"
+    token_noun = "drain" if drain else "exhaustion"
+
+    if safe:
+        content = (
+            f"{engine.format_player_label(match, player)} is "
+            f"{exhausted_word} and rolls an injury test: "
+            f"{roll}{ignite_note} beats their {current_tokens} "
+            f"{token_noun} tokens — safe."
+        )
+    else:
+        match.mark_injured(player_id)
+        # What happened, and nothing about what it means from here. The
+        # rest of the rule -- tokens removed, no longer exhausted, no
+        # further tokens and no further checks -- was recited on every
+        # injury in the game, and the board says all of it a moment
+        # later: the tokens come off the card and the badge goes on.
+        word, emoji = injured_word_and_emoji(engine, game, player_id)
+        content = (
+            f"{engine.format_player_label(match, player)} is "
+            f"{exhausted_word} and rolls an injury test: "
+            f"{roll}{ignite_note} does not beat their {current_tokens} "
+            f"{token_noun} tokens — injury! They are **{word}** {emoji}."
+        )
+
+    result = continue_injury_tests(engine, game, match)
+    result.narration.insert(0, content)
+    result.board_changed = result.board_changed or not safe
+    return (
+        InjuryRoll(player_id, roll, safe, overdrive, ignite),
+        result,
+    )
