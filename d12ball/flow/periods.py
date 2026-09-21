@@ -425,6 +425,46 @@ def begin_halftime_extra_token(
     )
 
 
+def halftime_extra_token_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    player_id: str,
+) -> StepResult:
+    """
+    The coach's pick of one fielded player to lose an extra exhaustion
+    token, applied.
+
+    The answer to `begin_halftime_extra_token`'s own prompt, and the
+    AI's branch of that function is the same three lines -- take the
+    token off, move the stage on, say what happened -- which is what
+    makes this a step rather than a view body: two sides of one rule
+    written twice is how they come to disagree.
+
+    **A player with no tokens to lose is not refused**, because picking
+    them is a legal answer to the question asked: every fielded player
+    who is not injured is on the menu, and what a coach gets for
+    picking the fresh one is a sentence saying so.
+    """
+    player = engine.get_player_definition(player_id)
+    threshold = engine.exhaustion_threshold(game, player_id)
+    removed = match.recover_exhaustion(player_id, 1, threshold)
+    engine.next_halftime_stage(match)
+
+    remaining = match.exhaustion.get(player_id, 0)
+    return StepResult(
+        narration=[
+            f"{engine.format_player_label(match, player)} loses "
+            f"an extra exhaustion token (now {remaining})."
+            if removed
+            else f"{engine.format_player_label(match, player)} "
+            "had no tokens to lose."
+        ],
+        board_changed=True,
+    )
+
+
 def begin_halftime_substitutions(
     engine: RulesEngine,
     game: D12BallGame,

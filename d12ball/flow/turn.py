@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+import random
+
 from d12ball import tutorial
 from d12ball.components import MatchState, SPECIES_CYBORG
 from d12ball.engine import RulesEngine
@@ -405,6 +407,28 @@ def tutorial_beat(game: D12BallGame):
     if not game.in_tutorial:
         return None
     return tutorial.beat_for_step(game.tutorial_step)
+
+
+def scripted_or_random(
+    game: D12BallGame,
+    kind: str,
+    count: int,
+) -> list[int]:
+    """
+    The dice the tutorial's script fixes for this roll, or real ones.
+
+    `D12Ball.tutorial_dice` was this and it was two lines over
+    `tutorial.scripted_dice` -- which reads the beat and nothing else,
+    so it was already on the model's side of the line in everything but
+    its address. It lives beside `tutorial_beat` for the same reason
+    that does: it is the one thing every lifted roll site needs from
+    the script, and a module that rolls dice should not each keep its
+    own copy of "did the script want a number here".
+    """
+    scripted = tutorial.scripted_dice(tutorial_beat(game), kind, count)
+    if scripted:
+        return list(scripted)
+    return [random.randint(1, 12) for _ in range(count)]
 
 
 def maneuver_prompt_wording(

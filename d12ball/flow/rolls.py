@@ -48,7 +48,6 @@ import random
 from dataclasses import dataclass, field
 from typing import Optional, Sequence
 
-from d12ball import tutorial
 from d12ball.components import (
     EVENT_SHOT,
     EVENT_SKILL_TEST,
@@ -61,7 +60,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.flow import injuries
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.turn import tutorial_beat
+from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
     contest_noun,
     contestant_detail,
@@ -105,26 +104,6 @@ class ContestDice:
 
     contestants: list[Contestant]
     ignites: tuple[tuple[str, object], ...] = ()
-
-
-def _scripted_or_random(
-    game: D12BallGame,
-    kind: str,
-    count: int,
-) -> list[int]:
-    """
-    The dice the tutorial's script fixes for this contest, or real
-    ones.
-
-    `D12Ball.tutorial_dice` was this, and it was two lines over
-    `tutorial.scripted_dice` -- which reads the beat and nothing else,
-    so it was already on the model's side of the line in everything but
-    its address.
-    """
-    scripted = tutorial.scripted_dice(tutorial_beat(game), kind, count)
-    if scripted:
-        return list(scripted)
-    return [random.randint(1, 12) for _ in range(count)]
 
 
 def _with_extras(
@@ -228,7 +207,7 @@ def score_skill_test(
         defense_player,
     ).defense
 
-    offense_roll, defense_roll = _scripted_or_random(game, "skill_test", 2)
+    offense_roll, defense_roll = scripted_or_random(game, "skill_test", 2)
 
     # Volatile, on each side's own die and before any skill is added --
     # the ignite reads the natural face.
@@ -570,7 +549,7 @@ def score_loose_ball(
         else engine.player_catalog.effective_profile(defense_player).defense
     )
 
-    offense_roll, defense_roll = _scripted_or_random(game, "loose_ball", 2)
+    offense_roll, defense_roll = scripted_or_random(game, "loose_ball", 2)
 
     # Volatile, per side and on the natural face. **Injury does not
     # withhold it**: what an injured contestant loses here is their own

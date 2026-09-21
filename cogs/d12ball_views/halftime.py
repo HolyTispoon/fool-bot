@@ -9,6 +9,7 @@ from d12ball.components import (
     MatchState,
     TeamSide,
 )
+from d12ball.flow.periods import halftime_extra_token_step
 from d12ball.game import D12BallGame
 
 from cogs.d12ball_views.base import SafeView
@@ -114,22 +115,19 @@ class HalftimeExtraTokenView(HalftimeView):
         if game is None or match is None:
             return
 
-        player = self.cog.engine.get_player_definition(player_id)
-        threshold = self.cog.engine.exhaustion_threshold(game, player_id)
-        removed = match.recover_exhaustion(player_id, 1, threshold)
-        self.cog.engine.next_halftime_stage(match)
+        # **The rule is
+        # `d12ball.flow.periods.halftime_extra_token_step`** since
+        # Phase 6 -- taking the token off, moving the stage on and
+        # saying what happened. The AI's branch of
+        # `begin_halftime_extra_token` is the same three lines, which
+        # is why this is a step and not a view body.
+        result = halftime_extra_token_step(
+            self.cog.engine, game, match, player_id=player_id,
+        )
         self.cog.persist(game, match)
 
-        remaining = match.exhaustion.get(player_id, 0)
-        text = (
-            f"{self.cog.player_label(match, player)} loses "
-            f"an extra exhaustion token (now {remaining})."
-            if removed
-            else (
-                f"{self.cog.player_label(match, player)} "
-                "had no tokens to lose."
-            )
+        await interaction.response.edit_message(
+            content=result.narration[0], view=None,
         )
-        await interaction.response.edit_message(content=text, view=None)
         await self.cog.refresh_match_image(interaction, game)
         await self.cog.advance_halftime_stage(interaction, game, match)

@@ -80,6 +80,14 @@ def _shooter_choice(fixture: PromptFixture) -> tuple[str, dict]:
     return "", {"shooter_id": prompt.player_ids[0]}
 
 
+def _halftime_extra_token(fixture: PromptFixture) -> tuple[str, dict]:
+    match = fixture.match
+    side = pending_prompt(ENGINE, fixture.game, match).side
+    return "", {
+        "player_id": match.setup_for_side(side).field_players[0],
+    }
+
+
 def _own_goal(fixture: PromptFixture) -> tuple[str, dict]:
     """
     The roll needs a ball handler and the branch does not.
@@ -148,6 +156,9 @@ LEGAL_ACTIONS = {
     PromptKind.LOOSE_BALL_SKILL_TEST: lambda fixture: ("", {}),
     PromptKind.SCORE_ATTEMPT: lambda fixture: ("roll", {}),
     PromptKind.SHOOTOUT_TEST: lambda fixture: ("", {}),
+    PromptKind.INJURY_TEST: lambda fixture: ("", {}),
+    PromptKind.MIND_PULL: lambda fixture: ("take", {}),
+    PromptKind.HALFTIME_EXTRA_TOKEN: _halftime_extra_token,
     PromptKind.LOW_PASS_CHOICE: _low_pass,
     PromptKind.HIGH_PASS_CHOICE: _high_pass,
     PromptKind.SETUP_PASS_CHOICE: _setup_pass,

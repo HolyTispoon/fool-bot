@@ -70,7 +70,15 @@ from typing import Any, Callable, Iterable, Mapping, Optional, Union
 
 from d12ball.components import MatchState
 from d12ball.engine import RulesEngine
-from d12ball.flow import arrivals, effects, periods, rolls, turn, turnovers
+from d12ball.flow import (
+    arrivals,
+    effects,
+    injuries,
+    periods,
+    rolls,
+    turn,
+    turnovers,
+)
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.game import D12BallGame
 from d12ball.prompts import PendingPrompt, PromptKind, pending_prompt
@@ -649,6 +657,61 @@ def _answer_smooth(
     )
 
 
+def _answer_injury_test(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+) -> tuple[object, StepResult]:
+    """
+    The injury test the prompt names, rolled.
+
+    **Who rolls is the prompt's**, because the queue decides it: the
+    tests are owed in the order a contest queued them, and an action
+    naming its own player could answer for somebody the position is
+    not asking about.
+    """
+    return injuries.injury_test_step(engine, game, match, prompt.player_id)
+
+
+def _answer_mind_pull(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+) -> object:
+    """
+    A Telekinetic reaches for the ball, or lets it go past.
+
+    Reaching costs a token whether or not it lands, which is why the
+    two are different answers rather than one with a flag.
+    """
+    if choice == "decline":
+        return arrivals.decline_mind_pull_step(
+            engine, game, match, player_id=prompt.player_id,
+        )
+    return arrivals.attempt_mind_pull_step(
+        engine, game, match, player_id=prompt.player_id,
+    )
+
+
+def _answer_halftime_extra_token(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    player_id: str,
+) -> StepResult:
+    """Which fielded player loses an extra token at the break."""
+    return periods.halftime_extra_token_step(
+        engine, game, match, player_id=player_id,
+    )
+
+
 def _answer_own_goal_roll(
     engine: RulesEngine,
     game: D12BallGame,
@@ -893,6 +956,9 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.SHOOTER_CHOICE: _answer_shooter_choice,
     PromptKind.SMOOTH: _answer_smooth,
     PromptKind.OWN_GOAL_ROLL: _answer_own_goal_roll,
+    PromptKind.INJURY_TEST: _answer_injury_test,
+    PromptKind.MIND_PULL: _answer_mind_pull,
+    PromptKind.HALFTIME_EXTRA_TOKEN: _answer_halftime_extra_token,
     PromptKind.SKILL_TEST: _answer_skill_test,
     PromptKind.LOOSE_BALL_SKILL_TEST: _answer_loose_ball_skill_test,
     PromptKind.SCORE_ATTEMPT: _answer_score_attempt,
@@ -918,6 +984,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
     PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
     PromptKind.SMOOTH: ("take", "decline"),
+    PromptKind.MIND_PULL: ("take", "decline"),
     PromptKind.SCORE_ATTEMPT: ("roll", "back"),
 }
 

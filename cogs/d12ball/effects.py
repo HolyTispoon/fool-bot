@@ -16,6 +16,7 @@ from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.flow import StepResult
 from d12ball.prompts import PendingPrompt
 from d12ball.flow.arrivals import (
+    attempt_mind_pull_step,
     begin_high_pass_contest,
     begin_loose_ball,
     begin_own_goal_roll,
@@ -740,61 +741,39 @@ class ManeuverEffectsMixin:
         player_id: str,
     ) -> None:
         """
-        One Telekinetic's attempt, off the button they were offered:
-        pay the token, roll a d12, and either take the ball or hand the
-        queue on.
+        One Telekinetic's attempt, off the button they were offered.
 
-        **The token is paid whether or not the pull lands**, which is
-        the rule and is why the charge is above the roll rather than in
-        the winning branch.
+        **The rule is
+        `d12ball.flow.arrivals.attempt_mind_pull_step`** since Phase 6:
+        the token, the roll, whether it landed and what a landed pull
+        does to possession are all the model's. What is left here is
+        the die, which goes where every other roll's does -- the offer
+        becomes it, and what it came to is said in the message after.
 
-        **It is not a skill test and owes no injury check** (the
-        rules say so outright), so nothing here goes through
-        `begin_injury_tests` -- a Telekinetic the token pushes over
-        their threshold is Exhausted and simply carries it.
+        A player injured between being queued and answering rolls
+        nothing, and the step says so by handing back no roll at all.
         """
         player = self.engine.get_player_definition(player_id)
-        if player_id in match.pending_mind_pull:
-            match.pending_mind_pull.remove(player_id)
-
-        # Injured between being queued and answering: they cannot pay
-        # the token, and `add_exhaustion` would refuse it silently and
-        # hand them a free roll. Skipped rather than refused, the same
-        # way `continue_mind_pull` skips them -- this can never be
-        # where a turn stops.
-        if player_id in match.injured:
-            self.persist(game, match)
-            await self.continue_mind_pull(interaction, game, match)
+        roll, result = attempt_mind_pull_step(
+            self.engine, game, match, player_id=player_id,
+        )
+        if roll is None:
+            await self.dispatch_step_result(interaction, game, match, result)
             return
 
-        exhaustion_text = self.apply_exhaustion(
-            game, match, player_id, MIND_PULL_TOKEN_COST,
-        )
-        roll = random.randint(1, 12)
-        # Volatile is a Fire Demon's and this is a Telekinetic's roll,
-        # so nothing ignites here -- asked anyway, through the one
-        # funnel, rather than assuming the two can never meet.
-        ignite = self.engine.ignite(game, player_id, roll)
-        total = roll + ignite.modifier
-        pulled = total in MIND_PULL_SUCCESS_FACES
-
-        # The die image draws the natural face, exactly as the injury
-        # test's does, so an ignite has to be said in words or the
-        # number a coach reads and the verdict they are given would not
-        # add up.
-        ignite_note = f" ({ignite.detail}, {total})" if ignite.detail else ""
         player_team = match.team_for_player(player_id)
         dice_file = discord.File(
             await asyncio.to_thread(
                 render_mind_pull_die,
-                roll,
+                roll.roll,
                 TEAM_COLORS[player_team],
                 team_display_name(player_team),
                 player.name,
-                pulled,
+                roll.pulled,
             ),
             filename="mind_pull_die.png",
         )
+        self.persist(game, match)
         # The offer becomes the die, and what it came to is said in the
         # message after it -- a message's attachments render below its
         # content, so a result written here would be read before the
@@ -811,64 +790,32 @@ class ManeuverEffectsMixin:
         # both, the second die is shown here rather than being the one
         # roll in the game that swallows it.
         await self.post_volatile_ignition(
-            interaction, match, (player_id, ignite),
+            interaction, match, (player_id, roll.ignite),
         )
 
-        mind_pull_emoji = get_species_ability_emoji(
-            self.species_ability_emojis, SPECIES_TELEKINETIC,
-        )
-        note = "\n".join(filter(None, (
-            f"{mind_pull_emoji} **Mind Pull** — "
-            f"{self.player_label(match, player)} reaches for the "
-            f"ball{ignite_note}.",
-            exhaustion_text,
-        )))
-
-        if not pulled:
-            # The resume is left exactly as it was: the next
-            # Telekinetic in the queue is owed the same offer, and the
-            # arrival behind them is still the one to fall back to.
-            self.persist(game, match)
-            await send_new_prompt(
-                interaction, f"{note}\nThe ball slips past them."
+        if not roll.pulled:
+            await send_new_prompt(interaction, result.narration[0])
+            await self.dispatch_step_result(
+                interaction,
+                game,
+                match,
+                StepResult(
+                    narration=result.narration[1:], next=result.next,
+                ),
             )
-            await self.continue_mind_pull(interaction, game, match)
             return
 
-        # A pull is a **steal**: possession flips, the ball stops here,
-        # and this player is the carrier who does not run back.
-        resume = match.pending_mind_pull_resume
-        match.pending_mind_pull_resume = None
-        match.apply_mind_pull(player_id)
-        match.ball.speed = 1
-        self.persist(game, match)
-
+        # A landed pull reads like the turnover it is, and its lines
+        # open the run back's own message rather than standing above it
+        # -- one message and one board refresh, which is the batching
+        # every resolved maneuver already gets. The board goes up
+        # first: the ball has changed hands where it stopped.
         await self.refresh_match_image(interaction, game)
-        # The arrival this pre-empted never happens -- "a pull that
-        # lands pre-empts whatever the movement would have led to" --
-        # so the resume is dropped rather than dispatched. Its clock
-        # cost is not: the maneuver that moved the ball still charges
-        # its space minute, which is what `distance_moved` carries into
-        # the run back.
-        await self.begin_run_back(
+        await self.dispatch_step_result(
             interaction,
             game,
             match,
-            distance_moved=(resume or {}).get("distance_moved", 1),
-            turnover_occurred=True,
-            # A landed pull is a turnover and reads like one: the
-            # heading is the skill test's own size, because this is a
-            # roll that has just taken the ball off the other side and
-            # a coach should not have to read a paragraph to find that
-            # out. The wording is the author's (2026-09-07) -- what
-            # happened is that a player took the ball, not that a
-            # mechanic fired.
-            lead_in=(
-                f"{note}\n\n## {self.player_label(match, player)} grabs "
-                "the ball with their telekinetic powers!\n"
-                f"**Turnover!** They take it on "
-                f"{ball_space_phrase(match)}."
-            ),
+            StepResult(narration=result.narration, next=result.next),
         )
 
     def build_loose_ball_view(

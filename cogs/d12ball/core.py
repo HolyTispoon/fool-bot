@@ -66,6 +66,7 @@ from d12ball.flow.arrivals import take_scoring_opportunity
 from d12ball.flow.injuries import (
     begin_injury_tests,
     continue_injury_tests,
+    injury_test_step,
 )
 from d12ball.prompts import (
     PendingPrompt,
@@ -1334,114 +1335,39 @@ class CoreMixin:
     ) -> None:
         """
         One injury test, off the button `continue_injury_tests` posted
-        for it: roll a d12, and if it doesn't beat the player's current
-        exhaustion token count, they become injured.
+        for it.
 
-        Exhausted is judged when the contest resolves, not when it
-        started, and against every token they hold by then -- the one
-        each participant pays to enter the test and one more each time
-        a tie sends it back to be rolled again, all of which count. A
-        player the test itself pushed over their defensive skill rolls
-        this check for that same test.
+        **The rule is `d12ball.flow.injuries.injury_test_step`** since
+        Phase 6: the roll, what Volatile and Overdrive do to it, the
+        threshold it has to beat, the event and the verdict are all the
+        model's. What is left here is the die, and that it goes between
+        the two things said about it.
+
+        An already-injured player rolls nothing and the step says so by
+        handing back no roll at all -- nothing to draw and nothing to
+        announce, so the queue simply carries on.
         """
-        if player.player_id in match.injured:
-            # Nothing to roll, and nothing to announce either -- an
-            # injured player cannot be injured again. Back to the queue
-            # rather than out of it, so this can never be where a turn
-            # stops.
-            if player.player_id in match.pending_injury_tests:
-                match.pending_injury_tests.remove(player.player_id)
-                self.persist(game, match)
-            await self.continue_injury_tests(interaction, game, match)
+        roll, result = injury_test_step(
+            self.engine, game, match, player.player_id,
+        )
+        if roll is None:
+            await self.dispatch_step_result(interaction, game, match, result)
             return
 
-        # The script fixes injury checks to pass for the whole
-        # tutorial -- see BLANKET_ROLLS. The check still runs and the
-        # coach still watches it.
-        scripted = self.tutorial_dice(game, "injury", 1)
-        roll = scripted[0] if scripted else random.randint(1, 12)
-        # Volatile fires on an injury check like any other d12 -- so a
-        # backfire that drops the check below the token count injures
-        # the Fire Demon who rolled it, which the living rules say
-        # outright rather than leaving to be inferred.
-        ignite = self.engine.ignite(game, player.player_id, roll)
-        overdrive = match.overdrive_modifier(player.player_id)
-        match.consume_overdrive()
-        check = roll + ignite.modifier + overdrive
-        current_tokens = match.exhaustion.get(player.player_id, 0)
-        safe = check > current_tokens
-        # The die image draws the natural face, so an ignite has to be
-        # said in words or the number a coach reads and the verdict
-        # they are given would not add up.
-        modifiers = ", ".join(
-            part for part in (
-                ignite.detail,
-                f"+{overdrive} Overdrive" if overdrive else "",
-            ) if part
-        )
-        ignite_note = f" ({modifiers}, {check})" if modifiers else ""
         player_team = match.team_for_player(player.player_id)
         dice_file = discord.File(
             await asyncio.to_thread(
                 render_injury_test_die,
-                roll,
+                roll.roll,
                 TEAM_COLORS[player_team],
                 team_display_name(player_team),
                 player.name,
-                safe,
-                bool(overdrive),
+                roll.safe,
+                bool(roll.overdrive),
             ),
             filename="injury_test_die.png",
         )
-
-        if player.player_id in match.pending_injury_tests:
-            match.pending_injury_tests.remove(player.player_id)
-
-        # Both outcomes, not only the injury. What a coach wants from
-        # this is the *rate* -- how often playing a card that ties
-        # actually costs a player -- and a log holding only the
-        # failures has no denominator. `mark_injured` deliberately
-        # logs nothing for the same reason.
-        match.record_event(
-            EVENT_INJURY_TEST,
-            side=match.side_for_player(player.player_id),
-            player_id=player.player_id,
-            roll=roll,
-            tokens=current_tokens,
-            injured=not safe,
-        )
-
-        drain = self.engine.has_species_ability(
-            game, player.player_id, SPECIES_CYBORG,
-        )
-        exhausted_word = "drained" if drain else "exhausted"
-        token_noun = "drain" if drain else "exhaustion"
-
-        if safe:
-            self.persist(game, match)
-
-            content = (
-                f"{self.player_label(match, player)} is {exhausted_word} "
-                f"and rolls an injury test: {roll}{ignite_note} beats "
-                f"their {current_tokens} {token_noun} tokens — safe."
-            )
-        else:
-            match.mark_injured(player.player_id)
-            self.persist(game, match)
-
-            # What happened, and nothing about what it means from
-            # here. The rest of the rule -- tokens removed, no longer
-            # exhausted, no further tokens and no further checks -- was
-            # recited on every injury in the game, and the board says
-            # all of it a moment later: the tokens come off the card
-            # and the badge goes on.
-            word, emoji = self.injured_word_and_emoji(game, player.player_id)
-            content = (
-                f"{self.player_label(match, player)} is {exhausted_word} "
-                f"and rolls an injury test: {roll}{ignite_note} does not "
-                f"beat their {current_tokens} {token_noun} tokens — "
-                f"injury! They are **{word}** {emoji}."
-            )
+        self.persist(game, match)
 
         # The prompt becomes the die, and what it says follows in its
         # own message rather than riding above it -- see
@@ -1456,15 +1382,18 @@ class CoreMixin:
         # more here than anywhere: a backfire is the one thing in the
         # game that injures the player who rolled well.
         await self.post_volatile_ignition(
-            interaction, match, (player.player_id, ignite),
+            interaction, match, (player.player_id, roll.ignite),
         )
-        await send_new_prompt(interaction, content)
-        if not safe:
+        await send_new_prompt(interaction, result.narration[0])
+        if not roll.safe:
             await self.refresh_match_image(interaction, game)
 
-        await self.continue_injury_tests(interaction, game, match)
-
-
+        await self.dispatch_step_result(
+            interaction,
+            game,
+            match,
+            StepResult(narration=result.narration[1:], next=result.next),
+        )
 
     def build_effect_choice_view(
         self,
