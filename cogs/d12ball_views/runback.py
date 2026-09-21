@@ -224,13 +224,6 @@ class RunBackChoiceView(SafeView):
             )
             return
 
-        side = (
-            TeamSide.HOME
-            if self.player_id in match.home.field_players
-            else TeamSide.VISITING
-        )
-        zone = match.setup_for_side(side).assigned_zone(self.player_id)
-
         try:
             result = run_back_space_step(
                 self.cog.engine,

@@ -1913,7 +1913,6 @@ class CoreMixin:
             FollowOnStep.BEGIN_SUBSTITUTION_WINDOW:
                 self.begin_substitution_window_step,
             FollowOnStep.START_SET_UP_SHOT: self.start_set_up_shot_step,
-            FollowOnStep.SEND_RUN_BACK_PROMPT: self.send_run_back_prompt,
             FollowOnStep.CONTINUE_RUN_BACK: self.continue_run_back,
             FollowOnStep.APPLY_BALL_RECOVERY: self.apply_ball_recovery_step,
             FollowOnStep.SEND_MANEUVER_ACTION_PROMPT:

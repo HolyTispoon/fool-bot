@@ -57,7 +57,7 @@ class FollowOnStep(Enum):
     - a step no phase has touched, because it is pictures and no
       decision (`SEND_TURN_PROMPT`, `START_SET_UP_SHOT`);
     - a step whose model half moved but whose prompt **carries a
-      picture** (`SEND_RUN_BACK_PROMPT`, `BEGIN_SUBSTITUTION_WINDOW`).
+      picture** (`BEGIN_SUBSTITUTION_WINDOW`).
       A third kind stood beside this one until Phase 6 -- a prompt the
       view carried arguments for that match state did not hold
       (`SEND_SET_UP_ATTEMPT_PROMPT`, `SEND_SHOOTER_PROMPT`) -- and it
@@ -171,13 +171,6 @@ class FollowOnStep(Enum):
     #: The score attempt a set-up leads into. It posts the composition
     #: image and the roll prompt, which is two uploads and no decision.
     START_SET_UP_SHOT = auto()
-    #: A run-back choice, put up over **the field strip** -- the one
-    #: prompt in the game that carries a picture as well as buttons.
-    #: The question, the candidates and the wording are all the
-    #: model's; which of the two questions it is is read off the
-    #: position by `d12ball.prompts.run_back_prompt`, the same chain a
-    #: restart comes back through.
-    SEND_RUN_BACK_PROMPT = auto()
     #: The run-back cascade, one pass at a time. The loop is the
     #: model's (`d12ball.flow.turnovers.run_back_passes`); what stays
     #: here is the batching of its automatic placements into one

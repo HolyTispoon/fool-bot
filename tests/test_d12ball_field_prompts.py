@@ -12,7 +12,7 @@ Two of the five carried the strip already and three carried nothing at
 all, so the thing worth guarding is the funnel -- a resolver that goes
 back to building its own `followup.send` is exactly how the five come
 apart again. The run back asks the same question and carries the same
-picture through `send_run_back_prompt`; its own tests are in
+picture through `post_run_back_prompt`; its own tests are in
 test_d12ball_run_back_batching.
 """
 

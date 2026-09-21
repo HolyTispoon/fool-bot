@@ -41,6 +41,7 @@ no log line drawing attention to itself.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import Iterator, Optional
 
 from d12ball.components import MatchState, TeamSide
@@ -385,14 +386,7 @@ def run_back_passes(
 
             # A coach's choice ends the cascade here.
             yield StepResult(
-                next=FollowOn(
-                    FollowOnStep.SEND_RUN_BACK_PROMPT,
-                    {
-                        "side": side,
-                        "candidates": list(candidates),
-                        "prompt": run_back_prompt(engine, game, match),
-                    },
-                ),
+                next=run_back_choice_prompt(engine, game, match, side),
             )
             return
 
@@ -489,6 +483,47 @@ def run_back_kickoff_fill(
     # downstream handle the empty kickoff.
     match.pending_kickoff_fill = False
     return False, None
+
+
+def run_back_choice_prompt(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    side: TeamSide,
+) -> Optional[PendingPrompt]:
+    """
+    Whichever of the run back's two questions this coach is owed, with
+    the coach named in front of it.
+
+    **A `PendingPrompt` since Phase 6.** It was `SEND_RUN_BACK_PROMPT`
+    until then, and not because the question could not be one --
+    `run_back_prompt` has answered it from match state since Phase 1,
+    and a restart comes back through it -- but because the prompt
+    carries **the field strip**, and a `PendingPrompt` has nowhere to
+    put a picture. It still has not: the strip is attached by
+    `D12Ball.post_run_back_prompt`, keyed on the kind, which is the
+    frontend deciding how a question reaches a person (principle 2).
+
+    Which of the two it is is `run_back_prompt`'s reading and is not
+    repeated here; what this adds is the mention, because a message
+    naming a coach is a message and `pending_prompt` words the bare
+    question a restart falls back to.
+    """
+    prompt = run_back_prompt(engine, game, match)
+    if prompt is None:  # pragma: no cover - the caller has just read it
+        return None
+
+    controller_id = engine.side_controller_id(game, side)
+    mention = f"<@{controller_id}>" if controller_id else "Someone"
+    if prompt.kind is PromptKind.RUN_BACK_SPACE:
+        ask = run_back_space_ask(
+            engine, game, match, side, prompt.player_id, mention,
+        )
+    else:
+        ask = run_back_player_ask(
+            engine, match, side, prompt.player_ids, mention,
+        )
+    return replace(prompt, ask=ask)
 
 
 def run_back_space_ask(
