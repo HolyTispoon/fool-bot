@@ -202,15 +202,21 @@ def begin_run_back(
         # follows it. `ANNOUNCE_RUN_BACK` is how the two stay apart;
         # see `D12Ball.post_then_dispatch`.
         reset = announce_new_play_reset(engine, game, match, lead_in)
-        winning_side = match.ball.possession
-        if match.may_take_time_out(winning_side):
-            reset.next = FollowOn(
-                FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
-                {"side": winning_side},
-            )
-            return reset
+        # **Unconditionally.** "Every new play offers the side
+        # restarting play a Coaching Choice, however many they have
+        # already had this half, and it costs nothing" -- see "A new
+        # play always offers one" in docs/living-rules.md. This used
+        # to be gated on `may_take_time_out(winning_side)`, which was
+        # right while a new play's declaration and the ceded ball
+        # shared one once-a-half count and wrong from the moment they
+        # stopped (2026-09-16): a coach who had spent their time out
+        # was silently skipped past every later restart in the half.
+        # What bounds coaching in open play is the two substitutions
+        # (`CoachingOccasion.counts_against_the_half`), and a window
+        # with no swaps left in it is still a rearrangement.
         reset.next = FollowOn(
-            FollowOnStep.ANNOUNCE_RUN_BACK, {"speed_reset": speed_reset},
+            FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
+            {"side": match.ball.possession},
         )
         return reset
 

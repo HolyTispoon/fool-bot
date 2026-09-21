@@ -99,11 +99,22 @@ with a minute rather than handed out by the play.
     injured, since injury is the only thing that takes a card out of a pool.
     That is what the full-time window skips on and what disables the hub's
     Substitution button.
-- **The declaration and the counter are separate gates.**
-  `may_declare_coaching` is once a half and decides whether a side is *offered*
-  a new play's window at all; the counter decides how many swaps they get in
-  it. A side that spent both answering someone else's declaration can still
-  declare later and get the rearrangement without the swaps.
+- **The counter is the only gate on a new play's window, and it gates the
+  swaps rather than the window.** Nothing decides whether a side is *offered*
+  one: "every new play offers the side restarting play a Coaching Choice,
+  however many they have already had this half" (see "A new play always offers
+  one" in the living rules), so `begin_run_back` names
+  `BEGIN_SUBSTITUTION_WINDOW` unconditionally. A side with both substitutions
+  spent still gets the rearrangement -- it is the swaps they have run out of,
+  not the pause.
+  - There **was** a second gate here, and it read the once-a-half that a new
+    play's declaration shared with the ceded ball. That count moved onto the
+    time out alone on 2026-09-16 and the window stopped being bounded by
+    anything; the call site kept reading it under its new name
+    (`may_take_time_out`) until 2026-09-21, which skipped a coach who had
+    called a time out past every later restart in the half. See that date in
+    docs/rules-log.md, and the regression test
+    `test_a_spent_time_out_still_gets_the_window`.
 - **The whole flow lives on one message.** Every step is an
   `interaction.response.edit_message`, and nothing in it ever sends another.
   That is the interaction-callback route, so unlike the board refresh it does
