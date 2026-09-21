@@ -62,6 +62,7 @@ python3 -m unittest discover -s tests
 | `docs/rules-log.md` | Every rules change, dated and sourced; what is still open; where upstream is behind |
 | `docs/gambit-matrix.md` | The worksheet the gambits were built from, cut to what is still open. **Nothing in it is a rule** |
 | `docs/tts-module.md` | The worksheet the Tabletop Simulator module is being built from -- the four decisions already taken, the five phases and the in-TTS stop each ends on, what the convenience scripts may and may not do. **Nothing in it is a rule** |
+| `docs/web-app.md` | The worksheet the web app is being built from -- the review of the split read against a second frontend (what the model still lets through, what a web app would have to copy), the proposals with their open questions, six phases each ending on a stop. **Nothing in it is a rule** |
 | `docs/rulebooks/` | The worksheet the two rulebooks are built from -- the plan, the Charter and Learn to Play outlines, and the committed figure sketches. **Nothing in it is a rule** |
 | `docs/design/` | The design notes this file points at -- one topic per file |
 
@@ -128,8 +129,9 @@ is in [docs/design/model-discord-split.md](docs/design/model-discord-split.md).
 **The split is done**: `d12ball/flow/driver.py` runs every step of a turn
 and answers every prompt, the cog is a frontend over it, and
 `tests/test_driver_full_game.py` plays a whole game with no frontend
-imported. What is *not* done is the web app itself, which has no
-worksheet yet.
+imported. What is *not* done is the web app itself; its worksheet is
+[docs/web-app.md](docs/web-app.md), which opens with what the split
+still lets through.
 
 1. **The model may not import `discord`, and may not be `async`.** Both
    halves matter. No-discord is the obvious one; not-async is the one that
