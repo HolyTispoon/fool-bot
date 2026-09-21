@@ -300,15 +300,15 @@ Either player can roll:
 --- message
 ## **Intercept** wins the skill test!
 --- message
-🔮 **Smooth** — the ball runs through 🔮 Zenith [WG], who may take it over.
+🔮 **Smooth** — the ball reaches near 🔮 Zenith [WG], who may _smoothly_ pull to become handler.
 === press 30: SmoothView -> 'Leave it'
 --- message
 🔮 Zenith [WG] lets it run.
 --- message
-🔮 **Smooth** — the ball runs through 🔮 Spectra [MF], who may take it over.
+🔮 **Smooth** — the ball reaches near 🔮 Spectra [MF], who may _smoothly_ pull to become handler.
 === press 31: SmoothView -> 'Spectra [MF] takes it over'
 --- message
-🔮 **Smooth** — 🔮 Spectra [MF] takes the ball over on **M1** (Midfield).
+🔮 **Smooth** — 🔮 Spectra [MF] takes the ball on **M1** (Midfield).
 
 # Players run back!
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.

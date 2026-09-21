@@ -1850,7 +1850,7 @@ def take_smooth_step(
     lead_in = (
         f"{smooth_emoji} **Smooth** — "
         f"{engine.format_player_label(match, player)} takes the ball "
-        f"over on {ball_space_phrase(match)}."
+        f"on {ball_space_phrase(match)}."
     )
 
     if resume.get("kind") == "run_back":
