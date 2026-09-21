@@ -203,6 +203,17 @@ bot stop each phase ends on.
      block**, which is what a period transition is. Three methods rather
      than a flag on `StepResult`, because the flag would be the model
      deciding a frontend's question -- see principle 8.
+   - **Inside the loop the same distinction is `own_message`, and it is
+     still the frontend's.** A step whose lines are an event in their
+     own right could not be in the driver's table at all while the
+     choice of dispatcher *was* the cog calling a different method, so
+     `driver.advance` takes the set of steps whose lines must not carry
+     forward and hands back a `NarrationGroup` per boundary, each
+     tagged with the step that said it. The frontend reads the tag and
+     picks the dispatcher; the model reports only where one thing ends
+     and the next begins, which is not a free choice -- joining two
+     events into one paragraph would be the frontend rewording the
+     position.
 
 5. **Narration text is the model's, because the wording rules are rules.**
    "Say what the position is, never what it is not." "Don't answer a

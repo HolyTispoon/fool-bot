@@ -232,9 +232,6 @@ class FollowOnStepTests(unittest.TestCase):
         # `FollowOnStep` docstring for the three kinds.
         "SEND_TURN_PROMPT",
         "START_SET_UP_SHOT",
-        "SEND_SET_UP_ATTEMPT_PROMPT",
-        "SEND_SHOOTER_PROMPT",
-        "SEND_RUN_BACK_PROMPT",
         "CONTINUE_RUN_BACK",
         "RESOLVE_LOOSE_BALL",
         "ANNOUNCE_RUN_BACK",
@@ -247,6 +244,10 @@ class FollowOnStepTests(unittest.TestCase):
         "SEND_MANEUVER_ACTION_PROMPT",
         "RESOLVE_MANEUVER",
         "BEGIN_EFFECT_RESOLUTION",
+        # Phase 6's, and the enum growing for Phase 4's
+        # reason: the decision behind it moved and the two
+        # effect menus it dispatches to did not.
+        "CONTINUE_EFFECT",
         "BEGIN_MANEUVER_SKILL_TEST",
         # Phase 5's, and the same reading again. `END_PERIOD` and
         # `BEGIN_SUBSTITUTION_WINDOW` were Phase 4's guess at what this
@@ -284,6 +285,19 @@ class FollowOnStepTests(unittest.TestCase):
         "BEGIN_OWN_GOAL_ROLL",
         "FINISH_RUN_BACK",
         "BEGIN_MANEUVER_ACTION_SELECTION",
+        # Phase 6's second increment. The first four are the steps
+        # whose lines are **a message of their own**: the loop could
+        # not run one until it could close a narration group, because
+        # carrying the lines forward was the only thing it could do
+        # with them. `BEGIN_HIGH_PASS_CONTEST` is the fifth and needed
+        # no new machinery in the end -- the frontend writes the board
+        # in front of every group, which is the ordering rank O3 made
+        # it a member for.
+        "BEGIN_HIGH_PASS_CONTEST",
+        "RESOLVE_MANEUVER",
+        "RESOLVE_LOOSE_BALL",
+        "ANNOUNCE_RUN_BACK",
+        "END_PERIOD",
     }
 
     def test_the_two_tables_cover_the_enum_between_them(self) -> None:

@@ -211,22 +211,27 @@ class PassStepTests(unittest.TestCase):
     def test_the_new_member_is_real_and_has_a_row(self) -> None:
         """
         Rank O3 adds one `FollowOnStep` member, and a member with no
-        row in `D12Ball.follow_on_methods` raises inside a resolved
-        maneuver one card at a time. The membership itself is asserted
-        in `tests/test_d12ball_package_shape.py`; this is that the one
+        row in either table raises inside a resolved maneuver one card
+        at a time. The membership itself is asserted in
+        `tests/test_d12ball_package_shape.py`; this is that the one
         this rank names is the one it recorded.
+
+        **Phase 6's second increment moved it into the loop**, and it
+        is `arrivals.begin_high_pass_contest` there -- the same
+        function the cog wrapper called. What kept it out until then
+        was the board write ordered in front of it, and what let it in
+        is that the write is now decided from the step's own arguments
+        rather than from which side of the seam ran it; see
+        `follow_on_draws_the_board` and
+        `test_the_high_pass_contest_is_drawn_in_front_of` below. The
+        cog keeps the wrapper as an entry point in its own right, which
+        is the shape every step the driver runs is in.
         """
         cog = build_cog()
         member = FollowOnStep[HIGH_PASS_CONTEST]
-        # **Still the cog's after Phase 6**, and the board write in
-        # front of it is why -- see `MODEL_STEPS` in
-        # `d12ball/flow/driver.py` and
-        # `test_the_high_pass_contest_is_drawn_in_front_of` below.
-        self.assertNotIn(member, driver.MODEL_STEPS)
-        self.assertIs(
-            D12Ball.follow_on_methods(cog)[member],
-            cog.begin_high_pass_contest,
-        )
+        self.assertIn(member, driver.MODEL_STEPS)
+        self.assertNotIn(member, D12Ball.follow_on_methods(cog))
+        self.assertTrue(callable(cog.begin_high_pass_contest))
 
     def test_the_steps_do_not_save(self) -> None:
         """
@@ -359,10 +364,18 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
         board for a High Pass -- the ball is on a receiver both coaches
         watched catch it -- so the board the pass moved has to be
         written before it, which is what the old cog did.
+
+        **Phase 6 kept that write and moved where it is decided.** The
+        loop runs the contest now, so the run ends on
+        `BEGIN_LOOSE_BALL` -- which is in `FOLLOW_ONS_THAT_DRAW_THE_BOARD`
+        and would have suppressed the write, losing the pass's board
+        altogether. `follow_on_draws_the_board` reads `is_high_pass`
+        off the step's own arguments instead, which is rank D1's rule
+        applied one argument further in.
         """
         fixture = case_named("a_long_pass_into_a_contest")
-        self.assertNotIn(
-            FollowOnStep.BEGIN_HIGH_PASS_CONTEST,
+        self.assertIn(
+            FollowOnStep.BEGIN_LOOSE_BALL,
             FOLLOW_ONS_THAT_DRAW_THE_BOARD,
         )
         cog = build_cog()
@@ -372,7 +385,7 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
             await drive(cog, fixture, build_interaction())
 
         cog.refresh_match_image.assert_awaited_once()
-        cog.begin_high_pass_contest.assert_awaited_once()
+        cog.begin_loose_ball.assert_awaited_once()
 
 
 class PassWrapperTests(unittest.IsolatedAsyncioTestCase):

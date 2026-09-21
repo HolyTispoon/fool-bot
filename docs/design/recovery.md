@@ -109,6 +109,20 @@ Two things follow from that:
     in `WindowStateSurvivesASaveTests` (`tests/test_d12ball_periods_flow.py`).
     A window is the longest wait in the game, so it is where a lift would show
     up as a game that comes back asking something else.
+  - **Phase 6 closed the last two states a restart could not restore.**
+    A game that went down inside a set-up's attempt-or-decline offer,
+    or inside the pick of who takes a scoring opportunity, came back
+    to the maneuver's *first-stage distance choice* -- the offer's own
+    arguments lived on the view and nowhere a save could reach.
+    `MatchState.pending_scoring_opportunity` records the question now
+    and `PromptKind.SET_UP_ATTEMPT` / `PromptKind.SHOOTER_CHOICE`
+    answer from it, so a restart in either comes back to the offer,
+    shooter and numbers and all. Nothing a coach sees in a running
+    game changed; what changed is what is on disk when they close the
+    tab. Every kind is asserted to read back the same after a save and
+    a load in `test_a_prompt_survives_a_save_and_a_load`
+    (`tests/test_d12ball_prompts.py`), which is the restart written as
+    a test.
   - **Phase 6 moved the write that all of this rests on, and moved it the
     right way.** A resume reads the match out of the save file, so what is on
     disk when a prompt goes up is the whole of what a restart has. Until

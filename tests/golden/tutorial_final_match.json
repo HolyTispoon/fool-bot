@@ -368,6 +368,7 @@
   "pending_run_back_speed_choice": false,
   "pending_run_back_stays_player_id": null,
   "pending_run_back_turnover": true,
+  "pending_scoring_opportunity": null,
   "pending_setup_stage": null,
   "pending_shootout": false,
   "pending_shot_is_set_up": false,

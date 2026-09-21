@@ -56,11 +56,14 @@ class FollowOnStep(Enum):
 
     - a step no phase has touched, because it is pictures and no
       decision (`SEND_TURN_PROMPT`, `START_SET_UP_SHOT`);
-    - a step whose model half moved but whose **prompt cannot be a
-      `PendingPrompt`**, because the view carries arguments match
-      state does not hold (`SEND_SET_UP_ATTEMPT_PROMPT`,
-      `SEND_SHOOTER_PROMPT`) or the prompt carries a picture
-      (`SEND_RUN_BACK_PROMPT`, `BEGIN_SUBSTITUTION_WINDOW`);
+    - a step whose model half moved but whose prompt **carries a
+      picture** (`BEGIN_SUBSTITUTION_WINDOW`).
+      A third kind stood beside this one until Phase 6 -- a prompt the
+      view carried arguments for that match state did not hold
+      (`SEND_SET_UP_ATTEMPT_PROMPT`, `SEND_SHOOTER_PROMPT`) -- and it
+      is gone: `MatchState.pending_scoring_opportunity` records the
+      offer, so both are ordinary `PendingPrompt`s and a restart
+      inside either comes back to it;
     - a step whose model half moved but whose lines are **their own
       message**, so the ordinary "carry the narration forward" would
       merge two events into one paragraph (`BEGIN_LOOSE_BALL`,
@@ -168,25 +171,6 @@ class FollowOnStep(Enum):
     #: The score attempt a set-up leads into. It posts the composition
     #: image and the roll prompt, which is two uploads and no decision.
     START_SET_UP_SHOT = auto()
-    #: The set-up's own attempt-or-decline prompt. A follow-on rather
-    #: than a `PendingPrompt` because the view carries `distance_moved`
-    #: and `contest_on_decline`, neither of which is anywhere in match
-    #: state -- so a prompt carrying them would be a shape
-    #: `pending_prompt` can never produce. The wording is still the
-    #: model's and rides in `ask`.
-    SEND_SET_UP_ATTEMPT_PROMPT = auto()
-    #: Which of several players takes the shot. A follow-on for
-    #: `SEND_SET_UP_ATTEMPT_PROMPT`'s reason: the candidate list lives
-    #: on the view and a scoring opportunity is not a state
-    #: `pending_prompt` has a branch for.
-    SEND_SHOOTER_PROMPT = auto()
-    #: A run-back choice, put up over **the field strip** -- the one
-    #: prompt in the game that carries a picture as well as buttons.
-    #: The question, the candidates and the wording are all the
-    #: model's; which of the two questions it is is read off the
-    #: position by `d12ball.prompts.run_back_prompt`, the same chain a
-    #: restart comes back through.
-    SEND_RUN_BACK_PROMPT = auto()
     #: The run-back cascade, one pass at a time. The loop is the
     #: model's (`d12ball.flow.turnovers.run_back_passes`); what stays
     #: here is the batching of its automatic placements into one
@@ -211,6 +195,16 @@ class FollowOnStep(Enum):
     SEND_MANEUVER_ACTION_PROMPT = auto()
     RESOLVE_MANEUVER = auto()
     BEGIN_EFFECT_RESOLUTION = auto()
+    #: What a gambit's effect still owes once its last prompt has been
+    #: answered -- Skilled Pass's free Low Pass, Setup Pass's scoring
+    #: opportunity. Added by Phase 6, and the enum growing again for
+    #: Phase 4's reason: the *decision* moved (it is
+    #: `speed_choice_step` that reads whether a continuation is
+    #: outstanding, which is a rule) and the two prompts it dispatches
+    #: to are effect menus the frontend builds. See
+    #: `MatchState.pending_effect_continuation` for why the record
+    #: outlives its dispatch.
+    CONTINUE_EFFECT = auto()
     BEGIN_MANEUVER_SKILL_TEST = auto()
     #: Settling a loose ball once both sides have answered. A member
     #: rather than a call inside `begin_loose_ball`, because the

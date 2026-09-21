@@ -52,6 +52,48 @@ move had no rules risk to weigh against it.
   takes the game. Neither production caller can reach it without one --
   startup iterates `self.games.values()` and resume is handed the game -- but
   two shootout fixtures had never registered theirs, and now do.
+- **Phase 6 closed the last two prompts the chain could not answer, and
+  one of them cost a persisted field.** `SET_UP_ATTEMPT` and
+  `SHOOTER_CHOICE` were `FollowOnStep`s rather than kinds because the
+  view carried what match state did not hold: by the time the offer is
+  put, an overshot High Pass and an ordinary 2-space one have left the
+  match in the same position, so `distance_moved` and
+  `contest_on_decline` existed only on the view. A game that went down
+  inside either came back to the maneuver's *first-stage distance
+  choice* -- `effect_choice_prompt` said so, and it was the last known
+  gap in the chain.
+  - **`MatchState.pending_scoring_opportunity` is what closed it**, and
+    it saves the question rather than the answer: the attempt's two
+    numbers, which nothing in the position remembers, and for the
+    shooter's pick nothing at all beyond the fact that it is being
+    asked -- the candidates are `scoring_opportunity_candidates` over
+    the ball's own space, read back where a restart reads everything
+    else. An older save has no such key, which reads as None, which is
+    "nothing outstanding": true of every save written before it.
+  - **Two paths arm it and three spend it**, which is the thing to hold
+    in mind when reading them: `offer_scoring_attempt_choice` and
+    `begin_shooter_choice` arm it, and `take_scoring_opportunity`,
+    `decline_scoring_attempt` and `ScoreAttemptView.back_from_set_up_shot`
+    spend or re-arm it. The last is the one that is easy to miss -- it
+    is the only path that puts the attempt-or-decline choice back up
+    without going through the offer.
+  - **`SEND_RUN_BACK_PROMPT` and `BEGIN_SUBSTITUTION_WINDOW` were never
+    that**, although the same list named all four together. Both
+    questions have been `pending_prompt`'s since Phase 1; what kept
+    them follow-ons is that their *message* carries a picture. The run
+    back's is closed -- `run_back_choice_prompt` asks `run_back_prompt`
+    which of the two questions it is and replaces only the `ask`, and
+    `D12Ball.post_run_back_prompt` attaches the field strip -- and the
+    coaching window's is not, because the tutorial's explainer gates
+    the whole of it behind a Continue button, which has to run *before*
+    the window opens.
+- **A prompt is asserted to survive a save and a load**, every kind of
+  it, in `test_a_prompt_survives_a_save_and_a_load`. That is the
+  restart in a test, and it is what a new prompt carrying a new
+  argument is checked by: `pending_prompt` over the fixture and
+  `pending_prompt` over `MatchState.from_dict(match.to_dict())` have to
+  be the same prompt, arguments and all. A branch answering from a
+  field `MATCH_SAVED_FIELDS` forgets fails it.
 - **The fixtures are shared, and were recorded first.**
   `tests/prompt_fixtures.py` stands a match in every branch with no discord in
   scope; `tests/test_d12ball_prompt_mapping.py` asserts the view and the ask
@@ -520,16 +562,48 @@ stopped on, and the steps it ran to get there.
   and the loop stops once it has run. It is the mirror of
   `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, which says "do not write a board
   in front of this step".
-- **`BEGIN_HIGH_PASS_CONTEST` is the one near miss**, and it is worth
-  knowing why. Its wrapper is the same three lines as the four
-  arrivals the loop took, but rank O3 made it a member of its own
-  precisely so the board the pass moved is written *before* the
-  contest is announced. The loop writes no boards and runs to the end
-  of what it can, so a step it runs has its board written after it --
-  right everywhere a cascade was being collapsed anyway, and wrong
-  here. Moving it wants the loop to stop *before* a step and be
-  re-entered once the frontend has drawn, which is a `stop_before` to
-  `stop_after`'s, and is not built.
+- **`own_message` is where the carrying stops, and it is what let the
+  second batch of steps into the loop.** Until Phase 6's second
+  increment the loop could only *carry* a step's lines forward as the
+  next step's `lead_in`, so a step whose lines are an event in their
+  own right could not be run by it at all -- the reveal, a settled
+  loose ball, "Players run back!", the whistle. The distinction was
+  the cog calling `post_then_dispatch` or `post_blocks_then_dispatch`
+  instead of `dispatch_step_result`, and a *different method* is not
+  something the model can name. Naming a step in `own_message` closes
+  a `NarrationGroup` once it has run: the run comes back as the
+  groups the frontend must put up before whatever is next, each
+  tagged with the step that said it, plus the lines still being
+  carried. Which of the three dispatchers a group gets is still read
+  off its step, in `cogs/d12ball/core.py`, which is where principle 8
+  puts it -- a web app with no five-in-five bucket may want every
+  step's lines separately and is free to pass nothing.
+  - `speaks_lines` is the exception to it: `ANNOUNCE_GAME_OVER` takes
+    the whistle's lines as the *content* of its own message -- the
+    final board and the rematch buttons ride on them -- so a group
+    that would close in front of one of those is carried instead.
+    That is `FOLLOW_ONS_THAT_SPEAK_THE_LINES`, passed in.
+- **`BEGIN_HIGH_PASS_CONTEST` was the one near miss, and it needed no
+  `stop_before` after all.** Its wrapper is the same three lines as
+  the four arrivals the loop took first, but rank O3 made it a member
+  of its own precisely so the board the pass moved is written
+  *before* the contest is announced. What makes that survive is that
+  the frontend writes the board **before it posts any of the run's
+  groups**: the pass's board goes up, then the contest is announced
+  over it, exactly as when the cog dispatched the step itself. What
+  did have to move is the *suppression*. The run now ends on
+  `BEGIN_LOOSE_BALL`, which is in `FOLLOW_ONS_THAT_DRAW_THE_BOARD`,
+  and suppressing there would have lost the pass's board altogether
+  -- so `follow_on_draws_the_board` reads `is_high_pass` off the
+  step's own arguments, beside `new_play`. Rank D1's rule applied one
+  argument further in.
+  - **What the loop still may not run is a step that puts up a
+    picture of its own.** `BEGIN_LOOSE_BALL` and
+    `OFFER_SETUP_PASS_PUSH_BACK` announce the position with a
+    snapshot attached, and a snapshot taken after the run would show
+    a position that has moved on. Those two stop the loop by being
+    absent from the table; `stop_after` is there for a step in it
+    that later grows a picture.
 - **It saves nothing, and its caller saves once.** This is principle 9
   and it is the one place the refactor makes the bot better rather
   than only more portable. Forty-one cog wrappers used to call their
@@ -577,6 +651,27 @@ with the four sync ones), **611 grep lines**, **54 methods touching
 discord.py**. Only the save counts moved: the loop moved without the
 cog's surface moving, because every wrapper it emptied is still the
 entry point a click arrives at.
+
+Measured again after Phase 6's second increment, against the same
+commit's base (`origin/main` at 88268aa): **188 async methods, 157 of
+them taking an `interaction`**, **604 grep lines**, **49 methods
+touching `match.`**, **5 direct writes**, **41 `self.persist(`** (from
+43) and **44 bare `save_games(`** (from 46). The surface moved this
+time, and the two that moved most are the ones worth reading: methods
+touching `match.` fell 54 to 49 and direct writes fell **10 to 5**,
+because twelve view bodies and cog methods that mutated the match in
+between rendering it now call a flow step that does the mutating. That
+is the figure the split is actually about; the `interaction` counts
+barely move until the *entry points* go, and they have not.
+
+**The test-file figure is 67 of 86 and reads 67 on the base too**, so
+this increment did not move it -- but it is not the 62 recorded above,
+and the rule is the difference rather than the tree. Counted here by
+importing each `tests/*.py` in a subprocess with a `meta_path` finder
+that refuses `discord`, and counting the ones that fail on it: the
+same rule `tests/test_model_purity.py` applies to `d12ball/`. Whatever
+produced 62 used another; use this one from now on, because it is the
+one that can be re-run.
 
 ## `tests/test_model_purity.py`
 

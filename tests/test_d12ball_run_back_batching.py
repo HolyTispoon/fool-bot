@@ -65,7 +65,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         # The cascade settles the persistent message with a board, and
         # a coach's prompt draws its own field strip beside it -- two
         # renders, two uploads, which is what the counts below assert.
-        # See continue_run_back and send_run_back_prompt.
+        # See continue_run_back and post_run_back_prompt.
         cog.render_match_png = mock.AsyncMock(return_value=b"board")
         cog.match_file_from_png = mock.Mock(return_value=mock.Mock())
         cog.build_field_file = mock.AsyncMock(

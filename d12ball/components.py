@@ -1594,6 +1594,12 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
         read=lambda events: [MatchEvent.from_dict(event) for event in events],
     ),
     SavedField("pending_kickoff_fill", default=False),
+    # Copied on the way out only, like `pending_injury_resume` above:
+    # it is a dict or None, and the read side has never copied one.
+    SavedField(
+        "pending_scoring_opportunity",
+        write=lambda value: dict(value) if value is not None else None,
+    ),
     SavedField("pending_shot_is_set_up", default=False),
     SavedField("pending_shot_setup_cost", default=0),
     SavedField("pending_high_pass_overshoot", default=False),
@@ -1875,6 +1881,33 @@ class MatchState:
     # it: "so long as it's not a new play".
     pending_double_team: list[str] = field(default_factory=list)
     pending_kickoff_fill: bool = False
+    # A scoring opportunity a coach has been asked about and has not
+    # answered: either the attempt-or-decline offer a set-up makes
+    # (`{"kind": "attempt", ...}`) or the pick of who takes the shot
+    # when more than one player may (`{"kind": "shooter", ...}`).
+    #
+    # **The one field Phase 6 of docs/model-discord-split.md added**,
+    # and the reason is that neither question could be a
+    # `PendingPrompt` without it. The attempt's `distance_moved` and
+    # `contest_on_decline` are nowhere else in match state -- by the
+    # time it is asked, an overshot High Pass and an ordinary 2-space
+    # one have left the match in the same position -- so they lived on
+    # the view, which is to say they lived nowhere a restart could
+    # read them. A game that went down inside either offer came back
+    # to the maneuver's first-stage distance choice instead, which
+    # `effect_choice_prompt` said it did and this closes.
+    #
+    # Re-derived where it can be: the shooter's candidates are
+    # `RulesEngine.scoring_opportunity_candidates` over the position
+    # the offer left, and they are read from there rather than stored,
+    # so what is saved is the *question*, never the answer to it. The
+    # dict shape is `pending_injury_resume`'s and
+    # `pending_effect_continuation`'s, for the same reason those are
+    # dicts: one field that says what is outstanding beats a flag per
+    # case. Absent from every save written before this, which reads as
+    # None -- no scoring opportunity outstanding, which is what such a
+    # save means.
+    pending_scoring_opportunity: Optional[dict] = None
     pending_shot_is_set_up: bool = False
     # The base clock cost of the maneuver that offered a pending set-up
     # shot -- 0 for an ordinary shot, otherwise the maneuver's own flat
@@ -3405,6 +3438,7 @@ class MatchState:
         self.pending_run_back_charge_up = False
         self.pending_effect_continuation = None
         self.pending_kickoff_fill = False
+        self.pending_scoring_opportunity = None
         self.pending_shot_is_set_up = False
         self.pending_shot_setup_cost = 0
         self.pending_high_pass_overshoot = False

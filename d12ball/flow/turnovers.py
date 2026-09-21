@@ -41,6 +41,7 @@ no log line drawing attention to itself.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import Iterator, Optional
 
 from d12ball.components import MatchState, TeamSide
@@ -391,14 +392,7 @@ def run_back_passes(
 
             # A coach's choice ends the cascade here.
             yield StepResult(
-                next=FollowOn(
-                    FollowOnStep.SEND_RUN_BACK_PROMPT,
-                    {
-                        "side": side,
-                        "candidates": list(candidates),
-                        "prompt": run_back_prompt(engine, game, match),
-                    },
-                ),
+                next=run_back_choice_prompt(engine, game, match, side),
             )
             return
 
@@ -495,6 +489,47 @@ def run_back_kickoff_fill(
     # downstream handle the empty kickoff.
     match.pending_kickoff_fill = False
     return False, None
+
+
+def run_back_choice_prompt(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    side: TeamSide,
+) -> Optional[PendingPrompt]:
+    """
+    Whichever of the run back's two questions this coach is owed, with
+    the coach named in front of it.
+
+    **A `PendingPrompt` since Phase 6.** It was `SEND_RUN_BACK_PROMPT`
+    until then, and not because the question could not be one --
+    `run_back_prompt` has answered it from match state since Phase 1,
+    and a restart comes back through it -- but because the prompt
+    carries **the field strip**, and a `PendingPrompt` has nowhere to
+    put a picture. It still has not: the strip is attached by
+    `D12Ball.post_run_back_prompt`, keyed on the kind, which is the
+    frontend deciding how a question reaches a person (principle 2).
+
+    Which of the two it is is `run_back_prompt`'s reading and is not
+    repeated here; what this adds is the mention, because a message
+    naming a coach is a message and `pending_prompt` words the bare
+    question a restart falls back to.
+    """
+    prompt = run_back_prompt(engine, game, match)
+    if prompt is None:  # pragma: no cover - the caller has just read it
+        return None
+
+    controller_id = engine.side_controller_id(game, side)
+    mention = f"<@{controller_id}>" if controller_id else "Someone"
+    if prompt.kind is PromptKind.RUN_BACK_SPACE:
+        ask = run_back_space_ask(
+            engine, game, match, side, prompt.player_id, mention,
+        )
+    else:
+        ask = run_back_player_ask(
+            engine, match, side, prompt.player_ids, mention,
+        )
+    return replace(prompt, ask=ask)
 
 
 def run_back_space_ask(
@@ -735,5 +770,164 @@ def begin_ball_recovery(
             f"{prefix}{mention}, everyone is back in position -- send "
             "the nearest player either side of the ball to pick it up "
             f"at {space_label(match.ball.zone, match.ball.space_index)}:",
+        ),
+    )
+
+
+# -- Answering the run back's own prompts ------------------------------
+#
+# Phase 6 of docs/model-discord-split.md. Both were the view's until
+# now -- `RunBackPlayerChoiceView.choose` and `RunBackChoiceView.choose`
+# in `cogs/d12ball_views/runback.py` -- and each mixed the rule with
+# the edit that renders it. The rule is here; the field strip the
+# question is asked over stays the frontend's.
+
+
+def run_back_player_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    player_id: str,
+) -> StepResult:
+    """
+    Which of a doubled-up pair runs back -- the answer to the first of
+    the run back's two questions.
+
+    **It changes nothing**, and that is the whole of what is worth
+    saying about it: the pick narrows the second question and is not
+    itself a move, which is why `run_back_prompt` reads the position
+    back as "who" while more than one of them is spare and as "where"
+    once one has been chosen. The pick lives on the prompt and nowhere
+    else, so a restart in this window asks it again -- the same
+    simplification a part-made coaching choice makes.
+    """
+    side = (
+        TeamSide.HOME
+        if player_id in match.home.field_players
+        else TeamSide.VISITING
+    )
+    return StepResult(
+        next=PendingPrompt(
+            PromptKind.RUN_BACK_SPACE,
+            run_back_space_ask(
+                engine,
+                game,
+                match,
+                side,
+                player_id,
+                # The bare mention the view has always used here, not
+                # the emoji-and-name one the cascade's own prompt
+                # carries: this question is an edit of the one above it
+                # and the coach has already been named there.
+                f"<@{engine.controlling_user_id(game, match, player_id)}>",
+            ),
+            player_id=player_id,
+        ),
+    )
+
+
+def run_back_space_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    player_id: str,
+    space_index: int,
+) -> StepResult:
+    """
+    Run one player back to a space in their own zone, and charge them
+    for the walk.
+
+    Raises `ValueError` where the space is not one they may take, which
+    is `MatchState.run_back_player`'s own refusal, left to propagate
+    for `select_ball_handler_step`'s reason.
+
+    The cascade carries on from `CONTINUE_RUN_BACK`, whose batching of
+    the automatic placements behind this one is a Discord economy and
+    stays the frontend's (principle 8).
+    """
+    side = (
+        TeamSide.HOME
+        if player_id in match.home.field_players
+        else TeamSide.VISITING
+    )
+    zone = match.setup_for_side(side).assigned_zone(player_id)
+    distance = match.run_back_player(
+        player_id,
+        zone,
+        space_index,
+        engine.spread_exempt_ids(game, match, side),
+    )
+    exhaustion_text = engine.apply_exhaustion(
+        game, match, player_id, distance,
+    )
+    player = engine.get_player_definition(player_id)
+    return StepResult(
+        narration=[
+            f"{engine.format_player_label(match, player)} "
+            f"runs back to {space_label(zone, space_index)}."
+            f"\n{exhaustion_text}",
+        ],
+        board_changed=True,
+        next=FollowOn(FollowOnStep.CONTINUE_RUN_BACK),
+    )
+
+
+def recover_ball_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    player_id: str,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Send somebody to pick an out-of-bounds ball up, and carry on from
+    where the maneuver that put it there left off.
+
+    `distance_moved` is the triggering maneuver's own travel, for the
+    clock. It outlives the run back that just finished -- only
+    `reset_maneuver` clears it -- precisely so this step, which can
+    span a restart, can still read it back.
+
+    **A time out's pickup is the one walk to the ball that charges
+    nothing**, and it is not a turnover either: the side fetching the
+    ball is the side that has had it all along, so nothing resets and
+    nothing ends. Read before the pickup clears it. See
+    `finish_time_out`.
+    """
+    player = engine.get_player_definition(player_id)
+    distance_moved = match.pending_run_back_distance
+    from_time_out = match.pending_recovery_from_time_out
+    distance = match.recover_out_of_bounds_ball(player_id)
+    exhaustion_text = (
+        "" if from_time_out
+        else engine.apply_exhaustion(game, match, player_id, distance)
+    )
+
+    prefix = f"{lead_in}\n\n" if lead_in else ""
+    # Joined rather than interpolated: a free pickup has no exhaustion
+    # line at all, and interpolating one would leave a blank line under
+    # the sentence. See "What a message says".
+    return StepResult(
+        narration=[
+            "\n".join(
+                part for part in (
+                    f"{prefix}"
+                    f"{engine.format_player_label(match, player)} picks "
+                    "the ball up at "
+                    f"{space_label(match.ball.zone, match.ball.space_index)}.",
+                    exhaustion_text,
+                ) if part
+            ),
+        ],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+            {
+                "distance_moved": distance_moved,
+                "turnover_occurred": not from_time_out,
+            },
         ),
     )

@@ -40,7 +40,11 @@ from d12ball.components import (
     PlayerRole,
     TeamSide,
 )
-from d12ball.formatting import contest_noun, space_label
+from d12ball.formatting import (
+    contest_noun,
+    format_player_with_team,
+    space_label,
+)
 from d12ball.game import D12BallGame
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -81,6 +85,11 @@ class PromptKind(Enum):
     LOOSE_BALL_PICK = "loose_ball_pick"
     LOOSE_BALL_SKILL_TEST = "loose_ball_skill_test"
     SCORE_ATTEMPT = "score_attempt"
+    # The two halves of a scoring opportunity, closed in Phase 6 of
+    # docs/model-discord-split.md -- until then each was a
+    # `FollowOnStep` whose view carried what match state did not hold.
+    SET_UP_ATTEMPT = "set_up_attempt"
+    SHOOTER_CHOICE = "shooter_choice"
     MANEUVER_CHALLENGE = "maneuver_challenge"
     MANEUVER_ACTION = "maneuver_action"
     SKILL_TEST = "skill_test"
@@ -118,6 +127,16 @@ class PendingPrompt:
     skill_type: Optional[str] = None
     #: LOW_PASS_CHOICE: a pass that costs the passer nothing.
     free: bool = False
+    #: SET_UP_ATTEMPT: the clock cost of the maneuver that offered it,
+    #: which the shot adds its own extra minute to rather than
+    #: replacing. Not derivable from the position by the time the offer
+    #: is put, which is why it is on the match -- see
+    #: `MatchState.pending_scoring_opportunity`.
+    distance_moved: int = 1
+    #: SET_UP_ATTEMPT: an overshoot is a shot or a contest, both at the
+    #: same disadvantage, so declining lands in the long-pass contest
+    #: rather than settling the ball (2026-08-10).
+    contest_on_decline: bool = False
 
 
 def run_back_prompt(
@@ -179,6 +198,92 @@ def loose_ball_pick_prompt(
         f"Choose who goes after the {contest_noun(match)}:",
         side=engine.loose_ball_prompt_side(match),
         skill_type=skill_type,
+    )
+
+
+def scoring_opportunity_prompt(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> Optional[PendingPrompt]:
+    """
+    The scoring opportunity a coach has been asked about and has not
+    answered: the attempt-or-decline offer, or the pick of who takes
+    the shot.
+
+    **Both were `FollowOnStep`s until Phase 6**, and for one reason:
+    the view carried arguments match state did not hold, so a prompt
+    carrying them would be a shape this chain could never produce --
+    which is the second reading principle 3 is against. What closed
+    them is `MatchState.pending_scoring_opportunity`, and what it
+    holds is the *question*: the attempt's two numbers, which nothing
+    in the position remembers, and for the shooter's pick nothing at
+    all beyond the fact that it is being asked. The candidates are read
+    back off the board here, where a restart reads everything else.
+
+    The wording is the bare question. The live offer opens with the
+    lines of the pass that set it up (see
+    `d12ball.flow.arrivals.offer_scoring_attempt_choice`), which a
+    restart has not got and does not invent -- the same difference the
+    run back's prompt has carried since Phase 4.
+    """
+    outstanding = match.pending_scoring_opportunity or {}
+    kind = outstanding.get("kind")
+
+    if kind == "attempt":
+        shooter = engine.get_player_definition(outstanding["shooter_id"])
+        return PendingPrompt(
+            PromptKind.SET_UP_ATTEMPT,
+            f"{engine.format_player_label(match, shooter)} can "
+            "attempt the scoring opportunity, or let it go:",
+            player_id=shooter.player_id,
+            distance_moved=outstanding.get("distance_moved", 1),
+            contest_on_decline=outstanding.get(
+                "contest_on_decline", False,
+            ),
+        )
+
+    if kind == "shooter":
+        candidates = engine.scoring_opportunity_candidates(
+            match, match.ball.possession,
+        )
+        if not candidates:
+            # The position no longer offers anybody the shot, which is
+            # not a state the game can reach between the offer and the
+            # answer -- nothing moves while a coach is being asked. A
+            # save that says otherwise has been edited or has come
+            # through a migration, and falling through to the turn
+            # prompt is what every other unreadable corner of this
+            # chain does.
+            return None
+        return PendingPrompt(
+            PromptKind.SHOOTER_CHOICE,
+            f"{shooter_mention(engine, game, match)}, choose who "
+            "takes the shot:",
+            player_ids=candidates,
+        )
+
+    return None
+
+
+def shooter_mention(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> str:
+    """
+    The coach who is being asked to send somebody after a scoring
+    opportunity, as a mention.
+
+    Shared by the live offer and the restored one so the two cannot
+    word the same question differently -- which is the whole of
+    principle 5 in one sentence.
+    """
+    return format_player_with_team(
+        game,
+        engine.possession_player_number(game, match),
+        engine.team_emojis,
+        mention=True,
     )
 
 
@@ -431,6 +536,19 @@ def pending_prompt(
             PromptKind.OWN_GOAL_ROLL,
             "Either player can roll for the own goal.",
         )
+
+    scoring_opportunity = scoring_opportunity_prompt(engine, game, match)
+    if scoring_opportunity is not None:
+        # After the interrupts and ahead of everything a maneuver
+        # leaves set, which is the same reason the own-goal roll is:
+        # the pass that opened the scoring opportunity is still the
+        # live maneuver, so the effect branch below would offer to
+        # resolve it a second time. Behind the interrupts because a
+        # scoring opportunity is an arrival like any other and both
+        # gates run in front of it -- `offer_scoring_attempt_choice`
+        # calls `check_for_ball_arrival` before it asks anybody, so a
+        # match in this state has already drained them.
+        return scoring_opportunity
 
     if match.pending_shootout:
         # The three shootout states, read off the same three

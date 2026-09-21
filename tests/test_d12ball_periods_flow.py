@@ -32,6 +32,8 @@ docs/design/recovery.md).
 """
 
 import unittest
+from types import SimpleNamespace
+from unittest import mock
 
 from d12ball.components import (
     CoachingOccasion,
@@ -42,7 +44,7 @@ from d12ball.components import (
     Zone,
 )
 from d12ball.engine import FULL_TIME_STAGES, HALFTIME_STAGES, SETUP_STAGES
-from d12ball.flow import FollowOn, FollowOnStep
+from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.periods import (
     advance_full_time_stage,
     advance_halftime_stage,
@@ -68,6 +70,7 @@ from d12ball.flow.windows import (
 from d12ball.prompts import PromptKind, pending_prompt
 
 from roster import fielded
+from save_patches import suppressed_cog_saves
 from test_d12ball_tutorial import build_cog, build_game, build_match
 
 
@@ -186,6 +189,67 @@ class EndPeriodTests(PeriodFixture):
         self.match.scoreboard.time = 15
         self.match.scoreboard.last_possession = True
         end_period(self.engine, self.game, self.match)
+
+
+class WhistleBlocksTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The cog's half of the whistle, now that the loop runs it.
+
+    `END_PERIOD` moved into `driver.MODEL_STEPS` in Phase 6's second
+    increment, which it could not do while "one message per block" was
+    the cog calling a different dispatcher. `driver.advance` closes a
+    `NarrationGroup` after it and `dispatch_step_result` reads the
+    step off the group to decide -- so the property the golden covers
+    end to end is asserted here on its own, where a regression names
+    itself.
+    """
+
+    def setUp(self) -> None:
+        self.cog = build_cog()
+        self.game = build_game()
+        self.match = build_match()
+        self.cog.games[self.game.game_id] = self.game
+        self.game.match_state = self.match.to_dict()
+
+    def interaction(self):
+        send = mock.AsyncMock(return_value=SimpleNamespace(id=7))
+        return SimpleNamespace(
+            user=SimpleNamespace(id=111, display_name="One"),
+            channel=SimpleNamespace(send=send),
+            guild=None,
+            followup=SimpleNamespace(send=send),
+            response=SimpleNamespace(
+                defer=mock.AsyncMock(),
+                edit_message=mock.AsyncMock(),
+                send_message=mock.AsyncMock(),
+                is_done=lambda: True,
+            ),
+            edit_original_response=mock.AsyncMock(),
+        )
+
+    async def test_the_whistle_s_blocks_are_a_message_apiece(self) -> None:
+        self.match.scoreboard.time = 19
+        self.match.scoreboard.last_possession = True
+        interaction = self.interaction()
+
+        with suppressed_cog_saves():
+            await self.cog.dispatch_step_result(
+                interaction,
+                self.game,
+                self.match,
+                StepResult(next=FollowOn(FollowOnStep.END_PERIOD)),
+            )
+
+        posted = [
+            call.args[0]
+            for call in interaction.followup.send.await_args_list
+            if call.args
+        ]
+        # The whistle and the halftime recovery: two events, two
+        # messages. Joined, they would read as one paragraph.
+        self.assertGreaterEqual(len(posted), 2)
+        self.assertIn("at 19", posted[0])
+        self.assertTrue(posted[1].startswith("# Halftime"))
 
 
 class HalftimeFlowTests(PeriodFixture):

@@ -62,6 +62,7 @@ from d12ball.flow.turn import (
     maneuver_prompt_wording,
     resolve_maneuver,
 )
+from d12ball.flow.arrivals import take_scoring_opportunity
 from d12ball.flow.injuries import (
     begin_injury_tests,
     continue_injury_tests,
@@ -136,6 +137,7 @@ from cogs.d12ball_views import (
     RunBackPlayerChoiceView,
     ScoreAttemptView,
     SetUpAttemptChoiceView,
+    ShooterChoiceView,
     SetupPassChoiceView,
     ShootoutOrderPromptView,
     ShootoutOrderSelectView,
@@ -224,6 +226,37 @@ FOLLOW_ONS_THAT_SPEAK_THE_LINES = frozenset({
 DRIVER_STOPS: frozenset = frozenset()
 
 
+#: Every step the driver runs whose lines are **a message of their
+#: own**, so the loop must stop carrying them forward once it has run.
+#:
+#: This is `post_then_dispatch` and `post_blocks_then_dispatch` as a
+#: set rather than as two methods, and it is what let those four steps
+#: into the loop at all: before Phase 6's second increment the choice
+#: of dispatcher *was* the cog calling a different method, so a step
+#: whose lines were an event in their own right could not be run by
+#: anything but the cog. `driver.advance` closes a `NarrationGroup`
+#: after each of these and the rendering below picks a dispatcher per
+#: group -- which keeps the decision exactly where principle 8 puts
+#: it, and stops it being a flag on `StepResult`.
+DRIVER_OWN_MESSAGE = frozenset({
+    FollowOnStep.RESOLVE_MANEUVER,
+    FollowOnStep.RESOLVE_LOOSE_BALL,
+    FollowOnStep.ANNOUNCE_RUN_BACK,
+    FollowOnStep.END_PERIOD,
+})
+
+
+#: The groups posted **one message per block** rather than joined.
+#:
+#: A period transition is a cascade of separate events -- the whistle,
+#: the halftime recovery, an AI side's extra token, the shootout's
+#: explainer -- and a coach reads them as the several they are. Every
+#: other group in the set above is one message. Keyed on the step for
+#: `FOLLOW_ONS_THAT_DRAW_THE_BOARD`'s reason: the answer is the step's,
+#: not the card's that reached it.
+DRIVER_BLOCKS_PER_MESSAGE = frozenset({FollowOnStep.END_PERIOD})
+
+
 def follow_on_draws_the_board(following: FollowOn) -> bool:
     """
     Whether the step a result hands to is about to put the board up
@@ -238,13 +271,27 @@ def follow_on_draws_the_board(following: FollowOn) -> bool:
     that decides it is read here, beside the set, rather than the
     model being asked to report a board that did not move.
 
+    **`is_high_pass` is the second argument that decides it**, and
+    Phase 6 is what made it matter. `begin_loose_ball` draws the board
+    under its own announcement for a genuine loose ball -- nothing in
+    the channel names the space the ball is lying in -- and
+    deliberately does not for a long High Pass, where the ball is on a
+    receiver both coaches watched catch it and the board the pass
+    moved is written in front of the contest instead. While
+    `BEGIN_HIGH_PASS_CONTEST` was the cog's, that write came from the
+    dispatch above it and this set never saw the difference; now that
+    the loop runs the contest, the run ends on `BEGIN_LOOSE_BALL`
+    itself and suppressing here would lose the pass's board
+    altogether. Read off the step's own arguments, like `new_play`
+    beside it.
+
     Still keyed to the step and its own arguments rather than to the
     card that named it, which is rank D1's rule and the reason every
     caller of `begin_loose_ball` Phase 4 lifted inherited this without
     deciding it again.
     """
     if following.step in FOLLOW_ONS_THAT_DRAW_THE_BOARD:
-        return True
+        return not following.kwargs.get("is_high_pass")
     return (
         following.step is FollowOnStep.BEGIN_RUN_BACK
         and bool(following.kwargs.get("new_play"))
@@ -288,6 +335,8 @@ PARAMETERISED_PROMPT_KINDS = frozenset({
     PromptKind.LOOSE_BALL_PICK,
     PromptKind.LOW_PASS_CHOICE,
     PromptKind.SPEED_DELTA_CHOICE,
+    PromptKind.SET_UP_ATTEMPT,
+    PromptKind.SHOOTER_CHOICE,
 })
 
 
@@ -1557,6 +1606,16 @@ class CoreMixin:
             return SpeedDeltaChoiceView(
                 self, game_id, prompt.player_id, prompt.skill_type,
             )
+        if kind is PromptKind.SET_UP_ATTEMPT:
+            return SetUpAttemptChoiceView(
+                self,
+                game_id,
+                prompt.player_id,
+                prompt.distance_moved,
+                contest_on_decline=prompt.contest_on_decline,
+            )
+        if kind is PromptKind.SHOOTER_CHOICE:
+            return ShooterChoiceView(self, game_id, prompt.player_ids)
         return PLAIN_PROMPT_VIEWS[kind](self, game_id)
 
     async def post_then_dispatch(
@@ -1784,28 +1843,28 @@ class CoreMixin:
         maneuver_cost: int = 1,
         lead_in: str = "",
     ) -> None:
-        """`start_set_up_shot` as a follow-on."""
+        """
+        The shot a set-up leads into, as a follow-on.
+
+        **The rule is `arrivals.take_scoring_opportunity`** since Phase
+        6 -- spending the offer, pointing the turn at the shooter and
+        arming the shot -- and what is left under this member is the
+        two uploads: the composition image and the roll prompt. Both
+        callers come through here, the AI's own attempt and a coach's
+        button, so the step runs once whichever asked for it.
+        """
         if lead_in:
             await send_new_prompt(interaction, lead_in)
-        await self.start_set_up_shot(
-            interaction, game, match, shooter_id,
+        result = take_scoring_opportunity(
+            self.engine,
+            game,
+            match,
+            shooter_id=shooter_id,
             maneuver_cost=maneuver_cost,
         )
-
-    async def announce_run_back_step(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        *,
-        speed_reset: bool = True,
-        lead_in: str = "",
-    ) -> None:
-        """`announce_run_back` as a follow-on."""
-        await self.announce_run_back(
-            interaction, game, match,
-            lead_in=lead_in, speed_reset=speed_reset,
-        )
+        self.persist(game, match)
+        await send_new_prompt(interaction, " ".join(result.narration))
+        await self.begin_score_attempt(interaction, game, match)
 
     async def apply_ball_recovery_step(
         self,
@@ -1844,11 +1903,8 @@ class CoreMixin:
             FollowOnStep.OFFER_SPEED_CHOICE: self.offer_speed_choice,
             FollowOnStep.BEGIN_RUN_BACK: self.begin_run_back,
             FollowOnStep.BEGIN_LOOSE_BALL: self.begin_loose_ball,
-            FollowOnStep.BEGIN_HIGH_PASS_CONTEST:
-                self.begin_high_pass_contest,
             FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK:
                 self.offer_setup_pass_push_back,
-            FollowOnStep.END_PERIOD: self.end_period,
             FollowOnStep.FINISH_SETUP_COACHING:
                 self.finish_setup_coaching_step,
             FollowOnStep.FINISH_HALFTIME: self.finish_halftime_step,
@@ -1857,19 +1913,13 @@ class CoreMixin:
             FollowOnStep.BEGIN_SUBSTITUTION_WINDOW:
                 self.begin_substitution_window_step,
             FollowOnStep.START_SET_UP_SHOT: self.start_set_up_shot_step,
-            FollowOnStep.SEND_SET_UP_ATTEMPT_PROMPT:
-                self.send_set_up_attempt_prompt,
-            FollowOnStep.SEND_SHOOTER_PROMPT: self.send_shooter_prompt,
-            FollowOnStep.SEND_RUN_BACK_PROMPT: self.send_run_back_prompt,
             FollowOnStep.CONTINUE_RUN_BACK: self.continue_run_back,
             FollowOnStep.APPLY_BALL_RECOVERY: self.apply_ball_recovery_step,
-            FollowOnStep.RESOLVE_LOOSE_BALL: self.resolve_loose_ball,
-            FollowOnStep.ANNOUNCE_RUN_BACK: self.announce_run_back_step,
             FollowOnStep.SEND_MANEUVER_ACTION_PROMPT:
                 self.send_maneuver_action_prompt,
-            FollowOnStep.RESOLVE_MANEUVER: self.resolve_maneuver,
             FollowOnStep.BEGIN_EFFECT_RESOLUTION:
                 self.begin_effect_resolution,
+            FollowOnStep.CONTINUE_EFFECT: self.continue_effect_step,
             FollowOnStep.BEGIN_MANEUVER_SKILL_TEST:
                 self.begin_maneuver_skill_test,
         }
@@ -1924,7 +1974,13 @@ class CoreMixin:
         # write, and which of the steps the driver cannot run comes
         # next.
         run = driver.advance(
-            self.engine, game, match, result, stop_after=DRIVER_STOPS,
+            self.engine,
+            game,
+            match,
+            result,
+            stop_after=DRIVER_STOPS,
+            own_message=DRIVER_OWN_MESSAGE,
+            speaks_lines=FOLLOW_ONS_THAT_SPEAK_THE_LINES,
         )
         # **The one save, and it is here** -- principle 9. Every step
         # of the run has mutated the match and none of them has
@@ -1952,6 +2008,23 @@ class CoreMixin:
             and follow_on_draws_the_board(following)
         ):
             await self.refresh_match_image(interaction, game)
+
+        # **The closed groups, before anything the run is still
+        # carrying.** Each is a step whose lines are an event of their
+        # own -- the reveal, the settled loose ball, "Players run
+        # back!", the whistle -- and the step it is tagged with is what
+        # picks its dispatcher. The board is already written above, so
+        # the position is right by the time the first line naming it is
+        # read, which is the ordering `post_blocks_then_dispatch` had
+        # and the one the whistle depends on.
+        for group in run.groups:
+            if group.step in DRIVER_BLOCKS_PER_MESSAGE:
+                for block in group.narration:
+                    await send_new_prompt(interaction, block)
+            else:
+                block = " ".join(group.narration)
+                if block:
+                    await send_new_prompt(interaction, block)
 
         if isinstance(following, FollowOn):
             await self.follow_on_methods()[following.step](
