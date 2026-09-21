@@ -30,7 +30,7 @@ it happened to have.
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Done (PR #249) |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Done (PR #254) |
-| **6** | The driver, and the cog becomes a frontend | The last of it | Two parts landed (PR #255, PR #TBD): the loop and the save; then the narration groups, the four prompts and twelve answers. Open: `driver.apply`, the last view bodies with rules in them, and `play_ai_turn` |
+| **6** | The driver, and the cog becomes a frontend | The last of it | Two parts landed (PR #255, PR #257): the loop and the save; then the narration groups, the four prompts and twelve answers. Open: `driver.apply`, the last view bodies with rules in them, and `play_ai_turn` |
 
 The Status column is the record of what has landed; a phase's PR updates
 its row (and, for Phase 3, names the ranks done) in the same commit that
@@ -622,7 +622,7 @@ principle 9 asks: 41 wrappers stopped saving, the dispatcher saves once,
 `self.persist(` in `cogs/` went **83 to 43**. It changed no wording and
 no picture -- all three goldens byte-identical.
 
-**PR #TBD, the second increment**, and it answers both questions the
+**PR #257, the second increment**, and it answers both questions the
 first one asked.
 
 - **`own_message` and `NarrationGroup`.** The loop could run only the
