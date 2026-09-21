@@ -29,13 +29,13 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
-from cogs.d12ball import D12Ball
 from d12ball.components import MatchState
 from d12ball.flow import FollowOn, FollowOnStep
 from d12ball.flow.effects import steal_step
 from d12ball.prompts import pending_prompt
 
 from d12ball.flow.arrivals import begin_shooter_choice
+from d12ball.flow.turnovers import begin_run_back
 from d12ball.flow import driver
 from flow_stubs import (
     REAL_MODEL_STEPS,
@@ -143,20 +143,18 @@ class StealStepTests(unittest.TestCase):
         self.assertEqual(
             FollowOnStep.BEGIN_SHOOTER_CHOICE.name, SHOOTER_CHOICE,
         )
-        cog = build_cog()
-        self.enterContext(driver_reaches_cog_stubs(cog))
-        # **The two rows are on different sides now.** Phase 6 moved
-        # the shooter choice into `d12ball.flow.driver`, which runs it
-        # itself; the run back still posts and pins a board, so it is
-        # the cog's. The two tables together cover the enum exactly --
-        # asserted in `tests/test_d12ball_package_shape.py`.
-        table = D12Ball.follow_on_methods(cog)
-        self.assertIs(table[FollowOnStep.BEGIN_RUN_BACK], cog.begin_run_back)
+        # **Both rows are the driver's.** Phase 6 moved the shooter
+        # choice into `d12ball.flow.driver` and then the run back too,
+        # whose new play the dispatcher posts and pins off the result's
+        # own `new_play`. The table covers the enum exactly -- asserted
+        # in `tests/test_d12ball_package_shape.py`.
         self.assertIs(
             REAL_MODEL_STEPS[FollowOnStep.BEGIN_SHOOTER_CHOICE],
             begin_shooter_choice,
         )
-        self.assertNotIn(FollowOnStep.BEGIN_SHOOTER_CHOICE, table)
+        self.assertIs(
+            REAL_MODEL_STEPS[FollowOnStep.BEGIN_RUN_BACK], begin_run_back,
+        )
 
     def test_the_step_does_not_save(self) -> None:
         """

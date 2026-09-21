@@ -6,15 +6,12 @@ they are the same shape -- one prompt answering one question.
 """
 
 import discord
-from typing import Awaitable, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from d12ball import tutorial
 from d12ball.components import PlayerRole
 from d12ball.flow import StepResult
-from d12ball.flow.arrivals import (
-    decline_mind_pull_step,
-    decline_smooth_step,
-)
+from d12ball.flow.driver import Action
+from d12ball.prompts import PromptKind
 from cogs.d12ball_helpers import (
     build_full_image_button,
     get_team_emoji,
@@ -23,7 +20,6 @@ from cogs.d12ball_helpers import (
 )
 
 from cogs.d12ball_views.base import SafeView
-from cogs.d12ball_views.runback import RunBackChoiceView
 
 if TYPE_CHECKING:
     from cogs.d12ball import D12Ball
@@ -176,6 +172,20 @@ class LowPassChoiceView(SafeView):
             return
 
         teammate = self.cog.engine.get_player_definition(receivers[0])
+        # Which card and whether it is free are the prompt's, read back
+        # off the position by the driver -- not this view's.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.LOW_PASS_CHOICE,
+                "",
+                {"distance": distance, "receiver_id": receivers[0]},
+            ),
+        )
+        if answered is None:
+            return
         await interaction.response.edit_message(
             content=(
                 f"**{coach}** chose "
@@ -190,9 +200,8 @@ class LowPassChoiceView(SafeView):
             # back's own makes.
             attachments=[],
         )
-        await self.cog.apply_low_pass(
-            interaction, game, match, distance, receiver_id=receivers[0],
-            key=self.key, free=self.free,
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
         )
 
 
@@ -265,15 +274,6 @@ class LowPassReceiverView(SafeView):
             )
             return
 
-        if receiver_id not in self.cog.engine.low_pass_receivers(
-            match, self.distance,
-        ):
-            await interaction.response.send_message(
-                "That player is no longer standing there.",
-                ephemeral=True,
-            )
-            return
-
         offense_side = match.ball.possession
         receiver = self.cog.engine.get_player_definition(receiver_id)
         origin_flat = match.board.flat_index(
@@ -289,6 +289,21 @@ class LowPassReceiverView(SafeView):
         )
         coach = f"{team_emoji} {interaction.user.display_name}"
 
+        # The distance is this view's and the receiver is the click's;
+        # both go with the action, and a receiver no longer standing
+        # there is the driver's to refuse.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.LOW_PASS_CHOICE,
+                "",
+                {"distance": self.distance, "receiver_id": receiver_id},
+            ),
+        )
+        if answered is None:
+            return
         await interaction.response.edit_message(
             content=(
                 f"**{coach}** chose "
@@ -301,9 +316,8 @@ class LowPassReceiverView(SafeView):
             # with the question -- see LowPassChoiceView.choose.
             attachments=[],
         )
-        await self.cog.apply_low_pass(
-            interaction, game, match, self.distance, receiver_id=receiver_id,
-            key=self.key, free=self.free,
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
         )
 
 
@@ -378,26 +392,21 @@ class SetupPassChoiceView(SafeView):
             )
             return
 
-        # Re-read rather than trusted: this prompt carries no message
-        # id, so an older one still in the channel dispatches here too.
-        if distance not in self.cog.engine.setup_pass_distances(match):
-            await interaction.response.edit_message(
-                content=(
-                    "That distance is not on offer any more -- 0 spaces "
-                    "needs a teammate in your own space, and every other "
-                    "distance has to fit on the field. Use "
-                    "`/d12ball resume` to put the choice back up."
-                ),
-                view=None,
-                attachments=[],
-            )
-            return
-
         team_emoji = get_team_emoji(
             self.cog.team_emojis,
             match.setup_for_side(match.ball.possession).team,
         )
         coach = f"{team_emoji} {interaction.user.display_name}"
+        # A distance no longer on offer -- an older prompt still in the
+        # channel -- is the driver's to refuse against the position.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.SETUP_PASS_CHOICE, "", {"distance": distance}),
+        )
+        if answered is None:
+            return
         # The strip goes with the question: it shows the ball where
         # it was before the pass, so leaving it under the answer would
         # put a stale position in the channel.
@@ -409,7 +418,9 @@ class SetupPassChoiceView(SafeView):
             view=None,
             attachments=[],
         )
-        await self.cog.apply_setup_pass(interaction, game, match, distance)
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
+        )
 
 
 class SetupPassPushBackView(SafeView):
@@ -482,9 +493,17 @@ class SetupPassPushBackView(SafeView):
             )
             return
 
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.SETUP_PASS_PUSH_BACK, "", {"distance": distance}),
+        )
+        if answered is None:
+            return
         await interaction.response.edit_message(view=None)
-        await self.cog.apply_setup_pass_push_back(
-            interaction, game, match, distance,
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
         )
 
 
@@ -565,31 +584,17 @@ class HighPassChoiceView(SafeView):
             )
             return
 
-        # A click on a menu the ball has since moved out from under --
-        # an older prompt still sitting in the channel, since these
-        # buttons carry no message id. The distances are read off the
-        # match rather than off the view for exactly that reason.
-        if distance not in self.cog.engine.high_pass_distance_options(match):
-            await interaction.response.send_message(
-                f"A {distance}-space pass runs off the end of the field "
-                "from where the ball is now.",
-                ephemeral=True,
-            )
-            return
-
-        railed = self.cog.tutorial_railed_option(
-            game, "high_pass",
-            self.cog.engine.high_pass_distance_options(match),
+        # A click on a menu the ball has since moved out from under,
+        # and a distance the tutorial's rail does not want, are both
+        # the driver's to refuse against the position.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.HIGH_PASS_CHOICE, "", {"distance": distance}),
         )
-        if railed is not None and distance != railed:
-            await interaction.response.send_message(
-                "The tutorial is on one step of a single continuous game, "
-                "so this choice is fixed. Use the prompt at the "
-                "bottom of the channel.",
-                ephemeral=True,
-            )
+        if answered is None:
             return
-
         # `attachments=[]` takes the strip with the question it
         # answered. It shows the ball where it was *before* the pass, so
         # leaving it under the answer would put a stale position in the
@@ -600,7 +605,9 @@ class HighPassChoiceView(SafeView):
             view=None,
             attachments=[],
         )
-        await self.cog.apply_high_pass(interaction, game, match, distance)
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
+        )
 
 
 class SetUpAttemptChoiceView(SafeView):
@@ -677,6 +684,14 @@ class SetUpAttemptChoiceView(SafeView):
             )
             return
 
+        # The shooter and the offer's two numbers are the prompt's,
+        # read back off the match by the driver (see
+        # `MatchState.pending_scoring_opportunity`), not this view's.
+        answered = await self.answer(
+            interaction, game, match, Action(PromptKind.SET_UP_ATTEMPT, "take"),
+        )
+        if answered is None:
+            return
         shooter = self.cog.engine.get_player_definition(self.shooter_id)
         await interaction.response.edit_message(
             content=(
@@ -685,9 +700,9 @@ class SetUpAttemptChoiceView(SafeView):
             ),
             view=None,
         )
-        await self.cog.start_set_up_shot(
-            interaction, game, match, self.shooter_id,
-            maneuver_cost=self.distance_moved,
+        # The step's own line goes above the composition, as it did.
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
         )
 
     async def decline(self, interaction: discord.Interaction) -> None:
@@ -702,13 +717,17 @@ class SetUpAttemptChoiceView(SafeView):
             )
             return
 
+        answered = await self.answer(
+            interaction, game, match, Action(PromptKind.SET_UP_ATTEMPT, "decline"),
+        )
+        if answered is None:
+            return
         await interaction.response.edit_message(
             content="Declined the scoring opportunity.",
             view=None,
         )
-        await self.cog.decline_scoring_attempt(
-            interaction, game, match, self.distance_moved,
-            contest=self.contest_on_decline,
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
         )
 
 
@@ -787,18 +806,14 @@ class DribbleAdvanceChoiceView(SafeView):
             )
             return
 
-        railed = self.cog.tutorial_railed_option(
-            game, "dribble_advance", (1, 2),
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.DRIBBLE_ADVANCE_CHOICE, "", {"distance": distance}),
         )
-        if railed is not None and distance != railed:
-            await interaction.response.send_message(
-                "The tutorial is on one step of a single continuous game, "
-                "so this choice is fixed. Use the prompt at the "
-                "bottom of the channel.",
-                ephemeral=True,
-            )
+        if answered is None:
             return
-
         space_word = "space" if distance == 1 else "spaces"
         await interaction.response.edit_message(
             content=f"Chose **{distance} {space_word}**.",
@@ -809,7 +824,9 @@ class DribbleAdvanceChoiceView(SafeView):
             # see D12Ball.send_field_prompt.
             attachments=[],
         )
-        await self.cog.apply_dribble_advance(interaction, game, match, distance)
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
+        )
 
 
 class DribbleBurstChoiceView(SafeView):
@@ -894,17 +911,14 @@ class DribbleBurstChoiceView(SafeView):
             )
             return
 
-        # A stale click: an older prompt in the channel, or one the
-        # handler has since been moved out from under. The menu carries
-        # no message id, so this is the check that catches it -- the
-        # same refusal HighPassChoiceView makes for the same reason.
-        if distance not in self.cog.engine.dribble_burst_distances(match):
-            await interaction.response.send_message(
-                "That distance is no longer available.",
-                ephemeral=True,
-            )
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.DRIBBLE_BURST_CHOICE, "", {"distance": distance}),
+        )
+        if answered is None:
             return
-
         space_word = "space" if distance == 1 else "spaces"
         await interaction.response.edit_message(
             content=f"Chose **{distance} {space_word}**.",
@@ -913,7 +927,9 @@ class DribbleBurstChoiceView(SafeView):
             # the run has just moved -- see DribbleAdvanceChoiceView.
             attachments=[],
         )
-        await self.cog.apply_dribble_burst(interaction, game, match, distance)
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
+        )
 
 
 class SpeedDeltaChoiceView(SafeView):
@@ -1004,50 +1020,49 @@ class SpeedDeltaChoiceView(SafeView):
             )
             return
 
-        # A steal -- basic or Intercept -- has already flipped possession
-        # (and run the defense back) by the time this view is shown; a
-        # dribble never triggers a turnover at all.
-        turnover_occurred = match.defense_maneuver in ("steal", "intercept") and (
-            self.skill_type == "defense"
+        # Whether a turnover happened is the driver's reading off the
+        # position (`_answer_speed_delta_choice`), not this view's.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.SPEED_DELTA_CHOICE, "", {"target_speed": target_speed},
+            ),
         )
+        if answered is None:
+            return
 
-        # No separate "chose speed N" confirmation -- apply_speed_choice's
-        # own "Ball speed is now N" message says the same thing, so just
-        # drop the buttons and let that be the one message.
+        # No separate "chose speed N" confirmation -- the step's own
+        # "Ball speed is now N" message says the same thing, so just
+        # drop the buttons and let that be the one message. Its own
+        # message: the new speed is the answer to the question this
+        # click was, and what follows it is the next event.
         await interaction.response.edit_message(view=None)
-        await self.cog.apply_speed_choice(
-            interaction, game, match, target_speed,
-            turnover_occurred=turnover_occurred,
+        await self.cog.post_then_dispatch(
+            interaction, game, match, answered.result,
         )
 
 
 class TutorialContinueView(SafeView):
     """
     A single "Continue" button gating whatever comes next in a run of
-    tutorial narration -- see D12Ball.post_tutorial_note. Two or more
+    tutorial narration -- see `d12ball/flow/gates.py`. Two or more
     plain-text messages posted back to back with no click between them
     are exactly what gets scrolled past in Discord, so a note that has
     something following it is held here until the coach presses on,
     rather than dumped alongside the rest of the burst.
 
-    Not restart-safe, the same tradeoff the rest of the tutorial makes
-    -- see the module docstring in d12ball/tutorial.py: what a restart
-    loses is a lesson's text, and a dead Continue button here is the
-    same kind of loss. It is never registered with `bot.add_view`, so
-    a restart while one is up leaves it unclickable; the game itself
-    is unaffected; the coach's own next real action still works.
+    **Restart-safe since Phase 6**: the gate is `PromptKind.TUTORIAL_CONTINUE`,
+    read off `D12BallGame.tutorial_gate`, so the view is built from
+    the cog and the game id alone and a restart re-arms it like any
+    other prompt. What the click runs is the gate's to say.
     """
 
-    def __init__(
-        self,
-        cog: "D12Ball",
-        game_id: str,
-        on_continue: Callable[[discord.Interaction], Awaitable[None]],
-    ):
+    def __init__(self, cog: "D12Ball", game_id: str):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
-        self._on_continue = on_continue
 
         button = discord.ui.Button(
             label="Continue",
@@ -1058,16 +1073,22 @@ class TutorialContinueView(SafeView):
         self.add_item(button)
 
     async def _continue(self, interaction: discord.Interaction) -> None:
-        game, _ = self.load_match()
+        game, match = await self.require_match(interaction)
         if game is None or not self.may_act_in_game(interaction, game):
-            await interaction.response.send_message(
-                "Only a coach in this game can continue.",
-                ephemeral=True,
+            await self.refuse(
+                interaction, "Only a coach in this game can continue.",
             )
             return
 
+        answered = await self.answer(
+            interaction, game, match, Action(PromptKind.TUTORIAL_CONTINUE),
+        )
+        if answered is None:
+            return
+        self.cog.persist(game, match)
+
         await interaction.response.edit_message(view=None)
-        await self._on_continue(interaction)
+        await self.dispatch_answer(interaction, game, match, answered)
 
 
 class ShooterChoiceView(SafeView):
@@ -1114,6 +1135,14 @@ class ShooterChoiceView(SafeView):
             )
             return
 
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.SHOOTER_CHOICE, "", {"shooter_id": shooter_id}),
+        )
+        if answered is None:
+            return
         shooter = self.cog.engine.get_player_definition(shooter_id)
         await interaction.response.edit_message(
             content=(
@@ -1122,7 +1151,9 @@ class ShooterChoiceView(SafeView):
             ),
             view=None,
         )
-        await self.cog.start_set_up_shot(interaction, game, match, shooter_id)
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
+        )
 
 
 class SmoothView(SafeView):
@@ -1189,13 +1220,6 @@ class SmoothView(SafeView):
         if game is None:
             return None, None
 
-        if self.player_id not in match.pending_smooth:
-            await interaction.response.send_message(
-                "That Smooth has already been answered.",
-                ephemeral=True,
-            )
-            return None, None
-
         if not self.may_act_for(
             interaction,
             self.cog.engine.controlling_user_id(game, match, self.player_id),
@@ -1212,12 +1236,23 @@ class SmoothView(SafeView):
         if game is None:
             return
 
-        # Deferred for the reason the pull defers: taking the ball
-        # over ends the maneuver and everything that follows it, which
-        # does not fit in the three-second window.
+        # An offer already answered is a stale click the driver refuses
+        # by kind; the player asked is the prompt's, and this view's
+        # goes with the action so a click on an earlier offer in the
+        # same turn cannot answer for somebody else.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.SMOOTH, "take", {"player_id": self.player_id}),
+        )
+        if answered is None:
+            return
+        # Taking the ball over ends the maneuver and everything that
+        # follows it, so the buttons go first.
         await interaction.response.edit_message(view=None)
-        await self.cog.run_smooth(
-            interaction, game, match, self.player_id,
+        await self.dispatch_answer(
+            interaction, game, match, answered, lines_posted=False,
         )
 
     async def decline(self, interaction: discord.Interaction) -> None:
@@ -1227,15 +1262,19 @@ class SmoothView(SafeView):
 
         # **The rule is `d12ball.flow.arrivals.decline_smooth_step`**
         # since Phase 6: popping the queue and wording the line are
-        # both the model's, and this was the last of Smooth's two
-        # buttons still deciding either here. What is left is that the
-        # decline *replaces* the offer it answers -- an edit rather
-        # than a message of its own -- so the step's first block is
-        # this message and the rest is whatever the queue had to say
-        # next. Same unpacking as `run_own_goal_roll`.
-        result = decline_smooth_step(
-            self.cog.engine, game, match, player_id=self.player_id,
+        # both the model's. What is left is that the decline
+        # *replaces* the offer it answers -- an edit rather than a
+        # message of its own -- so the step's first block is this
+        # message and the rest is whatever the queue had to say next.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.SMOOTH, "decline", {"player_id": self.player_id}),
         )
+        if answered is None:
+            return
+        result = answered.result
         self.cog.persist(game, match)
 
         await interaction.response.edit_message(
@@ -1310,17 +1349,6 @@ class MindPullView(SafeView):
         if game is None:
             return None, None
 
-        # The queue is the whole of "is this offer still live" -- a
-        # restart re-arms the prompt off it, and answering removes the
-        # player from it, so a second click on the same message finds
-        # them gone.
-        if self.player_id not in match.pending_mind_pull:
-            await interaction.response.send_message(
-                "That Mind Pull has already been answered.",
-                ephemeral=True,
-            )
-            return None, None
-
         if not self.may_act_for(
             interaction,
             self.cog.engine.controlling_user_id(game, match, self.player_id),
@@ -1337,12 +1365,25 @@ class MindPullView(SafeView):
         if game is None:
             return
 
-        # Deferred before the roll for the reason SkillTestView.roll
-        # spells out: what follows can be a whole turnover, and the
-        # three-second window is not enough for it.
+        # **The rule is `d12ball.flow.arrivals.attempt_mind_pull_step`**:
+        # the token, the roll, whether it landed and what a landed pull
+        # does to possession. The queue is the whole of "is this offer
+        # still live", and the driver reads it.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.MIND_PULL, "take", {"player_id": self.player_id}),
+        )
+        if answered is None:
+            return
+        self.cog.persist(game, match)
+        # The buttons go before the die is drawn: what follows can be
+        # a whole turnover, and the three-second window is not enough
+        # for it.
         await interaction.response.edit_message(view=None)
-        await self.cog.run_mind_pull(
-            interaction, game, match, self.player_id,
+        await self.cog.post_mind_pull_die(
+            interaction, game, match, answered.detail, answered.result,
         )
 
     async def decline(self, interaction: discord.Interaction) -> None:
@@ -1356,9 +1397,15 @@ class MindPullView(SafeView):
         # wording the line are the model's. Nothing is charged for
         # letting it go -- the token is the price of *trying* -- so
         # what is left here is that the answer replaces the offer.
-        result = decline_mind_pull_step(
-            self.cog.engine, game, match, player_id=self.player_id,
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.MIND_PULL, "decline", {"player_id": self.player_id}),
         )
+        if answered is None:
+            return
+        result = answered.result
         self.cog.persist(game, match)
 
         await interaction.response.edit_message(

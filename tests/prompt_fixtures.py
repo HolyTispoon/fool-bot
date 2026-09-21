@@ -54,6 +54,8 @@ from d12ball.formatting import (
     space_label,
 )
 from d12ball.game import D12BallGame, Formation, GameStatus, Team
+from d12ball import tutorial
+from d12ball.prompts import maneuver_action_ask, speed_choice_ask
 from roster import fielded
 
 CATALOG = load_player_catalog()
@@ -507,9 +509,16 @@ def maneuver_challenge() -> PromptFixture:
 
 
 def maneuver_picks() -> PromptFixture:
+    # The live wording, not a bare "Choose your maneuver:" -- the
+    # tutorial holds this prompt behind a note and shows what the
+    # match is waiting on after the click, so the restored ask is the
+    # live one (see `maneuver_action_ask`).
     match = build_match()
     challenge(match)
-    return PromptFixture(build_game(), match, "Choose your maneuver:")
+    game = build_game()
+    return PromptFixture(
+        game, match, maneuver_action_ask(ENGINE, game, match),
+    )
 
 
 def skill_test() -> PromptFixture:
@@ -554,6 +563,16 @@ def high_pass_choice() -> PromptFixture:
     return _settled("high_pass", "steal")
 
 
+def _speed(fixture: PromptFixture, player_id: str, skill_type: str) -> None:
+    """
+    The speed choice's live wording, which is also its restored one --
+    the tutorial holds it behind a note, for `maneuver_picks`'s reason.
+    """
+    fixture.ask = speed_choice_ask(
+        ENGINE, fixture.game, fixture.match, player_id, skill_type,
+    )
+
+
 def setup_pass_speed_choice() -> PromptFixture:
     fixture = _settled("setup_pass", "steal")
     fixture.params = {
@@ -561,6 +580,7 @@ def setup_pass_speed_choice() -> PromptFixture:
         "skill_type": "offense",
         "maneuver_key": "setup_pass",
     }
+    _speed(fixture, fixture.match.active_player_id, "offense")
     return fixture
 
 
@@ -581,7 +601,7 @@ def dribble_advance_speed_choice() -> PromptFixture:
     match.challenger_id = match.visiting.field_players[0]
     match.offense_maneuver = "dribble_advance"
     match.defense_maneuver = "deflect"
-    return PromptFixture(
+    fixture = PromptFixture(
         build_game(),
         match,
         RESOLVE,
@@ -591,6 +611,25 @@ def dribble_advance_speed_choice() -> PromptFixture:
             "maneuver_key": "dribble_advance",
         },
     )
+    _speed(fixture, match.active_player_id, "offense")
+    return fixture
+
+
+def dribble_advance_speed_after_the_distance() -> PromptFixture:
+    # A Playmaker's advance, *after* the distance has been taken: the
+    # handler is recorded as carrying, which is what
+    # `dribble_advance_step` sets and `select_ball_handler` clears --
+    # so the speed choice is owed, not the distance. The other reading
+    # was the crash-window guess `effect_choice_prompt` used to make.
+    fixture = _settled("dribble_advance", "deflect")
+    fixture.match.set_ball_carrier(fixture.match.active_player_id)
+    fixture.params = {
+        "player_id": fixture.match.active_player_id,
+        "skill_type": "offense",
+        "maneuver_key": "dribble_advance",
+    }
+    _speed(fixture, fixture.match.active_player_id, "offense")
+    return fixture
 
 
 def dribble_burst_choice() -> PromptFixture:
@@ -619,6 +658,7 @@ def steal_speed_choice() -> PromptFixture:
         "skill_type": "defense",
         "maneuver_key": "steal",
     }
+    _speed(fixture, fixture.match.challenger_id, "defense")
     return fixture
 
 
@@ -629,7 +669,49 @@ def intercept_speed_choice() -> PromptFixture:
         "skill_type": "defense",
         "maneuver_key": "intercept",
     }
+    _speed(fixture, fixture.match.challenger_id, "defense")
     return fixture
+
+
+def skill_test_settled_a_tie() -> PromptFixture:
+    # A tie the dice settled: the winner is on the match
+    # (`skill_test_winner`), so the effect's own prompt is owed rather
+    # than the roll -- which is what a restart inside that effect used
+    # to re-offer.
+    match = build_match()
+    challenge(match)
+    match.offense_maneuver = "low_pass"
+    match.defense_maneuver = "deflect"
+    match.skill_test_winner = "low_pass"
+    fixture = PromptFixture(build_game(), match, RESOLVE)
+    fixture.params = {"maneuver_key": "low_pass", "free": False}
+    return fixture
+
+
+def setup_pass_push_back() -> PromptFixture:
+    # Setup Pass beaten by a Deflect, the deflection played and the
+    # ball not yet loose: the coach who won is owed the push back.
+    fixture = _settled("setup_pass", "deflect")
+    return fixture
+
+
+def tutorial_note_up() -> PromptFixture:
+    # A note held behind Continue outranks everything: the position
+    # underneath is exactly what it was before the note went up.
+    match = build_match()
+    take_the_ball(match)
+    game = build_game(tutorial=True, tutorial_step=1)
+    game.tutorial_gate = {"note": tutorial.NOTE_LESSON, "then": None}
+    return PromptFixture(game, match, tutorial.gate_text(game))
+
+
+def game_over() -> PromptFixture:
+    match = build_match()
+    take_the_ball(match)
+    game = build_game()
+    game.status = GameStatus.IN_PROGRESS
+    game.finish_game()
+    return PromptFixture(game, match, "")
 
 
 def setup_pass_shot_choice() -> PromptFixture:
@@ -731,6 +813,9 @@ CASES: tuple[PromptCase, ...] = (
                "DribbleAdvanceChoiceView", dribble_advance_choice),
     PromptCase("dribble advance speed", "SPEED_DELTA_CHOICE",
                "SpeedDeltaChoiceView", dribble_advance_speed_choice),
+    PromptCase("dribble advance speed, after the distance",
+               "SPEED_DELTA_CHOICE", "SpeedDeltaChoiceView",
+               dribble_advance_speed_after_the_distance),
     PromptCase("dribble burst", "DRIBBLE_BURST_CHOICE",
                "DribbleBurstChoiceView", dribble_burst_choice),
     PromptCase("dribble burst, nothing to ask", "PLAYER_ACTION",
@@ -741,5 +826,12 @@ CASES: tuple[PromptCase, ...] = (
                intercept_speed_choice),
     PromptCase("effect with no choice", "PLAYER_ACTION", "PlayerActionView",
                effect_with_no_choice),
+    PromptCase("skill test settled a tie", "LOW_PASS_CHOICE",
+               "LowPassChoiceView", skill_test_settled_a_tie),
+    PromptCase("setup pass push back", "SETUP_PASS_PUSH_BACK",
+               "SetupPassPushBackView", setup_pass_push_back),
+    PromptCase("tutorial note up", "TUTORIAL_CONTINUE",
+               "TutorialContinueView", tutorial_note_up),
+    PromptCase("game over", "GAME_OVER", "RematchView", game_over),
     PromptCase("plain turn", "PLAYER_ACTION", "PlayerActionView", plain_turn),
 )

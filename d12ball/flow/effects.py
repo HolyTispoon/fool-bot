@@ -38,9 +38,11 @@ import random
 from dataclasses import dataclass
 from typing import Optional
 
+from d12ball import tutorial
 from d12ball.components import (
     BALL_SPEED_MAX,
     EVENT_OWN_GOAL_ROLL,
+    MIN_HIGH_PASS_DISTANCE,
     MatchState,
     PlayerDefinition,
     PlayerRole,
@@ -49,14 +51,18 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.engine import RulesEngine
+from d12ball.flow import gates
+from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.turn import record_maneuver, tutorial_beat
 from d12ball.formatting import (
     ball_space_phrase,
     format_goal_time,
+    format_player_with_team,
     format_team_side_label,
     get_species_ability_emoji,
 )
 from d12ball.game import D12BallGame, team_display_name
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.prompts import PendingPrompt, PromptKind, speed_choice_ask
 
 
 def send_low_pass(
@@ -605,15 +611,14 @@ def steal_step(
 
     # **Skilled Pass's cost**: beaten by a steal, the passing side
     # hands the defender an unopposed Low Pass once the steal has
-    # settled. It is recorded rather than played here because the
-    # steal is not finished: the run back and then the speed choice
-    # both come first, and the pass is played from wherever that
-    # leaves the interceptor. See `pending_effect_continuation`.
+    # settled. It is said here and played later, because the steal is
+    # not finished: the run back and then the speed choice both come
+    # first, and the pass is played from wherever that leaves the
+    # interceptor. The record of it is written when the speed choice
+    # is answered (`speed_choice_step`), which is the moment the
+    # effect has nothing left in front of it -- see
+    # `pending_effect_continuation`.
     if engine.gambit_cost(match, key) == "skilled_pass":
-        match.pending_effect_continuation = {
-            "kind": "free_low_pass",
-            "player_id": challenger_id,
-        }
         content += (
             "\n\n**Skilled Pass** was beaten -- the defense gets an "
             "unopposed Low Pass once everyone is back in position."
@@ -1637,17 +1642,20 @@ def setup_pass_speed_step(
     rather than one. A speed choice has always been the *last* human
     step of an effect, leading straight into
     `finish_maneuver_resolution`; here it is the first, so what comes
-    after it is recorded as an effect continuation and picked up by
-    `D12Ball.continue_effect`. A restart between the two comes back to
-    whichever prompt is up, and the continuation is persisted so the
-    pass is not lost with it.
+    after it is recorded as an effect continuation **when the speed
+    choice is answered** (`speed_choice_step`) and picked up by
+    `continue_effect`. Recorded then and not here, because the record
+    is what `effect_choice_prompt` reads first: written before the
+    speed choice, it made a match still waiting on the speed read as
+    waiting on the pass -- a restart came back to the wrong prompt,
+    and once every click was checked against that reading the speed
+    choice itself was refused.
 
     **Nothing on the board moves here**, which is what makes this the
     one step of the rank whose `board_changed` is False: the speed is
     set by the choice this hands off to, not by the card.
     """
     passer = engine.get_player_definition(match.active_player_id)
-    match.pending_effect_continuation = {"kind": "setup_pass_shot"}
     return StepResult(
         narration=[
             "**Setup Pass:** "
@@ -1897,12 +1905,33 @@ def speed_choice_step(
     Set the ball speed a maneuver's last human choice asks for.
 
     A gambit's effect can reach past its own maneuver, and a speed
-    choice is the last human step of the two that do -- so a
-    continuation outstanding here is run instead of the ordinary tail.
-    See `MatchState.pending_effect_continuation`.
+    choice is the last human step of the two that do -- Setup Pass's
+    own pass, and the unopposed Low Pass a beaten Skilled Pass hands
+    the side that stole it. **What is still owed is written down
+    here**, at the moment the effect has nothing left in front of it,
+    and run instead of the ordinary tail. Written here rather than by
+    the card that earned it because the record is what
+    `effect_choice_prompt` reads first: a continuation on the match
+    means the effect is past every prompt of its own, and it has to
+    mean exactly that. See `MatchState.pending_effect_continuation`.
     """
     match.ball.speed = target_speed
     line = f"Ball speed is now **{target_speed}**."
+
+    if match.pending_effect_continuation is None:
+        winner_key = engine.settled_maneuver_winner(match)
+        if winner_key is not None:
+            resolving = engine.resolving_maneuver(match, winner_key)
+            if resolving == "setup_pass":
+                match.pending_effect_continuation = {"kind": "setup_pass_shot"}
+            elif (
+                resolving in ("steal", "intercept")
+                and engine.gambit_cost(match, winner_key) == "skilled_pass"
+            ):
+                match.pending_effect_continuation = {
+                    "kind": "free_low_pass",
+                    "player_id": match.challenger_id,
+                }
 
     if match.pending_effect_continuation is not None:
         return StepResult(
@@ -1955,5 +1984,581 @@ def setup_pass_push_back_step(
         ],
         next=FollowOn(
             FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1},
+        ),
+    )
+
+
+# -- Offering an effect's choice --------------------------------------
+#
+# Phase 6 of docs/model-discord-split.md. Each `offer_*` is the half of
+# a won card that used to be `D12Ball.resolve_<card>`: does anybody
+# have to be asked at all, and if so what. A card with nothing to
+# choose applies itself; an AI side answers for itself; a coach is
+# asked, and the ask is the prompt's. Every one of them ends on the
+# same `apply` step the coach's own click reaches through
+# `driver.answer`, so there is one answer to each card however it was
+# chosen. What a frontend puts up for the prompt -- the field strip
+# under the six distance questions -- is keyed on the kind.
+
+
+def _possession_mention(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> str:
+    """The coach in possession, as a mention with their team's emoji."""
+    return format_player_with_team(
+        game,
+        engine.possession_player_number(game, match),
+        engine.team_emojis,
+        mention=True,
+    )
+
+
+def offer_low_pass(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    key: str = "low_pass",
+    free: bool = False,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    A won Low Pass or Skilled Pass: who it can reach, and whether
+    anybody chooses.
+
+    Skilled Pass is a Low Pass with the nearest-each-way rule taken
+    off, a space more reach, and the speed bonus tripled; every other
+    thing about it is a Low Pass's, which is why the two share one
+    function. `free` marks the unopposed Low Pass **Skilled Pass's
+    cost** hands the defense: it is not this side's maneuver, so it
+    charges no further clock and cannot be a Skilled Pass.
+
+    A handler with no teammate in reach has won the maneuver and has
+    nowhere to put the ball: it goes a space forward and is loose, and
+    its speed still rises (2026-08-07) -- the maneuver's speed bonus
+    doesn't depend on the pass finding anyone. No headline of its own
+    for that loose ball: the ball may well roll onto somebody, so what
+    to call it is a question about the space it stopped on rather than
+    about the pass that failed.
+    """
+    candidates = engine.pass_candidates(match, key)
+    name = engine.maneuver_name(key)
+
+    if not candidates:
+        offense_side = match.ball.possession
+        actual_distance = match.move_ball_relative(offense_side, 1)
+        match.ball.speed = min(
+            BALL_SPEED_MAX, match.ball.speed + engine.pass_speed_bonus(key),
+        )
+        movement_note = (
+            "the ball rolls a space forward"
+            if actual_distance
+            else "the ball stays where it is"
+        )
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+        return StepResult(
+            narration=[
+                f"{prefix}**{name}:** there is "
+                + (
+                    "nobody on the field to receive it"
+                    if key == "skilled_pass"
+                    else "no teammate within two spaces to receive it"
+                )
+                + ", and a pass can't be played to the passer -- "
+                f"{movement_note}. "
+                f"Ball speed is now {match.ball.speed}."
+            ],
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1},
+            ),
+        )
+
+    if engine.side_controlled_by_ai(game, match, "offense"):
+        strategy = engine.get_ai_strategy(game)
+        distance = strategy.choose_low_pass(match, candidates)
+        result = low_pass_step(
+            engine,
+            match,
+            distance,
+            receiver_id=strategy.choose_low_pass_receiver(
+                match, engine.low_pass_receivers(match, distance),
+            ),
+            key=key,
+            free=free,
+        )
+        if lead_in:
+            result.narration.insert(0, lead_in)
+        return result
+
+    return StepResult(
+        narration=[lead_in] if lead_in else [],
+        next=PendingPrompt(
+            PromptKind.LOW_PASS_CHOICE,
+            f"{_possession_mention(engine, game, match)}, choose your "
+            f"{name}:",
+            maneuver_key=key,
+            free=free,
+        ),
+    )
+
+
+def offer_dribble_advance(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    A won Dribble Advance. Role ability -- Playmaker: may advance 2
+    spaces instead of the usual 1. Everyone else has no choice to make
+    here, so they skip straight to applying the fixed 1-space advance.
+    """
+    handler = engine.get_player_definition(match.active_player_id)
+    if handler.role != PlayerRole.PLAYMAKER:
+        return _with_lead_in(
+            dribble_advance_step(engine, game, match, 1), lead_in,
+        )
+
+    if engine.side_controlled_by_ai(game, match, "offense"):
+        distance = engine.get_ai_strategy(
+            game
+        ).choose_dribble_advance_distance(match)
+        return _with_lead_in(
+            dribble_advance_step(engine, game, match, distance), lead_in,
+        )
+
+    return StepResult(
+        narration=[lead_in] if lead_in else [],
+        next=PendingPrompt(
+            PromptKind.DRIBBLE_ADVANCE_CHOICE,
+            f"{_possession_mention(engine, game, match)}, choose your "
+            "Dribble Advance distance (Playmaker ability):",
+        ),
+    )
+
+
+def offer_dribble_burst(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    A won Dribble Burst: how far, at a token a space -- see
+    `dribble_burst_step` for the card, and `RulesEngine.dribble_burst_distances`
+    for what is offered.
+
+    From the last space of the field there is nothing to ask: a burst
+    that moves nowhere costs nothing and still gets its speed choice.
+    Applying 0 rather than putting up an empty menu is the same call
+    `offer_high_pass` makes for a pass with no distance left in it.
+    """
+    distances = engine.dribble_burst_distances(match)
+
+    if not distances:
+        return _with_lead_in(
+            dribble_burst_step(engine, game, match, 0), lead_in,
+        )
+
+    if engine.side_controlled_by_ai(game, match, "offense"):
+        distance = engine.get_ai_strategy(
+            game
+        ).choose_dribble_burst_distance(match, distances)
+        return _with_lead_in(
+            dribble_burst_step(engine, game, match, distance), lead_in,
+        )
+
+    return StepResult(
+        narration=[lead_in] if lead_in else [],
+        next=PendingPrompt(
+            PromptKind.DRIBBLE_BURST_CHOICE,
+            f"{_possession_mention(engine, game, match)}, choose your "
+            "Dribble Burst distance (1 exhaustion token a space):",
+        ),
+    )
+
+
+def offer_high_pass(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    A won High Pass: how far to throw.
+
+    There is nothing to choose when even the shortest pass runs out of
+    field -- 2, 3 and 4 all land on the space closest to the goal, so
+    the pass is an overshoot before anyone picks anything (2026-08-10).
+    The prompt is skipped rather than answered: asking would be putting
+    one answer up three times, and a Fullback's 4 is no less moot than
+    the 2. The distance handed on is the minimum, which is what the
+    clock charges once the clamp has had its say.
+    """
+    distances = engine.high_pass_distance_options(match)
+    if not distances:
+        return _with_lead_in(
+            high_pass_step(engine, match, MIN_HIGH_PASS_DISTANCE), lead_in,
+        )
+
+    if engine.side_controlled_by_ai(game, match, "offense"):
+        distance = engine.get_ai_strategy(game).choose_high_pass_distance(
+            match, distances,
+        )
+        return _with_lead_in(high_pass_step(engine, match, distance), lead_in)
+
+    return StepResult(
+        narration=[lead_in] if lead_in else [],
+        next=PendingPrompt(
+            PromptKind.HIGH_PASS_CHOICE,
+            f"{_possession_mention(engine, game, match)}, choose your "
+            "High Pass distance:",
+        ),
+    )
+
+
+def offer_setup_pass_distance(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    The second half of Setup Pass: 0, 1 or 3 spaces, and a teammate
+    standing where it lands takes a scoring opportunity.
+
+    **Every distance that fits on the field is offered**, whether or
+    not anybody of the passing side is standing there -- see
+    `RulesEngine.setup_pass_distances`. A pass that lands on nobody is
+    a real outcome, not a pass the menu should refuse. **0 is the
+    exception**: it means a teammate sharing the passer's own space,
+    since a passer never receives their own pass (2026-08-12), so it is
+    on the menu only while somebody else is standing there.
+
+    **Setup Pass cannot overshoot**, so the one way it goes out is
+    having nowhere to throw it at all: the passer on the last space of
+    the field with no teammate beside them. That is the existing
+    out-of-bounds outcome -- `setup_pass_out_step`.
+    """
+    distances = engine.setup_pass_distances(match)
+
+    if not distances:
+        return _with_lead_in(setup_pass_out_step(match), lead_in)
+
+    if engine.side_controlled_by_ai(game, match, "offense"):
+        # The same question a High Pass asks, so the same answer: the
+        # longest distance that actually reaches a teammate, and
+        # otherwise the longest available. Maximizing outright would
+        # have Dinky pick the ball out into empty space and give it
+        # away, which is exactly why that policy was written for the
+        # High Pass (2026-08-18).
+        distance = engine.get_ai_strategy(game).choose_high_pass_distance(
+            match, distances,
+        )
+        return _with_lead_in(setup_pass_step(engine, match, distance), lead_in)
+
+    return StepResult(
+        narration=[lead_in] if lead_in else [],
+        next=PendingPrompt(
+            PromptKind.SETUP_PASS_CHOICE,
+            f"{_possession_mention(engine, game, match)}, choose where "
+            "your **Setup Pass** lands:",
+        ),
+    )
+
+
+def setup_pass_push_back_distances(match: MatchState) -> list[int]:
+    """
+    How much further back a beaten Setup Pass may be driven: 1, 2 or
+    3, less any that would run off the end of the field -- for the
+    reason `high_pass_distances` does not offer those: a longer push
+    landing where a shorter one already would is the same push
+    described twice.
+    """
+    offense_side = match.ball.possession
+    origin_flat = match.board.flat_index(
+        match.ball.zone, match.ball.space_index,
+    )
+    return [
+        distance
+        for distance in (1, 2, 3)
+        if abs(
+            match.relative_flat_index(origin_flat, offense_side, -distance)
+            - origin_flat
+        )
+        == distance
+    ]
+
+
+def offer_setup_pass_push_back(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Setup Pass's cost: the coach who beat it chooses 1, 2 or 3 further
+    spaces to drive the ball back, where it is a loose ball.
+
+    If none of the three fits, the ball is already at the end and the
+    cost is spent -- the loose ball happens where the deflection left
+    it. Dinky drives it as far back as it can, the same maximizing it
+    brings to a speed choice.
+
+    The deflection's own line is the prompt's opening paragraph rather
+    than a message above it, which is how the question always read.
+    """
+    distances = setup_pass_push_back_distances(match)
+
+    if not distances:
+        # Named rather than called, so the loop sees the loose ball
+        # begin: it is a step the frontend stops on to draw the board
+        # under its announcement.
+        return StepResult(
+            narration=[lead_in] if lead_in else [],
+            next=FollowOn(
+                FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1},
+            ),
+        )
+
+    if engine.side_controlled_by_ai(game, match, "defense"):
+        result = setup_pass_push_back_step(
+            engine, game, match, distance=max(distances),
+        )
+        if lead_in:
+            result.narration[0] = f"{lead_in}\n\n{result.narration[0]}"
+        return result
+
+    mention = format_player_with_team(
+        game,
+        engine.defending_player_number(game, match),
+        engine.team_emojis,
+        mention=True,
+    )
+    prefix = f"{lead_in}\n\n" if lead_in else ""
+    return StepResult(
+        next=PendingPrompt(
+            PromptKind.SETUP_PASS_PUSH_BACK,
+            f"{prefix}{mention}, **Setup Pass** was beaten -- how far "
+            "back does the ball go? It will be loose where it stops.",
+        ),
+    )
+
+
+def offer_speed_choice(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    skill_type: str,
+    turnover_occurred: bool = False,
+    distance_moved: int = 1,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Always the last human choice in a maneuver's effect -- speed is
+    manipulated after any run-back it caused (Steal), so this leads
+    straight into `finish_maneuver_resolution` once chosen.
+    `turnover_occurred`/`distance_moved` are carried through to that
+    call when the pick is automatic; a coach's pick reads the first
+    back off the position (`driver._answer_speed_delta_choice`).
+
+    `lead_in` is narration from the maneuver that led here. It rides
+    inside the prompt when a human picks, and in front of the answer
+    when the pick is automatic.
+
+    In a tutorial the beat's speed note goes with the choice itself,
+    the same way a maneuver's own note goes in front of its menu
+    rather than with the lesson two messages up, and is held behind
+    Continue -- see `d12ball.flow.gates`.
+    """
+    skill = engine.player_catalog.effective_profile(
+        engine.get_player_definition(player_id),
+    )
+    skill_value = skill.offense if skill_type == "offense" else skill.defense
+
+    controller_id = engine.controlling_user_id(game, match, player_id)
+    is_ai = game.is_solo_game and controller_id == game.player_2_id
+
+    if is_ai:
+        delta = engine.get_ai_strategy(game).choose_speed_delta(skill_value)
+        target_speed = max(1, min(BALL_SPEED_MAX, match.ball.speed + delta))
+        result = speed_choice_step(
+            engine,
+            game,
+            match,
+            target_speed=target_speed,
+            turnover_occurred=turnover_occurred,
+            distance_moved=distance_moved,
+        )
+        if lead_in:
+            result.narration[0] = f"{lead_in}\n\n{result.narration[0]}"
+        return result
+
+    beat = tutorial_beat(game)
+    if beat is not None and beat.speed_note:
+        return gates.hold_behind_note(
+            game, tutorial.NOTE_SPEED, None, lead_in=lead_in,
+        )
+
+    prefix = f"{lead_in}\n\n" if lead_in else ""
+    return StepResult(
+        next=PendingPrompt(
+            PromptKind.SPEED_DELTA_CHOICE,
+            f"{prefix}"
+            f"{speed_choice_ask(engine, game, match, player_id, skill_type)}",
+            player_id=player_id,
+            skill_type=skill_type,
+        ),
+    )
+
+
+def _with_lead_in(result: StepResult, lead_in: str) -> StepResult:
+    """`result`, with the lines said before it put back in front."""
+    if lead_in:
+        result.narration.insert(0, lead_in)
+    return result
+
+
+#: Which `offer_*` a settled card runs, by key. A tie a skill test
+#: settled resolves as the basic card, which `RulesEngine.resolving_maneuver`
+#: says, so the gambits' rows are the ones their basic card reaches
+#: with a parameter -- see `begin_effect_resolution`.
+EFFECT_OFFERS = {
+    "low_pass": lambda engine, game, match: offer_low_pass(
+        engine, game, match, key="low_pass",
+    ),
+    "skilled_pass": lambda engine, game, match: offer_low_pass(
+        engine, game, match, key="skilled_pass",
+    ),
+    "dribble_advance": offer_dribble_advance,
+    "dribble_burst": offer_dribble_burst,
+    "high_pass": offer_high_pass,
+    "setup_pass": lambda engine, game, match: setup_pass_speed_step(
+        engine, match,
+    ),
+    "deflect": lambda engine, game, match: deflection_step(
+        engine, match, "deflect",
+    ),
+    "clear": lambda engine, game, match: deflection_step(
+        engine, match, "clear",
+    ),
+    "steal": lambda engine, game, match: steal_step(engine, match, "steal"),
+    "intercept": lambda engine, game, match: steal_step(
+        engine, match, "intercept",
+    ),
+    "pressure": lambda engine, game, match: pressure_step(
+        engine, match, "pressure",
+    ),
+    "double_team": lambda engine, game, match: pressure_step(
+        engine, match, "double_team",
+    ),
+}
+
+
+def begin_effect_resolution(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    winner_key: str,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Log the settled maneuver and run the won card's effect, by
+    **key**. `offense_maneuver`/`defense_maneuver`/`active_player_id`/
+    `challenger_id` all stay set until the whole pipeline (effect, any
+    run-back, time) finishes -- `reset_maneuver` only happens at the
+    very end, in `finish_maneuver_resolution` -- so a bot restart
+    mid-choice can still reconstruct exactly where things left off
+    (see `effect_choice_prompt`).
+
+    **A tie settled by a skill test resolves as the basic card.** A
+    gambit's effect follows the cards, so a winner that only won on
+    the dice runs its counterpart's effect and the loser pays nothing
+    -- see `RulesEngine.gambit_cost_applies`. Substituting the key
+    here rather than branching inside six handlers is what keeps that
+    one rule in one place.
+
+    An unrecognised key (future data) has nothing to automate and
+    falls through to the ordinary end of a maneuver, which is a game
+    to finish rather than a game to lose.
+
+    `lead_in` is always "" today -- `resolve_maneuver`'s reveal is a
+    message of its own -- and is kept in front rather than dropped.
+    """
+    record_maneuver(engine, match, winner_key)
+
+    offer = EFFECT_OFFERS.get(engine.resolving_maneuver(match, winner_key))
+    if offer is None:
+        return StepResult(
+            narration=[lead_in] if lead_in else [],
+            next=FollowOn(FollowOnStep.FINISH_MANEUVER_RESOLUTION),
+        )
+    return _with_lead_in(offer(engine, game, match), lead_in)
+
+
+def continue_effect(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    distance_moved: int = 1,
+    turnover_occurred: bool = False,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Run whatever a gambit's effect still owes once its last prompt has
+    been answered.
+
+    **The record is cleared by whatever applies the step, not here.**
+    A continuation is one more prompt, and a coach may take hours over
+    it -- so between dispatching and the click that answers, the only
+    thing on the match saying what is owed is this field. Clearing it
+    at dispatch would leave a restart in that window reading the
+    maneuver's winner instead and re-offering the speed choice a coach
+    had already answered. `effect_choice_prompt` reads this first for
+    the same reason.
+
+    An unrecognised kind falls through to the ordinary end of a
+    maneuver rather than stranding the turn: a continuation written by
+    a version of the bot this one does not have is a game to finish,
+    not a game to lose. That branch *does* clear it, or the next speed
+    choice in the game would find it still set.
+    """
+    continuation = match.pending_effect_continuation or {}
+
+    if continuation.get("kind") == "free_low_pass":
+        # **Skilled Pass's cost.** The defense stole the ball and now
+        # plays a Low Pass with it, unopposed. The passer is whoever
+        # took it -- named when the cost was recorded, and re-derived
+        # from the ball if a run back has moved things since.
+        passer_id = continuation.get("player_id")
+        holders = match.eligible_ball_handlers()
+        if passer_id not in holders:
+            passer_id = holders[0] if holders else None
+        if passer_id is not None:
+            match.active_player_id = passer_id
+            return offer_low_pass(
+                engine, game, match, key="low_pass", free=True,
+                lead_in=lead_in,
+            )
+
+    if continuation.get("kind") == "setup_pass_shot":
+        # **Setup Pass's benefit**, second half: the speed is set, and
+        # now the scoring opportunity is set up.
+        return offer_setup_pass_distance(engine, game, match, lead_in=lead_in)
+
+    match.pending_effect_continuation = None
+    # Named rather than called, for `offer_setup_pass_push_back`'s
+    # reason: the tail of a maneuver is a step the frontend stops on.
+    return StepResult(
+        narration=[lead_in] if lead_in else [],
+        next=FollowOn(
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+            {
+                "distance_moved": distance_moved,
+                "turnover_occurred": turnover_occurred,
+            },
         ),
     )

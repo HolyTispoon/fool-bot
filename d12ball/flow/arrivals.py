@@ -55,6 +55,7 @@ from d12ball.formatting import (
 )
 from d12ball.game import D12BallGame
 from d12ball.prompts import (
+    SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
     loose_ball_pick_prompt,
@@ -1417,16 +1418,14 @@ def take_scoring_opportunity(
             f"{engine.format_player_label(match, shooter)} takes the "
             "shot off the set-up.",
         ],
+        # The roll prompt. What a frontend puts up for the kind is the
+        # composition image and then the prompt -- two uploads and no
+        # decision -- keyed on the kind, which is how the AI's set-up,
+        # a coach's "Attempt" and the shooter's own pick all reach the
+        # same picture. `START_SET_UP_SHOT` is this step under the name
+        # the two automatic routes reach it by.
+        next=PendingPrompt(PromptKind.SCORE_ATTEMPT, SCORE_ATTEMPT_ASK),
     )
-
-
-# **It names nothing**, although the shot plainly follows it. What
-# follows is `START_SET_UP_SHOT`, and that member is now the composition
-# image and the roll prompt alone -- two uploads and no decision, which
-# is a picture and therefore the frontend's. The position this leaves
-# reads as `PromptKind.SCORE_ATTEMPT` to `pending_prompt`, so a
-# frontend that draws no pictures (and `driver.apply`, which ends by
-# asking) reaches the right next question without this step naming one.
 
 
 @dataclass(frozen=True)

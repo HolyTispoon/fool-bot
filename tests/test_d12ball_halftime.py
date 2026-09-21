@@ -313,11 +313,11 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.pending_halftime_stage, "coaching_home")
         cog.begin_substitution_window.assert_awaited_once()
         opened = cog.begin_substitution_window.await_args
-        self.assertEqual(opened.args[3], TeamSide.HOME)
+        self.assertEqual(opened.kwargs["side"], TeamSide.HOME)
         self.assertEqual(
             opened.kwargs["occasion"], CoachingOccasion.HALFTIME,
         )
-        self.assertFalse(opened.kwargs["is_response"])
+        self.assertFalse(opened.kwargs.get("is_response", False))
 
     async def test_a_window_used_for_nothing_still_advances_the_stage(
         self,

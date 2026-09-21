@@ -39,14 +39,15 @@ is two real halves here where it was one for D1, D2 and D3: a fixture
 that chooses no defense card is a pass nobody was sent against, which
 is the ordinary case, and the contested ones name the card they beat.
 
-**The board and the refresh are two answers**, the way rank D1 found
-them: the table records `board_changed` -- what is true of the
-position, which is the model's answer -- and `refreshes` -- what the
-frontend actually did with it. They differ on the three branches that
-hand over to a step which draws its own board: the two passes that run
-out of play (a new play posts and pins its own) and the Setup Pass that
-lands on nobody (`begin_loose_ball` announces the board under the
-position).
+**`board_changed` is the model's answer** -- what is true of the
+position. What the frontend does with it is not in this table any
+more: the three branches that hand over to a step which draws its own
+board (the two passes that run out of play, whose new play posts and
+pins its own, and the Setup Pass that lands on nobody, whose loose
+ball is announced under the board) have that write skipped by the
+dispatcher reading what the *next* step reports -- which a recorder
+standing in for it does not. The recording tests therefore see one
+write wherever the board moved and assert exactly that.
 
 **The expected narration is built, never spelled out, wherever it
 names a player or a side** -- the roster is data the author revises
@@ -110,7 +111,7 @@ SCORING_ATTEMPT = "OFFER_SCORING_ATTEMPT_CHOICE"
 #: Setup Pass's first half: the ball's speed, set before the pass is
 #: picked out. The card is the only one that asks it *first*, which is
 #: why the rest of the pass is recorded as an effect continuation
-#: behind it.
+#: once the speed has been chosen (`speed_choice_step`).
 SPEED_CHOICE = "OFFER_SPEED_CHOICE"
 
 #: Where a pass with nowhere to go ends: the ball went dead, so it is
@@ -169,10 +170,6 @@ class PassFixture:
     #: Whether the board moved -- the model's answer, which is about
     #: the position rather than about what Discord was asked to do.
     board_changed: bool = True
-    #: Whether the old cog wrote the persistent board message before
-    #: handing over. False on the three branches whose next step draws
-    #: its own board; see the module docstring.
-    refreshes: bool = False
     #: Which step runs next, by `FollowOnStep` member name.
     follow_on: str = FINISH
     #: The arguments that step is called with, `lead_in` aside.
@@ -189,8 +186,10 @@ class PassFixture:
     #: come back to.
     overshoot_flag: bool = False
     ball_recovery: bool = False
-    #: Setup Pass's own continuation: set by the speed half, spent by
-    #: the destination half.
+    #: Setup Pass's own continuation: set when the speed is chosen,
+    #: spent by the destination half. None until then, which is what
+    #: lets a match waiting on the speed read as waiting on the speed
+    #: (see `speed_choice_step`).
     continuation: Optional[dict] = None
 
 
@@ -478,7 +477,6 @@ def two_spaces_into_a_set_up() -> PassFixture:
             f"{high_pass_text(2)} That reaches a teammate -- a scoring "
             "opportunity!"
         ),
-        refreshes=True,
         follow_on=SCORING_ATTEMPT,
         follow_on_kwargs={
             "shooter_id": receiver, "distance_moved": CLOCK_COST,
@@ -510,7 +508,6 @@ def two_spaces_into_a_set_up_contested() -> PassFixture:
             f"{high_pass_text(2)} That reaches a teammate -- a scoring "
             "opportunity!"
         ),
-        refreshes=True,
         follow_on=SCORING_ATTEMPT,
         follow_on_kwargs={
             "shooter_id": receiver, "distance_moved": CLOCK_COST,
@@ -536,7 +533,6 @@ def two_spaces_short_of_shooting_range() -> PassFixture:
         passer_id=passer,
         distance=2,
         narration=high_pass_text(2),
-        refreshes=True,
         follow_on=FINISH,
         ball_space=lands_on(match, 2),
         carrier_id=receiver,
@@ -568,7 +564,6 @@ def an_overshoot_into_a_set_up() -> PassFixture:
             "opportunity! The ball comes in too fast to settle -- the "
             "ball speed modifier counts **against** what follows (-2)."
         ),
-        refreshes=True,
         follow_on=SCORING_ATTEMPT,
         follow_on_kwargs={
             "shooter_id": receiver,
@@ -602,7 +597,6 @@ def an_overshoot_with_no_modifier_to_pay() -> PassFixture:
             f"{high_pass_text(1)} That overshoots the field -- a scoring "
             "opportunity!"
         ),
-        refreshes=True,
         follow_on=SCORING_ATTEMPT,
         follow_on_kwargs={
             "shooter_id": receiver,
@@ -631,7 +625,6 @@ def an_overshoot_onto_nobody() -> PassFixture:
         passer_id=passer,
         distance=2,
         narration=high_pass_text(1),
-        refreshes=True,
         follow_on=FINISH,
         ball_space=lands_on(match, 2),
     )
@@ -691,7 +684,6 @@ def a_long_pass_into_a_contest() -> PassFixture:
         passer_id=passer,
         distance=3,
         narration=high_pass_text(3),
-        refreshes=True,
         follow_on=HIGH_PASS_CONTEST,
         ball_space=lands_on(match, 3),
         ball_speed=3,
@@ -714,7 +706,6 @@ def a_long_pass_onto_nobody() -> PassFixture:
         passer_id=passer,
         distance=3,
         narration=high_pass_text(3),
-        refreshes=True,
         follow_on=FINISH,
         ball_space=lands_on(match, 3),
     )
@@ -737,7 +728,6 @@ def a_fullback_throws_four() -> PassFixture:
         passer_id=passer,
         distance=4,
         narration=high_pass_text(4, fullback=True),
-        refreshes=True,
         follow_on=HIGH_PASS_CONTEST,
         ball_space=lands_on(match, 4),
     )
@@ -774,7 +764,6 @@ def a_beaten_intercept_leaves_the_reception_alone() -> PassFixture:
             "reception is not contested, and "
             f"{label(match, receiver)} keeps the ball."
         ),
-        refreshes=True,
         follow_on=FINISH,
         ball_space=lands_on(match, 3),
         ball_speed=3,
@@ -790,9 +779,11 @@ def the_speed_before_the_pass() -> PassFixture:
     **Setup Pass is two prompts because the card's order is speed
     first.** A speed choice has always been the *last* human step of
     an effect; here it is the first, so the rest of the pass is
-    recorded as an effect continuation and picked up afterwards -- and
-    the continuation is persisted, so a restart between the two comes
-    back to whichever prompt is up with the pass still owed.
+    recorded as an effect continuation **when the speed is chosen**
+    and picked up afterwards -- and the continuation is persisted, so
+    a restart between the two comes back to whichever prompt is up
+    with the pass still owed. Nothing is recorded by this half: a
+    match waiting on the speed has to read as waiting on the speed.
 
     Nothing moves here, which is why this is the one fixture of the
     rank whose board did not change.
@@ -818,7 +809,6 @@ def the_speed_before_the_pass() -> PassFixture:
         },
         ball_space=at(match, 3),
         ball_speed=3,
-        continuation={"kind": "setup_pass_shot"},
     )
 
 
@@ -841,7 +831,6 @@ def setup_pass_into_a_set_up() -> PassFixture:
             f"{label(match, receiver)} -- a scoring opportunity! "
             "Ball speed is 5."
         ),
-        refreshes=True,
         follow_on=SCORING_ATTEMPT,
         follow_on_kwargs={
             "shooter_id": receiver, "distance_moved": CLOCK_COST,
@@ -871,7 +860,6 @@ def setup_pass_to_a_teammate_in_the_same_space() -> PassFixture:
             f"space to {label(match, receiver)} -- a scoring "
             "opportunity! Ball speed is 2."
         ),
-        refreshes=True,
         follow_on=SCORING_ATTEMPT,
         follow_on_kwargs={
             "shooter_id": receiver, "distance_moved": CLOCK_COST,

@@ -35,11 +35,6 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
-from cogs.d12ball import D12Ball
-from cogs.d12ball.core import (
-    FOLLOW_ONS_THAT_DRAW_THE_BOARD,
-    follow_on_draws_the_board,
-)
 from d12ball.components import MatchState
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow import driver
@@ -58,7 +53,7 @@ from high_pass_fixtures import (
     PASS_CASES,
 )
 from flow_stubs import chain_records_at, chain_stops_at, lead_in_of
-from save_patches import suppressed_cog_saves
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 from test_d12ball_high_pass_recording import (
     FOLLOW_ONS,
     build_cog,
@@ -230,7 +225,6 @@ class PassStepTests(unittest.TestCase):
         cog = build_cog()
         member = FollowOnStep[HIGH_PASS_CONTEST]
         self.assertIn(member, driver.MODEL_STEPS)
-        self.assertNotIn(member, D12Ball.follow_on_methods(cog))
         self.assertTrue(callable(cog.begin_high_pass_contest))
 
     def test_the_steps_do_not_save(self) -> None:
@@ -294,38 +288,20 @@ class PassStepTests(unittest.TestCase):
 
 class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
     """
-    `follow_on_draws_the_board`, which rank O3 had to widen.
+    The board write a new play and a loose ball take over, which rank
+    O3 had to widen and Phase 6 moved into the dispatcher's own
+    reading of the run.
 
     The rule is rank D1's and unchanged: a `StepResult` saying the
     board moved gets one write, **unless** it is handing over to a step
     that puts the board up itself. What this rank found is that
     `begin_run_back` is the first such step that draws one only
     sometimes -- a new play posts and pins a board, an ordinary run
-    back after a steal draws nothing -- so the answer is read off the
-    follow-on's own arguments as well as its member. Still the step's
-    answer and not the calling card's, which is what lets the callers
-    still to be lifted inherit it.
+    back after a steal draws nothing -- and what Phase 6 settled is
+    where that is read: off the step's own result (`StepResult.new_play`,
+    the loose ball's own `board_changed`), which the loop stops on so
+    the frontend can take the picture before anything else moves.
     """
-
-    def test_a_new_play_run_back_draws_its_own_board(self) -> None:
-        self.assertTrue(
-            follow_on_draws_the_board(
-                FollowOn(FollowOnStep.BEGIN_RUN_BACK, {"new_play": True}),
-            )
-        )
-
-    def test_an_ordinary_run_back_does_not(self) -> None:
-        """
-        Rank D2's steal ends on this member with no `new_play`, and it
-        refreshed the board before handing over -- as it still must.
-        """
-        for kwargs in ({}, {"speed_choice_after": True}, {"new_play": False}):
-            with self.subTest(kwargs=kwargs):
-                self.assertFalse(
-                    follow_on_draws_the_board(
-                        FollowOn(FollowOnStep.BEGIN_RUN_BACK, kwargs),
-                    )
-                )
 
     async def test_a_pass_that_goes_out_still_costs_one_board_write(
         self,
@@ -334,11 +310,10 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
         The thing this rank must not change. Both passes that run out
         of play write the persistent board **once**, from inside the
         new play's own reset -- as they did before the move. The step
-        now says `board_changed=True` where the old call site simply
-        did not refresh, so without the `new_play` clause above these
-        two branches would have gone from one write to two for one
-        click. See "Discord's rate limits" in
-        docs/design/rate-limits.md.
+        says `board_changed=True` where the old call site simply did
+        not refresh, so without the new play's own stop these two
+        branches would have gone from one write to two for one click.
+        See "Discord's rate limits" in docs/design/rate-limits.md.
         """
         for name in (
             "nowhere_left_to_throw_it",
@@ -347,13 +322,19 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(case=name):
                 fixture = case_named(name)
                 cog = build_cog()
+                del cog.begin_run_back
+                cog.post_new_play_board = mock.AsyncMock()
                 cog.games[fixture.game.game_id] = fixture.game
 
-                with suppressed_cog_saves():
+                # The real run back runs -- it is what opens the new
+                # play -- and the chain stops at the window it opens.
+                with suppressed_cog_saves(), chain_stops_at(
+                    cog, FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
+                ):
                     await drive(cog, fixture, build_interaction())
 
                 cog.refresh_match_image.assert_not_awaited()
-                cog.begin_run_back.assert_awaited_once()
+                cog.post_new_play_board.assert_awaited_once()
 
     async def test_the_high_pass_contest_is_drawn_in_front_of(
         self,
@@ -366,26 +347,23 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
         written before it, which is what the old cog did.
 
         **Phase 6 kept that write and moved where it is decided.** The
-        loop runs the contest now, so the run ends on
-        `BEGIN_LOOSE_BALL` -- which is in `FOLLOW_ONS_THAT_DRAW_THE_BOARD`
-        and would have suppressed the write, losing the pass's board
-        altogether. `follow_on_draws_the_board` reads `is_high_pass`
-        off the step's own arguments instead, which is rank D1's rule
-        applied one argument further in.
+        loop runs the contest and stops on the loose ball, and the
+        dispatcher reads the loose ball's own answer: for a High Pass
+        it says the board did not move, so the pass's board is written
+        and the contest announced plainly over it.
         """
         fixture = case_named("a_long_pass_into_a_contest")
-        self.assertIn(
-            FollowOnStep.BEGIN_LOOSE_BALL,
-            FOLLOW_ONS_THAT_DRAW_THE_BOARD,
-        )
         cog = build_cog()
+        del cog.begin_loose_ball
+        cog.announce_board_update = mock.AsyncMock()
         cog.games[fixture.game.game_id] = fixture.game
+        interaction = build_interaction()
 
-        with suppressed_cog_saves():
-            await drive(cog, fixture, build_interaction())
+        with suppressed_cog_saves(), suppressed_view_saves():
+            await drive(cog, fixture, interaction)
 
         cog.refresh_match_image.assert_awaited_once()
-        cog.begin_loose_ball.assert_awaited_once()
+        cog.announce_board_update.assert_not_awaited()
 
 
 class PassWrapperTests(unittest.IsolatedAsyncioTestCase):
@@ -398,12 +376,13 @@ class PassWrapperTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         """
-        The transition rule for Phases 2 to 5, asserted as an order
-        *and* as content: at the moment the save runs, the ball must
-        already be where the pass left it. A persist before the step
-        writes a match nothing was thrown in, and a persist after the
-        dispatch is too late for a step whose next question reloads
-        the match from the file -- which every one of these is.
+        Principle 9, asserted as an order *and* as content: at the
+        moment the save runs, the ball must already be where the pass
+        left it and the step after it must already have run. A persist
+        before the step writes a match nothing was thrown in, and a
+        persist after the posting is too late for a step whose next
+        question reloads the match from the file -- which every one of
+        these is.
         """
         for name in (
             "two_spaces_into_a_set_up",
@@ -441,26 +420,19 @@ class PassWrapperTests(unittest.IsolatedAsyncioTestCase):
                         )
                     await drive(cog, fixture, SimpleNamespace())
 
-                # **Two saves where the driver runs the next step.**
-                # The wrapper writes its own step and
-                # `dispatch_step_result` writes whatever
-                # `driver.advance` ran after it -- principle 9 with
-                # the dispatcher as the driver's caller. The board
-                # write follows the run rather than preceding it, for
-                # the reason `BoardRefresher` collapses a cascade's
-                # writes already: the position worth drawing is the
-                # one the run finished on.
-                member = FollowOnStep[fixture.follow_on]
+                # **One save, after the run.** `dispatch_step_result`
+                # writes whatever `driver.advance` ran -- principle 9
+                # with the dispatcher as the driver's caller. The
+                # board write follows the run rather than preceding
+                # it, for the reason `BoardRefresher` collapses a
+                # cascade's writes already: the position worth drawing
+                # is the one the run finished on. The next step is a
+                # recorder here, so it reports no board of its own and
+                # the dispatcher writes the one the pass moved.
                 taken = FOLLOW_ONS[fixture.follow_on][0]
-                if driver.runs(member):
-                    expected = [taken, "persist"]
-                    if fixture.refreshes:
-                        expected.append("refresh")
-                else:
-                    expected = ["persist"]
-                    if fixture.refreshes:
-                        expected.append("refresh")
-                    expected.append(taken)
+                expected = [taken, "persist"]
+                if fixture.board_changed:
+                    expected.append("refresh")
                 self.assertEqual(calls, expected)
                 self.assertEqual(ball_when_saved, [fixture.ball_space])
 

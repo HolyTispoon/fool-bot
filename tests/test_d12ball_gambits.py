@@ -33,6 +33,7 @@ from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
     ManeuverActionPromptView,
     SetupPassChoiceView,
+    SpeedDeltaChoiceView,
 )
 from d12ball.ai import build_ai_strategies
 from d12ball.cards import maneuver_hand_combinations
@@ -51,6 +52,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
+from d12ball.flow.effects import speed_choice_step
 from d12ball.game import (
     AIOpponent,
     D12BallGame,
@@ -1607,7 +1609,11 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         """
         The card's order, and the reason this card needs a persisted
         continuation: a speed choice has always been the *last* human
-        step of an effect.
+        step of an effect. **The continuation is recorded when the
+        speed is chosen**, not before: a match still waiting on the
+        speed has to read as waiting on the speed (see
+        `speed_choice_step`), so nothing is on the match after the
+        first half alone.
         """
         cog, game, match = self.build("setup_pass", "steal")
         cog.offer_speed_choice = mock.AsyncMock()
@@ -1616,6 +1622,9 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
             await cog.resolve_setup_pass(build_interaction(), game, match)
 
         cog.offer_speed_choice.assert_awaited_once()
+        self.assertIsNone(match.pending_effect_continuation)
+
+        speed_choice_step(cog.engine, game, match, target_speed=3)
         self.assertEqual(
             match.pending_effect_continuation, {"kind": "setup_pass_shot"},
         )
@@ -1626,6 +1635,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
 
         with suppressed_cog_saves():
             await cog.resolve_setup_pass(build_interaction(), game, match)
+        speed_choice_step(cog.engine, game, match, target_speed=3)
 
         restored = MatchState.from_dict(match.to_dict(), cog.basic_ruleset)
         self.assertEqual(
@@ -1640,7 +1650,8 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         prompt -- so the continuation has to outlive its dispatch and
         `build_effect_choice_view` has to read it. Reading the winner
         instead would put Setup Pass's *speed* choice back up, and let
-        a coach set the speed twice.
+        a coach set the speed twice. And before the speed is chosen,
+        the speed choice is exactly what comes back.
         """
         cog, game, match = self.build("setup_pass", "steal", board_size=9)
         self.put_a_teammate_at(match, 3)
@@ -1651,6 +1662,12 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
         cog.engine.load_match_state = mock.Mock(return_value=match)
 
+        self.assertIsInstance(
+            cog.build_effect_choice_view(game.game_id, match),
+            SpeedDeltaChoiceView,
+        )
+
+        speed_choice_step(cog.engine, game, match, target_speed=3)
         restored = cog.build_effect_choice_view(game.game_id, match)
 
         self.assertIsInstance(restored, SetupPassChoiceView)

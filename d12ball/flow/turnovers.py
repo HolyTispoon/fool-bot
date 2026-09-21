@@ -279,6 +279,7 @@ def announce_new_play_reset(
     return StepResult(
         narration=[f"{prefix}# New play\n{body}"],
         board_changed=True,
+        new_play=True,
     )
 
 
@@ -405,6 +406,62 @@ def run_back_passes(
         break
 
     yield StepResult(next=FollowOn(FollowOnStep.FINISH_RUN_BACK))
+
+
+def continue_run_back(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Drive the cascade and **batch what it says**.
+
+    The loop is `run_back_passes`, one `StepResult` a pass. Every
+    placement made without asking anyone -- the forced ones, the AI's
+    choices, the drop back that fills an empty kickoff -- collects into
+    one block, which the frontend posts as one message with one board
+    behind it, and the cascade stops where it reaches a coach's choice
+    or runs out. It used to post a message and re-upload the board per
+    player, which after a steal that scatters a 4-1-1 side is a
+    dozen-odd REST calls into one channel with nothing between them,
+    and enough to be rate limited for it. Nobody is reading the
+    intermediate boards anyway.
+
+    **The per-pass persist is gone with Phase 6**, and this is the one
+    place principle 9 had a named exception: the cog saved after every
+    yield because a pass that ended on a question left the turn
+    waiting on a click that reloaded the match off disk. The driver's
+    caller saves once after the whole run and before anything is
+    posted, which is the same guarantee one write later.
+
+    `lead_in` only ever applies to the first thing this says -- every
+    call site that already consumed it passes none.
+    """
+    notes: list[str] = []
+    board_changed = False
+    following = None
+
+    for result in run_back_passes(engine, game, match):
+        notes.extend(result.narration)
+        board_changed = board_changed or bool(result.narration)
+        if result.next is not None:
+            following = result.next
+            # A coach's choice is asked over the board as it stands,
+            # so the persistent message is settled in front of it
+            # whether or not this pass moved anybody -- the cascade
+            # always wrote it there.
+            board_changed = board_changed or isinstance(following, PendingPrompt)
+            break
+
+    prefix = f"{lead_in}\n\n" if lead_in else ""
+    body = "\n".join(notes)
+    narration = [f"{prefix}{body}"] if body else ([lead_in] if lead_in else [])
+    return StepResult(
+        narration=narration,
+        board_changed=board_changed,
+        next=following,
+    )
 
 
 def run_back_ai_placement(

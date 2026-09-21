@@ -46,7 +46,9 @@ from d12ball.components import (
     TeamSide,
     Zone,
 )
+from d12ball import tutorial
 from d12ball.engine import RulesEngine
+from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turnovers import begin_ball_recovery
 from d12ball.formatting import (
@@ -541,6 +543,79 @@ def open_substitution_window(
             side=side,
         ),
     )
+
+
+def begin_substitution_window(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    side: TeamSide,
+    occasion: CoachingOccasion = CoachingOccasion.NEW_PLAY,
+    is_response: bool = False,
+    heading: str = "",
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Open a coaching window -- `open_substitution_window` -- behind the
+    tutorial's coaching explainer where that is still owed.
+
+    The explainer is the tutorial's last lesson, and the one it cannot
+    schedule: a new play offers the window to the side *restarting*
+    play, which after the coach's goal is Dinky. So the note fires at
+    the first window this coach is ever offered, whenever the game
+    gets round to it -- which is why it reads `tutorial` rather than
+    `in_tutorial`, and usually lands a few turns after the script has
+    finished. `skip_tutorial` sets `tutorial_coaching_explained` so a
+    coach who opted out is not taught anyway.
+
+    **The flag is set before the gate goes up**, so the window this
+    gate holds -- the same step, with the same arguments -- opens
+    rather than gating again when the coach continues. See
+    `d12ball.flow.gates`.
+
+    `heading` is the window's own opening line and goes *inside* the
+    prompt (`RulesEngine.coaching_prompt` puts it above the
+    allowance); `lead_in` is the narration of whatever step named this
+    one -- a new play's reset, the full-time whistle -- and is its own
+    message above the menu, which the frontend keeps apart
+    (`DRIVER_OWN_MESSAGE`).
+    """
+    side = TeamSide(side)
+    occasion = CoachingOccasion(occasion)
+
+    if (
+        game.tutorial
+        and not game.tutorial_coaching_explained
+        and side == tutorial.player_side(game)
+    ):
+        game.tutorial_coaching_explained = True
+        return gates.hold_behind_note(
+            game,
+            tutorial.NOTE_COACHING,
+            FollowOn(
+                FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
+                {
+                    "side": side,
+                    "occasion": occasion,
+                    "is_response": is_response,
+                    "heading": heading,
+                },
+            ),
+            lead_in=lead_in,
+        )
+
+    result = open_substitution_window(
+        engine,
+        game,
+        match,
+        side,
+        occasion,
+        is_response=is_response,
+        heading=heading,
+    )
+    if lead_in:
+        result.narration.insert(0, lead_in)
+    return result
 
 
 def run_ai_substitution_window(

@@ -315,12 +315,11 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             prompt_call.kwargs.get("file"), mock.sentinel.field,
         )
         # Not the Coaching Choice's half-field: that shows one side's
-        # row with play stopped, and this is a live position.
+        # row with play stopped, and this is a live position. The
+        # whole board settles the persistent message once, through
+        # the dispatcher's one write for the run.
         cog.coaching_file.assert_not_awaited()
-        self.assertEqual(cog.render_match_png.await_count, 1)
-        self.assertEqual(
-            cog.refresh_match_image.await_args.kwargs["png"], b"board",
-        )
+        cog.refresh_match_image.assert_awaited_once()
 
     async def test_the_prompt_prices_every_space_it_offers(self) -> None:
         # The sentence and the buttons quote the same distance, which

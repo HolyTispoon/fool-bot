@@ -1169,16 +1169,20 @@ def retract_shot_step(
 
     It ends on that offer as a `PendingPrompt` -- the same one
     `scoring_opportunity_prompt` reads back after a restart, because it
-    *is* that reading. An ordinary shot's retraction ends on nothing:
-    the position is the turn's own again, and what a frontend puts
-    there is the turn prompt it already builds.
+    *is* that reading. An ordinary shot's retraction ends on the turn
+    prompt: the position is the turn's own again, worded by
+    `RulesEngine.build_turn_prompt` as it was the first time.
     """
     if not match.may_cancel_pending_shot():
         raise ValueError("This score attempt is no longer active.")
 
     if not match.pending_shot_is_set_up:
         match.retract_pending_shot()
-        return StepResult()
+        return StepResult(
+            next=PendingPrompt(
+                PromptKind.PLAYER_ACTION, engine.build_turn_prompt(game, match),
+            ),
+        )
 
     shooter_id = match.active_player_id
     distance_moved = match.pending_shot_setup_cost

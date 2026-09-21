@@ -29,7 +29,6 @@ from unittest import mock
 import discord
 
 from cogs.d12ball import presentation as presentation_mod
-from cogs.d12ball_views import runback as runback_views
 from cogs.d12ball_views import turn as turn_views
 from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
 from cogs.d12ball import D12Ball
@@ -39,6 +38,8 @@ from cogs.d12ball_views import (
     PlayerActionView,
 )
 from d12ball import stats, tutorial
+from d12ball.flow import turn as turn_flow
+from d12ball.prompts import PendingPrompt, PromptKind
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     EVENT_MANEUVER,
@@ -462,9 +463,6 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), \
                 suppressed_view_saves(), \
                 mock.patch.object(
-                    runback_views, "add_full_image_button",
-                    mock.AsyncMock()), \
-                mock.patch.object(
                     turn_views, "add_full_image_button_to_response",
                     mock.AsyncMock()), \
                 suppressed_full_image_links(), \
@@ -615,8 +613,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         cog.games["g1"] = game
         before = board_signature(cog.engine.load_match_state(game))
 
-        with suppressed_cog_saves():
-            await cog.stage_tutorial_beat(build_interaction(), game)
+        turn_flow.begin_turn(cog.engine, game, match)
 
         self.assertEqual(
             board_signature(cog.engine.load_match_state(game)), before,
@@ -902,16 +899,21 @@ class TutorialStagingTests(unittest.IsolatedAsyncioTestCase):
         return cog, game
 
     async def stage(self, cog, game):
-        interaction = build_interaction()
-        recorded = []
-        recorder = mock.AsyncMock(
-            side_effect=lambda content=None, **kw: recorded.append(content),
-        )
-        interaction.followup.send = recorder
-        interaction.channel.send = recorder
-        with suppressed_cog_saves():
-            await cog.stage_tutorial_beat(interaction, game)
-        return recorded
+        """
+        Start a turn -- `d12ball.flow.turn.begin_turn`, which is where
+        the staging lives since Phase 6 -- and return what it put up:
+        the note held behind Continue, or nothing for a game with no
+        lesson to stage. The gate is taken down again so the next
+        staging reads a clean game, the way a click would leave it.
+        """
+        match = cog.engine.load_match_state(game)
+        result = turn_flow.begin_turn(cog.engine, game, match)
+        posted = []
+        if isinstance(result.next, PendingPrompt):
+            self.assertIs(result.next.kind, PromptKind.TUTORIAL_CONTINUE)
+            posted.append(result.next.ask)
+            game.tutorial_gate = None
+        return posted
 
     async def test_the_first_staging_does_not_advance(self) -> None:
         cog, game = self.build()

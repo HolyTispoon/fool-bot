@@ -9,9 +9,8 @@ and 9. The frontend reads the result and decides what becomes a
 message, what becomes an edit, and what becomes a websocket frame.
 
 `next` is either a `PendingPrompt` -- the turn stops and waits on
-somebody -- or a `FollowOn`, which names a step of the spine that has
-not moved out of the cog yet. `None` is a step that neither asks nor
-continues.
+somebody -- or a `FollowOn`, which names the step the driver runs
+next. `None` is a step that neither asks nor continues.
 """
 
 from __future__ import annotations
@@ -25,14 +24,27 @@ from d12ball.prompts import PendingPrompt
 
 class FollowOnStep(Enum):
     """
-    The spine steps a lifted step can end by naming.
+    The steps a step can end by naming -- the keys of the driver's
+    table, `d12ball.flow.driver.MODEL_STEPS`, which runs every one of
+    them.
 
-    **Transitional, and deliberately a closed set.** Through Phases 2
-    to 5 of docs/model-discord-split.md the spine of a turn is still
-    async and still in `cogs/d12ball/`, so a step that has moved ends
-    by naming the one that has not, and the cog dispatches it. Phase 6
-    is what collapses that: the driver runs follow-ons itself and this
-    enum goes with the cog's dispatch table.
+    **It was transitional, and it is not any more.** Through Phases 2
+    to 5 of docs/model-discord-split.md the spine of a turn was still
+    async and still in `cogs/d12ball/`, so a step that had moved ended
+    by naming the one that had not, and the cog dispatched it out of
+    `D12Ball.follow_on_methods`. Phase 6 collapsed that table: the
+    driver runs every member itself, and what the enum records now is
+    **where one step ends and the next begins** -- which is what a
+    frontend reads to decide what becomes a message of its own
+    (`NarrationGroup.step`), where a picture goes, and where the loop
+    must stop for one to be taken (`advance`'s `stop_after`). A closed
+    set for the same reason as before: nothing on either side can
+    reach a step by spelling its name.
+
+    The member notes below are the history of how each arrived, kept
+    because the *ordering* decisions they record -- what is announced
+    before what, and which line rides inside which message -- are the
+    rules a second frontend has to keep.
 
     **Phase 4 widened what "has not moved" means, and the enum grew
     rather than shrank because of it.** Before it, a member named a
@@ -153,11 +165,15 @@ class FollowOnStep(Enum):
     #: apiece through `post_blocks_then_dispatch`.
     END_PERIOD = auto()
     #: The offensive choice, handed back to whoever now has the ball --
-    #: the last thing an ordinary turn does. It is three uploads and a
-    #: pin decision (see `send_turn_prompt`), so what the model settles
-    #: is that the turn is over and whose it is; the pictures are the
-    #: frontend's.
+    #: the last thing an ordinary turn does. Two steps since Phase 6:
+    #: this one stages a tutorial beat and holds its lesson behind a
+    #: Continue (`d12ball.flow.turn.begin_turn`), and `START_TURN` is
+    #: what comes after the click -- the lone handler picked without
+    #: asking, an AI side's whole turn, or the prompt. Split because a
+    #: gate's continuation has to be a step that does not stage the
+    #: beat a second time (see `d12ball.flow.gates`).
     SEND_TURN_PROMPT = auto()
+    START_TURN = auto()
     #: A coaching window, on any of its five occasions. Phase 5 lifted
     #: the step (`d12ball.flow.windows.open_substitution_window`) and
     #: left the member, because the window's prompt is the one in the
@@ -295,16 +311,33 @@ class FollowOnStep(Enum):
 @dataclass(frozen=True)
 class FollowOn:
     """
-    A spine step to run next, by name, with the arguments it takes.
+    A step to run next, by name, with the arguments it takes.
 
     `lead_in` is **not** in `kwargs`: the narration is the result's,
     and the frontend decides whether it opens that step's message or
     becomes something else entirely. Batching is the frontend's (see
     principle 8), so nothing here says how the two go together.
+
+    **It can be written down and read back**, because one thing in the
+    game holds a step across a click: the tutorial's Continue gate
+    remembers what it is holding up (`D12BallGame.tutorial_gate`). The
+    arguments a gated step takes are all JSON as they stand -- two
+    `str` enums, a bool and a heading -- which is what makes this a
+    dict rather than a scheme.
     """
 
     step: FollowOnStep
     kwargs: Mapping[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        """The step by name and its arguments, as saved."""
+        return {"step": self.step.name, "kwargs": dict(self.kwargs)}
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "FollowOn":
+        """A saved follow-on, read back. Raises `KeyError` for a step
+        this version of the game does not have."""
+        return cls(FollowOnStep[data["step"]], dict(data.get("kwargs", {})))
 
 
 @dataclass
@@ -323,8 +356,21 @@ class StepResult:
     call site: whether anything a board draws actually moved. The cog
     turns it into at most one write of the persistent board message --
     see "Discord's rate limits" in docs/design/rate-limits.md.
+
+    `new_play` says play is restarting from this position -- a
+    kickoff, halftime, the reset after a goal, an own goal, a missed
+    shot or a ball out of bounds -- and that the lines are the board's
+    caption. It is the fact the frontend pins on: the Discord cog
+    posts the board as its own message and pins it
+    (`post_new_play_board`, the one pinning site in the game), where
+    an ordinary `board_changed` is at most one write of the persistent
+    message. A flag beside `board_changed` rather than a step of its
+    own, because the same steps say it on some calls and not others.
+    The loop stops on it, so the board a frontend puts up is the
+    position the play actually starts from -- see `driver.advance`.
     """
 
     narration: list[str] = field(default_factory=list)
     board_changed: bool = False
     next: Optional[Union[PendingPrompt, FollowOn]] = None
+    new_play: bool = False

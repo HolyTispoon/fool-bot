@@ -68,8 +68,11 @@ play its way there.**
 it.
 
 Everything the script leaves the game in is a state the game already
-knows: nothing here adds a branch to `pending_turn_view`, and
-`/d12ball resume` needs no knowledge of the tutorial at all.
+knows, with one exception the script itself added: a note held behind
+Continue is a click the game is waiting on, and `pending_prompt` reads
+it (`PromptKind.TUTORIAL_CONTINUE`, off `D12BallGame.tutorial_gate`)
+ahead of everything else. `/d12ball resume` needs no knowledge of the
+tutorial beyond that: it puts the note back up like any other prompt.
 """
 
 from __future__ import annotations
@@ -525,6 +528,68 @@ SKIPPED = (
     "playing for real -- the board, the score and the clock stay "
     "exactly as they are."
 )
+
+
+# The notes a Continue gate can hold, by key -- what
+# `D12BallGame.tutorial_gate` records rather than the text, which is
+# this module's to change. Three are the constants above; three are
+# the beat's own, read off `tutorial_step` when the gate is up.
+NOTE_WELCOME = "welcome"
+NOTE_LESSON = "lesson"
+NOTE_HANDOVER = "handover"
+NOTE_MANEUVER = "maneuver_note"
+NOTE_SPEED = "speed_note"
+NOTE_COACHING = "coaching"
+
+
+def note_text(game, key: str) -> str:
+    """
+    The text of the note `key` names, for this game as it stands.
+
+    A beat's own notes are read off the beat now in progress, which is
+    why the gate stores the key: the note that is up is the one the
+    step the game is on says, and a script edit reaches a game already
+    holding the gate.
+    """
+    if key == NOTE_WELCOME:
+        return WELCOME
+    if key == NOTE_HANDOVER:
+        return HANDOVER
+    if key == NOTE_COACHING:
+        return COACHING_NOTE
+    beat = beat_for_step(game.tutorial_step)
+    if beat is None:
+        return ""
+    if key == NOTE_LESSON:
+        return beat.lesson
+    if key == NOTE_MANEUVER:
+        return beat.maneuver_note
+    if key == NOTE_SPEED:
+        return beat.speed_note
+    return ""
+
+
+def player_side(game) -> TeamSide:
+    """
+    Which side of the board the coach being taught is playing.
+
+    Player 1 is always the human in a tutorial -- it is refused any
+    other shape (see `create_game`) -- so this is whichever side the
+    coin toss put them on. Nothing forces that toss, which is why every
+    beat's position is written from a side's own goal forward and
+    mirrored on the way in.
+    """
+    return (
+        TeamSide.HOME
+        if game.home_player_number == 1
+        else TeamSide.VISITING
+    )
+
+
+def gate_text(game) -> str:
+    """The note the coach has not pressed Continue on, or ""."""
+    gate = game.tutorial_gate or {}
+    return note_text(game, gate.get("note", ""))
 
 
 def beat_for_step(step: Optional[int]) -> Optional[TutorialBeat]:

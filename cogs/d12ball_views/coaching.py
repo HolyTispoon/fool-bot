@@ -12,12 +12,8 @@ from d12ball.components import (
     TeamSide,
     Zone,
 )
-from d12ball.flow import StepResult
-from d12ball.flow.windows import (
-    decline_coaching_step,
-    declare_coaching_step,
-    finish_coaching_step,
-)
+from d12ball.flow.driver import Action
+from d12ball.prompts import PromptKind
 from d12ball.game import (
     D12BallGame,
     Formation,
@@ -150,6 +146,40 @@ class CoachingView(SafeView):
             moved=moved,
         )
 
+    async def hub_answer(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        choice: str,
+        **arguments: object,
+    ) -> None:
+        """
+        One of the hub's four changes -- formation, substitute, swap,
+        reposition -- through the driver, and back to the hub with the
+        note it came back with.
+
+        `side` goes with the action because the hub is asked of one
+        side at a time and the driver checks it against the window;
+        every other argument is what the coach picked.
+        """
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.COACHING_HUB,
+                choice,
+                {"side": self.side(match), **arguments},
+            ),
+        )
+        if answered is None:
+            return
+        self.cog.persist(game, match)
+        await self.back_to_hub(
+            interaction, note=answered.result.narration[0], moved=True,
+        )
+
     def add_back_button(self, row: Optional[int] = None) -> None:
         # Named for the view it sits on: a custom_id has to be unique
         # within its message, and every one of these steps puts its
@@ -232,7 +262,16 @@ class CoachingOfferView(CoachingView):
         # `d12ball.flow.windows.declare_coaching_step`** since Phase 6.
         # It says nothing: the hub that replaces the offer is what a
         # coach reads next.
-        declare_coaching_step(self.cog.engine, game, match)
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.COACHING_OFFER, "declare", {"side": self.side(match)},
+            ),
+        )
+        if answered is None:
+            return
         self.cog.persist(game, match)
 
         # No attachments: the offer this replaces already carried the
@@ -254,23 +293,29 @@ class CoachingOfferView(CoachingView):
         # The coach's own name is the one thing it takes rather than
         # decides: nothing in the match knows what to call a Discord
         # account, so it arrives as a label the way a shot's does.
-        result = decline_coaching_step(
-            self.cog.engine,
+        answered = await self.answer(
+            interaction,
             game,
             match,
-            side=self.side(match),
-            coach_name=interaction.user.display_name,
+            Action(
+                PromptKind.COACHING_OFFER,
+                "decline",
+                {
+                    "side": self.side(match),
+                    "coach_name": interaction.user.display_name,
+                },
+            ),
         )
+        if answered is None:
+            return
 
         # No save here: the step changed nothing a coach can lose, and
         # the dispatcher below writes the match once for the whole
         # click (principle 9 in CLAUDE.md).
         await interaction.response.edit_message(
-            content=result.narration[0], view=None,
+            content=answered.result.narration[0], view=None,
         )
-        await self.cog.dispatch_step_result(
-            interaction, game, match, StepResult(next=result.next),
-        )
+        await self.dispatch_answer(interaction, game, match, answered)
 
 
 class CoachingHubView(CoachingView):
@@ -472,25 +517,22 @@ class CoachingHubView(CoachingView):
         # still remembers it, because closing it clears the record and
         # this message is the only place a coach's substitutions
         # survive.
-        try:
-            result = finish_coaching_step(
-                self.cog.engine, game, match, side=self.side(match),
-            )
-        except ValueError as refusal:
-            await interaction.response.send_message(
-                str(refusal), ephemeral=True,
-            )
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.COACHING_HUB, "done", {"side": self.side(match)}),
+        )
+        if answered is None:
             return
 
         # No save here either, for `decline`'s reason: closing the
         # window is `finish_substitution_window`'s and the dispatcher
         # writes once, after it.
         await interaction.response.edit_message(
-            content=result.narration[0], view=None,
+            content=answered.result.narration[0], view=None,
         )
-        await self.cog.dispatch_step_result(
-            interaction, game, match, StepResult(next=result.next),
-        )
+        await self.dispatch_answer(interaction, game, match, answered)
 
 
 class CoachingFormationView(CoachingView):
@@ -553,18 +595,9 @@ class CoachingFormationView(CoachingView):
         if game is None or match is None:
             return
 
-        try:
-            note = self.cog.engine.apply_formation(
-                match, self.side(match), formation,
-            )
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error), ephemeral=True,
-            )
-            return
-
-        self.cog.persist(game, match)
-        await self.back_to_hub(interaction, note=note, moved=True)
+        await self.hub_answer(
+            interaction, game, match, "formation", formation=formation,
+        )
 
 
 class CoachingSubstitutionOutView(CoachingView):
@@ -683,22 +716,14 @@ class CoachingSubstitutionInView(CoachingView):
         if game is None or match is None:
             return
 
-        try:
-            note = self.cog.apply_substitution(
-                game,
-                match,
-                self.side(match),
-                self.outgoing_player_id,
-                incoming_player_id,
-            )
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error), ephemeral=True,
-            )
-            return
-
-        self.cog.persist(game, match)
-        await self.back_to_hub(interaction, note=note, moved=True)
+        await self.hub_answer(
+            interaction,
+            game,
+            match,
+            "substitute",
+            outgoing_player_id=self.outgoing_player_id,
+            incoming_player_id=incoming_player_id,
+        )
 
 
 class CoachingZoneView(CoachingView):
@@ -777,18 +802,14 @@ class CoachingZoneView(CoachingView):
             )
             return
 
-        try:
-            note = self.cog.apply_position_swap(
-                match, self.side(match), self.first_player_id, player_id,
-            )
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error), ephemeral=True,
-            )
-            return
-
-        self.cog.persist(game, match)
-        await self.back_to_hub(interaction, note=note, moved=True)
+        await self.hub_answer(
+            interaction,
+            game,
+            match,
+            "swap",
+            player_id=self.first_player_id,
+            other_player_id=player_id,
+        )
 
 
 class CoachingPlaceView(CoachingView):
@@ -944,20 +965,15 @@ async def apply_positioning(
     two views that can arrive at one: the space pick, and the extra
     pick a stacked target needs.
     """
-    try:
-        note = view.cog.apply_reposition(
-            match,
-            view.side(match),
-            player_id,
-            space_index,
-            swap_with=swap_with,
-        )
-    except ValueError as error:
-        await interaction.response.send_message(str(error), ephemeral=True)
-        return
-
-    view.cog.persist(game, match)
-    await view.back_to_hub(interaction, note=note, moved=True)
+    await view.hub_answer(
+        interaction,
+        game,
+        match,
+        "reposition",
+        player_id=player_id,
+        space_index=space_index,
+        swap_with=swap_with,
+    )
 
 
 class CoachingPlaceSwapView(CoachingView):

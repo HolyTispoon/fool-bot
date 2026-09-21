@@ -104,7 +104,7 @@ class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
 
         cog.begin_substitution_window.assert_awaited_once()
         self.assertEqual(
-            cog.begin_substitution_window.await_args.args[3],
+            cog.begin_substitution_window.await_args.kwargs["side"],
             TeamSide.VISITING,
         )
         self.assertTrue(

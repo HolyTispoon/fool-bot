@@ -59,12 +59,12 @@ You chose **Dribble Advance**.
 --- message
 Chose **2 spaces**.
 --- message
+**Dribble Advance:** 🟠 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+
 ### Ball speed
 You get a choice here too: the ball's own speed, up to your player's skill. It cuts both ways -- a faster ball adds to *your* next score attempt, but it adds just as much to a defense stealing it off you with Steal. We will come back to it properly in a few turns, when it actually matters. This turn it does not: the turnover in beat 2 resets it to 1 regardless, so **pick whatever you like.**
 === press 7: TutorialContinueView -> 'Continue'
 --- message
-**Dribble Advance:** 🟠 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
-
 <@111>, manipulate the ball's speed (up to 4):
 === press 8: SpeedDeltaChoiceView -> '1 (no change)'
 --- message

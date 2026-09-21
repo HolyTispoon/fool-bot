@@ -7,12 +7,9 @@ import discord
 from typing import TYPE_CHECKING
 
 from d12ball.components import TeamSide
-from d12ball.flow.turnovers import (
-    run_back_player_step,
-    run_back_space_step,
-)
+from d12ball.flow.driver import Action
+from d12ball.prompts import PromptKind
 from cogs.d12ball_helpers import (
-    add_full_image_button,
     build_full_image_button,
     player_with_role,
     space_label,
@@ -121,20 +118,20 @@ class RunBackPlayerChoiceView(SafeView):
         # view's: `run_back_player_step` narrows the run back's first
         # question into its second and words it, and the strip the
         # question is asked over is re-linked here because the picture
-        # is the frontend's (principle 8 in CLAUDE.md). It refuses a
-        # click on a prompt the board has moved out from under by
-        # asking the position again, and the pick it records is
-        # written down: `MatchState.run_back_pick` is what lets the
-        # space step that follows be checked against the position.
-        try:
-            prompt = run_back_player_step(
-                self.cog.engine, game, match, player_id=player_id,
-            ).next
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error), ephemeral=True,
-            )
+        # is the frontend's (principle 8 in CLAUDE.md). A click on a
+        # prompt the board has moved out from under is the driver's to
+        # refuse, and the pick it records is written down:
+        # `MatchState.run_back_pick` is what lets the space step that
+        # follows be checked against the position.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.RUN_BACK_PLAYER, "", {"player_id": player_id}),
+        )
+        if answered is None:
             return
+        prompt = answered.result.next
         self.cog.persist(game, match)
 
         space_view = self.cog.view_for_prompt(self.game_id, match, prompt)
@@ -217,20 +214,23 @@ class RunBackChoiceView(SafeView):
             )
             return
 
-        try:
-            result = run_back_space_step(
-                self.cog.engine,
-                game,
-                match,
-                player_id=self.player_id,
-                space_index=space_index,
-            )
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error), ephemeral=True,
-            )
+        # Who is running is the prompt's; this view's player goes with
+        # the action so a prompt for an earlier player, still in the
+        # channel, cannot move this one. A space they may not take is
+        # `MatchState.run_back_player`'s refusal, through the driver.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.RUN_BACK_SPACE,
+                "",
+                {"player_id": self.player_id, "space_index": space_index},
+            ),
+        )
+        if answered is None:
             return
-
+        result = answered.result
         self.cog.persist(game, match)
 
         await interaction.response.edit_message(
@@ -238,9 +238,8 @@ class RunBackChoiceView(SafeView):
             view=None,
             # The board this prompt was asked over shows the player
             # still displaced, so it goes with the question rather than
-            # standing under the answer. The refresh below puts the
-            # board they moved to on the persistent message.
+            # standing under the answer. The dispatcher puts the board
+            # they moved to on the persistent message.
             attachments=[],
         )
-        await self.cog.refresh_match_image(interaction, game)
-        await self.cog.continue_run_back(interaction, game, match)
+        await self.dispatch_answer(interaction, game, match, answered)

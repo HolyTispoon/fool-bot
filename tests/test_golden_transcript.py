@@ -64,7 +64,6 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import presentation as presentation_mod
-from cogs.d12ball_views import runback as runback_views
 from cogs.d12ball_views import turn as turn_views
 from save_patches import (
     suppressed_cog_saves,
@@ -133,8 +132,6 @@ async def record_playthrough() -> tuple[str, dict]:
     with suppressed_cog_saves(), \
             suppressed_view_saves(), \
             suppressed_full_image_links(), \
-            mock.patch.object(
-                runback_views, "add_full_image_button", mock.AsyncMock()), \
             mock.patch.object(
                 turn_views,
                 "add_full_image_button_to_response",

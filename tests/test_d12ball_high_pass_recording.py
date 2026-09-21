@@ -22,9 +22,11 @@ same shape.
 hand over to a step that draws its own board -- the two passes that
 run out of play, where a new play posts and pins one, and the Setup
 Pass that lands on nobody, where the loose ball is announced with the
-board under it -- and the old cog wrote no board in front of any of
-them. This asserts the count either way, so the move cannot quietly
-add one.
+board under it -- and in a real game the dispatcher writes no board in
+front of those, by reading what the *next* step reports (its
+`new_play`, its own `board_changed`), which the recorder standing in
+for it here does not. So this asserts one write wherever the board
+moved, which is what keeps the move from quietly adding a second.
 
 **The follow-on's arguments are read through the real method's
 signature**, not off `call.args`, for the reason rank D2 wrote down:
@@ -226,11 +228,12 @@ class PassRecordingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(posted_messages(interaction), [])
         self.assertEqual(lead_in_of(recorders[member]), fixture.narration)
 
-        # The board was written only where the old cog wrote it; see
-        # the module docstring.
+        # One write wherever the board moved. The next step is a
+        # recorder here, and the dispatcher's suppression reads what
+        # the real next step reports -- see the fixture module.
         self.assertEqual(
             cog.refresh_match_image.await_count,
-            1 if fixture.refreshes else 0,
+            1 if fixture.board_changed else 0,
         )
 
         self.assertEqual(match.ball.possession, fixture.possession)

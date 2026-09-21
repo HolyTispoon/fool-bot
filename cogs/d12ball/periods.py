@@ -10,8 +10,7 @@ from d12ball.components import (
     MatchState,
     TeamSide,
 )
-from d12ball.flow import FollowOn, FollowOnStep
-from d12ball.flow.arrivals import finish_maneuver_resolution
+from d12ball.flow import FollowOnStep
 from d12ball.flow.periods import (
     advance_full_time_stage,
     advance_halftime_stage,
@@ -23,16 +22,11 @@ from d12ball.flow.periods import (
     begin_halftime_substitutions,
     begin_setup_coaching,
     begin_shootout,
-    continue_shootout,
-    end_period,
     finish_full_time_coaching,
-    finish_halftime,
-    finish_setup_coaching,
     goal_log,
     shootout_order_text,
 )
 from d12ball.game import D12BallGame
-from d12ball import tutorial
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     add_full_image_button,
@@ -58,69 +52,22 @@ class PeriodMixin:
         lead_in: str = "",
     ) -> None:
         """
-        The Discord half of the tail of every maneuver-effect path.
-
-        The step is `d12ball.flow.arrivals.finish_maneuver_resolution`
-        -- the clock, the period, the two gates it opens with and the
-        line that says where the ball ended up. What is left here is
-        the persist, the board, and the snapshot the offensive choice
-        is handed back under.
-
-        **The snapshot is the one bespoke piece.** The board is drawn
-        once and uploaded twice -- onto the persistent message and onto
-        the snapshot under the closing line -- which is a request the
-        rate-limit gate counts, so it is decided here rather than
-        through `dispatch_step_result`'s ordinary redraw. See
-        "Discord's rate limits" in docs/design/rate-limits.md.
+        The tail of every maneuver-effect path, as an entry point --
+        `d12ball.flow.arrivals.finish_maneuver_resolution`. The
+        snapshot the offensive choice is handed back under is the
+        dispatcher's (`D12Ball.post_stop`): the board is drawn once
+        and uploaded twice, which is a request the rate-limit gate
+        counts.
         """
-        result = finish_maneuver_resolution(
-            self.engine,
+        await self.run_step(
+            interaction,
             game,
             match,
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+            lead_in=lead_in,
             distance_moved=distance_moved,
             turnover_occurred=turnover_occurred,
-            lead_in=lead_in,
         )
-        self.persist(game, match)
-
-        following = result.next
-        if not (
-            isinstance(following, FollowOn)
-            and following.step is FollowOnStep.SEND_TURN_PROMPT
-        ):
-            await self.dispatch_step_result(
-                interaction, game, match, result,
-            )
-            return
-
-        # One last board refresh with everything settled (run-back,
-        # speed choice, own-goal, etc. may have landed after the last
-        # refresh inside the effect itself), right before the offensive
-        # choice comes back up. The snapshot below is that same board,
-        # so it is drawn once and uploaded twice.
-        png = await self.render_match_png(game)
-        await self.refresh_match_image(interaction, game, png=png)
-        # **Two messages, not one.** The step hands back its lines in
-        # the order they were said, and the last of them is the one
-        # that goes under the board -- an earlier line is the
-        # last-possession announcement, which is its own beat and was
-        # its own message before the lift. How lines go together is the
-        # frontend's (principle 8), and this is that decision.
-        if len(result.narration) > 1:
-            await send_new_prompt(
-                interaction, " ".join(result.narration[:-1]),
-            )
-        snapshot = await send_new_prompt(
-            interaction,
-            result.narration[-1],
-            file=self.match_file_from_png(game, png),
-        )
-        await add_full_image_button(snapshot)
-
-        try:
-            await self.send_turn_prompt(interaction, game)
-        except ValueError as error:
-            await interaction.followup.send(str(error), ephemeral=True)
 
     async def end_period(
         self,
@@ -130,22 +77,11 @@ class PeriodMixin:
         lead_in: str = "",
     ) -> None:
         """
-        The Discord half of the whistle. The step is
-        `d12ball.flow.periods.end_period`, and with it the second
-        half's reset, halftime's own cleanup and the window before the
-        shootout -- the whole cascade, which is why this hands back a
-        list of narration blocks rather than a line.
-
-        **One message per block**, through `post_blocks_then_dispatch`.
-        The whistle, the halftime recovery and an AI side's extra token
-        were three messages before the lift and a coach reads them as
-        the three events they are; the ordinary dispatcher would join
-        them into one paragraph. Batching is the frontend's -- see
-        principle 8 in CLAUDE.md.
+        The whistle, as an entry point -- `d12ball.flow.periods.end_period`,
+        one message per block (`DRIVER_BLOCKS_PER_MESSAGE`).
         """
-        result = end_period(self.engine, game, match, lead_in=lead_in)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
+        await self.run_step(
+            interaction, game, match, FollowOnStep.END_PERIOD, lead_in=lead_in,
         )
 
     def build_goal_log(self, match: MatchState) -> str:
@@ -201,8 +137,11 @@ class PeriodMixin:
         await add_full_image_button(final, view)
         # Remembered so the buttons come back after a restart: the
         # channel stays where it is until someone clicks one, which can
-        # be days later.
+        # be days later. The turn's own message is forgotten with it --
+        # nothing on it is live any more, and a restart re-arms the
+        # rematch rather than a question the game has finished with.
         game.rematch_message_id = final.id
+        game.turn_message_id = None
         save_games(self.games)
         await self.refresh_match_image(interaction, game, png=png)
 
@@ -270,60 +209,18 @@ class PeriodMixin:
     ) -> None:
         """
         Both coaches are done, so the game can start -- and this is
-        where the board first goes up. The step is
-        `d12ball.flow.periods.finish_setup_coaching`; what is here is
-        the board, the pin and the tutorial's script.
-
-        Nothing has been played yet, so a board posted before the
-        windows would show a deal neither coach had finished with, and
-        be redrawn twice over before anyone acted on it; the one worth
-        looking at is the line-up the game actually kicks off from.
-
-        A kickoff is a new play, so it posts its board the way every
-        other one does: as its own message, under the coaching it came
-        out of. It used to attach the board to the persistent message
-        instead, which is a message near the top of the channel -- and
-        Discord leaves an edited message where it was, so the board a
-        coach had just finished setting appeared *above* the windows
-        that set it, looking for all the world like the board had gone
-        up before kickoff coaching rather than after it.
+        where the board first goes up, posted and pinned as a new
+        play's is (`D12Ball.post_stop`). The step is
+        `d12ball.flow.periods.finish_setup_coaching`, which arms the
+        tutorial's script too.
         """
-        if lead_in:
-            await send_new_prompt(interaction, lead_in)
-
-        result = finish_setup_coaching(self.engine, game, match)
-        self.persist(game, match)
-        await self.post_new_play_board(
-            interaction, game, " ".join(result.narration),
+        await self.run_step(
+            interaction,
+            game,
+            match,
+            FollowOnStep.FINISH_SETUP_COACHING,
+            lead_in=lead_in,
         )
-
-        # The script arms here rather than at creation, so everything
-        # up to the kickoff -- teams, the toss, home or visiting -- is
-        # played exactly as an ordinary game plays it. The welcome goes
-        # under the board it describes; the first beat is staged by the
-        # send_turn_prompt below.
-        async def begin_play(inner_interaction: discord.Interaction) -> None:
-            try:
-                await self.send_turn_prompt(inner_interaction, game)
-            except ValueError as error:
-                await inner_interaction.followup.send(
-                    str(error), ephemeral=True,
-                )
-
-        if game.tutorial:
-            game.tutorial_step = tutorial.FIRST_STEP
-            game.tutorial_staged = False
-            save_games(self.games)
-            # The welcome and beat 1's own lesson are two narration
-            # messages with nothing for the coach to click between
-            # them, so the first is held behind Continue rather than
-            # posted alongside it -- see post_tutorial_note.
-            await self.post_tutorial_note(
-                interaction, game, tutorial.WELCOME, begin_play,
-            )
-            return
-
-        await begin_play(interaction)
 
     async def advance_halftime_stage(
         self,
@@ -383,24 +280,16 @@ class PeriodMixin:
         lead_in: str = "",
     ) -> None:
         """
-        The last step of halftime -- `d12ball.flow.periods.
-        finish_halftime`. A half begins the way any other new play
-        does: with the board everyone is about to play from, posted and
-        pinned, which is what is left here.
+        The last step of halftime -- `d12ball.flow.periods.finish_halftime`,
+        and the second half's board, posted and pinned.
         """
-        if lead_in:
-            await send_new_prompt(interaction, lead_in)
-
-        result = finish_halftime(self.engine, game, match)
-        self.persist(game, match)
-        await self.post_new_play_board(
-            interaction, game, " ".join(result.narration),
+        await self.run_step(
+            interaction,
+            game,
+            match,
+            FollowOnStep.FINISH_HALFTIME,
+            lead_in=lead_in,
         )
-
-        try:
-            await self.send_turn_prompt(interaction, game)
-        except ValueError as error:
-            await interaction.followup.send(str(error), ephemeral=True)
 
     # -- The window before the shootout --------------------------------
 
@@ -536,10 +425,8 @@ class PeriodMixin:
     ) -> None:
         """
         What a settled skill test hands back to: end the shootout, or
-        set the next test up -- `d12ball.flow.periods.
-        continue_shootout`.
+        set the next test up -- `d12ball.flow.periods.continue_shootout`.
         """
-        result = continue_shootout(self.engine, game, match)
-        await self.post_blocks_then_dispatch(
-            interaction, game, match, result,
+        await self.run_step(
+            interaction, game, match, FollowOnStep.CONTINUE_SHOOTOUT,
         )

@@ -10,17 +10,9 @@ from typing import Optional, TYPE_CHECKING
 
 from d12ball import tutorial
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.turn import (
-    auto_resolve_challenger,
-    begin_maneuver_step,
-    begin_shot_step,
-    decline_challenge_step,
-    maneuver_pick_refusal,
-    maneuver_pick_step,
-    select_ball_handler_step,
-    turn_action_refusal,
-)
-from d12ball.prompts import PendingPrompt
+from d12ball.flow.driver import Action
+from d12ball.flow.turn import turn_action_refusal
+from d12ball.prompts import PendingPrompt, PromptKind
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MatchState,
@@ -95,17 +87,6 @@ class BallHandlerSelectionView(SafeView):
         if game is None:
             return
 
-        if match.active_player_id is not None:
-            await interaction.response.edit_message(
-                content=self.cog.engine.build_turn_prompt(game, match),
-                view=PlayerActionView(self.cog, self.game_id),
-            )
-            await interaction.followup.send(
-                "A player has already been selected.",
-                ephemeral=True,
-            )
-            return
-
         if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player whose team has possession can "
@@ -114,17 +95,20 @@ class BallHandlerSelectionView(SafeView):
             )
             return
 
-        try:
-            prompt = select_ball_handler_step(
-                self.cog.engine, game, match, player_id,
-            ).next
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error),
-                ephemeral=True,
-            )
+        # A handler already picked is a stale click on this prompt,
+        # and the driver refuses it by kind -- the position reads as
+        # the turn's own question by then.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.BALL_HANDLER_SELECTION, "", {"player_id": player_id},
+            ),
+        )
+        if answered is None:
             return
-
+        prompt = answered.result.next
         self.cog.persist(game, match)
         # An **edit**, not a new message: the kickoff question becomes
         # the turn question in place, which is a request the gate
@@ -232,13 +216,6 @@ class PlayerActionView(SafeView):
         if game is None:
             return
 
-        if match.active_player_id is None:
-            await interaction.response.send_message(
-                "Choose a player to handle the ball first.",
-                ephemeral=True,
-            )
-            return
-
         if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player whose team has possession can "
@@ -247,55 +224,44 @@ class PlayerActionView(SafeView):
             )
             return
 
-        # **The refusals are `d12ball.flow.turn.turn_action_refusal`'s**
-        # since Phase 6. Every one of them is a stale click -- the
-        # buttons are only built for the actions the position allows --
-        # and what each says is a fact about the position, which is the
-        # model's (principle 5 in CLAUDE.md). The two guards above stay
-        # here: who may press is a fact about a person, and "choose a
-        # player first" is this view noticing there is no turn yet.
-        refusal = turn_action_refusal(self.cog.engine, game, match, action)
-        if refusal is not None:
-            await interaction.response.send_message(refusal, ephemeral=True)
-            return
-
-        if action == "shoot":
-            await self.begin_shot_action(
-                interaction, game, match, action_label,
-            )
-            return
-
         if action == "time_out":
+            # Confirmed rather than taken -- see `TimeOutConfirmView`.
+            # Nothing is answered until the confirmation, so the
+            # position is read here only to word the confirmation.
             await self.begin_time_out_action(interaction, game, match)
             return
 
-        await self.begin_maneuver_action(interaction, game, match)
-
-    async def begin_shot_action(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        action_label: str,
-    ) -> None:
-        """
-        Take the shot on, and say who is taking it.
-
-        **The rule is `d12ball.flow.turn.begin_shot_step`** since Phase
-        6 -- opening the turn in the log, arming the shot and wording
-        it. `choose_action` has already asked the refusal, which is why
-        the stale-view guard is not repeated here.
-        """
-        refresh_player_names(game, interaction.guild)
-        result = begin_shot_step(
-            self.cog.engine, game, match, action_label,
+        # **The refusals are `turn_action_refusal`'s and the check
+        # against the position is the driver's**: every one of them is
+        # a stale click -- the buttons are only built for the actions
+        # the position allows -- and what each says is a fact about
+        # the position (principle 5 in CLAUDE.md). Who may press is a
+        # fact about a person and stays above.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.PLAYER_ACTION,
+                action,
+                {"action_label": action_label} if action == "shoot" else {},
+            ),
         )
+        if answered is None:
+            return
         self.cog.persist(game, match)
+        refresh_player_names(game, interaction.guild)
 
-        await interaction.response.edit_message(
-            content=result.narration[0], view=None,
-        )
-        await self.cog.begin_score_attempt(interaction, game, match)
+        if action == "shoot":
+            # The answer replaces the prompt; the composition and the
+            # roll prompt follow, off the kind (`render_prompt`).
+            await interaction.response.edit_message(
+                content=answered.result.narration[0], view=None,
+            )
+            await self.dispatch_answer(interaction, game, match, answered)
+            return
+
+        await self.begin_maneuver_action(interaction, game, match, answered)
 
     async def begin_time_out_action(
         self,
@@ -309,8 +275,15 @@ class PlayerActionView(SafeView):
         half, and it sits one button along from Maneuver, so it is
         confirmed rather than taken -- see TimeOutConfirmView.
         """
-        # The stale-view guard and its three reasons are
-        # `turn_action_refusal`'s, asked in `choose_action`.
+        # A stale prompt: the button was built for a position that has
+        # moved on. The confirmation would be refused the same way
+        # through the driver, but there is no reason to open it -- and
+        # the sentence is the model's (`turn_action_refusal`), because
+        # it says what the position is.
+        refusal = turn_action_refusal(self.cog.engine, game, match, "time_out")
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
+            return
         await interaction.response.edit_message(
             content=self.cog.engine.time_out_confirmation(game, match),
             view=TimeOutConfirmView(
@@ -323,22 +296,21 @@ class PlayerActionView(SafeView):
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        answered,
     ) -> None:
         """
         Start a maneuver, which reaches the offense's pick by one of
         three routes: nobody to challenge at all, a challenger settled
         without asking, or the defending coach's own choice.
-        """
-        # **The rule is `d12ball.flow.turn.begin_maneuver_step`**
-        # since Phase 6: which of the three routes this takes, and the
-        # pick the middle one makes without asking. What is left here
-        # is what each route *shows* -- and two of the three drop the
-        # turn prompt rather than editing it down to who chose what,
-        # because the challenge image and the unchallenged notice each
-        # say a good deal more. See D12Ball.drop_turn_prompt.
-        result = begin_maneuver_step(self.cog.engine, game, match)
-        self.cog.persist(game, match)
 
+        **The rule is `d12ball.flow.turn.begin_maneuver_step`** since
+        Phase 6, answered above. What is left here is what each route
+        *shows* -- and two of the three drop the turn prompt rather
+        than editing it down to who chose what, because the challenge
+        image and the unchallenged notice each say a good deal more.
+        See D12Ball.drop_turn_prompt.
+        """
+        result = answered.result
         following = result.next
         if isinstance(following, PendingPrompt):
             # The defending coach is genuinely being asked.
@@ -355,8 +327,8 @@ class PlayerActionView(SafeView):
         ):
             # A challenger nobody was asked for: the challenge image is
             # what goes up, and it carries its own lead-in.
-            await self.cog.dispatch_step_result(
-                interaction, game, match, result,
+            await self.dispatch_answer(
+                interaction, game, match, answered, lines_posted=False,
             )
             return
 
@@ -381,8 +353,6 @@ class PlayerActionView(SafeView):
         defenders on the ball are the whole of the choice. What is left
         here is the message and the buttons.
         """
-        refresh_player_names(game, interaction.guild)
-
         await interaction.response.defer()
         await self.cog.drop_turn_prompt(interaction, game)
 
@@ -482,22 +452,23 @@ class TimeOutConfirmView(SafeView):
         if game is None or match is None:
             return
 
-        # Asked again rather than trusted from the click that opened
-        # this: the prompt underneath is a live message and the match
-        # can have moved on under it.
-        if not match.may_call_time_out():
-            await interaction.response.edit_message(
-                content=self.prompt,
-                view=PlayerActionView(self.cog, self.game_id),
-            )
-            await interaction.followup.send(
-                "A time out can no longer be called from here.",
-                ephemeral=True,
-            )
+        # **The time out is the `time_out` answer to the turn prompt**
+        # (`driver._answer_player_action`), asked again here rather
+        # than trusted from the click that opened this: the prompt
+        # underneath is a live message and the match can have moved on
+        # under it, and `turn_action_refusal` is what says so.
+        answered = await self.answer(
+            interaction, game, match, Action(PromptKind.PLAYER_ACTION, "time_out"),
+        )
+        if answered is None:
             return
+        self.cog.persist(game, match)
 
+        # The prompt goes: the window's own message says what the time
+        # out is, and a good deal more.
         await interaction.response.defer()
-        await self.cog.begin_time_out(interaction, game, match)
+        await self.cog.drop_turn_prompt(interaction, game)
+        await self.dispatch_answer(interaction, game, match, answered)
 
 
 class ManeuverChallengeView(SafeView):
@@ -593,19 +564,6 @@ class ManeuverChallengeView(SafeView):
         if game is None:
             return None, None
 
-        if match.challenger_id is not None or match.maneuver_uncontested:
-            await interaction.response.edit_message(
-                content=self.cog.engine.build_turn_prompt(game, match),
-                view=PlayerActionView(self.cog, self.game_id),
-            )
-            await interaction.followup.send(
-                "A defender has already been chosen."
-                if match.challenger_id is not None
-                else "This maneuver has already gone unchallenged.",
-                ephemeral=True,
-            )
-            return None, None
-
         if not self.may_act_for_defense(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player whose team is defending can make "
@@ -629,20 +587,20 @@ class ManeuverChallengeView(SafeView):
         # since Phase 6, and it always was: the AI's pick and a
         # defender already sharing the ball's space have come through
         # that step since Phase 4, and this button is the third way to
-        # make the same pick. The walk-in is described inside it,
-        # before the save, because a walk-in's tokens can cross the
-        # Exhausted threshold and the description is what tests it.
-        try:
-            result = auto_resolve_challenger(
-                self.cog.engine, game, match, player_id,
-            )
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error),
-                ephemeral=True,
-            )
+        # make the same pick. A challenger already chosen, or a
+        # maneuver already gone unchallenged, is a stale click the
+        # driver refuses by kind.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.MANEUVER_CHALLENGE, "send", {"player_id": player_id},
+            ),
+        )
+        if answered is None:
             return
-
+        result = answered.result
         self.cog.persist(game, match)
 
         # The prompt goes rather than being edited down to "has chosen
@@ -656,12 +614,7 @@ class ManeuverChallengeView(SafeView):
             player_id,
             " ".join(result.narration),
         )
-
-        if result.board_changed:
-            await self.cog.refresh_match_image(interaction, game)
-        await self.cog.dispatch_step_result(
-            interaction, game, match, StepResult(next=result.next),
-        )
+        await self.dispatch_answer(interaction, game, match, answered)
 
     async def decline(self, interaction: discord.Interaction) -> None:
         """
@@ -678,21 +631,17 @@ class ManeuverChallengeView(SafeView):
         # **The rule is `d12ball.flow.turn.decline_challenge_step`**
         # since Phase 6: sending nobody and saying so are one answer,
         # and the second half of it was already the model's.
-        try:
-            result = decline_challenge_step(self.cog.engine, game, match)
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error),
-                ephemeral=True,
-            )
+        answered = await self.answer(
+            interaction, game, match, Action(PromptKind.MANEUVER_CHALLENGE, "decline"),
+        )
+        if answered is None:
             return
-
         self.cog.persist(game, match)
 
         await interaction.response.defer()
         await self.cog.drop_turn_prompt(interaction, game)
         await self.cog.post_then_dispatch(
-            interaction, game, match, result,
+            interaction, game, match, answered.result,
         )
 
 
@@ -942,10 +891,7 @@ class ManeuverActionPromptView(SafeView):
         )
         if not authorized:
             return "Only the player on that side can choose this maneuver."
-
-        return maneuver_pick_refusal(
-            self.cog.engine, game, match, side, maneuver_key,
-        )
+        return None
 
     async def pick(
         self,
@@ -972,11 +918,22 @@ class ManeuverActionPromptView(SafeView):
 
         # **The rule is `d12ball.flow.turn.maneuver_pick_step`** since
         # Phase 6: writing the pick down, whether "someone has picked"
-        # is worth saying at all, and whether both sides have answered.
-        result = maneuver_pick_step(
-            self.cog.engine, game, match,
-            side=side, maneuver_key=maneuver_key,
+        # is worth saying at all, and whether both sides have answered
+        # -- and `maneuver_pick_refusal`'s three reasons, asked by the
+        # driver after the authorisation above.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.MANEUVER_ACTION,
+                "",
+                {"side": side, "maneuver_key": maneuver_key},
+            ),
         )
+        if answered is None:
+            return
+        result = answered.result
         self.cog.persist(game, match)
 
         await interaction.response.send_message(

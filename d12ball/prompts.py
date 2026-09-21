@@ -46,6 +46,7 @@ from d12ball.formatting import (
     space_label,
 )
 from d12ball.game import D12BallGame
+from d12ball import tutorial
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from d12ball.engine import RulesEngine
@@ -59,6 +60,15 @@ class PromptKind(Enum):
     the order they matter in -- the ordering decisions live in
     `pending_prompt` itself, in the comments on the branches.
     """
+
+    # The two that outrank everything, because nothing is played
+    # while either is up: a tutorial note the coach has not pressed
+    # Continue on, and a game that is over. Both Phase 6's, and both
+    # for the same reason -- each used to be a message the cog put up
+    # on its own, so a restart could not say the match was waiting on
+    # it, and a second frontend could not know it was.
+    TUTORIAL_CONTINUE = "tutorial_continue"
+    GAME_OVER = "game_over"
 
     # Windows and periods
     COACHING_HUB = "coaching_hub"
@@ -101,6 +111,11 @@ class PromptKind(Enum):
     SPEED_DELTA_CHOICE = "speed_delta_choice"
     DRIBBLE_ADVANCE_CHOICE = "dribble_advance_choice"
     DRIBBLE_BURST_CHOICE = "dribble_burst_choice"
+    # Setup Pass's cost, once a deflection has beaten it: how much
+    # further back the coach who won drives the ball. A kind since
+    # Phase 6; until then the view had no kind at all, so a restart
+    # in that window fell through to the turn prompt.
+    SETUP_PASS_PUSH_BACK = "setup_pass_push_back"
 
 
 @dataclass(frozen=True)
@@ -295,13 +310,138 @@ def shooter_mention(
     )
 
 
+#: Which row a lone side is told to press, by name. The buttons carry
+#: the colour themselves (see `ManeuverActionPromptView`); this is the
+#: word for it in the line above them.
+MANEUVER_ROW_COLOURS = {"offense": "red", "defense": "green"}
+
+
+def maneuver_prompt_wording(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    sides: list[str],
+) -> tuple[list[str], str]:
+    """
+    Who is mentioned above the maneuver prompt, and what they are told
+    to do.
+
+    Both come off the same `sides` list the buttons are built from,
+    which is the point: a coach named here and given no row to press
+    would stall a game, and nothing else would catch it.
+    """
+    waiting_on = [
+        format_player_with_team(
+            game,
+            engine.possession_player_number(game, match)
+            if side == "offense"
+            else engine.defending_player_number(game, match),
+            engine.team_emojis,
+            mention=True,
+        )
+        for side in sides
+    ]
+
+    # The buttons are on the message, so there is nothing to tell a
+    # coach to open. What the wording has to do instead is say which
+    # row is theirs, since a contested prompt carries both.
+    #
+    # A lone side is not always the offense: a solo game's prompt is
+    # one row, and it is the *defense's* whenever Dinky has the ball.
+    # So the colour is read off the side rather than written down -- it
+    # is the row's own colour either way (offense red, defense green;
+    # see ManeuverActionPromptView).
+    instruction = (
+        "choose a maneuver from the "
+        f"{MANEUVER_ROW_COLOURS[sides[0]]} row -- only you can "
+        "see what you picked."
+        if len(sides) == 1
+        else (
+            "both sides pick privately from the same message: red "
+            "for the offense, green for the defense. Only you can "
+            "see what you picked."
+        )
+    )
+    return waiting_on, instruction
+
+
+def maneuver_action_ask(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> str:
+    """
+    The whole of what the maneuver prompt says: who is being asked,
+    which row is theirs, and who holds their gambits.
+
+    **One wording for the live prompt and the restored one.** The
+    tutorial holds this prompt behind a note, and what goes up after
+    the click is whatever `pending_prompt` says the match is waiting
+    on -- so the restore's ask has to be the live one, or the coach
+    would read a different question after the note from the one it
+    was put in front of. See `d12ball.flow.gates`.
+
+    Who holds their gambits goes under the instruction and above the
+    cards. It is public knowledge either coach could work out from the
+    scoreboard and the board (see `RulesEngine.may_play_gambits`), and
+    `""` in the games and positions where the question does not arise
+    -- so this adds a paragraph to an advanced prompt and nothing at
+    all to a basic one.
+    """
+    sides = list(engine.maneuver_pick_sides(game, match))
+    waiting_on, instruction = maneuver_prompt_wording(
+        engine, game, match, sides,
+    )
+    ask = f"{' and '.join(waiting_on)}, {instruction}"
+    gambit_access = engine.describe_gambit_access(game, match)
+    if gambit_access:
+        ask = f"{ask}\n\n{gambit_access}"
+    return ask
+
+
+def speed_choice_ask(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    skill_type: str,
+) -> str:
+    """
+    The speed choice, worded for the coach whose player made the move:
+    up to that player's skill, either way.
+
+    One wording for the live prompt and the restored one, for
+    `maneuver_action_ask`'s reason: the tutorial holds this one behind
+    a note too.
+    """
+    skill = engine.player_catalog.effective_profile(
+        engine.get_player_definition(player_id),
+    )
+    skill_value = skill.offense if skill_type == "offense" else skill.defense
+    controller_id = engine.controlling_user_id(game, match, player_id)
+    mention = f"<@{controller_id}>" if controller_id else "Someone"
+    return f"{mention}, manipulate the ball's speed (up to {skill_value}):"
+
+
 #: Every effect choice is put up under the same line; what differs is
 #: which choice is under it.
 EFFECT_ASK = "Resolve the maneuver:"
 
+#: What the score-attempt prompt says the first time it is put up.
+#: The one thing the composition image does not show is how the two
+#: rolls are read against each other, so it rides on the prompt --
+#: which becomes the dice image the moment it is answered, taking the
+#: explanation with it once it is no longer needed. A restart asks the
+#: bare question instead (see `pending_prompt`).
+SCORE_ATTEMPT_ASK = (
+    "Either player can roll. Both sides roll one d12; the attacker "
+    "scores on a total equal to or higher than the defence."
+)
+
 
 def effect_choice_prompt(
     engine: "RulesEngine",
+    game: D12BallGame,
     match: MatchState,
 ) -> Optional[PendingPrompt]:
     """
@@ -361,11 +501,25 @@ def effect_choice_prompt(
     if winner_key == "high_pass":
         return PendingPrompt(PromptKind.HIGH_PASS_CHOICE, EFFECT_ASK)
     if winner_key == "setup_pass":
-        return _speed_delta(match.active_player_id, "offense", winner_key)
+        return _speed_delta(
+            engine, game, match, match.active_player_id, "offense", winner_key,
+        )
     if winner_key in ("dribble_advance", "dribble_burst"):
         handler = engine.get_player_definition(match.active_player_id)
-        if winner_key == "dribble_advance" and (
-            handler.role == PlayerRole.PLAYMAKER
+        # **A Playmaker's advance has two prompts, and the carrier
+        # tells them apart.** `select_ball_handler` clears
+        # `ball_carrier_id` at the top of every turn and
+        # `dribble_advance_step` is what sets it again, so a handler
+        # recorded as carrying has already run and is owed the speed
+        # choice; one who is not has not yet been asked how far. This
+        # used to be the crash-window guess the docstring above
+        # describes, and Phase 6 needed it exact: every click is
+        # checked against this reading now, and a speed choice read
+        # as a distance choice is a refused click.
+        if (
+            winner_key == "dribble_advance"
+            and handler.role == PlayerRole.PLAYMAKER
+            and match.ball_carrier_id != match.active_player_id
         ):
             return PendingPrompt(
                 PromptKind.DRIBBLE_ADVANCE_CHOICE, EFFECT_ASK,
@@ -383,20 +537,42 @@ def effect_choice_prompt(
                     PromptKind.DRIBBLE_BURST_CHOICE, EFFECT_ASK,
                 )
             return None
-        return _speed_delta(match.active_player_id, "offense", winner_key)
+        return _speed_delta(
+            engine, game, match, match.active_player_id, "offense", winner_key,
+        )
     if winner_key in ("steal", "intercept"):
-        return _speed_delta(match.challenger_id, "defense", winner_key)
+        return _speed_delta(
+            engine, game, match, match.challenger_id, "defense", winner_key,
+        )
+    if (
+        winner_key in ("deflect", "clear")
+        and engine.gambit_cost(match, winner_key) == "setup_pass"
+        and not match.pending_loose_ball
+        and match.pending_scoring_opportunity is None
+    ):
+        # **Setup Pass's cost**, still owed: the deflection has been
+        # played and the ball is not yet loose, so the coach who beat
+        # it is being asked how much further back it goes. Once the
+        # loose ball begins the `pending_loose_ball` branch above
+        # answers instead, and an overshoot into a shot is the
+        # scoring opportunity's.
+        return PendingPrompt(PromptKind.SETUP_PASS_PUSH_BACK, EFFECT_ASK)
     return None
 
 
 def _speed_delta(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
     player_id: Optional[str],
     skill_type: str,
     maneuver_key: str,
 ) -> PendingPrompt:
     return PendingPrompt(
         PromptKind.SPEED_DELTA_CHOICE,
-        EFFECT_ASK,
+        speed_choice_ask(engine, game, match, player_id, skill_type)
+        if player_id is not None
+        else EFFECT_ASK,
         player_id=player_id,
         skill_type=skill_type,
         maneuver_key=maneuver_key,
@@ -442,6 +618,24 @@ def pending_prompt(
     the difference between the two callers and the reason this returns
     a prompt rather than doing the posting itself.
     """
+    if getattr(game, "tutorial_gate", None):
+        # Ahead of everything: a note held behind Continue is a
+        # click the game is waiting on before whatever the note
+        # explains goes up, and nothing about the position says so
+        # -- the position underneath is exactly what it was before
+        # the note. See `d12ball.flow.gates`.
+        return PendingPrompt(
+            PromptKind.TUTORIAL_CONTINUE, tutorial.gate_text(game),
+        )
+
+    if getattr(game, "is_finished", False):
+        # Nothing is asked of a finished game; what it waits on is
+        # the rematch, which is the frontend's to offer. Ahead of the
+        # branches below because the match under a finished game is
+        # whatever full time or the shootout left there, and every
+        # one of them would misread it.
+        return PendingPrompt(PromptKind.GAME_OVER, "")
+
     if match.pending_setup_stage is not None:
         # Before kickoff, so active_player_id is None and the "no
         # ball handler yet" branch below would otherwise misread
@@ -597,16 +791,18 @@ def pending_prompt(
             PromptKind.PLAYER_ACTION, "Settle the time out:",
         )
 
-    if match.active_player_id is None:
-        return PendingPrompt(
-            PromptKind.BALL_HANDLER_SELECTION, "Choose who takes the ball:",
-        )
-
     if match.pending_coaching_side is not None:
         # A window mid-flight comes back as either the offer or the
         # menu. A part-made choice (picked who goes off, not yet
         # who comes on) is not persisted and restarts at the menu,
         # the same way a run-back choice does.
+        #
+        # **Ahead of the kickoff branch below**, because a new play's
+        # window opens after the reset has cleared the turn: a window
+        # offered after a missed shot has no ball handler yet, and
+        # read the other way round it was the kickoff prompt -- which
+        # a restart put up over an open window, and which Phase 6
+        # then refused the window's own answers against.
         if match.pending_coaching_declared:
             return PendingPrompt(
                 PromptKind.COACHING_HUB, "Coaching Choice:",
@@ -655,6 +851,20 @@ def pending_prompt(
             f"Choose who goes after the {noun}:",
         )
 
+    if match.active_player_id is None:
+        # No ball handler yet: the kickoff. **Behind every flag a
+        # position can carry** -- a run back, a pickup, a loose ball
+        # -- because each of those is a position with no handler in
+        # it that is not a kickoff: a new play's reset clears the turn
+        # before its run back, and a contest can be lying on the
+        # board with nobody having taken the ball. Read ahead of them,
+        # as it used to be, this branch answered "choose who takes the
+        # ball" over a run back's own question -- which a restart put
+        # up, and which Phase 6 refused the run back's answers against.
+        return PendingPrompt(
+            PromptKind.BALL_HANDLER_SELECTION, "Choose who takes the ball:",
+        )
+
     if match.pending_action == "shoot":
         return PendingPrompt(
             PromptKind.SCORE_ATTEMPT,
@@ -678,7 +888,8 @@ def pending_prompt(
         # cleared by the same reset.
         if not match.maneuver_selections_complete:
             return PendingPrompt(
-                PromptKind.MANEUVER_ACTION, "Choose your maneuver:",
+                PromptKind.MANEUVER_ACTION,
+                maneuver_action_ask(engine, game, match),
             )
         if engine.settled_maneuver_winner(match) is None:
             # No winner yet means a skill test is owed -- a tie, or
@@ -688,7 +899,7 @@ def pending_prompt(
             return PendingPrompt(
                 PromptKind.SKILL_TEST, "Either player can roll:",
             )
-        return effect_choice_prompt(engine, match) or PendingPrompt(
+        return effect_choice_prompt(engine, game, match) or PendingPrompt(
             PromptKind.PLAYER_ACTION, EFFECT_ASK,
         )
 

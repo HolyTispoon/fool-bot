@@ -27,6 +27,7 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball import stats, tutorial
+from d12ball.flow import gates
 from d12ball.rules_doc import (
     LIVING_RULES_PATH,
     RulesDocument,
@@ -2074,6 +2075,19 @@ class CommandsMixin:
         save_games(self.games)
 
         await interaction.response.send_message(tutorial.SKIPPED)
+
+        # A note held behind Continue is a click the game is waiting
+        # on, and the coach has just said they are not reading it:
+        # what it was holding up runs now, as the click would have run
+        # it (`d12ball.flow.gates.continue_step`).
+        if game.tutorial_gate and game.match_state is not None:
+            match = self.engine.load_match_state(game)
+            await self.dispatch_step_result(
+                interaction,
+                game,
+                match,
+                gates.continue_step(self.engine, game, match),
+            )
 
     @app_commands.command(
         name="resume",

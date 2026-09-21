@@ -467,8 +467,11 @@ class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = await self.decline(cog, game)
 
+        # The driver's refusal, by kind: the challenge is settled, and
+        # the sentence says what the position is rather than which
+        # way it was settled (`driver.STALE_CLICK`).
         self.assertIn(
-            "already gone unchallenged",
+            "already been settled",
             interaction.followup.send.await_args.args[0],
         )
 
@@ -485,7 +488,7 @@ class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.decline(cog, game)
 
         self.assertIn(
-            "already been chosen",
+            "already been settled",
             interaction.followup.send.await_args.args[0],
         )
         self.assertFalse(cog.engine.load_match_state(game).maneuver_uncontested)

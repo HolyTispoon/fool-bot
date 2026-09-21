@@ -163,20 +163,14 @@ class PressureStepTests(unittest.TestCase):
         this rank names is the one it recorded.
         """
         self.assertEqual(FollowOnStep.BEGIN_OWN_GOAL_ROLL.name, OWN_GOAL_ROLL)
-        cog = build_cog()
-        self.enterContext(driver_reaches_cog_stubs(cog))
         # **Phase 6 moved it across.** The roll's own step is the
-        # driver's now -- it was a wrapper that called the step,
-        # saved and dispatched, which is the whole of what the loop
-        # does. The two tables together cover the enum exactly; see
+        # driver's -- it was a wrapper that called the step, saved and
+        # dispatched, which is the whole of what the loop does. The
+        # table covers the enum exactly; see
         # `tests/test_d12ball_package_shape.py`.
         self.assertIs(
             REAL_MODEL_STEPS[FollowOnStep.BEGIN_OWN_GOAL_ROLL],
             begin_own_goal_roll,
-        )
-        self.assertNotIn(
-            FollowOnStep.BEGIN_OWN_GOAL_ROLL,
-            D12Ball.follow_on_methods(cog),
         )
 
     def test_the_step_does_not_save(self) -> None:

@@ -712,6 +712,9 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
         match = cog.engine.initialize_standard_match(game)
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        # The hub is reached by declaring: a new play's window opens on
+        # the offer, and the hub's answers are the *declared* window's.
+        match.declare_coaching()
         game.match_state = match.to_dict()
         return cog, game, match
 
@@ -888,6 +891,11 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.MIDFIELD, 2)
         match.active_player_id = winger
+        # A Low Pass the Winger has won: the menu is the answer to a
+        # settled maneuver, and every click is checked against that.
+        match.challenger_id = match.visiting.field_players[0]
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "pressure"
         game.match_state = match.to_dict()
         return cog, game, match, cog.engine.low_pass_receivers(match, 0)
 

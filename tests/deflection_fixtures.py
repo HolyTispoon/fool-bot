@@ -34,17 +34,14 @@ is played *by*. It is also the only player either card reads -- the
 distance and the speed drop are the card's, and the Fullback's +1 is
 the challenger's role.
 
-**The board and the refresh are two answers here, and this is the one
-rank where they differ.** Every branch drives the ball back, so the
-board moved on every one of them; but the old cog called
-`refresh_match_image` on the overshoot-into-a-shot branch **only**,
-because `begin_loose_ball` draws the board under its own announcement
-and a refresh in front of it would write the same board twice (see
-"Discord's rate limits" in docs/design/rate-limits.md). So the table
-records `board_changed` -- what is true of the position, which is the
-model's answer -- and `refreshes` -- what the frontend actually did
-with it -- as two fields, and each test module reads the one that is
-its own.
+**The board moved on every branch**, since every one drives the ball
+back, and `board_changed` records that -- what is true of the
+position, which is the model's answer. What the frontend does with it
+is not in this table any more: the loose ball draws the board under
+its own announcement, and since Phase 6 the dispatcher skips its own
+write in front of that by reading what the loose ball's step itself
+reports, which a recorder standing in for it does not. The recording
+tests therefore see one write per branch and assert exactly that.
 
 **The expected narration is built, never spelled out, wherever it
 names a player or a side** -- the roster is data the author revises
@@ -143,10 +140,6 @@ class DeflectionFixture:
     #: Whether the board moved -- true on every branch, since every
     #: branch drives the ball back or takes speed off it.
     board_changed: bool = True
-    #: Whether the old cog wrote the persistent board message before
-    #: handing over. Only the shot branch did; see the module
-    #: docstring.
-    refreshes: bool = False
     #: Which step runs next, by `FollowOnStep` member name.
     follow_on: str = LOOSE_BALL
     #: The arguments that step is called with, `lead_in` aside.
@@ -426,7 +419,6 @@ def deflect_that_overshoots_into_a_shot() -> DeflectionFixture:
         narration=(
             f"{deflection_text('deflect', 0, 4)} {OVERSHOOT_NOTE}"
         ),
-        refreshes=True,
         follow_on=SHOOTER_CHOICE,
         follow_on_kwargs={"candidates": candidates},
         possession=TeamSide.VISITING,
@@ -490,7 +482,6 @@ def an_overshooting_deflection_skips_the_setup_pass_cost() -> (
         narration=(
             f"{deflection_text('deflect', 0, 4)} {OVERSHOOT_NOTE}"
         ),
-        refreshes=True,
         follow_on=SHOOTER_CHOICE,
         follow_on_kwargs={"candidates": candidates},
         possession=TeamSide.VISITING,
@@ -585,7 +576,6 @@ def clear_that_overshoots_into_a_shot() -> DeflectionFixture:
             f"{deflection_text('clear', travelled(match, 3), 2)} "
             f"{OVERSHOOT_NOTE}"
         ),
-        refreshes=True,
         follow_on=SHOOTER_CHOICE,
         follow_on_kwargs={"candidates": candidates},
         possession=TeamSide.VISITING,

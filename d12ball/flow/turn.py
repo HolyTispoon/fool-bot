@@ -28,26 +28,35 @@ import random
 
 from d12ball import tutorial
 from d12ball.components import (
+    DECISION_CARDS,
+    DECISION_INJURY_FORFEIT,
+    DECISION_SKILL_TEST,
+    DECISION_UNCONTESTED,
+    EVENT_MANEUVER,
+    EVENT_SKILL_TEST,
     EVENT_TURN_ACTION,
     MatchState,
     SPECIES_CYBORG,
 )
 from d12ball.engine import RulesEngine
+from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import (
     challenger_prompt_ask,
+    format_ai_name,
     format_player_with_team,
     format_team_side_label,
     get_damaged_emoji,
     get_injured_emoji,
 )
 from d12ball.game import D12BallGame, team_display_name
-from d12ball.prompts import PendingPrompt, PromptKind
+from d12ball.prompts import (
+    SCORE_ATTEMPT_ASK,
+    PendingPrompt,
+    PromptKind,
+    maneuver_action_ask,
+)
 
-#: Which row a lone side is told to press, by name. The buttons carry
-#: the colour themselves (see `ManeuverActionPromptView`); this is the
-#: word for it in the line above them.
-MANEUVER_ROW_COLOURS = {"offense": "red", "defense": "green"}
 
 
 def injured_word_and_emoji(
@@ -443,10 +452,10 @@ def begin_shot_step(
     one thing on this path that is the frontend's, and it is a label
     rather than a rule.
 
-    It names nothing: what follows is the composition image and the
-    roll prompt, which is two uploads and no decision, and the position
-    this leaves reads as `PromptKind.SCORE_ATTEMPT` to
-    `pending_prompt`.
+    It ends on the roll prompt. What the frontend puts up for that
+    kind is the composition image and then the prompt -- two uploads
+    and no decision -- and it is keyed on the kind, which is how the
+    AI's shot and a coach's reach the same picture.
     """
     record_turn_action(match, "shoot")
     match.pending_action = "shoot"
@@ -462,6 +471,7 @@ def begin_shot_step(
             f"{offense_display} has chosen to {action_label} with "
             f"{engine.format_player_label(match, handler)}."
         ],
+        next=PendingPrompt(PromptKind.SCORE_ATTEMPT, SCORE_ATTEMPT_ASK),
     )
 
 
@@ -765,54 +775,6 @@ def scripted_or_random(
     return [random.randint(1, 12) for _ in range(count)]
 
 
-def maneuver_prompt_wording(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    sides: list[str],
-) -> tuple[list[str], str]:
-    """
-    Who is mentioned above the prompt, and what they are told to do.
-
-    Both come off the same `sides` list the buttons are built from,
-    which is the point: a coach named here and given no row to press
-    would stall a game, and nothing else would catch it.
-    """
-    waiting_on = [
-        format_player_with_team(
-            game,
-            engine.possession_player_number(game, match)
-            if side == "offense"
-            else engine.defending_player_number(game, match),
-            engine.team_emojis,
-            mention=True,
-        )
-        for side in sides
-    ]
-
-    # The buttons are on the message, so there is nothing to tell a
-    # coach to open. What the wording has to do instead is say which
-    # row is theirs, since a contested prompt carries both.
-    #
-    # A lone side is not always the offense: a solo game's prompt is
-    # one row, and it is the *defense's* whenever Dinky has the ball.
-    # So the colour is read off the side rather than written down -- it
-    # is the row's own colour either way (offense red, defense green;
-    # see ManeuverActionPromptView).
-    instruction = (
-        "choose a maneuver from the "
-        f"{MANEUVER_ROW_COLOURS[sides[0]]} row -- only you can "
-        "see what you picked."
-        if len(sides) == 1
-        else (
-            "both sides pick privately from the same message: red "
-            "for the offense, green for the defense. Only you can "
-            "see what you picked."
-        )
-    )
-    return waiting_on, instruction
-
-
 def begin_maneuver_action_selection(
     engine: RulesEngine,
     game: D12BallGame,
@@ -841,17 +803,365 @@ def begin_maneuver_action_selection(
     if match.maneuver_selections_complete:
         return StepResult(next=FollowOn(FollowOnStep.RESOLVE_MANEUVER))
 
-    sides = engine.maneuver_pick_sides(game, match)
-    waiting_on, instruction = maneuver_prompt_wording(
-        engine, game, match, sides,
+    return StepResult(
+        next=FollowOn(FollowOnStep.SEND_MANEUVER_ACTION_PROMPT),
+    )
+
+
+def offer_maneuver_action(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Put the maneuver pick up -- or, in a tutorial, the note about the
+    cards first, with the pick behind its Continue.
+
+    The prompt is `pending_prompt`'s own reading of this position, and
+    that is not a shortcut: the tutorial's note is a gate whose
+    continuation is "show what the match is waiting on", so the live
+    ask and the restored ask have to be one ask
+    (`maneuver_action_ask`). Everything the frontend adds -- the hand
+    image, the full-size link, the field strip -- is keyed on the kind.
+
+    The note goes in front of the prompt rather than with the lesson
+    two messages up: by the time the hands are in front of a coach
+    they have watched a challenger walk in and are looking at three
+    buttons, which is the moment the explanation is worth reading.
+    """
+    beat = tutorial_beat(game)
+    if beat is not None:
+        return gates.hold_behind_note(
+            game, tutorial.NOTE_MANEUVER, None, lead_in=lead_in,
+        )
+    return StepResult(
+        narration=[lead_in] if lead_in else [],
+        next=PendingPrompt(
+            PromptKind.MANEUVER_ACTION,
+            maneuver_action_ask(engine, game, match),
+        ),
+    )
+
+
+def begin_maneuver_skill_test(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    headline: str,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Charge both participants their token, say what is at stake, and
+    put the roll behind a button -- every roll is a coach's.
+
+    **The reveal is a message of its own**, separate from the roll
+    prompt, so it survives every re-roll intact instead of being
+    edited away: the lines here are this step's narration and the
+    prompt is what it ends on, and the frontend keeps the two apart
+    (`DRIVER_OWN_MESSAGE`). `headline` is `resolve_maneuver`'s reveal,
+    handed over as an argument rather than as narration because it is
+    embedded in this message rather than posted above it.
+
+    `lead_in` is always "" for this step and is kept in front of the
+    reveal rather than dropped, because every step is called with one.
+    """
+    exhaustion_text = (
+        engine.apply_exhaustion(game, match, match.active_player_id, 1)
+        + "\n"
+        + engine.apply_exhaustion(game, match, match.challenger_id, 1)
+    )
+    offense_player = engine.get_player_definition(match.active_player_id)
+    defense_player = engine.get_player_definition(match.challenger_id)
+    offense_skill = engine.player_catalog.effective_profile(
+        offense_player,
+    ).offense
+    defense_skill = engine.player_catalog.effective_profile(
+        defense_player,
+    ).defense
+
+    prefix = f"{lead_in}\n\n" if lead_in else ""
+    return StepResult(
+        narration=[
+            f"{prefix}{headline}"
+            f"{engine.format_player_label(match, offense_player)}: "
+            f"offense skill {offense_skill}\n"
+            f"{engine.format_player_label(match, defense_player)}: "
+            f"defense skill {defense_skill}\n\n"
+            + exhaustion_text
+        ],
+        board_changed=True,
+        next=PendingPrompt(PromptKind.SKILL_TEST, "Either player can roll:"),
+    )
+
+
+def record_maneuver(
+    engine: RulesEngine,
+    match: MatchState,
+    winner_key: str,
+) -> None:
+    """
+    Log the maneuver that has just been settled -- both picks, the
+    winner, and how it was won.
+
+    Called from `begin_effect_resolution`, which every maneuver in the
+    game reaches **exactly once**: a decisive win and an unchallenged
+    one go straight there from `resolve_maneuver`, and a tie goes
+    there through the skill test and whatever injury tests it owed. A
+    skill-test tie re-rolls without passing through, which is right --
+    nothing has been settled yet, and the re-roll logs a `skill_test`
+    event of its own.
+
+    **How it was won is read off the log, not off the match.** The
+    obvious test -- ask `settled_maneuver_winner` whether the cards
+    decided it -- is wrong here by a hair: the injury tests run
+    between the roll and this call, so a skill test whose loser went
+    down injured would come back reading as a win on the cards. The
+    log cannot move under it that way: a `skill_test` event in this
+    turn means the dice settled it, full stop. Reading the log to
+    *describe* a decision is not reading it to decide a rule.
+    """
+    decision = DECISION_UNCONTESTED
+    if not match.maneuver_uncontested:
+        rolled = any(
+            event.kind == EVENT_SKILL_TEST
+            for event in match.events_this_turn()
+        )
+        if rolled:
+            decision = DECISION_SKILL_TEST
+        elif engine.maneuver_catalog.resolve(
+            match.offense_maneuver, match.defense_maneuver,
+        ) == "tie":
+            # A tie nothing was rolled for is the one an injured
+            # participant forfeits outright.
+            decision = DECISION_INJURY_FORFEIT
+        else:
+            decision = DECISION_CARDS
+
+    match.record_event(
+        EVENT_MANEUVER,
+        side=match.ball.possession,
+        player_id=match.active_player_id,
+        offense_key=match.offense_maneuver,
+        defense_key=match.defense_maneuver,
+        winner_key=winner_key,
+        decision=decision,
+        challenger_id=match.challenger_id,
+    )
+
+
+# -- The turn prompt, and an AI side's whole turn ----------------------
+
+
+def begin_turn(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    The turn is over and the next one starts: stage a tutorial beat if
+    one is due, and hold its lesson behind Continue; otherwise straight
+    on to `start_turn`.
+
+    **It moves nothing.** The board is set once, at kickoff, and every
+    beat after that is played from wherever the previous turn left it
+    -- see the module docstring in `d12ball/tutorial.py`. Called once
+    a turn, which is what counts the beats; `tutorial_staged` is what
+    keeps that honest, because the recovery commands
+    (`/d12ball offensive_choice` and `resume force:true`) also start a
+    turn without one having been played, and re-entering a beat must
+    not silently skip the next one.
+
+    Ahead of everything, including the AI's turn: a beat the coach is
+    *defending* is still a beat, and its lesson has to be up before
+    Dinky takes a turn on it -- which is why the gate's continuation
+    is `START_TURN` and not this step again.
+    """
+    if not game.in_tutorial:
+        return StepResult(
+            narration=[lead_in] if lead_in else [],
+            next=FollowOn(FollowOnStep.START_TURN),
+        )
+
+    if game.tutorial_staged:
+        game.tutorial_step = (game.tutorial_step or 0) + 1
+        game.tutorial_staged = False
+
+    beat = tutorial.beat_for_step(game.tutorial_step)
+    if beat is None:
+        # Past the last beat: the script is over. The flag is cleared
+        # before anything else, so the prompt this turn puts up is
+        # built with no rails on it at all.
+        game.tutorial_step = None
+        game.tutorial_staged = False
+        return gates.hold_behind_note(
+            game,
+            tutorial.NOTE_HANDOVER,
+            FollowOn(FollowOnStep.START_TURN),
+            lead_in=lead_in,
+        )
+
+    game.tutorial_staged = True
+    return gates.hold_behind_note(
+        game,
+        tutorial.NOTE_LESSON,
+        FollowOn(FollowOnStep.START_TURN),
+        lead_in=lead_in,
+    )
+
+
+def start_turn(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Hand the ball to whoever now has it: the carrier when the last
+    resolution left it with somebody, everyone on the ball's space
+    otherwise. A single candidate is selected without asking, so the
+    rule costs a coach a click rather than adding one; an AI side
+    plays its whole turn from here.
+
+    Through the engine, which is where the single answer to "who may
+    take this turn" lives even now that it adds nothing of its own:
+    Slip in used to widen this list, and Smooth replaced it on
+    2026-09-20 by settling the same question one step earlier, at the
+    arrival gate.
+
+    Raises `ValueError` where the side in possession has nobody on the
+    ball's space, which is a position the flow should not be able to
+    leave and the frontend reports rather than acts on.
+    """
+    narration = [lead_in] if lead_in else []
+
+    eligible_handlers = engine.turn_handler_candidates(game, match)
+    if not eligible_handlers:
+        raise ValueError(
+            "The team in possession has no player in the ball's space."
+        )
+    carrying = match.ball_carrier_id in eligible_handlers
+
+    offense_number = engine.possession_player_number(game, match)
+    if game.is_solo_game and offense_number == 2:
+        result = ai_turn_step(engine, game, match)
+        result.narration[:0] = narration
+        return result
+
+    if len(eligible_handlers) == 1:
+        match.select_ball_handler(eligible_handlers[0])
+        kind = PromptKind.PLAYER_ACTION
+    else:
+        kind = PromptKind.BALL_HANDLER_SELECTION
+
+    return StepResult(
+        narration=narration,
+        next=PendingPrompt(
+            kind, engine.build_turn_prompt(game, match, carrying=carrying),
+        ),
+    )
+
+
+def ai_turn_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> StepResult:
+    """
+    The AI opponent's turn with possession, whole: pick a ball
+    handler, then shoot if the ball is already on the space closest to
+    the opponent's goal, call a time out if one of theirs is injured
+    on the field, otherwise maneuver.
+
+    **The decisions are `d12ball/ai.py`'s**; what is here is the
+    sequencing and the four things said, which is what stayed in the
+    cog until Phase 6 -- and the four exits are the same four a human
+    coach's turn takes, through the same steps.
+
+    Each line is a message of its own (the frontend's
+    `DRIVER_BLOCKS_PER_MESSAGE`), which is how the AI's turn always
+    read: "Dinky has chosen to maneuver", then "Unchallenged!".
+    """
+    ai_name = format_ai_name(game.ai_opponent)
+    ai_strategy = engine.get_ai_strategy(game)
+    handler_id = ai_strategy.choose_ball_handler(match)
+    match.select_ball_handler(handler_id)
+    handler = engine.get_player_definition(handler_id)
+    label = engine.format_player_label(match, handler)
+    action = ai_strategy.choose_action(match)
+
+    # **Ahead of the turn-action record**, because a time out is not a
+    # turn action -- `begin_time_out` logs its own event instead, and
+    # recording one here would open a turn for a pause and hang the
+    # real turn's events off it. See `MatchState.record_event` and
+    # EVENT_TIME_OUT.
+    #
+    # Dinky calls one to get an injured player off (the author,
+    # 2026-09-16); `DinkyAI.choose_action` is the whole of when. The
+    # window it opens runs through `run_ai_substitution_window` like
+    # any other AI window, and the human coach gets theirs in reply
+    # exactly as a human caller's opponent would.
+    if action == "time_out":
+        from d12ball.flow.windows import begin_time_out
+
+        result = begin_time_out(engine, game, match)
+        result.narration.insert(0, f"{ai_name} calls a time out.")
+        return result
+
+    # Recorded here rather than in the two branches below: the AI has
+    # no prompt and no stale click to guard against, so the strategy's
+    # answer *is* the turn it takes.
+    record_turn_action(match, action, by_ai=True)
+
+    if action == "shoot":
+        match.pending_action = "shoot"
+        return StepResult(
+            narration=[
+                f"{ai_name} has chosen to shoot to score with {label}."
+            ],
+            next=PendingPrompt(PromptKind.SCORE_ATTEMPT, SCORE_ATTEMPT_ASK),
+        )
+
+    # Unchallenged, so the AI's pick succeeds outright -- the same
+    # branch a human offense takes, see `begin_maneuver_step`.
+    if not match.eligible_challengers():
+        result = decline_challenge_step(engine, game, match)
+        result.narration.insert(
+            0, f"{ai_name} has chosen to maneuver with {label}.",
+        )
+        return result
+
+    match.pending_action = "maneuver"
+
+    # *One* defender already sharing the ball's exact space leaves
+    # nothing to choose -- see `begin_maneuver_step`, and note that
+    # this is a count and not a flag there too: two of them on the
+    # ball is the defending coach's pick (the author, 2026-08-17), and
+    # taking `on_ball_space[0]` here picked for them off placement
+    # order without asking. Nothing is announced: the challenge image
+    # names the handler the AI picked, along with everything else
+    # about the matchup.
+    on_ball_space = match.automatic_challengers()
+    if len(on_ball_space) == 1:
+        return StepResult(
+            next=FollowOn(
+                FollowOnStep.AUTO_RESOLVE_CHALLENGER,
+                {"challenger_id": on_ball_space[0]},
+            ),
+        )
+
+    defender_mention = format_player_with_team(
+        game,
+        engine.defending_player_number(game, match),
+        engine.team_emojis,
+        mention=True,
     )
     return StepResult(
-        next=FollowOn(
-            FollowOnStep.SEND_MANEUVER_ACTION_PROMPT,
-            {
-                "sides": list(sides),
-                "ask": f"{' and '.join(waiting_on)}, {instruction}",
-            },
+        next=PendingPrompt(
+            PromptKind.MANEUVER_CHALLENGE,
+            f"{ai_name} will maneuver with {label}.\n\n"
+            f"{defender_mention}, {challenger_prompt_ask(match)}",
         ),
     )
 

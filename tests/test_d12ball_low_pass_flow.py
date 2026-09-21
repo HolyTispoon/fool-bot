@@ -40,6 +40,7 @@ from low_pass_fixtures import (
 )
 from prompt_fixtures import CASES as PROMPT_CASES
 from prompt_fixtures import ENGINE as PROMPT_ENGINE
+from flow_stubs import chain_records_at
 from save_patches import suppressed_cog_saves
 from test_d12ball_low_pass_recording import build_cog
 
@@ -167,7 +168,7 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         """
-        The transition rule for Phases 2 to 5, asserted as an order
+        Principle 9, asserted as an order
         *and* as content: at the moment the save runs, the pass must
         already have happened. A persist before the step writes a
         match that has not moved, and a persist after the dispatch is
@@ -191,23 +192,25 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         async def refresh(*args, **kwargs) -> None:
             calls.append("refresh")
 
-        async def finish(*args, **kwargs) -> None:
-            calls.append("finish_maneuver_resolution")
-
         cog.persist = persist
         cog.refresh_match_image = refresh
-        cog.finish_maneuver_resolution = finish
 
-        await cog.apply_low_pass(
-            SimpleNamespace(),
-            fixture.game,
-            match,
-            fixture.distance,
-            receiver_id=fixture.receiver_id,
-        )
+        with chain_records_at(
+            cog, FollowOnStep.FINISH_MANEUVER_RESOLUTION, calls,
+        ):
+            await cog.apply_low_pass(
+                SimpleNamespace(),
+                fixture.game,
+                match,
+                fixture.distance,
+                receiver_id=fixture.receiver_id,
+            )
 
+        # **One save, after the run** (principle 9): the tail of the
+        # maneuver runs in the driver, the dispatcher writes once, and
+        # the board follows.
         self.assertEqual(
-            calls, ["persist", "refresh", "finish_maneuver_resolution"],
+            calls, ["finish_maneuver_resolution", "persist", "refresh"],
         )
         self.assertEqual(carrier_when_saved, [fixture.carrier_id])
 
@@ -261,12 +264,11 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
             maneuver_key="low_pass",
         )
 
-        # `dispatch_step_result` records `turn_message_id` for every
-        # prompt it posts since Phase 4, so it reaches the cog's own
-        # `save_games` binding as well as the view's.
-        with suppressed_cog_saves(), mock.patch(
-            "cogs.d12ball.core.send_new_prompt", mock.AsyncMock(),
-        ) as send:
+        # A Low Pass is asked over the field strip, so the prompt goes
+        # through `send_field_prompt` -- keyed on the kind by
+        # `render_prompt`, which is the frontend's half of principle 2.
+        cog.send_field_prompt = mock.AsyncMock()
+        with suppressed_cog_saves():
             await cog.dispatch_step_result(
                 SimpleNamespace(),
                 fixture.game,
@@ -279,16 +281,14 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
                 ),
             )
 
-        send.assert_awaited_once()
-        content = send.await_args.args[1]
+        cog.send_field_prompt.assert_awaited_once()
+        _, _, _, content, view = cog.send_field_prompt.await_args.args
         self.assertEqual(
             content,
             "**Low Pass:** the ball moves 2 spaces forward. "
             "Choose your Low Pass:",
         )
-        self.assertIsInstance(
-            send.await_args.kwargs["view"], LowPassChoiceView,
-        )
+        self.assertIsInstance(view, LowPassChoiceView)
 
     async def test_a_step_with_nothing_next_posts_its_own_lines(
         self,

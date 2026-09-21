@@ -163,7 +163,7 @@ class ChallengerChoiceTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction(user_id=user_id)
         view = PlayerActionView(cog, game.game_id)
         with suppressed_view_saves(), suppressed_cog_saves():
-            await view.begin_maneuver_action(interaction, game, match)
+            await view.choose_action(interaction, "maneuver", "Maneuver")
         return interaction
 
     async def test_one_defender_on_the_ball_challenges_unasked(self) -> None:
@@ -174,7 +174,8 @@ class ChallengerChoiceTests(unittest.IsolatedAsyncioTestCase):
 
         cog.auto_resolve_challenger.assert_awaited_once()
         self.assertEqual(
-            cog.auto_resolve_challenger.await_args.args[-1], on_the_ball[0],
+            cog.auto_resolve_challenger.await_args.kwargs["challenger_id"],
+            on_the_ball[0],
         )
         self.assertEqual(prompt_views(interaction), [])
 
@@ -240,7 +241,8 @@ class ChallengerChoiceTests(unittest.IsolatedAsyncioTestCase):
 
         cog.auto_resolve_challenger.assert_awaited_once()
         self.assertEqual(
-            cog.auto_resolve_challenger.await_args.args[-1], on_the_ball[0],
+            cog.auto_resolve_challenger.await_args.kwargs["challenger_id"],
+            on_the_ball[0],
         )
         self.assertEqual(prompt_views(interaction), [])
 

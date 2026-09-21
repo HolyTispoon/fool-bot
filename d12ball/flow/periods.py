@@ -50,12 +50,14 @@ from d12ball.components import (
     Zone,
     kickoff_space_index,
 )
+from d12ball import tutorial
 from d12ball.engine import (
     FULL_TIME_STAGES,
     HALFTIME_STAGES,
     RulesEngine,
     SETUP_STAGES,
 )
+from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import (
     build_full_time_summary,
@@ -268,25 +270,54 @@ def finish_setup_coaching(
     anyone acted on it; the one worth looking at is the line-up the
     game actually kicks off from.
 
-    The line is the model's and the pin is not:
-    `D12Ball.finish_setup_coaching` is the wrapper that puts this on a
-    new message and pins it -- the one pinning site in the game -- and
-    arms the tutorial script behind it. `advance_setup_stage` names
-    `FollowOnStep.FINISH_SETUP_COACHING` rather than calling this
-    directly, so the caption is built once, by the wrapper that is
-    about to draw the board it captions.
+    A kickoff is a new play, so the line is the board's caption
+    (`StepResult.new_play`); that the board is *pinned* is the
+    frontend's (`post_new_play_board`, the one pinning site in the
+    game). It used to attach the board to the persistent message
+    instead, which is a message near the top of the channel -- and
+    Discord leaves an edited message where it was, so the board a
+    coach had just finished setting appeared *above* the windows that
+    set it.
+
+    **The tutorial's script arms here** rather than at creation, so
+    everything up to the kickoff -- teams, the toss, home or visiting
+    -- is played exactly as an ordinary game plays it. The welcome
+    goes under the board it describes and is held behind Continue, and
+    the first beat is staged by the turn prompt behind that click.
     """
     match.pending_setup_stage = None
 
     kicking_off = match.setup_for_side(match.ball.possession)
+    caption = (
+        "**The teams are dealt.** The game kicks off with "
+        f"{format_team_side_label(kicking_off)} in possession."
+        if game.tutorial
+        else "**Both coaches are set.** The game kicks off with "
+        f"{format_team_side_label(kicking_off)} in possession."
+    )
+    if game.tutorial:
+        game.tutorial_step = tutorial.FIRST_STEP
+        game.tutorial_staged = False
+        # The welcome and beat 1's own lesson are two narration
+        # messages with nothing for the coach to click between them,
+        # so the first is held behind Continue -- with the turn prompt,
+        # which stages the beat, as what the click runs.
+        gated = gates.hold_behind_note(
+            game,
+            tutorial.NOTE_WELCOME,
+            FollowOn(FollowOnStep.SEND_TURN_PROMPT),
+        )
+        return StepResult(
+            narration=[caption],
+            board_changed=True,
+            new_play=True,
+            next=gated.next,
+        )
     return StepResult(
-        narration=[
-            "**The teams are dealt.** The game kicks off with "
-            f"{format_team_side_label(kicking_off)} in possession."
-            if game.tutorial
-            else "**Both coaches are set.** The game kicks off with "
-            f"{format_team_side_label(kicking_off)} in possession."
-        ],
+        narration=[caption],
+        board_changed=True,
+        new_play=True,
+        next=FollowOn(FollowOnStep.SEND_TURN_PROMPT),
     )
 
 
@@ -453,16 +484,21 @@ def halftime_extra_token_step(
     engine.next_halftime_stage(match)
 
     remaining = match.exhaustion.get(player_id, 0)
-    return StepResult(
-        narration=[
-            f"{engine.format_player_label(match, player)} loses "
-            f"an extra exhaustion token (now {remaining})."
-            if removed
-            else f"{engine.format_player_label(match, player)} "
-            "had no tokens to lose."
-        ],
-        board_changed=True,
+    # What halftime does next comes back with the answer, as the AI's
+    # branch above does it: the first block is this pick's own line,
+    # the rest are the next stage's, and the frontend keeps them apart
+    # (the answer replaces the prompt; the stage is its own messages).
+    result = advance_halftime_stage(engine, game, match)
+    result.narration.insert(
+        0,
+        f"{engine.format_player_label(match, player)} loses "
+        f"an extra exhaustion token (now {remaining})."
+        if removed
+        else f"{engine.format_player_label(match, player)} "
+        "had no tokens to lose.",
     )
+    result.board_changed = True
+    return result
 
 
 def begin_halftime_substitutions(
@@ -516,15 +552,40 @@ def finish_halftime(
     match.pending_halftime_stage = None
 
     # A half begins the way any other new play does: with the board
-    # everyone is about to play from, posted and pinned -- which is
-    # `D12Ball.finish_halftime`'s half of this, and why
-    # `advance_halftime_stage` names the member rather than calling
-    # here itself.
+    # everyone is about to play from, which `new_play` says and the
+    # frontend posts and pins.
     return StepResult(
         narration=[
             "**Halftime is over.** The second half kicks off with "
             f"{format_team_side_label(match.visiting)} in possession."
         ],
+        board_changed=True,
+        new_play=True,
+        next=FollowOn(FollowOnStep.SEND_TURN_PROMPT),
+    )
+
+
+def announce_game_over(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    The last thing a game says: the result and the scoresheet, which
+    arrive as `lead_in` from whichever ending named this step -- the
+    whistle when full time settles the game, and the shootout when it
+    does not. Both have already called `game.finish_game()`.
+
+    It ends on `PromptKind.GAME_OVER`, which is not a question but is
+    what the match is waiting on: the frontend puts the final board
+    and the rematch buttons on the message that carries these lines,
+    and a restart re-attaches those buttons. Nothing is asked and the
+    ask is empty, so the lines are the whole of the message.
+    """
+    return StepResult(
+        narration=[lead_in] if lead_in else [],
+        next=PendingPrompt(PromptKind.GAME_OVER, ""),
     )
 
 

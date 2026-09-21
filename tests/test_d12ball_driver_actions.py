@@ -34,6 +34,7 @@ from unittest import mock
 from d12ball.components import MatchState, TeamSide
 from d12ball.game import Formation, GameMode, Team
 from d12ball.flow import driver
+from d12ball.flow.effects import setup_pass_push_back_distances
 from d12ball.flow.windows import open_substitution_window
 from d12ball.prompts import PromptKind, pending_prompt
 
@@ -184,7 +185,11 @@ def _halftime_extra_token(fixture: PromptFixture) -> tuple[str, dict]:
     match = fixture.match
     side = pending_prompt(ENGINE, fixture.game, match).side
     return "", {
-        "player_id": match.setup_for_side(side).field_players[0],
+        "player_id": next(
+            player_id
+            for player_id in match.setup_for_side(side).field_players
+            if player_id not in match.injured
+        ),
     }
 
 
@@ -233,6 +238,17 @@ def _dribble_burst(fixture: PromptFixture) -> tuple[str, dict]:
     }
 
 
+def _setup_pass_push_back(fixture: PromptFixture) -> tuple[str, dict]:
+    return "", {
+        "distance": setup_pass_push_back_distances(fixture.match)[0],
+    }
+
+
+#: The kinds that have a row in `driver.ANSWERS` and no legal answer:
+#: a finished game asks nothing, and its row refuses every action.
+UNANSWERABLE = frozenset({PromptKind.GAME_OVER})
+
+
 #: A legal answer to each prompt the driver can apply one to, read off
 #: the position the way a frontend reads it to build its buttons.
 #:
@@ -272,6 +288,8 @@ LEGAL_ACTIONS = {
     PromptKind.SPEED_DELTA_CHOICE: _speed_delta,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: lambda fixture: ("", {"distance": 1}),
     PromptKind.DRIBBLE_BURST_CHOICE: _dribble_burst,
+    PromptKind.SETUP_PASS_PUSH_BACK: _setup_pass_push_back,
+    PromptKind.TUTORIAL_CONTINUE: lambda fixture: ("", {}),
 }
 
 
@@ -282,7 +300,7 @@ def _answerable_cases():
     seen = set()
     for case in CASES:
         kind = PromptKind[case.kind]
-        if kind in driver.ANSWERS and kind not in seen:
+        if kind in LEGAL_ACTIONS and kind not in seen:
             seen.add(kind)
             yield case, kind
 
@@ -307,7 +325,9 @@ class LegalActionTests(ApplyFixture):
         be a kind nothing asserts, which is the failure a phase makes
         when it lifts an answer and forgets its evidence.
         """
-        self.assertEqual(set(LEGAL_ACTIONS), set(driver.ANSWERS))
+        self.assertEqual(
+            set(LEGAL_ACTIONS) | UNANSWERABLE, set(driver.ANSWERS),
+        )
 
     def test_every_answerable_kind_is_reached_by_a_fixture(self) -> None:
         """
@@ -316,8 +336,24 @@ class LegalActionTests(ApplyFixture):
         """
         self.assertEqual(
             {kind for _, kind in _answerable_cases()},
-            set(driver.ANSWERS),
+            set(LEGAL_ACTIONS),
         )
+
+    def test_a_finished_game_refuses_every_answer(self) -> None:
+        """
+        `GAME_OVER` has a row so every kind has one, and the row
+        refuses: nothing is asked of a finished game, and the rematch
+        under its last message opens a new game rather than acting on
+        this one.
+        """
+        fixture = next(
+            case for case in CASES if case.kind == "GAME_OVER"
+        ).build()
+        refusal = driver.apply(
+            ENGINE, fixture.game, fixture.match, driver.Action(PromptKind.GAME_OVER),
+        )
+        self.assertIsInstance(refusal, driver.Refusal)
+        self.assertIs(refusal.waiting_on.kind, PromptKind.GAME_OVER)
 
     def test_a_legal_answer_applies(self) -> None:
         for case, kind in _answerable_cases():

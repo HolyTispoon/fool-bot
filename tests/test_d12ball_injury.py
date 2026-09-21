@@ -256,7 +256,11 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = midfielder
         match.challenger_id = match.visiting.field_players[0]
         match.offense_maneuver = "low_pass"
-        match.defense_maneuver = "deflect"
+        # A test the position genuinely owes either way: a tie for the
+        # healthy midfielder, and -- since a tie is an injured
+        # player's automatic loss -- a decisive win on the cards for
+        # the injured one, which is what forces their skill test.
+        match.defense_maneuver = "pressure" if injure_midfielder else "deflect"
         if injure_midfielder:
             match.injured.add(midfielder)
         game.match_state = match.to_dict()

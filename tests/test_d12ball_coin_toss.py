@@ -669,7 +669,7 @@ class D12BallRunBackAnnouncementTests(
         # and carries nothing into the cascade -- see
         # `D12Ball.post_then_dispatch`.
         cog.continue_run_back.assert_awaited_once_with(
-            interaction, game, match, lead_in="",
+            cog.engine, game, match, lead_in="",
         )
         cog.begin_substitution_window.assert_not_awaited()
 
@@ -702,7 +702,7 @@ class D12BallRunBackAnnouncementTests(
 
         cog.begin_substitution_window.assert_awaited_once()
         self.assertEqual(
-            cog.begin_substitution_window.await_args.args[3],
+            cog.begin_substitution_window.await_args.kwargs["side"],
             TeamSide.HOME,
         )
         cog.continue_run_back.assert_not_awaited()
@@ -736,7 +736,7 @@ class D12BallRunBackAnnouncementTests(
 
         cog.begin_substitution_window.assert_awaited_once()
         self.assertEqual(
-            cog.begin_substitution_window.await_args.args[3],
+            cog.begin_substitution_window.await_args.kwargs["side"],
             TeamSide.HOME,
         )
         # The run back waits behind the window, exactly as it does for
@@ -786,7 +786,7 @@ class D12BallRunBackAnnouncementTests(
         # and carries nothing into the cascade -- see
         # `D12Ball.post_then_dispatch`.
         cog.continue_run_back.assert_awaited_once_with(
-            interaction, game, match, lead_in="",
+            cog.engine, game, match, lead_in="",
         )
         self.assertTrue(match.pending_run_back)
 
@@ -809,7 +809,7 @@ class D12BallRunBackAnnouncementTests(
         interaction.followup.send.assert_not_awaited()
         self.assertFalse(match.pending_run_back)
         cog.finish_maneuver_resolution.assert_awaited_once_with(
-            interaction,
+            cog.engine,
             game,
             match,
             distance_moved=3,

@@ -12,13 +12,9 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.flow import StepResult
-from d12ball.flow.periods import (
-    restart_shootout_order_step,
-    shootout_order_step,
-    shootout_pick_step,
-)
-from d12ball.flow.rolls import shootout_test_step
+from d12ball.flow.driver import Action, Refusal, driver_answer
 from d12ball.game import D12BallGame
+from d12ball.prompts import PromptKind
 from cogs.d12ball_helpers import send_new_prompt
 
 from cogs.d12ball_views.base import (
@@ -267,20 +263,24 @@ class ShootoutOrderSelectView(SafeView):
 
         # **The rule is
         # `d12ball.flow.periods.restart_shootout_order_step`** since
-        # Phase 6: an order cannot be changed once it is complete.
-        try:
-            result = restart_shootout_order_step(
-                self.cog.engine, game, match, side=self.side,
-            )
-        except ValueError as error:
+        # Phase 6: an order cannot be changed once it is complete. A
+        # refusal goes on this coach's own menu rather than beside it,
+        # which is why the driver is asked directly here.
+        answered = driver_answer(
+            self.cog.engine,
+            game,
+            match,
+            Action(PromptKind.SHOOTOUT_ORDER, "restart", {"side": self.side}),
+        )
+        if isinstance(answered, Refusal):
             await interaction.response.edit_message(
-                content=str(error), view=None,
+                content=answered.reason, view=None,
             )
             return
 
         self.cog.persist(game, match)
         await interaction.response.edit_message(
-            content=result.narration[0],
+            content=answered.result.narration[0],
             view=ShootoutOrderSelectView(self.cog, self.game_id, self.side),
         )
 
@@ -299,17 +299,22 @@ class ShootoutOrderSelectView(SafeView):
         # and what to do once both sides' are. What is left here is
         # that the order goes back on this coach's own menu and the
         # line saying it is set goes to the channel.
-        try:
-            result = shootout_order_step(
-                self.cog.engine, game, match,
-                side=self.side, player_id=player_id,
-            )
-        except ValueError as error:
+        answered = driver_answer(
+            self.cog.engine,
+            game,
+            match,
+            Action(
+                PromptKind.SHOOTOUT_ORDER,
+                "send",
+                {"side": self.side, "player_id": player_id},
+            ),
+        )
+        if isinstance(answered, Refusal):
             # A click on a stale copy of the menu -- a coach who
             # scrolled back, or one restored after a restart.
             await interaction.response.edit_message(
                 content=(
-                    f"{error}\n\n"
+                    f"{answered.reason}\n\n"
                     f"{self.cog.shootout_order_text(game, match, self.side)}"
                 ),
                 view=(
@@ -321,6 +326,7 @@ class ShootoutOrderSelectView(SafeView):
                 ),
             )
             return
+        result = answered.result
 
         self.cog.persist(game, match)
 
@@ -469,17 +475,23 @@ class ShootoutPickSelectView(SafeView):
         # it hands back are what this coach is told and what the
         # channel is told, which are two messages and therefore this
         # view's to place.
-        try:
-            result = shootout_pick_step(
-                self.cog.engine, game, match,
-                side=self.side, player_id=player_id,
-            )
-        except ValueError as error:
+        answered = driver_answer(
+            self.cog.engine,
+            game,
+            match,
+            Action(
+                PromptKind.SHOOTOUT_PICK,
+                "",
+                {"side": self.side, "player_id": player_id},
+            ),
+        )
+        if isinstance(answered, Refusal):
             await interaction.response.edit_message(
-                content=str(error),
+                content=answered.reason,
                 view=None,
             )
             return
+        result = answered.result
 
         self.cog.persist(game, match)
 
@@ -592,13 +604,6 @@ class ShootoutTestView(ShootoutView):
         if game is None:
             return
 
-        if not match.pending_shootout or not match.shootout_shooters_complete:
-            await interaction.response.send_message(
-                "That skill test has already been rolled.",
-                ephemeral=True,
-            )
-            return
-
         if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the skill test.",
@@ -613,8 +618,14 @@ class ShootoutTestView(ShootoutView):
         # **The rule is `d12ball.flow.rolls.shootout_test_step`** since
         # Phase 6: both rolls, what injury withholds, the goal or the
         # tie, and retiring the two shooters are all the model's. What
-        # is left here is the picture and where it goes.
-        dice, result = shootout_test_step(self.cog.engine, game, match)
+        # is left here is the picture and where it goes; a test already
+        # rolled is the driver's to refuse, by kind.
+        answered = await self.answer(
+            interaction, game, match, Action(PromptKind.SHOOTOUT_TEST, "roll"),
+        )
+        if answered is None:
+            return
+        dice, result = answered.detail, answered.result
         # The goal and the retirement went out in one save before
         # anything was posted, and that ordering is the point of this
         # line: a restart between this roll and what follows it can
@@ -638,8 +649,6 @@ class ShootoutTestView(ShootoutView):
             interaction, match, *dice.ignites,
         )
         await send_new_prompt(interaction, result.narration[0])
-        if result.board_changed:
-            await self.cog.refresh_match_image(interaction, game)
 
         # A shootout test owes no injury checks (2026-08-15). It costs
         # no exhaustion either -- it is not one of the ways to gain a
@@ -647,5 +656,8 @@ class ShootoutTestView(ShootoutView):
         # shootout and out the other side unchanged. The round goes
         # straight on to the next test, which is what the step names.
         await self.cog.dispatch_step_result(
-            interaction, game, match, StepResult(next=result.next),
+            interaction,
+            game,
+            match,
+            StepResult(board_changed=result.board_changed, next=result.next),
         )

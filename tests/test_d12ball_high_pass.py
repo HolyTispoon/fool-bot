@@ -482,6 +482,11 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             if self.catalog.player_by_id(player_id).role == role
         )
         match.move_meeple(match.active_player_id, zone, space)
+        # A High Pass the handler has won: the menu answers a settled
+        # maneuver, and every click is checked against that.
+        match.challenger_id = match.visiting.field_players[0]
+        match.offense_maneuver = "high_pass"
+        match.defense_maneuver = "steal"
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
         return cog, game, match
@@ -548,14 +553,19 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         interaction = build_interaction()
+        interaction.response.is_done = lambda: False
         await view.choose(interaction, 3)
 
-        cog.apply_high_pass.assert_not_awaited()
+        # Refused by the driver against the position, before anything
+        # is applied -- see `driver._answer_high_pass_choice`.
         interaction.response.edit_message.assert_not_awaited()
         message, = interaction.response.send_message.await_args.args
         self.assertIn("runs off the end of the field", message)
         self.assertTrue(
             interaction.response.send_message.await_args.kwargs["ephemeral"]
+        )
+        self.assertEqual(
+            cog.engine.load_match_state(game).ball.space_index, 2,
         )
 
     async def test_the_prompt_carries_the_field_strip(self) -> None:
@@ -582,12 +592,16 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
         # leaving it under the answer would put a stale position in the
         # channel for the rest of the game.
         cog, game, _ = self.build(Zone.MIDFIELD, 0, PlayerRole.FULLBACK)
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        cog.begin_loose_ball = mock.AsyncMock()
+        cog.begin_high_pass_contest = mock.AsyncMock()
+        cog.offer_scoring_attempt_choice = mock.AsyncMock()
         view = HighPassChoiceView(cog, game.game_id)
         interaction = build_interaction()
 
-        await view.choose(interaction, 3)
+        with suppressed_cog_saves():
+            await view.choose(interaction, 3)
 
-        cog.apply_high_pass.assert_awaited_once()
         self.assertEqual(
             interaction.response.edit_message.await_args.kwargs["attachments"],
             [],

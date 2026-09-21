@@ -18,13 +18,14 @@ agreeing with itself. `tests/pressure_fixtures.py` with
 `tests/test_d12ball_pressure_recording.py` is rank D3's copy of the
 same shape.
 
-**The refresh is recorded, not assumed.** Rank D1 is the one rank
-where "the board moved" and "the board was written" are different
-answers: every branch drives the ball back, and only the branch that
-ends in a shot called `refresh_match_image`. The other two hand over
-to steps that draw the board under their own announcement, so a
-refresh in front of them would write the same board twice. This
-asserts the count either way, so the move cannot quietly add one.
+**The refresh is recorded, not assumed.** Every branch drives the ball
+back, so every branch earns the dispatcher's one write. Two of them
+hand over to a step that draws the board under its own announcement,
+and in a real game the dispatcher skips its write in front of that --
+by reading what the loose ball's step itself reports (see
+`D12Ball.stop_draws_the_board`), which the recorder standing in for
+it here does not. So this asserts one write per branch, which is what
+keeps the move from quietly adding a second.
 
 **The follow-on's arguments are read through the real method's
 signature**, not off `call.args`, for the reason rank D2 wrote down:
@@ -197,11 +198,12 @@ class DeflectionRecordingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(posted_messages(interaction), [])
         self.assertEqual(lead_in_of(recorders[member]), fixture.narration)
 
-        # The board was written only where the old cog wrote it; see
-        # the module docstring.
+        # One write wherever the board moved. The next step is a
+        # recorder here, and the dispatcher's suppression reads what
+        # the real next step reports -- see the fixture module.
         self.assertEqual(
             cog.refresh_match_image.await_count,
-            1 if fixture.refreshes else 0,
+            1 if fixture.board_changed else 0,
         )
 
         self.assertEqual(match.ball.possession, fixture.possession)
