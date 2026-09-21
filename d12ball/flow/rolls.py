@@ -433,6 +433,10 @@ def skill_test_step(
         else match.defense_maneuver
     )
     winner_name = engine.maneuver_name(winner_key)
+    # **Written onto the match**, for the reason the two Volatile flags
+    # below are: the injury tests run between the roll and the effect,
+    # and `settled_maneuver_winner` is asked on the far side of them.
+    match.skill_test_winner = winner_key
 
     # **Volatile's tier rider**, settled here because this is the first
     # point that knows who won. Both of the rules' two cases raise the

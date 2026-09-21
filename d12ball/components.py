@@ -1552,6 +1552,10 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("maneuver_uncontested", default=False),
     SavedField("volatile_tier_upgrade", default=False),
     SavedField("volatile_loser_cost"),
+    # The card the dice settled a tie for -- see the field. Absent
+    # from an older save, which reads as "not rolled", exactly as the
+    # position read before it was recorded.
+    SavedField("skill_test_winner"),
     SavedField(
         "pending_overdrive", factory=list, write=list, read=list,
     ),
@@ -1780,6 +1784,19 @@ class MatchState:
     # the tier flag is: the injury tests run between the roll and the
     # effect that reads it.
     volatile_loser_cost: Optional[bool] = None
+    # **Which card the skill test settled a tie for**, by key, or None
+    # while no test has been rolled. Written by `skill_test_step` at
+    # the same moment as the two Volatile flags above and for the same
+    # reason: the injury tests run between the roll and the effect,
+    # possibly across a restart, and nothing else on the match said
+    # who had won. `RulesEngine.settled_maneuver_winner` used to answer
+    # None for the whole of an effect the dice had decided -- so a
+    # restart in a tie's effect re-offered the skill test, and, once
+    # every click was checked against that reading (Phase 6 of
+    # docs/model-discord-split.md), the speed choice after a won
+    # Intercept was refused as a roll still owed. Cleared with the
+    # rest of the turn.
+    skill_test_winner: Optional[str] = None
     # **Overdrive declared, and not yet spent**: the Cyborgs who have
     # taken 3 drain to add +5 to the roll that is about to happen. See
     # "Lithium Powered (Cyborg)" in docs/living-rules.md.
@@ -3442,6 +3459,7 @@ class MatchState:
         self.defense_maneuver = None
         self.volatile_tier_upgrade = False
         self.volatile_loser_cost = None
+        self.skill_test_winner = None
         self.pending_overdrive = []
         self.last_ball_path = []
         self.last_ball_movers = []

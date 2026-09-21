@@ -1494,6 +1494,13 @@ class RulesEngine:
         if match.maneuver_uncontested:
             return match.offense_maneuver
 
+        # A tie the dice have settled is settled: the test's winner is
+        # on the match from the roll to the end of the turn, so the
+        # effect that follows -- and every prompt inside it -- reads as
+        # that card's rather than as a test still owed.
+        if match.skill_test_winner is not None:
+            return match.skill_test_winner
+
         outcome = self.maneuver_catalog.resolve(
             match.offense_maneuver, match.defense_maneuver,
         )
