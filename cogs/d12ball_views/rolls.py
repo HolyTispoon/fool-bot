@@ -164,7 +164,20 @@ class SkillTestView(SafeView):
             game,
             match,
             StepResult(
-                narration=result.narration[1:], next=result.next,
+                narration=result.narration[1:],
+                # **Passed on, not dropped.** The view has already
+                # written the board for what the roll itself moved, but
+                # the flag belongs to the whole result -- and the day an
+                # arrival behind the injury queue moves something, this
+                # is the only thing that would say so. Handing `False`
+                # would be the call site answering a question the step
+                # answers (principle 8 in CLAUDE.md). It costs nothing:
+                # `BoardRefresher` keeps one pending pass per game, so a
+                # second want inside the window is covered by the first
+                # rather than being a second request -- see
+                # docs/design/rate-limits.md.
+                board_changed=result.board_changed,
+                next=result.next,
             ),
         )
 

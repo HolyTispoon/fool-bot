@@ -734,12 +734,23 @@ finishable.
   blocked on the **steps**: `driver.advance` stops at 18 of the
   enum's 30 members, and the ones it cannot run are the pictures, the
   pins and the gates the section below says will still be the cog's at
-  the end. A game driven with no cog imported therefore needs a
-  *headless frontend* in the test -- something that runs those
-  eighteen's model halves and draws nothing. That is a real piece of
-  design and it is the author's call whether it belongs in `tests/` or
-  in a small `d12ball/frontends/null.py` the web app could also start
-  from. **This is the finding the third increment brings back.**
+  the end.
+  - **A headless frontend is the wrong answer to that** (the author,
+    on PR #259), and the choice of where to put one was a false
+    choice: something that "runs the eighteen's model halves and draws
+    nothing" is a second `follow_on_methods` table, which is a second
+    reading of what follows a step -- and one that would later have to
+    be deleted.
+  - **The right answer is to move the eighteen**, and this increment
+    already showed each shape. **A picture becomes a `detail` on the
+    result** and the driver runs the step -- which is exactly what the
+    rolls do, and what the worksheet has been asking `play_ai_turn`
+    for all along ("a `PendingPrompt` with its picture, keyed on the
+    kind"). **A pin is a flag beside `board_changed`.** **A tutorial
+    Continue gate is a prompt the model should own.** Run-back
+    batching is already the driver's groups. Once those move, the
+    scripted game lives in `tests/` with no frontend at all, and the
+    web app inherits the same driver.
 
 **What is genuinely the cog's, and will still be at the end**: the
 pins (`post_new_play_board` on both kickoffs and the final board), the
@@ -748,27 +759,33 @@ batching and its per-pass persist, the tutorial's Continue gates, the
 challenge image, the maneuver hand and the coaching window's
 half-field. Eighteen members, none of them a rule.
 
-**Overdrive is still the author's question**, and the third increment
-did not invent an answer. `SafeView.declare_overdrive` is a button on
-six roll prompts and answers none of them: it is declared *before* a
-roll, by the coach whose Cyborg it is, and its absence from the
-message is the only feedback that it took. `apply` validates an action
-against `pending_prompt`, and there is no prompt for it to answer, so
-one of three things has to be decided:
+**Overdrive is answered and built** (the author, on PR #259): it is
+**a choice on the roll prompt it rides on**, and the objection that it
+"does not answer the question" describes the coaching hub exactly --
+formation, swap and reposition each change the position and come back
+to the same prompt, and only "done" is the answer still owed. So the
+six roll kinds carry `("roll", "overdrive")` in `CHOICES`, one shared
+adapter reads the rollers off the match by kind (the same six lists
+the views pass to `add_overdrive_buttons`), and
+`declare_overdrive_step` returns the lightning line with the prompt
+itself as `next`. That puts "once per roll, blind, not while injured,
+not on a stale prompt" inside `ANSWERS`, and the stale-click check
+comes free. Who may press it stays `controlling_user_id` in
+`SafeView`.
 
-1. it is an ordinary action on the roll prompt it rides on -- a third
-   `choice` beside the roll, which reads oddly because it does not
-   answer the question and the roll is still owed afterwards;
-2. it is an action of its own kind, validated against "the match is
-   waiting on one of the six roll prompts" rather than against a
-   single one;
-3. it stays a frontend affordance over `RulesEngine.overdrive_candidates`
-   and `MatchState.declare_overdrive`, and every frontend writes its
-   own two lines.
-
-The third is what the bot does today and it is not obviously wrong --
-a declaration is not an answer -- but it is the one that leaves a rule
-outside `ANSWERS`.
+**The validation the adapters do not do is the next increment's first
+job**, and it is the same increment that points the entry points at
+the driver -- which is when it becomes live. The measured list is in
+"What `answer` refuses, and what it does not" in
+[docs/design/model-discord-split.md](design/model-discord-split.md):
+roughly half the adapters apply an argument the prompt never offered,
+`PLAYER_ACTION` is answerable mid-cascade, a `TypeError` or an
+`AttributeError` escapes rather than refusing, and a couple of
+refusals mutate on the way out. **One of them is a rule rather than a
+guard**: a run back cannot be completed through `apply` at all,
+because the "who runs" pick is recorded nowhere, so the position still
+reads as `RUN_BACK_PLAYER` when the space is answered. Where a
+part-made run-back pick lives is a decision, not a check.
 
 **Bot stop:** everything. A full game each way, the tutorial, a restart
 in ten states, and an old save. This is still the phase that earns a

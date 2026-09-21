@@ -50,6 +50,8 @@ from typing import Optional
 
 from d12ball.components import (
     EVENT_SHOT,
+    OVERDRIVE_BONUS,
+    OVERDRIVE_DRAIN_COST,
     EVENT_SKILL_TEST,
     MatchState,
     PlayerDefinition,
@@ -1325,4 +1327,103 @@ def shootout_test_step(
         ],
         board_changed=winner is not None,
         next=FollowOn(FollowOnStep.CONTINUE_SHOOTOUT),
+    )
+
+
+# -- Overdrive, which rides on all six roll prompts --------------------
+
+
+#: Which players a given roll prompt puts an Overdrive offer to.
+#:
+#: **The same six lists the views build their buttons from**, which is
+#: what makes this one reading rather than two: a frontend asks for the
+#: rollers and offers whichever of them
+#: `RulesEngine.overdrive_candidates` still allows, and an action
+#: naming anybody else is refused by `declare_overdrive_step` against
+#: this same list.
+#:
+#: It is keyed on the prompt because that is what a declaration is
+#: attached to -- Overdrive is declared *before* a roll and spent by
+#: it, so "which roll are we in" is the whole of what decides who may
+#: take one. The six are the rules' own list.
+OVERDRIVE_ROLLERS = {
+    PromptKind.SKILL_TEST: lambda match, prompt: [
+        match.active_player_id, match.challenger_id,
+    ],
+    PromptKind.LOOSE_BALL_SKILL_TEST: lambda match, prompt: [
+        match.loose_ball_offense_player, match.loose_ball_defense_player,
+    ],
+    PromptKind.SCORE_ATTEMPT: lambda match, prompt: [
+        match.active_player_id,
+    ],
+    PromptKind.OWN_GOAL_ROLL: lambda match, prompt: [
+        match.active_player_id,
+    ],
+    PromptKind.INJURY_TEST: lambda match, prompt: [prompt.player_id],
+    PromptKind.SHOOTOUT_TEST: lambda match, prompt: [
+        match.shootout_shooter(side)
+        for side in (TeamSide.HOME, TeamSide.VISITING)
+    ],
+}
+
+
+def overdrive_rollers(
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> list[str]:
+    """Who is rolling, for the roll this prompt is asking for."""
+    rollers = OVERDRIVE_ROLLERS.get(prompt.kind)
+    if rollers is None:
+        return []
+    return [player_id for player_id in rollers(match, prompt) if player_id]
+
+
+def declare_overdrive_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    player_id: str,
+) -> StepResult:
+    """
+    A Cyborg takes drain for a bonus on the roll that is about to
+    happen.
+
+    **It answers the roll's prompt without settling it**, which is the
+    shape the coaching hub already has: a formation change, a swap and
+    a reposition each move the position and come back to the same
+    question, and the answer still owed is the one the prompt is for.
+    So `next` is that prompt again, unchanged -- the roll is still
+    waiting, and one more thing is true about it.
+
+    **Once per roll, and only for a player actually in this one.**
+    `overdrive_rollers` says who is rolling and
+    `RulesEngine.overdrive_candidates` says which of them may still
+    declare -- a Cyborg who already has, or is injured, or is not in
+    this roll at all, is refused. Re-asked rather than trusted, because
+    a prompt can sit in a channel long after the roll it was built for.
+
+    Who *may* press it is not here: a declaration commits one coach's
+    own tokens, so unlike the roll it is theirs alone, and that is a
+    fact about a Discord account (`SafeView.may_act_for` over
+    `RulesEngine.controlling_user_id`). See
+    docs/design/permissions.md.
+    """
+    if player_id not in overdrive_rollers(match, prompt):
+        raise ValueError("That player is not in this roll.")
+    if not engine.overdrive_candidates(game, match, [player_id]):
+        raise ValueError("That Overdrive is no longer available.")
+
+    match.declare_overdrive(
+        player_id, engine.exhaustion_threshold(game, player_id),
+    )
+    player = engine.get_player_definition(player_id)
+    return StepResult(
+        narration=[
+            f"⚡ **Overdrive** — "
+            f"{engine.format_player_label(match, player)} takes "
+            f"{OVERDRIVE_DRAIN_COST} drain for "
+            f"+{OVERDRIVE_BONUS} on this roll."
+        ],
+        next=prompt,
     )

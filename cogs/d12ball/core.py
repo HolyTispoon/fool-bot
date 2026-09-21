@@ -1395,7 +1395,13 @@ class CoreMixin:
             interaction,
             game,
             match,
-            StepResult(narration=result.narration[1:], next=result.next),
+            StepResult(
+                narration=result.narration[1:],
+                # Passed on rather than dropped -- see
+                # `SkillTestView.roll`.
+                board_changed=result.board_changed,
+                next=result.next,
+            ),
         )
 
     def build_effect_choice_view(

@@ -24,7 +24,9 @@ from d12ball.render import (
     TEAM_COLORS,
     render_skill_test_dice,
 )
+from d12ball.flow.rolls import declare_overdrive_step
 from d12ball.formatting import contestant_detail
+from d12ball.prompts import pending_prompt
 from cogs.d12ball_helpers import (
     ERROR_RECOVERY_ADVICE,
     HELPER_CONFIRMED_EXTRA,
@@ -414,31 +416,28 @@ class SafeView(discord.ui.View):
             )
             return
 
-        # Re-checked rather than trusted: this prompt may have been
-        # sitting in the channel since before the roll it was built
-        # for, and the candidate list is what says the declaration is
-        # still available.
-        if not self.cog.engine.overdrive_candidates(
-            game, match, [player_id],
-        ):
+        # **The rule is
+        # `d12ball.flow.rolls.declare_overdrive_step`** since Phase 6:
+        # which roll this is, who is in it, whether the declaration is
+        # still available and what it costs. It is re-asked rather than
+        # trusted, because this prompt may have been sitting in the
+        # channel since before the roll it was built for.
+        try:
+            result = declare_overdrive_step(
+                self.cog.engine,
+                game,
+                match,
+                pending_prompt(self.cog.engine, game, match),
+                player_id,
+            )
+        except ValueError as refusal:
             await interaction.response.send_message(
-                "That Overdrive is no longer available.",
-                ephemeral=True,
+                str(refusal), ephemeral=True,
             )
             return
 
-        match.declare_overdrive(
-            player_id,
-            self.cog.engine.exhaustion_threshold(game, player_id),
-        )
         self.cog.persist(game, match)
-
-        player = self.cog.engine.get_player_definition(player_id)
-        await interaction.response.send_message(
-            f"⚡ **Overdrive** — {self.cog.player_label(match, player)} "
-            f"takes {OVERDRIVE_DRAIN_COST} drain for "
-            f"+{OVERDRIVE_BONUS} on this roll.",
-        )
+        await interaction.response.send_message(result.narration[0])
 
 
 # How long a helper's Confirm/Cancel stays in place of the prompt's own

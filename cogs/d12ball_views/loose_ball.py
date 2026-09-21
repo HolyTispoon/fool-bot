@@ -447,6 +447,16 @@ class LooseBallSkillTestView(SafeView):
             await self.cog.refresh_match_image(interaction, game)
             return
 
+        # **Before anything is posted**, which is the point of it: the
+        # contest is settled, possession has flipped and Overdrive is
+        # spent, and the dice upload below is a render and a request
+        # that can fail. Without this the channel could show the result
+        # while the file still said the contest was pending, and the
+        # next click would re-roll it. The dispatcher writes again at
+        # the end of the click; both write the same state. The fourth
+        # of the paths principle 9 names -- see the own-goal roll.
+        self.cog.persist(game, match)
+
         # The result follows the dice in its own message, the way every
         # other skill test announces itself -- a message's attachments
         # render below its content, so writing the outcome into this
@@ -484,5 +494,11 @@ class LooseBallSkillTestView(SafeView):
             interaction,
             game,
             match,
-            StepResult(narration=result.narration[1:], next=result.next),
+            StepResult(
+                narration=result.narration[1:],
+                # Passed on rather than dropped -- see
+                # `SkillTestView.roll`, which rebuilds the same way.
+                board_changed=result.board_changed,
+                next=result.next,
+            ),
         )

@@ -32,11 +32,20 @@ import unittest
 from unittest import mock
 
 from d12ball.components import MatchState, TeamSide
+from d12ball.game import Formation, GameMode, Team
 from d12ball.flow import driver
 from d12ball.flow.windows import open_substitution_window
 from d12ball.prompts import PromptKind, pending_prompt
 
-from prompt_fixtures import CASES, ENGINE, RULESET, PromptFixture
+from prompt_fixtures import (
+    CASES,
+    CATALOG,
+    ENGINE,
+    RULESET,
+    PromptFixture,
+    build_game,
+    challenge,
+)
 
 
 def _handler(fixture: PromptFixture) -> tuple[str, dict]:
@@ -191,7 +200,7 @@ def _own_goal(fixture: PromptFixture) -> tuple[str, dict]:
     """
     match = fixture.match
     match.active_player_id = match.home.field_players[0]
-    return "", {}
+    return "roll", {}
 
 
 def _low_pass(fixture: PromptFixture) -> tuple[str, dict]:
@@ -243,11 +252,11 @@ LEGAL_ACTIONS = {
     PromptKind.OWN_GOAL_ROLL: _own_goal,
     # The two contested rolls take no arguments at all: the action
     # is that somebody pressed, and the position is the rest.
-    PromptKind.SKILL_TEST: lambda fixture: ("", {}),
-    PromptKind.LOOSE_BALL_SKILL_TEST: lambda fixture: ("", {}),
+    PromptKind.SKILL_TEST: lambda fixture: ("roll", {}),
+    PromptKind.LOOSE_BALL_SKILL_TEST: lambda fixture: ("roll", {}),
     PromptKind.SCORE_ATTEMPT: lambda fixture: ("roll", {}),
-    PromptKind.SHOOTOUT_TEST: lambda fixture: ("", {}),
-    PromptKind.INJURY_TEST: lambda fixture: ("", {}),
+    PromptKind.SHOOTOUT_TEST: lambda fixture: ("roll", {}),
+    PromptKind.INJURY_TEST: lambda fixture: ("roll", {}),
     PromptKind.PLAYER_ACTION: _player_action,
     PromptKind.COACHING_OFFER: _coaching_offer,
     PromptKind.COACHING_HUB: _coaching_hub,
@@ -353,6 +362,14 @@ class LegalActionTests(ApplyFixture):
         """
         A refusal is not a half-applied answer: the match it was asked
         about is the match it leaves behind.
+
+        **This covers the two refusals `answer` makes before any
+        adapter runs** -- the wrong kind and an unoffered choice -- and
+        that is the whole of what it can claim. An adapter that runs
+        and *then* refuses is a different question, and today several
+        of them mutate on the way to raising; see "What `answer`
+        refuses, and what it does not" in
+        docs/design/model-discord-split.md.
         """
         for case, kind in _answerable_cases():
             with self.subTest(case.name):
@@ -433,6 +450,116 @@ class ChoiceTests(ApplyFixture):
                         self.assertEqual(fixture.match.to_dict(), before)
                         continue
                     self.assertIsInstance(run, driver.DriverRun)
+
+
+class OverdriveTests(ApplyFixture):
+    """
+    The one answer that does not settle the question it answers.
+
+    Overdrive is declared *before* a roll and spent by it, so it comes
+    back on the same prompt with the roll still owed -- which is the
+    coaching hub's shape rather than a new one.
+    """
+
+    def test_every_roll_prompt_offers_it(self) -> None:
+        """
+        The six are the rules' own list, and they are exactly the
+        prompts a roll is asked on.
+        """
+        for kind in driver.ROLL_KINDS:
+            with self.subTest(kind.name):
+                self.assertIn("overdrive", driver.CHOICES[kind])
+                self.assertIn("roll", driver.CHOICES[kind])
+
+    def cyborg_skill_test(self):
+        """
+        A skill test with a Cyborg on each side of it.
+
+        The shared fixtures play a **basic** game between two colour
+        teams, where no Overdrive is ever offered -- so this one is
+        built here: the two species teams, an advanced game with
+        species abilities on, and the contest put between two of them.
+        `mode` is set as well as the flag, which is the trap
+        `RulesEngine.species_abilities_apply` exists to close.
+        """
+        game = build_game(
+            player_1_team=Team.CYBORGS,
+            player_2_team=Team.CYBORGS,
+            mode=GameMode.ADVANCED,
+            species_abilities=True,
+        )
+        match = MatchState.standard(
+            catalog=CATALOG,
+            ruleset=RULESET,
+            board_size=7,
+            home_team=Team.CYBORGS,
+            visiting_team=Team.CYBORGS,
+            home_formation=Formation.TWO_TWO_TWO,
+        )
+        challenge(match)
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "deflect"
+        return PromptFixture(game, match, "Either player can roll:")
+
+    def test_a_declaration_comes_back_on_the_same_prompt(self) -> None:
+        fixture = self.cyborg_skill_test()
+        match = fixture.match
+        roller = match.active_player_id
+        run = driver.apply(
+            ENGINE,
+            fixture.game,
+            match,
+            driver.Action(
+                PromptKind.SKILL_TEST,
+                "overdrive",
+                {"player_id": roller},
+            ),
+        )
+        self.assertNotIsInstance(run, driver.Refusal)
+        self.assertEqual(run.result.next.kind, PromptKind.SKILL_TEST)
+        self.assertIn("Overdrive", run.result.narration[0])
+        self.assertTrue(match.overdrive_modifier(roller))
+
+    def test_a_player_who_is_not_in_this_roll_is_refused(self) -> None:
+        """
+        The list is the roll's, not the field's -- which is what makes
+        a scrolled-back prompt unable to declare for somebody else's
+        contest.
+        """
+        fixture = self.cyborg_skill_test()
+        match = fixture.match
+        outsider = next(
+            player_id
+            for player_id in match.home.field_players
+            if player_id not in (match.active_player_id, match.challenger_id)
+        )
+        before = match.to_dict()
+        refusal = driver.apply(
+            ENGINE,
+            fixture.game,
+            match,
+            driver.Action(
+                PromptKind.SKILL_TEST,
+                "overdrive",
+                {"player_id": outsider},
+            ),
+        )
+        self.assertIsInstance(refusal, driver.Refusal)
+        self.assertEqual(match.to_dict(), before)
+
+    def test_a_second_declaration_for_one_player_is_refused(self) -> None:
+        """Once per roll, which `overdrive_candidates` is the reading of."""
+        fixture = self.cyborg_skill_test()
+        action = driver.Action(
+            PromptKind.SKILL_TEST,
+            "overdrive",
+            {"player_id": fixture.match.active_player_id},
+        )
+        driver.apply(ENGINE, fixture.game, fixture.match, action)
+        before = fixture.match.to_dict()
+        refusal = driver.apply(ENGINE, fixture.game, fixture.match, action)
+        self.assertIsInstance(refusal, driver.Refusal)
+        self.assertEqual(fixture.match.to_dict(), before)
 
 
 class PositionRefusalTests(ApplyFixture):
@@ -532,22 +659,31 @@ class SeamTests(unittest.TestCase):
 class SaveTests(ApplyFixture):
     """`apply` saves nothing -- principle 9."""
 
-    def test_applying_an_action_writes_nothing(self) -> None:
-        import gamesaves.d12ball.storage as storage
-        from unittest import mock
+    def test_applying_an_action_leaves_the_record_unwritten(self) -> None:
+        """
+        The *game record* is what a save writes, and `apply` does not
+        touch it: `D12Ball.persist` sets `game.match_state` and calls
+        `save_games`, and the caller does that once, after this.
 
+        **Asserted on the record rather than on `save_games`**, because
+        a patch on that function cannot fail here -- nothing under
+        `d12ball/` imports it, which `tests/test_model_purity.py` is
+        the real guard for. `game.match_state` is a thing an adapter
+        could plausibly write by reaching for `to_dict`, so it is the
+        one worth watching.
+        """
         for case, kind in _answerable_cases():
             with self.subTest(case.name):
                 fixture = case.build()
+                before = fixture.game.match_state
                 choice, arguments = LEGAL_ACTIONS[kind](fixture)
-                with mock.patch.object(storage, "save_games") as saved:
-                    driver.apply(
-                        ENGINE,
-                        fixture.game,
-                        fixture.match,
-                        driver.Action(kind, choice, arguments),
-                    )
-                saved.assert_not_called()
+                driver.apply(
+                    ENGINE,
+                    fixture.game,
+                    fixture.match,
+                    driver.Action(kind, choice, arguments),
+                )
+                self.assertIs(fixture.game.match_state, before)
 
 
 class PromptAgreementTests(ApplyFixture):

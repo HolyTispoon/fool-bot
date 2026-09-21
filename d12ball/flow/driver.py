@@ -896,6 +896,8 @@ def _answer_injury_test(
     match: MatchState,
     prompt: PendingPrompt,
     choice: str,
+    *,
+    player_id: Optional[str] = None,
 ) -> tuple[object, StepResult]:
     """
     The injury test the prompt names, rolled.
@@ -905,6 +907,8 @@ def _answer_injury_test(
     naming its own player could answer for somebody the position is
     not asking about.
     """
+    if choice == "overdrive":
+        return _declared_overdrive(engine, game, match, prompt, player_id)
     return injuries.injury_test_step(engine, game, match, prompt.player_id)
 
 
@@ -951,6 +955,8 @@ def _answer_own_goal_roll(
     match: MatchState,
     prompt: PendingPrompt,
     choice: str,
+    *,
+    player_id: Optional[str] = None,
 ) -> tuple[object, StepResult]:
     """
     The own-goal roll, and the numbers the dice are drawn from.
@@ -962,7 +968,35 @@ def _answer_own_goal_roll(
     are separate because the frontend puts the image *between* the two
     lines. `apply` puts it in `DriverRun.detail`.
     """
+    if choice == "overdrive":
+        return _declared_overdrive(engine, game, match, prompt, player_id)
     return effects.own_goal_roll_step(engine, game, match)
+
+
+#: The six prompts a roll is asked on, and therefore the six an
+#: Overdrive can be declared on. The rules' own list.
+ROLL_KINDS = frozenset(rolls.OVERDRIVE_ROLLERS)
+
+
+def _declared_overdrive(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    player_id: str,
+) -> StepResult:
+    """
+    The `overdrive` choice, shared by all six roll prompts.
+
+    **It answers the prompt without settling it**, and comes back on
+    the same question -- the roll is still owed. That is the coaching
+    hub's shape rather than a new one: four of its five choices change
+    the position and return to it, and only "done" ends the window.
+    See `rolls.declare_overdrive_step`.
+    """
+    return rolls.declare_overdrive_step(
+        engine, game, match, prompt, player_id,
+    )
 
 
 def _answer_skill_test(
@@ -971,6 +1005,8 @@ def _answer_skill_test(
     match: MatchState,
     prompt: PendingPrompt,
     choice: str,
+    *,
+    player_id: Optional[str] = None,
 ) -> tuple[object, StepResult]:
     """
     The maneuver's skill test, off the button either coach may press.
@@ -982,6 +1018,8 @@ def _answer_skill_test(
     frontend puts the question up again without knowing that a tie is
     a thing.
     """
+    if choice == "overdrive":
+        return _declared_overdrive(engine, game, match, prompt, player_id)
     return rolls.skill_test_step(engine, game, match)
 
 
@@ -991,8 +1029,12 @@ def _answer_loose_ball_skill_test(
     match: MatchState,
     prompt: PendingPrompt,
     choice: str,
+    *,
+    player_id: Optional[str] = None,
 ) -> tuple[object, StepResult]:
     """The contest for the ball, which the long High Pass borrows."""
+    if choice == "overdrive":
+        return _declared_overdrive(engine, game, match, prompt, player_id)
     return rolls.loose_ball_test_step(engine, game, match)
 
 
@@ -1002,6 +1044,8 @@ def _answer_score_attempt(
     match: MatchState,
     prompt: PendingPrompt,
     choice: str,
+    *,
+    player_id: Optional[str] = None,
 ) -> object:
     """
     The shot -- or the coach changing their mind about taking it.
@@ -1015,6 +1059,8 @@ def _answer_score_attempt(
     """
     if choice == "back":
         return rolls.retract_shot_step(engine, game, match)
+    if choice == "overdrive":
+        return _declared_overdrive(engine, game, match, prompt, player_id)
     return rolls.score_attempt_step(engine, game, match)
 
 
@@ -1024,8 +1070,12 @@ def _answer_shootout_test(
     match: MatchState,
     prompt: PendingPrompt,
     choice: str,
+    *,
+    player_id: Optional[str] = None,
 ) -> tuple[object, StepResult]:
     """Both shooters' dice, and the goal one of them scores."""
+    if choice == "overdrive":
+        return _declared_overdrive(engine, game, match, prompt, player_id)
     return rolls.shootout_test_step(engine, game, match)
 
 
@@ -1221,6 +1271,15 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
 #: the empty choice and nothing else, which is what a prompt with one
 #: answer means.
 CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
+    # **Every roll prompt offers two answers**, and the second one
+    # does not settle it: Overdrive is declared before the dice and
+    # the roll is still owed afterwards. `SCORE_ATTEMPT` has its
+    # own third, below, because a declared shot can also be walked
+    # back.
+    **{
+        kind: ("roll", "overdrive")
+        for kind in ROLL_KINDS
+    },
     PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
     PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
     PromptKind.SMOOTH: ("take", "decline"),
@@ -1232,7 +1291,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.COACHING_HUB: (
         "formation", "substitute", "swap", "reposition", "done",
     ),
-    PromptKind.SCORE_ATTEMPT: ("roll", "back"),
+    PromptKind.SCORE_ATTEMPT: ("roll", "back", "overdrive"),
 }
 
 

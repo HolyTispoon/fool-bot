@@ -794,7 +794,11 @@ class ManeuverEffectsMixin:
                 game,
                 match,
                 StepResult(
-                    narration=result.narration[1:], next=result.next,
+                    narration=result.narration[1:],
+                    # Passed on rather than dropped -- see
+                    # `SkillTestView.roll`.
+                    board_changed=result.board_changed,
+                    next=result.next,
                 ),
             )
             return

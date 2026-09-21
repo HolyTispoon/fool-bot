@@ -271,14 +271,19 @@ bot stop each phase ends on.
      `cog.persist(` in a view; count both). What follows is the
      arrangement that held through Phases 2 to 5 and still holds for a
      wrapper that posts rather than dispatches.
-   - **Three paths write twice, and all three say why.** The own-goal
-     roll, the score attempt and the shootout test each save before
-     anything is posted -- a goal credited, a shooter retired -- and
-     the dispatcher writes again at the end of the click. Being
-     earlier than the posting *is* the point of the first write: a
-     portrait render and a dice upload sit between it and the
-     dispatcher's, and either can fail. Both write the same state.
-     A fourth would be a bug, so a new one needs the same sentence.
+   - **A click may write the match more than once, and that is not
+     the thing to count.** A dozen paths do -- a wrapper that persists
+     and then dispatches writes twice, and the auto-challenger route
+     writes four times -- and every one of them writes the same state,
+     so none is a bug. **What matters is whether the *first* write is
+     load-bearing.** Four paths save deliberately *before* anything is
+     posted, because a render or an upload sits between that save and
+     the dispatcher's and either can fail: the own-goal roll, the
+     score attempt, the shootout test and the loose-ball contest, each
+     settling something a failed post would otherwise let the next
+     click do again. Those four say so in a comment, and a fifth needs
+     the same sentence. Do not "tidy" one away; do not quote a count
+     of the harmless ones.
    - **Until Phase 6, the cog wrapper holds that save.** A step lifted in
      Phases 2-5 stops persisting and the spine below it is still the cog's,
      so the wrapper persists immediately after the step and before
