@@ -613,6 +613,12 @@ The reasoning is in
 
 ### What is still open, and what it turned out to need
 
+**The remainder is one pull request, not several** -- the author,
+2026-09-21, answering that question on PR #255. So the split the phase
+took is the only one it takes: this increment, and then the rest in one
+go. Everything below is that one pull request's brief, and the third
+bullet is the thing it cannot start without.
+
 - **The loop can only stop *after* a step, and three of the things left
   need it to stop *before* one.** `BEGIN_HIGH_PASS_CONTEST` is the
   clearest: its wrapper is the same three lines as the arrivals that
@@ -642,7 +648,10 @@ The reasoning is in
   which Phases 4 and 5 both wrote down as **a change to the game's
   recovery behaviour, belonging in its own commit** rather than inside a
   refactor. That commit is now the thing standing between the plan and
-  its last phase, and it is the author's to approve.
+  its last phase, and it is the author's to approve -- **still open as
+  of 2026-09-21**, and the one answer the remaining pull request is
+  waiting on. It decides whether that pull request opens by changing
+  `pending_prompt` (its own commit, first) or has to route round it.
 - **`play_ai_turn` has not moved.** Its decisions are already
   `d12ball/ai.py`'s; what is in the cog is the sequencing and four
   messages. It is small, and it is blocked on the same thing: the turn it

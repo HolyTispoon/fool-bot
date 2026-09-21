@@ -212,6 +212,9 @@ together they are the 29-member `FollowOn` enum, which is asserted in
 tests/test_d12ball_package_shape.py. Read that assertion; it is the list of
 what is left, and the enum dies when the cog's table is empty.
 
+**The rest of this phase is one pull request** -- the author,
+2026-09-21, on PR #255. Do not split it further.
+
 **Read the worksheet's Phase 6 section first: part of this phase has
 already landed and the section says what and what it cost.** The loop is
 the model's (`driver.advance`) and the save has collapsed (83 -> 43); what
