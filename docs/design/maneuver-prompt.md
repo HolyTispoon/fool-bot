@@ -124,9 +124,9 @@ same question either side of a turnover and carries the same picture through
   five-in-five edit bucket. The clicks that answer are
   `interaction.response.edit_message`, the interaction-callback route, which is
   free of it too. See "Discord's rate limits" in [rate-limits.md](rate-limits.md).
-- **A restart re-posts these prompts without the picture.**
-  `resume_pending_prompt` posts `pending_turn_view`'s view on a bare message,
-  the same as every other image a resume loses.
+- **A restart re-posts these prompts with the picture** since the resume
+  went through `GameService.resume` and `render_prompt`: the strip comes
+  back with the question, where the old bare re-post lost it.
 - **`tests/test_d12ball_field_prompts.py` guards the funnel**, which is the
   thing that can quietly come apart: a resolver that goes back to building its
   own `followup.send` still works, and still drops the field out from under its

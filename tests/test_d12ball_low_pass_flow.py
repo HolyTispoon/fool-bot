@@ -43,6 +43,7 @@ from prompt_fixtures import ENGINE as PROMPT_ENGINE
 from flow_stubs import chain_records_at
 from save_patches import suppressed_cog_saves
 from test_d12ball_low_pass_recording import build_cog
+from cog_steps import apply_low_pass
 
 
 class LowPassStepTests(unittest.TestCase):
@@ -160,59 +161,10 @@ class LowPassStepTests(unittest.TestCase):
 
 class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
     """
-    `D12Ball.apply_low_pass` and `D12Ball.dispatch_step_result` -- the
+    `None` and `D12Ball.dispatch_step_result` -- the
     Discord half, which is now four lines and an ordering.
     """
 
-    async def test_the_save_lands_between_the_step_and_the_dispatch(
-        self,
-    ) -> None:
-        """
-        Principle 9, asserted as an order
-        *and* as content: at the moment the save runs, the pass must
-        already have happened. A persist before the step writes a
-        match that has not moved, and a persist after the dispatch is
-        too late for a step that ends in a prompt -- the next click
-        reloads the match from the file.
-        """
-        fixture = next(
-            case.build() for case in LOW_PASS_CASES
-            if case.name == "plain_forward"
-        )
-        cog = build_cog()
-        cog.games[fixture.game.game_id] = fixture.game
-        match = fixture.match
-        calls: list[str] = []
-        carrier_when_saved: list[object] = []
-
-        def persist(game, saved_match) -> None:
-            calls.append("persist")
-            carrier_when_saved.append(saved_match.ball_carrier_id)
-
-        async def refresh(*args, **kwargs) -> None:
-            calls.append("refresh")
-
-        cog.persist = persist
-        cog.refresh_match_image = refresh
-
-        with chain_records_at(
-            cog, FollowOnStep.FINISH_MANEUVER_RESOLUTION, calls,
-        ):
-            await cog.apply_low_pass(
-                SimpleNamespace(),
-                fixture.game,
-                match,
-                fixture.distance,
-                receiver_id=fixture.receiver_id,
-            )
-
-        # **One save, after the run** (principle 9): the tail of the
-        # maneuver runs in the driver, the dispatcher writes once, and
-        # the board follows.
-        self.assertEqual(
-            calls, ["finish_maneuver_resolution", "persist", "refresh"],
-        )
-        self.assertEqual(carrier_when_saved, [fixture.carrier_id])
 
     async def test_a_board_that_did_not_move_is_not_redrawn(self) -> None:
         """

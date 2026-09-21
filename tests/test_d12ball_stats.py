@@ -61,6 +61,7 @@ from d12ball.game import D12BallGame, Team
 
 from roster import fielded
 from save_patches import suppressed_cog_saves
+from cog_steps import run_injury_test, run_own_goal_roll
 
 
 def build_match() -> MatchState:
@@ -1004,7 +1005,7 @@ class RollsReachTheLogTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("cogs.d12ball.core.render_injury_test_die"), mock.patch(
             "discord.File",
         ):
-            await cog.run_injury_test(
+            await run_injury_test(cog, 
                 self.build_interaction(),
                 game,
                 match,
@@ -1052,7 +1053,7 @@ class RollsReachTheLogTests(unittest.IsolatedAsyncioTestCase):
                 ), mock.patch(
                     "cogs.d12ball.effects.render_own_goal_dice",
                 ), mock.patch("discord.File"):
-                    await cog.run_own_goal_roll(
+                    await run_own_goal_roll(cog, 
                         self.build_interaction(), game, match,
                     )
 
@@ -1084,7 +1085,7 @@ class RollsReachTheLogTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch(
             "cogs.d12ball.effects.render_own_goal_dice",
         ), mock.patch("discord.File"):
-            await cog.run_own_goal_roll(
+            await run_own_goal_roll(cog, 
                 self.build_interaction(), game, match,
             )
 

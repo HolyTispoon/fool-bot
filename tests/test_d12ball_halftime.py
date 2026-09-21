@@ -4,7 +4,7 @@ extra-token choice, each side's own substitution window, and free
 meeple repositioning gated on the visiting team covering the
 second-half kickoff space. See "The clock, halftime and full time"
 in docs/living-rules.md
-and D12Ball.begin_halftime in cogs/d12ball.py.
+and None in cogs/d12ball.py.
 """
 
 import inspect
@@ -27,6 +27,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 from save_patches import suppressed_cog_saves
+from cog_steps import begin_halftime, begin_halftime_extra_token, begin_halftime_substitutions, begin_substitution_window, cover_kickoff_space, finish_halftime, finish_substitution_window
 
 
 def build_cog() -> D12Ball:
@@ -195,7 +196,7 @@ class HalftimeRecoveryTests(unittest.IsolatedAsyncioTestCase):
         match.exhaustion[visiting_player] = 2
 
         with suppressed_cog_saves():
-            await cog.begin_halftime(build_interaction(), game, match)
+            await begin_halftime(cog, build_interaction(), game, match)
 
         self.assertEqual(match.exhaustion[home_player], 2)
         self.assertEqual(match.exhaustion[visiting_player], 1)
@@ -212,7 +213,7 @@ class HalftimeRecoveryTests(unittest.IsolatedAsyncioTestCase):
         # No player has any exhaustion at all -- recovery is a no-op.
 
         with suppressed_cog_saves():
-            await cog.begin_halftime(build_interaction(), game, match)
+            await begin_halftime(cog, build_interaction(), game, match)
 
         self.assertEqual(match.exhaustion, {})
 
@@ -245,7 +246,7 @@ class HalftimeExtraTokenTests(unittest.IsolatedAsyncioTestCase):
         match.exhaustion[high] = 4
 
         with suppressed_cog_saves():
-            await cog.begin_halftime_extra_token(
+            await begin_halftime_extra_token(cog, 
                 build_interaction(), game, match, TeamSide.VISITING,
             )
 
@@ -267,7 +268,7 @@ class HalftimeExtraTokenTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves():
-            await cog.begin_halftime_extra_token(
+            await begin_halftime_extra_token(cog, 
                 build_interaction(), game, match, TeamSide.HOME,
             )
 
@@ -301,7 +302,7 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with suppressed_cog_saves():
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
 
@@ -331,7 +332,7 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
 
         with suppressed_cog_saves():
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
 
@@ -358,7 +359,7 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.begin_halftime_substitutions(
+            await begin_halftime_substitutions(cog, 
                 interaction, game, match, TeamSide.HOME,
             )
 
@@ -399,7 +400,7 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.begin_substitution_window(
+            await begin_substitution_window(cog, 
                 interaction,
                 game,
                 match,
@@ -430,7 +431,7 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves():
-            await cog.begin_substitution_window(
+            await begin_substitution_window(cog, 
                 build_interaction(),
                 game,
                 match,
@@ -487,7 +488,7 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         match.declare_coaching()
 
         with suppressed_cog_saves():
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
 
@@ -613,7 +614,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertFalse(match.kickoff_space_occupied_by(TeamSide.VISITING))
 
-        note = cog.cover_kickoff_space(match, TeamSide.VISITING)
+        note = cover_kickoff_space(cog, match, TeamSide.VISITING)
 
         self.assertIsNotNone(note)
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.VISITING))
@@ -629,10 +630,10 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         match.open_coaching_window(
             TeamSide.VISITING, CoachingOccasion.HALFTIME,
         )
-        cog.cover_kickoff_space(match, TeamSide.VISITING)
+        cover_kickoff_space(cog, match, TeamSide.VISITING)
 
         self.assertIsNone(
-            cog.cover_kickoff_space(match, TeamSide.VISITING),
+            cover_kickoff_space(cog, match, TeamSide.VISITING),
         )
 
 
@@ -663,7 +664,7 @@ class HalftimeKickoffBoardTests(unittest.IsolatedAsyncioTestCase):
         match.pending_halftime_stage = HALFTIME_STAGES[-1]
 
         with suppressed_cog_saves():
-            await cog.finish_halftime(build_interaction(), game, match)
+            await finish_halftime(cog, build_interaction(), game, match)
 
         self.assertIsNone(match.pending_halftime_stage)
         cog.post_new_play_board.assert_awaited_once()

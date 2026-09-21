@@ -330,8 +330,11 @@ class StraySaveGuardTests(unittest.TestCase):
         """
         binding = {
             path
-            for path in own_python_files(Path("cogs"))
-            if "save_games" in vars(
+            for path in (
+                *own_python_files(Path("cogs")),
+                *own_python_files(Path("gamesaves")),
+            )
+            if path.name != "storage.py" and "save_games" in vars(
                 importlib.import_module(
                     str(path.with_suffix("")).replace("/", ".")
                 )

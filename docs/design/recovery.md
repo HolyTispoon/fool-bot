@@ -78,7 +78,9 @@ Two things follow from that:
   mapping over it -- `view_for_prompt` is the one place a kind becomes a
   `discord.ui.View`, and the `ask` passes through untouched. Startup
   re-attaches the view it returns to the message the prompt is already on;
-  `resume_pending_prompt` posts the same one on a fresh message. A second copy
+  `GameService.resume` hands the same one back and `D12Ball.resume_game` posts
+  it on a fresh message, through `render_prompt`, so it comes back with its
+  picture. A second copy
   of that branch chain is how a resume comes to offer a different prompt from
   the one a restart restores -- and, once a web app asks the same question, how
   the two frontends come to disagree about whose turn it is. Its ordering
@@ -98,9 +100,10 @@ Two things follow from that:
   - **Each of those eight is still a method on the cog, and since Phase 5 of
     the model/Discord split most of them are wrappers** over a step in
     `d12ball/flow/` -- see
-    [model-discord-split.md](model-discord-split.md). `resume_pending_prompt`
-    is unchanged and calls the same eight by the same names; what changed is
-    that the routine behind each is now a function the web app can call too.
+    [model-discord-split.md](model-discord-split.md). The ladder is
+    `GameService.resume` now, in the model's half, and each branch runs the
+    flow function itself through `run` -- the cog no longer keeps a copy of
+    which state owes which step (see [game-service.md](game-service.md)).
     **The shootout's own reading did not fork**: `advance_shootout` moved
     whole, and `pending_prompt` still answers its three sub-states in the same
     order.
@@ -128,7 +131,7 @@ Two things follow from that:
     disk when a prompt goes up is the whole of what a restart has. Until
     Phase 6 each cog wrapper saved between its own step and the next, so a
     cascade wrote the file several times and the *last* of those writes sat
-    behind whatever had already been posted; `dispatch_step_result` now
+    behind whatever had already been posted; `GameService.run` now
     writes once, after `driver.advance` has run everything that moves and
     **before** anything is sent. Fewer writes, and the one that matters is no
     longer behind a request that can fail. `driver.waiting_on` is
@@ -154,7 +157,7 @@ Two things follow from that:
     and a resume put up the thing the note explains *without* the note.
     It is `PromptKind.TUTORIAL_CONTINUE` now, over
     `D12BallGame.tutorial_gate`, read first of all by `pending_prompt`
-    and by `resume_pending_prompt`, because the position underneath is
+    and by `GameService.resume`, because the position underneath is
     exactly what it was before the note went up and re-driving it would
     run what the note is explaining. `skip_tutorial` spends the gate
     the way the click would (`gates.continue_step`). The other is the

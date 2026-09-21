@@ -148,7 +148,7 @@ class FinishManeuverResolutionTests(SpineFixture):
         The last-possession announcement and the closing line are two
         events, so they come back as two blocks -- the frontend posts
         the first on its own and the second under the board. See
-        `D12Ball.finish_maneuver_resolution`.
+        `None`.
         """
         self.match.scoreboard.time = self.match.scoreboard.last_minute - 1
         result = finish_maneuver_resolution(

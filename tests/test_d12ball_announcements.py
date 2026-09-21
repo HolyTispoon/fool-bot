@@ -37,6 +37,7 @@ from d12ball.components import (
 from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.game import D12BallGame, Team
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+from cog_steps import resolve_maneuver, run_own_goal_roll
 
 
 def build_cog() -> D12Ball:
@@ -325,7 +326,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.resolve_maneuver(interaction, game, match)
+            await resolve_maneuver(cog, interaction, game, match)
 
         announcement = sent_texts(interaction)[0]
         self.assertIn(
@@ -464,7 +465,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("cogs.d12ball.effects.render_own_goal_dice"), mock.patch(
             "discord.File",
         ):
-            await cog.run_own_goal_roll(interaction, game, match)
+            await run_own_goal_roll(cog, interaction, game, match)
         return cog, interaction
 
     async def test_an_own_goal_is_announced_after_its_dice(self) -> None:

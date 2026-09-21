@@ -28,9 +28,9 @@ python3 -m unittest discover -s tests
 | `botstate.py` | The little the bot remembers between runs, in `data/bot_state.json` |
 | `discord_emoji_cache.py` | The cache-with-cooldown shape shared by every cog's application-emoji lookup -- only the retry timing, not what each cog loads |
 | `botlog/` | Console logging setup, and the #logs channel mirror -- [logging.md](docs/design/logging.md) |
-| `cogs/d12ball/` | **The Discord frontend** over `d12ball/flow/`: every slash command, and the rendering of what the driver hands back, as six mixins assembled into `D12Ball` in `__init__.py`: `core` (lifecycle, lookups, `persist`, `dispatch_step_result` -- the one loop-and-render, with its stops and groups -- `render_prompt` and `view_for_prompt`, the entry points into a turn's front half), `effects` (entry points into each maneuver's effect, and the two dice images that go between a roll's lines), `turnovers` (entry points into the run back, the time out and the pickup, the coaching image, resume), `periods` (entry points into the clock's tail, halftime and the shootout, the final board), `presentation` (the board, the field strip, the challenge and shot images, the ignition die, channels), `slash_commands` (every command, the three subgroups, the startup sweep). Nothing in it decides a rule; an entry point calls one step, or names one, and dispatches. `from cogs.d12ball import D12Ball` is unchanged -- [cog-structure.md](docs/design/cog-structure.md) |
+| `cogs/d12ball/` | **The Discord frontend** over `d12ball/flow/`: every slash command, and the rendering of what the driver hands back, as six mixins assembled into `D12Ball` in `__init__.py`: `core` (lifecycle, lookups, the `service` property, `DiscordBatching`, `present` -- the one presenter over a `GameResult`, and `post_group` under it -- `render_prompt` and `view_for_prompt`, the entry points into a turn's front half), `effects` (entry points into each maneuver's effect, and the two dice images that go between a roll's lines), `turnovers` (entry points into the run back, the time out and the pickup, the coaching image, resume), `periods` (entry points into the clock's tail, halftime and the shootout, the final board), `presentation` (the board, the field strip, the challenge and shot images, the ignition die, channels), `slash_commands` (every command, the three subgroups, the startup sweep). Nothing in it decides a rule; an entry point calls one step, or names one, and dispatches. `from cogs.d12ball import D12Ball` is unchanged -- [cog-structure.md](docs/design/cog-structure.md) |
 | `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views -- emoji lookups, player/team formatting, channel naming, the authorization predicates. Re-exports everything `d12ball/formatting.py` holds; what stays here fetches emoji or touches discord.py itself |
-| `cogs/d12ball_views/` | The `discord.ui.View` classes, one per prompt a player can be shown, in ten modules (`base`, `setup`, `turn`, `rolls`, `runback`, `effects`, `coaching`, `halftime`, `loose_ball`, `shootout`). `__init__.py` re-exports every name. `base` holds `SafeView` (`load_match`/`require_match`, the `may_act_for*` gates) and imports from no sibling, which keeps the package a DAG |
+| `cogs/d12ball_views/` | The `discord.ui.View` classes, one per prompt a player can be shown, in ten modules (`base`, `setup`, `turn`, `rolls`, `runback`, `effects`, `coaching`, `halftime`, `loose_ball`, `shootout`). `__init__.py` re-exports every name. `base` holds `SafeView` (`load_match`/`require_match`, the `may_act_for*` gates, and `apply` -- the one call a click makes, through `GameService`) and imports from no sibling, which keeps the package a DAG |
 | `cogs/d12ball_boards.py` | The write gate on a game's persistent board message: `BoardRefresher` and one `BoardRefreshState` per game. `D12Ball` keeps a thin forwarding method for each of its six methods -- [rate-limits.md](docs/design/rate-limits.md) |
 | `cogs/debug.py` | Maintenance commands: the PBD channel-and-count reset, the archive export |
 | `d12ball/components.py` | Game state model -- `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog`, `MATCH_SAVED_FIELDS` |
@@ -52,6 +52,7 @@ python3 -m unittest discover -s tests
 | `d12ball/data/` | `players.json`, `basic_rules.json`, `maneuvers.json`, `species.json` -- regenerated whole by the import scripts, never edited by hand |
 | `d12ball/images/` | Card art, emoji, the four species icons (ink and coloured) |
 | `d12ball/fonts/` | Bundled DejaVu and Racing Sans One, loaded by absolute path |
+| `gamesaves/d12ball/service.py` | **`GameService`**, the one door for a change to a game (ARCHITECTURE.md, part 2): `apply_action`, `begin`, `resume`, `run_step`, each load-apply-save-once-return, and `GameResult`, what a frontend renders -- [game-service.md](docs/design/game-service.md) |
 | `gamesaves/d12ball/storage.py` | Persistence to `data/d12ball_games.json`, and the legacy-save migrations |
 | `gamesaves/d12ball/archive_export.py` | Writing one finished game's export to disk for `/debug export_archived_games` |
 | `gamesaves/d12ball/hub.py` | The per-guild hub message pointers, in `data/d12ball_hubs.json` |
@@ -62,7 +63,10 @@ python3 -m unittest discover -s tests
 | `docs/rules-log.md` | Every rules change, dated and sourced; what is still open; where upstream is behind |
 | `docs/gambit-matrix.md` | The worksheet the gambits were built from, cut to what is still open. **Nothing in it is a rule** |
 | `docs/tts-module.md` | The worksheet the Tabletop Simulator module is being built from -- the four decisions already taken, the five phases and the in-TTS stop each ends on, what the convenience scripts may and may not do. **Nothing in it is a rule** |
+| `docs/web-app.md` | The worksheet the web app is being built from -- the split reviewed against a second frontend (sixteen findings, three reproduced through `driver.answer`, each marked with where it stands on the migration), the nine decisions taken in its review, and what each migration step owes the web app that `docs/architecture-migration.md` does not spell out. **Nothing in it is a rule** |
 | `docs/rulebooks/` | The worksheet the two rulebooks are built from -- the plan, the Charter and Learn to Play outlines, and the committed figure sketches. **Nothing in it is a rule** |
+| `ARCHITECTURE.md` | **The target architecture**: four parts (model, `GameService`, Discord frontend, web frontend), the shared `GameResult`, what to remove and the migration order. A change under `d12ball/`, `gamesaves/d12ball/` or `cogs/` is reviewed against it |
+| `docs/architecture-migration.md` | The worksheet the migration to `ARCHITECTURE.md` is being done from -- what did not conform on 2026-09-21, and the ten steps in order. **Nothing in it is a rule** |
 | `docs/design/` | The design notes this file points at -- one topic per file |
 
 ## Hard rules
@@ -75,7 +79,7 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 - The rules commands read `docs/living-rules.md` itself; there is no second copy of the rules text anywhere in the bot.
 
 **State and saves** -- [gotchas.md](docs/design/gotchas.md)
-- **Save a match with `D12Ball.persist(game, match)`**, never `to_dict` + `save_games` by hand. `save_games` alone is only for a change to the game record. Anything that records state or an event saves in the same breath, or the next click reloads without it.
+- **The match is saved by `GameService` and nothing else.** A click goes through `GameService.apply_action`, the bot's own steps through `run`, and each writes the match once before it returns; no view and no presenter saves a match (ARCHITECTURE.md, "Persistence"). An admin command that edits the position by hand writes through `service.persist`, never `to_dict` + `save_games`. `save_games` alone is only for a change to the game record. -- [game-service.md](docs/design/game-service.md)
 - **A new `MatchState` field goes in `MATCH_SAVED_FIELDS`** (or `MATCH_EXPLICIT_FIELDS` when it needs its own handling); the suite fails until it does. The wire format is not the table's to change.
 - **Legacy fallbacks stay** (`player_board`, `tie_mode`, `ceded`, `legacy_maneuver_key`, the reshuffle migration, the `shootout_test` resume kind, ...) until no half-finished game can predate them. Both developers run the bot against their own saves. Don't add migration passes; don't rename saved keys.
 - `data/` is untracked runtime state, per checkout. Never commit it. `save_games` never raises and a save failure never fails the turn.
@@ -128,8 +132,9 @@ is in [docs/design/model-discord-split.md](docs/design/model-discord-split.md).
 **The split is done**: `d12ball/flow/driver.py` runs every step of a turn
 and answers every prompt, the cog is a frontend over it, and
 `tests/test_driver_full_game.py` plays a whole game with no frontend
-imported. What is *not* done is the web app itself, which has no
-worksheet yet.
+imported. What is *not* done is the web app itself; its worksheet is
+[docs/web-app.md](docs/web-app.md), which opens with what the split
+still lets through.
 
 1. **The model may not import `discord`, and may not be `async`.** Both
    halves matter. No-discord is the obvious one; not-async is the one that
@@ -178,9 +183,10 @@ worksheet yet.
    - **It lives in `d12ball/flow/`**, one module per group of steps, and
      `d12ball/flow/result.py` holds the three types. A step takes
      `(engine, match, ...)` and adds `game` only where it actually reads
-     the record -- never an `interaction`. `D12Ball.dispatch_step_result`
-     is the whole of the Discord side: run the chain, save once, redraw
-     if the board moved, post what was said, put up what is asked.
+     the record -- never an `interaction`. `GameService.run` runs the
+     chain and saves once; `D12Ball.present` is the whole of the Discord
+     side: redraw if the board moved, post what was said, put up what
+     is asked -- [game-service.md](docs/design/game-service.md).
    - **`StepResult.next` has a second shape, `FollowOn`: the step the
      driver runs next.** A member of the closed `FollowOnStep` enum with
      its arguments, turned into a call by one table,
@@ -267,23 +273,15 @@ worksheet yet.
    driver saves once, after it. This is the one place the refactor makes
    the bot *better* rather than only more portable, so it should be
    reviewed on its own merits.
-   - **The save is the dispatcher's.** `d12ball/flow/driver.py` runs
-     the chain and `D12Ball.dispatch_step_result` -- the driver's
-     caller -- writes the match once per run, after the run and before
-     anything is posted, and again after each stop it re-enters the
-     loop from. The run-back cascade, which used to save once per pass
-     as a named exception, saves this way too: one write after the
-     whole cascade, before the prompt goes out.
-   - **A view saves once before it renders its answer**, because the
-     answer *replaces* the prompt it was asked on and the render can
-     fail: `driver.answer` mutates and returns, the view writes, then
-     edits. That is the same principle one prompt earlier, and it is
-     why `cog.persist(` is spelled in the views (count it before quoting
-     it). Four of those saves are load-bearing in a stronger sense --
-     the own-goal roll, the score attempt, the shootout test and the
-     loose-ball contest each settle something a failed upload would
-     otherwise let the next click roll again -- and each says so in a
-     comment; a fifth needs the same sentence.
+   - **The save is the service's.** `GameService.run` runs the chain
+     through every stop the frontend asked for and writes the match
+     once, before it returns and so before anything is posted. A view
+     renders only after `apply_action` has come back, which is why no
+     view saves: the four rolls that used to save early by hand (a
+     failed dice upload must not let the next click roll again) are
+     covered by the same line as everything else. The run-back cascade
+     saves this way too: one write after the whole cascade, before the
+     prompt goes out. -- [game-service.md](docs/design/game-service.md)
    - **It does not touch the bare `save_games` calls.** Those save the
      *game record* alone -- a message id, a status, a tutorial flag --
      and have no match to write, so they stay exactly where they are.
@@ -331,6 +329,7 @@ worksheet yet.
 | Writing or moving a test; patching `save_games` | [testing.md](docs/design/testing.md) | The package-split patch trap; the stray-save guard; naming by role |
 | Deploying, the `K:\` host, `update_main_bot.ps1`, a 10062 | [collaboration.md](docs/design/collaboration.md) | Two machines, one live bot; one bot per token |
 | `d12ball/rulebooks.py`, `d12ball/rulebook_figures.py`, `scripts/build_rulebooks.py`, anything in `docs/rulebooks/` | [rulebooks.md](docs/design/rulebooks.md) | The Charter is the living rules renumbered, not a copy; numbering at build time; the figures are the renderer's; the markdown subset that fails the suite, not the print run |
+| `gamesaves/d12ball/service.py`, `GameService`, `GameResult`, `Narration`, `Batching`, `carry_from`; `DiscordBatching`, `D12Ball.present`, `post_group`, `dispatch_step_result`, `apply_action`, `resume_game`, `SafeView.apply`; `tests/cog_steps.py` | [game-service.md](docs/design/game-service.md) | One door and one save; why the result is groups with snapshots rather than strings; batching stays the frontend's, including the answer's own lines; the presenter saves nothing; recovery is the service's ladder |
 | `d12ball/prompts.py`, `pending_turn_view`, `view_for_prompt`, `render_prompt`, `tests/prompt_fixtures.py`; `d12ball/flow/`, `StepResult`, `FollowOn`, `MODEL_STEPS`, `driver.advance`, `driver.answer`/`apply`, `Action`, `Refusal`, `d12ball/flow/rolls.py`, `tests/test_d12ball_driver_actions.py`, `tests/flow_stubs.py`, `dispatch_step_result` and its stops (`DRIVER_STOPS`, `DRIVER_OWN_MESSAGE`, `post_stop`, `post_narration_group`), `SafeView.answer`, `tests/low_pass_fixtures.py`, `tests/dribble_fixtures.py`; `tests/test_model_purity.py`, the three goldens, `tests/golden/`, `tests/test_driver_full_game.py`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | Why the chain moved whole and what a prompt may carry; one kind per view class and one picture per kind; why the loop is the model's and where it stops; why an action names a prompt rather than a step, and which three carry a side; what `answer` refuses and why authorising is not one of them; how the split is measured; the purity ratchet and why it runs in a subprocess; the goldens' seeded RNG and what each does not cover; the Python-version and root-test gotchas |
 
 ## Notes for Claude

@@ -135,8 +135,10 @@ from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.effects import offer_high_pass
 from d12ball.flow.arrivals import check_for_loose_ball
 
+from flow_stubs import REAL_MODEL_STEPS
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_high_pass, apply_low_pass, resolve_deflect, resolve_low_pass
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -155,9 +157,9 @@ def loose_ball_distance(call) -> int:
     the signature answers for both shapes, which is the reading rank D2
     wrote down: fix the assertion, not the call.
     """
-    return inspect.signature(D12Ball.begin_loose_ball).bind(
-        None, *call.args, **call.kwargs,
-    ).arguments["distance_moved"]
+    return inspect.signature(
+        REAL_MODEL_STEPS[FollowOnStep.BEGIN_LOOSE_BALL],
+    ).bind(*call.args, **call.kwargs).arguments["distance_moved"]
 
 class D12BallComponentTests(unittest.TestCase):
     @classmethod
@@ -3521,7 +3523,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             followup=SimpleNamespace(send=mock.AsyncMock()),
         )
         with suppressed_cog_saves():
-            await cog.apply_low_pass(
+            await apply_low_pass(cog, 
                 interaction, game, match, 0, receiver_id=second,
             )
 
@@ -3546,7 +3548,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_low_pass(interaction, game, match, 2)
+            await apply_low_pass(cog, interaction, game, match, 2)
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
@@ -3584,7 +3586,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_low_pass(interaction, game, match, 0)
+            await apply_low_pass(cog, interaction, game, match, 0)
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 1),
@@ -3628,7 +3630,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_low_pass(interaction, game, match, 1)
+            await apply_low_pass(cog, interaction, game, match, 1)
 
         self.assertEqual(
             match.board.meeple_position(handler), (Zone.MIDFIELD, 1),
@@ -3653,7 +3655,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_low_pass(interaction, game, match, 1)
+            await apply_low_pass(cog, interaction, game, match, 1)
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 2),
@@ -3696,7 +3698,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_low_pass(interaction, game, match, 0)
+            await apply_low_pass(cog, interaction, game, match, 0)
 
         _, kwargs = cog.offer_scoring_attempt_choice.await_args
         self.assertEqual(kwargs["shooter_id"], receiver)
@@ -3726,7 +3728,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         ))
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.resolve_low_pass(interaction, game, match)
+            await resolve_low_pass(cog, interaction, game, match)
 
         # No prompt, and no view to answer it with.
         interaction.followup.send.assert_not_awaited()
@@ -3762,7 +3764,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         ))
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.resolve_low_pass(interaction, game, match)
+            await resolve_low_pass(cog, interaction, game, match)
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
@@ -3796,7 +3798,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_high_pass(interaction, game, match, 2)
+            await apply_high_pass(cog, interaction, game, match, 2)
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
@@ -3830,7 +3832,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_high_pass(interaction, game, match, 2)
+            await apply_high_pass(cog, interaction, game, match, 2)
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
@@ -3882,7 +3884,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_high_pass(interaction, game, match, 3)
+            await apply_high_pass(cog, interaction, game, match, 3)
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
@@ -3937,7 +3939,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_high_pass(interaction, game, match, 2)
+            await apply_high_pass(cog, interaction, game, match, 2)
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
@@ -3973,7 +3975,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_high_pass(interaction, game, match, 3)
+            await apply_high_pass(cog, interaction, game, match, 3)
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
@@ -4126,7 +4128,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_high_pass(interaction, game, match, 2)
+            await apply_high_pass(cog, interaction, game, match, 2)
 
         cog.offer_scoring_attempt_choice.assert_awaited_once()
         _, kwargs = cog.offer_scoring_attempt_choice.await_args
@@ -4157,7 +4159,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_high_pass(interaction, game, match, 3)
+            await apply_high_pass(cog, interaction, game, match, 3)
 
         cog.offer_scoring_attempt_choice.assert_not_awaited()
         self.assertFalse(match.pending_high_pass_overshoot)
@@ -4178,7 +4180,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.apply_high_pass(interaction, game, match, 4)
+            await apply_high_pass(cog, interaction, game, match, 4)
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 1),
@@ -4204,7 +4206,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with suppressed_cog_saves():
-            await cog.resolve_deflect(interaction, game, match)
+            await resolve_deflect(cog, interaction, game, match)
 
         # HOME attacks left-to-right, so "back" is toward lower flat
         # indices: flat 4 - 2 = flat 2, HOME_GOAL space 2.

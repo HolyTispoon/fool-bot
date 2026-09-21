@@ -71,6 +71,7 @@ from flow_stubs import (
     was_reached,
 )
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_high_pass, apply_setup_pass, apply_setup_pass_out, resolve_setup_pass
 
 #: The parameters every follow-on takes and no fixture records: the
 #: three the cog threads through everything and the narration, which
@@ -81,15 +82,15 @@ PLUMBING = ("self", "interaction", "game", "match", "lead_in")
 #: method it names and that method's unbound original -- the signature
 #: the recorded call is read through.
 FOLLOW_ONS = {
-    FINISH: ("finish_maneuver_resolution", D12Ball.finish_maneuver_resolution),
+    FINISH: ("finish_maneuver_resolution", None),
     SCORING_ATTEMPT: (
-        "offer_scoring_attempt_choice", D12Ball.offer_scoring_attempt_choice,
+        "offer_scoring_attempt_choice", None,
     ),
-    SPEED_CHOICE: ("offer_speed_choice", D12Ball.offer_speed_choice),
-    RUN_BACK: ("begin_run_back", D12Ball.begin_run_back),
-    LOOSE_BALL: ("begin_loose_ball", D12Ball.begin_loose_ball),
+    SPEED_CHOICE: ("offer_speed_choice", None),
+    RUN_BACK: ("begin_run_back", None),
+    LOOSE_BALL: ("begin_loose_ball", None),
     HIGH_PASS_CONTEST: (
-        "begin_high_pass_contest", D12Ball.begin_high_pass_contest,
+        "begin_high_pass_contest", None,
     ),
 }
 
@@ -167,13 +168,13 @@ async def drive(cog, fixture, interaction) -> None:
     """
     args = (interaction, fixture.game, fixture.match)
     if fixture.entry == "high_pass":
-        await cog.apply_high_pass(*args, fixture.distance)
+        await apply_high_pass(cog, *args, fixture.distance)
     elif fixture.entry == "setup_pass":
-        await cog.apply_setup_pass(*args, fixture.distance)
+        await apply_setup_pass(cog, *args, fixture.distance)
     elif fixture.entry == "setup_pass_out":
-        await cog.apply_setup_pass_out(*args)
+        await apply_setup_pass_out(cog, *args)
     elif fixture.entry == "setup_pass_speed":
-        await cog.resolve_setup_pass(*args)
+        await resolve_setup_pass(cog, *args)
     else:  # pragma: no cover -- a typo in the table, not a branch
         raise AssertionError(f"unknown entry {fixture.entry!r}")
 

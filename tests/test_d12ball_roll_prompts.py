@@ -36,6 +36,7 @@ from d12ball.components import (
 )
 from d12ball.game import D12BallGame, GameStatus, Team
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+from cog_steps import begin_own_goal_roll, resolve_pressure
 
 
 def build_cog() -> D12Ball:
@@ -134,7 +135,7 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "random.randint",
         ) as randint:
-            await cog.begin_own_goal_roll(
+            await begin_own_goal_roll(cog, 
                 interaction, game, match, distance_moved=1,
             )
 
@@ -167,7 +168,7 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "random.randint",
         ) as randint:
-            await cog.resolve_pressure(interaction, game, match)
+            await resolve_pressure(cog, interaction, game, match)
 
         randint.assert_not_called()
         self.assertIsInstance(last_view(interaction), OwnGoalRollView)
@@ -177,7 +178,7 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
 
         with suppressed_cog_saves():
-            await cog.begin_own_goal_roll(
+            await begin_own_goal_roll(cog, 
                 build_interaction(), game, match, distance_moved=2,
             )
 

@@ -16,7 +16,7 @@ offered at all. Nothing here branches on which occasion it is except
 where that enum has no property for it.
 
 **The window's prompt is the one prompt in the game that carries the
-coach's own half-field**, and `D12Ball.begin_substitution_window` is
+coach's own half-field**, and `d12ball.flow.windows.begin_substitution_window` is
 what attaches it. So this module opens a window and says what to ask;
 the picture, the tutorial's Continue gate over the top of it, and the
 menu's own clicks (which are `interaction.response.edit_message` and
@@ -269,7 +269,7 @@ def apply_position_swap(
     The Coaching Choice's zone assignment: trade two players' zones,
     meeples included, and describe it.
 
-    `D12Ball.apply_position_swap` was this; it moved in Phase 6 because
+    `d12ball.flow.windows.apply_position_swap` was this; it moved in Phase 6 because
     a window's answers are the window's, and a sentence about the
     position is the model's (principle 5 in CLAUDE.md).
     """

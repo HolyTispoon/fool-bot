@@ -33,6 +33,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+from cog_steps import play_ai_turn
 
 
 def build_cog() -> D12Ball:
@@ -204,7 +205,7 @@ class ChallengerChoiceTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
         interaction = build_interaction(user_id=111)
         with suppressed_view_saves(), suppressed_cog_saves():
-            await cog.play_ai_turn(interaction, game, match)
+            await play_ai_turn(cog, interaction, game, match)
         return interaction
 
     async def test_the_ai_s_turn_asks_when_two_defenders_are_on_the_ball(

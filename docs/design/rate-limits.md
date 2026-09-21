@@ -54,22 +54,23 @@ invariants read as ordinary cog surface among 223 methods.
   of it, not one of each per step -- see `continue_run_back`. Nobody reads the
   intermediate boards; the one worth looking at is the one where everything
   has finished moving.
-- **There are two dispatchers, and which one a step gets is a batching
-  decision.** `D12Ball.dispatch_step_result` hands a step's narration to
+- **Which lines are one message is a batching decision, and it is
+  `DiscordBatching`'s.** `driver.advance` hands a step's narration to
   whatever comes next as its `lead_in`, so a cascade of the bot's own steps
-  is one message. `D12Ball.post_then_dispatch` posts it as a message of its
-  own and carries nothing forward. The second is for the handful of lines
-  that are an *event* rather than a preamble -- where the ball came down,
-  that a new play has started, that everybody is running back -- and a coach
-  reads the channel expecting those to be their own beat. It is a method on
-  the cog rather than a flag on `StepResult` because principle 8 puts
-  batching on this side of the seam: the model says what was said and in
-  what order, and nothing more. Getting it wrong is cheap to catch and
+  is one message; a step named in `DRIVER_OWN_MESSAGE` closes a group of
+  its own and carries nothing forward. The second is for the handful of
+  lines that are an *event* rather than a preamble -- where the ball came
+  down, that a new play has started, that everybody is running back -- and
+  a coach reads the channel expecting those to be their own beat. It is
+  the frontend's object handed to `GameService` rather than a flag on
+  `StepResult` because principle 8 puts batching on this side of the seam:
+  the model says what was said and in what order, and nothing more (see
+  [game-service.md](game-service.md)). Getting it wrong is cheap to catch and
   invisible by inspection, which is what the two goldens are for -- the
   advanced one caught three merged pairs the hour it existed.
 - **A step says the board moved; the frontend decides what that costs.**
   `StepResult.board_changed` is a fact about the position -- the ball moved,
-  a meeple moved -- and `dispatch_step_result` turns it into *at most* one
+  a meeple moved -- and `D12Ball.present` turns it into *at most* one
   write of the persistent board message. At most, because some of the steps
   it hands off to draw the board themselves: `begin_loose_ball` announces the
   position with the board under it, since the ball is lying somewhere nothing

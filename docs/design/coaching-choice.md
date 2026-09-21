@@ -12,12 +12,12 @@ Since **Phase 5** of the model/Discord split the window is a flow step:
 stage sequences that hand windows out (`advance_setup_stage`,
 `advance_halftime_stage`, `advance_full_time_stage`) in
 [`periods.py`](../../d12ball/flow/periods.py) beside it. Names below
-without a path are the flow functions; `D12Ball.begin_substitution_window`
+without a path are the flow functions; `d12ball.flow.windows.begin_substitution_window`
 and the rest are the cog wrappers.
 
 **The window is the one prompt in the game whose message carries the
-coach's own half-field**, so `D12Ball.begin_substitution_window` posts it
-itself rather than letting `dispatch_step_result` do it -- and that, with
+coach's own half-field**, so `d12ball.flow.windows.begin_substitution_window` posts it
+itself rather than letting the presenter do it -- and that, with
 the tutorial's Continue gate over the top of it, is why
 `FollowOnStep.BEGIN_SUBSTITUTION_WINDOW` outlived the phase that was
 expected to remove it. A step that wants to open a window **names** it.

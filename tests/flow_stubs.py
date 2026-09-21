@@ -41,22 +41,11 @@ from d12ball.flow import FollowOnStep, StepResult
 from d12ball.flow import driver
 
 
-#: Which cog method each `FollowOnStep` the cog still dispatches names.
-#: Empty since Phase 6 collapsed `D12Ball.follow_on_methods`; kept so
-#: the helpers below keep their shape.
-COG_METHOD_NAMES: Mapping[FollowOnStep, str] = {}
-
-
 #: The driver's table as it really is, taken once at import.
 #: `chain_stops_at` patches `driver.MODEL_STEPS` while a test runs, so
 #: anything wanting the *real* step -- a signature to read a recorded
 #: call through -- has to have kept it.
 REAL_MODEL_STEPS = dict(driver.MODEL_STEPS)
-
-
-def runs_in_the_model(member: FollowOnStep) -> bool:
-    """Whether the driver's loop runs this step rather than the cog."""
-    return driver.runs(member)
 
 
 @contextlib.contextmanager
@@ -75,27 +64,15 @@ def chain_stops_at(
     follows, which is the "stop here" a cog-side `AsyncMock` gave for
     free.
     """
-    if runs_in_the_model(member):
-        recorder = mock.Mock(return_value=result or StepResult())
-        # Marked, so the cog-stub routing lets it through: a test that
-        # asked for a recorder by member is reading it, whatever else
-        # its cog builder stubbed. See `_as_a_step`.
-        recorder._flow_recorder = True
-        patched = dict(driver.MODEL_STEPS)
-        patched[member] = recorder
-        with mock.patch.object(driver, "MODEL_STEPS", patched):
-            yield recorder
-        return
-
-    name = COG_METHOD_NAMES[member]
-    recorder = mock.AsyncMock()
-    original = getattr(cog, name, None)
-    setattr(cog, name, recorder)
-    try:
+    recorder = mock.Mock(return_value=result or StepResult())
+    # Marked, so the cog-stub routing lets it through: a test that
+    # asked for a recorder by member is reading it, whatever else
+    # its cog builder stubbed. See `_as_a_step`.
+    recorder._flow_recorder = True
+    patched = dict(driver.MODEL_STEPS)
+    patched[member] = recorder
+    with mock.patch.object(driver, "MODEL_STEPS", patched):
         yield recorder
-    finally:
-        if original is not None:
-            setattr(cog, name, original)
 
 
 def arguments_of(recorder: Any) -> tuple[tuple[Any, ...], Mapping[str, Any]]:
@@ -174,14 +151,9 @@ def named_arguments(
     (rank D2's lesson, in docs/design/model-discord-split.md).
     """
     call = (recorder.call_args_list)[0]
-    if runs_in_the_model(member):
-        bound = inspect.signature(
-            REAL_MODEL_STEPS[member],
-        ).bind(*call.args, **call.kwargs)
-    else:
-        bound = inspect.signature(signature_of).bind(
-            None, *call.args, **call.kwargs,
-        )
+    bound = inspect.signature(
+        REAL_MODEL_STEPS[member],
+    ).bind(*call.args, **call.kwargs)
     dropped = set(plumbing) | {"engine"}
     return {
         name: value
@@ -211,31 +183,17 @@ def chain_records_at(
     `calls` when the step is reached, so an ordering assertion reads
     the same whichever side of the seam the step is on.
     """
-    name = label or COG_METHOD_NAMES.get(member, member.name.lower())
+    name = label or member.name.lower()
 
-    if runs_in_the_model(member):
-        def record(*args: Any, **kwargs: Any) -> StepResult:
-            calls.append(name)
-            return StepResult()
-
-        record._flow_recorder = True
-        patched = dict(driver.MODEL_STEPS)
-        patched[member] = record
-        with mock.patch.object(driver, "MODEL_STEPS", patched):
-            yield record
-        return
-
-    async def recorded(*args: Any, **kwargs: Any) -> None:
+    def record(*args: Any, **kwargs: Any) -> StepResult:
         calls.append(name)
+        return StepResult()
 
-    attribute = COG_METHOD_NAMES[member]
-    original = getattr(cog, attribute, None)
-    setattr(cog, attribute, recorded)
-    try:
-        yield recorded
-    finally:
-        if original is not None:
-            setattr(cog, attribute, original)
+    record._flow_recorder = True
+    patched = dict(driver.MODEL_STEPS)
+    patched[member] = record
+    with mock.patch.object(driver, "MODEL_STEPS", patched):
+        yield record
 
 
 #: The cog attribute each step the driver runs still answers to.
@@ -374,17 +332,42 @@ def arm_cog_stub_routing() -> None:
     """
     from cogs.d12ball import D12Ball
 
-    original = D12Ball.dispatch_step_result
-    if getattr(original, "_routes_cog_stubs", False):
-        return
+    def wrap_async(name: str) -> None:
+        original = getattr(D12Ball, name)
+        if getattr(original, "_routes_cog_stubs", False):
+            return
 
-    async def dispatch_step_result(self, *args, **kwargs):
-        with driver_reaches_cog_stubs(self):
-            return await original(self, *args, **kwargs)
+        async def routed(self, *args, **kwargs):
+            with driver_reaches_cog_stubs(self):
+                return await original(self, *args, **kwargs)
 
-    dispatch_step_result._routes_cog_stubs = True
-    dispatch_step_result.__wrapped__ = original
-    D12Ball.dispatch_step_result = dispatch_step_result
+        routed._routes_cog_stubs = True
+        routed.__wrapped__ = original
+        setattr(D12Ball, name, routed)
+
+    def wrap_sync(name: str) -> None:
+        original = getattr(D12Ball, name)
+        if getattr(original, "_routes_cog_stubs", False):
+            return
+
+        def routed(self, *args, **kwargs):
+            with driver_reaches_cog_stubs(self):
+                return original(self, *args, **kwargs)
+
+        routed._routes_cog_stubs = True
+        routed.__wrapped__ = original
+        setattr(D12Ball, name, routed)
+
+    # The two cog methods that run the service's loop: the bot's own
+    # steps go through `dispatch_step_result`, a click through
+    # `apply_action`. Both are wrapped at the class so the routing is
+    # in force for the duration of every run on any cog.
+    wrap_async("dispatch_step_result")
+    wrap_sync("apply_action")
+    # The recovery and setup entry points run the service too.
+    wrap_async("resume_game")
+    wrap_async("begin_setup_coaching")
+    wrap_async("send_turn_prompt")
 
 
 arm_cog_stub_routing()

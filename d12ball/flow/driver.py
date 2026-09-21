@@ -255,11 +255,6 @@ def _call(
     )
 
 
-def runs(step: FollowOnStep) -> bool:
-    """Whether the driver's loop can run this step itself."""
-    return step in MODEL_STEPS
-
-
 @dataclass(frozen=True)
 class NarrationGroup:
     """
@@ -414,7 +409,7 @@ def advance(
     stopped_on: Optional[FollowOn] = None
     steps: list[FollowOnStep] = []
 
-    while isinstance(following, FollowOn) and runs(following.step):
+    while isinstance(following, FollowOn) and following.step in MODEL_STEPS:
         step = following
         ran = _call(
             step.step,
@@ -1622,11 +1617,6 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
 }
 
 
-def can_answer(kind: PromptKind) -> bool:
-    """Whether the driver can answer this prompt itself."""
-    return kind in ANSWERS
-
-
 def _argument_mismatch(action: Action) -> Optional[str]:
     """
     Why this action's arguments do not fit the answer's signature, or
@@ -1727,24 +1717,14 @@ def answer(
     than left to each frontend to turn into a reply of its own. The
     three views that catch it today word it exactly this way.
 
-    A kind with no row in `ANSWERS` is **not** a refusal: it is a
-    question this module cannot answer yet, which is a fact about the
-    seam rather than about the position, so it raises. Ask `can_answer`
-    first; the cog does.
+    `ANSWERS` covers `PromptKind` exactly, and
+    `tests/test_d12ball_driver_actions.py` asserts it, so a kind with
+    no row fails the suite rather than a click.
     """
     waiting = pending_prompt(engine, game, match)
     if waiting.kind is not action.kind:
         return Refusal(
             STALE_CLICK.get(action.kind, MOVED_ON), waiting_on=waiting,
-        )
-    # **Ahead of the choice check**, so a kind with no row raises the
-    # same way whatever the action says -- "that answer is not
-    # offered", for a question this module cannot answer at all, would
-    # read as a rule and is a fact about the seam.
-    if not can_answer(action.kind):
-        raise LookupError(
-            f"No model answer for {action.kind.name}; ask `can_answer` "
-            "first -- see ANSWERS in d12ball/flow/driver.py.",
         )
     if not _choice_is_offered(action.kind, action.choice):
         return Refusal(
@@ -1783,12 +1763,6 @@ def answer(
         detail, result = answered
         return Answered(result=result, detail=detail)
     return Answered(result=answered)
-
-
-#: `answer` under a second name, for a caller whose own namespace
-#: holds an `answer` of its own (a Discord view with a method of that
-#: name). The same function.
-driver_answer = answer
 
 
 def apply(

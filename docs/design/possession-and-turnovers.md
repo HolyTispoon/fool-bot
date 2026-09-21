@@ -9,7 +9,7 @@ Since **Phase 4** of the model/Discord split the run back is a flow step:
 `run_back_passes`, `finish_run_back`, `apply_charge_up` and
 `begin_ball_recovery` all live in
 [`d12ball/flow/turnovers.py`](../../d12ball/flow/turnovers.py). Names below
-without a path are the flow functions; `D12Ball.begin_run_back` and the
+without a path are the flow functions; `d12ball.flow.turnovers.begin_run_back` and the
 rest are the cog wrappers that persist and post.
 
 **Two things deliberately did not move**, and both are principle 8 -- the

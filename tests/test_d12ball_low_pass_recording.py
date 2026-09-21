@@ -2,7 +2,7 @@
 What the cog's Low Pass says and does next, recorded off the old code.
 
 This is the equivalence half of Phase 2 of docs/design/model-discord-split.md.
-It drives `D12Ball.apply_low_pass` over `tests/low_pass_fixtures.py`
+It drives `None` over `tests/low_pass_fixtures.py`
 and asserts the narration byte for byte, whether the board moved, and
 which step the resolution hands the turn to with which arguments --
 the four things a `StepResult` carries.
@@ -43,6 +43,7 @@ from d12ball.engine import RulesEngine
 from low_pass_fixtures import FINISH, LOW_PASS_CASES, SCORING_CHOICE
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
+from cog_steps import apply_low_pass, continue_effect, resolve_skilled_pass
 
 
 def build_cog() -> D12Ball:
@@ -99,7 +100,7 @@ class LowPassRecordingTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
 
         with suppressed_cog_saves():
-            await cog.apply_low_pass(
+            await apply_low_pass(cog, 
                 interaction,
                 fixture.game,
                 match,
@@ -158,7 +159,7 @@ class LowPassRecordingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(fixture.match.pending_effect_continuation)
 
         with suppressed_cog_saves():
-            await cog.apply_low_pass(
+            await apply_low_pass(cog, 
                 SimpleNamespace(),
                 fixture.game,
                 fixture.match,
@@ -203,7 +204,7 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
         cog, fixture = self._stand_a_pass_up()
 
         with suppressed_cog_saves():
-            await cog.resolve_skilled_pass(
+            await resolve_skilled_pass(cog, 
                 SimpleNamespace(), fixture.game, fixture.match,
             )
 
@@ -231,7 +232,7 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
         }
 
         with suppressed_cog_saves():
-            await cog.continue_effect(
+            await continue_effect(cog, 
                 SimpleNamespace(), fixture.game, match,
             )
 
@@ -260,7 +261,7 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
         }
 
         with suppressed_cog_saves():
-            await cog.continue_effect(
+            await continue_effect(cog, 
                 SimpleNamespace(), fixture.game, match,
             )
 

@@ -68,6 +68,7 @@ from save_patches import (
     suppressed_cog_saves,
     suppressed_view_saves,
 )
+from cog_steps import announce_run_back, begin_run_back
 
 
 def build_game(player_2_id: int = 222) -> D12BallGame:
@@ -648,7 +649,7 @@ class D12BallRunBackAnnouncementTests(
         cog, interaction, game, match = self.build_stubs()
 
         with suppressed_cog_saves():
-            await cog.begin_run_back(
+            await begin_run_back(cog, 
                 interaction,
                 game,
                 match,
@@ -684,7 +685,7 @@ class D12BallRunBackAnnouncementTests(
         )
 
         with suppressed_cog_saves():
-            await cog.begin_run_back(
+            await begin_run_back(cog, 
                 interaction, game, match,
                 turnover_occurred=True, new_play=True,
             )
@@ -723,7 +724,7 @@ class D12BallRunBackAnnouncementTests(
         home_zone, home_space = match.assigned_positions[stray]
 
         with suppressed_cog_saves():
-            await cog.begin_run_back(
+            await begin_run_back(cog, 
                 interaction, game, match,
                 turnover_occurred=True, new_play=True,
             )
@@ -755,11 +756,11 @@ class D12BallRunBackAnnouncementTests(
         cog, interaction, game, match = self.build_stubs()
 
         with suppressed_cog_saves():
-            await cog.begin_run_back(
+            await begin_run_back(cog, 
                 interaction, game, match,
                 turnover_occurred=True, new_play=True,
             )
-            await cog.announce_run_back(interaction, game, match)
+            await announce_run_back(cog, interaction, game, match)
 
         texts = [
             call.args[0]
@@ -777,7 +778,7 @@ class D12BallRunBackAnnouncementTests(
         cog, interaction, game, match = self.build_stubs()
 
         with suppressed_cog_saves():
-            await cog.begin_run_back(
+            await begin_run_back(cog, 
                 interaction, game, match, turnover_occurred=True,
             )
 
@@ -799,7 +800,7 @@ class D12BallRunBackAnnouncementTests(
         cog, interaction, game, match = self.build_stubs()
 
         with suppressed_cog_saves():
-            await cog.begin_run_back(
+            await begin_run_back(cog, 
                 interaction, game, match,
                 distance_moved=3, turnover_occurred=False,
             )
@@ -833,7 +834,7 @@ class D12BallRunBackAnnouncementTests(
         with suppressed_cog_saves(), chain_stops_at(
             cog, FollowOnStep.END_PERIOD,
         ) as whistle:
-            await cog.begin_run_back(
+            await begin_run_back(cog, 
                 interaction,
                 game,
                 match,
@@ -861,7 +862,7 @@ class D12BallRunBackAnnouncementTests(
         with suppressed_cog_saves(), chain_stops_at(
             cog, FollowOnStep.END_PERIOD,
         ) as whistle:
-            await cog.begin_run_back(
+            await begin_run_back(cog, 
                 interaction, game, match, turnover_occurred=False,
             )
 
@@ -919,12 +920,12 @@ class D12BallNewPlayKickoffTests(
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves():
-            await cog.begin_run_back(
+            await begin_run_back(cog, 
                 interaction, game, match,
                 distance_moved=2, turnover_occurred=True, new_play=True,
             )
             cog.begin_substitution_window.assert_awaited_once()
-            await cog.announce_run_back(interaction, game, match)
+            await announce_run_back(cog, interaction, game, match)
         return cog, interaction
 
     def build_match(self) -> MatchState:

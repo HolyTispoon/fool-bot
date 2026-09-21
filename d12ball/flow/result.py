@@ -129,7 +129,7 @@ class FollowOnStep(Enum):
     #: messages**, and the two steps that name this one
     #: (`finish_maneuver_resolution` and `begin_run_back`) hand their
     #: results to dispatchers that would join them into one paragraph.
-    #: `D12Ball.end_period` is the wrapper that posts them a message
+    #: `d12ball.flow.periods.end_period` is the wrapper that posts them a message
     #: apiece through `post_blocks_then_dispatch`.
     END_PERIOD = auto()
     #: The offensive choice, handed back to whoever now has the ball --
@@ -242,7 +242,7 @@ class FollowOnStep(Enum):
     #: **before** it. Folding it into the loose ball's member would
     #: have put it under the loose ball's stop and lost that
     #: write, which is the answer being keyed to the step working
-    #: exactly as rank D1 intended. `D12Ball.begin_high_pass_contest`
+    #: exactly as rank D1 intended. `d12ball.flow.arrivals.begin_high_pass_contest`
     #: already existed as a step, with a second caller in the declined
     #: set-up, so nothing moved to make room for it.
     BEGIN_HIGH_PASS_CONTEST = auto()
@@ -250,7 +250,7 @@ class FollowOnStep(Enum):
     #: the end of the shootout. Added by Phase 6, when the test itself
     #: moved (`d12ball.flow.rolls.shootout_test_step`) and needed a
     #: name for what follows it -- the roll used to call
-    #: `D12Ball.continue_shootout` from inside a view. It is the loop's
+    #: `d12ball.flow.periods.continue_shootout` from inside a view. It is the loop's
     #: from the moment it exists: `d12ball.flow.periods.continue_shootout`
     #: is already a step, and what the cog wrapper added was
     #: `post_blocks_then_dispatch`, which is now a row in the

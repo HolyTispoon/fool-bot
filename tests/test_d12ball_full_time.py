@@ -52,6 +52,7 @@ from d12ball.game import (
 )
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_full_image_links
+from cog_steps import end_period, finish_maneuver_resolution
 
 
 def build_cog() -> D12Ball:
@@ -164,7 +165,7 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
     async def resolve(self, cog, game, match, **kwargs):
         interaction = build_interaction()
         with suppressed_cog_saves(), suppressed_full_image_links():
-            await cog.finish_maneuver_resolution(
+            await finish_maneuver_resolution(cog, 
                 interaction, game, match, **kwargs,
             )
         return interaction
@@ -262,7 +263,7 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = build_interaction()
         with suppressed_cog_saves():
-            await cog.end_period(interaction, game, match)
+            await end_period(cog, interaction, game, match)
 
         self.assertEqual(match.scoreboard.period, MatchPeriod.SECOND_HALF)
         self.assertEqual(match.scoreboard.time, 16)
@@ -555,7 +556,7 @@ class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.end_period(interaction, game, match)
+            await end_period(cog, interaction, game, match)
 
         self.assertTrue(game.is_finished)
         self.assertEqual(game.rematch_message_id, 999)
@@ -582,7 +583,7 @@ class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.end_period(interaction, game, match)
+            await end_period(cog, interaction, game, match)
 
         cog.render_match_png.assert_awaited_once()
         cog.match_file_from_png.assert_called_once_with(game, b"png")

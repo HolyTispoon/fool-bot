@@ -92,7 +92,7 @@ def end_period(
     **The whistle is its own message and so is everything after it.**
     This step carries straight on into halftime or into the full-time
     window rather than naming either as a follow-on, and hands back a
-    *list* of narration blocks -- which `D12Ball.end_period` posts one
+    *list* of narration blocks -- which `d12ball.flow.periods.end_period` posts one
     message apiece through `post_blocks_then_dispatch`. Batching is the
     frontend's (principle 8); what the model settles is what was said
     and in what order.
@@ -695,7 +695,7 @@ def begin_shootout(
     anywhere to press.
 
     The explainer is its own message, which is why
-    `D12Ball.begin_shootout` posts it rather than carrying it into the
+    `d12ball.flow.periods.begin_shootout` posts it rather than carrying it into the
     order prompt: what the shootout is and whose turn it is to answer
     are two things to read.
     """

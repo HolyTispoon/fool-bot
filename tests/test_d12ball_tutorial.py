@@ -60,6 +60,7 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
+from cog_steps import begin_substitution_window, finish_setup_coaching
 
 
 CATALOG = load_player_catalog()
@@ -471,7 +472,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
                 mock.patch.object(
                     MatchState, "deploy_side", counting_deploy):
 
-            await cog.finish_setup_coaching(
+            await finish_setup_coaching(cog, 
                 build_interaction(recorder),
                 game,
                 cog.engine.load_match_state(game),
@@ -1030,7 +1031,7 @@ class TutorialCoachingNoteTests(unittest.IsolatedAsyncioTestCase):
         interaction.followup.send = recorder
         interaction.channel.send = recorder
         with suppressed_cog_saves():
-            await cog.begin_substitution_window(
+            await begin_substitution_window(cog, 
                 interaction, game, match, side,
             )
         return posted

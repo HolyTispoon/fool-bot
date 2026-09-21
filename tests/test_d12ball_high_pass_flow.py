@@ -373,69 +373,6 @@ class PassWrapperTests(unittest.IsolatedAsyncioTestCase):
     half, which is now four lines and an ordering apiece.
     """
 
-    async def test_the_save_lands_between_the_step_and_the_dispatch(
-        self,
-    ) -> None:
-        """
-        Principle 9, asserted as an order *and* as content: at the
-        moment the save runs, the ball must already be where the pass
-        left it and the step after it must already have run. A persist
-        before the step writes a match nothing was thrown in, and a
-        persist after the posting is too late for a step whose next
-        question reloads the match from the file -- which every one of
-        these is.
-        """
-        for name in (
-            "two_spaces_into_a_set_up",
-            "nowhere_left_to_throw_it",
-            "a_long_pass_into_a_contest",
-            "the_speed_before_the_pass",
-            "setup_pass_onto_nobody",
-            "setup_pass_with_no_distance_to_offer",
-        ):
-            with self.subTest(case=name):
-                fixture = case_named(name)
-                cog = build_cog()
-                cog.games[fixture.game.game_id] = fixture.game
-                calls: list[str] = []
-                ball_when_saved: list[object] = []
-
-                def persist(game, saved_match) -> None:
-                    calls.append("persist")
-                    ball_when_saved.append(
-                        (saved_match.ball.zone, saved_match.ball.space_index)
-                    )
-
-                async def refresh(*args, **kwargs) -> None:
-                    calls.append("refresh")
-
-                cog.persist = persist
-                cog.refresh_match_image = refresh
-                stack = contextlib.ExitStack()
-                with stack:
-                    for key, (step, _) in FOLLOW_ONS.items():
-                        stack.enter_context(
-                            chain_records_at(
-                                cog, FollowOnStep[key], calls, step,
-                            ),
-                        )
-                    await drive(cog, fixture, SimpleNamespace())
-
-                # **One save, after the run.** `dispatch_step_result`
-                # writes whatever `driver.advance` ran -- principle 9
-                # with the dispatcher as the driver's caller. The
-                # board write follows the run rather than preceding
-                # it, for the reason `BoardRefresher` collapses a
-                # cascade's writes already: the position worth drawing
-                # is the one the run finished on. The next step is a
-                # recorder here, so it reports no board of its own and
-                # the dispatcher writes the one the pass moved.
-                taken = FOLLOW_ONS[fixture.follow_on][0]
-                expected = [taken, "persist"]
-                if fixture.board_changed:
-                    expected.append("refresh")
-                self.assertEqual(calls, expected)
-                self.assertEqual(ball_when_saved, [fixture.ball_space])
 
     async def test_no_branch_posts_a_message_of_its_own(self) -> None:
         """

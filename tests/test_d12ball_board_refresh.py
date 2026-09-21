@@ -28,6 +28,7 @@ from cogs.d12ball_boards import (
     LOGGER,
     BoardRefresher,
 )
+from cog_steps import board_refresh_interval, settle_board_link
 
 
 class FakeAttachment:
@@ -501,7 +502,7 @@ class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _, _ = self.build()
 
         self.assertEqual(
-            cog.board_refresh_interval(game), BOARD_REFRESH_INTERVAL,
+            board_refresh_interval(cog, game), BOARD_REFRESH_INTERVAL,
         )
 
     async def test_each_refusal_doubles_the_window(self) -> None:
@@ -510,7 +511,7 @@ class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
         widths = []
         for _ in range(3):
             await cog.refresh_match_image(interaction, game)
-            widths.append(cog.board_refresh_interval(game))
+            widths.append(board_refresh_interval(cog, game))
             # Let the next one through the window rather than the
             # backoff, so what is being measured is the backoff alone.
             cog.boards.state(game.game_id).refreshed_at -= widths[-1] + 1
@@ -526,7 +527,7 @@ class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
         cog.boards.state(game.game_id).writes_refused = 40
 
         self.assertEqual(
-            cog.board_refresh_interval(game), BOARD_REFRESH_BACKOFF_CEILING,
+            board_refresh_interval(cog, game), BOARD_REFRESH_BACKOFF_CEILING,
         )
 
     async def test_a_write_that_lands_clears_the_backoff(self) -> None:
@@ -538,13 +539,13 @@ class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
         # Discord lets the next one through.
         channel.message = FakeMessage()
         cog.boards.state(game.game_id).refreshed_at -= (
-            cog.board_refresh_interval(game) + 1
+            board_refresh_interval(cog, game) + 1
         )
         await cog.refresh_match_image(interaction, game)
 
         self.assertEqual(cog.boards.state(game.game_id).writes_refused, 0)
         self.assertEqual(
-            cog.board_refresh_interval(game), BOARD_REFRESH_INTERVAL,
+            board_refresh_interval(cog, game), BOARD_REFRESH_INTERVAL,
         )
 
     async def test_the_widened_window_actually_holds_a_refresh_back(
@@ -697,7 +698,7 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
         # put back and spends no request finding that out.
         cog, game, channel, interaction = self.build()
 
-        await cog.settle_board_link(channel, game)
+        await settle_board_link(cog, channel, game)
 
         self.assertEqual(channel.message.edits, 0)
 

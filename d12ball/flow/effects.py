@@ -1244,7 +1244,7 @@ def deflection_step(
     # space is a loose ball (each side may send someone); a space only
     # one side occupies is theirs outright, with no send offered to the
     # other; a space both occupy is a contest between the players
-    # already there. See `D12Ball.begin_loose_ball`.
+    # already there. See `d12ball.flow.arrivals.begin_loose_ball`.
     #
     # A deflection's time cost is a fixed 1 space minute per the rules
     # table, not "distance traveled" like Low/High Pass, so this
@@ -1314,7 +1314,7 @@ def send_ball_out_of_play(match: MatchState) -> str:
     Pass with nowhere left to throw it, and a Setup Pass with nowhere
     to pick it out to. They say different things about how they got
     here, which is why the sentence is each branch's and only the
-    state is shared. See `D12Ball.begin_run_back`'s `new_play`: this
+    state is shared. See `d12ball.flow.turnovers.begin_run_back`'s `new_play`: this
     is the fourth of the four call sites that open one, and it is one
     for the same reason the other three are -- the ball went dead
     rather than being taken off anybody.
@@ -1689,7 +1689,7 @@ def setup_pass_step(
     """
     offense_side = match.ball.possession
     # Applied, so the continuation is spent -- see
-    # `D12Ball.continue_effect` for why it survived until now.
+    # `d12ball.flow.effects.continue_effect` for why it survived until now.
     match.pending_effect_continuation = None
     actual_distance = match.move_ball_relative(offense_side, distance)
     receivers = engine.high_pass_receiver_candidates(match, offense_side)
@@ -1774,7 +1774,7 @@ def setup_pass_out_step(match: MatchState) -> StepResult:
     `setup_pass_step`, which leaves the ball lying there.
 
     Two things reach it: the menu with no distance to offer
-    (`D12Ball.offer_setup_pass_distance`) and the stale click that
+    (`d12ball.flow.effects.offer_setup_pass_distance`) and the stale click that
     picks a 0 nobody is standing on, which is why it is its own step
     rather than a branch of the pass.
     """

@@ -14,6 +14,19 @@ Phase 0, the seam Phase 1 cut, the write side Phase 2 opened, the loop Phase
 is kept because the *ordering* decisions it records are rules a second
 frontend has to keep, not because the phases are still open.
 
+## Read this first: what the game service changed
+
+The model's half of this note is current. The Discord half is not:
+`dispatch_step_result` no longer runs the loop, `post_then_dispatch`,
+`post_blocks_then_dispatch`, `post_stop`, `run_step`, `SafeView.answer`
+and `dispatch_answer` are gone, and no view saves. Every click goes
+through `GameService.apply_action` (`gamesaves/d12ball/service.py`),
+which runs the driver and saves once, and `D12Ball.present` renders the
+`GameResult` it hands back. Where this note describes the cog running
+the chain, saving per stop, or a view writing before it edits, read
+[game-service.md](game-service.md) for what stands now; the reasoning
+recorded here for *why* the seam is where it is has not changed.
+
 ## `d12ball/prompts.py`
 
 **Is the seam, in the one place it was cheapest to cut.** `pending_prompt`

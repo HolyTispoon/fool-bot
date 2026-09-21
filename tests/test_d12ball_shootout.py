@@ -43,6 +43,7 @@ from d12ball.flow import FollowOnStep
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
 from flow_stubs import chain_stops_at
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+from cog_steps import apply_substitution, begin_full_time_coaching, begin_shootout, continue_shootout, end_period, finish_substitution_window, resume_pending_prompt
 
 
 def by_role(match: MatchState, side: TeamSide) -> list[str]:
@@ -411,7 +412,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.end_period(interaction, game, match)
+            await end_period(cog, interaction, game, match)
 
         # The game is not over: it is the shootout that ends it, and
         # one substitution a side comes before the shooting starts.
@@ -439,7 +440,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.end_period(interaction, game, match)
+            await end_period(cog, interaction, game, match)
 
         reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.exhaustion.get(tired), 4)
@@ -454,7 +455,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.end_period(interaction, game, match)
+            await end_period(cog, interaction, game, match)
 
         self.assertTrue(game.is_finished)
         self.assertFalse(match.pending_shootout)
@@ -473,7 +474,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.begin_shootout(interaction, game, match)
+            await begin_shootout(cog, interaction, game, match)
 
         self.assertTrue(match.shootout_order_complete(TeamSide.VISITING))
         self.assertFalse(match.shootout_order_complete(TeamSide.HOME))
@@ -583,7 +584,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
 
         with suppressed_cog_saves():
-            await cog.begin_full_time_coaching(
+            await begin_full_time_coaching(cog, 
                 build_interaction(), game, match,
             )
             self.assertEqual(match.pending_coaching_side, "home")
@@ -592,13 +593,13 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(match.pending_shootout)
 
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
             self.assertEqual(match.pending_coaching_side, "visiting")
             self.assertFalse(match.pending_shootout)
 
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
 
@@ -613,7 +614,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         match.half_substitutions_used = {"home": 2}
 
         with suppressed_cog_saves():
-            await cog.begin_full_time_coaching(
+            await begin_full_time_coaching(cog, 
                 build_interaction(), game, match,
             )
 
@@ -623,7 +624,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
                 "1 left before the shootout",
             )
 
-            cog.apply_substitution(
+            apply_substitution(cog, 
                 game,
                 match,
                 TeamSide.HOME,
@@ -643,7 +644,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
 
         with suppressed_cog_saves():
-            await cog.begin_full_time_coaching(
+            await begin_full_time_coaching(cog, 
                 build_interaction(), game, match,
             )
 
@@ -677,7 +678,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves():
-            await cog.begin_full_time_coaching(
+            await begin_full_time_coaching(cog, 
                 build_interaction(), game, match,
             )
 
@@ -701,13 +702,13 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         match.board.place_meeple(strayed, zone, 1 - space)
 
         with suppressed_cog_saves():
-            await cog.begin_full_time_coaching(
+            await begin_full_time_coaching(cog, 
                 build_interaction(), game, match,
             )
             self.assertEqual(
                 match.board.meeple_position(strayed), (zone, 1 - space),
             )
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
 
@@ -719,18 +720,18 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
 
         with suppressed_cog_saves():
-            await cog.begin_full_time_coaching(
+            await begin_full_time_coaching(cog, 
                 build_interaction(), game, match,
             )
             outgoing = match.home.field_players[0]
             incoming = match.home.team_board.bench[0]
-            cog.apply_substitution(
+            apply_substitution(cog, 
                 game, match, TeamSide.HOME, outgoing, incoming,
             )
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
-            await cog.finish_substitution_window(
+            await finish_substitution_window(cog, 
                 build_interaction(), game, match,
             )
 
@@ -743,7 +744,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
 
         with suppressed_cog_saves():
-            await cog.begin_full_time_coaching(
+            await begin_full_time_coaching(cog, 
                 build_interaction(), game, match,
             )
 
@@ -765,7 +766,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves():
-            where = await cog.resume_pending_prompt(
+            where = await resume_pending_prompt(cog, 
                 build_interaction(222), game, cog.engine.load_match_state(game),
             )
 
@@ -787,9 +788,9 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await cog.begin_full_time_coaching(interaction, game, match)
+            await begin_full_time_coaching(cog, interaction, game, match)
             self.assertEqual(match.pending_coaching_side, "home")
-            await cog.finish_substitution_window(interaction, game, match)
+            await finish_substitution_window(cog, interaction, game, match)
 
         self.assertNotIn(hurt, match.visiting.field_players)
         self.assertTrue(match.pending_shootout)
@@ -967,7 +968,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         # Nothing scored, so the roll's continuation is the one the
         # injury queue would have made.
         with suppressed_cog_saves():
-            await cog.continue_shootout(
+            await continue_shootout(cog, 
                 interaction, game, cog.engine.load_match_state(game),
             )
 
