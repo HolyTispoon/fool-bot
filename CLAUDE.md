@@ -63,6 +63,7 @@ python3 -m unittest discover -s tests
 | `docs/rules-log.md` | Every rules change, dated and sourced; what is still open; where upstream is behind |
 | `docs/gambit-matrix.md` | The worksheet the gambits were built from, cut to what is still open. **Nothing in it is a rule** |
 | `docs/tts-module.md` | The worksheet the Tabletop Simulator module is being built from -- the four decisions already taken, the five phases and the in-TTS stop each ends on, what the convenience scripts may and may not do. **Nothing in it is a rule** |
+| `docs/web-app.md` | The worksheet the web app is being built from -- the split reviewed against a second frontend (sixteen findings, three reproduced through `driver.answer`, each marked with where it stands on the migration), the nine decisions taken in its review, and what each migration step owes the web app that `docs/architecture-migration.md` does not spell out. **Nothing in it is a rule** |
 | `docs/rulebooks/` | The worksheet the two rulebooks are built from -- the plan, the Charter and Learn to Play outlines, and the committed figure sketches. **Nothing in it is a rule** |
 | `ARCHITECTURE.md` | **The target architecture**: four parts (model, `GameService`, Discord frontend, web frontend), the shared `GameResult`, what to remove and the migration order. A change under `d12ball/`, `gamesaves/d12ball/` or `cogs/` is reviewed against it |
 | `docs/architecture-migration.md` | The worksheet the migration to `ARCHITECTURE.md` is being done from -- what did not conform on 2026-09-21, and the ten steps in order. **Nothing in it is a rule** |
@@ -131,8 +132,9 @@ is in [docs/design/model-discord-split.md](docs/design/model-discord-split.md).
 **The split is done**: `d12ball/flow/driver.py` runs every step of a turn
 and answers every prompt, the cog is a frontend over it, and
 `tests/test_driver_full_game.py` plays a whole game with no frontend
-imported. What is *not* done is the web app itself, which has no
-worksheet yet.
+imported. What is *not* done is the web app itself; its worksheet is
+[docs/web-app.md](docs/web-app.md), which opens with what the split
+still lets through.
 
 1. **The model may not import `discord`, and may not be `async`.** Both
    halves matter. No-discord is the obvious one; not-async is the one that
