@@ -30,7 +30,7 @@ from __future__ import annotations
 import random
 import unittest
 
-from d12ball.components import MatchState
+from d12ball.components import MatchState, TeamSide
 from d12ball.flow import driver
 from d12ball.prompts import PromptKind, pending_prompt
 
@@ -78,6 +78,29 @@ def _loose_ball_pick(fixture: PromptFixture) -> tuple[str, dict]:
 def _shooter_choice(fixture: PromptFixture) -> tuple[str, dict]:
     prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
     return "", {"shooter_id": prompt.player_ids[0]}
+
+
+def _shootout_order(fixture: PromptFixture) -> tuple[str, dict]:
+    match = fixture.match
+    side = next(
+        side for side in TeamSide
+        if match.shootout_order_remaining(side)
+    )
+    return "send", {
+        "side": side,
+        "player_id": match.shootout_order_remaining(side)[0],
+    }
+
+
+def _shootout_pick(fixture: PromptFixture) -> tuple[str, dict]:
+    match = fixture.match
+    side = next(
+        side for side in TeamSide if match.shootout_shooter(side) is None
+    )
+    return "", {
+        "side": side,
+        "player_id": match.shootout_eligible(side)[0],
+    }
 
 
 def _player_action(fixture: PromptFixture) -> tuple[str, dict]:
@@ -186,6 +209,8 @@ LEGAL_ACTIONS = {
     PromptKind.SHOOTOUT_TEST: lambda fixture: ("", {}),
     PromptKind.INJURY_TEST: lambda fixture: ("", {}),
     PromptKind.PLAYER_ACTION: _player_action,
+    PromptKind.SHOOTOUT_ORDER: _shootout_order,
+    PromptKind.SHOOTOUT_PICK: _shootout_pick,
     PromptKind.MANEUVER_CHALLENGE: _maneuver_challenge,
     PromptKind.MANEUVER_ACTION: _maneuver_action,
     PromptKind.MIND_PULL: lambda fixture: ("take", {}),
@@ -291,11 +316,13 @@ class LegalActionTests(ApplyFixture):
             with self.subTest(case.name):
                 fixture = case.build()
                 before = fixture.match.to_dict()
+                other = (
+                    PromptKind.SHOOTOUT_PICK
+                    if kind is not PromptKind.SHOOTOUT_PICK
+                    else PromptKind.PLAYER_ACTION
+                )
                 driver.apply(
-                    ENGINE,
-                    fixture.game,
-                    fixture.match,
-                    driver.Action(PromptKind.SHOOTOUT_PICK),
+                    ENGINE, fixture.game, fixture.match, driver.Action(other),
                 )
                 self.assertEqual(fixture.match.to_dict(), before)
 
@@ -337,10 +364,12 @@ class ChoiceTests(ApplyFixture):
         refused by the position and that is the right outcome: a side
         with somebody standing on the ball contests it and cannot be
         held back, so "decline" on that loose ball is a refusal with a
-        rule behind it. What this asserts is that it is *that*
-        refusal and not "that is not one of the answers this question
-        offers", which would mean the choice never reached an answer
-        at all.
+        rule behind it. Nor "both halves change the match": clearing a
+        shooting order nobody has started is a legal answer that leaves
+        the position exactly as it was, the way the run back's "who
+        runs" pick does. What this asserts is that every offered choice
+        reaches a real answer -- a refusal here has to be a rule, and
+        never "that is not one of the answers this question offers".
         """
         unknown = "That is not one of the answers this question offers."
         for case, kind in _answerable_cases():
@@ -365,7 +394,7 @@ class ChoiceTests(ApplyFixture):
                         self.assertNotEqual(run.reason, unknown)
                         self.assertEqual(fixture.match.to_dict(), before)
                         continue
-                    self.assertNotEqual(fixture.match.to_dict(), before)
+                    self.assertIsInstance(run, driver.DriverRun)
 
 
 class PositionRefusalTests(ApplyFixture):

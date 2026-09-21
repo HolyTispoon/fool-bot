@@ -15,6 +15,11 @@ from d12ball.components import (
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.flow import StepResult
+from d12ball.flow.periods import (
+    restart_shootout_order_step,
+    shootout_order_step,
+    shootout_pick_step,
+)
 from d12ball.flow.rolls import shootout_test_step
 from d12ball.game import D12BallGame
 from cogs.d12ball_helpers import format_team_side_label, send_new_prompt
@@ -264,21 +269,22 @@ class ShootoutOrderSelectView(SafeView):
             return
         game, match = loaded
 
-        if match.shootout_order_complete(self.side):
+        # **The rule is
+        # `d12ball.flow.periods.restart_shootout_order_step`** since
+        # Phase 6: an order cannot be changed once it is complete.
+        try:
+            result = restart_shootout_order_step(
+                self.cog.engine, game, match, side=self.side,
+            )
+        except ValueError as error:
             await interaction.response.edit_message(
-                content=(
-                    "Your order is already set, and an order cannot be "
-                    "changed once it is."
-                ),
-                view=None,
+                content=str(error), view=None,
             )
             return
 
-        match.clear_shootout_order(self.side)
         self.cog.persist(game, match)
-
         await interaction.response.edit_message(
-            content=self.cog.shootout_order_text(game, match, self.side),
+            content=result.narration[0],
             view=ShootoutOrderSelectView(self.cog, self.game_id, self.side),
         )
 
@@ -292,8 +298,16 @@ class ShootoutOrderSelectView(SafeView):
             return
         game, match = loaded
 
+        # **The rule is `d12ball.flow.periods.shootout_order_step`**
+        # since Phase 6: adding to the order, whether it is settled,
+        # and what to do once both sides' are. What is left here is
+        # that the order goes back on this coach's own menu and the
+        # line saying it is set goes to the channel.
         try:
-            match.add_to_shootout_order(self.side, player_id)
+            result = shootout_order_step(
+                self.cog.engine, game, match,
+                side=self.side, player_id=player_id,
+            )
         except ValueError as error:
             # A click on a stale copy of the menu -- a coach who
             # scrolled back, or one restored after a restart.
@@ -316,7 +330,7 @@ class ShootoutOrderSelectView(SafeView):
 
         settled = match.shootout_order_complete(self.side)
         await interaction.response.edit_message(
-            content=self.cog.shootout_order_text(game, match, self.side),
+            content=result.narration[0],
             view=(
                 None
                 if settled
@@ -329,15 +343,20 @@ class ShootoutOrderSelectView(SafeView):
         if not settled:
             return
 
-        await send_new_prompt(
-            interaction,
-            f"{format_team_side_label(match.setup_for_side(self.side))} "
-            "has set their shooting order.",
-        )
+        await send_new_prompt(interaction, result.narration[1])
 
         if match.shootout_orders_complete:
             await self.cog.close_shootout_prompt(interaction, game)
-            await self.cog.advance_shootout(interaction, game, match)
+            await self.cog.post_blocks_then_dispatch(
+                interaction,
+                game,
+                match,
+                StepResult(
+                    narration=result.narration[2:],
+                    board_changed=result.board_changed,
+                    next=result.next,
+                ),
+            )
 
 
 class ShootoutPickPromptView(ShootoutView):
@@ -449,15 +468,16 @@ class ShootoutPickSelectView(SafeView):
             )
             return
 
-        if match.shootout_shooter(self.side) is not None:
-            await interaction.response.edit_message(
-                content="You have already chosen your shooter.",
-                view=None,
-            )
-            return
-
+        # **The rule is `d12ball.flow.periods.shootout_pick_step`**
+        # since Phase 6, refusing a second pick included. The two lines
+        # it hands back are what this coach is told and what the
+        # channel is told, which are two messages and therefore this
+        # view's to place.
         try:
-            match.set_shootout_shooter(self.side, player_id)
+            result = shootout_pick_step(
+                self.cog.engine, game, match,
+                side=self.side, player_id=player_id,
+            )
         except ValueError as error:
             await interaction.response.edit_message(
                 content=str(error),
@@ -467,23 +487,24 @@ class ShootoutPickSelectView(SafeView):
 
         self.cog.persist(game, match)
 
-        player = self.cog.engine.get_player_definition(player_id)
         await interaction.response.edit_message(
-            content=(
-                "You send out "
-                f"{self.cog.player_label(match, player)}."
-            ),
+            content=result.narration[0],
             view=None,
         )
-        await send_new_prompt(
-            interaction,
-            f"{format_team_side_label(match.setup_for_side(self.side))} "
-            "has chosen their shooter.",
-        )
+        await send_new_prompt(interaction, result.narration[1])
 
         if match.shootout_shooters_complete:
             await self.cog.close_shootout_prompt(interaction, game)
-            await self.cog.advance_shootout(interaction, game, match)
+            await self.cog.post_blocks_then_dispatch(
+                interaction,
+                game,
+                match,
+                StepResult(
+                    narration=result.narration[2:],
+                    board_changed=result.board_changed,
+                    next=result.next,
+                ),
+            )
 
 
 class ShootoutTestView(ShootoutView):

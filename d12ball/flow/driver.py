@@ -68,7 +68,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Optional, Union
 
-from d12ball.components import MatchState
+from d12ball.components import MatchState, TeamSide
 from d12ball.engine import RulesEngine
 from d12ball.flow import (
     arrivals,
@@ -657,6 +657,51 @@ def _answer_smooth(
     )
 
 
+def _answer_shootout_order(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    side: TeamSide,
+    player_id: Optional[str] = None,
+) -> StepResult:
+    """
+    One name added to a side's shooting order, or the order cleared to
+    start again.
+
+    **`side` is the action's and not the prompt's**, and this is the
+    second place that is right (the maneuver pick is the first): both
+    sides are asked at once and each answers on their own ephemeral
+    menu, so which side a click is for is part of what was clicked.
+    Who may click it is `SafeView`'s, as always.
+    """
+    if choice == "restart":
+        return periods.restart_shootout_order_step(
+            engine, game, match, side=side,
+        )
+    return periods.shootout_order_step(
+        engine, game, match, side=side, player_id=player_id,
+    )
+
+
+def _answer_shootout_pick(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    side: TeamSide,
+    player_id: str,
+) -> StepResult:
+    """Which of a side's remaining players shoots this round."""
+    return periods.shootout_pick_step(
+        engine, game, match, side=side, player_id=player_id,
+    )
+
+
 def _answer_player_action(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1044,6 +1089,8 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.SMOOTH: _answer_smooth,
     PromptKind.OWN_GOAL_ROLL: _answer_own_goal_roll,
     PromptKind.PLAYER_ACTION: _answer_player_action,
+    PromptKind.SHOOTOUT_ORDER: _answer_shootout_order,
+    PromptKind.SHOOTOUT_PICK: _answer_shootout_pick,
     PromptKind.MANEUVER_CHALLENGE: _answer_maneuver_challenge,
     PromptKind.MANEUVER_ACTION: _answer_maneuver_action,
     PromptKind.INJURY_TEST: _answer_injury_test,
@@ -1077,6 +1124,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.MIND_PULL: ("take", "decline"),
     PromptKind.MANEUVER_CHALLENGE: ("send", "decline"),
     PromptKind.PLAYER_ACTION: ("shoot", "maneuver"),
+    PromptKind.SHOOTOUT_ORDER: ("send", "restart"),
     PromptKind.SCORE_ATTEMPT: ("roll", "back"),
 }
 

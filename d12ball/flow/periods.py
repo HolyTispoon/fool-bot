@@ -765,6 +765,104 @@ def ask_shootout_shooters(
     )
 
 
+def shootout_order_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    side: TeamSide,
+    player_id: str,
+) -> StepResult:
+    """
+    Add one player to a side's shooting order.
+
+    **The order as it stands is the first narration block**, because a
+    frontend puts it back on the menu a coach is still filling in, and
+    **the line saying the order is set is the second** -- that one is
+    public, since both sides watch for it. A side still choosing says
+    only the first.
+
+    `MatchState.add_to_shootout_order` refuses a stale click -- a coach
+    who scrolled back, or a menu restored after a restart -- and the
+    refusal is left to propagate, as everywhere else.
+
+    It ends on `advance_shootout` once *both* sides have answered,
+    which is the one reading of what a shootout is waiting on.
+    """
+    match.add_to_shootout_order(side, player_id)
+    narration = [shootout_order_text(engine, game, match, side)]
+    if not match.shootout_order_complete(side):
+        return StepResult(narration=narration)
+
+    narration.append(
+        f"{format_team_side_label(match.setup_for_side(side))} "
+        "has set their shooting order."
+    )
+    if not match.shootout_orders_complete:
+        return StepResult(narration=narration)
+    result = advance_shootout(engine, game, match)
+    result.narration[:0] = narration
+    return result
+
+
+def restart_shootout_order_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    side: TeamSide,
+) -> StepResult:
+    """
+    Clear a side's shooting order so they can build it again.
+
+    **An order cannot be changed once it is complete**, and that is the
+    whole of the rule here: up to then it is a draft, and after it the
+    other side may already have read it.
+    """
+    if match.shootout_order_complete(side):
+        raise ValueError(
+            "Your order is already set, and an order cannot be "
+            "changed once it is."
+        )
+    match.clear_shootout_order(side)
+    return StepResult(
+        narration=[shootout_order_text(engine, game, match, side)],
+    )
+
+
+def shootout_pick_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    side: TeamSide,
+    player_id: str,
+) -> StepResult:
+    """
+    Send one side's shooter out for this round.
+
+    Two blocks, the same way the order's are: what *this* coach is
+    told, which is secret until both have answered, and the public line
+    saying they have answered. It ends on `advance_shootout` once both
+    have.
+    """
+    if match.shootout_shooter(side) is not None:
+        raise ValueError("You have already chosen your shooter.")
+
+    match.set_shootout_shooter(side, player_id)
+    player = engine.get_player_definition(player_id)
+    narration = [
+        f"You send out {engine.format_player_label(match, player)}.",
+        f"{format_team_side_label(match.setup_for_side(side))} "
+        "has chosen their shooter.",
+    ]
+    if not match.shootout_shooters_complete:
+        return StepResult(narration=narration)
+    result = advance_shootout(engine, game, match)
+    result.narration[:0] = narration
+    return result
+
+
 def reveal_shootout_test(
     engine: RulesEngine,
     game: D12BallGame,
