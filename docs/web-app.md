@@ -2,29 +2,93 @@
 
 **This is a worksheet, not a specification.** It is the review of the
 model/Discord split read against the thing the split was for -- a
-second frontend, a web app, over the same model as the bot -- and the
-plan that falls out of it, in the shape the split's own worksheet had:
-what was found at the top, what is proposed under it with the open
-questions marked, phases that each end on a stop a person can check,
-and the answered parts cut as they land. When the web app ships, what
-survives of this moves to `docs/design/web-app.md` and this file goes.
-**Nothing in it is a rule.**
+second frontend, a web app, over the same model as the bot -- and what
+that review adds to the plan in
+[docs/architecture-migration.md](architecture-migration.md), which is
+the order the work runs in. [ARCHITECTURE.md](../ARCHITECTURE.md) is
+the target both are held to. The decisions already taken are at the
+top so nobody re-opens them; the findings are below with where each
+now stands; the phases are the migration's own steps with the stop
+each ends on. When the web app ships, what survives of this moves to
+`docs/design/web-app.md` and this file goes. **Nothing in it is a
+rule.**
 
 The standard everything below is held to is CLAUDE.md's "The model and
-the Discord layer", principles 1 through 10, and the last of them in
-particular: *the web app may not reach past the flow*. Where the
-review found a rule a web app would have to copy, that is a finding
-against the split, whether or not the bot plays correctly today.
+the Discord layer", and the last of its principles in particular:
+*the web app may not reach past the flow*. Where the review found a
+rule a web app would have to copy, that is a finding against the
+split, whether or not the bot plays correctly today.
+
+## Decided, 2026-09-21
+
+Settled in review of PR #263, read against the
+`architecture-simplification` branch (PR #264), where steps 1 to 4 of
+the migration had landed: `GameService` as the one door, one save per
+click, `D12Ball.present` as the one presenter, every view through
+`SafeView.apply`, and the dead wrappers gone, with the three goldens
+byte-identical.
+
+1. **"Asked" and "owed" are two functions.** `pending_prompt` is what
+   a frontend asks; `owed_step(engine, game, match)` is what the
+   service runs. `GameService.resume` already has the second one's
+   shape, written as a ladder; the work is replacing the ladder's
+   body with `owed_step` and reading it from `apply_action` too, so an
+   action is refused while a step is owed. Putting a step inside a
+   `PendingPrompt` would make a view know not to render it.
+2. **`PendingPrompt.options` is a per-kind dataclass**, not a flat
+   list. The hub has four lists and a formation menu; a flat list of
+   strings would hand the model's structure back to the frontend to
+   parse. `GameResult.prompt` carries the prompt, so a web page gets
+   the options in the same response as the narration.
+3. **The Discord ids on `D12BallGame` become optional**, in their own
+   commit under principle 6. `Optional[int] = None` on `guild_id`,
+   `channel_id` and `message_id` reads as absent on every existing
+   save. A web game needs a record with no channel, and the startup
+   sweep cannot be handed a fake one forever.
+4. **Narration emits tokens, and the goldens record tokens.**
+   `{coach:home}`, `{team:purple}`, `{role:fullback:purple}` and the
+   like; rendered once, in `D12Ball.present` / `render_prompt`, the
+   way a `PromptKind` is rendered into a view -- not in each view. The
+   goldens pin the model's voice, so they pin the tokens.
+5. **One process, one service, a per-game lock.** Both frontends call
+   one `GameService` over one `games` dict in one process. The service
+   is synchronous and the bot is one event loop, so a
+   `dict[game_id, asyncio.Lock]` held by whoever owns the loop, taken
+   around `apply_action` plus `present`, is enough; the web app in the
+   same process shares it. A shared store with per-game rows is the
+   day the web app has to outlive a bot restart, and not before.
+6. **Setup and the lobby are service methods, not prompt kinds.**
+   `create_game`, `pick_team` (with the AI's draw), `flip_coin` (with
+   the coin), `choose_home_or_visiting` (with Dinky's answer) and
+   `start_game` on `GameService`; the `random.choice` calls and
+   `initialize_standard_match` move with them; the setup views call
+   them. ARCHITECTURE.md says so in as many words: lobby operations
+   do not pass through the turn driver.
+7. **The `Random` is the engine's, or the match's, never the
+   service's.** `GameService` constructs nothing and rolls nothing;
+   one seedable `rng` per match through `RulesEngine` is what lets a
+   web process replay either of two games.
+8. **The AI chooses an `Action` through the same service**, and it is
+   a phase of its own with its own PR, because the goldens change: an
+   AI answer becomes a group of its own, worded by the adapter. It
+   waits on the author's word for how Dinky's turn should read.
+9. **The driver-side golden drives `GameService.apply_action`** with
+   the default `Batching()` and pins the `GameResult`s -- that is what
+   a web app inherits, where a golden through `driver.apply` alone
+   would miss the save and the stops.
 
 ## What the review found, 2026-09-21
 
-Read against `main` at 19350b6, the merge of the last phase. Four
-readings were made -- the driver and the prompts, the cog and the
+Read against `main` at 19350b6, the merge of the split's last phase.
+Four readings were made -- the driver and the prompts, the cog and the
 views, the model-side tests, and the infrastructure a second process
 would need -- and the three findings marked **confirmed** were
 reproduced by hand through `driver.answer` on the shared fixtures in
 `tests/prompt_fixtures.py`, with no cog imported. The rest are read
 off the code with file references; none is inferred from the docs.
+**Where each stands** is against the `architecture-simplification`
+branch, and is the part to keep current: strike a finding when the
+step that closes it lands.
 
 **Where the split holds.** Every in-turn click in the eight view
 modules that play a turn mutates only through `driver.answer`; the four
@@ -41,34 +105,36 @@ remainder.
 ### Errors
 
 1. **The model accepts a turn action while it still owes a step.**
-   *Confirmed.* `pending_prompt` answers `PLAYER_ACTION` for the three
-   "the bot's own next step" states its docstring names
-   (`d12ball/prompts.py`, the fallbacks for a run back with only
-   forced placements left, a ball recovery, an effect with no choice
-   in it). On the `run_back_finished` fixture,
+   *Confirmed. Open; migration step 5.* `pending_prompt` answers
+   `PLAYER_ACTION` for the three "the bot's own next step" states its
+   docstring names (`d12ball/prompts.py`, the fallbacks for a run back
+   with only forced placements left, a ball recovery, an effect with
+   no choice in it). On the `run_back_finished` fixture,
    `Action(PLAYER_ACTION, "maneuver")` is **Answered**: the maneuver
-   starts, `AUTO_RESOLVE_CHALLENGER` is named, and
-   `pending_run_back` is still set underneath. The design doc says a
-   turn action mid-cascade became a stale click in Phase 6; it did,
-   for every state where a *real* prompt reads ahead of it, and not
-   for the states where the fallback *is* the prompt. On Discord the
-   startup sweep posts that fallback view, so it is reachable after a
-   restart; `resume_pending_prompt` re-drives instead and never posts
-   it, which is why nobody has seen it.
-2. **Recovery is a second chain, and it mutates.**
-   `D12Ball.resume_pending_prompt` (`cogs/d12ball/turnovers.py`) reads
-   nine flags in an order of its own and hands each to a cog routine
-   -- `advance_shootout`, `advance_setup_stage`,
-   `advance_halftime_stage`, `advance_full_time_stage`,
-   `finish_time_out`, `continue_run_back`, `begin_ball_recovery` --
-   none of which is a `FollowOnStep`, so none is reachable from the
-   driver by name. Its docstring says nothing there changes the match;
-   every branch above the fall-through runs a step. This is finding 1
-   seen from the other side: the model has no answer for "nobody is
-   asked; run this", so the frontend keeps one. A web app copies it or
-   strands the same games a restart strands.
+   starts, `AUTO_RESOLVE_CHALLENGER` is named, and `pending_run_back`
+   is still set underneath. The design doc says a turn action
+   mid-cascade became a stale click in Phase 6; it did, for every
+   state where a *real* prompt reads ahead of it, and not for the
+   states where the fallback *is* the prompt. On Discord the startup
+   sweep posts that fallback view, so it is reachable after a restart;
+   `GameService.resume` re-drives instead and never posts it, which is
+   why nobody has seen it. This is what makes `apply_action` honest
+   for a web request arriving mid-cascade, and it is the first thing
+   left.
+2. **Recovery is a second chain, and it mutates.** *Half closed;
+   the rest is step 5.* On `main` it was
+   `D12Ball.resume_pending_prompt`, nine flags in an order of its own,
+   each handed to a cog routine that was not a `FollowOnStep`. On the
+   branch that is `GameService.resume`: the ladder runs each owed
+   branch itself through `run`, in the model's half, and the cog only
+   presents. What is *not* closed is the second copy of the ordering
+   -- the ladder still exists, it just moved. Decision 1 is what
+   removes it: the ladder's body becomes `owed_step`, read by
+   `pending_prompt`'s neighbour, and `apply_action` reads it too.
 3. **Four rules are enforced only by a disabled button, and the model
-   accepts the illegal answer.** *The first confirmed.*
+   accepts the illegal answer.** *The first confirmed. Open; migration
+   step 6, and "remove game-rule validation duplicated in Discord
+   callbacks" on the architecture's own list.*
    - The substitution allowance. `windows.apply_substitution` never
      asks `may_substitute`; the hub button does
      (`cogs/d12ball_views/coaching.py`). On the `coaching_hub` fixture
@@ -81,49 +147,60 @@ remainder.
      accepts it as a narrated no-op.
    - The shootout's `side`: the view resolves which side a click owes
      (`claim`); `_answer_shootout_order` takes the side as given.
-4. **`answer` can escape as a bare exception.** *Confirmed.*
-   `_argument_mismatch` flags a missing argument only where the
-   adapter gives it no default, and several adapters default a
-   required argument to `None` and pass it into arithmetic: a hub
+   The migration worksheet adds a fifth of the same shape,
+   `may_decline_challenge`. The second and third are the one question
+   still open below: rules, or button conveniences.
+4. **`answer` can escape as a bare exception.** *Confirmed. Open;
+   with step 6.* `_argument_mismatch` flags a missing argument only
+   where the adapter gives it no default, and several adapters default
+   a required argument to `None` and pass it into arithmetic: a hub
    `reposition` with no `space_index` raises `TypeError` out of
    `MatchState.position_meeple`, and the `except ValueError` in
    `driver.answer` does not see it. The same net is also too wide:
    `TeamSide(side)` on a bad wire value comes back as a `Refusal`
    whose sentence is the interpreter's, shown to a person and
-   indistinguishable from a rule.
-5. **The skill test's settled path saves late.** `SkillTestView.roll`
-   answers, renders the dice, edits, posts the ignition, posts the
-   verdict, refreshes the board, and only then reaches the
-   dispatcher's save. A failed upload lets the next click roll again.
-   The tie branch saves early and says why; the design doc's own
-   "a fifth needs the same sentence" is this path.
-6. **Discord's mention syntax is generated inside the model.** Nine
-   sites build `<@{id}>` -- `prompts.py`, `formatting.py`, `engine.py`
-   and four flow modules -- and `D12BallGame.coin_winner_player_number`
-   reads a mention string back *as data* to find the coin winner. The
-   maneuver ask also describes Discord affordances as play ("only you
-   can see what you picked", the row colours), and two refusal
-   sentences say "the prompt at the bottom of the channel". A web app
-   renders every one of those verbatim, which is principle 5's "one
-   voice" failing in the other direction: the voice is right, and it
-   is speaking Discord.
+   indistinguishable from a rule. On the branch an exception out of
+   the middle of a step propagates through the service and the cog
+   catches `ValueError` and reports it, having saved what ran -- so
+   the escape is now a saved half-step rather than a lost one, which
+   is better and not right.
+5. ~~**The skill test's settled path saves late.**~~ *Closed by the
+   service, and it closed the whole class.* `apply_action` writes the
+   match before it returns, which is before any view has rendered
+   anything, so the settled path, the four load-bearing early saves
+   and the tie branches are all covered by the same line, and every
+   `cog.persist(` in the views is gone.
+6. **Discord's mention syntax is generated inside the model.** *Open;
+   migration step 9.* Nine sites build `<@{id}>` -- `prompts.py`,
+   `formatting.py`, `engine.py` and four flow modules -- and
+   `D12BallGame.coin_winner_player_number` reads a mention string back
+   *as data* to find the coin winner. The maneuver ask also describes
+   Discord affordances as play ("only you can see what you picked",
+   the row colours), and two refusal sentences say "the prompt at the
+   bottom of the channel". A web app renders every one of those
+   verbatim, which is principle 5's "one voice" failing in the other
+   direction: the voice is right, and it is speaking Discord. The
+   engine's four emoji dicts are the same finding with a different
+   mark, and are on the architecture's remove list by name.
 
 ### Gaps a web app would have to fill by copying
 
-7. **There is no model path from a lobby to kickoff.** The team pick,
+7. **There is no model path from a lobby to kickoff.** *Open;
+   migration step 8, as service methods (decision 6).* The team pick,
    the AI's team draw (`random.choice` in the view), the coin toss
    (`random.choice` in the view), home or visiting, the tutorial's
    "Dinky takes visiting", the pairing exclusions, which side a
    helper's pick lands on, the test game's shared coach,
    `initialize_standard_match` and the first `begin_setup_coaching`
    all live in `cogs/d12ball_views/setup.py`, `lobby.py` and
-   `slash_commands.py`, with no `PromptKind` and no `create_game`. The
-   startup sweep has its own reading of these states. `D12BallGame`
-   requires a guild id, a channel id and a message id to exist;
-   `tests/test_driver_full_game.py` fabricates all three.
+   `slash_commands.py`, with no service method. The startup sweep has
+   its own reading of these states. `D12BallGame` requires a guild id,
+   a channel id and a message id to exist; `tests/test_driver_full_game.py`
+   fabricates all three (decision 3 is the answer).
 8. **Option lists the prompt does not carry, and the model does not
-   expose.** The proof is `tests/test_driver_full_game.py`'s `Policy`,
-   which re-derives every one of these itself. Per kind:
+   expose.** *Open; the second half of step 6 (decision 2).* The proof
+   is `tests/test_driver_full_game.py`'s `Policy`, which re-derives
+   every one of these itself. Per kind:
    - `SPEED_DELTA_CHOICE`: the target list is computed inline in the
      driver *and* in the view, the view with a hard-coded 12 where
      the driver reads `BALL_SPEED_MAX`; the test policy holds a third
@@ -147,257 +224,197 @@ remainder.
    - The tutorial's rails: the driver refuses off them (`_rail`), but
      no prompt says which options are railed, so a second frontend
      asks `tutorial.resolve_choice` itself to grey the rest.
-9. **Three prompt kinds carry no `side`.** `COACHING_HUB`,
-   `COACHING_OFFER` and the shootout kinds are answered with a `side`
-   the frontend sends back, read off `pending_coaching_side` (the cog)
-   or resolved by `claim` (the shootout view). The design doc's own
-   warning applies: a frontend that has to send it back can send back
-   a different one. Finding 3's fourth item is what that costs.
-10. **No wire shape.** Only `FollowOn` has `to_dict`. `PendingPrompt`,
-    `Action`, `Refusal`, `StepResult`, `DriverRun`, `NarrationGroup`
-    and `Answered` have none; `DriverRun.detail` is `object`.
+9. **Three prompt kinds carry no `side`.** *Open; with 8.*
+   `COACHING_HUB`, `COACHING_OFFER` and the shootout kinds are
+   answered with a `side` the frontend sends back, read off
+   `pending_coaching_side` (the cog) or resolved by `claim` (the
+   shootout view). The design doc's own warning applies: a frontend
+   that has to send it back can send back a different one. Finding
+   3's fourth item is what that costs.
+10. **No wire shape.** *Open; last, with the web app.* With
+    `GameResult` as the shared result, what wants a `to_dict` is
+    `GameResult`, `Narration`, `PendingPrompt` (with its options,
+    once 8 lands) and the roll details, and `Action.from_dict` for
+    the request side; `StepResult`, `DriverRun`, `NarrationGroup` and
+    `Answered` no longer cross the service and need none.
     `Action.kind` is compared by identity, so a kind arriving as a
     string is silently `MOVED_ON`; `formation` is checked against a
     dict keyed by the `Formation` enum, so a JSON string is refused.
-    `Action.arguments` are the adapters' keyword names, read off
-    `inspect.signature`, which is a contract nobody has written down.
-11. **Randomness is process-global.** Fifteen `random.*` sites across
-    `flow/`, `engine.py` and `ai.py`, no `Random` instance, no seed on
-    the match. Two games in one web process cannot each be
-    reproducible, and four rolls (the score attempt, the shootout
-    test, the loose-ball contest, the effects roll) bypass
-    `scripted_or_random`, so the tutorial's script cannot fix them and
-    the goldens rely on the global seed.
-12. **Two labels cross into narration from the frontend.** A shot's
-    `action_label` (a button's word for it, rewritten by the tutorial)
-    and the coaching decline's `coach_name` (a Discord display name).
-    Both are documented; both mean principle 5's one voice depends on
-    what each frontend passes.
-13. **Two frontends cannot share the save file.** `save_games` is a
-    whole-file rewrite of every game on every call -- atomic per write,
-    no locking, no per-game granularity -- and `load_games` runs once,
-    in the cog's constructor; the file is only what a restart reads.
-    A second process would overwrite the first's file with its own
-    stale copy of every game. There is also no lock around load,
-    apply, persist in either frontend, so a double click that reaches
-    `answer` twice before the first persists is not refused by the
-    kind check.
-14. **The engine imports Pillow.** `engine.py` takes `TEAM_COLORS` and
-    `ChallengeSide` from `render.py`, which imports PIL and resolves
-    twenty-odd fonts at import. Every web process that loads the model
-    pays that, and `d12ball/rulebooks.py` imports reportlab the same
-    way, which is why `test_model_purity` fails on any machine without
-    it.
-15. **What the driver path is not tested on.** The full-game run sends
-    no hub edit (every hub answers `done`), no Overdrive, no decline,
-    no `back`, never reaches the time-out pickup, the loose ball, the
-    shooter's pick or the run back's player prompt -- ten kinds and
-    four steps in all -- and asserts refuse-leaves-unchanged only for
-    the wrong-kind refusal. Seven pure flow suites need discord.py only
-    because `tests/flow_stubs.py` imports the cog at module import.
-    Nothing saves through the cog and answers through the driver, or
-    the reverse.
+    Both coercions belong in the adapters. `Action.arguments` are the
+    adapters' keyword names, read off `inspect.signature`, which is a
+    contract nobody has written down.
+11. **Randomness is process-global.** *Open; with step 9 (decision
+    7).* Fifteen `random.*` sites across `flow/`, `engine.py` and
+    `ai.py`, no `Random` instance, no seed on the match. Two games in
+    one web process cannot each be reproducible, and four rolls (the
+    score attempt, the shootout test, the loose-ball contest, the
+    effects roll) bypass `scripted_or_random`, so the tutorial's
+    script cannot fix them and the goldens rely on the global seed.
+    Those four are the part to do first, since they are what stops
+    the tutorial fixing them.
+12. **Two labels cross into narration from the frontend.** *Open;
+    with step 9.* A shot's `action_label` (a button's word for it,
+    rewritten by the tutorial) and the coaching decline's
+    `coach_name` (a Discord display name). Both are documented; both
+    are finding 6 from the other side, and belong in the same phase.
+13. ~~**Two frontends cannot share the save file.**~~ *Settled by
+    decision 5.* `save_games` is a whole-file rewrite on every call
+    and `load_games` runs once, so a second process would overwrite
+    the first's file with a stale copy of every game -- which is why
+    there is one process. What remains of it is the lock: nothing
+    today serialises load, apply, persist per game, so a double click
+    that reaches `answer` twice before the first save is not refused
+    by the kind check. The lock lands with the web app, and the bot's
+    views take it too.
+14. **The engine imports Pillow.** *Open; with step 9.* `engine.py`
+    takes `TEAM_COLORS` and `ChallengeSide` from `render.py`, which
+    imports PIL and resolves twenty-odd fonts at import. Every web
+    process that loads the model pays that, and `d12ball/rulebooks.py`
+    imports reportlab the same way, which is why `test_model_purity`
+    fails on any machine without it.
+15. **What the driver path is not tested on.** *Open; each phase
+    takes its share.* The full-game run sends no hub edit (every hub
+    answers `done`), no Overdrive, no decline, no `back`, never
+    reaches the time-out pickup, the loose ball, the shooter's pick or
+    the run back's player prompt -- ten kinds and four steps in all --
+    and asserts refuse-leaves-unchanged only for the wrong-kind
+    refusal. Seven pure flow suites need discord.py only because
+    `tests/flow_stubs.py` imports the cog at module import. Nothing
+    saves through the cog and answers through the driver, or the
+    reverse. `tests/test_game_service.py` on the branch covers the
+    service itself: one save before return, a refusal writes nothing,
+    the batching at a stop, `resume`.
+
+### What the review missed
+
+16. **The AI chooses through its own paths.** Nineteen `AIStrategy`
+    methods are called from inside flow steps behind `side_is_ai`
+    forks -- `ai_turn_step`, `write_ai_maneuver_picks`,
+    `run_ai_substitution_window`, the shootout's two, every `offer_*`
+    in `flow/effects.py`, `run_back_ai_placement`, the loose-ball pick
+    in `engine.py` -- each calling the `*_step` the human adapter
+    calls but skipping the adapter. That is how the speed choice came
+    to pass `distance_moved` on one path and not the other. The review
+    read the AI's turn as the driver's own and stopped there; the
+    architecture's "AI" section is the finding. *Open; migration step
+    7, its own PR (decision 8).*
 
 ### Small things
 
-- The transitional table is still described where it no longer is:
-  `d12ball/flow/result.py`'s member notes (`OFFER_SPEED_CHOICE`,
-  `OFFER_SETUP_PASS_PUSH_BACK`, `BEGIN_LOOSE_BALL`, `END_PERIOD`,
-  `CONTINUE_RUN_BACK`'s "per-pass persist", `APPLY_BALL_RECOVERY`,
-  `AUTO_RESOLVE_CHALLENGER`), the `ANSWERS` docstring in `driver.py`,
-  `effect_choice_prompt`'s docstring in `prompts.py` (it says the gap
-  is open; the code under it closed it), and `d12ball/flow/__init__.py`
-  ("what has not yet" moved). `runs()` and `can_answer()` are always
-  true. `_begin_maneuver_action_selection` duplicates `_lead_in_first`.
-  `waiting_on` re-imports what the module already imports.
-- Eleven cog wrappers have no callers (`auto_resolve_challenger`,
-  `announce_uncontested_maneuver`, `begin_maneuver_action_selection`,
-  `resolve_maneuver`, `begin_maneuver_skill_test`,
-  `begin_effect_resolution`, `begin_injury_tests`,
-  `continue_injury_tests`, `run_injury_test`, `build_effect_choice_view`,
-  `build_run_back_view`), and `play_ai_turn` has none either.
-- `post_narration_group` keys the challenge image on
-  `match.challenger_id is not None` rather than on the group's tag,
-  which is the one place the frontend reads the position to decide a
-  picture instead of reading the step.
-- A helper on Discord is handed both sides' secret shootout menus.
-- The goldens pin `--- message` boundaries and view class names, which
-  is the frontend's batching. That is fine while they drive the cog; a
-  driver-side golden is the one a web app could regress against.
+Done on the branch: the eleven dead wrappers and eighty-two more,
+`runs()`, `can_answer()`, `driver_answer`, the stale member notes in
+`result.py`, the `ANSWERS` and `effect_choice_prompt` docstrings,
+`flow/__init__.py`. One stands: `post_group` (was
+`post_narration_group`) keys the challenge image on
+`match.challenger_id is not None` rather than on the group. The clean
+fix is for the `AUTO_RESOLVE_CHALLENGER` group to carry its
+`challenger_id` (the step's own kwarg) as a small `Narration` field;
+it goes into W0. The goldens pin `--- message` boundaries and view
+class names, which is the frontend's batching; that is fine while they
+drive the cog, and decision 9 is the golden a web app regresses
+against.
 
-## Proposed
+## What this adds to the migration
 
-Nothing here is decided. Each item is a proposal with the reason
-beside it; the ones the author has to settle are marked **open** and
-collected again at the bottom.
+The migration worksheet has the steps; these are the pieces of each
+that the review settled and the migration does not spell out. The
+numbers are the migration's.
 
-1. **A third answer to "what is this match waiting on": nobody.**
-   `pending_prompt` keeps returning a `PendingPrompt`, and a sibling
-   `owed_step(engine, game, match) -> Optional[FollowOn]` returns the
-   step the bot owes where there is one -- a run back with only forced
-   placements, a ball recovery, an effect with no choice, a shootout
-   between its two automatic steps, a setup or halftime stage. The
-   frontend runs it through `driver.advance` and reads the prompt off
-   the far side. `resume_pending_prompt` becomes that call and the
-   startup sweep the same; the three `PLAYER_ACTION` fallbacks go, and
-   `answer` refuses any action while a step is owed. This closes
-   findings 1 and 2 with one function and is the first phase because
-   every other phase reloads a save.
-   - **Open:** whether `pending_prompt` should return the owed step
-     itself, as a fourth thing a `PendingPrompt` can be, or whether
-     "asked" and "owed" stay two functions. Two functions keeps
-     principle 3's one reading of *asked*; one function keeps one
-     reading of *waiting*. The proposal is two, with `owed_step` read
-     first by everything that restores.
-2. **Every rule a button enforces moves into its adapter.** The
-   substitution allowance into `apply_substitution`, the AI-side
-   retraction into `retract_shot_step`, the same-zone swap into
-   `swap_field_positions`, and the shootout's owing side read by the
-   model rather than sent by the frontend (proposal 4 carries it).
-   Each with a test that walks every offered choice with an illegal
-   argument and asserts `to_dict` unchanged -- the assertion
-   `test_a_refused_action_changes_nothing` makes for the wrong kind,
-   made for every refusal.
-3. **A `RuleRefusal` exception replaces `ValueError` as the refusal
-   channel.** The steps that raise with the sentence already written
-   raise it; `answer` catches only it; `_argument_mismatch` treats a
-   `None` default on an argument the adapter dereferences as missing.
-   A `TypeError` out of the middle of a step is then a bug again
-   rather than a Refusal or an escape.
-4. **`PendingPrompt` grows `options`, read from the engine per kind,
-   and `side` on the three kinds that lack it.** One function per kind
-   in the model answers "what may be chosen here" -- the speed
-   targets, the push-back distances, the extra-token candidates, the
-   live turn actions, the hub's four sub-menu lists, the run-back
-   spaces, which side is owed a pick, and which of the options the
-   tutorial's rail leaves enabled. The views build their buttons from
-   it, the driver refuses against it, and the full-game `Policy` is
-   rewritten to need nothing but the prompt. **That rewrite is the
-   test of principle 10**: a policy that reads a `match.` field to
-   choose is a web app that would have to.
-   - **Open:** whether `options` is a list of choices with their
-     arguments, or a per-kind dataclass. The proposal is the latter,
-     one per kind that has more than a choice string, because the hub
-     has four lists and a formation menu and a flat list would carry
-     them as strings.
-5. **The lobby-to-kickoff sequence becomes prompts.** `PromptKind`
-   gains the team pick, the coin toss and the home-or-visiting choice;
-   the AI's draw, the coin and Dinky's answer are steps that roll in
-   the model; `initialize_standard_match` and `begin_setup_coaching`
-   are follow-ons. `D12BallGame` gains a `create_game` that takes the
-   Discord ids as optional -- **open:** whether those become
-   `Optional[int]` (a save-format change, its own commit under
-   principle 6) or a web game fabricates them the way the full-game
-   test does. The proposal is the former, since the startup sweep and
-   `game_for_channel` cannot be handed a fake channel forever.
-6. **Mentions and emoji leave the model.** Narration emits a token the
-   frontend renders -- `{coach:home}` for the person, `{team:purple}`
-   and `{role:fullback:purple}` for the marks -- and the coin winner is
-   stored as a player number rather than a mention string (a legacy
-   fallback that stays, per gotchas.md; the new write is the number).
-   The maneuver ask's two sentences about privacy and rows become the
-   frontend's caption. `coach_name` and `action_label` stay as they
-   are, documented, until a second frontend shows they are a problem.
-   - **Open:** the token syntax, and whether the tutorial golden's
-     transcript should record tokens or rendered text. The proposal is
-     tokens, since the golden pins the model's voice.
-7. **A `Random` per match, threaded through the engine.** `RulesEngine`
-   takes an `rng` at construction, the fifteen sites read it, the four
-   rolls that bypass `scripted_or_random` go through it, and the
-   goldens seed the instance rather than the module. A web process
-   then runs two games in the same second and can replay either.
-8. **One process hosts both frontends.** The web app is an asyncio
-   server in the bot's process, sharing `D12Ball.games`, the one
-   `RulesEngine` and the single writer, with a per-game
-   `asyncio.Lock` around load, apply, persist that the bot's views take
-   too. That is the cheapest thing that is correct, and it inherits
-   the deploy story in collaboration.md unchanged -- one bot per token
-   becomes one process per token. A shared store with per-game rows
-   and versioning is the alternative if the web app has to outlive a
-   bot restart, and it is a larger change to the cog than to the
-   model.
-   - **Open:** which. The proposal is one process, revisited only if
-     the web app needs to be deployed apart from the bot.
-9. **Wire shapes.** `to_dict`/`from_dict` on `PendingPrompt`, `Action`,
-   `Refusal`, `StepResult`, `DriverRun` and `NarrationGroup`;
-   `Action.kind` accepted as the kind's value; every enum-keyed check
-   in an adapter coerces the way `TeamSide(side)` does. `detail` gets a
-   `to_dict` per roll type, since the dice are what a web page draws.
-10. **The import edge and the purity probe.** `TEAM_COLORS` and
-    `ChallengeSide` move below `render.py` so the engine imports no
-    PIL; `test_model_purity` skips a module whose only failure is a
-    missing third-party dependency, and reports it, rather than
-    failing the ratchet wherever reportlab is absent. `flow_stubs`
-    imports the cog lazily, which frees seven flow suites for a CI
-    without discord.py.
-11. **The early save on the skill test's settled path**, with the
-    sentence the other four carry.
-12. **The stale docstrings and the dead wrappers go**, in the commit
-    that touches each file for something else.
+- **Step 5, the owed step.** `owed_step(engine, game, match) ->
+  Optional[FollowOn]` in `d12ball/prompts.py`, read first by
+  `GameService.resume` (whose ladder it replaces) and by
+  `apply_action` (which refuses while it answers). The three
+  `PLAYER_ACTION` fallbacks go; the `--force` rules list moves with
+  it. The `AUTO_RESOLVE_CHALLENGER` group carries `challenger_id`.
+  The two-frontend resume test lands here: save through the cog
+  mid-cascade, restore through the service with no cog, and the
+  reverse, for every prompt kind and every owed step.
+- **Step 6, the adapters refuse, and the prompt carries its
+  options.** A `RuleRefusal` exception replaces `ValueError` as the
+  refusal channel: the steps that raise with the sentence already
+  written raise it, `answer` and the service catch only it, and
+  `_argument_mismatch` treats a `None` default the adapter
+  dereferences as missing, so a `TypeError` is a bug again. Every
+  rule a button holds moves into its adapter (finding 3, plus
+  `may_decline_challenge`). Then `PendingPrompt.options`, a dataclass
+  per kind (decision 2), one kind at a time, each with the view and
+  the full-game `Policy` moved onto it in the same commit. One
+  refuse-leaves-unchanged test per kind per offered choice, made the
+  way `test_a_refused_action_changes_nothing` makes it for the wrong
+  kind.
+- **Step 7, the AI.** `AIStrategy.choose(prompt, match) -> Action`
+  and a loop in `GameService.apply_action` while the prompt's side is
+  the AI's; the forks go. Its own PR, after the author has said how
+  Dinky's turn should read.
+- **Step 9, the voice, and the dice.** Tokens per decision 4; the
+  coin winner stored as a player number (the mention-string fallback
+  stays, per gotchas.md; the new write is the number); the two
+  channel sentences and the maneuver ask's privacy sentences become
+  the presenter's captions; `coach_name` and `action_label` go the
+  same way. `TEAM_COLORS` and `ChallengeSide` move below `render.py`.
+  The `Random` per match through `RulesEngine`, the four bypassing
+  rolls first. The goldens regenerate once, for the tokens.
+- **Step 8, setup as service methods.** Decision 6's five methods,
+  and decision 3's optional ids in their own commit.
+- **Step 10, the web app.** The wire shapes of finding 10; the
+  per-game lock of decision 5, taken by the bot's views too; an
+  asyncio server in the bot's process over the same `GameService`. A
+  page that shows the board from `Narration.board` and `to_dict`, the
+  groups as they close, the prompt's options as controls; every
+  request one `Action` through `apply_action`.
 
 ## Phases
 
-Each ends on a stop somebody can check without the web app existing,
-because the web app is the last phase and everything before it is the
-model becoming honest enough to carry one. The order is by what each
-phase reloads: a phase that restores a save needs finding 1 closed
-first, and a phase that builds buttons needs the options to build them
-from.
+The migration's steps, in the order the review re-sequenced them,
+each ending on a stop somebody can check without the web app
+existing.
 
-- **Phase W0 -- the owed step.** Proposal 1, and the two-frontend
-  resume test that finding 15 says is missing: save through the cog
-  mid-cascade, restore through `owed_step` and `advance` with no cog,
-  and the reverse. *Stop:* `resume_pending_prompt` is a call to
+- **W0 -- step 5.** *Stop:* `GameService.resume` is a call to
   `owed_step`; the three fallbacks are gone; a maneuver mid-run-back
-  is a `Refusal`.
-- **Phase W1 -- the adapters refuse.** Proposals 2 and 3, and 11.
-  *Stop:* every kind's every offered choice, given an illegal
-  argument, leaves `to_dict` unchanged and raises nothing.
-- **Phase W2 -- the prompt carries its options.** Proposal 4, one kind
-  at a time, each with the view and the `Policy` moved onto it in the
-  same commit. *Stop:* `tests/test_driver_full_game.py` reads no
-  `match.` attribute to choose; the full game reaches every kind.
-- **Phase W3 -- the voice.** Proposals 6 and 7; the three goldens
-  regenerate once, for the tokens. *Stop:* `grep "<@" d12ball/` is
-  empty; a game replays from its own seed.
-- **Phase W4 -- a game with no channel.** Proposal 5, with 9 and 10.
-  *Stop:* `tests/test_driver_full_game.py` starts from the lobby and
-  fabricates no id.
-- **Phase W5 -- the web app.** Proposal 8. A page that shows the
-  board from `to_dict`, the narration groups as they close, and the
-  prompt's options as controls; every request is one `Action` through
-  `apply`. *Stop:* a game played half on Discord and half on the page,
-  the same save, the same voice.
+  is a `Refusal`; a save from either side restores on the other.
+- **W1 -- step 6, the refusals.** *Stop:* every kind's every offered
+  choice, given an illegal argument, leaves `to_dict` unchanged and
+  raises nothing.
+- **W2 -- step 6, the options.** *Stop:* `tests/test_driver_full_game.py`
+  reads no `match.` attribute to choose; the full game reaches every
+  kind.
+- **W3 -- step 7, the AI.** *Stop:* no `side_is_ai` fork in
+  `d12ball/flow/`; the goldens regenerated once with the author's
+  word on the wording.
+- **W4 -- step 9, the voice.** *Stop:* `grep "<@" d12ball/` is empty;
+  the engine imports no PIL; a game replays from its own seed.
+- **W5 -- step 8, setup.** *Stop:* `tests/test_driver_full_game.py`
+  starts from `create_game` and fabricates no id.
+- **W6 -- step 10, the web app.** *Stop:* a game played half on
+  Discord and half on the page, the same save, the same voice.
 
 ## Tests
 
-- **The `Policy` is the measure.** It reads the prompt and nothing
-  else, or the phase that left it reading `match.` is not done. It is
-  the same rule as principle 10 and it is the one that can be run.
-- **A driver-side golden**, once W3 has settled the tokens: the same
-  press script as the windows golden, through `apply`, pinning the
-  narration groups and the final save. The three cog goldens stay,
-  since they pin the batching a coach reads.
+- **The `Policy` is the measure.** It reads `GameResult.prompt` and
+  nothing else, and the loop is
+  `service.apply_action(game_id, policy.action(result.prompt))`. A
+  `Policy` that reads `result.match` to choose is a web app that
+  would have to. It is principle 10 as a thing that can be run.
+- **A service-side golden**, once W4 has settled the tokens: the
+  windows golden's press script through `GameService.apply_action`
+  with the default `Batching()`, pinning the `GameResult`s and the
+  final save (decision 9). The three cog goldens stay, since they pin
+  the batching a coach reads.
 - **Refuse-leaves-unchanged per kind per choice**, from W1 on.
-- **Two-frontend resume**, from W0 on: every prompt kind and every
-  owed step, saved on one side and restored on the other.
+- **Two-frontend resume**, from W0 on.
 - **The purity probe grows one check**: `d12ball/flow/` and
-  `d12ball/prompts.py` import with `PIL` refused as well as `discord`.
+  `d12ball/prompts.py` import with `PIL` refused as well as `discord`;
+  and it skips, and reports, a module whose only failure is a missing
+  third-party dependency, so it stops failing wherever reportlab is
+  absent.
 
 ## Still open
 
-Collected from above, for the author:
+One question, the author's, and it gates the second and third items
+of finding 3 in W1:
 
-1. Whether "owed" is a second function beside `pending_prompt` or a
-   fourth thing a `PendingPrompt` can be. (Proposal 1.)
-2. The shape of `options`: a flat list or a per-kind dataclass.
-   (Proposal 4.)
-3. Whether the Discord ids on `D12BallGame` become optional, which is
-   a save-format change, or a web game fabricates them. (Proposal 5.)
-4. The token syntax for mentions and marks, and whether the goldens
-   record tokens or rendered text. (Proposal 6.)
-5. One process or a shared store. (Proposal 8.)
-6. Two rules the review found only a button holds, worth confirming
-   as rules before they move: may an AI side's shot be retracted at
-   all, and is a same-zone swap a no-op or a refusal? Both are in
-   finding 3; neither is in the living rules by name.
+1. **Are the AI-side shot retraction and the same-zone swap rules or
+   button conveniences?** Neither is in the living rules by name. The
+   review's recommendation is that both are refusals: a no-op that
+   narrates a change is the wrong voice (principle 5), and a shot the
+   model lets an AI side take back is a rule the AI never uses.
