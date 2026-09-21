@@ -7,17 +7,11 @@ contest that settles either -- which the long High Pass borrows. See
 import discord
 from typing import Optional, TYPE_CHECKING
 
-from d12ball import tutorial
 from d12ball.components import (
     MatchState,
 )
 from d12ball.flow import FollowOn, StepResult
-from d12ball.flow.arrivals import (
-    choose_loose_ball_contestant,
-    decline_loose_ball_contest,
-    loose_ball_decline_refusal,
-)
-from d12ball.flow.rolls import loose_ball_test_step
+from d12ball.flow.driver import Action
 from d12ball.prompts import PendingPrompt, PromptKind
 from d12ball.game import (
     D12BallGame,
@@ -147,13 +141,6 @@ class LooseBallChoiceView(SafeView):
         if game is None:
             return None, None
 
-        if self.cog.engine.loose_ball_side_on_the_clock(match) != self.side:
-            await interaction.response.send_message(
-                "That side has already answered.",
-                ephemeral=True,
-            )
-            return None, None
-
         authorized = (
             self.may_act_for_possession(interaction, game, match)
             if self.side == "offense"
@@ -176,55 +163,45 @@ class LooseBallChoiceView(SafeView):
         if game is None or match is None:
             return
 
-        await self.settled(
+        # Which side is on the clock is the prompt's, and a side that
+        # has already answered is a stale click the driver refuses.
+        # This view's side goes with the action so the other side's
+        # prompt, still in the channel, cannot answer for this one.
+        answered = await self.answer(
             interaction,
             game,
             match,
-            choose_loose_ball_contestant(
-                self.cog.engine,
-                game,
-                match,
-                skill_type=self.side,
-                player_id=player_id,
+            Action(
+                PromptKind.LOOSE_BALL_PICK,
+                "send",
+                {"player_id": player_id, "skill_type": self.side},
             ),
         )
+        if answered is None:
+            return
+        await self.settled(interaction, game, match, answered.result)
 
     async def decline(self, interaction: discord.Interaction) -> None:
         game, match = await self.claim(interaction)
         if game is None or match is None:
             return
 
-        # **Both refusals come before anything is applied**, and in
-        # this order, which is the one this method has always had. The
-        # button is not built for a side with somebody on the ball, so
-        # reaching that branch means a stale click -- a prompt a
-        # restart re-attached from before the ball got there. Same
-        # reason ManeuverChallengeView.decline re-checks its own.
-        refusal = loose_ball_decline_refusal(match, self.side)
-        if refusal is not None:
-            await interaction.response.send_message(
-                refusal, ephemeral=True,
-            )
-            return
-
-        if self.cog.tutorial_railed_option(
-            game, "loose_ball_decline", ("never",),
-        ) == "never":
-            await interaction.response.send_message(
-                "This step of the tutorial is about fighting for a "
-                "loose ball -- send somebody after it.",
-                ephemeral=True,
-            )
-            return
-
-        await self.settled(
+        # **Both refusals are the model's** -- a side with somebody on
+        # the ball may not decline (a stale click on a prompt a restart
+        # re-attached from before the ball got there), and the
+        # tutorial's rail -- and the driver asks them before anything
+        # is applied.
+        answered = await self.answer(
             interaction,
             game,
             match,
-            decline_loose_ball_contest(
-                self.cog.engine, game, match, skill_type=self.side,
+            Action(
+                PromptKind.LOOSE_BALL_PICK, "decline", {"skill_type": self.side},
             ),
         )
+        if answered is None:
+            return
+        await self.settled(interaction, game, match, answered.result)
 
     async def settled(
         self,
@@ -322,12 +299,6 @@ class BallRecoveryView(SafeView):
         if game is None:
             return
 
-        if not match.pending_ball_recovery:
-            await interaction.response.send_message(
-                "The ball has already been picked up.",
-                ephemeral=True,
-            )
-            return
         if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the side that won the ball can choose.",
@@ -335,9 +306,21 @@ class BallRecoveryView(SafeView):
             )
             return
 
+        # A ball already picked up is a stale click the driver refuses
+        # by kind.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.BALL_RECOVERY, "", {"player_id": player_id}),
+        )
+        if answered is None:
+            return
         await interaction.response.edit_message(view=None)
-        await self.cog.apply_ball_recovery(
-            interaction, game, match, player_id,
+        # Its own message: the pickup is an event, and the maneuver's
+        # tail behind it is the next one.
+        await self.cog.post_then_dispatch(
+            interaction, game, match, answered.result,
         )
 
 
@@ -388,17 +371,6 @@ class LooseBallSkillTestView(SafeView):
         if game is None:
             return
 
-        if (
-            not match.pending_loose_ball
-            or match.loose_ball_offense_player is None
-            or match.loose_ball_defense_player is None
-        ):
-            await interaction.response.send_message(
-                f"This {contest_noun(match)} is no longer active.",
-                ephemeral=True,
-            )
-            return
-
         if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll for the "
@@ -412,8 +384,17 @@ class LooseBallSkillTestView(SafeView):
         # speed modifier a High Pass adds, Merge, the tie's two tokens
         # and who comes away with the ball are all the model's, and the
         # whole of them used to be in this method and the two above it.
-        # What is left here is the picture and where it goes.
-        dice, result = loose_ball_test_step(self.cog.engine, game, match)
+        # What is left here is the picture and where it goes; a contest
+        # no longer active is the driver's to refuse, by kind.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(PromptKind.LOOSE_BALL_SKILL_TEST, "roll"),
+        )
+        if answered is None:
+            return
+        dice, result = answered.detail, answered.result
         dice_file = await render_contest_dice(
             dice.contestants, filename="loose_ball_dice.png",
         )

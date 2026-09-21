@@ -229,24 +229,23 @@ class CogPackageTests(unittest.TestCase):
 
 class FollowOnStepTests(unittest.TestCase):
     """
-    `FollowOnStep` is the record of what the cog still dispatches --
-    see `d12ball/flow/result.py` and principle 9's transition note in
-    CLAUDE.md. Phase 6 of docs/model-discord-split.md reads the enum
-    rather than six pull request descriptions to learn what is left,
-    so what is in it is asserted here rather than inside any one
-    rank's own tests.
+    `FollowOnStep` is the record of where one step ends and the next
+    begins -- see `d12ball/flow/result.py`. Every member is run by
+    `d12ball.flow.driver` since Phase 6 of docs/design/model-discord-split.md
+    collapsed the cog's own dispatch table, so what is in it is
+    asserted here, once, rather than inside any one rank's own tests.
     """
 
     #: Every step of a turn that is named rather than called inline.
     #:
-    #: Until Phase 6 this read as "what the cog still dispatches",
-    #: because the cog ran all of them. It is now "what a step can
-    #: hand off to", and which side runs a given one is
-    #: `IN_THE_DRIVER` below. A phase that hands off to a new step
-    #: adds its member here and a row to one of the two tables; one
-    #: that lifts a step moves its name between them.
+    #: A step is named rather than called where the frontend has
+    #: something to decide at the boundary -- a message of its own, a
+    #: picture, a board to put up before anything else moves -- or
+    #: where the caller is already on the far side of a prompt. A
+    #: phase that hands off to a new step adds its member here and a
+    #: row to `driver.MODEL_STEPS`.
     EXPECTED = {
-        # Phase 3's, and still dispatched.
+        # Phase 3's.
         "FINISH_MANEUVER_RESOLUTION",
         "OFFER_SCORING_ATTEMPT_CHOICE",
         "OFFER_SPEED_CHOICE",
@@ -258,8 +257,7 @@ class FollowOnStepTests(unittest.TestCase):
         "BEGIN_HIGH_PASS_CONTEST",
         # Phase 4's. The enum grew rather than shrank, which is the
         # honest reading of the phase: the spine's decisions moved and
-        # the frontend edges they end on are now named. See the
-        # `FollowOnStep` docstring for the three kinds.
+        # the frontend edges they end on are named.
         "SEND_TURN_PROMPT",
         "START_SET_UP_SHOT",
         "CONTINUE_RUN_BACK",
@@ -267,120 +265,47 @@ class FollowOnStepTests(unittest.TestCase):
         "ANNOUNCE_RUN_BACK",
         "FINISH_RUN_BACK",
         "APPLY_BALL_RECOVERY",
-        # The front half of a turn, which nothing in Phases 1-3
-        # touched. Each of these is pictures, a bespoke view, or a
-        # dispatch table Phase 6 collapses.
+        # The front half of a turn.
         "BEGIN_MANEUVER_ACTION_SELECTION",
         "SEND_MANEUVER_ACTION_PROMPT",
         "RESOLVE_MANEUVER",
         "BEGIN_EFFECT_RESOLUTION",
-        # Phase 6's, and the enum growing for Phase 4's
-        # reason: the decision behind it moved and the two
-        # effect menus it dispatches to did not.
         "CONTINUE_EFFECT",
         "BEGIN_MANEUVER_SKILL_TEST",
-        # Phase 5's, and the same reading again. `END_PERIOD` and
-        # `BEGIN_SUBSTITUTION_WINDOW` were Phase 4's guess at what this
-        # phase would take back out and are still here -- the first
-        # because the whistle's cascade is a run of separate messages,
-        # the second because the window's prompt carries the coach's
-        # own half-field and a tutorial gate. `DISPATCH_INJURY_RESUME`
-        # did go, which is what taking the shootout bought.
+        # Phase 5's.
         "END_PERIOD",
         "BEGIN_SUBSTITUTION_WINDOW",
         "FINISH_SETUP_COACHING",
         "FINISH_HALFTIME",
         "ANNOUNCE_GAME_OVER",
-        # Phase 6's third increment, and the enum growing for Phase
-        # 4's reason one more time: the shootout *test* became a step
-        # (`d12ball.flow.rolls.shootout_test_step`) and needed a name
-        # for what follows it, which the view used to reach by calling
-        # `D12Ball.continue_shootout` directly.
+        # Phase 6's third increment: three callers crossed the seam
+        # ahead of the thing they called.
         "CONTINUE_SHOOTOUT",
-        # And the same increment again: the turn's own action
-        # became a step and needed a name for the route that puts
-        # the challenge image up.
         "AUTO_RESOLVE_CHALLENGER",
-        # And once more, for the coaching window's own two
-        # answers: both end on the junction all five occasions
-        # come back through.
         "FINISH_SUBSTITUTION_WINDOW",
+        # Phase 6's last increment: the turn prompt is two steps,
+        # because the tutorial's Continue gate needs a continuation
+        # that does not stage the beat a second time -- see
+        # `d12ball/flow/gates.py`.
+        "START_TURN",
     }
 
-    def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(
-        self,
-    ) -> None:
+    def test_the_enum_holds_exactly_the_steps_recorded_here(self) -> None:
         self.assertEqual(
             {member.name for member in FollowOnStep}, self.EXPECTED,
         )
 
-    #: The steps `d12ball.flow.driver` runs itself, as of Phase 6.
-    #:
-    #: Each was a cog wrapper of three lines -- call the step, save,
-    #: dispatch -- so the loop took the call and dropped the other
-    #: two. A step whose wrapper does anything else (a picture, a pin,
-    #: a tutorial gate, a bespoke view) is still the cog's and is
-    #: **not** here; `BEGIN_HIGH_PASS_CONTEST` is the near miss worth
-    #: naming, held back only because a board write is ordered in
-    #: front of it (see `MODEL_STEPS` in `d12ball/flow/driver.py`).
-    IN_THE_DRIVER = {
-        "OFFER_SCORING_ATTEMPT_CHOICE",
-        "BEGIN_SHOOTER_CHOICE",
-        "BEGIN_OWN_GOAL_ROLL",
-        "FINISH_RUN_BACK",
-        "BEGIN_MANEUVER_ACTION_SELECTION",
-        # Phase 6's second increment. The first four are the steps
-        # whose lines are **a message of their own**: the loop could
-        # not run one until it could close a narration group, because
-        # carrying the lines forward was the only thing it could do
-        # with them. `BEGIN_HIGH_PASS_CONTEST` is the fifth and needed
-        # no new machinery in the end -- the frontend writes the board
-        # in front of every group, which is the ordering rank O3 made
-        # it a member for.
-        "BEGIN_HIGH_PASS_CONTEST",
-        "RESOLVE_MANEUVER",
-        "RESOLVE_LOOSE_BALL",
-        "ANNOUNCE_RUN_BACK",
-        "END_PERIOD",
-        # Phase 6's third increment, and the driver's from the moment
-        # it existed: `periods.continue_shootout` was already a step,
-        # and what its cog wrapper added was the choice of dispatcher,
-        # which is a row in the frontend's own sets now.
-        "CONTINUE_SHOOTOUT",
-        "FINISH_SUBSTITUTION_WINDOW",
-    }
-
-    def test_the_two_tables_cover_the_enum_between_them(self) -> None:
+    def test_the_driver_runs_every_member(self) -> None:
         """
         A member with no row raises a `KeyError` in the middle of a
-        turn, one card at a time, so the tables are asserted to cover
-        the enum **exactly** rather than merely to contain it.
-
-        There are two of them since Phase 6: `driver.MODEL_STEPS` for
-        the steps the loop runs and `D12Ball.follow_on_methods` for
-        the pictures, pins and gates still owed by the frontend. They
-        are disjoint, and together they are the enum -- a member in
-        both would mean two answers to what happens next, which is
-        the failure this whole split is against.
+        turn, one card at a time, so the table is asserted to cover
+        the enum **exactly** rather than merely to contain it. There is
+        one table since Phase 6 collapsed `D12Ball.follow_on_methods`:
+        a second one would be two answers to what happens next, which
+        is the failure this whole split is against.
         """
-        cog = object.__new__(D12Ball)
-        for member in FollowOnStep:
-            setattr(cog, member.name.lower(), lambda *a, **k: None)
-        cog_rows = set(D12Ball.follow_on_methods(cog))
-        driver_rows = set(driver.MODEL_STEPS)
-        self.assertEqual(cog_rows & driver_rows, set())
-        self.assertEqual(cog_rows | driver_rows, set(FollowOnStep))
-
-    def test_the_driver_runs_exactly_the_steps_recorded_here(self) -> None:
-        """
-        The other half of the record: which side of the seam each
-        member is on. A phase that lifts a step moves its name from
-        the cog's half to `IN_THE_DRIVER`, in the same commit.
-        """
-        self.assertEqual(
-            {member.name for member in driver.MODEL_STEPS},
-            self.IN_THE_DRIVER,
-        )
+        self.assertEqual(set(driver.MODEL_STEPS), set(FollowOnStep))
+        self.assertFalse(hasattr(D12Ball, "follow_on_methods"))
 
 
 class StraySaveGuardTests(unittest.TestCase):
@@ -656,7 +581,7 @@ class NamingAPlayerTests(unittest.TestCase):
         old body -- `format_role_bracket` with the team read off the
         match -- moved onto the engine, reading both emoji dicts off
         itself instead of taking them as arguments (see the unlisted
-        prerequisite to Phase 1 in docs/model-discord-split.md). A
+        prerequisite to Phase 1 in docs/design/model-discord-split.md). A
         divergence between the two would otherwise only show up as a
         wording change in the golden transcript, which does not cover
         every combination below.

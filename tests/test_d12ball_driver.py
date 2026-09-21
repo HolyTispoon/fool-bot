@@ -137,23 +137,71 @@ class LoopTests(DriverFixture):
         self.assertIs(run.result.next, prompt)
         self.assertFalse(run.ran)
 
-    def test_a_step_the_loop_cannot_run_is_handed_back_untouched(
+    def test_a_step_the_frontend_stops_on_is_handed_back_with_its_arguments(
         self,
     ) -> None:
         """
-        A member with no row in `MODEL_STEPS` is a picture, a pin or a
-        gate, and the frontend is owed it -- including its arguments,
-        which the loop may not eat.
+        The loop runs every member since Phase 6, so what a frontend
+        is handed back is a step it asked to stop *after* -- with the
+        step's own arguments, which is what the picture it stops for
+        is keyed on (`stopped_on`), and with the lines the step said.
         """
+        def loose(engine, game, match, *, lead_in="", **kwargs):
+            return StepResult(
+                narration=["lying there"],
+                board_changed=True,
+                next=FollowOn(FollowOnStep.RESOLVE_LOOSE_BALL),
+            )
+
         following = FollowOn(
-            FollowOnStep.SEND_TURN_PROMPT, {"speed_reset": True},
+            FollowOnStep.BEGIN_LOOSE_BALL, {"is_high_pass": True},
         )
+        with self.steps({FollowOnStep.BEGIN_LOOSE_BALL: loose}):
+            run = self.advance(
+                StepResult(narration=["said"], next=following),
+                stop_after={FollowOnStep.BEGIN_LOOSE_BALL},
+            )
 
-        run = self.advance(StepResult(narration=["said"], next=following))
+        self.assertEqual(run.stopped_on, following)
+        self.assertEqual(run.result.narration, ["lying there"])
+        self.assertEqual(
+            run.result.next, FollowOn(FollowOnStep.RESOLVE_LOOSE_BALL),
+        )
+        self.assertEqual(run.steps, (FollowOnStep.BEGIN_LOOSE_BALL,))
 
-        self.assertIs(run.result.next, following)
-        self.assertEqual(run.result.narration, ["said"])
-        self.assertFalse(run.ran)
+    def test_a_new_play_stops_the_run_on_its_own(self) -> None:
+        """
+        The reset's lines caption the board the play starts from, and
+        a frontend has to put that board up before anything behind it
+        moves -- so a result that says `new_play` ends the run whoever
+        asked, and the frontend re-enters the loop for what follows.
+        """
+        def reset(engine, game, match, *, lead_in="", **kwargs):
+            return StepResult(
+                narration=["# New play"],
+                board_changed=True,
+                new_play=True,
+                next=FollowOn(FollowOnStep.BEGIN_SUBSTITUTION_WINDOW),
+            )
+
+        def window(engine, game, match, *, lead_in="", **kwargs):
+            raise AssertionError("ran on past the new play")
+
+        with self.steps({
+            FollowOnStep.BEGIN_RUN_BACK: reset,
+            FollowOnStep.BEGIN_SUBSTITUTION_WINDOW: window,
+        }):
+            run = self.advance(
+                StepResult(next=FollowOn(FollowOnStep.BEGIN_RUN_BACK)),
+            )
+
+        self.assertEqual(run.stopped_on, FollowOn(FollowOnStep.BEGIN_RUN_BACK))
+        self.assertTrue(run.result.new_play)
+        self.assertEqual(run.result.narration, ["# New play"])
+        self.assertEqual(
+            run.result.next,
+            FollowOn(FollowOnStep.BEGIN_SUBSTITUTION_WINDOW),
+        )
 
     def test_the_narration_is_carried_into_the_next_step(self) -> None:
         """
@@ -405,17 +453,20 @@ class NarrationGroupTests(DriverFixture):
                 speaks_lines={FollowOnStep.ANNOUNCE_GAME_OVER},
             )
 
+        # Carried into the game-over step, which speaks them as the
+        # content of the message it ends on.
         self.assertEqual(run.groups, ())
         self.assertEqual(run.result.narration, ["full time"])
-        self.assertEqual(
-            run.result.next, FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
-        )
+        self.assertEqual(run.result.next.kind, PromptKind.GAME_OVER)
 
-    def test_a_group_that_said_nothing_is_not_reported(self) -> None:
+    def test_a_group_that_said_nothing_is_still_reported(self) -> None:
         """
-        A step in `own_message` that had nothing to say is not an empty
-        message; the frontend would have to filter it, so the loop does
-        not hand it one.
+        A step in `own_message` that had nothing to say still closes a
+        group -- empty -- because the frontend may have a picture for
+        that step's group and an empty group is how it learns the step
+        ran (the challenge image rides on `AUTO_RESOLVE_CHALLENGER`'s,
+        whose walk-in line is "" for a defender already on the ball).
+        The frontend posts nothing for empty lines.
         """
         def silent(engine, game, match, *, lead_in="", **kwargs):
             return StepResult()
@@ -426,7 +477,10 @@ class NarrationGroupTests(DriverFixture):
                 own_message={FollowOnStep.RESOLVE_LOOSE_BALL},
             )
 
-        self.assertEqual(run.groups, ())
+        self.assertEqual(
+            run.groups,
+            (driver.NarrationGroup((), FollowOnStep.RESOLVE_LOOSE_BALL),),
+        )
         self.assertEqual(run.result.narration, [])
 
     def test_several_groups_come_back_in_the_order_they_were_said(
@@ -474,9 +528,11 @@ class NarrationGroupTests(DriverFixture):
 class TableTests(unittest.TestCase):
     """What the loop can run, and what it says about it."""
 
-    def test_runs_answers_for_a_member_either_way(self) -> None:
-        self.assertTrue(driver.runs(FollowOnStep.FINISH_RUN_BACK))
-        self.assertFalse(driver.runs(FollowOnStep.SEND_TURN_PROMPT))
+    def test_runs_answers_for_every_member(self) -> None:
+        """The table covers the enum: the loop runs every step."""
+        for member in FollowOnStep:
+            with self.subTest(member=member.name):
+                self.assertTrue(driver.runs(member))
 
     def test_every_step_in_the_table_takes_the_loop_s_shape(self) -> None:
         """
@@ -518,13 +574,15 @@ class SaveTests(DriverFixture):
 
     def test_a_run_that_ran_nothing_says_so(self) -> None:
         """
-        `ran` is what the caller reads to know whether a save is owed,
-        so a run that touched nothing has to be honest about it -- a
-        save per dispatch would put the file write back on every
-        click the loop had nothing to do on.
+        `ran` is what the caller reads to know whether the loop touched
+        the match, so a run that ran no step has to be honest about it
+        -- and one that ran a step, whatever the step did, has to say
+        so too.
         """
         self.assertFalse(self.advance(StepResult()).ran)
-        self.assertFalse(
+        prompt = PendingPrompt(kind=PromptKind.PLAYER_ACTION, ask="Your turn.")
+        self.assertFalse(self.advance(StepResult(next=prompt)).ran)
+        self.assertTrue(
             self.advance(
                 StepResult(next=FollowOn(FollowOnStep.SEND_TURN_PROMPT)),
             ).ran,

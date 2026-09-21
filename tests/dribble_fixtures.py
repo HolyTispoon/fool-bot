@@ -2,7 +2,7 @@
 A match standing in each branch the two dribbles resolve through, and
 what that resolution should produce.
 
-Rank O2 of Phase 3 of docs/model-discord-split.md moves Dribble
+Rank O2 of Phase 3 of docs/design/model-discord-split.md moves Dribble
 Advance's and Dribble Burst's own resolution out of the cog and into
 `d12ball/flow/effects.py`. The thing worth asserting about a move like
 that is that **not one branch changed what it said or what it did

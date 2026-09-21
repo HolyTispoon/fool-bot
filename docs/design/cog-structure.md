@@ -33,60 +33,39 @@ design.
   why each branch sits where it does -- see "Recovering a stuck game" in [recovery.md](recovery.md). A second
   copy of that chain is the failure mode; splitting it is how you get one.
   That reasoning is why the chain later moved *whole again*, out of the cog
-  and into `d12ball/prompts.py` (Phase 1 of
-  [model-discord-split.md](../model-discord-split.md)); what `core` keeps is
-  the mapping from a `PromptKind` to a view, which carries no ordering at all.
-- **What a mixin holds is shrinking, and the six seams are not moving.**
-  Phases 2-6 of [model-discord-split.md](../model-discord-split.md) lifted
-  the decisions out of `core`, `effects`, `periods` and `turnovers` into
-  `d12ball/flow/`, and what each of those mixins keeps is the same
-  responsibility with the rules taken out of it: `core` the turn's Discord
-  spine (the three dispatchers, `follow_on_methods`, `view_for_prompt`) and
-  the cog wrappers for the front half of a turn;
-  `effects` one wrapper per card plus the loose ball's and the own goal's
-  posting; `periods` the clock's tail; `turnovers` the coaching windows, the
-  run-back cascade's *batching* and the run-back prompt's field strip
-  (`post_run_back_prompt`, which is a renderer for a `PendingPrompt`
-  since Phase 6 rather than a step of its own).
-  **A wrapper is two lines now** -- run the step, dispatch -- because Phase
-  6 moved the save into `dispatch_step_result`, the driver's caller
-  (principle 9 in [CLAUDE.md](../../CLAUDE.md)). The reason a wrapper is
-  still a method on a mixin rather than a function is the first bullet
-  above: its callers spell it `self.foo(...)` and there are hundreds of
-  them.
-- **The first bullet is still true, and Phase 6 is what would make it
-  false.** "These methods co-operate through the cog's own state and call
-  each other by the hundred" was the argument for mixins, and the phase
-  that empties the cog is the phase that retires it. It has not happened
-  yet. `d12ball/flow/driver.py` took the **loop** -- what runs after a
-  step -- then the *answers*: every view body and cog method that
-  mutated the match in between rendering it now calls a flow step that
-  does the mutating, and `driver.ANSWERS` covers every `PromptKind`.
-  The cog still holds every entry point a click arrives at, and the
-  figures say so: **189 async methods in `cogs/d12ball/`, 158 of them
-  taking an `interaction`, against 188 and 157 before the third
-  increment** -- both went *up* by one, because the turn's own action
-  needed a follow-on wrapper. What moved is in the other directory,
-  and it is the figure the split is actually about: methods in
-  **`cogs/d12ball_views/` touching `match.` went 84 to 61, and direct
-  writes to a `match` attribute went 16 to 0**. No view mutates a
-  match any more.
-  - **What the driver runs is twelve of the enum's members, and what
-    the cog keeps is eighteen.** The eighteen are what the phase
-    always expected to find at the bottom: pictures (the coaching
-    window's half-field, the maneuver hand, the score attempt's
-    composition, the challenge image, the snapshot a loose ball is
-    announced under), pins (`post_new_play_board` on both kickoffs and
-    the final board), the tutorial's Continue gates, and the run-back
-    cascade's batching. None of the eighteen is a rule.
-  - **What is left before this section can be rewritten for real** is
-    pointing the entry points at the driver. A click still lands on a
-    `discord.ui.View`, which calls a flow step directly rather than
-    going through `driver.answer` -- so the stale-click guards in
-    `cogs/` are still a second reading of what `pending_prompt`
-    already says. `play_ai_turn` is the other half. Until a click
-    lands on the driver, this section says what it always said,
-    because the code it describes has not moved.
+  and into `d12ball/prompts.py` (Phase 1 of the model/Discord split); what
+  `core` keeps is the mapping from a `PromptKind` to a view and to the
+  picture that kind carries, which carries no ordering at all.
+- **What a mixin holds shrank, and the six seams did not move.**
+  Phases 2-6 of the model/Discord split (see
+  [model-discord-split.md](model-discord-split.md)) lifted every decision
+  out of `core`, `effects`, `periods` and `turnovers` into `d12ball/flow/`,
+  and what each mixin keeps is the same responsibility with the rules
+  taken out of it: `core` the one loop-and-render (`dispatch_step_result`,
+  `render_prompt`, `view_for_prompt`) and the entry points into a turn's
+  front half; `effects` an entry point per card and the two dice images
+  that go between a roll's lines; `periods` the clock's tail and the final
+  board; `turnovers` the coaching image, resume, and entry points into the
+  run back and the time out; `presentation` the pictures.
+  **An entry point is two lines** -- call one step, or name one by its
+  `FollowOnStep`, and dispatch -- and there are sixty-odd of them because
+  that is what a click or a command arrives at, and what the tests drive.
+  The reason an entry point is still a method on a mixin rather than a
+  function is the first bullet above: its callers spell it `self.foo(...)`.
+- **The first bullet is now half true, and it is the half that keeps the
+  mixins.** "These methods co-operate through the cog's own state and call
+  each other by the hundred" was the argument for mixins. They still call
+  each other -- an entry point calls the dispatcher, the dispatcher calls
+  the renderers, the renderers call the image builders -- but nothing they
+  say to each other is a rule any more: `d12ball/flow/driver.py` runs every
+  step of a turn and answers every prompt, and a click lands on
+  `SafeView.answer`, which is `driver.answer` with the refusal rendered.
+  Turning the remaining calls into collaborator objects would be the "far
+  larger change and a different one" it always was, and it is still not
+  started. What the phase changed is what the mixins are *for*: they are a
+  frontend, and the figures say how much of one -- measured by the rule in
+  "How the split is measured" in [model-discord-split.md](model-discord-split.md),
+  which is what to re-run rather than quote.
 - **A method that is now only a forwarder stays where its callers are.**
   `player_label`, `apply_exhaustion`, `injured_word_and_emoji`,
   `maneuver_prompt_wording`, `run_back_space_prompt`,

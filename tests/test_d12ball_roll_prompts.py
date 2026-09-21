@@ -247,10 +247,11 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
         view = OwnGoalRollView(cog, game.game_id)
         await view.roll(interaction)
 
-        interaction.response.send_message.assert_awaited_once()
+        # Refused after the click was acknowledged, so on the follow-up.
+        interaction.followup.send.assert_awaited_once()
         self.assertIn(
             "no longer active",
-            interaction.response.send_message.await_args.args[0],
+            interaction.followup.send.await_args.args[0],
         )
         cog.finish_maneuver_resolution.assert_not_awaited()
 
@@ -373,14 +374,23 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
 
         # The offense's prompt is still in the channel, above the one
         # the defense owes; clicking it again must not stand in for it.
+        # Refused after the click was acknowledged, so on the follow-up.
         interaction = await self.roll_injury(cog, game, offense, 12)
-        interaction.response.send_message.assert_awaited_once()
+        interaction.followup.send.assert_awaited_once()
+        self.assertIn(
+            "no longer active", interaction.followup.send.await_args.args[0],
+        )
         self.assertEqual(
             cog.engine.load_match_state(game).pending_injury_tests, [defense],
         )
 
     async def test_an_injured_player_is_never_asked(self) -> None:
         cog, game, match, offense = self.build_skill_test()
+        # A decisive win by an injured player is what forces a skill
+        # test at all -- Low Pass beats Pressure on the cards -- so
+        # this is a test the position genuinely owes, unlike the
+        # fixture's tie, which an injured participant simply loses.
+        match.defense_maneuver = "pressure"
         match.injured.add(offense)
         game.match_state = match.to_dict()
 

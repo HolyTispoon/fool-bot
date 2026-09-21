@@ -147,16 +147,33 @@ Two things follow from that:
     turn. Neither was wrong -- both built the view a restart would have
     built -- but "both happen to agree" is what principle 3 is against,
     and there is one fewer place for them to stop agreeing.
-  - **What a restart still cannot restore is unchanged**, and it is
-    worth naming because the increment did not move it: a part-made
-    coaching pick lives on the hub's sub-menus and nowhere else, and a
-    Low Pass waiting on *which* of several teammates receives it reads
-    back as the first-stage distance choice. Both are narrow crash
-    windows in which nothing has been applied, so the coach re-picks.
+  - **The last increment made two more states restart-safe, and one
+    of them outranks everything above.** A tutorial note held behind
+    Continue used to be a `TutorialContinueView` with the continuation
+    in a closure -- never registered, so a restart left a dead button
+    and a resume put up the thing the note explains *without* the note.
+    It is `PromptKind.TUTORIAL_CONTINUE` now, over
+    `D12BallGame.tutorial_gate`, read first of all by `pending_prompt`
+    and by `resume_pending_prompt`, because the position underneath is
+    exactly what it was before the note went up and re-driving it would
+    run what the note is explaining. `skip_tutorial` spends the gate
+    the way the click would (`gates.continue_step`). The other is the
+    run back's first answer: `RUN_BACK_PLAYER` then `RUN_BACK_SPACE`
+    are two prompts for one answer and the view carried the first, so
+    a restart between them re-asked it; `MatchState.run_back_pick`
+    holds it now. A finished game reads as `PromptKind.GAME_OVER`, so
+    a restart hands back the rematch buttons rather than a stale prompt
+    off the last turn.
+  - **What a restart still cannot restore**: a part-made coaching pick
+    lives on the hub's sub-menus and nowhere else, and a Low Pass
+    waiting on *which* of several teammates receives it reads back as
+    the first-stage distance choice. Both are narrow crash windows in
+    which nothing has been applied, so the coach re-picks.
     `driver.answer` refusing an action that does not match
     `pending_prompt` is what makes that safe rather than merely
     harmless -- the answer to the question they were looking at cannot
-    be applied to the one they are handed back.
+    be applied to the one they are handed back -- and since the last
+    increment every click goes through it.
 
 - **An open Coaching Choice is re-posted, never re-opened.**
   `repost_coaching_prompt` exists because opening a window calls

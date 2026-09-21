@@ -31,9 +31,9 @@ pickup use.
   manual corrections. Since Phase 4 the step says only that the board moved
   and what the line is, and `D12Ball.begin_loose_ball` decides that this
   particular line is worth an upload -- a Discord economy, and the frontend's
-  (principle 8). It goes through `D12Ball.post_then_dispatch`, which is what
-  keeps it a message of its own rather than a lead-in to whatever settles the
-  contest next. The snapshot is drawn
+  (principle 8). The loop stops on it (`DRIVER_STOPS`) and `post_stop`
+  posts the snapshot, which is what keeps it a message of its own rather
+  than a lead-in to whatever settles the contest next. The snapshot is drawn
   once and the persistent message is brought in line from the same bytes, so it
   costs the render everything else costs; the callers that used to refresh
   immediately before it (the receiverless Low Pass) no longer do, or the same
@@ -157,15 +157,16 @@ the two paths that did not pass it kept the old behaviour.
     `dispatch_step_result` passes a follow-on's arguments by name; and "stops
     refreshing the board first" is now a rule rather than an absent call. The
     step reports `board_changed=True` honestly -- the ball moved -- and
-    `FOLLOW_ONS_THAT_DRAW_THE_BOARD` is what keeps the cog from writing a
-    board this function is about to write itself. Keyed to the step, so the
-    seven callers still to be lifted inherit it; see "Discord's rate limits"
-    in [rate-limits.md](rate-limits.md).
-  - **Setup Pass's cost rides inside the deflection**, so it is in that set
-    too. `offer_setup_pass_push_back` asks the coach who beat the pass how
-    much further back the ball goes, and all three of its branches end here
-    anyway -- so the board arrives with the loose ball, once, on the far side
-    of the answer.
+    the frontend is what keeps itself from writing a board this function is
+    about to write: `BEGIN_LOOSE_BALL` is a stop of the driver's loop
+    (`DRIVER_STOPS`), and `stop_draws_the_board` skips the ordinary write in
+    front of it. Keyed to the step, so every caller inherits it; see
+    "Discord's rate limits" in [rate-limits.md](rate-limits.md).
+  - **Setup Pass's cost rides inside the deflection**, so its prompt is
+    skipped too (`PROMPTS_DRAWN_LATER`). `offer_setup_pass_push_back` asks
+    the coach who beat the pass how much further back the ball goes, and all
+    three of its branches end here anyway -- so the board arrives with the
+    loose ball, once, on the far side of the answer.
 - **`check_for_loose_ball` has one detour now, not two.** Its guard still
   earns its keep: the maneuvers that leave the ball with a named player are not
   loose, and that is what it asks. What changed on 2026-08-26 is what happens

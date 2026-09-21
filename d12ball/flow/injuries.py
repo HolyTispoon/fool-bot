@@ -6,7 +6,7 @@ clicks, and the last of them may be several minutes after the roll that
 owed them. So the queue and the continuation are both match state, and
 these two functions are the one way in and the one way out of it.
 
-Lifted in Phase 4 of docs/model-discord-split.md out of
+Lifted in Phase 4 of docs/design/model-discord-split.md out of
 `cogs/d12ball/core.py`, and `dispatch_injury_resume` followed in Phase
 5. It stayed behind the first time because two of the three arrivals it
 names were still the cog's, and "a dispatcher that can only answer one

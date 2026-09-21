@@ -1,7 +1,7 @@
 """
 What the cog's Low Pass says and does next, recorded off the old code.
 
-This is the equivalence half of Phase 2 of docs/model-discord-split.md.
+This is the equivalence half of Phase 2 of docs/design/model-discord-split.md.
 It drives `D12Ball.apply_low_pass` over `tests/low_pass_fixtures.py`
 and asserts the narration byte for byte, whether the board moved, and
 which step the resolution hands the turn to with which arguments --

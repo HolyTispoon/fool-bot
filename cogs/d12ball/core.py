@@ -11,20 +11,13 @@ import asyncio
 import discord
 import io
 import time
-from typing import Callable, Optional, Sequence
+from typing import Optional, Sequence
 
 from discord import app_commands
 from discord.ext import commands
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.components import (
-    DECISION_CARDS,
-    DECISION_INJURY_FORFEIT,
-    DECISION_SKILL_TEST,
-    DECISION_UNCONTESTED,
-    CoachingOccasion,
-    EVENT_MANEUVER,
-    EVENT_SKILL_TEST,
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
     MANEUVER_TIER_WORDS,
@@ -52,23 +45,20 @@ from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow import driver
 from d12ball.flow.turn import (
     announce_uncontested_maneuver,
-    auto_resolve_challenger,
-    begin_maneuver_action_selection,
     injured_word_and_emoji,
-    maneuver_prompt_wording,
-    resolve_maneuver,
+    record_turn_action,
 )
-from d12ball.flow.arrivals import take_scoring_opportunity
-from d12ball.flow.turn import record_turn_action
 from d12ball.flow.injuries import (
     begin_injury_tests,
     continue_injury_tests,
     injury_test_step,
 )
 from d12ball.prompts import (
+    SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
     effect_choice_prompt,
+    maneuver_prompt_wording,
     pending_prompt,
     run_back_prompt,
 )
@@ -89,7 +79,6 @@ from cogs.d12ball_helpers import (
     EMOJI_REFETCH_INTERVAL,
     ERROR_RECOVERY_ADVICE,
     LOGGER,
-    MANEUVER_ROW_COLOURS,
     add_full_image_button,
     fetch_application_emojis,
     format_player_with_team,
@@ -103,6 +92,7 @@ from cogs.d12ball_helpers import (
     load_role_emojis,
     load_species_ability_emojis,
     load_team_emojis,
+    refresh_player_names,
     send_error_fallback,
     send_new_prompt,
 )
@@ -137,6 +127,7 @@ from cogs.d12ball_views import (
     SetUpAttemptChoiceView,
     ShooterChoiceView,
     SetupPassChoiceView,
+    SetupPassPushBackView,
     ShootoutOrderPromptView,
     ShootoutOrderSelectView,
     ShootoutPickPromptView,
@@ -145,49 +136,30 @@ from cogs.d12ball_views import (
     SkillTestView,
     SpeedDeltaChoiceView,
     TeamSelectionView,
+    TutorialContinueView,
 )
 from cogs.d12ball_boards import BoardRefresher
 
 
-#: The follow-on steps that put the board up themselves, so
-#: `dispatch_step_result` does not write it a second time in front of
-#: them.
-#:
-#: **This is a Discord economy, not a fact about the position.** A step
-#: reports `board_changed` honestly -- the ball moved -- and the
-#: frontend decides what that costs: here, every edit to any message in
-#: a channel shares one five-in-five bucket, so a refresh in front of a
-#: step that is about to draw the same board writes the same bytes
-#: twice for one click. See "Discord's rate limits" in
-#: docs/design/rate-limits.md, and principle 8 in CLAUDE.md for why the
-#: suppression lives here rather than in the step. A web app reading
-#: the same `StepResult` has no such bucket and should redraw.
-#:
-#: Both members reach it by the same route, one of them a beat later.
-#: `begin_loose_ball` announces the position with the board under it --
-#: the ball is lying somewhere nothing in the channel has named, and
-#: the very next question is who to send after it. And every branch of
-#: `offer_setup_pass_push_back` ends in `begin_loose_ball`: the
-#: fallback where no distance fits, Dinky's maximum, and the coach's
-#: own answer. So the board a deflection moved reaches the channel
-#: either way; what this decides is only that it is not *also* drawn in
-#: front of a question whose answer moves the ball again.
-#:
-#: A set rather than a check on one member, because the answer is the
-#: **step's** and not the calling card's: rank D1 lifted the first two
-#: callers of `begin_loose_ball`, Phase 4 lifted the rest, and every one
-#: of them gets this without deciding it again.
-FOLLOW_ONS_THAT_DRAW_THE_BOARD = frozenset({
-    FollowOnStep.BEGIN_LOOSE_BALL,
-    FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK,
+#: Every prompt whose message carries **the field strip** -- the six
+#: distance questions and the run back's two. Every one of them is
+#: answered by reading where everybody is standing relative to the
+#: ball, and by the time a maneuver has resolved the persistent board
+#: has scrolled away up the channel. See `D12Ball.send_field_prompt`.
+FIELD_PROMPT_KINDS = frozenset({
+    PromptKind.LOW_PASS_CHOICE,
+    PromptKind.HIGH_PASS_CHOICE,
+    PromptKind.SETUP_PASS_CHOICE,
+    PromptKind.DRIBBLE_ADVANCE_CHOICE,
+    PromptKind.DRIBBLE_BURST_CHOICE,
+    PromptKind.RUN_BACK_SPACE,
+    PromptKind.RUN_BACK_PLAYER,
 })
 
 
 #: The two prompt kinds whose message carries **the coach's own
 #: half-field** -- the one picture in the game that is not the board,
-#: the field strip or a hand of cards. `D12Ball.begin_substitution_window`
-#: posts these itself rather than letting `dispatch_step_result` do it,
-#: because the file has to be rendered and attached; see
+#: the field strip or a hand of cards. See `D12Ball.coaching_file`, and
 #: "Working on the board image" in docs/design/board-image.md.
 COACHING_PROMPT_KINDS = frozenset({
     PromptKind.COACHING_HUB,
@@ -195,16 +167,29 @@ COACHING_PROMPT_KINDS = frozenset({
 })
 
 
+#: Prompts the board is **not** written in front of, because the
+#: answer draws it a moment later. Setup Pass's push back ends in a
+#: loose ball on every branch -- the fallback where no distance fits,
+#: Dinky's maximum, and the coach's own answer -- and a loose ball is
+#: announced with the board under it. So the board a deflection moved
+#: reaches the channel either way; what this decides is only that it
+#: is not *also* drawn in front of a question whose answer moves the
+#: ball again. Rank D1's economy, keyed on the prompt now that the
+#: offer is a step the driver runs. See "Discord's rate limits" in
+#: docs/design/rate-limits.md.
+PROMPTS_DRAWN_LATER = frozenset({
+    PromptKind.SETUP_PASS_PUSH_BACK,
+})
+
+
 #: Every follow-on whose own message **is** the lines handed to it, so
-#: a caller posting a step's narration block by block must not post
-#: them and then run it.
+#: a run must carry them into it rather than post them above it.
 #:
-#: One member, and it earns the set rather than an `is` check for
-#: `FOLLOW_ONS_THAT_DRAW_THE_BOARD`'s reason: the answer is the step's.
-#: `announce_game_over` is handed a string and puts the final board and
-#: the rematch buttons on the message it makes of it -- so the whistle
-#: and the scoresheet are its content, not a message above it. See
-#: `D12Ball.post_blocks_then_dispatch`.
+#: One member. `announce_game_over` is handed the whistle and the
+#: scoresheet and puts the final board and the rematch buttons on the
+#: message it makes of them -- so those lines are its content, not a
+#: message above it. It earns the set rather than an `is` check
+#: because the answer is the step's.
 FOLLOW_ONS_THAT_SPEAK_THE_LINES = frozenset({
     FollowOnStep.ANNOUNCE_GAME_OVER,
 })
@@ -213,36 +198,64 @@ FOLLOW_ONS_THAT_SPEAK_THE_LINES = frozenset({
 #: Where the frontend has a picture of the position to put up, so the
 #: driver must not run on past it.
 #:
-#: `driver.advance` stops after a step named here. It is the frontend's
-#: half of principle 8 and the mirror of `FOLLOW_ONS_THAT_DRAW_THE_BOARD`:
-#: that set says "do not write a board in front of this step", this one
-#: says "do not let the position move on behind a picture I am about to
-#: take". Empty while every step the driver runs carries its lines
-#: forward rather than showing them over a snapshot -- a step that
-#: announces the board under its own line (`begin_loose_ball`) is not in
-#: the driver's table at all yet, so it stops the loop by being absent.
-DRIVER_STOPS: frozenset = frozenset()
+#: `driver.advance` stops after a step named here and
+#: `D12Ball.post_stop` takes the picture. It is the frontend's half of
+#: principle 8: "do not let the position move on behind a picture I
+#: am about to take". A loose ball is announced by showing where it
+#: is, and the tail of a maneuver shows the board the offensive choice
+#: is handed back over -- the next step is a whole AI turn, which
+#: walks a challenger in. A new play's board is the third picture and
+#: is the model's own stop (`StepResult.new_play`).
+DRIVER_STOPS = frozenset({
+    FollowOnStep.BEGIN_LOOSE_BALL,
+    FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+})
 
 
 #: Every step the driver runs whose lines are **a message of their
 #: own**, so the loop must stop carrying them forward once it has run.
 #:
-#: This is `post_then_dispatch` and `post_blocks_then_dispatch` as a
-#: set rather than as two methods, and it is what let those four steps
-#: into the loop at all: before Phase 6's second increment the choice
-#: of dispatcher *was* the cog calling a different method, so a step
-#: whose lines were an event in their own right could not be run by
-#: anything but the cog. `driver.advance` closes a `NarrationGroup`
-#: after each of these and the rendering below picks a dispatcher per
-#: group -- which keeps the decision exactly where principle 8 puts
-#: it, and stops it being a flag on `StepResult`.
+#: This is the old `post_then_dispatch` and `post_blocks_then_dispatch`
+#: as a set rather than as two methods: the choice of dispatcher used
+#: to be the cog calling a different method, so a step whose lines
+#: were an event in their own right could not be run by anything but
+#: the cog. `driver.advance` closes a `NarrationGroup` after each of
+#: these and `post_narration_group` posts it -- which keeps the
+#: decision exactly where principle 8 puts it, and stops it being a
+#: flag on `StepResult`.
 DRIVER_OWN_MESSAGE = frozenset({
+    # The reveal; the effect that follows posts its own.
     FollowOnStep.RESOLVE_MANEUVER,
+    # The skill test's reveal is a permanent message, separate from
+    # the roll prompt, so it survives every re-roll intact.
+    FollowOnStep.BEGIN_MANEUVER_SKILL_TEST,
+    # The walk-in, over the challenge image.
+    FollowOnStep.AUTO_RESOLVE_CHALLENGER,
+    # Who came away with the ball is a different event from where it
+    # came down, and the run back that follows is a third.
     FollowOnStep.RESOLVE_LOOSE_BALL,
     FollowOnStep.ANNOUNCE_RUN_BACK,
+    # The cascade's automatic placements, batched into one message.
+    FollowOnStep.CONTINUE_RUN_BACK,
+    # The pickup is an event, and the maneuver's tail behind it is
+    # the next one.
+    FollowOnStep.APPLY_BALL_RECOVERY,
+    # The new speed is the answer to the question this was, and what
+    # follows it is the next event.
+    FollowOnStep.OFFER_SPEED_CHOICE,
+    # The whistle and the runs of separate events behind it.
     FollowOnStep.END_PERIOD,
     FollowOnStep.CONTINUE_SHOOTOUT,
     FollowOnStep.FINISH_SUBSTITUTION_WINDOW,
+    # A window's lead-in is a message above the menu, and an AI side's
+    # window is a run of separate events.
+    FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
+    # The lines a turn opens with -- "Dinky has chosen to maneuver",
+    # then "Unchallenged!" -- each a message, as the AI's turn always
+    # read; a human's turn says nothing here.
+    FollowOnStep.START_TURN,
+    # "X takes the shot off the set-up", above the composition.
+    FollowOnStep.START_SET_UP_SHOT,
 })
 
 
@@ -251,64 +264,24 @@ DRIVER_OWN_MESSAGE = frozenset({
 #: A period transition is a cascade of separate events -- the whistle,
 #: the halftime recovery, an AI side's extra token, the shootout's
 #: explainer -- and a coach reads them as the several they are. Every
-#: other group in the set above is one message. Keyed on the step for
-#: `FOLLOW_ONS_THAT_DRAW_THE_BOARD`'s reason: the answer is the step's,
-#: not the card's that reached it.
+#: other group in the set above is one message. Keyed on the step
+#: because the answer is the step's, not the card's that reached it.
 DRIVER_BLOCKS_PER_MESSAGE = frozenset({
     FollowOnStep.END_PERIOD,
-    # The shootout's own transitions, for the whistle's reason:
-    # the settled score, the summary and the goal log are separate
-    # events, and `D12Ball.continue_shootout` posted them a message
-    # apiece through `post_blocks_then_dispatch` before the test
-    # that reaches it became a step.
+    # The shootout's own transitions, for the whistle's reason: the
+    # settled score, the summary and the goal log are separate events.
     FollowOnStep.CONTINUE_SHOOTOUT,
-    # The junction the five coaching occasions come back through,
-    # for the same reason: a window closing can hand out the next
-    # side's, or open a kickoff, or let a run back go ahead, and
-    # those are separate events.
+    # The junction the five coaching occasions come back through, for
+    # the same reason: a window closing can hand out the next side's,
+    # or open a kickoff, or let a run back go ahead.
     FollowOnStep.FINISH_SUBSTITUTION_WINDOW,
+    # An AI side's whole window is a routine, and each thing it did is
+    # its own line.
+    FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
+    # The AI's turn, a message per thing it says.
+    FollowOnStep.START_TURN,
+    FollowOnStep.START_SET_UP_SHOT,
 })
-
-
-def follow_on_draws_the_board(following: FollowOn) -> bool:
-    """
-    Whether the step a result hands to is about to put the board up
-    itself, so the frontend should not write one in front of it.
-
-    The set above is the whole of it for a step that always draws.
-    **`begin_run_back` is the first that draws only sometimes**, and
-    rank O3 is what met it: a run back after a steal redraws nothing
-    of its own, but a run back opening a *new play* posts and pins a
-    board -- both passes that go out of play reach it that way, and
-    the old cog wrote no board in front of either. So the argument
-    that decides it is read here, beside the set, rather than the
-    model being asked to report a board that did not move.
-
-    **`is_high_pass` is the second argument that decides it**, and
-    Phase 6 is what made it matter. `begin_loose_ball` draws the board
-    under its own announcement for a genuine loose ball -- nothing in
-    the channel names the space the ball is lying in -- and
-    deliberately does not for a long High Pass, where the ball is on a
-    receiver both coaches watched catch it and the board the pass
-    moved is written in front of the contest instead. While
-    `BEGIN_HIGH_PASS_CONTEST` was the cog's, that write came from the
-    dispatch above it and this set never saw the difference; now that
-    the loop runs the contest, the run ends on `BEGIN_LOOSE_BALL`
-    itself and suppressing here would lose the pass's board
-    altogether. Read off the step's own arguments, like `new_play`
-    beside it.
-
-    Still keyed to the step and its own arguments rather than to the
-    card that named it, which is rank D1's rule and the reason every
-    caller of `begin_loose_ball` Phase 4 lifted inherited this without
-    deciding it again.
-    """
-    if following.step in FOLLOW_ONS_THAT_DRAW_THE_BOARD:
-        return not following.kwargs.get("is_high_pass")
-    return (
-        following.step is FollowOnStep.BEGIN_RUN_BACK
-        and bool(following.kwargs.get("new_play"))
-    )
 
 
 #: Every prompt kind whose view is built from the cog and the game id
@@ -335,10 +308,16 @@ PLAIN_PROMPT_VIEWS = {
     PromptKind.SETUP_PASS_CHOICE: SetupPassChoiceView,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: DribbleAdvanceChoiceView,
     PromptKind.DRIBBLE_BURST_CHOICE: DribbleBurstChoiceView,
+    PromptKind.SETUP_PASS_PUSH_BACK: SetupPassPushBackView,
 }
 
-#: The kinds carrying a parameter their view needs.
+#: The kinds carrying a parameter their view needs -- and the two
+#: whose view is built from the game id alone but is not a prompt's
+#: buttons in the ordinary sense: the tutorial's Continue, and the
+#: rematch under a finished game.
 PARAMETERISED_PROMPT_KINDS = frozenset({
+    PromptKind.TUTORIAL_CONTINUE,
+    PromptKind.GAME_OVER,
     PromptKind.HALFTIME_EXTRA_TOKEN,
     PromptKind.MIND_PULL,
     PromptKind.SMOOTH,
@@ -539,6 +518,7 @@ class CoreMixin:
             if (
                 game.turn_message_id is not None
                 and game.match_state is not None
+                and not game.is_finished
             ):
                 try:
                     match = self.engine.load_match_state(game)
@@ -976,6 +956,7 @@ class CoreMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        ask: str = SCORE_ATTEMPT_ASK,
     ) -> None:
         """
         Post what the score attempt is made of, then the roll prompt.
@@ -983,6 +964,10 @@ class CoreMixin:
         same reason the maneuver challenge is one (see
         build_maneuver_challenge_file): a shot is decided by skills and
         abilities that a line of prose lists without showing.
+
+        `ask` is the prompt's line -- the model's, through
+        `render_prompt`; the default is the same line for the two
+        callers that reach here without a prompt in hand.
         """
         composition_message = await send_new_prompt(
             interaction,
@@ -995,9 +980,7 @@ class CoreMixin:
         # explanation with it once it is no longer needed.
         prompt_message = await send_new_prompt(
             interaction,
-            "Either player can roll. Both sides roll one d12; the "
-            "attacker scores on a total equal to or higher than the "
-            "defence.",
+            ask,
             view=ScoreAttemptView(
                 self, game.game_id,
                 composition_message_id=composition_message.id,
@@ -1014,43 +997,21 @@ class CoreMixin:
         challenger_id: str,
     ) -> None:
         """
-        The Discord half of an already-decided challenger pick --
-        `d12ball.flow.turn.auto_resolve_challenger`.
-
-        **A bespoke wrapper rather than `dispatch_step_result`**,
-        because the walk-in line is not a message of its own: it rides
-        above the matchup image, which is meant to sit directly on top
-        of the maneuver prompt a coach is reading it for. See
-        `announce_maneuver_challenge`.
+        An already-decided challenger pick, as an entry point:
+        `d12ball.flow.turn.auto_resolve_challenger` through the
+        dispatcher, which posts the walk-in over the challenge image
+        (`post_narration_group`) and carries on to the maneuver pick.
         """
-        result = auto_resolve_challenger(
-            self.engine, game, match, challenger_id,
-        )
-        self.persist(game, match)
-
-        await self.announce_maneuver_challenge(
-            interaction, match, challenger_id, " ".join(result.narration),
-        )
-        if result.board_changed:
-            await self.refresh_match_image(interaction, game)
         await self.dispatch_step_result(
-            interaction, game, match, StepResult(next=result.next),
-        )
-
-    async def auto_resolve_challenger_step(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        *,
-        challenger_id: str,
-        lead_in: str = "",
-    ) -> None:
-        """`auto_resolve_challenger` as a follow-on."""
-        if lead_in:
-            await send_new_prompt(interaction, lead_in)
-        await self.auto_resolve_challenger(
-            interaction, game, match, challenger_id,
+            interaction,
+            game,
+            match,
+            StepResult(
+                next=FollowOn(
+                    FollowOnStep.AUTO_RESOLVE_CHALLENGER,
+                    {"challenger_id": challenger_id},
+                ),
+            ),
         )
 
     async def announce_uncontested_maneuver(
@@ -1059,13 +1020,14 @@ class CoreMixin:
         game: D12BallGame,
         match: MatchState,
     ) -> None:
-        """
-        The Discord half of "there is nobody to challenge" --
-        `d12ball.flow.turn.announce_uncontested_maneuver`. Its own
-        message: the pick that follows is a prompt of its own.
-        """
-        result = announce_uncontested_maneuver(self.engine, game, match)
-        await self.post_then_dispatch(interaction, game, match, result)
+        """"There is nobody to challenge", as an entry point -- its own
+        message, then the offense's pick."""
+        await self.post_then_dispatch(
+            interaction,
+            game,
+            match,
+            announce_uncontested_maneuver(self.engine, game, match),
+        )
 
     async def begin_maneuver_action_selection(
         self,
@@ -1074,111 +1036,123 @@ class CoreMixin:
         match: MatchState,
         lead_in: str = "",
     ) -> None:
-        """
-        The Discord half of the simultaneous maneuver-action choice --
-        `d12ball.flow.turn.begin_maneuver_action_selection`, which
-        writes the AI's pick and says whether anybody is still owed
-        one.
+        """The simultaneous maneuver pick, as an entry point."""
+        await self.run_step(
+            interaction,
+            game,
+            match,
+            FollowOnStep.BEGIN_MANEUVER_ACTION_SELECTION,
+            lead_in=lead_in,
+        )
 
-        `lead_in` is always "" -- both steps that hand here post their
-        own line first (the challenge image, the unchallenged notice)
-        -- and is carried into whatever comes next rather than dropped.
+    async def resolve_maneuver(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """The reveal, as an entry point -- `d12ball.flow.turn.resolve_maneuver`."""
+        await self.run_step(
+            interaction, game, match, FollowOnStep.RESOLVE_MANEUVER,
+            lead_in=lead_in,
+        )
+
+    async def begin_maneuver_skill_test(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        headline: str,
+        lead_in: str = "",
+    ) -> None:
+        """The skill test's reveal and prompt, as an entry point."""
+        await self.run_step(
+            interaction,
+            game,
+            match,
+            FollowOnStep.BEGIN_MANEUVER_SKILL_TEST,
+            lead_in=lead_in,
+            headline=headline,
+        )
+
+    async def begin_effect_resolution(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        winner_key: str,
+        lead_in: str = "",
+    ) -> None:
         """
-        result = begin_maneuver_action_selection(self.engine, game, match)
-        if lead_in:
-            result.narration.insert(0, lead_in)
-        await self.dispatch_step_result(interaction, game, match, result)
+        A settled maneuver's effect, as an entry point --
+        `d12ball.flow.effects.begin_effect_resolution`, which logs the
+        maneuver and runs the won card by key.
+        """
+        await self.run_step(
+            interaction,
+            game,
+            match,
+            FollowOnStep.BEGIN_EFFECT_RESOLUTION,
+            lead_in=lead_in,
+            winner_key=winner_key,
+        )
 
     async def send_maneuver_action_prompt(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
-        *,
-        sides: list[str],
-        ask: str,
-        lead_in: str = "",
+        content: str,
     ) -> None:
         """
         Put the maneuver hands up on **one public prompt** -- see
         `ManeuverActionPromptView` for why the cards can be public
         while the pick stays secret.
 
-        Everything here is a picture or a gate: the hand image, the
-        link to the full-size version, the field strip, and (in a
-        tutorial) the note held behind Continue. Who is being asked
-        and what they are told arrives in `ask`.
+        Everything here is a picture: the hand image, the link to the
+        full-size version, and the field strip under it. Who is being
+        asked and what they are told arrives in `content`, which is
+        the prompt's own ask (`maneuver_action_ask`); a tutorial's note
+        has already been shown and clicked through by the time this is
+        reached (`d12ball.flow.gates`).
         """
-
-        async def show_prompt(
-            inner_interaction: discord.Interaction,
-        ) -> None:
-            prompt_view = ManeuverActionPromptView(self, game.game_id)
-            # The cards ride on the prompt itself. One image, not one
-            # per side: Discord lays two attachments out side by side,
-            # which would halve the width of both hands. See
-            # render_maneuver_hands for why showing both gives nothing
-            # away.
-            # Who holds their gambits, under the instruction and above
-            # the cards. It is public knowledge either coach could work
-            # out from the scoreboard and the board (see
-            # `RulesEngine.may_play_gambits`), and `""` in the games
-            # and positions where the question does not arise -- so
-            # this adds a paragraph to an advanced prompt and nothing
-            # at all to a basic one.
-            gambit_access = self.engine.describe_gambit_access(game, match)
-            prompt_text = " ".join(filter(None, (lead_in, ask)))
-            if gambit_access:
-                prompt_text = f"{prompt_text}\n\n{gambit_access}"
-
-            prompt_message = await send_new_prompt(
-                inner_interaction,
-                prompt_text,
-                file=self.build_maneuver_hand_file(
-                    tuple(
-                        (side, self.engine.maneuver_tiers(game, match, side))
-                        for side in sides
-                    ),
+        prompt_view = ManeuverActionPromptView(self, game.game_id)
+        sides = self.engine.maneuver_pick_sides(game, match)
+        # The cards ride on the prompt itself. One image, not one per
+        # side: Discord lays two attachments out side by side, which
+        # would halve the width of both hands. See render_maneuver_hands
+        # for why showing both gives nothing away.
+        prompt_message = await send_new_prompt(
+            interaction,
+            content,
+            file=self.build_maneuver_hand_file(
+                tuple(
+                    (side, self.engine.maneuver_tiers(game, match, side))
+                    for side in sides
                 ),
-                view=prompt_view,
-                allowed_mentions=discord.AllowedMentions(
-                    users=True,
-                    roles=False,
-                    everyone=False,
-                ),
-            )
-            game.turn_message_id = prompt_message.id
-            save_games(self.games)
+            ),
+            view=prompt_view,
+            allowed_mentions=discord.AllowedMentions(
+                users=True,
+                roles=False,
+                everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
 
-            # The abilities are small print at the size Discord shows an
-            # image inline, so the link is worth the extra round trip.
-            # It is the webhook route, not the channel's edit bucket --
-            # see "Discord's rate limits". Adding it re-sends the view,
-            # or the edit would drop the buttons the prompt exists for.
-            await add_full_image_button(
-                prompt_message,
-                view=prompt_view,
-                row=prompt_view.full_image_row,
-            )
-            await self.post_field_image(inner_interaction, game)
-
-        # The cards are what this beat is about, so its note goes in
-        # front of the prompt rather than with the lesson two messages
-        # up: by the time the hands are in front of a coach they have
-        # watched a challenger walk in and are looking at three
-        # buttons, which is the moment the explanation is worth
-        # reading. It is held behind Continue rather than posted right
-        # alongside the prompt -- see post_tutorial_note -- since
-        # nothing forces a coach to read it before live buttons draw
-        # their eye.
-        tutorial_beat = self.tutorial_beat(game)
-        if tutorial_beat is not None:
-            await self.post_tutorial_note(
-                interaction, game, tutorial_beat.maneuver_note, show_prompt,
-            )
-            return
-
-        await show_prompt(interaction)
+        # The abilities are small print at the size Discord shows an
+        # image inline, so the link is worth the extra round trip. It
+        # is the webhook route, not the channel's edit bucket -- see
+        # "Discord's rate limits". Adding it re-sends the view, or the
+        # edit would drop the buttons the prompt exists for.
+        await add_full_image_button(
+            prompt_message,
+            view=prompt_view,
+            row=prompt_view.full_image_row,
+        )
+        await self.post_field_image(interaction, game)
 
     def injured_word_and_emoji(
         self,
@@ -1208,86 +1182,6 @@ class CoreMixin:
         `d12ball.flow.turn.maneuver_prompt_wording`.
         """
         return maneuver_prompt_wording(self.engine, game, match, sides)
-
-    async def begin_maneuver_skill_test(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        headline: str,
-        lead_in: str = "",
-    ) -> None:
-        """
-        Charge both participants their token, post what is at stake,
-        and put the roll behind a button -- every roll is a coach's.
-
-        `lead_in` is here because every follow-on is called with one.
-        It is always "" for this step: `resolve_maneuver` hands the
-        reveal over as `headline`, which the message below embeds,
-        rather than as narration that would have been posted above it.
-        """
-        if lead_in:
-            await send_new_prompt(interaction, lead_in)
-        exhaustion_text = (
-            self.apply_exhaustion(game, match, match.active_player_id, 1)
-            + "\n"
-            + self.apply_exhaustion(game, match, match.challenger_id, 1)
-        )
-        self.persist(game, match)
-
-        offense_player = self.engine.get_player_definition(match.active_player_id)
-        defense_player = self.engine.get_player_definition(match.challenger_id)
-        offense_skill = self.player_catalog.effective_profile(
-            offense_player,
-        ).offense
-        defense_skill = self.player_catalog.effective_profile(
-            defense_player,
-        ).defense
-
-        # This reveal is a permanent message, separate from the roll
-        # prompt below, so it survives every re-roll intact instead of
-        # being edited away.
-        await send_new_prompt(
-            interaction,
-            f"{headline}"
-            f"{self.player_label(match, offense_player)}: offense skill "
-            f"{offense_skill}\n"
-            f"{self.player_label(match, defense_player)}: defense skill "
-            f"{defense_skill}\n\n"
-            + exhaustion_text,
-            allowed_mentions=discord.AllowedMentions(
-                users=False,
-                roles=False,
-                everyone=False,
-            ),
-        )
-        await self.refresh_match_image(interaction, game)
-
-        test_message = await send_new_prompt(
-            interaction,
-            "Either player can roll:",
-            view=SkillTestView(self, game.game_id),
-        )
-        game.turn_message_id = test_message.id
-        save_games(self.games)
-
-    async def resolve_maneuver(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
-        """
-        The Discord half of the reveal -- `d12ball.flow.turn.resolve_maneuver`.
-
-        Its own message, because the effect that follows posts its own:
-        a coach reads "X wins!" and then watches the card resolve.
-        """
-        result = resolve_maneuver(self.engine, game, match)
-        if lead_in:
-            result.narration.insert(0, lead_in)
-        await self.post_then_dispatch(interaction, game, match, result)
 
     async def begin_injury_tests(
         self,
@@ -1329,35 +1223,31 @@ class CoreMixin:
         result = continue_injury_tests(self.engine, game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
-    async def run_injury_test(
+    async def post_injury_die(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
-        player: PlayerDefinition,
+        roll,
+        result: StepResult,
     ) -> None:
         """
-        One injury test, off the button `continue_injury_tests` posted
-        for it.
+        One injury test's die, where the prompt was, and then what it
+        says.
 
-        **The rule is `d12ball.flow.injuries.injury_test_step`** since
-        Phase 6: the roll, what Volatile and Overdrive do to it, the
-        threshold it has to beat, the event and the verdict are all the
-        model's. What is left here is the die, and that it goes between
-        the two things said about it.
-
-        An already-injured player rolls nothing and the step says so by
-        handing back no roll at all -- nothing to draw and nothing to
-        announce, so the queue simply carries on.
+        The prompt becomes the die, and the verdict follows in its own
+        message rather than riding above it -- see SkillTestView.roll
+        for why every result is announced this way round. An
+        already-injured player rolls nothing and the step says so by
+        handing back no roll at all (`roll` is None): nothing to draw
+        and nothing to announce, so the queue simply carries on.
         """
-        roll, result = injury_test_step(
-            self.engine, game, match, player.player_id,
-        )
         if roll is None:
             await self.dispatch_step_result(interaction, game, match, result)
             return
 
-        player_team = match.team_for_player(player.player_id)
+        player = self.engine.get_player_definition(roll.player_id)
+        player_team = match.team_for_player(roll.player_id)
         dice_file = discord.File(
             await asyncio.to_thread(
                 render_injury_test_die,
@@ -1370,12 +1260,6 @@ class CoreMixin:
             ),
             filename="injury_test_die.png",
         )
-        self.persist(game, match)
-
-        # The prompt becomes the die, and what it says follows in its
-        # own message rather than riding above it -- see
-        # SkillTestView.roll for why every result is announced this way
-        # round.
         await interaction.edit_original_response(
             content=None,
             attachments=[dice_file],
@@ -1385,11 +1269,9 @@ class CoreMixin:
         # more here than anywhere: a backfire is the one thing in the
         # game that injures the player who rolled well.
         await self.post_volatile_ignition(
-            interaction, match, (player.player_id, roll.ignite),
+            interaction, match, (roll.player_id, roll.ignite),
         )
         await send_new_prompt(interaction, result.narration[0])
-        if not roll.safe:
-            await self.refresh_match_image(interaction, game)
 
         await self.dispatch_step_result(
             interaction,
@@ -1397,12 +1279,27 @@ class CoreMixin:
             match,
             StepResult(
                 narration=result.narration[1:],
-                # Passed on rather than dropped -- see
-                # `SkillTestView.roll`.
                 board_changed=result.board_changed,
                 next=result.next,
             ),
         )
+
+    async def run_injury_test(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        player: PlayerDefinition,
+    ) -> None:
+        """
+        One injury test, as an entry point --
+        `d12ball.flow.injuries.injury_test_step` and the die.
+        """
+        roll, result = injury_test_step(
+            self.engine, game, match, player.player_id,
+        )
+        self.persist(game, match)
+        await self.post_injury_die(interaction, game, match, roll, result)
 
     def build_effect_choice_view(
         self,
@@ -1420,7 +1317,7 @@ class CoreMixin:
         there, which is a maneuver needing no choice (Deflect,
         Pressure) or one still owed a skill test.
         """
-        prompt = effect_choice_prompt(self.engine, match)
+        prompt = effect_choice_prompt(self.engine, self.games[game_id], match)
         if prompt is None:
             return None
         return self.view_for_prompt(game_id, match, prompt)
@@ -1525,6 +1422,10 @@ class CoreMixin:
         brief.
         """
         kind = prompt.kind
+        if kind is PromptKind.TUTORIAL_CONTINUE:
+            return TutorialContinueView(self, game_id)
+        if kind is PromptKind.GAME_OVER:
+            return RematchView(self, game_id)
         if kind is PromptKind.HALFTIME_EXTRA_TOKEN:
             return HalftimeExtraTokenView(self, game_id, prompt.side)
         if kind is PromptKind.MIND_PULL:
@@ -1668,210 +1569,32 @@ class CoreMixin:
             StepResult(narration=[lines] if lines else [], next=following),
         )
 
-    # -- Follow-on adapters ------------------------------------------
-    #
-    # Every follow-on is called as
-    # `(interaction, game, match, lead_in=..., **kwargs)`, and three of
-    # the steps the model now names predate that shape: `send_turn_prompt`
-    # takes no match, `begin_substitution_window` no lead-in, and
-    # `start_set_up_shot` neither. Each is called from elsewhere with its
-    # own signature, so the adapter is here rather than a signature change
-    # rippling through their other callers. They go with the table in
-    # Phase 6.
+    # -- The dispatcher -----------------------------------------------
 
-    async def send_turn_prompt_step(
+    async def run_step(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        step: FollowOnStep,
         lead_in: str = "",
+        **kwargs: object,
     ) -> None:
         """
-        `send_turn_prompt` as a follow-on.
-
-        `finish_maneuver_resolution` handles this member itself, to
-        draw the board once and upload it twice; this is the row that
-        keeps the table total over the enum, and the path any later
-        caller of `SEND_TURN_PROMPT` would take.
+        Run one step of the flow by name, and everything it starts --
+        the entry point every cog wrapper that names a step is one
+        line over. `lead_in` is the narration the step opens with,
+        which is how every step is called.
         """
-        if lead_in:
-            await send_new_prompt(interaction, lead_in)
-        try:
-            await self.send_turn_prompt(interaction, game)
-        except ValueError as error:
-            await interaction.followup.send(str(error), ephemeral=True)
-
-    async def begin_substitution_window_step(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        *,
-        side: TeamSide,
-        occasion: CoachingOccasion = CoachingOccasion.NEW_PLAY,
-        is_response: bool = False,
-        heading: str = "",
-        lead_in: str = "",
-    ) -> None:
-        """
-        `begin_substitution_window` as a follow-on.
-
-        **`heading` and `lead_in` are two different things and both are
-        here.** `lead_in` is the narration of whatever step named this
-        one -- a new play's reset, the full-time whistle -- and is its
-        own message above the menu. `heading` is the window's own
-        opening line, which goes *inside* the prompt above the
-        allowance; see `d12ball.flow.windows.open_substitution_window`.
-        """
-        if lead_in:
-            await send_new_prompt(interaction, lead_in)
-        await self.begin_substitution_window(
+        await self.dispatch_step_result(
             interaction,
             game,
             match,
-            side,
-            occasion=occasion,
-            is_response=is_response,
-            lead_in=heading,
+            StepResult(
+                narration=[lead_in] if lead_in else [],
+                next=FollowOn(step, kwargs),
+            ),
         )
-
-    async def finish_setup_coaching_step(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
-        """`finish_setup_coaching` as a follow-on: the kickoff board's
-        caption is the step's own line, so it rides in rather than
-        being posted above it."""
-        await self.finish_setup_coaching(
-            interaction, game, match, lead_in=lead_in,
-        )
-
-    async def finish_halftime_step(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
-        """`finish_halftime` as a follow-on -- the same, for the second
-        half's kickoff board."""
-        await self.finish_halftime(interaction, game, match, lead_in=lead_in)
-
-    async def announce_game_over_step(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
-        """
-        `announce_game_over` as a follow-on.
-
-        **The game record is saved here rather than in the step.** The
-        step that named this one called `game.finish_game()`, which is
-        the record and not the match, so `persist` did not write it --
-        and a process that died between the two would come back to a
-        finished game that still reads as in progress. See principle 9
-        in CLAUDE.md for why the match's own save is the caller's.
-        """
-        save_games(self.games)
-        await self.announce_game_over(interaction, game, lead_in)
-
-    async def start_set_up_shot_step(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        *,
-        shooter_id: str,
-        maneuver_cost: int = 1,
-        lead_in: str = "",
-    ) -> None:
-        """
-        The shot a set-up leads into, as a follow-on.
-
-        **The rule is `arrivals.take_scoring_opportunity`** since Phase
-        6 -- spending the offer, pointing the turn at the shooter and
-        arming the shot -- and what is left under this member is the
-        two uploads: the composition image and the roll prompt. Both
-        callers come through here, the AI's own attempt and a coach's
-        button, so the step runs once whichever asked for it.
-        """
-        if lead_in:
-            await send_new_prompt(interaction, lead_in)
-        result = take_scoring_opportunity(
-            self.engine,
-            game,
-            match,
-            shooter_id=shooter_id,
-            maneuver_cost=maneuver_cost,
-        )
-        self.persist(game, match)
-        await send_new_prompt(interaction, " ".join(result.narration))
-        await self.begin_score_attempt(interaction, game, match)
-
-    async def apply_ball_recovery_step(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        *,
-        player_id: str,
-        lead_in: str = "",
-    ) -> None:
-        """`apply_ball_recovery` as a follow-on."""
-        await self.apply_ball_recovery(
-            interaction, game, match, player_id, lead_in=lead_in,
-        )
-
-    def follow_on_methods(self) -> dict[FollowOnStep, Callable]:
-        """
-        Which method each `FollowOnStep` names.
-
-        **A table, not a `getattr` on the member's name.** The model
-        hands back a member of a closed enum and this is the only
-        thing that turns one into a call, so nothing on the model's
-        side can reach a cog method by spelling it. It is transitional
-        and dies with `FollowOnStep` in Phase 6 of
-        docs/model-discord-split.md, when the driver runs follow-ons
-        itself.
-
-        Built per call rather than at startup because the values are
-        bound methods of a mixin assembled at import time; there is
-        one dispatch per resolved maneuver, so the dictionary is not
-        worth caching.
-        """
-        return {
-            FollowOnStep.FINISH_MANEUVER_RESOLUTION:
-                self.finish_maneuver_resolution,
-            FollowOnStep.OFFER_SPEED_CHOICE: self.offer_speed_choice,
-            FollowOnStep.BEGIN_RUN_BACK: self.begin_run_back,
-            FollowOnStep.BEGIN_LOOSE_BALL: self.begin_loose_ball,
-            FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK:
-                self.offer_setup_pass_push_back,
-            FollowOnStep.FINISH_SETUP_COACHING:
-                self.finish_setup_coaching_step,
-            FollowOnStep.FINISH_HALFTIME: self.finish_halftime_step,
-            FollowOnStep.ANNOUNCE_GAME_OVER: self.announce_game_over_step,
-            FollowOnStep.SEND_TURN_PROMPT: self.send_turn_prompt_step,
-            FollowOnStep.BEGIN_SUBSTITUTION_WINDOW:
-                self.begin_substitution_window_step,
-            FollowOnStep.START_SET_UP_SHOT: self.start_set_up_shot_step,
-            FollowOnStep.CONTINUE_RUN_BACK: self.continue_run_back,
-            FollowOnStep.APPLY_BALL_RECOVERY: self.apply_ball_recovery_step,
-            FollowOnStep.SEND_MANEUVER_ACTION_PROMPT:
-                self.send_maneuver_action_prompt,
-            FollowOnStep.BEGIN_EFFECT_RESOLUTION:
-                self.begin_effect_resolution,
-            FollowOnStep.CONTINUE_EFFECT: self.continue_effect_step,
-            FollowOnStep.BEGIN_MANEUVER_SKILL_TEST:
-                self.begin_maneuver_skill_test,
-            FollowOnStep.AUTO_RESOLVE_CHALLENGER:
-                self.auto_resolve_challenger_step,
-        }
 
     async def dispatch_step_result(
         self,
@@ -1881,139 +1604,356 @@ class CoreMixin:
         result: StepResult,
     ) -> None:
         """
-        Turn a `StepResult` into Discord: redraw the board if anything
-        moved, then ask what it asks or run what it names.
+        Turn a `StepResult` into Discord: run the chain it starts,
+        save once, redraw the board if anything moved, post what was
+        said, and put up what is asked.
 
-        **The caller persists before calling this**, and that ordering
-        is the transition rule for Phases 2 to 5 -- a lifted step no
-        longer saves itself, and everything below is still the cog's,
-        so a dispatch that ends in a prompt hands the turn to a click
-        that reloads the match out of the save file. See
-        `D12Ball.apply_low_pass` and principle 9 in CLAUDE.md.
+        **The loop is the driver's** (`d12ball.flow.driver.advance`),
+        and it runs every step in the game. What is here is the whole
+        of the Discord side, and it is rendering: which of a run's
+        narration groups becomes one message and which several, where
+        a picture goes and which picture, and the one write of the
+        persistent board. Three things make the loop hand control
+        back here before it has finished, and each is a picture this
+        side has to take of the position *as it stands* before the
+        next step moves it:
 
-        The narration is joined on a single space and carried into
-        whatever comes next rather than posted on its own: a cascade of
-        the bot's own steps is one message and one board refresh (see
-        "Discord's rate limits" in docs/design/rate-limits.md), and the
-        batching is the frontend's to decide -- which is what principle
-        8 means. A result that neither asks nor continues has nobody to
-        hand its lines to, so those it posts.
+        - **a snapshot** under a line -- a loose ball is announced by
+          showing where it is, and the tail of a maneuver shows the
+          board the offensive choice is handed back over
+          (`DRIVER_STOPS`);
+        - **a new play's board**, posted and pinned with the reset's
+          lines as its caption -- the model's own stop, on
+          `StepResult.new_play`;
+        - **a prompt**, which is where the run ends by definition.
 
-        **`board_changed` is the model's answer and the write is
-        this method's decision.** A step says the board moved; whether
-        that costs a request is read here, against
-        `FOLLOW_ONS_THAT_DRAW_THE_BOARD` -- a step about to draw the
-        same board under its own announcement is not drawn in front of.
-        That is rank D1's answer and it is the step's rather than the
-        calling card's, so every caller of `begin_loose_ball` gets it.
+        After a stop the loop is re-entered with whatever the stopped
+        step named, so a click still runs to its prompt in one call
+        of this method.
 
-        A `PendingPrompt` goes through `view_for_prompt`, the same
-        table a restart restores through. Two tables is how the live
-        flow and the resume come to offer different questions -- see
-        "d12ball/prompts.py" in docs/design/model-discord-split.md.
+        **The one save is here** -- principle 9. Every step of a run
+        has mutated the match and none of them has written it; the
+        dispatcher writes once per run, after everything that moves
+        has moved and before anything is posted, which is the
+        ordering the whole principle is about: a prompt hands the
+        turn to a click that reloads the match out of the save file,
+        so the file has to be right first. It is unconditional rather
+        than `if run.ran`, because the caller's own step has almost
+        always changed something and the dispatcher cannot see that
+        from here.
+
+        **`board_changed` is the model's answer and the write is this
+        method's decision.** A run says the board moved; whether that
+        costs a request is read here. A stop that draws the board
+        under its own line writes the persistent message from the
+        same render (`announce_board_update`, `post_new_play_board`),
+        so the ordinary write is skipped in front of it; and a prompt
+        whose answer draws the board a moment later
+        (`PROMPTS_DRAWN_LATER`) is not drawn in front of either.
+
+        A `PendingPrompt` goes through `render_prompt` and so through
+        `view_for_prompt`, the same table a restart restores through.
+        Two tables is how the live flow and the resume come to offer
+        different questions -- see "d12ball/prompts.py" in
+        docs/design/model-discord-split.md.
         """
-        # **The loop is the driver's.** This used to walk the chain
-        # itself -- look the member up in `follow_on_methods`, await
-        # the cog wrapper, which called the flow function, saved, and
-        # came back in here. `d12ball.flow.driver.advance` is that
-        # walk with the Discord taken out, so the sequencing of a turn
-        # is a rule a web app runs rather than one it would have to
-        # copy (principle 10 in CLAUDE.md). What is left below is the
-        # rendering: what becomes a message, what becomes a board
-        # write, and which of the steps the driver cannot run comes
-        # next.
-        run = driver.advance(
-            self.engine,
-            game,
-            match,
-            result,
-            stop_after=DRIVER_STOPS,
-            own_message=DRIVER_OWN_MESSAGE,
-            speaks_lines=FOLLOW_ONS_THAT_SPEAK_THE_LINES,
-        )
-        # **The one save, and it is here** -- principle 9. Every step
-        # of the run has mutated the match and none of them has
-        # written it: the wrappers that used to save between their own
-        # step and this call no longer do (41 of them went), and the
-        # steps the driver ran never did. So one write, after
-        # everything that moves has moved and before anything is
-        # posted, which is the ordering the whole principle is about:
-        # a prompt hands the turn to a click that reloads the match
-        # out of the save file, so the file has to be right first.
-        #
-        # It is unconditional rather than `if run.ran`, because the
-        # caller's own step has almost always changed something and
-        # the dispatcher cannot see that from here. One write per
-        # click is what it was before; what has gone is the second,
-        # third and fourth write of the same file inside one cascade.
-        self.persist(game, match)
-        result = run.result
+        while True:
+            try:
+                run = driver.advance(
+                    self.engine,
+                    game,
+                    match,
+                    result,
+                    stop_after=DRIVER_STOPS,
+                    own_message=DRIVER_OWN_MESSAGE,
+                    speaks_lines=FOLLOW_ONS_THAT_SPEAK_THE_LINES,
+                )
+            except ValueError as error:
+                # A step refusing a position it should never have
+                # been handed -- the side in possession with nobody on
+                # the ball. Whatever ran before it is written down, and
+                # the refusal is reported rather than acted on.
+                self.persist(game, match)
+                await send_error_fallback(interaction, str(error))
+                return
+            self.persist(game, match)
 
-        lead_in = " ".join(result.narration)
-        following = result.next
+            following = run.result.next
+            stopped = run.stopped_on
+            draws_own_board = stopped is not None and (
+                run.result.new_play
+                or self.stop_draws_the_board(stopped, run.result, following)
+            )
+            if (
+                run.board_changed
+                and not draws_own_board
+                and not (
+                    isinstance(following, PendingPrompt)
+                    and following.kind in PROMPTS_DRAWN_LATER
+                )
+            ):
+                await self.refresh_match_image(interaction, game)
 
-        if result.board_changed and not (
-            isinstance(following, FollowOn)
-            and follow_on_draws_the_board(following)
-        ):
-            await self.refresh_match_image(interaction, game)
+            # **The closed groups, before anything the run is still
+            # carrying.** Each is a step whose lines are an event of
+            # their own -- the reveal, the settled loose ball, "Players
+            # run back!", the whistle -- and the step it is tagged with
+            # is what picks how it is posted. The board is already
+            # written above, so the position is right by the time the
+            # first line naming it is read.
+            for group in run.groups:
+                await self.post_narration_group(interaction, game, match, group)
 
-        # **The closed groups, before anything the run is still
-        # carrying.** Each is a step whose lines are an event of their
-        # own -- the reveal, the settled loose ball, "Players run
-        # back!", the whistle -- and the step it is tagged with is what
-        # picks its dispatcher. The board is already written above, so
-        # the position is right by the time the first line naming it is
-        # read, which is the ordering `post_blocks_then_dispatch` had
-        # and the one the whistle depends on.
-        for group in run.groups:
-            if group.step in DRIVER_BLOCKS_PER_MESSAGE:
-                for block in group.narration:
-                    await send_new_prompt(interaction, block)
+            if stopped is not None:
+                carried = await self.post_stop(
+                    interaction, game, match, stopped, run.result,
+                )
+                result = StepResult(
+                    narration=list(run.result.narration) if carried else [],
+                    next=following,
+                )
+                if following is None:
+                    return
+                continue
+
+            lead_in = " ".join(run.result.narration)
+            if isinstance(following, PendingPrompt):
+                await self.render_prompt(
+                    interaction, game, match, following, lead_in,
+                )
+                return
+
+            if lead_in:
+                await send_new_prompt(interaction, lead_in)
+            return
+
+    def stop_draws_the_board(
+        self,
+        stopped: FollowOn,
+        result: StepResult,
+        following: object,
+    ) -> bool:
+        """
+        Whether the step the loop stopped on is about to put the board
+        up under its own line, so the ordinary write is skipped in
+        front of it -- render once, upload twice.
+
+        The loose ball draws for a genuine loose ball and not for a
+        long High Pass (the ball is on a receiver both coaches watched
+        catch it, and the board the pass moved is written in front of
+        the contest instead) -- which is the step's own `board_changed`.
+        The tail of a maneuver draws when it hands the offensive choice
+        back, and not when it hands to the whistle or a gate, where its
+        lines carry on into whatever comes next.
+        """
+        if stopped.step is FollowOnStep.BEGIN_LOOSE_BALL:
+            return bool(result.narration) and result.board_changed
+        if stopped.step is FollowOnStep.FINISH_MANEUVER_RESOLUTION:
+            return (
+                isinstance(following, FollowOn)
+                and following.step is FollowOnStep.SEND_TURN_PROMPT
+            )
+        return False
+
+    async def post_stop(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        stopped: FollowOn,
+        result: StepResult,
+    ) -> bool:
+        """
+        Put up the picture the loop stopped for, with the stopped
+        step's lines. Returns True when the lines were **not** posted
+        and should carry on into the next step as its lead-in.
+
+        - A new play: the board, posted and pinned, captioned by the
+          last line; any earlier lines are a message above it (the
+          setup and halftime steps take a lead-in that was its own
+          message before the lift).
+        - A loose ball: named and drawn together where it is genuine;
+          the High Pass contest's announcement is a plain message over
+          the board the pass already wrote. Nothing at all where the
+          arrival gate took over -- the offer is an ordinary prompt and
+          carries its lines forward.
+        - The tail of a maneuver, handing the offensive choice back:
+          one last board with everything settled, drawn once and
+          uploaded twice -- onto the persistent message and under the
+          closing line. Two messages where there are two lines, because
+          the last-possession announcement is its own beat. Handing to
+          anything else, the lines carry.
+        """
+        lines = list(result.narration)
+
+        if result.new_play:
+            if len(lines) > 1:
+                await send_new_prompt(interaction, " ".join(lines[:-1]))
+            await self.post_new_play_board(
+                interaction, game, lines[-1] if lines else "",
+            )
+            return False
+
+        if stopped.step is FollowOnStep.BEGIN_LOOSE_BALL:
+            if not lines:
+                return False
+            if result.board_changed:
+                await self.announce_board_update(
+                    interaction, game, " ".join(lines),
+                )
             else:
-                block = " ".join(group.narration)
+                await send_new_prompt(interaction, " ".join(lines))
+            return False
+
+        if stopped.step is FollowOnStep.FINISH_MANEUVER_RESOLUTION:
+            if not self.stop_draws_the_board(stopped, result, result.next):
+                return True
+            png = await self.render_match_png(game)
+            await self.refresh_match_image(interaction, game, png=png)
+            if len(lines) > 1:
+                await send_new_prompt(interaction, " ".join(lines[:-1]))
+            snapshot = await send_new_prompt(
+                interaction,
+                lines[-1],
+                file=self.match_file_from_png(game, png),
+            )
+            await add_full_image_button(snapshot)
+            return False
+
+        return True
+
+    async def post_narration_group(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        group: driver.NarrationGroup,
+    ) -> None:
+        """
+        One closed group, as the messages the step it came from earns:
+        one message per block for a period transition and the other
+        runs of separate events (`DRIVER_BLOCKS_PER_MESSAGE`), the
+        challenge image under the walk-in for a challenger nobody was
+        asked for, and one message for everything else.
+        """
+        if (
+            group.step is FollowOnStep.AUTO_RESOLVE_CHALLENGER
+            and match.challenger_id is not None
+        ):
+            await self.announce_maneuver_challenge(
+                interaction,
+                match,
+                match.challenger_id,
+                " ".join(group.narration),
+            )
+            return
+        if group.step in DRIVER_BLOCKS_PER_MESSAGE:
+            for block in group.narration:
                 if block:
                     await send_new_prompt(interaction, block)
+            return
+        block = " ".join(group.narration)
+        if block:
+            await send_new_prompt(interaction, block)
 
-        if isinstance(following, FollowOn):
-            await self.follow_on_methods()[following.step](
-                interaction, game, match, lead_in=lead_in, **following.kwargs,
+    async def render_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        prompt: PendingPrompt,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Put a `PendingPrompt` in front of whoever it is waiting on,
+        **with its picture**, keyed on the kind.
+
+        This is the frontend's half of principle 2: the model says
+        what is asked and of whom, and this says how that reaches a
+        person. Every picture in the game that rides on a question is
+        decided here and nowhere else -- the field strip under the six
+        distance questions and the run back, the hand of cards under
+        the maneuver pick, the composition in front of the shot, the
+        coach's own half-field on a Coaching Choice, the final board
+        and the rematch buttons on a finished game. A kind not named
+        below is a message with buttons on it and nothing else.
+
+        `lead_in` is whatever the run was still carrying, and it opens
+        the prompt's message -- except in front of the shot, where it
+        is a message of its own above the composition, which is how
+        "X has chosen to shoot" always read.
+
+        **The message a restart re-attaches the view to** is recorded
+        on the way out (`turn_message_id`), whichever branch posted it.
+        A prompt that is not recorded is one `on_ready` cannot put live
+        buttons back on. It is the game record rather than the match,
+        so it is `save_games` and not `persist`: the match was written
+        before anything was posted (principle 9), and this is the id
+        of the message that write led to.
+        """
+        kind = prompt.kind
+        content = " ".join(filter(None, (lead_in, prompt.ask)))
+        mentions = discord.AllowedMentions(
+            users=True, roles=False, everyone=False,
+        )
+
+        if kind is PromptKind.GAME_OVER:
+            await self.announce_game_over(interaction, game, content)
+            return
+
+        if kind is PromptKind.SCORE_ATTEMPT:
+            if lead_in:
+                await send_new_prompt(interaction, lead_in)
+            await self.begin_score_attempt(
+                interaction, game, match, ask=prompt.ask,
             )
             return
 
-        if isinstance(following, PendingPrompt):
-            prompt_message = await send_new_prompt(
-                interaction,
-                " ".join(filter(None, (lead_in, following.ask))),
-                view=self.view_for_prompt(game.game_id, match, following),
-                # **Every prompt this posts may name a coach**, and
-                # from Phase 4 most of them do -- an injury test, a
-                # run-back choice and a loose-ball pick all open with a
-                # mention. The settings are the ones all twenty-odd
-                # hand-written prompt sites already pass: ping the user
-                # asked, never a role and never the channel. Passing
-                # them here rather than per prompt is what stops a
-                # lifted prompt quietly picking up the library default,
-                # which allows all three.
-                allowed_mentions=discord.AllowedMentions(
-                    users=True, roles=False, everyone=False,
-                ),
+        if kind is PromptKind.MANEUVER_ACTION:
+            await self.send_maneuver_action_prompt(
+                interaction, game, match, content,
             )
-            # **The message a restart re-attaches the view to.** The
-            # sites this method is absorbing each recorded it, and a
-            # prompt that does not is one `on_ready` cannot put live
-            # buttons back on -- the game falls back to
-            # `/d12ball resume`. It is the game record rather than the
-            # match, so it is `save_games` and not `persist`: the
-            # caller has already written the match (principle 9), and
-            # this is the id of the message that write led to. See
-            # `restore_saved_views`.
-            game.turn_message_id = prompt_message.id
-            save_games(self.games)
             return
 
-        if lead_in:
-            await send_new_prompt(interaction, lead_in)
+        view = self.view_for_prompt(game.game_id, match, prompt)
+
+        if kind in FIELD_PROMPT_KINDS:
+            # Over the field: every one of these is answered by reading
+            # where everybody is standing relative to the ball, and by
+            # the time a maneuver has resolved the persistent board has
+            # scrolled away up the channel. See `send_field_prompt`.
+            await self.send_field_prompt(
+                interaction, game, match, content, view,
+            )
+            return
+
+        file = None
+        if kind in COACHING_PROMPT_KINDS:
+            # The one picture in the game that is not the board, the
+            # field strip or a hand of cards: the coach's own half of
+            # the field, with play stopped.
+            file = await self.coaching_file(
+                game, match, TeamSide(prompt.side or match.pending_coaching_side),
+            )
+
+        if kind in (PromptKind.PLAYER_ACTION, PromptKind.BALL_HANDLER_SELECTION):
+            # The turn prompt names both coaches, and a coach may have
+            # renamed themselves since the last one.
+            refresh_player_names(game, getattr(interaction, "guild", None))
+
+        prompt_message = await send_new_prompt(
+            interaction,
+            content,
+            file=file,
+            view=view,
+            # **Every prompt this posts may name a coach**, and most of
+            # them do -- an injury test, a run-back choice and a
+            # loose-ball pick all open with a mention. Ping the user
+            # asked, never a role and never the channel.
+            allowed_mentions=mentions,
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
 
     def build_run_back_view(
         self,
@@ -2031,120 +1971,3 @@ class CoreMixin:
             return None
         return self.view_for_prompt(game_id, match, prompt)
 
-    def record_maneuver(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        winner_key: str,
-    ) -> None:
-        """
-        Log the maneuver that has just been settled -- both picks, the
-        winner, and how it was won.
-
-        Called from `begin_effect_resolution`, which every maneuver in
-        the game reaches **exactly once**: a decisive win and an
-        unchallenged one go straight there from `resolve_maneuver`, and
-        a tie goes there through the skill test and whatever injury
-        tests it owed. A skill-test tie re-rolls without passing
-        through, which is right -- nothing has been settled yet, and
-        the re-roll logs a `skill_test` event of its own.
-
-        **How it was won is read off the log, not off the match.** The
-        obvious test -- ask `settled_maneuver_winner` whether the cards
-        decided it -- is wrong here by a hair: the injury tests run
-        between the roll and this call, so a skill test whose loser
-        went down injured would come back reading as a win on the
-        cards. The log cannot move under it that way: a `skill_test`
-        event in this turn means the dice settled it, full stop.
-        """
-        decision = DECISION_UNCONTESTED
-        if not match.maneuver_uncontested:
-            rolled = any(
-                event.kind == EVENT_SKILL_TEST
-                for event in match.events_this_turn()
-            )
-            if rolled:
-                decision = DECISION_SKILL_TEST
-            elif self.maneuver_catalog.resolve(
-                match.offense_maneuver, match.defense_maneuver,
-            ) == "tie":
-                # A tie nothing was rolled for is the one an injured
-                # participant forfeits outright.
-                decision = DECISION_INJURY_FORFEIT
-            else:
-                decision = DECISION_CARDS
-
-        match.record_event(
-            EVENT_MANEUVER,
-            side=match.ball.possession,
-            player_id=match.active_player_id,
-            offense_key=match.offense_maneuver,
-            defense_key=match.defense_maneuver,
-            winner_key=winner_key,
-            decision=decision,
-            challenger_id=match.challenger_id,
-        )
-        # **Saved here, and this is not optional.** An effect that
-        # ends in a prompt hands the turn to a click that will load
-        # the match back out of the save file, so an event written and
-        # not persisted is an event the next interaction never sees --
-        # which is exactly what a Dribble Advance did, since its own
-        # prompt saves the game record without rewriting the match
-        # (correctly: nothing on the match had changed until now).
-        # Anything that records has to save in the same breath.
-        self.persist(game, match)
-
-    async def begin_effect_resolution(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        winner_key: str,
-        lead_in: str = "",
-    ) -> None:
-        """
-        Dispatch a decisively-won maneuver to its effect, by **key**.
-        `offense_maneuver`/`defense_maneuver`/`active_player_id`/
-        `challenger_id` all stay set until the whole pipeline (effect,
-        any run-back, time) finishes -- reset_maneuver() only happens
-        at the very end, in finish_maneuver_resolution -- so a bot
-        restart mid-choice can still reconstruct exactly where things
-        left off (see build_effect_choice_view).
-        """
-        # Always "" today: `resolve_maneuver` posts its reveal before
-        # handing over, so nothing is waiting. Accepted and posted
-        # rather than dropped, because every follow-on is called with
-        # one.
-        if lead_in:
-            await send_new_prompt(interaction, lead_in)
-        self.record_maneuver(game, match, winner_key)
-
-        handlers = {
-            "low_pass": self.resolve_low_pass,
-            "dribble_advance": self.resolve_dribble_advance,
-            "high_pass": self.resolve_high_pass,
-            "deflect": self.resolve_deflect,
-            "steal": self.resolve_steal,
-            "pressure": self.resolve_pressure,
-            "skilled_pass": self.resolve_skilled_pass,
-            "dribble_burst": self.resolve_dribble_burst,
-            "setup_pass": self.resolve_setup_pass,
-            "clear": self.resolve_clear,
-            "intercept": self.resolve_intercept,
-            "double_team": self.resolve_double_team,
-        }
-        # **A tie settled by a skill test resolves as the basic card.**
-        # A gambit's effect follows the cards, so a winner that only
-        # won on the dice runs its counterpart's effect and the loser
-        # pays nothing -- see `RulesEngine.gambit_cost_applies`.
-        # Substituting the key here rather than branching inside six
-        # handlers is what keeps that one rule in one place.
-        handler = handlers.get(
-            self.engine.resolving_maneuver(match, winner_key)
-        )
-        if handler is None:
-            # Unrecognized maneuver name (future data) -- nothing to
-            # automate; leave it to a human, same as before this pass.
-            await self.finish_maneuver_resolution(interaction, game, match)
-            return
-        await handler(interaction, game, match)

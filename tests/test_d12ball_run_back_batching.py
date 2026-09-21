@@ -315,12 +315,11 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             prompt_call.kwargs.get("file"), mock.sentinel.field,
         )
         # Not the Coaching Choice's half-field: that shows one side's
-        # row with play stopped, and this is a live position.
+        # row with play stopped, and this is a live position. The
+        # whole board settles the persistent message once, through
+        # the dispatcher's one write for the run.
         cog.coaching_file.assert_not_awaited()
-        self.assertEqual(cog.render_match_png.await_count, 1)
-        self.assertEqual(
-            cog.refresh_match_image.await_args.kwargs["png"], b"board",
-        )
+        cog.refresh_match_image.assert_awaited_once()
 
     async def test_the_prompt_prices_every_space_it_offers(self) -> None:
         # The sentence and the buttons quote the same distance, which
@@ -382,13 +381,21 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             ),
             followup=SimpleNamespace(send=mock.AsyncMock()),
         )
-        with suppressed_view_saves():
+        # The pick is written down (`MatchState.run_back_pick`), so the
+        # cog's save is the one this click makes.
+        with suppressed_view_saves(), suppressed_cog_saves():
             await view.choose(click, midfield[1])
 
         click.response.edit_message.assert_awaited_once()
         edit = click.response.edit_message.await_args
         self.assertIn("choose where", edit.kwargs["content"])
         self.assertNotIn("attachments", edit.kwargs)
+        # The pick is on the match now, which is what lets the space
+        # that follows be checked against the position after a
+        # restart -- and a resume reads the same "where" question.
+        self.assertEqual(
+            cog.engine.load_match_state(game).run_back_pick, midfield[1],
+        )
         # Nothing new posted, and nobody moved until the space is
         # picked: the second question is the same message asked again.
         self.assertEqual(

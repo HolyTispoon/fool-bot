@@ -4,7 +4,7 @@ The contested rolls, with no dice image in them.
 Four rolls in this game are two-sided -- a maneuver's skill test, the
 contest for a loose ball (which the long High Pass comes through), a
 score attempt against the wall of defenders, and a shootout test -- and
-until Phase 6 of docs/model-discord-split.md all four lived in a
+until Phase 6 of docs/design/model-discord-split.md all four lived in a
 `discord.ui.View`. The arithmetic and the verdict were interleaved with
 rendering the dice, so a second frontend could not roll a skill test
 without reimplementing what a skill test *is*.
@@ -433,6 +433,10 @@ def skill_test_step(
         else match.defense_maneuver
     )
     winner_name = engine.maneuver_name(winner_key)
+    # **Written onto the match**, for the reason the two Volatile flags
+    # below are: the injury tests run between the roll and the effect,
+    # and `settled_maneuver_winner` is asked on the far side of them.
+    match.skill_test_winner = winner_key
 
     # **Volatile's tier rider**, settled here because this is the first
     # point that knows who won. Both of the rules' two cases raise the
@@ -1071,8 +1075,9 @@ def score_attempt_step(
 
     `board_changed` is reported honestly and the frontend does not
     write one: `begin_run_back` with `new_play` posts and pins the
-    settled board itself, which `follow_on_draws_the_board` already
-    answers for every caller. See rank D1 in
+    settled board itself -- `StepResult.new_play` stops the driver
+    there and the frontend skips its own write in front of the pinned
+    board, which is the same answer for every caller. See rank D1 in
     docs/design/model-discord-split.md.
     """
     shooter = engine.get_player_definition(match.active_player_id)
@@ -1165,16 +1170,20 @@ def retract_shot_step(
 
     It ends on that offer as a `PendingPrompt` -- the same one
     `scoring_opportunity_prompt` reads back after a restart, because it
-    *is* that reading. An ordinary shot's retraction ends on nothing:
-    the position is the turn's own again, and what a frontend puts
-    there is the turn prompt it already builds.
+    *is* that reading. An ordinary shot's retraction ends on the turn
+    prompt: the position is the turn's own again, worded by
+    `RulesEngine.build_turn_prompt` as it was the first time.
     """
     if not match.may_cancel_pending_shot():
         raise ValueError("This score attempt is no longer active.")
 
     if not match.pending_shot_is_set_up:
         match.retract_pending_shot()
-        return StepResult()
+        return StepResult(
+            next=PendingPrompt(
+                PromptKind.PLAYER_ACTION, engine.build_turn_prompt(game, match),
+            ),
+        )
 
     shooter_id = match.active_player_id
     distance_moved = match.pending_shot_setup_cost

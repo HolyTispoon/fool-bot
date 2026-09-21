@@ -1,7 +1,7 @@
 """
 The two deflections as one flow step, and the cog wrapper around it.
 
-The model half of rank D1 of Phase 3 of docs/model-discord-split.md.
+The model half of rank D1 of Phase 3 of docs/design/model-discord-split.md.
 `tests/test_d12ball_deflection_recording.py` asked the cog what a
 Deflect and a Clear say and do next, off
 `tests/deflection_fixtures.py`, and was run green before anything
@@ -15,17 +15,17 @@ put:
 - the step **does not save** (principle 9: a step mutates and returns,
   the caller writes it down), where the old code saved inside
   `knock_ball_back` and again on the shot branch,
-- the cog wrapper saves **between** the step and the dispatch, which
-  is the transition rule for Phases 2 to 5,
+- the dispatcher saves **after** the run and before anything is
+  posted, which is what principle 9 collapsed the Phase 2-5
+  transition rule into,
 - `BEGIN_LOOSE_BALL` and `OFFER_SETUP_PASS_PUSH_BACK`, the two members
-  this rank adds, are real and have rows in
-  `D12Ball.follow_on_methods`,
-- and `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, which is the answer this rank
-  owed: a step says the board moved, and the frontend skips a write
-  that the step it is handing to is about to make anyway. Asserted
-  **for the rule and not only for this card**, since it is the answer
-  for all eight of `begin_loose_ball`'s callers rather than for
-  Deflect.
+  this rank adds, are real and have rows in the driver's table,
+- and the board write the loose ball takes over: a step says the
+  board moved, and the frontend skips its own write when the loose
+  ball it hands to draws the board under its announcement -- read
+  off what that step itself reports (`D12Ball.stop_draws_the_board`),
+  which is the answer for all of `begin_loose_ball`'s callers rather
+  than for Deflect.
 
 Nothing a coach sees changed in this rank: the message count, the
 board writes and the text are all what the recording took off the old
@@ -39,8 +39,6 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
-from cogs.d12ball import D12Ball
-from cogs.d12ball.core import FOLLOW_ONS_THAT_DRAW_THE_BOARD
 from d12ball.components import MatchState
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.effects import deflection_numbers, deflection_step
@@ -55,7 +53,7 @@ from deflection_fixtures import (
 )
 from d12ball.flow import driver
 from flow_stubs import chain_records_at, chain_stops_at
-from save_patches import suppressed_cog_saves
+from save_patches import suppressed_cog_saves, suppressed_full_image_links
 from test_d12ball_deflection_recording import build_cog, build_interaction
 
 
@@ -159,20 +157,13 @@ class DeflectionStepTests(unittest.TestCase):
     def test_the_two_new_members_are_real_and_have_rows(self) -> None:
         """
         Rank D1 adds two `FollowOnStep` members, and a member with no
-        row in `D12Ball.follow_on_methods` raises inside a resolved
-        maneuver one card at a time. The membership itself is asserted
-        in `tests/test_d12ball_package_shape.py`; this is that the two
-        this rank names are the two it recorded.
+        row in the driver's table cannot be run. The membership itself
+        is asserted in `tests/test_d12ball_package_shape.py`; this is
+        that the two this rank names are the two it recorded.
         """
-        cog = build_cog()
-        table = D12Ball.follow_on_methods(cog)
-        for member_name, method_name in (
-            (LOOSE_BALL, "begin_loose_ball"),
-            (SETUP_PASS_PUSH_BACK, "offer_setup_pass_push_back"),
-        ):
+        for member_name in (LOOSE_BALL, SETUP_PASS_PUSH_BACK):
             with self.subTest(member=member_name):
-                member = FollowOnStep[member_name]
-                self.assertIs(table[member], getattr(cog, method_name))
+                self.assertTrue(driver.runs(FollowOnStep[member_name]))
 
     def test_the_step_does_not_save(self) -> None:
         """
@@ -222,43 +213,71 @@ class DeflectionStepTests(unittest.TestCase):
 
 class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
     """
-    `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, asserted as the rule it is rather
+    The loose ball's board write, asserted as the rule it is rather
     than through the one card that needed it first.
 
     The rule: a `StepResult` saying the board moved gets one write,
-    **unless** it is handing over to a step that puts the board up
-    itself. That is a Discord economy -- one five-in-five bucket for
-    every edit in a channel -- and rate limits are the frontend's
+    **unless** the loose ball it hands to draws the board under its own
+    announcement -- in which case that announcement *is* the write
+    (render once, upload twice, see `announce_board_update`). Whether
+    it does is read off what the loose ball's step itself reports: a
+    genuine loose ball says the board moved and is drawn; the long
+    High Pass says it did not (the ball is on a receiver both coaches
+    watched catch it) and is announced plainly over the board the pass
+    already wrote. That is a Discord economy -- one five-in-five bucket
+    for every edit in a channel -- and rate limits are the frontend's
     (principle 8 in CLAUDE.md). The model's `board_changed` stays
     honest either way, which is what lets a web app redraw on all of
     them.
     """
 
-    async def test_a_board_drawing_follow_on_is_not_written_in_front_of(
+    async def test_a_genuine_loose_ball_draws_the_board_itself(self) -> None:
+        cog = build_cog()
+        cog.announce_board_update = mock.AsyncMock()
+        stop = StepResult(narration=["loose"], board_changed=True)
+        with suppressed_cog_saves(), chain_stops_at(
+            cog, FollowOnStep.BEGIN_LOOSE_BALL, stop,
+        ):
+            await cog.dispatch_step_result(
+                build_interaction(),
+                SimpleNamespace(game_id="g1", match_state=None),
+                SimpleNamespace(to_dict=dict),
+                StepResult(
+                    narration=["x"],
+                    board_changed=True,
+                    next=FollowOn(FollowOnStep.BEGIN_LOOSE_BALL),
+                ),
+            )
+        cog.announce_board_update.assert_awaited_once()
+        cog.refresh_match_image.assert_not_awaited()
+
+    async def test_a_high_pass_contest_is_announced_over_the_written_board(
         self,
     ) -> None:
-        for member in FollowOnStep:
-            with self.subTest(member=member.name):
-                cog = build_cog()
-                # The dispatcher saves once for whatever the driver
-                # ran (principle 9), so the stand-ins have to be
-                # writable -- this test is about board writes and the
-                # save is suppressed underneath it.
-                with suppressed_cog_saves(), chain_stops_at(cog, member):
-                    await cog.dispatch_step_result(
-                        build_interaction(),
-                        SimpleNamespace(game_id="g1", match_state=None),
-                        SimpleNamespace(to_dict=dict),
-                        StepResult(
-                            narration=["x"],
-                            board_changed=True,
-                            next=FollowOn(member),
-                        ),
-                    )
-                self.assertEqual(
-                    cog.refresh_match_image.await_count,
-                    0 if member in FOLLOW_ONS_THAT_DRAW_THE_BOARD else 1,
-                )
+        cog = build_cog()
+        cog.announce_board_update = mock.AsyncMock()
+        interaction = build_interaction()
+        stop = StepResult(narration=["contest"], board_changed=False)
+        with suppressed_cog_saves(), chain_stops_at(
+            cog, FollowOnStep.BEGIN_LOOSE_BALL, stop,
+        ):
+            await cog.dispatch_step_result(
+                interaction,
+                SimpleNamespace(game_id="g1", match_state=None),
+                SimpleNamespace(to_dict=dict),
+                StepResult(
+                    narration=["x"],
+                    board_changed=True,
+                    next=FollowOn(
+                        FollowOnStep.BEGIN_LOOSE_BALL, {"is_high_pass": True},
+                    ),
+                ),
+            )
+        cog.announce_board_update.assert_not_awaited()
+        cog.refresh_match_image.assert_awaited_once()
+        self.assertEqual(
+            interaction.followup.send.await_args_list[-1].args[0], "contest",
+        )
 
     async def test_a_step_that_moved_nothing_is_never_written(self) -> None:
         """
@@ -269,18 +288,18 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
         for member in FollowOnStep:
             with self.subTest(member=member.name):
                 cog = build_cog()
-                # The dispatcher saves once for whatever the driver
-                # ran (principle 9), so the stand-ins have to be
-                # writable -- this test is about board writes and the
-                # save is suppressed underneath it.
+                cog.announce_board_update = mock.AsyncMock()
+                cog.post_new_play_board = mock.AsyncMock()
+                cog.announce_maneuver_challenge = mock.AsyncMock()
                 with suppressed_cog_saves(), chain_stops_at(cog, member):
                     await cog.dispatch_step_result(
                         build_interaction(),
                         SimpleNamespace(game_id="g1", match_state=None),
-                        SimpleNamespace(to_dict=dict),
+                        SimpleNamespace(to_dict=dict, challenger_id=None),
                         StepResult(next=FollowOn(member)),
                     )
                 cog.refresh_match_image.assert_not_awaited()
+                cog.announce_board_update.assert_not_awaited()
 
 
 class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
@@ -293,12 +312,13 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         """
-        The transition rule for Phases 2 to 5, asserted as an order
-        *and* as content: at the moment the save runs, the ball must
-        already have been driven back. A persist before the step writes
-        a match nothing was deflected in, and a persist after the
-        dispatch is too late for a step whose next question reloads the
-        match from the file -- which the push-back prompt is, exactly.
+        Principle 9, asserted as an order *and* as content: at the
+        moment the save runs, the ball must already have been driven
+        back and the step after the deflection must already have run.
+        A persist before the step writes a match nothing was deflected
+        in, and a persist after the posting is too late for a step
+        whose next question reloads the match from the file -- which
+        the push-back prompt is, exactly.
         """
         for name, following in (
             ("deflect_plain", "begin_loose_ball"),
@@ -343,27 +363,16 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
                         fixture.key,
                     )
 
-                # **Two saves where the driver runs the next step, one
-                # where it does not.** The wrapper writes its own step
-                # (the transition rule Phases 2-5 were built on), and
-                # `dispatch_step_result` writes whatever
-                # `driver.advance` ran after it -- principle 9's "the
-                # driver's caller persists", now that the caller is
-                # the dispatcher rather than each wrapper in turn. The
-                # board write moves behind the driver's run for the
-                # same reason: the position it draws is the one the
-                # run finished on, which is what `BoardRefresher` was
-                # already collapsing several writes into.
-                if driver.runs(member):
-                    expected = [following, "persist"]
-                    if fixture.refreshes:
-                        expected.append("refresh")
-                else:
-                    expected = ["persist"]
-                    if fixture.refreshes:
-                        expected.append("refresh")
-                    expected.append(following)
-                self.assertEqual(calls, expected)
+                # **One save, after the run.** `dispatch_step_result`
+                # writes whatever `driver.advance` ran -- principle 9's
+                # "the driver's caller persists" -- and the board write
+                # comes behind it for the same reason: the position it
+                # draws is the one the run finished on, which is what
+                # `BoardRefresher` was already collapsing several
+                # writes into. The next step is a recorder here, so it
+                # reports no board of its own and the dispatcher writes
+                # the one the deflection moved.
+                self.assertEqual(calls, [following, "persist", "refresh"])
                 self.assertEqual(ball_when_saved, [fixture.ball_space])
 
     @staticmethod
@@ -377,18 +386,27 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
         """
         The thing this rank must not change. A deflection that ends in
         a loose ball writes the persistent board **once**, from inside
-        `begin_loose_ball`'s own announcement -- as it did before the
-        move. The step now says `board_changed=True` where the old call
-        site simply did not refresh, so without
-        `FOLLOW_ONS_THAT_DRAW_THE_BOARD` this branch would have gone
-        from one write to two for one click. See "Discord's rate
-        limits" in docs/design/rate-limits.md.
+        the loose ball's own announcement -- as it did before the
+        move. The step says `board_changed=True` where the old call
+        site simply did not refresh, so without the dispatcher reading
+        the loose ball's own answer this branch would have gone from
+        one write to two for one click. See "Discord's rate limits" in
+        docs/design/rate-limits.md. The real loose ball runs here, so
+        the announcement is the write.
         """
         fixture = case_named("deflect_plain")
         cog = build_cog()
         cog.games[fixture.game.game_id] = fixture.game
+        del cog.begin_loose_ball
+        cog.announce_board_update = mock.AsyncMock()
+        cog.render_match_png = mock.AsyncMock(return_value=b"")
+        cog.match_file_from_png = mock.Mock(return_value=None)
 
-        with suppressed_cog_saves():
+        # The loose ball is announced and the chain stops on the far
+        # side of it, where the board it announced would be written
+        # again by whatever settles the contest.
+        with suppressed_cog_saves(), suppressed_full_image_links(), \
+                chain_stops_at(cog, FollowOnStep.RESOLVE_LOOSE_BALL):
             await cog.apply_deflection(
                 build_interaction(),
                 fixture.game,
@@ -397,7 +415,7 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
             )
 
         cog.refresh_match_image.assert_not_awaited()
-        cog.begin_loose_ball.assert_awaited_once()
+        cog.announce_board_update.assert_awaited_once()
 
 
 if __name__ == "__main__":

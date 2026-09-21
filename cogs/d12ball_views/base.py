@@ -24,7 +24,9 @@ from d12ball.render import (
     TEAM_COLORS,
     render_skill_test_dice,
 )
-from d12ball.flow.rolls import declare_overdrive_step
+from d12ball.flow import StepResult
+from d12ball.flow import driver
+from d12ball.flow.driver import Action, Answered, Refusal
 from d12ball.formatting import contestant_detail
 from d12ball.prompts import pending_prompt
 from cogs.d12ball_helpers import (
@@ -308,6 +310,89 @@ class SafeView(discord.ui.View):
             # that can be lost.
             pass
 
+    async def refuse(
+        self,
+        interaction: discord.Interaction,
+        reason: str,
+    ) -> None:
+        """
+        Tell the person who clicked why nothing happened, privately --
+        whether or not the click has been acknowledged yet.
+        """
+        done = getattr(interaction.response, "is_done", None)
+        if done is not None and done():
+            await interaction.followup.send(reason, ephemeral=True)
+        else:
+            await interaction.response.send_message(reason, ephemeral=True)
+
+    async def answer(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        action: Action,
+    ) -> Optional[Answered]:
+        """
+        Answer the question this match is waiting on, through
+        `d12ball.flow.driver.answer` -- **the one door every click
+        goes through** since Phase 6 of docs/design/model-discord-split.md.
+
+        What comes back is the answer's own result and detail, before
+        anything that follows it has run: a prompt in this bot is a
+        message with buttons on it, and answering it *replaces* that
+        message with what the answer said, so the view needs the lines
+        first and runs the chain behind them with
+        `dispatch_answer` afterwards. A `Refusal` -- the match is
+        waiting on a different question, the answer is not one the
+        prompt offers, or the position refuses what was chosen -- is
+        reported to the person who clicked and `None` comes back, so a
+        caller reads `if answered is None: return`.
+
+        **Authorisation is not here** and comes before this: whose
+        Discord account may press the button is `may_act_for`'s, and
+        every reason a refusal can give is a rule about the position.
+        The stale-click guards the views used to keep are what the
+        kind check replaces -- one reading of what the match is
+        waiting on, in the model, rather than one per view.
+        """
+        answered = driver.answer(self.cog.engine, game, match, action)
+        if isinstance(answered, Refusal):
+            await self.refuse(interaction, answered.reason)
+            return None
+        return answered
+
+    async def dispatch_answer(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        answered: Answered,
+        *,
+        lines_posted: bool = True,
+    ) -> None:
+        """
+        Run what an answer starts, once the view has rendered the
+        answer itself.
+
+        `lines_posted` says the view has already put the answer's own
+        lines up -- as the edit of the prompt it answered, nearly
+        always -- so they are not carried into the next step as its
+        lead-in. A view that leaves them to the dispatcher passes
+        False, and they open whatever comes next.
+        """
+        result = answered.result
+        await self.cog.dispatch_step_result(
+            interaction,
+            game,
+            match,
+            StepResult(
+                narration=[] if lines_posted else list(result.narration),
+                board_changed=result.board_changed,
+                next=result.next,
+                new_play=result.new_play,
+            ),
+        )
+
     def may_act_for_possession(
         self,
         interaction: discord.Interaction,
@@ -419,25 +504,27 @@ class SafeView(discord.ui.View):
         # **The rule is
         # `d12ball.flow.rolls.declare_overdrive_step`** since Phase 6:
         # which roll this is, who is in it, whether the declaration is
-        # still available and what it costs. It is re-asked rather than
-        # trusted, because this prompt may have been sitting in the
-        # channel since before the roll it was built for.
-        try:
-            result = declare_overdrive_step(
-                self.cog.engine,
-                game,
-                match,
-                pending_prompt(self.cog.engine, game, match),
-                player_id,
-            )
-        except ValueError as refusal:
-            await interaction.response.send_message(
-                str(refusal), ephemeral=True,
-            )
+        # still available and what it costs. It is the `overdrive`
+        # choice on whichever of the six roll prompts the match is
+        # waiting on, so the kind is read off the position rather than
+        # off this view -- a prompt may have been sitting in the
+        # channel since before the roll it was built for, and the
+        # driver refuses it by kind.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                pending_prompt(self.cog.engine, game, match).kind,
+                "overdrive",
+                {"player_id": player_id},
+            ),
+        )
+        if answered is None:
             return
 
         self.cog.persist(game, match)
-        await interaction.response.send_message(result.narration[0])
+        await interaction.response.send_message(answered.result.narration[0])
 
 
 # How long a helper's Confirm/Cancel stays in place of the prompt's own

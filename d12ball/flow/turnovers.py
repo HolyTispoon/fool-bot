@@ -2,7 +2,7 @@
 Running back after a turnover, and the pickup an out-of-bounds ball
 owes, as flow steps.
 
-Lifted in Phase 4 of docs/model-discord-split.md out of
+Lifted in Phase 4 of docs/design/model-discord-split.md out of
 `cogs/d12ball/turnovers.py`. See "Turnovers, resets, and running back"
 in docs/design/possession-and-turnovers.md for what a run back is and
 who is exempt from one.
@@ -279,6 +279,7 @@ def announce_new_play_reset(
     return StepResult(
         narration=[f"{prefix}# New play\n{body}"],
         board_changed=True,
+        new_play=True,
     )
 
 
@@ -405,6 +406,62 @@ def run_back_passes(
         break
 
     yield StepResult(next=FollowOn(FollowOnStep.FINISH_RUN_BACK))
+
+
+def continue_run_back(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    lead_in: str = "",
+) -> StepResult:
+    """
+    Drive the cascade and **batch what it says**.
+
+    The loop is `run_back_passes`, one `StepResult` a pass. Every
+    placement made without asking anyone -- the forced ones, the AI's
+    choices, the drop back that fills an empty kickoff -- collects into
+    one block, which the frontend posts as one message with one board
+    behind it, and the cascade stops where it reaches a coach's choice
+    or runs out. It used to post a message and re-upload the board per
+    player, which after a steal that scatters a 4-1-1 side is a
+    dozen-odd REST calls into one channel with nothing between them,
+    and enough to be rate limited for it. Nobody is reading the
+    intermediate boards anyway.
+
+    **The per-pass persist is gone with Phase 6**, and this is the one
+    place principle 9 had a named exception: the cog saved after every
+    yield because a pass that ended on a question left the turn
+    waiting on a click that reloaded the match off disk. The driver's
+    caller saves once after the whole run and before anything is
+    posted, which is the same guarantee one write later.
+
+    `lead_in` only ever applies to the first thing this says -- every
+    call site that already consumed it passes none.
+    """
+    notes: list[str] = []
+    board_changed = False
+    following = None
+
+    for result in run_back_passes(engine, game, match):
+        notes.extend(result.narration)
+        board_changed = board_changed or bool(result.narration)
+        if result.next is not None:
+            following = result.next
+            # A coach's choice is asked over the board as it stands,
+            # so the persistent message is settled in front of it
+            # whether or not this pass moved anybody -- the cascade
+            # always wrote it there.
+            board_changed = board_changed or isinstance(following, PendingPrompt)
+            break
+
+    prefix = f"{lead_in}\n\n" if lead_in else ""
+    body = "\n".join(notes)
+    narration = [f"{prefix}{body}"] if body else ([lead_in] if lead_in else [])
+    return StepResult(
+        narration=narration,
+        board_changed=board_changed,
+        next=following,
+    )
 
 
 def run_back_ai_placement(
@@ -636,6 +693,7 @@ def finish_run_back(
     turn on to whatever it was still holding up.
     """
     match.pending_run_back = False
+    match.run_back_pick = None
     distance_moved = match.pending_run_back_distance
     turnover_occurred = match.pending_run_back_turnover
     speed_choice_after = match.pending_run_back_speed_choice
@@ -776,7 +834,7 @@ def begin_ball_recovery(
 
 # -- Answering the run back's own prompts ------------------------------
 #
-# Phase 6 of docs/model-discord-split.md. Both were the view's until
+# Phase 6 of docs/design/model-discord-split.md. Both were the view's until
 # now -- `RunBackPlayerChoiceView.choose` and `RunBackChoiceView.choose`
 # in `cogs/d12ball_views/runback.py` -- and each mixed the rule with
 # the edit that renders it. The rule is here; the field strip the
@@ -794,19 +852,26 @@ def run_back_player_step(
     Which of a doubled-up pair runs back -- the answer to the first of
     the run back's two questions.
 
-    **It changes nothing**, and that is the whole of what is worth
-    saying about it: the pick narrows the second question and is not
-    itself a move, which is why `run_back_prompt` reads the position
-    back as "who" while more than one of them is spare and as "where"
-    once one has been chosen. The pick lives on the prompt and nowhere
-    else, so a restart in this window asks it again -- the same
-    simplification a part-made coaching choice makes.
+    **It moves nobody, and it is still a change to the match**: the
+    pick narrows the second question and is not itself a move, and
+    `MatchState.run_back_pick` is where it is written down, so that
+    `run_back_prompt` reads the position back as "where" for this
+    player from here on. Until Phase 6 of docs/design/model-discord-split.md
+    it lived on the prompt and nowhere else -- a restart asked "who"
+    again, and the driver refused the "where" that followed as a
+    question the match had moved on from, because the model's own
+    reading still said "who". Raises `ValueError` for a player the
+    position is not asking about, which is the stale click on a stack
+    the board has moved out from under.
     """
     side = (
         TeamSide.HOME
         if player_id in match.home.field_players
         else TeamSide.VISITING
     )
+    if player_id not in engine.run_back_crowded(game, match, side):
+        raise ValueError("They no longer have to run back.")
+    match.run_back_pick = player_id
     return StepResult(
         next=PendingPrompt(
             PromptKind.RUN_BACK_SPACE,
@@ -859,6 +924,8 @@ def run_back_space_step(
         space_index,
         engine.spread_exempt_ids(game, match, side),
     )
+    # The pick is spent by the move it narrowed the question to.
+    match.run_back_pick = None
     exhaustion_text = engine.apply_exhaustion(
         game, match, player_id, distance,
     )

@@ -3,7 +3,7 @@ What the cog's Steal and Intercept say and do next, recorded off the
 old code.
 
 This is the equivalence half of rank D2 of Phase 3 of
-docs/model-discord-split.md. It drives `D12Ball.apply_steal` over
+docs/design/model-discord-split.md. It drives `D12Ball.apply_steal` over
 `tests/steal_fixtures.py` and asserts the narration byte for byte,
 whether the board moved, and which step the resolution hands the turn
 to with which arguments -- the four things a `StepResult` carries --

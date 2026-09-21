@@ -358,10 +358,12 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_substitution_window.assert_awaited_once()
         _, kwargs = cog.begin_substitution_window.call_args
         self.assertEqual(kwargs["occasion"], CoachingOccasion.TIME_OUT)
-        self.assertIn("call a time out", kwargs["lead_in"])
+        # The window's own opening line, inside the prompt -- see
+        # `d12ball.flow.windows.begin_substitution_window`.
+        self.assertIn("call a time out", kwargs["heading"])
         # The side that gave it up coaches first.
         self.assertEqual(
-            cog.begin_substitution_window.call_args.args[3], TeamSide.HOME,
+            cog.begin_substitution_window.call_args.kwargs["side"], TeamSide.HOME,
         )
 
     def test_the_clock_boundary_is_the_last_minute_itself(self) -> None:
@@ -848,10 +850,15 @@ class TimeOutConfirmTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         interaction = build_interaction()
 
+        # The confirmation is the `time_out` answer to the turn prompt
+        # (`driver._answer_player_action`), so the step runs and the
+        # window it opens is what the stub sees.
         view = TimeOutConfirmView(cog, game.game_id, "One, it is your turn.")
-        await view.confirm(interaction)
+        with suppressed_cog_saves():
+            await view.confirm(interaction)
 
-        cog.begin_time_out.assert_awaited_once()
+        self.assertTrue(cog.engine.load_match_state(game).pending_time_out)
+        cog.begin_substitution_window.assert_awaited_once()
 
     async def test_a_stale_confirmation_is_refused(self) -> None:
         # The prompt underneath stays live while the confirm is up, so
@@ -864,8 +871,15 @@ class TimeOutConfirmTests(unittest.IsolatedAsyncioTestCase):
         view = TimeOutConfirmView(cog, game.game_id, "One, it is your turn.")
         await view.confirm(interaction)
 
-        cog.begin_time_out.assert_not_awaited()
+        self.assertFalse(cog.engine.load_match_state(game).pending_time_out)
+        cog.begin_substitution_window.assert_not_awaited()
+        # The driver's refusal, on whichever route the click still
+        # has open -- this mock reports its response as already given.
         interaction.followup.send.assert_awaited_once()
+        self.assertIn(
+            "already taken its time out",
+            interaction.followup.send.await_args.args[0],
+        )
 
     async def test_a_stale_time_out_click_is_refused(self) -> None:
         cog, game, match = self.build()

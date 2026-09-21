@@ -12,11 +12,8 @@ import aiohttp
 import asyncio
 import discord
 import io
-import random
-import time
-from typing import Awaitable, Callable, Optional
+from typing import Optional
 
-from discord.ext import commands
 from d12ball.components import (
     SPECIES_CYBORG,
     MatchState,
@@ -25,6 +22,7 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.engine import IgnitedRoll
+from d12ball.flow import FollowOnStep
 from d12ball.game import D12BallGame, team_display_name
 from d12ball import tutorial
 from d12ball.render import (
@@ -42,9 +40,6 @@ from cogs.d12ball_helpers import (
     PBD_ARCHIVE_CATEGORY_NAME,
     add_full_image_button,
     board_image_filename,
-    challenger_prompt_ask,
-    format_ai_name,
-    format_player_with_team,
     format_player_with_team_name,
     format_team_side_label,
     get_exhaust_emoji,
@@ -52,18 +47,9 @@ from cogs.d12ball_helpers import (
     get_injured_emoji,
     get_or_create_category,
     pin_board_message,
-    refresh_player_names,
     send_new_prompt,
     space_label,
 )
-from cogs.d12ball_views import (
-    BallHandlerSelectionView,
-    ManeuverActionPromptView,
-    ManeuverChallengeView,
-    PlayerActionView,
-    TutorialContinueView,
-)
-from cogs.d12ball_boards import BoardRefresher
 
 
 class PresentationMixin:
@@ -132,7 +118,7 @@ class PresentationMixin:
         Kept here so none of the nineteen call sites moved. Why it
         went down to the engine: charging a token is a state change
         and describing it is narration, and both are the model's --
-        rank O2 of docs/model-discord-split.md needed a flow step to
+        rank O2 of docs/design/model-discord-split.md needed a flow step to
         charge a Dribble Burst's token a space and say so without the
         cog. See "The model and the Discord layer" in CLAUDE.md.
         """
@@ -518,132 +504,17 @@ class PresentationMixin:
         match: MatchState,
     ) -> None:
         """
-        Play out the AI opponent's turn with possession: pick a ball
-        handler, then shoot if the ball is already on the space closest
-        to the opponent's goal, call a time out if one of theirs is
-        injured on the field, otherwise maneuver.
+        The AI opponent's turn with possession, as an entry point --
+        `d12ball.flow.turn.ai_turn_step`, through `START_TURN`.
         """
-        ai_name = format_ai_name(game.ai_opponent)
-        ai_strategy = self.engine.get_ai_strategy(game)
-        handler_id = ai_strategy.choose_ball_handler(match)
-        match.select_ball_handler(handler_id)
-        handler = self.engine.get_player_definition(handler_id)
-        action = ai_strategy.choose_action(match)
-
-        # **Ahead of the turn-action record**, because a time out is
-        # not a turn action -- `begin_time_out` logs its own event
-        # instead, and recording one here would open a turn for a pause
-        # and hang the real turn's events off it. See
-        # `MatchState.record_event` and EVENT_TIME_OUT.
-        #
-        # Dinky calls one to get an injured player off (the author,
-        # 2026-09-16); `DinkyAI.choose_action` is the whole of when.
-        # The window it opens runs through `run_ai_substitution_window`
-        # like any other AI window, and the human coach gets theirs in
-        # reply exactly as a human caller's opponent would.
-        if action == "time_out":
-            await send_new_prompt(
-                interaction, f"{ai_name} calls a time out."
-            )
-            await self.begin_time_out(interaction, game, match)
-            return
-
-        # Recorded here rather than in the two branches below: the AI
-        # has no prompt and no stale click to guard against, so the
-        # strategy's answer *is* the turn it takes.
-        self.record_turn_action(match, action, by_ai=True)
-
-        if action == "shoot":
-            match.pending_action = "shoot"
-            self.persist(game, match)
-
-            await send_new_prompt(
-                interaction,
-                f"{ai_name} has chosen to shoot to score with "
-                f"{self.player_label(match, handler)}.",
-            )
-            await self.begin_score_attempt(interaction, game, match)
-            return
-
-        # Unchallenged, so the AI's pick succeeds outright -- the same
-        # branch a human offense takes, see
-        # PlayerActionView.choose_action.
-        eligible_challengers = match.eligible_challengers()
-        if not eligible_challengers:
-            match.begin_uncontested_maneuver()
-            self.persist(game, match)
-
-            await send_new_prompt(
-                interaction,
-                f"{ai_name} has chosen to maneuver with "
-                f"{self.player_label(match, handler)}."
-            )
-            await self.announce_uncontested_maneuver(
-                interaction, game, match,
-            )
-            return
-
-        match.pending_action = "maneuver"
-
-        # *One* defender already sharing the ball's exact space leaves
-        # nothing to choose -- see PlayerActionView.choose_action, and
-        # note that this is a count and not a flag there too: two of
-        # them on the ball is the defending coach's pick (the author,
-        # 2026-08-17), and taking `on_ball_space[0]` here picked for
-        # them off placement order without asking.
-        on_ball_space = match.automatic_challengers()
-        if len(on_ball_space) == 1:
-            self.persist(game, match)
-
-            # Nothing is announced here: the challenge image
-            # auto_resolve_challenger posts names the handler the AI
-            # picked, along with everything else about the matchup.
-            await self.auto_resolve_challenger(
-                interaction, game, match, on_ball_space[0],
-            )
-            return
-
-        self.persist(game, match)
-
-        defender_number = self.engine.defending_player_number(game, match)
-        defender_mention = format_player_with_team(
-            game,
-            defender_number,
-            self.team_emojis,
-            mention=True,
-        )
-
-        challenge_view = ManeuverChallengeView(self, game.game_id)
-        challenge_message = await send_new_prompt(
-            interaction,
-            f"{ai_name} will maneuver with "
-            f"{self.player_label(match, handler)}.\n\n"
-            f"{defender_mention}, {challenger_prompt_ask(match)}",
-            view=challenge_view,
-            allowed_mentions=discord.AllowedMentions(
-                users=True,
-                roles=False,
-                everyone=False,
-            ),
-        )
-        game.turn_message_id = challenge_message.id
-        save_games(self.games)
+        await self.run_step(interaction, game, match, FollowOnStep.START_TURN)
 
     def tutorial_player_side(self, game: D12BallGame) -> TeamSide:
         """
-        Which side of the board the coach being taught is playing.
-
-        Player 1 is always the human in a tutorial -- it is refused any
-        other shape (see `create_game`) -- so this is whichever side the
-        coin toss put them on. Nothing forces that toss, which is why
-        every beat's position is written from a side's own goal forward
-        and mirrored on the way in. See `d12ball/tutorial.py`.
+        Which side of the board the coach being taught is playing -- a
+        forwarding method over `d12ball.tutorial.player_side`.
         """
-        return (
-            TeamSide.HOME
-            if game.home_player_number == 1
-            else TeamSide.VISITING
-        )
+        return tutorial.player_side(game)
 
     def tutorial_beat(self, game: D12BallGame):
         """
@@ -703,169 +574,25 @@ class PresentationMixin:
             self.tutorial_beat(game), kind, count,
         )
 
-    async def post_tutorial_note(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        text: str,
-        then: Callable[[discord.Interaction], Awaitable[None]],
-    ) -> None:
-        """
-        Post one piece of tutorial narration and hold whatever `then`
-        would send next behind a Continue button.
-
-        Two narration messages posted back to back with nothing for
-        the coach to click in between is exactly what gets scrolled
-        past in a busy channel -- see TutorialContinueView. `then`
-        receives the interaction the button click produced, not this
-        one, since everything after the click has to answer with that.
-        """
-        await send_new_prompt(
-            interaction,
-            text,
-            view=TutorialContinueView(self, game.game_id, then),
-        )
-
-    async def stage_tutorial_beat(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        then: Optional[Callable[[discord.Interaction], Awaitable[None]]] = None,
-    ) -> None:
-        """
-        Advance the script to the turn about to be played and post its
-        lesson.
-
-        **It moves nothing.** The board is set once, at kickoff, and
-        every beat after that is played from wherever the previous
-        turn left it -- see the module docstring in
-        `d12ball/tutorial.py`. This used to re-deal both sides before
-        each beat, which put a seam in the middle of the story; if a
-        beat ever needs a position again, the fix is to change the
-        script so the play arrives there.
-
-        Called at the top of every `send_turn_prompt` for a tutorial
-        game, which is once a turn -- so the *advance* is what counts
-        the beats. `tutorial_staged` is what keeps that honest: the
-        recovery commands (`/d12ball offensive_choice` and `resume
-        force:true`) also send a turn prompt without a turn having been
-        played, and re-entering a beat must not silently skip the next
-        one.
-
-        `then`, when given, is what `send_turn_prompt` would show
-        next -- held behind a Continue button rather than posted
-        alongside this beat's note, the same reasoning as every other
-        `post_tutorial_note` call site. Left out, the note is posted
-        plainly with nothing gating it: the staging tests ask only
-        whether the right note went out, never what follows it.
-        """
-        if not game.in_tutorial:
-            return
-
-        if game.tutorial_staged:
-            game.tutorial_step = (game.tutorial_step or 0) + 1
-            game.tutorial_staged = False
-
-        beat = tutorial.beat_for_step(game.tutorial_step)
-
-        if beat is None:
-            # Past the last beat: the script is over. The flag is
-            # cleared before anything else, so the prompt this turn
-            # puts up is built with no rails on it at all.
-            game.tutorial_step = None
-            game.tutorial_staged = False
-            save_games(self.games)
-            if then is not None:
-                await self.post_tutorial_note(
-                    interaction, game, tutorial.HANDOVER, then,
-                )
-            else:
-                await send_new_prompt(interaction, tutorial.HANDOVER)
-            return
-
-        game.tutorial_staged = True
-        save_games(self.games)
-        if then is not None:
-            await self.post_tutorial_note(interaction, game, beat.lesson, then)
-        else:
-            await send_new_prompt(interaction, beat.lesson)
-
     async def send_turn_prompt(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
     ) -> None:
-        async def continue_turn_prompt(
-            inner_interaction: discord.Interaction,
-        ) -> None:
-            refresh_player_names(game, inner_interaction.guild)
-            match = self.engine.load_match_state(game)
-            # The carrier, when the last resolution left the ball with
-            # somebody; everyone on the ball's space otherwise. Either
-            # way a single candidate is selected below without asking,
-            # so the rule costs a coach a click rather than adding one.
-            #
-            # Through the engine, which is where the single answer
-            # to "who may take this turn" lives even now that it adds
-            # nothing of its own: Slip in used to widen this list, and
-            # Smooth replaced it on 2026-09-20 by settling the same
-            # question one step earlier, at the arrival gate.
-            eligible_handlers = self.engine.turn_handler_candidates(
-                game, match,
-            )
-            if not eligible_handlers:
-                raise ValueError(
-                    "The team in possession has no player in the ball's "
-                    "space."
-                )
-            carrying = match.ball_carrier_id in eligible_handlers
+        """
+        Hand the offensive choice to whoever now has the ball, as an
+        entry point: `d12ball.flow.turn.begin_turn`, which stages a
+        tutorial beat and holds its lesson behind Continue, and
+        `start_turn` behind it -- the lone handler picked without
+        asking, an AI side's whole turn, or the prompt.
 
-            offense_number = self.engine.possession_player_number(game, match)
-            if game.is_solo_game and offense_number == 2:
-                await self.play_ai_turn(inner_interaction, game, match)
-                return
-
-            if len(eligible_handlers) == 1:
-                match.select_ball_handler(eligible_handlers[0])
-                game.match_state = match.to_dict()
-                view: discord.ui.View = PlayerActionView(
-                    self,
-                    game.game_id,
-                )
-            else:
-                view = BallHandlerSelectionView(
-                    self,
-                    game.game_id,
-                )
-
-            turn_message = await send_new_prompt(
-                inner_interaction,
-                self.engine.build_turn_prompt(
-                    game, match, carrying=carrying,
-                ),
-                view=view,
-                allowed_mentions=discord.AllowedMentions(
-                    users=True,
-                    roles=False,
-                    everyone=False,
-                ),
-            )
-            game.turn_message_id = turn_message.id
-            save_games(self.games)
-
-        # Ahead of everything, including the AI branch above: a beat
-        # the coach is *defending* is still a beat, and its position
-        # has to be down before Dinky takes a turn on it. The note is
-        # gated behind Continue, so what follows it -- an AI turn or
-        # the ordinary action prompt -- waits on the coach's click
-        # rather than landing in the same breath as the note itself.
-        if game.in_tutorial:
-            await self.stage_tutorial_beat(
-                interaction, game, then=continue_turn_prompt,
-            )
-            return
-
-        await continue_turn_prompt(interaction)
+        It loads the match itself because both of its callers, the
+        two recovery commands, hold only the game.
+        """
+        match = self.engine.load_match_state(game)
+        await self.run_step(
+            interaction, game, match, FollowOnStep.SEND_TURN_PROMPT,
+        )
 
     async def render_match_png(self, game: D12BallGame) -> bytes:
         """

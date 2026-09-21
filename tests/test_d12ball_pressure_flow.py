@@ -1,7 +1,7 @@
 """
 The two pressures as one flow step, and the cog wrapper around it.
 
-The model half of rank D3 of Phase 3 of docs/model-discord-split.md.
+The model half of rank D3 of Phase 3 of docs/design/model-discord-split.md.
 `tests/test_d12ball_pressure_recording.py` asked the cog what a
 Pressure says and does next, off `tests/pressure_fixtures.py`, and was
 run green before anything moved. This asks
@@ -17,7 +17,7 @@ put:
 - the cog wrapper saves **between** the step and the dispatch, which
   is the transition rule for Phases 2 to 5,
 - `BEGIN_OWN_GOAL_ROLL`, the member this rank adds, is real and has a
-  row in `D12Ball.follow_on_methods`,
+  row in `driver.MODEL_STEPS`,
 - the overshoot costs **one** message where it used to cost two,
   which is the only thing a coach sees differently after this move,
 - the own-goal outcome no longer saves either, and `run_own_goal_roll`
@@ -157,26 +157,20 @@ class PressureStepTests(unittest.TestCase):
     def test_the_own_goal_roll_is_a_real_member_with_a_row(self) -> None:
         """
         Rank D3 adds one `FollowOnStep` member, and a member with no
-        row in `D12Ball.follow_on_methods` raises inside a resolved
+        row in `driver.MODEL_STEPS` raises inside a resolved
         maneuver one card at a time. The membership itself is asserted
         in `tests/test_d12ball_package_shape.py`; this is that the one
         this rank names is the one it recorded.
         """
         self.assertEqual(FollowOnStep.BEGIN_OWN_GOAL_ROLL.name, OWN_GOAL_ROLL)
-        cog = build_cog()
-        self.enterContext(driver_reaches_cog_stubs(cog))
         # **Phase 6 moved it across.** The roll's own step is the
-        # driver's now -- it was a wrapper that called the step,
-        # saved and dispatched, which is the whole of what the loop
-        # does. The two tables together cover the enum exactly; see
+        # driver's -- it was a wrapper that called the step, saved and
+        # dispatched, which is the whole of what the loop does. The
+        # table covers the enum exactly; see
         # `tests/test_d12ball_package_shape.py`.
         self.assertIs(
             REAL_MODEL_STEPS[FollowOnStep.BEGIN_OWN_GOAL_ROLL],
             begin_own_goal_roll,
-        )
-        self.assertNotIn(
-            FollowOnStep.BEGIN_OWN_GOAL_ROLL,
-            D12Ball.follow_on_methods(cog),
         )
 
     def test_the_step_does_not_save(self) -> None:

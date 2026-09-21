@@ -1,26 +1,33 @@
 """
-Stopping a turn's chain at a named step, from either side of the seam.
+Stopping a turn's chain at a named step.
 
 A great many tests drive one step and assert what it hands off to, and
-until Phase 6 of docs/model-discord-split.md there was one way to do
-that: stub the cog method `D12Ball.follow_on_methods` names for the
+until Phase 6 of docs/design/model-discord-split.md there was one way to do
+that: stub the cog method `D12Ball.follow_on_methods` named for the
 `FollowOnStep` in question, and read its `await_args`. That worked
 because the cog ran every follow-on.
 
-`d12ball.flow.driver` runs some of them now (see `MODEL_STEPS`), and a
-member it runs has no cog method to stub -- which is how sixty-odd
-tests failed on a move that changed nothing a coach can see. **Where
-the stub goes is a fact about the seam, not about the test**, so it is
-answered here, once, rather than in each file: `chain_stops_at` puts
-the stub on whichever side owns the step today, and a member moving
-across the seam in a later phase changes this module and nothing else.
+`d12ball.flow.driver` runs every one of them now (see `MODEL_STEPS`),
+and the cog's table is gone -- so a stub goes on the driver's table,
+always. **Where the stub goes is a fact about the seam, not about the
+test**, which is why it is answered here, once, rather than in each
+file, and why the module kept its two-sided shape through the phases
+that moved members one at a time: `chain_stops_at` put the stub on
+whichever side owned the step that week, and a member moving across
+the seam changed this module and nothing else. The cog side of it is
+empty now and the helpers that told the two apart answer "the model"
+for every member.
 
-The recorder it yields is the stub itself. Its call is shaped like the
-side it replaced -- a cog method is awaited with
-`(interaction, game, match, lead_in=..., **kwargs)` and a driver step
-is called with `(engine, game, match, lead_in=..., **kwargs)` -- so a
-test reading arguments should use `arguments_of`, which normalises the
-two, rather than indexing either.
+The recorder it yields is the stub itself, called with
+`(engine, game, match, lead_in=..., **kwargs)`; a test reading
+arguments should use `arguments_of` rather than indexing.
+
+`driver_reaches_cog_stubs` is the other half: dozens of tests build a
+cog with `cog.some_step = AsyncMock()` and assert on it afterwards, and
+the cog keeps a thin entry point of that name for most steps. The
+routing below points the driver's table at whatever stub a test has
+put on the cog, so those assertions still read what they were written
+to read.
 """
 
 from __future__ import annotations
@@ -30,32 +37,14 @@ import inspect
 from typing import Any, Iterator, Mapping
 from unittest import mock
 
-from cogs.d12ball import D12Ball
 from d12ball.flow import FollowOnStep, StepResult
 from d12ball.flow import driver
 
 
-class _NameProbe:
-    """
-    A stand-in for the cog that answers every attribute with its own
-    name, so `follow_on_methods` comes back as a table of *names*.
-
-    The table is `{member: self.some_method}`, and a test needs the
-    method's name to stub it. Reading `__name__` off the bound method
-    works only on a cog nobody has stubbed yet -- and the recording
-    tables stub the lot in `build_cog`, at which point `__name__` is a
-    `Mock`. Asking a probe is what makes the mapping a fact about the
-    cog rather than about the order a test does things in.
-    """
-
-    def __getattr__(self, name: str) -> str:
-        return name
-
-
 #: Which cog method each `FollowOnStep` the cog still dispatches names.
-COG_METHOD_NAMES: Mapping[FollowOnStep, str] = dict(
-    D12Ball.follow_on_methods(_NameProbe()),
-)
+#: Empty since Phase 6 collapsed `D12Ball.follow_on_methods`; kept so
+#: the helpers below keep their shape.
+COG_METHOD_NAMES: Mapping[FollowOnStep, str] = {}
 
 
 #: The driver's table as it really is, taken once at import.
@@ -88,6 +77,10 @@ def chain_stops_at(
     """
     if runs_in_the_model(member):
         recorder = mock.Mock(return_value=result or StepResult())
+        # Marked, so the cog-stub routing lets it through: a test that
+        # asked for a recorder by member is reading it, whatever else
+        # its cog builder stubbed. See `_as_a_step`.
+        recorder._flow_recorder = True
         patched = dict(driver.MODEL_STEPS)
         patched[member] = recorder
         with mock.patch.object(driver, "MODEL_STEPS", patched):
@@ -113,7 +106,7 @@ def arguments_of(recorder: Any) -> tuple[tuple[Any, ...], Mapping[str, Any]]:
     The leading three differ by side -- `(interaction, game, match)`
     against `(engine, game, match)` -- and every argument a step
     actually carries arrives by keyword (rank D2's lesson, in
-    docs/model-discord-split.md), so a test wanting `distance_moved`
+    docs/design/model-discord-split.md), so a test wanting `distance_moved`
     or `lead_in` reads the mapping and never an index.
     """
     if not recorder.call_args_list:  # pragma: no cover - never reached
@@ -178,7 +171,7 @@ def named_arguments(
     takes no `self`, which is the whole of the difference -- the
     arguments themselves are the same, because
     `dispatch_step_result` already passed every one of them by keyword
-    (rank D2's lesson, in docs/model-discord-split.md).
+    (rank D2's lesson, in docs/design/model-discord-split.md).
     """
     call = (recorder.call_args_list)[0]
     if runs_in_the_model(member):
@@ -225,6 +218,7 @@ def chain_records_at(
             calls.append(name)
             return StepResult()
 
+        record._flow_recorder = True
         patched = dict(driver.MODEL_STEPS)
         patched[member] = record
         with mock.patch.object(driver, "MODEL_STEPS", patched):
@@ -276,11 +270,21 @@ def _as_a_step(cog: Any, member: FollowOnStep, attribute: str) -> Any:
     routing costs a test that does not use it nothing.
     """
 
-    real = REAL_MODEL_STEPS[member]
+    # Whatever the table holds *now* -- the real step, a recorder a
+    # `chain_stops_at` around this routing already put there, or the
+    # routing of another cog whose context is still open (a test that
+    # `enterContext`s one per subtest stacks them). Reading
+    # `REAL_MODEL_STEPS` here would silently undo a recorder. The
+    # precedence is: a recorder, then this cog's own stub, then
+    # whatever the table held -- a test that asked for a recorder by
+    # member is reading it, and a test that stubbed its own cog is
+    # reading that rather than the previous subtest's.
+    real = driver.MODEL_STEPS[member]
+    recorded = getattr(real, "_flow_recorder", False)
 
     def run(*args: Any, **kwargs: Any) -> StepResult:
         stub = getattr(cog, attribute, None)
-        if not isinstance(stub, mock.AsyncMock):
+        if recorded or not isinstance(stub, mock.AsyncMock):
             return real(*args, **kwargs)
         coroutine = stub(*args, **kwargs)
         try:
@@ -345,3 +349,42 @@ def injury_queue_stops_the_chain(cog: Any) -> Iterator[Any]:
         "d12ball.flow.rolls.injuries.begin_injury_tests", recorder,
     ):
         yield recorder
+
+
+def arm_cog_stub_routing() -> None:
+    """
+    Make every dispatch on every test cog reach the stubs a test has
+    put on it, without each test asking.
+
+    Before Phase 6 collapsed the cog's dispatch table, a test that
+    stubbed `cog.begin_run_back = AsyncMock()` stopped the chain there
+    for free: the cog awaited its own attribute. The driver never
+    looks at the cog, so the same stub is now reached only through
+    `driver_reaches_cog_stubs` -- and fifty-odd cog builders across
+    the suite were written against the old behaviour. Rather than
+    wrap each of them, `D12Ball.dispatch_step_result` is wrapped once,
+    at the class, so the routing is in force for the duration of every
+    dispatch on any cog. A cog with no stubs on it runs the real steps,
+    exactly as `_as_a_step` promises.
+
+    Armed by importing this module, the way `save_patches` arms the
+    stray-save guard: `unittest discover` imports every test module
+    before it runs any test, and `save_patches` -- which nearly every
+    cog test imports -- imports this one.
+    """
+    from cogs.d12ball import D12Ball
+
+    original = D12Ball.dispatch_step_result
+    if getattr(original, "_routes_cog_stubs", False):
+        return
+
+    async def dispatch_step_result(self, *args, **kwargs):
+        with driver_reaches_cog_stubs(self):
+            return await original(self, *args, **kwargs)
+
+    dispatch_step_result._routes_cog_stubs = True
+    dispatch_step_result.__wrapped__ = original
+    D12Ball.dispatch_step_result = dispatch_step_result
+
+
+arm_cog_stub_routing()

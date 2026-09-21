@@ -131,7 +131,8 @@ from d12ball.render import (
     zone_bounds_between,
 )
 from roster import benched, field_players, fielded, roles
-from d12ball.flow import FollowOn, FollowOnStep
+from d12ball.flow import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.effects import offer_high_pass
 from d12ball.flow.arrivals import check_for_loose_ball
 
 from flow_stubs import driver_reaches_cog_stubs
@@ -148,7 +149,7 @@ def loose_ball_distance(call) -> int:
     `call.args`.
 
     A deflection reaches it as a `FollowOn` since rank D1 of
-    docs/model-discord-split.md, and `dispatch_step_result` passes a
+    docs/design/model-discord-split.md, and `dispatch_step_result` passes a
     follow-on's arguments **by keyword** -- so an argument the cog used
     to hand over positionally now arrives named. Binding the call to
     the signature answers for both shapes, which is the reading rank D2
@@ -4000,7 +4001,6 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         for the 2.
         """
         cog = self.build_cog()
-        cog.apply_high_pass = mock.AsyncMock()
         cog.engine.side_controlled_by_ai = mock.Mock(return_value=False)
         match = self.build_match()
         match.ball.possession = TeamSide.HOME
@@ -4008,16 +4008,21 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             match, TeamSide.HOME, PlayerRole.FULLBACK,
         )
 
-        interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        for space_index in (1, 2):  # flat 7 and flat 8: 1 away, then 0
-            match.set_ball_space(Zone.VISITORS_GOAL, space_index)
-            self.assertTrue(match.high_pass_distance_is_moot(TeamSide.HOME))
-            with suppressed_cog_saves():
-                await cog.resolve_high_pass(interaction, game, match)
+        # `offer_high_pass` is the step that decides; a moot distance
+        # is applied as the minimum without a prompt, and the throw's
+        # own step is what it hands back.
+        with mock.patch(
+            "d12ball.flow.effects.high_pass_step",
+            return_value=StepResult(),
+        ) as throw:
+            for space_index in (1, 2):  # flat 7 and flat 8: 1 away, then 0
+                match.set_ball_space(Zone.VISITORS_GOAL, space_index)
+                self.assertTrue(match.high_pass_distance_is_moot(TeamSide.HOME))
+                offer_high_pass(cog.engine, game, match)
 
-        self.assertEqual(cog.apply_high_pass.await_count, 2)
-        for call in cog.apply_high_pass.await_args_list:
+        self.assertEqual(throw.call_count, 2)
+        for call in throw.call_args_list:
             self.assertEqual(call.args[-1], 2)
         cog.engine.side_controlled_by_ai.assert_not_called()
 

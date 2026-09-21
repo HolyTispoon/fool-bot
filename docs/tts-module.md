@@ -1,8 +1,9 @@
 # A Tabletop Simulator module for D12 Ball
 
 **This is a worksheet, not a specification.** It is the plan the Tabletop
-Simulator (TTS) module is being built from, in the shape of
-`model-discord-split.md`: the decisions already taken are at the top so
+Simulator (TTS) module is being built from, in the shape the model/Discord
+split's worksheet had (that one went with its last phase; what it settled
+is in `docs/design/model-discord-split.md`): the decisions already taken are at the top so
 nobody re-opens them, the phases each end on a stop where a person loads
 the thing in TTS, and the answered parts get cut as they land. When the
 module ships, what survives of this moves to `docs/design/tts-module.md`
@@ -147,10 +148,11 @@ and that is decided by what the question is about:
   input and can only be asked at runtime. That is the web app's shape,
   and on the table it is TTS's `WebRequest` from the host's Lua to a
   hosted service over `d12ball/flow`, with the Lua reduced to "send the
-  click, apply the `StepResult`". It needs the split's Phase 6 driver (a
-  turn run from a request) and a server that every host's game then
-  depends on being up. Both are the other worksheet's, and this one does
-  not start them.
+  click, apply the `StepResult`". The driver it needs exists
+  (`d12ball.flow.driver.apply` runs a whole turn from one action, and
+  `tests/test_driver_full_game.py` plays a game through it with no
+  frontend); what it also needs is a server that every host's game then
+  depends on being up, and this worksheet does not start one.
 - **A question about the ruleset** -- how each side is dealt on each
   board, where each formation puts six cards, which space is a side's
   kickoff, what each player is called -- has a finite input space: three

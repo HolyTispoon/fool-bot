@@ -85,7 +85,6 @@ def suppressed_cog_saves():
 # `tests/test_d12ball_package_shape.py` fails if the two come apart.
 LINKING_COG_MODULES = (
     "cogs.d12ball.core",
-    "cogs.d12ball.turnovers",
     "cogs.d12ball.periods",
     "cogs.d12ball.presentation",
     "cogs.d12ball.slash_commands",
@@ -171,3 +170,8 @@ def guard_stray_saves() -> None:
 
 
 guard_stray_saves()
+
+# The other import-time arming a cog test needs: every dispatch on a
+# test cog reaches the step stubs the test put on it. See
+# `flow_stubs.arm_cog_stub_routing`.
+import flow_stubs  # noqa: E402,F401

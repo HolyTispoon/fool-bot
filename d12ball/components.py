@@ -1552,6 +1552,10 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("maneuver_uncontested", default=False),
     SavedField("volatile_tier_upgrade", default=False),
     SavedField("volatile_loser_cost"),
+    # The card the dice settled a tie for -- see the field. Absent
+    # from an older save, which reads as "not rolled", exactly as the
+    # position read before it was recorded.
+    SavedField("skill_test_winner"),
     SavedField(
         "pending_overdrive", factory=list, write=list, read=list,
     ),
@@ -1582,6 +1586,11 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("pending_run_back_speed_choice", default=False),
     SavedField("run_back_moved", factory=list, write=list, read=list),
     SavedField("pending_run_back_charge_up", default=False),
+    # The first of the run back's two questions, answered and not yet
+    # acted on -- see the field. Absent from an older save, which
+    # reads as "nobody has been picked" and asks again, exactly as
+    # the bot did before the pick was recorded at all.
+    SavedField("run_back_pick"),
     SavedField("pending_effect_continuation"),
     SavedField("pending_double_team", factory=list, write=list, read=list),
     # The event log. Empty for a game saved before it existed, which
@@ -1775,6 +1784,19 @@ class MatchState:
     # the tier flag is: the injury tests run between the roll and the
     # effect that reads it.
     volatile_loser_cost: Optional[bool] = None
+    # **Which card the skill test settled a tie for**, by key, or None
+    # while no test has been rolled. Written by `skill_test_step` at
+    # the same moment as the two Volatile flags above and for the same
+    # reason: the injury tests run between the roll and the effect,
+    # possibly across a restart, and nothing else on the match said
+    # who had won. `RulesEngine.settled_maneuver_winner` used to answer
+    # None for the whole of an effect the dice had decided -- so a
+    # restart in a tie's effect re-offered the skill test, and, once
+    # every click was checked against that reading (Phase 6 of
+    # docs/design/model-discord-split.md), the speed choice after a won
+    # Intercept was refused as a roll still owed. Cleared with the
+    # rest of the turn.
+    skill_test_winner: Optional[str] = None
     # **Overdrive declared, and not yet spent**: the Cyborgs who have
     # taken 3 drain to add +5 to the roll that is about to happen. See
     # "Lithium Powered (Cyborg)" in docs/living-rules.md.
@@ -1859,6 +1881,21 @@ class MatchState:
     # two apart -- `new_play` is not persisted.
     run_back_moved: list[str] = field(default_factory=list)
     pending_run_back_charge_up: bool = False
+    # **Which of a doubled-up pair the coach picked to run back**, and
+    # not yet where to. The run back asks two questions of a stack --
+    # who goes, then where -- and until Phase 6 of
+    # docs/design/model-discord-split.md the first answer lived only on the
+    # Discord message that asked the second: `pending_prompt` read the
+    # position back as "who" for as long as more than one player was
+    # spare, and a restart asked it again. That was a second reading
+    # of what the match is waiting on, and the one place the driver
+    # could not close: an action answering "where" was refused because
+    # the model still said "who". So the pick is on the match, where
+    # every other half-answered question is (`pending_scoring_opportunity`
+    # is the precedent), and `run_back_prompt` reads it. Cleared by the
+    # space step that consumes it and by every reset that ends a run
+    # back.
+    run_back_pick: Optional[str] = None
     # **What a maneuver's effect still owes once its last prompt has
     # been answered**, as `{"kind": ..., ...}` -- or None, which is
     # nearly always.
@@ -1886,7 +1923,7 @@ class MatchState:
     # (`{"kind": "attempt", ...}`) or the pick of who takes the shot
     # when more than one player may (`{"kind": "shooter", ...}`).
     #
-    # **The one field Phase 6 of docs/model-discord-split.md added**,
+    # **The one field Phase 6 of docs/design/model-discord-split.md added**,
     # and the reason is that neither question could be a
     # `PendingPrompt` without it. The attempt's `distance_moved` and
     # `contest_on_decline` are nowhere else in match state -- by the
@@ -3422,6 +3459,7 @@ class MatchState:
         self.defense_maneuver = None
         self.volatile_tier_upgrade = False
         self.volatile_loser_cost = None
+        self.skill_test_winner = None
         self.pending_overdrive = []
         self.last_ball_path = []
         self.last_ball_movers = []
@@ -3436,6 +3474,7 @@ class MatchState:
         self.pending_run_back_speed_choice = False
         self.run_back_moved = []
         self.pending_run_back_charge_up = False
+        self.run_back_pick = None
         self.pending_effect_continuation = None
         self.pending_kickoff_fill = False
         self.pending_scoring_opportunity = None

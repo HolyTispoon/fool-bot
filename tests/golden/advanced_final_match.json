@@ -1096,6 +1096,7 @@
   "player_data_version": 1,
   "ruleset_id": "basic-v1",
   "run_back_moved": [],
+  "run_back_pick": null,
   "scoreboard": {
     "home_score": 0,
     "last_possession": false,
@@ -1108,6 +1109,7 @@
   "shootout_round": 0,
   "shootout_shooters": {},
   "shootout_used": {},
+  "skill_test_winner": null,
   "time_outs_used": [
     "home"
   ],

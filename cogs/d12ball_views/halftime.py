@@ -9,8 +9,10 @@ from d12ball.components import (
     MatchState,
     TeamSide,
 )
-from d12ball.flow.periods import halftime_extra_token_step
+from d12ball.flow import StepResult
+from d12ball.flow.driver import Action
 from d12ball.game import D12BallGame
+from d12ball.prompts import PromptKind
 
 from cogs.d12ball_views.base import SafeView
 
@@ -49,12 +51,6 @@ class HalftimeView(SafeView):
         if game is None or match is None:
             await interaction.response.send_message(
                 "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
-            return None, None
-        if match.pending_halftime_stage != self.stage:
-            await interaction.response.send_message(
-                "That halftime step has already finished.",
                 ephemeral=True,
             )
             return None, None
@@ -120,14 +116,35 @@ class HalftimeExtraTokenView(HalftimeView):
         # Phase 6 -- taking the token off, moving the stage on and
         # saying what happened. The AI's branch of
         # `begin_halftime_extra_token` is the same three lines, which
-        # is why this is a step and not a view body.
-        result = halftime_extra_token_step(
-            self.cog.engine, game, match, player_id=player_id,
+        # is why this is a step and not a view body. A step already
+        # finished, or the other side's, is the driver's to refuse.
+        answered = await self.answer(
+            interaction,
+            game,
+            match,
+            Action(
+                PromptKind.HALFTIME_EXTRA_TOKEN,
+                "",
+                {"player_id": player_id, "side": self.side},
+            ),
         )
+        if answered is None:
+            return
+        result = answered.result
         self.cog.persist(game, match)
 
+        # The pick's own line replaces the prompt; what halftime does
+        # next is its own messages, one per block.
         await interaction.response.edit_message(
             content=result.narration[0], view=None,
         )
-        await self.cog.refresh_match_image(interaction, game)
-        await self.cog.advance_halftime_stage(interaction, game, match)
+        await self.cog.post_blocks_then_dispatch(
+            interaction,
+            game,
+            match,
+            StepResult(
+                narration=result.narration[1:],
+                board_changed=result.board_changed,
+                next=result.next,
+            ),
+        )

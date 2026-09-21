@@ -3,7 +3,7 @@ What the cog's Pressure and Double Team say and do next, recorded off
 the old code.
 
 This is the equivalence half of rank D3 of Phase 3 of
-docs/model-discord-split.md. It drives `D12Ball.apply_pressure` over
+docs/design/model-discord-split.md. It drives `D12Ball.apply_pressure` over
 `tests/pressure_fixtures.py` and asserts the narration byte for byte,
 whether the board moved, and which step the resolution hands the turn
 to with which arguments -- the four things a `StepResult` carries --

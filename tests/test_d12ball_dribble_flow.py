@@ -1,7 +1,7 @@
 """
 The two dribbles as flow steps, and the cog wrappers around them.
 
-The model half of rank O2 of Phase 3 of docs/model-discord-split.md.
+The model half of rank O2 of Phase 3 of docs/design/model-discord-split.md.
 `tests/test_d12ball_dribble_recording.py` asked the cog what a dribble
 says and does next, off `tests/dribble_fixtures.py`, and was run green
 before anything moved. This asks `d12ball.flow.effects` the same
@@ -33,6 +33,7 @@ from d12ball.flow.effects import dribble_advance_step, dribble_burst_step
 from d12ball.prompts import pending_prompt
 
 from dribble_fixtures import DRIBBLE_CASES, ENGINE, FINISH, SPEED_CHOICE
+from flow_stubs import chain_records_at
 from save_patches import suppressed_cog_saves
 from test_d12ball_dribble_recording import build_cog
 
@@ -170,7 +171,7 @@ class DribbleWrapperTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         """
-        The transition rule for Phases 2 to 5, asserted as an order
+        Principle 9, asserted as an order
         *and* as content: at the moment the save runs, the dribble
         must already have happened. A persist before the step writes a
         match that has not moved, and a persist after the dispatch is
@@ -195,37 +196,36 @@ class DribbleWrapperTests(unittest.IsolatedAsyncioTestCase):
                 async def refresh(*args, **kwargs) -> None:
                     calls.append("refresh")
 
-                async def speed_choice(*args, **kwargs) -> None:
-                    calls.append("offer_speed_choice")
-
-                async def finish(*args, **kwargs) -> None:
-                    calls.append("finish_maneuver_resolution")
-
                 cog.persist = persist
                 cog.refresh_match_image = refresh
-                cog.offer_speed_choice = speed_choice
-                cog.finish_maneuver_resolution = finish
                 apply = (
                     cog.apply_dribble_advance
                     if fixture.key == "dribble_advance"
                     else cog.apply_dribble_burst
                 )
 
-                await apply(
-                    SimpleNamespace(),
-                    fixture.game,
-                    fixture.match,
-                    fixture.distance,
-                )
+                with chain_records_at(
+                    cog, FollowOnStep.OFFER_SPEED_CHOICE, calls,
+                ), chain_records_at(
+                    cog, FollowOnStep.FINISH_MANEUVER_RESOLUTION, calls,
+                ):
+                    await apply(
+                        SimpleNamespace(),
+                        fixture.game,
+                        fixture.match,
+                        fixture.distance,
+                    )
 
                 # The advance ends on the speed choice; the burst has
-                # set the speed itself and ends on the tail.
+                # set the speed itself and ends on the tail. Either
+                # runs in the driver, and the one save comes after it
+                # (principle 9), the board behind that.
                 following = (
                     "offer_speed_choice"
                     if fixture.key == "dribble_advance"
                     else "finish_maneuver_resolution"
                 )
-                self.assertEqual(calls, ["persist", "refresh", following])
+                self.assertEqual(calls, [following, "persist", "refresh"])
                 self.assertEqual(
                     carrier_when_saved, [fixture.carrier_id],
                 )

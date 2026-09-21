@@ -9,11 +9,7 @@ import discord
 from typing import TYPE_CHECKING, Optional
 
 from d12ball.flow import StepResult
-from d12ball.flow.rolls import (
-    retract_shot_step,
-    score_attempt_step,
-    skill_test_step,
-)
+from d12ball.flow.driver import Action
 from d12ball.prompts import PendingPrompt, PromptKind
 from d12ball.render import render_player_portrait
 from cogs.d12ball_helpers import (
@@ -24,7 +20,6 @@ from cogs.d12ball_views.base import (
     SafeView,
     render_contest_dice,
 )
-from cogs.d12ball_views.turn import PlayerActionView
 
 if TYPE_CHECKING:
     from cogs.d12ball import D12Ball
@@ -63,13 +58,6 @@ class SkillTestView(SafeView):
         if game is None:
             return
 
-        if match.offense_maneuver is None or match.defense_maneuver is None:
-            await interaction.response.send_message(
-                "This skill test is no longer active.",
-                ephemeral=True,
-            )
-            return
-
         if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the skill test.",
@@ -90,8 +78,14 @@ class SkillTestView(SafeView):
         # partner, the event, Volatile's tier rider and the tie's two
         # tokens are all the model's, and the whole of them used to be
         # in this method and the one above it. What is left here is the
-        # picture and where it goes.
-        dice, result = skill_test_step(self.cog.engine, game, match)
+        # picture and where it goes. A click on a test that is no
+        # longer active is the driver's to refuse, by kind.
+        answered = await self.answer(
+            interaction, game, match, Action(PromptKind.SKILL_TEST, "roll"),
+        )
+        if answered is None:
+            return
+        dice, result = answered.detail, answered.result
         dice_file = await render_contest_dice(
             dice.contestants, filename="skill_test_dice.png",
         )
@@ -226,13 +220,6 @@ class InjuryTestView(SafeView):
         if game is None:
             return
 
-        if self.player_id not in match.pending_injury_tests:
-            await interaction.response.send_message(
-                "This injury test is no longer active.",
-                ephemeral=True,
-            )
-            return
-
         if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the injury test.",
@@ -244,11 +231,24 @@ class InjuryTestView(SafeView):
         # out in SkillTestView.roll.
         await interaction.response.defer()
 
-        await self.cog.run_injury_test(
+        # **Who rolls is the prompt's, not the button's**: the queue
+        # decides whose test is owed next. The player this button was
+        # built for goes with the action so the driver can refuse a
+        # click on an earlier player's prompt after theirs has been
+        # rolled, rather than rolling the next one with it.
+        answered = await self.answer(
             interaction,
             game,
             match,
-            self.cog.engine.get_player_definition(self.player_id),
+            Action(
+                PromptKind.INJURY_TEST, "roll", {"player_id": self.player_id},
+            ),
+        )
+        if answered is None:
+            return
+        self.cog.persist(game, match)
+        await self.cog.post_injury_die(
+            interaction, game, match, answered.detail, answered.result,
         )
 
 
@@ -290,13 +290,6 @@ class OwnGoalRollView(SafeView):
         if game is None:
             return
 
-        if not match.pending_own_goal or match.active_player_id is None:
-            await interaction.response.send_message(
-                "This own goal roll is no longer active.",
-                ephemeral=True,
-            )
-            return
-
         if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll for the own goal.",
@@ -308,7 +301,19 @@ class OwnGoalRollView(SafeView):
         # out in SkillTestView.roll.
         await interaction.response.defer()
 
-        await self.cog.run_own_goal_roll(interaction, game, match)
+        answered = await self.answer(
+            interaction, game, match, Action(PromptKind.OWN_GOAL_ROLL, "roll"),
+        )
+        if answered is None:
+            return
+        # **Saved before the dice are drawn, deliberately.** A render
+        # and an upload sit between this save and the dispatcher's, and
+        # either can fail; the roll is settled, and a failed post must
+        # not let the next click roll it again.
+        self.cog.persist(game, match)
+        await self.cog.post_own_goal_dice(
+            interaction, game, match, answered.detail, answered.result,
+        )
 
 
 class ScoreAttemptView(SafeView):
@@ -382,13 +387,6 @@ class ScoreAttemptView(SafeView):
         if game is None:
             return
 
-        if match.pending_action != "shoot" or match.active_player_id is None:
-            await interaction.response.send_message(
-                "This score attempt is no longer active.",
-                ephemeral=True,
-            )
-            return
-
         if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the score attempt.",
@@ -401,7 +399,12 @@ class ScoreAttemptView(SafeView):
         # the event, the goal or the miss and the restart behind it are
         # all the model's. What is left here is the picture, the
         # portrait, and where each goes.
-        dice, result = score_attempt_step(self.cog.engine, game, match)
+        answered = await self.answer(
+            interaction, game, match, Action(PromptKind.SCORE_ATTEMPT, "roll"),
+        )
+        if answered is None:
+            return
+        dice, result = answered.detail, answered.result
         # **Before anything is posted**, which is the point of it: the
         # goal is credited and the restart written, and the portrait
         # upload below is a render and a request that can fail. The
@@ -457,12 +460,15 @@ class ScoreAttemptView(SafeView):
         # of its own branches. So this drew a board nobody reads -- the
         # restarted ball without the reset behind it -- and, worse, it
         # took the game's write window. The step reports the board
-        # moved and `follow_on_draws_the_board` is what suppresses the
-        # write, which is the same answer for every caller rather than
-        # this one's comment. See "Discord's rate limits" in
-        # docs/design/rate-limits.md.
+        # moved and `dispatch_step_result` skips the write in front of
+        # a new play's pinned board, which is the same answer for every
+        # caller rather than this one's comment. See "Discord's rate
+        # limits" in docs/design/rate-limits.md.
         await self.cog.dispatch_step_result(
-            interaction, game, match, StepResult(next=result.next),
+            interaction,
+            game,
+            match,
+            StepResult(board_changed=result.board_changed, next=result.next),
         )
 
     async def back(self, interaction: discord.Interaction) -> None:
@@ -488,13 +494,6 @@ class ScoreAttemptView(SafeView):
         if game is None:
             return
 
-        if not match.may_cancel_pending_shot():
-            await interaction.response.send_message(
-                "This score attempt is no longer active.",
-                ephemeral=True,
-            )
-            return
-
         if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player who chose to shoot can change their "
@@ -502,6 +501,19 @@ class ScoreAttemptView(SafeView):
                 ephemeral=True,
             )
             return
+
+        # **The rule is `d12ball.flow.rolls.retract_shot_step`** since
+        # Phase 6: which of the two shots is being undone, what undoing
+        # each one costs, and the offer a set-up's shot puts back up
+        # are all the model's -- and so is refusing a shot that is no
+        # longer there to undo. What is left here is that the answer
+        # *replaces* the message it was asked on.
+        answered = await self.answer(
+            interaction, game, match, Action(PromptKind.SCORE_ATTEMPT, "back"),
+        )
+        if answered is None:
+            return
+        self.cog.persist(game, match)
 
         if (
             self.composition_message_id is not None
@@ -514,29 +526,11 @@ class ScoreAttemptView(SafeView):
             except (discord.NotFound, discord.HTTPException):
                 pass
 
-        # **The rule is `d12ball.flow.rolls.retract_shot_step`** since
-        # Phase 6: which of the two shots is being undone, what undoing
-        # each one costs, and the offer a set-up's shot puts back up
-        # are all the model's. What is left here is that the answer
-        # *replaces* the message it was asked on.
-        result = retract_shot_step(self.cog.engine, game, match)
-        self.cog.persist(game, match)
-
-        prompt = result.next
-        if prompt is not None:
-            # A set-up's shot, walked back to the offer that earned it
-            # -- the same prompt a restart here now restores, through
-            # the same table.
-            await interaction.response.edit_message(
-                content=prompt.ask,
-                view=self.cog.view_for_prompt(self.game_id, match, prompt),
-            )
-            return
-
-        # An ordinary turn's shot: the position is the turn's own
-        # again, and what goes over it is the turn prompt the engine
-        # already builds.
+        # A set-up's shot walks back to the offer that earned it, an
+        # ordinary turn's to the turn prompt -- either way the same
+        # prompt a restart here restores, through the same table.
+        prompt = answered.result.next
         await interaction.response.edit_message(
-            content=self.cog.engine.build_turn_prompt(game, match),
-            view=PlayerActionView(self.cog, self.game_id),
+            content=prompt.ask,
+            view=self.cog.view_for_prompt(self.game_id, match, prompt),
         )

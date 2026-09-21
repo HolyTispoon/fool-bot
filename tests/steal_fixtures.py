@@ -2,7 +2,7 @@
 A match standing in each branch a Steal or an Intercept resolves
 through, and what that resolution should produce.
 
-Rank D2 of Phase 3 of docs/model-discord-split.md moves the two cards'
+Rank D2 of Phase 3 of docs/design/model-discord-split.md moves the two cards'
 own resolution out of the cog and into `d12ball/flow/effects.py`. The
 thing worth asserting about a move like that is that **not one branch
 changed what it said or what it did next**, and that needs one table
@@ -119,8 +119,13 @@ class StealFixture:
     challenger_space: Optional[tuple[Zone, int]] = None
     #: Every turnover drops the ball back to speed 1.
     ball_speed: int = 1
-    #: `pending_effect_continuation` afterwards -- the unopposed Low
-    #: Pass a beaten Skilled Pass owes the defense, or None.
+    #: `pending_effect_continuation` afterwards. Always None since
+    #: Phase 6: the unopposed Low Pass a beaten Skilled Pass owes the
+    #: defense is *said* by the steal and recorded when the speed
+    #: choice behind the run back is answered (`speed_choice_step`),
+    #: because the record is what `effect_choice_prompt` reads first
+    #: and a match still owing the run back and the speed must not
+    #: read as owing the pass.
     continuation: Optional[dict[str, Any]] = None
 
 
@@ -263,11 +268,10 @@ def turnover_text(
     )
 
 
-#: What a beaten Skilled Pass leaves on the match: the defense is owed
-#: an unopposed Low Pass, recorded rather than played because the
-#: steal is not finished -- the run back and the speed choice both
-#: come first. See `pending_effect_continuation` in
-#: docs/design/maneuvers.md.
+#: What a beaten Skilled Pass says: the defense is owed an unopposed
+#: Low Pass, played once the steal is finished -- the run back and the
+#: speed choice both come first, and the speed choice is what records
+#: it. See `pending_effect_continuation` in docs/design/maneuvers.md.
 SKILLED_PASS_NOTE = (
     "\n\n**Skilled Pass** was beaten -- the defense gets an "
     "unopposed Low Pass once everyone is back in position."
@@ -347,7 +351,6 @@ def steal_beats_a_skilled_pass() -> StealFixture:
         carrier_id=challenger,
         ball_space=destination,
         challenger_space=destination,
-        continuation={"kind": "free_low_pass", "player_id": challenger},
     )
 
 
@@ -395,7 +398,6 @@ def intercept_beats_a_skilled_pass() -> StealFixture:
         carrier_id=challenger,
         ball_space=destination,
         challenger_space=destination,
-        continuation={"kind": "free_low_pass", "player_id": challenger},
     )
 
 

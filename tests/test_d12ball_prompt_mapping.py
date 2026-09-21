@@ -21,6 +21,7 @@ docs/design/recovery.md.
 """
 
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
 import cogs.d12ball_views as views
@@ -57,6 +58,9 @@ def build_cog() -> D12Ball:
     )
     cog.boards = BoardRefresher(cog)
     cog.refresh_match_image = mock.AsyncMock()
+    # The rematch view asks whether the game's channel is archived,
+    # which is the one view built from the bot rather than the match.
+    cog.bot = SimpleNamespace(get_channel=lambda *args: None)
     return cog
 
 

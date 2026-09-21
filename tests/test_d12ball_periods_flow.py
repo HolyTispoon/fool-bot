@@ -2,7 +2,7 @@
 The periods and the coaching windows as flow steps -- no Discord,
 nothing saved.
 
-The model-side half of what Phase 5 of `docs/model-discord-split.md`
+The model-side half of what Phase 5 of `docs/design/model-discord-split.md`
 lifted out of `cogs/d12ball/periods.py` and
 `cogs/d12ball/turnovers.py`: `d12ball/flow/periods.py` and
 `d12ball/flow/windows.py`. The cog's own behaviour is still covered
