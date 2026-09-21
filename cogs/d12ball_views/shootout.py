@@ -5,15 +5,12 @@ their message after a restart -- see `restore_shootout_menus`.
 """
 
 import discord
-import random
 from typing import Optional, TYPE_CHECKING
 
 from d12ball.components import (
     MatchState,
-    SPECIES_CYBORG,
     TeamSide,
 )
-from d12ball.engine import IgnitedRoll
 from d12ball.flow import StepResult
 from d12ball.flow.periods import (
     restart_shootout_order_step,
@@ -22,11 +19,10 @@ from d12ball.flow.periods import (
 )
 from d12ball.flow.rolls import shootout_test_step
 from d12ball.game import D12BallGame
-from cogs.d12ball_helpers import format_team_side_label, send_new_prompt
+from cogs.d12ball_helpers import send_new_prompt
 
 from cogs.d12ball_views.base import (
     SafeView,
-    contestant_detail,
     render_contest_dice,
 )
 

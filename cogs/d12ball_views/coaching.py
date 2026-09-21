@@ -25,8 +25,6 @@ from d12ball.game import (
 )
 from cogs.d12ball_helpers import (
     destination_display_name,
-    format_team_side_label,
-    get_team_emoji,
     space_label,
 )
 

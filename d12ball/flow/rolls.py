@@ -45,8 +45,8 @@ is a rule rather than an accident:
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
-from typing import Optional, Sequence
+from dataclasses import dataclass
+from typing import Optional
 
 from d12ball.components import (
     EVENT_SHOT,

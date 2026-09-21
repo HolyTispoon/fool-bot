@@ -27,13 +27,10 @@ from d12ball.components import (
 )
 from d12ball.game import (
     D12BallGame,
-    team_display_name,
 )
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     add_full_image_button_to_response,
-    challenger_prompt_ask,
-    format_player_with_team,
     player_with_role,
     refresh_player_names,
     send_new_prompt,

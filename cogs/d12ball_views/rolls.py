@@ -6,18 +6,8 @@ in docs/design/maneuvers.md -- nothing in the game rolls on its own.
 
 import asyncio
 import discord
-import random
 from typing import TYPE_CHECKING, Optional
 
-from d12ball.components import (
-    EVENT_SHOT,
-    EVENT_SKILL_TEST,
-    MatchState,
-    PlayerDefinition,
-    PlayerRole,
-    TeamSetup,
-)
-from d12ball.engine import IgnitedRoll
 from d12ball.flow import StepResult
 from d12ball.flow.rolls import (
     retract_shot_step,
@@ -25,25 +15,15 @@ from d12ball.flow.rolls import (
     skill_test_step,
 )
 from d12ball.prompts import PendingPrompt, PromptKind
-from d12ball.game import (
-    D12BallGame,
-    Team,
-    team_display_name,
-)
 from d12ball.render import render_player_portrait
 from cogs.d12ball_helpers import (
-    format_goal_time,
-    format_team_side_label,
-    player_with_role,
     send_new_prompt,
 )
 
 from cogs.d12ball_views.base import (
     SafeView,
-    contestant_detail,
     render_contest_dice,
 )
-from cogs.d12ball_views.effects import SetUpAttemptChoiceView
 from cogs.d12ball_views.turn import PlayerActionView
 
 if TYPE_CHECKING:

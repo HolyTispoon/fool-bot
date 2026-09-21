@@ -50,11 +50,9 @@ from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     LOGGER,
     add_full_image_button,
-    destination_display_name,
     format_player_with_team,
     format_team_side_label,
     send_new_prompt,
-    space_label,
 )
 from cogs.d12ball_views import (
     BallRecoveryView,

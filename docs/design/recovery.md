@@ -136,6 +136,27 @@ Two things follow from that:
     that puts up what a run handed back and a restart that reads the file
     reach the same question -- which is the property this whole section is
     about.
+  - **The third increment closed the last place a live prompt was built
+    by hand rather than through the table.** `ScoreAttemptView.back`
+    re-armed the set-up offer and then constructed
+    `SetUpAttemptChoiceView` itself with arguments it had read off the
+    match a line earlier; it now takes the `PendingPrompt`
+    `retract_shot_step` ends on and renders it through
+    `view_for_prompt`, which is the table a restart restores through.
+    `send_challenger_prompt` is the same change on the other side of a
+    turn. Neither was wrong -- both built the view a restart would have
+    built -- but "both happen to agree" is what principle 3 is against,
+    and there is one fewer place for them to stop agreeing.
+  - **What a restart still cannot restore is unchanged**, and it is
+    worth naming because the increment did not move it: a part-made
+    coaching pick lives on the hub's sub-menus and nowhere else, and a
+    Low Pass waiting on *which* of several teammates receives it reads
+    back as the first-stage distance choice. Both are narrow crash
+    windows in which nothing has been applied, so the coach re-picks.
+    `driver.answer` refusing an action that does not match
+    `pending_prompt` is what makes that safe rather than merely
+    harmless -- the answer to the question they were looking at cannot
+    be applied to the one they are handed back.
 
 - **An open Coaching Choice is re-posted, never re-opened.**
   `repost_coaching_prompt` exists because opening a window calls

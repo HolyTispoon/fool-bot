@@ -8,7 +8,6 @@ Pressure can risk.
 
 import asyncio
 import discord
-import random
 import time
 from typing import Optional
 
@@ -48,13 +47,10 @@ from d12ball.flow.effects import (
 from d12ball.prompts import loose_ball_pick_prompt
 from d12ball.components import (
     EVENT_OWN_GOAL_ROLL,
-    MIND_PULL_SUCCESS_FACES,
-    MIND_PULL_TOKEN_COST,
     MIN_HIGH_PASS_DISTANCE,
     MatchState,
     PlayerDefinition,
     PlayerRole,
-    SPECIES_TELEKINETIC,
 )
 from d12ball.game import (
     D12BallGame,
@@ -70,12 +66,10 @@ from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     HIGH_PASS_CONTEST_HEADLINE,
     ball_location_line,
-    ball_space_phrase,
     contest_noun,
     format_goal_time,
     format_player_with_team,
     format_team_side_label,
-    get_species_ability_emoji,
     send_new_prompt,
 )
 from cogs.d12ball_views import (

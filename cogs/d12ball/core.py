@@ -10,7 +10,6 @@ the skill test, the injury queue, and `pending_turn_view`.
 import asyncio
 import discord
 import io
-import random
 import time
 from typing import Callable, Optional, Sequence
 
@@ -23,18 +22,15 @@ from d12ball.components import (
     DECISION_INJURY_FORFEIT,
     DECISION_SKILL_TEST,
     DECISION_UNCONTESTED,
-    EVENT_INJURY_TEST,
     CoachingOccasion,
     EVENT_MANEUVER,
     EVENT_SKILL_TEST,
-    EVENT_TURN_ACTION,
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
     MANEUVER_TIER_WORDS,
     MatchState,
     PlayerDefinition,
     PlayerRole,
-    SPECIES_CYBORG,
     TeamSetup,
     TeamSide,
     load_basic_ruleset,

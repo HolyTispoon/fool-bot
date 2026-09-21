@@ -14,7 +14,6 @@ from d12ball.components import (
     OVERDRIVE_BONUS,
     OVERDRIVE_DRAIN_COST,
     MatchState,
-    PlayerDefinition,
 )
 from d12ball.game import (
     D12BallGame,

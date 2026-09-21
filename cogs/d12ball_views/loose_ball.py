@@ -5,16 +5,12 @@ contest that settles either -- which the long High Pass borrows. See
 """
 
 import discord
-import random
 from typing import Optional, TYPE_CHECKING
 
 from d12ball import tutorial
 from d12ball.components import (
     MatchState,
-    PlayerDefinition,
-    SPECIES_CYBORG,
 )
-from d12ball.engine import IgnitedRoll
 from d12ball.flow import FollowOn, StepResult
 from d12ball.flow.arrivals import (
     choose_loose_ball_contestant,
@@ -25,12 +21,10 @@ from d12ball.flow.rolls import loose_ball_test_step
 from d12ball.prompts import PendingPrompt, PromptKind
 from d12ball.game import (
     D12BallGame,
-    Team,
 )
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     contest_noun,
-    format_player_with_team,
     player_with_role,
     send_new_prompt,
     space_label,
@@ -38,7 +32,6 @@ from cogs.d12ball_helpers import (
 
 from cogs.d12ball_views.base import (
     SafeView,
-    contestant_detail,
     render_contest_dice,
 )
 

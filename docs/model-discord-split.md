@@ -30,7 +30,7 @@ it happened to have.
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Done (PR #249) |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Done (PR #254) |
-| **6** | The driver, and the cog becomes a frontend | The last of it | Two parts landed (PR #255, PR #257): the loop and the save; then the narration groups, the four prompts and twelve answers. Open: `driver.apply`, the last view bodies with rules in them, and `play_ai_turn` |
+| **6** | The driver, and the cog becomes a frontend | The last of it | Three parts landed (PR #255, PR #257, and this one): the loop and the save; the narration groups, the four prompts and twelve answers; then `driver.answer`/`apply` and an answer for **all 29 prompt kinds**. Open: `play_ai_turn`, pointing the cog's entry points at `apply`, and the full game through the driver |
 
 The Status column is the record of what has landed; a phase's PR updates
 its row (and, for Phase 3, names the ranks done) in the same commit that
@@ -598,15 +598,16 @@ port. **It did not fit in one pull request**, and the split of it is the
 first thing to read before picking it up.
 
 **The author said on 2026-09-21, on PR #255, that the remainder was one
-pull request and not several. The second increment did not meet
-that**, and the reason is written into "What is still open" below
-rather than left to be inferred: `driver.apply` needs a model function
-per `PromptKind`, and the ones still inside a view body are twelve
-hundred lines of rules interleaved with dice rendering, with at least
-one question in them (Overdrive, which answers no prompt) that is the
-author's to settle. The increment that landed is the part with no such
-question in it. What is left is one pull request again, on the same
-reading, and the section below is its brief.
+pull request and not several. Neither the second increment nor the
+third met that**, and both reasons are worth keeping because they are
+different. The second stopped because `driver.apply` needed a model
+function per `PromptKind` and the ones still inside a view body were
+twelve hundred lines of rules interleaved with dice rendering. The
+third wrote all of those -- `ANSWERS` covers `PromptKind` exactly now
+-- and stopped at the *frontend* half: pointing every click at `apply`,
+moving `play_ai_turn`, and a full game through the driver, which turns
+out to be blocked on something the worksheet had wrong. See "What is
+still open".
 
 ### What has landed
 
@@ -664,56 +665,124 @@ first one asked.
   24 to 17. All three goldens are byte-identical except for one key in
   the recorded final save, regenerated in its own commit.
 
+**The third increment**, and it is the answers.
+
+- **`driver.answer` and `driver.apply`.** An `Action` names the
+  `PromptKind` it answers and is checked against `pending_prompt`
+  before anything is applied, which is a rule about whose turn it is
+  one click later. A `Refusal` carries what the match is really
+  waiting on; a step's own `ValueError` arrives as one too. `apply` is
+  `answer` plus `advance`; `answer` alone is what a frontend that
+  renders before running the chain wants, which is every view in this
+  bot.
+- **`ANSWERS` covers all 29 prompt kinds**, which is the claim the
+  phase was for. Getting there moved the four contested rolls into a
+  new `d12ball/flow/rolls.py`, the injury test into `injuries.py`, the
+  Mind Pull and both queues' declines into `arrivals.py`, the
+  challenger, the maneuver pick and the turn's own action into
+  `turn.py`, the halftime token and the two shootout menus into
+  `periods.py`, and the coaching window's own three into `windows.py`.
+- **No view mutates a match attribute any more** -- 16 did on the base
+  -- and methods in `cogs/d12ball_views/` that so much as read one
+  went 84 to 61. The `cogs/d12ball/` figures barely moved and one of
+  them went *up*, which is the second increment's own warning coming
+  true: the entry points have not gone.
+- The enum went 27 -> 30 and the driver's table 10 -> 12, for Phase
+  4's reason again: three steps the model already owned needed a name
+  once the thing reaching them became a step too.
+
 ### What is still open
 
-**The remainder is `driver.apply` and what it needs**, which is the
-second half of "the cog becomes a frontend" and is bigger than it
-looks from the prompt.
+**The third increment built `driver.apply` and every answer it
+needs**, which is what the section below used to be the brief for.
+`ANSWERS` covers `PromptKind` exactly: a frontend that authorises a
+person and calls `driver.apply` can drive every question this game
+asks. The four contested rolls, the two single-die rolls, the maneuver
+picks, the challenger, the turn's own action, the two shootout menus
+and the coaching window all moved into `d12ball/flow/`, and **no view
+mutates a match attribute any more** -- sixteen did on the base.
 
-- **`driver.apply(action)` is still not built**, and it is no longer
-  blocked on the prompts -- it is blocked on the *answers*. An action
-  validated against `pending_prompt` needs a model function per
-  `PromptKind` to run, and the ones still inside a view body are the
-  four contested rolls (`SkillTestView`, `ScoreAttemptView`,
-  `LooseBallSkillTestView`, `ShootoutTestView`), the maneuver picks and
-  the challenger, the seven coaching sub-menus and the two shootout
-  menus. Roughly twelve hundred lines of model logic interleaved with
-  dice rendering. `own_goal_roll_step` is the pattern for the rolls: it
-  returns `(OwnGoalRoll, StepResult)`, the numbers for the picture
-  beside the sentence about them, because the frontend puts the image
-  *between* two of its lines.
-- **Overdrive answers no prompt**, and `apply` will have to say what it
-  does about that: `SafeView.declare_overdrive` is a button on six
-  different roll prompts rather than an answer to any of them. It is a
-  question for the author before it is a question for the code.
-- **The full scripted game through the driver alone** is the test the
-  web app inherits, and it is writable only once every kind has a row.
-- **`play_ai_turn` has not moved.** Its decisions are already
-  `d12ball/ai.py`'s; what is in the cog is the sequencing and four
-  messages. It ends on a challenge image or a composition image, so
-  moving it wants a frontend that renders a `PendingPrompt` *with its
-  picture*, keyed on the kind -- the shape `post_run_back_prompt` is
-  the first instance of. That mechanism, generalised, is also what
-  would take `SEND_TURN_PROMPT`, `SEND_MANEUVER_ACTION_PROMPT`,
-  `START_SET_UP_SHOT` and the coaching window off the cog's table.
-- **What is genuinely the cog's, and will still be at the end**: the
-  pins (`post_new_play_board` on both kickoffs and the final board),
-  the snapshot a loose ball is announced under, the run-back cascade's
-  batching and its per-pass persist, and the tutorial's Continue gates.
-  Seventeen members, none of them a rule.
+Three things are left, and the first is the one that makes the phase
+finishable.
+
+- **The cog's entry points do not call `apply` yet.** A click still
+  lands on a `discord.ui.View`, which calls the flow step directly and
+  then renders. That is "click -> authorize -> *step* -> persist ->
+  render" rather than "click -> authorize -> `driver.apply` ->
+  persist -> render", and the difference is not cosmetic: `apply` is
+  what validates the action against `pending_prompt`, and the views
+  do not. **Every stale-click guard in `cogs/` is therefore still a
+  second copy of that check** -- which is principle 3's failure mode
+  in the one place nobody has looked for it. Pointing them at `apply`
+  is mechanical per view and needs one decision made first: each view
+  renders its answer *before* running the chain (an edit of the prompt
+  it answers, which is one Discord request instead of two), so they
+  want `driver.answer` and their own `advance`, not `apply`. `apply`
+  is the web app's door.
+- **`play_ai_turn` has still not moved**, and the reason is unchanged:
+  its decisions are `d12ball/ai.py`'s and what is in the cog is the
+  sequencing and four messages. Two of its five exits are now steps
+  that exist (`begin_shot_step`, `begin_maneuver_step`), so what is
+  left of it is smaller than it was -- but it still ends on a
+  challenge image or a composition image, so moving it wants a
+  frontend that renders a `PendingPrompt` *with its picture*, keyed on
+  the kind. `D12Ball.post_run_back_prompt` is the first instance of
+  that shape and generalising it is the job.
+- **The full scripted game through the driver alone is still not
+  writable, and the reason has changed.** The worksheet said it was
+  blocked on the answers; it is not, and that half is done. It is
+  blocked on the **steps**: `driver.advance` stops at 18 of the
+  enum's 30 members, and the ones it cannot run are the pictures, the
+  pins and the gates the section below says will still be the cog's at
+  the end. A game driven with no cog imported therefore needs a
+  *headless frontend* in the test -- something that runs those
+  eighteen's model halves and draws nothing. That is a real piece of
+  design and it is the author's call whether it belongs in `tests/` or
+  in a small `d12ball/frontends/null.py` the web app could also start
+  from. **This is the finding the third increment brings back.**
+
+**What is genuinely the cog's, and will still be at the end**: the
+pins (`post_new_play_board` on both kickoffs and the final board), the
+snapshot a loose ball is announced under, the run-back cascade's
+batching and its per-pass persist, the tutorial's Continue gates, the
+challenge image, the maneuver hand and the coaching window's
+half-field. Eighteen members, none of them a rule.
+
+**Overdrive is still the author's question**, and the third increment
+did not invent an answer. `SafeView.declare_overdrive` is a button on
+six roll prompts and answers none of them: it is declared *before* a
+roll, by the coach whose Cyborg it is, and its absence from the
+message is the only feedback that it took. `apply` validates an action
+against `pending_prompt`, and there is no prompt for it to answer, so
+one of three things has to be decided:
+
+1. it is an ordinary action on the roll prompt it rides on -- a third
+   `choice` beside the roll, which reads oddly because it does not
+   answer the question and the roll is still owed afterwards;
+2. it is an action of its own kind, validated against "the match is
+   waiting on one of the six roll prompts" rather than against a
+   single one;
+3. it stays a frontend affordance over `RulesEngine.overdrive_candidates`
+   and `MatchState.declare_overdrive`, and every frontend writes its
+   own two lines.
+
+The third is what the bot does today and it is not obviously wrong --
+a declaration is not an answer -- but it is the one that leaves a rule
+outside `ANSWERS`.
 
 **Bot stop:** everything. A full game each way, the tutorial, a restart
-in ten states -- **two of them states that could not be restored
-before**: inside a Set Up Pass attempt prompt and inside a shooter
-prompt -- and an old save. This is the phase that earns a week of the
-two of you actually playing on it before it lands. What the second
-increment is worth playing for is the **restart**: two states that used
-to come back asking the wrong question, and a dozen answers that now
-change the match in one place instead of two.
+in ten states, and an old save. This is still the phase that earns a
+week of the two of you actually playing on it. What the third
+increment is worth playing for is **every roll in the game**: the
+skill test, the loose ball, the shot, the shootout test, the injury
+check and the Mind Pull all moved, along with the maneuver picks, the
+challenger, the turn's own action and the coaching window. The dice
+images, the portraits and the ephemeral menus are untouched, which is
+exactly what makes a difference easy to spot.
 
-**CLAUDE.md:** "Why the cog is mixins" now says what is still true and
+**CLAUDE.md:** "Why the cog is mixins" still says what is true and
 what the remaining work would make false; it is rewritten for real when
-a click lands on the driver rather than on a cog method.
+a click lands on `driver.apply` rather than on a view.
 
 ---
 
