@@ -1207,3 +1207,157 @@ def begin_own_goal_roll(
             "more and the own goal is avoided.",
         ),
     )
+
+
+# -- Answering the loose ball's and the set-up's own prompts -----------
+#
+# Phase 6 of docs/model-discord-split.md. Each was in a view body --
+# `LooseBallChoiceView` in `cogs/d12ball_views/loose_ball.py`,
+# `SetUpAttemptChoiceView` and `ShooterChoiceView` in
+# `cogs/d12ball_views/effects.py` -- with the rule and the edit that
+# renders it in one method. The rule is here now;
+# `d12ball.flow.driver.apply` runs one over a prompt it has checked,
+# and the views call the same function.
+
+
+def choose_loose_ball_contestant(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    skill_type: str,
+    player_id: str,
+) -> StepResult:
+    """
+    Send this player after the loose ball, for the side on the clock.
+
+    Ends on the other side's pick where one is still owed, and on
+    `RESOLVE_LOOSE_BALL` once both have answered -- the same reading
+    `loose_ball_pick_prompt` makes, because it is that reading.
+    """
+    if skill_type == "offense":
+        match.choose_loose_ball_offense_player(player_id)
+    else:
+        match.choose_loose_ball_defense_player(player_id)
+
+    player = engine.get_player_definition(player_id)
+    return _loose_ball_answered(
+        engine,
+        game,
+        match,
+        f"{engine.format_player_label(match, player)} "
+        f"contests the {contest_noun(match)} ({skill_type}).",
+    )
+
+
+def decline_loose_ball_contest(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    skill_type: str,
+) -> StepResult:
+    """
+    Send nobody after the loose ball.
+
+    Raises `ValueError` where the side has somebody standing on the
+    ball and therefore cannot be held back -- which is a stale click on
+    a prompt a restart re-attached from before the ball reached them,
+    and is `MatchState.may_decline_loose_ball`'s answer rather than
+    this function's.
+    """
+    side = (
+        match.ball.possession
+        if skill_type == "offense"
+        else match.defending_side()
+    )
+    if not match.may_decline_loose_ball(side):
+        raise ValueError(
+            "Somebody of theirs is standing on the ball -- they "
+            "contest it, and cannot be held back."
+        )
+    match.decline_loose_ball(side)
+    return _loose_ball_answered(
+        engine,
+        game,
+        match,
+        f"{format_team_side_label(match.setup_for_side(side))} send "
+        f"nobody after the {contest_noun(match)}.",
+    )
+
+
+def _loose_ball_answered(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    announcement: str,
+) -> StepResult:
+    """
+    One side has answered: put the question to the other, or settle it.
+
+    The announcement is **its own message** -- it is the edit the view
+    makes over the question it answers -- so it is the result's
+    narration and the frontend decides that it replaces the prompt
+    rather than standing above the next one.
+    """
+    pick = loose_ball_pick_prompt(engine, match)
+    if pick is not None:
+        return StepResult(
+            narration=[announcement],
+            next=PendingPrompt(
+                pick.kind,
+                engine.build_loose_ball_prompt(game, match),
+                side=pick.side,
+                skill_type=pick.skill_type,
+            ),
+        )
+    return StepResult(
+        narration=[announcement],
+        next=FollowOn(FollowOnStep.RESOLVE_LOOSE_BALL),
+    )
+
+
+def take_scoring_opportunity(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    shooter_id: str,
+    maneuver_cost: int = 1,
+) -> StepResult:
+    """
+    Take the scoring opportunity: this player shoots.
+
+    `maneuver_cost` is the flat cost of the maneuver that offered the
+    set-up -- 1 for everything but a High Pass, which is why it
+    defaults to 1 and only a High Pass call site overrides it. Stored
+    so the score attempt can charge it on top of the shot's own extra
+    minute (2026-08-16): the two stack, instead of the shot's cost
+    replacing the maneuver's.
+
+    **The offer is spent here.** `pending_scoring_opportunity` is what
+    `pending_prompt` reads, so a match that still held it would be
+    asked the same question again on the next click.
+    """
+    match.pending_scoring_opportunity = None
+    match.active_player_id = shooter_id
+    match.pending_action = "shoot"
+    match.pending_shot_is_set_up = True
+    match.pending_shot_setup_cost = maneuver_cost
+
+    shooter = engine.get_player_definition(shooter_id)
+    return StepResult(
+        narration=[
+            f"{engine.format_player_label(match, shooter)} takes the "
+            "shot off the set-up.",
+        ],
+    )
+
+
+# **It names nothing**, although the shot plainly follows it. What
+# follows is `START_SET_UP_SHOT`, and that member is now the composition
+# image and the roll prompt alone -- two uploads and no decision, which
+# is a picture and therefore the frontend's. The position this leaves
+# reads as `PromptKind.SCORE_ATTEMPT` to `pending_prompt`, so a
+# frontend that draws no pictures (and `driver.apply`, which ends by
+# asking) reaches the right next question without this step naming one.

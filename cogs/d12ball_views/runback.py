@@ -7,6 +7,10 @@ import discord
 from typing import TYPE_CHECKING
 
 from d12ball.components import TeamSide
+from d12ball.flow.turnovers import (
+    run_back_player_step,
+    run_back_space_step,
+)
 from cogs.d12ball_helpers import (
     add_full_image_button,
     build_full_image_button,
@@ -129,15 +133,24 @@ class RunBackPlayerChoiceView(SafeView):
             )
             return
 
-        space_view = RunBackChoiceView(self.cog, self.game_id, player_id)
+        # **The question is the model's**, and asking it is this
+        # view's: `run_back_player_step` narrows the run back's first
+        # question into its second and words it, and the strip the
+        # question is asked over is re-linked here because the picture
+        # is the frontend's (principle 8 in CLAUDE.md). Nothing is
+        # written, so nothing is saved -- the pick lives on the prompt
+        # and a restart asks it again.
+        prompt = run_back_player_step(
+            self.cog.engine, game, match, player_id=player_id,
+        ).next
+
+        space_view = self.cog.view_for_prompt(self.game_id, match, prompt)
         link = build_full_image_button(interaction.message)
         if link is not None:
             space_view.add_item(link)
 
         await interaction.response.edit_message(
-            content=self.cog.run_back_space_prompt(
-                game, match, side, player_id, f"<@{controller_id}>",
-            ),
+            content=prompt.ask,
             view=space_view,
         )
 
@@ -219,11 +232,12 @@ class RunBackChoiceView(SafeView):
         zone = match.setup_for_side(side).assigned_zone(self.player_id)
 
         try:
-            distance = match.run_back_player(
-                self.player_id,
-                zone,
-                space_index,
-                self.cog.engine.spread_exempt_ids(game, match, side),
+            result = run_back_space_step(
+                self.cog.engine,
+                game,
+                match,
+                player_id=self.player_id,
+                space_index=space_index,
             )
         except ValueError as error:
             await interaction.response.send_message(
@@ -231,18 +245,10 @@ class RunBackChoiceView(SafeView):
             )
             return
 
-        exhaustion_text = self.cog.apply_exhaustion(
-            game, match, self.player_id, distance,
-        )
         self.cog.persist(game, match)
 
-        player = self.cog.engine.get_player_definition(self.player_id)
         await interaction.response.edit_message(
-            content=(
-                f"{self.cog.player_label(match, player)} "
-                f"runs back to {space_label(zone, space_index)}."
-                f"\n{exhaustion_text}"
-            ),
+            content=" ".join(result.narration),
             view=None,
             # The board this prompt was asked over shows the player
             # still displaced, so it goes with the question rather than

@@ -1049,31 +1049,25 @@ class ManeuverEffectsMixin:
         maneuver_cost: int = 1,
     ) -> None:
         """
-        `maneuver_cost` is the flat cost of the maneuver that offered
-        this set-up -- 1 for everything but a High Pass, which is why
-        it defaults to 1 and only a High Pass call site overrides it.
-        Stored so ScoreAttemptView.roll can charge it on top of the
-        shot's own extra minute (2026-08-16): the two stack now,
-        instead of the shot's cost replacing the maneuver's.
-        """
-        # The offer is answered, so the field that records it is
-        # spent -- `pending_prompt` reads it and would otherwise put
-        # the same question up again on the next click. See
-        # `MatchState.pending_scoring_opportunity`.
-        match.pending_scoring_opportunity = None
-        match.active_player_id = shooter_id
-        match.pending_action = "shoot"
-        match.pending_shot_is_set_up = True
-        match.pending_shot_setup_cost = maneuver_cost
-        self.persist(game, match)
+        The entry point a coach's answer arrives at -- the "Attempt"
+        button on a set-up, and the shooter's own pick where several
+        players may take it.
 
-        shooter = self.engine.get_player_definition(shooter_id)
-        await send_new_prompt(
+        **The rule is `d12ball.flow.arrivals.take_scoring_opportunity`**
+        since Phase 6: taking the opportunity spends the offer, points
+        the turn at the shooter and arms the shot, and says so. What is
+        left here is the dispatch. `maneuver_cost` is the flat cost of
+        the maneuver that offered the set-up -- 1 for everything but a
+        High Pass -- and the step is where the reason it is kept is
+        written down.
+        """
+        await self.start_set_up_shot_step(
             interaction,
-            f"{self.player_label(match, shooter)} takes the "
-            "shot off the set-up."
+            game,
+            match,
+            shooter_id=shooter_id,
+            maneuver_cost=maneuver_cost,
         )
-        await self.begin_score_attempt(interaction, game, match)
 
     # -- Deflect -------------------------------------------------
 

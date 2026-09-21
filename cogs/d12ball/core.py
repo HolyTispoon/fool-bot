@@ -62,6 +62,7 @@ from d12ball.flow.turn import (
     maneuver_prompt_wording,
     resolve_maneuver,
 )
+from d12ball.flow.arrivals import take_scoring_opportunity
 from d12ball.flow.injuries import (
     begin_injury_tests,
     continue_injury_tests,
@@ -1842,13 +1843,28 @@ class CoreMixin:
         maneuver_cost: int = 1,
         lead_in: str = "",
     ) -> None:
-        """`start_set_up_shot` as a follow-on."""
+        """
+        The shot a set-up leads into, as a follow-on.
+
+        **The rule is `arrivals.take_scoring_opportunity`** since Phase
+        6 -- spending the offer, pointing the turn at the shooter and
+        arming the shot -- and what is left under this member is the
+        two uploads: the composition image and the roll prompt. Both
+        callers come through here, the AI's own attempt and a coach's
+        button, so the step runs once whichever asked for it.
+        """
         if lead_in:
             await send_new_prompt(interaction, lead_in)
-        await self.start_set_up_shot(
-            interaction, game, match, shooter_id,
+        result = take_scoring_opportunity(
+            self.engine,
+            game,
+            match,
+            shooter_id=shooter_id,
             maneuver_cost=maneuver_cost,
         )
+        self.persist(game, match)
+        await send_new_prompt(interaction, " ".join(result.narration))
+        await self.begin_score_attempt(interaction, game, match)
 
     async def apply_ball_recovery_step(
         self,
