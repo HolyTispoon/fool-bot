@@ -43,20 +43,32 @@ class FollowOnStep(Enum):
     Phase 6 needs, but not as "what has not been lifted". Three kinds
     of member are here now, and each says which it is:
 
-    - a step Phase 4 genuinely did not touch, because it is Phase 5's
-      ground (`END_PERIOD`, `BEGIN_SUBSTITUTION_WINDOW`) or because it
-      is pictures and no decision (`SEND_TURN_PROMPT`,
-      `START_SET_UP_SHOT`);
+    **Phase 5 grew it again, by two, and for that same widening.** It
+    took `DISPATCH_INJURY_RESUME` out -- the dispatcher is
+    `d12ball.flow.injuries.dispatch_injury_resume` now, and all three
+    of its arrivals answer in the model -- and added
+    `FINISH_SETUP_COACHING`, `FINISH_HALFTIME` and
+    `ANNOUNCE_GAME_OVER`. Every one of the three is the third kind
+    below and none of them is a rule: a pinned board, a pinned board,
+    and the message the rematch buttons hang off. `END_PERIOD` and
+    `BEGIN_SUBSTITUTION_WINDOW` were expected to leave and did not;
+    each now says on its own entry which kind it turned out to be.
+
+    - a step no phase has touched, because it is pictures and no
+      decision (`SEND_TURN_PROMPT`, `START_SET_UP_SHOT`);
     - a step whose model half moved but whose **prompt cannot be a
       `PendingPrompt`**, because the view carries arguments match
       state does not hold (`SEND_SET_UP_ATTEMPT_PROMPT`,
       `SEND_SHOOTER_PROMPT`) or the prompt carries a picture
-      (`SEND_RUN_BACK_PROMPT`);
+      (`SEND_RUN_BACK_PROMPT`, `BEGIN_SUBSTITUTION_WINDOW`);
     - a step whose model half moved but whose lines are **their own
       message**, so the ordinary "carry the narration forward" would
       merge two events into one paragraph (`BEGIN_LOOSE_BALL`,
-      `RESOLVE_LOOSE_BALL`, `ANNOUNCE_RUN_BACK`, `FINISH_RUN_BACK`).
-      See `D12Ball.post_then_dispatch`.
+      `RESOLVE_LOOSE_BALL`, `ANNOUNCE_RUN_BACK`, `FINISH_RUN_BACK`,
+      `END_PERIOD`), or is a board this phase may not post and pin
+      (`FINISH_SETUP_COACHING`, `FINISH_HALFTIME`,
+      `ANNOUNCE_GAME_OVER`). See `D12Ball.post_then_dispatch` and
+      `D12Ball.post_blocks_then_dispatch`.
 
     A closed set rather than a callable or a method name the cog
     `getattr`s, because then **the enum itself is the record of what
@@ -126,11 +138,16 @@ class FollowOnStep(Enum):
     #: side of the coach's answer, rather than in front of a question
     #: whose answer moves the ball again.
     OFFER_SETUP_PASS_PUSH_BACK = auto()
-    #: The whistle. Phase 5's ground, so Phase 4 names it rather than
-    #: moving it: both `finish_maneuver_resolution` and
-    #: `begin_run_back` end a period when a turnover lands under a last
-    #: possession already in force, and neither may run the window,
-    #: the shootout or the game-over announcement itself.
+    #: The whistle. Phase 5 lifted the step
+    #: (`d12ball.flow.periods.end_period`) and left the member, which
+    #: is the third kind below rather than the first: the cascade the
+    #: whistle opens -- the whistle, the halftime recovery, an AI's
+    #: extra token, the shootout's explainer -- is a **run of separate
+    #: messages**, and the two steps that name this one
+    #: (`finish_maneuver_resolution` and `begin_run_back`) hand their
+    #: results to dispatchers that would join them into one paragraph.
+    #: `D12Ball.end_period` is the wrapper that posts them a message
+    #: apiece through `post_blocks_then_dispatch`.
     END_PERIOD = auto()
     #: The offensive choice, handed back to whoever now has the ball --
     #: the last thing an ordinary turn does. It is three uploads and a
@@ -138,9 +155,15 @@ class FollowOnStep(Enum):
     #: is that the turn is over and whose it is; the pictures are the
     #: frontend's.
     SEND_TURN_PROMPT = auto()
-    #: A new play's coaching window, which sits between the reset and
-    #: the run back. Phase 5's ground, named here for the same reason
-    #: as `END_PERIOD`.
+    #: A coaching window, on any of its five occasions. Phase 5 lifted
+    #: the step (`d12ball.flow.windows.open_substitution_window`) and
+    #: left the member, because the window's prompt is the one in the
+    #: game that carries **the coach's own half-field** and because the
+    #: tutorial's coaching explainer gates the whole of it behind a
+    #: Continue button -- a picture and a gate, which is the second
+    #: kind above. `heading` rides in `kwargs` rather than as narration
+    #: and is not a lead-in: it goes *inside* the prompt, above the
+    #: allowance, where `RulesEngine.coaching_prompt` puts it.
     BEGIN_SUBSTITUTION_WINDOW = auto()
     #: The score attempt a set-up leads into. It posts the composition
     #: image and the roll prompt, which is two uploads and no decision.
@@ -210,16 +233,25 @@ class FollowOnStep(Enum):
     #: click runs, so it stayed whole in the cog rather than being
     #: split for one of its two callers.
     APPLY_BALL_RECOVERY = auto()
-    #: Where a drained injury-test queue puts the turn back. Phase 4's,
-    #: and a member rather than a lift because two of the three
-    #: arrivals it names are not the spine's: a maneuver's skill test
-    #: goes on to `begin_effect_resolution` and a shootout test to
-    #: `continue_shootout`, neither of which this phase moves. The
-    #: third, `begin_run_back`, did move -- but a dispatcher that can
-    #: only answer one of its three kinds in the model is a dispatcher
-    #: split in two, which is the second-copy failure principle 3 is
-    #: about. It goes when Phase 5 takes the shootout.
-    DISPATCH_INJURY_RESUME = auto()
+    #: The kickoff board, and the tutorial's welcome over the top of
+    #: it. Phase 5's, and a member for `END_PERIOD`'s neighbours'
+    #: reason: `post_new_play_board` is the one pinning site in the
+    #: game and `post_tutorial_note` is a Continue gate, neither of
+    #: which the model may know about.
+    FINISH_SETUP_COACHING = auto()
+    #: The same board for the second half's kickoff. A member of its
+    #: own rather than `FINISH_SETUP_COACHING` with a flag, because
+    #: only one of the two arms a tutorial script.
+    FINISH_HALFTIME = auto()
+    #: The last message of a game: the result, the board it ended on,
+    #: and the rematch and archive buttons under it. Both endings name
+    #: it -- the whistle when full time settles the game, and the
+    #: shootout when it does not. **It speaks the step's own lines**
+    #: rather than having them posted above it, which is what
+    #: `FOLLOW_ONS_THAT_SPEAK_THE_LINES` in `cogs/d12ball/core.py`
+    #: says: the result and the scoresheet are the content of the
+    #: message the final board rides on.
+    ANNOUNCE_GAME_OVER = auto()
     #: The long pass's contest: the receiver standing where a High
     #: Pass of 3 or 4 landed still has to win a skill test to keep it.
     #: Rank O3's, and a member of its own rather than `BEGIN_LOOSE_BALL`

@@ -462,7 +462,12 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves():
             await cog.finish_time_out(interaction, game, match)
 
-        cog.begin_ball_recovery.assert_awaited_once()
+        # The pickup is asked for rather than the clock being charged.
+        # Since Phase 5 the tail is one model step
+        # (`d12ball.flow.windows.finish_time_out`), which calls
+        # `begin_ball_recovery` itself rather than going back out
+        # through the cog for it -- so what is asserted is the state it
+        # leaves and the question it ends on.
         cog.finish_maneuver_resolution.assert_not_awaited()
         self.assertTrue(match.pending_ball_recovery)
         # And it is a time out's pickup, which is the flag that makes

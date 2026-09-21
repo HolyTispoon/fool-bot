@@ -320,8 +320,12 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         await self.roll_injury(cog, game, offense, 12)
 
         cog.begin_effect_resolution.assert_awaited_once()
+        # By keyword since Phase 5: the drained queue names
+        # `BEGIN_EFFECT_RESOLUTION` and the follow-on table calls every
+        # member with its arguments as keywords.
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "low_pass",
+            cog.begin_effect_resolution.await_args.kwargs["winner_key"],
+            "low_pass",
         )
         saved = cog.engine.load_match_state(game)
         self.assertEqual(saved.pending_injury_tests, [])

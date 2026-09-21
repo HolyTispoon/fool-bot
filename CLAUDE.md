@@ -28,7 +28,7 @@ python3 -m unittest discover -s tests
 | `botstate.py` | The little the bot remembers between runs, in `data/bot_state.json` |
 | `discord_emoji_cache.py` | The cache-with-cooldown shape shared by every cog's application-emoji lookup -- only the retry timing, not what each cog loads |
 | `botlog/` | Console logging setup, and the #logs channel mirror -- [logging.md](docs/design/logging.md) |
-| `cogs/d12ball/` | All D12 Ball slash commands and the Discord interaction flow, as six mixins assembled into `D12Ball` in `__init__.py`: `core` (lifecycle, lookups, `persist`, the spine of a turn, `pending_turn_view`), `effects` (one banner per maneuver), `turnovers` (run back, time out, out-of-bounds pickup), `periods` (clock, halftime, shootout), `presentation` (prompts, images, channels, the AI turn, tutorial narration), `slash_commands` (every command, the three subgroups, the startup sweep). `from cogs.d12ball import D12Ball` is unchanged -- [cog-structure.md](docs/design/cog-structure.md) |
+| `cogs/d12ball/` | All D12 Ball slash commands and the Discord interaction flow, as six mixins assembled into `D12Ball` in `__init__.py`: `core` (lifecycle, lookups, `persist`, the spine of a turn, `pending_turn_view`, the three dispatchers), `effects` (one banner per maneuver), `turnovers` (run back, time out, out-of-bounds pickup), `periods` (clock, halftime, shootout), `presentation` (prompts, images, channels, the AI turn, tutorial narration), `slash_commands` (every command, the three subgroups, the startup sweep). `from cogs.d12ball import D12Ball` is unchanged -- [cog-structure.md](docs/design/cog-structure.md) |
 | `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views -- emoji lookups, player/team formatting, channel naming, the authorization predicates. Re-exports everything `d12ball/formatting.py` holds; what stays here fetches emoji or touches discord.py itself |
 | `cogs/d12ball_views/` | The `discord.ui.View` classes, one per prompt a player can be shown, in ten modules (`base`, `setup`, `turn`, `rolls`, `runback`, `effects`, `coaching`, `halftime`, `loose_ball`, `shootout`). `__init__.py` re-exports every name. `base` holds `SafeView` (`load_match`/`require_match`, the `may_act_for*` gates) and imports from no sibling, which keeps the package a DAG |
 | `cogs/d12ball_boards.py` | The write gate on a game's persistent board message: `BoardRefresher` and one `BoardRefreshState` per game. `D12Ball` keeps a thin forwarding method for each of its six methods -- [rate-limits.md](docs/design/rate-limits.md) |
@@ -36,7 +36,7 @@ python3 -m unittest discover -s tests
 | `d12ball/components.py` | Game state model -- `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog`, `MATCH_SAVED_FIELDS` |
 | `d12ball/engine.py` | `RulesEngine` -- every decision and candidate list that never touches Discord, over the fixed catalogs and AI strategies. `D12Ball.engine` is the one instance; call sites read `self.engine.foo(...)`. Includes the prompt-text and matchup-data builders that need only the match and the catalogs |
 | `d12ball/prompts.py` | `PromptKind`, `PendingPrompt` and `pending_prompt` -- the one reading of what a match is waiting on, with no Discord in it. The cog maps a kind to a view and renders the `ask` -- [model-discord-split.md](docs/design/model-discord-split.md) |
-| `d12ball/flow/` | The turn's flow with no Discord in it, five modules: `result.py` (`StepResult` and the transitional `FollowOn`), `effects.py` (**all twelve maneuvers** as nine steps -- five cards are their rank-mate parameterised, Setup Pass is three -- and the own-goal roll), `arrivals.py` (the two arrival gates and the five arrival points they guard, which moved together because the ordering between them is a rule), `turnovers.py` (the run back, as a generator yielding a `StepResult` per pass, and the out-of-bounds pickup) and `turn.py` (the front half: the challenger, the picks, and which card won). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
+| `d12ball/flow/` | The turn's flow with no Discord in it, seven modules: `result.py` (`StepResult` and the transitional `FollowOn`), `effects.py` (**all twelve maneuvers** as nine steps -- five cards are their rank-mate parameterised, Setup Pass is three -- and the own-goal roll), `arrivals.py` (the two arrival gates and the five arrival points they guard, which moved together because the ordering between them is a rule), `turnovers.py` (the run back, as a generator yielding a `StepResult` per pass, and the out-of-bounds pickup), `turn.py` (the front half: the challenger, the picks, and which card won), `injuries.py` (the injury-test queue and the three arrivals it drains into), `periods.py` (the whistle, halftime, the window before the shootout, and the shootout -- four stage machines of one shape) and `windows.py` (the Coaching Choice on all five occasions, and the time out that buys one). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
 | `d12ball/formatting.py` | Plain-text formatting over match/game/zone data with no Discord dependency -- space codes, side labels, player names |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `TEAM_PAIRS`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board, matchup and dice image rendering (Pillow); `TEAM_COLORS` |
@@ -61,6 +61,7 @@ python3 -m unittest discover -s tests
 | `docs/rules-log.md` | Every rules change, dated and sourced; what is still open; where upstream is behind |
 | `docs/gambit-matrix.md` | The worksheet the gambits were built from, cut to what is still open. **Nothing in it is a rule** |
 | `docs/model-discord-split.md` | The worksheet the model/Discord split is being built from -- the phases still open, what deliberately does not move, the bot-testing stop each phase ends on. **Nothing in it is a rule**; the principles it was written around now live in "The model and the Discord layer" below, moved there when Phase 1 landed |
+| `docs/tts-module.md` | The worksheet the Tabletop Simulator module is being built from -- the four decisions already taken, the five phases and the in-TTS stop each ends on, what the convenience scripts may and may not do. **Nothing in it is a rule** |
 | `docs/model-discord-split-prompts.md` | The prompt each phase of that worksheet is run from, one conversation per phase. Deleted phase by phase as they land, and with the worksheet at the end |
 | `docs/rulebooks/` | The worksheet the two rulebooks are built from -- the plan, the Charter and Learn to Play outlines, and the committed figure sketches. **Nothing in it is a rule** |
 | `docs/design/` | The design notes this file points at -- one topic per file |
@@ -109,7 +110,7 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 - **A test names a player by role** (`tests/roster.py`: `fielded`, `benched`, `roles`), never by id or name -- the roster is data the author revises.
 - **Suppress saves through `tests/save_patches.py`** (`suppressed_cog_saves` *and* `suppressed_view_saves`; a view usually needs both). A patch on a package name reaches none of its submodules. A full run must not create `data/`.
 - `EveryMatchupResolvesTests` and `TutorialPlaythroughTests` drive the real cog; a recorder or a flow change is tested there, not only in a unit test.
-- **`tests/test_model_purity.py` ratchets `d12ball/` and `gamesaves/d12ball/` importing no `discord` and defining no `async def`; `tests/test_golden_transcript.py` pins the tutorial's narration byte for byte.** Both are the safety net under the model/Discord split. -- [model-discord-split.md](docs/design/model-discord-split.md)
+- **`tests/test_model_purity.py` ratchets `d12ball/` and `gamesaves/d12ball/` importing no `discord` and defining no `async def`; the three goldens (`test_golden_transcript.py`, `test_golden_advanced.py`, `test_golden_windows.py`) pin the tutorial, a free advanced game and a whole game through full time and the shootout, byte for byte.** All four are the safety net under the model/Discord split. -- [model-discord-split.md](docs/design/model-discord-split.md)
 
 **Git and collaboration** -- [collaboration.md](docs/design/collaboration.md)
 - **Never force-push a branch that has been pushed.** Feature branches are short-lived and land on `main` by PR. Either developer may be running the bot from the working tree at any time.
@@ -193,6 +194,14 @@ bot stop each phase ends on.
      its `lead_in`, which is why a resolved maneuver is still one message
      and one board refresh. How the lines go together is the frontend's
      (principle 8), so nothing in the model says.
+   - **There are three dispatchers, and which one a step gets is the
+     frontend's decision.** `dispatch_step_result` carries the lines
+     forward as the next step's `lead_in`; `post_then_dispatch` posts
+     them as one message of their own and carries nothing;
+     `post_blocks_then_dispatch` posts **one message per narration
+     block**, which is what a period transition is. Three methods rather
+     than a flag on `StepResult`, because the flag would be the model
+     deciding a frontend's question -- see principle 8.
 
 5. **Narration text is the model's, because the wording rules are rules.**
    "Say what the position is, never what it is not." "Don't answer a
@@ -251,11 +260,16 @@ bot stop each phase ends on.
      so the line is added rather than moved. The count above did not
      change when Low Pass moved for exactly that reason: one persist left
      the step and one arrived in the wrapper.
-   - **It does not touch the other 52.** `cogs/` calls `save_games(...)`
-     at 53 sites; one of those is inside `persist` itself and the other 52
-     save the *game record* alone -- a message id, a status, a tutorial
-     flag -- and have no match to write. Those stay exactly where they
-     are. Collapsing them too would be widening the job.
+   - **It does not touch the bare `save_games` calls.** Those save the
+     *game record* alone -- a message id, a status, a tutorial flag --
+     and have no match to write, so they stay exactly where they are;
+     collapsing them too would be widening the job. **The number is not
+     a constant and is not quoted here any more**: it was 53 when this
+     was written and the phases have moved it, mostly by folding a
+     prompt's own "remember this message id" into
+     `dispatch_step_result`, which is the same write in one place rather
+     than twenty. Count it before quoting it -- that is the worksheet's
+     standing rule about every figure in this plan.
 
 10. **The web app may not reach past the flow.** No importing a cog, no
     re-deriving a candidate list "just for the UI", no second
@@ -298,7 +312,7 @@ bot stop each phase ends on.
 | Writing or moving a test; patching `save_games` | [testing.md](docs/design/testing.md) | The package-split patch trap; the stray-save guard; naming by role |
 | Deploying, the `K:\` host, `update_main_bot.ps1`, a 10062 | [collaboration.md](docs/design/collaboration.md) | Two machines, one live bot; one bot per token |
 | `d12ball/rulebooks.py`, `d12ball/rulebook_figures.py`, `scripts/build_rulebooks.py`, anything in `docs/rulebooks/` | [rulebooks.md](docs/design/rulebooks.md) | The Charter is the living rules renumbered, not a copy; numbering at build time; the figures are the renderer's; the markdown subset that fails the suite, not the print run |
-| `d12ball/prompts.py`, `pending_turn_view`, `view_for_prompt`, `tests/prompt_fixtures.py`; `d12ball/flow/`, `StepResult`, `FollowOn`, `dispatch_step_result`, `tests/low_pass_fixtures.py`, `tests/dribble_fixtures.py`; `tests/test_model_purity.py`, `tests/test_golden_transcript.py`, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | Why the chain moved whole and what a prompt may carry; one kind per view class; the purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
+| `d12ball/prompts.py`, `pending_turn_view`, `view_for_prompt`, `tests/prompt_fixtures.py`; `d12ball/flow/`, `StepResult`, `FollowOn`, the three dispatchers (`dispatch_step_result`, `post_then_dispatch`, `post_blocks_then_dispatch`), `tests/low_pass_fixtures.py`, `tests/dribble_fixtures.py`; `tests/test_model_purity.py`, the three goldens, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | Why the chain moved whole and what a prompt may carry; one kind per view class; the purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
 
 ## Notes for Claude
 
