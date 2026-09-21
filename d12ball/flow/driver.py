@@ -657,6 +657,37 @@ def _answer_smooth(
     )
 
 
+def _answer_player_action(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    action_label: str = "shoot to score",
+) -> StepResult:
+    """
+    The turn itself: shoot, or maneuver.
+
+    **A time out is not one of them and is not answered here.** It is a
+    pause inside a possession rather than a turn -- it records its own
+    event kind, it is confirmed rather than taken, and the view that
+    confirms it answers no `PromptKind` at all on purpose (see
+    `TimeOutConfirmView`). `windows.begin_time_out` is the step behind
+    it and a frontend calls that directly, as the cog does.
+
+    `action_label` is the button's own word for the shot, which the
+    tutorial rewrites; it is a label rather than a rule, which is why
+    it arrives with the action.
+    """
+    refusal = turn.turn_action_refusal(engine, game, match, choice)
+    if refusal is not None:
+        raise ValueError(refusal)
+    if choice == "shoot":
+        return turn.begin_shot_step(engine, game, match, action_label)
+    return turn.begin_maneuver_step(engine, game, match)
+
+
 def _answer_maneuver_challenge(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1012,6 +1043,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.SHOOTER_CHOICE: _answer_shooter_choice,
     PromptKind.SMOOTH: _answer_smooth,
     PromptKind.OWN_GOAL_ROLL: _answer_own_goal_roll,
+    PromptKind.PLAYER_ACTION: _answer_player_action,
     PromptKind.MANEUVER_CHALLENGE: _answer_maneuver_challenge,
     PromptKind.MANEUVER_ACTION: _answer_maneuver_action,
     PromptKind.INJURY_TEST: _answer_injury_test,
@@ -1044,6 +1076,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.SMOOTH: ("take", "decline"),
     PromptKind.MIND_PULL: ("take", "decline"),
     PromptKind.MANEUVER_CHALLENGE: ("send", "decline"),
+    PromptKind.PLAYER_ACTION: ("shoot", "maneuver"),
     PromptKind.SCORE_ATTEMPT: ("roll", "back"),
 }
 

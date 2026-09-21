@@ -27,16 +27,21 @@ from typing import Optional
 import random
 
 from d12ball import tutorial
-from d12ball.components import MatchState, SPECIES_CYBORG
+from d12ball.components import (
+    EVENT_TURN_ACTION,
+    MatchState,
+    SPECIES_CYBORG,
+)
 from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import (
+    challenger_prompt_ask,
     format_player_with_team,
     format_team_side_label,
     get_damaged_emoji,
     get_injured_emoji,
 )
-from d12ball.game import D12BallGame
+from d12ball.game import D12BallGame, team_display_name
 from d12ball.prompts import PendingPrompt, PromptKind
 
 #: Which row a lone side is told to press, by name. The buttons carry
@@ -343,6 +348,211 @@ def announce_uncontested_maneuver(
         ],
         next=FollowOn(FollowOnStep.BEGIN_MANEUVER_ACTION_SELECTION),
     )
+
+
+def record_turn_action(
+    match: MatchState,
+    action: str,
+    by_ai: bool = False,
+) -> None:
+    """
+    Open a turn in the event log -- see `MatchEvent`.
+
+    **Every event in a turn belongs to the `turn_action` that opened
+    it**, and belongs to it by being logged after it, so this has to be
+    called before anything the turn does.
+
+    `action` is the button's own value -- `maneuver` or `shoot` -- so
+    the share of each in the statistics is the share of the choice a
+    coach actually made, not of what it led to. **A time out is not one
+    of them**: it is a pause inside a possession rather than a turn,
+    and it records its own event kind instead -- see `EVENT_TIME_OUT`
+    and `begin_time_out`.
+
+    `D12Ball.record_turn_action` forwards to this, so none of its call
+    sites moved -- the shape `team_emojis` took in Phase 1a.
+    """
+    match.record_event(
+        EVENT_TURN_ACTION,
+        side=match.ball.possession,
+        player_id=match.active_player_id,
+        action=action,
+        by_ai=by_ai,
+    )
+
+
+def turn_action_refusal(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    action: str,
+) -> Optional[str]:
+    """
+    Why this turn action cannot be taken, or None.
+
+    **Every one of these is a stale click**: the buttons are only built
+    for the actions the position allows, so reaching any branch here
+    means a prompt from an earlier beat is still sitting in the channel
+    and somebody pressed it. The wording is the model's because it says
+    what the position *is* -- the ball moved into shooting range, the
+    side has spent its time out, last possession has been declared.
+
+    Whose account may press the button is not here; that stays in
+    `SafeView` (docs/design/permissions.md), and so does "choose a
+    player to handle the ball first", which is the frontend noticing
+    there is no turn to take yet rather than a rule about this action.
+    """
+    allowed = tutorial.allowed_actions(tutorial_beat(game))
+    if allowed is not None and action not in allowed:
+        return (
+            "The tutorial is on this step's action. Use the prompt "
+            "at the bottom of the channel."
+        )
+
+    if action == "shoot" and not match.can_attempt_score():
+        return "The ball is out of shooting range."
+
+    if action == "time_out" and not match.may_call_time_out():
+        # The same three reasons the button would not have been built.
+        if match.can_attempt_score():
+            return (
+                "The ball is in shooting range now, so there is "
+                "nothing to stop play for."
+            )
+        if match.scoreboard.last_possession:
+            return (
+                "Last possession has been declared, so there are "
+                "no more time outs this period."
+            )
+        return "Your side has already taken its time out this half."
+
+    return None
+
+
+def begin_shot_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    action_label: str,
+) -> StepResult:
+    """
+    Take the shot on, and say who is taking it.
+
+    `action_label` is the button's own word for it, which the tutorial
+    rewrites, so the sentence takes it rather than deciding it -- the
+    one thing on this path that is the frontend's, and it is a label
+    rather than a rule.
+
+    It names nothing: what follows is the composition image and the
+    roll prompt, which is two uploads and no decision, and the position
+    this leaves reads as `PromptKind.SCORE_ATTEMPT` to
+    `pending_prompt`.
+    """
+    record_turn_action(match, "shoot")
+    match.pending_action = "shoot"
+
+    handler = engine.get_player_definition(match.active_player_id)
+    offense_display = format_player_with_team(
+        game,
+        engine.possession_player_number(game, match),
+        engine.team_emojis,
+    )
+    return StepResult(
+        narration=[
+            f"{offense_display} has chosen to {action_label} with "
+            f"{engine.format_player_label(match, handler)}."
+        ],
+    )
+
+
+def challenger_choice_prompt(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> PendingPrompt:
+    """
+    The challenge put to the defending coach, worded for the first
+    asking.
+
+    **Deliberately not `pending_prompt`'s wording for the same state**,
+    the way the injury test's is not: that one is a restart re-asking a
+    question a coach has already seen, and this carries the mention and
+    names the handler because the defense is being asked to choose
+    before the challenge image exists -- this is the only place they
+    can read who they would be up against. The *kind* is the same
+    either way, which is what `view_for_prompt` reads.
+    """
+    handler = engine.get_player_definition(match.active_player_id)
+    defender_mention = format_player_with_team(
+        game,
+        engine.defending_player_number(game, match),
+        engine.team_emojis,
+        mention=True,
+    )
+    handler_team = match.team_for_player(handler.player_id)
+    return PendingPrompt(
+        PromptKind.MANEUVER_CHALLENGE,
+        f"{engine.format_player_label(match, handler)} will "
+        f"maneuver for {team_display_name(handler_team)}.\n\n"
+        f"{defender_mention}, {challenger_prompt_ask(match)}",
+    )
+
+
+def begin_maneuver_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> StepResult:
+    """
+    Start a maneuver, which reaches the offense's pick by one of three
+    routes: nobody to challenge at all, a challenger settled without
+    asking, or the defending coach's own choice.
+
+    - **Nobody left to challenge with at all** needs an empty field --
+      a side with a meeple anywhere on the board has a candidate. The
+      maneuver succeeds automatically and the offense still picks which
+      one (docs/living-rules.md, "Maneuvers"). A defense that is
+      offered a challenge and sends nobody lands in the same place,
+      through `decline_challenge_step`.
+    - **One defender already sharing the ball's exact space** leaves
+      nothing to choose: they pay nothing to challenge, so it is
+      neither theirs to decline nor a pick between players, and it goes
+      ahead the same way it does when the AI is picking. Two of them is
+      a pick, and the defending coach makes it (the author,
+      2026-08-17): they are the whole of the choice, since nobody may
+      be walked in past them. See `MatchState.challenge_candidates`.
+    - **Otherwise the defending coach is asked**, and the prompt is
+      `challenger_choice_prompt`.
+
+    The middle route ends on `AUTO_RESOLVE_CHALLENGER` rather than
+    running the pick itself, because what a frontend puts up for it is
+    the **challenge image** -- the matchup, drawn -- and a picture is
+    the frontend's (principle 8 in CLAUDE.md).
+    """
+    record_turn_action(match, "maneuver")
+
+    if not match.eligible_challengers():
+        return decline_challenge_step(engine, game, match)
+
+    match.pending_action = "maneuver"
+    on_ball_space = match.automatic_challengers()
+    defender_number = engine.defending_player_number(game, match)
+    if len(on_ball_space) == 1 or (
+        game.is_solo_game and defender_number == 2
+    ):
+        challenger_id = (
+            on_ball_space[0]
+            if len(on_ball_space) == 1
+            else engine.get_ai_strategy(game).choose_challenger(match)
+        )
+        return StepResult(
+            next=FollowOn(
+                FollowOnStep.AUTO_RESOLVE_CHALLENGER,
+                {"challenger_id": challenger_id},
+            ),
+        )
+
+    return StepResult(next=challenger_choice_prompt(engine, game, match))
 
 
 def decline_challenge_step(

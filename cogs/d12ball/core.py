@@ -63,6 +63,7 @@ from d12ball.flow.turn import (
     resolve_maneuver,
 )
 from d12ball.flow.arrivals import take_scoring_opportunity
+from d12ball.flow.turn import record_turn_action
 from d12ball.flow.injuries import (
     begin_injury_tests,
     continue_injury_tests,
@@ -789,31 +790,15 @@ class CoreMixin:
         by_ai: bool = False,
     ) -> None:
         """
-        Open a turn in the event log -- see MatchEvent.
+        Open a turn in the event log.
 
-        **Every event in a turn belongs to the `turn_action` that
-        opened it**, and belongs to it by being logged after it, so
-        this has to be called before anything the turn does.
-
-        `action` is the button's own value -- `maneuver` or `shoot`
-        -- so the share of each in the statistics is the share of the
-        choice a coach actually made, not of what it led to. **A time
-        out is not one of them**: it is a pause inside a possession
-        rather than a turn, and it records its own event kind instead
-        -- see EVENT_TIME_OUT and `begin_time_out`.
-
-        The three callers are `play_ai_turn` and the two turn
-        actions, each at the point the action is **taken**: the shot
-        and the maneuver at their button, past its own stale-view
-        guard.
+        A forwarding method over `d12ball.flow.turn.record_turn_action`
+        since Phase 6, which is where it belongs: a step that takes a
+        turn has to open one, and a step cannot call a cog method. The
+        reasoning is in the model's copy; this is kept so none of the
+        call sites moved -- the shape `team_emojis` took in Phase 1a.
         """
-        match.record_event(
-            EVENT_TURN_ACTION,
-            side=match.ball.possession,
-            player_id=match.active_player_id,
-            action=action,
-            by_ai=by_ai,
-        )
+        record_turn_action(match, action, by_ai)
 
     @property
     def condition_emojis(self) -> dict[str, str]:
@@ -1048,6 +1033,22 @@ class CoreMixin:
             await self.refresh_match_image(interaction, game)
         await self.dispatch_step_result(
             interaction, game, match, StepResult(next=result.next),
+        )
+
+    async def auto_resolve_challenger_step(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        *,
+        challenger_id: str,
+        lead_in: str = "",
+    ) -> None:
+        """`auto_resolve_challenger` as a follow-on."""
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
+        await self.auto_resolve_challenger(
+            interaction, game, match, challenger_id,
         )
 
     async def announce_uncontested_maneuver(
@@ -1860,6 +1861,8 @@ class CoreMixin:
             FollowOnStep.CONTINUE_EFFECT: self.continue_effect_step,
             FollowOnStep.BEGIN_MANEUVER_SKILL_TEST:
                 self.begin_maneuver_skill_test,
+            FollowOnStep.AUTO_RESOLVE_CHALLENGER:
+                self.auto_resolve_challenger_step,
         }
 
     async def dispatch_step_result(

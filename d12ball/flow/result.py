@@ -271,6 +271,16 @@ class FollowOnStep(Enum):
     #: frontend's `own_message` set like every other run of separate
     #: events.
     CONTINUE_SHOOTOUT = auto()
+    #: A challenger pick nobody was asked for -- the one defender
+    #: already standing on the ball, or the AI's. Added by Phase 6,
+    #: when the turn's own action (`d12ball.flow.turn.begin_maneuver_step`)
+    #: became a step and needed a name for the route it takes. The step
+    #: it names is `turn.auto_resolve_challenger`, which has been the
+    #: model's since Phase 4; what keeps the member the *cog's* is the
+    #: second kind above -- what a frontend puts up for it is the
+    #: **challenge image**, the matchup drawn, and a picture is the
+    #: frontend's.
+    AUTO_RESOLVE_CHALLENGER = auto()
 
 
 @dataclass(frozen=True)

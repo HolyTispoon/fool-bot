@@ -267,6 +267,10 @@ class FollowOnStepTests(unittest.TestCase):
         # for what follows it, which the view used to reach by calling
         # `D12Ball.continue_shootout` directly.
         "CONTINUE_SHOOTOUT",
+        # And the same increment again: the turn's own action
+        # became a step and needed a name for the route that puts
+        # the challenge image up.
+        "AUTO_RESOLVE_CHALLENGER",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(

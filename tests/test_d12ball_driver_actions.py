@@ -80,6 +80,22 @@ def _shooter_choice(fixture: PromptFixture) -> tuple[str, dict]:
     return "", {"shooter_id": prompt.player_ids[0]}
 
 
+def _player_action(fixture: PromptFixture) -> tuple[str, dict]:
+    """
+    Taking a turn needs a ball handler and the branch does not.
+
+    `PLAYER_ACTION` is the chain's fallback as well as the turn's own
+    question, and the first fixture standing in it is a time-out tail
+    -- a position whose *next* step is the bot's. Standing a handler up
+    is the fixture finishing the position rather than the test reaching
+    past it, the same as the own-goal roll's.
+    """
+    match = fixture.match
+    if match.active_player_id is None:
+        match.active_player_id = match.home.field_players[0]
+    return "maneuver", {}
+
+
 def _maneuver_challenge(fixture: PromptFixture) -> tuple[str, dict]:
     return "send", {
         "player_id": fixture.match.challenge_candidates()[0],
@@ -169,6 +185,7 @@ LEGAL_ACTIONS = {
     PromptKind.SCORE_ATTEMPT: lambda fixture: ("roll", {}),
     PromptKind.SHOOTOUT_TEST: lambda fixture: ("", {}),
     PromptKind.INJURY_TEST: lambda fixture: ("", {}),
+    PromptKind.PLAYER_ACTION: _player_action,
     PromptKind.MANEUVER_CHALLENGE: _maneuver_challenge,
     PromptKind.MANEUVER_ACTION: _maneuver_action,
     PromptKind.MIND_PULL: lambda fixture: ("take", {}),
