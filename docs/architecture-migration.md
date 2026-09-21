@@ -217,7 +217,12 @@ while a step is owed. The `--force` rules list moves with it.
 `may_substitute` into `apply_substitution`, `may_decline_challenge`
 into `_answer_maneuver_challenge`, the same-zone swap into
 `swap_field_positions`; the view builds its buttons from what the
-prompt offers. `PendingPrompt` grows `options` per kind (proposal 4
+prompt offers. **Settled by the author, 2026-09-21:** a swap that
+moves nobody is not a swap, so the same-zone case is a refusal. An AI
+side's shot is never retracted -- not a rule of the game, a feature
+of how the AI plays (it does not misclick) -- so `retract_shot_step`
+refuses it and the AI's score attempt carries no Back button and
+waits on nothing but the roll. `PendingPrompt` grows `options` per kind (proposal 4
 of `docs/web-app.md`) so a view, the web app and the full-game
 policy read the same list. One refuse-leaves-unchanged test per kind
 per choice.
@@ -226,12 +231,18 @@ per choice.
 
 `AIStrategy.choose(prompt, match) -> Action` replaces the nineteen
 methods, and `GameService.apply_action` loops while the prompt's side
-is the AI's. The `side_is_ai` forks in `flow/turn.py`, `windows.py`,
-`periods.py`, `effects.py`, `arrivals.py`, `turnovers.py` and
-`engine.py` go. **The goldens change**: an AI answer becomes a group
-of its own, and the AI's narration ("Dinky has chosen to maneuver
-with X") is worded by the adapter. Do this once the author has said
-how the AI's turn should read.
+is the AI's -- and stops at a roll, because every roll waits behind a
+button either coach may press (CLAUDE.md, "Nothing rolls dice on its
+own"); the AI answers choices, never dice. The `side_is_ai` forks in
+`flow/turn.py`, `windows.py`, `periods.py`, `effects.py`,
+`arrivals.py`, `turnovers.py` and `engine.py` go. **The goldens
+change**, and the author has said how (2026-09-21): **the human's
+exact voice, with the AI's name where the coach's mention would be.**
+"Dinky has chosen to maneuver with X" and its neighbours go; an AI
+answer reads as the adapter words a coach's, "Dinky" in place of
+`<@id>`. That is the same substitution step 9's tokens make, so the
+two are one pass: narration says `{coach:visiting}`, the presenter
+renders a mention for a person and the name for the AI.
 
 ### 8. Setup and the lobby as service methods -- next
 
