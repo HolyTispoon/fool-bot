@@ -345,6 +345,130 @@ def announce_uncontested_maneuver(
     )
 
 
+def decline_challenge_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> StepResult:
+    """
+    The defense sends nobody in, and the maneuver goes unchallenged.
+
+    `announce_uncontested_maneuver` is what says so, and this is the
+    mutation in front of it -- the half that was still inside
+    `ManeuverChallengeView.decline`. `MatchState.begin_uncontested_maneuver`
+    refuses a defense that has somebody it could still send, which is a
+    stale click on a prompt a restart re-attached; it is left to
+    propagate for `select_ball_handler_step`'s reason.
+    """
+    match.begin_uncontested_maneuver()
+    return announce_uncontested_maneuver(engine, game, match)
+
+
+def maneuver_pick_refusal(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    side: str,
+    maneuver_key: str,
+) -> Optional[str]:
+    """
+    Why this pick cannot be taken, or None -- **everything except who
+    is allowed to make it**.
+
+    Authorization is a fact about a Discord user and stays in
+    `SafeView` (see docs/design/permissions.md), and it is answered
+    *before* this: the other coach's row is sitting on the same
+    message, so replying "that side has already chosen" to a click on
+    it would say whether they had. The frontend keeps that ordering,
+    which is why this does not take it.
+
+    The other three are rules. A prompt can still be sitting in the
+    channel from an earlier turn, so the tutorial's rail and the hand
+    are both re-read here rather than trusted from whatever built the
+    buttons -- exactly as the distances are re-read in a High Pass's
+    own menu.
+    """
+    already_chosen = (
+        match.offense_maneuver is not None
+        if side == "offense"
+        else match.defense_maneuver is not None
+    )
+    if already_chosen:
+        return "You have already chosen your maneuver."
+
+    allowed = tutorial.allowed_maneuvers(tutorial_beat(game), side)
+    if allowed is not None and maneuver_key not in allowed:
+        return (
+            "This step of the tutorial wants "
+            f"**{engine.maneuver_name(allowed[0])}**. Use the "
+            "prompt at the bottom of the channel."
+        )
+
+    playable = {
+        maneuver.key
+        for maneuver in engine.maneuver_hand(game, match, side)
+    }
+    if maneuver_key not in playable:
+        return (
+            "That maneuver isn't in your hand for this turn. Use the "
+            "prompt at the bottom of the channel."
+        )
+
+    return None
+
+
+def maneuver_pick_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    side: str,
+    maneuver_key: str,
+) -> StepResult:
+    """
+    One coach's pick, written down.
+
+    **"Someone has picked, you can't see what" is only worth saying
+    while the other side is still choosing**, which is a rule about the
+    position and not about batching: an uncontested maneuver has nobody
+    to keep in the dark, and the reveal a moment later names the pick
+    anyway. So the line is narration here, and an uncontested pick says
+    nothing at all.
+
+    It ends on the reveal once both sides have answered, and on nothing
+    while one of them has not -- the position then reads as the other
+    side's own `MANEUVER_ACTION`, which is what a frontend puts up
+    next.
+
+    `maneuver_pick_refusal` is what says a pick cannot be taken; this
+    assumes it has been asked, the way every other step assumes its
+    prompt was the one outstanding.
+    """
+    if side == "offense":
+        match.choose_offense_maneuver(maneuver_key)
+    else:
+        match.choose_defense_maneuver(maneuver_key)
+
+    narration = []
+    if not match.maneuver_uncontested:
+        side_number = (
+            engine.possession_player_number(game, match)
+            if side == "offense"
+            else engine.defending_player_number(game, match)
+        )
+        narration.append(
+            f"{format_player_with_team(game, side_number, engine.team_emojis)}"
+            " has picked their maneuver."
+        )
+
+    if not match.maneuver_selections_complete:
+        return StepResult(narration=narration)
+    return StepResult(
+        narration=narration,
+        next=FollowOn(FollowOnStep.RESOLVE_MANEUVER),
+    )
+
+
 def write_ai_maneuver_picks(
     engine: RulesEngine,
     game: D12BallGame,

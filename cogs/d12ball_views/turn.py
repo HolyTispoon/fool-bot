@@ -9,7 +9,14 @@ from math import ceil
 from typing import Optional, TYPE_CHECKING
 
 from d12ball import tutorial
-from d12ball.flow.turn import select_ball_handler_step
+from d12ball.flow import StepResult
+from d12ball.flow.turn import (
+    auto_resolve_challenger,
+    decline_challenge_step,
+    maneuver_pick_refusal,
+    maneuver_pick_step,
+    select_ball_handler_step,
+)
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MatchState,
@@ -683,23 +690,23 @@ class ManeuverChallengeView(SafeView):
         if game is None or match is None:
             return
 
+        # **The rule is `d12ball.flow.turn.auto_resolve_challenger`**
+        # since Phase 6, and it always was: the AI's pick and a
+        # defender already sharing the ball's space have come through
+        # that step since Phase 4, and this button is the third way to
+        # make the same pick. The walk-in is described inside it,
+        # before the save, because a walk-in's tokens can cross the
+        # Exhausted threshold and the description is what tests it.
         try:
-            distance = match.choose_challenger(player_id)
+            result = auto_resolve_challenger(
+                self.cog.engine, game, match, player_id,
+            )
         except ValueError as error:
             await interaction.response.send_message(
                 str(error),
                 ephemeral=True,
             )
             return
-
-        # Built before the save: a walk-in's tokens can cross the
-        # Exhausted threshold, and this description is what tests it.
-        walk_in_text = self.cog.describe_challenger_walk_in(
-            game,
-            match,
-            player_id,
-            distance,
-        )
 
         self.cog.persist(game, match)
 
@@ -712,14 +719,13 @@ class ManeuverChallengeView(SafeView):
             interaction,
             match,
             player_id,
-            walk_in_text,
+            " ".join(result.narration),
         )
 
-        await self.cog.refresh_match_image(interaction, game)
-        await self.cog.begin_maneuver_action_selection(
-            interaction,
-            game,
-            match,
+        if result.board_changed:
+            await self.cog.refresh_match_image(interaction, game)
+        await self.cog.dispatch_step_result(
+            interaction, game, match, StepResult(next=result.next),
         )
 
     async def decline(self, interaction: discord.Interaction) -> None:
@@ -734,8 +740,11 @@ class ManeuverChallengeView(SafeView):
         if game is None or match is None:
             return
 
+        # **The rule is `d12ball.flow.turn.decline_challenge_step`**
+        # since Phase 6: sending nobody and saying so are one answer,
+        # and the second half of it was already the model's.
         try:
-            match.begin_uncontested_maneuver()
+            result = decline_challenge_step(self.cog.engine, game, match)
         except ValueError as error:
             await interaction.response.send_message(
                 str(error),
@@ -747,8 +756,8 @@ class ManeuverChallengeView(SafeView):
 
         await interaction.response.defer()
         await self.cog.drop_turn_prompt(interaction, game)
-        await self.cog.announce_uncontested_maneuver(
-            interaction, game, match,
+        await self.cog.post_then_dispatch(
+            interaction, game, match, result,
         )
 
 
@@ -980,55 +989,28 @@ class ManeuverActionPromptView(SafeView):
         **Authorization is answered first**, and that ordering is a
         rule rather than a habit: the other coach's row is sitting on
         the same message, so replying "that side has already chosen"
-        to a click on it would say whether they had.
+        to a click on it would say whether they had. It is also the
+        half that stays here -- whose Discord account may press a
+        button is a fact about a person (see
+        docs/design/permissions.md) -- and the three below it are
+        rules, so they are `d12ball.flow.turn.maneuver_pick_refusal`'s
+        since Phase 6.
 
         It takes the interaction rather than the clicker's id because a
         game helper may pick for either side and the permission is on
         the member -- see "Who may act on a game" in docs/design/permissions.md.
         """
-        if side == "offense":
-            authorized = self.may_act_for_possession(
-                interaction, game, match,
-            )
-            already_chosen = match.offense_maneuver is not None
-        else:
-            authorized = self.may_act_for_defense(
-                interaction, game, match,
-            )
-            already_chosen = match.defense_maneuver is not None
-
+        authorized = (
+            self.may_act_for_possession(interaction, game, match)
+            if side == "offense"
+            else self.may_act_for_defense(interaction, game, match)
+        )
         if not authorized:
             return "Only the player on that side can choose this maneuver."
 
-        if already_chosen:
-            return "You have already chosen your maneuver."
-
-        # An older prompt can still be sitting in the channel, so the
-        # rail is re-read here rather than trusted from the build --
-        # exactly as the distances are in HighPassChoiceView.choose.
-        allowed = tutorial.allowed_maneuvers(
-            self.cog.tutorial_beat(game), side,
+        return maneuver_pick_refusal(
+            self.cog.engine, game, match, side, maneuver_key,
         )
-        if allowed is not None and maneuver_key not in allowed:
-            return (
-                "This step of the tutorial wants "
-                f"**{self.cog.engine.maneuver_name(allowed[0])}**. Use the "
-                "prompt at the bottom of the channel."
-            )
-
-        # Same reason as the rail above: a gambit clicked off an
-        # older prompt would be a maneuver this turn does not play.
-        playable = {
-            maneuver.key
-            for maneuver in self.cog.engine.maneuver_hand(game, match, side)
-        }
-        if maneuver_key not in playable:
-            return (
-                "That maneuver isn't in your hand for this turn. Use the "
-                "prompt at the bottom of the channel."
-            )
-
-        return None
 
     async def pick(
         self,
@@ -1053,11 +1035,13 @@ class ManeuverActionPromptView(SafeView):
             await interaction.response.send_message(refusal, ephemeral=True)
             return
 
-        if side == "offense":
-            match.choose_offense_maneuver(maneuver_key)
-        else:
-            match.choose_defense_maneuver(maneuver_key)
-
+        # **The rule is `d12ball.flow.turn.maneuver_pick_step`** since
+        # Phase 6: writing the pick down, whether "someone has picked"
+        # is worth saying at all, and whether both sides have answered.
+        result = maneuver_pick_step(
+            self.cog.engine, game, match,
+            side=side, maneuver_key=maneuver_key,
+        )
         self.cog.persist(game, match)
 
         await interaction.response.send_message(
@@ -1066,25 +1050,11 @@ class ManeuverActionPromptView(SafeView):
             ephemeral=True,
         )
 
-        # "Someone has picked, you can't see what" is only worth a
-        # message while the other side is still choosing. An
-        # uncontested maneuver has nobody else to keep in the dark,
-        # and the reveal a moment from now names the pick anyway.
-        if not match.maneuver_uncontested:
-            side_number = (
-                self.cog.engine.possession_player_number(game, match)
-                if side == "offense"
-                else self.cog.engine.defending_player_number(game, match)
-            )
-            side_display = format_player_with_team(
-                game, side_number, self.cog.team_emojis,
-            )
-            await send_new_prompt(
-                interaction,
-                f"{side_display} has picked their maneuver.",
-            )
+        for line in result.narration:
+            await send_new_prompt(interaction, line)
 
         await self.cog.close_maneuver_prompt(interaction, game, match)
 
-        if match.maneuver_selections_complete:
-            await self.cog.resolve_maneuver(interaction, game, match)
+        await self.cog.dispatch_step_result(
+            interaction, game, match, StepResult(next=result.next),
+        )

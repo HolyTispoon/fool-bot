@@ -80,6 +80,18 @@ def _shooter_choice(fixture: PromptFixture) -> tuple[str, dict]:
     return "", {"shooter_id": prompt.player_ids[0]}
 
 
+def _maneuver_challenge(fixture: PromptFixture) -> tuple[str, dict]:
+    return "send", {
+        "player_id": fixture.match.challenge_candidates()[0],
+    }
+
+
+def _maneuver_action(fixture: PromptFixture) -> tuple[str, dict]:
+    match = fixture.match
+    hand = ENGINE.maneuver_hand(fixture.game, match, "offense")
+    return "", {"side": "offense", "maneuver_key": hand[0].key}
+
+
 def _halftime_extra_token(fixture: PromptFixture) -> tuple[str, dict]:
     match = fixture.match
     side = pending_prompt(ENGINE, fixture.game, match).side
@@ -157,6 +169,8 @@ LEGAL_ACTIONS = {
     PromptKind.SCORE_ATTEMPT: lambda fixture: ("roll", {}),
     PromptKind.SHOOTOUT_TEST: lambda fixture: ("", {}),
     PromptKind.INJURY_TEST: lambda fixture: ("", {}),
+    PromptKind.MANEUVER_CHALLENGE: _maneuver_challenge,
+    PromptKind.MANEUVER_ACTION: _maneuver_action,
     PromptKind.MIND_PULL: lambda fixture: ("take", {}),
     PromptKind.HALFTIME_EXTRA_TOKEN: _halftime_extra_token,
     PromptKind.LOW_PASS_CHOICE: _low_pass,
@@ -376,16 +390,25 @@ class SeamTests(unittest.TestCase):
         a frontend would show to a coach as though they had done
         something wrong.
         """
+        unanswered = [
+            kind for kind in PromptKind if not driver.can_answer(kind)
+        ]
+        self.assertTrue(unanswered, "every kind has an answer now")
         fixture = next(
-            case.build() for case in CASES if case.name == "maneuver picks"
+            case.build()
+            for case in CASES
+            if PromptKind[case.kind] in unanswered
         )
-        self.assertFalse(driver.can_answer(PromptKind.MANEUVER_ACTION))
         with self.assertRaises(LookupError):
             driver.apply(
                 ENGINE,
                 fixture.game,
                 fixture.match,
-                driver.Action(PromptKind.MANEUVER_ACTION),
+                driver.Action(
+                    pending_prompt(
+                        ENGINE, fixture.game, fixture.match,
+                    ).kind,
+                ),
             )
 
     def test_every_answer_takes_the_same_shape(self) -> None:

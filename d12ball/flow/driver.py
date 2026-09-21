@@ -657,6 +657,62 @@ def _answer_smooth(
     )
 
 
+def _answer_maneuver_challenge(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    player_id: Optional[str] = None,
+) -> StepResult:
+    """
+    Which defender walks in to challenge, or nobody.
+
+    Sending is `auto_resolve_challenger`, which the AI's own pick and a
+    defender already sharing the ball's space have come through since
+    Phase 4 -- three ways to make one pick, one step.
+    """
+    if choice == "decline":
+        return turn.decline_challenge_step(engine, game, match)
+    return turn.auto_resolve_challenger(engine, game, match, player_id)
+
+
+def _answer_maneuver_action(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    side: str,
+    maneuver_key: str,
+) -> StepResult:
+    """
+    One coach's maneuver, picked.
+
+    **The refusal is asked here and raised**, which is what puts it
+    through `answer`'s own `ValueError` door: "you have already chosen",
+    a card the tutorial's rail does not want and a card that is not in
+    this turn's hand are all rules about the position. Whose account
+    may press the button is not, and is answered before this ever runs
+    -- see `maneuver_pick_refusal`.
+
+    `side` is the action's rather than the prompt's, and it is the one
+    place that is right: the prompt is **one message with both sides'
+    rows on it**, so which side a click answers for is part of what was
+    clicked.
+    """
+    refusal = turn.maneuver_pick_refusal(
+        engine, game, match, side, maneuver_key,
+    )
+    if refusal is not None:
+        raise ValueError(refusal)
+    return turn.maneuver_pick_step(
+        engine, game, match, side=side, maneuver_key=maneuver_key,
+    )
+
+
 def _answer_injury_test(
     engine: RulesEngine,
     game: D12BallGame,
@@ -956,6 +1012,8 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.SHOOTER_CHOICE: _answer_shooter_choice,
     PromptKind.SMOOTH: _answer_smooth,
     PromptKind.OWN_GOAL_ROLL: _answer_own_goal_roll,
+    PromptKind.MANEUVER_CHALLENGE: _answer_maneuver_challenge,
+    PromptKind.MANEUVER_ACTION: _answer_maneuver_action,
     PromptKind.INJURY_TEST: _answer_injury_test,
     PromptKind.MIND_PULL: _answer_mind_pull,
     PromptKind.HALFTIME_EXTRA_TOKEN: _answer_halftime_extra_token,
@@ -985,6 +1043,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
     PromptKind.SMOOTH: ("take", "decline"),
     PromptKind.MIND_PULL: ("take", "decline"),
+    PromptKind.MANEUVER_CHALLENGE: ("send", "decline"),
     PromptKind.SCORE_ATTEMPT: ("roll", "back"),
 }
 
