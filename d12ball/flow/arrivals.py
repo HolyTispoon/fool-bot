@@ -220,6 +220,40 @@ def continue_smooth(
     return dispatch_arrival_resume(engine, game, match, resume)
 
 
+def decline_smooth_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    player_id: str,
+) -> StepResult:
+    """
+    A Telekinetic lets the ball run through rather than taking it over.
+
+    Taking the offer is `d12ball.flow.effects.take_smooth_step`; this
+    is the other button, and it was the one half of the pair still
+    inside a view body -- `SmoothView.decline` popped the queue and
+    worded the line itself. Both of those are the model's: which
+    Telekinetic is still owed an offer is what `pending_smooth` means,
+    and the sentence is a fact about the position (principle 5).
+
+    **The line is the first block and the queue's own lines follow
+    it**, because a frontend that put the decline up as an *edit of
+    the offer it answers* needs to tell the two apart -- which is what
+    the cog does, and why this is one result rather than two. Draining
+    the queue is `continue_smooth`'s, the one exit, so a coach who
+    declines and a Telekinetic who was never asked still leave by the
+    same door.
+    """
+    player = engine.get_player_definition(player_id)
+    match.pending_smooth.remove(player_id)
+    result = continue_smooth(engine, game, match)
+    result.narration.insert(
+        0, f"{engine.format_player_label(match, player)} lets it run.",
+    )
+    return result
+
+
 def continue_mind_pull(
     engine: RulesEngine,
     game: D12BallGame,
