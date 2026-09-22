@@ -789,7 +789,7 @@ class CoreMixin:
 
     def game_for_channel(self, channel_id: int) -> Optional[D12BallGame]:
         for game in self.games.values():
-            if game.channel_id == channel_id:
+            if game.channel_id is not None and game.channel_id == channel_id:
                 return game
         return None
 

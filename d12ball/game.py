@@ -143,12 +143,22 @@ VALID_BOARD_SIZES = {6, 7, 9}
 
 @dataclass
 class D12BallGame:
-    # Discord and save-data identifiers
+    # Save-data identifiers
     game_id: str
     game_number: int
-    guild_id: int
-    channel_id: int
-    message_id: Optional[int]
+
+    # Where the game is played on Discord: the server, the channel, and
+    # the message every board refresh edits. **All three are optional**,
+    # because a game is not a Discord thing (ARCHITECTURE.md, part 1): a
+    # game the web frontend creates has no channel, and the startup
+    # sweep skips one rather than being handed a fake. Keyword-only so
+    # the fields that follow keep their place in the saved dict -- the
+    # record is the wire format (principle 6 in CLAUDE.md) and every
+    # existing save reads back exactly as it was; a missing id reads as
+    # `None`, which is what a game that never had a channel carries.
+    guild_id: Optional[int] = field(default=None, kw_only=True)
+    channel_id: Optional[int] = field(default=None, kw_only=True)
+    message_id: Optional[int] = field(default=None, kw_only=True)
 
     # Players
     player_1_id: int

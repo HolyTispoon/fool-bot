@@ -689,6 +689,9 @@ class PresentationMixin:
         the channel is gone -- and cannot be confused with a 404 from
         the category or the move that follows it.
         """
+        if game.guild_id is None or game.channel_id is None:
+            raise ValueError("This game is not played in a Discord channel.")
+
         guild = self.bot.get_guild(game.guild_id)
         if guild is None:
             raise ValueError("The server for this game is not available.")
@@ -741,6 +744,8 @@ class PresentationMixin:
         been costs one no-op, where a button withheld leaves a pair
         with no way to archive.
         """
+        if game.channel_id is None:
+            return False
         channel = self.bot.get_channel(game.channel_id)
         category = getattr(channel, "category", None)
         return bool(

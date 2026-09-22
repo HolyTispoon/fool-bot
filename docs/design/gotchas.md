@@ -32,6 +32,16 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
     in it exists because a half-finished game outlives the commit that
     added the field — see the rest of this section — so adding an
     entry is free and changing a key is not.
+- **The three Discord ids on `D12BallGame` are optional, and keyword-only.**
+  `guild_id`, `channel_id` and `message_id` default to `None` since step 8
+  of docs/architecture-migration.md (decision 3 of docs/web-app.md): a game
+  the web frontend creates is played in no channel, and the startup sweep,
+  `fetch_game_channel`, `game_channel_is_archived` and `game_for_channel`
+  each skip or refuse one rather than being handed a fake. Every existing
+  save reads back exactly as it was. They are `kw_only` fields so that they
+  keep their place at the head of the dataclass -- and so of the saved dict
+  -- while the required `player_1_id` still follows them; reordering the
+  fields would have changed the key order of every save for nothing.
 - **The team board is saved as `team_board` and read under either name.** It
   was called a player board until 2026-08-10 — `TeamBoardState`, `team_board`
   on `TeamSetup`, and the key in `basic_rules.json` and in every saved match.

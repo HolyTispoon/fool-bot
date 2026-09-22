@@ -509,6 +509,11 @@ class CommandsMixin:
             if game.status != GameStatus.FINISHED:
                 continue
 
+            if game.channel_id is None:
+                # A game that was never played on Discord -- the web
+                # frontend's -- has no channel to file away.
+                continue
+
             # A saved game can outlive the thing it points at: channels
             # get deleted by hand, and the bot gets removed from
             # servers. Neither is anyone's to fix, and both would

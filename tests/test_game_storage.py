@@ -72,6 +72,46 @@ class GameStorageTests(unittest.TestCase):
 
         self.assertEqual(list(storage.load_games()), ["g1"])
 
+    def test_the_discord_ids_read_back_as_they_were_saved(self) -> None:
+        """
+        `guild_id`, `channel_id` and `message_id` went optional for a
+        game with no channel (decision 3 of docs/web-app.md); a save
+        that carries them is unchanged by that, and the saved dict
+        keeps the same keys in the same order.
+        """
+        game = build_game()
+        game.message_id = 99
+        storage.save_games({"g1": game})
+
+        loaded = storage.load_games()["g1"]
+        self.assertEqual(
+            (loaded.guild_id, loaded.channel_id, loaded.message_id),
+            (1, 2, 99),
+        )
+        self.assertEqual(
+            list(loaded.to_dict())[:6],
+            [
+                "game_id", "game_number", "guild_id", "channel_id",
+                "message_id", "player_1_id",
+            ],
+        )
+
+    def test_a_game_with_no_channel_round_trips(self) -> None:
+        """A game the web frontend creates is played nowhere on
+        Discord, and the record says so with three `None`s."""
+        game = D12BallGame(
+            game_id="web", game_number=1, player_1_id=3, player_2_id=None,
+        )
+        self.assertIsNone(game.guild_id)
+        storage.save_games({"web": game})
+
+        loaded = storage.load_games()["web"]
+        self.assertEqual(
+            (loaded.guild_id, loaded.channel_id, loaded.message_id),
+            (None, None, None),
+        )
+        self.assertEqual(loaded.to_dict(), game.to_dict())
+
     def test_a_save_onto_an_unreachable_folder_does_not_raise(self) -> None:
         # What the mounted drive did: every component of the path is
         # gone, so mkdir fails rather than the write.
