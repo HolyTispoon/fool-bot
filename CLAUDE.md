@@ -48,7 +48,7 @@ python3 -m unittest discover -s tests
 | `d12ball/player_cards.py` | The roster as cards, print-only, over `cards.py` |
 | `d12ball/species_cards.py` | The four species abilities as a three-card reference set, print-only |
 | `d12ball/role_cards.py` | The six basic role abilities as a one-card reference set, print-only |
-| `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game. The team board comes out twice: one board, and a letter page carrying two |
+| `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game. The field board comes out three ways: the tabloid sheet, and its own two letter halves, which taped along the cut are that same board. The team board comes out twice: one board, and a letter page carrying two |
 | `d12ball/rulebooks.py` | The two rulebooks as PDFs: the markdown subset, the Charter's build-time numbering, the reportlab layout. `scripts/build_rulebooks.py` is its CLI -- [rulebooks.md](docs/design/rulebooks.md) |
 | `d12ball/rulebook_figures.py` | The Learn to Play's illustrations, as real match states rendered by `render.py` and annotated; written to `docs/rulebooks/figures/` by `--figures` |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
@@ -334,7 +334,7 @@ which the code still cites by finding number.
 | `BoardRefresher`, `refresh_match_image`, any `channel.send`/edit/pin in a flow, `setup_hook`'s sync | [rate-limits.md](docs/design/rate-limits.md) | The measured invariants of the board gate, and every 429 batch that set them |
 | `render.py`, meeples, the matchup image, `render_field_image`, fonts | [board-image.md](docs/design/board-image.md) | Three board images and which is whose; the 76px meeple; the hash-verified refactor |
 | `cards.py`, `player_cards.py`, `species_cards.py`, `role_cards.py`, the species icons, hand images | [cards.md](docs/design/cards.md) | One layout for print and Discord; what the sheet can't carry (`EXTRA_ROLES`, `EXTRA_NOTES`); the icon as one flat ink |
-| `boards.py`, the print sheets, end zones, zone rows | [printed-boards.md](docs/design/printed-boards.md) | Tabloid, the token silos, no die values, why the field board is portrait; the team board's own paper, its two files, and why it measures in inches |
+| `boards.py`, the print sheets, the half sheets, end zones, zone rows | [printed-boards.md](docs/design/printed-boards.md) | Tabloid, the token silos, no die values, why the field board is portrait; why a half sheet is a cut of the finished board and never a second layout, and what the seam is allowed to cross; the team board's own paper, its two files, and why it measures in inches |
 | `Team`, `TEAM_COLORS`, `TEAM_PAIRS`, `excluded_teams`, `ai_team_pool`, player ids, `team_for_player`, `duplicate_card_id`, `species` | [teams-and-players.md](docs/design/teams-and-players.md) | Eight teams on two axes; a player fielded on both sides as two cards; the emoji PNGs |
 | Channel names, archiving, `/debug export_archived_games` | [channels-and-archive.md](docs/design/channels-and-archive.md) | The number after the prefix; export before delete; the permission gate rides on the group |
 | `setup_hub`, `LobbyView`, `HUB_ROLES`, the d12 emoji | [hub-and-lobby.md](docs/design/hub-and-lobby.md) | Two hub messages; a lobby is a `SETUP` game with nothing decided; what Start Game finalises |

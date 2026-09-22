@@ -15,6 +15,7 @@ printer actually stocks.
 python3 scripts/render_boards.py --out print/          # every field size
 python3 scripts/render_boards.py --teams --bleed --pdf
 python3 scripts/render_boards.py --board-size 9        # just the one field
+python3 scripts/render_boards.py --no-halves           # tabloid sheets only
 ```
 
 - **They follow `cards.py`, not `render.py`.** The palette is the maneuver
@@ -101,7 +102,9 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
 - **Every field size is rendered by default.** A print run wants the 7- and
   9-space boards; `--board-size` narrows it to one. The sizes come from
   `rules.board_layouts`, so a fourth layout added upstream is printed without
-  the script being touched.
+  the script being touched. **Each comes out three ways** -- whole on the
+  tabloid sheet and as its own two letter halves; see "Printing a board on
+  two small sheets".
 - **Zones keep their real names on the field board's own assignment rows**,
   not the team board any more -- see "The zone-assignment rows". A coach's own
   goal is the home goal for one of them and the visitors goal for the other,
@@ -156,6 +159,60 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   drawing it. **The team board is the exception and measures in inches**
   throughout -- see "The team board".
 - `print/` is generated output and is gitignored, like `cards/`.
+
+## Printing a board on two small sheets
+
+`render_field_board_halves` writes the field board a second way: two letter
+sheets, `field-board-7-top.png` and `field-board-7-bottom.png`, which taped
+along the cut are the tabloid board. So a print run comes out with two
+ledger-size field boards and four letter-size halves, and a house with a
+letter printer and no tabloid one can still put the real board on the table.
+`--no-halves` leaves them out.
+
+- **A half is a cut of the finished picture, never a second layout.**
+  `halve_sheet` crops the rendered board in two and that is the whole of it.
+  Re-laying the board out for the smaller paper would have printed a
+  *different game* -- a space is the width the sheet's own arithmetic gives
+  it (`FieldGeometry.space_width`), and a board laid out on letter would have
+  narrower ones. `test_the_two_halves_are_the_board` pastes the two back
+  together and compares the result with the board pixel for pixel, the same
+  check `test_two_boards_are_a_page_and_they_are_the_same_board` makes of the
+  team board's page and for the same reason: two pictures that are supposed
+  to be one should be one by construction, not by hoping two renders agree.
+- **Half a tabloid sheet is exactly a letter sheet, turned the other way**,
+  and that is the only reason any of this works: 11 x 17 halves into 11 x 8.5,
+  which is letter landscape to the pixel at 300dpi, so nothing is scaled and
+  the printed board is the size it says it is. `HALF_PAPERS` is that pairing
+  as data -- tabloid into letter, A3 into A4 by the same ISO property -- and
+  `test_every_paper_that_names_its_halves_really_halves_into_it` checks it in
+  pixels rather than in inches, because the rounding is where a half-pixel
+  would hide. A paper that halves into nothing standard is **absent from the
+  table rather than approximated**: the halves still render, `half_paper`
+  answers `None`, and the CLI says as much instead of naming a size a printer
+  does not stock.
+- **Where the cut lands is not a choice, so the layout is what is checked.**
+  Both halves have to fit the paper below, and only the exact middle gives two
+  that do -- so the seam falls wherever the board's bands happen to put it,
+  which on the field board is across the strip, a little under half way down
+  a space. Nothing is moved to dodge it, because moving it would change the
+  board the tabloid sheet prints. What the suite guards instead is that the
+  middle of the sheet keeps landing somewhere a seam is harmless:
+  `test_the_cut_falls_across_the_strip_and_clear_of_its_words` fails if it
+  ever crosses the header, a zone-assignment row or the strip's own labels.
+  The strip is the safe place because it is tints and outlines -- its zone
+  names and space codes are all hung from its top, which is what
+  `FieldGeometry.strip_label_bottom` measures. That measurement moved onto the
+  geometry from inside `draw_field_strip` for this: a band measured twice is
+  the fault the team board's footer records below.
+- **The board is halved before any bleed, and each half is bled on its own.**
+  A half is a sheet a shop trims like any other, and trimming into the margin
+  takes it back off the seam, so the two still butt together. Bleeding the
+  sheet and then cutting it would have put half a margin down the middle of
+  the field and none on two of the outer edges.
+- **The jumbotron is not split.** It is a tabloid sheet too and would halve
+  into two letter portrait sheets the same way (`halve_sheet` cuts a landscape
+  sheet across its width), but nobody has asked for it and a seam through the
+  clock rows has not been looked at.
 
 ## The team board
 

@@ -22,6 +22,7 @@ from d12ball.boards import (
     CLOCK_MINUTES,
     DEFAULT_PAPER,
     HALFTIME_MINUTE,
+    HALF_PAPERS,
     MIN_TOKEN_INCHES,
     PRINT_DPI,
     SCORE_TRACK_MAX,
@@ -36,8 +37,11 @@ from d12ball.boards import (
     draw_formation_strip,
     fitted_print_font,
     formation_strip_segments,
+    half_paper,
+    halve_sheet,
     kickoff_marks,
     render_field_board,
+    render_field_board_halves,
     render_jumbotron_board,
     load_token_art,
     render_team_board,
@@ -182,6 +186,142 @@ class D12BallFieldBoardTests(unittest.TestCase):
         self.assertLess(geometry.visiting_zone_bottom, geometry.header_top)
         self.assertLess(geometry.range_bottom, geometry.home_zone_top)
         self.assertLessEqual(geometry.home_zone_bottom, sheet.height)
+
+
+class D12BallHalfSheetTests(unittest.TestCase):
+    """
+    The field board printed on two small sheets instead of one big one.
+
+    The whole claim of the halves is that they are the board -- print
+    them, tape the cut, and a coach has the tabloid board at the size
+    it prints at. So what the suite checks is that nothing has been
+    re-laid-out behind that claim, and that the cut still lands where
+    the halves can be taped without a word across the seam.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.rules = load_basic_ruleset()
+
+    def test_the_two_halves_are_the_board(self) -> None:
+        """
+        **The invariant the halves exist for**, and the one a second
+        layout for the smaller paper would break silently: pasted back
+        together they are the sheet, pixel for pixel, so a space is
+        the width it is on the tabloid board rather than whatever fits
+        a letter one.
+        """
+        for board_size in sorted(self.rules.board_layouts):
+            with self.subTest(board_size=board_size):
+                board = render_field_board(self.rules, board_size)
+                top, bottom = render_field_board_halves(
+                    self.rules, board_size
+                )
+                joined = Image.new("RGB", board.size)
+                joined.paste(top, (0, 0))
+                joined.paste(bottom, (0, top.height))
+                self.assertEqual(joined.tobytes(), board.tobytes())
+
+    def test_a_half_is_a_sheet_of_the_paper_below(self) -> None:
+        """
+        Half a tabloid sheet is a letter one turned the other way, to
+        the pixel -- which is the only reason this works at all. A half
+        that had to be scaled to fit its paper would be a smaller
+        board, not the same one.
+        """
+        halved = half_paper(DEFAULT_PAPER)
+        self.assertEqual(halved, "letter")
+        for board_size in sorted(self.rules.board_layouts):
+            for name, half in zip(
+                ("top", "bottom"),
+                render_field_board_halves(self.rules, board_size),
+            ):
+                with self.subTest(board_size=board_size, half=name):
+                    self.assertEqual(
+                        half.size, sheet_pixels(halved, landscape=True)
+                    )
+
+    def test_every_paper_that_names_its_halves_really_halves_into_it(
+        self,
+    ) -> None:
+        for paper, halved in HALF_PAPERS.items():
+            with self.subTest(paper=paper):
+                width, height = sheet_pixels(paper, landscape=False)
+                self.assertEqual(
+                    (width, height // 2),
+                    sheet_pixels(halved, landscape=True),
+                )
+                self.assertEqual(height % 2, 0)
+
+    def test_a_paper_that_halves_into_nothing_standard_says_so(
+        self,
+    ) -> None:
+        """Absent rather than approximated -- it still renders."""
+        self.assertIsNone(half_paper("letter"))
+        with self.assertRaises(ValueError):
+            half_paper("a0")
+
+    def test_the_cut_falls_across_the_strip_and_clear_of_its_words(
+        self,
+    ) -> None:
+        """
+        Where the cut lands is not a choice -- only the exact middle
+        gives two halves that both fit the paper -- so this is a check
+        on the *layout*: if a band ever moves so that the middle of the
+        sheet crosses the header, a zone-assignment row or the strip's
+        own labels, the halves start cutting words in two and somebody
+        should look at the picture before shipping them.
+
+        The strip is the safe place for a seam because it is tints and
+        outlines: its zone names and space codes are all hung from its
+        top, which is what `strip_label_bottom` measures.
+        """
+        width, height = sheet_pixels(DEFAULT_PAPER, landscape=False)
+        seam = height // 2
+        for board_size in sorted(self.rules.board_layouts):
+            with self.subTest(board_size=board_size):
+                geometry = FieldGeometry.for_sheet(
+                    Sheet(width, height),
+                    self.rules.board_layouts[board_size],
+                )
+                self.assertLess(seam, geometry.strip_bottom)
+                self.assertGreater(
+                    (seam - geometry.strip_label_bottom) / PRINT_DPI,
+                    MIN_TOKEN_INCHES,
+                )
+
+    def test_each_half_gets_its_own_bleed_and_the_cut_gets_none(
+        self,
+    ) -> None:
+        """
+        The board is halved first and each half bled after, so the two
+        still butt together once a shop has trimmed into the margin --
+        bleeding the sheet and then cutting it would put half the
+        margin down the seam and none on two of the outer edges.
+        """
+        plain = render_field_board_halves(self.rules, 7)
+        bled = render_field_board_halves(self.rules, 7, bleed=True)
+        bleed = 2 * round(BLEED_INCHES * PRINT_DPI)
+        for name, before, after in zip(("top", "bottom"), plain, bled):
+            with self.subTest(half=name):
+                self.assertEqual(after.width - before.width, bleed)
+                self.assertEqual(after.height - before.height, bleed)
+
+    def test_a_sheet_is_cut_across_its_longer_side(self) -> None:
+        """
+        Top and bottom for a portrait sheet, left and right for a
+        landscape one -- the cut that leaves two halves of the paper
+        below, whichever way the board is drawn.
+        """
+        portrait = halve_sheet(Image.new("RGB", (10, 20)))
+        self.assertEqual([half.size for half in portrait], [(10, 10)] * 2)
+        landscape = halve_sheet(Image.new("RGB", (20, 10)))
+        self.assertEqual([half.size for half in landscape], [(10, 10)] * 2)
+
+    def test_an_odd_sheet_still_halves_into_the_whole_of_it(self) -> None:
+        """The spare pixel goes to the second half rather than nowhere."""
+        first, second = halve_sheet(Image.new("RGB", (10, 21)))
+        self.assertEqual((first.height, second.height), (10, 11))
 
 
 class D12BallTeamBoardTests(unittest.TestCase):

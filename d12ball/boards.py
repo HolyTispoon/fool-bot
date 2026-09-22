@@ -108,6 +108,22 @@ PAPERS: dict[str, tuple[float, float]] = {
 }
 DEFAULT_PAPER = "tabloid"
 
+# What a sheet's two halves are, when they are a paper of their own.
+#
+# A board drawn on one of these prints **either way**: whole on the
+# sheet, or as two halves on the paper below it, butted back together
+# to the same board. The cut is across the long dimension, so a half
+# keeps the sheet's full width and half its length -- which on both of
+# these pairs is exactly the next size down, turned the other way
+# (tabloid's 11 x 17 halves into 11 x 8.5, a letter sheet landscape;
+# A3's into A4 by the same ISO property). Papers that halve into
+# nothing standard are absent rather than approximated: the halves
+# still render, they are just not a size a printer stocks.
+HALF_PAPERS: dict[str, str] = {
+    "tabloid": "letter",
+    "a3": "a4",
+}
+
 # Poker size, the maneuver cards' own -- the player cards share their
 # proportions with it on the bot's board (CARD_SIZE is 110 x 154), so
 # the areas that hold them are cut for it.
@@ -379,6 +395,52 @@ def add_bleed(image: Image.Image, background: str = FACE_COLOR) -> Image.Image:
     return sheet
 
 
+def half_paper(paper: str) -> Optional[str]:
+    """The paper a sheet's two halves are, or `None` if it is not one."""
+    if paper not in PAPERS:
+        raise ValueError(
+            f"Unknown paper size {paper!r}; expected one of "
+            f"{', '.join(sorted(PAPERS))}."
+        )
+    return HALF_PAPERS.get(paper)
+
+
+def halve_sheet(image: Image.Image) -> tuple[Image.Image, Image.Image]:
+    """
+    Cut a rendered sheet in two across its longer dimension.
+
+    **It is a cut of the finished picture, not a second layout**, which
+    is the whole of why it is safe: the two halves butted back together
+    are the sheet, pixel for pixel, so a board printed on two small
+    sheets is the same board -- the same space width, the same card
+    rows -- as the one printed on one big one. Re-laying a board out
+    for a smaller paper would print a different game.
+
+    Where the cut lands is not a choice either. A half has to fit the
+    paper below, and only the exact middle gives two halves that both
+    do, so the seam falls wherever the layout happens to put it -- on
+    the field board, across the strip. See "Printing a board on two
+    small sheets" in docs/design/printed-boards.md.
+
+    The halves are returned in reading order: top and bottom for a
+    portrait sheet, left and right for a landscape one. An odd length
+    gives the second half the spare pixel, so the two still sum to the
+    whole.
+    """
+    width, height = image.size
+    if height >= width:
+        cut = height // 2
+        return (
+            image.crop((0, 0, width, cut)),
+            image.crop((0, cut, width, height)),
+        )
+    cut = width // 2
+    return (
+        image.crop((0, 0, cut, height)),
+        image.crop((cut, 0, width, height)),
+    )
+
+
 # ---------------------------------------------------------------- field
 
 
@@ -422,6 +484,7 @@ class FieldGeometry:
     direction_top: float
     direction_bottom: float
     strip_top: float
+    strip_label_bottom: float
     strip_bottom: float
     range_top: float
     range_bottom: float
@@ -484,6 +547,14 @@ class FieldGeometry:
         strip_bottom = strip_top + strip
         range_top = strip_bottom + gap
 
+        # The band across the top of the strip that carries the zone
+        # names, with the space codes hung immediately under it. It is
+        # measured here rather than in `draw_field_strip` because it is
+        # also the answer to "how far down the strip do its own words
+        # reach" -- which is what says whether a half-sheet cut lands
+        # clear of them; see `halve_sheet`.
+        strip_label_bottom = strip_top + sheet.u(34)
+
         return cls(
             left=left,
             right=right,
@@ -494,6 +565,7 @@ class FieldGeometry:
             direction_top=direction_top,
             direction_bottom=direction_bottom,
             strip_top=strip_top,
+            strip_label_bottom=strip_label_bottom,
             strip_bottom=strip_bottom,
             range_top=range_top,
             range_bottom=range_top + ranges,
@@ -563,6 +635,40 @@ def render_field_board(
     draw_zone_assignment_rows(sheet, geometry, layout)
 
     return add_bleed(sheet.image) if bleed else sheet.image
+
+
+def render_field_board_halves(
+    rules: BasicRuleset,
+    board_size: int = 7,
+    paper: str = DEFAULT_PAPER,
+    bleed: bool = False,
+) -> tuple[Image.Image, Image.Image]:
+    """
+    **The same field board, on two sheets of the paper below** -- the
+    top half and the bottom half, taped along the cut to make the board
+    `render_field_board` draws whole.
+
+    It is for the printer a house actually has: the field board is
+    tabloid, and a letter printer cannot print it at all otherwise,
+    where scaling it to fit would hand a coach a board whose spaces are
+    too small to stand two meeples on. Two letter sheets print it at
+    its real size.
+
+    The cut is `halve_sheet`'s -- the finished board, halved, never
+    re-laid-out for the smaller paper -- so the seam runs across the
+    strip, a little above the middle of a space. That is the cost of
+    both halves fitting the paper; nothing is moved to dodge it,
+    because moving it would change the board the tabloid sheet prints.
+
+    **The board is halved before any bleed, and each half gets its
+    own.** A half is a sheet a printer trims like any other, and
+    trimming into the bleed takes the added margin back off the seam,
+    so the two still butt together.
+    """
+    top, bottom = halve_sheet(
+        render_field_board(rules, board_size, paper=paper)
+    )
+    return (add_bleed(top), add_bleed(bottom)) if bleed else (top, bottom)
 
 
 def draw_field_header(
@@ -674,7 +780,7 @@ def draw_field_strip(
     # than free over the spaces, which is where it collided with the
     # space codes -- the same band the bot's board leaves above its
     # spaces, for the same reason.
-    band_bottom = top + sheet.u(34)
+    band_bottom = geometry.strip_label_bottom
     code_face = sheet.font(15, bold=True)
     labels = zone_labels(layout.board_size)
 
