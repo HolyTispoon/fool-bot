@@ -43,6 +43,7 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.engine import RulesEngine
+from d12ball.wire import jsonable
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
@@ -1401,6 +1402,15 @@ class MindPullRoll:
     roll: int
     pulled: bool
     ignite: object
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "mind_pull",
+            "player_id": self.player_id,
+            "roll": self.roll,
+            "pulled": self.pulled,
+            "ignite": jsonable(self.ignite),
+        }
 
 
 def decline_mind_pull_step(

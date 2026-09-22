@@ -66,6 +66,7 @@ from d12ball.formatting import (
     space_label,
 )
 from d12ball.game import D12BallGame, Formation
+from d12ball.wire import jsonable
 from d12ball import tutorial
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -181,6 +182,35 @@ class PendingPrompt:
     #: nothing to choose (the tutorial's Continue, the finished game).
     options: Optional[PromptOptions] = None
 
+    def to_dict(self) -> dict:
+        """
+        The question as JSON, for a frontend that renders it over a
+        wire -- `d12ball.wire`. It is written and never read back: what
+        comes the other way is an `Action`, checked against the
+        position rather than against this.
+
+        Every field is here, the options included, because a web page
+        builds its controls from the same list a view builds its
+        buttons from and nothing else (CLAUDE.md, "State and saves").
+        `ask` carries the model's tokens as it stands; rendering them
+        is the frontend's, at its own door.
+        """
+        return {
+            "kind": self.kind.value,
+            "ask": self.ask,
+            "player_ids": list(self.player_ids),
+            "player_id": self.player_id,
+            "side": None if self.side is None else TeamSide(self.side).value,
+            "maneuver_key": self.maneuver_key,
+            "skill_type": self.skill_type,
+            "free": self.free,
+            "distance_moved": self.distance_moved,
+            "contest_on_decline": self.contest_on_decline,
+            "options": (
+                None if self.options is None else self.options.to_dict()
+            ),
+        }
+
 
 @dataclass(frozen=True)
 class Action:
@@ -221,6 +251,42 @@ class Action:
     choice: str = ""
     arguments: Mapping[str, Any] = field(default_factory=dict)
 
+    def to_dict(self) -> dict:
+        """What was chosen, as JSON."""
+        return {
+            "kind": self.kind.value,
+            "choice": self.choice,
+            "arguments": jsonable(dict(self.arguments)),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "Action":
+        """
+        An action off the wire -- **the one thing a frontend sends
+        back**, and the only `from_dict` in `d12ball.wire`'s half of
+        the world.
+
+        The kind is built rather than taken as it arrives: `Action.kind`
+        is compared to the prompt's by identity, so a kind left as the
+        string a request carried is not the member it names and every
+        such action would be refused as a stale click, which is a
+        sentence about the game for what is a malformed request
+        (finding 10 of docs/web-app.md). `PromptKind(...)` raises
+        `ValueError` for a name the game does not have, which is the
+        frontend's to answer at its door: nothing here has touched a
+        game yet.
+
+        The arguments are left as they arrive. They are what a person
+        chose -- a space, a player, a distance -- and what each means is
+        the adapter's (`d12ball.flow.driver.ANSWERS`), which is also
+        where a `side` or a `formation` becomes the model's own type.
+        """
+        return cls(
+            kind=PromptKind(data["kind"]),
+            choice=data.get("choice") or "",
+            arguments=dict(data.get("arguments") or {}),
+        )
+
 
 # -- What each kind offers ------------------------------------------
 #
@@ -246,6 +312,9 @@ class PlayerOptions:
 
     player_ids: tuple[str, ...]
 
+    def to_dict(self) -> dict:
+        return {"shape": "player", "player_ids": list(self.player_ids)}
+
 
 @dataclass(frozen=True)
 class SendOptions:
@@ -262,12 +331,23 @@ class SendOptions:
     may_decline: bool
     decline_railed: bool = False
 
+    def to_dict(self) -> dict:
+        return {
+            "shape": "send",
+            "player_ids": list(self.player_ids),
+            "may_decline": self.may_decline,
+            "decline_railed": self.decline_railed,
+        }
+
 
 @dataclass(frozen=True)
 class SpaceOptions:
     """RUN_BACK_SPACE: where the prompt's player may run back to."""
 
     space_indices: tuple[int, ...]
+
+    def to_dict(self) -> dict:
+        return {"shape": "space", "space_indices": list(self.space_indices)}
 
 
 @dataclass(frozen=True)
@@ -281,6 +361,13 @@ class DistanceOptions:
     distances: tuple[int, ...]
     railed: Optional[int] = None
 
+    def to_dict(self) -> dict:
+        return {
+            "shape": "distance",
+            "distances": list(self.distances),
+            "railed": self.railed,
+        }
+
 
 @dataclass(frozen=True)
 class PassOption:
@@ -290,12 +377,24 @@ class PassOption:
     distance: int
     receiver_ids: tuple[str, ...]
 
+    def to_dict(self) -> dict:
+        return {
+            "distance": self.distance,
+            "receiver_ids": list(self.receiver_ids),
+        }
+
 
 @dataclass(frozen=True)
 class LowPassOptions:
     """LOW_PASS_CHOICE, plain, Skilled or free."""
 
     passes: tuple[PassOption, ...]
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "low_pass",
+            "passes": [option.to_dict() for option in self.passes],
+        }
 
 
 @dataclass(frozen=True)
@@ -304,6 +403,13 @@ class SpeedOptions:
 
     targets: tuple[int, ...]
     railed: Optional[int] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "speed",
+            "targets": list(self.targets),
+            "railed": self.railed,
+        }
 
 
 @dataclass(frozen=True)
@@ -318,6 +424,13 @@ class TurnOptions:
 
     actions: tuple[str, ...]
     live: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "turn",
+            "actions": list(self.actions),
+            "live": list(self.live),
+        }
 
 
 @dataclass(frozen=True)
@@ -335,6 +448,14 @@ class ManeuverHand:
     picked: bool
     railed: Optional[str] = None
 
+    def to_dict(self) -> dict:
+        return {
+            "side": self.side,
+            "maneuver_keys": list(self.maneuver_keys),
+            "picked": self.picked,
+            "railed": self.railed,
+        }
+
 
 @dataclass(frozen=True)
 class ManeuverOptions:
@@ -345,6 +466,12 @@ class ManeuverOptions:
     def owed(self) -> tuple[str, ...]:
         """The sides still to pick."""
         return tuple(hand.side for hand in self.hands if not hand.picked)
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "maneuver",
+            "hands": [hand.to_dict() for hand in self.hands],
+        }
 
 
 @dataclass(frozen=True)
@@ -361,6 +488,14 @@ class RollOptions:
     back: bool = False
     back_railed: bool = False
 
+    def to_dict(self) -> dict:
+        return {
+            "shape": "roll",
+            "overdrive_player_ids": list(self.overdrive_player_ids),
+            "back": self.back,
+            "back_railed": self.back_railed,
+        }
+
 
 @dataclass(frozen=True)
 class DecisionOptions:
@@ -374,6 +509,13 @@ class DecisionOptions:
     choices: tuple[str, ...]
     railed: Optional[str] = None
 
+    def to_dict(self) -> dict:
+        return {
+            "shape": "decision",
+            "choices": list(self.choices),
+            "railed": self.railed,
+        }
+
 
 @dataclass(frozen=True)
 class SwapOptions:
@@ -381,6 +523,12 @@ class SwapOptions:
 
     player_id: str
     partner_ids: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return {
+            "player_id": self.player_id,
+            "partner_ids": list(self.partner_ids),
+        }
 
 
 @dataclass(frozen=True)
@@ -392,6 +540,12 @@ class RepositionSpace:
     space_index: int
     trade_with: tuple[str, ...]
 
+    def to_dict(self) -> dict:
+        return {
+            "space_index": self.space_index,
+            "trade_with": list(self.trade_with),
+        }
+
 
 @dataclass(frozen=True)
 class RepositionOptions:
@@ -401,6 +555,12 @@ class RepositionOptions:
 
     player_id: str
     spaces: tuple[RepositionSpace, ...]
+
+    def to_dict(self) -> dict:
+        return {
+            "player_id": self.player_id,
+            "spaces": [space.to_dict() for space in self.spaces],
+        }
 
 
 @dataclass(frozen=True)
@@ -427,6 +587,27 @@ class CoachingHubOptions:
     #: frontend may grey the button with it.
     finish_refusal: Optional[str] = None
 
+    def to_dict(self) -> dict:
+        return {
+            "shape": "coaching_hub",
+            "formations": [
+                Formation(formation).value for formation in self.formations
+            ],
+            "current_formation": (
+                None
+                if self.current_formation is None
+                else Formation(self.current_formation).value
+            ),
+            "may_substitute": self.may_substitute,
+            "outgoing_ids": list(self.outgoing_ids),
+            "incoming_ids": list(self.incoming_ids),
+            "swaps": [swap.to_dict() for swap in self.swaps],
+            "repositions": [
+                reposition.to_dict() for reposition in self.repositions
+            ],
+            "finish_refusal": self.finish_refusal,
+        }
+
 
 @dataclass(frozen=True)
 class SidePlayers:
@@ -436,6 +617,12 @@ class SidePlayers:
 
     side: TeamSide
     player_ids: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return {
+            "side": TeamSide(self.side).value,
+            "player_ids": list(self.player_ids),
+        }
 
 
 @dataclass(frozen=True)
@@ -455,6 +642,12 @@ class ShootoutOptions:
             if entry.side == side:
                 return entry.player_ids
         return ()
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "shootout",
+            "sides": [entry.to_dict() for entry in self.sides],
+        }
 
 
 PromptOptions = Union[

@@ -50,6 +50,7 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.engine import RulesEngine
+from d12ball.wire import jsonable
 from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turn import record_maneuver, scripted_or_random, tutorial_beat
@@ -966,6 +967,16 @@ class OwnGoalRoll:
     safe: bool
     ignite: Optional[object]
     overdrive: int
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "own_goal",
+            "rolls": list(self.rolls),
+            "offense_skill": self.offense_skill,
+            "safe": self.safe,
+            "ignite": jsonable(self.ignite),
+            "overdrive": self.overdrive,
+        }
 
 
 def own_goal_roll_step(

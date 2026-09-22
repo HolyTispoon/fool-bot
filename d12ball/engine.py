@@ -196,6 +196,15 @@ class IgnitedRoll:
             f"**burns**: **{self.modifier:+d}** to their roll."
         )
 
+    def to_dict(self) -> dict:
+        """The die, as a frontend with no dice image reads it."""
+        return {
+            "face": self.face,
+            "modifier": self.modifier,
+            "second": self.second,
+            "blaze": self.blaze,
+        }
+
 
 # The halftime sequence's stages, in order -- see
 # RulesEngine.next_halftime_stage. Each side gets its own
