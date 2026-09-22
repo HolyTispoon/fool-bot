@@ -592,6 +592,66 @@ presses **every control of every fixture** through `apply_action`,
 asserting none is refused -- principle 10 as a thing that can be run.
 The goldens did not change.
 
+## Read again after step 10, 2026-09-22
+
+A second read of the code against ARCHITECTURE.md once every step had
+landed, and what it changed (branch `simplify-to-architecture`).
+
+**Rules still decided by a button.** Six, all in the views, and one
+each in the web page beside them: the run back's price and zone, the
+challenger's walk-in and the contestant's reach, the reposition's zone,
+which side of the board a maneuver hand is, and whether an empty Setup
+Pass menu is a pass out of play were measured off the match by both
+frontends; the Dribble Burst's exhaustion price was the Playmaker
+discount copied from the step; the Fullback's fourth distance was
+`distance == 4` in a label; a tutorial coach taking Home was a disabled
+button and nothing else; the low pass view asked the engine for the
+receivers it had already been handed; the shootout views and the
+coaching views read whose menu was owed off the match rather than the
+prompt; the coin flip pre-checked the record's own refusal and spelled
+its sentence again. Each is the options', the engine's or the record's
+now -- see "Tokens" and the options paragraph in
+[design/model-discord-split.md](design/model-discord-split.md).
+
+**Rules still in the cog.** `/d12ball offensive_choice` held a
+seven-branch ladder over the match's pending flags;
+`restore_shootout_menus` decided which side owed which answer off four
+match fields. The first reads `RulesEngine.turn_in_progress` and goes
+through `GameService.reset_turn`; the second reads
+`ShootoutOptions.owed`.
+
+**Plumbing.** `CHOICES` and `DecisionOptions` spelled the same answer
+pairs twice, in the driver and in the prompts; `ADVANCE_SHOOTOUT` had
+no producer; `driver.waiting_on` was `pending_prompt` under a second
+name; three parameters on `driver.apply` and two on `run_step` were
+passed by nobody; the cog spelled `present(rendered(...))` four times,
+the one-message-per-block tail three times and the `DiscordTokens`
+constructor twice; `cogs/d12ball/constants.py` duplicated the flow's
+run-back bound; `suppressed_view_saves` patched nothing at fifty-three
+call sites; the test stub routing wrapped five cog methods by name
+where wrapping the `service` property once covers every entry point.
+
+**Left as it is, deliberately.** The admin commands that edit the
+position by hand still mutate `MatchState` and write through
+`service.persist`, which CLAUDE.md allows and a service method per
+command would not simplify. The `to_dict` wire tree (`d12ball/wire.py`,
+the option shapes' `to_dict`s) has one consumer,
+`tests/test_wire_shapes.py`, because `webapp/present.py` builds its
+payload off the dataclasses directly -- either the page should answer
+with `result.to_dict()` or the tree should go, and that is the author's
+call. `Narration` and `NarrationGroup` are two dataclasses for one
+thing. The two near-empty mixins (`cogs/d12ball/effects.py`,
+`turnovers.py`) argue for folding into `presentation.py`, which is a
+change to the map. `tests/cog_steps.py` (ninety-odd wrappers, 197 test
+methods) and the 155 `cog.<step> = AsyncMock()` stubs behind
+`driver_reaches_cog_stubs` are the last transitional test shape;
+retiring them means rewriting those tests onto `driver.apply` and the
+`GameResult`, file by file. The web app shares the cog's service and so
+inherits `DiscordBatching`, which principle 8 says it should not; a
+batching of its own needs a second service over the same games. And
+the hundred-odd comments that cite this worksheet by step number are
+still here, for the reason below.
+
 ## Where this leaves the two worksheets
 
 The migration is done, and by the convention at the top of this file
