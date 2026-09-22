@@ -151,6 +151,38 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-22 (newest) -- author, the second half starts at 15 rather than 16
+
+**A rule changed.** *"Halftime should start at 15, not 16"* (the author). The clock's two
+periods are now **00-15 and 15-30**: the first half's last minute is unchanged, and the
+number the whistle puts on the scoreboard comes down by one.
+
+- **The first half is untouched.** It still runs from 00, last possession is still declared
+  when the clock reaches 15, and it still overruns for as long as that possession does. What
+  moved is only where the second half picks up.
+- **Each half now gets the same fifteen minutes of play**, from its own kickoff: 00 to 15 and
+  15 to 30. This settles the other way round the question the 2026-08-15 entry below
+  recorded -- there the author read the halves as spans of numbers and took 16-30 over
+  16-31, accepting that a second half kicking off at 16 had already spent a minute the first
+  had not. Moving the start back to 15 buys that minute back without moving the end.
+- **The two 15s are the collision now, where 16 and up were before.** A first-half goal in
+  the 15th minute and a second-half goal in the 15th are the same number, so the **(FH)**
+  marker on the goal log moves with the start: it marks a first-half goal **at or past** the
+  minute the second half begins on, rather than past the first half's last minute. Those were
+  the same test while the second half started at 16. Everything above 15 collides exactly as
+  it did.
+- **"Where does the second half begin" is its own number.** It was the first half's last
+  minute plus one, and it no longer is; the whistle, the goal marker and the printed clock
+  track all read `SECOND_HALF_START_MINUTE` instead of adding one to 15.
+- **The printed jumbotron's clock track gains a cell.** 15 gets a cell in each band -- the
+  first half's bordered and captioned *last possession*, the second half's a plain cell it
+  kicks off from. That makes both bands sixteen cells, so the track is four full rows of
+  eight with no spare slot, where the second half's last row used to be a cell short.
+- **A game already in its second half when this landed keeps the clock it had.** Nothing
+  migrates a saved scoreboard, for the reason nothing migrated it in August: the alternative
+  is rewriting a live game's clock on load, and both developers run the bot against their own
+  saves.
+
 ### 2026-09-22 (latest) -- author, the six-space board is withdrawn
 
 **A rule changed.** D12 Ball is played on a board of **7 or 9 spaces**. The six-space board

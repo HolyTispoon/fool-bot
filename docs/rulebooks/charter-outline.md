@@ -40,7 +40,7 @@ living-rules heading it is under today.
 *From:* The game in brief.
 
 - 1.1 Two coaches, nine players each, six on the field.
-- 1.2 Two periods on one clock, 00-15 and 16-30.
+- 1.2 Two periods on one clock, 00-15 and 15-30.
 - 1.3 The turn: the team in possession shoots, maneuvers or calls a
   time out; whoever has the ball takes the next turn.
 - 1.4 Winning: the higher score at full time; a level score goes to the
@@ -299,7 +299,7 @@ lists only the four basic changes.
   nothing after it; the clock runs through it.
 - 16.4 Halftime: recovery; the visitors' Coaching Choice then home's,
   two substitutions each and counted against neither half; the second
-  half starts at 16; a goal is recorded with its period.
+  half starts at 15; a goal is recorded with its period.
 - 16.5 Full time: the first turnover under last possession; the higher
   score; a level score to the shootout after one substitution each.
 

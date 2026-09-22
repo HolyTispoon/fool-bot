@@ -54,7 +54,7 @@ The whole of D12 Ball in basic mode, Laws 1 to 17. Nothing in Part I depends on 
 
 Two coaches each control a team of nine players: six on the field and three on the bench.
 
-The game runs over two periods on a single clock, the first from minute 00 to minute 15 and the second from 16 to 30.
+The game runs over two periods on a single clock, the first from minute 00 to minute 15 and the second from 15 to 30.
 
 The team in possession takes a turn. It shoots if the ball is in its shooting range, and otherwise plays a maneuver against a defender or calls a time out to buy both coaches a pause. Whichever team has the ball when a turn ends takes the next one.
 
@@ -794,7 +794,7 @@ Nothing else recovers a token.
 
 ### One clock
 
-One clock runs over both periods: the first half from 00 through 15, the second from 16 through 30. **It does not stop.**
+One clock runs over both periods: the first half from 00 through 15, the second from 15 through 30. **It does not stop.**
 
 ### Space minutes
 
@@ -827,7 +827,7 @@ The visitors take a [Coaching Choice](#coaching-choice) and then home takes one,
 
 Each coach finishes with a player on their own kickoff space.
 
-**The second half starts at 16** however far past 15 the first half ran, with the visitors kicking off from their own kickoff space at speed 1. So minutes 16 and up can occur twice in a game -- once in a first half's last possession and once in the second half proper -- which is why a goal is recorded with its period as well as its minute.
+**The second half starts at 15** however far past 15 the first half ran, with the visitors kicking off from their own kickoff space at speed 1. Each half therefore gets the same fifteen minutes of play from its own kickoff. So minutes 15 and up can occur twice in a game -- once in the first half and once in the second -- which is why a goal is recorded with its period as well as its minute.
 
 ### Full time
 
