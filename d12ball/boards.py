@@ -1537,26 +1537,34 @@ def draw_clock_track_frame(sheet: Sheet, track: ClockTrackGeometry) -> None:
         outline=PANEL_EDGE,
         width=sheet.u(2),
     )
+    # Centred in the strip the panel keeps for its title, not hung off
+    # the top of it: hung, the line sat two hundredths of an inch over
+    # the half's own label, and the two read as one paragraph.
     sheet.text(
-        (track.cells_left, track.top + sheet.u(10)),
+        (track.cells_left, (track.top + track.cells_top) / 2),
         "CLOCK  ·  SPACE MINUTES",
-        sheet.font(17, bold=True),
+        sheet.font(15, bold=True),
         MUTED,
+        anchor="lm",
     )
 
 
 def draw_clock_half_bands(sheet: Sheet, track: ClockTrackGeometry) -> None:
-    band_face = sheet.font(17, bold=True)
+    band_face = sheet.font(14, bold=True)
     for band, (first, last_minute) in enumerate(
         ((0, HALFTIME_MINUTE), (HALFTIME_MINUTE + 1, CLOCK_MINUTES))
     ):
         label_top = track.cell_origin(first)[1] - track.band_label
+        # Centred in its own strip, for the reason the panel title is:
+        # a label that clears the row under it by a hair and the line
+        # over it by less is a label neither of them owns.
         sheet.text(
-            (track.cells_left, label_top + track.band_label * 0.1),
+            (track.cells_left, label_top + track.band_label / 2),
             f"{'FIRST' if not band else 'SECOND'} HALF  ·  "
             f"{first:02d}-{last_minute:02d}",
             band_face,
             INK,
+            anchor="lm",
         )
 
 
