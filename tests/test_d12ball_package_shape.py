@@ -291,11 +291,12 @@ class FollowOnStepTests(unittest.TestCase):
         # Step 5 of docs/architecture-migration.md: the steps the bot
         # owes on a position nobody is asked anything on, named by
         # `d12ball.prompts.owed_step` and run by `GameService.resume`.
+        # Step 7 took `RUN_AI_COACHING_WINDOW` back out: an AI side's
+        # window is a prompt it answers through the service.
         "ADVANCE_SETUP_STAGE",
         "ADVANCE_HALFTIME_STAGE",
         "ADVANCE_FULL_TIME_STAGE",
         "ADVANCE_SHOOTOUT",
-        "RUN_AI_COACHING_WINDOW",
         "FINISH_TIME_OUT",
         "BEGIN_BALL_RECOVERY",
     }

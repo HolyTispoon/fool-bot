@@ -283,23 +283,21 @@ class FollowOnStep(Enum):
     #: **The steps the bot itself owes**, which `d12ball.prompts.owed_step`
     #: names for a position nobody is asked anything on: the next stage
     #: of setup, halftime or full time where no window is open; the
-    #: shootout's next step where an AI side's order or shooter is
-    #: still to be set; an AI side's Coaching Choice, which is a
-    #: routine and not a menu; the tail of a time out once both windows
-    #: have closed; the out-of-bounds pickup where the side is the
-    #: AI's or nobody need move. Added by step 5 of
-    #: docs/architecture-migration.md, when the recovery ladder in
-    #: `GameService.resume` stopped calling the flow functions by name
-    #: and started running whatever `owed_step` hands it -- so a
-    #: restart, a resume and a web request all read the same answer
-    #: to "is anybody asked here?". Every one of these is also called
-    #: inline by the step that ordinarily reaches it; the member is the
-    #: door a resume comes back in through.
+    #: shootout's next step; the tail of a time out once both windows
+    #: have closed; the out-of-bounds pickup where nobody need move.
+    #: Added by step 5 of docs/architecture-migration.md, when the
+    #: recovery ladder in `GameService.resume` stopped calling the flow
+    #: functions by name and started running whatever `owed_step`
+    #: hands it -- so a restart, a resume and a web request all read
+    #: the same answer to "is anybody asked here?". Every one of these
+    #: is also called inline by the step that ordinarily reaches it;
+    #: the member is the door a resume comes back in through. (Step 7
+    #: took `RUN_AI_COACHING_WINDOW` out again: an AI side's window is
+    #: a prompt it answers through the service, not a routine.)
     ADVANCE_SETUP_STAGE = auto()
     ADVANCE_HALFTIME_STAGE = auto()
     ADVANCE_FULL_TIME_STAGE = auto()
     ADVANCE_SHOOTOUT = auto()
-    RUN_AI_COACHING_WINDOW = auto()
     FINISH_TIME_OUT = auto()
     BEGIN_BALL_RECOVERY = auto()
 

@@ -101,6 +101,11 @@ class PromptCase:
     view: str
     build: Callable[[], PromptFixture]
     owed: str = ""
+    #: The question is the AI's: the kind and the ask are the model's
+    #: as for any prompt, but no view is built for it -- the service
+    #: answers it (`GameService.run`, step 7 of
+    #: docs/architecture-migration.md).
+    ai: bool = False
 
     @property
     def asked(self) -> bool:
@@ -111,6 +116,11 @@ class PromptCase:
 def owed_case(name: str, step: str, build: Callable[[], PromptFixture]):
     """A case the bot owes a step on: no kind, no view."""
     return PromptCase(name, "", "", build, owed=step)
+
+
+def ai_case(name: str, kind: str, build: Callable[[], PromptFixture]):
+    """A case the AI is asked on: a kind and an ask, and no view."""
+    return PromptCase(name, kind, "", build, ai=True)
 
 
 def build_game(**overrides) -> D12BallGame:
@@ -174,6 +184,7 @@ def setup_coaching() -> PromptFixture:
     match.open_coaching_window(TeamSide.HOME, CoachingOccasion.SETUP)
     return PromptFixture(
         build_game(), match, "Coaching Choice, before kickoff:",
+        {"side": TeamSide.HOME},
     )
 
 
@@ -191,6 +202,7 @@ def full_time_coaching() -> PromptFixture:
     match.open_coaching_window(TeamSide.HOME, CoachingOccasion.FULL_TIME)
     return PromptFixture(
         build_game(), match, "Coaching Choice, before the shootout:",
+        {"side": TeamSide.HOME},
     )
 
 
@@ -212,18 +224,26 @@ def halftime_extra_token() -> PromptFixture:
 
 
 def halftime_extra_token_for_the_ai() -> PromptFixture:
-    # An AI side takes its own token off: the stage's step, not a
-    # question.
+    # An AI side is asked the same question a coach is, and the
+    # service answers it.
     match = build_match()
     match.pending_halftime_stage = "extra_token_visiting"
-    return PromptFixture(build_game(player_2_id=None), match, "")
+    return PromptFixture(
+        build_game(player_2_id=None),
+        match,
+        "Halftime: choose a player to lose an extra exhaustion token.",
+        {"side": TeamSide.VISITING},
+    )
 
 
 def halftime_coaching() -> PromptFixture:
     match = build_match()
     match.pending_halftime_stage = "coaching_home"
     match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
-    return PromptFixture(build_game(), match, "Halftime Coaching Choice:")
+    return PromptFixture(
+        build_game(), match, "Halftime Coaching Choice:",
+        {"side": TeamSide.HOME},
+    )
 
 
 def halftime_stage_with_no_window() -> PromptFixture:
@@ -286,19 +306,27 @@ def shootout_order() -> PromptFixture:
     match = build_match()
     match.begin_shootout()
     return PromptFixture(
-        build_game(), match, "Extreme shootout — set your shooting order:",
+        build_game(),
+        match,
+        "### Extreme shootout\n<@111> and <@222>: set the order your six "
+        "players shoot in. Nobody else sees it.",
     )
 
 
 def shootout_order_for_the_ai() -> PromptFixture:
-    # The AI's order is set by the step itself, so a shootout still
-    # owing one is the bot's.
+    # The coach has set theirs; the AI's is the same question, one
+    # name at a time, answered by the service.
     match = build_match()
     match.begin_shootout()
     match.set_shootout_order(
         TeamSide.HOME, list(match.shootout_squad(TeamSide.HOME)),
     )
-    return PromptFixture(build_game(player_2_id=None), match, "")
+    return PromptFixture(
+        build_game(player_2_id=None),
+        match,
+        "### Extreme shootout\nPurple (Visiting): set the order your six "
+        "players shoot in. Nobody else sees it.",
+    )
 
 
 def shootout_test() -> PromptFixture:
@@ -319,7 +347,11 @@ def shootout_pick() -> PromptFixture:
     # pick prompt is only owed once the order has been played out.
     for _ in range(6):
         fixture.match.finish_shootout_test()
-    fixture.ask = "Extreme shootout — choose who shoots next:"
+    fixture.ask = (
+        f"{ENGINE.shootout_heading(fixture.match)}\n<@111> and <@222>: "
+        "choose who goes out next, from the players who have not shot "
+        "yet this round. Nobody else sees it until the reveal."
+    )
     return fixture
 
 
@@ -340,6 +372,7 @@ def time_out_window() -> PromptFixture:
     match.open_coaching_window(TeamSide.HOME, CoachingOccasion.TIME_OUT)
     return PromptFixture(
         build_game(), match, "Coaching Choice, on the time out:",
+        {"side": TeamSide.HOME},
     )
 
 
@@ -366,16 +399,22 @@ def coaching_offer() -> PromptFixture:
     match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
     return PromptFixture(
         build_game(), match, "Coaching Choice — coach, or pass?",
+        {"side": TeamSide.HOME},
     )
 
 
 def ai_coaching_window() -> PromptFixture:
-    # An AI side's window is a routine that runs to completion, so a
-    # restart in the middle of one leaves nobody to click anything.
+    # An AI side's window is the offer a coach gets, answered by the
+    # service one hub action at a time.
     match = build_match()
     take_the_ball(match)
     match.open_coaching_window(TeamSide.VISITING, CoachingOccasion.NEW_PLAY)
-    return PromptFixture(build_game(player_2_id=None), match, "")
+    return PromptFixture(
+        build_game(player_2_id=None),
+        match,
+        "Coaching Choice — coach, or pass?",
+        {"side": TeamSide.VISITING},
+    )
 
 
 def coaching_hub() -> PromptFixture:
@@ -452,13 +491,18 @@ def ball_recovery() -> PromptFixture:
 
 
 def ball_recovery_for_the_ai() -> PromptFixture:
-    # An AI side sends its nearest without being asked. The AI is
+    # An AI side is asked whom to send, like a coach. The AI is
     # always player 2, which is the visiting side here.
     match = build_match()
     match.ball.possession = TeamSide.VISITING
     _nobody_on_the_ball(match)
     match.pending_ball_recovery = True
-    return PromptFixture(build_game(player_2_id=None), match, "")
+    return PromptFixture(
+        build_game(player_2_id=None),
+        match,
+        "Send the nearest player either side of the ball to pick it "
+        f"up at {space_label(match.ball.zone, match.ball.space_index)}:",
+    )
 
 
 def ball_recovery_with_somebody_on_the_ball() -> PromptFixture:
@@ -849,8 +893,8 @@ CASES: tuple[PromptCase, ...] = (
               full_time_stage_with_no_window),
     PromptCase("halftime extra token", "HALFTIME_EXTRA_TOKEN",
                "HalftimeExtraTokenView", halftime_extra_token),
-    owed_case("halftime extra token, the AI's", "ADVANCE_HALFTIME_STAGE",
-              halftime_extra_token_for_the_ai),
+    ai_case("halftime extra token, the AI's", "HALFTIME_EXTRA_TOKEN",
+            halftime_extra_token_for_the_ai),
     PromptCase("halftime coaching", "COACHING_HUB", "CoachingHubView",
                halftime_coaching),
     owed_case("halftime stage, no window", "ADVANCE_HALFTIME_STAGE",
@@ -861,8 +905,8 @@ CASES: tuple[PromptCase, ...] = (
     PromptCase("own goal", "OWN_GOAL_ROLL", "OwnGoalRollView", own_goal),
     PromptCase("shootout order", "SHOOTOUT_ORDER", "ShootoutOrderPromptView",
                shootout_order),
-    owed_case("shootout order, the AI's", "ADVANCE_SHOOTOUT",
-              shootout_order_for_the_ai),
+    ai_case("shootout order, the AI's", "SHOOTOUT_ORDER",
+            shootout_order_for_the_ai),
     PromptCase("shootout pick", "SHOOTOUT_PICK", "ShootoutPickPromptView",
                shootout_pick),
     PromptCase("shootout test", "SHOOTOUT_TEST", "ShootoutTestView",
@@ -876,8 +920,7 @@ CASES: tuple[PromptCase, ...] = (
                coaching_offer),
     PromptCase("coaching hub", "COACHING_HUB", "CoachingHubView",
                coaching_hub),
-    owed_case("the AI's window", "RUN_AI_COACHING_WINDOW",
-              ai_coaching_window),
+    ai_case("the AI's window", "COACHING_OFFER", ai_coaching_window),
     PromptCase("run back, where", "RUN_BACK_SPACE", "RunBackChoiceView",
                run_back_space),
     PromptCase("run back, who", "RUN_BACK_PLAYER", "RunBackPlayerChoiceView",
@@ -886,8 +929,8 @@ CASES: tuple[PromptCase, ...] = (
               run_back_finished),
     PromptCase("ball recovery", "BALL_RECOVERY", "BallRecoveryView",
                ball_recovery),
-    owed_case("ball recovery, the AI's", "BEGIN_BALL_RECOVERY",
-              ball_recovery_for_the_ai),
+    ai_case("ball recovery, the AI's", "BALL_RECOVERY",
+            ball_recovery_for_the_ai),
     owed_case("ball recovery, somebody on it", "BEGIN_BALL_RECOVERY",
               ball_recovery_with_somebody_on_the_ball),
     PromptCase("loose ball pick", "LOOSE_BALL_PICK", "LooseBallChoiceView",

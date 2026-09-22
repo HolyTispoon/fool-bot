@@ -465,7 +465,10 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         interaction.followup.send.assert_not_awaited()
 
     async def test_an_out_of_bounds_pickup_is_driven_on(self) -> None:
-        # The AI's pickup: nobody is asked, so the step is the bot's.
+        # The AI's pickup: the question is the AI's, and the service
+        # answers it and runs on (step 7 of
+        # docs/architecture-migration.md), so a resume here reports
+        # the AI's choice and the ball is picked up.
         cog, game, match = self.build()
         game.player_2_id = None
         match.ball.possession = TeamSide.VISITING
@@ -474,16 +477,21 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         ):
             match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
         match.pending_ball_recovery = True
+        game.match_state = match.to_dict()
+        cog.present = mock.AsyncMock()
 
-        with suppressed_cog_saves(), self.owed(
-            FollowOnStep.BEGIN_BALL_RECOVERY,
-        ) as step:
+        with suppressed_cog_saves():
             waiting_on = await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
             )
 
-        step.assert_called_once()
-        self.assertEqual(waiting_on, "the out-of-bounds pickup")
+        self.assertEqual(waiting_on, "the AI's choice")
+        (_, _, result), _ = cog.present.await_args
+        self.assertFalse(result.match.pending_ball_recovery)
+        self.assertIn(
+            FollowOnStep.APPLY_BALL_RECOVERY,
+            [group.step for group in result.groups],
+        )
 
     async def test_an_open_window_is_re_posted_not_re_opened(self) -> None:
         """
@@ -517,24 +525,30 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(game.turn_message_id, 999)
 
     async def test_an_ai_window_is_run_not_re_posted(self) -> None:
-        # An AI's window is a routine that runs to completion, so a
-        # restart in the middle of one leaves nobody to click anything.
+        # An AI's window is the same offer a coach gets, and the
+        # service answers it for the AI on a resume rather than
+        # re-posting a menu nobody would click.
         cog, game, match = self.build()
         game.player_2_id = None
         match.active_player_id = match.eligible_ball_handlers()[0]
         match.open_coaching_window(
             TeamSide.VISITING, CoachingOccasion.NEW_PLAY,
         )
+        game.match_state = match.to_dict()
+        cog.present = mock.AsyncMock()
 
-        with suppressed_cog_saves(), self.owed(
-            FollowOnStep.RUN_AI_COACHING_WINDOW,
-        ) as step:
+        with suppressed_cog_saves():
             waiting_on = await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
             )
 
-        step.assert_called_once()
-        self.assertEqual(waiting_on, "the AI's Coaching Choice")
+        self.assertEqual(waiting_on, "the AI's choice")
+        (_, _, result), _ = cog.present.await_args
+        self.assertIsNone(result.match.pending_coaching_side)
+        self.assertEqual(
+            [group.action.kind for group in result.groups if group.action],
+            [PromptKind.COACHING_OFFER],
+        )
 
     async def test_a_setup_window_is_re_posted_not_advanced(self) -> None:
         # advance_setup_stage would re-open the window; the open one is

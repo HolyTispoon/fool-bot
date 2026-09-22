@@ -42,6 +42,8 @@ Dinky's playmaker is standing on the ball, so they are the one challenging you.
 **Pick Dribble Advance.** It beats Deflect, which is what Dinky has played, and it is the card that carries the ball up the field.
 === press 4: TutorialContinueView -> 'Continue'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 5: ManeuverActionPromptView -> 'Dribble Advance'
 --- message
@@ -95,6 +97,8 @@ Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is 
 **Pick Low Pass.** It is rank 1, just like the Deflect Dinky has played, so this one goes to the dice -- and Dinky is going to win it. Watch what a won Deflect does: it knocks the ball back a space, nothing more. It only comes **loose** -- open to both sides -- when it lands where nobody is standing. Dinky already has a midfielder right there on M3, so the ball is simply theirs: no roll, no contest, never loose.
 === press 11: TutorialContinueView -> 'Continue'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 12: ManeuverActionPromptView -> 'Low Pass'
 --- message
@@ -141,7 +145,7 @@ Dinky is coming at your goal now, and this time **nobody of yours is anywhere ne
 Once your challenger is in position, Dinky moves, and then you are asked for a card.
 === press 15: TutorialContinueView -> 'Continue'
 --- message
-Dinky AI will maneuver with 🟣 Glompex [MF].
+🟣 Glompex [MF] will maneuver for Purple.
 
 🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 16: ManeuverChallengeView -> 'Sizzifizik [PM] (1)'
@@ -159,6 +163,8 @@ Defending, your hand is the other half of the cycle:
 
 **Pick Pressure.** Dinky is dribbling, and Pressure beats Dribble Advance -- so instead of losing a space you will take one off them.
 === press 17: TutorialContinueView -> 'Continue'
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 18: ManeuverActionPromptView -> 'Pressure'
@@ -182,7 +188,7 @@ Pressure drove them backwards: their handler and the ball went back a space to *
 Now take it off them.
 === press 19: TutorialContinueView -> 'Continue'
 --- message
-Dinky AI will maneuver with 🟣 Glompex [MF].
+🟣 Glompex [MF] will maneuver for Purple.
 
 🟠 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
 === press 20: ManeuverChallengeView -> 'Sizzifizik [PM] (0)'
@@ -194,6 +200,8 @@ Two things happen after it. Your player takes the ball back a space with them, a
 
 Then you get to set the **ball's speed**, up to your stealer's defensive skill. Speed is worth half itself, rounded down, **added to a score attempt** -- and it is reset by every turnover, so a speed set now is one that survives. You are about to shoot. **Take the highest number offered**; the rest are greyed out.
 === press 21: TutorialContinueView -> 'Continue'
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 22: ManeuverActionPromptView -> 'Steal'
@@ -256,6 +264,8 @@ Then take the shot. A score attempt is your d12 plus the shooter's offensive ski
 Their fullback is standing on V2, so you get their whole defensive skill of 6 against you. Even so: your striker rolls **d12+11** against their **d12+6**. That is a real roll and it can miss -- but you should score about six times in seven.
 === press 26: TutorialContinueView -> 'Continue'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 27: ManeuverActionPromptView -> 'High Pass'
 --- message
@@ -290,6 +300,9 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 Orange 1:0 Purple
 
 🟠 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
+--- message
+# Coaching Choice
+**🟣 Dinky AI passed.**
 --- message
 The ball speed goes down to **1**.
 --- message

@@ -11,7 +11,7 @@ import asyncio
 import discord
 import io
 import time
-from typing import Optional, Sequence
+from typing import Mapping, Optional, Sequence
 
 from discord import app_commands
 from discord.ext import commands
@@ -224,9 +224,6 @@ DRIVER_OWN_MESSAGE = frozenset({
     # The pickup is an event, and the maneuver's tail behind it is
     # the next one.
     FollowOnStep.APPLY_BALL_RECOVERY,
-    # The new speed is the answer to the question this was, and what
-    # follows it is the next event.
-    FollowOnStep.OFFER_SPEED_CHOICE,
     # The whistle and the runs of separate events behind it.
     FollowOnStep.END_PERIOD,
     FollowOnStep.CONTINUE_SHOOTOUT,
@@ -234,18 +231,14 @@ DRIVER_OWN_MESSAGE = frozenset({
     # A window's lead-in is a message above the menu, and an AI side's
     # window is a run of separate events.
     FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
-    # The lines a turn opens with -- "Dinky has chosen to maneuver",
-    # then "Unchallenged!" -- each a message, as the AI's turn always
-    # read; a human's turn says nothing here.
+    # The lines a turn opens with, each a message above the turn
+    # prompt; the turn itself says nothing here.
     FollowOnStep.START_TURN,
     # "X takes the shot off the set-up", above the composition.
     FollowOnStep.START_SET_UP_SHOT,
-    # A resumed halftime and a resumed AI window say what the AI did
-    # -- the extra token it took off, the substitutions it made -- and
-    # each is a message, as it is when the whistle or the window
-    # reaches it in one run.
+    # A resumed halftime's stages are each a message, as they are
+    # when the whistle reaches them in one run.
     FollowOnStep.ADVANCE_HALFTIME_STAGE,
-    FollowOnStep.RUN_AI_COACHING_WINDOW,
 })
 
 
@@ -268,13 +261,49 @@ DRIVER_BLOCKS_PER_MESSAGE = frozenset({
     # An AI side's whole window is a routine, and each thing it did is
     # its own line.
     FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
-    # The AI's turn, a message per thing it says.
+    # The lines a turn opens with, a message per thing said.
     FollowOnStep.START_TURN,
     FollowOnStep.START_SET_UP_SHOT,
-    # Resumed, for the whistle's and the window's reason.
+    # Resumed, for the whistle's reason.
     FollowOnStep.ADVANCE_HALFTIME_STAGE,
-    FollowOnStep.RUN_AI_COACHING_WINDOW,
 })
+
+
+#: How much of an AI answer's lines are a message of their own, by
+#: the kind answered -- **the same split each kind's view passes as
+#: `carry_from`** when a coach answers it, so an AI answer reads as a
+#: coach's: the distance menus' answers open the effect's own message
+#: (0), a declined offer's first line replaces the offer and the rest
+#: carries (1), and everything else is posted as the view would have
+#: posted it. A kind not listed keeps every line.
+AI_ANSWER_CARRY: Mapping[PromptKind, CarryFrom] = {
+    # A challenger nobody was asked for walks in over the challenge
+    # image, and the answer's own line opens it (`PlayerActionView`).
+    PromptKind.PLAYER_ACTION: lambda answered: (
+        0
+        if isinstance(answered.result.next, FollowOn)
+        and answered.result.next.step is FollowOnStep.AUTO_RESOLVE_CHALLENGER
+        else None
+    ),
+    # A placement is part of the cascade's one message
+    # (`CONTINUE_RUN_BACK` composes it), not a message of its own.
+    PromptKind.RUN_BACK_PLAYER: 0,
+    PromptKind.RUN_BACK_SPACE: 0,
+    PromptKind.LOW_PASS_CHOICE: 0,
+    PromptKind.HIGH_PASS_CHOICE: 0,
+    PromptKind.SETUP_PASS_CHOICE: 0,
+    PromptKind.SETUP_PASS_PUSH_BACK: 0,
+    PromptKind.SET_UP_ATTEMPT: 0,
+    PromptKind.DRIBBLE_ADVANCE_CHOICE: 0,
+    PromptKind.DRIBBLE_BURST_CHOICE: 0,
+    PromptKind.SHOOTER_CHOICE: 0,
+    # A pull that lands opens what follows; one that misses, or is
+    # let go, is a line of its own (`MindPullView`). The Smooth's two
+    # answers split the same way, on the choice -- see `carry_answer`.
+    PromptKind.MIND_PULL: lambda answered: (
+        1 if answered.detail is None or not answered.detail.pulled else 0
+    ),
+}
 
 
 class DiscordBatching(Batching):
@@ -282,9 +311,11 @@ class DiscordBatching(Batching):
     The Discord frontend's batching, handed to `GameService` once.
 
     The three sets above are its fields; `at_stop` is what the cog
-    does where the loop stopped for it. This is the whole of principle
-    8's "the frontend owns batching" in one object: the service never
-    reads a step's name to decide anything, it asks this.
+    does where the loop stopped for it, and `carry_answer` how an AI
+    answer's lines split, by `AI_ANSWER_CARRY`. This is the whole of
+    principle 8's "the frontend owns batching" in one object: the
+    service never reads a step's name to decide anything, it asks
+    this.
     """
 
     def __init__(self) -> None:
@@ -317,6 +348,13 @@ class DiscordBatching(Batching):
                 return StopHandling.DRAW
             return StopHandling.CARRY
         return StopHandling.DRAW
+
+    def carry_answer(self, action, answered) -> CarryFrom:
+        if action.kind is PromptKind.SMOOTH:
+            # Taking the ball over opens what follows; letting it pass
+            # is a line of its own (`SmoothView`).
+            return 1 if action.choice == "decline" else 0
+        return AI_ANSWER_CARRY.get(action.kind)
 
 
 #: Every prompt kind whose view is built from the cog and the game id
@@ -572,18 +610,21 @@ class CoreMixin:
                 restored = self.pending_turn_view(game.game_id, match)
                 if restored is None:
                     # Nobody is asked anything here: the bot owes a step
-                    # of its own, which nothing will run until somebody
-                    # asks for it -- and the message this would have
-                    # re-armed is a prompt the position has moved past.
-                    # An ERROR because somebody has to act, and the
-                    # sweep runs once per process, so it will not
-                    # repeat on every reconnect.
+                    # of its own, or the AI owes an answer, and nothing
+                    # will run either until somebody asks for it -- the
+                    # message this would have re-armed is a prompt the
+                    # position has moved past. An ERROR because
+                    # somebody has to act, and the sweep runs once per
+                    # process, so it will not repeat on every
+                    # reconnect.
+                    owed = owed_step(self.engine, game, match)
                     LOGGER.error(
-                        "D12 Ball game %s owes a step of the bot's own "
-                        "(%s) and has no prompt to re-arm; `/d12ball "
-                        "resume` in its channel runs it.",
+                        "D12 Ball game %s owes %s and has no prompt to "
+                        "re-arm; `/d12ball resume` in its channel runs "
+                        "it.",
                         game.game_id,
-                        owed_step(self.engine, game, match).step.name,
+                        f"a step of the bot's own ({owed.step.name})"
+                        if owed is not None else "the AI's answer",
                     )
                     continue
                 turn_view, _ = restored
@@ -1200,8 +1241,15 @@ class CoreMixin:
         one. That is also why this returns a view rather than sending
         it -- see "Recovering a stuck game" in docs/design/recovery.md.
         """
-        prompt = pending_prompt(self.engine, self.games[game_id], match)
-        if prompt is None:
+        game = self.games[game_id]
+        prompt = pending_prompt(self.engine, game, match)
+        if prompt is None or driver.ai_action(
+            self.engine, game, match, prompt,
+        ) is not None:
+            # The AI's question is nobody's button: the service
+            # answers it (`GameService.run`), and a save waiting on one
+            # is a run that never finished -- `/d12ball resume` runs
+            # it on.
             return None
         return self.view_for_prompt(game_id, match, prompt), prompt.ask
 
@@ -1466,7 +1514,57 @@ class CoreMixin:
                 " ".join(lines),
             )
             return
+        if group.action is not None:
+            await self.post_ai_answer(interaction, group, lines)
+            return
+        if group.prompt is not None:
+            # What a coach's prompt message would have opened with,
+            # for a question the AI answered before anybody saw it:
+            # one message, joined the way `render_prompt` joins it.
+            block = " ".join(lines)
+            if block:
+                await send_new_prompt(interaction, block)
+            return
         if group.step is None or group.step in DRIVER_BLOCKS_PER_MESSAGE:
+            for block in lines:
+                if block:
+                    await send_new_prompt(interaction, block)
+            return
+        block = " ".join(lines)
+        if block:
+            await send_new_prompt(interaction, block)
+
+    async def post_ai_answer(
+        self,
+        interaction: discord.Interaction,
+        group: Narration,
+        lines: list[str],
+    ) -> None:
+        """
+        An AI answer's own lines, posted the way the kind's view posts
+        a coach's -- the frontend's half of "the human's exact voice"
+        (step 7 of docs/architecture-migration.md), keyed on the
+        action the way a prompt's picture is keyed on the kind.
+
+        - A hub note is the text above the hub's own buttons and is
+          never a message; only "done" says anything the channel reads.
+        - The shootout's first block is the coach's own secret (the
+          order so far, "you send out"), shown on their ephemeral menu;
+          the public line and the reveal behind it are the rest.
+        - The maneuver pick and the halftime token post a message per
+          block, as their views do; everything else is one message.
+        """
+        kind = group.action.kind
+        if kind is PromptKind.COACHING_HUB and group.action.choice != "done":
+            return
+        if kind in (PromptKind.SHOOTOUT_ORDER, PromptKind.SHOOTOUT_PICK):
+            lines = lines[1:]
+        if kind in (
+            PromptKind.MANEUVER_ACTION,
+            PromptKind.HALFTIME_EXTRA_TOKEN,
+            PromptKind.SHOOTOUT_ORDER,
+            PromptKind.SHOOTOUT_PICK,
+        ):
             for block in lines:
                 if block:
                     await send_new_prompt(interaction, block)
@@ -1498,9 +1596,9 @@ class CoreMixin:
         below is a message with buttons on it and nothing else.
 
         `lead_in` is whatever the run was still carrying, and it opens
-        the prompt's message -- except in front of the shot, where it
-        is a message of its own above the composition, which is how
-        "X has chosen to shoot" always read.
+        the prompt's message as its own paragraph -- except in front
+        of the shot, where it is a message of its own above the
+        composition, which is how "X has chosen to shoot" always read.
 
         **The message a restart re-attaches the view to** is recorded
         on the way out (`turn_message_id`), whichever branch posted it.
@@ -1511,7 +1609,7 @@ class CoreMixin:
         of the message that write led to.
         """
         kind = prompt.kind
-        content = " ".join(filter(None, (lead_in, prompt.ask)))
+        content = "\n\n".join(filter(None, (lead_in, prompt.ask)))
         mentions = discord.AllowedMentions(
             users=True, roles=False, everyone=False,
         )

@@ -2075,23 +2075,6 @@ def offer_low_pass(
             ),
         )
 
-    if engine.side_controlled_by_ai(game, match, "offense"):
-        strategy = engine.get_ai_strategy(game)
-        distance = strategy.choose_low_pass(match, candidates)
-        result = low_pass_step(
-            engine,
-            match,
-            distance,
-            receiver_id=strategy.choose_low_pass_receiver(
-                match, engine.low_pass_receivers(match, distance),
-            ),
-            key=key,
-            free=free,
-        )
-        if lead_in:
-            result.narration.insert(0, lead_in)
-        return result
-
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
@@ -2119,14 +2102,6 @@ def offer_dribble_advance(
     if handler.role != PlayerRole.PLAYMAKER:
         return _with_lead_in(
             dribble_advance_step(engine, game, match, 1), lead_in,
-        )
-
-    if engine.side_controlled_by_ai(game, match, "offense"):
-        distance = engine.get_ai_strategy(
-            game
-        ).choose_dribble_advance_distance(match)
-        return _with_lead_in(
-            dribble_advance_step(engine, game, match, distance), lead_in,
         )
 
     return StepResult(
@@ -2162,14 +2137,6 @@ def offer_dribble_burst(
             dribble_burst_step(engine, game, match, 0), lead_in,
         )
 
-    if engine.side_controlled_by_ai(game, match, "offense"):
-        distance = engine.get_ai_strategy(
-            game
-        ).choose_dribble_burst_distance(match, distances)
-        return _with_lead_in(
-            dribble_burst_step(engine, game, match, distance), lead_in,
-        )
-
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
@@ -2202,12 +2169,6 @@ def offer_high_pass(
         return _with_lead_in(
             high_pass_step(engine, match, MIN_HIGH_PASS_DISTANCE), lead_in,
         )
-
-    if engine.side_controlled_by_ai(game, match, "offense"):
-        distance = engine.get_ai_strategy(game).choose_high_pass_distance(
-            match, distances,
-        )
-        return _with_lead_in(high_pass_step(engine, match, distance), lead_in)
 
     return StepResult(
         narration=[lead_in] if lead_in else [],
@@ -2247,18 +2208,6 @@ def offer_setup_pass_distance(
     if not distances:
         return _with_lead_in(setup_pass_out_step(match), lead_in)
 
-    if engine.side_controlled_by_ai(game, match, "offense"):
-        # The same question a High Pass asks, so the same answer: the
-        # longest distance that actually reaches a teammate, and
-        # otherwise the longest available. Maximizing outright would
-        # have Dinky pick the ball out into empty space and give it
-        # away, which is exactly why that policy was written for the
-        # High Pass (2026-08-18).
-        distance = engine.get_ai_strategy(game).choose_high_pass_distance(
-            match, distances,
-        )
-        return _with_lead_in(setup_pass_step(engine, match, distance), lead_in)
-
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
@@ -2281,11 +2230,12 @@ def offer_setup_pass_push_back(
 
     If none of the three fits, the ball is already at the end and the
     cost is spent -- the loose ball happens where the deflection left
-    it. Dinky drives it as far back as it can, the same maximizing it
-    brings to a speed choice.
+    it.
 
-    The deflection's own line is the prompt's opening paragraph rather
-    than a message above it, which is how the question always read.
+    The deflection's own line is the narration the prompt opens with;
+    a frontend puts it in the prompt's own message (`render_prompt`
+    joins the two as paragraphs), which is how the question always
+    read, and the service posts it on its own where the AI answers.
     """
     distances = engine.setup_pass_push_back_distances(match)
 
@@ -2300,25 +2250,17 @@ def offer_setup_pass_push_back(
             ),
         )
 
-    if engine.side_controlled_by_ai(game, match, "defense"):
-        result = setup_pass_push_back_step(
-            engine, game, match, distance=max(distances),
-        )
-        if lead_in:
-            result.narration[0] = f"{lead_in}\n\n{result.narration[0]}"
-        return result
-
     mention = format_player_with_team(
         game,
         engine.defending_player_number(game, match),
         engine.team_emojis,
         mention=True,
     )
-    prefix = f"{lead_in}\n\n" if lead_in else ""
     return StepResult(
+        narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.SETUP_PASS_PUSH_BACK,
-            f"{prefix}{mention}, **Setup Pass** was beaten -- how far "
+            f"{mention}, **Setup Pass** was beaten -- how far "
             "back does the ball go? It will be loose where it stops.",
         ),
     )
@@ -2335,57 +2277,34 @@ def offer_speed_choice(
     lead_in: str = "",
 ) -> StepResult:
     """
-    Always the last human choice in a maneuver's effect -- speed is
+    Always the last choice in a maneuver's effect -- speed is
     manipulated after any run-back it caused (Steal), so this leads
-    straight into `finish_maneuver_resolution` once chosen.
-    `turnover_occurred`/`distance_moved` are carried through to that
-    call when the pick is automatic; a coach's pick reads the first
-    back off the position (`driver._answer_speed_delta_choice`).
+    straight into `finish_maneuver_resolution` once chosen. The
+    answer (`driver._answer_speed_delta_choice`) reads whether a
+    turnover happened back off the position; `turnover_occurred` and
+    `distance_moved` are what the callers still name and are not
+    read here, since the AI's pick goes through the same answer a
+    coach's does (step 7 of docs/architecture-migration.md).
 
-    `lead_in` is narration from the maneuver that led here. It rides
-    inside the prompt when a human picks, and in front of the answer
-    when the pick is automatic.
+    `lead_in` is narration from the maneuver that led here, and opens
+    the prompt.
 
     In a tutorial the beat's speed note goes with the choice itself,
     the same way a maneuver's own note goes in front of its menu
     rather than with the lesson two messages up, and is held behind
     Continue -- see `d12ball.flow.gates`.
     """
-    skill = engine.player_catalog.effective_profile(
-        engine.get_player_definition(player_id),
-    )
-    skill_value = skill.offense if skill_type == "offense" else skill.defense
-
-    controller_id = engine.controlling_user_id(game, match, player_id)
-    is_ai = game.is_solo_game and controller_id == game.player_2_id
-
-    if is_ai:
-        delta = engine.get_ai_strategy(game).choose_speed_delta(skill_value)
-        target_speed = max(1, min(BALL_SPEED_MAX, match.ball.speed + delta))
-        result = speed_choice_step(
-            engine,
-            game,
-            match,
-            target_speed=target_speed,
-            turnover_occurred=turnover_occurred,
-            distance_moved=distance_moved,
-        )
-        if lead_in:
-            result.narration[0] = f"{lead_in}\n\n{result.narration[0]}"
-        return result
-
     beat = tutorial_beat(game)
     if beat is not None and beat.speed_note:
         return gates.hold_behind_note(
             game, tutorial.NOTE_SPEED, None, lead_in=lead_in,
         )
 
-    prefix = f"{lead_in}\n\n" if lead_in else ""
     return StepResult(
+        narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.SPEED_DELTA_CHOICE,
-            f"{prefix}"
-            f"{speed_choice_ask(engine, game, match, player_id, skill_type)}",
+            speed_choice_ask(engine, game, match, player_id, skill_type),
             player_id=player_id,
             skill_type=skill_type,
         ),

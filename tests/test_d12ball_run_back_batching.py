@@ -19,7 +19,6 @@ from cogs.d12ball_helpers import travel_space_phrase
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MatchState,
-    PlayerRole,
     TeamSide,
     Zone,
     load_basic_ruleset,
@@ -28,7 +27,6 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, GameMode, Team
-from roster import fielded
 from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
 from cog_steps import continue_run_back, finish_maneuver_resolution
 
@@ -426,11 +424,11 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
-        # A player who stays displaced however often they are placed.
-        # Which one is immaterial -- the cascade is driven by the mocks
-        # below, so this is only somebody for it to keep placing.
-        displaced = fielded(match, PlayerRole.WINGER, TeamSide.VISITING)
-
+        # The cascade is driven by the mocks below: nobody is owed a
+        # placement, and the kickoff fill keeps asking for another
+        # pass -- the one way round the loop that does not end on a
+        # question, since an AI side's pick is a prompt like a
+        # coach's now (step 7 of docs/architecture-migration.md).
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.player_catalog = self.catalog
@@ -442,19 +440,9 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.engine.apply_forced_run_backs = mock.Mock()
-        cog.engine.next_run_back_step = mock.Mock(
-            return_value=(TeamSide.VISITING, [displaced]),
-        )
-        cog.engine.side_is_ai = mock.Mock(return_value=True)
-        cog.engine.get_ai_strategy = mock.Mock(
-            return_value=mock.Mock(choose_run_back_space=mock.Mock(return_value=0)),
-        )
-        cog.apply_exhaustion = mock.Mock(return_value="")
-        cog.engine.get_player_definition = mock.Mock(
-            return_value=self.catalog.player_by_id(displaced),
-        )
+        cog.engine.next_run_back_step = mock.Mock(return_value=None)
+        match.pending_kickoff_fill = True
 
-        match.run_back_player = mock.Mock(return_value=0)
         game = SimpleNamespace(
             match_state=match.to_dict(),
             game_id="g",
@@ -469,13 +457,15 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
             suppressed_cog_saves(),
             # The give-up log moved with the cascade in Phase 4.
             mock.patch("d12ball.flow.turnovers.LOGGER") as logger,
+            mock.patch(
+                "d12ball.flow.turnovers.run_back_kickoff_fill",
+                return_value=(True, ""),
+            ) as fill,
         ):
             await continue_run_back(cog, interaction, game, match)
 
         logger.error.assert_called_once()
-        self.assertEqual(
-            match.run_back_player.call_count, MAX_RUN_BACK_PASSES,
-        )
+        self.assertEqual(fill.call_count, MAX_RUN_BACK_PASSES)
         # And it still hands the turn on rather than stranding it.
         cog.finish_maneuver_resolution.assert_awaited_once()
 

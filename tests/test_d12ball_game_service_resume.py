@@ -19,7 +19,7 @@ import random
 import unittest
 
 from d12ball.components import CoachingOccasion, TeamSide
-from d12ball.flow import FollowOnStep
+from d12ball.flow import FollowOnStep, driver
 from d12ball.prompts import PromptKind, owed_step, pending_prompt
 from gamesaves.d12ball.service import (
     OWED_STEP_NAMES,
@@ -52,7 +52,7 @@ class ResumeOverEveryPositionTests(unittest.TestCase):
 
     def test_an_asked_position_is_handed_back_and_nothing_runs(self) -> None:
         for case in CASES:
-            if not case.asked:
+            if not case.asked or case.ai:
                 continue
             with self.subTest(case.name):
                 fixture = case.build()
@@ -103,6 +103,36 @@ class ResumeOverEveryPositionTests(unittest.TestCase):
                     result.prompt.kind,
                     pending_prompt(ENGINE, fixture.game, result.match).kind,
                 )
+
+    def test_the_ai_s_question_is_answered_and_run_on(self) -> None:
+        """
+        A save waiting on the AI is a run that never finished: the
+        service answers for it (`driver.ai_action`) and runs on to a
+        coach's question or the end of the game, one save, exactly as
+        an owed step is -- so a restart mid-AI-turn strands nothing.
+        """
+        for case in CASES:
+            if not case.ai:
+                continue
+            with self.subTest(case.name):
+                fixture = case.build()
+                service, saves = service_over(fixture)
+
+                waiting_on, result = service.resume(fixture.game.game_id)
+
+                self.assertEqual(waiting_on, "the AI's choice")
+                self.assertEqual(len(saves), 1)
+                self.assertIsNone(
+                    owed_step(ENGINE, fixture.game, result.match),
+                )
+                if result.prompt is not None:
+                    self.assertIsNone(driver.ai_action(
+                        ENGINE, fixture.game, result.match, result.prompt,
+                    ))
+                # What the AI did is in the result: its answer's own
+                # lines as a group tagged with the action, or the step
+                # the answer named (the pickup) as that step's group.
+                self.assertTrue(result.groups)
 
     def test_every_step_a_resume_can_run_has_a_name(self) -> None:
         """

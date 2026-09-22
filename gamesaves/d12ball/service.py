@@ -24,9 +24,22 @@ lose the order a coach reads.
 
 **Batching stays the frontend's** (principle 8). `Batching` is the
 frontend's answer to "which steps' lines are a message of their own,
-where do you stop to draw, and what do you do at a stop", handed to
-the service once at construction. The service never reads a step's
-name to decide anything; it asks the `Batching` it was given.
+where do you stop to draw, what do you do at a stop, and how much of
+an AI answer's lines are its own", handed to the service once at
+construction. The service never reads a step's name to decide
+anything; it asks the `Batching` it was given.
+
+**The AI answers here.** When the run reaches a prompt put to an AI
+side, `run` asks the strategy for an `Action` (`driver.ai_action`),
+puts it through `driver.answer` like a click, and carries on -- so
+the AI mutates the match through the one door everybody else uses
+(ARCHITECTURE.md, "AI"; step 7 of docs/architecture-migration.md).
+What was said before the question is closed as a group of its own,
+tagged with the prompt it opened, the way a coach's prompt message
+would have carried it; the AI's own answer is a group tagged with the
+action, split by the frontend's `carry_answer` exactly as a view
+splits a coach's with `carry_from`. A roll is nobody's question, so
+the loop stops there and the AI never rolls.
 """
 
 from __future__ import annotations
@@ -40,7 +53,12 @@ from d12ball.engine import RulesEngine
 from d12ball.flow import driver, periods
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.game import D12BallGame
-from d12ball.prompts import PendingPrompt, PromptKind, pending, pending_prompt
+from d12ball.prompts import (
+    PendingPrompt,
+    PromptKind,
+    pending,
+    pending_prompt,
+)
 from gamesaves.d12ball.storage import save_games
 
 
@@ -86,6 +104,22 @@ class Batching:
     ) -> StopHandling:
         return StopHandling.DRAW
 
+    def carry_answer(
+        self,
+        action: driver.Action,
+        answered: driver.Answered,
+    ) -> CarryFrom:
+        """
+        How much of an AI answer's lines are a group of their own, and
+        how much carries on into the step that follows as its lead-in
+        -- `apply_action`'s `carry_from`, asked of the frontend for
+        the answers nobody clicked. The default keeps every line: an
+        AI answer is a group of its own (decision 8 of
+        docs/web-app.md). A frontend that composes a coach's answer
+        into the next step's message answers the same for the AI's.
+        """
+        return None
+
 
 @dataclass(frozen=True)
 class Narration:
@@ -98,6 +132,14 @@ class Narration:
     that moment, and `None` everywhere else. `new_play` and
     `board_changed` are the stopped step's own answers, for the
     picture: a new play's board is the one a frontend pins.
+
+    Two more tags, for the AI's turn through the service: `prompt` is
+    the question these lines opened, answered by the AI before anybody
+    saw it -- the message a coach's prompt would have been, without
+    the question -- and `action` is the AI's answer these lines are,
+    with `detail` beside it where the answer had a picture's numbers.
+    A frontend renders an answer the way its view renders a coach's,
+    keyed on the action.
     """
 
     lines: tuple[str, ...]
@@ -108,6 +150,9 @@ class Narration:
     #: The step's own arguments, where a frontend's picture of the
     #: group depends on one -- the challenger the walk-in named.
     arguments: Mapping[str, Any] = field(default_factory=dict)
+    prompt: Optional[PromptKind] = None
+    action: Optional[driver.Action] = None
+    detail: Optional[object] = None
 
     @property
     def drawn(self) -> bool:
@@ -152,6 +197,13 @@ class GameResult:
         return self.refusal is not None
 
 
+#: How many answers the AI may give in one run before the loop gives
+#: up on it. A turn of the AI's is a dozen at most (its order in the
+#: shootout is six of them, one name apiece); a strategy answering a
+#: question that leaves the position unchanged would otherwise spin
+#: here, and this is one process for every game at once.
+MAX_AI_ANSWERS = 100
+
 #: What a resumed Coaching Choice says above the allowance.
 RESUME_COACHING_NOTE = (
     "Picking this up where it left off. Nothing you had already done "
@@ -169,7 +221,6 @@ OWED_STEP_NAMES: Mapping[FollowOnStep, str] = {
         "the Coaching Choice before the shootout"
     ),
     FollowOnStep.ADVANCE_SHOOTOUT: "the extreme shootout",
-    FollowOnStep.RUN_AI_COACHING_WINDOW: "the AI's Coaching Choice",
     FollowOnStep.FINISH_TIME_OUT: "the time out",
     FollowOnStep.CONTINUE_RUN_BACK: "the run back",
     FollowOnStep.BEGIN_BALL_RECOVERY: "the out-of-bounds pickup",
@@ -350,6 +401,13 @@ class GameService:
             )
 
         prompt = waiting
+        if driver.ai_action(engine, game, match, prompt) is not None:
+            # The AI's question, which a restart interrupted before
+            # the service answered it: run it on, as the loop would
+            # have.
+            return "the AI's choice", self.run(
+                game, match, StepResult(next=prompt),
+            )
         if prompt.kind is PromptKind.TUTORIAL_CONTINUE:
             return "a tutorial note, re-posted above", self._prompt(
                 game, match, prompt,
@@ -448,6 +506,7 @@ class GameService:
 
         narration: tuple[str, ...] = ()
         prompt: Optional[PendingPrompt] = None
+        ai_answers = 0
         while True:
             run = driver.advance(
                 self.engine,
@@ -467,6 +526,24 @@ class GameService:
             stopped = run.stopped_on
 
             if stopped is None:
+                if isinstance(following, PendingPrompt):
+                    action = driver.ai_action(
+                        self.engine, game, match, following,
+                    )
+                    if action is not None:
+                        ai_answers += 1
+                        if ai_answers > MAX_AI_ANSWERS:
+                            raise RuntimeError(
+                                f"The AI has answered {MAX_AI_ANSWERS} "
+                                f"questions in one run of game "
+                                f"{game.game_id} and is still being "
+                                f"asked ({following.kind.name}); giving "
+                                "up on it."
+                            )
+                        result = self._answer_for_ai(
+                            game, match, following, action, run, groups,
+                        )
+                        continue
                 narration = tuple(run.result.narration)
                 if isinstance(following, PendingPrompt):
                     prompt = following
@@ -506,4 +583,93 @@ class GameService:
             board_changed=board_changed,
             detail=detail,
             match=match,
+        )
+
+    def _answer_for_ai(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        prompt: PendingPrompt,
+        action: driver.Action,
+        run: driver.DriverRun,
+        groups: list[Narration],
+    ) -> StepResult:
+        """
+        Answer `prompt` for the AI and hand back the result the loop
+        carries on from.
+
+        The answer goes through `driver.answer` -- the same check
+        against the question and the position a click gets -- and a
+        refusal is a bug in the strategy, raised as one: the prompt
+        offered what it offered, and the strategy read the offer.
+        Its own lines are split by the frontend's `carry_answer`, as
+        a view splits a coach's with `carry_from`: what is kept is a
+        group tagged with the action, what is carried opens the next
+        step as its lead-in.
+
+        **What was said before the question closes as a group tagged
+        with the prompt** -- what a coach's prompt message would have
+        opened with, said whether or not anybody is asked. **One
+        exception, for the cascade.** Where the answer carries whole
+        (`0`) it is a continuation of what led to the question rather
+        than an event of its own, so the group the loop had just
+        closed after the step that asked -- if it was that step's own,
+        and not a picture -- is taken back and carried in front of
+        it: the run back closes a message before each question it
+        puts, and the AI's placement belongs in that message, not
+        after it, composed by `CONTINUE_RUN_BACK` like the forced
+        placements around it. That is how an AI side's run back stays
+        one message and one board refresh, which
+        docs/design/rate-limits.md requires of a cascade.
+
+        An answer that hands on to nothing (the maneuver pick with
+        the other side still to choose, a hub note) leaves the loop
+        to re-read the position, as the frontend would have.
+        """
+        reached = run.result
+        answered = driver.answer(self.engine, game, match, action)
+        if isinstance(answered, driver.Refusal):
+            raise RuntimeError(
+                f"The AI's answer to {prompt.kind.name} was refused: "
+                f"{answered.reason} ({action})"
+            )
+        own = answered.result
+        split = self.batching.carry_answer(action, answered)
+        if callable(split):
+            split = split(answered)
+
+        lead: list[str] = []
+        asked_by = run.steps[-1] if run.steps else None
+        if (
+            split == 0
+            and groups
+            and run.groups
+            and asked_by is not None
+            and groups[-1].step is asked_by
+            and not groups[-1].drawn
+        ):
+            lead.extend(groups.pop().lines)
+        if reached.narration:
+            groups.append(
+                Narration(tuple(reached.narration), prompt=prompt.kind),
+            )
+
+        if split is None:
+            kept, carried = own.narration, []
+        else:
+            kept, carried = own.narration[:split], own.narration[split:]
+        if kept:
+            groups.append(
+                Narration(
+                    tuple(kept), action=action, detail=answered.detail,
+                ),
+            )
+        following = own.next
+        if following is None:
+            following = pending(self.engine, game, match)
+        return StepResult(
+            narration=lead + list(carried),
+            board_changed=own.board_changed,
+            next=following,
+            new_play=own.new_play,
         )

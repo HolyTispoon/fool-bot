@@ -518,7 +518,10 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
 
         view, ask = cog.pending_turn_view(game.game_id, match)
         self.assertIsInstance(view, ShootoutOrderPromptView)
-        self.assertIn("shooting order", ask)
+        # The restored ask is the live one (`shootout_order_prompt`),
+        # addressed to whoever still owes an order.
+        self.assertIn("set the order your six players shoot in", ask)
+        self.assertIn("<@111> and <@222>", ask)
 
         for side in (TeamSide.HOME, TeamSide.VISITING):
             match.set_shootout_order(side, match.shootout_squad(side))
@@ -532,7 +535,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
 
         view, ask = cog.pending_turn_view(game.game_id, match)
         self.assertIsInstance(view, ShootoutPickPromptView)
-        self.assertIn("shoots next", ask)
+        self.assertIn("choose who goes out next", ask)
 
     async def test_an_owed_injury_test_is_asked_for_first(self) -> None:
         cog = build_cog()

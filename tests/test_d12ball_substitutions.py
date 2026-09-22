@@ -11,7 +11,9 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from d12ball.ai import DinkyAI
+from d12ball.ai import build_ai_strategies
+from d12ball.prompts import PromptKind
+from ai_answers import ai_answers, solo_game
 from d12ball.components import (
     CoachingOccasion,
     MatchState,
@@ -330,11 +332,22 @@ class SubstitutionSummaryTests(unittest.TestCase):
 
 
 class DinkySubstitutionTests(unittest.TestCase):
+    """
+    Dinky's one substitution, asked the way the game asks it: the
+    Coaching Choice hub, open on Dinky's side, answered through
+    `driver.ai_action` -- "substitute" with the pair, or "done".
+    """
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.catalog = load_player_catalog()
         cls.rules = load_basic_ruleset()
-        cls.ai = DinkyAI(cls.catalog, load_maneuver_catalog())
+        maneuvers = load_maneuver_catalog()
+        cls.engine = RulesEngine(
+            cls.catalog, cls.rules, maneuvers,
+            build_ai_strategies(cls.catalog, maneuvers),
+        )
+        cls.ai = cls.engine.get_ai_strategy(solo_game())
 
     def build_match(self) -> MatchState:
         return MatchState.standard(
@@ -345,17 +358,33 @@ class DinkySubstitutionTests(unittest.TestCase):
             visiting_team=Team.PURPLE,
         )
 
+    def choose_substitution(self, match: MatchState, side: TeamSide):
+        """(off, on), or None where Dinky closes the window instead."""
+        match.open_coaching_window(side, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
+        game = solo_game(ai_home=side == TeamSide.HOME)
+        action = ai_answers(self.engine, game, match)
+        match.close_coaching_window()
+        self.assertIs(action.kind, PromptKind.COACHING_HUB)
+        if action.choice == "done":
+            return None
+        self.assertEqual(action.choice, "substitute")
+        return (
+            action.arguments["outgoing_player_id"],
+            action.arguments["incoming_player_id"],
+        )
+
     def test_dinky_passes_on_a_healthy_team(self) -> None:
         match = self.build_match()
         self.assertIsNone(
-            self.ai.choose_substitution(match, TeamSide.HOME)
+            self.choose_substitution(match, TeamSide.HOME)
         )
 
     def test_dinky_gets_an_injured_player_off(self) -> None:
         match = self.build_match()
         match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
-        choice = self.ai.choose_substitution(match, TeamSide.HOME)
+        choice = self.choose_substitution(match, TeamSide.HOME)
 
         self.assertIsNotNone(choice)
         outgoing, incoming = choice
@@ -368,7 +397,7 @@ class DinkySubstitutionTests(unittest.TestCase):
         match = self.build_match()
         match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
-        _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
+        _, incoming = self.choose_substitution(match, TeamSide.HOME)
 
         self.assertEqual(incoming, benched(match, PlayerRole.STRIKER))
 
@@ -378,7 +407,7 @@ class DinkySubstitutionTests(unittest.TestCase):
         match = self.build_match()
         match.mark_injured(fielded(match, PlayerRole.FULLBACK))
 
-        _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
+        _, incoming = self.choose_substitution(match, TeamSide.HOME)
 
         self.assertEqual(incoming, benched(match, PlayerRole.DEFENDER))
 
@@ -399,7 +428,7 @@ class DinkySubstitutionTests(unittest.TestCase):
             if player_id in tied
         )
 
-        _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
+        _, incoming = self.choose_substitution(match, TeamSide.HOME)
 
         self.assertEqual(incoming, first_of_the_two)
 
@@ -419,7 +448,7 @@ class DinkySubstitutionTests(unittest.TestCase):
             )
         match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
-        _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
+        _, incoming = self.choose_substitution(match, TeamSide.HOME)
 
         self.assertIn(incoming, match.home.team_board.back_bench)
         self.assertEqual(incoming, fielded(match, PlayerRole.PLAYMAKER))
@@ -438,7 +467,7 @@ class DinkySubstitutionTests(unittest.TestCase):
 
         # The bench has drained, so the back bench is the pool now.
         self.assertIsNotNone(
-            self.ai.choose_substitution(match, TeamSide.HOME)
+            self.choose_substitution(match, TeamSide.HOME)
         )
 
         # Injure everyone on it and there is genuinely nobody left:
@@ -446,7 +475,7 @@ class DinkySubstitutionTests(unittest.TestCase):
         for player_id in list(match.home.team_board.back_bench):
             match.injured.add(player_id)
         self.assertIsNone(
-            self.ai.choose_substitution(match, TeamSide.HOME)
+            self.choose_substitution(match, TeamSide.HOME)
         )
 
 

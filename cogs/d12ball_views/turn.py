@@ -418,10 +418,12 @@ class TimeOutConfirmView(SafeView):
         if result is None:
             return
 
-        # The prompt goes: the window's own message says what the time
-        # out is, and a good deal more.
-        await interaction.response.defer()
-        await self.cog.drop_turn_prompt(interaction, game)
+        # The prompt becomes the announcement -- the answer's own line,
+        # which the window's menu used to carry as its heading -- and
+        # the window follows it.
+        await interaction.response.edit_message(
+            content=result.answer[0], view=None,
+        )
         await self.cog.present(interaction, game, result)
 
 
@@ -538,12 +540,14 @@ class ManeuverChallengeView(SafeView):
             return
 
         # **The rule is `d12ball.flow.turn.auto_resolve_challenger`**
-        # since Phase 6, and it always was: the AI's pick and a
-        # defender already sharing the ball's space have come through
-        # that step since Phase 4, and this button is the third way to
-        # make the same pick. A challenger already chosen, or a
-        # maneuver already gone unchallenged, is a stale click the
-        # driver refuses by kind.
+        # since Phase 6, and it always was: a defender already sharing
+        # the ball's space comes through that step, and this button
+        # and the AI's answer are the other ways to make the same
+        # pick. The adapter names the step, so the walk-in comes back
+        # as a group of its own and `present` draws the challenge
+        # image over it. A challenger already chosen, or a maneuver
+        # already gone unchallenged, is a stale click the driver
+        # refuses by kind.
         result = await self.apply(
             interaction,
             game,
@@ -559,12 +563,6 @@ class ManeuverChallengeView(SafeView):
         # picked, and a good deal more. See D12Ball.drop_turn_prompt.
         await interaction.response.defer()
         await self.cog.drop_turn_prompt(interaction, game)
-        await self.cog.announce_maneuver_challenge(
-            interaction,
-            result.match,
-            player_id,
-            " ".join(result.answer),
-        )
         await self.cog.present(interaction, game, result)
 
     async def decline(self, interaction: discord.Interaction) -> None:

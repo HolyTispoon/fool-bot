@@ -36,6 +36,8 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.ai import DinkyAI
+from d12ball.prompts import DistanceOptions, PendingPrompt, PromptKind
+from ai_answers import solo_game
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from roster import display_name, fielded
@@ -893,6 +895,19 @@ class DinkyAimsAtSomebodyTests(unittest.TestCase):
     def dinky(self) -> DinkyAI:
         return DinkyAI(self.catalog, load_maneuver_catalog())
 
+    def chosen_distance(self, match: MatchState, distances: list[int]) -> int:
+        """Dinky's answer to a High Pass offering `distances`, asked as
+        the prompt asks it (`AIStrategy.choose`)."""
+        prompt = PendingPrompt(
+            PromptKind.HIGH_PASS_CHOICE,
+            "",
+            options=DistanceOptions(tuple(distances)),
+        )
+        action = self.dinky().choose(
+            prompt, solo_game(ai_home=True), match, TeamSide.HOME,
+        )
+        return action.arguments["distance"]
+
     def build(self, zone: Zone, space: int):
         match = MatchState.standard(
             catalog=self.catalog,
@@ -923,7 +938,7 @@ class DinkyAimsAtSomebodyTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            self.dinky().choose_high_pass_distance(match, [2, 3, 4]), 2,
+            self.chosen_distance(match, [2, 3, 4]), 2,
         )
 
     def test_the_furthest_of_several_reachable_teammates_wins(self) -> None:
@@ -933,7 +948,7 @@ class DinkyAimsAtSomebodyTests(unittest.TestCase):
         match.board.place_meeple(far, Zone.MIDFIELD, 1)    # flat 3
 
         self.assertEqual(
-            self.dinky().choose_high_pass_distance(match, [2, 3, 4]), 3,
+            self.chosen_distance(match, [2, 3, 4]), 3,
         )
 
     def test_with_nobody_reachable_it_still_throws_the_longest(self) -> None:
@@ -942,7 +957,7 @@ class DinkyAimsAtSomebodyTests(unittest.TestCase):
         match = self.build(Zone.HOME_GOAL, 0)
 
         self.assertEqual(
-            self.dinky().choose_high_pass_distance(match, [2, 3, 4]), 4,
+            self.chosen_distance(match, [2, 3, 4]), 4,
         )
 
     def test_the_passer_is_not_a_teammate_to_aim_at(self) -> None:
