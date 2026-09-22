@@ -53,6 +53,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
 from d12ball.components import (
+    SPECIES_TELEKINETIC,
     MatchState,
     PlayerRole,
     TeamSide,
@@ -68,7 +69,7 @@ from d12ball.formatting import (
 )
 from d12ball.game import D12BallGame, Formation
 from d12ball.wire import jsonable
-from d12ball import tutorial
+from d12ball import tokens, tutorial
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from d12ball.engine import RulesEngine
@@ -563,6 +564,39 @@ class DecisionOptions:
 
 
 @dataclass(frozen=True)
+class SmoothOptions:
+    """
+    A Smooth's yes and no, and **who keeps the ball on the no**.
+
+    The decision is `DecisionOptions`' shape with one field added
+    rather than that shape with a nullable field on it, because the
+    field is a Smooth's alone: a Mind Pull declined leaves the ball
+    with the other side, which the pull's own wording already says,
+    and a coaching offer has no ball in it at all.
+
+    `keeper_id` is `RulesEngine.smooth_keeper`'s answer -- the player
+    the arrival this offer is holding back is about to leave holding
+    it, or `None` where that arrival leaves nobody holding it (a loose
+    ball, a new play). A frontend names them on the decline so the
+    button says what declining *does* rather than only what it does
+    not; where there is no keeper it has nothing to name and says the
+    plain thing instead.
+    """
+
+    choices: tuple[str, ...]
+    keeper_id: Optional[str] = None
+    railed: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "smooth",
+            "choices": list(self.choices),
+            "keeper_id": self.keeper_id,
+            "railed": self.railed,
+        }
+
+
+@dataclass(frozen=True)
 class SwapOptions:
     """One fielded player and who they may change zones with."""
 
@@ -711,6 +745,7 @@ PromptOptions = Union[
     ManeuverOptions,
     RollOptions,
     DecisionOptions,
+    SmoothOptions,
     CoachingHubOptions,
     ShootoutOptions,
 ]
@@ -1527,10 +1562,19 @@ def _pending(
         # exists to prevent, and is why the reason is written down
         # here rather than only in the cog.
         player = engine.get_player_definition(match.pending_smooth[0])
+        smooth_emoji = tokens.species(SPECIES_TELEKINETIC)
         return PendingPrompt(
             PromptKind.SMOOTH,
+            # **It names the ability**, the way the live offer
+            # `continue_smooth` puts up does: a coach coming back to a
+            # restored question has not got the line that opened it,
+            # and "can still take the ball over" read as a rule
+            # nobody could place (the author, 2026-09-22). "Still" is
+            # this branch's own word, and the only thing left that
+            # tells the two apart.
+            f"{smooth_emoji} **Smooth** — "
             f"{engine.format_player_label(match, player)} can still take "
-            "the ball over:",
+            "the ball to become the ball handler:",
             player_id=player.player_id,
         )
 
@@ -2113,6 +2157,20 @@ def _decision_options(
     return DecisionOptions(CHOICES[prompt.kind])
 
 
+def _smooth_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> SmoothOptions:
+    """The same yes and no, and the player the no leaves the ball
+    with (`RulesEngine.smooth_keeper`)."""
+    return SmoothOptions(
+        CHOICES[prompt.kind],
+        keeper_id=engine.smooth_keeper(match),
+    )
+
+
 def _low_pass_options(
     engine: "RulesEngine",
     game: D12BallGame,
@@ -2292,7 +2350,7 @@ OPTIONS = {
     PromptKind.COACHING_OFFER: _decision_options,
     PromptKind.HALFTIME_EXTRA_TOKEN: _halftime_token_options,
     PromptKind.MIND_PULL: _decision_options,
-    PromptKind.SMOOTH: _decision_options,
+    PromptKind.SMOOTH: _smooth_options,
     PromptKind.INJURY_TEST: _roll_options,
     PromptKind.OWN_GOAL_ROLL: _roll_options,
     PromptKind.SHOOTOUT_ORDER: _shootout_order_options,

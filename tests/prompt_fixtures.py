@@ -45,6 +45,7 @@ from typing import Any, Callable
 
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
+    SPECIES_TELEKINETIC,
     CoachingOccasion,
     MatchState,
     PlayerRole,
@@ -61,7 +62,7 @@ from d12ball.formatting import (
     space_label,
 )
 from d12ball.game import D12BallGame, Formation, GameStatus, Team
-from d12ball import tutorial
+from d12ball import tokens, tutorial
 from d12ball.prompts import maneuver_action_ask, speed_choice_ask
 from roster import fielded
 
@@ -258,11 +259,18 @@ def halftime_stage_with_no_window() -> PromptFixture:
 def smooth() -> PromptFixture:
     match = build_match()
     taker = fielded(match, PlayerRole.WINGER)
+    # Somebody is holding it: the decline names them, so a fixture
+    # with nobody on the ball would stand in the branch that has
+    # nothing to name (`RulesEngine.smooth_keeper`) rather than the
+    # ordinary one.
+    match.set_ball_carrier(fielded(match, PlayerRole.PLAYMAKER))
     match.pending_smooth = [taker]
     return PromptFixture(
         build_game(),
         match,
-        f"{label(match, taker)} can still take the ball over:",
+        f"{tokens.species(SPECIES_TELEKINETIC)} **Smooth** — "
+        f"{label(match, taker)} can still take the ball to become "
+        "the ball handler:",
         {"player_id": taker},
     )
 

@@ -414,14 +414,26 @@ def _roll(asked: Asked) -> list:
     return [section(None, controls), section("Before the die", overdrive)]
 
 
-def _decision(asked: Asked) -> list:
+def _decision(
+    asked: Asked, labels: Optional[Mapping[str, str]] = None,
+) -> list:
+    """
+    A prompt's yes and no. `labels` is what a kind calls its two
+    answers where the generic `CHOICE_LABELS` are not enough -- a
+    Smooth names both players, since which of the two ends up with
+    the ball is the whole question.
+    """
     options = asked.options
+    labels = labels or {}
     return [
         section(
             None,
             [
                 button(
-                    CHOICE_LABELS.get(choice, choice.replace("_", " ").title()),
+                    labels.get(choice)
+                    or CHOICE_LABELS.get(
+                        choice, choice.replace("_", " ").title()
+                    ),
                     asked.kind,
                     choice,
                     disabled=(
@@ -439,6 +451,23 @@ def _decision(asked: Asked) -> list:
             ],
         )
     ]
+
+
+def _smooth(asked: Asked) -> list:
+    """
+    The Smooth's two buttons, each naming its player: the Telekinetic
+    who takes the ball over, and -- where declining leaves somebody
+    holding it -- the player it stays with
+    (`SmoothOptions.keeper_id`). The page says what the Discord
+    buttons say, off the same one list.
+    """
+    keeper_id = asked.options.keeper_id
+    return _decision(asked, {
+        "take": f"{asked.label(asked.prompt.player_id)} takes it over",
+        "decline": (
+            f"{asked.label(keeper_id)} keeps the ball" if keeper_id else ""
+        ),
+    })
 
 
 def _decision_arguments(asked: Asked, choice: str) -> dict:
@@ -896,7 +925,7 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.INJURY_TEST: _roll,
     PromptKind.OWN_GOAL_ROLL: _roll,
     PromptKind.MIND_PULL: _decision,
-    PromptKind.SMOOTH: _decision,
+    PromptKind.SMOOTH: _smooth,
     PromptKind.SET_UP_ATTEMPT: _decision,
     PromptKind.COACHING_OFFER: _decision,
     PromptKind.BALL_HANDLER_SELECTION: _players,
