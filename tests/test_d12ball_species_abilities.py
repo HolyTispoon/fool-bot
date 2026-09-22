@@ -1079,14 +1079,14 @@ class DamagedWordingTests(unittest.TestCase):
         self.match.exhaustion[self.cyborg] = CYBORG_DRAINED_AT
         self.match.exhausted.add(self.cyborg)
         self.assertEqual(
-            self.cog.cyborg_condition_ids(self.game, self.match),
+            self.cog.engine.cyborg_condition_ids(self.game, self.match),
             frozenset({self.cyborg}),
         )
         # A non-Cyborg who is Exhausted/Injured never joins the set.
         self.match.exhaustion[self.other] = 99
         self.match.exhausted.add(self.other)
         self.assertNotIn(
-            self.other, self.cog.cyborg_condition_ids(self.game, self.match),
+            self.other, self.cog.engine.cyborg_condition_ids(self.game, self.match),
         )
 
 

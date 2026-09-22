@@ -455,6 +455,34 @@ class RulesEngine:
             return False
         return self.species_of(player_id) == species
 
+    def cyborg_condition_ids(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> frozenset[str]:
+        """
+        Which of the players currently Exhausted, Injured or carrying
+        an exhaustion token are Cyborgs playing with their own drain --
+        the answer `render.py`'s `cyborg_ids` needs to draw
+        Drained/Damaged instead of Exhausted/Injured, and the teal
+        token count instead of the amber one, without the renderer
+        being handed a `game` or a species to read itself.
+
+        A rule rather than a rendering brief, which is why it is here:
+        it is `has_species_ability` asked of everybody a condition mark
+        would be drawn against, and **both frontends draw the same
+        board off it** -- see "Lithium Powered" in
+        docs/design/species-abilities.md and the `species_icons` flag
+        it mirrors.
+        """
+        return frozenset(
+            player_id
+            for player_id in (
+                match.exhausted | match.injured | match.exhaustion.keys()
+            )
+            if self.has_species_ability(game, player_id, SPECIES_CYBORG)
+        )
+
     def ignite(
         self,
         game: D12BallGame,
