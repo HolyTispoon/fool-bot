@@ -2,11 +2,12 @@
   "data_version": 1,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=6660238",
   "abilities_source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1822486506",
+  "advanced_source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=354283038",
   "role_profiles": {
     "fullback": {
       "offense": 1,
       "defense": 6,
-      "ability": "Deflect/High Pass: +1 distance",
+      "ability": "Deflect/High Pass: +1 distance.",
       "ability_short": "Deflect/High Pass: +1 distance"
     },
     "defender": {
@@ -30,7 +31,7 @@
     "winger": {
       "offense": 5,
       "defense": 2,
-      "ability": "May set up a scoring opportunity with a Low Pass",
+      "ability": "May set up a scoring opportunity with a Low Pass.",
       "ability_short": "May set up with Low Pass"
     },
     "striker": {
@@ -45,217 +46,296 @@
       "name": "Acidel",
       "role": "striker",
       "species": "ooze",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "Gets a scoring opportunity instead of own goal when successfully pressuring into  the goal zone.",
+      "advanced_skills": {}
     },
     "blazebulk_defender": {
       "name": "Blazebulk",
       "role": "defender",
       "species": "fire_demon",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "Always Blazes (no burn).",
+      "advanced_skills": {}
     },
     "brightburn_striker": {
       "name": "Brightburn",
       "role": "striker",
       "species": "fire_demon",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "When burns: opponent does not upgrade maneuver, remove 1 exhaustion.",
+      "advanced_skills": {}
     },
     "bulwark_fullback": {
       "name": "Bulwark",
       "role": "fullback",
       "species": "cyborg",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "Is only Drained with 10+",
+      "advanced_skills": {}
     },
     "dravox_defender": {
       "name": "Dravox",
       "role": "defender",
       "species": "telekinetic",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "emberdash_playmaker": {
       "name": "Emberdash",
       "role": "playmaker",
       "species": "fire_demon",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "flickerwing_winger": {
       "name": "Flickerwing",
       "role": "winger",
       "species": "fire_demon",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "flux_defender": {
       "name": "Flux",
       "role": "defender",
       "species": "cyborg",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "High offensive skill.",
+      "advanced_skills": {
+        "offense": 5
+      }
     },
     "gearclaw_playmaker": {
       "name": "Gearclaw",
       "role": "playmaker",
       "species": "cyborg",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "Boost: gain 1 drain for +3.",
+      "advanced_skills": {}
     },
     "glompex_midfielder": {
       "name": "Glompex",
       "role": "midfielder",
       "species": "ooze",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "goopkeeper_fullback": {
       "name": "Goopkeeper",
       "role": "fullback",
       "species": "ooze",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "Contributes full block against score attempts when not on the ball.",
+      "advanced_skills": {}
     },
     "gurgoth_defender": {
       "name": "Gurgoth",
       "role": "defender",
       "species": "ooze",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "hellguard_fullback": {
       "name": "Hellguard",
       "role": "fullback",
       "species": "fire_demon",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "High defensive skill.",
+      "advanced_skills": {
+        "offense": 0,
+        "defense": 8
+      }
     },
     "hexis_playmaker": {
       "name": "Hexis",
       "role": "playmaker",
       "species": "telekinetic",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "inferno_defender": {
       "name": "Inferno",
       "role": "defender",
       "species": "fire_demon",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "kindlefinger_striker": {
       "name": "Kindlefinger",
       "role": "striker",
       "species": "fire_demon",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "noxar_striker": {
       "name": "Noxar",
       "role": "striker",
       "species": "telekinetic",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "Can Mind Pull adjacent spaces.",
+      "advanced_skills": {}
     },
     "ozul_playmaker": {
       "name": "Ozul",
       "role": "playmaker",
       "species": "ooze",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "pulsar_striker": {
       "name": "Pulsar",
       "role": "striker",
       "species": "cyborg",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "quantor_winger": {
       "name": "Quantor",
       "role": "winger",
       "species": "cyborg",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "quillon_playmaker": {
       "name": "Quillon",
       "role": "playmaker",
       "species": "telekinetic",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "Does not get exhausted for Mind Pull.",
+      "advanced_skills": {}
     },
     "scorchit_midfielder": {
       "name": "Scorchit",
       "role": "midfielder",
       "species": "fire_demon",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "sizzifizik_playmaker": {
       "name": "Sizzifizik",
       "role": "playmaker",
       "species": "fire_demon",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "Ignites on 5-8.",
+      "advanced_skills": {}
     },
     "slitheron_striker": {
       "name": "Slitheron",
       "role": "striker",
       "species": "ooze",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "spectra_midfielder": {
       "name": "Spectra",
       "role": "midfielder",
       "species": "telekinetic",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "+3 for Mind Pull.",
+      "advanced_skills": {}
     },
     "spritz_winger": {
       "name": "Spritz",
       "role": "winger",
       "species": "ooze",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "strider_midfielder": {
       "name": "Strider",
       "role": "midfielder",
       "species": "cyborg",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "Recharges 2 when stays put. Cost -1 when runs back.",
+      "advanced_skills": {}
     },
     "synapse_playmaker": {
       "name": "Synapse",
       "role": "playmaker",
       "species": "cyborg",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "When wins with overdrive, resolve maneuver as a gambit.",
+      "advanced_skills": {}
     },
     "tachyon_striker": {
       "name": "Tachyon",
       "role": "striker",
       "species": "cyborg",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "High defensive skill.",
+      "advanced_skills": {
+        "defense": 4
+      }
     },
     "umbrik_fullback": {
       "name": "Umbrik",
       "role": "fullback",
       "species": "telekinetic",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "viscor_defender": {
       "name": "Viscor",
       "role": "defender",
       "species": "ooze",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "voltus_defender": {
       "name": "Voltus",
       "role": "defender",
       "species": "cyborg",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "Overdrive costs 2 drain.",
+      "advanced_skills": {}
     },
     "vorix_defender": {
       "name": "Vorix",
       "role": "defender",
       "species": "telekinetic",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "zenith_winger": {
       "name": "Zenith",
       "role": "winger",
       "species": "telekinetic",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "zorch_playmaker": {
       "name": "Zorch",
       "role": "playmaker",
       "species": "ooze",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     },
     "zytheris_striker": {
       "name": "Zytheris",
       "role": "striker",
       "species": "telekinetic",
-      "stat_overrides": {}
+      "stat_overrides": {},
+      "advanced_ability": "",
+      "advanced_skills": {}
     }
   },
   "teams": {

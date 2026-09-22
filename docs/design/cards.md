@@ -181,8 +181,8 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     resolving Pressure" -- so the Defender's ability, which is Pressure's,
     silently appeared on Steal's card as well.
   - **No role ability names a gambit**, and that is the data being
-    honest rather than a gap: the sheet's `Advanced` ability column is empty
-    for all thirty-six. What a gambit carries instead is the one thing
+    honest rather than a gap: the six role abilities are basic mode's, and the
+    per-player advanced abilities are not played. What a gambit carries instead is the one thing
     settled about how it resolves -- `tie_note`, which says a tie resolves it
     as the basic card on its rank with no gambit's effect, and that a skill
     test forced by injury still carries them. The counterpart it names is
@@ -476,10 +476,17 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     a number tuned to today's data: they are the line at which a player card
     has stopped being a picture, and lowering one to fit a paragraph is the
     move to resist.
-  - **What the back is still waiting on is an advanced *role* ability.** The
-    sheet's `Advanced` column is empty for all thirty-six, so the band repeats
-    the basic sentence; see "Blocked or deferred" in the rules log. The role
-    half of the band is the only thing that changes when it fills.
+  - **What the back is still waiting on is a decision about the advanced
+    *role* ability.** The sheet's `advanced_abilities` tab has one for sixteen
+    players and advanced skill scores for three since 2026-09-22, and the
+    import carries them (`PlayerDefinition.advanced_ability` /
+    `.advanced_skills`), but the band still repeats the basic sentence and the
+    stats row the basic scores: what the back shows -- the advanced ability
+    alone, as the cards sheet's own `Advanced` column words it (`DD.` then the
+    ability on its own line), or beside the basic one, and whether a 0/8
+    fullback's back prints 0/8 -- is the author's call and has not been made.
+    See "Blocked or deferred" in the rules log. The role half of the band and
+    the stats row are the only things that change when it is.
   - **`duplex_order` reverses every row of the back sheet.** A duplex print
     comes out flipped about the paper's long edge, so the leftmost cell of a
     row on the front is the rightmost on the back. A maneuver deck never

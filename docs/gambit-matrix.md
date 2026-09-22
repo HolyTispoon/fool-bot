@@ -33,12 +33,16 @@ the data drifts.
 
 ### The advanced player abilities
 
-The other half of what the author asked for on 2026-08-17, and the half with no data: the
-sheet's `Advanced` ability column is empty for all thirty-six players. Nothing can be imported
-and nothing can be built until it is filled. It also holds up the back of a printed player
-card, which is that player's advanced card (the author, 2026-08-12).
+The other half of what the author asked for on 2026-08-17. **The data exists since
+2026-09-22**: the sheet's `advanced_abilities` tab gives sixteen players an advanced role
+ability and three of them advanced skill scores, and `scripts/import_d12ball_players.py`
+carries both into `players.json` (`advanced_ability`, `advanced_skills`). What is not built is
+the module that plays them -- nothing in the engine reads either field, and the back of a
+printed player card (that player's advanced card, the author, 2026-08-12) still repeats the
+basic sentence until the author says how it should show them.
 
-A coach playing advanced mode today gets the gambits and the roster they already know.
+A coach playing advanced mode today gets the gambits, the species abilities and the roster
+they already know.
 
 ### Setup Pass × Intercept may be inert
 

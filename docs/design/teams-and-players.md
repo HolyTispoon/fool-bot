@@ -53,7 +53,9 @@ anywhere in the code.
   dual roster membership is the whole reason for this change, and a
   player belonging to two rosters at once cannot coherently have one
   intrinsic team. `players.json` is a flat `"players"` table (36
-  entries: name, role, species, stat_overrides, keyed by id) plus a
+  entries: name, role, species, stat_overrides, and since 2026-09-22
+  advanced_ability and advanced_skills -- see "The rules" in
+  [rules-and-data.md](rules-and-data.md) -- keyed by id) plus a
   `"teams"` table (8 entries, `{"player_ids": [9 ids]}`) that resolves
   ids into it -- so a dual-membership player's record is written once,
   not twice. `load_player_catalog` builds every `TeamDefinition` from
