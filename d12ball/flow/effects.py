@@ -34,7 +34,6 @@ step and before dispatching whatever comes next -- see
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 from typing import Optional
 
@@ -53,7 +52,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.turn import record_maneuver, tutorial_beat
+from d12ball.flow.turn import record_maneuver, scripted_or_random, tutorial_beat
 from d12ball.formatting import (
     ball_space_phrase,
     format_goal_time,
@@ -1001,7 +1000,7 @@ def own_goal_roll_step(
         offense_player,
     ).offense
 
-    rolls = (random.randint(1, 12), random.randint(1, 12))
+    rolls = tuple(scripted_or_random(engine, game, "own_goal", 2))
     # Volatile reads the die that is **kept**, not both: an own goal is
     # rolled at an advantage, and the rules name "the die kept in an
     # own-goal roll".

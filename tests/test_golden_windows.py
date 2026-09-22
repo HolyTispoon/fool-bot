@@ -89,7 +89,6 @@ see `test_golden_transcript`'s docstring:
 import asyncio
 import os
 import pathlib
-import random
 import re
 import unittest
 from types import SimpleNamespace
@@ -129,10 +128,10 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "windows_final_match.json"
 #: too** -- the two things the script cannot arrange, since both are
 #: dice. Eleven of the forty were level at full time and two of those
 #: eleven went to sudden death. Every other window this file names is
-#: reached by the press rule and would be reached on any seed. Seeding
-#: the module rather than patching `randint` is what makes the run
-#: reproducible at all: the flow also reaches `random.shuffle` and
-#: `random.choice`.
+#: reached by the press rule and would be reached on any seed. It
+#: seeds the engine's own `rng`, where every draw the game makes comes
+#: from (the dice, the shuffle, the AI's picks), rather than the module
+#: `random`, which nothing in the model reads.
 #:
 #: **It was 31 until a new play's window stopped being gated on the
 #: half's time out** (see docs/rules-log.md, 2026-09-21). Every seed's
@@ -272,6 +271,7 @@ async def record_playthrough(seed: int = None) -> tuple[str, dict, dict]:
     """
     recorder = SimpleNamespace(messages=[], views=[])
     cog = build_windows_cog()
+    cog.engine.rng.seed(WINDOWS_SEED if seed is None else seed)
     game = build_windows_game()
     game.match_state = build_windows_match().to_dict()
     cog.games["g1"] = game
@@ -352,13 +352,6 @@ class WindowsGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
     """One whole game, recorded and compared."""
 
     async def asyncSetUp(self) -> None:
-        # The module-level RNG is global, so seeding it here would leak
-        # into whatever unittest runs next. Saved and restored rather
-        # than left set.
-        self._random_state = random.getstate()
-        random.seed(WINDOWS_SEED)
-        self.addCleanup(random.setstate, self._random_state)
-
         self.transcript, self.final_match, self.facts = (
             await record_playthrough()
         )
@@ -521,12 +514,7 @@ class WindowsGoldenDeterminismTests(unittest.TestCase):
         self.assertEqual(first_m, second_m)
 
     def _run(self) -> tuple[str, dict, dict]:
-        state = random.getstate()
-        try:
-            random.seed(WINDOWS_SEED)
-            return asyncio.run(record_playthrough())
-        finally:
-            random.setstate(state)
+        return asyncio.run(record_playthrough())
 
 
 if __name__ == "__main__":

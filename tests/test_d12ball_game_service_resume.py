@@ -15,7 +15,6 @@ table.
 
 from __future__ import annotations
 
-import random
 import unittest
 
 from d12ball.components import CoachingOccasion, TeamSide
@@ -46,9 +45,7 @@ class ResumeOverEveryPositionTests(unittest.TestCase):
     """Every fixture, resumed the way a frontend with no cog would."""
 
     def setUp(self) -> None:
-        state = random.getstate()
-        random.seed(11)
-        self.addCleanup(random.setstate, state)
+        ENGINE.rng.seed(11)
 
     def test_an_asked_position_is_handed_back_and_nothing_runs(self) -> None:
         for case in CASES:

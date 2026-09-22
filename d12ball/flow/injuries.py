@@ -279,7 +279,7 @@ def injury_test_step(
     # The script fixes injury checks to pass for the whole tutorial --
     # see `BLANKET_ROLLS`. The check still runs and the coach still
     # watches it.
-    roll = scripted_or_random(game, "injury", 1)[0]
+    roll = scripted_or_random(engine, game, "injury", 1)[0]
     # Volatile fires on an injury check like any other d12 -- so a
     # burn that drops the check below the token count injures the
     # Fire Demon who rolled it, which the living rules say outright

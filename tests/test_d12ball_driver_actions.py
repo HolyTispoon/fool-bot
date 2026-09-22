@@ -27,7 +27,6 @@ the reason the check is in the model rather than in each view.
 
 from __future__ import annotations
 
-import random
 import unittest
 from unittest import mock
 
@@ -237,12 +236,11 @@ def _answerable_cases():
 
 
 class ApplyFixture(unittest.TestCase):
-    """A seeded RNG, because two of the answers roll dice."""
+    """A seeded RNG, because two of the answers roll dice -- the
+    engine's, which is where every draw the game makes comes from."""
 
     def setUp(self) -> None:
-        state = random.getstate()
-        random.seed(7)
-        self.addCleanup(random.setstate, state)
+        ENGINE.rng.seed(7)
 
 
 class LegalActionTests(ApplyFixture):

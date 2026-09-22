@@ -25,7 +25,6 @@ only the result can reach.
 """
 
 import json
-import random
 import unittest
 
 from d12ball import tokens
@@ -87,44 +86,40 @@ def describe(result: GameResult) -> list[str]:
 def record_playthrough() -> tuple[str, dict]:
     """Play the tutorial through the service and return the transcript
     and the final save."""
-    state = random.getstate()
-    random.seed(GOLDEN_SEED)
-    try:
-        engine = build_engine()
-        game = build_tutorial_game()
-        game.match_state = build_tutorial_match().to_dict()
-        games = {game.game_id: game}
-        service = GameService(engine, games, save=lambda games: None)
-        policy = TutorialPolicy(engine, game)
-        lines: list[str] = []
+    engine = build_engine()
+    engine.rng.seed(GOLDEN_SEED)
+    game = build_tutorial_game()
+    game.match_state = build_tutorial_match().to_dict()
+    games = {game.game_id: game}
+    service = GameService(engine, games, save=lambda games: None)
+    policy = TutorialPolicy(engine, game)
+    lines: list[str] = []
 
-        result = service.run_step(
-            game.game_id, FollowOnStep.FINISH_SETUP_COACHING,
+    result = service.run_step(
+        game.game_id, FollowOnStep.FINISH_SETUP_COACHING,
+    )
+    lines.append("=== kickoff")
+    lines.extend(describe(result))
+
+    for step in range(MAX_ACTIONS):
+        done = not game.in_tutorial and game.tutorial_gate is None
+        if done or result.prompt is None:
+            break
+        match = MatchState.from_dict(game.match_state, RULESET)
+        action = policy.action(match, result.prompt)
+        lines.append(
+            f"=== action {step + 1}: {action.kind.name} "
+            f"{action.choice!r} {json.dumps(action.arguments, default=str)}"
         )
-        lines.append("=== kickoff")
+        result = service.apply_action(game.game_id, action)
+        assert not result.refused, (
+            f"{action} refused on {result.waiting_on}: {result.refusal}"
+        )
         lines.extend(describe(result))
+    else:
+        raise AssertionError("the tutorial did not hand over in budget")
 
-        for step in range(MAX_ACTIONS):
-            done = not game.in_tutorial and game.tutorial_gate is None
-            if done or result.prompt is None:
-                break
-            match = MatchState.from_dict(game.match_state, RULESET)
-            action = policy.action(match, result.prompt)
-            lines.append(
-                f"=== action {step + 1}: {action.kind.name} "
-                f"{action.choice!r} {json.dumps(action.arguments, default=str)}"
-            )
-            result = service.apply_action(game.game_id, action)
-            assert not result.refused, (
-                f"{action} refused on {result.waiting_on}: {result.refusal}"
-            )
-            lines.extend(describe(result))
-        else:
-            raise AssertionError("the tutorial did not hand over in budget")
-
-        return "\n".join(lines) + "\n", game.match_state
-    finally:
-        random.setstate(state)
+    return "\n".join(lines) + "\n", game.match_state
 
 
 class ServiceGoldenTests(unittest.TestCase):

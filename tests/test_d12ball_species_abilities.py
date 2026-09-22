@@ -307,7 +307,7 @@ class IgniteTests(unittest.TestCase):
 
     def test_only_a_six_or_a_seven_ignites(self):
         for face in range(1, 13):
-            with mock.patch("random.randint", return_value=12):
+            with mock.patch("random.Random.randint", return_value=12):
                 result = self.engine.ignite(self.game, self.demon, face)
             self.assertEqual(
                 result.ignited,
@@ -317,7 +317,7 @@ class IgniteTests(unittest.TestCase):
             self.assertEqual(result.face, face)
 
     def test_a_blaze_adds_the_second_die(self):
-        with mock.patch("random.randint", return_value=9):
+        with mock.patch("random.Random.randint", return_value=9):
             result = self.engine.ignite(self.game, self.demon, 6)
         self.assertTrue(result.blaze)
         self.assertFalse(result.burn)
@@ -325,7 +325,7 @@ class IgniteTests(unittest.TestCase):
         self.assertEqual(result.modifier, 9)
 
     def test_a_burn_subtracts_it(self):
-        with mock.patch("random.randint", return_value=3):
+        with mock.patch("random.Random.randint", return_value=3):
             result = self.engine.ignite(self.game, self.demon, 7)
         self.assertFalse(result.blaze)
         self.assertTrue(result.burn)
@@ -337,7 +337,7 @@ class IgniteTests(unittest.TestCase):
         # rather than at the two sides of the line, since a wrong
         # comparison passes a two-value check half the time.
         for second in range(1, 13):
-            with mock.patch("random.randint", return_value=second):
+            with mock.patch("random.Random.randint", return_value=second):
                 result = self.engine.ignite(self.game, self.demon, 6)
             self.assertEqual(
                 result.blaze, second >= VOLATILE_BLAZE_MINIMUM, second,
@@ -383,7 +383,7 @@ class IgniteTests(unittest.TestCase):
         # "one reroll, however it falls" -- a second die of 6 or 7 is
         # added or subtracted like any other, and rolls nothing more.
         # One randint call is the whole of the proof.
-        with mock.patch("random.randint", return_value=7) as randint:
+        with mock.patch("random.Random.randint", return_value=7) as randint:
             result = self.engine.ignite(self.game, self.demon, 6)
         self.assertEqual(randint.call_count, 1)
         self.assertEqual(result.modifier, 7)
@@ -395,9 +395,9 @@ class IgniteTests(unittest.TestCase):
         self.assertIsNone(IgnitedRoll(face=4).detail)
 
     def test_an_ignite_says_which_way_it_went_and_on_what(self):
-        with mock.patch("random.randint", return_value=9):
+        with mock.patch("random.Random.randint", return_value=9):
             blaze = self.engine.ignite(self.game, self.demon, 6)
-        with mock.patch("random.randint", return_value=2):
+        with mock.patch("random.Random.randint", return_value=2):
             burn = self.engine.ignite(self.game, self.demon, 6)
         self.assertIn("blaze", blaze.detail)
         self.assertIn("+9", blaze.detail)
@@ -408,7 +408,7 @@ class IgniteTests(unittest.TestCase):
         # The sentence beside the ignition die. Not asserted as prose
         # -- it will be revised -- but every number in it is one the
         # coach has to be able to check against the image.
-        with mock.patch("random.randint", return_value=9):
+        with mock.patch("random.Random.randint", return_value=9):
             blaze = self.engine.ignite(self.game, self.demon, 6)
         sentence = blaze.explain("Somebody")
         self.assertIn("Somebody", sentence)
@@ -418,7 +418,7 @@ class IgniteTests(unittest.TestCase):
         self.assertIn("blaze", sentence)
 
     def test_a_burn_explains_itself_as_a_subtraction(self):
-        with mock.patch("random.randint", return_value=2):
+        with mock.patch("random.Random.randint", return_value=2):
             burn = self.engine.ignite(self.game, self.demon, 7)
         sentence = burn.explain("Somebody")
         self.assertIn("burn", sentence)
@@ -514,7 +514,7 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
         self.demon = fielded_of_species(self.match, SPECIES_FIRE_DEMON)
 
     def ignite(self, face: int, second: int) -> IgnitedRoll:
-        with mock.patch("random.randint", return_value=second):
+        with mock.patch("random.Random.randint", return_value=second):
             return self.cog.engine.ignite(self.game, self.demon, face)
 
     async def test_an_ignited_roll_is_posted_with_its_own_die(self) -> None:
@@ -591,7 +591,7 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
         with injury_queue_stops_the_chain(
             self.cog,
         ), suppressed_cog_saves(), suppressed_view_saves(), mock.patch(
-            "random.randint", side_effect=[6, 1, 9],
+            "random.Random.randint", side_effect=[6, 1, 9],
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
         ), mock.patch("discord.File"):
@@ -2558,7 +2558,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         }
         was = self.match.ball.possession
         with suppressed_cog_saves(), mock.patch(
-            "random.randint", return_value=MIND_PULL_SUCCESS_FACES[0],
+            "random.Random.randint", return_value=MIND_PULL_SUCCESS_FACES[0],
         ):
             await run_mind_pull(self.cog, 
                 self.interaction, self.game, self.match, self.puller,
@@ -2587,7 +2587,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         was = self.match.ball.possession
         self.cog.finish_maneuver_resolution = mock.AsyncMock()
         with suppressed_cog_saves(), mock.patch(
-            "random.randint", return_value=a_face_that_misses(),
+            "random.Random.randint", return_value=a_face_that_misses(),
         ):
             await run_mind_pull(self.cog, 
                 self.interaction, self.game, self.match, self.puller,
@@ -2611,7 +2611,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         }
         self.cog.finish_maneuver_resolution = mock.AsyncMock()
         with suppressed_cog_saves(), mock.patch(
-            "random.randint", return_value=a_face_that_misses(),
+            "random.Random.randint", return_value=a_face_that_misses(),
         ):
             await run_mind_pull(self.cog, 
                 self.interaction, self.game, self.match, self.puller,
@@ -2634,7 +2634,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
             "kind": "finish_maneuver", "distance_moved": 1,
         }
         with suppressed_cog_saves(), mock.patch(
-            "random.randint", return_value=MIND_PULL_SUCCESS_FACES[0],
+            "random.Random.randint", return_value=MIND_PULL_SUCCESS_FACES[0],
         ):
             await run_mind_pull(self.cog, 
                 self.interaction, self.game, self.match, self.puller,

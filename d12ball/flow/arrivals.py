@@ -31,7 +31,6 @@ different things with one name and the shorter one is the older.
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass, replace
 from typing import Optional
 
@@ -45,6 +44,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
     HIGH_PASS_CONTEST_HEADLINE,
     ball_location_line,
@@ -1474,7 +1474,7 @@ def attempt_mind_pull_step(
     exhaustion_text = engine.apply_exhaustion(
         game, match, player_id, MIND_PULL_TOKEN_COST,
     )
-    roll = random.randint(1, 12)
+    roll = scripted_or_random(engine, game, "mind_pull", 1)[0]
     # Volatile is a Fire Demon's and this is a Telekinetic's roll, so
     # nothing ignites here -- asked anyway, through the one funnel,
     # rather than assuming the two can never meet.

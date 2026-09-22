@@ -224,7 +224,7 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
         view = ScoreAttemptView(cog, game.game_id)
         with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
-            "random.randint", side_effect=rolls,
+            "random.Random.randint", side_effect=rolls,
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
         ) as dice, mock.patch("discord.File"):

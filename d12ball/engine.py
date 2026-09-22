@@ -253,11 +253,24 @@ class RulesEngine:
         basic_ruleset: BasicRuleset,
         maneuver_catalog: ManeuverCatalog,
         ai_strategies: dict[AIOpponent, AIStrategy],
+        rng: Optional[random.Random] = None,
     ) -> None:
         self.player_catalog = player_catalog
         self.basic_ruleset = basic_ruleset
         self.maneuver_catalog = maneuver_catalog
         self.ai_strategies = ai_strategies
+        # **Every draw the game makes comes from here** -- the dice,
+        # the coin, the defensive tie-break's shuffle, and the AI's
+        # own picks, since each strategy is handed this same stream
+        # below. Nothing in `d12ball/` reads the module `random`
+        # (decision 7 of docs/web-app.md; step 9 of
+        # docs/architecture-migration.md): a test seeds `engine.rng`
+        # and replays a whole game, and a web process running two
+        # games is not sharing one process-wide stream with the
+        # frontend. The service constructs nothing and rolls nothing.
+        self.rng: random.Random = rng if rng is not None else random.Random()
+        for strategy in ai_strategies.values():
+            strategy.rng = self.rng
         # Nothing Discord-shaped is held here. The four emoji dicts
         # the engine carried until step 9 of
         # docs/architecture-migration.md -- a badge per role, a ring
@@ -455,8 +468,8 @@ class RulesEngine:
         stops the next one being written at six call sites.
 
         It takes the face rather than rolling it. Each site already
-        knows how to get its own dice -- `random.randint(1, 12)`, or
-        the tutorial's scripted faces through `tutorial_dice` -- and
+        knows how to get its own dice -- `scripted_or_random`, the
+        tutorial's scripted faces or this engine's `rng` -- and
         taking that over would have meant threading the tutorial's
         script through here for no gain. What it owns is the *reading*:
         a natural 6 or 7 on a Fire Demon's die ignites, a second d12 is
@@ -482,7 +495,7 @@ class RulesEngine:
         if not self.has_species_ability(game, player_id, SPECIES_FIRE_DEMON):
             return IgnitedRoll(face=face)
 
-        second = random.randint(1, 12)
+        second = self.rng.randint(1, 12)
         blaze = second >= VOLATILE_BLAZE_MINIMUM
         return IgnitedRoll(
             face=face,
@@ -1265,7 +1278,7 @@ class RulesEngine:
         7 of docs/web-app.md: the `Random` is the engine's, or the
         match's, never the service's).
         """
-        return random.choice((CoinFace.FORTUNE, CoinFace.DOOM))
+        return self.rng.choice((CoinFace.FORTUNE, CoinFace.DOOM))
 
     def initialize_standard_match(
         self,
@@ -2207,7 +2220,7 @@ class RulesEngine:
         whatever order the zones happened to be in.
         """
         players = list(match.setup_for_side(side).field_players)
-        random.shuffle(players)
+        self.rng.shuffle(players)
         return sorted(
             players,
             key=lambda player_id: -self.player_catalog.effective_profile(

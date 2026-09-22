@@ -59,6 +59,13 @@ class AIStrategy(ABC):
     ):
         self.player_catalog = player_catalog
         self.maneuver_catalog = maneuver_catalog
+        #: Where a strategy's own draws come from -- a team out of the
+        #: pool, a rank off a d6, a shooter. The engine replaces it
+        #: with its own `rng` when it takes the strategy on
+        #: (`RulesEngine.__init__`), so one seed fixes the dice and
+        #: the AI together and nothing in the model reads the module
+        #: `random` (decision 7 of docs/web-app.md).
+        self.rng: random.Random = random.Random()
 
     @abstractmethod
     def choose_team(self, pool: list[Team]) -> Team:
@@ -124,10 +131,10 @@ class DinkyAI(AIStrategy):
     """
 
     def choose_team(self, pool: list[Team]) -> Team:
-        return random.choice(pool)
+        return self.rng.choice(pool)
 
     def choose_home_or_visiting(self) -> HomeChoice:
-        return random.choice((HomeChoice.HOME, HomeChoice.VISITING))
+        return self.rng.choice((HomeChoice.HOME, HomeChoice.VISITING))
 
     def choose(
         self,
@@ -241,7 +248,7 @@ class DinkyAI(AIStrategy):
         if hand.railed is not None:
             key = hand.railed
         else:
-            roll = random.randint(1, 6)
+            roll = self.rng.randint(1, 6)
             if pick_side == "offense":
                 rank = self.maneuver_catalog.offense_for_die(roll).rank
             else:
@@ -256,7 +263,7 @@ class DinkyAI(AIStrategy):
                 # actually there is cheaper than a branch that can
                 # never be right.
                 on_rank = list(hand.maneuver_keys)
-            key = random.choice(on_rank)
+            key = self.rng.choice(on_rank)
         return Action(
             prompt.kind, "", {"side": pick_side, "maneuver_key": key},
         )
@@ -522,7 +529,7 @@ class DinkyAI(AIStrategy):
             "send",
             {
                 "side": side,
-                "player_id": random.choice(options.for_side(side)),
+                "player_id": self.rng.choice(options.for_side(side)),
             },
         )
 
@@ -532,7 +539,7 @@ class DinkyAI(AIStrategy):
             "",
             {
                 "side": side,
-                "player_id": random.choice(options.for_side(side)),
+                "player_id": self.rng.choice(options.for_side(side)),
             },
         )
 

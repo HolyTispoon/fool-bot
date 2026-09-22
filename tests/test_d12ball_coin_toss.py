@@ -453,7 +453,7 @@ class D12BallCoinTossTests(unittest.TestCase):
 
         with suppressed_cog_saves(), \
                 mock.patch(
-                    "random.choice",
+                    "random.Random.choice",
                     side_effect=lambda pool: pool[0],
                 ) as choice:
             asyncio.run(view.select_team(interaction, Team.ORANGE))

@@ -85,7 +85,6 @@ see that module's docstring:
 import asyncio
 import os
 import pathlib
-import random
 import re
 import unittest
 from types import SimpleNamespace
@@ -123,10 +122,10 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 
 #: Picked by sweeping seeds and scoring each run on how much of the
 #: spine it reaches -- all twelve maneuvers, both halves of the arrival
-#: gate, the own-goal roll and a run back that stops to ask. Seeding the
-#: module rather than patching `randint` is what makes the run
-#: reproducible at all: the flow also reaches `random.shuffle` and
-#: `random.choice`, which a patch on `randint` leaves free.
+#: gate, the own-goal roll and a run back that stops to ask. It seeds
+#: the engine's own `rng`, where every draw the game makes comes from
+#: (the dice, the shuffle, the AI's picks), rather than the module
+#: `random`, which nothing in the model reads.
 ADVANCED_SEED = 37
 
 #: The game is not played to full time: the budget stops it in the
@@ -209,7 +208,7 @@ def choose_button(live: list, step: int):
     return (forward or live)[step % len(forward or live)]
 
 
-async def record_playthrough() -> tuple[str, dict]:
+async def record_playthrough(seed: int = ADVANCED_SEED) -> tuple[str, dict]:
     """
     Play an advanced game through the real cog and return the
     transcript and the final match state.
@@ -222,6 +221,7 @@ async def record_playthrough() -> tuple[str, dict]:
     """
     recorder = SimpleNamespace(messages=[], views=[])
     cog = build_advanced_cog()
+    cog.engine.rng.seed(seed)
     game = build_advanced_game()
     game.match_state = build_advanced_match().to_dict()
     cog.games["g1"] = game
@@ -287,13 +287,6 @@ class AdvancedGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
     """One real advanced game, recorded and compared."""
 
     async def asyncSetUp(self) -> None:
-        # The module-level RNG is global, so seeding it here would leak
-        # into whatever unittest runs next. Saved and restored rather
-        # than left set.
-        self._random_state = random.getstate()
-        random.seed(ADVANCED_SEED)
-        self.addCleanup(random.setstate, self._random_state)
-
         self.transcript, self.final_match = await record_playthrough()
 
     async def test_the_narration_and_prompts_are_unchanged(self) -> None:
@@ -420,12 +413,7 @@ class AdvancedGoldenDeterminismTests(unittest.TestCase):
         self.assertEqual(first_m, second_m)
 
     def _run(self) -> tuple[str, dict]:
-        state = random.getstate()
-        try:
-            random.seed(ADVANCED_SEED)
-            return asyncio.run(record_playthrough())
-        finally:
-            random.setstate(state)
+        return asyncio.run(record_playthrough())
 
 
 if __name__ == "__main__":

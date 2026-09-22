@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-import random
 
 from d12ball import tutorial
 from d12ball.components import (
@@ -697,25 +696,35 @@ def tutorial_beat(game: D12BallGame):
 
 
 def scripted_or_random(
+    engine: RulesEngine,
     game: D12BallGame,
     kind: str,
     count: int,
 ) -> list[int]:
     """
-    The dice the tutorial's script fixes for this roll, or real ones.
+    The dice the tutorial's script fixes for this roll, or real ones
+    off the engine's `rng`.
 
     `D12Ball.tutorial_dice` was this and it was two lines over
     `tutorial.scripted_dice` -- which reads the beat and nothing else,
     so it was already on the model's side of the line in everything but
     its address. It lives beside `tutorial_beat` for the same reason
-    that does: it is the one thing every lifted roll site needs from
-    the script, and a module that rolls dice should not each keep its
-    own copy of "did the script want a number here".
+    that does: it is the one thing every roll site needs from the
+    script, and a module that rolls dice should not each keep its own
+    copy of "did the script want a number here".
+
+    **Every d12 in the game is rolled here** since step 9 of
+    docs/architecture-migration.md. The score attempt, the shootout
+    test, the own-goal roll and Mind Pull each rolled their own before
+    (finding 11 of docs/web-app.md), which was both a second reading
+    of where dice come from and the reason the tutorial's script could
+    not have fixed them; the Volatile second die is the engine's own
+    (`ignite`), since it is a reading of a die and not a roll.
     """
     scripted = tutorial.scripted_dice(tutorial_beat(game), kind, count)
     if scripted:
         return list(scripted)
-    return [random.randint(1, 12) for _ in range(count)]
+    return [engine.rng.randint(1, 12) for _ in range(count)]
 
 
 def begin_maneuver_action_selection(

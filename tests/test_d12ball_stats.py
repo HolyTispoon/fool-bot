@@ -1001,7 +1001,7 @@ class RollsReachTheLogTests(unittest.IsolatedAsyncioTestCase):
 
     async def run_injury_test(self, cog, game, match, player_id, roll):
         with suppressed_cog_saves(), mock.patch(
-            "random.randint", return_value=roll,
+            "random.Random.randint", return_value=roll,
         ), mock.patch("cogs.d12ball.core.render_injury_test_die"), mock.patch(
             "discord.File",
         ):
@@ -1049,7 +1049,7 @@ class RollsReachTheLogTests(unittest.IsolatedAsyncioTestCase):
                 game.match_state = match.to_dict()
 
                 with suppressed_cog_saves(), mock.patch(
-                    "random.randint", return_value=roll,
+                    "random.Random.randint", return_value=roll,
                 ), mock.patch(
                     "cogs.d12ball.effects.render_own_goal_dice",
                 ), mock.patch("discord.File"):
@@ -1081,7 +1081,7 @@ class RollsReachTheLogTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves(), mock.patch(
-            "random.randint", return_value=1,
+            "random.Random.randint", return_value=1,
         ), mock.patch(
             "cogs.d12ball.effects.render_own_goal_dice",
         ), mock.patch("discord.File"):

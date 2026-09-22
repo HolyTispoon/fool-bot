@@ -41,7 +41,6 @@ a seed that stops covering it says so.
 
 from __future__ import annotations
 
-import random
 import unittest
 
 from d12ball import tutorial
@@ -146,7 +145,9 @@ class Policy:
             hand = next(
                 hand for hand in options.hands if not hand.picked
             )
-            card = random.choice(hand.maneuver_keys)
+            # Off the engine's own stream, so the policy's picks and
+            # the game's dice are one seeded sequence.
+            card = self.engine.rng.choice(hand.maneuver_keys)
             return Action(kind, "", {"side": hand.side, "maneuver_key": card})
         if kind is PromptKind.COACHING_HUB:
             return Action(kind, "done", {"side": match.pending_coaching_side})
@@ -218,71 +219,67 @@ def play(
     -- the tutorial's run stops at the handover rather than at full
     time.
     """
-    state = random.getstate()
-    random.seed(seed)
-    try:
-        engine = build_engine()
-        game = game or build_game()
-        match = match or build_match()
-        policy = policy_class(engine, game)
-        answered: list[PromptKind] = []
+    engine = build_engine()
+    engine.rng.seed(seed)
+    game = game or build_game()
+    match = match or build_match()
+    policy = policy_class(engine, game)
+    answered: list[PromptKind] = []
 
-        # The kickoff: the pre-kickoff windows are the coaches' and a
-        # standard deal needs neither, so the game starts where the
-        # setup's last step leaves it -- the board, and the turn.
-        driver.advance(
-            engine, game, match,
-            StepResult(next=FollowOn(FollowOnStep.FINISH_SETUP_COACHING)),
+    # The kickoff: the pre-kickoff windows are the coaches' and a
+    # standard deal needs neither, so the game starts where the
+    # setup's last step leaves it -- the board, and the turn.
+    driver.advance(
+        engine, game, match,
+        StepResult(next=FollowOn(FollowOnStep.FINISH_SETUP_COACHING)),
+    )
+    match = MatchState.from_dict(match.to_dict(), RULESET)
+
+    for _ in range(MAX_ACTIONS):
+        if game.is_finished or (until is not None and until(game)):
+            break
+        prompt = pending_prompt(engine, game, match)
+        # A run ends on a prompt or on nothing; a position the bot
+        # still owes a step on is the chain and a step's own
+        # `next` disagreeing (the pressure-beats-burst speed
+        # choice was one), and is named rather than crashed on.
+        assert prompt is not None, (
+            "the run stopped on a position the bot owes a step on: "
+            f"{owed_step(engine, game, match)}"
         )
-        match = MatchState.from_dict(match.to_dict(), RULESET)
-
-        for _ in range(MAX_ACTIONS):
-            if game.is_finished or (until is not None and until(game)):
-                break
-            prompt = pending_prompt(engine, game, match)
-            # A run ends on a prompt or on nothing; a position the bot
-            # still owes a step on is the chain and a step's own
-            # `next` disagreeing (the pressure-beats-burst speed
-            # choice was one), and is named rather than crashed on.
-            assert prompt is not None, (
-                "the run stopped on a position the bot owes a step on: "
-                f"{owed_step(engine, game, match)}"
+        if prompt.kind in UNANSWERABLE:
+            break
+        # The AI answers its own questions, as the service does
+        # (`GameService.run`); the policy is the coach's.
+        action = driver.ai_action(engine, game, match, prompt)
+        if action is None:
+            action = policy.action(match, prompt)
+        run = driver.apply(engine, game, match, action)
+        if isinstance(run, Refusal):
+            raise AssertionError(
+                f"{action} refused on {prompt.kind.name}: {run.reason}"
             )
-            if prompt.kind in UNANSWERABLE:
-                break
-            # The AI answers its own questions, as the service does
-            # (`GameService.run`); the policy is the coach's.
-            action = driver.ai_action(engine, game, match, prompt)
-            if action is None:
-                action = policy.action(match, prompt)
-            run = driver.apply(engine, game, match, action)
-            if isinstance(run, Refusal):
-                raise AssertionError(
-                    f"{action} refused on {prompt.kind.name}: {run.reason}"
-                )
-            answered.append(prompt.kind)
+        answered.append(prompt.kind)
 
-            # **A restart after every click.** The reloaded save has
-            # to be waiting on the same question the live match is.
-            # Only the stops a frontend re-enters the loop for are
-            # walked on here -- the driver stops on a new play so a
-            # frontend can draw its board, and a game with no board to
-            # draw simply carries on.
-            while isinstance(run.result.next, FollowOn):
-                run = driver.advance(
-                    engine, game, match, StepResult(next=run.result.next),
-                )
-            reloaded = MatchState.from_dict(match.to_dict(), RULESET)
-            assert pending_prompt(engine, game, reloaded) == pending_prompt(
-                engine, game, match,
-            ), "the save and the live match disagree about what is asked"
-            match = reloaded
-        else:
-            raise AssertionError("the game did not finish inside the budget")
+        # **A restart after every click.** The reloaded save has
+        # to be waiting on the same question the live match is.
+        # Only the stops a frontend re-enters the loop for are
+        # walked on here -- the driver stops on a new play so a
+        # frontend can draw its board, and a game with no board to
+        # draw simply carries on.
+        while isinstance(run.result.next, FollowOn):
+            run = driver.advance(
+                engine, game, match, StepResult(next=run.result.next),
+            )
+        reloaded = MatchState.from_dict(match.to_dict(), RULESET)
+        assert pending_prompt(engine, game, reloaded) == pending_prompt(
+            engine, game, match,
+        ), "the save and the live match disagree about what is asked"
+        match = reloaded
+    else:
+        raise AssertionError("the game did not finish inside the budget")
 
-        return game, match, answered
-    finally:
-        random.setstate(state)
+    return game, match, answered
 
 
 class DriverFullGameTests(unittest.TestCase):

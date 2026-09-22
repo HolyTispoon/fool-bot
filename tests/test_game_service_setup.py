@@ -12,7 +12,6 @@ channel or message, which is what a web app's game looks like.
 
 from __future__ import annotations
 
-import random
 import unittest
 
 from d12ball.components import RuleRefusal
@@ -400,9 +399,9 @@ class TeamPickTests(SetupHarness):
 
 class CoinAndSidesTests(SetupHarness):
     def seeded(self, seed: int):
-        state = random.getstate()
-        random.seed(seed)
-        self.addCleanup(random.setstate, state)
+        # The coin and Dinky's draws are the engine's `rng`, so that
+        # is what a test seeds.
+        ENGINE.rng.seed(seed)
 
     def two_coaches(self) -> D12BallGame:
         game = self.open_lobby()

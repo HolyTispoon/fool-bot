@@ -58,7 +58,6 @@ import difflib
 import json
 import os
 import pathlib
-import random
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -89,10 +88,12 @@ TRANSCRIPT_FILE = GOLDEN_DIR / "tutorial_transcript.txt"
 FINAL_MATCH_FILE = GOLDEN_DIR / "tutorial_final_match.json"
 
 # Chosen so the closing score attempt goes in -- see the module
-# docstring. Seeding the module rather than patching `randint` is what
-# makes the run reproducible at all: the flow also reaches
-# `random.shuffle` and `random.choice`, which a patch on `randint`
-# leaves free.
+# docstring. It seeds the engine's own `rng`, which every draw the
+# game makes comes from -- the dice, the coin, the defensive shuffle
+# and the AI's picks -- rather than the module `random`, which nothing
+# in the model reads (step 9 of docs/architecture-migration.md), or a
+# patch on `randint`, which would leave the shuffle and the choice
+# free.
 GOLDEN_SEED = 2
 
 # The playthrough presses one button per pass; the script is five beats
@@ -102,7 +103,7 @@ MAX_STEPS = 40
 UPDATING = os.environ.get("FOOLBOT_UPDATE_GOLDEN") == "1"
 
 
-async def record_playthrough() -> tuple[str, dict]:
+async def record_playthrough(seed: int = GOLDEN_SEED) -> tuple[str, dict]:
     """
     Play the tutorial script through the real cog, pressing the first
     enabled button at every step, and return the transcript and the
@@ -116,6 +117,10 @@ async def record_playthrough() -> tuple[str, dict]:
     """
     recorder = SimpleNamespace(messages=[], views=[])
     cog = build_cog()
+    # Every draw the game makes is the engine's `rng` (step 9 of
+    # docs/architecture-migration.md), so that is what the seed fixes;
+    # nothing here touches the module `random`, and nothing leaks.
+    cog.engine.rng.seed(seed)
     game = build_game(tutorial_step=None)
     game.match_state = build_match().to_dict()
     cog.games["g1"] = game
@@ -210,13 +215,6 @@ class GoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
     """One real game, recorded and compared."""
 
     async def asyncSetUp(self) -> None:
-        # The module-level RNG is global, so seeding it here would leak
-        # into whatever unittest runs next. Saved and restored rather
-        # than left set.
-        self._random_state = random.getstate()
-        random.seed(GOLDEN_SEED)
-        self.addCleanup(random.setstate, self._random_state)
-
         self.transcript, self.final_match = await record_playthrough()
 
     async def test_the_narration_and_prompts_are_unchanged(self) -> None:
@@ -309,12 +307,7 @@ class GoldenTranscriptDeterminismTests(unittest.TestCase):
         self.assertEqual(first_m, second_m)
 
     def _run(self) -> tuple[str, dict]:
-        state = random.getstate()
-        try:
-            random.seed(GOLDEN_SEED)
-            return asyncio.run(record_playthrough())
-        finally:
-            random.setstate(state)
+        return asyncio.run(record_playthrough())
 
 
 if __name__ == "__main__":
