@@ -53,7 +53,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
 from d12ball.components import (
-    BALL_SPEED_MAX,
     MatchState,
     PlayerRole,
     TeamSide,
@@ -549,8 +548,7 @@ class DecisionOptions:
     """
     A yes or a no: take the set-up shot or decline it, take the ball
     over or leave it, reach for it or let it go, coach or pass.
-    `choices` are this kind's two answers as `driver.CHOICES` spells
-    them; `railed` is the one the tutorial fixes, or `None`.
+    `choices` are this kind's two answers as `CHOICES` spells them; `railed` is the one the tutorial fixes, or `None`.
     """
 
     choices: tuple[str, ...]
@@ -1834,6 +1832,44 @@ OVERDRIVE_ROLLERS = {
 }
 
 
+#: The six prompts a roll is asked on, and therefore the six an
+#: Overdrive can be declared on. The rules' own list.
+ROLL_KINDS = frozenset(OVERDRIVE_ROLLERS)
+
+
+#: Which of a prompt's answers each kind offers, where it offers more
+#: than one.
+#:
+#: One table, beside `OPTIONS`: `DecisionOptions.choices` is built
+#: from it and `driver.answer` refuses against it, so a button and the
+#: refusal cannot spell an answer differently. An unlisted kind takes
+#: the empty choice and nothing else, which is what a prompt with one
+#: answer means.
+CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
+    # **Every roll prompt offers two answers**, and the second one
+    # does not settle it: Overdrive is declared before the dice and
+    # the roll is still owed afterwards. `SCORE_ATTEMPT` has its
+    # own third, below, because a declared shot can also be walked
+    # back.
+    **{
+        kind: ("roll", "overdrive")
+        for kind in ROLL_KINDS
+    },
+    PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
+    PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
+    PromptKind.SMOOTH: ("take", "decline"),
+    PromptKind.MIND_PULL: ("take", "decline"),
+    PromptKind.MANEUVER_CHALLENGE: ("send", "decline"),
+    PromptKind.PLAYER_ACTION: ("shoot", "maneuver", "time_out"),
+    PromptKind.SHOOTOUT_ORDER: ("send", "restart"),
+    PromptKind.COACHING_OFFER: ("declare", "decline"),
+    PromptKind.COACHING_HUB: (
+        "formation", "substitute", "swap", "reposition", "done",
+    ),
+    PromptKind.SCORE_ATTEMPT: ("roll", "back", "overdrive"),
+}
+
+
 def overdrive_rollers(
     match: MatchState,
     prompt: PendingPrompt,
@@ -2059,23 +2095,22 @@ def _set_up_attempt_options(
     prompt: PendingPrompt,
 ) -> DecisionOptions:
     # The script names the rail as the button did ("attempt"); the
-    # answer is `driver.CHOICES`' word for it.
+    # answer is `CHOICES`' word for it.
     railed = _railed(game, "setup_attempt", ("attempt", "decline"))
     return DecisionOptions(
-        ("take", "decline"),
+        CHOICES[PromptKind.SET_UP_ATTEMPT],
         railed={"attempt": "take", "decline": "decline"}.get(railed),
     )
 
 
-def _decision(*choices: str):
-    def build(
-        engine: "RulesEngine",
-        game: D12BallGame,
-        match: MatchState,
-        prompt: PendingPrompt,
-    ) -> DecisionOptions:
-        return DecisionOptions(choices)
-    return build
+def _decision_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> DecisionOptions:
+    """A yes or a no, spelled as `CHOICES` spells this kind's."""
+    return DecisionOptions(CHOICES[prompt.kind])
 
 
 def _low_pass_options(
@@ -2254,10 +2289,10 @@ def _coaching_hub_options(
 #: finished game) has nothing to choose.
 OPTIONS = {
     PromptKind.COACHING_HUB: _coaching_hub_options,
-    PromptKind.COACHING_OFFER: _decision("declare", "decline"),
+    PromptKind.COACHING_OFFER: _decision_options,
     PromptKind.HALFTIME_EXTRA_TOKEN: _halftime_token_options,
-    PromptKind.MIND_PULL: _decision("take", "decline"),
-    PromptKind.SMOOTH: _decision("take", "decline"),
+    PromptKind.MIND_PULL: _decision_options,
+    PromptKind.SMOOTH: _decision_options,
     PromptKind.INJURY_TEST: _roll_options,
     PromptKind.OWN_GOAL_ROLL: _roll_options,
     PromptKind.SHOOTOUT_ORDER: _shootout_order_options,

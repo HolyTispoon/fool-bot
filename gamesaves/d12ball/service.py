@@ -301,7 +301,6 @@ OWED_STEP_NAMES: Mapping[FollowOnStep, str] = {
     FollowOnStep.ADVANCE_FULL_TIME_STAGE: (
         "the Coaching Choice before the shootout"
     ),
-    FollowOnStep.ADVANCE_SHOOTOUT: "the extreme shootout",
     FollowOnStep.FINISH_TIME_OUT: "the time out",
     FollowOnStep.CONTINUE_RUN_BACK: "the run back",
     FollowOnStep.BEGIN_BALL_RECOVERY: "the out-of-bounds pickup",
@@ -665,20 +664,11 @@ class GameService:
         self,
         game_id: str,
         step: FollowOnStep,
-        lead_in: str = "",
-        **kwargs: Any,
     ) -> GameResult:
         """Run one step by name and everything it starts."""
         game = self.game(game_id)
         match = self.load(game)
-        return self.run(
-            game,
-            match,
-            StepResult(
-                narration=[lead_in] if lead_in else [],
-                next=FollowOn(step, kwargs),
-            ),
-        )
+        return self.run(game, match, StepResult(next=FollowOn(step)))
 
     def begin(self, game_id: str) -> GameResult:
         """
@@ -785,8 +775,11 @@ class GameService:
         match: MatchState,
         prompt: PendingPrompt,
     ) -> GameResult:
-        """The prompt the match is waiting on, and nothing run."""
-        return GameResult(prompt=prompt, match=match)
+        """The prompt the match is waiting on, and nothing run -- told
+        to whoever is watching, as every result is."""
+        result = GameResult(prompt=prompt, match=match)
+        self.announce(game, result)
+        return result
 
     # -- The loop --------------------------------------------------------
 

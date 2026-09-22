@@ -270,7 +270,7 @@ class WebApp:
     def _viewer(self, request: web.Request, game: D12BallGame) -> Viewer:
         return Viewer(
             keys.player_number_for(
-                game.game_id, request.query.get("key") or _key_header(request),
+                game.game_id, request.query.get("key"),
             ),
         )
 
@@ -570,10 +570,6 @@ def _was_offered(sections: list, posted: Mapping[str, Any]) -> bool:
             ):
                 return True
     return False
-
-
-def _key_header(request: web.Request) -> Optional[str]:
-    return request.headers.get("X-Foolbot-Key")
 
 
 def _since(request: web.Request) -> int:

@@ -283,8 +283,10 @@ class FollowOnStep(Enum):
     #: **The steps the bot itself owes**, which `d12ball.prompts.owed_step`
     #: names for a position nobody is asked anything on: the next stage
     #: of setup, halftime or full time where no window is open; the
-    #: shootout's next step; the tail of a time out once both windows
-    #: have closed; the out-of-bounds pickup where nobody need move.
+    #: tail of a time out once both windows have closed; the
+    #: out-of-bounds pickup where nobody need move. (The shootout's own
+    #: advance never had a producer: every position inside it is a
+    #: question for somebody, so a member for it named nothing.)
     #: Added by step 5 of docs/architecture-migration.md, when the
     #: recovery ladder in `GameService.resume` stopped calling the flow
     #: functions by name and started running whatever `owed_step`
@@ -297,7 +299,6 @@ class FollowOnStep(Enum):
     ADVANCE_SETUP_STAGE = auto()
     ADVANCE_HALFTIME_STAGE = auto()
     ADVANCE_FULL_TIME_STAGE = auto()
-    ADVANCE_SHOOTOUT = auto()
     FINISH_TIME_OUT = auto()
     BEGIN_BALL_RECOVERY = auto()
 

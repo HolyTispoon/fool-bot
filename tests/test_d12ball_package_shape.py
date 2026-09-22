@@ -296,7 +296,6 @@ class FollowOnStepTests(unittest.TestCase):
         "ADVANCE_SETUP_STAGE",
         "ADVANCE_HALFTIME_STAGE",
         "ADVANCE_FULL_TIME_STAGE",
-        "ADVANCE_SHOOTOUT",
         "FINISH_TIME_OUT",
         "BEGIN_BALL_RECOVERY",
     }

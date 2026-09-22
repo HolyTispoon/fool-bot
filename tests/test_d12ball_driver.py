@@ -603,16 +603,9 @@ class WaitingOnTests(DriverFixture):
 
     This is the property a restart depends on: a frontend that put up
     the prompt the run handed back, and a restart that reads
-    `pending_prompt` off the file, have to reach the same question.
-    `waiting_on` is that one reading re-exported, never a second copy
-    -- see principle 3 in CLAUDE.md.
+    `pending_prompt` off the file, have to reach the same question --
+    one reading, never a second copy (principle 3 in CLAUDE.md).
     """
-
-    def test_waiting_on_is_pending_prompt_and_nothing_else(self) -> None:
-        self.assertEqual(
-            driver.waiting_on(self.engine, self.game, self.match),
-            pending_prompt(self.engine, self.game, self.match),
-        )
 
     def test_a_prompt_the_run_stops_on_survives_the_save(self) -> None:
         """
@@ -623,8 +616,8 @@ class WaitingOnTests(DriverFixture):
         restored = MatchState.from_dict(self.match.to_dict(), RULES)
 
         self.assertEqual(
-            driver.waiting_on(self.engine, self.game, restored).kind,
-            driver.waiting_on(self.engine, self.game, self.match).kind,
+            pending_prompt(self.engine, self.game, restored).kind,
+            pending_prompt(self.engine, self.game, self.match).kind,
         )
         self.assertFalse(run.ran)
 
