@@ -18,7 +18,6 @@ from d12ball import boards
 from d12ball.boards import (
     BLEED_INCHES,
     CARD_INCHES,
-    CARDS_PER_AREA,
     CLOCK_COLUMNS,
     CLOCK_MINUTES,
     DEFAULT_PAPER,
@@ -26,6 +25,8 @@ from d12ball.boards import (
     MIN_TOKEN_INCHES,
     PRINT_DPI,
     SCORE_TRACK_MAX,
+    TEAM_BOARD_PAPER,
+    TEAM_CUT_INCHES,
     TOKEN_SUPPLIES,
     FieldGeometry,
     Sheet,
@@ -33,17 +34,22 @@ from d12ball.boards import (
     card_slot_inches,
     cell_inches,
     draw_formation_strip,
+    fitted_print_font,
     formation_strip_segments,
     kickoff_marks,
     render_field_board,
     render_jumbotron_board,
     load_token_art,
     render_team_board,
+    render_team_board_sheet,
     roster_line,
     sheet_pixels,
     shooting_range_bands,
     standard_deal_line,
+    team_board_pixels,
+    team_reminders,
 )
+from d12ball.cards import BACK_COLOR, DEFENSE_COLOR, OFFENSE_COLOR
 from d12ball.components import (
     BoardState,
     MatchPeriod,
@@ -180,6 +186,16 @@ class D12BallFieldBoardTests(unittest.TestCase):
 
 
 class D12BallTeamBoardTests(unittest.TestCase):
+    """
+    One coach's board, and the page two of them are cut from.
+
+    What the suite can see here is the two things the old board got
+    wrong without failing: a band measured one way holding lines
+    measured another (the deal and the reminder were drawn below the
+    bottom of the panel and cropped away), and an area that quietly
+    stopped being the size of the thing it holds.
+    """
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.rules = load_basic_ruleset()
@@ -191,101 +207,173 @@ class D12BallTeamBoardTests(unittest.TestCase):
             self.rules, self.players, self.maneuvers, **kwargs
         )
 
-    def panel_geometry(self, paper: str) -> TeamBoardGeometry:
-        """
-        One coach's own panel, at the size `render_team_board` actually
-        cuts each area from -- half the sheet's height, since two
-        coaches' boards share the one sheet now. See `TeamBoardGeometry`.
-        """
-        width, height = sheet_pixels(paper, landscape=True)
-        return TeamBoardGeometry.for_sheet(Sheet(width, height // 2))
+    def board_geometry(self, paper: str = TEAM_BOARD_PAPER):
+        width, height = team_board_pixels(paper)
+        return TeamBoardGeometry.for_sheet(Sheet(width, height))
 
     def test_a_board_is_rendered_coloured_and_uncoloured(self) -> None:
         for team in (None,) + tuple(Team):
             with self.subTest(team=team):
                 self.assertEqual(
                     self.render(team=team).size,
-                    sheet_pixels(DEFAULT_PAPER, True),
+                    team_board_pixels(TEAM_BOARD_PAPER),
                 )
 
-    def test_the_sheet_is_two_identical_panels(self) -> None:
+    def test_a_board_is_half_a_letter_sheet(self) -> None:
         """
-        One sheet, two coaches: with no team to tell them apart the top
-        half (visiting's) and the bottom half (home's) have to be the
-        same picture, or the two boards a match actually needs would
-        not be interchangeable the way a coach expects.
+        Which is what makes two of them a page -- the one measurement
+        the two files this board is printed as agree on.
         """
-        image = self.render()
-        width, height = image.size
-        half = height // 2
-        top = image.crop((0, 0, width, half))
-        bottom = image.crop((0, half, width, half * 2))
-        self.assertEqual(top.tobytes(), bottom.tobytes())
+        width, height = team_board_pixels(TEAM_BOARD_PAPER)
+        self.assertEqual(width / PRINT_DPI, 8.5)
+        self.assertEqual(height / PRINT_DPI, 5.5)
 
-    def test_the_card_areas_hold_a_real_card_at_print_size(self) -> None:
+    def test_two_boards_are_a_page_and_they_are_the_same_board(
+        self,
+    ) -> None:
         """
-        The point of the sheet is that cards go on it. A3's areas are
-        cut for a poker card, and the layout is tight enough that a
-        band added above them takes them under one -- which is exactly
-        the change that renders fine and prints useless.
+        One sheet, two coaches: the page is the board pasted twice, so
+        each half a coach cuts off has to be the board itself, to the
+        pixel. Everything but the seam the cut line is drawn down --
+        that line is the one mark on the page that belongs to neither
+        board.
         """
-        width, height = card_slot_inches("a3")
-        self.assertGreaterEqual(width, CARD_INCHES[0])
-        self.assertGreaterEqual(height, CARD_INCHES[1])
-
-    def test_a_smaller_sheet_says_so_rather_than_overflowing(self) -> None:
-        """
-        A4 and letter are a proof to read rather than a board to lay
-        cards on. The slots scale down with the panel instead of the
-        areas overflowing it, and `card_slot_inches` is what the CLI
-        reads to say which of the two a print is.
-
-        **Tabloid holds a real card too now**, unlike before the two
-        zone rows moved off this board: with only the bench, the back
-        bench and the head coach's cell left, tabloid's own panel has
-        room to spare rather than falling 0.7in short the way a whole
-        unhalved sheet used to. See `test_the_card_areas_hold_a_real_card_at_print_size`.
-        """
-        for paper in ("a4", "letter"):
-            with self.subTest(paper=paper):
-                self.assertLess(card_slot_inches(paper)[0], CARD_INCHES[0])
-        for paper in ("a4", "letter", "tabloid"):
-            with self.subTest(paper=paper):
-                self.assertEqual(
-                    self.render(paper=paper).size,
-                    sheet_pixels(paper, True),
-                )
-
-    def test_every_area_holds_three_cards_side_by_side(self) -> None:
-        """
-        Three is what a bench ever has to hold, between them -- so the
-        fan has to fit the area it is drawn in.
-        """
-        geometry = self.panel_geometry("a3")
-        fan = (
-            geometry.slot[0] + geometry.slot_pitch * (CARDS_PER_AREA - 1)
+        board = self.render()
+        sheet = render_team_board_sheet(
+            self.rules, self.players, self.maneuvers
         )
-        for column in range(3):
+        self.assertEqual(
+            sheet.size, sheet_pixels(TEAM_BOARD_PAPER, landscape=False)
+        )
+        width, height = sheet.size
+        seam = round(TEAM_CUT_INCHES * PRINT_DPI) + 1
+        for name, top in (
+            ("visiting", 0),
+            ("home", height - board.height),
+        ):
+            with self.subTest(board=name):
+                self.assertEqual(
+                    sheet.crop(
+                        (0, top + seam, width, top + board.height - seam)
+                    ).tobytes(),
+                    board.crop(
+                        (0, seam, width, board.height - seam)
+                    ).tobytes(),
+                )
+
+    def test_every_band_is_in_order_and_inside_the_board(self) -> None:
+        """
+        **The regression the whole layout was redone for.** The old
+        board measured its header and footer in inches and placed the
+        lines inside them in thousandths of the sheet's width, and the
+        two disagreed: the standard deal and the closing reminder were
+        drawn below the bottom edge and cropped off the panel, on a
+        render that looked fine.
+        """
+        geometry = self.board_geometry()
+        line_height = (
+            boards.TEAM_SMALL_INCHES * boards.TEAM_LINE_LEADING * PRINT_DPI
+        )
+        bands = (
+            geometry.top,
+            geometry.roster_top,
+            geometry.rule_top,
+            geometry.label_top,
+            geometry.caption_top,
+            geometry.area_top,
+            geometry.area_bottom,
+            *geometry.footer_lines,
+            geometry.footer_lines[-1] + 2 * line_height,
+        )
+        self.assertEqual(list(bands), sorted(bands))
+        self.assertLessEqual(bands[-1], geometry.bottom)
+
+    def test_a_bench_guide_fits_inside_its_own_area(self) -> None:
+        """
+        A card's footprint, inside the area it is a footprint of --
+        and a real card is no wider than the area, so a bench that
+        overflows the guide still squares up inside the cell.
+        """
+        geometry = self.board_geometry()
+        slot_width, slot_height = geometry.slot
+        for column in (0, 1):
             left, top, right, bottom = geometry.area(column)
             with self.subTest(column=column):
-                self.assertLessEqual(fan, right - left)
-                self.assertLessEqual(geometry.slot[1], bottom - top)
-                self.assertLessEqual(right, geometry.right)
-                self.assertLessEqual(bottom, geometry.rows[0][1])
-        # And the guides are a fan rather than a stack: each card
-        # behind the front one still shows an edge to pick it up by.
-        self.assertGreater(geometry.slot_pitch, geometry.slot[0] * 0.3)
+                self.assertLess(slot_width, right - left)
+                self.assertLess(slot_height, bottom - top)
+                self.assertGreaterEqual(right - left, CARD_INCHES[0] * PRINT_DPI)
+        self.assertAlmostEqual(
+            slot_width / slot_height,
+            CARD_INCHES[0] / CARD_INCHES[1],
+            places=6,
+        )
 
-    def test_the_bench_and_the_head_coach_each_have_an_area(self) -> None:
+    def test_the_guides_are_under_a_poker_card_and_do_not_shrink_further(
+        self,
+    ) -> None:
         """
-        Three cells for the three places a card or the coach's own
-        d12 can be -- the bench, the back bench and the head coach.
-        The three zone areas moved to the field board (see "The
-        zone-assignment rows" in docs/design/printed-boards.md), which is what let two of
-        these panels share a sheet in the first place.
+        Half a letter sheet does not leave 3.5 inches between a legible
+        header, two legible cell labels and a footer, and the author's
+        call was legible over life-size -- so the guide is a card's
+        proportions at the height the row has. The floor is what
+        catches the next band added above it: a guide that has quietly
+        shrunk still renders.
         """
-        geometry = self.panel_geometry("a3")
-        self.assertEqual(len(geometry.columns) * len(geometry.rows), 3)
+        width, height = card_slot_inches()
+        self.assertLess(height, CARD_INCHES[1])
+        self.assertGreater(width, 1.9)
+        self.assertGreater(height, 2.7)
+
+    def test_the_head_coach_column_is_the_card_that_goes_in_it(
+        self,
+    ) -> None:
+        """
+        The reference is the back of the maneuver card at 300dpi, so
+        the column is cut to the picture rather than the picture fitted
+        to a third of the row: a column any wider is a band of empty
+        board beside it.
+        """
+        geometry = self.board_geometry()
+        left, right = geometry.columns[2]
+        self.assertAlmostEqual(right - left, geometry.reference[0], places=6)
+        self.assertAlmostEqual(
+            geometry.reference[0] / geometry.reference[1],
+            CARD_INCHES[0] / CARD_INCHES[1],
+            places=6,
+        )
+        self.assertLessEqual(geometry.reference[1], CARD_INCHES[1] * PRINT_DPI)
+        self.assertLessEqual(right, geometry.right)
+
+    def test_the_head_coach_cell_carries_the_maneuver_card_s_back(
+        self,
+    ) -> None:
+        """
+        The picture a coach reads a matchup off is the one on the card
+        in their hand -- pasted, not redrawn, so there is one of it.
+        What says it is really there is its own three colours: the
+        card's white face, and a node of each side.
+        """
+        board = self.render()
+        geometry = self.board_geometry()
+        left, top, right, _ = geometry.area(2)
+        cell = board.crop(
+            (
+                round(left),
+                round(top),
+                round(right),
+                round(top + geometry.reference[1]),
+            )
+        )
+        found = {colour for _, colour in cell.getcolors(maxcolors=1 << 20)}
+        for colour in (BACK_COLOR, OFFENSE_COLOR, DEFENSE_COLOR):
+            with self.subTest(colour=colour):
+                self.assertIn(
+                    tuple(
+                        int(colour[index:index + 2], 16)
+                        for index in (1, 3, 5)
+                    ),
+                    found,
+                )
 
     def test_no_die_value_is_printed_anywhere(self) -> None:
         """
@@ -304,8 +392,11 @@ class D12BallTeamBoardTests(unittest.TestCase):
     def test_the_head_coach_keeps_only_the_team_die(self) -> None:
         """
         One die, and it is the d12 every roll in the game is made with.
+        The footer says so off the ruleset rather than in words written
+        here, so a board cannot claim a die the bot does not roll.
         """
         self.assertEqual(self.rules.team_board.team_die.sides, 12)
+        self.assertIn("d12", team_reminders(self.rules)[0])
 
     def test_the_roster_line_counts_the_nine_cards(self) -> None:
         line = roster_line(self.players)
@@ -338,8 +429,8 @@ class D12BallTeamBoardTests(unittest.TestCase):
         upstream lands there without anybody measuring, which the
         narrowed case stands in for.
         """
-        width, height = sheet_pixels("a3", landscape=True)
-        sheet = Sheet(width, height // 2)
+        width, height = team_board_pixels()
+        sheet = Sheet(width, height)
         geometry = TeamBoardGeometry.for_sheet(sheet)
         for share in (1.0, 0.85):
             with self.subTest(share=share):
@@ -349,11 +440,32 @@ class D12BallTeamBoardTests(unittest.TestCase):
                         sheet,
                         self.rules,
                         geometry.left,
-                        geometry.rows[0][1],
+                        geometry.footer_lines[0],
                         right,
                     ),
                     right,
                 )
+
+    def test_a_line_that_cannot_be_legible_is_dropped_rather_than_shrunk(
+        self,
+    ) -> None:
+        """
+        A caption shrunk until it fits reads as a smudge, and the board
+        had several. `fitted_print_font` answers with nothing rather
+        than with a size nobody can read, and its callers drop the line.
+        """
+        sheet = Sheet(*team_board_pixels())
+        self.assertIsNotNone(
+            fitted_print_font(sheet, "BENCH", 2 * PRINT_DPI, 0.165, bold=True)
+        )
+        self.assertIsNone(
+            fitted_print_font(
+                sheet,
+                "injured players, and anyone subbed out",
+                0.3 * PRINT_DPI,
+                0.105,
+            )
+        )
 
     def test_the_standard_deal_names_every_zone_s_pair(self) -> None:
         line = standard_deal_line(self.rules)
