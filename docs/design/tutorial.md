@@ -155,7 +155,7 @@ expects.
     exactly the reason the shot is left open, which is why it read as
     a flake rather than as the test asking for something the design
     refuses to promise. A test that needs the goal pins the dice
-    (`random.randint` to 6, the position doing the rest); a test that
+    (`random.Random.randint` to 6, the position doing the rest); a test that
     only needs the *statistics* to be right reads the outcome off the
     match and checks the fold agrees with it. See "The playthrough
     test".

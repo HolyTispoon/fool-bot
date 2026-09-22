@@ -80,8 +80,8 @@ and it is what stops the next ability that reads a die being written at six
 call sites. Volatile is the only one that reads one today.
 
 - **It takes the face rather than rolling it.** Each site already knows how
-  to get its own dice -- `random.randint(1, 12)`, or the tutorial's scripted
-  faces through `tutorial_dice` -- and taking that over would have meant
+  to get its own dice -- `scripted_or_random`, the tutorial's scripted
+  faces or the engine's `rng` -- and taking that over would have meant
   threading the script through the engine for nothing. What the funnel owns
   is the *reading*, which is the part that was going to be duplicated.
 - **An ignite is reported as a modifier, not as a new total.**
@@ -865,9 +865,12 @@ name its file already carries (`telekinetic_color`, `cyborg_color`,
 up the same way the team, role and condition emoji are:
 `load_species_ability_emojis` in `cogs/d12ball_helpers.py` fetches it once in
 `cog_load` off the one `fetch_application_emojis` call the others share, and
-`get_species_ability_emoji(species_ability_emojis, species)` in
-`d12ball/formatting.py` answers the lookup, falling back to that species' own
-team badge (`TEAM_EMOJI_FALLBACKS`) until an upload exists.
+`get_species_ability_emoji(species_ability_emojis, species)` beside it
+answers the lookup, falling back to that species' own team badge
+(`TEAM_EMOJI_FALLBACKS`) until an upload exists. The banner itself names
+the ability with a token, `{species:telekinetic}`, which `DiscordTokens`
+draws through that lookup (step 9 of
+[../architecture-migration.md](../architecture-migration.md)).
 
 **It is an ability's banner that gets one, not a player.** A player is already
 named with their team emoji and role badge (see
@@ -879,20 +882,15 @@ landed. 🔮 was `TEAM_EMOJI_FALLBACKS[Team.TELEKINETICS]` spelled out by hand,
 so a coach with the uploads in place still read the crystal ball where every
 other mention of a Telekinetic had become the spiral.
 
-- **The dict lives on the engine, not the cog**, beside `team_emojis`,
-  `role_emojis` and `condition_emojis`. Its readers today are all cog-side and
-  could have read a plain cog attribute; it is here so there is one dict
-  rather than two that can disagree about which upload exists, and so the
-  wording keeps it when Mind Pull's and Smooth's narration lifts into
-  `d12ball/flow/`. `condition_emojis` is already there because
-  `describe_exhaustion_gain` words a charge model-side and cannot ask a cog;
-  these two banners are the next lines in that queue.
-  `D12Ball.species_ability_emojis` is a property over
-  `self.engine.species_ability_emojis`, exactly mirroring the other three.
-- **This is still a plain `dict[str, str]`, not a discord.py object.**
-  `RulesEngine` holding it is no different from it already holding
-  `team_emojis`: what the engine may not do is fetch one, only read a dict a
-  cog handed it.
+- **The dict lived on the engine, not the cog**, beside `team_emojis`,
+  `role_emojis` and `condition_emojis`, from 2026-09-20 until step 9 --
+  so the wording kept it when Mind Pull's and Smooth's narration lifted
+  into `d12ball/flow/`, and so there was one dict rather than two that
+  could disagree about which upload exists. Step 9 answered the same
+  need the other way round: the flow writes `{species:telekinetic}` and
+  knows no emoji, the dict is the cog's again, and one resolver draws
+  every mark (see "Tokens" in
+  [model-discord-split.md](model-discord-split.md)).
 - **The fallback is per species, not one shared default**, so an application
   with three of the four uploaded draws the fourth as its own team badge
   rather than as one anonymous mark. Nothing fails when an upload is missing

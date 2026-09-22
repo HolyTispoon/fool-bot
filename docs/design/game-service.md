@@ -48,7 +48,7 @@ result here is richer, on purpose. Discord posts pictures of the
 position in the middle of a run -- a loose ball is announced by
 showing where it is, the tail of a maneuver shows the settled board,
 a new play's board is pinned -- and *where* those go is pinned by the
-three goldens, byte for byte. A flat list would lose the order a
+four goldens, byte for byte. A flat list would lose the order a
 coach reads. So `GameResult` carries:
 
 - `answer`, the answer's own lines, kept apart because a Discord
@@ -231,6 +231,16 @@ loop, `post_stop`, `stop_draws_the_board`, `post_narration_group`,
 own steps (a gate skipped, the tests' `run_step`), and `apply_action`
 on the cog is the service's, kept as a method so a test's stub on the
 cog is reached (see [testing.md](testing.md)).
+
+**The result is rendered at the door, once.** The service's sentences
+carry tokens -- `{team:purple}`, `{coach:1}` and their kind, step 9 of
+[../architecture-migration.md](../architecture-migration.md) -- and
+`D12Ball.rendered(game, result)` draws every one of them for Discord
+at the six places the cog takes a result from the service
+(`apply_action`, `dispatch_step_result`, resume, begin, `run_step`,
+`reset_turn`), before a view or `present` reads it. Nothing below
+that reads a token; a web frontend renders the same result its own
+way. See "Tokens" in [model-discord-split.md](model-discord-split.md).
 
 The board write is the one piece of arithmetic left: a drawn group
 writes the persistent message from its own render (render once,
