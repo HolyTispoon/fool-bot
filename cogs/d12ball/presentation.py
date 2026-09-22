@@ -244,7 +244,7 @@ class PresentationMixin:
                         TEAM_COLORS[team],
                         team_display_name(team),
                         player.name,
-                        ignite.surge,
+                        ignite.blaze,
                         ignite.modifier,
                     ),
                     filename="volatile_ignition_die.png",

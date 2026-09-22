@@ -101,7 +101,7 @@ call sites. Volatile is the only one that reads one today.
   own skill modifier and only that; an ignite is the die, not a modifier the
   player brings -- the same reading that leaves the ball speed modifier
   alone.
-- **A backfire on an injury check injures the Fire Demon**, which falls out
+- **A burn on an injury check injures the Fire Demon**, which falls out
   of applying the modifier to the check rather than being special-cased. The
   die image draws the natural face, so `run_injury_test` says the ignite in
   words -- otherwise the number a coach reads and the verdict they are given
@@ -184,7 +184,7 @@ the result.
   the arithmetic works perfectly well with the image left out.
 
 **The tier rider is one flag, not a side.** The rules name two cases -- a
-surge on the winning side raises that side's maneuver, a backfire on the
+blaze on the winning side raises that side's maneuver, a burn on the
 losing side raises "the opponent's" -- and the opponent of the losing side
 *is* the winning side, so both raise the winner's card.
 `MatchState.volatile_tier_upgrade` is that, and
@@ -209,14 +209,14 @@ gambit's cost** (the author, 2026-09-07). `MatchState.volatile_loser_cost`
 is that, and `RulesEngine.volatile_loser_cost` is the reading.
 
 - **It is a nullable bool because there are three states.** `False` is a
-  **surge that lost** -- they pay no cost even where the cards would have
-  charged one. `True` is a **backfire that lost** -- they pay theirs even
-  where the cards alone would not, which makes a backfire the one thing in
+  **blaze that lost** -- they pay no cost even where the cards would have
+  charged one. `True` is a **burn that lost** -- they pay theirs even
+  where the cards alone would not, which makes a burn the one thing in
   the game that puts a cost in force off the dice. `None` is every other
   roll, leaving `gambit_cost_applies` the whole answer it always was.
 - **It is read off the loser's own die, not the matchup**, which is why it
   is a separate field rather than derivable from `volatile_tier_upgrade`.
-  A surge that loses suppresses a cost *and* raises nothing; a backfire
+  A blaze that loses suppresses a cost *and* raises nothing; a burn
   that loses charges one *and* raises the opponent's card. The two halves
   agree only by coincidence.
 - **`gambit_cost` asks it before `gambit_cost_applies`**, because that

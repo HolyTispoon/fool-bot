@@ -3008,7 +3008,7 @@ class D12BallManeuverTests(unittest.TestCase):
         # can see the image.
         image_data = render_volatile_die(
             9, 6, TEAM_COLORS[Team.ORANGE], "Orange", "Defender A",
-            surge=True, modifier=9,
+            blaze=True, modifier=9,
         )
 
         with Image.open(image_data) as image:
@@ -3040,25 +3040,25 @@ class D12BallManeuverTests(unittest.TestCase):
 
         image_data = render_volatile_die(
             9, 6, TEAM_COLORS[Team.ORANGE], "Orange", "Defender A",
-            surge=True, modifier=9,
+            blaze=True, modifier=9,
         )
 
         with Image.open(image_data) as image:
             self.assertGreater(image.height, VOLATILE_PORTRAIT_SIZE)
 
-    def test_a_volatile_die_draws_a_backfire_too(self) -> None:
+    def test_a_volatile_die_draws_a_burn_too(self) -> None:
         # The other half of the ability, and the one a coach is most
         # likely to want explaining.
         image_data = render_volatile_die(
             3, 7, TEAM_COLORS[Team.TEAL], "Teal", "Defender A",
-            surge=False, modifier=-3,
+            blaze=False, modifier=-3,
         )
 
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
 
     def test_a_volatile_die_explains_the_rule_it_is_chasing(self) -> None:
-        # Read off VOLATILE_IGNITE_FACES and VOLATILE_SURGE_MINIMUM,
+        # Read off VOLATILE_IGNITE_FACES and VOLATILE_BLAZE_MINIMUM,
         # so a number settled upstream reaches the image with the roll
         # rather than leaving the caption behind -- the same claim
         # mind_pull_target_label answers.
@@ -3074,7 +3074,7 @@ class D12BallManeuverTests(unittest.TestCase):
         # sized to it rather than the sentence cut to the row.
         image_data = render_volatile_die(
             9, 6, TEAM_COLORS[Team.ORANGE], "Orange", "Defender A",
-            surge=True, modifier=9,
+            blaze=True, modifier=9,
         )
 
         measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))

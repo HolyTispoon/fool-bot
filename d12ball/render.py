@@ -15,7 +15,7 @@ from d12ball.components import (
     SPECIES_OOZE,
     SPECIES_TELEKINETIC,
     VOLATILE_IGNITE_FACES,
-    VOLATILE_SURGE_MINIMUM,
+    VOLATILE_BLAZE_MINIMUM,
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
     ManeuverCatalog,
@@ -2920,13 +2920,13 @@ VOLATILE_HALO_ALPHA = 70
 VOLATILE_HALO_SCALE = 2.3
 VOLATILE_RING_GAP = 8
 VOLATILE_RING_WIDTH = 3
-VOLATILE_SURGE_TEXT = "SURGE"
-VOLATILE_BACKFIRE_TEXT = "BACKFIRE"
-# A backfire is not a miss -- it takes the roll *down* -- so it is
+VOLATILE_BLAZE_TEXT = "BLAZE"
+VOLATILE_BURN_TEXT = "BURN"
+# A burn is not a miss -- it takes the roll *down* -- so it is
 # drawn in the injury test's red rather than the Mind Pull's "nothing
 # happened" grey.
-VOLATILE_BACKFIRE_COLOR = INJURY_TEST_INJURED_COLOR
-# The die is a d12, so the surge band runs from VOLATILE_SURGE_MINIMUM
+VOLATILE_BURN_COLOR = INJURY_TEST_INJURED_COLOR
+# The die is a d12, so the blaze band runs from VOLATILE_BLAZE_MINIMUM
 # to its top face.
 VOLATILE_DIE_FACES = 12
 
@@ -2935,7 +2935,7 @@ def volatile_explainer_label() -> str:
     """
     "a natural 6 or 7 ignites — the second d12 adds on 5-12, subtracts
     on 1-4": the whole rule, read off `VOLATILE_IGNITE_FACES` and
-    `VOLATILE_SURGE_MINIMUM` rather than written down, so a number
+    `VOLATILE_BLAZE_MINIMUM` rather than written down, so a number
     settled upstream reaches the image with the roll.
 
     It is on the image for the reason the Mind Pull die's target band
@@ -2946,8 +2946,8 @@ def volatile_explainer_label() -> str:
     faces = " or ".join(str(face) for face in VOLATILE_IGNITE_FACES)
     return (
         f"a natural {faces} ignites — the second d12 adds on "
-        f"{VOLATILE_SURGE_MINIMUM}-{VOLATILE_DIE_FACES}, subtracts on "
-        f"1-{VOLATILE_SURGE_MINIMUM - 1}"
+        f"{VOLATILE_BLAZE_MINIMUM}-{VOLATILE_DIE_FACES}, subtracts on "
+        f"1-{VOLATILE_BLAZE_MINIMUM - 1}"
     )
 
 
@@ -2957,7 +2957,7 @@ def render_volatile_die(
     color: str,
     team_label: str,
     player_name: str,
-    surge: bool,
+    blaze: bool,
     modifier: int,
 ) -> BytesIO:
     """
@@ -2980,9 +2980,9 @@ def render_volatile_die(
     Demon plays for any of the eight teams (see "One player, both
     sides") and whose roll it is still has to be legible.
     """
-    verdict = VOLATILE_SURGE_TEXT if surge else VOLATILE_BACKFIRE_TEXT
+    verdict = VOLATILE_BLAZE_TEXT if blaze else VOLATILE_BURN_TEXT
     verdict = f"{verdict} {modifier:+d}"
-    verdict_color = VOLATILE_AURA_COLOR if surge else VOLATILE_BACKFIRE_COLOR
+    verdict_color = VOLATILE_AURA_COLOR if blaze else VOLATILE_BURN_COLOR
     trigger_label = f"ignited on {face}"
     explainer = volatile_explainer_label()
     # Measured on a throwaway canvas: the real one cannot be created

@@ -279,7 +279,7 @@ def injury_test_step(
     # watches it.
     roll = scripted_or_random(game, "injury", 1)[0]
     # Volatile fires on an injury check like any other d12 -- so a
-    # backfire that drops the check below the token count injures the
+    # burn that drops the check below the token count injures the
     # Fire Demon who rolled it, which the living rules say outright
     # rather than leaving to be inferred.
     ignite = engine.ignite(game, player_id, roll)

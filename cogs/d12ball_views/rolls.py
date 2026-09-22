@@ -384,7 +384,7 @@ class ScoreAttemptView(SafeView):
             view=None,
         )
         # The shooter's own die, if it ignited -- between the dice and
-        # the verdict, so a goal that a surge bought is read in the
+        # the verdict, so a goal that a blaze bought is read in the
         # order it happened.
         await self.cog.post_volatile_ignition(
             interaction, match, *dice.ignites,
