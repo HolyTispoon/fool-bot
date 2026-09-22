@@ -11,6 +11,8 @@ import asyncio
 import discord
 import io
 import time
+from dataclasses import replace
+from types import MappingProxyType
 from typing import Mapping, Optional, Sequence
 
 from discord import app_commands
@@ -75,6 +77,8 @@ from gamesaves.d12ball.service import (
 from discord_emoji_cache import ensure_cached_emojis
 from cogs.d12ball_helpers import (
     COIN_EMOJI_NAMES,
+    DiscordTokens,
+    build_maneuver_action_caption,
     EMOJI_REFETCH_INTERVAL,
     ERROR_RECOVERY_ADVICE,
     LOGGER,
@@ -410,6 +414,23 @@ class CoreMixin:
     The cog's own machinery, and the spine of a turn.
     """
 
+    # The condition, team, role and species-ability emoji, each empty
+    # until `cog_load` has fetched them and replaced whole on every
+    # fetch. They are the frontend's: the model names a team, a
+    # badge, a condition or a species with a token
+    # (`d12ball/tokens.py`) and `render_text` below draws it from
+    # these four -- see `DiscordTokens`. They lived on the engine
+    # until step 9 of docs/architecture-migration.md. The defaults are
+    # read-only class attributes rather than dicts made in `__init__`
+    # so a cog built without it (every test's) reads "nothing fetched"
+    # and cannot mutate a dict shared by every instance.
+    condition_emojis: Mapping[str, str] = MappingProxyType({})
+    team_emojis: Mapping[Team, str] = MappingProxyType({})
+    role_emojis: Mapping[tuple[PlayerRole, Optional[Team]], str] = (
+        MappingProxyType({})
+    )
+    species_ability_emojis: Mapping[str, str] = MappingProxyType({})
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.games = load_games()
@@ -436,11 +457,8 @@ class CoreMixin:
         # as it comes up, 0.0 reads as "asked a moment ago" and skips
         # the first retry.
         self.coin_emojis_checked_at: Optional[float] = None
-        # The condition, team, role and species-ability emoji all live
-        # on the engine -- see `condition_emojis`, `team_emojis`,
-        # `role_emojis` and `species_ability_emojis` below. The
-        # engine's `__init__` starts each of the four at `{}`, so there
-        # is nothing to initialise here.
+        # The four emoji mappings are class defaults above, until
+        # cog_load replaces them.
         # The `<:d12dice:id>` string for the hub message and the lobby
         # heading, and the lighter `<:d12dicecream:id>` for the hub
         # button (its blue fill swallowed the darker die) -- both None
@@ -825,86 +843,64 @@ class CoreMixin:
 
         return game, match
 
-    @property
-    def condition_emojis(self) -> dict[str, str]:
+    def render_text(
+        self,
+        text: str,
+        game: Optional[D12BallGame] = None,
+    ) -> str:
         """
-        The condition emoji, `"exhaust" -> "<:exhaust:id>"` and the
-        four conditions beside it, once cog_load has fetched them and
-        `{}` before -- read by `RulesEngine.describe_exhaustion_gain`
-        and by the roster and coaching lines that show a player's
-        state.
-
-        On the engine for the same reason as `team_emojis` and
-        `role_emojis` below, and arrived there for a sharper one: the
-        sentence an exhaustion charge writes is narration, narration
-        is the model's, and a flow step charging a token cannot ask a
-        cog what an exhaustion token looks like. This is a view of
-        that one copy, not a second dict -- cog_load *replaces* the
-        dict on every fetch.
+        Every token the model left in `text`, drawn the way Discord
+        draws it: the team rings, the role badges, the condition and
+        species marks from the four dicts above, and `{coach:n}` as a
+        mention of the account -- which needs the `game`, so a caller
+        rendering a sentence that may address a coach passes it. See
+        `DiscordTokens`; step 9 of docs/architecture-migration.md.
         """
-        return self.engine.condition_emojis
+        return DiscordTokens(
+            self.team_emojis,
+            self.role_emojis,
+            self.condition_emojis,
+            self.species_ability_emojis,
+            game,
+        ).render(text)
 
-    @condition_emojis.setter
-    def condition_emojis(self, condition_emojis: dict[str, str]) -> None:
-        self.engine.condition_emojis = condition_emojis
-
-    @property
-    def team_emojis(self) -> dict[Team, str]:
+    def rendered(self, game: D12BallGame, result: GameResult) -> GameResult:
         """
-        The team emoji, `Team -> "<:team_orange:id>"`, once cog_load
-        has fetched them and `{}` before -- read by
-        `format_player_with_team` and `format_player_label` (see
-        `role_emojis` just below, for why this lives on the engine
-        rather than being a second dict assigned beside it).
+        A `GameResult` with every sentence in it rendered for Discord
+        -- the answer's lines, each group's, the narration still
+        carried, the prompt's ask and a refusal's reason. **The one
+        place a result is rendered**, at the door the service hands
+        it back through (`apply_action`, `dispatch_step_result`, and
+        the resume, begin, run-step and reset calls), so a view and
+        the presenter read Discord text and never a token; the
+        frontend renders once, the way a `PromptKind` becomes a view
+        once (decision 4 of docs/web-app.md).
         """
-        return self.engine.team_emojis
+        render = DiscordTokens(
+            self.team_emojis,
+            self.role_emojis,
+            self.condition_emojis,
+            self.species_ability_emojis,
+            game,
+        ).render
 
-    @team_emojis.setter
-    def team_emojis(self, team_emojis: dict[Team, str]) -> None:
-        self.engine.team_emojis = team_emojis
+        def prompt(pending: Optional[PendingPrompt]) -> Optional[PendingPrompt]:
+            if pending is None:
+                return None
+            return replace(pending, ask=render(pending.ask))
 
-    @property
-    def role_emojis(self) -> dict[tuple[PlayerRole, Optional[Team]], str]:
-        """
-        The role emoji, `(PlayerRole, Team | None) ->
-        "<:role_fullback_orange:id>"`, once cog_load has fetched them
-        and `{}` before -- the badge in a side's own colour, with the
-        plain cut filed under a team of None (see `load_role_emojis`).
-
-        The dict itself lives on the engine, whose two message builders
-        name a player with it (`format_roster_player_for_message`), and
-        this is a view of that one copy rather than a second dict
-        assigned beside it -- cog_load *replaces* the dict, so a
-        reference handed to the engine at construction would go stale
-        the moment the fetch landed.
-        """
-        return self.engine.role_emojis
-
-    @role_emojis.setter
-    def role_emojis(
-        self, role_emojis: dict[tuple[PlayerRole, Optional[Team]], str],
-    ) -> None:
-        self.engine.role_emojis = role_emojis
-
-    @property
-    def species_ability_emojis(self) -> dict[str, str]:
-        """
-        The species-ability emoji, `"telekinetic" -> "<:telekinetic_
-        color:id>"`, once cog_load has fetched them and `{}` before --
-        the mark at the head of Mind Pull's and Smooth's own banners.
-        On the engine with `team_emojis`, `role_emojis` and
-        `condition_emojis` rather than a second dict assigned beside
-        it, so the wording still has them once those steps lift into
-        `d12ball/flow/` -- see "Application emoji for the four
-        abilities" in docs/design/species-abilities.md.
-        """
-        return self.engine.species_ability_emojis
-
-    @species_ability_emojis.setter
-    def species_ability_emojis(
-        self, species_ability_emojis: dict[str, str],
-    ) -> None:
-        self.engine.species_ability_emojis = species_ability_emojis
+        return replace(
+            result,
+            answer=tuple(render(line) for line in result.answer),
+            groups=tuple(
+                replace(group, lines=tuple(render(line) for line in group.lines))
+                for group in result.groups
+            ),
+            narration=tuple(render(line) for line in result.narration),
+            prompt=prompt(result.prompt),
+            refusal=None if result.refusal is None else render(result.refusal),
+            waiting_on=prompt(result.waiting_on),
+        )
 
     def player_label(
         self,
@@ -917,14 +913,12 @@ class CoreMixin:
         brackets once they are uploaded (see `role_emojis`), drawn
         with that side's own colour on its edge.
 
-        A forwarding method over `RulesEngine.format_player_label`,
-        which reads both emoji dicts off the engine itself now that
-        they live there -- see `team_emojis` and `role_emojis` above.
-        Kept here so no call site moved: ninety-odd sites already read
-        this rather than spelling out `format_role_bracket` and its
-        three arguments for themselves.
+        `RulesEngine.format_player_label` names the player with
+        tokens, and this renders them (`render_text`). Kept here so no
+        call site moved: ninety-odd sites already read this rather
+        than spelling out the label and its arguments for themselves.
         """
-        return self.engine.format_player_label(match, player)
+        return self.render_text(self.engine.format_player_label(match, player))
 
     def player_id_label(
         self,
@@ -1048,7 +1042,8 @@ class CoreMixin:
         Everything here is a picture: the hand image, the link to the
         full-size version, and the field strip under it. Who is being
         asked and what they are told arrives in `content`, which is
-        the prompt's own ask (`maneuver_action_ask`); a tutorial's note
+        this frontend's caption over the prompt's own ask
+        (`build_maneuver_action_caption`); a tutorial's note
         has already been shown and clicked through by the time this is
         reached (`d12ball.flow.gates`).
         """
@@ -1101,9 +1096,11 @@ class CoreMixin:
 
         Kept here so none of its four call sites moved: a coaching
         prompt, a shootout, and the injury test itself all name the
-        condition, and only one of the four is in the flow.
+        condition, and only one of the four is in the flow. The mark
+        is rendered here, since the flow hands back a token.
         """
-        return injured_word_and_emoji(self.engine, game, player_id)
+        word, mark = injured_word_and_emoji(self.engine, game, player_id)
+        return word, self.render_text(mark)
 
 
     async def post_injury_die(
@@ -1225,8 +1222,8 @@ class CoreMixin:
         to be this method's body, ordering comments and all, so a web
         app can ask the same question rather than growing a second copy
         of it (see "The model and the Discord layer" in CLAUDE.md).
-        What is left here is the rendering, and the `ask` passes
-        through untouched.
+        What is left here is the rendering: the view, and the `ask`
+        with its tokens drawn (`render_text`).
 
         Its two callers must not drift apart: `restore_saved_views`
         re-attaches what this returns to the message the prompt is
@@ -1244,7 +1241,10 @@ class CoreMixin:
             # is a run that never finished -- `/d12ball resume` runs
             # it on.
             return None
-        return self.view_for_prompt(game_id, match, prompt), prompt.ask
+        return (
+            self.view_for_prompt(game_id, match, prompt),
+            self.render_text(prompt.ask, game),
+        )
 
     def view_for_prompt(
         self,
@@ -1363,8 +1363,11 @@ class CoreMixin:
         `dispatch_step_result` at the class). What it does is the
         service's: load, apply, save once, return.
         """
-        return self.service.apply_action(
-            game.game_id, action, carry_from=carry_from,
+        return self.rendered(
+            game,
+            self.service.apply_action(
+                game.game_id, action, carry_from=carry_from,
+            ),
         )
 
     async def dispatch_step_result(
@@ -1391,7 +1394,7 @@ class CoreMixin:
         except RuleRefusal as error:
             await send_error_fallback(interaction, str(error))
             return
-        await self.present(interaction, game, outcome)
+        await self.present(interaction, game, self.rendered(game, outcome))
 
     async def present(
         self,
@@ -1620,8 +1623,15 @@ class CoreMixin:
             return
 
         if kind is PromptKind.MANEUVER_ACTION:
+            # The one ask this frontend words for itself: the model
+            # says who picks and that the pick is secret, and Discord
+            # adds which row is theirs (`build_maneuver_action_caption`).
+            caption = self.render_text(
+                build_maneuver_action_caption(self.engine, game, match), game,
+            )
             await self.send_maneuver_action_prompt(
-                interaction, game, match, content,
+                interaction, game, match,
+                "\n\n".join(filter(None, (lead_in, caption))),
             )
             return
 

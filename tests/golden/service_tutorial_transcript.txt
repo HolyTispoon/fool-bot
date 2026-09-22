@@ -1,0 +1,336 @@
+=== kickoff
+--- group FINISH_SETUP_COACHING drawn new-play
+**The teams are dealt.** The game kicks off with Orange (Home) in possession.
+--- prompt TUTORIAL_CONTINUE
+# Welcome to D12 Ball
+You are playing **Dinky**, and the next five turns are a guided warm-up. I will tell you what is on the board, what each button does and which card to pick; everything else is greyed out while we go, so you cannot get lost.
+
+**It is one continuous game, not five demonstrations.** Nothing is reset between lessons -- every turn is played from wherever the last one left the ball, and the score and the clock carry into the real game afterwards. Play it well and you will start that game a goal up.
+
+The board above is the whole game state: the field with both sides' meeples, every card with its skills and tokens, the benches, the clock and the score. It is re-posted as it changes, and **View full image** under it opens it large. Both line-ups have been set for you; normally each coach sets their own before kickoff, in a **Coaching Choice**, which the game will offer you in its own time.
+
+*You can leave at any time with `/d12ball skip_tutorial`.*
+=== action 1: TUTORIAL_CONTINUE '' {}
+--- prompt TUTORIAL_CONTINUE
+## 1. Your first turn
+Both sides are dealt the standard **2-2-2** -- two cards in your own zone, two in midfield, two in the zone you are attacking -- and the ball is yours, on **M2**.
+
+The field is **seven spaces** across in three zones: your own Zone (H1-H2), midfield (M1-M3), and the Zone you are attacking (V1-V2). Your six cards are on the board as meeples and three more wait on your bench. The two numbers on a card are that player's **offensive** and **defensive skill**.
+
+A turn starts with whoever is standing on the ball -- the **handler**. You have one player there, your playmaker, so they are chosen for you. Then you decide what they do.
+
+A handler can do three things: shoot, maneuver, or call a time out to buy both coaches a pause. **You are not offered the shot** -- a shot may only be taken from inside your shooting range, which is M3 and beyond, and you are one space short of it.
+
+**Press Maneuver.**
+=== action 2: TUTORIAL_CONTINUE '' {}
+--- prompt PLAYER_ACTION
+{team:orange} {coach:1}, it is your turn.
+
+Sizzifizik {role:playmaker:orange} will be handling the ball.
+
+Out of shooting range. Maneuver, or take a time out:
+=== action 3: PLAYER_ACTION 'maneuver' {}
+--- prompt TUTORIAL_CONTINUE
+### Choosing a maneuver
+A maneuver is a fight for the ball between two players, and both sides pick a card **secretly and at the same time**. Your hand holds three:
+
+- **Low Pass** -- ball to the nearest teammate ahead or behind, up to 2 spaces. Ball speed +1.
+- **Dribble Advance** -- your player *and* the ball move forward, and you may change the ball's speed.
+- **High Pass** -- the ball flies 2 or more spaces forward.
+
+Which card wins is not a roll. The six form a **cycle**, like rock-paper-scissors with six hands: each beats one of the other side's, ties with one, and loses to one. The Maneuver Reference button draws the whole thing, and you can open it whenever you like.
+
+Dinky's playmaker is standing on the ball, so they are the one challenging you.
+
+**Pick Dribble Advance.** It beats Deflect, which is what Dinky has played, and it is the card that carries the ball up the field.
+--- board changed
+=== action 4: TUTORIAL_CONTINUE '' {}
+--- group action MANEUVER_ACTION ''
+{team:purple} Dinky AI has picked their maneuver.
+--- prompt MANEUVER_ACTION
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
+=== action 5: MANEUVER_ACTION '' {"side": "offense", "maneuver_key": "dribble_advance"}
+--- answer
+{team:orange} Player 1 has picked their maneuver.
+--- narration
+{team:orange} Player 1 chose **Dribble Advance**.
+{team:purple} Dinky AI chose **Deflect**.
+
+## **Dribble Advance** wins!
+--- prompt DRIBBLE_ADVANCE_CHOICE
+{team:orange} {coach:1}, choose your Dribble Advance distance (Playmaker ability):
+=== action 6: DRIBBLE_ADVANCE_CHOICE '' {"distance": 2}
+--- answer
+**Dribble Advance:** {team:orange} Sizzifizik {role:playmaker:orange} and the ball move forward 2 spaces (Playmaker ability).
+--- prompt TUTORIAL_CONTINUE
+### Ball speed
+You get a choice here too: the ball's own speed, up to your player's skill. It cuts both ways -- a faster ball adds to *your* next score attempt, but it adds just as much to a defense stealing it off you with Steal. We will come back to it properly in a few turns, when it actually matters. This turn it does not: the turnover in beat 2 resets it to 1 regardless, so **pick whatever you like.**
+--- board changed
+=== action 7: TUTORIAL_CONTINUE '' {}
+--- prompt SPEED_DELTA_CHOICE
+{coach:1}, manipulate the ball's speed (up to 4):
+=== action 8: SPEED_DELTA_CHOICE '' {"target_speed": 3}
+--- answer
+Ball speed is now **3**.
+--- prompt TUTORIAL_CONTINUE
+Ball is now V1, Orange (Home) has possession. Time has advanced 1, now at 01.
+
+## 2. Every role has an ability
+Dribble Advance beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from M2 to **V1**.
+
+Moving forward two spaces is not the ordinary move. A dribble advances typically moves the playerone space. But your **Playmaker** is a skilled dribbler and can move up to two: that is the Playmaker role ability. **Every player has a role and every role has an ability**, printed on their card and worth reading before you pick a maneuver -- the Fullback throws a longer High Pass, the Midfielder gets +3 on a Low Pass or Pressure test, the Defender steals the ball off a won Pressure. Two commands list them whenever you want: **`/d12ball role_abilities`** for all six, and **`/d12ball team_roster`** gives you a list of your team with their roles.
+
+You are on V1 now, which is inside your shooting range, so the **Shoot** button has appeared. It is greyed out here, and it would be a poor shot anyway: your playmaker's offensive skill is 4, Dinky's defender is standing on the ball and their fullback is behind them -- roughly d12+4 against d12+8. We will make a much better one shortly.
+
+**Press Maneuver.**
+--- board changed
+=== action 9: TUTORIAL_CONTINUE '' {}
+--- prompt PLAYER_ACTION
+{team:orange} {coach:1}, it is your turn.
+
+The ball was left with Sizzifizik {role:playmaker:orange}, who takes this turn.
+
+Choose an action:
+=== action 10: PLAYER_ACTION 'maneuver' {}
+--- prompt TUTORIAL_CONTINUE
+### When both cards are the same rank
+Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is not a draw -- it goes to a **skill test**: both players roll a d12 and add their skill, the attacker their offensive and the defender their defensive, plus whatever their ability is worth. Highest total takes it, and both players pick up an **exhaustion token** for the effort. Tokens are the game's running cost; enough of them and a player risks getting injured.
+
+**Pick Low Pass.** It is rank 1, just like the Deflect Dinky has played, so this one goes to the dice -- and Dinky is going to win it. Watch what a won Deflect does: it knocks the ball back a space, nothing more. It only comes **loose** -- open to both sides -- when it lands where nobody is standing. Dinky already has a midfielder right there on M3, so the ball is simply theirs: no roll, no contest, never loose.
+--- board changed
+=== action 11: TUTORIAL_CONTINUE '' {}
+--- group action MANEUVER_ACTION ''
+{team:purple} Dinky AI has picked their maneuver.
+--- prompt MANEUVER_ACTION
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
+=== action 12: MANEUVER_ACTION '' {"side": "offense", "maneuver_key": "low_pass"}
+--- answer
+{team:orange} Player 1 has picked their maneuver.
+--- narration
+{team:orange} Player 1 chose **Low Pass**.
+{team:purple} Dinky AI chose **Deflect**.
+
+**Low Pass** ties with **Deflect** — skill test!
+
+{team:orange} Sizzifizik {role:playmaker:orange}: offense skill 4
+{team:purple} Dravox {role:defender:purple}: defense skill 5
+
+{team:orange} Sizzifizik {role:playmaker:orange} gains 1 exhaustion token {condition:exhaust} (now 1 total).
+{team:purple} Dravox {role:defender:purple} gains 1 exhaustion token {condition:exhaust} (now 1 total).
+--- prompt SKILL_TEST
+Either player can roll:
+--- board changed
+=== action 13: SKILL_TEST 'roll' {}
+--- answer
+## **Deflect** wins the skill test!
+--- narration
+**Deflect:** the ball moves 1 space back. Ball speed is now 2.
+
+The ball comes down to a space where Purple (Visiting) has a player, so they get the ball.
+The ball is at **M3** (Midfield). # Turnover!
+{team:purple} Glompex {role:midfielder:purple} picks up the ball. Purple (Visiting) now has possession.
+
+# Players run back!
+Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+--- prompt RUN_BACK_SPACE
+{coach:1}, choose where {team:orange} Sizzifizik {role:playmaker:orange} runs back to:
+M2 (2 spaces away) or M3 (1 space away).
+--- board changed
+=== action 14: RUN_BACK_SPACE '' {"space_index": 1}
+--- answer
+{team:orange} Sizzifizik {role:playmaker:orange} runs back to M2.
+{team:orange} Sizzifizik {role:playmaker:orange} gains 2 exhaustion tokens {condition:exhaust}{condition:exhaust} (now 3 total).
+--- prompt TUTORIAL_CONTINUE
+Ball is now M3, Purple (Visiting) has possession. Time has advanced 1, now at 02.
+
+## 3. Your turn to defend
+Dang it. You lost possession. Dinky won the skill test, and their Deflect knocked the ball back to **M3** -- right onto one of their own midfielders, who was already standing there. Nobody of yours was, so it went straight to them: no roll, and never loose at all. Your playmaker, left standing outside her own zone at V1, has run back into midfield -- and paid an exhaustion token per space to do it.
+
+Dinky is coming at your goal now, and this time **nobody of yours is anywhere near the ball**. Before anything else, you'll be asked to send a challenger to it -- pick either of the two offered, it costs the same either way. Sending nobody would let Dinky's maneuver straight through unchallenged, so that button is greyed out here.
+
+Once your challenger is in position, Dinky moves, and then you are asked for a card.
+--- board changed
+=== action 15: TUTORIAL_CONTINUE '' {}
+--- prompt MANEUVER_CHALLENGE
+{team:purple} Glompex {role:midfielder:purple} will maneuver for Purple.
+
+{team:orange} {coach:1}, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== action 16: MANEUVER_CHALLENGE 'send' {"player_id": "sizzifizik_playmaker"}
+--- prompt TUTORIAL_CONTINUE
+Sizzifizik has moved 1 space.
+{team:orange} Sizzifizik {role:playmaker:orange} gains 1 exhaustion token {condition:exhaust} (now 4 total).
+{team:orange} Sizzifizik {role:playmaker:orange} is now *exhausted* {condition:exhausted}
+
+### The other three cards
+Defending, your hand is the other half of the cycle:
+
+- **Deflect** -- knocks the ball back a space, nothing more. Land on an empty space and *that's* what makes it loose, open to both sides; land where only one side already is and it's simply theirs, no contest -- you were on the wrong end of that last turn; land where both are and they contest it.
+- **Steal** -- takes the ball outright. A turnover.
+- **Pressure** -- drives the handler and the ball back a space and moves your challenger forward onto them. Push a handler past their own goal line with it and they have an **own goal** to roll for.
+
+**Pick Pressure.** Dinky is dribbling, and Pressure beats Dribble Advance -- so instead of losing a space you will take one off them.
+--- board changed
+=== action 17: TUTORIAL_CONTINUE '' {}
+--- group action MANEUVER_ACTION ''
+{team:purple} Dinky AI has picked their maneuver.
+--- prompt MANEUVER_ACTION
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
+=== action 18: MANEUVER_ACTION '' {"side": "defense", "maneuver_key": "pressure"}
+--- answer
+{team:orange} Player 1 has picked their maneuver.
+--- prompt TUTORIAL_CONTINUE
+{team:purple} Dinky AI chose **Dribble Advance**.
+{team:orange} Player 1 chose **Pressure**.
+
+## **Pressure** wins! **Pressure:** {team:purple} Glompex {role:midfielder:purple} and the ball go back 1 space. {team:orange} Sizzifizik {role:playmaker:orange} moves forward.
+
+Ball is now V1, Purple (Visiting) has possession. Time has advanced 1, now at 03.
+
+## 4. Winning the ball back
+Pressure drove them backwards: their handler and the ball went back a space to **V1**, and your challenger moved up onto them. Dinky still has it -- but they have lost ground, and you are standing on the ball.
+
+Now take it off them.
+--- board changed
+=== action 19: TUTORIAL_CONTINUE '' {}
+--- prompt MANEUVER_CHALLENGE
+{team:purple} Glompex {role:midfielder:purple} will maneuver for Purple.
+
+{team:orange} {coach:1}, these players are already on the ball, so one of them has to challenge -- choose which.
+=== action 20: MANEUVER_CHALLENGE 'send' {"player_id": "sizzifizik_playmaker"}
+--- prompt TUTORIAL_CONTINUE
+### Turnovers, the run back, and ball speed
+**Pick Steal.** Dinky is playing Low Pass, and Steal beats it -- the ball will be yours again!
+
+Two things happen after it. Your player takes the ball back a space with them, and **anyone left standing outside their own zone runs back into it** =gainin an exhaustion per space, the same cost you watched Dinky pay two turns ago.
+
+Then you get to set the **ball's speed**, up to your stealer's defensive skill. Speed is worth half itself, rounded down, **added to a score attempt** -- and it is reset by every turnover, so a speed set now is one that survives. You are about to shoot. **Take the highest number offered**; the rest are greyed out.
+--- board changed
+=== action 21: TUTORIAL_CONTINUE '' {}
+--- group action MANEUVER_ACTION ''
+{team:purple} Dinky AI has picked their maneuver.
+--- prompt MANEUVER_ACTION
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
+=== action 22: MANEUVER_ACTION '' {"side": "defense", "maneuver_key": "steal"}
+--- answer
+{team:orange} Player 1 has picked their maneuver.
+--- group prompt RUN_BACK_SPACE
+{team:purple} Dinky AI chose **Low Pass**.
+{team:orange} Player 1 chose **Steal**.
+
+## **Steal** wins! **Steal:**
+# Turnover!
+{team:orange} Sizzifizik {role:playmaker:orange} steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
+
+# Players run back!
+Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+--- group action RUN_BACK_SPACE ''
+{team:purple} Glompex {role:midfielder:purple} runs back to M1.
+{team:purple} Glompex {role:midfielder:purple} gains 3 exhaustion tokens {condition:exhaust}{condition:exhaust}{condition:exhaust} (now 3 total).
+--- prompt SPEED_DELTA_CHOICE
+{coach:1}, manipulate the ball's speed (up to 3):
+--- board changed
+=== action 23: SPEED_DELTA_CHOICE '' {"target_speed": 4}
+--- answer
+Ball speed is now **4**.
+--- prompt TUTORIAL_CONTINUE
+Ball is now M3, Orange (Home) has possession. Time has advanced 1, now at 04.
+
+## 5. A shot at goal
+The ball is yours again, on **M3**, and moving fast. This is the last lesson, and it is worth a goal.
+
+M3 is inside your shooting range, so **Shoot** is offered again -- and again it is the wrong button. Your midfielder has an offensive skill of 3 and Dinky's players are between you and the goal.
+
+Look at **V2** instead. Your striker has been standing there all game, inside shooting range, offensive skill **6** -- the best on your team.
+
+A High Pass of exactly 2 spaces lands on V2. A pass that reaches a teammate already inside shooting range is a **scoring opportunity**: they shoot immediately, out of turn. And the Striker's ability is worth **+3** on precisely that shot.
+
+**Press Maneuver.**
+--- board changed
+=== action 24: TUTORIAL_CONTINUE '' {}
+--- prompt PLAYER_ACTION
+{team:orange} {coach:1}, it is your turn.
+
+The ball was left with Sizzifizik {role:playmaker:orange}, who takes this turn.
+
+Choose an action:
+=== action 25: PLAYER_ACTION 'maneuver' {}
+--- prompt TUTORIAL_CONTINUE
+Dravox has moved 1 space.
+{team:purple} Dravox {role:defender:purple} gains 1 exhaustion token {condition:exhaust} (now 2 total).
+
+### High Pass, and what a shot is up against
+**Pick High Pass.** Dinky is playing Steal, and High Pass beats it, so the pass gets through.
+
+You will be asked how far to throw. **2 spaces** is the only distance offered here -- a longer throw would run off the end of the field, and the menu never offers one that would. It is also the distance you want: a pass of 2 is caught cleanly, where a 3-space throw has to be *won* by whoever it lands near, with the ball's speed counting against them.
+
+Then take the shot. A score attempt is your d12 plus the shooter's offensive skill and half the ball's speed, against Dinky's d12 plus every defender in the way -- one standing **on** the ball adds all of their defensive skill, one further back adds half, rounded up. Ties go to the shooter.
+
+Their fullback is standing on V2, so you get their whole defensive skill of 6 against you. Even so: your striker rolls **d12+11** against their **d12+6**. That is a real roll and it can miss -- but you should score about six times in seven.
+--- board changed
+=== action 26: TUTORIAL_CONTINUE '' {}
+--- group action MANEUVER_ACTION ''
+{team:purple} Dinky AI has picked their maneuver.
+--- prompt MANEUVER_ACTION
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
+=== action 27: MANEUVER_ACTION '' {"side": "offense", "maneuver_key": "high_pass"}
+--- answer
+{team:orange} Player 1 has picked their maneuver.
+--- narration
+{team:orange} Player 1 chose **High Pass**.
+{team:purple} Dinky AI chose **Steal**.
+
+## **High Pass** wins!
+--- prompt HIGH_PASS_CHOICE
+{team:orange} {coach:1}, choose your High Pass distance:
+=== action 28: HIGH_PASS_CHOICE '' {"distance": 2}
+--- answer
+**High Pass:** the ball moves 2 spaces forward.
+That reaches a teammate -- a scoring opportunity!
+--- prompt SET_UP_ATTEMPT
+{team:orange} Noxar {role:striker:orange} can attempt the scoring opportunity, or let it go:
+--- board changed
+=== action 29: SET_UP_ATTEMPT 'take' {}
+--- answer
+{team:orange} Noxar {role:striker:orange} takes the shot off the set-up.
+--- prompt SCORE_ATTEMPT
+Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+=== action 30: SCORE_ATTEMPT 'roll' {}
+--- answer
+# GOAL!
+{team:orange} Noxar {role:striker:orange} scores for Orange (Home) on **04**!
+Orange 1:0 Purple
+
+{team:orange} Noxar {role:striker:orange} gains 1 exhaustion token {condition:exhaust} (now 1 total).
+--- group BEGIN_RUN_BACK drawn new-play
+# New play
+Both teams reset to the positions their coaches last set:
+{team:orange} Sizzifizik {role:playmaker:orange} to M2
+{team:purple} Glompex {role:midfielder:purple} to M3
+{team:purple} Dravox {role:defender:purple} to V1
+--- group action COACHING_OFFER 'decline'
+# Coaching Choice
+**{team:purple} Dinky AI passed.**
+--- prompt TUTORIAL_CONTINUE
+The ball speed goes down to **1**.
+
+Ball is now M2, Purple (Visiting) has possession. Time has advanced 3, now at 07.
+
+# That's the tutorial
+The rails are off -- every button is live from here, and Dinky is playing for real.
+
+What the warm-up did not cover, the game will: halftime, injuries and recovery, out-of-bounds balls, ceding possession, and the extreme shootout that settles a level score at full time. The first time the game offers you a **Coaching Choice** -- your own window to substitute and rearrange -- I will explain that one too.
+
+Worth knowing:
+- `/d12ball rules_search` -- any one section of the rules.
+- `/d12ball role_abilities` -- what each role can do.
+- `/d12ball maneuver_reference` -- the defeat cycle.
+- `/d12ball resume` -- puts the current question back up if a prompt ever goes missing.
+
+Good luck.
+--- board changed
+=== action 31: TUTORIAL_CONTINUE '' {}
+--- group action MANEUVER_ACTION ''
+{team:purple} Dinky AI has picked their maneuver.
+--- prompt MANEUVER_ACTION
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
+--- board changed

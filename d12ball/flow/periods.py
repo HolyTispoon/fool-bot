@@ -179,20 +179,13 @@ def end_period(
 
 def goal_log(engine: RulesEngine, match: MatchState) -> str:
     """
-    The scoresheet, with this engine's roster and emoji behind it.
+    The scoresheet, with this engine's roster behind it.
 
-    A three-argument call written once rather than at both of its
-    sites, which is what `D12Ball.build_goal_log` was before the lift
-    and why the cog keeps that method forwarding here. It is built by
-    the callers of `announce_game_over` rather than inside it, because
+    Written once rather than at both of its sites. It is built by the
+    callers of `announce_game_over` rather than inside it, because
     that function is handed a string and has no match.
     """
-    return build_goal_log(
-        match,
-        engine.player_catalog,
-        engine.team_emojis,
-        engine.role_emojis,
-    )
+    return build_goal_log(match, engine.player_catalog)
 
 
 # -- Setup, before the kickoff ---------------------------------------

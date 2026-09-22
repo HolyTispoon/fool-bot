@@ -164,7 +164,7 @@ class ChallengerChoiceTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction(user_id=user_id)
         view = PlayerActionView(cog, game.game_id)
         with suppressed_view_saves(), suppressed_cog_saves():
-            await view.choose_action(interaction, "maneuver", "Maneuver")
+            await view.choose_action(interaction, "maneuver")
         return interaction
 
     async def test_one_defender_on_the_ball_challenges_unasked(self) -> None:

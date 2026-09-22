@@ -61,10 +61,18 @@ extra click bought a round trip and nothing else.
   - **The wording above the prompt names the colour by looking it up**, in
     `MANEUVER_ROW_COLOURS`, rather than by knowing which side a lone row
     belongs to. A one-row prompt is the *defense's* whenever Dinky has the
-    ball, and `maneuver_prompt_wording` said "the red row" either way -- which
-    sent a solo coach on defense looking for buttons that were not theirs. One
-    table for the two names, so the sentence cannot come to disagree with the
-    `danger`/`success` styles the buttons are built with.
+    ball, and the wording said "the red row" either way -- which sent a
+    solo coach on defense looking for buttons that were not theirs. One
+    table for the two names, so the sentence cannot come to disagree with
+    the `danger`/`success` styles the buttons are built with. **The row
+    is this frontend's sentence** (`maneuver_row_instruction`, in
+    `build_maneuver_action_caption`, since step 9 of
+    [../architecture-migration.md](../architecture-migration.md)): the
+    model's ask, `maneuver_prompt_wording`, says who picks and that the
+    pick is secret and names no row, since a web page has its own
+    buttons to point at; the caption is composed over the model's list
+    of who is asked and its gambit paragraph, so the two cannot name
+    different coaches.
 - **The restart story got simpler, not more complicated.** The prompt is on a
   real message recorded in `turn_message_id`, so `on_ready` re-attaches it
   through `pending_turn_view` like any other view. The message-agnostic

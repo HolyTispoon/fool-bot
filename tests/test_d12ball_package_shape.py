@@ -467,8 +467,8 @@ class NamingAPlayerTests(unittest.TestCase):
         self.assertEqual(
             offenders, [],
             "These read ROLE_INITIALS directly. Use "
-            "formatting.player_with_role (or format_role_bracket for a "
-            "message) so the spelling has one home.",
+            "formatting.player_with_role (or role_brackets for the "
+            "text a token falls back to) so the spelling has one home.",
         )
 
     def test_the_roster_form_is_the_button_form(self) -> None:
@@ -510,24 +510,43 @@ class NamingAPlayerTests(unittest.TestCase):
         self,
     ) -> None:
         """
-        The two differ by the emoji and by nothing else, which is what
-        lets "outside a button, a player also carries their team emoji"
-        be one rule rather than two formatters agreeing by hand.
+        The two differ by the team mark and the badge and by nothing
+        else, which is what lets "outside a button, a player also
+        carries their team emoji" be one rule rather than two
+        formatters agreeing by hand. The message form is tokens, and
+        Discord with nothing uploaded draws them as the circle and
+        the brackets.
         """
-        from cogs.d12ball_helpers import format_role_bracket
-        from d12ball.components import load_player_catalog
+        from cogs.d12ball_helpers import DiscordTokens
+        from d12ball.components import (
+            load_basic_ruleset,
+            load_maneuver_catalog,
+            load_player_catalog,
+        )
+        from d12ball.engine import RulesEngine
         from d12ball.formatting import player_with_role
         from d12ball.game import Team
 
         catalog = load_player_catalog()
+        engine = RulesEngine(
+            catalog, load_basic_ruleset(), load_maneuver_catalog(), {},
+        )
         player = catalog.teams[Team.ORANGE].players[0]
         plain = player_with_role(player)
 
+        class FakeMatch:
+            def team_for_player(self, player_id: str) -> Team:
+                return Team.ORANGE
+
         self.assertTrue(plain.endswith("]"))
         self.assertIn(player.name, plain)
+        message = engine.format_player_label(FakeMatch(), player)
         self.assertEqual(
-            format_role_bracket(player, {}, Team.ORANGE),
-            f"🟠 {plain}",
+            message,
+            f"{{team:orange}} {player.name} {{role:{player.role.value}:orange}}",
+        )
+        self.assertEqual(
+            DiscordTokens({}, {}, {}, {}).render(message), f"🟠 {plain}",
         )
 
     def test_a_message_writes_the_role_emoji_and_a_button_the_brackets(
@@ -538,11 +557,11 @@ class NamingAPlayerTests(unittest.TestCase):
         in exactly one of the places a player is named: a message. A
         button label and an autocomplete choice show the raw
         `<:...:>`, so the plain form keeps the brackets whatever has
-        been uploaded, and only the message forms take the dict.
+        been uploaded, and only the message forms carry the token the
+        badge is drawn from.
         """
-        from cogs.d12ball_helpers import format_role_bracket
+        from cogs.d12ball_helpers import DiscordTokens
         from d12ball.components import (
-            PlayerRole,
             load_basic_ruleset,
             load_maneuver_catalog,
             load_player_catalog,
@@ -557,25 +576,25 @@ class NamingAPlayerTests(unittest.TestCase):
         )
         player = catalog.teams[Team.ORANGE].players[0]
         badge = f"<:role_{player.role.value}_orange:100>"
-        engine.role_emojis = {(player.role, Team.ORANGE): badge}
+        discord = DiscordTokens({}, {(player.role, Team.ORANGE): badge}, {}, {})
+        token = f"{{role:{player.role.value}:orange}}"
         plain = f"{player.name} [{role_initials(player)}]"
 
         # The message forms carry the badge, in the side's own colour.
         self.assertEqual(
-            player_with_role(player, engine.role_emojis, Team.ORANGE),
-            f"{player.name} {badge}",
-        )
-        self.assertEqual(
-            format_role_bracket(player, {}, Team.ORANGE, engine.role_emojis),
-            f"🟠 {player.name} {badge}",
+            player_with_role(player, badge=True, team=Team.ORANGE),
+            f"{player.name} {token}",
         )
         self.assertEqual(
             engine.format_roster_player_for_message(
                 player.player_id, Team.ORANGE,
             ),
-            f"{player.name} {badge}",
+            f"{player.name} {token}",
         )
-        # The button and autocomplete forms do not, however the engine
+        self.assertEqual(
+            discord.render(f"{player.name} {token}"), f"{player.name} {badge}",
+        )
+        # The button and autocomplete forms do not, however the cog
         # has been loaded.
         self.assertEqual(player_with_role(player), plain)
         self.assertEqual(engine.format_roster_player(player.player_id), plain)
@@ -587,26 +606,24 @@ class NamingAPlayerTests(unittest.TestCase):
             None, None, player.player_id,
         )[: len(plain)], plain)
 
-    def test_format_player_label_agrees_with_the_old_inline_body(
-        self,
-    ) -> None:
+    def test_format_player_label_renders_under_every_upload(self) -> None:
         """
-        `RulesEngine.format_player_label` is `D12Ball.player_label`'s
-        old body -- `format_role_bracket` with the team read off the
-        match -- moved onto the engine, reading both emoji dicts off
-        itself instead of taking them as arguments (see the unlisted
-        prerequisite to Phase 1 in docs/design/model-discord-split.md). A
-        divergence between the two would otherwise only show up as a
-        wording change in the golden transcript, which does not cover
-        every combination below.
+        `RulesEngine.format_player_label` writes the same two tokens
+        whatever has been uploaded, and `DiscordTokens` draws them
+        from whatever has: a player with a team emoji and one without,
+        crossed with a role with an uploaded badge and one without. A
+        divergence would otherwise only show up as a wording change in
+        the golden transcript, which does not cover every combination
+        below.
         """
-        from cogs.d12ball_helpers import format_role_bracket
+        from cogs.d12ball_helpers import DiscordTokens
         from d12ball.components import (
             load_basic_ruleset,
             load_maneuver_catalog,
             load_player_catalog,
         )
         from d12ball.engine import RulesEngine
+        from d12ball.formatting import role_initials
         from d12ball.game import Team
 
         catalog = load_player_catalog()
@@ -622,22 +639,20 @@ class NamingAPlayerTests(unittest.TestCase):
                 return Team.ORANGE
 
         match = FakeMatch()
+        label = engine.format_player_label(match, player)
 
-        # A player with a team emoji and one without, crossed with a
-        # role with an uploaded badge and one without.
-        for team_emojis, role_emojis in (
-            ({}, {}),
-            ({Team.ORANGE: team_emoji}, {}),
-            ({}, {(player.role, Team.ORANGE): badge}),
-            ({Team.ORANGE: team_emoji}, {(player.role, Team.ORANGE): badge}),
+        for team_emojis, role_emojis, expected in (
+            ({}, {}, f"🟠 {player.name} [{role_initials(player)}]"),
+            ({Team.ORANGE: team_emoji}, {},
+             f"{team_emoji} {player.name} [{role_initials(player)}]"),
+            ({}, {(player.role, Team.ORANGE): badge},
+             f"🟠 {player.name} {badge}"),
+            ({Team.ORANGE: team_emoji}, {(player.role, Team.ORANGE): badge},
+             f"{team_emoji} {player.name} {badge}"),
         ):
-            engine.team_emojis = team_emojis
-            engine.role_emojis = role_emojis
             self.assertEqual(
-                engine.format_player_label(match, player),
-                format_role_bracket(
-                    player, team_emojis, Team.ORANGE, role_emojis,
-                ),
+                DiscordTokens(team_emojis, role_emojis, {}, {}).render(label),
+                expected,
             )
 
     def test_a_role_with_no_upload_keeps_its_brackets(self) -> None:
@@ -646,6 +661,7 @@ class NamingAPlayerTests(unittest.TestCase):
         roles, not three blanks -- the fallback is per role, on the
         dict's own missing entry.
         """
+        from cogs.d12ball_helpers import DiscordTokens
         from d12ball.components import PlayerRole, load_player_catalog
         from d12ball.formatting import player_with_role, role_initials
         from d12ball.game import Team
@@ -654,14 +670,16 @@ class NamingAPlayerTests(unittest.TestCase):
         players = catalog.teams[Team.ORANGE].players
         striker = next(p for p in players if p.role == PlayerRole.STRIKER)
         fullback = next(p for p in players if p.role == PlayerRole.FULLBACK)
-        role_emojis = {(PlayerRole.STRIKER, None): "<:role_striker:100>"}
+        discord = DiscordTokens(
+            {}, {(PlayerRole.STRIKER, None): "<:role_striker:100>"}, {}, {},
+        )
 
         self.assertEqual(
-            player_with_role(striker, role_emojis),
+            discord.render(player_with_role(striker, badge=True)),
             f"{striker.name} <:role_striker:100>",
         )
         self.assertEqual(
-            player_with_role(fullback, role_emojis),
+            discord.render(player_with_role(fullback, badge=True)),
             f"{fullback.name} [{role_initials(fullback)}]",
         )
 
@@ -675,6 +693,7 @@ class NamingAPlayerTests(unittest.TestCase):
         before the colours existed -- which is what it is doing until
         somebody uploads the rest.
         """
+        from cogs.d12ball_helpers import DiscordTokens
         from d12ball.components import PlayerRole, load_player_catalog
         from d12ball.formatting import player_with_role, role_initials
         from d12ball.game import Team
@@ -689,20 +708,23 @@ class NamingAPlayerTests(unittest.TestCase):
             (PlayerRole.STRIKER, None): "<:role_striker:100>",
             (PlayerRole.STRIKER, Team.ORANGE): "<:role_striker_orange:101>",
         }
+        discord = DiscordTokens({}, role_emojis, {}, {})
 
         # The colour it has.
         self.assertEqual(
-            player_with_role(striker, role_emojis, Team.ORANGE),
+            discord.render(player_with_role(striker, badge=True, team=Team.ORANGE)),
             f"{striker.name} <:role_striker_orange:101>",
         )
         # A colour it does not: the plain badge, never a blank.
         self.assertEqual(
-            player_with_role(striker, role_emojis, Team.TEAL),
+            discord.render(player_with_role(striker, badge=True, team=Team.TEAL)),
             f"{striker.name} <:role_striker:100>",
         )
         # And with neither, the brackets.
         self.assertEqual(
-            player_with_role(striker, {}, Team.TEAL),
+            DiscordTokens({}, {}, {}, {}).render(
+                player_with_role(striker, badge=True, team=Team.TEAL),
+            ),
             f"{striker.name} [{role_initials(striker)}]",
         )
 
@@ -715,7 +737,7 @@ class NamingAPlayerTests(unittest.TestCase):
         exactly what the team emoji was left off for saying. See
         `format_goal_scorer`.
         """
-        from cogs.d12ball_helpers import format_goal_scorer
+        from cogs.d12ball_helpers import DiscordTokens, format_goal_scorer
         from d12ball.components import (
             GoalRecord,
             MatchPeriod,
@@ -743,6 +765,11 @@ class NamingAPlayerTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            format_goal_scorer(goal, catalog, role_emojis),
+            format_goal_scorer(goal, catalog), f"{striker.name} {{role:striker}}",
+        )
+        self.assertEqual(
+            DiscordTokens({}, role_emojis, {}, {}).render(
+                format_goal_scorer(goal, catalog),
+            ),
             f"{striker.name} <:role_striker:100>",
         )

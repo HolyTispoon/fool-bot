@@ -175,13 +175,8 @@ class PlayerActionView(SafeView):
             async def callback(
                 interaction: discord.Interaction,
                 selected_action: str = action,
-                action_label: str = label,
             ) -> None:
-                await self.choose_action(
-                    interaction,
-                    selected_action,
-                    action_label,
-                )
+                await self.choose_action(interaction, selected_action)
 
             button.callback = callback
             self.add_item(button)
@@ -190,7 +185,6 @@ class PlayerActionView(SafeView):
         self,
         interaction: discord.Interaction,
         action: str,
-        action_label: str,
     ) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -220,11 +214,7 @@ class PlayerActionView(SafeView):
         result = await self.apply(
             interaction,
             game,
-            Action(
-                PromptKind.PLAYER_ACTION,
-                action,
-                {"action_label": action_label} if action == "shoot" else {},
-            ),
+            Action(PromptKind.PLAYER_ACTION, action),
             # A challenger nobody was asked for walks in over the
             # challenge image, and the answer's own line opens it; on
             # every other route the line is this view's to place.

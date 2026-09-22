@@ -146,8 +146,11 @@ class CoachingView(SafeView):
         steps -- opening a submenu changes nothing on the board.
         """
         payload = {
-            "content": self.cog.engine.coaching_prompt(
-                game, match, self.side(match), note,
+            "content": self.cog.render_text(
+                self.cog.engine.coaching_prompt(
+                    game, match, self.side(match), note,
+                ),
+                game,
             ),
             "view": view,
         }
@@ -314,20 +317,13 @@ class CoachingOfferView(CoachingView):
             return
 
         # **The rule is
-        # `d12ball.flow.windows.decline_coaching_step`** since Phase 6.
-        # The coach's own name is the one thing it takes rather than
-        # decides: nothing in the match knows what to call a Discord
-        # account, so it arrives as a label the way a shot's does.
+        # `d12ball.flow.windows.decline_coaching_step`** since Phase 6,
+        # and who passed is named off the record there.
         result = await self.apply(
             interaction,
             game,
             Action(
-                PromptKind.COACHING_OFFER,
-                "decline",
-                {
-                    "side": self.side(match),
-                    "coach_name": interaction.user.display_name,
-                },
+                PromptKind.COACHING_OFFER, "decline", {"side": self.side(match)},
             ),
         )
         if result is None:

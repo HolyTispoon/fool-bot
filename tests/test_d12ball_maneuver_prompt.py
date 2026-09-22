@@ -14,6 +14,11 @@ from unittest import mock
 import discord
 
 from cogs.d12ball import D12Ball
+from cogs.d12ball_helpers import (
+    build_maneuver_action_caption,
+    maneuver_row_instruction,
+)
+from d12ball.prompts import maneuver_action_ask
 from cogs.d12ball_views import (
     ManeuverActionPromptView,
 )
@@ -174,6 +179,12 @@ class ManeuverPromptWordingTests(unittest.TestCase):
     hand and one row, and it is the *defense's* whenever Dinky has the
     ball. The wording said "the red row" either way, which sent a coach
     looking for buttons that were not on their side of the message.
+
+    The row is this frontend's (`maneuver_row_instruction`, since step
+    9 of docs/architecture-migration.md); the model's own instruction
+    names no colour and no message, and the two are joined by
+    `build_maneuver_action_caption` over the model's list of who is
+    asked.
     """
 
     @classmethod
@@ -195,18 +206,10 @@ class ManeuverPromptWordingTests(unittest.TestCase):
         return cog, game, match
 
     def test_a_lone_offense_is_sent_to_the_red_row(self) -> None:
-        cog, game, match = self.build()
-
-        _, instruction = maneuver_prompt_wording(cog, game, match, ["offense"])
-
-        self.assertIn("red row", instruction)
+        self.assertIn("red row", maneuver_row_instruction(["offense"]))
 
     def test_a_lone_defense_is_sent_to_the_green_row(self) -> None:
-        cog, game, match = self.build()
-
-        _, instruction = maneuver_prompt_wording(cog, game, match, ["defense"])
-
-        self.assertIn("green row", instruction)
+        self.assertIn("green row", maneuver_row_instruction(["defense"]))
 
     def test_a_contested_prompt_names_both(self) -> None:
         cog, game, match = self.build()
@@ -216,8 +219,38 @@ class ManeuverPromptWordingTests(unittest.TestCase):
         )
 
         self.assertEqual(len(waiting_on), 2)
-        self.assertIn("red for the offense", instruction)
-        self.assertIn("green for the defense", instruction)
+        self.assertIn("both sides pick privately", instruction)
+        both = maneuver_row_instruction(["offense", "defense"])
+        self.assertIn("red for the offense", both)
+        self.assertIn("green for the defense", both)
+
+    def test_the_model_names_no_row(self) -> None:
+        cog, game, match = self.build()
+        for sides in (["offense"], ["defense"], ["offense", "defense"]):
+            with self.subTest(sides=sides):
+                _, instruction = maneuver_prompt_wording(cog, game, match, sides)
+                for word in ("red", "green", "row", "message"):
+                    self.assertNotIn(word, instruction)
+
+    def test_the_caption_is_the_ask_with_the_row_in_it(self) -> None:
+        """
+        The Discord caption and the model's ask name the same coaches
+        in the same order and put the gambit paragraph in the same
+        place; the instruction is the one thing that differs.
+        """
+        cog, game, match = self.build()
+        sides = list(cog.engine.maneuver_pick_sides(game, match))
+        caption = build_maneuver_action_caption(cog.engine, game, match)
+        ask = maneuver_action_ask(cog.engine, game, match)
+        waiting_on, instruction = maneuver_prompt_wording(cog, game, match, sides)
+
+        self.assertTrue(caption.startswith(" and ".join(waiting_on) + ", "))
+        self.assertTrue(ask.startswith(" and ".join(waiting_on) + ", "))
+        self.assertIn(maneuver_row_instruction(sides), caption)
+        self.assertIn(instruction, ask)
+        self.assertEqual(
+            caption.split("\n\n")[1:], ask.split("\n\n")[1:],
+        )
 
 
 class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
@@ -327,7 +360,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             cog.engine.get_player_definition(player_id),
         )
 
-        side = cog.engine.challenge_side(
+        side = cog.challenge_side(
             player_id, match.team_for_player(player_id), attacking=True,
         )
 

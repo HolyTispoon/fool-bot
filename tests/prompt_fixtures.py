@@ -308,14 +308,17 @@ def shootout_order() -> PromptFixture:
     return PromptFixture(
         build_game(),
         match,
-        "### Extreme shootout\n<@111> and <@222>: set the order your six "
+        "### Extreme shootout\n{coach:1} and {coach:2}: set the order your six "
         "players shoot in. Nobody else sees it.",
     )
 
 
 def shootout_order_for_the_ai() -> PromptFixture:
     # The coach has set theirs; the AI's is the same question, one
-    # name at a time, answered by the service.
+    # name at a time, answered by the service -- and addressed to the
+    # AI by its coach token, as every question is (it read "Purple
+    # (Visiting)" until step 9, the side standing in for the account
+    # the AI has not got).
     match = build_match()
     match.begin_shootout()
     match.set_shootout_order(
@@ -324,7 +327,7 @@ def shootout_order_for_the_ai() -> PromptFixture:
     return PromptFixture(
         build_game(player_2_id=None),
         match,
-        "### Extreme shootout\nPurple (Visiting): set the order your six "
+        "### Extreme shootout\n{coach:2}: set the order your six "
         "players shoot in. Nobody else sees it.",
     )
 
@@ -348,7 +351,7 @@ def shootout_pick() -> PromptFixture:
     for _ in range(6):
         fixture.match.finish_shootout_test()
     fixture.ask = (
-        f"{ENGINE.shootout_heading(fixture.match)}\n<@111> and <@222>: "
+        f"{ENGINE.shootout_heading(fixture.match)}\n{{coach:1}} and {{coach:2}}: "
         "choose who goes out next, from the players who have not shot "
         "yet this round. Nobody else sees it until the reveal."
     )
@@ -625,7 +628,6 @@ def shooter_choice() -> PromptFixture:
     mention = format_player_with_team(
         game,
         ENGINE.possession_player_number(game, match),
-        ENGINE.team_emojis,
         mention=True,
     )
     return PromptFixture(

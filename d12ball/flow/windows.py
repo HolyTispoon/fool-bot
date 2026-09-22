@@ -51,11 +51,11 @@ from d12ball.engine import RulesEngine
 from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turnovers import begin_ball_recovery
+from d12ball import tokens
 from d12ball.formatting import (
+    coach_name,
     destination_display_name,
     format_team_side_label,
-    get_exhaust_emoji,
-    get_team_emoji,
     space_label,
 )
 from d12ball.game import D12BallGame
@@ -253,7 +253,7 @@ def apply_substitution(
         )
         noun = "drain" if incoming_drain else "exhaustion"
         remaining = match.exhaustion.get(incoming_player_id, 0)
-        exhaust_emoji = get_exhaust_emoji(engine.condition_emojis)
+        exhaust_emoji = tokens.condition(tokens.CONDITION_EXHAUST)
         text += (
             f"\nBack on from the back bench, down to {remaining} "
             f"{noun} {'token' if remaining == 1 else 'tokens'} "
@@ -356,25 +356,26 @@ def decline_coaching_step(
     match: MatchState,
     *,
     side: TeamSide,
-    coach_name: str,
 ) -> StepResult:
     """
     Pass on a coaching window that was offered rather than given.
 
-    `coach_name` is what to call the person who passed. **It is a
-    label the frontend supplies, not a rule** -- the same shape
-    `begin_shot_step`'s `action_label` has: this one message names the
-    human rather than the side, which nothing in the match knows, and
-    a model that guessed at it would be inventing a fact about a
-    Discord account. Everything around it is the model's, including
-    that it is a heading and that the window closes behind it.
+    Who passed is the side's coach, *named* rather than addressed
+    (`formatting.coach_name`: what the record calls them, or the AI's
+    name) -- a heading that pinged the coach about their own click
+    would be the wrong kind of sentence. The frontend handed in a
+    Discord display name until step 9 of
+    docs/architecture-migration.md; the record carries the same name
+    (`refresh_player_names` keeps it current), so the model can say
+    it in the one voice.
     """
     setup = match.setup_for_side(side)
     return StepResult(
         narration=[
             "# Coaching Choice\n"
-            f"**{get_team_emoji(engine.team_emojis, setup.team)} "
-            f"{coach_name} passed.**"
+            f"**{tokens.team(setup.team)} "
+            f"{coach_name(game, engine.side_player_number(game, side))} "
+            "passed.**"
         ],
         next=FollowOn(FollowOnStep.FINISH_SUBSTITUTION_WINDOW),
     )

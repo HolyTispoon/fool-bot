@@ -71,5 +71,6 @@ design.
   `player_label`, `apply_exhaustion`, `injured_word_and_emoji`,
   `maneuver_prompt_wording`, `run_back_space_prompt`,
   `record_turn_action`, `apply_position_swap` and `apply_reposition`
-  all forward into the engine or the flow. Keeping them is what made each of those lifts a move
+  all forwarded into the engine or the flow (the first three render
+  what they forward to, since step 9's tokens). Keeping them is what made each of those lifts a move
   of one function rather than a rename across ninety call sites.

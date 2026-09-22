@@ -89,6 +89,56 @@ print(json.dumps(failures))
 """
 
 
+# The game itself, as a web process would load it: the service and
+# everything under it. Imported in a fresh interpreter with Pillow and
+# reportlab refused, so the modules that *draw* (`render`, `cards`, the
+# boards and the rulebooks) cannot creep back under the engine -- step
+# 9 of docs/architecture-migration.md took `challenge_side`, the one
+# thing that made `engine.py` import `render.py`, onto the cog. A web
+# process that only plays the game pays for no font at import.
+GAME_MODULES = (
+    "gamesaves.d12ball.service",
+    "gamesaves.d12ball.storage",
+    "d12ball.ai",
+    "d12ball.prompts",
+    "d12ball.stats",
+    "d12ball.rules_doc",
+    "d12ball.tokens",
+    "d12ball.tutorial",
+)
+
+DRAWING_PROBE = """
+import importlib
+import json
+import sys
+
+BLOCKED = ("PIL", "reportlab")
+
+
+class Blocker:
+    def find_spec(self, name, path=None, target=None):
+        if name in BLOCKED or name.startswith(tuple(b + "." for b in BLOCKED)):
+            raise ModuleNotFoundError(
+                f"{name} is blocked: the game may not draw", name=name,
+            )
+        return None
+
+
+sys.meta_path.insert(0, Blocker())
+
+failures = {}
+for module in sys.argv[1:]:
+    try:
+        importlib.import_module(module)
+    except ModuleNotFoundError as exc:
+        failures[module] = f"imports {exc.name}"
+    except Exception as exc:  # pragma: no cover - a real breakage
+        failures[module] = f"{type(exc).__name__}: {exc}"
+
+print(json.dumps(failures))
+"""
+
+
 def model_modules() -> list[pathlib.Path]:
     modules = []
     for root in MODEL_ROOTS:
@@ -131,6 +181,35 @@ class ModelPurityTests(unittest.TestCase):
             failures,
             {},
             "these modules do not import cleanly without discord: "
+            f"{failures}",
+        )
+
+    def test_the_game_imports_without_pillow(self) -> None:
+        """
+        The service and everything it runs load with `PIL` and
+        `reportlab` refused. The drawing modules are the model's too,
+        and may import both; what may not is anything a turn needs.
+        """
+        probe = subprocess.run(
+            [sys.executable, "-c", DRAWING_PROBE, *GAME_MODULES],
+            capture_output=True,
+            text=True,
+            cwd=str(PROJECT_ROOT),
+            timeout=120,
+        )
+        self.assertEqual(
+            probe.returncode,
+            0,
+            f"the import probe itself failed:\n{probe.stderr}",
+        )
+
+        import json
+
+        failures = json.loads(probe.stdout)
+        self.assertEqual(
+            failures,
+            {},
+            "these modules reach a drawing library on import: "
             f"{failures}",
         )
 

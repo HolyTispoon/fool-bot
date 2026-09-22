@@ -44,7 +44,6 @@ is a rule rather than an accident:
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 from typing import Optional
 
@@ -213,7 +212,9 @@ def score_skill_test(
         defense_player,
     ).defense
 
-    offense_roll, defense_roll = scripted_or_random(game, "skill_test", 2)
+    offense_roll, defense_roll = scripted_or_random(
+        engine, game, "skill_test", 2,
+    )
 
     # Volatile, on each side's own die and before any skill is added --
     # the ignite reads the natural face.
@@ -559,7 +560,9 @@ def score_loose_ball(
         else engine.player_catalog.effective_profile(defense_player).defense
     )
 
-    offense_roll, defense_roll = scripted_or_random(game, "loose_ball", 2)
+    offense_roll, defense_roll = scripted_or_random(
+        engine, game, "loose_ball", 2,
+    )
 
     # Volatile, per side and on the natural face. **Injury does not
     # withhold it**: what an injured contestant loses here is their own
@@ -693,7 +696,7 @@ def settle_loose_ball_winner(
         else engine.defending_player_number(game, match)
     )
     winner_mention = format_player_with_team(
-        game, winner_number, engine.team_emojis, mention=True,
+        game, winner_number, mention=True,
     )
     winner_player = offense_player if outcome == "offense" else defense_player
 
@@ -898,8 +901,9 @@ def score_score_attempt(
     # defensive skill of every meeple in the way. The speed modifier is
     # signed -- an overshot High Pass pays it against the shot -- so it
     # is added, never abs()'d.
-    attack_roll = random.randint(1, 12)
-    defense_roll = random.randint(1, 12)
+    attack_roll, defense_roll = scripted_or_random(
+        engine, game, "score_attempt", 2,
+    )
     attack_ignite = engine.ignite(game, shooter.player_id, attack_roll)
     overdrive = match.overdrive_modifier(shooter.player_id)
     attack_total = (
@@ -1258,7 +1262,7 @@ def score_shootout_test(
             if injured
             else engine.player_catalog.effective_profile(player).offense
         )
-        roll = random.randint(1, 12)
+        roll = scripted_or_random(engine, game, "shootout_test", 1)[0]
         ignite = engine.ignite(game, player.player_id, roll)
         ignites.append((player.player_id, ignite))
         overdrive = match.overdrive_modifier(player.player_id)

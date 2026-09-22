@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball_helpers import (
+    DiscordTokens,
     advanced_module_label,
     build_lobby_message,
     build_setup_message,
@@ -79,6 +80,9 @@ class FakeCog:
         # docs/architecture-migration.md), so a view cannot be clicked
         # without one.
         self.service = GameService(ENGINE, self.games)
+
+    def render_text(self, text: str, game=None) -> str:
+        return DiscordTokens(self.team_emojis, {}, {}, {}, game).render(text)
 
 
 def build_interaction(user_id: int) -> SimpleNamespace:
@@ -170,8 +174,8 @@ class ModeWordingTests(unittest.TestCase):
     def test_both_setup_screens_say_what_the_game_is_playing(self) -> None:
         game = build_game(advanced_maneuvers=False)
 
-        self.assertIn("species abilities", build_setup_message(game, {}))
-        self.assertNotIn("gambit", build_setup_message(game, {}))
+        self.assertIn("species abilities", build_setup_message(game))
+        self.assertNotIn("gambit", build_setup_message(game))
         self.assertIn("species abilities", build_lobby_message(build_lobby(
             advanced_maneuvers=False,
         )))

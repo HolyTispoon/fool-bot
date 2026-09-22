@@ -520,7 +520,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
     ) -> MatchState:
         view = LooseBallSkillTestView(cog, game.game_id)
         with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
-            "random.randint", side_effect=dice,
+            "random.Random.randint", side_effect=dice,
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
         ), mock.patch("discord.File"):

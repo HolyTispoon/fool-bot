@@ -589,7 +589,7 @@ class AutomaticChallengerTests(DeclinedChallengeTests):
         with suppressed_view_saves(), \
                 suppressed_cog_saves():
             await PlayerActionView(cog, game.game_id).choose_action(
-                interaction, "maneuver", "Maneuver",
+                interaction, "maneuver",
             )
 
         prompt = interaction.followup.send.await_args.args[0]

@@ -61,12 +61,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
-    # The role emoji live on the engine and the cog's `role_emojis` is
-    # a view of them, so the goal log at full time needs one to read.
     cog.engine = RulesEngine(
         cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
     )
-    cog.team_emojis = {}
     cog.coin_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
     cog.build_match_file = mock.AsyncMock(return_value=None)
@@ -324,8 +321,8 @@ class FullTimeSummaryTests(unittest.TestCase):
 
         self.assertIn("Final score:** Orange 3:1 Purple", summary)
         self.assertIn("# Orange wins!", summary)
-        self.assertIn("<@111>", summary)
-        self.assertNotIn("<@222>", summary)
+        self.assertIn("{coach:1}", summary)
+        self.assertNotIn("{coach:2}", summary)
 
     def test_the_visiting_side_can_win_it(self) -> None:
         summary = build_full_time_summary(
@@ -333,7 +330,7 @@ class FullTimeSummaryTests(unittest.TestCase):
         )
 
         self.assertIn("# Purple wins!", summary)
-        self.assertIn("<@222>", summary)
+        self.assertIn("{coach:2}", summary)
 
     def test_the_ai_can_win_it(self) -> None:
         game = build_game(
@@ -345,7 +342,9 @@ class FullTimeSummaryTests(unittest.TestCase):
         summary = build_full_time_summary(game, self.build_match(0, 1))
 
         self.assertIn("# Purple wins!", summary)
-        self.assertIn("Dinky AI", summary)
+        # Addressed by the same token as a coach; Discord draws the
+        # AI's name for it.
+        self.assertIn("{coach:2}", summary)
 
     def test_a_level_score_goes_to_the_shootout(self) -> None:
         summary = build_full_time_summary(
@@ -400,7 +399,7 @@ class GoalLogTests(unittest.TestCase):
         return self.catalog.player_by_id(player_id).name
 
     def log(self, match: MatchState) -> str:
-        return build_goal_log(match, self.catalog, {})
+        return build_goal_log(match, self.catalog)
 
     def test_a_goal_is_logged_with_its_scorer_and_minute(self) -> None:
         match = self.build_match()
@@ -436,7 +435,9 @@ class GoalLogTests(unittest.TestCase):
         )
         log = self.log(match)
         self.assertIn("Orange (Home)** -- none", log)
-        self.assertIn(f"{self.name(conceder)} [FB] (OG)", log)
+        # The plain badge, no side's colour: the line is under the
+        # side the goal counted for, which is not the scorer's.
+        self.assertIn(f"{self.name(conceder)} {{role:fullback}} (OG)", log)
 
     def test_a_first_half_goal_past_15_is_marked(self) -> None:
         """
@@ -613,7 +614,7 @@ class GameSetupTests(unittest.IsolatedAsyncioTestCase):
             ],
             [],
         )
-        self.assertNotIn("Ties:", build_setup_message(game, {}))
+        self.assertNotIn("Ties:", build_setup_message(game))
 
     def test_every_setup_button_fits_discord_s_five_rows(self) -> None:
         # A test game's two team rows and a solo game's AI row are what

@@ -183,7 +183,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
 
         view = SkillTestView(cog, game.game_id)
         with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
-            "random.randint",
+            "random.Random.randint",
             side_effect=[offense_roll, defense_roll],
         ):
             await view.roll(interaction)
@@ -232,7 +232,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
                 game.match_state = match.to_dict()
 
                 with suppressed_cog_saves(), mock.patch(
-                    "random.randint", return_value=roll,
+                    "random.Random.randint", return_value=roll,
                 ):
                     await run_own_goal_roll(cog, 
                         build_interaction(), game, match,

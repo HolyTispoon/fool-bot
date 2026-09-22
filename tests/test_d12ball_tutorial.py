@@ -690,7 +690,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         # The shot is real dice, so this is the position doing the
         # work: a striker's +9 against a lone halved +3.
         with mock.patch(
-            "random.randint", return_value=6,
+            "random.Random.randint", return_value=6,
         ):
             cog, game, log = await self.play()
 

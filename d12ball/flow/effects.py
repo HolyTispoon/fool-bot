@@ -34,7 +34,6 @@ step and before dispatching whatever comes next -- see
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 from typing import Optional
 
@@ -53,14 +52,14 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.turn import record_maneuver, tutorial_beat
+from d12ball.flow.turn import record_maneuver, scripted_or_random, tutorial_beat
 from d12ball.formatting import (
     ball_space_phrase,
     format_goal_time,
     format_player_with_team,
     format_team_side_label,
-    get_species_ability_emoji,
 )
+from d12ball import tokens
 from d12ball.game import D12BallGame, team_display_name
 from d12ball.prompts import PendingPrompt, PromptKind, speed_choice_ask
 
@@ -1001,7 +1000,7 @@ def own_goal_roll_step(
         offense_player,
     ).offense
 
-    rolls = (random.randint(1, 12), random.randint(1, 12))
+    rolls = tuple(scripted_or_random(engine, game, "own_goal", 2))
     # Volatile reads the die that is **kept**, not both: an own goal is
     # rolled at an advantage, and the rules name "the die kept in an
     # own-goal roll".
@@ -1852,9 +1851,7 @@ def take_smooth_step(
     match.pending_smooth_resume = None
     match.apply_smooth(player_id)
 
-    smooth_emoji = get_species_ability_emoji(
-        engine.species_ability_emojis, SPECIES_TELEKINETIC,
-    )
+    smooth_emoji = tokens.species(SPECIES_TELEKINETIC)
     lead_in = (
         f"{smooth_emoji} **Smooth** — "
         f"{engine.format_player_label(match, player)} takes the ball "
@@ -2006,11 +2003,10 @@ def _possession_mention(
     game: D12BallGame,
     match: MatchState,
 ) -> str:
-    """The coach in possession, as a mention with their team's emoji."""
+    """The coach in possession, addressed, with their team's mark."""
     return format_player_with_team(
         game,
         engine.possession_player_number(game, match),
-        engine.team_emojis,
         mention=True,
     )
 
@@ -2253,7 +2249,6 @@ def offer_setup_pass_push_back(
     mention = format_player_with_team(
         game,
         engine.defending_player_number(game, match),
-        engine.team_emojis,
         mention=True,
     )
     return StepResult(

@@ -186,18 +186,20 @@ remainder.
    anything, so the settled path, the four load-bearing early saves
    and the tie branches are all covered by the same line, and every
    `cog.persist(` in the views is gone.
-6. **Discord's mention syntax is generated inside the model.** *Open;
-   migration step 9.* Nine sites build `<@{id}>` -- `prompts.py`,
-   `formatting.py`, `engine.py` and four flow modules -- and
-   `D12BallGame.coin_winner_player_number` reads a mention string back
-   *as data* to find the coin winner. The maneuver ask also describes
-   Discord affordances as play ("only you can see what you picked",
-   the row colours), and two refusal sentences say "the prompt at the
-   bottom of the channel". A web app renders every one of those
-   verbatim, which is principle 5's "one voice" failing in the other
-   direction: the voice is right, and it is speaking Discord. The
-   engine's four emoji dicts are the same finding with a different
-   mark, and are on the architecture's remove list by name.
+6. ~~**Discord's mention syntax is generated inside the model.**~~
+   *Closed by step 9.* Nine sites built `<@{id}>` -- `prompts.py`,
+   `formatting.py`, `engine.py` and four flow modules -- the maneuver
+   ask named the row colours, two refusal sentences said "the prompt
+   at the bottom of the channel", and the engine held four emoji
+   dicts. A coach is `{coach:n}` now and a mark is a token
+   (`d12ball/tokens.py`), rendered once at the cog's door
+   (`D12Ball.rendered`, `DiscordTokens`); the row is the cog's caption
+   (`build_maneuver_action_caption`); the channel sentences are
+   reworded. `coin_winner_player_number`'s mention-string fallback
+   stays, per gotchas.md, for saves that predate the number. What
+   stays in the model on purpose: "only you can see what you picked"
+   and the shootout's "Nobody else sees it" -- a secret pick is a
+   rule of the game, and a web page keeps the secret too.
 
 ### Gaps a web app would have to fill by copying
 
@@ -266,20 +268,24 @@ remainder.
     Both coercions belong in the adapters. `Action.arguments` are the
     adapters' keyword names, read off `inspect.signature`, which is a
     contract nobody has written down.
-11. **Randomness is process-global.** *Open; with step 9 (decision
+11. ~~**Randomness is process-global.**~~ *Closed by step 9 (decision
     7).* Fifteen `random.*` sites across `flow/`, `engine.py` and
-    `ai.py`, no `Random` instance, no seed on the match. Two games in
-    one web process cannot each be reproducible, and four rolls (the
-    score attempt, the shootout test, the loose-ball contest, the
-    effects roll) bypass `scripted_or_random`, so the tutorial's
-    script cannot fix them and the goldens rely on the global seed.
-    Those four are the part to do first, since they are what stops
-    the tutorial fixing them.
-12. **Two labels cross into narration from the frontend.** *Open;
-    with step 9.* A shot's `action_label` (a button's word for it,
-    rewritten by the tutorial) and the coaching decline's
-    `coach_name` (a Discord display name). Both are documented; both
-    are finding 6 from the other side, and belong in the same step.
+    `ai.py` read one `random.Random` now, `RulesEngine.rng`, which the
+    engine hands its AI strategies too; nothing in `d12ball/` reads
+    the module `random`. Every d12 is rolled by
+    `scripted_or_random(engine, ...)`, including the four that rolled
+    their own (the score attempt, the shootout test, the own-goal
+    roll and Mind Pull -- the loose-ball contest already went through
+    it), so the tutorial's script can fix any of them. The stream is
+    the engine's rather than the match's: a seed on the save is a new
+    persisted field, and principle 6 keeps that out of a refactor.
+12. ~~**Two labels cross into narration from the frontend.**~~
+    *Closed by step 9.* A shot's `action_label` and the coaching
+    decline's `coach_name` are gone: `begin_shot_step` words the shot
+    (the tutorial never did rewrite the label) and
+    `decline_coaching_step` names the side's coach off the record
+    (`formatting.coach_name`, which `refresh_player_names` keeps
+    current).
 13. ~~**Two frontends cannot share the save file.**~~ *Settled by
     decision 5.* `save_games` is a whole-file rewrite on every call
     and `load_games` runs once, so a second process would overwrite
@@ -289,12 +295,14 @@ remainder.
     that reaches `answer` twice before the first save is not refused
     by the kind check. The lock lands with the web app, and the bot's
     views take it too.
-14. **The engine imports Pillow.** *Open; with step 9.* `engine.py`
-    takes `TEAM_COLORS` and `ChallengeSide` from `render.py`, which
-    imports PIL and resolves twenty-odd fonts at import. Every web
-    process that loads the model pays that, and `d12ball/rulebooks.py`
-    imports reportlab the same way, which is why `test_model_purity`
-    fails on any machine without it.
+14. ~~**The engine imports Pillow.**~~ *Closed by step 9.*
+    `challenge_side`, the one reason `engine.py` took `TEAM_COLORS`
+    and `ChallengeSide` from `render.py`, is the cog's
+    (`PresentationMixin.challenge_side`), and `test_model_purity`
+    ratchets it: the service and everything a turn runs import with
+    `PIL` and `reportlab` refused. `d12ball/rulebooks.py` still
+    imports reportlab, as a drawing module may; the no-discord probe
+    still needs it installed.
 15. **What the driver path is not tested on.** *Open; each step
     takes its share.* The full-game run sends no hub edit (every hub
     answers `done`), no Overdrive, no decline, no `back`, never
@@ -389,14 +397,24 @@ numbers are the migration's.
   batching of an AI answer (`Batching.carry_answer`, the `prompt` and
   `action` tags on a `Narration`), and the run back kept to one
   message.
-- **Step 9, the voice, and the dice.** Tokens per decision 4; the
+- ~~**Step 9, the voice, and the dice.** Tokens per decision 4; the
   coin winner stored as a player number (the mention-string fallback
   stays, per gotchas.md; the new write is the number); the two
   channel sentences and the maneuver ask's privacy sentences become
   the presenter's captions; `coach_name` and `action_label` go the
   same way. `TEAM_COLORS` and `ChallengeSide` move below `render.py`.
   The `Random` per match through `RulesEngine`, the four bypassing
-  rolls first. The goldens regenerate once, for the tokens.
+  rolls first. The goldens regenerate once, for the tokens.~~ Done,
+  in four commits on `step-9`; what the step records is in
+  `docs/architecture-migration.md` under step 9. Three things the
+  review did not spell out: a coach's token is a player number rather
+  than a side, since a coach is named before the coin has seated
+  anybody; the three cog goldens did *not* regenerate for the tokens
+  -- they record what the cog sends, and a faithful rendering leaves
+  them alone, so the only diffs were the AI named where "Someone" had
+  stood in for its missing account and the two labels' wording; and
+  the `Random` is per engine, not per match, because a seed on the
+  save is a persisted field.
 - ~~**Step 8, setup as service methods.** Decision 6's five methods,
   and decision 3's optional ids in their own commit.~~ Done, in two
   commits on `step-8`; what the step records is in
@@ -420,11 +438,15 @@ numbers are the migration's.
   `service.apply_action(game_id, policy.action(result.prompt))`. A
   `Policy` that reads `result.match` to choose is a web app that
   would have to. It is principle 10 as a thing that can be run.
-- **A service-side golden**, once step 9 has settled the tokens: the
+- ~~**A service-side golden**, once step 9 has settled the tokens: the
   windows golden's press script through `GameService.apply_action`
   with the default `Batching()`, pinning the `GameResult`s and the
   final save (decision 9). The three cog goldens stay, since they pin
-  the batching a coach reads.
+  the batching a coach reads.~~ `tests/test_golden_service.py`, with
+  step 9 -- the tutorial rather than the windows script, since the
+  rails make it reproducible off the seed alone and the tutorial's
+  press rule is the model's; the windows game's press script is the
+  cog's, and would be a second copy of it.
 - ~~**Refuse-leaves-unchanged per kind per choice**, from step 6 on.~~
   `tests/test_d12ball_driver_actions.REFUSED_ACTIONS`.
 - **Two-frontend resume**, from step 5 on -- landed with it.

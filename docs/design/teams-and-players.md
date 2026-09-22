@@ -67,7 +67,7 @@ anywhere in the code.
     as" -- checked against `field_players` plus both benches, the same
     roster-membership test used elsewhere in the match logic. Every
     display call site that used to read `player.team` calls this
-    instead (`format_role_bracket` and its ~90 callers, the matchup/
+    instead (`player_label` and its ~90 callers, the matchup/
     score-attempt `challenge_side` builder, the injury-die render, the
     board's card borders and meeple tokens) -- most already had a
     `match` or `setup` in scope, so this was mechanical at nearly every
@@ -78,19 +78,15 @@ anywhere in the code.
     `cogs/d12ball.py`'s `/ref` command side-detection. Both now check
     board/roster membership directly instead.
   - **A message names a player through `D12Ball.player_label`**, which
-    forwards to `RulesEngine.format_player_label`, `format_role_bracket`'s
-    body moved onto the engine so it can read both emoji dicts off
-    itself (see "The dict lives on the engine" in
-    [naming-and-wording.md](naming-and-wording.md), which now covers
-    `team_emojis` the same way it always covered `role_emojis`), with
-    the team always `match.team_for_player`, since the definition
-    cannot answer it. Ninety-odd sites spelled all three out, which put
+    renders `RulesEngine.format_player_label` -- the label with the
+    team's mark and the role badge as tokens (see "Tokens" in
+    [model-discord-split.md](model-discord-split.md)), with the team
+    always `match.team_for_player`, since the definition cannot answer
+    it. Ninety-odd sites spelled all three out, which put
     the same forty characters of lookup in front of every player's name
     in the codebase and was the whole of why two files carried
     eighty-odd lines past 100 columns. `player_id_label` is the same
     thing for a caller holding a card id rather than a definition.
-    `format_role_bracket` itself is still right for a caller with a
-    `TeamSetup` rather than a match, which already knows the side.
     Not to be confused with `CoachingView.player_button_label`, which
     is the name on a *button*: the position instead of the team emoji
     (every card in that flow is the clicking coach's own), cut to

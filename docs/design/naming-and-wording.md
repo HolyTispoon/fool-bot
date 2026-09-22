@@ -36,20 +36,20 @@ position, which is what the choice usually turns on.
   glance, and the position is the player label's for the same reason
   the emoji is: one rule for "whose is this", not two. A coach with no
   team yet (setup, before the picker) is named bare -- "(Unknown team)"
-  answered a question nobody asked. `format_player_with_team` takes
-  the emoji dict as a parameter, since it lives in
-  `d12ball/formatting.py` and every caller already has one in scope
-  (the cog's `self.team_emojis`, or `self.cog.team_emojis` from a
-  view). The engine's own two prompt builders, `build_turn_prompt` and
-  `build_loose_ball_prompt`, instead read `self.team_emojis` -- see
-  "The dict lives on the engine" below, which now covers `team_emojis`
-  the same way it always covered `role_emojis`. The two both-sides
+  answered a question nobody asked. `format_player_with_team` writes
+  the team's mark as a token, `{team:purple}`, and the coach as
+  `{coach:1}` where it addresses them; the cog draws both once, at
+  its door (`D12Ball.render_text`, `DiscordTokens`) -- see "Tokens"
+  in [model-discord-split.md](model-discord-split.md), and "The dict
+  lives on the engine" below for how it got there. The two both-sides
   autocompletes are the deliberate exception -- an autocomplete choice
   is plain text and cannot render an emoji.
 - **`player_with_role` in `d12ball/formatting.py` is the whole of the
-  bracket spelling**, and the message form is it with the emoji in front --
-  `format_role_bracket` builds on it rather than beside it, so "outside a
-  button, also the emoji" is one rule and not two formatters agreeing by hand.
+  bracket spelling**, and the message form is it with the mark in front --
+  `RulesEngine.format_player_label` builds on it rather than beside it, so
+  "outside a button, also the emoji" is one rule and not two formatters
+  agreeing by hand. (`format_role_bracket`, the cog's copy of that form,
+  went with step 9; `D12Ball.player_label` renders the engine's.)
 - **`role_initials` is the one reader of `ROLE_INITIALS`** outside the modules
   that *draw* it (`render.py`, `cards.py`, `player_cards.py`, `boards.py`,
   `species_cards.py`), which index it for a glyph rather than for a name.
@@ -80,31 +80,40 @@ position, which is what the choice usually turns on.
   `scripts/render_role_emoji.py` -- uploaded to the application under
   `ROLE_EMOJI_NAMES` (`role_fullback`, ...) exactly as the team emoji are,
   and `load_role_emojis` looks them up on startup. `role_badge` in
-  `d12ball/formatting.py` is the whole of the substitution: given the dict
-  it writes the emoji, and without it, or for a role the application has no
-  upload for, it writes `[FB]` -- so an application with three of the six
-  is three badges and three bracketed roles, and a fresh bot reads exactly
-  as it did before.
-  - **A message takes the dict and a button does not**, which is the same
-    split the team emoji already made and for a harder reason: custom
-    emoji markup in a button label or an autocomplete choice renders as
-    the raw `<:role_fullback:123>`. So `player_with_role(player)` with no
-    dict is the plain form every button and autocomplete builds from, and
-    `format_role_bracket` / `player_label` are the forms that pass it.
+  `d12ball/formatting.py` writes the token, `{role:fullback:orange}`, for
+  a message and `[FB]` for a button; `DiscordTokens` in
+  `cogs/d12ball_helpers.py` is the whole of the substitution: given an
+  upload it draws the emoji, and for a role the application has none
+  for it draws `[FB]` (`role_brackets`, the one spelling) -- so an
+  application with three of the six is three badges and three bracketed
+  roles, and a fresh bot reads exactly as it did before.
+  - **A message asks for the badge and a button does not**, which is the
+    same split the team emoji already made and for a harder reason:
+    custom emoji markup in a button label or an autocomplete choice
+    renders as the raw `<:role_fullback:123>`. So `player_with_role(player)`
+    is the plain form every button and autocomplete builds from, and
+    `player_with_role(player, badge=True, team=...)` -- through
+    `format_player_label` and `player_label` -- is the form a message
+    takes.
     **The plain form is the default on purpose** -- a `[FB]` in a message
     is the old look, where a `<:...:>` in a button is a visible bug -- which
     is why the engine has two methods rather than a flag:
     `format_roster_player` for a label and `format_roster_player_for_message`
     for the turn prompt and `apply_formation`'s summary, the only two
     messages the engine words itself.
-  - **The dict lives on the engine** (`RulesEngine.role_emojis`, empty until
-    `cog_load`) and `D12Ball.role_emojis` is a property over it, not a second
-    dict: `cog_load` *replaces* the dict, so a reference handed to the engine
-    at construction would go stale the moment the fetch landed. It is a
-    Discord-shaped thing the engine holds, and it is a string per role
-    that needs no discord.py -- what the engine still cannot do is fetch it.
-    A test fixture that builds a cog with `object.__new__` and reads a
-    message off it needs an engine for the same reason.
+  - **The dict lived on the engine** from 2026-09-20 until step 9 of
+    [../architecture-migration.md](../architecture-migration.md), and
+    lives on the cog again -- the history below is kept because it
+    records why the model had to be able to *name* the badge, which
+    is still true; what changed is that it names it with a token and
+    the cog draws it. (`RulesEngine.role_emojis`, empty until
+    `cog_load`, with `D12Ball.role_emojis` a property over it, not a
+    second dict: `cog_load` *replaces* the dict, so a reference handed
+    to the engine at construction would go stale the moment the fetch
+    landed. It was a Discord-shaped thing the engine held, and it was
+    on the architecture's remove list by name. The four dicts are
+    read-only class defaults on `CoreMixin` now, so a test fixture
+    that builds a cog with `object.__new__` reads "nothing fetched".)
     - **`RulesEngine.team_emojis` joined it the same way (2026-09-20),
       ahead of the `PendingPrompt` move.** `player_label`'s two `ask`
       lines (Mind Pull, an injury test) need a player named with both
@@ -165,12 +174,13 @@ position, which is what the choice usually turns on.
     filed under `(role, None)` and each colour cut under both teams
     sharing it, so a caller with a side and a caller with none ask the
     same dict. Two dicts threaded through ninety call sites was the
-    alternative. `role_badge` falls back in three steps -- the colour cut,
-    then the plain badge, then the brackets -- so an application holding
+    alternative. `get_role_emoji` (behind `DiscordTokens`) falls back in
+    three steps -- the colour cut, then the plain badge, then the
+    brackets -- so an application holding
     the six and none of the twenty-four reads exactly as it did before the
     colours existed, which is what it does until somebody uploads them.
   - **Passing the team is what asks for the colour, and every message
-    already had one.** `format_role_bracket` takes a team for the emoji it
+    already had one.** `format_player_label` takes a team for the mark it
     puts in front, so the same argument now answers the badge as well --
     which is what stops the ring and the badge on one line ever naming two
     different sides. It is `match.team_for_player`'s answer, not the

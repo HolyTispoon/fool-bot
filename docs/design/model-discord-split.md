@@ -343,7 +343,10 @@ with Low Pass already, as the same step under a different `key=`.
   and a cog method cannot be called from down here. `D12Ball` keeps a
   forwarding method for each, so none of the nineteen call sites moved
   -- the shape `team_emojis` took in Phase 1a. See
-  [naming-and-wording.md](naming-and-wording.md).
+  [naming-and-wording.md](naming-and-wording.md). (The dicts went back
+  to the cog in step 9 and the step writes `{condition:exhaust}` --
+  see "Tokens" below; what this rank settled, that the charge and its
+  sentence are one step, stands.)
 - **A rank can add a `FollowOnStep` member, and O2 did.**
   `OFFER_SPEED_CHOICE` is the ball-speed manipulation every dribble
   (and every steal) ends on. It is a follow-on rather than a
@@ -793,11 +796,12 @@ in one call, which is what a web app wants.
     ephemeral menus -- so which side a click is for is part of what
     was clicked rather than something the position decides. Who may
     click it is still `SafeView`'s.
-  - **Two carry a label rather than a rule**, and they are the two
-    strings the model could not write for itself: a shot's
-    `action_label`, which the tutorial rewrites, and the coaching
-    decline's `coach_name`, which names the human rather than the
-    side. Nothing in the match knows what to call a Discord account.
+  - **Two carried a label rather than a rule** until step 9: a shot's
+    `action_label`, said to be rewritten by the tutorial, and the
+    coaching decline's `coach_name`, a Discord display name. Neither
+    holds up -- nothing rewrote the label, and the record carries the
+    coach's name (`refresh_player_names`) -- so both went, and the
+    model words the two sentences itself. See "Tokens" below.
 - **`Refusal` is the model's, and `SafeView` is not.** Every reason
   `answer` can give is a rule: the match is waiting on a different
   question (the stale click a restart re-attaching an old prompt
@@ -1185,6 +1189,86 @@ so to render. `tests/test_driver_full_game.py` is the proof the
 figure stands for -- a whole game, and the tutorial, through
 `driver.apply` with nothing from `cogs/` imported.
 
+## Tokens
+
+**Narration names what a coach sees, and a frontend draws it.** Since
+step 9 of [../architecture-migration.md](../architecture-migration.md)
+a sentence that names a team, a role badge, a condition mark, a
+species ability or the coach it is put to writes a token --
+`{team:purple}`, `{role:fullback:orange}`, `{condition:exhaust}`,
+`{species:cyborg}`, `{coach:1}` -- through the five builders in
+`d12ball/tokens.py`, and the cog renders every one of them once, at
+its door. The model held four emoji dicts and built `<@id>` mentions
+until then, which was principle 5's "one voice" failing the other way
+round: the voice was right, and it was speaking Discord (finding 6 of
+[../web-app.md](../web-app.md)).
+
+- **A token is the model's and its rendering is not.** The builders
+  are the only way a token is written, so its spelling has one home;
+  `tokens.render(text, resolve)` is the only way one is read, and it
+  takes the frontend's resolver rather than knowing any. A resolver
+  that answers `None` leaves the token in place, which is what lets
+  `tests/test_d12ball_tokens.py` see one a frontend forgot -- nothing
+  in the model falls back to a Unicode circle or a `<:name:id>`,
+  because those are what Discord shows and they live beside the emoji
+  it fetches (`TEAM_EMOJI_FALLBACKS` and its neighbours moved from
+  `formatting.py` to `cogs/d12ball_helpers.py`).
+- **The frontend renders once.** `D12Ball.rendered(game, result)`
+  draws every sentence in a `GameResult` -- the answer's lines, each
+  group's, the narration still carried, the prompt's ask, a refusal
+  -- at the six places the service hands one back (`apply_action`,
+  `dispatch_step_result`, resume, begin, `run_step`, `reset_turn`),
+  so a view and the presenter read Discord text and never a token;
+  `render_text(text, game)` is for the sentences the cog composes
+  itself (the setup screen, the coin, the coaching prompt, a restored
+  ask, `player_label`). Not in each view, for the reason a
+  `PromptKind` becomes a view in one place (decision 4). `DiscordTokens`
+  is the resolver: the application's ring for a team or the circle
+  until the upload lands; the badge in a side's colour, the plain
+  cut, or `[FB]` (`formatting.role_brackets`, the one spelling); a
+  condition's or a species' upload or its fallback; and for a coach,
+  a mention of the account, the AI's name, or "Player 1" in a test
+  game -- what `format_player(mention=True)` decided for itself
+  before. The four dicts are the cog's, read-only class defaults
+  until `cog_load` replaces them, so a cog a test builds without
+  `__init__` reads "nothing fetched" and cannot mutate a shared dict.
+- **A coach is a player number, not a side.** Decision 4 wrote
+  `{coach:home}`; the coin decides which side is whose, and the setup
+  messages name a coach before it has been flipped, so the number is
+  the one key that names a coach at every point of a game. The record
+  maps it to an account, a name or the AI (`formatting.coach_name`),
+  and which of those a frontend shows is its own. `format_player`
+  keeps its shape: `mention=True` is now the token (the address),
+  and without it the plain name off the record. The five bare
+  `<@id>` sites (`address_coach`) read "Someone" for an AI side,
+  which had no account; addressed by number the AI is named like
+  anyone, which was the whole of the change to two goldens.
+- **The three cog goldens did not regenerate for the tokens.** They
+  record what the cog *sends*, and a rendering that is faithful
+  leaves them byte for byte -- which is the check on the rendering
+  worth having. What did change is what the model now says
+  differently: the AI where "Someone" stood, the shot in one voice,
+  the passed window naming the coach off the record (the labels the
+  frontend handed into narration, `action_label` and `coach_name`,
+  are gone; see "Three actions carry a side" above, which is history
+  now). The service golden is what pins the tokens themselves.
+- **A save can carry a token.** `pending_smooth_resume` and
+  `pending_mind_pull_resume` hold a `lead_in`, the narration the
+  driver was threading when the arrival stopped to ask, so a save
+  made there holds tokens where it held emoji markup. Both render on
+  resume, since the result goes through `rendered` and a token the
+  resolver does not find is left alone; nothing else in the wire
+  format is narration (`record_event` and `record_goal` take ids).
+- **What stays in the model on purpose.** "Only you can see what you
+  picked" and the shootout's "Nobody else sees it": a secret,
+  simultaneous pick is a rule of the game, and a web page keeps the
+  secret too. What left is the *where* -- "from the red row", "from
+  the same message", "the prompt at the bottom of the channel", "share
+  this channel" -- and only the first of those became a caption
+  (`build_maneuver_action_caption`, composed in the cog over the
+  model's own list of who is asked and its gambit paragraph, so the
+  posted text did not change); the rest were reworded once.
+
 ## `tests/test_model_purity.py`
 
 **Is the line itself.** Every module under `d12ball/` **and
@@ -1216,14 +1300,39 @@ code starts moving across the line.
   separate from the `discord` check, even though a stray cog import would
   trip that one too (naming `discord` itself, which is not the useful
   message).
+- **A fourth ratchet since step 9: the game imports without Pillow.**
+  The service and everything a turn runs (`GAME_MODULES`) import in a
+  fresh interpreter with `PIL` and `reportlab` refused. The drawing
+  modules are the model's too and may import both; what may not is
+  anything a turn needs. `challenge_side`, the matchup image's brief,
+  was the one thing that made `engine.py` import `render.py` -- and
+  twenty-odd fonts at import, in every process that loaded the model
+  (finding 14 of [../web-app.md](../web-app.md)) -- and it is the
+  cog's now (`PresentationMixin.challenge_side`).
 
-## The three goldens
+## The four goldens
 
-There are **three** since Phase 5, and they are separate files rather than
+There were **three** from Phase 5, and they are separate files rather than
 three seeds of one: they share the fixtures, the diff and the final-save
 rendering, and what they do not share is the press rule -- the tutorial is
 driven by its own rails, the advanced game has none, and the windows game
-has a script written to reach the windows.
+has a script written to reach the windows. Step 9 added a fourth with no
+frontend in it (below).
+
+**Every one of them seeds the engine.** Since step 9 every draw the game
+makes -- the dice, the coin, the defensive tie-break's shuffle, and the
+AI's own picks, since the engine hands each strategy the same stream --
+comes from `RulesEngine.rng`, one `random.Random`, and nothing in
+`d12ball/` reads the module `random` (decision 7 of
+[../web-app.md](../web-app.md)). A recorder seeds `cog.engine.rng` and
+nothing leaks into the next test; a test that fixes a die patches
+`random.Random.randint`, which is what the engine's instance resolves,
+rather than the module function nothing calls. The goldens were byte for
+byte what they had been under the module seed, because the same seed
+feeds the same sequence of draws to the same sites. Every d12 is rolled
+by `scripted_or_random(engine, ...)` now -- the score attempt, the
+shootout test, the own-goal roll and Mind Pull rolled their own before,
+which is why the tutorial's script could not have fixed them.
 
 ### The tutorial golden
 
@@ -1235,10 +1344,10 @@ silences** -- the "What a message says" rules in
 [naming-and-wording.md](naming-and-wording.md) are rules, and a refactor that
 rewords a result has changed the game.
 
-- **The module RNG is seeded, not `randint` patched.** The flow also reaches
-  `random.shuffle` and `random.choice`, so patching one call misses the
-  others; the seed is restored afterwards, since it is global and would
-  otherwise leak into whatever test runs next.
+- **The engine's RNG is seeded, not `randint` patched.** The flow also
+  reaches a shuffle and a choice, so patching one call misses the others.
+  (It seeded the module until step 9, saving and restoring the global
+  state around the run; the engine's stream needs neither.)
 - **`GOLDEN_SEED` is one that scores.** The tutorial's closing shot is
   deliberately unscripted (see "Determinism: rails and dice" in
   [tutorial.md](tutorial.md)), so two seeds give two different transcripts; a
@@ -1326,9 +1435,30 @@ a shootout that goes to sudden death.
   routine is covered where it does fire -- in the time out it calls itself,
   at press 32. A halftime where both benches move is the author's bot stop.
 
+### The service golden
+
+`tests/test_golden_service.py`, step 9's, and the first with no
+frontend in it: the tutorial through `GameService.apply_action` with
+the default `Batching()`, every `GameResult` written down as the
+service handed it back -- the answer, each group tagged with its step
+and whether it was drawn, the narration still carried, the prompt --
+and the final save beside it (decision 9 of
+[../web-app.md](../web-app.md)). **It pins the model's voice, tokens
+and all**: the three cog goldens record what the bot posted, after
+`D12Ball.rendered` has drawn every token for Discord; this one records
+what the service said, which is what a web page would receive. The
+policy is `test_driver_full_game.TutorialPolicy`, which reads
+`PendingPrompt.options` and nothing else, so what is pinned is what a
+frontend that reads only the result can reach. The tutorial rather
+than the windows script, because the rails make the run reproducible
+off the seed alone and the press rule is the model's; the windows
+game's script is the cog's, and would have been a second copy of it.
+`test_the_voice_is_the_models` asserts no `<@` and no `<:` in it and
+that the coach is addressed by number.
+
 ### The full game through the driver
 
-`tests/test_driver_full_game.py` is the fourth, and it is not a golden:
+`tests/test_driver_full_game.py` is the fifth, and it is not a golden:
 it pins no transcript. It plays a whole solo game and the whole
 tutorial through `driver.apply` alone -- `pending_prompt` for the
 question, a `Policy` that takes the first legal answer to it off the

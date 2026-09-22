@@ -823,7 +823,7 @@ class TimeOutConfirmTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         view = PlayerActionView(cog, game.game_id)
-        await view.choose_action(interaction, "time_out", "Time out")
+        await view.choose_action(interaction, "time_out")
 
         interaction.response.edit_message.assert_awaited_once()
         _, kwargs = interaction.response.edit_message.call_args
@@ -843,9 +843,7 @@ class TimeOutConfirmTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
 
         view = PlayerActionView(cog, game.game_id)
-        await view.choose_action(
-            build_interaction(), "time_out", "Time out",
-        )
+        await view.choose_action(build_interaction(), "time_out")
 
         self.assertEqual(cog.engine.load_match_state(game).events, [])
 
@@ -905,7 +903,7 @@ class TimeOutConfirmTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         view = PlayerActionView(cog, game.game_id)
-        await view.choose_action(interaction, "time_out", "Time out")
+        await view.choose_action(interaction, "time_out")
 
         interaction.response.send_message.assert_awaited_once()
         self.assertIn(

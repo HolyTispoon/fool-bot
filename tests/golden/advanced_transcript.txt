@@ -62,7 +62,7 @@ The ball was left with Noxar [SK], who takes this turn.
 Choose an action:
 === press 8: PlayerActionView -> 'Shoot to score'
 --- message
-🔮 Player 1 has chosen to Shoot to score with 🔮 Noxar [SK].
+🔮 Player 1 has chosen to shoot to score with 🔮 Noxar [SK].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 9: ScoreAttemptView -> 'Roll the score attempt'
@@ -327,7 +327,7 @@ Either player can roll:
 --- message
 🔮 Zenith [WG] is exhausted and rolls an injury test: 6 beats their 5 exhaustion tokens — safe.
 --- message
-Someone, 🔥 Blazebulk [DD] is exhausted and owes an injury test: a d12 that has to beat their 6 exhaustion tokens.
+Dinky AI, 🔥 Blazebulk [DD] is exhausted and owes an injury test: a d12 that has to beat their 6 exhaustion tokens.
 === press 33: InjuryTestView -> 'Roll the injury test'
 --- message
 🔥 Blazebulk [DD] is exhausted and rolls an injury test: 11 beats their 6 exhaustion tokens — safe.
@@ -412,7 +412,7 @@ Coach?
 === press 42: CoachingOfferView -> 'Pass'
 --- message
 # Coaching Choice
-**🔮 Coach passed.**
+**🔮 Player 1 passed.**
 --- message
 The ball speed goes down to **1**.
 --- message
@@ -465,7 +465,7 @@ The ball was left with Zenith [WG], who takes this turn.
 Choose an action:
 === press 46: PlayerActionView -> 'Shoot to score'
 --- message
-🔮 Player 1 has chosen to Shoot to score with 🔮 Zenith [WG].
+🔮 Player 1 has chosen to shoot to score with 🔮 Zenith [WG].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 47: ScoreAttemptView -> 'Roll the score attempt'
@@ -707,7 +707,7 @@ Either player can roll:
 --- message
 🔮 Quillon [PM] is exhausted and rolls an injury test: 12 beats their 6 exhaustion tokens — safe.
 --- message
-Someone, 🔥 Scorchit [MF] is exhausted and owes an injury test: a d12 that has to beat their 6 exhaustion tokens.
+Dinky AI, 🔥 Scorchit [MF] is exhausted and owes an injury test: a d12 that has to beat their 6 exhaustion tokens.
 === press 68: InjuryTestView -> 'Roll the injury test'
 --- message
 🔥 Scorchit [MF] is exhausted and rolls an injury test: 3 does not beat their 6 exhaustion tokens — injury! They are **injured** 🤕.
@@ -779,7 +779,7 @@ Either player can roll:
 --- message
 ## **High Pass** wins the skill test!
 --- message
-Someone, 🔥 Sizzifizik [PM] is exhausted and owes an injury test: a d12 that has to beat their 4 exhaustion tokens.
+Dinky AI, 🔥 Sizzifizik [PM] is exhausted and owes an injury test: a d12 that has to beat their 4 exhaustion tokens.
 === press 73: InjuryTestView -> 'Roll the injury test'
 --- message
 🔥 **Volatile** — 🔥 Sizzifizik [PM] rolled a natural 6, so **the ball ignites**. The second d12 comes up **10** — 5 or more, so it **blazes**: **+10** to their roll.
@@ -886,7 +886,7 @@ Coach?
 === press 84: CoachingOfferView -> 'Pass'
 --- message
 # Coaching Choice
-**🔮 Coach passed.**
+**🔮 Player 1 passed.**
 --- message
 The ball speed goes down to **1**.
 --- message

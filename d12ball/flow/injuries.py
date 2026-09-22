@@ -34,6 +34,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turn import injured_word_and_emoji, scripted_or_random
+from d12ball.formatting import address_coach
 from d12ball.game import D12BallGame
 from d12ball.prompts import PendingPrompt, PromptKind
 
@@ -59,8 +60,9 @@ def injury_test_ask(
     what `view_for_prompt` reads.
     """
     player = engine.get_player_definition(player_id)
-    controller_id = engine.controlling_user_id(game, match, player_id)
-    mention = f"<@{controller_id}>" if controller_id else "Someone"
+    mention = address_coach(
+        engine.controlling_player_number(game, match, player_id),
+    )
     tokens = match.exhaustion.get(player_id, 0)
     return (
         f"{mention}, "
@@ -277,7 +279,7 @@ def injury_test_step(
     # The script fixes injury checks to pass for the whole tutorial --
     # see `BLANKET_ROLLS`. The check still runs and the coach still
     # watches it.
-    roll = scripted_or_random(game, "injury", 1)[0]
+    roll = scripted_or_random(engine, game, "injury", 1)[0]
     # Volatile fires on an injury check like any other d12 -- so a
     # burn that drops the check below the token count injures the
     # Fire Demon who rolled it, which the living rules say outright

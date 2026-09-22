@@ -293,7 +293,7 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         view = PlayerActionView(cog, game.game_id)
-        await view.choose_action(interaction, "shoot", "Shoot to score")
+        await view.choose_action(interaction, "shoot")
 
         interaction.response.send_message.assert_awaited_once()
         self.assertIn(

@@ -835,7 +835,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch(
             "discord.File", return_value=None,
         ), mock.patch(
-            "random.randint", side_effect=rolls,
+            "random.Random.randint", side_effect=rolls,
         ):
             await view.roll(interaction)
         return interaction

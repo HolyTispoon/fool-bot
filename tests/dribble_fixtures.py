@@ -56,7 +56,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from d12ball.formatting import get_exhaust_emoji, get_exhausted_emoji
+from d12ball import tokens
 from d12ball.game import (
     D12BallGame,
     Formation,
@@ -87,8 +87,9 @@ BURST_SPEED_LINE = "Ball speed is now **12**."
 #: What a message shows for an exhaustion token, and for the
 #: Exhausted condition, when the application has uploaded nothing --
 #: which is every test, since the fixtures fetch no emoji.
-EXHAUST = get_exhaust_emoji({})
-EXHAUSTED = get_exhausted_emoji({})
+# The marks as the model writes them: tokens, drawn by the frontend.
+EXHAUST = tokens.condition(tokens.CONDITION_EXHAUST)
+EXHAUSTED = tokens.condition(tokens.CONDITION_EXHAUSTED)
 
 
 @dataclass

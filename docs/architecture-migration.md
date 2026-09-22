@@ -119,12 +119,16 @@ that commit.
 
 ### Discord in the model
 
-- `RulesEngine` holds four emoji dicts the cog fills after load
+- ~~`RulesEngine` holds four emoji dicts the cog fills after load
   (`engine.py:276-307`), read at ~30 sites across the engine, the
-  prompts and the flow.
-- Twelve `<@id>` mention sites in `d12ball/`; nine sentences naming a
-  channel, a row colour, a click or "only you can see".
-- `engine.py` imports `render.py`, which imports Pillow.
+  prompts and the flow.~~ Step 9: tokens.
+- ~~Twelve `<@id>` mention sites in `d12ball/`; nine sentences naming a
+  channel, a row colour, a click or "only you can see".~~ Step 9: the
+  mentions are `{coach:n}`, the row colour is the cog's caption, the
+  channel sentences are reworded. "Only you can see what you picked"
+  and the shootout's "Nobody else sees it" stay: a secret pick is a
+  rule, not a medium.
+- ~~`engine.py` imports `render.py`, which imports Pillow.~~ Step 9.
 
 ### Transitional structures and tests
 
@@ -143,9 +147,10 @@ The architecture's migration order, mapped onto this code. Each step
 leaves the bot playable and the three goldens byte-identical unless
 the step says otherwise. Steps 1 to 4 landed together on the
 `architecture-simplification` branch, step 5 on `owed-step`, step 6
-on `step-6`, step 7 on `step-7` and step 8 on `step-8`; what they
-settled is in [docs/design/game-service.md](design/game-service.md)
-and, for steps 6 and 7,
+on `step-6`, step 7 on `step-7`, step 8 on `step-8` and step 9 on
+`step-9`; what they settled is in
+[docs/design/game-service.md](design/game-service.md) and, for steps
+6, 7 and 9,
 [docs/design/model-discord-split.md](design/model-discord-split.md).
 
 ### 1. `GameService` and `GameResult` -- done (this branch)
@@ -438,12 +443,81 @@ starts, picks, flips, chooses and reaches the pre-kickoff window
 through the service alone, on a record with no server, channel or
 message. The goldens did not change.
 
-### 9. Discord out of the model -- next
+### 9. Discord out of the model -- done (`step-9`)
 
-Narration emits tokens (`{coach:home}`, `{team:purple}`) and the
-frontend renders them; the emoji dicts leave the engine; the nine
-sentences naming a channel become the frontend's captions;
-`TEAM_COLORS` moves below `render.py`. The goldens regenerate once.
+Narration emits tokens and the frontend renders them; the emoji dicts
+leave the engine; the sentences naming a row or a channel become the
+frontend's or are reworded; `TEAM_COLORS` and `ChallengeSide` stay
+below `render.py`; and, from decision 7 of `docs/web-app.md`, every
+draw the game makes is the engine's. Four commits.
+
+**The tokens** (`d12ball/tokens.py`). A sentence that names a team,
+a role badge, a condition mark, a species ability or the coach it is
+put to writes `{team:purple}`, `{role:fullback:orange}`,
+`{condition:exhaust}`, `{species:cyborg}` or `{coach:1}` through the
+five builders, and the cog renders every one once, at its door:
+`D12Ball.rendered` over each `GameResult` the service hands back
+(`apply_action`, `dispatch_step_result`, resume, begin, `run_step`,
+`reset_turn`) and `render_text` for the sentences the cog composes
+itself (the setup screen, the coin, the coaching prompt, a restored
+ask, `player_label`). `DiscordTokens` in `cogs/d12ball_helpers.py` is
+the resolver, with the fallbacks that were `formatting.py`'s beside
+it, and the four dicts are the cog's -- read-only class defaults
+until `cog_load` replaces them. **A coach is a player number, not a
+side** (decision 4 said `{coach:home}`): the setup messages name a
+coach before the coin has seated anybody, so the number is the one
+key that names one at every point, and the record maps it to an
+account, a name or the AI (`formatting.coach_name`); Discord
+mentions the account and names the AI. The five bare `<@id>` sites
+read "Someone" for an AI side, which had no account; addressed by
+number the AI is named like anyone, which was the whole of the
+change to the advanced and windows goldens (three lines, the
+substitution step 7 asked for). Every other posted line was byte for
+byte what it had been -- the goldens record what the cog *sends*, so
+a rendering that is faithful leaves them alone. `MatchState` keeps a
+`lead_in` on a pending Smooth or Mind Pull, so a save made mid-arrival
+now holds tokens where it held emoji markup; both render, since a
+token the resolver does not find is left as it stands.
+
+**The sentences.** The maneuver ask says who picks and that the pick
+is secret; which row is theirs is `build_maneuver_action_caption`'s,
+composed in the cog over the model's own list of who is asked and its
+gambit paragraph, so the posted text did not change. "Use the prompt
+at the bottom of the channel" is "Use the current prompt", and the
+lobby's leave refusal invites rather than shares a channel. The two
+labels the frontend handed into narration went (finding 12): a shot
+is worded by `begin_shot_step`, which the tutorial never did rewrite,
+and a passed Coaching Choice names the side's coach off the record.
+Those two are the only other golden change: the coach's shot reads
+in lower case like the AI's, and the fixtures' "Coach" reads as
+"Player 1".
+
+**The engine and Pillow** (finding 14). `challenge_side` was a
+rendering brief and the one thing that made `engine.py` import
+`render.py`; it is `PresentationMixin.challenge_side` now, and
+`tests/test_model_purity.py` gained a ratchet: the service and
+everything a turn runs import with `PIL` and `reportlab` refused.
+
+**The dice** (decision 7, finding 11). `RulesEngine.rng` is one
+`random.Random`, every random call in the model goes through it, and
+the engine hands each AI strategy the same stream when it takes it
+on, so one seed fixes the dice and the AI together and nothing in
+`d12ball/` reads the module `random`. Every d12 is rolled by
+`scripted_or_random(engine, ...)`: the score attempt, the shootout
+test, the own-goal roll and Mind Pull rolled their own before, which
+is why the tutorial's script could not have fixed them. The goldens
+seed the engine inside their recorders and are byte for byte what
+they were. Per engine rather than per match: a seed on the save is a
+new persisted field, which principle 6 keeps out of a refactor.
+
+**Tests.** `tests/test_golden_service.py` is the fourth golden and
+the first with no frontend (decision 9): the tutorial through
+`GameService.apply_action` with the default `Batching`, every
+`GameResult` written down with its tokens, and the final save.
+`tests/test_d12ball_tokens.py` pins the spelling, the resolver's
+three-step fallback, that every prompt's ask renders clean, and that
+no cog transcript carries a token. Findings 6, 11, 12 and 14 of
+`docs/web-app.md` are closed.
 
 ### 10. The web app -- last
 

@@ -61,6 +61,25 @@ starts saving and is not named there.
   named the global module through the views' namespace, so those patches
   were always global; they say `random.` and `discord.` now, which is what
   they always did.
+- **A die is fixed on `random.Random.randint`, and a run is seeded on
+  `engine.rng`.** Every draw the game makes comes from `RulesEngine.rng`,
+  one `random.Random` the engine hands its AI strategies too (step 9 of
+  [../architecture-migration.md](../architecture-migration.md)), so a
+  patch on the module's `random.randint` reaches nothing the model calls.
+  `mock.patch("random.Random.randint", ...)` is what the engine's instance
+  resolves; and a test that wants a whole run reproducible seeds
+  `engine.rng.seed(n)` -- the goldens do it inside their recorders, and
+  nothing leaks into the next test the way a module seed had to be
+  saved and restored against.
+- **A stubbed step is handed the model's own lines, tokens and all.** The
+  cog renders a result once, at its door (`D12Ball.rendered`,
+  `render_text`), so what a test reads off a stub the driver called
+  (`cog.begin_run_back.await_args.kwargs["lead_in"]`) carries
+  `{team:orange}` where a posted message carries the emoji. Compare
+  against `engine.format_player_label` on that side and against
+  `cog.player_label`, or `cog.render_text(text, game)`, on the posted
+  side; `tests/test_d12ball_tokens.py` is where the rendering itself is
+  pinned.
 
 
 **A recorder is tested where a real game is already being played.** The event

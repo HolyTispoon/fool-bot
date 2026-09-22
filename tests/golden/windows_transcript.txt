@@ -69,7 +69,7 @@ The ball was left with Sizzifizik [PM], who takes this turn.
 Choose an action:
 === press 8: PlayerActionView -> 'Shoot to score'
 --- message
-🟠 Player 1 has chosen to Shoot to score with 🟠 Sizzifizik [PM].
+🟠 Player 1 has chosen to shoot to score with 🟠 Sizzifizik [PM].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 9: ScoreAttemptView -> 'Roll the score attempt'
@@ -172,7 +172,7 @@ Coach?
 === press 16: CoachingOfferView -> 'Pass'
 --- message
 # Coaching Choice
-**🟠 Coach passed.**
+**🟠 Player 1 passed.**
 --- message
 The ball speed goes down to **1**.
 --- message
@@ -371,7 +371,7 @@ Either player can roll:
 --- message
 ## **Pressure** wins the skill test!
 --- message
-Someone, 🟣 Tachyon [SK] is exhausted and owes an injury test: a d12 that has to beat their 2 exhaustion tokens.
+Dinky AI, 🟣 Tachyon [SK] is exhausted and owes an injury test: a d12 that has to beat their 2 exhaustion tokens.
 === press 32: InjuryTestView -> 'Roll the injury test'
 --- message
 🟣 Tachyon [SK] is exhausted and rolls an injury test: 2 does not beat their 2 exhaustion tokens — injury! They are **injured** 🤕.
@@ -530,7 +530,7 @@ The ball was left with Flickerwing [WG], who takes this turn.
 Choose an action:
 === press 46: PlayerActionView -> 'Shoot to score'
 --- message
-🟠 Player 1 has chosen to Shoot to score with 🟠 Flickerwing [WG].
+🟠 Player 1 has chosen to shoot to score with 🟠 Flickerwing [WG].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 47: ScoreAttemptView -> 'Roll the score attempt'
@@ -563,7 +563,7 @@ You chose **Pressure**.
 
 That overshoots toward their own goal!
 
-**Own goal risk!** Someone, 🟣 Hellguard [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (1). A total of 7 or more and the own goal is avoided.
+**Own goal risk!** Dinky AI, 🟣 Hellguard [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (1). A total of 7 or more and the own goal is avoided.
 === press 49: OwnGoalRollView -> 'Roll for the own goal'
 --- message
 **Own goal risk!** 🟣 Hellguard [FB] rolls at an advantage: higher of 5/7 is 7, + 1 (offensive skill) = 8

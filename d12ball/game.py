@@ -543,8 +543,8 @@ class D12BallGame:
         if self.player_2_id is None:
             raise RuleRefusal(
                 "You are the only player, so there is nobody to hand the "
-                "lobby to -- it stays open. Share this channel to invite "
-                "someone, or just start the game to play solo."
+                "lobby to -- it stays open. Invite someone to join, or "
+                "just start the game to play solo."
             )
         self.player_1_id = self.player_2_id
         self.player_1_name = self.player_2_name
