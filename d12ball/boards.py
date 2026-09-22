@@ -1459,9 +1459,8 @@ class ClockTrackGeometry:
     """
     Where a minute's cell sits, on the clock panel `JumbotronGeometry`
     already laid out -- its own record because `draw_clock_track` reads
-    it from four different bands (the frame, the two half labels, the
-    cells and the overrun note) that all have to agree on the same
-    cells.
+    it from three different bands (the frame, the two half labels and
+    the cells) that all have to agree on the same cells.
 
     `cell_origin` is the one place that turns a minute into a row and
     column. The band label above each half is charged once per half
@@ -1508,14 +1507,20 @@ class ClockTrackGeometry:
 def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     """
     The whole game's minutes, in rows of eight under a band per half --
-    the frame, the two half labels, the cells and the overrun note, in
-    that order.
+    the frame, the two half labels and the cells, in that order.
+
+    **The overrun has no cells, and no note either.** The clock runs
+    past a period's last minute for as long as its last possession
+    does, and a track drawn for that would be a row of squares nobody
+    can say the length of. The second half's last row is a cell short
+    and that slot is left empty: what it used to spell out is already
+    said twice over, by the caption under 15 and 30 and by the footer
+    under the whole board.
     """
     track = ClockTrackGeometry.for_jumbotron(geometry)
     draw_clock_track_frame(sheet, track)
     draw_clock_half_bands(sheet, track)
     draw_clock_cells(sheet, track)
-    draw_clock_overrun_note(sheet, track)
 
 
 def draw_clock_track_frame(sheet: Sheet, track: ClockTrackGeometry) -> None:
@@ -1531,26 +1536,34 @@ def draw_clock_track_frame(sheet: Sheet, track: ClockTrackGeometry) -> None:
         outline=PANEL_EDGE,
         width=sheet.u(2),
     )
+    # Centred in the strip the panel keeps for its title, not hung off
+    # the top of it: hung, the line sat two hundredths of an inch over
+    # the half's own label, and the two read as one paragraph.
     sheet.text(
-        (track.cells_left, track.top + sheet.u(10)),
+        (track.cells_left, (track.top + track.cells_top) / 2),
         "CLOCK  ·  SPACE MINUTES",
-        sheet.font(17, bold=True),
+        sheet.font(15, bold=True),
         MUTED,
+        anchor="lm",
     )
 
 
 def draw_clock_half_bands(sheet: Sheet, track: ClockTrackGeometry) -> None:
-    band_face = sheet.font(17, bold=True)
+    band_face = sheet.font(14, bold=True)
     for band, (first, last_minute) in enumerate(
         ((0, HALFTIME_MINUTE), (HALFTIME_MINUTE + 1, CLOCK_MINUTES))
     ):
         label_top = track.cell_origin(first)[1] - track.band_label
+        # Centred in its own strip, for the reason the panel title is:
+        # a label that clears the row under it by a hair and the line
+        # over it by less is a label neither of them owns.
         sheet.text(
-            (track.cells_left, label_top + track.band_label * 0.1),
+            (track.cells_left, label_top + track.band_label / 2),
             f"{'FIRST' if not band else 'SECOND'} HALF  ·  "
             f"{first:02d}-{last_minute:02d}",
             band_face,
             INK,
+            anchor="lm",
         )
 
 
@@ -1560,7 +1573,7 @@ def draw_clock_cells(sheet: Sheet, track: ClockTrackGeometry) -> None:
     reaching it is the one thing on this board that changes what a coach
     may do -- see "Last possession".
     """
-    number_face = sheet.font(38, bold=True)
+    number_face = sheet.font(28, bold=True)
     for minute in range(CLOCK_MINUTES + 1):
         cell_left, cell_top = track.cell_origin(minute)
         last = minute in (HALFTIME_MINUTE, CLOCK_MINUTES)
@@ -1576,77 +1589,37 @@ def draw_clock_cells(sheet: Sheet, track: ClockTrackGeometry) -> None:
             outline=OFFENSE_COLOR if last else PANEL_EDGE,
             width=sheet.u(3.5 if last else 1.6),
         )
-        caption = (
-            "last possession"
-            if last
-            else "kickoff"
-            if minute == 0
-            else "second-half kickoff"
-            if minute == HALFTIME_MINUTE + 1
-            else None
-        )
-        # A number sits in the middle of its own cell. Only the four
+        # A number sits in the middle of its own cell. Only the two
         # captioned cells lift it, and only far enough to leave the
         # caption a line -- every other minute is a plain box with a
-        # plain number centred in it, which is most of the track.
+        # plain number centred in it, which is most of the track. The
+        # size is what the *captioned* cells hold: a number tall enough
+        # to crowd its own border is the one thing this panel cannot
+        # afford, since the border is what says "last possession".
         sheet.text(
             (
                 cell_left + track.cell_width / 2,
-                cell_top + track.cell_height * (0.4 if caption else 0.5),
+                cell_top + track.cell_height * (0.40 if last else 0.5),
             ),
             f"{minute:02d}",
             number_face,
             INK if last else MUTED,
             anchor="mm",
         )
-        if caption:
+        if last:
+            caption = "last possession"
             sheet.text(
                 (
                     cell_left + track.cell_width / 2,
-                    cell_top + track.cell_height * 0.76,
+                    cell_top + track.cell_height * 0.71,
                 ),
                 caption,
                 sheet.fitted_font(
-                    caption, track.cell_width * 0.82, 16, bold=last
+                    caption, track.cell_width * 0.78, 14, bold=True
                 ),
-                OFFENSE_COLOR if last else MUTED,
+                OFFENSE_COLOR,
                 anchor="mm",
             )
-
-
-def draw_clock_overrun_note(sheet: Sheet, track: ClockTrackGeometry) -> None:
-    """
-    **The overrun has no cells.** The clock runs past a period's last
-    minute for as long as its last possession does, and a track drawn
-    for that would be a row of squares nobody can say the length of; a
-    token sitting on 15 or 30 is a period playing itself out, and the
-    caption under those two says so in words.
-
-    The second half is a cell short of its second row, which the spare
-    slot says outright rather than leaving as a track that ran out --
-    at the end of the second half's last row, which is where a coach
-    looks when the token is about to run off the track.
-    """
-    spare_left, spare_top = track.cell_origin(CLOCK_MINUTES)
-    spare_left += track.cell_width
-    for offset, line in (
-        (0.36, "PAST " + f"{CLOCK_MINUTES:02d}"),
-        (0.62, "keep the token here;"),
-        (0.80, "last possession plays on"),
-    ):
-        sheet.text(
-            (
-                spare_left + track.cell_width / 2,
-                spare_top + track.cell_height * offset,
-            ),
-            line,
-            sheet.fitted_font(
-                line, track.cell_width * 0.86, 22 if offset == 0.36 else 15,
-                bold=offset == 0.36,
-            ),
-            MUTED,
-            anchor="mm",
-        )
 
 
 def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
