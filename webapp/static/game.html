@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>D12 Ball</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <header id="scoreboard">
+      <div class="side" id="home"></div>
+      <div class="score" id="score">- -</div>
+      <div class="side" id="visiting"></div>
+      <div class="clock" id="clock"></div>
+    </header>
+
+    <main>
+      <section id="board">
+        <img id="board-image" alt="The board" />
+      </section>
+
+      <section id="prompt" hidden>
+        <p class="ask" id="ask"></p>
+        <div id="controls"></div>
+        <p class="waiting" id="waiting" hidden></p>
+      </section>
+
+      <section id="owed" hidden>
+        <p>
+          This game has a step of its own to run here -- a restart
+          caught it mid-turn.
+        </p>
+        <button id="pick-up">Pick it up</button>
+      </section>
+
+      <p class="refusal" id="refusal" hidden></p>
+
+      <section id="journal"></section>
+    </main>
+
+    <footer id="who"></footer>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

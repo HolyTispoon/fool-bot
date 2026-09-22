@@ -56,6 +56,7 @@ the loop stops there and the AI never rolls.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass, field, replace
 from enum import Enum, auto
@@ -82,6 +83,9 @@ from d12ball.prompts import (
 )
 from d12ball.wire import jsonable
 from gamesaves.d12ball.storage import save_games
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 #: How many of an answer's lines a frontend keeps for itself: `None` for
@@ -325,6 +329,31 @@ class GameService:
         self.games = games
         self.batching = batching
         self._save = save
+        self.listeners: list[Callable[[D12BallGame, GameResult], None]] = []
+
+    def announce(self, game: D12BallGame, result: GameResult) -> None:
+        """
+        Hand every result to whoever is watching this game, after the
+        save and before the caller renders anything.
+
+        **It is not a second presenter and it formats nothing.** It
+        exists because a game is played from two sides and they need
+        not be on the same frontend: a coach reading a web page has no
+        interaction to be replied to when the other coach clicks a
+        button in Discord, so the page's only way to see that turn is
+        the result the service produced for it. A listener that raises
+        would take somebody's click down with it, so each is called
+        inside its own guard and a failure is the watcher's to log --
+        see `webapp/server.py`, the one listener today.
+        """
+        for listener in self.listeners:
+            try:
+                listener(game, result)
+            except Exception:  # pragma: no cover - a frontend's own bug
+                LOGGER.exception(
+                    "A listener failed on a result for game %s",
+                    game.game_id,
+                )
 
     # -- Loading and saving --------------------------------------------
 
@@ -870,7 +899,7 @@ class GameService:
                 break
 
         self.persist(game, match)
-        return GameResult(
+        result = GameResult(
             answer=tuple(answer),
             groups=tuple(groups),
             narration=narration,
@@ -879,6 +908,8 @@ class GameService:
             detail=detail,
             match=match,
         )
+        self.announce(game, result)
+        return result
 
     def _answer_for_ai(
         self,
