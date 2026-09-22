@@ -56,6 +56,7 @@ the loop stops there and the AI never rolls.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass, field, replace
 from enum import Enum, auto
@@ -80,7 +81,11 @@ from d12ball.prompts import (
     pending,
     pending_prompt,
 )
+from d12ball.wire import jsonable
 from gamesaves.d12ball.storage import save_games
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 #: How many of an answer's lines a frontend keeps for itself: `None` for
@@ -179,6 +184,29 @@ class Narration:
     def drawn(self) -> bool:
         return self.board is not None
 
+    def to_dict(self) -> dict:
+        """
+        One group as JSON -- `d12ball.wire`. The lines carry the
+        model's tokens as they stand; a frontend renders them at its
+        own door, the way the cog does (`D12Ball.rendered`).
+
+        `board` is the position the frontend stopped to draw, as the
+        save's own shape, so a web page renders the same picture the
+        bot pins -- it is the one field here that is a whole match, and
+        it is only ever set where the frontend asked to stop.
+        """
+        return {
+            "lines": list(self.lines),
+            "step": None if self.step is None else self.step.name,
+            "board": self.board,
+            "new_play": self.new_play,
+            "board_changed": self.board_changed,
+            "arguments": jsonable(dict(self.arguments)),
+            "prompt": None if self.prompt is None else self.prompt.value,
+            "action": None if self.action is None else self.action.to_dict(),
+            "detail": jsonable(self.detail),
+        }
+
 
 @dataclass(frozen=True)
 class GameResult:
@@ -216,6 +244,38 @@ class GameResult:
     @property
     def refused(self) -> bool:
         return self.refusal is not None
+
+    def to_dict(self, *, match: bool = False) -> dict:
+        """
+        What the call did, as JSON -- the shape a web frontend answers
+        a request with (finding 10 of docs/web-app.md).
+
+        **The position is left out unless it is asked for.** A result
+        is what one *person* is shown, and the match holds what the
+        game keeps from them: the other side's maneuver pick, a
+        shootout order nobody has revealed yet. A frontend that hands
+        the save to a browser has handed over both, which is a rule of
+        the game broken by a serialiser -- so `match=True` is a
+        deliberate word at the call site, for a caller with no second
+        person to keep a secret from.
+        """
+        return {
+            "answer": list(self.answer),
+            "groups": [group.to_dict() for group in self.groups],
+            "narration": list(self.narration),
+            "prompt": None if self.prompt is None else self.prompt.to_dict(),
+            "board_changed": self.board_changed,
+            "detail": jsonable(self.detail),
+            "refusal": self.refusal,
+            "waiting_on": (
+                None if self.waiting_on is None else self.waiting_on.to_dict()
+            ),
+            "match": (
+                self.match.to_dict()
+                if match and self.match is not None
+                else None
+            ),
+        }
 
 
 #: How many answers the AI may give in one run before the loop gives
@@ -269,6 +329,31 @@ class GameService:
         self.games = games
         self.batching = batching
         self._save = save
+        self.listeners: list[Callable[[D12BallGame, GameResult], None]] = []
+
+    def announce(self, game: D12BallGame, result: GameResult) -> None:
+        """
+        Hand every result to whoever is watching this game, after the
+        save and before the caller renders anything.
+
+        **It is not a second presenter and it formats nothing.** It
+        exists because a game is played from two sides and they need
+        not be on the same frontend: a coach reading a web page has no
+        interaction to be replied to when the other coach clicks a
+        button in Discord, so the page's only way to see that turn is
+        the result the service produced for it. A listener that raises
+        would take somebody's click down with it, so each is called
+        inside its own guard and a failure is the watcher's to log --
+        see `webapp/server.py`, the one listener today.
+        """
+        for listener in self.listeners:
+            try:
+                listener(game, result)
+            except Exception:  # pragma: no cover - a frontend's own bug
+                LOGGER.exception(
+                    "A listener failed on a result for game %s",
+                    game.game_id,
+                )
 
     # -- Loading and saving --------------------------------------------
 
@@ -814,7 +899,7 @@ class GameService:
                 break
 
         self.persist(game, match)
-        return GameResult(
+        result = GameResult(
             answer=tuple(answer),
             groups=tuple(groups),
             narration=narration,
@@ -823,6 +908,8 @@ class GameService:
             detail=detail,
             match=match,
         )
+        self.announce(game, result)
+        return result
 
     def _answer_for_ai(
         self,

@@ -32,6 +32,7 @@ from d12ball.components import (
     legacy_maneuver_key,
 )
 from d12ball.engine import RulesEngine
+from d12ball.wire import jsonable
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turn import injured_word_and_emoji, scripted_or_random
 from d12ball.formatting import address_coach
@@ -245,6 +246,16 @@ class InjuryRoll:
     safe: bool
     overdrive: int
     ignite: object
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "injury",
+            "player_id": self.player_id,
+            "roll": self.roll,
+            "safe": self.safe,
+            "overdrive": self.overdrive,
+            "ignite": jsonable(self.ignite),
+        }
 
 
 def injury_test_step(

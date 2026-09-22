@@ -147,11 +147,13 @@ The architecture's migration order, mapped onto this code. Each step
 leaves the bot playable and the three goldens byte-identical unless
 the step says otherwise. Steps 1 to 4 landed together on the
 `architecture-simplification` branch, step 5 on `owed-step`, step 6
-on `step-6`, step 7 on `step-7`, step 8 on `step-8` and step 9 on
-`step-9`; what they settled is in
-[docs/design/game-service.md](design/game-service.md) and, for steps
-6, 7 and 9,
-[docs/design/model-discord-split.md](design/model-discord-split.md).
+on `step-6`, step 7 on `step-7`, step 8 on `step-8`, step 9 on
+`step-9` and step 10 on `claude/charming-edison-wj3bjx`; what they
+settled is in
+[docs/design/game-service.md](design/game-service.md), for steps
+6, 7 and 9
+[docs/design/model-discord-split.md](design/model-discord-split.md),
+and for step 10 [docs/design/web-app.md](design/web-app.md).
 
 ### 1. `GameService` and `GameResult` -- done (this branch)
 
@@ -519,7 +521,88 @@ three-step fallback, that every prompt's ask renders clean, and that
 no cog transcript carries a token. Findings 6, 11, 12 and 14 of
 `docs/web-app.md` are closed.
 
-### 10. The web app -- last
+### 10. The web app -- last -- done (`claude/charming-edison-wj3bjx`)
 
 On the same service, with `to_dict` on `GameResult`, `PendingPrompt`
-and the roll details.
+and the roll details. What landed, in four commits; what it settled is
+in [docs/design/web-app.md](design/web-app.md).
+
+**The wire shapes** (finding 10). `d12ball/wire.py` holds the one
+conversion, `jsonable`, which raises rather than falling back to
+`str(value)`; every dataclass a frontend is handed has a `to_dict` --
+the twelve option shapes and their four nested pieces, `PendingPrompt`
+(each options class tagged with its `shape`), `Narration`,
+`GameResult`, and the five roll details beside `IgnitedRoll`. It is
+one-way: only `Action.from_dict` reads, and it builds the `PromptKind`
+rather than leaving it the string a request carried, since `answer`
+compares the kind by identity and every such action would otherwise be
+refused as a stale click. `GameResult.to_dict` **leaves the position
+out** unless `match=True` is written at the call site: a result is what
+one person is shown, and the match holds the other side's maneuver pick
+and an unrevealed shootout order. The two coercions the finding names
+are in the adapters, where a value off a wire becomes a model type:
+`TeamSide` on the coaching and shootout answers, and `Formation` in the
+hub, which `apply_formation` words with `formation.value`.
+
+**The lock** (decision 5, finding 13). `gamelocks.GameLocks`, one
+`asyncio.Lock` per game, held from taking an action to having finished
+showing what came back -- not around the apply, which is synchronous
+and cannot be interleaved on one event loop, but around the renders,
+uploads and edits after it, which can and which is a turn arriving in a
+channel out of order. The Discord half takes it in
+`SafeView._scheduled_task`, overriding discord.py's own click dispatch
+because `interaction_check` runs before the callback and cannot hold
+anything across it; `tests/test_game_locks.py` ratchets that the
+method being overridden still exists.
+
+**The app.** `webapp/`, an aiohttp server the cog starts in `cog_load`
+when `FOOLBOT_WEB_PORT` is set, over its own service, games and locks.
+`webapp/present.py` builds the controls, one builder per `PromptKind`
+off `PendingPrompt.options` and nothing else; `webapp/keys.py` names
+the viewer with an HMAC of the game id and the player number, derived
+rather than stored (principle 6), and `/d12ball web_link` hands a coach
+their own link. A page may only send back a control it was offered,
+checked before the model sees it -- the web equivalent of a button
+Discord never drew, which is also what keeps a hand-made request from
+reaching an adapter with an argument no prompt offered (finding 4's
+open edge). What a coach may not see is not sent: the rows for a side
+this viewer does not coach are left out of the payload rather than
+greyed in the page. The board is `render_match_image` with
+`RulesEngine.cyborg_condition_ids`, which moved onto the engine from
+`PresentationMixin` in its own commit, and a stop's picture is drawn
+from the snapshot `Narration.board` carries.
+
+**One thing the service gained**, and it is worth reviewing on its own
+merits: `GameService.listeners`, which hands every result to whoever is
+watching, after the save. A game is played from two sides and they need
+not be on the same frontend -- a coach reading a web page has no
+interaction to be replied to when the other coach clicks a button in
+Discord, so the result the service produced for that click is the
+page's only way to see the turn. It formats nothing and is not a second
+presenter; each listener is called inside its own guard, since one that
+raised would take somebody's click down with it.
+
+**Tests.** `tests/test_web_purity.py` ratchets that nothing under
+`webapp/` imports `cogs` or `discord`, by AST, so a lazy import inside
+a function fails too. `tests/test_wire_shapes.py` walks every fixture
+with no frontend imported: every prompt and every result is
+`json.dumps`-able and every field of the three carried dataclasses is
+on the wire. `tests/test_web_app.py` plays over a real HTTP client and
+presses **every control of every fixture** through `apply_action`,
+asserting none is refused -- principle 10 as a thing that can be run.
+The goldens did not change.
+
+## Where this leaves the two worksheets
+
+The migration is done, and by the convention at the top of this file
+both it and [docs/web-app.md](web-app.md) should now go, with what
+outlives them in `docs/design/`. They have not, for one mechanical
+reason: about ninety comments in the code cite this file by name and
+about forty-five cite the review, mostly as "step 5 of
+docs/architecture-migration.md" or "finding 4 of docs/web-app.md",
+and retargeting those citations is its own change rather than a line
+in this one. The settled design is in
+[docs/design/web-app.md](design/web-app.md),
+[game-service.md](design/game-service.md) and
+[model-discord-split.md](design/model-discord-split.md); read these two
+files as the record those comments point at.

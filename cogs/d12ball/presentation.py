@@ -15,7 +15,6 @@ import io
 from typing import Optional
 
 from d12ball.components import (
-    SPECIES_CYBORG,
     MatchState,
     PlayerRole,
     TeamSetup,
@@ -503,32 +502,9 @@ class PresentationMixin:
             self.player_catalog,
             title=title,
             species_icons=self.engine.species_abilities_apply(game),
-            cyborg_ids=self.cyborg_condition_ids(game, match),
+            cyborg_ids=self.engine.cyborg_condition_ids(game, match),
         )
         return image.getvalue()
-
-    def cyborg_condition_ids(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> frozenset[str]:
-        """
-        Which of the players currently Exhausted, Injured or carrying an
-        exhaustion token are Cyborgs playing with their own drain -- the
-        answer `render.py`'s `cyborg_ids` needs to draw Drained/Damaged
-        instead of Exhausted/Injured and the teal token count instead of
-        the amber one, without this module handing the renderer a `game`
-        or a species to read itself. See "Lithium Powered" in
-        docs/design/species-abilities.md and the `species_icons` flag
-        this mirrors.
-        """
-        return frozenset(
-            player_id
-            for player_id in match.exhausted | match.injured | match.exhaustion.keys()
-            if self.engine.has_species_ability(
-                game, player_id, SPECIES_CYBORG,
-            )
-        )
 
     def match_file_from_png(
         self,

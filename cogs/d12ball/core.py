@@ -75,6 +75,7 @@ from gamesaves.d12ball.service import (
     StopHandling,
 )
 from discord_emoji_cache import ensure_cached_emojis
+from gamelocks import GameLocks
 from cogs.d12ball_helpers import (
     COIN_EMOJI_NAMES,
     DiscordTokens,
@@ -431,6 +432,11 @@ class CoreMixin:
     )
     species_ability_emojis: Mapping[str, str] = MappingProxyType({})
 
+    #: The web frontend, where the environment asked for one -- see
+    #: `start_web_app`. `None` in every test and in any checkout that
+    #: has not set `FOOLBOT_WEB_PORT`.
+    web_app = None
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.games = load_games()
@@ -692,6 +698,8 @@ class CoreMixin:
             )
 
     async def cog_load(self) -> None:
+        await self.start_web_app()
+
         # One fetch, three lookups. Each loader used to make its own
         # call to the same endpoint, so every startup asked Discord for
         # the identical list three times over.
@@ -723,12 +731,44 @@ class CoreMixin:
             self.bot, application_emojis,
         )
 
+    async def start_web_app(self) -> None:
+        """
+        Put the web frontend up over this cog's service, where the
+        environment has asked for one (`FOOLBOT_WEB_PORT`; see
+        docs/design/web-app.md).
+
+        **The same service and the same locks**, because there is one
+        process and one `games` dict (decision 5 of docs/web-app.md):
+        the web app is a second frontend over the bot's own game, not
+        a second copy of it. The import is here rather than at the top
+        of the module so a checkout with no web app configured pays
+        nothing for it, and a failure to bind is an ERROR -- the port
+        is somebody's to free, and the bot carries on playing on
+        Discord either way.
+        """
+        from webapp.server import configured_port, start_web_app
+
+        if configured_port() is None:
+            # Nothing is asked for, so nothing is built -- not even the
+            # service, which a cog a test assembles without `__init__`
+            # has no games to make one over.
+            return
+        try:
+            self.web_app = await start_web_app(self.service, self.locks)
+        except OSError as error:
+            self.web_app = None
+            LOGGER.error("The web app could not start: %r", error)
+
     async def cog_unload(self) -> None:
         """
         Drop any board refresh still waiting on its window -- see
-        `BoardRefresher.shutdown` for what that costs a board.
+        `BoardRefresher.shutdown` for what that costs a board -- and
+        take the web frontend down with the cog it was serving.
         """
         self.boards.shutdown()
+        if self.web_app is not None:
+            await self.web_app.stop()
+            self.web_app = None
 
     async def cog_app_command_error(
         self,
@@ -1321,6 +1361,26 @@ class CoreMixin:
         return PLAIN_PROMPT_VIEWS[kind](self, game_id)
 
     # -- The service and the presenter -----------------------------------
+
+    @property
+    def locks(self) -> GameLocks:
+        """
+        **One lock per game, held around a click's whole answer** --
+        the apply *and* what it puts in the channel -- so two answers
+        cannot be presented in the other order from the one they were
+        applied in. See `gamelocks.py` for why that, and not the apply
+        alone, is what needs holding; `SafeView._scheduled_task` is
+        where every click takes it, and the web app takes the same one
+        over the same games (decision 5 of docs/web-app.md).
+
+        Built on first use, like `service`, so a cog a test assembles
+        without `__init__` has one.
+        """
+        locks = self.__dict__.get("_locks")
+        if locks is None:
+            locks = GameLocks()
+            self.__dict__["_locks"] = locks
+        return locks
 
     @property
     def service(self) -> GameService:

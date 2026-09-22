@@ -10,8 +10,13 @@ the target both are held to. The decisions already taken are at the
 top so nobody re-opens them; the findings are below with where each
 now stands, and each names the migration step that closes it; the
 proposals are what those steps owe the web app that the migration
-worksheet does not spell out. When the web app ships, what survives
-of this moves to `docs/design/web-app.md` and this file goes.
+worksheet does not spell out. **The web app has shipped** (step 10),
+and what survives of this is in
+[docs/design/web-app.md](design/web-app.md); this file is kept for
+now only because about forty-five comments in the code cite it by
+finding number -- see "Where this leaves the two worksheets" in
+[architecture-migration.md](architecture-migration.md). One finding
+is still open, 15, which is coverage rather than a gap in the split.
 **Nothing in it is a rule.**
 
 The standard everything below is held to is CLAUDE.md's "The model and
@@ -249,14 +254,22 @@ remainder.
    - The tutorial's rails: the driver refuses off them (`_rail`), but
      no prompt says which options are railed, so a second frontend
      asks `tutorial.resolve_choice` itself to grey the rest.
-9. **Three prompt kinds carry no `side`.** *Open; with 8.*
+9. ~~**Three prompt kinds carry no `side`.**~~ *Closed by step 6, and
+   confirmed by the second frontend in step 10.*
    `COACHING_HUB`, `COACHING_OFFER` and the shootout kinds are
    answered with a `side` the frontend sends back, read off
    `pending_coaching_side` (the cog) or resolved by `claim` (the
    shootout view). The design doc's own warning applies: a frontend
    that has to send it back can send back a different one. Finding
-   3's fourth item is what that costs.
-10. **No wire shape.** *Open; last, with the web app.* With
+   3's fourth item is what that costs. **What closed it** is that the
+   adapters check what arrives: `_window_is` refuses a coaching
+   answer for a window that is not that side's, and the shootout's
+   two check the side against the players its options still offer --
+   so a frontend that sends back a different one is refused rather
+   than believed. The web app sends the side the control it was
+   offered carried, and never reads one off the position; the check
+   is what makes that safe.
+10. ~~**No wire shape.**~~ *Closed by step 10.* With
     `GameResult` as the shared result, what wants a `to_dict` is
     `GameResult`, `Narration`, `PendingPrompt` (with its options,
     once 8 lands) and the roll details, and `Action.from_dict` for
@@ -267,7 +280,18 @@ remainder.
     dict keyed by the `Formation` enum, so a JSON string is refused.
     Both coercions belong in the adapters. `Action.arguments` are the
     adapters' keyword names, read off `inspect.signature`, which is a
-    contract nobody has written down.
+    contract nobody has written down. **Done**: `d12ball/wire.py` and
+    a `to_dict` on each of the four, one-way, with `Action.from_dict`
+    the only reader; the kind is built there and `side` and
+    `formation` in the adapters. Two things the finding did not spell
+    out. `Formation` is a `str` enum, so the dict lookup was never
+    the problem -- `apply_formation` wording the change with
+    `formation.value` was. And `GameResult.to_dict` leaves the
+    position out unless it is asked for, because a result is what one
+    person is shown and the match holds what the game keeps from
+    them. The keyword-name contract is written down in the controls
+    the server offers: a page sends back the action it was handed,
+    and one it was not is refused before the model sees it.
 11. ~~**Randomness is process-global.**~~ *Closed by step 9 (decision
     7).* Fifteen `random.*` sites across `flow/`, `engine.py` and
     `ai.py` read one `random.Random` now, `RulesEngine.rng`, which the
@@ -294,7 +318,12 @@ remainder.
     today serialises load, apply, persist per game, so a double click
     that reaches `answer` twice before the first save is not refused
     by the kind check. The lock lands with the web app, and the bot's
-    views take it too.
+    views take it too. **Done** (step 10): `gamelocks.GameLocks` --
+    and what it is for turned out to be the *ordering* rather than
+    the apply. `apply_action` is synchronous and cannot be
+    interleaved on one event loop; what needed holding is everything
+    a frontend does after it, and `SafeView._scheduled_task` takes it
+    for every click.
 14. ~~**The engine imports Pillow.**~~ *Closed by step 9.*
     `challenge_side`, the one reason `engine.py` took `TEAM_COLORS`
     and `ChallengeSide` from `render.py`, is the cog's
@@ -424,12 +453,24 @@ numbers are the migration's.
   the service is the thin door over them, so a web app validates a
   lobby click the way the bot does; and the randomness went to the
   engine and the strategy, not the service, per decision 7.
-- **Step 10, the web app.** The wire shapes of finding 10; the
+- ~~**Step 10, the web app.** The wire shapes of finding 10; the
   per-game lock of decision 5, taken by the bot's views too; an
   asyncio server in the bot's process over the same `GameService`. A
   page that shows the board from `Narration.board` and `to_dict`, the
   groups as they close, the prompt's options as controls; every
-  request one `Action` through `apply_action`.
+  request one `Action` through `apply_action`.~~ Done, in four
+  commits on `claude/charming-edison-wj3bjx`; what the step records
+  is in `docs/architecture-migration.md` under step 10, and the
+  settled design is [docs/design/web-app.md](design/web-app.md).
+  Three things this list did not spell out: a page has to know **who
+  is reading it**, so a key per coach per game is derived rather than
+  stored (`webapp/keys.py`) and a side's secrets are left out of what
+  the other side is sent; the server refuses an action it did not
+  offer, which is the web equivalent of a button Discord never drew
+  and what keeps finding 4's "a bad wire value is a bug" from
+  reaching an adapter; and a page would otherwise see only its own
+  turns, so `GameService.listeners` hands every result to whoever is
+  watching a game they did not act in.
 
 ## Tests
 

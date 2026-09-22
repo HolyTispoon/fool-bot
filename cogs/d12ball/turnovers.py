@@ -47,7 +47,7 @@ class TurnoverMixin:
             side,
             self.engine.coaching_title(match, side),
             species_icons=self.engine.species_abilities_apply(game),
-            cyborg_ids=self.cyborg_condition_ids(game, match),
+            cyborg_ids=self.engine.cyborg_condition_ids(game, match),
         )
         return discord.File(
             io.BytesIO(png.getvalue()),

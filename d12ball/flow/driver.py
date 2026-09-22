@@ -86,7 +86,7 @@ from d12ball.flow import (
     windows,
 )
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.game import D12BallGame
+from d12ball.game import D12BallGame, Formation
 from d12ball.prompts import (
     Action,
     PendingPrompt,
@@ -901,6 +901,7 @@ def _answer_coaching_offer(
     frontend supplied a display name until step 9 of
     docs/architecture-migration.md.
     """
+    side = TeamSide(side)
     _window_is(match, side)
     if choice == "decline":
         return windows.decline_coaching_step(engine, game, match, side=side)
@@ -942,7 +943,16 @@ def _answer_coaching_hub(
     `side` is checked against the open window, and a formation against
     the shapes this board offers; the other three refuse for
     themselves, before they move anybody.
+
+    **Both are built into the model's own types here**, which is where
+    a value off a wire becomes one (finding 10 of docs/web-app.md): a
+    `Formation` left as the string a request carried reaches
+    `apply_formation`, which words the change with `formation.value`.
+    The formation is checked against what the prompt offered first, so
+    a name this board does not play is the refusal above rather than
+    the interpreter's.
     """
+    side = TeamSide(side)
     _window_is(match, side)
     if choice == "done":
         return windows.finish_coaching_step(engine, game, match, side=side)
@@ -950,7 +960,9 @@ def _answer_coaching_hub(
         if formation not in prompt.options.formations:
             _refuse("That formation is not played on this board.")
         return StepResult(
-            narration=[engine.apply_formation(match, side, formation)],
+            narration=[
+                engine.apply_formation(match, side, Formation(formation))
+            ],
             board_changed=True,
         )
     if choice == "substitute":
@@ -1014,6 +1026,7 @@ def _answer_shootout_order(
     menu, so which side a click is for is part of what was clicked.
     Who may click it is `SafeView`'s, as always.
     """
+    side = TeamSide(side)
     if choice == "restart":
         return periods.restart_shootout_order_step(
             engine, game, match, side=side,
@@ -1035,7 +1048,7 @@ def _answer_shootout_pick(
 ) -> StepResult:
     """Which of a side's remaining players shoots this round."""
     return periods.shootout_pick_step(
-        engine, game, match, side=side, player_id=player_id,
+        engine, game, match, side=TeamSide(side), player_id=player_id,
     )
 
 

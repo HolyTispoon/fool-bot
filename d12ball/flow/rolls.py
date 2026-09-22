@@ -60,6 +60,7 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.engine import RulesEngine
+from d12ball.wire import jsonable
 from d12ball.flow import injuries
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turn import scripted_or_random
@@ -109,6 +110,33 @@ class ContestDice:
 
     contestants: list[Contestant]
     ignites: tuple[tuple[str, object], ...] = ()
+
+    def to_dict(self) -> dict:
+        """
+        The numbers as JSON -- `d12ball.wire`, for the frontend that
+        draws no dice image and prints the arithmetic instead. A
+        contestant is the renderer's tuple, spelled out here: nothing
+        else in the game reads it by name.
+        """
+        return {
+            "shape": "contest",
+            "contestants": [
+                {
+                    "roll": roll,
+                    "team": Team(team).value,
+                    "detail": list(detail),
+                    "total": total,
+                    "overdriven": overdriven,
+                    "merge": [[player_id, value] for player_id, value in merge],
+                }
+                for roll, team, detail, total, overdriven, merge
+                in self.contestants
+            ],
+            "ignites": [
+                {"player_id": player_id, "ignite": jsonable(ignite)}
+                for player_id, ignite in self.ignites
+            ],
+        }
 
 
 def _with_extras(
@@ -857,6 +885,14 @@ class ShotDice(ContestDice):
 
     scored: bool = False
     shooter_id: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            **super().to_dict(),
+            "shape": "shot",
+            "scored": self.scored,
+            "shooter_id": self.shooter_id,
+        }
 
 
 def score_score_attempt(

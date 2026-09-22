@@ -1,0 +1,148 @@
+/*
+The page, in one stylesheet. Nothing here knows a rule of the game --
+what a control is, and whether it is dead, is what the server sent.
+*/
+
+:root {
+  color-scheme: dark;
+  --ink: #e9e6df;
+  --quiet: #9b968c;
+  --paper: #16181c;
+  --panel: #1f2228;
+  --edge: #333842;
+  --live: #4b7bec;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--edge);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+header .side { flex: 1; }
+header .side:last-of-type { text-align: right; }
+header .score { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em; }
+header .clock { color: var(--quiet); min-width: 8rem; text-align: right; }
+
+main { max-width: 56rem; margin: 0 auto; padding: 1rem; }
+
+#board img { width: 100%; border-radius: 6px; display: block; }
+
+section {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+}
+
+#board { padding: 0.5rem; }
+
+.ask { margin-top: 0; white-space: pre-wrap; }
+
+.group { margin: 0.75rem 0; }
+.group h3 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--quiet);
+  margin: 0 0 0.35rem;
+}
+
+button {
+  font: inherit;
+  color: var(--ink);
+  background: var(--live);
+  border: 0;
+  border-radius: 4px;
+  padding: 0.45rem 0.8rem;
+  margin: 0 0.4rem 0.4rem 0;
+  cursor: pointer;
+}
+
+button:disabled { background: #2b2f38; color: var(--quiet); cursor: default; }
+button:hover:not(:disabled) { filter: brightness(1.15); }
+
+.chooser {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.chooser label { color: var(--quiet); font-size: 0.9rem; }
+select {
+  font: inherit;
+  color: var(--ink);
+  background: #2b2f38;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 0.35rem;
+}
+
+.note { color: var(--quiet); font-size: 0.85rem; margin: 0 0 0.5rem; }
+
+.refusal {
+  background: #43232a;
+  border: 1px solid #7a3b44;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+#journal { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* Nothing said yet is nothing to show, rather than an empty panel. */
+#journal:empty { display: none; }
+
+.entry { border-left: 3px solid var(--edge); padding-left: 0.75rem; }
+.entry.new-play { border-left-color: var(--live); }
+.entry p { margin: 0 0 0.35rem; white-space: pre-wrap; }
+.entry img { width: 100%; border-radius: 4px; margin-top: 0.5rem; }
+
+.ring {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 50%;
+  vertical-align: -0.05em;
+  margin-right: 0.15em;
+}
+
+.badge, .mark {
+  font-size: 0.85em;
+  color: var(--quiet);
+}
+
+.coach { font-weight: 600; }
+
+/* A headline -- the model's `##` -- is the result of something, so it
+   reads as a line of its own rather than as a bigger paragraph. */
+.headline {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0.25rem 0;
+}
+
+footer {
+  color: var(--quiet);
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
