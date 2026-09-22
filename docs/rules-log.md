@@ -119,6 +119,29 @@ halftime and the shootout window hand them their own.
 Left alone until asked: it is a real change to how many players can pass through
 a game, and the current number was settled deliberately.
 
+### Whose speed step is it when a Smooth takes over a steal's ball?
+
+A Steal or Intercept carries the ball with the interceptor, and the Charter
+offers a Smooth to a teammate already standing on the space it is carried to
+([Smooth](living-rules.md#mind-pull-telekinetic), "a teammate standing on the same
+space as the intended receiver *is* offered one"). Take it, and the Telekinetic
+is the carrier who stays while everyone runs back. The Charter then says "once
+everyone has run back, **the interceptor** changes the ball's speed" and says
+nothing about the Smooth having moved the ball to somebody else.
+
+**What the game does (the author, 2026-09-21: keep it):** the speed step
+belongs to whoever holds the ball after the run back -- the Smooth-taker, with
+*their* defensive skill, not the interceptor's. That is the most literal
+reading of "the interceptor" as "the player left holding it", it is the
+simpler thing to say at a table ("whoever has the ball sets its speed"), and
+it is what the bot has played since Smooth arrived; the model reads it off
+`pending_run_back_stays_player_id`, the same field the run back exempts. The
+alternative -- the interceptor earned the step with the contest and keeps it
+whoever caught the ball -- would carry the interceptor through the run back
+separately from the carrier. Noted for reconsideration rather than settled:
+it has come up once, in a recorded game the test suite pins (press 31 of the
+advanced golden), and nobody has yet played it at a table.
+
 ## Change log
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
