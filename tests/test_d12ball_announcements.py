@@ -36,7 +36,7 @@ from d12ball.components import (
 )
 from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.game import D12BallGame, Team
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import suppressed_cog_saves
 from cog_steps import resolve_maneuver, run_own_goal_roll
 
 
@@ -148,7 +148,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=[12, 1],
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
             "discord.File",
@@ -198,7 +198,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
     async def roll_contest(self, cog, game, rolls) -> SimpleNamespace:
         interaction = build_interaction()
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=rolls,
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
             "discord.File",
@@ -271,7 +271,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             # The scoring is `d12ball.flow.rolls.score_skill_test`
             # since Phase 6, and it is patched where the step reads it
             # rather than on the view, which no longer has it.
@@ -395,7 +395,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
     async def roll_score_attempt(self, cog, game, rolls) -> SimpleNamespace:
         interaction = build_interaction()
         view = ScoreAttemptView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=rolls,
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
             "discord.File",

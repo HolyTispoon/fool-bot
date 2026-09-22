@@ -40,12 +40,15 @@ class ShootoutView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
-    def load(self) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
-        return self.load_match()
-
-    def owes(self, match: MatchState, side: TeamSide) -> bool:
-        """Whether this prompt is still waiting on `side`."""
-        raise NotImplementedError
+    def owed_sides(
+        self, game: D12BallGame, match: MatchState,
+    ) -> tuple[TeamSide, ...]:
+        """
+        The sides this prompt is still waiting on, off its options
+        (`ShootoutOptions.owed`, the same reading the service answers
+        the AI by). Empty for a prompt that waits on nobody.
+        """
+        return ()
 
     async def claim(
         self,
@@ -60,12 +63,8 @@ class ShootoutView(SafeView):
         visiting order could never be set. The maneuver prompt picks
         its ephemeral menu the same way and for the same reason.
         """
-        game, match = self.load()
-        if game is None or match is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return None
 
         if not match.pending_shootout:
@@ -115,8 +114,9 @@ class ShootoutView(SafeView):
             )
             return None
 
+        owed = self.owed_sides(game, match)
         for side in theirs:
-            if self.owes(match, side):
+            if side in owed:
                 return game, match, side
 
         return game, match, theirs[0]
@@ -136,8 +136,11 @@ class ShootoutOrderPromptView(ShootoutView):
         button.callback = self.open_menu
         self.add_item(button)
 
-    def owes(self, match: MatchState, side: TeamSide) -> bool:
-        return not match.shootout_order_complete(side)
+    def owed_sides(
+        self, game: D12BallGame, match: MatchState,
+    ) -> tuple[TeamSide, ...]:
+        options = self.prompt_options(game, match, PromptKind.SHOOTOUT_ORDER)
+        return options.owed() if options is not None else ()
 
     async def open_menu(self, interaction: discord.Interaction) -> None:
         claimed = await self.claim(interaction)
@@ -253,18 +256,16 @@ class ShootoutOrderSelectView(SafeView):
         game, match = loaded
 
         # **The rule is
-        # `d12ball.flow.periods.restart_shootout_order_step`** since
-        # Phase 6: an order cannot be changed once it is complete. A
-        # refusal goes on this coach's own menu rather than beside it,
-        # which is why the driver is asked directly here.
-        result = self.cog.apply_action(
+        # `d12ball.flow.periods.restart_shootout_order_step`**: an
+        # order cannot be changed once it is complete. A refusal goes
+        # on this coach's own menu rather than beside it.
+        result = await self.apply(
+            interaction,
             game,
             Action(PromptKind.SHOOTOUT_ORDER, "restart", {"side": self.side}),
+            refuse=self.refuse_on_menu,
         )
-        if result.refused:
-            await interaction.response.edit_message(
-                content=result.refusal, view=None,
-            )
+        if result is None:
             return
 
         await interaction.response.edit_message(
@@ -282,35 +283,44 @@ class ShootoutOrderSelectView(SafeView):
             return
         game, match = loaded
 
-        # **The rule is `d12ball.flow.periods.shootout_order_step`**
-        # since Phase 6: adding to the order, whether it is settled,
-        # and what to do once both sides' are. What is left here is
-        # that the order goes back on this coach's own menu and the
-        # line saying it is set goes to the channel.
-        result = self.cog.apply_action(
+        # **The rule is `d12ball.flow.periods.shootout_order_step`**:
+        # adding to the order, whether it is settled, and what to do
+        # once both sides' are. What is left here is that the order
+        # goes back on this coach's own menu and the line saying it is
+        # set goes to the channel.
+        async def refuse_with_order(
+            interaction: discord.Interaction, reason: str,
+        ) -> None:
+            # A click on a stale copy of the menu -- a coach who
+            # scrolled back, or one restored after a restart -- gets
+            # the order as it stands, and the menu back where it is
+            # still theirs to add to.
+            options = self.prompt_options(
+                game, match, PromptKind.SHOOTOUT_ORDER,
+            )
+            still_asked = options is not None and self.side in options.owed()
+            await interaction.response.edit_message(
+                content=(
+                    f"{reason}\n\n"
+                    f"{self.cog.shootout_order_text(game, match, self.side)}"
+                ),
+                view=(
+                    ShootoutOrderSelectView(self.cog, self.game_id, self.side)
+                    if still_asked else None
+                ),
+            )
+
+        result = await self.apply(
+            interaction,
             game,
             Action(
                 PromptKind.SHOOTOUT_ORDER,
                 "send",
                 {"side": self.side, "player_id": player_id},
             ),
+            refuse=refuse_with_order,
         )
-        if result.refused:
-            # A click on a stale copy of the menu -- a coach who
-            # scrolled back, or one restored after a restart.
-            await interaction.response.edit_message(
-                content=(
-                    f"{result.refusal}\n\n"
-                    f"{self.cog.shootout_order_text(game, match, self.side)}"
-                ),
-                view=(
-                    None
-                    if match.shootout_order_complete(self.side)
-                    else ShootoutOrderSelectView(
-                        self.cog, self.game_id, self.side,
-                    )
-                ),
-            )
+        if result is None:
             return
         match = result.match
 
@@ -332,7 +342,7 @@ class ShootoutOrderSelectView(SafeView):
         await send_new_prompt(interaction, result.answer[1])
 
         if match.shootout_orders_complete:
-            await self.cog.close_shootout_prompt(interaction, game)
+            await self.cog.close_turn_prompt(interaction, game)
             for block in result.answer[2:]:
                 await send_new_prompt(interaction, block)
             await self.cog.present(interaction, game, result)
@@ -352,8 +362,11 @@ class ShootoutPickPromptView(ShootoutView):
         button.callback = self.open_menu
         self.add_item(button)
 
-    def owes(self, match: MatchState, side: TeamSide) -> bool:
-        return match.shootout_shooter(side) is None
+    def owed_sides(
+        self, game: D12BallGame, match: MatchState,
+    ) -> tuple[TeamSide, ...]:
+        options = self.prompt_options(game, match, PromptKind.SHOOTOUT_PICK)
+        return options.owed() if options is not None else ()
 
     async def open_menu(self, interaction: discord.Interaction) -> None:
         claimed = await self.claim(interaction)
@@ -441,24 +454,21 @@ class ShootoutPickSelectView(SafeView):
             )
             return
 
-        # **The rule is `d12ball.flow.periods.shootout_pick_step`**
-        # since Phase 6, refusing a second pick included. The two lines
-        # it hands back are what this coach is told and what the
-        # channel is told, which are two messages and therefore this
-        # view's to place.
-        result = self.cog.apply_action(
+        # **The rule is `d12ball.flow.periods.shootout_pick_step`**,
+        # refusing a second pick included. The two lines it hands back
+        # are what this coach is told and what the channel is told,
+        # which are two messages and therefore this view's to place.
+        result = await self.apply(
+            interaction,
             game,
             Action(
                 PromptKind.SHOOTOUT_PICK,
                 "",
                 {"side": self.side, "player_id": player_id},
             ),
+            refuse=self.refuse_on_menu,
         )
-        if result.refused:
-            await interaction.response.edit_message(
-                content=result.refusal,
-                view=None,
-            )
+        if result is None:
             return
         match = result.match
 
@@ -469,7 +479,7 @@ class ShootoutPickSelectView(SafeView):
         await send_new_prompt(interaction, result.answer[1])
 
         if match.shootout_shooters_complete:
-            await self.cog.close_shootout_prompt(interaction, game)
+            await self.cog.close_turn_prompt(interaction, game)
             for block in result.answer[2:]:
                 await send_new_prompt(interaction, block)
             await self.cog.present(interaction, game, result)
@@ -517,11 +527,6 @@ class ShootoutTestView(ShootoutView):
             self.add_overdrive_buttons(
                 game, match, options.overdrive_player_ids,
             )
-
-    def owes(self, match: MatchState, side: TeamSide) -> bool:
-        # Nothing is owed here -- both coaches may look at their own,
-        # so whichever side is theirs is the answer.
-        return True
 
     async def review(self, interaction: discord.Interaction) -> None:
         """

@@ -54,7 +54,7 @@ from high_pass_fixtures import (
     PASS_CASES,
 )
 from flow_stubs import chain_records_at, chain_stops_at, lead_in_of
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import suppressed_cog_saves
 from test_d12ball_high_pass_recording import (
     FOLLOW_ONS,
     build_cog,
@@ -361,7 +361,7 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
         cog.games[fixture.game.game_id] = fixture.game
         interaction = build_interaction()
 
-        with suppressed_cog_saves(), suppressed_view_saves():
+        with suppressed_cog_saves():
             await drive(cog, fixture, interaction)
 
         cog.refresh_match_image.assert_awaited_once()

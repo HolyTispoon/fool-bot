@@ -91,8 +91,22 @@ move had no rules risk to weigh against it.
   `RollOptions` (who may declare Overdrive, and on a score attempt
   whether the shot may be walked back), `DecisionOptions`,
   `CoachingHubOptions` (the four sub-menus) and `ShootoutOptions`
-  (both sides at once). **The rail is part of the offer**: where the
-  tutorial fixes a choice the options say which (`railed`, `live`,
+  (both sides at once). **What a button says about a candidate is the
+  offer's too**: the walk-in a challenger pays and the reach a
+  contestant needs (`SendOptions.distances`, `PlayerOptions.distances`
+  on the pickup), the run back's zone and price (`SpaceOptions.zone`,
+  `.distances`), the zone a meeple is moved within
+  (`RepositionOptions.zone`), which side of the board a hand is
+  (`ManeuverHand.team_side`), and that an empty Setup Pass menu is a
+  pass out of play (`DistanceOptions.may_pass_out`). Each was measured
+  by the Discord view and again by the web page off the match, which
+  is the second reading CLAUDE.md forbids -- "a distance computed in a
+  view" -- and `tests/test_d12ball_prompt_options.py` pins that the
+  options carry the same measure the flow charges. What a destination
+  says is the engine's the same way (`high_pass_destination_note`,
+  `pass_ability_note`, `dribble_burst_note` over `dribble_burst_cost`,
+  which the step charges too). **The rail is part of the offer**: where
+  the tutorial fixes a choice the options say which (`railed`, `live`,
   `decline_railed`), so a Discord view greys the rest and a web page
   does the same without asking `tutorial.resolve_choice`; the driver
   refuses off the same reading (`_rail`). Every adapter checks the

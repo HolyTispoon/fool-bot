@@ -42,8 +42,8 @@ from d12ball.engine import RulesEngine
 from d12ball.flow import FollowOnStep
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
 from flow_stubs import chain_stops_at
-from save_patches import suppressed_cog_saves, suppressed_view_saves
-from cog_steps import apply_substitution, begin_full_time_coaching, begin_shootout, continue_shootout, end_period, finish_substitution_window, resume_pending_prompt
+from save_patches import suppressed_cog_saves
+from cog_steps import apply_substitution, begin_full_time_coaching, begin_shootout, continue_shootout, end_period, finish_substitution_window, resume
 
 
 def by_role(match: MatchState, side: TeamSide) -> list[str]:
@@ -497,7 +497,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
 
         squad = match.shootout_squad(TeamSide.HOME)
         view = ShootoutOrderSelectView(cog, game.game_id, TeamSide.HOME)
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             for player_id in squad:
                 await view.pick(interaction, player_id)
 
@@ -769,7 +769,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         with suppressed_cog_saves():
-            where = await resume_pending_prompt(cog, 
+            where = await resume(cog, 
                 build_interaction(222), game, cog.engine.load_match_state(game),
             )
 
@@ -829,7 +829,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
     async def roll(self, cog, game, rolls: list[int]):
         interaction = build_interaction()
         view = ShootoutTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
             return_value=b"",
         ), mock.patch(
@@ -1193,7 +1193,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction(user_id=111)
 
         view = ShootoutOrderSelectView(cog, game.game_id, TeamSide.HOME)
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             await view.pick(interaction, squad[0])
 
         self.assertEqual(
@@ -1214,7 +1214,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction(user_id=111)
 
         view = ShootoutOrderSelectView(cog, game.game_id, TeamSide.HOME)
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             await view.restart(interaction)
 
         self.assertEqual(
@@ -1294,7 +1294,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction(user_id=111)
 
         view = ShootoutOrderSelectView(cog, game.game_id, TeamSide.HOME)
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             await view.restart(interaction)
 
         self.assertEqual(

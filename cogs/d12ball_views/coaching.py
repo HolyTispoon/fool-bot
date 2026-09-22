@@ -13,7 +13,13 @@ from d12ball.components import (
     Zone,
 )
 from d12ball.flow.driver import Action
-from d12ball.prompts import CoachingHubOptions, PromptKind, RepositionSpace
+from d12ball.prompts import (
+    CoachingHubOptions,
+    PendingPrompt,
+    PromptKind,
+    RepositionSpace,
+    pending_prompt,
+)
 from d12ball.game import (
     D12BallGame,
     Formation,
@@ -63,9 +69,6 @@ class CoachingView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
-    def load(self) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
-        return self.load_match()
-
     def hub_options(
         self,
         game: Optional[D12BallGame],
@@ -95,8 +98,31 @@ class CoachingView(SafeView):
             (),
         )
 
-    def side(self, match: MatchState) -> TeamSide:
-        return TeamSide(match.pending_coaching_side)
+    def window(
+        self,
+        game: Optional[D12BallGame],
+        match: Optional[MatchState],
+    ) -> Optional[PendingPrompt]:
+        """
+        The open Coaching Choice -- its hub or the offer before it --
+        off the one chain, or `None` where no window is open. Whose
+        window it is, is the prompt's `side`; nothing here reads it
+        off the match.
+        """
+        if game is None or match is None:
+            return None
+        prompt = pending_prompt(self.cog.engine, game, match)
+        if prompt is None or prompt.kind not in (
+            PromptKind.COACHING_HUB, PromptKind.COACHING_OFFER,
+        ):
+            return None
+        return prompt
+
+    def side(self, match: MatchState) -> Optional[TeamSide]:
+        """The side whose window is open, or `None` once it has
+        closed."""
+        prompt = self.window(self.cog.games.get(self.game_id), match)
+        return None if prompt is None else TeamSide(prompt.side)
 
     async def claim(
         self,
@@ -106,14 +132,11 @@ class CoachingView(SafeView):
         The game and match if this click is allowed to act on the open
         window, or (None, None) after replying with why it isn't.
         """
-        game, match = self.load()
-        if game is None or match is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return None, None
-        if match.pending_coaching_side is None:
+        prompt = self.window(game, match)
+        if prompt is None:
             await interaction.response.send_message(
                 "That Coaching Choice has already closed.",
                 ephemeral=True,
@@ -121,7 +144,7 @@ class CoachingView(SafeView):
             return None, None
         if not self.may_act_for(
             interaction,
-            self.cog.engine.side_controller_id(game, self.side(match)),
+            self.cog.engine.side_controller_id(game, TeamSide(prompt.side)),
         ):
             await interaction.response.send_message(
                 "Only that team's coach can choose this.",
@@ -355,7 +378,7 @@ class CoachingHubView(CoachingView):
     def __init__(self, cog: "D12Ball", game_id: str):
         super().__init__(cog, game_id)
 
-        game, match = self.load()
+        game, match = self.load_match()
         options = self.hub_options(game, match)
         if options is None:
             return
@@ -498,7 +521,7 @@ class CoachingHubView(CoachingView):
         # acting on the window, so the coach who is waiting on the
         # other side can look too. Answers privately, so the coaching
         # message stays where it is.
-        game, match = self.load()
+        game, match = self.load_match()
         if game is None or match is None:
             await interaction.response.send_message(
                 "I could not find the saved data for this game.",
@@ -565,7 +588,7 @@ class CoachingFormationView(CoachingView):
     def __init__(self, cog: "D12Ball", game_id: str):
         super().__init__(cog, game_id)
 
-        game, match = self.load()
+        game, match = self.load_match()
         options = self.hub_options(game, match)
         if options is None:
             return
@@ -622,7 +645,7 @@ class CoachingSubstitutionOutView(CoachingView):
     def __init__(self, cog: "D12Ball", game_id: str):
         super().__init__(cog, game_id)
 
-        game, match = self.load()
+        game, match = self.load_match()
         options = self.hub_options(game, match)
         if options is None:
             return
@@ -702,7 +725,7 @@ class CoachingSubstitutionInView(CoachingView):
         super().__init__(cog, game_id)
         self.outgoing_player_id = outgoing_player_id
 
-        game, match = self.load()
+        game, match = self.load_match()
         options = self.hub_options(game, match)
         if options is None:
             return
@@ -761,7 +784,7 @@ class CoachingZoneView(CoachingView):
         super().__init__(cog, game_id)
         self.first_player_id = first_player_id
 
-        game, match = self.load()
+        game, match = self.load_match()
         options = self.hub_options(game, match)
         if options is None:
             return
@@ -840,7 +863,7 @@ class CoachingPlaceView(CoachingView):
     def __init__(self, cog: "D12Ball", game_id: str):
         super().__init__(cog, game_id)
 
-        game, match = self.load()
+        game, match = self.load_match()
         options = self.hub_options(game, match)
         if options is None:
             return
@@ -898,7 +921,7 @@ class CoachingPlaceSpaceView(CoachingView):
         super().__init__(cog, game_id)
         self.player_id = player_id
 
-        game, match = self.load()
+        game, match = self.load_match()
         options = self.hub_options(game, match)
         if options is None:
             return
@@ -965,34 +988,14 @@ class CoachingPlaceSpaceView(CoachingView):
             )
             return
 
-        await apply_positioning(
-            self, interaction, game, match, self.player_id, space_index,
+        await self.hub_answer(
+            interaction,
+            game,
+            match,
+            "reposition",
+            player_id=self.player_id,
+            space_index=space_index,
         )
-
-
-async def apply_positioning(
-    view: CoachingView,
-    interaction: discord.Interaction,
-    game: D12BallGame,
-    match: MatchState,
-    player_id: str,
-    space_index: int,
-    swap_with: Optional[str] = None,
-) -> None:
-    """
-    Make a space-positioning move and go back to the hub. Shared by the
-    two views that can arrive at one: the space pick, and the extra
-    pick a stacked target needs.
-    """
-    await view.hub_answer(
-        interaction,
-        game,
-        match,
-        "reposition",
-        player_id=player_id,
-        space_index=space_index,
-        swap_with=swap_with,
-    )
 
 
 class CoachingPlaceSwapView(CoachingView):
@@ -1014,7 +1017,7 @@ class CoachingPlaceSwapView(CoachingView):
         self.player_id = player_id
         self.space_index = space_index
 
-        game, match = self.load()
+        game, match = self.load_match()
         options = self.hub_options(game, match)
         if options is None:
             return
@@ -1055,12 +1058,12 @@ class CoachingPlaceSwapView(CoachingView):
         game, match = await self.claim(interaction)
         if game is None or match is None:
             return
-        await apply_positioning(
-            self,
+        await self.hub_answer(
             interaction,
             game,
             match,
-            self.player_id,
-            self.space_index,
+            "reposition",
+            player_id=self.player_id,
+            space_index=self.space_index,
             swap_with=other_player_id,
         )

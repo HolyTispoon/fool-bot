@@ -90,7 +90,6 @@ from cogs.d12ball_views.coaching import (
     CoachingSubstitutionOutView,
     CoachingView,
     CoachingZoneView,
-    apply_positioning,
 )
 from cogs.d12ball_views.halftime import (
     HalftimeExtraTokenView,
@@ -163,7 +162,6 @@ __all__ = [
     "CoachingSubstitutionOutView",
     "CoachingView",
     "CoachingZoneView",
-    "apply_positioning",
     "HalftimeExtraTokenView",
     "HalftimeView",
     "BallRecoveryView",

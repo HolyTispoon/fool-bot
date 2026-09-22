@@ -9,8 +9,8 @@ stopped calling them when every click started going through the
 driver (Phase 6 of docs/design/model-discord-split.md), and
 ARCHITECTURE.md's "What to remove" names them -- so they live with
 their only callers now, as free functions over the cog, with `self`
-spelled `cog`. A test that used to write `begin_run_back(cog, ...)`
-writes `begin_run_back(cog, ...)`.
+spelled `cog`: a test that wrote `cog.begin_run_back(...)` writes
+`begin_run_back(cog, ...)`.
 
 They are test plumbing, not an API: the way into a step from the
 bot's own code is `GameService`, and a new test should prefer
@@ -20,15 +20,9 @@ of these reduces to.
 
 from __future__ import annotations
 
-from typing import Optional  # noqa: F401
-
-import discord  # noqa: F401
-
-from d12ball.components import MatchState, TeamSide  # noqa: F401
-from d12ball.flow import FollowOn, FollowOnStep, StepResult  # noqa: F401
-from d12ball.game import D12BallGame  # noqa: F401
 from flow_stubs import driver_reaches_cog_stubs
 import discord  # noqa: F401
+from d12ball.game import D12BallGame  # noqa: F401
 from d12ball import (  # noqa: F401
     tutorial,
 )
@@ -101,9 +95,6 @@ from d12ball.flow.windows import (  # noqa: F401
     begin_time_out as flow_begin_time_out,
     coaching_summary as flow_coaching_summary,
     coaching_window_note as flow_coaching_window_note,
-)
-from d12ball.game import (  # noqa: F401
-    D12BallGame,
 )
 from d12ball.prompts import (  # noqa: F401
     effect_choice_prompt,
@@ -587,7 +578,7 @@ async def finish_time_out(cog, interaction, game, match):
     await dispatch(cog, interaction, game, match, step(cog.engine, game, match))
 
 
-async def resume_pending_prompt(cog, interaction, game, match) -> str:
+async def resume(cog, interaction, game, match) -> str:
     """`GameService.resume`, over the match a test has built by hand:
     the service reads the record, so the match is written to it first."""
     game.match_state = match.to_dict()

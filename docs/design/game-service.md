@@ -227,18 +227,20 @@ each picture from the snapshot the service took, and put up the
 prompt through `render_prompt`. It replaces `dispatch_step_result`'s
 loop, `post_stop`, `stop_draws_the_board`, `post_narration_group`,
 `post_then_dispatch`, `post_blocks_then_dispatch` and `run_step`.
-`dispatch_step_result` survives as `run` + `present` for the bot's
-own steps (a gate skipped, the tests' `run_step`), and `apply_action`
-on the cog is the service's, kept as a method so a test's stub on the
-cog is reached (see [testing.md](testing.md)).
+`dispatch_step_result` survives as `run` + `present_result` for the
+bot's own steps (a gate skipped, the tests' `run_step`), and
+`apply_action` on the cog is the service's with the result rendered
+(see [testing.md](testing.md) for how a test's stub on the cog is
+reached: the routing rides on the cog's `service`).
 
 **The result is rendered at the door, once.** The service's sentences
 carry tokens -- `{team:purple}`, `{coach:1}` and their kind, step 9 of
 [../architecture-migration.md](../architecture-migration.md) -- and
 `D12Ball.rendered(game, result)` draws every one of them for Discord
-at the six places the cog takes a result from the service
-(`apply_action`, `dispatch_step_result`, resume, begin, `run_step`,
-`reset_turn`), before a view or `present` reads it. Nothing below
+at the two doors the cog takes a result from the service through
+(`apply_action` for a click, `present_result` for everything the bot
+runs itself -- a step, begin, resume, reset), before a view or
+`present` reads it. Nothing below
 that reads a token; a web frontend renders the same result its own
 way. See "Tokens" in [model-discord-split.md](model-discord-split.md).
 
@@ -319,8 +321,8 @@ group is rendered.
 `tests/cog_steps.py` holds the ninety-odd cog wrappers the tests
 drove a step through, as free functions over the cog. `run_step` and
 `dispatch` are the two shapes; the rest reduce to them.
-`arm_cog_stub_routing` wraps `dispatch_step_result` and
-`apply_action` on the cog, so a stub a test puts on the cog is
-reached by the driver inside the service. `suppressed_cog_saves`
+`arm_cog_stub_routing` wraps the cog's `service` property, so the
+`GameService.run` every entry point reduces to runs with a test's cog
+stubs routed into the driver's table. `suppressed_cog_saves`
 patches `gamesaves.d12ball.service.save_games`, which is where every
 click's save is.

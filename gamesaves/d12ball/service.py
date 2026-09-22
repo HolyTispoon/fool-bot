@@ -301,7 +301,6 @@ OWED_STEP_NAMES: Mapping[FollowOnStep, str] = {
     FollowOnStep.ADVANCE_FULL_TIME_STAGE: (
         "the Coaching Choice before the shootout"
     ),
-    FollowOnStep.ADVANCE_SHOOTOUT: "the extreme shootout",
     FollowOnStep.FINISH_TIME_OUT: "the time out",
     FollowOnStep.CONTINUE_RUN_BACK: "the run back",
     FollowOnStep.BEGIN_BALL_RECOVERY: "the out-of-bounds pickup",
@@ -566,11 +565,10 @@ class GameService:
         it has to be flipped *as* somebody; which of the two changes
         nothing but the wording, since the coin is fair either way.
         The tutorial's script is written for a coach with the ball at
-        kickoff, so Dinky takes the visiting side and leaves them home:
-        decided here rather than inside the strategy, because a
-        tutorial is a property of the game and the strategy's question
-        takes no game. The coach's own half of that is the rail on the
-        home-or-visiting prompt.
+        kickoff, so Dinky takes the visiting side and leaves them home
+        -- the record's rail (`D12BallGame.home_choice_rail`), which
+        is the same reading the coach's own Home button is railed by.
+
         """
         game = self.game(game_id)
         if game.in_lobby or not game.teams_selected:
@@ -585,11 +583,11 @@ class GameService:
 
         if game.is_solo_game and winner == 2:
             choice = (
-                HomeChoice.VISITING
-                if game.tutorial
-                else self.engine.get_ai_strategy(game).choose_home_or_visiting()
+                game.home_choice_rail(2)
+                or self.engine.get_ai_strategy(game).choose_home_or_visiting()
             )
             game.choose_home_or_visiting(2, choice)
+
             self.engine.initialize_standard_match(game)
         self.save()
         return game
@@ -666,20 +664,11 @@ class GameService:
         self,
         game_id: str,
         step: FollowOnStep,
-        lead_in: str = "",
-        **kwargs: Any,
     ) -> GameResult:
         """Run one step by name and everything it starts."""
         game = self.game(game_id)
         match = self.load(game)
-        return self.run(
-            game,
-            match,
-            StepResult(
-                narration=[lead_in] if lead_in else [],
-                next=FollowOn(step, kwargs),
-            ),
-        )
+        return self.run(game, match, StepResult(next=FollowOn(step)))
 
     def begin(self, game_id: str) -> GameResult:
         """
@@ -786,8 +775,11 @@ class GameService:
         match: MatchState,
         prompt: PendingPrompt,
     ) -> GameResult:
-        """The prompt the match is waiting on, and nothing run."""
-        return GameResult(prompt=prompt, match=match)
+        """The prompt the match is waiting on, and nothing run -- told
+        to whoever is watching, as every result is."""
+        result = GameResult(prompt=prompt, match=match)
+        self.announce(game, result)
+        return result
 
     # -- The loop --------------------------------------------------------
 

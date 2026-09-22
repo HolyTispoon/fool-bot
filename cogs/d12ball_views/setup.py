@@ -286,17 +286,8 @@ class TeamSelectionView(GameConfigurationView):
     reading `GameService.pick_team` refuses a stale click against.
     """
 
-    def configuration_start_row(
-        self,
-        game: Optional[D12BallGame],
-    ) -> int:
-        # Settings no longer live on this view at all -- see the class
-        # docstring. Kept only because GameConfigurationView expects an
-        # override point; add_configuration_buttons is never called
-        # here.
-        return 0
-
     def __init__(
+
         self,
         cog: "D12Ball",
         game_id: str,
@@ -533,27 +524,8 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
-        if game.coin_flipped:
-            # A second click on a prompt the toss has already answered:
-            # put the choice back rather than only refusing, since the
-            # message they clicked is the one carrying it.
-            await interaction.response.edit_message(
-                content=self.cog.render_text(
-                    build_home_choice_message(game), game,
-                ),
-                view=HomeAwaySelectionView(
-                    cog=self.cog,
-                    game_id=self.game_id,
-                ),
-            )
-
-            await interaction.followup.send(
-                "The coin has already been flipped.",
-                ephemeral=True,
-            )
-            return
-
         # The names the record carries are refreshed from the server
+
         # before the toss names its winner. A game helper is neither
         # player, and flips on Player 1's behalf: the coin is fair
         # either way, so the winner is as likely to be one as the
@@ -566,10 +538,29 @@ class CoinFlipView(GameConfigurationView):
                 2 if interaction.user.id == game.player_2_id else 1,
             )
         except RuleRefusal as error:
-            await interaction.response.send_message(str(error), ephemeral=True)
+            if game.coin_flipped:
+                # A second click on a prompt the toss has already
+                # answered: put the choice back rather than only
+                # refusing, since the message they clicked is the one
+                # carrying it. The sentence is the record's.
+                await interaction.response.edit_message(
+                    content=self.cog.render_text(
+                        build_home_choice_message(game), game,
+                    ),
+                    view=HomeAwaySelectionView(
+                        cog=self.cog,
+                        game_id=self.game_id,
+                    ),
+                )
+                await interaction.followup.send(str(error), ephemeral=True)
+            else:
+                await interaction.response.send_message(
+                    str(error), ephemeral=True,
+                )
             return
 
         await self.announce_coin_toss(interaction, game)
+
 
         if game.match_state is not None:
             await self.cog.begin_setup_coaching(interaction, game)
@@ -602,13 +593,15 @@ class HomeAwaySelectionView(SafeView):
                 else HomeChoice.VISITING
             )
 
-        # A tutorial is scripted from the kickoff forward and its coach
-        # starts with the ball, so a coach who wins the toss is railed
-        # onto Home -- built disabled rather than hidden, like every
-        # other rail. Dinky's half of this is in `GameService.flip_coin`.
-        tutorial_home_only = bool(
-            game is not None and game.tutorial and not assignment_complete
+        # The record's rail (`D12BallGame.home_choice_rail`): a
+        # tutorial's coach is Home whoever wins the toss. Built
+        # disabled rather than hidden, like every other rail, and
+        # refused by the record if pressed anyway.
+        rail = (
+            None if game is None
+            else game.home_choice_rail(game.coin_winner_player_number)
         )
+
 
         for label, choice in (
             ("Home", HomeChoice.HOME),
@@ -630,8 +623,9 @@ class HomeAwaySelectionView(SafeView):
                 ),
                 disabled=(
                     assignment_complete
-                    or (tutorial_home_only and choice != HomeChoice.HOME)
+                    or (rail is not None and choice != rail)
                 ),
+
             )
 
             async def callback(

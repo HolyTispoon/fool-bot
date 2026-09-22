@@ -88,12 +88,13 @@ from d12ball.flow import (
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.game import D12BallGame, Formation
 from d12ball.prompts import (
+    CHOICES,
+    ROLL_KINDS,
     Action,
     PendingPrompt,
     PromptKind,
     asked_sides,
     pending,
-    pending_prompt,
     with_options,
 )
 
@@ -254,7 +255,6 @@ MODEL_STEPS: Mapping[FollowOnStep, Callable[..., StepResult]] = {
     FollowOnStep.ADVANCE_FULL_TIME_STAGE: _lead_in_first(
         periods.advance_full_time_stage,
     ),
-    FollowOnStep.ADVANCE_SHOOTOUT: _lead_in_first(periods.advance_shootout),
     FollowOnStep.FINISH_TIME_OUT: _lead_in_first(windows.finish_time_out),
     FollowOnStep.BEGIN_BALL_RECOVERY: turnovers.begin_ball_recovery,
 }
@@ -514,23 +514,6 @@ def _speaks_them(
     """
     return isinstance(following, FollowOn) and following.step in speaks
 
-
-def waiting_on(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-) -> Optional[PendingPrompt]:
-    """
-    What this match is waiting on, for a frontend that has just been
-    handed a run and wants to check it against the save.
-
-    It is `d12ball.prompts.pending_prompt` and nothing else -- the one
-    reading, re-exported here so the driver is the whole of what a
-    frontend has to import rather than the first of two things. See
-    principle 3 in CLAUDE.md. `None` is a position nobody is asked on:
-    the bot owes a step (`d12ball.prompts.owed_step`).
-    """
-    return pending_prompt(engine, game, match)
 
 
 def ai_action(
@@ -1315,9 +1298,6 @@ def _answer_own_goal_roll(
     return effects.own_goal_roll_step(engine, game, match)
 
 
-#: The six prompts a roll is asked on, and therefore the six an
-#: Overdrive can be declared on. The rules' own list.
-ROLL_KINDS = frozenset(rolls.OVERDRIVE_ROLLERS)
 
 
 def _declared_overdrive(
@@ -1654,37 +1634,6 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
 }
 
 
-#: Which of a prompt's answers each kind offers, where it offers more
-#: than one.
-#:
-#: A separate table rather than a check inside each adapter, for
-#: `MODEL_STEPS`'s reason: it is a *list*, and a frontend that wants to
-#: know what buttons a prompt has may read it. An unlisted kind takes
-#: the empty choice and nothing else, which is what a prompt with one
-#: answer means.
-CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
-    # **Every roll prompt offers two answers**, and the second one
-    # does not settle it: Overdrive is declared before the dice and
-    # the roll is still owed afterwards. `SCORE_ATTEMPT` has its
-    # own third, below, because a declared shot can also be walked
-    # back.
-    **{
-        kind: ("roll", "overdrive")
-        for kind in ROLL_KINDS
-    },
-    PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
-    PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
-    PromptKind.SMOOTH: ("take", "decline"),
-    PromptKind.MIND_PULL: ("take", "decline"),
-    PromptKind.MANEUVER_CHALLENGE: ("send", "decline"),
-    PromptKind.PLAYER_ACTION: ("shoot", "maneuver", "time_out"),
-    PromptKind.SHOOTOUT_ORDER: ("send", "restart"),
-    PromptKind.COACHING_OFFER: ("declare", "decline"),
-    PromptKind.COACHING_HUB: (
-        "formation", "substitute", "swap", "reposition", "done",
-    ),
-    PromptKind.SCORE_ATTEMPT: ("roll", "back", "overdrive"),
-}
 
 
 #: The arguments a *choice* needs that its adapter's signature cannot
@@ -1884,10 +1833,6 @@ def apply(
     game: D12BallGame,
     match: MatchState,
     action: Action,
-    *,
-    stop_after: Iterable[FollowOnStep] = (),
-    own_message: Iterable[FollowOnStep] = (),
-    speaks_lines: Iterable[FollowOnStep] = (),
 ) -> Union[DriverRun, Refusal]:
     """
     Answer the question this match is waiting on, and run what follows.
@@ -1920,15 +1865,7 @@ def apply(
     if isinstance(answered, Refusal):
         return answered
 
-    run = advance(
-        engine,
-        game,
-        match,
-        answered.result,
-        stop_after=stop_after,
-        own_message=own_message,
-        speaks_lines=speaks_lines,
-    )
+    run = advance(engine, game, match, answered.result)
     return DriverRun(
         result=run.result,
         steps=run.steps,

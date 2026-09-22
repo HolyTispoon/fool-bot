@@ -144,7 +144,7 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
   looks identical and the games would be gone for good; and only the channel
   lookup counts, so a 404 from the category or the move is an error and keeps
   the game. Deleting a channel by hand now also deletes the game record, and
-  since `get_next_game_number` is `max + 1` over the guild's saved games,
+  since `GameService.next_game_number` is `max + 1` over the guild's saved games,
   pruning the newest ones lets a PBD number be handed out twice.
 - **Meeple name labels are sized per space, not once for the board.**
   `fit_meeple_labels` in `render.py` picks the largest size whose names all fit

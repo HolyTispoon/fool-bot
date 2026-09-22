@@ -158,20 +158,15 @@ class RunBackChoiceView(SafeView):
         options = self.prompt_options(game, match, PromptKind.RUN_BACK_SPACE)
         if options is None:
             return
-        side = match.side_for_player(player_id)
-        zone = match.setup_for_side(side).assigned_zone(player_id)
 
-        for space_index in options.space_indices:
+        for space_index, distance in zip(options.space_indices, options.distances):
             button = discord.ui.Button(
                 # The distance is on the label because it is the price:
                 # a run back costs a token a space, so the two spaces of
-                # a zone are rarely the same offer. See
-                # travel_space_label.
-                label=travel_space_label(
-                    zone,
-                    space_index,
-                    match.run_back_distance(player_id, zone, space_index),
-                ),
+                # a zone are rarely the same offer. Both are the
+                # prompt's (`SpaceOptions`). See travel_space_label.
+                label=travel_space_label(options.zone, space_index, distance),
+
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:run_back:{game_id}:{player_id}:{space_index}"

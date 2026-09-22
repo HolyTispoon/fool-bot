@@ -52,7 +52,7 @@ from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.components import TeamSide
 from d12ball.game import D12BallGame, GameMode, GameStatus, Team
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import suppressed_cog_saves
 
 
 PLAYER_ONE = 111
@@ -250,7 +250,7 @@ class LobbyHelperTests(unittest.TestCase):
         return cog, game, LobbyView(cog, game.game_id)
 
     def change(self, view, interaction, game, setting, value) -> None:
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             asyncio.run(
                 view.change_setting(interaction, game, setting, value)
             )
@@ -319,7 +319,7 @@ class TeamPickHelperTests(unittest.TestCase):
 
     def pick(self, view, game, user, team, player_number=None) -> None:
         interaction = build_interaction(user)
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             asyncio.run(
                 view.select_team(interaction, team, player_number)
             )
@@ -390,26 +390,11 @@ class LivePlayHelperTests(unittest.TestCase):
         return cog, game, match
 
     def refusal(self, view, game, match, side, user) -> None:
-        return view.pick_refusal(
-            game,
-            match,
-            side,
-            self.first_maneuver(view, side),
-            build_interaction(user),
-        )
-
-    def first_maneuver(self, view, side: str) -> str:
-        catalog = view.cog.maneuver_catalog
-        definitions = catalog.offense if side == "offense" else catalog.defense
-        return definitions[0].key
+        return view.pick_refusal(game, match, side, build_interaction(user))
 
     def confirmed_refusal(self, view, game, match, side, user) -> None:
         return view.pick_refusal(
-            game,
-            match,
-            side,
-            self.first_maneuver(view, side),
-            build_interaction(user, confirmed=True),
+            game, match, side, build_interaction(user, confirmed=True),
         )
 
     def test_a_helper_may_pick_for_either_side_once_confirmed(self) -> None:

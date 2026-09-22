@@ -35,7 +35,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import D12BallGame, GameStatus, Team
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import suppressed_cog_saves
 from cog_steps import begin_own_goal_roll, resolve_pressure
 
 
@@ -282,7 +282,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
     async def resolve_skill_test(self, cog, game) -> SimpleNamespace:
         interaction = build_interaction()
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=[12, 1],
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
             "discord.File",
@@ -445,7 +445,7 @@ class ContestInjuryResumeTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = build_interaction()
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=[12, 1],
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
             "discord.File",

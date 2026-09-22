@@ -32,27 +32,18 @@ class HalftimeView(SafeView):
         cog: "D12Ball",
         game_id: str,
         side: TeamSide,
-        stage: str,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
         self.side = side
-        self.stage = stage
-
-    def load(self) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
-        return self.load_match()
 
     async def claim(
         self,
         interaction: discord.Interaction,
     ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
-        game, match = self.load()
-        if game is None or match is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return None, None
         if not self.may_act_for(
             interaction, self.cog.engine.side_controller_id(game, self.side),
@@ -73,11 +64,11 @@ class HalftimeExtraTokenView(HalftimeView):
     """
 
     def __init__(self, cog: "D12Ball", game_id: str, side: TeamSide):
-        super().__init__(cog, game_id, side, f"extra_token_{side.value}")
+        super().__init__(cog, game_id, side)
 
-        game, match = self.load()
-        if match is None or match.pending_halftime_stage != self.stage:
-            return
+        game, match = self.load_match()
+        # `prompt_options` is `None` unless the position is asking this
+        # side's extra token, so a stale stage builds nothing.
         options = self.prompt_options(
             game, match, PromptKind.HALFTIME_EXTRA_TOKEN,
         )

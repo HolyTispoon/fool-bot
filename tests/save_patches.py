@@ -1,25 +1,18 @@
 """
-Stopping the view and cog packages writing to disk during a test.
+Stopping the cog package and the service writing to disk during a test.
 
-`cogs/d12ball_views` used to be one module, so one
-`suppressed_view_saves()` covered every view in the
-game. It is a package now, and `from ... import save_games` binds the
-name into each submodule -- so patching the package reaches none of
-them, silently: the patch still applies, the test still passes, and the
-real save runs and writes `data/d12ball_games.json`.
+`from ... import save_games` binds the name into each module that
+saves, so a patch on the package reaches none of them, silently: the
+patch still applies, the test still passes, and the real save runs and
+writes `data/d12ball_games.json`. `suppressed_cog_saves` patches every
+module that binds it -- the cog mixins that write the game record, and
+the service, where every click's one match save is -- rather than
+asking each call site to know which. Every one of those patches is pure
+suppression, never bound with `as` or asserted on, so there is nothing
+here for a caller to inspect. No view saves.
 
-Three submodules import it, and a test exercising two views can need
-two of them, so this patches all three rather than asking each call
-site to know which. Every one of those forty-odd patches was pure
-suppression -- not one was bound with `as` or asserted on -- so there
-is nothing here for a caller to inspect.
-
-`cogs/d12ball` went the same way and needs the same answer -- all six
-of its mixins call `save_games`, where the single module needed one
-patch.
-
-`tests/test_d12ball_package_shape.py` is what keeps both honest: it
-fails if a submodule starts importing `save_games` and is not named
+`tests/test_d12ball_package_shape.py` is what keeps the lists honest:
+it fails if a module starts importing `save_games` and is not named
 here.
 
 And a call site that forgets one of these entirely is what
@@ -31,28 +24,13 @@ import contextlib
 import importlib
 from unittest import mock
 
-# The view submodules that call `save_games` themselves. **None, since
-# step 8 of docs/architecture-migration.md**: the setup and lobby views
-# were the last two, and they change the record through `GameService`
-# now, whose save `suppressed_cog_saves` reaches. The list stays so the
-# package-shape test keeps proving it empty -- a view that starts
-# binding `save_games` again fails the suite rather than writing
-# `data/d12ball_games.json` during it.
+# The view submodules that call `save_games` themselves. **None**: a
+# view changes the record through `GameService`, whose save
+# `suppressed_cog_saves` reaches. The list stays so the package-shape
+# test keeps proving it empty -- a view that starts binding `save_games`
+# again fails the suite rather than writing `data/d12ball_games.json`
+# during it.
 SAVING_VIEW_MODULES = ()
-
-
-@contextlib.contextmanager
-def suppressed_view_saves():
-    """
-    Keep every view's own `save_games` off the disk -- of which there
-    are none any more (see `SAVING_VIEW_MODULES`), so this patches
-    nothing. Kept for the seventy-odd call sites that wrap a view in
-    both helpers; the one that does the work is `suppressed_cog_saves`.
-    """
-    with contextlib.ExitStack() as stack:
-        for module in SAVING_VIEW_MODULES:
-            stack.enter_context(mock.patch(f"{module}.save_games"))
-        yield
 
 
 # The cog mixins that call `save_games`. All six do: it is how a turn
@@ -137,9 +115,7 @@ def refuse_stray_save(*args, **kwargs):
     raise StraySaveError(
         "This test reached the real save_games and would have written "
         "data/d12ball_games.json. Wrap the call in suppressed_cog_saves() "
-        "and/or suppressed_view_saves() from tests/save_patches.py -- a "
-        "view usually needs both, since most of them save through "
-        "self.cog.persist rather than their own binding."
+        "from tests/save_patches.py, which reaches the service's save."
     )
 
 

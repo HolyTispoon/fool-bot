@@ -53,7 +53,6 @@ from flow_stubs import driver_reaches_cog_stubs
 from save_patches import (
     suppressed_cog_saves,
     suppressed_full_image_links,
-    suppressed_view_saves,
 )
 from cog_steps import resolve_low_pass
 
@@ -785,7 +784,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build(board_size=9)
         view = CoachingFormationView(cog, game.game_id)
 
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             await view.choose(build_interaction(), Formation.THREE_TWO_ONE)
 
         match = cog.engine.load_match_state(game)
@@ -822,7 +821,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         view = CoachingFormationView(cog, game.game_id)
 
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             await view.choose(
                 build_interaction(), Formation.TWO_THREE_ONE,
             )
@@ -846,7 +845,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         view = CoachingFormationView(cog, game.game_id)
 
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             await view.choose(
                 build_interaction(), Formation.ONE_THREE_TWO,
             )
@@ -966,7 +965,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _, others = self.build()
         interaction = build_interaction()
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             await LowPassChoiceView(cog, game.game_id).choose(interaction, 0)
 
         view = interaction.response.edit_message.call_args.kwargs["view"]
@@ -987,7 +986,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
             SimpleNamespace(url="https://cdn.example/half-field.png"),
         ]
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             await LowPassChoiceView(cog, game.game_id).choose(interaction, 0)
 
         kwargs = interaction.response.edit_message.call_args.kwargs
@@ -1003,7 +1002,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _, others = self.build()
         interaction = build_interaction()
 
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             await LowPassReceiverView(cog, game.game_id, 0).choose(
                 interaction, others[-1],
             )
@@ -1019,8 +1018,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _, others = self.build()
         chosen = others[-1]
 
-        with suppressed_view_saves(), \
-                suppressed_cog_saves():
+        with suppressed_cog_saves():
             await LowPassReceiverView(cog, game.game_id, 0).choose(
                 build_interaction(), chosen,
             )
@@ -1036,8 +1034,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _, others = self.build(extras=0)
         interaction = build_interaction()
 
-        with suppressed_view_saves(), \
-                suppressed_cog_saves():
+        with suppressed_cog_saves():
             await LowPassChoiceView(cog, game.game_id).choose(interaction, 0)
 
         self.assertIsNone(
@@ -1052,7 +1049,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _, others = self.build()
         interaction = build_interaction(user_id=999)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             await LowPassReceiverView(cog, game.game_id, 0).choose(
                 interaction, others[0],
             )

@@ -75,10 +75,9 @@ from d12ball.formatting import (
 )
 from d12ball.game import D12BallGame, Team, team_display_name
 from d12ball.prompts import (
-    OVERDRIVE_ROLLERS as _OVERDRIVE_ROLLERS,
     PendingPrompt,
     PromptKind,
-    overdrive_rollers as _overdrive_rollers,
+    overdrive_rollers,
     scoring_opportunity_prompt,
 )
 
@@ -1395,14 +1394,6 @@ def shootout_test_step(
 
 
 # -- Overdrive, which rides on all six roll prompts --------------------
-
-
-#: `OVERDRIVE_ROLLERS` and `overdrive_rollers` are `d12ball.prompts`'
-#: since the prompt's options were built there (step 6 of
-#: docs/architecture-migration.md); re-exported so a reader of this
-#: module still finds the roll's own list beside the roll.
-OVERDRIVE_ROLLERS = _OVERDRIVE_ROLLERS
-overdrive_rollers = _overdrive_rollers
 
 
 def declare_overdrive_step(

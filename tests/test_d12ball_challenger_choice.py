@@ -32,7 +32,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import suppressed_cog_saves
 from cog_steps import play_ai_turn
 
 
@@ -163,7 +163,7 @@ class ChallengerChoiceTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
         interaction = build_interaction(user_id=user_id)
         view = PlayerActionView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             await view.choose_action(interaction, "maneuver")
         return interaction
 
@@ -204,7 +204,7 @@ class ChallengerChoiceTests(unittest.IsolatedAsyncioTestCase):
     async def ai_turn(self, cog, game, match):
         game.match_state = match.to_dict()
         interaction = build_interaction(user_id=111)
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             await play_ai_turn(cog, interaction, game, match)
         return interaction
 

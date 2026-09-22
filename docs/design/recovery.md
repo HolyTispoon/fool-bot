@@ -58,7 +58,7 @@ Three more ways a restart strands a game, none of them about ephemerality:
 
 - The prompt was **deleted** before the restart. `close_maneuver_prompt` drops
   the maneuver prompt once both sides have picked and clears `turn_message_id`
-  with it, and `close_shootout_prompt` does the same for the shootout's order
+  with it, and `close_turn_prompt` does the same for the shootout's order
   and shooter prompts. There is then nothing to re-arm.
 - The process died **before the prompt it was about to send was recorded**.
 - The process died **in the middle of a cascade whose next step was the bot's

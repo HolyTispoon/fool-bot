@@ -15,7 +15,7 @@ evidence rather than a restatement: a table written after the move
 would only prove the new code agrees with itself.
 
 `pending_turn_view` has two production callers, `restore_saved_views`
-and `resume_pending_prompt`, and the whole point of it is that they
+and `resume`, and the whole point of it is that they
 cannot drift apart -- see "Recovering a stuck game" in
 docs/design/recovery.md.
 """

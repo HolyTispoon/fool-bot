@@ -25,9 +25,6 @@ class PeriodMixin:
     The clock and everything hanging off the end of it: the tail of a
     """
 
-    # -- Clock, period transitions, and the turn loop -----------------
-
-
     async def announce_game_over(
         self,
         interaction: discord.Interaction,
@@ -77,9 +74,6 @@ class PeriodMixin:
         save_games(self.games)
         await self.refresh_match_image(interaction, game, png=png)
 
-    # -- Halftime ------------------------------------------------------
-
-
     async def begin_setup_coaching(
         self,
         interaction: discord.Interaction,
@@ -90,8 +84,8 @@ class PeriodMixin:
         and the sides: `GameService.begin`, presented. Both callers are
         setup views holding only the game.
         """
-        await self.present(
-            interaction, game, self.rendered(game, self.service.begin(game.game_id)),
+        await self.present_result(
+            interaction, game, self.service.begin(game.game_id),
         )
 
     def shootout_order_text(
@@ -111,30 +105,4 @@ class PeriodMixin:
         return self.render_text(
             shootout_order_text(self.engine, game, match, side), game,
         )
-
-    async def close_shootout_prompt(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-    ) -> None:
-        """
-        Drop the "set your order" or "choose your shooter" prompt once
-        both sides have answered it. Its button has nothing left to
-        open, and the reveal posted underneath it is what the channel
-        should end on -- the same reasoning as close_maneuver_prompt,
-        including clearing `turn_message_id` so nothing re-attaches a
-        view to a message that is gone.
-        """
-        if game.turn_message_id is None or interaction.channel is None:
-            return
-
-        try:
-            await interaction.channel.get_partial_message(
-                game.turn_message_id,
-            ).delete()
-        except (discord.NotFound, discord.HTTPException):
-            pass
-
-        game.turn_message_id = None
-        save_games(self.games)
 

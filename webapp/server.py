@@ -48,7 +48,7 @@ from d12ball.components import MatchState
 from d12ball.engine import RulesEngine
 from d12ball.formatting import coach_name, format_player_with_team_name
 from d12ball.game import D12BallGame, GameStatus, team_display_name
-from d12ball.prompts import Action
+from d12ball.prompts import Action, PendingPrompt, pending
 from d12ball.render import TEAM_COLORS, render_match_image
 from gamelocks import GameLocks
 from gamesaves.d12ball.service import GameResult, GameService
@@ -270,7 +270,7 @@ class WebApp:
     def _viewer(self, request: web.Request, game: D12BallGame) -> Viewer:
         return Viewer(
             keys.player_number_for(
-                game.game_id, request.query.get("key") or _key_header(request),
+                game.game_id, request.query.get("key"),
             ),
         )
 
@@ -441,10 +441,11 @@ class WebApp:
     ) -> dict:
         journal = self.journal(game.game_id)
         match = self._match(game)
-        prompt = (
-            None if match is None else self.service.waiting_on(game, match)
-        )
-        owed = match is not None and prompt is None
+        # The one reading of what the match waits on: a question for
+        # somebody, or a step the bot owes (`d12ball.prompts.pending`).
+        waiting = None if match is None else pending(self.engine, game, match)
+        prompt = waiting if isinstance(waiting, PendingPrompt) else None
+        owed = waiting is not None and prompt is None
         return {
             "game": {
                 "id": game.game_id,
@@ -569,10 +570,6 @@ def _was_offered(sections: list, posted: Mapping[str, Any]) -> bool:
             ):
                 return True
     return False
-
-
-def _key_header(request: web.Request) -> Optional[str]:
-    return request.headers.get("X-Foolbot-Key")
 
 
 def _since(request: web.Request) -> int:

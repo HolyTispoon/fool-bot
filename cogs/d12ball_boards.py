@@ -12,15 +12,15 @@ this module the whole of that bucket's spending.
 What lives here is `BoardRefreshState` -- when a write landed, the pass
 waiting to write again, the board already on the message, the link owed
 for it, the lock over the message, the wants arriving mid-write, and the
-refusals -- and the six methods that read it. On the cog those were
+refusals -- and the methods that read it. On the cog those were
 seven parallel dicts keyed by game id, and the invariant that actually
 had to hold was that all seven agreed about one game: expressed nowhere,
 kept by hand at each of the eleven sites that wrote them. They were
-touched by nothing but each other, which on a cog of 223 methods made
-them read as ordinary surface.
+touched by nothing but each other, which on a cog of two hundred-odd
+methods made them read as ordinary surface.
 
-`D12Ball` keeps a thin forwarding method for each of the six, so the
-fifty-odd call sites did not move. See "Discord's rate limits" in
+`D12Ball.refresh_match_image` is the one forwarder left over it, the
+way in for every call site that puts a board up. See "Discord's rate limits" in
 docs/design/rate-limits.md for the measurements every decision here rests on.
 """
 

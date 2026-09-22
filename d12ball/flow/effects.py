@@ -417,8 +417,9 @@ def dribble_burst_step(
     )
     match.set_ball_carrier(match.active_player_id)
     playmaker_bonus = handler.role == PlayerRole.PLAYMAKER
-    tokens = max(0, actual_distance - (1 if playmaker_bonus else 0))
+    tokens = engine.dribble_burst_cost(match, actual_distance)
     exhaustion_text = engine.apply_exhaustion(
+
         game, match, match.active_player_id, tokens,
     )
 

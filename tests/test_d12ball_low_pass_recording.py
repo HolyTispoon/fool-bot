@@ -41,6 +41,8 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 
 from low_pass_fixtures import FINISH, LOW_PASS_CASES, SCORING_CHOICE
+from d12ball.flow import FollowOnStep, driver
+from d12ball.flow.effects import offer_low_pass
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
 from cog_steps import apply_low_pass, continue_effect, resolve_skilled_pass
@@ -211,8 +213,14 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
         cog.send_field_prompt.assert_awaited_once()
         content, view = cog.send_field_prompt.await_args.args[3:5]
         self.assertIn("Skilled Pass", content)
-        self.assertEqual(view.key, "skilled_pass")
-        self.assertFalse(view.free)
+        # Which card, and whether it is free, are the prompt's rather
+        # than the view's: the step names them and the driver reads
+        # them back off the position.
+        prompt = offer_low_pass(
+            cog.engine, fixture.game, fixture.match, key="skilled_pass",
+        ).next
+        self.assertEqual(prompt.maneuver_key, "skilled_pass")
+        self.assertFalse(prompt.free)
         # Nothing was applied: the coach has not answered yet.
         cog.apply_low_pass.assert_not_awaited()
 
@@ -240,8 +248,11 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
         content, view = cog.send_field_prompt.await_args.args[3:5]
         self.assertIn("Low Pass", content)
         self.assertNotIn("Skilled Pass", content)
-        self.assertEqual(view.key, "low_pass")
-        self.assertTrue(view.free)
+        prompt = driver.MODEL_STEPS[FollowOnStep.CONTINUE_EFFECT](
+            cog.engine, fixture.game, match,
+        ).next
+        self.assertEqual(prompt.maneuver_key, "low_pass")
+        self.assertTrue(prompt.free)
 
     async def test_the_continuation_outlives_the_prompt(self) -> None:
         """

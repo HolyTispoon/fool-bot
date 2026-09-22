@@ -112,11 +112,11 @@ class ViewsPackageTests(unittest.TestCase):
 
     def test_every_saving_submodule_is_patched_in_tests(self) -> None:
         """
-        `suppressed_view_saves` names the submodules that call
-        `save_games` themselves. A view moving into a module not on
-        that list would write `data/d12ball_games.json` during the
-        suite -- and pass, because not one of those forty-odd patches
-        is ever asserted on. See tests/view_patches.py.
+        `SAVING_VIEW_MODULES` names the view submodules that call
+        `save_games` themselves -- none, since a view changes the record
+        through the service. A view that started binding it would write
+        `data/d12ball_games.json` during the suite and pass, because no
+        suppression is ever asserted on. See tests/save_patches.py.
         """
         saving = {
             f"cogs.d12ball_views.{module}"
@@ -288,15 +288,12 @@ class FollowOnStepTests(unittest.TestCase):
         # that does not stage the beat a second time -- see
         # `d12ball/flow/gates.py`.
         "START_TURN",
-        # Step 5 of docs/architecture-migration.md: the steps the bot
-        # owes on a position nobody is asked anything on, named by
-        # `d12ball.prompts.owed_step` and run by `GameService.resume`.
-        # Step 7 took `RUN_AI_COACHING_WINDOW` back out: an AI side's
-        # window is a prompt it answers through the service.
+        # The steps the bot owes on a position nobody is asked anything
+        # on, named by `d12ball.prompts.owed_step` and run by
+        # `GameService.resume`.
         "ADVANCE_SETUP_STAGE",
         "ADVANCE_HALFTIME_STAGE",
         "ADVANCE_FULL_TIME_STAGE",
-        "ADVANCE_SHOOTOUT",
         "FINISH_TIME_OUT",
         "BEGIN_BALL_RECOVERY",
     }
@@ -311,12 +308,10 @@ class FollowOnStepTests(unittest.TestCase):
         A member with no row raises a `KeyError` in the middle of a
         turn, one card at a time, so the table is asserted to cover
         the enum **exactly** rather than merely to contain it. There is
-        one table since Phase 6 collapsed `D12Ball.follow_on_methods`:
-        a second one would be two answers to what happens next, which
-        is the failure this whole split is against.
+        one table: a second one would be two answers to what happens
+        next, which is the failure this whole split is against.
         """
         self.assertEqual(set(driver.MODEL_STEPS), set(FollowOnStep))
-        self.assertFalse(hasattr(D12Ball, "follow_on_methods"))
 
 
 class StraySaveGuardTests(unittest.TestCase):

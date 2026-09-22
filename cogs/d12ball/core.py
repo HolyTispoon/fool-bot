@@ -10,7 +10,6 @@ the skill test, the injury queue, and `pending_turn_view`.
 import asyncio
 import discord
 import io
-import time
 from dataclasses import replace
 from types import MappingProxyType
 from typing import Mapping, Optional, Sequence
@@ -80,12 +79,10 @@ from cogs.d12ball_helpers import (
     COIN_EMOJI_NAMES,
     DiscordTokens,
     build_maneuver_action_caption,
-    EMOJI_REFETCH_INTERVAL,
     ERROR_RECOVERY_ADVICE,
     LOGGER,
     add_full_image_button,
     fetch_application_emojis,
-    format_player_with_team,
     load_coin_emojis,
     load_condition_emojis,
     load_d12_emoji,
@@ -829,15 +826,6 @@ class CoreMixin:
         )
         return self.coin_emojis
 
-    def get_next_game_number(
-        self,
-        guild: discord.Guild,
-    ) -> int:
-        """`GameService.next_game_number` for a server -- the channel
-        reset in `cogs/debug.py` asks it here."""
-        return self.service.next_game_number(guild.id)
-
-
     def game_for_channel(self, channel_id: int) -> Optional[D12BallGame]:
         for game in self.games.values():
             if game.channel_id is not None and game.channel_id == channel_id:
@@ -894,15 +882,20 @@ class CoreMixin:
         species marks from the four dicts above, and `{coach:n}` as a
         mention of the account -- which needs the `game`, so a caller
         rendering a sentence that may address a coach passes it. See
-        `DiscordTokens`; step 9 of docs/architecture-migration.md.
+        `DiscordTokens`, and "Tokens" in docs/design/model-discord-split.md.
         """
+        return self.tokens(game).render(text)
+
+    def tokens(self, game: Optional[D12BallGame] = None) -> DiscordTokens:
+        """The resolver over this cog's four emoji dicts and, with the
+        `game`, its coaches -- built here and nowhere else."""
         return DiscordTokens(
             self.team_emojis,
             self.role_emojis,
             self.condition_emojis,
             self.species_ability_emojis,
             game,
-        ).render(text)
+        )
 
     def rendered(self, game: D12BallGame, result: GameResult) -> GameResult:
         """
@@ -910,19 +903,12 @@ class CoreMixin:
         -- the answer's lines, each group's, the narration still
         carried, the prompt's ask and a refusal's reason. **The one
         place a result is rendered**, at the door the service hands
-        it back through (`apply_action`, `dispatch_step_result`, and
-        the resume, begin, run-step and reset calls), so a view and
-        the presenter read Discord text and never a token; the
-        frontend renders once, the way a `PromptKind` becomes a view
-        once (decision 4 of docs/web-app.md).
+        it back through (`apply_action` for a click, `present_result`
+        for everything the bot runs itself), so a view and the
+        presenter read Discord text and never a token; the frontend
+        renders once, the way a `PromptKind` becomes a view once.
         """
-        render = DiscordTokens(
-            self.team_emojis,
-            self.role_emojis,
-            self.condition_emojis,
-            self.species_ability_emojis,
-            game,
-        ).render
+        render = self.tokens(game).render
 
         def prompt(pending: Optional[PendingPrompt]) -> Optional[PendingPrompt]:
             if pending is None:
@@ -1131,13 +1117,8 @@ class CoreMixin:
     ) -> tuple[str, str]:
         """
         What a player out of the contest is called, and the mark for
-        it -- a forwarding method over
-        `d12ball.flow.turn.injured_word_and_emoji`.
-
-        Kept here so none of its four call sites moved: a coaching
-        prompt, a shootout, and the injury test itself all name the
-        condition, and only one of the four is in the flow. The mark
-        is rendered here, since the flow hands back a token.
+        it: `d12ball.flow.turn.injured_word_and_emoji`, with the mark
+        rendered here since the flow hands back a token.
         """
         word, mark = injured_word_and_emoji(self.engine, game, player_id)
         return word, self.render_text(mark)
@@ -1220,27 +1201,26 @@ class CoreMixin:
         Only the side that still owes something is registered, so a
         coach who has already answered has nothing left listening.
         """
+        # Which sides still owe an answer, and to which of the two
+        # questions, is the prompt's (`ShootoutOptions.owed`) -- the
+        # same reading the menus themselves open by.
+        prompt = pending_prompt(self.engine, game, match)
+        menus = {
+            PromptKind.SHOOTOUT_ORDER: ShootoutOrderSelectView,
+            PromptKind.SHOOTOUT_PICK: ShootoutPickSelectView,
+        }
+        if prompt is None or prompt.kind not in menus:
+            return 0
         registered = 0
-        for side in (TeamSide.HOME, TeamSide.VISITING):
+        for side in prompt.options.owed():
             if self.engine.side_is_ai(game, side):
                 continue
-            if not match.shootout_orders_complete:
-                if match.shootout_order_complete(side):
-                    continue
-                view = ShootoutOrderSelectView(
-                    self, game.game_id, side, timeout=None,
-                )
-            elif match.shootout_shooter(side) is None:
-                view = ShootoutPickSelectView(
-                    self, game.game_id, side, timeout=None,
-                )
-            else:
-                continue
-
             # timeout=None because add_view refuses anything else: a
             # view it cannot see the message for has nothing to time
             # out against.
-            self.bot.add_view(view)
+            self.bot.add_view(
+                menus[prompt.kind](self, game.game_id, side, timeout=None),
+            )
             registered += 1
 
         return registered
@@ -1265,11 +1245,11 @@ class CoreMixin:
         What is left here is the rendering: the view, and the `ask`
         with its tokens drawn (`render_text`).
 
-        Its two callers must not drift apart: `restore_saved_views`
-        re-attaches what this returns to the message the prompt is
-        already on, and `resume_pending_prompt` posts it on a fresh
-        one. That is also why this returns a view rather than sending
-        it -- see "Recovering a stuck game" in docs/design/recovery.md.
+        `restore_saved_views` re-attaches what this returns to the
+        message the prompt is already on, which is why it returns a
+        view rather than sending it; a resume posts a fresh one through
+        `GameService.resume` and `render_prompt` -- see "Recovering a
+        stuck game" in docs/design/recovery.md.
         """
         game = self.games[game_id]
         prompt = pending_prompt(self.engine, game, match)
@@ -1339,21 +1319,17 @@ class CoreMixin:
                 self, game_id, prompt.skill_type, prompt.options, match,
             )
         if kind is PromptKind.LOW_PASS_CHOICE:
-            return LowPassChoiceView(
-                self, game_id, key=prompt.maneuver_key, free=prompt.free,
-            )
+            return LowPassChoiceView(self, game_id)
         if kind is PromptKind.SPEED_DELTA_CHOICE:
-            return SpeedDeltaChoiceView(
-                self, game_id, prompt.player_id, prompt.skill_type,
-            )
+            return SpeedDeltaChoiceView(self, game_id, prompt.player_id)
         if kind is PromptKind.SET_UP_ATTEMPT:
             return SetUpAttemptChoiceView(
                 self,
                 game_id,
                 prompt.player_id,
-                prompt.distance_moved,
                 contest_on_decline=prompt.contest_on_decline,
             )
+
         if kind is PromptKind.SHOOTER_CHOICE:
             return ShooterChoiceView(
                 self, game_id, list(prompt.options.player_ids),
@@ -1415,13 +1391,10 @@ class CoreMixin:
         carry_from: CarryFrom = None,
     ) -> GameResult:
         """
-        One click, applied: `GameService.apply_action`, from a view.
-
-        A method on the cog rather than a call on the service from the
-        view, so a test that stubs a step on the cog is reached by the
-        driver (`tests/flow_stubs.arm_cog_stub_routing` wraps this and
-        `dispatch_step_result` at the class). What it does is the
-        service's: load, apply, save once, return.
+        One click, applied and rendered: `GameService.apply_action` --
+        load, apply, save once, return -- with the result's tokens
+        drawn for Discord at the door (`rendered`). A view renders the
+        answer's own lines and hands the rest to `present`.
         """
         return self.rendered(
             game,
@@ -1454,7 +1427,23 @@ class CoreMixin:
         except RuleRefusal as error:
             await send_error_fallback(interaction, str(error))
             return
-        await self.present(interaction, game, self.rendered(game, outcome))
+        await self.present_result(interaction, game, outcome)
+
+    async def present_result(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        result: GameResult,
+    ) -> None:
+        """
+        A result straight from the service, rendered and presented --
+        the one line every entry point the bot runs itself ends on
+        (`begin_setup_coaching`, `resume_game`, `send_turn_prompt`,
+        `dispatch_step_result`). A click's result goes through
+        `apply_action` instead, since its view renders the answer's
+        own lines first.
+        """
+        await self.present(interaction, game, self.rendered(game, result))
 
     async def present(
         self,
@@ -1577,18 +1566,29 @@ class CoreMixin:
             # What a coach's prompt message would have opened with,
             # for a question the AI answered before anybody saw it:
             # one message, joined the way `render_prompt` joins it.
-            block = " ".join(lines)
+            await self.post_blocks(interaction, lines)
+            return
+        await self.post_blocks(
+            interaction,
+            lines,
+            per_message=(
+                group.step is None or group.step in DRIVER_BLOCKS_PER_MESSAGE
+            ),
+        )
+
+    async def post_blocks(
+        self,
+        interaction: discord.Interaction,
+        lines: list[str],
+        *,
+        per_message: bool = False,
+    ) -> None:
+        """The lines as one message joined on a space, or one message
+        per non-empty block; nothing at all for nothing to say."""
+        blocks = lines if per_message else [" ".join(lines)]
+        for block in blocks:
             if block:
                 await send_new_prompt(interaction, block)
-            return
-        if group.step is None or group.step in DRIVER_BLOCKS_PER_MESSAGE:
-            for block in lines:
-                if block:
-                    await send_new_prompt(interaction, block)
-            return
-        block = " ".join(lines)
-        if block:
-            await send_new_prompt(interaction, block)
 
     async def post_ai_answer(
         self,
@@ -1615,19 +1615,16 @@ class CoreMixin:
             return
         if kind in (PromptKind.SHOOTOUT_ORDER, PromptKind.SHOOTOUT_PICK):
             lines = lines[1:]
-        if kind in (
-            PromptKind.MANEUVER_ACTION,
-            PromptKind.HALFTIME_EXTRA_TOKEN,
-            PromptKind.SHOOTOUT_ORDER,
-            PromptKind.SHOOTOUT_PICK,
-        ):
-            for block in lines:
-                if block:
-                    await send_new_prompt(interaction, block)
-            return
-        block = " ".join(lines)
-        if block:
-            await send_new_prompt(interaction, block)
+        await self.post_blocks(
+            interaction,
+            lines,
+            per_message=kind in (
+                PromptKind.MANEUVER_ACTION,
+                PromptKind.HALFTIME_EXTRA_TOKEN,
+                PromptKind.SHOOTOUT_ORDER,
+                PromptKind.SHOOTOUT_PICK,
+            ),
+        )
 
     async def render_prompt(
         self,

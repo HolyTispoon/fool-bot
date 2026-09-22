@@ -69,7 +69,6 @@ from prompt_fixtures import ENGINE
 from save_patches import (
     LINKING_COG_MODULES,
     suppressed_cog_saves,
-    suppressed_view_saves,
 )
 from cog_steps import announce_run_back, begin_run_back
 

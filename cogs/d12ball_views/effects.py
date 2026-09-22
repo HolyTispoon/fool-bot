@@ -8,7 +8,6 @@ they are the same shape -- one prompt answering one question.
 import discord
 from typing import TYPE_CHECKING
 
-from d12ball.components import PlayerRole
 from d12ball.flow.driver import Action
 from d12ball.prompts import PromptKind
 from cogs.d12ball_helpers import (
@@ -55,37 +54,29 @@ class LowPassChoiceView(SafeView):
         self,
         cog: "D12Ball",
         game_id: str,
-        key: str = "low_pass",
-        free: bool = False,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
-        # Which card is being resolved, so the destinations offered are
-        # the ones that card actually reaches -- a Skilled Pass reaches
-        # any teammate within 3 spaces, ahead or behind. `free` is the
-        # unopposed pass Skilled Pass's cost hands the defense, which
-        # charges no clock.
-        self.key = key
-        self.free = free
 
+        # Which card is being resolved -- a Skilled Pass reaches any
+        # teammate within 3 spaces, ahead or behind -- and whether the
+        # pass is the free one Skilled Pass's cost hands the defense
+        # are the prompt's: the destinations offered already account
+        # for both, and the driver reads them back off the position.
         game, match = self.load_match()
+
         options = self.prompt_options(game, match, PromptKind.LOW_PASS_CHOICE)
         if options is None:
             return
 
         for option in options.passes:
             distance, receivers = option.distance, option.receiver_ids
-            origin_flat = match.board.flat_index(
-                match.ball.zone, match.ball.space_index,
-            )
-            target_flat = match.relative_flat_index(
-                origin_flat, match.ball.possession, distance,
-            )
-            zone, space_index = match.board.position_at_flat_index(
-                target_flat,
+            zone, space_index = match.ball_destination(
+                match.ball.possession, distance,
             )
             if len(receivers) > 1:
+
                 # Naming one of several would misread the choice: the
                 # space is what is being picked here, and who receives
                 # comes next.
@@ -131,14 +122,21 @@ class LowPassChoiceView(SafeView):
             return
 
         offense_side = match.ball.possession
-        receivers = self.cog.engine.low_pass_receivers(match, distance)
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
+        # Who is standing where the pass lands is the prompt's, off the
+        # same list the buttons were built from. A distance no longer
+        # offered -- an older prompt still in the channel -- has no
+        # receivers here, and the driver refuses it against the
+        # position below.
+        options = self.prompt_options(game, match, PromptKind.LOW_PASS_CHOICE)
+        receivers = next(
+            (
+                option.receiver_ids
+                for option in (options.passes if options else ())
+                if option.distance == distance
+            ),
+            (),
         )
-        target_flat = match.relative_flat_index(
-            origin_flat, offense_side, distance,
-        )
-        zone, space_index = match.board.position_at_flat_index(target_flat)
+        zone, space_index = match.ball_destination(offense_side, distance)
         # The clicking coach, named as every message names one: their
         # side's emoji in front (see format_player_with_team).
         team_emoji = get_team_emoji(
@@ -147,6 +145,7 @@ class LowPassChoiceView(SafeView):
         coach = f"{team_emoji} {interaction.user.display_name}"
 
         if len(receivers) > 1:
+
             # Which of them takes it is read off the same field the
             # space was picked off, so the attachment stays put --
             # this edit passes no `attachments`, which leaves the one
@@ -157,8 +156,8 @@ class LowPassChoiceView(SafeView):
             # way).
             receiver_view = LowPassReceiverView(
                 self.cog, self.game_id, distance,
-                key=self.key, free=self.free,
             )
+
             link = build_full_image_button(interaction.message)
             if link is not None:
                 receiver_view.add_item(link)
@@ -172,26 +171,29 @@ class LowPassChoiceView(SafeView):
             )
             return
 
-        teammate = self.cog.engine.get_player_definition(receivers[0])
         # Which card and whether it is free are the prompt's, read back
-        # off the position by the driver -- not this view's.
+        # off the position by the driver -- not this view's. A
+        # distance with nobody under it is refused there too.
+        receiver_id = receivers[0] if receivers else None
         result = await self.apply(
             interaction,
             game,
             Action(
                 PromptKind.LOW_PASS_CHOICE,
                 "",
-                {"distance": distance, "receiver_id": receivers[0]},
+                {"distance": distance, "receiver_id": receiver_id},
             ),
             carry_from=0,
         )
         if result is None:
             return
+        teammate = self.cog.engine.get_player_definition(receiver_id)
         await interaction.response.edit_message(
             content=(
                 f"**{coach}** chose "
                 "to pass the ball to "
                 f"{self.cog.player_label(match, teammate)} at "
+
                 f"{space_label(zone, space_index)}."
             ),
             view=None,
@@ -223,17 +225,14 @@ class LowPassReceiverView(SafeView):
         cog: "D12Ball",
         game_id: str,
         distance: int,
-        key: str = "low_pass",
-        free: bool = False,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
         self.distance = distance
-        self.key = key
-        self.free = free
 
         game, match = self.load_match()
+
         options = self.prompt_options(game, match, PromptKind.LOW_PASS_CHOICE)
         if options is None:
             return
@@ -283,12 +282,8 @@ class LowPassReceiverView(SafeView):
 
         offense_side = match.ball.possession
         receiver = self.cog.engine.get_player_definition(receiver_id)
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
-        zone, space_index = match.board.position_at_flat_index(
-            match.relative_flat_index(origin_flat, offense_side, self.distance)
-        )
+        zone, space_index = match.ball_destination(offense_side, self.distance)
+
         # The clicking coach, named as every message names one: their
         # side's emoji in front (see format_player_with_team).
         team_emoji = get_team_emoji(
@@ -459,17 +454,12 @@ class SetupPassPushBackView(SafeView):
             return
 
         offense_side = match.ball.possession
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
         # The prompt's distances: 1, 2 or 3, less any that run off
         # the end of the field (`RulesEngine.setup_pass_push_back_distances`).
         for distance in options.distances:
-            target_flat = match.relative_flat_index(
-                origin_flat, offense_side, -distance,
-            )
-            zone, space_index = match.board.position_at_flat_index(target_flat)
+            zone, space_index = match.ball_destination(offense_side, -distance)
             button = discord.ui.Button(
+
                 label=(
                     f"{distance} back ({space_label(zone, space_index)})"
                 ),
@@ -554,8 +544,9 @@ class HighPassChoiceView(SafeView):
         railed = options.railed
 
         for distance in options.distances:
-            ability_note = " (Fullback ability)" if distance == 4 else ""
+            ability_note = cog.engine.pass_ability_note(distance)
             destination_note = cog.engine.high_pass_destination_note(match, distance)
+
             button = discord.ui.Button(
                 label=(
                     f"{distance} spaces{ability_note} ({destination_note})"
@@ -638,17 +629,15 @@ class SetUpAttemptChoiceView(SafeView):
         cog: "D12Ball",
         game_id: str,
         shooter_id: str,
-        distance_moved: int,
         contest_on_decline: bool = False,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
         self.shooter_id = shooter_id
-        self.distance_moved = distance_moved
-        self.contest_on_decline = contest_on_decline
 
         shooter = cog.engine.get_player_definition(shooter_id)
+
         attempt_button = discord.ui.Button(
             label=f"{player_with_role(shooter)} takes the shot"[:80],
             style=discord.ButtonStyle.danger,
@@ -865,27 +854,16 @@ class DribbleBurstChoiceView(SafeView):
             # has; the empty view falls back to PlayerActionView.
             return
 
-        handler_id = match.active_player_id
-        playmaker = (
-            cog.engine.get_player_definition(handler_id).role
-            == PlayerRole.PLAYMAKER
-        )
-
         for distance in options.distances:
             space_word = "space" if distance == 1 else "spaces"
-            # Naming the destination is what "3 spaces" does not say:
-            # which way this side attacks and where that lands is read
-            # off the board, and the board has usually scrolled away.
-            destination = match.relative_move_destination(
-                handler_id, match.ball.possession, distance,
-            )
-            tokens = max(0, distance - (1 if playmaker else 0))
-            token_word = "token" if tokens == 1 else "tokens"
+            # The destination and the price are the engine's: where a
+            # run lands and what a Playmaker saves are rules.
             button = discord.ui.Button(
                 label=(
                     f"{distance} {space_word} "
-                    f"({space_label(*destination)}, {tokens} {token_word})"
+                    f"({cog.engine.dribble_burst_note(match, distance)})"
                 ),
+
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:dribble_burst:{game_id}:{distance}",
             )
@@ -948,15 +926,14 @@ class SpeedDeltaChoiceView(SafeView):
         cog: "D12Ball",
         game_id: str,
         player_id: str,
-        skill_type: str,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
         self.player_id = player_id
-        self.skill_type = skill_type
 
         game, match = self.load_match()
+
         options = self.prompt_options(
             game, match, PromptKind.SPEED_DELTA_CHOICE,
         )

@@ -107,7 +107,7 @@ from flow_stubs import (
     driver_reaches_cog_stubs,
     injury_queue_stops_the_chain,
 )
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import suppressed_cog_saves
 from cog_steps import apply_pressure, begin_run_back, continue_mind_pull, continue_smooth, describe_exhaustion_gain, finish_maneuver_resolution, run_mind_pull, run_smooth
 
 
@@ -590,7 +590,7 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
         # defense's 1 does not, whoever they are.
         with injury_queue_stops_the_chain(
             self.cog,
-        ), suppressed_cog_saves(), suppressed_view_saves(), mock.patch(
+        ), suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=[6, 1, 9],
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
