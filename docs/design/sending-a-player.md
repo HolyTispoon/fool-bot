@@ -38,8 +38,9 @@ rather than borrowing it -- see
   `automatic_challengers() or eligible_challengers()`: a defender standing on
   the ball challenges, so **nobody may be walked in past them** (the author,
   2026-08-17). It is what the view builds from, what `choose_challenger`
-  validates against and what `DinkyAI` picks out of, so the three cannot
-  disagree about who is on offer. The other three rules keep the whole pool --
+  validates against and what `DinkyAI` picks out of (`SendOptions.player_ids`
+  on the prompt, since step 7 of docs/architecture-migration.md), so the three
+  cannot disagree about who is on offer. The other three rules keep the whole pool --
   a contest and a pickup have somebody on the space or they have nothing to
   ask.
 - **Two branches are now guards rather than states.** An empty candidate list
@@ -51,9 +52,9 @@ rather than borrowing it -- see
 - **The walk-in is no longer bounded by geometry** -- up to eight spaces on
   board 9, which is past every player's defensive skill. That is the point of
   the decline, and it is why `DinkyAI` sends the *nearest* candidate in all
-  four rather than the best. `choose_loose_ball_player` took the higher skill
-  until this landed and now takes distance first; it needs the match to know
-  one, which is why it grew a parameter.
+  four rather than the best. The loose-ball pick took the higher skill until
+  this landed and takes distance first since (`DinkyAI._loose_ball`, answering
+  the `LOOSE_BALL_PICK` prompt).
 - **A missed shot and an avoided own goal joined the pickup on 2026-08-24.**
   Both restart the ball on a space with no coverage guarantee -- unlike a
   goal, whose kickoff space every arrangement is required to cover -- so
@@ -101,13 +102,14 @@ nothing downstream has to know which happened.
     the view is now built in a state where declining is refused, which used to
     happen only after a restart re-attached it to a stale prompt. That check
     still earns its keep for the same reason it did before.
-    - **Both routes into a challenge read the count, and one of them used to
-      read it as a flag.** `play_ai_turn` -- the AI on offense, so a *human*
-      defending -- took `on_ball_space[0]` and sent it, picking for the coach
-      off placement order in the one game where nobody else could. It asks the
-      same `len(...) == 1` now. A rule about how many candidates there are has
-      to be asked wherever candidates are counted, not only where it was
-      written down first.
+    - **There is one route into a challenge since step 7**, `begin_maneuver_step`,
+      whichever side is maneuvering: the AI's turn action is the same
+      `PLAYER_ACTION` answer a coach's is. Before that the AI's own turn step
+      read the count too, and had once read it as a flag -- took
+      `on_ball_space[0]` and sent it, picking for the human defense off
+      placement order. A rule about how many candidates there are has to be
+      asked wherever candidates are counted, not only where it was written
+      down first.
     - **The two prompts word themselves out of `challenger_prompt_ask`**, in
       `d12ball/formatting.py`: two defenders on the ball cannot be held back,
       so a prompt offering "or send nobody" offers what
@@ -124,9 +126,10 @@ nothing downstream has to know which happened.
   message after a restart. Both branches survive the 2026-08-16 change even
   though one of them is now practically unreachable -- the wording asks the
   state rather than knowing the answer.
-- **Dinky never declines.** `choose_challenger` still returns a player, so in a
-  solo game keeping somebody back is the human's option alone -- the same call
-  as never slipping in and never leaving a loose ball uncontested.
+- **Dinky never declines.** Its answer to `MANEUVER_CHALLENGE` is always
+  `send`, so in a solo game keeping somebody back is the human's option alone
+  -- the same call as never slipping in and never leaving a loose ball
+  uncontested.
 - **It stands in for `challenger_id` everywhere that flag means "a maneuver is
   under way".** `challenger_id` is what tells `validate()` that the handler is
   allowed to be off the ball mid-effect, and what tells `on_ready` which
@@ -140,9 +143,10 @@ nothing downstream has to know which happened.
 - **`maneuver_selections_complete` is the only "are we ready to resolve"
   test.** Two call sites used to check `offense_maneuver and defense_maneuver`
   directly and would have hung the turn; anything new should ask the property.
-- **Three entry points go through the same branch** --
-  `PlayerActionView.choose_action` for a human offense, `play_ai_turn` for the
-  AI, and `ManeuverChallengeView.decline` for a defense that sends nobody --
+- **Two entry points go through the same branch** --
+  `PlayerActionView.choose_action` for the offense (the AI's Maneuver is the
+  same answer, through the service), and `ManeuverChallengeView.decline` for
+  a defense that sends nobody --
   and all of them then use the ordinary maneuver prompt, so a coach reads the
   menu they always read. What is skipped is the challenger pick, the matchup
   image (it draws two players against each other), the reveal, and the skill

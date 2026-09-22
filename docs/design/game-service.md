@@ -99,6 +99,54 @@ die that was not rolled, the Mind Pull that landed, the turn action
 that walked a challenger in. This is the old `lines_posted` flag and
 the `narration[1:]` re-slicing in the views, made one parameter.
 
+## The AI answers here
+
+Step 7 of [../architecture-migration.md](../architecture-migration.md).
+The AI is a client of the service like a coach, not a branch inside
+a step: when `run`'s loop ends on a prompt, it asks
+`driver.ai_action` whether the question is the AI's --
+`d12ball.prompts.asked_sides` is the one reading of whose question a
+prompt is, the third reader over the chain beside `pending_prompt`
+and `owed_step` -- and if it is, puts the strategy's `Action` through
+`driver.answer` exactly as a click goes, then carries on. A roll is
+nobody's question, so the loop stops there and the AI never rolls
+(CLAUDE.md, "Nothing rolls dice on its own"). A strategy whose answer
+is refused is a bug and raises: the prompt offered what it offered,
+and `AIStrategy.choose` read the offer. `MAX_AI_ANSWERS` is the guard
+against a strategy that answers without moving the position, since
+this is one process for every game at once. `resume` runs a saved AI
+prompt on the same way ("the AI's choice"); a save waiting on one is
+a run that never finished, and the startup sweep re-arms nothing for
+it.
+
+**An AI answer is batched by the frontend**, because the coach's
+was. `Batching.carry_answer(action, answered)` is `carry_from` for
+the answers nobody clicked, and `DiscordBatching`'s `AI_ANSWER_CARRY`
+mirrors what each kind's view passes -- the distance menus' answers
+open the effect's message (0), a declined offer's first line stands
+alone (1), everything else is kept. The result carries the outcome
+as two more group tags: `Narration.prompt`, the lines the run was
+carrying into a question the AI answered before anybody saw it --
+what a coach's prompt message would have opened with, without the
+question -- and `Narration.action`, the answer's own kept lines, with
+`detail` beside them where the answer had a picture's numbers. The
+presenter posts each the way the kind's view posts a coach's
+(`D12Ball.post_ai_answer`): a hub note is never a message, the
+shootout's first block is the coach's own secret, the maneuver pick
+and the halftime token go a message per block.
+
+**One exception, for the cascade.** Where an answer carries whole,
+it is a continuation of what led to the question rather than an
+event of its own, and the group the loop had just closed after the
+step that asked -- if it was that step's, and not a picture -- is
+taken back and carried in front of it. The run back closes a message
+before each question it puts; the AI's placement belongs in that
+message, composed by `CONTINUE_RUN_BACK` like the forced placements
+around it, and that is how an AI side's run back is still one
+message and one board refresh ([rate-limits.md](rate-limits.md)). It
+is the service undoing one `own_message` close, on the frontend's
+say-so, and it is confined to `_answer_for_ai`.
+
 ## The presenter saves nothing
 
 `D12Ball.present(interaction, game, result)` is the whole of the
@@ -144,10 +192,12 @@ startup sweep used to re-arm over one of them -- the sweep skips a
 game the bot owes a step on and logs it, because a click there is
 refused and `/d12ball resume` is what runs it.
 
-The seven steps a resume can name that nothing else named --
+The six steps a resume can name that nothing else named --
 `ADVANCE_SETUP_STAGE`, `ADVANCE_HALFTIME_STAGE`,
-`ADVANCE_FULL_TIME_STAGE`, `ADVANCE_SHOOTOUT`, `RUN_AI_COACHING_WINDOW`,
-`FINISH_TIME_OUT`, `BEGIN_BALL_RECOVERY` -- are `FollowOnStep` members
+`ADVANCE_FULL_TIME_STAGE`, `ADVANCE_SHOOTOUT`, `FINISH_TIME_OUT`,
+`BEGIN_BALL_RECOVERY` (step 5 added a seventh, `RUN_AI_COACHING_WINDOW`,
+and step 7 took it out again: an AI side's window is a prompt it
+answers) -- are `FollowOnStep` members
 with a row in `MODEL_STEPS`. Each is still called inline by the step
 that ordinarily reaches it; the member is the door a resume comes back
 in through, and the closed enum is why nothing can reach one by
@@ -158,10 +208,7 @@ the service is the wording `/d12ball resume` reports each as.
 
 What "owed" means, branch by branch, is what the flow decides at that
 point without asking anybody: a stage set with no window open (the
-advance opens it); an AI side's extra token, order, shooter, window
-or pickup (the step chooses for it -- until migration step 7, when
-the AI answers prompts like a coach and these branches go back to
-being prompts with the AI's side on them); a pickup nobody need make;
+advance opens it); a pickup nobody need make;
 a run back with only forced placements left; a loose ball both sides
 have answered; a won card with nothing to ask. The stage fixtures in
 `tests/prompt_fixtures.py` open their window now, because the hub

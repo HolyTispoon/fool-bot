@@ -397,7 +397,7 @@ people, and **not** who was displaced.
   first build read "not moved by it" as "not *required* to move" and charged
   up both.
 - **`run_back_player` is where the move is recorded**, not the three callers
-  (the forced pass, the AI's placement, the coach's click), because it is
+  (the forced pass, and a coach's or the AI's answer to the prompt), because it is
   the one method a run back moves anybody through -- the same reasoning as
   `add_exhaustion` owning attribution.
 - **`pending_run_back_charge_up` is what keeps a new play out of it.** "A
@@ -713,9 +713,11 @@ the same door.
   `begin_run_back`'s `lead_in`, so it lands *after* the die: a message's
   attachments render below its content, and a result written above the roll
   would be read before it.
-- **Dinky never pulls**, so an AI side's Telekinetics are skipped rather than
-  prompted. Paying a token for a one-in-six steal is a judgement call and
-  Dinky makes none; it is also what keeps this flow free of an AI branch.
+- **Dinky never pulls.** An AI side's Telekinetics are asked like a coach's
+  and Dinky answers `decline` (`DinkyAI._let_it_pass`, through the service --
+  step 7 of docs/architecture-migration.md); until then the queue skipped
+  them. Paying a token for a one-in-six steal is a judgement call and Dinky
+  makes none.
 - **The token is paid whether or not the pull lands**, so the charge is above
   the roll rather than in the winning branch. It is **not a skill test and
   owes no injury check**, which the rules state outright -- nothing here goes
@@ -837,9 +839,10 @@ side's pulls were owed on a movement that no longer ends where it was going.
 - **The clock is not dropped**, the same as a pull: the maneuver that moved
   the ball still costs its space minute, carried out in `distance_moved`.
 
-**Dinky never takes a Smooth**, so `continue_smooth` skips an AI side's
-Telekinetics the way `continue_mind_pull` skips them, rather than
-`DinkyAI.choose_ball_handler` declining to widen a list that no longer widens.
+**Dinky never takes a Smooth.** An AI side's Telekinetics are asked the
+same `SMOOTH` prompt a coach's are and Dinky answers `decline`
+(`DinkyAI._let_it_pass`), the way it lets a Mind Pull go; until step 7 of
+docs/architecture-migration.md `continue_smooth` skipped them instead.
 Taking the ball over moves who plays the next turn, which is a judgement, and
 Dinky makes none -- the same call as never ceding, never declining a challenge
 and never pulling. In a solo game the ability is the human's alone.

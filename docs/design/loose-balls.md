@@ -133,7 +133,10 @@ the two paths that did not pass it kept the old behaviour.
 - **Skipping the prompt is a count, not a flag**, exactly as with the
   challenge. `auto_resolve_loose_ball_picks` puts up a **lone** player on the
   ball unasked -- there is nothing to ask -- and leaves two to the coach
-  (2026-08-18, the same call as the maneuver challenge's).
+  (2026-08-18, the same call as the maneuver challenge's). An AI side is
+  a coach here since step 7 of docs/architecture-migration.md: it gets the
+  `LOOSE_BALL_PICK` prompt and Dinky sends its nearest (`DinkyAI._loose_ball`),
+  where the same function used to pick for it.
   `build_loose_ball_prompt` words that case differently, because the question
   is which of them rather than whether to send anybody.
 - **The passer is struck out of the offense's pool in a High Pass contest**,

@@ -29,8 +29,9 @@ ball's space -- see "Choosing the handler" in the living rules.
 `MatchState.turn_handler_candidates` is the whole of the rule.
 
 - **Every place that offers a handler asks `turn_handler_candidates`**, never
-  `eligible_ball_handlers` -- `send_turn_prompt`, `BallHandlerSelectionView`,
-  `DinkyAI.choose_ball_handler`, and `select_ball_handler`'s own validation.
+  `eligible_ball_handlers` -- `send_turn_prompt`, `BallHandlerSelectionView`
+  and Dinky's pick (both off `PlayerOptions` on the prompt), and
+  `select_ball_handler`'s own validation.
   `eligible_ball_handlers` still means "everyone of this team on the ball" and
   is what the loose-ball check and the kickoff fill ask, which is a different
   question and must not be narrowed.

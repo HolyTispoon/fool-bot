@@ -109,10 +109,20 @@ two kinds now, not three.
   do -- declining a challenge, slipping in, pulling the ball, and ceding, as
   this used to be -- is a weighing-up with no right answer, where an injured
   player rolls without their skill modifier for the rest of the game and can
-  never recover. `DinkyAI.choose_action` checks it **after** the shot (a shot
-  on is worth more, and the time out keeps) and **before** the maneuver (which
-  is what Dinky does with nothing better to do). `play_ai_turn` dispatches it
-  **ahead of `record_turn_action`**, since a time out is not one.
+  never recover. `DinkyAI.choose` answers the turn prompt with it, checked
+  **after** the shot (a shot on is worth more, and the time out keeps) and
+  **before** the maneuver (which is what Dinky does with nothing better to
+  do), and only where the prompt offers it live -- the rules' gate and the
+  tutorial's, read off `TurnOptions` like a coach's buttons. The answer goes
+  through `_answer_player_action` like a coach's click (step 7 of
+  docs/architecture-migration.md), which runs `begin_time_out` **ahead of
+  `record_turn_action`**, since a time out is not one.
+- **The announcement is the answer's own line, not the window's heading.**
+  "# X call a time out / Both coaches get a Coaching Choice..." is
+  `begin_time_out`'s narration since step 7: a coach's turn prompt is edited
+  into it and the menu follows, where it used to ride at the top of the
+  caller's menu as its `heading`. It moved because an AI caller has no menu
+  to carry a heading on, and the announcement has to be said whoever called.
 - **A game saved mid-cede comes back mid-time-out.** `CoachingOccasion._missing_`
   maps the old `"ceded"` value, and `from_dict` reads `declared_substitution`
   and `pending_cede` as the fallbacks for the two renamed fields. Reading a

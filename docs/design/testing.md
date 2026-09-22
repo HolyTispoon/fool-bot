@@ -187,3 +187,22 @@ wrappers build a `GameResult` through `cog.service.run` inside
 `driver_reaches_cog_stubs`, so a stub on the cog is still reached.
 `resume_pending_prompt` writes the test's hand-built match onto the
 record first, because `GameService.resume` reads the record.
+
+## `tests/ai_answers.py`: asking the AI a question
+
+Since step 7 of [../architecture-migration.md](../architecture-migration.md)
+the AI answers prompts (`AIStrategy.choose`), so a test of what Dinky
+does in a position asks it the way the game does: build the position,
+read the prompt off the one chain and take the answer off
+`driver.ai_action` -- `ai_answer` / `ai_answers` -- or let it answer
+until the position is somebody else's, running each answer through
+`driver.apply` (`let_the_ai_answer`, the loop `GameService.run` makes
+for a test with no service). `solo_game` is a record with the AI as
+player 2, visiting unless `ai_home`. A test that built a prompt by hand
+with a chosen `options` and called `choose` on it directly is asserting
+a policy over an offer the game may never make, which is fine for the
+unit tests that do it (`test_d12ball_high_pass`,
+`test_d12ball_shooting_range`); `AIAnswerTests` in
+`test_d12ball_driver_actions.py` is what asserts the answers to the
+questions the game actually asks, over every fixture in
+`prompt_fixtures.py`.

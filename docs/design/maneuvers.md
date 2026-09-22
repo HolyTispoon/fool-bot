@@ -111,14 +111,18 @@ once -- one trailing while the other is the more hurt.
   The reference hexagon is not gated either (`D12Ball.reference_tier`)
   -- a coach who holds nothing still has to read what is coming at them.
 - **Dinky needed no policy.** It rolls a rank and picks at random among
-  the cards on it that are in the hand it was handed, so a closed Dinky
-  plays the basic three without knowing why -- the same indifference it
-  brings to the tier itself, below.
+  the cards on it that are in the hand the prompt offers it
+  (`ManeuverHand.maneuver_keys`, since step 7 of
+  docs/architecture-migration.md), so a closed Dinky plays the basic three
+  without knowing why -- the same indifference it brings to the tier
+  itself, below.
 - **The bot says who holds them anyway.** `describe_gambit_access` puts
   one line under the maneuver prompt. The rule is public knowledge by
   construction -- the author's point in setting it on the scoreboard and
-  the meeples -- but the prompt only draws a hand for a side a *person*
-  picks for, so in a solo game Dinky's cards are never on the message.
+  the meeples -- but the prompt only draws a hand for a side still to
+  pick, and Dinky answers through the service before any message goes up
+  (`maneuver_pick_sides` drops an AI hand once it has picked), so in a
+  solo game Dinky's cards are never on the message.
   Nothing is said where neither coach holds them: three cards a side is
   the basic game the coaches already know.
 
@@ -169,10 +173,10 @@ once -- one trailing while the other is the more hurt.
     with `pay_clear_cost` moved down as a free function -- its only
     two callers were those two cards. Each ends by naming
     `FollowOnStep.OFFER_SPEED_CHOICE`, the ball-speed manipulation
-    every dribble finishes on, which stays in the cog because
-    *whether anyone is asked* is still Discord's decision: Dinky
-    answers for itself and a tutorial beat holds the prompt behind a
-    note. Nothing either card says changed.
+    every dribble finishes on, named because a tutorial beat holds
+    the prompt behind a note (and, until step 7, because Dinky
+    answered for itself inside it; it answers the prompt through the
+    service now). Nothing either card says changed.
     - **The burst no longer ends there.** Since 2026-09-20 a won
       Dribble Burst leaves the ball at exactly 12 -- the author:
       "precisely 12, not any number" -- so there is no speed to ask
@@ -265,10 +269,10 @@ once -- one trailing while the other is the more hurt.
       read correctly right up until the Fullback was let near a Clear.
     - **The rank named two new follow-ons**, `BEGIN_LOOSE_BALL` and
       `OFFER_SETUP_PASS_PUSH_BACK`. The push-back is a follow-on rather
-      than a prompt the step returns for rank O2's reason: whether
-      anybody is asked at all is still the cog's, since Dinky drives it
-      as far back as it goes and a ball already at the end of the field
-      has nothing to offer.
+      than a prompt the step returns for rank O2's reason: a ball
+      already at the end of the field has nothing to offer, which the
+      step decides before asking. Dinky answers the prompt with the
+      farthest distance (`DinkyAI._farthest`).
     - **The overshoot's ordering is unchanged and now pinned.** A
       deflection that runs out of field and finds a defender standing
       where the ball stopped turns into a scoring opportunity, and the
@@ -346,10 +350,11 @@ once -- one trailing while the other is the more hurt.
     field -- the one place even 1 space runs off the end -- with no
     teammate beside them. The other three call sites are the score
     attempt, a conceded own goal and the out-of-bounds loose ball.
-  - **Dinky answers the distance through `choose_high_pass_distance`**,
-    which is the same question now that a bad pass costs the ball: the
-    longest that reaches a teammate, otherwise the longest available.
-    A second policy would only be the same one written twice.
+  - **Dinky answers the distance as it answers a High Pass's**
+    (`DinkyAI._longest_reaching_pass`, on both prompts), which is the
+    same question now that a bad pass costs the ball: the longest that
+    reaches a teammate, otherwise the longest available. A second
+    policy would only be the same one written twice.
 - **A role ability is inherited by rank, and what carries is the rule
   rather than the number.** Each sentence in `players.json` was written
   against one card and states a number, so read literally three of them
