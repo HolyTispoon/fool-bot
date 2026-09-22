@@ -546,6 +546,96 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
   `d12ball/components.py` for that reason and are re-exported here, the
   arrangement `cogs/d12ball_helpers.py` has with `d12ball/formatting.py`.
 
+## The role cards
+
+`d12ball/role_cards.py` draws the six basic role abilities -- Fullback,
+Defender, Midfielder, Playmaker, Winger, Striker -- as a **one-card
+reference set**, poker size, out of the same `Pen`, palette and
+`print_sheet` as the maneuver, player and species cards.
+
+```bash
+python3 scripts/render_role_cards.py --out cards/roles --sheet
+```
+
+- **One card, not three -- because there is no pairing to solve.** The
+  species set exists because a species-vs-species game only ever needs
+  two of the four abilities in play, so three double-sided cards cover
+  every pairing and a coach lays the one that matches the two teams. A
+  role has no such split: both coaches field all six roles every game,
+  so every role's ability is live at once regardless of who is playing
+  whom.
+- **Both faces carry all six**, not three apiece. A card that split the
+  six roles across its two faces would still make a coach flip it to
+  find half of them, which is exactly the thing "no pairing to solve"
+  is supposed to buy back. `render_role_card_set` renders the face once
+  and hands the same image back as both `"front"` and `"back"` -- there
+  is nothing a second, different face could add, so it is not drawn.
+- **Two columns of three, not six strips.** Six abilities laid out as
+  six full-width strips would run off a poker card; splitting every row
+  in two is what fits all six on one face without shrinking the set.
+  `GRID_ROLES` is `PlayerRole`'s own order (offense 1 through 6) read
+  row-major into the grid -- Fullback/Defender, Midfielder/Playmaker,
+  Winger/Striker -- rather than a seating chart invented for the card.
+- **The badge is the bot's own role emoji, not a redrawn circle.**
+  `d12ball/images/emoji/role_<role>.png` -- the plain, team-less badge
+  `scripts/render_role_emoji.py` draws and the bot uploads under
+  `ROLE_EMOJI_NAMES` -- is read straight off disk and pasted, so the
+  two letters on the card are the same art as the two letters beside a
+  name in Discord, not a second drawing of them. This is the first
+  thing in the bot to actually open that file: everywhere else it is
+  written to be uploaded by hand and never read back (see
+  `scripts/render_role_emoji.py`'s own docstring and "The brackets have
+  an emoji form" in docs/design/naming-and-wording.md). A missing file
+  draws nothing, the same swallowed-`OSError` contract every other
+  bundled image in this package follows -- `role_cards.py` does not
+  need `d12ball/render.py`'s `ROLE_INITIALS` at all, and does not
+  import it.
+- **The badge nearly fills its own row.** `BADGE_SIZE` is a fraction of
+  `NAME_ROW_HEIGHT` rather than a size picked to leave room beside it
+  for something else -- the badge is already the picture a coach reads
+  this role off in Discord, so a print reference gets more out of
+  making it as large as the row will take than out of shrinking it to
+  match a smaller badge drawn elsewhere on the card.
+- **The name is the largest thing `fitted_bold_font` will fit the row
+  at, not a fixed size.** With the badge taking the row's height, the
+  name gets whatever width is left of it and is sized to that --
+  "FULLBACK" prints larger than "MIDFIELDER" because it is shorter, the
+  same search `player_cards.fitted_name` runs for a player's name.
+- **The two skills stack under the name, right-anchored, instead of
+  sitting beside it.** A name sized to fill the row has no width left
+  beside it for numbers on the same line, so each skill gets a row of
+  its own under the name row. Right-anchored rather than left is what
+  keeps six panels' numbers reading as a column when they sit side by
+  side, since "OFF 1" and "DEF 6" are not the same width as "OFF 4" and
+  "DEF 3". They stay in `CARD_OFFENSE_COLOR` / `CARD_DEFENSE_COLOR` --
+  the same two colours `player_cards.draw_stats` and the bot's own card
+  draw them in, so a printed 6 and a drawn 6 are the same red.
+- **Only the full sentence, never `ability_short`** -- the same call
+  the species and player cards make, and for the same reason: a card
+  on a table is the whole of what its coach has. `ability_short` on a
+  `RoleProfile` stays for a caption, not a print.
+- **The sentence is top-aligned under its band, not centred.** Every
+  panel is the same fixed height regardless of how long its own
+  sentence runs -- centring each one in the room it leaves would start
+  six abilities at six different heights, which reads as unaligned
+  rather than as a grid. Top-aligned, the six panels' first lines sit
+  level with each other whatever their own lengths, the same way the
+  six bands above them do.
+- **`BODY_MAX_SIZE` is capped high (40) because the room usually is
+  too.** Six one-sentence abilities rarely fill even a third of a
+  poker card's height between them, so `_fitted_ability`'s search
+  almost always lands well below the cap on width alone -- the cap
+  exists to let a short sentence in a short row use the room it has
+  rather than sit small in it, not to promise every sentence prints at
+  40.
+- **Nothing here is written in the module.** The ability text and the
+  offense/defense numbers come from `players.json`'s `role_profiles`
+  through `load_player_catalog`, the same table `/d12ball
+  role_abilities` (`cogs/d12ball/slash_commands.py`) already reads --
+  so a card cannot claim a stat the bot does not play, and a sheet
+  revision reaches it by re-importing and re-running the render script,
+  same as every other card in this file.
+
 ## The species icons
 
 One silhouette a species -- a flame for the Fire Demons' Volatile, a cell
