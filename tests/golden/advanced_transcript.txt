@@ -43,12 +43,12 @@ Chose **2 spaces**.
 --- message
 Ball speed is now **5**.
 --- message
-🔮 **Smooth** — the ball reaches near 🔮 Zenith [WG], who may _smoothly_ pull to become handler.
-=== press 6: SmoothView -> 'Leave it'
+🔮 **Smooth** — the ball reaches near 🔮 Zenith [WG], who can take the ball to become the ball handler.
+=== press 6: SmoothView -> 'Quillon [PM] keeps the ball'
 --- message
 🔮 Zenith [WG] lets it run.
 --- message
-🔮 **Smooth** — the ball reaches near 🔮 Noxar [SK], who may _smoothly_ pull to become handler.
+🔮 **Smooth** — the ball reaches near 🔮 Noxar [SK], who can take the ball to become the ball handler.
 === press 7: SmoothView -> 'Noxar [SK] takes it over'
 --- message
 🔮 **Smooth** — 🔮 Noxar [SK] takes the ball on **V1** (Visitors Zone).
@@ -659,7 +659,7 @@ Ball speed is now **5**.
 --- message
 **🔮 Coach** picks out a **Setup Pass** of 3.
 --- message
-🔮 **Smooth** — the ball reaches near 🔮 Quillon [PM], who may _smoothly_ pull to become handler.
+🔮 **Smooth** — the ball reaches near 🔮 Quillon [PM], who can take the ball to become the ball handler.
 === press 63: SmoothView -> 'Quillon [PM] takes it over'
 --- message
 🔮 **Smooth** — 🔮 Quillon [PM] takes the ball on **M2** (Midfield).
@@ -920,12 +920,12 @@ You chose **Skilled Pass**.
 --- message
 **🔮 Coach** chose to pass the ball to 🔮 Quillon [PM] at M2.
 --- message
-🔮 **Smooth** — the ball reaches near 🔮 Dravox [DD], who may _smoothly_ pull to become handler.
-=== press 88: SmoothView -> 'Leave it'
+🔮 **Smooth** — the ball reaches near 🔮 Dravox [DD], who can take the ball to become the ball handler.
+=== press 88: SmoothView -> 'Quillon [PM] keeps the ball'
 --- message
 🔮 Dravox [DD] lets it run.
 --- message
-🔮 **Smooth** — the ball reaches near 🔮 Spectra [MF], who may _smoothly_ pull to become handler.
+🔮 **Smooth** — the ball reaches near 🔮 Spectra [MF], who can take the ball to become the ball handler.
 === press 89: SmoothView -> 'Spectra [MF] takes it over'
 --- message
 🔮 **Smooth** — 🔮 Spectra [MF] takes the ball on **M1** (Midfield).

@@ -844,6 +844,48 @@ side's pulls were owed on a movement that no longer ends where it was going.
 - **The clock is not dropped**, the same as a pull: the maneuver that moved
   the ball still costs its space minute, carried out in `distance_moved`.
 
+**The offer names the ability and the decline names a player**
+(the author, 2026-09-22). Two wordings were wrong at once and they
+were wrong for one reason -- the offer said what the mechanic *was*
+without saying what the buttons *did*:
+
+- **"can still take the ball over" never named Smooth.** It is
+  `pending_prompt`'s branch rather than `continue_smooth`'s live
+  offer, so it is what a coach comes back to after a restart or a
+  `/d12ball resume` -- with none of the lines that opened the
+  question. The live offer had carried the `{species:telekinetic}`
+  banner and the bold **Smooth** since the ability landed; the
+  restored one now carries both as well, and "still" is the only
+  thing left telling the two apart. Both say "can take the ball to
+  become the ball handler", which is the rule's own sentence ("the
+  ball stops on their space and they become the carrier"), where
+  "pull to become handler" read as Mind Pull's word for a thing that
+  is not a pull.
+- **"Leave it" said what declining did not do.** A Smooth is a choice
+  between two players holding the ball, so the decline names the one
+  it leaves it with: "Gearclaw [PM] keeps the ball".
+
+**Who that is is a rule, so it is `RulesEngine.smooth_keeper` and it
+rides on the prompt.** `SmoothOptions` is `DecisionOptions`' shape
+with `keeper_id` added rather than that shape with a nullable field
+on it -- a pull declined leaves the ball with the other side, which
+the pull's own wording already says, and a coaching offer has no ball
+in it. A view and a web page read the one field, which is the rule a
+frontend's buttons are held to (CLAUDE.md, "State and saves").
+
+The answer is `ball_carrier_id` -- every effect that completes a
+delivery sets it before the gate is asked, and a dribble or a shove
+sets it on the handler who carried the ball -- with **two arrivals
+excepted, and both are about to clear it**: a loose ball comes down
+free (`begin_loose_ball` clears the carrier the moment the gate lets
+it through) and a new play sends the ball back to the kickoff space
+with nobody on it, so the receiver a goal has just made a former
+carrier is not keeping anything. Both are read off
+`pending_smooth_resume`, the arrival the offer is holding back, which
+is the only thing that knows what declining leads to. Where there is
+no keeper the button has nothing to name and says "Leave it" -- the
+one place the old wording was the right wording.
+
 **Dinky never takes a Smooth.** An AI side's Telekinetics are asked the
 same `SMOOTH` prompt a coach's are and Dinky answers `decline`
 (`DinkyAI._let_it_pass`), the way it lets a Mind Pull go; until step 7 of

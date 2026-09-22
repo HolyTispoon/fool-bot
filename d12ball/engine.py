@@ -663,6 +663,34 @@ class RulesEngine:
                 candidates.append(player_id)
         return candidates
 
+    def smooth_keeper(self, match: MatchState) -> Optional[str]:
+        """
+        Who holds the ball if the Smooth on offer is **declined** --
+        the other half of the question `smooth_candidates` asks, and
+        the one a frontend needs to say what the second button does.
+
+        A Smooth is "take it over", so there is usually somebody to
+        take it off: every effect that completes a delivery sets
+        `ball_carrier_id` before the arrival gate is asked, and a
+        dribble or a shove sets it on the handler who carried it. That
+        player is standing on the ball and keeps it where nobody
+        smooths.
+
+        **Two arrivals are about to take it off them anyway, and
+        neither leaves a keeper.** A loose ball comes down free --
+        `begin_loose_ball` clears the carrier the moment the gate lets
+        it through -- and a new play sends the ball back to the
+        kickoff space with nobody on it, so the carrier still recorded
+        at the gate is a receiver the goal has already made a former
+        one. Both are read off `pending_smooth_resume`, the arrival
+        this offer is holding back, which is the only thing that knows
+        what declining leads to.
+        """
+        resume = match.pending_smooth_resume or {}
+        if resume.get("kind") == "loose_ball" or resume.get("new_play"):
+            return None
+        return match.ball_carrier_id
+
     def turn_handler_candidates(
         self, game: D12BallGame, match: MatchState,
     ) -> list[str]:

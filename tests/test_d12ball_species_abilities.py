@@ -97,6 +97,7 @@ from d12ball.game import (
 from cogs.d12ball_helpers import get_damaged_emoji, get_injured_emoji
 
 from roster import field_players, fielded_of_species
+from d12ball.prompts import PromptKind, pending_prompt
 from d12ball.flow.arrivals import (
     check_for_ball_arrival,
     check_for_mind_pull,
@@ -1571,6 +1572,77 @@ class SmoothCandidateTests(unittest.TestCase):
         )
         self.assertEqual(restored.pending_smooth, [])
         self.assertIsNone(restored.pending_smooth_resume)
+
+
+class SmoothKeeperTests(unittest.TestCase):
+    """
+    **Who the decline leaves the ball with** -- the other half of the
+    offer, and what the second button names since 2026-09-22 ("Leave
+    it" said what declining did not do). The rule is
+    `RulesEngine.smooth_keeper` and the prompt carries its answer, so
+    a view and a web page name the same player.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game(player_1_team=Team.TELEKINETICS)
+        self.match = build_match(self.engine, self.game)
+        self.taker = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, self.match.ball.possession,
+        )
+        self.carrier = next(
+            player_id
+            for player_id in field_players(
+                self.match, self.match.ball.possession,
+            )
+            if player_id != self.taker
+        )
+        self.match.set_ball_carrier(self.carrier)
+        self.match.pending_smooth = [self.taker]
+
+    def test_the_carrier_the_arrival_settles_on_keeps_it(self):
+        self.match.pending_smooth_resume = {"kind": "finish_maneuver"}
+        self.assertEqual(
+            self.engine.smooth_keeper(self.match), self.carrier,
+        )
+
+    def test_a_loose_ball_leaves_nobody_holding_it(self):
+        # `begin_loose_ball` clears the carrier the moment the gate
+        # lets it through, so the one still recorded here is about to
+        # stop being one.
+        self.match.pending_smooth_resume = {"kind": "loose_ball"}
+        self.assertIsNone(self.engine.smooth_keeper(self.match))
+
+    def test_a_new_play_leaves_nobody_holding_it(self):
+        # The ball is going back to the kickoff space; the receiver a
+        # goal has just made a former carrier is not keeping anything.
+        self.match.pending_smooth_resume = {
+            "kind": "run_back", "new_play": True,
+        }
+        self.assertIsNone(self.engine.smooth_keeper(self.match))
+
+    def test_a_run_back_that_is_not_a_new_play_has_one(self):
+        # The thief keeps what they stole; the Smooth only changes who
+        # is standing on it when everyone runs back.
+        self.match.pending_smooth_resume = {
+            "kind": "run_back", "new_play": False,
+        }
+        self.assertEqual(
+            self.engine.smooth_keeper(self.match), self.carrier,
+        )
+
+    def test_nobody_carrying_it_is_nobody_to_name(self):
+        self.match.pending_smooth_resume = {"kind": "finish_maneuver"}
+        self.match.clear_ball_carrier()
+        self.assertIsNone(self.engine.smooth_keeper(self.match))
+
+    def test_the_prompt_carries_the_keeper_and_names_the_ability(self):
+        self.match.pending_smooth_resume = {"kind": "finish_maneuver"}
+        prompt = pending_prompt(self.engine, self.game, self.match)
+        self.assertIs(prompt.kind, PromptKind.SMOOTH)
+        self.assertEqual(prompt.options.keeper_id, self.carrier)
+        self.assertIn("**Smooth**", prompt.ask)
+        self.assertIn("become the ball handler", prompt.ask)
 
 
 class TurnHandlerNarrowingTests(unittest.TestCase):

@@ -1305,7 +1305,9 @@ class CoreMixin:
         if kind is PromptKind.MIND_PULL:
             return MindPullView(self, game_id, prompt.player_id)
         if kind is PromptKind.SMOOTH:
-            return SmoothView(self, game_id, prompt.player_id)
+            return SmoothView(
+                self, game_id, prompt.player_id, prompt.options.keeper_id,
+            )
         if kind is PromptKind.INJURY_TEST:
             return InjuryTestView(self, game_id, prompt.player_id)
         if kind is PromptKind.RUN_BACK_SPACE:
