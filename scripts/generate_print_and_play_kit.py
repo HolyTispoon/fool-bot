@@ -97,8 +97,9 @@ they are that same board cut in half, two letter sheets, taped along
 the cut, at exactly the size the big sheet prints.
 
 **Everything else is letter** ({letter_size}), the size a printer in
-the house has in it: the jumbotron portrait on one sheet, and the team
-board two coaches to a page.
+the house has in it: the jumbotron on one sheet -- portrait, or
+`jumbotron-board-landscape.png` for the same board turned, whichever
+suits the table -- and the team board two coaches to a page.
 
 Cut cards on the rounded outline printed on each one; a print-sheet's
 cells are sized so dividing the sheet into an even grid cuts every

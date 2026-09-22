@@ -3,10 +3,12 @@
 
 Print-ready at 300dpi. The field board is tabloid (11 x 17) by
 default -- a home or copy-shop printer's own size, where A3 is not.
-**The jumbotron is a letter sheet, portrait**, and the team board is
-half a letter sheet, two coaches to a page: both have a paper of their
-own, because letter is the size a printer in the house actually has in
-it and neither board has a field on it to pay for a bigger sheet. See
+**The jumbotron is a letter sheet and comes out both ways up** --
+`jumbotron-board.png` portrait and `jumbotron-board-landscape.png` --
+and the team board is half a letter sheet, two coaches to a page: both
+have a paper of their own, because letter is the size a printer in the
+house actually has in it and neither board has a field on it to pay
+for a bigger sheet. See
 `PAPERS`, `DEFAULT_PAPER`, `JUMBOTRON_PAPER` and `TEAM_BOARD_PAPER` in
 `d12ball/boards.py`:
 
@@ -193,13 +195,20 @@ def main() -> None:
                 args.pdf,
             )
 
-    save(
-        render_jumbotron_board(
-            paper=args.jumbotron_paper, bleed=args.bleed
-        ),
-        args.out / "jumbotron-board.png",
-        args.pdf,
-    )
+    # Both ways up. It is one layout on a turned sheet rather than two
+    # designs, so a print run takes whichever suits the table --
+    # portrait is the roomier, landscape the one that sits across a
+    # table in front of two coaches.
+    for landscape, suffix in ((False, ""), (True, "-landscape")):
+        save(
+            render_jumbotron_board(
+                paper=args.jumbotron_paper,
+                landscape=landscape,
+                bleed=args.bleed,
+            ),
+            args.out / f"jumbotron-board{suffix}.png",
+            args.pdf,
+        )
 
     teams = tuple(Team) if args.teams else (None,)
     for team in teams:
@@ -256,17 +265,21 @@ def main() -> None:
             "the area rather than inside the guide"
         )
     )
-    cells = cell_inches(args.jumbotron_paper)
-    for name, (width, height) in cells.items():
-        note = (
-            ""
-            if min(width, height) >= MIN_TOKEN_INCHES
-            else "  -- too small to stand a token in"
-        )
-        print(
-            f"jumbotron {name} cells are {width:.2f} x {height:.2f} in"
-            + note
-        )
+    # Reported for both, because they do not measure the same and
+    # landscape is the tight one -- it is where a share redivided too
+    # far shows up first.
+    for landscape, facing in ((False, "portrait"), (True, "landscape")):
+        cells = cell_inches(args.jumbotron_paper, landscape=landscape)
+        for name, (width, height) in cells.items():
+            note = (
+                ""
+                if min(width, height) >= MIN_TOKEN_INCHES
+                else "  -- too small to stand a token in"
+            )
+            print(
+                f"jumbotron ({facing}) {name} cells are "
+                f"{width:.2f} x {height:.2f} in" + note
+            )
 
 
 if __name__ == "__main__":

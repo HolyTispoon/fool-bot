@@ -48,7 +48,7 @@ python3 -m unittest discover -s tests
 | `d12ball/player_cards.py` | The roster as cards, print-only, over `cards.py` |
 | `d12ball/species_cards.py` | The four species abilities as a three-card reference set, print-only |
 | `d12ball/role_cards.py` | The six basic role abilities as a one-card reference set, print-only |
-| `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game. **Only the field board is tabloid**; the jumbotron is a letter sheet portrait and the team board half a letter one. The field board comes out three ways: the tabloid sheet, and its own two letter halves, which taped along the cut are that same board. The team board comes out twice: one board, and a letter page carrying two |
+| `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game. **Only the field board is tabloid**; the jumbotron is a letter sheet drawn both portrait and landscape, and the team board half a letter one. The field board comes out three ways: the tabloid sheet, and its own two letter halves, which taped along the cut are that same board. The team board comes out twice: one board, and a letter page carrying two |
 | `d12ball/rulebooks.py` | The two rulebooks as PDFs: the markdown subset, the Charter's build-time numbering, the reportlab layout. `scripts/build_rulebooks.py` is its CLI -- [rulebooks.md](docs/design/rulebooks.md) |
 | `d12ball/rulebook_figures.py` | The Learn to Play's illustrations, as real match states rendered by `render.py` and annotated; written to `docs/rulebooks/figures/` by `--figures` |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |

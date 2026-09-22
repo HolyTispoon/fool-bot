@@ -25,7 +25,15 @@ from d12ball.boards import (
     HALF_PAPERS,
     MIN_TOKEN_INCHES,
     PRINT_DPI,
+    JUMBOTRON_FOOTER,
+    JUMBOTRON_FOOTER_SIZE,
+    JUMBOTRON_HEADER,
+    JUMBOTRON_NOTES,
+    JUMBOTRON_NOTE_LEADING,
+    JUMBOTRON_NOTE_SIZE,
     JUMBOTRON_PAPER,
+    JUMBOTRON_TITLE_SIZE,
+    PANEL_TITLE_SIZE,
     SCORE_COLUMNS,
     SCORE_TRACK_MAX,
     TEAM_BOARD_PAPER,
@@ -623,23 +631,33 @@ class D12BallTeamBoardTests(unittest.TestCase):
 
 
 class D12BallJumbotronTests(unittest.TestCase):
-    def jumbotron_geometry(self) -> JumbotronGeometry:
+    # The board is drawn both ways up and they do not measure the
+    # same: landscape has two and a half inches less height while its
+    # type is bigger, being a share of the longer side. Every
+    # measurement here is therefore checked in both, and landscape is
+    # the one that fails first.
+    FACINGS = ((False, "portrait"), (True, "landscape"))
+
+    def jumbotron_geometry(self, landscape: bool = False) -> JumbotronGeometry:
         return JumbotronGeometry.for_sheet(
-            Sheet(*sheet_pixels(JUMBOTRON_PAPER, landscape=False))
+            Sheet(*sheet_pixels(JUMBOTRON_PAPER, landscape=landscape))
         )
 
-    def test_the_board_is_a_letter_sheet_portrait(self) -> None:
+    def test_the_board_is_a_letter_sheet_either_way_up(self) -> None:
         """
         A paper of its own, like the team board, and not the field
         board's tabloid: this is the board with no field on it, so it
         is the one that can be fitted onto the sheet a house printer
-        has in it.
+        has in it -- and onto it twice, since it is one layout on a
+        turned sheet rather than two designs.
         """
         self.assertEqual(JUMBOTRON_PAPER, "letter")
-        self.assertEqual(
-            render_jumbotron_board().size,
-            sheet_pixels(JUMBOTRON_PAPER, landscape=False),
-        )
+        for landscape, facing in self.FACINGS:
+            with self.subTest(facing=facing):
+                self.assertEqual(
+                    render_jumbotron_board(landscape=landscape).size,
+                    sheet_pixels(JUMBOTRON_PAPER, landscape=landscape),
+                )
 
     def test_the_smaller_sheet_did_not_reach_the_clock(self) -> None:
         """
@@ -650,17 +668,22 @@ class D12BallJumbotronTests(unittest.TestCase):
         The score is what paid for the smaller sheet, not this.
         """
         self.assertEqual(CLOCK_COLUMNS, 8)
-        self.assertEqual(self.jumbotron_geometry().clock_rows, 4)
+        for landscape, facing in self.FACINGS:
+            with self.subTest(facing=facing):
+                self.assertEqual(
+                    self.jumbotron_geometry(landscape).clock_rows, 4
+                )
 
     def test_the_score_track_wraps_rather_than_shrinking(self) -> None:
         """
-        Thirteen cells across a letter sheet would be two-thirds of an
-        inch each, under the token this board exists to give a cell to.
-        Wrapped, every value still has exactly one cell and no row runs
-        past the column count.
+        At six the track is one row a side and nothing wraps -- but
+        the wrap is a measurement rather than a decision, so this
+        checks the arithmetic holds either way: every value has exactly
+        one cell, no row runs past the column count, and the rows are
+        however many `SCORE_COLUMNS` makes them.
         """
         geometry = self.jumbotron_geometry()
-        self.assertEqual(geometry.score_rows, 2)
+        self.assertEqual(geometry.score_rows, 1)
         seen = {}
         for value in range(SCORE_TRACK_MAX + 1):
             row, column = divmod(value, SCORE_COLUMNS)
@@ -677,34 +700,77 @@ class D12BallJumbotronTests(unittest.TestCase):
         below the panel it belongs to -- silently, the way the team
         board's footer once was.
         """
-        geometry = self.jumbotron_geometry()
-        _, row_height = geometry.score_cell()
-        bottom = (
-            geometry.score_top
-            + geometry.label_height
-            + 2 * geometry.score_rows * row_height
-        )
-        self.assertLessEqual(bottom, geometry.score_bottom)
+        for landscape, facing in self.FACINGS:
+            geometry = self.jumbotron_geometry(landscape)
+            _, row_height = geometry.score_cell()
+            bottom = (
+                geometry.score_top
+                + geometry.label_height
+                + 2 * geometry.score_rows * row_height
+            )
+            with self.subTest(facing=facing):
+                self.assertLessEqual(bottom, geometry.score_bottom)
 
     def test_every_panel_is_in_order_and_inside_the_sheet(self) -> None:
         """The three panels and the footer, top to bottom, on the page."""
-        geometry = self.jumbotron_geometry()
-        _, height = sheet_pixels(JUMBOTRON_PAPER, landscape=False)
-        edges = (
-            geometry.header_top,
-            geometry.header_bottom,
-            geometry.clock_top,
-            geometry.clock_bottom,
-            geometry.score_top,
-            geometry.score_bottom,
-            geometry.supply_top,
-            geometry.supply_bottom,
-            geometry.footer_y,
+        for landscape, facing in self.FACINGS:
+            geometry = self.jumbotron_geometry(landscape)
+            _, height = sheet_pixels(JUMBOTRON_PAPER, landscape=landscape)
+            edges = (
+                geometry.header_top,
+                geometry.header_bottom,
+                geometry.clock_top,
+                geometry.clock_bottom,
+                geometry.score_top,
+                geometry.score_bottom,
+                geometry.supply_top,
+                geometry.supply_bottom,
+                geometry.footer_y,
+            )
+            with self.subTest(facing=facing):
+                self.assertGreater(edges[0], 0)
+                self.assertLess(edges[-1], height)
+                for earlier, later in zip(edges, edges[1:]):
+                    self.assertLessEqual(earlier, later)
+
+    def test_a_band_is_big_enough_for_the_type_in_it(self) -> None:
+        """
+        **The regression the chrome was re-measured for.** The header,
+        the footer and a panel's label strip were shares of the sheet's
+        *height* while everything drawn in them is sized as a share of
+        its *width*, so a landscape sheet held fewer lines than there
+        are -- which put the clock panel's own title and the half's
+        label into one strip, reading as one paragraph. That is the
+        fault "The clock panel's two label lines" in
+        docs/design/printed-boards.md records as already fixed once.
+
+        Each band is derived from its own type now, so this checks the
+        derivation rather than a number: a band holds the block that
+        goes in it, in either orientation.
+        """
+        self.assertGreaterEqual(
+            JUMBOTRON_HEADER,
+            JUMBOTRON_NOTES * JUMBOTRON_NOTE_SIZE * JUMBOTRON_NOTE_LEADING,
         )
-        self.assertGreater(edges[0], 0)
-        self.assertLess(edges[-1], height)
-        for earlier, later in zip(edges, edges[1:]):
-            self.assertLessEqual(earlier, later)
+        self.assertGreaterEqual(JUMBOTRON_HEADER, JUMBOTRON_TITLE_SIZE)
+        self.assertGreaterEqual(JUMBOTRON_FOOTER, JUMBOTRON_FOOTER_SIZE)
+        for landscape, facing in self.FACINGS:
+            sheet = Sheet(*sheet_pixels(JUMBOTRON_PAPER, landscape=landscape))
+            geometry = JumbotronGeometry.for_sheet(sheet)
+            with self.subTest(facing=facing):
+                # A panel title and the band label under it are two
+                # different things and each needs its own line.
+                self.assertGreaterEqual(
+                    geometry.label_height,
+                    sheet.u(PANEL_TITLE_SIZE),
+                )
+                self.assertGreaterEqual(
+                    geometry.clock_band_label_height, sheet.u(14)
+                )
+                self.assertGreaterEqual(
+                    geometry.header_bottom - geometry.header_top,
+                    sheet.u(JUMBOTRON_TITLE_SIZE),
+                )
 
     def test_every_cell_can_hold_a_token(self) -> None:
         """
@@ -719,10 +785,12 @@ class D12BallJumbotronTests(unittest.TestCase):
         the clock went from two rows to four and a third panel joined
         them, and a cell squeezed under a token is silent on a render.
         """
-        for name, (width, height) in cell_inches().items():
-            with self.subTest(cell=name):
-                self.assertGreaterEqual(width, MIN_TOKEN_INCHES)
-                self.assertGreaterEqual(height, MIN_TOKEN_INCHES)
+        for landscape, facing in self.FACINGS:
+            cells = cell_inches(landscape=landscape)
+            for name, (width, height) in cells.items():
+                with self.subTest(cell=name, facing=facing):
+                    self.assertGreaterEqual(width, MIN_TOKEN_INCHES)
+                    self.assertGreaterEqual(height, MIN_TOKEN_INCHES)
 
     def test_the_clock_is_the_game_and_the_halves_are_whole_rows(
         self,
@@ -777,12 +845,26 @@ class D12BallJumbotronTests(unittest.TestCase):
                 # Its own resolution, not render.py's 26px thumbnail.
                 self.assertGreater(art.width, 300)
 
-    def test_the_score_track_outruns_a_shootout(self) -> None:
+    def test_the_score_track_is_six_and_a_shootout_can_outrun_it(
+        self,
+    ) -> None:
         """
-        A shootout adds six pairings to a score that was already level,
-        so a track has to hold a plausible match score plus six.
+        **This used to assert the opposite**, that the track held a
+        plausible match score plus the six a shootout can add, and 12
+        was chosen for it. The author cut it to 6 on 2026-09-22 to buy
+        the cells the room, knowing what it gives up: a match level at
+        full time can finish past the end of this track.
+
+        What the suite can still hold is that the trade was the one
+        that was meant -- the track is shorter than a shootout's reach,
+        and every cell on the board clears the token floor, which is
+        what it was shortened for (see
+        `test_every_cell_can_hold_a_token`). A track that crept back up
+        without the cells being re-measured would fail one or the
+        other.
         """
-        self.assertGreaterEqual(SCORE_TRACK_MAX, 6 + 6)
+        self.assertEqual(SCORE_TRACK_MAX, 6)
+        self.assertLess(SCORE_TRACK_MAX, 6 + 6)
 
 
 class D12BallPrintSizeTests(unittest.TestCase):
