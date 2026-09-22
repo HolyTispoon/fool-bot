@@ -41,6 +41,7 @@ from d12ball.cards import (
     PANEL_COLOR,
     PANEL_EDGE,
     Pen,
+    SUPERSAMPLE,
     fitted_bold_font,
     font,
 )
@@ -68,16 +69,15 @@ GRID_ROLES: tuple[tuple[PlayerRole, PlayerRole], ...] = (
     (PlayerRole.WINGER, PlayerRole.STRIKER),
 )
 
-# The band is three rows: the badge and the role's name (tall, so the
-# badge can nearly fill it), then the two skills each on a row of their
-# own. Stacking the skills rather than running them side by side is
-# what leaves the name row free to set the name as large as the row
-# will take -- a name that size has no room left beside it for numbers
-# too.
+# The band is two rows: the badge and the role's name (tall, so the
+# badge can nearly fill it), then offense and defense side by side on
+# one row under it -- a pair of one-digit numbers doesn't need a row
+# each, and keeping the band to two rows is what leaves the panel's
+# own room to the ability text below rather than to a second stat row.
 NAME_ROW_HEIGHT = 76
-STAT_ROW_HEIGHT = 34
+STAT_ROW_HEIGHT = 28
 STAT_ROW_GAP = 6
-BAND_HEIGHT = NAME_ROW_HEIGHT + STAT_ROW_GAP * 2 + STAT_ROW_HEIGHT * 2
+BAND_HEIGHT = NAME_ROW_HEIGHT + STAT_ROW_GAP + STAT_ROW_HEIGHT
 
 # The badge nearly fills its own row rather than sitting small beside
 # the name -- it is the same art a coach already reads at a glance in
@@ -90,11 +90,12 @@ BADGE_GAP = 14
 # tab, unlike a species' which sometimes names sub-actions on their own
 # lines), so the panel needs no paragraph handling -- just the largest
 # size that wraps the whole thing into the room left under the band.
-# The cap is high because the room usually is too: six short sentences
-# rarely fill even a third of a poker card's height, and a card with
-# room to spare should spend it on legibility rather than leave it
-# blank.
-BODY_MAX_SIZE = 40
+# The cap is a search bound, not a target: it only has to sit above
+# what any role's own sentence could naturally reach in the room a
+# panel has, so Defender's own fit (below, the ceiling every panel's
+# ability text is actually drawn at) is found unclipped rather than
+# flattened against an arbitrary size all six would otherwise hit.
+BODY_MAX_SIZE = 56
 BODY_MIN_SIZE = 14
 
 ROLE_EMOJI_DIR = Path(__file__).resolve().parent / "images" / "emoji"
@@ -123,8 +124,22 @@ def _role_badge(role: PlayerRole) -> Image.Image | None:
 _ROLE_BADGES: dict[PlayerRole, Image.Image | None] = {}
 
 
+def _name_available_width(role: PlayerRole, column_width: float) -> float:
+    """The room a panel's name row leaves for the name itself, mirroring
+    `_draw_panel`'s own badge-offset arithmetic so the ceiling below is
+    measured the same way every panel's own name is."""
+    name_left = 12
+    if _role_badge(role) is not None:
+        name_left = 12 + BADGE_SIZE + BADGE_GAP
+    return column_width - 12 - name_left
+
+
 def _fitted_ability(
-    pen: Pen, text: str, max_width: float, max_height: float
+    pen: Pen,
+    text: str,
+    max_width: float,
+    max_height: float,
+    max_size: int = BODY_MAX_SIZE,
 ) -> tuple[ImageFont.ImageFont, list[str], float]:
     """The largest body size at which the ability's lines fit the panel."""
     def measure(size: int):
@@ -133,7 +148,7 @@ def _fitted_ability(
         step = pen.text_size("Hg", face)[1] * 1.5
         return face, lines, step
 
-    for size in range(BODY_MAX_SIZE, BODY_MIN_SIZE - 1, -1):
+    for size in range(max_size, BODY_MIN_SIZE - 1, -1):
         face, lines, step = measure(size)
         if step * len(lines) <= max_height:
             return face, lines, step
@@ -148,6 +163,8 @@ def _draw_panel(
     top: float,
     right: float,
     bottom: float,
+    name_max_size: int,
+    body_max_size: int,
 ) -> None:
     band_bottom = top + BAND_HEIGHT
     pen.rect(
@@ -171,7 +188,7 @@ def _draw_panel(
 
     name_face = fitted_bold_font(
         pen, role.value.upper(), right - 12 - name_left,
-        max_size=48, min_size=20,
+        max_size=name_max_size, min_size=20,
     ) or font(20, bold=True)
     pen.text(
         (name_left, name_row_center),
@@ -181,27 +198,32 @@ def _draw_panel(
         anchor="lm",
     )
 
-    # The two skills each on their own row under the name, right-
-    # anchored -- the name now takes the row's own width to set as
-    # large as it can, so there is no room left beside it for numbers
-    # too. Right-anchored rather than left is what keeps a one-digit
-    # and a two-character label reading as a column when the six
-    # panels sit side by side. Same two colours `player_cards.draw_stats`
-    # and the bot's own card draw them in, so a printed 6 and a drawn 6
-    # are the same red or green.
-    stat_face = font(22, bold=True)
+    # Offense and defense side by side on the one row under the name,
+    # right-anchored as a pair -- a one-digit number doesn't need a row
+    # of its own, and freeing the second row hands its height to the
+    # ability text below. Right-anchored rather than left is what keeps
+    # the pair reading as a column when the six panels sit side by
+    # side. Same two colours `player_cards.draw_stats` and the bot's
+    # own card draw them in, so a printed 6 and a drawn 6 are the same
+    # red or green.
+    stat_face = font(18, bold=True)
+    stat_gap = 14
     stat_right = right - 12
-    off_top = top + NAME_ROW_HEIGHT + STAT_ROW_GAP
+    stat_row_center = top + NAME_ROW_HEIGHT + STAT_ROW_GAP + STAT_ROW_HEIGHT / 2
+    off_text = f"OFF {profile.offense}"
+    def_text = f"DEF {profile.defense}"
+    off_width = pen.text_size(off_text, stat_face)[0]
+    def_width = pen.text_size(def_text, stat_face)[0]
+    block_left = stat_right - off_width - stat_gap - def_width
     pen.text(
-        (stat_right, off_top + STAT_ROW_HEIGHT / 2),
-        f"OFF {profile.offense}", stat_face, CARD_OFFENSE_COLOR,
-        anchor="rm",
+        (block_left, stat_row_center),
+        off_text, stat_face, CARD_OFFENSE_COLOR,
+        anchor="lm",
     )
-    def_top = off_top + STAT_ROW_HEIGHT + STAT_ROW_GAP
     pen.text(
-        (stat_right, def_top + STAT_ROW_HEIGHT / 2),
-        f"DEF {profile.defense}", stat_face, CARD_DEFENSE_COLOR,
-        anchor="rm",
+        (block_left + off_width + stat_gap, stat_row_center),
+        def_text, stat_face, CARD_DEFENSE_COLOR,
+        anchor="lm",
     )
 
     # Top-aligned, not centred: every panel is the same fixed height
@@ -211,6 +233,7 @@ def _draw_panel(
     body_top = band_bottom + 14
     body_face, lines, step = _fitted_ability(
         pen, profile.ability, right - left, bottom - body_top,
+        max_size=body_max_size,
     )
     y = body_top
     for line in lines:
@@ -250,6 +273,27 @@ def render_role_card(
         usable_width - COLUMN_GAP * (GRID_COLUMNS - 1)
     ) / GRID_COLUMNS
 
+    # Every panel is the same size, so one role's own fitted size can
+    # stand as the ceiling for all six, rather than each panel growing
+    # its name or its sentence as large as its own shorter text would
+    # allow. Fullback sets the name ceiling and Defender the body
+    # ceiling -- each measured against the same geometry every panel's
+    # own name row and body use, so a shorter name (Winger, Striker) or
+    # a longer one (Fullback, Striker) is capped to that size instead.
+    name_ceiling_width = _name_available_width(PlayerRole.FULLBACK, column_width)
+    name_ceiling_face = fitted_bold_font(
+        pen, PlayerRole.FULLBACK.value.upper(), name_ceiling_width,
+        max_size=48, min_size=20,
+    ) or font(20, bold=True)
+    name_ceiling = round(name_ceiling_face.size / SUPERSAMPLE)
+
+    body_available_height = row_height - BAND_HEIGHT - 14
+    body_ceiling_face, _, _ = _fitted_ability(
+        pen, role_profiles[PlayerRole.DEFENDER].ability,
+        column_width, body_available_height,
+    )
+    body_ceiling = round(body_ceiling_face.size / SUPERSAMPLE)
+
     for row_index, row_roles in enumerate(GRID_ROLES):
         row_top = top + row_index * (row_height + ROW_GAP)
         for col_index, role in enumerate(row_roles):
@@ -258,6 +302,7 @@ def render_role_card(
                 pen, role, role_profiles[role],
                 col_left, row_top,
                 col_left + column_width, row_top + row_height,
+                name_ceiling, body_ceiling,
             )
 
     return pen.finish(bleed, CARD_FACE)

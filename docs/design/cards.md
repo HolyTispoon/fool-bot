@@ -596,18 +596,27 @@ python3 scripts/render_role_cards.py --out cards/roles --sheet
   this role off in Discord, so a print reference gets more out of
   making it as large as the row will take than out of shrinking it to
   match a smaller badge drawn elsewhere on the card.
-- **The name is the largest thing `fitted_bold_font` will fit the row
-  at, not a fixed size.** With the badge taking the row's height, the
-  name gets whatever width is left of it and is sized to that --
-  "FULLBACK" prints larger than "MIDFIELDER" because it is shorter, the
-  same search `player_cards.fitted_name` runs for a player's name.
-- **The two skills stack under the name, right-anchored, instead of
-  sitting beside it.** A name sized to fill the row has no width left
-  beside it for numbers on the same line, so each skill gets a row of
-  its own under the name row. Right-anchored rather than left is what
-  keeps six panels' numbers reading as a column when they sit side by
-  side, since "OFF 1" and "DEF 6" are not the same width as "OFF 4" and
-  "DEF 3". They stay in `CARD_OFFENSE_COLOR` / `CARD_DEFENSE_COLOR` --
+- **The name is `fitted_bold_font`'s size for Fullback, used as a
+  ceiling on every panel rather than each panel's own largest fit.**
+  Left to fit its own row alone, "WINGER" or "STRIKER" would print
+  larger than "FULLBACK" simply for being shorter -- six names at six
+  different sizes because the words happen to differ in length reads as
+  noise, not as a grid. `render_role_card` fits Fullback's name once,
+  against the same row width every panel's name row has, and hands that
+  size to `_draw_panel` as `name_max_size`; a longer name
+  ("MIDFIELDER", "PLAYMAKER") still shrinks to fit under it, since the
+  ceiling only ever holds a shorter name back, never stretches a longer
+  one past what its own width allows.
+- **Offense and defense sit side by side on one row under the name,
+  right-anchored as a pair, instead of stacked one above the other.** A
+  name sized to fill the row has no width left beside it for numbers on
+  the same line, but a one-digit number doesn't need a row of its own
+  either -- stacking them the way `player_cards.draw_stats` sometimes
+  does was room the ability text below could use instead. The pair is
+  right-anchored as a block (`"OFF 1  DEF 6"`, not each number anchored
+  on its own) so six panels' pairs still read as a column when they sit
+  side by side, since "OFF 1  DEF 6" is not the same width as "OFF 4
+  DEF 3". They stay in `CARD_OFFENSE_COLOR` / `CARD_DEFENSE_COLOR` --
   the same two colours `player_cards.draw_stats` and the bot's own card
   draw them in, so a printed 6 and a drawn 6 are the same red.
 - **Only the full sentence, never `ability_short`** -- the same call
@@ -621,13 +630,19 @@ python3 scripts/render_role_cards.py --out cards/roles --sheet
   rather than as a grid. Top-aligned, the six panels' first lines sit
   level with each other whatever their own lengths, the same way the
   six bands above them do.
-- **`BODY_MAX_SIZE` is capped high (40) because the room usually is
-  too.** Six one-sentence abilities rarely fill even a third of a
-  poker card's height between them, so `_fitted_ability`'s search
-  almost always lands well below the cap on width alone -- the cap
-  exists to let a short sentence in a short row use the room it has
-  rather than sit small in it, not to promise every sentence prints at
-  40.
+- **The ability text is Defender's own fitted size, used as a ceiling
+  the same way the name is.** A short sentence in a short row (Striker
+  gets a two-line one; Fullback's is three short words a line) would
+  otherwise fit larger than a longer one purely because it has less
+  text to wrap, and six sentences at six sizes for that reason reads
+  the same as six names would. `render_role_card` runs `_fitted_ability`
+  once for Defender's own sentence, against the same panel geometry
+  every role's body has, and passes that size down as `body_max_size`;
+  `BODY_MAX_SIZE` (56) is not that ceiling but the search bound used to
+  find it -- generous enough that Defender's own fit is discovered
+  unclipped rather than flattened against an arbitrary cap every short
+  sentence would otherwise hit as well, which would leave nothing for
+  the ceiling to actually hold back.
 - **Nothing here is written in the module.** The ability text and the
   offense/defense numbers come from `players.json`'s `role_profiles`
   through `load_player_catalog`, the same table `/d12ball
