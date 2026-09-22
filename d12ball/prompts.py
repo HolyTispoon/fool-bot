@@ -1,14 +1,31 @@
 """
 What a match is waiting on, answered with no Discord in the room.
 
-`pending_prompt(engine, game, match)` is the single reading of "what is
-this match waiting on?" -- the branch chain that used to be
-`D12Ball.pending_turn_view`, moved whole. It returns a `PendingPrompt`:
-a `PromptKind` naming the question, the line to put above it, and the
-handful of parameters the question carries. Turning one into a
-`discord.ui.View` is the cog's job and the cog's alone
-(`D12Ball.view_for_prompt`), which is what lets a second frontend ask
-the same question without reimplementing the chain.
+`pending(engine, game, match)` is the single reading of "what is this
+match waiting on?" -- the branch chain that used to be
+`D12Ball.pending_turn_view`, moved whole. It answers one of two ways.
+A `PendingPrompt` is a question for somebody: a `PromptKind` naming
+it, the line to put above it, and the handful of parameters the
+question carries. A `FollowOn` is a step the bot itself owes, where
+nobody is asked anything -- a run back with only forced placements
+left, the tail of a time out, the next stage of halftime with no
+window open. **`pending_prompt` and `owed_step` are the two readers
+over it**, one for each shape, and exactly one of them answers for
+any position: a frontend puts up what the first hands back and never
+sees a step, and `GameService.resume` runs what the second hands
+back. Turning a prompt into a `discord.ui.View` is the cog's job and
+the cog's alone (`D12Ball.view_for_prompt`), which is what lets a
+second frontend ask the same question without reimplementing the
+chain.
+
+**A step is refused while one is owed.** `driver.answer` reads
+`owed_step` before it reads the question, so an action arriving
+mid-cascade -- a click on a stale prompt, a web request between two
+of the bot's own steps -- is refused rather than applied on top of a
+position the model has not finished with. Until step 5 of
+docs/architecture-migration.md the chain answered `PLAYER_ACTION` for
+those states, and a turn action was accepted with `pending_run_back`
+still set underneath it (finding 1 of docs/web-app.md).
 
 **A second copy of this chain is the failure mode.** It is how a resume
 comes to offer a different prompt from the one a restart restores, and
@@ -33,13 +50,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 from d12ball.components import (
     MatchState,
     PlayerRole,
     TeamSide,
 )
+from d12ball.flow.result import FollowOn, FollowOnStep
 from d12ball.formatting import (
     contest_noun,
     format_player_with_team,
@@ -583,19 +601,60 @@ def pending_prompt(
     engine: "RulesEngine",
     game: D12BallGame,
     match: MatchState,
-) -> PendingPrompt:
+) -> Optional[PendingPrompt]:
     """
     The prompt a saved match still owes: the question to put in front
-    of whoever it is waiting on, and a line asking for it.
+    of whoever it is waiting on, and a line asking for it -- or `None`
+    where nobody is asked, because the bot owes a step of its own
+    (see `owed_step`).
 
-    **This is the only reading of "what is this match waiting on?", and
-    the cog has two callers of it that must not drift apart.** Startup
+    **This and `owed_step` are the two readers over `pending`, the
+    only reading of "what is this match waiting on?"**, and the cog
+    has two callers of this one that must not drift apart. Startup
     re-attaches the view to the message the prompt was already posted
     on (`turn_message_id`); `/d12ball resume` posts a fresh message
     carrying the same one, for the games where that message is gone,
     was never recorded, or was left with nothing live on it. A second
-    copy of this branch chain is how a resume ends up offering a
-    different prompt from the one a restart restores.
+    copy of the chain is how a resume ends up offering a different
+    prompt from the one a restart restores.
+    """
+    waiting = pending(engine, game, match)
+    return waiting if isinstance(waiting, PendingPrompt) else None
+
+
+def owed_step(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> Optional[FollowOn]:
+    """
+    The step the bot itself owes on this position, or `None` where
+    somebody is asked something instead (see `pending_prompt`).
+
+    **"Asked" and "owed" are two functions over one chain** (decision
+    1 of docs/web-app.md). A step inside a `PendingPrompt` would be a
+    prompt every frontend had to know not to render; a step of its
+    own is what `GameService.resume` runs and what `driver.answer`
+    refuses against. The states that come back here are the ones a
+    restart used to strand hardest -- the cascade's next step was the
+    bot's, so there was no button anywhere -- and the ones a web
+    request could otherwise land on mid-cascade.
+    """
+    waiting = pending(engine, game, match)
+    return waiting if isinstance(waiting, FollowOn) else None
+
+
+def pending(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> Union[PendingPrompt, FollowOn]:
+    """
+    What this match is waiting on: a question for somebody, or the
+    step the bot owes. Read through `pending_prompt` and `owed_step`;
+    called directly only where either answer will do, which is a
+    `StepResult.next` -- the tutorial's Continue, holding nothing,
+    hands on to whichever it is.
 
     Ordering matters more than it looks:
 
@@ -610,13 +669,15 @@ def pending_prompt(
       own state is still set underneath them and would otherwise answer
       first.
 
-    The three `PLAYER_ACTION` fallbacks are states whose next step is
-    the bot's, not a coach's -- a run back with only forced placements
-    left, an effect with no choice in it. There is no button to restore
-    for those, so startup falls back to the turn prompt;
-    `resume_pending_prompt` re-drives the pipeline instead, which is
-    the difference between the two callers and the reason this returns
-    a prompt rather than doing the posting itself.
+    **A branch answers a `FollowOn` where its next step is the bot's,
+    not a coach's** -- a run back with only forced placements left, a
+    loose ball both sides have answered, an effect with no choice in
+    it, the tail of a time out. Each names the step that drives that
+    state on, which is the same step the flow reaches inline when it
+    gets there in one run; the name is the door a resume comes back in
+    through. There is no button to restore for any of them, and
+    startup does not try: it skips the game and says so, and
+    `/d12ball resume` runs the step.
     """
     if getattr(game, "tutorial_gate", None):
         # Ahead of everything: a note held behind Continue is a
@@ -641,8 +702,12 @@ def pending_prompt(
         # ball handler yet" branch below would otherwise misread
         # this as the kickoff prompt -- the same reason halftime is
         # checked ahead of it.
-        return PendingPrompt(
-            PromptKind.COACHING_HUB, "Coaching Choice, before kickoff:",
+        return _stage_window(
+            engine,
+            game,
+            match,
+            FollowOnStep.ADVANCE_SETUP_STAGE,
+            "Coaching Choice, before kickoff:",
         )
 
     if match.pending_full_time_stage is not None:
@@ -650,8 +715,12 @@ def pending_prompt(
         # already reset and every branch below would misread it.
         # Always the hub: the window is given rather than declared,
         # so there is no offer to come back to.
-        return PendingPrompt(
-            PromptKind.COACHING_HUB, "Coaching Choice, before the shootout:",
+        return _stage_window(
+            engine,
+            game,
+            match,
+            FollowOnStep.ADVANCE_FULL_TIME_STAGE,
+            "Coaching Choice, before the shootout:",
         )
 
     if match.pending_halftime_stage is not None:
@@ -666,6 +735,17 @@ def pending_prompt(
                 if stage == "extra_token_home"
                 else TeamSide.VISITING
             )
+            # The same two questions `begin_halftime_extra_token`
+            # asks before it puts the menu up: a side with nobody
+            # eligible is passed over in silence, and an AI side
+            # picks for itself. Either is the stage's own step.
+            eligible = [
+                player_id
+                for player_id in match.setup_for_side(side).field_players
+                if player_id not in match.injured
+            ]
+            if not eligible or engine.side_is_ai(game, side):
+                return FollowOn(FollowOnStep.ADVANCE_HALFTIME_STAGE)
             return PendingPrompt(
                 PromptKind.HALFTIME_EXTRA_TOKEN,
                 "Halftime: choose a player to lose an extra "
@@ -678,8 +758,12 @@ def pending_prompt(
         # window below. A part-made pick inside the flow is not
         # persisted and restarts here, the same simplification a
         # run-back choice makes.
-        return PendingPrompt(
-            PromptKind.COACHING_HUB, "Halftime Coaching Choice:",
+        return _stage_window(
+            engine,
+            game,
+            match,
+            FollowOnStep.ADVANCE_HALFTIME_STAGE,
+            "Halftime Coaching Choice:",
         )
 
     if match.pending_smooth:
@@ -758,13 +842,27 @@ def pending_prompt(
         # It comes after the injury queue because a shootout skill
         # test owes its checks before the next one is set up, and
         # ahead of everything below because the match underneath a
-        # shootout is still whatever full time left there.
+        # shootout is still whatever full time left there. An AI
+        # side's order or shooter is set by the step itself, so a
+        # position still owing one of those is the bot's.
         if not match.shootout_orders_complete:
+            if any(
+                engine.side_is_ai(game, side)
+                and not match.shootout_order_complete(side)
+                for side in (TeamSide.HOME, TeamSide.VISITING)
+            ):
+                return FollowOn(FollowOnStep.ADVANCE_SHOOTOUT)
             return PendingPrompt(
                 PromptKind.SHOOTOUT_ORDER,
                 "Extreme shootout — set your shooting order:",
             )
         if not match.shootout_shooters_complete:
+            if any(
+                engine.side_is_ai(game, side)
+                and match.shootout_shooter(side) is None
+                for side in (TeamSide.HOME, TeamSide.VISITING)
+            ):
+                return FollowOn(FollowOnStep.ADVANCE_SHOOTOUT)
             return PendingPrompt(
                 PromptKind.SHOOTOUT_PICK,
                 "Extreme shootout — choose who shoots next:",
@@ -782,14 +880,16 @@ def pending_prompt(
         # what bought the window, so neither coach is ever asked
         # whether to take it. With no window open the cascade died
         # between the second one closing and the tail behind it,
-        # which is resume's to re-drive rather than a click's.
+        # and the tail is the bot's.
         if match.pending_coaching_side is not None:
-            return PendingPrompt(
-                PromptKind.COACHING_HUB, "Coaching Choice, on the time out:",
+            return _window(
+                engine,
+                game,
+                match,
+                PromptKind.COACHING_HUB,
+                "Coaching Choice, on the time out:",
             )
-        return PendingPrompt(
-            PromptKind.PLAYER_ACTION, "Settle the time out:",
-        )
+        return FollowOn(FollowOnStep.FINISH_TIME_OUT)
 
     if match.pending_coaching_side is not None:
         # A window mid-flight comes back as either the offer or the
@@ -804,26 +904,40 @@ def pending_prompt(
         # a restart put up over an open window, and which Phase 6
         # then refused the window's own answers against.
         if match.pending_coaching_declared:
-            return PendingPrompt(
-                PromptKind.COACHING_HUB, "Coaching Choice:",
+            return _window(
+                engine, game, match, PromptKind.COACHING_HUB,
+                "Coaching Choice:",
             )
-        return PendingPrompt(
-            PromptKind.COACHING_OFFER, "Coaching Choice — coach, or pass?",
+        return _window(
+            engine, game, match, PromptKind.COACHING_OFFER,
+            "Coaching Choice — coach, or pass?",
         )
 
     if match.pending_run_back:
-        step = engine.next_run_back_step(game, match)
-        return run_back_prompt(engine, game, match) or PendingPrompt(
-            PromptKind.PLAYER_ACTION,
-            "Choose which of your doubled-up players runs back:"
-            if step is not None and len(step[1]) > 1
-            else "Choose where the next player runs back to:",
+        # A choice a coach still has to make, or the cascade's own
+        # next pass: the forced placements, an AI side's picks and
+        # the drop back into an empty kickoff are all
+        # `continue_run_back`'s, and a position with nothing left to
+        # ask is that step's to finish.
+        return run_back_prompt(engine, game, match) or FollowOn(
+            FollowOnStep.CONTINUE_RUN_BACK,
         )
 
     if match.pending_ball_recovery:
         # An out-of-bounds ball whose run back has already
         # finished, waiting on the winning side to send someone to
-        # pick it up.
+        # pick it up -- unless the step has nobody to ask: an AI
+        # side sends its nearest, and a side with somebody already
+        # on the ball, or nobody fielded at all, places no one. The
+        # two questions are `begin_ball_recovery`'s own, asked in
+        # its order.
+        side = match.ball.possession
+        candidates = (
+            [] if match.eligible_ball_handlers()
+            else match.contest_candidates(side)
+        )
+        if not candidates or engine.side_is_ai(game, side):
+            return FollowOn(FollowOnStep.BEGIN_BALL_RECOVERY)
         return PendingPrompt(
             PromptKind.BALL_RECOVERY,
             "Send the nearest player either side of the ball to "
@@ -846,9 +960,10 @@ def pending_prompt(
                 PromptKind.LOOSE_BALL_SKILL_TEST,
                 f"Either player can roll for the {noun}:",
             )
-        return loose_ball_pick_prompt(engine, match) or PendingPrompt(
-            PromptKind.PLAYER_ACTION,
-            f"Choose who goes after the {noun}:",
+        # Both sides answered and fewer than two players sent: out of
+        # bounds or an unopposed take, and settling it is the step's.
+        return loose_ball_pick_prompt(engine, match) or FollowOn(
+            FollowOnStep.RESOLVE_LOOSE_BALL,
         )
 
     if match.active_player_id is None:
@@ -891,7 +1006,8 @@ def pending_prompt(
                 PromptKind.MANEUVER_ACTION,
                 maneuver_action_ask(engine, game, match),
             )
-        if engine.settled_maneuver_winner(match) is None:
+        winner_key = engine.settled_maneuver_winner(match)
+        if winner_key is None:
             # No winner yet means a skill test is owed -- a tie, or
             # a decisive maneuver an injured player still has to
             # roll for. Asking the ranking directly here would get
@@ -899,8 +1015,51 @@ def pending_prompt(
             return PendingPrompt(
                 PromptKind.SKILL_TEST, "Either player can roll:",
             )
-        return effect_choice_prompt(engine, game, match) or PendingPrompt(
-            PromptKind.PLAYER_ACTION, EFFECT_ASK,
+        # A won card with nothing to ask -- a Deflect, a Pressure, a
+        # burst from the last space -- resolves by running its
+        # effect, which is the step the reveal names.
+        return effect_choice_prompt(engine, game, match) or FollowOn(
+            FollowOnStep.BEGIN_EFFECT_RESOLUTION, {"winner_key": winner_key},
         )
 
     return PendingPrompt(PromptKind.PLAYER_ACTION, "Choose an action:")
+
+
+def _window(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    kind: PromptKind,
+    ask: str,
+) -> Union[PendingPrompt, FollowOn]:
+    """
+    An open Coaching Choice: the menu or the offer for a coach, and
+    the routine for an AI side, which has no menu to put back up and
+    runs to completion.
+    """
+    side = TeamSide(match.pending_coaching_side)
+    if engine.side_is_ai(game, side):
+        return FollowOn(FollowOnStep.RUN_AI_COACHING_WINDOW)
+    return PendingPrompt(kind, ask)
+
+
+def _stage_window(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    advance: FollowOnStep,
+    ask: str,
+) -> Union[PendingPrompt, FollowOn]:
+    """
+    One stage of setup, halftime or full time: the hub where its
+    window is open, and the stage's own advance where it is not --
+    the process died between setting the stage and opening the
+    window, and re-driving the sequence is what puts it up.
+
+    The open window is read first for the reason `GameService.resume`
+    used to spell out: the advancers would re-open it, which resets
+    the allowance a coach had already spent.
+    """
+    if match.pending_coaching_side is None:
+        return FollowOn(advance)
+    return _window(engine, game, match, PromptKind.COACHING_HUB, ask)

@@ -801,7 +801,12 @@ the engine's candidate list either way.** The distance choices refuse
 a distance the card does not offer; the picks refuse a player not in
 the candidate list; `PLAYER_ACTION` in the middle of a cascade is a
 stale click now, because `pending_prompt` reads the run back, the
-loose ball, the time out and the effect continuation ahead of it; the
+loose ball, the time out and the effect continuation ahead of it
+(for every state where a *real* prompt read ahead of it -- the four
+states where the fallback *was* the prompt stayed answerable, which
+is finding 1 of [../web-app.md](../web-app.md), closed by step 5 of
+the migration with `owed_step`; see
+[game-service.md](game-service.md)); the
 tutorial's rails are asked again in the model (`_rail`, over
 `tutorial.resolve_choice`) because the prompt may be an old one still
 sitting in the channel; the coaching answers check the window is the

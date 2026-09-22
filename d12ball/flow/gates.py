@@ -41,7 +41,7 @@ from d12ball.components import MatchState
 from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, StepResult
 from d12ball.game import D12BallGame
-from d12ball.prompts import PendingPrompt, PromptKind, pending_prompt
+from d12ball.prompts import PendingPrompt, PromptKind, pending
 
 
 def hold_behind_note(
@@ -96,4 +96,7 @@ def continue_step(
     then = gate.get("then")
     if then:
         return StepResult(next=FollowOn.from_dict(then))
-    return StepResult(next=pending_prompt(engine, game, match))
+    # A note over nothing in particular hands on to whatever the
+    # position is waiting on -- a question, or a step the bot owes,
+    # which `StepResult.next` takes either way.
+    return StepResult(next=pending(engine, game, match))

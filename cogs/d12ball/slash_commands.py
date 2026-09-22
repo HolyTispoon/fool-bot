@@ -2145,46 +2145,25 @@ class CommandsMixin:
             return
 
         if force:
-            # reset_maneuver clears the whole turn -- ball handler,
-            # maneuver picks, run back, loose ball, kickoff fill,
-            # out-of-bounds pickup -- and the coaching window is closed
-            # separately because it is not part of a turn. Setup,
-            # halftime, a time out and the shootout -- the window
-            # before it included -- are left alone on purpose: those
-            # are real positions in the game rather than a turn gone
-            # wrong, and a plain resume walks them on. The shootout
-            # most of all -- there is no turn under it to clear, and
-            # clearing one would throw away orders both coaches have
-            # already set. A time out has already reset the turn, so
-            # clearing it would also leave the turn prompt asking the
-            # receiving side to act with nobody on the ball.
-            if (
-                match.pending_setup_stage is not None
-                or match.pending_halftime_stage is not None
-                or match.pending_full_time_stage is not None
-                or match.pending_shootout
-                or match.pending_time_out
-            ):
+            # Which positions `force` may not clear is the model's
+            # (`RulesEngine.turn_reset_refusal`): setup, halftime, a
+            # time out and the shootout are real positions in the game
+            # rather than a turn gone wrong, and a plain resume walks
+            # them on.
+            try:
+                result = self.service.reset_turn(game.game_id)
+            except ValueError as error:
+                await interaction.followup.send(str(error), ephemeral=True)
+                return
+            if result.refused:
                 await interaction.followup.send(
-                    "This game is in setup, at halftime, in the extreme "
-                    "shootout, or in a time out -- none of which "
-                    "`force` can skip past. Run `/d12ball resume` "
-                    "without it.",
+                    f"{result.refusal} Run `/d12ball resume` without "
+                    "`force`.",
                     ephemeral=True,
                 )
                 return
 
-            match.reset_maneuver()
-            match.close_coaching_window()
-            self.service.persist(game, match)
-
-            try:
-                await self.send_turn_prompt(interaction, game)
-            except ValueError as error:
-                await interaction.followup.send(str(error), ephemeral=True)
-                return
-
-            await self.refresh_match_image(interaction, game)
+            await self.present(interaction, game, result)
             await interaction.followup.send(
                 "Turn cleared and the offensive choice re-posted.",
                 ephemeral=True,

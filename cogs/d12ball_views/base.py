@@ -24,7 +24,7 @@ from d12ball.render import (
     TEAM_COLORS,
     render_skill_test_dice,
 )
-from d12ball.flow.driver import Action
+from d12ball.flow.driver import STEP_OWED, Action
 from d12ball.formatting import contestant_detail  # noqa: F401 -- re-exported
 from d12ball.prompts import pending_prompt
 from gamesaves.d12ball.service import CarryFrom, GameResult
@@ -484,14 +484,16 @@ class SafeView(discord.ui.View):
         # off this view -- a prompt may have been sitting in the
         # channel since before the roll it was built for, and the
         # driver refuses it by kind.
+        waiting = pending_prompt(self.cog.engine, game, match)
+        if waiting is None:
+            # No roll is being asked for: the bot owes a step of its
+            # own here, and the driver would refuse the same way.
+            await self.refuse(interaction, STEP_OWED)
+            return
         result = await self.apply(
             interaction,
             game,
-            Action(
-                pending_prompt(self.cog.engine, game, match).kind,
-                "overdrive",
-                {"player_id": player_id},
-            ),
+            Action(waiting.kind, "overdrive", {"player_id": player_id}),
         )
         if result is None:
             return

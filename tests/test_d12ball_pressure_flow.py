@@ -35,7 +35,7 @@ from cogs.d12ball import D12Ball
 from d12ball.components import MatchState
 from d12ball.flow import FollowOn, FollowOnStep
 from d12ball.flow.effects import apply_own_goal_outcome, pressure_step
-from d12ball.prompts import pending_prompt
+from d12ball.prompts import pending
 
 from pressure_fixtures import ENGINE, OWN_GOAL_ROLL, PRESSURE_CASES
 from d12ball.flow.arrivals import begin_own_goal_roll
@@ -210,14 +210,15 @@ class PressureStepTests(unittest.TestCase):
                 fixture = case.build()
                 run_step(fixture)
 
-                before = pending_prompt(ENGINE, fixture.game, fixture.match)
+                before = pending(ENGINE, fixture.game, fixture.match)
                 restored = MatchState.from_dict(
                     fixture.match.to_dict(), ENGINE.basic_ruleset,
                 )
-                after = pending_prompt(ENGINE, fixture.game, restored)
+                after = pending(ENGINE, fixture.game, restored)
 
-                self.assertEqual(before.kind, after.kind)
-                self.assertEqual(before.ask, after.ask)
+                # A question or the step the bot owes: the same one
+                # either way.
+                self.assertEqual(before, after)
                 self.assertEqual(
                     restored.pending_double_team,
                     fixture.pending_double_team,

@@ -88,7 +88,7 @@ from d12ball.flow import (
 )
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.game import D12BallGame
-from d12ball.prompts import PendingPrompt, PromptKind, pending_prompt
+from d12ball.prompts import PendingPrompt, PromptKind, pending, pending_prompt
 
 
 def _begin_maneuver_action_selection(
@@ -230,6 +230,24 @@ MODEL_STEPS: Mapping[FollowOnStep, Callable[..., StepResult]] = {
         _lead_in_first(turn.auto_resolve_challenger),
     FollowOnStep.FINISH_SUBSTITUTION_WINDOW:
         _lead_in_first(windows.finish_substitution_window),
+    # The steps the bot owes, named by `d12ball.prompts.owed_step` --
+    # each is also reached inline by the step that ordinarily gets
+    # there, and the row is the door a resume comes back in through.
+    FollowOnStep.ADVANCE_SETUP_STAGE: _lead_in_first(
+        periods.advance_setup_stage,
+    ),
+    FollowOnStep.ADVANCE_HALFTIME_STAGE: _lead_in_first(
+        periods.advance_halftime_stage,
+    ),
+    FollowOnStep.ADVANCE_FULL_TIME_STAGE: _lead_in_first(
+        periods.advance_full_time_stage,
+    ),
+    FollowOnStep.ADVANCE_SHOOTOUT: _lead_in_first(periods.advance_shootout),
+    FollowOnStep.RUN_AI_COACHING_WINDOW: _lead_in_first(
+        windows.run_ai_substitution_window,
+    ),
+    FollowOnStep.FINISH_TIME_OUT: _lead_in_first(windows.finish_time_out),
+    FollowOnStep.BEGIN_BALL_RECOVERY: turnovers.begin_ball_recovery,
 }
 
 
@@ -281,6 +299,12 @@ class NarrationGroup:
 
     narration: tuple[str, ...]
     step: Optional[FollowOnStep] = None
+    #: The step's own arguments, for a frontend whose picture of the
+    #: group depends on one: the challenge image is drawn of the
+    #: challenger the walk-in (`AUTO_RESOLVE_CHALLENGER`) named. Read
+    #: off the group rather than off the match, because the match has
+    #: moved on by the time the group is rendered.
+    arguments: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -438,7 +462,9 @@ def advance(
             # a picture for this step's group -- the challenge image
             # rides on `AUTO_RESOLVE_CHALLENGER`'s -- and an empty
             # group is how it learns the step ran.
-            groups.append(NarrationGroup(tuple(narration), step.step))
+            groups.append(
+                NarrationGroup(tuple(narration), step.step, step.kwargs),
+            )
             narration = []
 
     return DriverRun(
@@ -486,10 +512,9 @@ def waiting_on(
     It is `d12ball.prompts.pending_prompt` and nothing else -- the one
     reading, re-exported here so the driver is the whole of what a
     frontend has to import rather than the first of two things. See
-    principle 3 in CLAUDE.md.
+    principle 3 in CLAUDE.md. `None` is a position nobody is asked on:
+    the bot owes a step (`d12ball.prompts.owed_step`).
     """
-    from d12ball.prompts import pending_prompt
-
     return pending_prompt(engine, game, match)
 
 
@@ -544,14 +569,13 @@ class Refusal:
 
     `waiting_on` is what the match is actually waiting on, so a
     frontend can put the right question back up rather than asking
-    twice. It is always set: `pending_prompt` answers for every
-    position a match can be in -- a state with nothing to ask falls
-    through to the turn prompt rather than to None -- so a refusal
-    always has a question to point at.
+    twice. It is `None` for the one refusal that has no question to
+    point at: the bot owes a step of its own (`STEP_OWED`), and
+    nothing is asked of anybody until it has run.
     """
 
     reason: str
-    waiting_on: PendingPrompt
+    waiting_on: Optional[PendingPrompt]
 
 
 #: What a click on a prompt the position has moved on from is told,
@@ -600,6 +624,15 @@ STALE_CLICK: Mapping[PromptKind, str] = {
 
 #: The sentence for a kind `STALE_CLICK` does not name.
 MOVED_ON = "That answers a question this match has moved on from."
+
+#: What an action arriving while the bot owes a step is told -- a
+#: click on a prompt a restart left up over a half-run cascade, a web
+#: request between two of the bot's own steps. The step is
+#: `d12ball.prompts.owed_step`'s and `GameService.resume` runs it.
+STEP_OWED = (
+    "Nothing is being asked yet: the game still has a step of its own "
+    "to run here."
+)
 
 
 def _refuse(reason: str) -> None:
@@ -1701,9 +1734,14 @@ def answer(
     action that has already been authorised and asks only whether it
     answers the position.
 
-    Two things are refused here, and they are the same rule read at
+    Three things are refused here, and they are the same rule read at
     different depths:
 
+    - the bot owes a step of its own (`d12ball.prompts.owed_step`), so
+      nothing is asked of anybody: an answer applied here would land
+      on a position the model has not finished with, which is how a
+      maneuver came to start with `pending_run_back` still set under
+      it (finding 1 of docs/web-app.md);
     - the match is waiting on a *different* question, which is the
       stale click a restart re-attaching an old prompt produces, and
       the reason the refusal carries what it is really waiting on;
@@ -1721,7 +1759,9 @@ def answer(
     `tests/test_d12ball_driver_actions.py` asserts it, so a kind with
     no row fails the suite rather than a click.
     """
-    waiting = pending_prompt(engine, game, match)
+    waiting = pending(engine, game, match)
+    if isinstance(waiting, FollowOn):
+        return Refusal(STEP_OWED, waiting_on=None)
     if waiting.kind is not action.kind:
         return Refusal(
             STALE_CLICK.get(action.kind, MOVED_ON), waiting_on=waiting,

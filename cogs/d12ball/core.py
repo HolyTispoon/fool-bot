@@ -47,6 +47,7 @@ from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
+    owed_step,
     pending_prompt,
 )
 from d12ball import tutorial
@@ -236,6 +237,12 @@ DRIVER_OWN_MESSAGE = frozenset({
     FollowOnStep.START_TURN,
     # "X takes the shot off the set-up", above the composition.
     FollowOnStep.START_SET_UP_SHOT,
+    # A resumed halftime and a resumed AI window say what the AI did
+    # -- the extra token it took off, the substitutions it made -- and
+    # each is a message, as it is when the whistle or the window
+    # reaches it in one run.
+    FollowOnStep.ADVANCE_HALFTIME_STAGE,
+    FollowOnStep.RUN_AI_COACHING_WINDOW,
 })
 
 
@@ -261,6 +268,9 @@ DRIVER_BLOCKS_PER_MESSAGE = frozenset({
     # The AI's turn, a message per thing it says.
     FollowOnStep.START_TURN,
     FollowOnStep.START_SET_UP_SHOT,
+    # Resumed, for the whistle's and the window's reason.
+    FollowOnStep.ADVANCE_HALFTIME_STAGE,
+    FollowOnStep.RUN_AI_COACHING_WINDOW,
 })
 
 
@@ -556,7 +566,24 @@ class CoreMixin:
                         game.game_id, error,
                     )
                     continue
-                turn_view, _ = self.pending_turn_view(game.game_id, match)
+                restored = self.pending_turn_view(game.game_id, match)
+                if restored is None:
+                    # Nobody is asked anything here: the bot owes a step
+                    # of its own, which nothing will run until somebody
+                    # asks for it -- and the message this would have
+                    # re-armed is a prompt the position has moved past.
+                    # An ERROR because somebody has to act, and the
+                    # sweep runs once per process, so it will not
+                    # repeat on every reconnect.
+                    LOGGER.error(
+                        "D12 Ball game %s owes a step of the bot's own "
+                        "(%s) and has no prompt to re-arm; `/d12ball "
+                        "resume` in its channel runs it.",
+                        game.game_id,
+                        owed_step(self.engine, game, match).step.name,
+                    )
+                    continue
+                turn_view, _ = restored
                 self.bot.add_view(
                     turn_view,
                     message_id=game.turn_message_id,
@@ -1148,10 +1175,13 @@ class CoreMixin:
         self,
         game_id: str,
         match: MatchState,
-    ) -> tuple[discord.ui.View, str]:
+    ) -> Optional[tuple[discord.ui.View, str]]:
         """
         The prompt a saved match still owes: the view to put in front
-        of whoever it is waiting on, and the line asking for it.
+        of whoever it is waiting on, and the line asking for it -- or
+        `None` where nobody is asked, because the bot owes a step of
+        its own (`d12ball.prompts.owed_step`). There is no button to
+        restore for one of those; `/d12ball resume` runs the step.
 
         **The reading is the model's** --
         `d12ball.prompts.pending_prompt` is the branch chain that used
@@ -1168,6 +1198,8 @@ class CoreMixin:
         it -- see "Recovering a stuck game" in docs/design/recovery.md.
         """
         prompt = pending_prompt(self.engine, self.games[game_id], match)
+        if prompt is None:
+            return None
         return self.view_for_prompt(game_id, match, prompt), prompt.ask
 
     def view_for_prompt(
@@ -1412,12 +1444,16 @@ class CoreMixin:
             )
             return
 
-        if (
-            group.step is FollowOnStep.AUTO_RESOLVE_CHALLENGER
-            and match.challenger_id is not None
-        ):
+        if group.step is FollowOnStep.AUTO_RESOLVE_CHALLENGER:
+            # The challenger the walk-in named, read off the group
+            # rather than off the match: the match has moved on by
+            # now, and reading it there drew the image of whoever the
+            # position happened to hold.
             await self.announce_maneuver_challenge(
-                interaction, match, match.challenger_id, " ".join(lines),
+                interaction,
+                match,
+                group.arguments["challenger_id"],
+                " ".join(lines),
             )
             return
         if group.step is None or group.step in DRIVER_BLOCKS_PER_MESSAGE:

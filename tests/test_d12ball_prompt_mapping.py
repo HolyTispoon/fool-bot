@@ -69,6 +69,8 @@ class PendingTurnViewEquivalenceTests(unittest.TestCase):
 
     def test_every_state_restores_its_own_prompt(self) -> None:
         for case in CASES:
+            if not case.asked:
+                continue
             with self.subTest(case.name):
                 cog = build_cog()
                 fixture = case.build()
@@ -81,6 +83,25 @@ class PendingTurnViewEquivalenceTests(unittest.TestCase):
                 self.assertIsInstance(view, getattr(views, case.view))
                 self.assertEqual(ask, fixture.ask)
 
+    def test_an_owed_state_restores_nothing(self) -> None:
+        """
+        No button to re-arm where the bot owes the next step: startup
+        skips the game and says so, and `/d12ball resume` runs it.
+        """
+        for case in CASES:
+            if case.asked:
+                continue
+            with self.subTest(case.name):
+                cog = build_cog()
+                fixture = case.build()
+                cog.games[fixture.game.game_id] = fixture.game
+
+                self.assertIsNone(
+                    cog.pending_turn_view(
+                        fixture.game.game_id, fixture.match,
+                    ),
+                )
+
     def test_a_kind_always_means_the_same_view(self) -> None:
         """
         The mapping is a table, so a kind that two cases expect two
@@ -89,6 +110,8 @@ class PendingTurnViewEquivalenceTests(unittest.TestCase):
         """
         seen: dict[str, str] = {}
         for case in CASES:
+            if not case.asked:
+                continue
             self.assertEqual(
                 seen.setdefault(case.kind, case.view),
                 case.view,

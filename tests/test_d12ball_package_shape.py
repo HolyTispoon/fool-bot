@@ -288,6 +288,16 @@ class FollowOnStepTests(unittest.TestCase):
         # that does not stage the beat a second time -- see
         # `d12ball/flow/gates.py`.
         "START_TURN",
+        # Step 5 of docs/architecture-migration.md: the steps the bot
+        # owes on a position nobody is asked anything on, named by
+        # `d12ball.prompts.owed_step` and run by `GameService.resume`.
+        "ADVANCE_SETUP_STAGE",
+        "ADVANCE_HALFTIME_STAGE",
+        "ADVANCE_FULL_TIME_STAGE",
+        "ADVANCE_SHOOTOUT",
+        "RUN_AI_COACHING_WINDOW",
+        "FINISH_TIME_OUT",
+        "BEGIN_BALL_RECOVERY",
     }
 
     def test_the_enum_holds_exactly_the_steps_recorded_here(self) -> None:

@@ -34,6 +34,8 @@ from d12ball.components import (
 )
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
+from d12ball.flow.result import FollowOnStep
+from d12ball.prompts import owed_step
 from d12ball.game import AIOpponent, D12BallGame, Team
 from save_patches import suppressed_cog_saves
 from cog_steps import apply_ball_recovery, begin_time_out, coaching_window_note, finish_substitution_window, finish_time_out
@@ -972,10 +974,15 @@ class TimeOutRecoveryTests(unittest.TestCase):
     def test_the_tail_is_not_read_as_the_kickoff(self) -> None:
         # A cede resets the turn, so active_player_id is None and the
         # "choose who takes the ball" branch would otherwise answer.
+        # With both windows closed the tail is the bot's own step, so
+        # there is no prompt to restore at all: `owed_step` names it.
         cog, game, match = self.build()
 
-        _, ask = cog.pending_turn_view(game.game_id, match)
-        self.assertIn("time out", ask)
+        self.assertIsNone(cog.pending_turn_view(game.game_id, match))
+        self.assertIs(
+            owed_step(cog.engine, game, match).step,
+            FollowOnStep.FINISH_TIME_OUT,
+        )
 
 
 if __name__ == "__main__":

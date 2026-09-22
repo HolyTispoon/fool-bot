@@ -68,19 +68,21 @@ that commit.
 
 ### Domain work still in the cog
 
-- `resume_pending_prompt` (`cogs/d12ball/turnovers.py:253`) is a
+- ~~`resume_pending_prompt` (`cogs/d12ball/turnovers.py:253`) is a
   second "what is this match waiting on" ladder, with nine flags in
   its own order, each handed to a cog routine (`advance_shootout`,
   `advance_setup_stage`, `advance_halftime_stage`,
   `advance_full_time_stage`, `finish_time_out`, `continue_run_back`,
   `begin_ball_recovery`). None is a `FollowOnStep`. Finding 2 of
-  `docs/web-app.md`.
-- `begin_setup_coaching` loads the match and calls the flow itself.
-- `/d12ball resume --force` decides which states force may not skip
-  (`slash_commands.py:2161`), a rules list duplicated from the model.
-- `pending_prompt` answers `PLAYER_ACTION` for three states where the
+  `docs/web-app.md`.~~ Step 5.
+- ~~`begin_setup_coaching` loads the match and calls the flow itself.~~
+  Step 1 (`GameService.begin`).
+- ~~`/d12ball resume --force` decides which states force may not skip
+  (`slash_commands.py:2161`), a rules list duplicated from the model.~~
+  Step 5.
+- ~~`pending_prompt` answers `PLAYER_ACTION` for three states where the
   bot owes a step (finding 1 of `docs/web-app.md`), so an action is
-  accepted mid-cascade.
+  accepted mid-cascade.~~ Step 5.
 
 ### Rules enforced only by a button
 
@@ -140,8 +142,8 @@ that commit.
 The architecture's migration order, mapped onto this code. Each step
 leaves the bot playable and the three goldens byte-identical unless
 the step says otherwise. Steps 1 to 4 landed together on the
-`architecture-simplification` branch; what they settled is in
-[docs/design/game-service.md](design/game-service.md).
+`architecture-simplification` branch and step 5 on `owed-step`; what
+they settled is in [docs/design/game-service.md](design/game-service.md).
 
 ### 1. `GameService` and `GameResult` -- done (this branch)
 
@@ -202,15 +204,31 @@ a wrapper by name drive the same step through
 `tests/flow_stubs.run_step(cog, interaction, game, match, member, ...)`,
 which is the wrapper's signature with the member spelled.
 
-### 5. The bot's own steps become the model's -- next
+### 5. The bot's own steps become the model's -- done (`owed-step`)
 
-`begin_setup_coaching`, the three stage advancers, `finish_time_out`,
-`begin_ball_recovery`, `advance_shootout` and `begin_halftime` become
-`FollowOnStep` members or one `owed_step(engine, game, match)` in
-`d12ball/prompts.py` (proposal 1 of `docs/web-app.md`). Then
-`GameService.resume` is a call to `owed_step` and the three
-`PLAYER_ACTION` fallbacks in `pending_prompt` go; `answer` refuses
-while a step is owed. The `--force` rules list moves with it.
+`d12ball.prompts.pending(engine, game, match)` is the one chain, and
+it answers a `PendingPrompt` or a `FollowOn`; `pending_prompt` and
+`owed_step` are the two readers over it, exactly one of which answers
+for any position (decision 1 of `docs/web-app.md`). The four
+`PLAYER_ACTION` fallbacks are `FollowOn`s now -- `CONTINUE_RUN_BACK`,
+`RESOLVE_LOOSE_BALL`, `BEGIN_EFFECT_RESOLUTION`, `FINISH_TIME_OUT` --
+and the steps only the ladder had named are seven new `FollowOnStep`
+members with rows in `MODEL_STEPS` (`ADVANCE_SETUP_STAGE`,
+`ADVANCE_HALFTIME_STAGE`, `ADVANCE_FULL_TIME_STAGE`,
+`ADVANCE_SHOOTOUT`, `RUN_AI_COACHING_WINDOW`, `FINISH_TIME_OUT`,
+`BEGIN_BALL_RECOVERY`), each still called inline where the flow
+reaches it. `GameService.resume` runs what `owed_step` hands it and
+its ladder is gone; `driver.answer` refuses every action while a step
+is owed (`STEP_OWED`, with `Refusal.waiting_on` `None`), which closes
+finding 1; the startup sweep skips and logs a game with no prompt to
+re-arm. The `--force` rules list is `RulesEngine.turn_reset_refusal`
+and the command is `GameService.reset_turn`. `NarrationGroup` and
+`Narration` carry the step's `arguments`, so the challenge image is
+drawn of the challenger the walk-in named. `begin_setup_coaching` and
+`begin_halftime` did not need a member: neither is ever owed on a
+save (the first is `begin`'s, the second runs inside the whistle).
+`tests/test_d12ball_game_service_resume.py` resumes every fixture
+with no cog imported. The goldens did not change.
 
 ### 6. Rules a button holds move into the adapters -- next
 

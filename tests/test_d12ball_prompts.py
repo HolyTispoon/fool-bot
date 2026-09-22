@@ -17,7 +17,14 @@ import unittest
 from dataclasses import fields
 
 from d12ball.components import MatchState
-from d12ball.prompts import PendingPrompt, PromptKind, pending_prompt
+from d12ball.flow.result import FollowOn, FollowOnStep
+from d12ball.prompts import (
+    PendingPrompt,
+    PromptKind,
+    owed_step,
+    pending,
+    pending_prompt,
+)
 from prompt_fixtures import CASES, ENGINE, RULESET
 
 
@@ -25,6 +32,8 @@ class PendingPromptTests(unittest.TestCase):
 
     def test_every_state_names_its_own_kind(self) -> None:
         for case in CASES:
+            if not case.asked:
+                continue
             with self.subTest(case.name):
                 fixture = case.build()
 
@@ -34,6 +43,45 @@ class PendingPromptTests(unittest.TestCase):
 
                 self.assertIs(prompt.kind, PromptKind[case.kind])
                 self.assertEqual(prompt.ask, fixture.ask)
+
+    def test_every_owed_state_names_its_own_step(self) -> None:
+        """
+        A position nobody is asked anything on names the step the bot
+        owes, and asks nothing: the two readers over the chain answer
+        one each.
+        """
+        for case in CASES:
+            if case.asked:
+                continue
+            with self.subTest(case.name):
+                fixture = case.build()
+
+                owed = owed_step(ENGINE, fixture.game, fixture.match)
+
+                self.assertIsInstance(owed, FollowOn)
+                self.assertIs(owed.step, FollowOnStep[case.owed])
+                self.assertIsNone(
+                    pending_prompt(ENGINE, fixture.game, fixture.match),
+                )
+
+    def test_asked_and_owed_are_exclusive(self) -> None:
+        """
+        Exactly one of the two readers answers for every position --
+        which is what lets `driver.answer` refuse while a step is
+        owed and `GameService.resume` run it, off one reading.
+        """
+        for case in CASES:
+            with self.subTest(case.name):
+                fixture = case.build()
+
+                asked = pending_prompt(ENGINE, fixture.game, fixture.match)
+                owed = owed_step(ENGINE, fixture.game, fixture.match)
+
+                self.assertEqual((asked is None), (owed is not None))
+                self.assertIs(
+                    pending(ENGINE, fixture.game, fixture.match).__class__,
+                    (PendingPrompt if asked is not None else FollowOn),
+                )
 
     def test_a_prompt_carries_what_its_branch_carries_and_no_more(
         self,
@@ -50,6 +98,8 @@ class PendingPromptTests(unittest.TestCase):
             for field in fields(PendingPrompt)
         }
         for case in CASES:
+            if not case.asked:
+                continue
             with self.subTest(case.name):
                 fixture = case.build()
 
@@ -88,13 +138,11 @@ class PendingPromptTests(unittest.TestCase):
             with self.subTest(case.name):
                 fixture = case.build()
 
-                before = pending_prompt(
-                    ENGINE, fixture.game, fixture.match,
-                )
+                before = pending(ENGINE, fixture.game, fixture.match)
                 reloaded = MatchState.from_dict(
                     fixture.match.to_dict(), RULESET,
                 )
-                after = pending_prompt(ENGINE, fixture.game, reloaded)
+                after = pending(ENGINE, fixture.game, reloaded)
 
                 self.assertEqual(after, before)
 
@@ -105,7 +153,7 @@ class PendingPromptTests(unittest.TestCase):
         on the old code first.
         """
         self.assertEqual(
-            {PromptKind[case.kind] for case in CASES},
+            {PromptKind[case.kind] for case in CASES if case.asked},
             set(PromptKind),
         )
 

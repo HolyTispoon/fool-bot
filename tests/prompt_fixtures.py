@@ -19,6 +19,13 @@ test modules read the same table:
   (`D12Ball.pending_turn_view`) for the `discord.ui.View` class and the
   line above it.
 
+**A case is asked or owed.** Since step 5 of docs/architecture-migration.md
+the chain answers a `FollowOn` for a position nobody is asked anything
+on -- the bot owes the next step -- and those cases name the
+`FollowOnStep` in `owed` and nothing in `kind` or `view`: there is no
+prompt to restore and no view to map. `tests/test_d12ball_game_service_resume.py`
+drives every owed case through `GameService.resume`.
+
 The second one is the equivalence test: it was written and run against
 the old chain **before** anything moved, so a green run after the move
 is the two answering the same way rather than two halves of one new
@@ -84,13 +91,26 @@ class PromptCase:
     A fixture, named by the two things it should produce: the model's
     `PromptKind` (by member name, so this module needs no import of it)
     and the `discord.ui.View` class the cog maps that kind to (by class
-    name, so this module needs no discord).
+    name, so this module needs no discord) -- or, for a position the
+    bot owes a step on, the `FollowOnStep` (by member name) and neither
+    of the other two.
     """
 
     name: str
     kind: str
     view: str
     build: Callable[[], PromptFixture]
+    owed: str = ""
+
+    @property
+    def asked(self) -> bool:
+        """Whether this case is a question for somebody."""
+        return bool(self.kind)
+
+
+def owed_case(name: str, step: str, build: Callable[[], PromptFixture]):
+    """A case the bot owes a step on: no kind, no view."""
+    return PromptCase(name, "", "", build, owed=step)
 
 
 def build_game(**overrides) -> D12BallGame:
@@ -147,19 +167,37 @@ def challenge(match: MatchState) -> str:
 
 
 def setup_coaching() -> PromptFixture:
+    # The stage and its window both: the stage alone is a position the
+    # bot owes the next step on (`setup_stage_with_no_window`).
     match = build_match()
     match.pending_setup_stage = "coaching_home"
+    match.open_coaching_window(TeamSide.HOME, CoachingOccasion.SETUP)
     return PromptFixture(
         build_game(), match, "Coaching Choice, before kickoff:",
     )
 
 
+def setup_stage_with_no_window() -> PromptFixture:
+    # The process died between setting the stage and opening the
+    # window: nothing to re-post, and the sequence is re-driven.
+    match = build_match()
+    match.pending_setup_stage = "coaching_home"
+    return PromptFixture(build_game(), match, "")
+
+
 def full_time_coaching() -> PromptFixture:
     match = build_match()
     match.pending_full_time_stage = "coaching_home"
+    match.open_coaching_window(TeamSide.HOME, CoachingOccasion.FULL_TIME)
     return PromptFixture(
         build_game(), match, "Coaching Choice, before the shootout:",
     )
+
+
+def full_time_stage_with_no_window() -> PromptFixture:
+    match = build_match()
+    match.pending_full_time_stage = "coaching_home"
+    return PromptFixture(build_game(), match, "")
 
 
 def halftime_extra_token() -> PromptFixture:
@@ -173,10 +211,25 @@ def halftime_extra_token() -> PromptFixture:
     )
 
 
+def halftime_extra_token_for_the_ai() -> PromptFixture:
+    # An AI side takes its own token off: the stage's step, not a
+    # question.
+    match = build_match()
+    match.pending_halftime_stage = "extra_token_visiting"
+    return PromptFixture(build_game(player_2_id=None), match, "")
+
+
 def halftime_coaching() -> PromptFixture:
     match = build_match()
     match.pending_halftime_stage = "coaching_home"
+    match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
     return PromptFixture(build_game(), match, "Halftime Coaching Choice:")
+
+
+def halftime_stage_with_no_window() -> PromptFixture:
+    match = build_match()
+    match.pending_halftime_stage = "coaching_home"
+    return PromptFixture(build_game(), match, "")
 
 
 # -- The four interrupts, ahead of everything they interrupt ----------
@@ -237,6 +290,17 @@ def shootout_order() -> PromptFixture:
     )
 
 
+def shootout_order_for_the_ai() -> PromptFixture:
+    # The AI's order is set by the step itself, so a shootout still
+    # owing one is the bot's.
+    match = build_match()
+    match.begin_shootout()
+    match.set_shootout_order(
+        TeamSide.HOME, list(match.shootout_squad(TeamSide.HOME)),
+    )
+    return PromptFixture(build_game(player_2_id=None), match, "")
+
+
 def shootout_test() -> PromptFixture:
     match = build_match()
     match.begin_shootout()
@@ -280,11 +344,11 @@ def time_out_window() -> PromptFixture:
 
 
 def time_out_tail() -> PromptFixture:
-    # Both windows closed: what is left is the tail, and that was the
+    # Both windows closed: what is left is the tail, and that is the
     # bot's own next step, so there is no button to restore.
     match = build_match()
     _ceded_time_out(match)
-    return PromptFixture(build_game(), match, "Settle the time out:")
+    return PromptFixture(build_game(), match, "")
 
 
 # -- The turn itself ---------------------------------------------------
@@ -303,6 +367,15 @@ def coaching_offer() -> PromptFixture:
     return PromptFixture(
         build_game(), match, "Coaching Choice — coach, or pass?",
     )
+
+
+def ai_coaching_window() -> PromptFixture:
+    # An AI side's window is a routine that runs to completion, so a
+    # restart in the middle of one leaves nobody to click anything.
+    match = build_match()
+    take_the_ball(match)
+    match.open_coaching_window(TeamSide.VISITING, CoachingOccasion.NEW_PLAY)
+    return PromptFixture(build_game(player_2_id=None), match, "")
 
 
 def coaching_hub() -> PromptFixture:
@@ -351,19 +424,24 @@ def run_back_player() -> PromptFixture:
 
 def run_back_finished() -> PromptFixture:
     # Nothing left to place, which is the bot's own next step rather
-    # than a coach's -- the first of the three PlayerActionView
-    # fallbacks, and it keeps the run back's own ask.
+    # than a coach's: the cascade's, to finish.
     match = build_match()
     take_the_ball(match)
     match.pending_run_back = True
-    return PromptFixture(
-        build_game(), match, "Choose where the next player runs back to:",
-    )
+    return PromptFixture(build_game(), match, "")
+
+
+def _nobody_on_the_ball(match: MatchState) -> None:
+    """Move whoever is standing on the ball's space off it."""
+    for player_id in list(match.board.spaces[match.ball.zone][
+        match.ball.space_index
+    ]):
+        match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
 
 
 def ball_recovery() -> PromptFixture:
     match = build_match()
-    take_the_ball(match)
+    _nobody_on_the_ball(match)
     match.pending_ball_recovery = True
     return PromptFixture(
         build_game(),
@@ -371,6 +449,25 @@ def ball_recovery() -> PromptFixture:
         "Send the nearest player either side of the ball to pick it "
         f"up at {space_label(match.ball.zone, match.ball.space_index)}:",
     )
+
+
+def ball_recovery_for_the_ai() -> PromptFixture:
+    # An AI side sends its nearest without being asked. The AI is
+    # always player 2, which is the visiting side here.
+    match = build_match()
+    match.ball.possession = TeamSide.VISITING
+    _nobody_on_the_ball(match)
+    match.pending_ball_recovery = True
+    return PromptFixture(build_game(player_2_id=None), match, "")
+
+
+def ball_recovery_with_somebody_on_the_ball() -> PromptFixture:
+    # The reset put one of theirs on it already: nobody is placed, and
+    # the step says so by moving on.
+    match = build_match()
+    take_the_ball(match)
+    match.pending_ball_recovery = True
+    return PromptFixture(build_game(), match, "")
 
 
 def loose_ball_pick() -> PromptFixture:
@@ -405,17 +502,13 @@ def loose_ball_skill_test() -> PromptFixture:
 
 def loose_ball_settled() -> PromptFixture:
     # Both sides have answered and neither sent anybody, so there is
-    # nothing left to ask -- the second PlayerActionView fallback.
+    # nothing left to ask: settling it is the step's.
     match = build_match()
     take_the_ball(match)
     match.begin_loose_ball(1)
     match.decline_loose_ball(match.ball.possession)
     match.decline_loose_ball(match.defending_side())
-    return PromptFixture(
-        build_game(),
-        match,
-        f"Choose who goes after the {contest_noun(match)}:",
-    )
+    return PromptFixture(build_game(), match, "")
 
 
 def score_attempt() -> PromptFixture:
@@ -648,6 +741,7 @@ def dribble_burst_with_nothing_to_ask() -> PromptFixture:
     match.board.place_meeple(match.active_player_id, Zone.VISITORS_GOAL, last)
     match.ball.zone = Zone.VISITORS_GOAL
     match.ball.space_index = last
+    fixture.ask = ""
     return fixture
 
 
@@ -732,9 +826,10 @@ def free_low_pass_choice() -> PromptFixture:
 
 def effect_with_no_choice() -> PromptFixture:
     # Deflect and Pressure resolve with nothing to ask, so a crash
-    # window that persisted one falls back to the turn prompt -- the
-    # third PlayerActionView fallback.
-    return _settled("high_pass", "deflect")
+    # window that persisted one owes the effect itself.
+    fixture = _settled("high_pass", "deflect")
+    fixture.ask = ""
+    return fixture
 
 
 def plain_turn() -> PromptFixture:
@@ -746,46 +841,61 @@ def plain_turn() -> PromptFixture:
 CASES: tuple[PromptCase, ...] = (
     PromptCase("setup coaching", "COACHING_HUB", "CoachingHubView",
                setup_coaching),
+    owed_case("setup stage, no window", "ADVANCE_SETUP_STAGE",
+              setup_stage_with_no_window),
     PromptCase("full-time coaching", "COACHING_HUB", "CoachingHubView",
                full_time_coaching),
+    owed_case("full-time stage, no window", "ADVANCE_FULL_TIME_STAGE",
+              full_time_stage_with_no_window),
     PromptCase("halftime extra token", "HALFTIME_EXTRA_TOKEN",
                "HalftimeExtraTokenView", halftime_extra_token),
+    owed_case("halftime extra token, the AI's", "ADVANCE_HALFTIME_STAGE",
+              halftime_extra_token_for_the_ai),
     PromptCase("halftime coaching", "COACHING_HUB", "CoachingHubView",
                halftime_coaching),
+    owed_case("halftime stage, no window", "ADVANCE_HALFTIME_STAGE",
+              halftime_stage_with_no_window),
     PromptCase("smooth", "SMOOTH", "SmoothView", smooth),
     PromptCase("mind pull", "MIND_PULL", "MindPullView", mind_pull),
     PromptCase("injury test", "INJURY_TEST", "InjuryTestView", injury_test),
     PromptCase("own goal", "OWN_GOAL_ROLL", "OwnGoalRollView", own_goal),
     PromptCase("shootout order", "SHOOTOUT_ORDER", "ShootoutOrderPromptView",
                shootout_order),
+    owed_case("shootout order, the AI's", "ADVANCE_SHOOTOUT",
+              shootout_order_for_the_ai),
     PromptCase("shootout pick", "SHOOTOUT_PICK", "ShootoutPickPromptView",
                shootout_pick),
     PromptCase("shootout test", "SHOOTOUT_TEST", "ShootoutTestView",
                shootout_test),
     PromptCase("time-out window", "COACHING_HUB", "CoachingHubView",
                time_out_window),
-    PromptCase("time-out tail", "PLAYER_ACTION", "PlayerActionView",
-               time_out_tail),
+    owed_case("time-out tail", "FINISH_TIME_OUT", time_out_tail),
     PromptCase("kickoff", "BALL_HANDLER_SELECTION",
                "BallHandlerSelectionView", kickoff),
     PromptCase("coaching offer", "COACHING_OFFER", "CoachingOfferView",
                coaching_offer),
     PromptCase("coaching hub", "COACHING_HUB", "CoachingHubView",
                coaching_hub),
+    owed_case("the AI's window", "RUN_AI_COACHING_WINDOW",
+              ai_coaching_window),
     PromptCase("run back, where", "RUN_BACK_SPACE", "RunBackChoiceView",
                run_back_space),
     PromptCase("run back, who", "RUN_BACK_PLAYER", "RunBackPlayerChoiceView",
                run_back_player),
-    PromptCase("run back, nothing left", "PLAYER_ACTION", "PlayerActionView",
-               run_back_finished),
+    owed_case("run back, nothing left", "CONTINUE_RUN_BACK",
+              run_back_finished),
     PromptCase("ball recovery", "BALL_RECOVERY", "BallRecoveryView",
                ball_recovery),
+    owed_case("ball recovery, the AI's", "BEGIN_BALL_RECOVERY",
+              ball_recovery_for_the_ai),
+    owed_case("ball recovery, somebody on it", "BEGIN_BALL_RECOVERY",
+              ball_recovery_with_somebody_on_the_ball),
     PromptCase("loose ball pick", "LOOSE_BALL_PICK", "LooseBallChoiceView",
                loose_ball_pick),
     PromptCase("loose ball roll", "LOOSE_BALL_SKILL_TEST",
                "LooseBallSkillTestView", loose_ball_skill_test),
-    PromptCase("loose ball settled", "PLAYER_ACTION", "PlayerActionView",
-               loose_ball_settled),
+    owed_case("loose ball settled", "RESOLVE_LOOSE_BALL",
+              loose_ball_settled),
     PromptCase("set-up attempt", "SET_UP_ATTEMPT", "SetUpAttemptChoiceView",
                set_up_attempt),
     PromptCase("shooter choice", "SHOOTER_CHOICE", "ShooterChoiceView",
@@ -818,14 +928,14 @@ CASES: tuple[PromptCase, ...] = (
                dribble_advance_speed_after_the_distance),
     PromptCase("dribble burst", "DRIBBLE_BURST_CHOICE",
                "DribbleBurstChoiceView", dribble_burst_choice),
-    PromptCase("dribble burst, nothing to ask", "PLAYER_ACTION",
-               "PlayerActionView", dribble_burst_with_nothing_to_ask),
+    owed_case("dribble burst, nothing to ask", "BEGIN_EFFECT_RESOLUTION",
+              dribble_burst_with_nothing_to_ask),
     PromptCase("steal", "SPEED_DELTA_CHOICE", "SpeedDeltaChoiceView",
                steal_speed_choice),
     PromptCase("intercept", "SPEED_DELTA_CHOICE", "SpeedDeltaChoiceView",
                intercept_speed_choice),
-    PromptCase("effect with no choice", "PLAYER_ACTION", "PlayerActionView",
-               effect_with_no_choice),
+    owed_case("effect with no choice", "BEGIN_EFFECT_RESOLUTION",
+              effect_with_no_choice),
     PromptCase("skill test settled a tie", "LOW_PASS_CHOICE",
                "LowPassChoiceView", skill_test_settled_a_tie),
     PromptCase("setup pass push back", "SETUP_PASS_PUSH_BACK",

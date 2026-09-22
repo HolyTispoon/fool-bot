@@ -18,12 +18,14 @@ changes a game. It loads the match from the record, calls
 `driver.answer`, runs everything the answer starts through
 `driver.advance`, writes the match **once**, and hands back a
 `GameResult`. A `Refusal` comes back as a result with `refusal` set
-and nothing written. Three more entry points cover what is not a
+and nothing written. Four more entry points cover what is not a
 click: `begin` opens the pre-kickoff window once setup has settled
-the sides; `run_step` runs a `FollowOnStep` by name (the recovery
-command re-posting the turn); `resume` runs the step the bot itself
-owes, or hands back the prompt, and says in words what it was waiting
-on. All four reduce to `run`, which is the loop and the save.
+the sides; `run_step` runs a `FollowOnStep` by name; `resume` runs
+the step the bot itself owes, or hands back the prompt, and says in
+words what it was waiting on; `reset_turn` is the recovery command's
+`force`, throwing a turn away and re-asking the offense, refused
+where the position is not a turn (`RulesEngine.turn_reset_refusal`).
+All five reduce to `run`, which is the loop and the save.
 
 **The save moved out of the views and out of the dispatcher.** Before
 this, `cog.persist(` was spelled 28 times in the views and 16 times in
@@ -116,19 +118,68 @@ a question whose answer draws the board a moment later.
 take the position to draw, so a snapshot renders from the dict the
 service handed back rather than from the save.
 
-## Recovery is the service's ladder
+## Recovery is the service's, off the one reading
 
 `resume_pending_prompt` was a second reading of "what is this match
 waiting on", in the cog, with nine flags in its own order and a cog
-routine per branch. It is `GameService.resume` now, the same order,
-each branch a flow function run through `run` -- which is the first
-step toward proposal 1 of [../web-app.md](../web-app.md), the model
-answering "nobody is asked; run this" itself. A restart still re-arms
-one message per game; `resume` re-posts through `render_prompt`, so
-a resumed prompt gets its picture (the field strip, the hand, the
-coach's half-field) where the old bare re-post did not. An open
-Coaching Choice comes back with the "picking this up" note above the
-allowance, worded by the engine.
+routine per branch. Steps 1 to 4 of the migration moved it whole into
+`GameService.resume`; step 5 removed it. **The reading is
+`d12ball.prompts.owed_step`'s now**: one chain in `d12ball/prompts.py`
+(`pending`) answers either a `PendingPrompt` -- somebody is asked --
+or a `FollowOn` -- the bot owes the next step -- and `pending_prompt`
+and `owed_step` are the two readers over it, exactly one of which
+answers for any position. `resume` runs what the second hands back
+through `run`, or hands back what the first does; `driver.answer`
+refuses an action while the second answers (`STEP_OWED`), which is
+what closed finding 1 of [../web-app.md](../web-app.md): a turn
+action used to be applied on top of a half-run run back, because the
+chain answered `PLAYER_ACTION` for the states where nobody was asked.
+Those fallbacks are gone, and so is the `PlayerActionView` the
+startup sweep used to re-arm over one of them -- the sweep skips a
+game the bot owes a step on and logs it, because a click there is
+refused and `/d12ball resume` is what runs it.
+
+The seven steps a resume can name that nothing else named --
+`ADVANCE_SETUP_STAGE`, `ADVANCE_HALFTIME_STAGE`,
+`ADVANCE_FULL_TIME_STAGE`, `ADVANCE_SHOOTOUT`, `RUN_AI_COACHING_WINDOW`,
+`FINISH_TIME_OUT`, `BEGIN_BALL_RECOVERY` -- are `FollowOnStep` members
+with a row in `MODEL_STEPS`. Each is still called inline by the step
+that ordinarily reaches it; the member is the door a resume comes back
+in through, and the closed enum is why nothing can reach one by
+spelling its name. The three the chain already named --
+`CONTINUE_RUN_BACK`, `RESOLVE_LOOSE_BALL`, `BEGIN_EFFECT_RESOLUTION`
+-- are what the old fallbacks now resolve to. `OWED_STEP_NAMES` in
+the service is the wording `/d12ball resume` reports each as.
+
+What "owed" means, branch by branch, is what the flow decides at that
+point without asking anybody: a stage set with no window open (the
+advance opens it); an AI side's extra token, order, shooter, window
+or pickup (the step chooses for it -- until migration step 7, when
+the AI answers prompts like a coach and these branches go back to
+being prompts with the AI's side on them); a pickup nobody need make;
+a run back with only forced placements left; a loose ball both sides
+have answered; a won card with nothing to ask. The stage fixtures in
+`tests/prompt_fixtures.py` open their window now, because the hub
+answer had always refused a window that was not open (`_window_is`)
+-- the old `COACHING_HUB` reading for a bare stage was a prompt whose
+every answer was a stale click, which is the shape an owed step has.
+
+A restart still re-arms one message per game; `resume` re-posts
+through `render_prompt`, so a resumed prompt gets its picture (the
+field strip, the hand, the coach's half-field) where the old bare
+re-post did not. An open Coaching Choice comes back with the "picking
+this up" note above the allowance, worded by the engine.
+`tests/test_d12ball_game_service_resume.py` resumes every fixture in
+the shared table with no cog imported -- an asked position comes back
+as its prompt with nothing written, an owed one is run to a question
+with one save -- and `tests/test_d12ball_recovery.py` is the Discord
+half over the same table.
+
+**The challenge image is keyed on the group.** `Narration.arguments`
+carries the stopped or closed step's own kwargs, so `post_group` draws
+the walk-in's image of the `challenger_id` the step named rather than
+of whoever `match.challenger_id` happens to hold by the time the
+group is rendered.
 
 ## What a test does now
 

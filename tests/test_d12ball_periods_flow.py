@@ -67,7 +67,7 @@ from d12ball.flow.windows import (
     finish_time_out,
     open_substitution_window,
 )
-from d12ball.prompts import PromptKind, pending_prompt
+from d12ball.prompts import PromptKind, owed_step, pending_prompt
 
 from roster import fielded
 from save_patches import suppressed_cog_saves
@@ -749,6 +749,12 @@ class WindowStateSurvivesASaveTests(PeriodFixture):
         after = pending_prompt(self.engine, self.game, self.round_trip())
         self.assertEqual(after, before)
 
+    def assert_owed_survives(self, expected: FollowOnStep) -> None:
+        before = owed_step(self.engine, self.game, self.match)
+        self.assertEqual(before.step, expected)
+        after = owed_step(self.engine, self.game, self.round_trip())
+        self.assertEqual(after, before)
+
     def test_the_pre_kickoff_window(self) -> None:
         begin_setup_coaching(self.engine, self.game, self.match)
         open_substitution_window(
@@ -819,7 +825,7 @@ class WindowStateSurvivesASaveTests(PeriodFixture):
             self.match, PlayerRole.MIDFIELDER,
         )
         begin_time_out(self.engine, self.game, self.match)
-        self.assert_survives(PromptKind.PLAYER_ACTION)
+        self.assert_owed_survives(FollowOnStep.FINISH_TIME_OUT)
 
     def test_the_shootout_waiting_on_an_order(self) -> None:
         begin_shootout(self.engine, self.game, self.match)
