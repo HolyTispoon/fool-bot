@@ -50,12 +50,13 @@ from typing import Optional
 
 from d12ball.components import (
     EVENT_SHOT,
-    OVERDRIVE_BONUS,
-    OVERDRIVE_DRAIN_COST,
     EVENT_SKILL_TEST,
     MatchState,
+    OVERDRIVE_BONUS,
+    OVERDRIVE_DRAIN_COST,
     PlayerDefinition,
     PlayerRole,
+    RuleRefusal,
     SPECIES_CYBORG,
     TeamSide,
 )
@@ -66,6 +67,7 @@ from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
     contest_noun,
     contestant_detail,
+    format_ai_name,
     format_goal_time,
     format_player_with_team,
     format_team_side_label,
@@ -1175,7 +1177,18 @@ def retract_shot_step(
     `RulesEngine.build_turn_prompt` as it was the first time.
     """
     if not match.may_cancel_pending_shot():
-        raise ValueError("This score attempt is no longer active.")
+        raise RuleRefusal("This score attempt is no longer active.")
+    if engine.side_is_ai(game, match.ball.possession):
+        # Not a rule of the game but a feature of how the AI plays:
+        # it does not misclick, so its shot is never walked back --
+        # and a human standing in for its rolls does not get to undo
+        # its choice either (the author, 2026-09-21; see "Every roll
+        # is a coach's" in docs/design/maneuvers.md). The prompt's
+        # options say so, and the frontend builds no Back for it.
+        raise RuleRefusal(
+            f"{format_ai_name(game.ai_opponent)}'s shot stands; only a "
+            "coach's own shot can be walked back."
+        )
 
     if not match.pending_shot_is_set_up:
         match.retract_pending_shot()
@@ -1419,9 +1432,9 @@ def declare_overdrive_step(
     docs/design/permissions.md.
     """
     if player_id not in overdrive_rollers(match, prompt):
-        raise ValueError("That player is not in this roll.")
+        raise RuleRefusal("That player is not in this roll.")
     if not engine.overdrive_candidates(game, match, [player_id]):
-        raise ValueError("That Overdrive is no longer available.")
+        raise RuleRefusal("That Overdrive is no longer available.")
 
     match.declare_overdrive(
         player_id, engine.exhaustion_threshold(game, player_id),

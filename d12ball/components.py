@@ -18,6 +18,28 @@ MANEUVERS_FILE = DATA_FOLDER / "maneuvers.json"
 SPECIES_FILE = DATA_FOLDER / "species.json"
 
 
+class RuleRefusal(ValueError):
+    """
+    The position refusing what was chosen, with the sentence to show.
+
+    **The one channel a refusal travels on.** A step, a `MatchState`
+    mutator or an adapter in `d12ball.flow.driver` raises this where a
+    rule says no -- a space that player may not take, a substitution
+    with none left, a swap that moves nobody -- and `driver.answer`
+    catches this and nothing else, turning it into a `Refusal` a
+    frontend shows. Until step 6 of docs/architecture-migration.md the
+    channel was `ValueError`, which caught the interpreter's own
+    sentences too: a `TeamSide` built from a bad wire value came back
+    as a refusal worded by Python and shown to a person. A
+    `ValueError` that is not one of these is a bug again, and
+    propagates.
+
+    A subclass of `ValueError` so that every caller that already read
+    a refusal as one still does; what changed is what the model's own
+    door catches.
+    """
+
+
 class Zone(str, Enum):
     HOME_GOAL = "home_goal"
     MIDFIELD = "midfield"
@@ -2195,7 +2217,7 @@ class MatchState:
             )
             if player_id in roster_ids:
                 return setup.team
-        raise ValueError(
+        raise RuleRefusal(
             f"{player_id} is not on either side of this match."
         )
 
@@ -2220,7 +2242,7 @@ class MatchState:
             )
             if player_id in roster_ids:
                 return side
-        raise ValueError(
+        raise RuleRefusal(
             f"{player_id} is not on either side of this match."
         )
 
@@ -2275,7 +2297,7 @@ class MatchState:
 
     def select_ball_handler(self, player_id: str) -> None:
         if player_id not in self.turn_handler_candidates():
-            raise ValueError(
+            raise RuleRefusal(
                 "The selected player is not an eligible ball handler."
             )
         self.active_player_id = player_id
@@ -2293,7 +2315,7 @@ class MatchState:
         """
         position = self.board.meeple_position(player_id)
         if position is None:
-            raise ValueError(f"{player_id} does not have a fielded meeple.")
+            raise RuleRefusal(f"{player_id} does not have a fielded meeple.")
         zone, space_index = position
         player_flat = self.board.flat_index(zone, space_index)
         ball_flat = self.board.flat_index(
@@ -3005,7 +3027,7 @@ class MatchState:
         for the exhaustion token any run-back-style movement costs.
         """
         if player_id not in self.kickoff_fill_candidates():
-            raise ValueError(
+            raise RuleRefusal(
                 f"{player_id} cannot fill the kickoff -- not a fielded "
                 "midfield player for the side now in possession."
             )
@@ -3154,13 +3176,13 @@ class MatchState:
         not a ban on spending.
         """
         if player_id in self.pending_overdrive:
-            raise ValueError("Overdrive has already been declared.")
+            raise RuleRefusal("Overdrive has already been declared.")
         if player_id in self.injured:
             # An injured player carries no tokens and cannot gain any,
             # so there is nothing to spend. Overdrive itself is not
             # withheld by injury -- it is a flat bonus, not the skill
             # modifier -- but the price cannot be paid.
-            raise ValueError("An injured player cannot Overdrive.")
+            raise RuleRefusal("An injured player cannot Overdrive.")
         self.add_exhaustion(player_id, OVERDRIVE_DRAIN_COST)
         self.mark_exhausted_if_needed(player_id, threshold)
         self.pending_overdrive.append(player_id)
@@ -3259,9 +3281,9 @@ class MatchState:
         space moved. Returns the number of spaces moved.
         """
         if self.challenger_id is not None:
-            raise ValueError("A defender has already been chosen.")
+            raise RuleRefusal("A defender has already been chosen.")
         if player_id not in self.challenge_candidates():
-            raise ValueError(
+            raise RuleRefusal(
                 "The selected player cannot challenge for the ball."
             )
 
@@ -3294,7 +3316,7 @@ class MatchState:
         maneuver selection, not another prompt for this one.
         """
         if self.automatic_challengers():
-            raise ValueError(
+            raise RuleRefusal(
                 "A defender on the ball's space has to challenge."
             )
         self.maneuver_uncontested = True
@@ -3352,13 +3374,13 @@ class MatchState:
         upstream would then be a change to every saved game.
         """
         if self.offense_maneuver is not None:
-            raise ValueError("The offense has already chosen a maneuver.")
+            raise RuleRefusal("The offense has already chosen a maneuver.")
         self.offense_maneuver = key
 
     def choose_defense_maneuver(self, key: str) -> None:
         """The defense's pick, by maneuver key -- see above."""
         if self.defense_maneuver is not None:
-            raise ValueError("The defense has already chosen a maneuver.")
+            raise RuleRefusal("The defense has already chosen a maneuver.")
         self.defense_maneuver = key
 
     def begin_loose_ball(
@@ -3377,12 +3399,12 @@ class MatchState:
 
     def choose_loose_ball_offense_player(self, player_id: str) -> None:
         if self.loose_ball_offense_player is not None:
-            raise ValueError("The offense has already picked a player.")
+            raise RuleRefusal("The offense has already picked a player.")
         self.loose_ball_offense_player = player_id
 
     def choose_loose_ball_defense_player(self, player_id: str) -> None:
         if self.loose_ball_defense_player is not None:
-            raise ValueError("The defense has already picked a player.")
+            raise RuleRefusal("The defense has already picked a player.")
         self.loose_ball_defense_player = player_id
 
     def decline_loose_ball(self, side: TeamSide) -> None:
@@ -3419,7 +3441,7 @@ class MatchState:
         knows which it is.
         """
         if player_id not in self.contest_candidates(self.ball.possession):
-            raise ValueError(
+            raise RuleRefusal(
                 f"{player_id} cannot recover the ball -- not one of the "
                 "nearest players for the side now in possession."
             )
@@ -3507,7 +3529,7 @@ class MatchState:
             self.home.field_players + self.visiting.field_players
         )
         if player_id not in fielded_players:
-            raise ValueError("Only a fielded player's meeple can move.")
+            raise RuleRefusal("Only a fielded player's meeple can move.")
         self.note_mover(player_id, Zone(zone), space_index)
         self.board.place_meeple(player_id, zone, space_index)
 
@@ -3535,7 +3557,7 @@ class MatchState:
             + setup.team_board.back_bench
         )
         if player_id not in roster_ids:
-            raise ValueError(f"{player_id} is not assigned to this team.")
+            raise RuleRefusal(f"{player_id} is not assigned to this team.")
 
         for zone_players in setup.zones.values():
             if player_id in zone_players:
@@ -3591,7 +3613,7 @@ class MatchState:
         """
         zone = Zone(zone)
         if space_index not in range(len(self.board.spaces[zone])):
-            raise ValueError("The target board space does not exist.")
+            raise RuleRefusal("The target board space does not exist.")
         self.last_ball_path = self.ball_path_to(zone, space_index)
         self.ball.zone = zone
         self.ball.space_index = space_index
@@ -3699,7 +3721,7 @@ class MatchState:
         """
         position = self.board.meeple_position(player_id)
         if position is None:
-            raise ValueError(f"{player_id} does not have a fielded meeple.")
+            raise RuleRefusal(f"{player_id} does not have a fielded meeple.")
         origin_flat = self.board.flat_index(*position)
         target_flat = self.relative_flat_index(origin_flat, side, spaces)
         zone, space_index = self.board.position_at_flat_index(target_flat)
@@ -3764,11 +3786,11 @@ class MatchState:
         """
         zone = Zone(zone)
         if space_index not in range(len(self.board.spaces[zone])):
-            raise ValueError("The target board space does not exist.")
+            raise RuleRefusal("The target board space does not exist.")
 
         occupants = self.board.spaces[zone][space_index]
         if not occupants:
-            raise ValueError(
+            raise RuleRefusal(
                 "The ball can't be moved there until a meeple is present."
             )
 
@@ -3793,7 +3815,7 @@ class MatchState:
         setup = self.setup_for_side(side)
         occupants = self.board.spaces[self.ball.zone][self.ball.space_index]
         if not any(player_id in setup.field_players for player_id in occupants):
-            raise ValueError(
+            raise RuleRefusal(
                 "The ball's current space has no player from that team."
             )
         self.ball.possession = side
@@ -4003,13 +4025,13 @@ class MatchState:
         zone = Zone(zone)
 
         if zone != setup.assigned_zone(player_id):
-            raise ValueError(
+            raise RuleRefusal(
                 f"{player_id} is not assigned to {zone.value}."
             )
         if space_index not in self.placement_spaces_in_zone(
             side, zone, player_id, spread_exempt_ids,
         ):
-            raise ValueError(
+            raise RuleRefusal(
                 "That zone still has a space with nobody on it."
             )
 
@@ -4181,7 +4203,7 @@ class MatchState:
         as often as the play offers it and still hold its time out.
         """
         if self.pending_coaching_side is None:
-            raise ValueError("No coaching window is open.")
+            raise RuleRefusal("No coaching window is open.")
         self.pending_coaching_declared = True
         occasion = self.coaching_occasion
         if (
@@ -4239,7 +4261,7 @@ class MatchState:
         """
         occasion = self.coaching_occasion
         if self.pending_coaching_side is None or occasion is None:
-            raise ValueError("No coaching window is open.")
+            raise RuleRefusal("No coaching window is open.")
         self.pending_coaching_substitutions += 1
         if outgoing_player_id is not None and incoming_player_id is not None:
             self.pending_coaching_swaps.append(
@@ -4309,25 +4331,25 @@ class MatchState:
         setup = self.setup_for_side(side)
 
         if fielded_player_id not in setup.field_players:
-            raise ValueError("The outgoing player is not on the field.")
+            raise RuleRefusal("The outgoing player is not on the field.")
 
         if incoming_player_id not in self.substitution_pool(side):
             if incoming_player_id in self.injured:
-                raise ValueError(
+                raise RuleRefusal(
                     "An injured player can never be subbed back in."
                 )
             if setup.team_board.bench:
-                raise ValueError(
+                raise RuleRefusal(
                     "The incoming player card is not on the bench, which "
                     "is the only pool until it has drained."
                 )
-            raise ValueError(
+            raise RuleRefusal(
                 "The incoming player card is not on the back bench."
             )
 
         position = self.board.meeple_position(fielded_player_id)
         if position is None:
-            raise ValueError(
+            raise RuleRefusal(
                 f"{fielded_player_id} has no meeple on the board."
             )
         _, space_index = position
@@ -4405,13 +4427,22 @@ class MatchState:
         setup = self.setup_for_side(side)
 
         if player_id == other_player_id:
-            raise ValueError("Pick two different players to swap.")
+            raise RuleRefusal("Pick two different players to swap.")
         for candidate in (player_id, other_player_id):
             if candidate not in setup.field_players:
-                raise ValueError(f"{candidate} is not on the field.")
+                raise RuleRefusal(f"{candidate} is not on the field.")
 
         zone = setup.assigned_zone(player_id)
         other_zone = setup.assigned_zone(other_player_id)
+        if zone == other_zone:
+            # A swap that moves nobody is not a swap (the author,
+            # 2026-09-21). Moving a meeple within its zone is
+            # `position_meeple`'s.
+            raise RuleRefusal(
+                f"{player_id} and {other_player_id} are both assigned "
+                f"to {zone.value}; a zone assignment trades two "
+                "players in different zones."
+            )
 
         setup.zones[zone][setup.zones[zone].index(player_id)] = (
             other_player_id
@@ -4513,31 +4544,31 @@ class MatchState:
         side = TeamSide(side)
         setup = self.setup_for_side(side)
         if player_id not in setup.field_players:
-            raise ValueError(f"{player_id} is not on the field.")
+            raise RuleRefusal(f"{player_id} is not on the field.")
         zone = setup.assigned_zone(player_id)
         if not 0 <= space_index < len(self.board.spaces[zone]):
-            raise ValueError("That space is not in that zone.")
+            raise RuleRefusal("That space is not in that zone.")
         if self.board.meeple_position(player_id) == (zone, space_index):
-            raise ValueError("They are already standing there.")
+            raise RuleRefusal("They are already standing there.")
 
         candidates = self.positioning_swap_candidates(
             side, player_id, space_index,
         )
         if not candidates:
             if swap_with is not None:
-                raise ValueError("That move does not trade with anybody.")
+                raise RuleRefusal("That move does not trade with anybody.")
             self.board.place_meeple(player_id, zone, space_index)
             return None
 
         if swap_with is None:
             if len(candidates) > 1:
-                raise ValueError(
+                raise RuleRefusal(
                     "More than one teammate is on that space -- pick "
                     "which of them comes back."
                 )
             swap_with = candidates[0]
         elif swap_with not in candidates:
-            raise ValueError("They are not on the space being moved to.")
+            raise RuleRefusal("They are not on the space being moved to.")
 
         self.swap_meeple_positions(side, player_id, swap_with)
         return swap_with
@@ -4565,15 +4596,15 @@ class MatchState:
 
         placed = [player_id for player_id, _, _ in placement]
         if len(set(placed)) != len(placed):
-            raise ValueError("A player cannot be placed twice.")
+            raise RuleRefusal("A player cannot be placed twice.")
         if set(placed) != set(setup.field_players):
-            raise ValueError(
+            raise RuleRefusal(
                 "A deployment must place every fielded player, and "
                 "nobody else."
             )
         for _, zone, space_index in placement:
             if not 0 <= space_index < len(self.board.spaces[Zone(zone)]):
-                raise ValueError("That space is not in that zone.")
+                raise RuleRefusal("That space is not in that zone.")
 
         zones: dict[Zone, list[str]] = {zone: [] for zone in Zone}
         for player_id, zone, _ in placement:
@@ -4635,15 +4666,15 @@ class MatchState:
         setup = self.setup_for_side(side)
 
         if player_id == other_player_id:
-            raise ValueError("Pick two different players to trade with.")
+            raise RuleRefusal("Pick two different players to trade with.")
         for candidate in (player_id, other_player_id):
             if candidate not in setup.field_players:
-                raise ValueError(f"{candidate} is not on the field.")
+                raise RuleRefusal(f"{candidate} is not on the field.")
 
         position = self.board.meeple_position(player_id)
         other_position = self.board.meeple_position(other_player_id)
         if position is None or other_position is None:
-            raise ValueError("Both players need a meeple on the board.")
+            raise RuleRefusal("Both players need a meeple on the board.")
 
         self.board.remove_meeple(player_id)
         self.board.remove_meeple(other_player_id)
@@ -4696,7 +4727,7 @@ class MatchState:
         """Record a whole order at once -- how the AI sets its own."""
         squad = self.shootout_squad(side)
         if sorted(player_ids) != sorted(squad):
-            raise ValueError(
+            raise RuleRefusal(
                 "A shootout order has to be all six field players."
             )
         self.shootout_orders[TeamSide(side).value] = list(player_ids)
@@ -4713,7 +4744,7 @@ class MatchState:
         from having ordered none.
         """
         if player_id not in self.shootout_order_remaining(side):
-            raise ValueError(
+            raise RuleRefusal(
                 "That player is not still to be put in the order."
             )
         self.shootout_orders.setdefault(
@@ -4763,7 +4794,7 @@ class MatchState:
 
     def set_shootout_shooter(self, side: TeamSide, player_id: str) -> None:
         if player_id not in self.shootout_eligible(side):
-            raise ValueError(
+            raise RuleRefusal(
                 "That player has already shot in this round."
             )
         self.shootout_shooters[TeamSide(side).value] = player_id

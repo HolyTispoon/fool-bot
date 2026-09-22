@@ -44,7 +44,7 @@ import logging
 from dataclasses import replace
 from typing import Iterator, Optional
 
-from d12ball.components import MatchState, TeamSide
+from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import format_player_with_team, space_label
@@ -870,7 +870,7 @@ def run_back_player_step(
         else TeamSide.VISITING
     )
     if player_id not in engine.run_back_crowded(game, match, side):
-        raise ValueError("They no longer have to run back.")
+        raise RuleRefusal("They no longer have to run back.")
     match.run_back_pick = player_id
     return StepResult(
         next=PendingPrompt(

@@ -36,9 +36,10 @@ from dataclasses import dataclass, replace
 from typing import Optional
 
 from d12ball.components import (
-    MatchState,
     MIND_PULL_SUCCESS_FACES,
     MIND_PULL_TOKEN_COST,
+    MatchState,
+    RuleRefusal,
     SPECIES_TELEKINETIC,
     TeamSide,
 )
@@ -1337,7 +1338,7 @@ def decline_loose_ball_contest(
     """
     refusal = loose_ball_decline_refusal(match, skill_type)
     if refusal is not None:
-        raise ValueError(refusal)
+        raise RuleRefusal(refusal)
     side = (
         match.ball.possession
         if skill_type == "offense"

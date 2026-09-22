@@ -73,7 +73,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Optional, Union
 
 from d12ball import tutorial
-from d12ball.components import BALL_SPEED_MAX, MatchState, TeamSide
+from d12ball.components import BALL_SPEED_MAX, MatchState, RuleRefusal, TeamSide
 from d12ball.engine import RulesEngine
 from d12ball.flow import (
     arrivals,
@@ -637,7 +637,7 @@ STEP_OWED = (
 
 def _refuse(reason: str) -> None:
     """A refusal from inside an answer: `answer` turns it into one."""
-    raise ValueError(reason)
+    raise RuleRefusal(reason)
 
 
 def _rail(game: D12BallGame, key: str, options, chosen) -> None:
@@ -1044,7 +1044,7 @@ def _answer_game_over(
     an action on this one. A row here so every kind has an answer,
     and it refuses.
     """
-    raise ValueError("This game is over; nothing more is asked of it.")
+    raise RuleRefusal("This game is over; nothing more is asked of it.")
 
 
 def _answer_setup_pass_push_back(
@@ -1091,7 +1091,7 @@ def _answer_player_action(
     """
     refusal = turn.turn_action_refusal(engine, game, match, choice)
     if refusal is not None:
-        raise ValueError(refusal)
+        raise RuleRefusal(refusal)
     if choice == "time_out":
         return windows.begin_time_out(engine, game, match)
     if choice == "shoot":
@@ -1116,6 +1116,19 @@ def _answer_maneuver_challenge(
     Phase 4 -- three ways to make one pick, one step.
     """
     if choice == "decline":
+        # **Whether the challenge is the defense's to refuse is asked
+        # here**, ahead of the step: a defender already on the ball
+        # pays no walk-in and so cannot decline to, and a side with
+        # nobody to send has no choice at all. `may_decline_challenge`
+        # is the rule and the view's Send nobody button is built from
+        # the prompt's options (step 6 of docs/architecture-migration.md).
+        if not match.may_decline_challenge():
+            _refuse(
+                "A defender on the ball's space has to challenge."
+                if match.automatic_challengers()
+                else "The defense has nobody to send; the maneuver is "
+                "unchallenged on its own."
+            )
         # Railed during the tutorial's beat 3: the coach has nobody
         # standing near the ball there, and letting Dinky's maneuver
         # through unchallenged would leave nothing for the lesson's
@@ -1147,7 +1160,7 @@ def _answer_maneuver_action(
     One coach's maneuver, picked.
 
     **The refusal is asked here and raised**, which is what puts it
-    through `answer`'s own `ValueError` door: "you have already chosen",
+    through `answer`'s own `RuleRefusal` door: "you have already chosen",
     a card the tutorial's rail does not want and a card that is not in
     this turn's hand are all rules about the position. Whose account
     may press the button is not, and is answered before this ever runs
@@ -1162,7 +1175,7 @@ def _answer_maneuver_action(
         engine, game, match, side, maneuver_key,
     )
     if refusal is not None:
-        raise ValueError(refusal)
+        raise RuleRefusal(refusal)
     return turn.maneuver_pick_step(
         engine, game, match, side=side, maneuver_key=maneuver_key,
     )
@@ -1650,11 +1663,42 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
 }
 
 
+#: The arguments a *choice* needs that its adapter's signature cannot
+#: say it needs.
+#:
+#: An adapter with several choices takes the union of their arguments,
+#: each defaulted to `None` because a different choice leaves it out
+#: -- the hub's "done" sends nothing and its "reposition" sends a
+#: player and a space. `_argument_mismatch` reads the signature for
+#: the arguments every choice needs and this table for the ones a
+#: particular choice does, so a `None` the adapter would go on to
+#: dereference is refused as missing rather than raised as a
+#: `TypeError` out of `MatchState.position_meeple` (finding 4 of
+#: docs/web-app.md). A kind or choice with no row needs nothing beyond
+#: its signature.
+REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
+    PromptKind.COACHING_HUB: {
+        "formation": ("formation",),
+        "substitute": ("outgoing_player_id", "incoming_player_id"),
+        "swap": ("player_id", "other_player_id"),
+        "reposition": ("player_id", "space_index"),
+    },
+    PromptKind.SHOOTOUT_ORDER: {"send": ("player_id",)},
+    PromptKind.LOOSE_BALL_PICK: {"send": ("player_id",)},
+    PromptKind.MANEUVER_CHALLENGE: {"send": ("player_id",)},
+    # Overdrive is declared by a player, on every roll it can be
+    # declared on.
+    **{kind: {"overdrive": ("player_id",)} for kind in ROLL_KINDS},
+}
+
+
 def _argument_mismatch(action: Action) -> Optional[str]:
     """
     Why this action's arguments do not fit the answer's signature, or
     None. The signature is the contract: every argument an answer takes
-    is keyword-only, so the names are the whole of it.
+    is keyword-only, so the names are the whole of it -- plus
+    `REQUIRED_ARGUMENTS` for what a choice needs of the arguments the
+    signature had to leave optional.
     """
     parameters = inspect.signature(ANSWERS[action.kind]).parameters
     keyword = {
@@ -1667,11 +1711,15 @@ def _argument_mismatch(action: Action) -> Optional[str]:
         return (
             f"This question does not take {', '.join(sorted(unknown))}."
         )
+    required = REQUIRED_ARGUMENTS.get(action.kind, {}).get(action.choice, ())
     missing = [
         name
         for name, parameter in keyword.items()
-        if parameter.default is inspect.Parameter.empty
-        and name not in action.arguments
+        if (
+            parameter.default is inspect.Parameter.empty
+            or name in required
+        )
+        and action.arguments.get(name) is None
     ]
     if missing:
         return f"This answer needs {', '.join(missing)}."
@@ -1748,12 +1796,15 @@ def answer(
     - the kind offers no such answer -- a "decline" on a prompt that
       cannot be declined.
 
-    A third comes from the answer itself: a step raises `ValueError`
+    A third comes from the answer itself: a step raises `RuleRefusal`
     where the position refuses what was chosen (a space that player may
     not take, a side that cannot be held back), and that is a refusal
     with its sentence already written, so it is returned as one rather
-    than left to each frontend to turn into a reply of its own. The
-    three views that catch it today word it exactly this way.
+    than left to each frontend to turn into a reply of its own. **Only
+    that is caught.** A bare `ValueError` -- `TeamSide` built from a
+    bad wire value, an argument the adapter dereferenced as `None` --
+    is the interpreter's sentence and not the position's, and it
+    propagates as the bug it is (finding 4 of docs/web-app.md).
 
     `ANSWERS` covers `PromptKind` exactly, and
     `tests/test_d12ball_driver_actions.py` asserts it, so a kind with
@@ -1790,13 +1841,12 @@ def answer(
             action.choice,
             **dict(action.arguments),
         )
-    except ValueError as refused:
-        # The position itself refusing what was chosen. It arrives as a
-        # `ValueError` because that is how the steps have always said
-        # it -- `MatchState.run_back_player` and its neighbours raise
-        # with the sentence already written -- and a refusal is what it
-        # has always meant. See `loose_ball_decline_refusal`, which is
-        # the same answer asked without applying anything.
+    except RuleRefusal as refused:
+        # The position itself refusing what was chosen --
+        # `MatchState.run_back_player` and its neighbours raise with
+        # the sentence already written. See
+        # `loose_ball_decline_refusal`, which is the same answer asked
+        # without applying anything.
         return Refusal(str(refused), waiting_on=waiting)
 
     if isinstance(answered, tuple):

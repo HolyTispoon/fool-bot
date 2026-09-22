@@ -39,9 +39,10 @@ import logging
 from typing import Optional
 
 from d12ball.components import (
-    EVENT_TIME_OUT,
     CoachingOccasion,
+    EVENT_TIME_OUT,
     MatchState,
+    RuleRefusal,
     SPECIES_CYBORG,
     TeamSide,
     Zone,
@@ -194,9 +195,21 @@ def apply_substitution(
     incoming_player_id: str,
 ) -> str:
     """
-    Make one swap and describe it. Raises ValueError with the
+    Make one swap and describe it. Raises `RuleRefusal` with the
     rule that refused it if the swap is not allowed.
+
+    **The allowance is asked here, before anything moves.** Until step
+    6 of docs/architecture-migration.md only the hub's button asked
+    `may_substitute`, and a third new-play substitution sent through
+    the driver went through with "No substitutions left." in its own
+    narration (finding 3 of docs/web-app.md). A button is a
+    convenience over the rule, never the rule.
     """
+    if not match.may_substitute():
+        raise RuleRefusal(
+            f"{engine.substitution_allowance_label(match)} in this "
+            "Coaching Choice."
+        )
     was_injured = outgoing_player_id in match.injured
     from_back_bench = (
         incoming_player_id
@@ -390,7 +403,7 @@ def finish_coaching_step(
     """
     refusal = engine.coaching_finish_refusal(match, side)
     if refusal is not None:
-        raise ValueError(refusal)
+        raise RuleRefusal(refusal)
 
     setup = match.setup_for_side(side)
     changes = coaching_summary(engine, match, side)
@@ -652,7 +665,7 @@ def run_ai_substitution_window(
                     incoming_player_id,
                 )
             )
-        except ValueError as error:
+        except RuleRefusal as error:
             LOGGER.error(
                 "AI substitution refused in game %s: %s",
                 game.game_id, error,

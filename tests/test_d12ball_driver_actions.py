@@ -31,7 +31,7 @@ import random
 import unittest
 from unittest import mock
 
-from d12ball.components import MatchState, TeamSide
+from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.game import Formation, GameMode, Team
 from d12ball.flow import driver
 from d12ball.flow.effects import setup_pass_push_back_distances
@@ -649,11 +649,164 @@ class OverdriveTests(ApplyFixture):
         self.assertEqual(fixture.match.to_dict(), before)
 
 
+def _case(name: str) -> PromptFixture:
+    return next(case.build() for case in CASES if case.name == name)
+
+
+def _refused(fixture: PromptFixture, action: driver.Action) -> driver.Refusal:
+    """Apply `action` and assert it was refused with the match untouched."""
+    before = fixture.match.to_dict()
+    outcome = driver.apply(ENGINE, fixture.game, fixture.match, action)
+    assert isinstance(outcome, driver.Refusal), outcome
+    assert fixture.match.to_dict() == before, "a refusal moved something"
+    return outcome
+
+
 class PositionRefusalTests(ApplyFixture):
     """
-    A step refusing what was chosen, which arrives as a `ValueError`
+    A step refusing what was chosen, which arrives as a `RuleRefusal`
     and leaves as a `Refusal`.
     """
+
+    def test_an_argument_a_choice_needs_is_refused_as_missing(self) -> None:
+        """
+        Finding 4 of docs/web-app.md: a hub `reposition` with no
+        `space_index` used to raise `TypeError` out of
+        `MatchState.position_meeple`, past the driver's `ValueError`
+        net. `REQUIRED_ARGUMENTS` names it, so it is refused before
+        the adapter runs.
+        """
+        fixture = _case("coaching hub")
+        side = fixture.match.pending_coaching_side
+        player_id = fixture.match.setup_for_side(side).field_players[0]
+        refusal = _refused(
+            fixture,
+            driver.Action(
+                PromptKind.COACHING_HUB, "reposition",
+                {"side": side, "player_id": player_id},
+            ),
+        )
+        self.assertEqual(refusal.reason, "This answer needs space_index.")
+
+    def test_only_a_rule_refusal_is_a_refusal(self) -> None:
+        """
+        A bare `ValueError` out of an adapter is the interpreter's
+        sentence, not the position's, and propagates as a bug rather
+        than being shown to a coach as a rule.
+        """
+        fixture = _case("coaching hub")
+        with self.assertRaises(ValueError) as caught:
+            driver.apply(
+                ENGINE, fixture.game, fixture.match,
+                driver.Action(
+                    PromptKind.COACHING_HUB, "done", {"side": "sideways"},
+                ),
+            )
+        self.assertNotIsInstance(caught.exception, RuleRefusal)
+
+
+class ButtonRuleTests(ApplyFixture):
+    """
+    The rules a disabled button used to hold alone, now refused by the
+    adapter (finding 3 of docs/web-app.md; step 6 of the migration).
+    Each refusal leaves the match untouched.
+    """
+
+    def test_a_substitution_past_the_allowance_is_refused(self) -> None:
+        fixture = _case("coaching hub")
+        match = fixture.match
+        side = match.pending_coaching_side
+        setup = match.setup_for_side(side)
+        # Spend the window's allowance through the same door.
+        while match.may_substitute():
+            run = driver.apply(
+                ENGINE, fixture.game, match,
+                driver.Action(
+                    PromptKind.COACHING_HUB, "substitute",
+                    {
+                        "side": side,
+                        "outgoing_player_id": setup.field_players[0],
+                        "incoming_player_id": match.substitution_pool(side)[0],
+                    },
+                ),
+            )
+            self.assertIsInstance(run, driver.DriverRun)
+        refusal = _refused(
+            fixture,
+            driver.Action(
+                PromptKind.COACHING_HUB, "substitute",
+                {
+                    "side": side,
+                    "outgoing_player_id": setup.field_players[0],
+                    "incoming_player_id": match.substitution_pool(side)[0],
+                },
+            ),
+        )
+        self.assertIn("No substitutions left", refusal.reason)
+
+    def test_a_swap_inside_one_zone_is_refused(self) -> None:
+        """A swap that moves nobody is not a swap (the author,
+        2026-09-21)."""
+        fixture = _case("coaching hub")
+        match = fixture.match
+        side = match.pending_coaching_side
+        zones = match.setup_for_side(side).zones
+        first, second = next(
+            players for players in zones.values() if len(players) >= 2
+        )[:2]
+        refusal = _refused(
+            fixture,
+            driver.Action(
+                PromptKind.COACHING_HUB, "swap",
+                {"side": side, "player_id": first, "other_player_id": second},
+            ),
+        )
+        self.assertIn("both assigned", refusal.reason)
+
+    def test_an_ai_side_s_shot_is_never_walked_back(self) -> None:
+        """
+        Not a rule of the game but a feature of how the AI plays: it
+        does not misclick (the author, 2026-09-21). The visiting side
+        is Dinky's in a solo game, so its shot is the fixture's with
+        the ball turned over.
+        """
+        fixture = _case("score attempt")
+        fixture.game = build_game(player_2_id=None)
+        match = fixture.match
+        match.pending_action = None
+        match.active_player_id = None
+        match.ball.possession = TeamSide.VISITING
+        handler = match.visiting.field_players[0]
+        match.board.remove_meeple(handler)
+        match.board.place_meeple(handler, match.ball.zone, match.ball.space_index)
+        match.select_ball_handler(handler)
+        match.pending_action = "shoot"
+        self.assertTrue(ENGINE.side_is_ai(fixture.game, TeamSide.VISITING))
+        self.assertIs(
+            pending_prompt(ENGINE, fixture.game, match).kind,
+            PromptKind.SCORE_ATTEMPT,
+        )
+        refusal = _refused(
+            fixture, driver.Action(PromptKind.SCORE_ATTEMPT, "back"),
+        )
+        self.assertIn("shot stands", refusal.reason)
+
+    def test_declining_a_challenge_a_defender_on_the_ball_owes_is_refused(
+        self,
+    ) -> None:
+        fixture = _case("maneuver challenge")
+        match = fixture.match
+        defender = match.defending_side()
+        walker = match.setup_for_side(defender).field_players[0]
+        match.board.remove_meeple(walker)
+        match.board.place_meeple(walker, match.ball.zone, match.ball.space_index)
+        self.assertFalse(match.may_decline_challenge())
+        refusal = _refused(
+            fixture, driver.Action(PromptKind.MANEUVER_CHALLENGE, "decline"),
+        )
+        self.assertEqual(
+            refusal.reason, "A defender on the ball's space has to challenge.",
+        )
 
     def test_an_illegal_space_is_refused_with_the_step_s_own_reason(
         self,

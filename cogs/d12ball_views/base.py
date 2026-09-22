@@ -14,6 +14,7 @@ from d12ball.components import (
     OVERDRIVE_BONUS,
     OVERDRIVE_DRAIN_COST,
     MatchState,
+    RuleRefusal,
 )
 from d12ball.game import (
     D12BallGame,
@@ -357,9 +358,11 @@ class SafeView(discord.ui.View):
             result = self.cog.apply_action(
                 game, action, carry_from=carry_from,
             )
-        except ValueError as error:
+        except RuleRefusal as error:
             # A step refusing a position it should never have been
-            # handed; what ran before it is written down.
+            # handed; what ran before it is written down. Only the
+            # position's own refusals are caught: any other error out
+            # of a step is a bug, and reaches the log.
             await send_error_fallback(interaction, str(error))
             return None
         if result.refused:

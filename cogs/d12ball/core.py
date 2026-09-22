@@ -24,6 +24,7 @@ from d12ball.components import (
     MatchState,
     PlayerDefinition,
     PlayerRole,
+    RuleRefusal,
     TeamSide,
     load_basic_ruleset,
     load_maneuver_catalog,
@@ -1332,12 +1333,13 @@ class CoreMixin:
         step, a gate skipped, the tests' `run_step`).
 
         A step refusing a position it should never have been handed
-        raises `ValueError`; whatever ran before it is written down by
+        raises `RuleRefusal`; whatever ran before it is written down by
         the service, and the refusal is reported rather than acted on.
+        Any other error out of a step is a bug and propagates.
         """
         try:
             outcome = self.service.run(game, match, result, carry=carry)
-        except ValueError as error:
+        except RuleRefusal as error:
             await send_error_fallback(interaction, str(error))
             return
         await self.present(interaction, game, outcome)
