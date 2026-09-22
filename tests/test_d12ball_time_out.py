@@ -35,8 +35,9 @@ from d12ball.components import (
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOnStep
-from d12ball.prompts import owed_step
-from d12ball.game import AIOpponent, D12BallGame, Team
+from d12ball.prompts import PromptKind, owed_step
+from ai_answers import ai_answers, solo_game
+from d12ball.game import D12BallGame, Team
 from save_patches import suppressed_cog_saves
 from cog_steps import apply_ball_recovery, begin_time_out, coaching_window_note, finish_substitution_window, finish_time_out
 
@@ -361,9 +362,11 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_substitution_window.assert_awaited_once()
         _, kwargs = cog.begin_substitution_window.call_args
         self.assertEqual(kwargs["occasion"], CoachingOccasion.TIME_OUT)
-        # The window's own opening line, inside the prompt -- see
-        # `d12ball.flow.windows.begin_substitution_window`.
-        self.assertIn("call a time out", kwargs["heading"])
+        # The announcement is the answer's own line, and the window
+        # opens behind it with no heading of its own -- see
+        # `d12ball.flow.windows.begin_time_out`.
+        self.assertNotIn("heading", kwargs)
+        self.assertIn("call a time out", kwargs["lead_in"])
         # The side that gave it up coaches first.
         self.assertEqual(
             cog.begin_substitution_window.call_args.kwargs["side"], TeamSide.HOME,
@@ -733,47 +736,56 @@ class DinkyTimeOutTests(unittest.TestCase):
         match.ball.possession = TeamSide.HOME
         match.ball.zone = Zone.MIDFIELD
         match.ball.space_index = 0
-        strategy = build_ai_strategies(
-            self.catalog, load_maneuver_catalog(),
-        )[AIOpponent.DINKY]
-        return strategy, match
+        maneuvers = load_maneuver_catalog()
+        engine = RulesEngine(
+            self.catalog, self.rules, maneuvers,
+            build_ai_strategies(self.catalog, maneuvers),
+        )
+        return engine, match
+
+    def choose_action(self, engine, match) -> str:
+        """Dinky's turn action, asked as the turn prompt asks it."""
+        match.select_ball_handler(match.eligible_ball_handlers()[0])
+        action = ai_answers(engine, solo_game(ai_home=True), match)
+        self.assertIs(action.kind, PromptKind.PLAYER_ACTION)
+        return action.choice
 
     def test_a_fit_side_just_maneuvers(self) -> None:
-        strategy, match = self.build()
+        engine, match = self.build()
 
         self.assertTrue(match.may_call_time_out())
-        self.assertEqual(strategy.choose_action(match), "maneuver")
+        self.assertEqual(self.choose_action(engine, match), "maneuver")
 
     def test_an_injured_player_on_the_field_buys_one(self) -> None:
-        strategy, match = self.build()
+        engine, match = self.build()
         match.mark_injured(match.home.field_players[0])
 
-        self.assertEqual(strategy.choose_action(match), "time_out")
+        self.assertEqual(self.choose_action(engine, match), "time_out")
 
     def test_it_is_not_taken_when_the_rules_refuse_one(self) -> None:
-        # Gated on may_call_time_out like a human's button, so Dinky
-        # cannot spend one it does not have or take one under last
-        # possession.
-        strategy, match = self.build()
+        # Gated on may_call_time_out like a human's button -- the
+        # prompt offers it live or not at all -- so Dinky cannot spend
+        # one it does not have or take one under last possession.
+        engine, match = self.build()
         match.mark_injured(match.home.field_players[0])
 
         match.scoreboard.last_possession = True
-        self.assertEqual(strategy.choose_action(match), "maneuver")
+        self.assertEqual(self.choose_action(engine, match), "maneuver")
 
         match.scoreboard.last_possession = False
         match.time_outs_used.add(TeamSide.HOME.value)
-        self.assertEqual(strategy.choose_action(match), "maneuver")
+        self.assertEqual(self.choose_action(engine, match), "maneuver")
 
     def test_a_shot_on_beats_an_injury(self) -> None:
         # Checked after the shot: a shot on is worth more than a
         # substitution, and the time out will still be there next turn.
-        strategy, match = self.build()
+        engine, match = self.build()
         match.mark_injured(match.home.field_players[0])
         zone, space_index = match.own_goal_restart_space(TeamSide.VISITING)
         match.ball.zone = zone
         match.ball.space_index = space_index
 
-        self.assertEqual(strategy.choose_action(match), "shoot")
+        self.assertEqual(self.choose_action(engine, match), "shoot")
 
 
 class TimeOutConfirmTests(unittest.IsolatedAsyncioTestCase):

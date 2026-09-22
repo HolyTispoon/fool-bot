@@ -32,11 +32,12 @@ import unittest
 from unittest import mock
 
 from d12ball import tutorial
+from d12ball.ai import DinkyAI
 from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.game import Formation, GameMode, Team
 from d12ball.flow import driver
 from d12ball.flow.windows import open_substitution_window
-from d12ball.prompts import PromptKind, pending_prompt
+from d12ball.prompts import NOBODYS_QUESTIONS, PromptKind, pending_prompt
 
 from prompt_fixtures import (
     CASES,
@@ -1112,6 +1113,95 @@ class SeamTests(unittest.TestCase):
                     positional[:5],
                     ["engine", "game", "match", "prompt", "choice"],
                 )
+
+
+class AIAnswerTests(ApplyFixture):
+    """
+    **The AI chooses an `Action` like anyone else** (ARCHITECTURE.md,
+    "AI"; step 7 of docs/architecture-migration.md). Every fixture in
+    the shared table is stood in front of Dinky on either side of the
+    board, and wherever the question is Dinky's -- `asked_sides` says
+    so -- its answer has to be one `driver.answer` accepts: an action
+    the prompt offers, with the arguments the adapter needs. A
+    strategy that reads past the offer is refused here, once, rather
+    than raising out of the middle of a game.
+    """
+
+    @staticmethod
+    def _solo(fixture, ai_number: int):
+        """The fixture's game with player 2 an AI on the given side."""
+        game = fixture.game
+        game.player_2_id = None
+        game.tutorial = False
+        game.tutorial_step = None
+        game.home_player_number = ai_number
+        game.visiting_player_number = 3 - ai_number
+        return game
+
+    def _dinkys_questions(self):
+        for case in CASES:
+            if not case.asked:
+                continue
+            for ai_number in (1, 2):
+                fixture = case.build()
+                game = self._solo(fixture, ai_number)
+                prompt = pending_prompt(ENGINE, game, fixture.match)
+                if prompt is None:
+                    continue
+                action = driver.ai_action(ENGINE, game, fixture.match, prompt)
+                if action is None:
+                    continue
+                yield f"{case.name}, the AI {'home' if ai_number == 1 else 'visiting'}", fixture, game, prompt, action
+
+    def test_dinky_s_answer_to_every_question_put_to_it_is_accepted(
+        self,
+    ) -> None:
+        reached = set()
+        for name, fixture, game, prompt, action in self._dinkys_questions():
+            with self.subTest(name):
+                self.assertIs(action.kind, prompt.kind)
+                answered = driver.answer(ENGINE, game, fixture.match, action)
+                self.assertNotIsInstance(
+                    answered,
+                    driver.Refusal,
+                    getattr(answered, "reason", None),
+                )
+                reached.add(prompt.kind)
+        # Every question Dinky can be asked was asked of it at least
+        # once, on some fixture: a kind missing here is a branch of
+        # `DinkyAI.choose` nothing is watching.
+        self.assertEqual(reached, set(DinkyAI.ANSWERS))
+
+    def test_dinky_is_never_asked_a_roll(self) -> None:
+        """
+        Every roll waits behind a button either coach may press
+        (CLAUDE.md, "Nothing rolls dice on its own"): a roll prompt is
+        nobody's question, so the service never answers one for the
+        AI, on either side of the board.
+        """
+        for case in CASES:
+            if not case.asked or PromptKind[case.kind] not in driver.ROLL_KINDS:
+                continue
+            for ai_number in (1, 2):
+                with self.subTest(f"{case.name}, the AI {ai_number}"):
+                    fixture = case.build()
+                    game = self._solo(fixture, ai_number)
+                    prompt = pending_prompt(ENGINE, game, fixture.match)
+                    self.assertIsNone(
+                        driver.ai_action(ENGINE, game, fixture.match, prompt),
+                    )
+
+    def test_the_kinds_nobody_owns_are_the_rolls_and_the_two_with_no_side(
+        self,
+    ) -> None:
+        self.assertEqual(
+            NOBODYS_QUESTIONS,
+            driver.ROLL_KINDS
+            | {PromptKind.TUTORIAL_CONTINUE, PromptKind.GAME_OVER},
+        )
+        self.assertEqual(
+            set(DinkyAI.ANSWERS), set(PromptKind) - NOBODYS_QUESTIONS,
+        )
 
 
 class SaveTests(ApplyFixture):

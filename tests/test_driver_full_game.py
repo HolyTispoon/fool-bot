@@ -254,7 +254,11 @@ def play(
             )
             if prompt.kind in UNANSWERABLE:
                 break
-            action = policy.action(match, prompt)
+            # The AI answers its own questions, as the service does
+            # (`GameService.run`); the policy is the coach's.
+            action = driver.ai_action(engine, game, match, prompt)
+            if action is None:
+                action = policy.action(match, prompt)
             run = driver.apply(engine, game, match, action)
             if isinstance(run, Refusal):
                 raise AssertionError(

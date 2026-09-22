@@ -88,12 +88,19 @@ from d12ball.flow import (
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.game import D12BallGame
 from d12ball.prompts import (
+    Action,
     PendingPrompt,
     PromptKind,
+    asked_sides,
     pending,
     pending_prompt,
     with_options,
 )
+
+# `Action` is defined beside `PendingPrompt` (an action names the
+# question it answers) and re-exported here, so the driver stays the
+# whole of what a frontend imports: `driver.Action` is the spelling.
+Action = Action
 
 
 def _begin_maneuver_action_selection(
@@ -248,9 +255,6 @@ MODEL_STEPS: Mapping[FollowOnStep, Callable[..., StepResult]] = {
         periods.advance_full_time_stage,
     ),
     FollowOnStep.ADVANCE_SHOOTOUT: _lead_in_first(periods.advance_shootout),
-    FollowOnStep.RUN_AI_COACHING_WINDOW: _lead_in_first(
-        windows.run_ai_substitution_window,
-    ),
     FollowOnStep.FINISH_TIME_OUT: _lead_in_first(windows.finish_time_out),
     FollowOnStep.BEGIN_BALL_RECOVERY: turnovers.begin_ball_recovery,
 }
@@ -529,39 +533,36 @@ def waiting_on(
     return pending_prompt(engine, game, match)
 
 
-@dataclass(frozen=True)
-class Action:
+def ai_action(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional["Action"]:
     """
-    What somebody did, named by the question it answers.
+    The AI's answer to a prompt put to its side, or `None` where the
+    prompt is not the AI's to answer.
 
-    **It names a prompt rather than a step**, which is the whole
-    difference between this and `FollowOn`. A step is what the bot does
-    next and the model names it; an action is what a *person* did, and
-    the only thing that makes it legal is that the match was waiting on
-    exactly that question. So an action carries the `PromptKind` it
-    answers and `apply` checks it against `pending_prompt` before
-    anything is applied -- which is a rule about whose turn it is, and
-    therefore the model's.
+    **The AI chooses an `Action` like anyone else** (ARCHITECTURE.md,
+    "AI"): what it hands back goes through `answer`, so it is checked
+    against the question and the position exactly as a click is, and
+    a strategy that names a card not in its hand is refused rather
+    than written into the match. `asked_sides` is the one reading of
+    whose question a prompt is; the AI answers the first of its sides
+    the prompt is still waiting on. A roll is nobody's question, so
+    the AI never rolls (CLAUDE.md, "Nothing rolls dice on its own"),
+    and a two-sided prompt is answered one side at a time.
 
-    `choice` is which of the prompt's answers it is, where a prompt
-    offers more than one: "send" or "decline" on a loose ball, "take"
-    or "decline" on a scoring opportunity. A string rather than a
-    second enum, because the answers belong to the prompt and not to
-    the game -- a kind with one answer leaves it empty, and an
-    unrecognised one is refused the way a wrong kind is.
-
-    `arguments` is what the person chose and nothing else: a space, a
-    player, a distance. **Anything the position already says is read
-    off the prompt instead**, which is why `apply` hands the
-    `PendingPrompt` to the answer rather than only the action. The
-    loose ball's `skill_type` and the set-up's two numbers are the
-    model's own answers to its own question, and a frontend that had to
-    send them back could send back different ones.
+    `GameService.run` is what loops on this; a driver-level caller
+    with no service (`tests/test_driver_full_game.py`) asks it the
+    same way.
     """
-
-    kind: PromptKind
-    choice: str = ""
-    arguments: Mapping[str, Any] = field(default_factory=dict)
+    for side in asked_sides(match, prompt):
+        if engine.side_is_ai(game, side):
+            return engine.get_ai_strategy(game).choose(
+                prompt, game, match, side,
+            )
+    return None
 
 
 @dataclass(frozen=True)
@@ -735,9 +736,21 @@ def _answer_ball_recovery(
     *,
     player_id: str,
 ) -> StepResult:
-    """Who goes and picks an out-of-bounds ball up."""
-    return turnovers.recover_ball_step(
-        engine, game, match, player_id=player_id,
+    """
+    Who goes and picks an out-of-bounds ball up.
+
+    The step is named rather than called, so the pickup is a group of
+    its own whoever answered -- the AI through the service, or a coach
+    -- and a frontend posts it as the event it is. The player is
+    checked here, because a refusal raised inside the loop is a bug
+    rather than an answer.
+    """
+    if player_id not in prompt.options.player_ids:
+        _refuse("That player cannot pick the ball up from here.")
+    return StepResult(
+        next=FollowOn(
+            FollowOnStep.APPLY_BALL_RECOVERY, {"player_id": player_id},
+        ),
     )
 
 
@@ -1121,9 +1134,13 @@ def _answer_maneuver_challenge(
     """
     Which defender walks in to challenge, or nobody.
 
-    Sending is `auto_resolve_challenger`, which the AI's own pick and a
-    defender already sharing the ball's space have come through since
-    Phase 4 -- three ways to make one pick, one step.
+    Sending names `AUTO_RESOLVE_CHALLENGER`, which a defender already
+    sharing the ball's space comes through as well -- two ways to
+    make one pick, one step -- so the walk-in is a group of its own
+    whoever picked, the AI through the service or a coach, and the
+    frontend draws the challenge image over it. The player is checked
+    here, because a refusal raised inside the loop is a bug rather
+    than an answer.
     """
     if choice == "decline":
         # **Whether the challenge is the defense's to refuse is asked
@@ -1151,7 +1168,11 @@ def _answer_maneuver_challenge(
         return turn.decline_challenge_step(engine, game, match)
     if player_id not in prompt.options.player_ids:
         _refuse("That player cannot challenge from where they stand.")
-    return turn.auto_resolve_challenger(engine, game, match, player_id)
+    return StepResult(
+        next=FollowOn(
+            FollowOnStep.AUTO_RESOLVE_CHALLENGER, {"challenger_id": player_id},
+        ),
+    )
 
 
 def _answer_maneuver_action(

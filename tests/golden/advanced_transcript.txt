@@ -17,12 +17,17 @@ You may take a time out once per half. If you do, play will stop and you'll be a
 --- message
 # Telekinetics (Home) call a time out
 Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on M1.
+--- message
 # Coaching Choice
 <@111>, **Telekinetics (Home)** -- 2 substitutions left.
 === press 4: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
 **Telekinetics (Home) are done.**
+No substitutions, and no change of shape.
+--- message
+# Coaching Choice
+**Fire Demons (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
 Ball is now M1, Telekinetics (Home) has possession. Time has advanced 1, now at 01.
@@ -38,6 +43,8 @@ Spectra [MF] will be handling the ball.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 6: PlayerActionView -> 'Maneuver'
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 7: ManeuverActionPromptView -> 'Low Pass'
@@ -67,6 +74,8 @@ The ball was left with Zenith [WG], who takes this turn.
 Out of shooting range, and no time out available. Maneuver:
 === press 9: PlayerActionView -> 'Maneuver'
 --- message
+🔥 Dinky AI has picked their maneuver.
+--- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 10: ManeuverActionPromptView -> 'Low Pass'
 --- message
@@ -95,6 +104,8 @@ The ball was left with Dravox [DD], who takes this turn.
 Out of shooting range, and no time out available. Maneuver:
 === press 12: PlayerActionView -> 'Maneuver'
 --- message
+🔥 Dinky AI has picked their maneuver.
+--- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 13: ManeuverActionPromptView -> 'Low Pass'
 --- message
@@ -122,6 +133,8 @@ The ball was left with Zenith [WG], who takes this turn.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 15: PlayerActionView -> 'Maneuver'
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 16: ManeuverActionPromptView -> 'Low Pass'
@@ -167,11 +180,14 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 # Missed attempt!
 Fire Demons (Visiting) manages to avoid a goal! (phew)
 --- message
+# Coaching Choice
+**🔥 Dinky AI passed.**
+--- message
 The ball speed goes down to **1**.
 --- message
 Ball is now V2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 06.
 --- message
-Dinky AI will maneuver with 🔥 Hellguard [FB].
+🔥 Hellguard [FB] will maneuver for Fire Demons.
 
 🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 20: ManeuverChallengeView -> 'Send nobody'
@@ -183,7 +199,7 @@ Dinky AI will maneuver with 🔥 Hellguard [FB].
 ## **Dribble Advance** succeeds!
 --- message
 **Dribble Advance:** 🔥 Hellguard [FB] and the ball move forward 1 space.
-
+--- message
 Ball speed is now **2**.
 --- message
 🔮 **Mind Pull** — the ball crossed 🔮 Noxar [SK], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
@@ -218,11 +234,14 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 # Missed attempt!
 Fire Demons (Visiting) manages to avoid a goal! (phew)
 --- message
+# Coaching Choice
+**🔥 Dinky AI passed.**
+--- message
 The ball speed goes down to **1**.
 --- message
 Ball is now V2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 08.
 --- message
-Dinky AI will maneuver with 🔥 Hellguard [FB].
+🔥 Hellguard [FB] will maneuver for Fire Demons.
 
 🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 24: ManeuverChallengeView -> 'Send nobody'
@@ -245,6 +264,8 @@ The ball slips past them.
 
 Ball is now V1, Fire Demons (Visiting) has possession. Time has advanced 1, now at 09.
 --- message
+🔥 Dinky AI has picked their maneuver.
+--- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
 🔮 Player 1 may play a gambit this maneuver.
@@ -263,7 +284,7 @@ You chose **Clear**.
 
 **Clear** was beaten -- 2 exhaustion.
 🔮 Noxar [SK] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 4 total).
-
+--- message
 Ball speed is now **4**.
 --- message
 🔮 **Mind Pull** — the ball crossed 🔮 Quillon [PM], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
@@ -274,6 +295,8 @@ Ball speed is now **4**.
 The ball slips past them.
 --- message
 Ball is now M2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 10.
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
@@ -340,6 +363,8 @@ The ball was left with Spectra [MF], who takes this turn.
 Out of shooting range, and no time out available. Maneuver:
 === press 35: PlayerActionView -> 'Maneuver'
 --- message
+🔥 Dinky AI has picked their maneuver.
+--- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 may play a gambit this maneuver.
@@ -383,17 +408,22 @@ Fire Demons (Visiting) manages to avoid a goal! (phew)
 
 🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 5 total).
 --- message
+# Coaching Choice
+**🔥 Dinky AI passed.**
+--- message
 The ball speed goes down to **1**.
 --- message
 Ball is now V2, Fire Demons (Visiting) has possession. Time has advanced 3, now at 14.
 --- message
-Dinky AI will maneuver with 🔥 Hellguard [FB].
+🔥 Hellguard [FB] will maneuver for Fire Demons.
 
 🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 41: ManeuverChallengeView -> 'Noxar [SK] (1)'
 --- message
 Noxar has moved 1 space.
 🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 5 total).
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
@@ -438,13 +468,16 @@ That overshoots toward their own goal!
 
 🔥 Hellguard [FB] gains 1 exhaustion token 😮‍💨 (now 2 total).
 --- message
+# Coaching Choice
+**🔥 Dinky AI passed.**
+--- message
 The ball speed goes down to **1**.
 --- message
 The clock reaches 15 -- this is now **last possession**. The turnover that got here doesn't end it -- Fire Demons (Visiting) came out of that maneuver with the ball, so they play last possession out. The clock keeps running.
 --- message
 Ball is now V2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 15.
 --- message
-Dinky AI will maneuver with 🔥 Hellguard [FB].
+🔥 Hellguard [FB] will maneuver for Fire Demons.
 
 🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 46: ManeuverChallengeView -> 'Send nobody'
@@ -458,6 +491,8 @@ Dinky AI will maneuver with 🔥 Hellguard [FB].
 **Low Pass:** the ball moves 1 space forward. Ball speed is now 2.
 
 Ball is now V1, Fire Demons (Visiting) has possession. Time has advanced 1, now at 16.
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
@@ -481,6 +516,8 @@ You chose **Pressure**.
 **Low Pass:** the ball moves 1 space forward. Ball speed is now 3.
 
 Ball is now M2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 17.
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
@@ -522,6 +559,8 @@ Either player can roll:
 --- message
 Ball is now V1, Fire Demons (Visiting) has possession. Time has advanced 1, now at 18.
 --- message
+🔥 Dinky AI has picked their maneuver.
+--- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
 🔮 Player 1 may play a gambit this maneuver.
@@ -539,6 +578,8 @@ You chose **Pressure**.
 **Low Pass:** the ball moves 1 space forward. Ball speed is now 3.
 
 Ball is now M2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 19.
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
@@ -572,12 +613,16 @@ Every fielded player recovers 1 exhaustion token:
 🔥 Hellguard [FB] recovers 1 exhaustion token (now 1).
 🔥 Blazebulk [DD] recovers 1 exhaustion token (now 2).
 --- message
-Fire Demons (Visiting) removes an extra exhaustion token from 🔥 Blazebulk [DD] (now 1).
+🔥 Blazebulk [DD] loses an extra exhaustion token (now 1).
 --- message
 <@111>, Telekinetics (Home): choose one fielded player to lose an extra exhaustion token.
 === press 56: HalftimeExtraTokenView -> 'Zenith [WG] (0)'
 --- message
 🔮 Zenith [WG] had no tokens to lose.
+--- message
+# Coaching Choice
+**Fire Demons (Visiting) are done.**
+No substitutions, and no change of shape.
 --- message
 ## Halftime
 Telekinetics (Home) set up for the second half.
@@ -590,6 +635,8 @@ Your side is back on the arrangement you last set.
 # Coaching Choice
 **Telekinetics (Home) are done.**
 No substitutions, and no change of shape.
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
@@ -632,10 +679,12 @@ The ball slips past them.
 
 Ball is now M1, Fire Demons (Visiting) has possession. Time has advanced 1, now at 17.
 --- message
-Dinky AI will maneuver with 🔥 Sizzifizik [PM].
+🔥 Sizzifizik [PM] will maneuver for Fire Demons.
 
 🔮 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
 === press 62: ManeuverChallengeView -> 'Zenith [WG] (0)'
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
@@ -663,7 +712,7 @@ Either player can roll:
 ## **Dribble Advance** wins the skill test!
 --- message
 **Dribble Advance:** 🔥 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
-
+--- message
 Ball speed is now **6**.
 --- message
 🔮 **Mind Pull** — the ball crossed 🔮 Dravox [DD], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
@@ -680,7 +729,7 @@ The ball slips past them.
 --- message
 Ball is now H1, Fire Demons (Visiting) has possession. Time has advanced 1, now at 18.
 --- message
-Dinky AI has chosen to shoot to score with 🔥 Sizzifizik [PM].
+🔥 Dinky AI has chosen to shoot to score with 🔥 Sizzifizik [PM].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 67: ScoreAttemptView -> 'Roll the score attempt'
@@ -707,6 +756,8 @@ Umbrik [FB] will be handling the ball.
 
 Out of shooting range. Maneuver, or take a time out:
 === press 69: PlayerActionView -> 'Maneuver'
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
@@ -754,6 +805,8 @@ Umbrik [FB] will be handling the ball.
 
 Out of shooting range. Maneuver, or take a time out:
 === press 73: PlayerActionView -> 'Maneuver'
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
@@ -808,6 +861,9 @@ Coach?
 **Telekinetics (Home) are done.**
 No substitutions, and no change of shape.
 --- message
+# Coaching Choice
+**🔥 Dinky AI passed.**
+--- message
 The ball speed goes down to **1**.
 --- message
 Ball is now M1, Telekinetics (Home) has possession. Time has advanced 2, now at 22.
@@ -830,6 +886,7 @@ You may take a time out once per half. If you do, play will stop and you'll be a
 --- message
 # Telekinetics (Home) call a time out
 Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on M1.
+--- message
 # Coaching Choice
 <@111>, **Telekinetics (Home)** -- 2 substitutions left.
 🔮 Quillon [PM], 🔮 Noxar [SK] are injured and still on the field.
@@ -837,6 +894,10 @@ Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on M
 --- message
 # Coaching Choice
 **Telekinetics (Home) are done.**
+No substitutions, and no change of shape.
+--- message
+# Coaching Choice
+**Fire Demons (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
 Ball is now M1, Telekinetics (Home) has possession. Time has advanced 1, now at 23.
@@ -852,6 +913,8 @@ Zenith [WG] will be handling the ball.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 84: PlayerActionView -> 'Maneuver'
+--- message
+🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
@@ -878,6 +941,8 @@ Ball speed is now **4**.
 --- message
 Ball is now M2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 24.
 --- message
+🔥 Dinky AI has picked their maneuver.
+--- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
 🔮 Player 1 may play a gambit this maneuver.
@@ -896,7 +961,7 @@ You chose **Clear**.
 
 **Clear** was beaten -- 2 exhaustion.
 🔮 Quillon [PM] is injured 🤕 and gains no exhaustion tokens.
-
+--- message
 Ball speed is now **8**.
 --- message
 🔮 **Mind Pull** — the ball crossed 🔮 Zenith [WG], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
@@ -920,6 +985,8 @@ The ball slips past them.
 --- message
 Ball is now H2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 25.
 --- message
+🔥 Dinky AI has picked their maneuver.
+--- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
 🔮 Player 1 may play a gambit this maneuver.
@@ -940,6 +1007,6 @@ You chose **Double Team**.
 
 Ball is now H1, Fire Demons (Visiting) has possession. Time has advanced 1, now at 26.
 --- message
-Dinky AI has chosen to shoot to score with 🔥 Brightburn [SK].
+🔥 Dinky AI has chosen to shoot to score with 🔥 Brightburn [SK].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.

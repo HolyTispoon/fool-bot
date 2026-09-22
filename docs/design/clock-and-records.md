@@ -150,7 +150,7 @@ fact.
 
   | kind | recorded by | why there |
   | --- | --- | --- |
-  | `turn_action` | `d12ball.flow.turn.record_turn_action`, from the three buttons on `PlayerActionView` and from `play_ai_turn` | after each one's own stale-view guard -- a refused click is not a turn |
+  | `turn_action` | `d12ball.flow.turn.record_turn_action`, from `begin_shot_step` and `begin_maneuver_step` -- the turn action's answer, a coach's or the AI's, which is how `by_ai` is read off the game rather than passed | after the answer's own stale-click guard -- a refused click is not a turn |
   | `maneuver` | `begin_effect_resolution` | every maneuver in the game reaches it exactly once, decisive, unchallenged or through the skill test |
   | `skill_test` | `SkillTestView.roll` | before either branch, so a tie that re-rolls is in the record as well as the roll that settles it |
   | `shot` | `ScoreAttemptView.roll` | before `settle_score_attempt`, which awards the goal |

@@ -101,7 +101,6 @@ from d12ball.flow.windows import (  # noqa: F401
     begin_time_out as flow_begin_time_out,
     coaching_summary as flow_coaching_summary,
     coaching_window_note as flow_coaching_window_note,
-    cover_kickoff_space as flow_cover_kickoff_space,
 )
 from d12ball.game import (  # noqa: F401
     D12BallGame,
@@ -432,8 +431,6 @@ def coaching_summary(cog, match: MatchState, side: TeamSide) -> list[str]:
     return flow_coaching_summary(cog.engine, match, side)
 
 
-def cover_kickoff_space(cog, match: MatchState, side: TeamSide) -> Optional[str]:
-    return flow_cover_kickoff_space(cog.engine, match, side)
 
 
 async def finish_substitution_window(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:

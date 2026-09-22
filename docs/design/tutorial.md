@@ -78,6 +78,16 @@ expects.
   (`_rail`), and asks the tutorial nothing itself.
   `D12Ball.tutorial_railed_option` was the one question the views used
   to ask, and went with the change.
+  - **Dinky's card is a rail too**, on Dinky's hand
+    (`ManeuverHand.railed`, since step 7): `TutorialBeat.maneuver_for`
+    names the card for either half of the menu, and Dinky answers the
+    maneuver prompt through the service like a coach, refused off the
+    script the same way (`DinkyAI._maneuver_pick` takes a railed card
+    without rolling its die). Until step 7 `write_ai_maneuver_picks`
+    wrote Dinky's card straight into the match ahead of the prompt.
+    The other rails hold for Dinky where a beat puts one of its
+    choices to it -- a railed speed is what Dinky would have set
+    anyway, and a rail wins over its policy regardless.
   - **A rail names a value, except when it cannot.** The ball speed a
     steal may set is capped by the stealer's own defensive skill, and
     who does the stealing is not something the script fixes -- so

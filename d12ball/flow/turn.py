@@ -44,7 +44,6 @@ from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import (
     challenger_prompt_ask,
-    format_ai_name,
     format_player_with_team,
     format_team_side_label,
     get_damaged_emoji,
@@ -301,11 +300,12 @@ def auto_resolve_challenger(
     challenger_id: str,
 ) -> StepResult:
     """
-    Apply an already-decided challenger pick and move straight on to
-    maneuver-action selection -- no human choice involved, either
-    because the AI made the pick or because a defender already shares
-    the ball's space, leaving nothing to choose (see
-    `PlayerActionView.choose_action`).
+    Apply a challenger pick and move straight on to maneuver-action
+    selection: a defender already sharing the ball's space, with
+    nothing to choose, or the defending coach's own answer to
+    `MANEUVER_CHALLENGE` -- the adapter names this step rather than
+    calling it, so the walk-in is a group of its own and the frontend
+    draws the challenge image over it whoever picked.
 
     The walk-in is described **before the caller saves**: the walk-in's
     tokens can cross the Exhausted threshold, and that flag is set
@@ -361,9 +361,10 @@ def announce_uncontested_maneuver(
 
 
 def record_turn_action(
+    engine: RulesEngine,
+    game: D12BallGame,
     match: MatchState,
     action: str,
-    by_ai: bool = False,
 ) -> None:
     """
     Open a turn in the event log -- see `MatchEvent`.
@@ -379,15 +380,18 @@ def record_turn_action(
     and it records its own event kind instead -- see `EVENT_TIME_OUT`
     and `begin_time_out`.
 
-    `d12ball.flow.turn.record_turn_action` forwards to this, so none of its call
-    sites moved -- the shape `team_emojis` took in Phase 1a.
+    `by_ai` is a fact about the record for `d12ball/stats.py`, read
+    off the game here rather than passed by the caller: the AI's turn
+    comes through the same answer a coach's does (step 7 of
+    docs/architecture-migration.md), so nothing on the path knows
+    whose click it was.
     """
     match.record_event(
         EVENT_TURN_ACTION,
         side=match.ball.possession,
         player_id=match.active_player_id,
         action=action,
-        by_ai=by_ai,
+        by_ai=engine.side_is_ai(game, match.ball.possession),
     )
 
 
@@ -458,7 +462,7 @@ def begin_shot_step(
     and no decision -- and it is keyed on the kind, which is how the
     AI's shot and a coach's reach the same picture.
     """
-    record_turn_action(match, "shoot")
+    record_turn_action(engine, game, match, "shoot")
     match.pending_action = "shoot"
 
     handler = engine.get_player_definition(match.active_player_id)
@@ -527,39 +531,31 @@ def begin_maneuver_step(
       through `decline_challenge_step`.
     - **One defender already sharing the ball's exact space** leaves
       nothing to choose: they pay nothing to challenge, so it is
-      neither theirs to decline nor a pick between players, and it goes
-      ahead the same way it does when the AI is picking. Two of them is
-      a pick, and the defending coach makes it (the author,
+      neither theirs to decline nor a pick between players. Two of
+      them is a pick, and the defending coach makes it (the author,
       2026-08-17): they are the whole of the choice, since nobody may
       be walked in past them. See `MatchState.challenge_candidates`.
     - **Otherwise the defending coach is asked**, and the prompt is
-      `challenger_choice_prompt`.
+      `challenger_choice_prompt`. An AI defense is asked the same
+      question and answers it through the service (`AIStrategy.choose`).
 
     The middle route ends on `AUTO_RESOLVE_CHALLENGER` rather than
     running the pick itself, because what a frontend puts up for it is
     the **challenge image** -- the matchup, drawn -- and a picture is
     the frontend's (principle 8 in CLAUDE.md).
     """
-    record_turn_action(match, "maneuver")
+    record_turn_action(engine, game, match, "maneuver")
 
     if not match.eligible_challengers():
         return decline_challenge_step(engine, game, match)
 
     match.pending_action = "maneuver"
     on_ball_space = match.automatic_challengers()
-    defender_number = engine.defending_player_number(game, match)
-    if len(on_ball_space) == 1 or (
-        game.is_solo_game and defender_number == 2
-    ):
-        challenger_id = (
-            on_ball_space[0]
-            if len(on_ball_space) == 1
-            else engine.get_ai_strategy(game).choose_challenger(match)
-        )
+    if len(on_ball_space) == 1:
         return StepResult(
             next=FollowOn(
                 FollowOnStep.AUTO_RESOLVE_CHALLENGER,
-                {"challenger_id": challenger_id},
+                {"challenger_id": on_ball_space[0]},
             ),
         )
 
@@ -690,54 +686,6 @@ def maneuver_pick_step(
     )
 
 
-def write_ai_maneuver_picks(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-) -> None:
-    """
-    Dinky answers before the prompt is built, which is what makes a
-    solo game's prompt one hand and one row --
-    `RulesEngine.maneuver_pick_sides` is read afterwards, so it already
-    knows the AI has picked.
-
-    A tutorial beat names the card Dinky plays, and it is written
-    straight into the match here rather than through the strategy:
-    `choose_maneuver_action` takes a side and nothing else, so it has
-    no way to know which beat is running, and changing its signature
-    for one caller would put the script inside the AI. Dinky's pick is
-    made before the coach's exactly as it always is -- the rails decide
-    what the coach may answer with, not the other way round.
-    """
-    if not game.is_solo_game:
-        return
-
-    ai_strategy = engine.get_ai_strategy(game)
-    beat = tutorial_beat(game)
-
-    if engine.possession_player_number(game, match) == 2:
-        scripted = beat.dinky_maneuver_for("offense") if beat else None
-        match.choose_offense_maneuver(
-            scripted
-            or ai_strategy.choose_maneuver_action(
-                "offense",
-                engine.maneuver_hand(game, match, "offense"),
-            )
-        )
-    if (
-        not match.maneuver_uncontested
-        and engine.defending_player_number(game, match) == 2
-    ):
-        scripted = beat.dinky_maneuver_for("defense") if beat else None
-        match.choose_defense_maneuver(
-            scripted
-            or ai_strategy.choose_maneuver_action(
-                "defense",
-                engine.maneuver_hand(game, match, "defense"),
-            )
-        )
-
-
 def tutorial_beat(game: D12BallGame):
     """
     The beat now in progress, or None when no rail applies -- an
@@ -781,8 +729,10 @@ def begin_maneuver_action_selection(
 ) -> StepResult:
     """
     Kick off the simultaneous maneuver-action choice once a challenger
-    has been chosen: the AI opponent picks immediately, and every human
-    side is owed its own row of buttons on one public prompt.
+    has been chosen: every side is owed its own row of buttons on one
+    public prompt. An AI side answers its row through the service
+    before the prompt reaches anybody (`AIStrategy.choose`), which is
+    what makes a solo game's prompt one hand and one row.
 
     An uncontested maneuver comes through here too, and waits on the
     offense alone -- there is no defender to pick a defensive maneuver,
@@ -793,12 +743,8 @@ def begin_maneuver_action_selection(
     **The prompt itself is the frontend's** and is named rather than
     returned: it carries the hand image, a link to the full-size
     version, the field strip under it, and (in a tutorial) a note held
-    behind a Continue button. What is settled here is that the AI has
-    picked, whether anybody is still owed a choice, who they are and
-    what they are told.
+    behind a Continue button.
     """
-    write_ai_maneuver_picks(engine, game, match)
-
     if match.maneuver_selections_complete:
         return StepResult(next=FollowOn(FollowOnStep.RESOLVE_MANEUVER))
 
@@ -1020,8 +966,10 @@ def start_turn(
     Hand the ball to whoever now has it: the carrier when the last
     resolution left it with somebody, everyone on the ball's space
     otherwise. A single candidate is selected without asking, so the
-    rule costs a coach a click rather than adding one; an AI side
-    plays its whole turn from here.
+    rule costs a coach a click rather than adding one. An AI side is
+    asked the same two questions and answers them through the service
+    (`AIStrategy.choose`); until step 7 of
+    docs/architecture-migration.md it played its whole turn from here.
 
     Through the engine, which is where the single answer to "who may
     take this turn" lives even now that it adds nothing of its own:
@@ -1042,12 +990,6 @@ def start_turn(
         )
     carrying = match.ball_carrier_id in eligible_handlers
 
-    offense_number = engine.possession_player_number(game, match)
-    if game.is_solo_game and offense_number == 2:
-        result = ai_turn_step(engine, game, match)
-        result.narration[:0] = narration
-        return result
-
     if len(eligible_handlers) == 1:
         match.select_ball_handler(eligible_handlers[0])
         kind = PromptKind.PLAYER_ACTION
@@ -1058,109 +1000,6 @@ def start_turn(
         narration=narration,
         next=PendingPrompt(
             kind, engine.build_turn_prompt(game, match, carrying=carrying),
-        ),
-    )
-
-
-def ai_turn_step(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-) -> StepResult:
-    """
-    The AI opponent's turn with possession, whole: pick a ball
-    handler, then shoot if the ball is already on the space closest to
-    the opponent's goal, call a time out if one of theirs is injured
-    on the field, otherwise maneuver.
-
-    **The decisions are `d12ball/ai.py`'s**; what is here is the
-    sequencing and the four things said, which is what stayed in the
-    cog until Phase 6 -- and the four exits are the same four a human
-    coach's turn takes, through the same steps.
-
-    Each line is a message of its own (the frontend's
-    `DRIVER_BLOCKS_PER_MESSAGE`), which is how the AI's turn always
-    read: "Dinky has chosen to maneuver", then "Unchallenged!".
-    """
-    ai_name = format_ai_name(game.ai_opponent)
-    ai_strategy = engine.get_ai_strategy(game)
-    handler_id = ai_strategy.choose_ball_handler(match)
-    match.select_ball_handler(handler_id)
-    handler = engine.get_player_definition(handler_id)
-    label = engine.format_player_label(match, handler)
-    action = ai_strategy.choose_action(match)
-
-    # **Ahead of the turn-action record**, because a time out is not a
-    # turn action -- `begin_time_out` logs its own event instead, and
-    # recording one here would open a turn for a pause and hang the
-    # real turn's events off it. See `MatchState.record_event` and
-    # EVENT_TIME_OUT.
-    #
-    # Dinky calls one to get an injured player off (the author,
-    # 2026-09-16); `DinkyAI.choose_action` is the whole of when. The
-    # window it opens runs through `run_ai_substitution_window` like
-    # any other AI window, and the human coach gets theirs in reply
-    # exactly as a human caller's opponent would.
-    if action == "time_out":
-        from d12ball.flow.windows import begin_time_out
-
-        result = begin_time_out(engine, game, match)
-        result.narration.insert(0, f"{ai_name} calls a time out.")
-        return result
-
-    # Recorded here rather than in the two branches below: the AI has
-    # no prompt and no stale click to guard against, so the strategy's
-    # answer *is* the turn it takes.
-    record_turn_action(match, action, by_ai=True)
-
-    if action == "shoot":
-        match.pending_action = "shoot"
-        return StepResult(
-            narration=[
-                f"{ai_name} has chosen to shoot to score with {label}."
-            ],
-            next=PendingPrompt(PromptKind.SCORE_ATTEMPT, SCORE_ATTEMPT_ASK),
-        )
-
-    # Unchallenged, so the AI's pick succeeds outright -- the same
-    # branch a human offense takes, see `begin_maneuver_step`.
-    if not match.eligible_challengers():
-        result = decline_challenge_step(engine, game, match)
-        result.narration.insert(
-            0, f"{ai_name} has chosen to maneuver with {label}.",
-        )
-        return result
-
-    match.pending_action = "maneuver"
-
-    # *One* defender already sharing the ball's exact space leaves
-    # nothing to choose -- see `begin_maneuver_step`, and note that
-    # this is a count and not a flag there too: two of them on the
-    # ball is the defending coach's pick (the author, 2026-08-17), and
-    # taking `on_ball_space[0]` here picked for them off placement
-    # order without asking. Nothing is announced: the challenge image
-    # names the handler the AI picked, along with everything else
-    # about the matchup.
-    on_ball_space = match.automatic_challengers()
-    if len(on_ball_space) == 1:
-        return StepResult(
-            next=FollowOn(
-                FollowOnStep.AUTO_RESOLVE_CHALLENGER,
-                {"challenger_id": on_ball_space[0]},
-            ),
-        )
-
-    defender_mention = format_player_with_team(
-        game,
-        engine.defending_player_number(game, match),
-        engine.team_emojis,
-        mention=True,
-    )
-    return StepResult(
-        next=PendingPrompt(
-            PromptKind.MANEUVER_CHALLENGE,
-            f"{ai_name} will maneuver with {label}.\n\n"
-            f"{defender_mention}, {challenger_prompt_ask(match)}",
         ),
     )
 

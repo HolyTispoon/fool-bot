@@ -69,7 +69,7 @@ class PendingTurnViewEquivalenceTests(unittest.TestCase):
 
     def test_every_state_restores_its_own_prompt(self) -> None:
         for case in CASES:
-            if not case.asked:
+            if not case.asked or case.ai:
                 continue
             with self.subTest(case.name):
                 cog = build_cog()
@@ -85,11 +85,12 @@ class PendingTurnViewEquivalenceTests(unittest.TestCase):
 
     def test_an_owed_state_restores_nothing(self) -> None:
         """
-        No button to re-arm where the bot owes the next step: startup
-        skips the game and says so, and `/d12ball resume` runs it.
+        No button to re-arm where the bot owes the next step, or where
+        the question is the AI's: startup skips the game and says so,
+        and `/d12ball resume` runs it.
         """
         for case in CASES:
-            if case.asked:
+            if case.asked and not case.ai:
                 continue
             with self.subTest(case.name):
                 cog = build_cog()
@@ -110,7 +111,7 @@ class PendingTurnViewEquivalenceTests(unittest.TestCase):
         """
         seen: dict[str, str] = {}
         for case in CASES:
-            if not case.asked:
+            if not case.asked or case.ai:
                 continue
             self.assertEqual(
                 seen.setdefault(case.kind, case.view),

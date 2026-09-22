@@ -99,8 +99,10 @@ modules that play a turn mutates only through `driver.answer`; the four
 contested rolls, both single-die rolls and every tie are the model's;
 `MODEL_STEPS` covers `FollowOnStep` and `ANSWERS` covers `PromptKind`
 exactly (31 and 32, checked programmatically); the AI's turn is the
-driver's own (`START_TURN` calls `ai_turn_step` inline, so a frontend
-cannot forget it); the model reads no clock; `render.py` returns PNG
+driver's own (`START_TURN` called `ai_turn_step` inline until step 7,
+which made it the service's: the AI answers the same prompts a coach
+does, inside `GameService.run`, so a frontend cannot forget it); the
+model reads no clock; `render.py` returns PNG
 bytes with no Discord in it; the board is already JSON
 (`BoardState.spaces`, `to_dict`). A whole game plays through
 `driver.apply` with nothing from `cogs/` imported. What follows is the
@@ -312,8 +314,11 @@ remainder.
     calls but skipping the adapter. That is how the speed choice came
     to pass `distance_moved` on one path and not the other. The review
     read the AI's turn as the driver's own and stopped there; the
-    architecture's "AI" section is the finding. *Open; migration step
-    7, its own PR (decision 8).*
+    architecture's "AI" section is the finding. *Closed by step 7:
+    `AIStrategy.choose` hands back an `Action`, `driver.ai_action`
+    asks it for the prompt's AI side (`asked_sides`), and
+    `GameService.run` puts the answer through `driver.answer` like a
+    click. The forks are gone; the speed choice has one reading.*
 
 ### Small things
 
@@ -368,10 +373,17 @@ numbers are the migration's.
   table. `REQUIRED_ARGUMENTS` is how `_argument_mismatch` knows which
   `None` a choice will dereference. What the step records is in
   `docs/architecture-migration.md` under step 6.
-- **Step 7, the AI.** `AIStrategy.choose(prompt, match) -> Action`
-  and a loop in `GameService.apply_action` while the prompt's side is
-  the AI's, stopping at a roll; the forks go. Its own PR, worded per
-  decision 8.
+- **Step 7, the AI** -- done. `AIStrategy.choose(prompt, game,
+  match, side) -> Action` and a loop in `GameService.run` while the
+  prompt is the AI's, stopping at a roll; the forks went, worded per
+  decision 8. `game` is there for the one answer that names the AI (a
+  passed window's `coach_name`, which step 9's tokens will take back)
+  and `side` for the two prompts put to both sides at once. What the
+  step records is in `docs/architecture-migration.md` under step 7:
+  the third reader over the chain (`asked_sides`), the frontend's
+  batching of an AI answer (`Batching.carry_answer`, the `prompt` and
+  `action` tags on a `Narration`), and the run back kept to one
+  message.
 - **Step 9, the voice, and the dice.** Tokens per decision 4; the
   coin winner stored as a player number (the mention-string fallback
   stays, per gotchas.md; the new write is the number); the two

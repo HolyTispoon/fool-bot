@@ -63,10 +63,16 @@ from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import (
     build_full_time_summary,
     build_goal_log,
+    format_player,
     format_team_side_label,
 )
 from d12ball.game import D12BallGame
-from d12ball.prompts import PendingPrompt, PromptKind
+from d12ball.prompts import (
+    PendingPrompt,
+    PromptKind,
+    shootout_order_prompt,
+    shootout_pick_prompt,
+)
 
 
 # -- The whistle -----------------------------------------------------
@@ -422,31 +428,9 @@ def begin_halftime_extra_token(
         engine.next_halftime_stage(match)
         return advance_halftime_stage(engine, game, match)
 
-    if engine.side_is_ai(game, side):
-        player_id = max(
-            eligible, key=lambda pid: match.exhaustion.get(pid, 0),
-        )
-        threshold = engine.exhaustion_threshold(game, player_id)
-        removed = match.recover_exhaustion(player_id, 1, threshold)
-        engine.next_halftime_stage(match)
-
-        narration = []
-        if removed:
-            player = engine.get_player_definition(player_id)
-            remaining = match.exhaustion.get(player_id, 0)
-            narration.append(
-                f"{format_team_side_label(setup)} removes an extra "
-                "exhaustion token from "
-                f"{engine.format_player_label(match, player)} "
-                f"(now {remaining})."
-            )
-        result = advance_halftime_stage(engine, game, match)
-        result.narration[:0] = narration
-        result.board_changed = result.board_changed or bool(removed)
-        return result
-
-    controller_id = engine.side_controller_id(game, side)
-    mention = f"<@{controller_id}>" if controller_id else "Someone"
+    mention = format_player(
+        game, engine.side_player_number(game, side), mention=True,
+    )
     return StepResult(
         next=PendingPrompt(
             PromptKind.HALFTIME_EXTRA_TOKEN,
@@ -468,11 +452,9 @@ def halftime_extra_token_step(
     The coach's pick of one fielded player to lose an extra exhaustion
     token, applied.
 
-    The answer to `begin_halftime_extra_token`'s own prompt, and the
-    AI's branch of that function is the same three lines -- take the
-    token off, move the stage on, say what happened -- which is what
-    makes this a step rather than a view body: two sides of one rule
-    written twice is how they come to disagree.
+    The answer to `begin_halftime_extra_token`'s own prompt, for a
+    coach and for the AI alike (`AIStrategy.choose`, through the
+    service).
 
     **A player with no tokens to lose is not refused**, because picking
     them is a legal answer to the question asked: every fielded player
@@ -485,10 +467,10 @@ def halftime_extra_token_step(
     engine.next_halftime_stage(match)
 
     remaining = match.exhaustion.get(player_id, 0)
-    # What halftime does next comes back with the answer, as the AI's
-    # branch above does it: the first block is this pick's own line,
-    # the rest are the next stage's, and the frontend keeps them apart
-    # (the answer replaces the prompt; the stage is its own messages).
+    # What halftime does next comes back with the answer: the first
+    # block is this pick's own line, the rest are the next stage's,
+    # and the frontend keeps them apart (the answer replaces the
+    # prompt; the stage is its own messages).
     result = advance_halftime_stage(engine, game, match)
     result.narration.insert(
         0,
@@ -750,40 +732,14 @@ def ask_shootout_orders(
     match: MatchState,
 ) -> StepResult:
     """
-    The secret ordering both coaches do before the first test. An
-    AI side sets its own here and now, so a solo game only ever
-    waits on the one coach who has a choice to make.
+    The secret ordering both coaches do before the first test. An AI
+    side answers the same prompt through the service, one name at a
+    time (`AIStrategy.choose`), before it reaches the coach.
     """
-    for side in (TeamSide.HOME, TeamSide.VISITING):
-        if match.shootout_order_complete(side):
-            continue
-        if not engine.side_is_ai(game, side):
-            continue
-        match.set_shootout_order(
-            side,
-            engine.get_ai_strategy(game).choose_shootout_order(
-                match.shootout_squad(side),
-            ),
-        )
-
     if match.shootout_orders_complete:
         return reveal_shootout_test(engine, game, match)
 
-    owing = [
-        side
-        for side in (TeamSide.HOME, TeamSide.VISITING)
-        if not match.shootout_order_complete(side)
-    ]
-    return StepResult(
-        next=PendingPrompt(
-            PromptKind.SHOOTOUT_ORDER,
-            # Nobody has shot, so the usual "skill test 1 of 6, 0 — 0"
-            # is a scoreline with nothing in it yet.
-            "### Extreme shootout\n"
-            f"{engine.shootout_mentions(game, match, owing)}: set the "
-            "order your six players shoot in. Nobody else sees it.",
-        ),
-    )
+    return StepResult(next=shootout_order_prompt(engine, game, match))
 
 
 def ask_shootout_shooters(
@@ -796,35 +752,10 @@ def ask_shootout_shooters(
     first: the first round's shooter is read off the order, so
     there is nothing to ask for and nothing to lose in a restart.
     """
-    for side in (TeamSide.HOME, TeamSide.VISITING):
-        if match.shootout_shooter(side) is not None:
-            continue
-        if not engine.side_is_ai(game, side):
-            continue
-        match.set_shootout_shooter(
-            side,
-            engine.get_ai_strategy(game).choose_shootout_shooter(
-                match.shootout_eligible(side),
-            ),
-        )
-
     if match.shootout_shooters_complete:
         return reveal_shootout_test(engine, game, match)
 
-    owing = [
-        side
-        for side in (TeamSide.HOME, TeamSide.VISITING)
-        if match.shootout_shooter(side) is None
-    ]
-    return StepResult(
-        next=PendingPrompt(
-            PromptKind.SHOOTOUT_PICK,
-            f"{engine.shootout_heading(match)}\n"
-            f"{engine.shootout_mentions(game, match, owing)}: choose who "
-            "goes out next, from the players who have not shot yet "
-            "this round. Nobody else sees it until the reveal.",
-        ),
-    )
+    return StepResult(next=shootout_pick_prompt(engine, game, match))
 
 
 def shootout_order_step(

@@ -68,6 +68,7 @@ from d12ball.flow.windows import (
     open_substitution_window,
 )
 from d12ball.prompts import PromptKind, owed_step, pending_prompt
+from ai_answers import let_the_ai_answer
 
 from roster import fielded
 from save_patches import suppressed_cog_saves
@@ -291,7 +292,9 @@ class HalftimeFlowTests(PeriodFixture):
             self.match.pending_halftime_stage, "extra_token_home",
         )
 
-    def test_an_ai_side_takes_its_own_extra_token(self) -> None:
+    def test_an_ai_side_is_asked_and_takes_the_most_tired_off(self) -> None:
+        # The AI is asked the same question a coach is, and answers it
+        # through the driver (step 7 of docs/architecture-migration.md).
         solo = build_game(tutorial=False, tutorial_step=None)
         self.match.pending_halftime_stage = "extra_token_visiting"
         low, high = self.match.visiting.field_players[:2]
@@ -301,10 +304,13 @@ class HalftimeFlowTests(PeriodFixture):
         result = begin_halftime_extra_token(
             self.engine, solo, self.match, TeamSide.VISITING,
         )
+        self.assertEqual(result.next.kind, PromptKind.HALFTIME_EXTRA_TOKEN)
 
+        taken = let_the_ai_answer(self.engine, solo, self.match)
+
+        self.assertEqual(taken[0].arguments["player_id"], high)
         self.assertEqual(self.match.exhaustion[high], 3)
         self.assertEqual(self.match.exhaustion[low], 1)
-        self.assertIn("removes an extra exhaustion token", result.narration[0])
         # And carries on to the next stage, which is home's.
         self.assertEqual(
             self.match.pending_halftime_stage, "extra_token_home",
@@ -445,17 +451,24 @@ class ShootoutFlowTests(PeriodFixture):
         self.assertTrue(result.narration[0].startswith("# Extreme shootout"))
         self.assertEqual(result.next.kind, PromptKind.SHOOTOUT_ORDER)
 
-    def test_an_ai_side_sets_its_own_order(self) -> None:
+    def test_an_ai_side_is_asked_its_order_one_name_at_a_time(self) -> None:
         solo = build_game(tutorial=False, tutorial_step=None)
         self.match.begin_shootout()
 
         result = advance_shootout(self.engine, solo, self.match)
+        self.assertEqual(result.next.kind, PromptKind.SHOOTOUT_ORDER)
 
+        taken = let_the_ai_answer(self.engine, solo, self.match)
+
+        self.assertEqual(len(taken), 6)
         self.assertTrue(
             self.match.shootout_order_complete(TeamSide.VISITING)
         )
-        # Home is human and still owes theirs, so that is what it asks.
-        self.assertEqual(result.next.kind, PromptKind.SHOOTOUT_ORDER)
+        # Home is human and still owes theirs, so that is what it asks
+        # -- of the coach alone, now.
+        prompt = pending_prompt(self.engine, solo, self.match)
+        self.assertEqual(prompt.kind, PromptKind.SHOOTOUT_ORDER)
+        self.assertIn("<@111>: set the order", prompt.ask)
 
     def test_both_orders_in_reveals_the_first_test(self) -> None:
         self.match.begin_shootout()
@@ -685,7 +698,11 @@ class TimeOutFlowTests(PeriodFixture):
         self.assertEqual(
             result.next.kwargs["occasion"], CoachingOccasion.TIME_OUT,
         )
-        self.assertIn("call a time out", result.next.kwargs["heading"])
+        # The announcement is narration -- the caller's own line --
+        # rather than the window's heading, so an AI caller's is
+        # posted too (step 7 of docs/architecture-migration.md).
+        self.assertNotIn("heading", result.next.kwargs)
+        self.assertIn("call a time out", result.narration[0])
 
     def test_it_is_logged_as_its_own_kind_of_event(self) -> None:
         """

@@ -28,6 +28,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 from d12ball.flow.arrivals import check_for_loose_ball
@@ -63,7 +64,10 @@ def build_cog() -> D12Ball:
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
     cog.engine = RulesEngine(
-        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+        cog.player_catalog,
+        cog.basic_ruleset,
+        cog.maneuver_catalog,
+        build_ai_strategies(cog.player_catalog, cog.maneuver_catalog),
     )
     cog.team_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -481,9 +485,12 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         }
         self.assertGreater(len(set(travel.values())), 1)
 
+        # The AI is asked whom to send, like a coach, and the service
+        # answers for it inside the same run.
         with suppressed_cog_saves():
             await begin_ball_recovery(cog, build_interaction(), game, match)
 
+        match = cog.engine.load_match_state(game)
         self.assertFalse(match.pending_ball_recovery)
         recoverer = match.eligible_ball_handlers()[0]
         self.assertEqual(travel.get(recoverer), min(travel.values()))

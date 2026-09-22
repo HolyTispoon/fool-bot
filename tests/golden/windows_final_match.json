@@ -1169,7 +1169,18 @@
       },
       "kind": "goal",
       "period": "second_half",
-      "player_id": "quantor_winger",
+      "player_id": "dravox_defender",
+      "side": "visiting",
+      "time": 41
+    },
+    {
+      "details": {
+        "own_goal": false,
+        "shootout": true
+      },
+      "kind": "goal",
+      "period": "second_half",
+      "player_id": "zytheris_striker",
       "side": "visiting",
       "time": 41
     },
@@ -1191,8 +1202,19 @@
       },
       "kind": "goal",
       "period": "second_half",
-      "player_id": "zytheris_striker",
+      "player_id": "hellguard_fullback",
       "side": "visiting",
+      "time": 41
+    },
+    {
+      "details": {
+        "own_goal": false,
+        "shootout": true
+      },
+      "kind": "goal",
+      "period": "second_half",
+      "player_id": "voltus_defender",
+      "side": "home",
       "time": 41
     },
     {
@@ -1213,8 +1235,8 @@
       },
       "kind": "goal",
       "period": "second_half",
-      "player_id": "quantor_winger",
-      "side": "visiting",
+      "player_id": "flickerwing_winger",
+      "side": "home",
       "time": 41
     }
   ],
@@ -1250,7 +1272,15 @@
     {
       "own_goal": false,
       "period": "second_half",
-      "player_id": "quantor_winger",
+      "player_id": "dravox_defender",
+      "shootout": true,
+      "side": "visiting",
+      "time": 41
+    },
+    {
+      "own_goal": false,
+      "period": "second_half",
+      "player_id": "zytheris_striker",
       "shootout": true,
       "side": "visiting",
       "time": 41
@@ -1266,9 +1296,17 @@
     {
       "own_goal": false,
       "period": "second_half",
-      "player_id": "zytheris_striker",
+      "player_id": "hellguard_fullback",
       "shootout": true,
       "side": "visiting",
+      "time": 41
+    },
+    {
+      "own_goal": false,
+      "period": "second_half",
+      "player_id": "voltus_defender",
+      "shootout": true,
+      "side": "home",
       "time": 41
     },
     {
@@ -1282,9 +1320,9 @@
     {
       "own_goal": false,
       "period": "second_half",
-      "player_id": "quantor_winger",
+      "player_id": "flickerwing_winger",
       "shootout": true,
-      "side": "visiting",
+      "side": "home",
       "time": 41
     }
   ],
@@ -1376,14 +1414,14 @@
   "run_back_moved": [],
   "run_back_pick": null,
   "scoreboard": {
-    "home_score": 3,
+    "home_score": 5,
     "last_possession": true,
     "period": "second_half",
     "time": 41,
     "visiting_score": 4
   },
   "shootout_goals": {
-    "home": 2,
+    "home": 4,
     "visiting": 3
   },
   "shootout_orders": {
@@ -1396,12 +1434,12 @@
       "flickerwing_winger"
     ],
     "visiting": [
-      "emberdash_playmaker",
-      "quantor_winger",
+      "dravox_defender",
+      "zytheris_striker",
       "glompex_midfielder",
       "hellguard_fullback",
-      "zytheris_striker",
-      "dravox_defender"
+      "quantor_winger",
+      "emberdash_playmaker"
     ]
   },
   "shootout_round": 2,

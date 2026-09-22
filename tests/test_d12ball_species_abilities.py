@@ -3141,19 +3141,19 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
         self.cog.finish_maneuver_resolution.assert_awaited()
         self.assertFalse(self.match.pending_own_goal)
 
-    async def test_an_ai_side_is_never_offered_one(self):
+    async def test_an_ai_side_is_asked_and_lets_it_pass(self):
         # Dinky never takes a Smooth, the same call as never ceding and
-        # never pulling.
+        # never pulling -- asked like a coach and answered through the
+        # service (step 7 of docs/architecture-migration.md), so no
+        # menu is ever put up for it.
         self.game.ai_opponent = AIOpponent.DINKY
-        # An AI side is one with no Discord user behind it, which is
-        # what `controlling_user_id` actually reads -- see
-        # `continue_smooth`'s skip.
-        number = (
-            self.game.home_player_number
-            if self.match.ball.possession is TeamSide.HOME
-            else self.game.visiting_player_number
-        )
-        setattr(self.game, f"player_{number}_id", None)
+        # The AI is player 2 with no Discord user behind it; put it on
+        # the side in possession.
+        self.game.player_2_id = None
+        if self.match.ball.possession is TeamSide.HOME:
+            self.game.home_player_number = 2
+            self.game.visiting_player_number = 1
+        self.game.match_state = self.match.to_dict()
         self.cross(self.taker)
         with suppressed_cog_saves():
             await self.arrive(

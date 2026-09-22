@@ -53,7 +53,13 @@ invariants read as ordinary cog surface among 223 methods.
   cascade of automatic steps is one message and one board refresh at the end
   of it, not one of each per step -- see `continue_run_back`. Nobody reads the
   intermediate boards; the one worth looking at is the one where everything
-  has finished moving.
+  has finished moving. **An AI side's answers count as the bot's own here**:
+  since step 7 of docs/architecture-migration.md Dinky's run-back placements
+  are answers to the same prompts a coach gets, and `GameService` folds a
+  carried answer back into the cascade's message rather than closing one per
+  pick (`DiscordBatching.carry_answer`, [game-service.md](game-service.md),
+  "The AI answers here"); `RunBackBatchingTests` still asserts one send and
+  one refresh for a four-placement AI run back.
 - **Which lines are one message is a batching decision, and it is
   `DiscordBatching`'s.** `driver.advance` hands a step's narration to
   whatever comes next as its `lead_in`, so a cascade of the bot's own steps

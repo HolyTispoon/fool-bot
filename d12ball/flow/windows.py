@@ -45,7 +45,6 @@ from d12ball.components import (
     RuleRefusal,
     SPECIES_CYBORG,
     TeamSide,
-    Zone,
 )
 from d12ball import tutorial
 from d12ball.engine import RulesEngine
@@ -421,57 +420,6 @@ def finish_coaching_step(
     )
 
 
-def cover_kickoff_space(
-    engine: RulesEngine,
-    match: MatchState,
-    side: TeamSide,
-) -> Optional[str]:
-    """
-    Put one of an AI side's meeples on their own kickoff space when
-    nobody is standing on it, and describe the move -- or None when
-    there is nothing to do.
-
-    A human coach is refused the Done button until they have
-    covered it (see `RulesEngine.coaching_finish_refusal`); the AI has
-    no menu to be held in, so it does the same thing here. The kickoff
-    space is always in midfield and every basic shape puts at least two
-    cards there, so the mover is always somebody whose own zone it is.
-    """
-    side = TeamSide(side)
-    if engine.coaching_finish_refusal(match, side) is None:
-        return None
-
-    setup = match.setup_for_side(side)
-    kickoff_index = match.kickoff_space_for(side)
-    kickoff_flat = match.board.flat_index(Zone.MIDFIELD, kickoff_index)
-    candidates = [
-        player_id
-        for player_id in setup.field_players
-        if setup.assigned_zone(player_id) == Zone.MIDFIELD
-    ]
-    if not candidates:
-        LOGGER.error(
-            "No %s card is assigned to midfield, so nobody can take "
-            "the kickoff space.",
-            side.value,
-        )
-        return None
-
-    def distance(player_id: str) -> int:
-        position = match.board.meeple_position(player_id)
-        if position is None:
-            return 10**6
-        return abs(match.board.flat_index(*position) - kickoff_flat)
-
-    nearest = min(candidates, key=distance)
-    match.position_meeple(side, nearest, kickoff_index)
-    player = engine.get_player_definition(nearest)
-    return (
-        f"{engine.format_player_label(match, player)} takes the "
-        f"kickoff spot at {space_label(Zone.MIDFIELD, kickoff_index)}."
-    )
-
-
 def open_substitution_window(
     engine: RulesEngine,
     game: D12BallGame,
@@ -530,14 +478,6 @@ def open_substitution_window(
         is_response=is_response,
         formation=shape.value if shape else None,
     )
-
-    if engine.side_is_ai(game, side):
-        result = run_ai_substitution_window(engine, game, match, heading)
-        # Only when the restore actually moved somebody, so the
-        # common case -- setup, and a new play that has just reset
-        # both sides -- costs nothing.
-        result.board_changed = result.board_changed or restored
-        return result
 
     note = coaching_window_note(
         engine, match, side, occasion, is_response, restored,
@@ -628,80 +568,6 @@ def begin_substitution_window(
     )
     if lead_in:
         result.narration.insert(0, lead_in)
-    return result
-
-
-def run_ai_substitution_window(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    heading: str = "",
-) -> StepResult:
-    """
-    An AI side's whole window, start to finish: it is a routine rather
-    than a menu, so there is nothing to put in front of anybody and
-    nothing to come back to after a restart.
-    """
-    side = TeamSide(match.pending_coaching_side)
-    occasion = match.coaching_occasion or CoachingOccasion.NEW_PLAY
-    strategy = engine.get_ai_strategy(game)
-    lines: list[str] = []
-
-    while match.may_substitute():
-        choice = strategy.choose_substitution(match, side)
-        if choice is None:
-            break
-        if not match.pending_coaching_declared:
-            match.declare_coaching()
-        outgoing_player_id, incoming_player_id = choice
-        try:
-            lines.append(
-                apply_substitution(
-                    engine,
-                    game,
-                    match,
-                    side,
-                    outgoing_player_id,
-                    incoming_player_id,
-                )
-            )
-        except RuleRefusal as error:
-            LOGGER.error(
-                "AI substitution refused in game %s: %s",
-                game.game_id, error,
-            )
-            break
-
-    covered = cover_kickoff_space(engine, match, side)
-    if covered:
-        lines.append(covered)
-
-    setup = match.setup_for_side(side)
-    prefix = f"{heading}\n\n" if heading else ""
-    narration: list[str] = []
-    board_changed = False
-    if lines:
-        body = "\n".join(lines)
-        narration.append(
-            f"{prefix}# Coaching Choice\n"
-            f"{format_team_side_label(setup)}:\n{body}"
-        )
-        # Before kickoff there is no board up yet, deliberately --
-        # `finish_setup_coaching` posts it once both coaches are
-        # done, and an AI window is not the moment to break that.
-        board_changed = match.pending_setup_stage is None
-    elif heading and occasion.spends_time_out:
-        # A new play's heading is the announcement that opened the
-        # window -- the goal, the miss -- and has to be posted
-        # whatever the AI decided. Setup's and halftime's are
-        # instructions to a coach, so an AI that changed nothing
-        # says nothing rather than posting a menu heading with no
-        # menu under it.
-        narration.append(heading)
-
-    result = finish_substitution_window(engine, game, match)
-    result.narration[:0] = narration
-    result.board_changed = result.board_changed or board_changed
     return result
 
 
@@ -852,20 +718,23 @@ def begin_time_out(
     side = match.call_time_out()
     label = format_team_side_label(match.setup_for_side(side))
 
+    # **The announcement is narration, not the window's heading.** It
+    # is the answer's own line -- what the time out is, said by
+    # whoever called it -- and the window that opens behind it is the
+    # next thing. Until step 7 of docs/architecture-migration.md it
+    # rode inside the caller's own menu as its heading, which an AI
+    # caller has no menu to carry it on.
     return StepResult(
+        narration=[
+            f"# {label} call a time out\n"
+            "Both coaches get a Coaching Choice. The ball stays "
+            f"with {label} on "
+            f"{space_label(match.ball.zone, match.ball.space_index)}."
+        ],
         board_changed=True,
         next=FollowOn(
             FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
-            {
-                "side": side,
-                "occasion": CoachingOccasion.TIME_OUT,
-                "heading": (
-                    f"# {label} call a time out\n"
-                    "Both coaches get a Coaching Choice. The ball stays "
-                    f"with {label} on "
-                    f"{space_label(match.ball.zone, match.ball.space_index)}."
-                ),
-            },
+            {"side": side, "occasion": CoachingOccasion.TIME_OUT},
         ),
     )
 

@@ -12,12 +12,17 @@ You may take a time out once per half. If you do, play will stop and you'll be a
 --- message
 # Orange (Home) call a time out
 Both coaches get a Coaching Choice. The ball stays with Orange (Home) on M2.
+--- message
 # Coaching Choice
 <@111>, **Orange (Home)** -- 2 substitutions left.
 === press 3: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
 **Orange (Home) are done.**
+No substitutions, and no change of shape.
+--- message
+# Coaching Choice
+**Purple (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
 Ball is now M2, Orange (Home) has possession. Time has advanced 1, now at 01.
@@ -28,6 +33,8 @@ Sizzifizik [PM] will be handling the ball.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 4: PlayerActionView -> 'Maneuver'
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 5: ManeuverActionPromptView -> 'Dribble Advance'
@@ -71,9 +78,14 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 🟠 Sizzifizik [PM] scores for Orange (Home) on **02**!
 Orange 1:0 Purple
 --- message
+# Coaching Choice
+**🟣 Dinky AI passed.**
+--- message
 The ball speed goes down to **1**.
 --- message
 Ball is now M2, Purple (Visiting) has possession. Time has advanced 1, now at 03.
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 10: ManeuverActionPromptView -> 'Deflect'
@@ -102,7 +114,7 @@ Either player can roll:
 --- message
 Ball is now M3, Purple (Visiting) has possession. Time has advanced 1, now at 04.
 --- message
-Dinky AI will maneuver with 🟣 Glompex [MF].
+🟣 Glompex [MF] will maneuver for Purple.
 
 🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 12: ManeuverChallengeView -> 'Send nobody'
@@ -126,6 +138,8 @@ Either player can roll:
 🟣 Quantor [WG] keeps possession after the high pass! 🟣 Dinky AI has possession.
 --- message
 Ball is now H2, Purple (Visiting) has possession. Time has advanced 2, now at 06.
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 14: ManeuverActionPromptView -> 'Steal'
@@ -171,6 +185,8 @@ Sizzifizik [PM] will be handling the ball.
 Out of shooting range, and no time out available. Maneuver:
 === press 17: PlayerActionView -> 'Maneuver'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 18: ManeuverActionPromptView -> 'High Pass'
 --- message
@@ -197,6 +213,8 @@ Out of shooting range, and no time out available. Maneuver:
 Emberdash has moved 1 space.
 🟣 Emberdash [PM] gains 1 exhaustion token 😮‍💨 (now 2 total).
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 20: ManeuverActionPromptView -> 'Dribble Advance'
 --- message
@@ -219,6 +237,8 @@ The ball was left with Spectra [MF], who takes this turn.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 21: PlayerActionView -> 'Maneuver'
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 22: ManeuverActionPromptView -> 'Low Pass'
@@ -250,6 +270,8 @@ Ball speed is now **4**.
 --- message
 Ball is now M1, Purple (Visiting) has possession. Time has advanced 1, now at 12.
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 24: ManeuverActionPromptView -> 'Pressure'
 --- message
@@ -266,6 +288,8 @@ You chose **Pressure**.
 
 Ball is now H2, Purple (Visiting) has possession. Time has advanced 1, now at 13.
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 25: ManeuverActionPromptView -> 'Deflect'
 --- message
@@ -279,12 +303,12 @@ You chose **Deflect**.
 ## **Dribble Advance** wins!
 --- message
 **Dribble Advance:** 🟣 Quantor [WG] and the ball move forward 1 space.
-
+--- message
 Ball speed is now **10**.
 --- message
 Ball is now H1, Purple (Visiting) has possession. Time has advanced 1, now at 14.
 --- message
-Dinky AI has chosen to shoot to score with 🟣 Quantor [WG].
+🟣 Dinky AI has chosen to shoot to score with 🟣 Quantor [WG].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 26: ScoreAttemptView -> 'Roll the score attempt'
@@ -305,6 +329,9 @@ Coach?
 **Orange (Home) are done.**
 No substitutions, and no change of shape.
 --- message
+# Coaching Choice
+**🟣 Dinky AI passed.**
+--- message
 The ball speed goes down to **1**.
 --- message
 The clock reaches 15 -- this is now **last possession**. The turnover that got here doesn't end it -- Orange (Home) came out of that maneuver with the ball, so they play last possession out. The clock keeps running.
@@ -317,6 +344,8 @@ Goopkeeper [FB] will be handling the ball.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 29: PlayerActionView -> 'Maneuver'
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 30: ManeuverActionPromptView -> 'High Pass'
@@ -369,20 +398,16 @@ Every fielded player recovers 1 exhaustion token:
 🟠 Sizzifizik [PM] recovers 1 exhaustion token (now 0).
 🟣 Emberdash [PM] recovers 1 exhaustion token (now 1).
 --- message
-Purple (Visiting) removes an extra exhaustion token from 🟣 Emberdash [PM] (now 0).
+🟣 Emberdash [PM] loses an extra exhaustion token (now 0).
 --- message
 <@111>, Orange (Home): choose one fielded player to lose an extra exhaustion token.
 === press 34: HalftimeExtraTokenView -> 'Sizzifizik [PM] (0)'
 --- message
 🟠 Sizzifizik [PM] had no tokens to lose.
 --- message
-## Halftime
-Purple (Visiting) set up for the second half.
-
 # Coaching Choice
-Purple (Visiting):
-🟣 Zytheris [SK] comes on for 🟣 Tachyon [SK] (injured).
-1 substitution left.
+**Purple (Visiting) are done.**
+🟣 Zytheris [SK] came on for 🟣 Tachyon [SK].
 --- message
 ## Halftime
 Orange (Home) set up for the second half.
@@ -410,6 +435,8 @@ Who comes on for 🟠 Noxar [SK]? They take their zone and their space exactly.
 **Orange (Home) are done.**
 🟠 Voltus [DD] came on for 🟠 Noxar [SK].
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 39: ManeuverActionPromptView -> 'Pressure'
 --- message
@@ -425,6 +452,8 @@ You chose **Pressure**.
 **Pressure:** 🟣 Emberdash [PM] and the ball go back 1 space. 🟠 Sizzifizik [PM] moves forward.
 
 Ball is now M3, Purple (Visiting) has possession. Time has advanced 1, now at 17.
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 40: ManeuverActionPromptView -> 'Deflect'
@@ -471,6 +500,8 @@ The ball was left with Flickerwing [WG], who takes this turn.
 Choose an action:
 === press 43: PlayerActionView -> 'Maneuver'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 44: ManeuverActionPromptView -> 'Dribble Advance'
 --- message
@@ -507,9 +538,14 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 # Missed attempt!
 Purple (Visiting) manages to avoid a goal! (phew)
 --- message
+# Coaching Choice
+**🟣 Dinky AI passed.**
+--- message
 The ball speed goes down to **1**.
 --- message
 Ball is now V2, Purple (Visiting) has possession. Time has advanced 1, now at 20.
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 48: ManeuverActionPromptView -> 'Pressure'
@@ -536,9 +572,14 @@ That overshoots toward their own goal!
 
 🟣 Hellguard [FB] gains 1 exhaustion token 😮‍💨 (now 1 total).
 --- message
+# Coaching Choice
+**🟣 Dinky AI passed.**
+--- message
 The ball speed goes down to **1**.
 --- message
 Ball is now V2, Purple (Visiting) has possession. Time has advanced 1, now at 21.
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 50: ManeuverActionPromptView -> 'Steal'
@@ -566,6 +607,8 @@ Either player can roll:
 --- message
 Ball is now M2, Purple (Visiting) has possession. Time has advanced 2, now at 23.
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 52: ManeuverActionPromptView -> 'Deflect'
 --- message
@@ -582,13 +625,15 @@ You chose **Deflect**.
 --- message
 Ball is now M3, Purple (Visiting) has possession. Time has advanced 1, now at 24.
 --- message
-Dinky AI will maneuver with 🟣 Glompex [MF].
+🟣 Glompex [MF] will maneuver for Purple.
 
 🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 53: ManeuverChallengeView -> 'Flickerwing [WG] (1)'
 --- message
 Flickerwing has moved 1 space.
 🟠 Flickerwing [WG] gains 1 exhaustion token 😮‍💨 (now 2 total).
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 54: ManeuverActionPromptView -> 'Pressure'
@@ -606,6 +651,8 @@ You chose **Pressure**.
 
 Ball is now M2, Purple (Visiting) has possession. Time has advanced 1, now at 25.
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 55: ManeuverActionPromptView -> 'Deflect'
 --- message
@@ -619,10 +666,12 @@ You chose **Deflect**.
 ## **Dribble Advance** wins!
 --- message
 **Dribble Advance:** 🟣 Emberdash [PM] and the ball move forward 2 spaces (Playmaker ability).
-
+--- message
 Ball speed is now **6**.
 --- message
 Ball is now H2, Purple (Visiting) has possession. Time has advanced 1, now at 26.
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 === press 56: ManeuverActionPromptView -> 'Steal'
@@ -666,6 +715,7 @@ You may take a time out once per half. If you do, play will stop and you'll be a
 --- message
 # Orange (Home) call a time out
 Both coaches get a Coaching Choice. The ball stays with Orange (Home) on H1.
+--- message
 # Coaching Choice
 <@111>, **Orange (Home)** -- 2 substitutions left.
 Your side is back on the arrangement you last set.
@@ -673,6 +723,10 @@ Your side is back on the arrangement you last set.
 --- message
 # Coaching Choice
 **Orange (Home) are done.**
+No substitutions, and no change of shape.
+--- message
+# Coaching Choice
+**Purple (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
 Ball is now H1, Orange (Home) has possession. Time has advanced 1, now at 28.
@@ -683,6 +737,8 @@ Goopkeeper [FB] will be handling the ball.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 61: PlayerActionView -> 'Maneuver'
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 62: ManeuverActionPromptView -> 'Dribble Advance'
@@ -723,6 +779,8 @@ The ball was left with Goopkeeper [FB], who takes this turn.
 Out of shooting range, and no time out available. Maneuver:
 === press 65: PlayerActionView -> 'Maneuver'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 66: ManeuverActionPromptView -> 'High Pass'
 --- message
@@ -753,6 +811,8 @@ The ball was left with Sizzifizik [PM], who takes this turn.
 Out of shooting range, and no time out available. Maneuver:
 === press 68: PlayerActionView -> 'Maneuver'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 69: ManeuverActionPromptView -> 'High Pass'
 --- message
@@ -778,6 +838,8 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 Emberdash has moved 1 space.
 🟣 Emberdash [PM] gains 1 exhaustion token 😮‍💨 (now 2 total).
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 71: ManeuverActionPromptView -> 'Dribble Advance'
@@ -810,6 +872,8 @@ Out of shooting range, and no time out available. Maneuver:
 Glompex has moved 1 space.
 🟣 Glompex [MF] gains 1 exhaustion token 😮‍💨 (now 3 total).
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 74: ManeuverActionPromptView -> 'Dribble Advance'
 --- message
@@ -832,6 +896,8 @@ The ball was left with Spectra [MF], who takes this turn.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 75: PlayerActionView -> 'Maneuver'
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 76: ManeuverActionPromptView -> 'Low Pass'
@@ -864,6 +930,8 @@ The ball was left with Goopkeeper [FB], who takes this turn.
 Out of shooting range, and no time out available. Maneuver:
 === press 79: PlayerActionView -> 'Maneuver'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 80: ManeuverActionPromptView -> 'Dribble Advance'
 --- message
@@ -892,6 +960,8 @@ The ball was left with Goopkeeper [FB], who takes this turn.
 Out of shooting range, and no time out available. Maneuver:
 === press 82: PlayerActionView -> 'Maneuver'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 83: ManeuverActionPromptView -> 'Dribble Advance'
 --- message
@@ -914,6 +984,8 @@ The ball was left with Goopkeeper [FB], who takes this turn.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 84: PlayerActionView -> 'Maneuver'
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 85: ManeuverActionPromptView -> 'Low Pass'
@@ -942,6 +1014,8 @@ The ball was left with Spectra [MF], who takes this turn.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 87: PlayerActionView -> 'Maneuver'
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 88: ManeuverActionPromptView -> 'Low Pass'
@@ -974,6 +1048,8 @@ The ball was left with Goopkeeper [FB], who takes this turn.
 Out of shooting range, and no time out available. Maneuver:
 === press 91: PlayerActionView -> 'Maneuver'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 92: ManeuverActionPromptView -> 'Dribble Advance'
 --- message
@@ -1002,6 +1078,8 @@ The ball was left with Goopkeeper [FB], who takes this turn.
 Out of shooting range, and no time out available. Maneuver:
 === press 94: PlayerActionView -> 'Maneuver'
 --- message
+🟣 Dinky AI has picked their maneuver.
+--- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 95: ManeuverActionPromptView -> 'Dribble Advance'
 --- message
@@ -1024,6 +1102,8 @@ The ball was left with Goopkeeper [FB], who takes this turn.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 96: PlayerActionView -> 'Maneuver'
+--- message
+🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 === press 97: ManeuverActionPromptView -> 'Low Pass'
@@ -1057,10 +1137,16 @@ Orange (Home) may make **one substitution** -- the last change either side gets.
 **Orange (Home) are done.**
 No substitutions, and no change of shape.
 --- message
+# Coaching Choice
+**Purple (Visiting) are done.**
+No substitutions, and no change of shape.
+--- message
 # Extreme shootout
 The scores are level, so the game is settled on the extreme shootout.
 
 Each coach secretly puts their **six field players** in the order they will shoot. Both sides then reveal their top card together and those two players roll a **skill test**, each adding their offensive skill -- an injured player adds none and rolls the bare d12. The winner scores a goal; a tie scores for nobody. Six skill tests is a **round**, and a level round goes to sudden death.
+--- message
+Purple (Visiting) has set their shooting order.
 --- message
 ### Extreme shootout
 <@111>: set the order your six players shoot in. Nobody else sees it.
@@ -1113,28 +1199,28 @@ Orange (Home) has set their shooting order.
 Orange 0 — 0 Purple
 🟠 Sizzifizik [PM]
 versus
-🟣 Emberdash [PM]
+🟣 Dravox [DD]
 
 Either player can roll:
 === press 106: ShootoutTestView -> 'Roll the skill test'
 --- message
-# A tie, 7-7! Neither side scores.
-Extreme shootout: Orange 0 — 0 Purple
+# 🟣 Dravox [DD] scores!
+Extreme shootout: Orange 0 — 1 Purple
 --- message
 ### Extreme shootout — skill test 2 of 6
-Orange 0 — 0 Purple
+Orange 0 — 1 Purple
 🟠 Goopkeeper [FB]
 versus
-🟣 Quantor [WG]
+🟣 Zytheris [SK]
 
 Either player can roll:
 === press 107: ShootoutTestView -> 'Roll the skill test'
 --- message
-# 🟣 Quantor [WG] scores!
-Extreme shootout: Orange 0 — 1 Purple
+# 🟣 Zytheris [SK] scores!
+Extreme shootout: Orange 0 — 2 Purple
 --- message
 ### Extreme shootout — skill test 3 of 6
-Orange 0 — 1 Purple
+Orange 0 — 2 Purple
 🟠 Spectra [MF]
 versus
 🟣 Glompex [MF]
@@ -1143,10 +1229,10 @@ Either player can roll:
 === press 108: ShootoutTestView -> 'Roll the skill test'
 --- message
 # 🟠 Spectra [MF] scores!
-Extreme shootout: Orange 1 — 1 Purple
+Extreme shootout: Orange 1 — 2 Purple
 --- message
 ### Extreme shootout — skill test 4 of 6
-Orange 1 — 1 Purple
+Orange 1 — 2 Purple
 🟠 Blazebulk [DD]
 versus
 🟣 Hellguard [FB]
@@ -1154,35 +1240,37 @@ versus
 Either player can roll:
 === press 109: ShootoutTestView -> 'Roll the skill test'
 --- message
-# A tie, 3-3! Neither side scores.
-Extreme shootout: Orange 1 — 1 Purple
+# 🟣 Hellguard [FB] scores!
+Extreme shootout: Orange 1 — 3 Purple
 --- message
 ### Extreme shootout — skill test 5 of 6
-Orange 1 — 1 Purple
+Orange 1 — 3 Purple
 🟠 Voltus [DD]
 versus
-🟣 Zytheris [SK]
+🟣 Quantor [WG]
 
 Either player can roll:
 === press 110: ShootoutTestView -> 'Roll the skill test'
 --- message
-# 🟣 Zytheris [SK] scores!
-Extreme shootout: Orange 1 — 2 Purple
+# 🟠 Voltus [DD] scores!
+Extreme shootout: Orange 2 — 3 Purple
 --- message
 ### Extreme shootout — skill test 6 of 6
-Orange 1 — 2 Purple
+Orange 2 — 3 Purple
 🟠 Flickerwing [WG]
 versus
-🟣 Dravox [DD]
+🟣 Emberdash [PM]
 
 Either player can roll:
 === press 111: ShootoutTestView -> 'Roll the skill test'
 --- message
 # 🟠 Flickerwing [WG] scores!
-Extreme shootout: Orange 2 — 2 Purple
+Extreme shootout: Orange 3 — 3 Purple
+--- message
+Purple (Visiting) has chosen their shooter.
 --- message
 ### Extreme shootout — sudden death, round 2
-Orange 2 — 2 Purple
+Orange 3 — 3 Purple
 <@111>: choose who goes out next, from the players who have not shot yet this round. Nobody else sees it until the reveal.
 === press 112: ShootoutPickPromptView -> 'Choose Your Shooter'
 --- message
@@ -1194,7 +1282,7 @@ You send out 🟠 Flickerwing [WG].
 Orange (Home) has chosen their shooter.
 --- message
 ### Extreme shootout — sudden death, round 2
-Orange 2 — 2 Purple
+Orange 3 — 3 Purple
 🟠 Flickerwing [WG]
 versus
 🟣 Quantor [WG]
@@ -1202,16 +1290,16 @@ versus
 Either player can roll:
 === press 114: ShootoutTestView -> 'Roll the skill test'
 --- message
-# 🟣 Quantor [WG] scores!
-Extreme shootout: Orange 2 — 3 Purple
+# 🟠 Flickerwing [WG] scores!
+Extreme shootout: Orange 4 — 3 Purple
 --- message
-**The extreme shootout is settled, 2-3.**
+**The extreme shootout is settled, 4-3.**
 
-**Final score:** Orange 3:4 Purple
-(1:1 at full time, settled 2-3 on the extreme shootout)
+**Final score:** Orange 5:4 Purple
+(1:1 at full time, settled 4-3 on the extreme shootout)
 
-# Purple wins!
-Congratulations, Dinky AI!
+# Orange wins!
+Congratulations, <@111>!
 
 ## Goals
 
@@ -1222,5 +1310,5 @@ Congratulations, Dinky AI!
 `06`  Tachyon [SK]
 
 **Extreme shootout**
-🟠 Orange: Spectra [MF], Flickerwing [WG]
-🟣 Purple: Quantor [WG], Zytheris [SK], Quantor [WG]
+🟠 Orange: Spectra [MF], Voltus [DD], Flickerwing [WG], Flickerwing [WG]
+🟣 Purple: Dravox [DD], Zytheris [SK], Hellguard [FB]

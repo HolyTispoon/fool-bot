@@ -53,6 +53,8 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow.effects import speed_choice_step
+from ai_answers import ai_answers
+from d12ball.prompts import PromptKind
 from d12ball.game import (
     AIOpponent,
     D12BallGame,
@@ -654,28 +656,44 @@ class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
     """
     Where Dinky holds its gambits it weighs all six cards on a side,
     not the three gambits alone or the three basic cards alone --
-    `DinkyAI.choose_maneuver_action` rolls a rank on the d6 and then
-    coin-flips the tier, which lands on each of the six with equal
-    odds. See "Dinky rolls its rank as it always has and picks the
-    tier at random" in docs/design/maneuvers.md.
+    `DinkyAI.choose` rolls a rank on the d6 and then coin-flips the
+    tier, which lands on each of the six with equal odds. See "Dinky
+    rolls its rank as it always has and picks the tier at random" in
+    docs/design/maneuvers.md.
+
+    Asked the way the game asks it: the maneuver prompt, with Dinky's
+    hand on it, through `driver.ai_action`.
     """
 
-    def test_dinky_reaches_every_card_of_a_hand_with_gambits(self) -> None:
+    def unpicked(self, side: str):
+        """The harness's position with the cards not yet picked, and
+        the AI on `side`."""
         cog, game, match = self.build("low_pass", "pressure")
-        open_gambits(match)
-        strategy = cog.ai_strategies[AIOpponent.DINKY]
+        match.offense_maneuver = None
+        match.defense_maneuver = None
+        game.player_2_id = None
+        if side == "offense":
+            game.home_player_number, game.visiting_player_number = 2, 1
+        return cog, game, match
 
-        self.assertEqual(
-            len(cog.engine.maneuver_hand(game, match, "offense")), 6,
-        )
+    def picks(self, cog, game, match, side: str, times: int) -> set[str]:
+        keys = set()
+        for _ in range(times):
+            action = ai_answers(cog.engine, game, match)
+            self.assertIs(action.kind, PromptKind.MANEUVER_ACTION)
+            self.assertEqual(action.arguments["side"], side)
+            keys.add(action.arguments["maneuver_key"])
+        return keys
 
+    def test_dinky_reaches_every_card_of_a_hand_with_gambits(self) -> None:
         for side in ("offense", "defense"):
             with self.subTest(side=side):
+                cog, game, match = self.unpicked(side)
+                open_gambits(match)
                 hand = cog.engine.maneuver_hand(game, match, side)
-                picked = {
-                    strategy.choose_maneuver_action(side, hand)
-                    for _ in range(300)
-                }
+                self.assertEqual(len(hand), 6)
+
+                picked = self.picks(cog, game, match, side, 300)
 
                 self.assertEqual(picked, {m.key for m in hand})
 
@@ -683,17 +701,13 @@ class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
         """
         Dinky needs no policy for the gate: it rolls a rank as it
         always has and picks at random among the cards on that rank
-        that are actually in the hand it was given, so a Dinky the
-        position has closed plays the basic three without knowing why.
+        that are actually in the hand the prompt offers, so a Dinky
+        the position has closed plays the basic three without knowing
+        why.
         """
-        cog, game, match = self.build("low_pass", "pressure")
-        strategy = cog.ai_strategies[AIOpponent.DINKY]
+        cog, game, match = self.unpicked("defense")
 
-        hand = cog.engine.maneuver_hand(game, match, "defense")
-        picked = {
-            strategy.choose_maneuver_action("defense", hand)
-            for _ in range(300)
-        }
+        picked = self.picks(cog, game, match, "defense", 300)
 
         self.assertEqual(
             picked,
@@ -706,16 +720,12 @@ class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
         )
 
     def test_a_basic_hand_never_reaches_a_gambit(self) -> None:
-        cog, game, match = self.build("low_pass", "pressure")
-        strategy = cog.ai_strategies[AIOpponent.DINKY]
+        cog, game, match = self.unpicked("offense")
         basic_hand = cog.maneuver_catalog.for_tier(
             "offense", MANEUVER_TIER_BASIC,
         )
 
-        picked = {
-            strategy.choose_maneuver_action("offense", basic_hand)
-            for _ in range(150)
-        }
+        picked = self.picks(cog, game, match, "offense", 150)
 
         self.assertEqual(picked, {m.key for m in basic_hand})
 

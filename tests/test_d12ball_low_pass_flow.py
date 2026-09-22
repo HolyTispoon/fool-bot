@@ -235,9 +235,10 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
 
         cog.send_field_prompt.assert_awaited_once()
         _, _, _, content, view = cog.send_field_prompt.await_args.args
+        # The lead-in opens the prompt's message as its own paragraph.
         self.assertEqual(
             content,
-            "**Low Pass:** the ball moves 2 spaces forward. "
+            "**Low Pass:** the ball moves 2 spaces forward.\n\n"
             "Choose your Low Pass:",
         )
         self.assertIsInstance(view, LowPassChoiceView)

@@ -18,6 +18,8 @@ from unittest import mock
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import PlayerActionView
 from d12ball.ai import DinkyAI
+from d12ball.prompts import PendingPrompt, PromptKind, TurnOptions
+from ai_answers import solo_game
 from d12ball.components import (
     MatchState,
     PlayerRole,
@@ -180,7 +182,7 @@ class ShootingRangeGeometryTests(unittest.TestCase):
     def test_the_scoring_space_is_always_within_range(self) -> None:
         # What keeps the AI honest: DinkyAI shoots only from the space
         # closest to the opponent's goal, which the range rule always
-        # allows.
+        # allows -- so the turn prompt always offers it the shot there.
         strategy = DinkyAI(self.catalog, load_maneuver_catalog())
         for board_size in (6, 7, 9):
             match = self.build_match(board_size)
@@ -197,7 +199,20 @@ class ShootingRangeGeometryTests(unittest.TestCase):
 
                     self.assertTrue(match.is_ball_at_scoring_space())
                     self.assertTrue(match.can_attempt_score())
-                    self.assertEqual(strategy.choose_action(match), "shoot")
+                    prompt = PendingPrompt(
+                        PromptKind.PLAYER_ACTION,
+                        "",
+                        options=TurnOptions(
+                            ("maneuver", "shoot"), ("maneuver", "shoot"),
+                        ),
+                    )
+                    action = strategy.choose(
+                        prompt,
+                        solo_game(ai_home=side == TeamSide.HOME),
+                        match,
+                        side,
+                    )
+                    self.assertEqual(action.choice, "shoot")
 
 
 class ShootButtonTests(unittest.IsolatedAsyncioTestCase):

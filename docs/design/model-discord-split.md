@@ -16,7 +16,19 @@ frontend has to keep, not because the phases are still open.
 
 ## Read this first: what the game service changed
 
-The model's half of this note is current. The Discord half is not:
+The model's half of this note is current, with one addition it
+predates: **the AI answers prompts** (step 7 of
+[../architecture-migration.md](../architecture-migration.md)).
+Where this note says a step chooses for an AI side -- `ai_turn_step`,
+`write_ai_maneuver_picks`, the AI's window as a routine, the skip in
+the Smooth and Mind Pull queues -- read it as history: `AIStrategy.choose`
+hands back an `Action`, `d12ball.prompts.asked_sides` says whose
+question a prompt is, and `GameService.run` puts the AI's answer
+through `driver.answer` like a click ([game-service.md](game-service.md),
+"The AI answers here"). The goldens re-recorded once for it, in the
+human's voice with the AI's name where the mention would be.
+
+The Discord half is not current either:
 `dispatch_step_result` no longer runs the loop, `post_then_dispatch`,
 `post_blocks_then_dispatch`, `post_stop`, `run_step`, `SafeView.answer`
 and `dispatch_answer` are gone, and no view saves. Every click goes
@@ -960,10 +972,11 @@ what moved here was *who calls them*.
   like every other.
 - **`run_step(interaction, game, match, member, **kwargs)`** is the
   entry point every cog wrapper that names a step is one line over,
-  and `play_ai_turn` is one of them: the AI's turn is
+  and `play_ai_turn` was one of them: the AI's turn was
   `turn.ai_turn_step`, reached through `START_TURN`, its four exits
-  the same four a human's turn takes. `DRIVER_BLOCKS_PER_MESSAGE`
-  posts it a message per thing said, which is how it always read.
+  the same four a human's turn takes. Step 7 removed it: `START_TURN`
+  ends on the turn prompt for either side, and the service answers
+  it for the AI.
 - **The tutorial's gates became a prompt** (`d12ball/flow/gates.py`,
   `hold_behind_note` and `continue_step`) -- see the prompts section
   above for the shape and the restart it fixes. The note text moved

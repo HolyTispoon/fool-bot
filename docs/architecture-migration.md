@@ -108,14 +108,14 @@ that commit.
 
 ### The AI mutates through its own paths
 
-- Nineteen `AIStrategy` methods are called from inside flow steps
+- ~~Nineteen `AIStrategy` methods are called from inside flow steps
   behind `side_is_ai` forks: `ai_turn_step` (`flow/turn.py:1066`),
   `write_ai_maneuver_picks`, `run_ai_substitution_window`,
   `ask_shootout_orders`, `ask_shootout_shooters`, every `offer_*` in
   `flow/effects.py`, `run_back_ai_placement`, and the loose-ball pick
   in `engine.py:2040`. Each calls the `*_step` the human adapter calls
   but skips the adapter, so the validation differs (the speed choice
-  passes `distance_moved`, the human path does not).
+  passes `distance_moved`, the human path does not).~~ Step 7.
 
 ### Discord in the model
 
@@ -142,10 +142,10 @@ that commit.
 The architecture's migration order, mapped onto this code. Each step
 leaves the bot playable and the three goldens byte-identical unless
 the step says otherwise. Steps 1 to 4 landed together on the
-`architecture-simplification` branch, step 5 on `owed-step` and step
-6 on `step-6`; what they settled is in
-[docs/design/game-service.md](design/game-service.md) and, for step
-6, [docs/design/model-discord-split.md](design/model-discord-split.md).
+`architecture-simplification` branch, step 5 on `owed-step`, step 6
+on `step-6` and step 7 on `step-7`; what they settled is in
+[docs/design/game-service.md](design/game-service.md) and, for steps
+6 and 7, [docs/design/model-discord-split.md](design/model-discord-split.md).
 
 ### 1. `GameService` and `GameResult` -- done (this branch)
 
@@ -283,22 +283,99 @@ steal's speed step is when a Smooth took the ball over during the
 run back (`pending_run_back_stays_player_id`, as `finish_run_back`
 hands it on, not the challenger). Neither is a rules change.
 
-### 7. The AI chooses an `Action` -- next, its own PR
+### 7. The AI chooses an `Action` -- done (`step-7`)
 
-`AIStrategy.choose(prompt, match) -> Action` replaces the nineteen
-methods, and `GameService.apply_action` loops while the prompt's side
-is the AI's -- and stops at a roll, because every roll waits behind a
+`AIStrategy.choose(prompt, game, match, side) -> Action` replaces the
+nineteen methods, and `GameService.run` loops while the prompt is
+the AI's -- and stops at a roll, because every roll waits behind a
 button either coach may press (CLAUDE.md, "Nothing rolls dice on its
 own"); the AI answers choices, never dice. The `side_is_ai` forks in
 `flow/turn.py`, `windows.py`, `periods.py`, `effects.py`,
-`arrivals.py`, `turnovers.py` and `engine.py` go. **The goldens
-change**, and the author has said how (2026-09-21): **the human's
+`arrivals.py`, `turnovers.py` and `engine.py` are gone. **The goldens
+changed**, as the author said they would (2026-09-21): **the human's
 exact voice, with the AI's name where the coach's mention would be.**
-"Dinky has chosen to maneuver with X" and its neighbours go; an AI
-answer reads as the adapter words a coach's, "Dinky" in place of
-`<@id>`. That is the same substitution step 9's tokens make, so the
-two are one pass: narration says `{coach:visiting}`, the presenter
-renders a mention for a person and the name for the AI.
+"Dinky has chosen to maneuver with X" and its neighbours went; an AI
+answer reads as the adapter words a coach's -- "🟣 Glompex [MF] will
+maneuver for Purple", "🟣 Dinky AI has picked their maneuver", "**🟣
+Dinky AI passed.**", "**Purple (Visiting) are done.**" -- with the
+name where `format_player(mention=True)` already put it for player 2
+of a solo game. Step 9's tokens make the same substitution once for
+every line, so the two are one pass.
+
+What landed. **Whose question a prompt is** is the third reader over
+the one chain, `d12ball.prompts.asked_sides(match, prompt)`: a table
+by kind -- the side or the player the prompt names, the window's
+side, the defending side for the two questions put to the defense,
+possession for the rest, both sides' still-owed halves for the
+maneuver pick and the shootout's menus, and nobody for the six rolls,
+the tutorial's Continue and the finished game (`NOBODYS_QUESTIONS`).
+`driver.ai_action(engine, game, match, prompt)` is the one place that
+asks it for the AI: the first asked side that is the AI's gets
+`engine.get_ai_strategy(game).choose(...)`, and a roll never reaches
+a strategy. `GameService.run` calls it whenever the loop ends on a
+prompt, puts the answer through `driver.answer` like a click (a
+refusal is a bug in the strategy and raises), and carries on; a
+resume runs a saved AI prompt on the same way ("the AI's choice"),
+and the startup sweep re-arms nothing for one. **The AI's answer is
+batched by the frontend**, as a coach's is: `Batching.carry_answer`
+is `carry_from` for the answers nobody clicked, `DiscordBatching`'s
+`AI_ANSWER_CARRY` mirrors what each kind's view passes, and the
+result carries two new group tags -- `Narration.prompt`, the lines
+that opened a question the AI answered before anybody saw it, and
+`Narration.action`, its answer's own lines -- which `D12Ball.post_group`
+posts as the kind's view would have (`post_ai_answer`: a hub note is
+never a message, the shootout's first block is the coach's own
+secret). A carried answer takes back the group the loop had just
+closed after the step that asked, so an AI side's run back is still
+one message and one board refresh (`CONTINUE_RUN_BACK` composes the
+placement), which docs/design/rate-limits.md requires.
+
+What it made the model say plainly. The AI is asked everything a
+coach is: `pending` no longer answers a `FollowOn` for an AI side's
+extra token, order, shooter, window or pickup, and
+`RUN_AI_COACHING_WINDOW` is gone from the enum; `maneuver_pick_sides`
+keeps an AI hand on the prompt until it has picked; the tutorial's
+`maneuver_for(side)` rails both halves of the menu, Dinky's card as a
+rail on Dinky's hand (`ManeuverHand.railed`); `CoachingHubOptions`
+carries `finish_refusal`, the kickoff space a side must cover before
+it may finish, and Dinky repositions onto it through the hub instead
+of `cover_kickoff_space`. Two adapters name their step rather than
+calling it -- the challenge's send is `AUTO_RESOLVE_CHALLENGER` and
+the pickup is `APPLY_BALL_RECOVERY` -- so the walk-in's image and the
+pickup's message are the same group whoever answered, and the two
+views dropped their own rendering of them. The time out's
+announcement is `begin_time_out`'s narration rather than the window's
+heading (an AI caller has no menu to carry a heading on), so a
+coach's turn prompt is edited into it and the menu follows. The
+lead-in a step composed into an ask with `\n\n` -- the set-up offer,
+the shooter choice, the pickup, the push back, the speed choice -- is
+the prompt's `narration` now and `render_prompt` joins the two as
+paragraphs, which changed no human message; `OFFER_SPEED_CHOICE` left
+`DRIVER_OWN_MESSAGE`, where only the AI's inline path had needed it.
+The shootout's two asks are built once (`shootout_order_prompt`,
+`shootout_pick_prompt`) and read by the step and the chain alike, so
+the coach's menu after the AI has set its order is addressed to them
+alone, as it was. `Action` moved beside `PendingPrompt` in
+`d12ball/prompts.py` (the AI builds one and the engine holds the AI;
+the driver re-exports it). Finding 16 of `docs/web-app.md` is closed,
+and the speed choice's `distance_moved` asymmetry went with it: the
+argument was inert on the AI's path (Setup Pass charges its own
+clock), and the one reading is the adapter's.
+
+Tests. `tests/test_d12ball_driver_actions.AIAnswerTests` stands
+every fixture in `tests/prompt_fixtures.py` in front of Dinky on
+either side of the board and asserts its answer is accepted by
+`driver.answer`, that every kind Dinky answers is reached, and that
+no roll is ever put to it; the four AI owed cases became `ai_case`s
+(a kind and an ask, no view), which `test_d12ball_game_service_resume`
+runs on and `test_d12ball_prompt_mapping` re-arms nothing for.
+`tests/ai_answers.py` is how a test asks Dinky a question -- the
+prompt off the one chain, the answer off `driver.ai_action` -- and
+the Dinky unit tests (substitutions, the time out, the gambit die,
+the High Pass, the run back, the kickoff cover) ask it that way now.
+`tests/test_driver_full_game.play` answers for the AI through the
+same function, so the driver-level tutorial run plays Dinky's turns
+as the service would.
 
 ### 8. Setup and the lobby as service methods -- next
 

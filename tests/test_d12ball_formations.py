@@ -40,6 +40,8 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.ai import build_ai_strategies
+from d12ball.prompts import PendingPrompt, PlayerOptions, PromptKind
+from ai_answers import solo_game
 from d12ball.game import (
     AIOpponent,
     D12BallGame,
@@ -624,13 +626,19 @@ class CoverageRuleTests(unittest.TestCase):
         strategy = build_ai_strategies(
             self.catalog, load_maneuver_catalog(),
         )[AIOpponent.DINKY]
-
-        self.assertEqual(
-            strategy.choose_run_back_player(
-                match, match.crowded_candidates(TeamSide.HOME),
+        prompt = PendingPrompt(
+            PromptKind.RUN_BACK_PLAYER,
+            "",
+            options=PlayerOptions(
+                tuple(match.crowded_candidates(TeamSide.HOME)),
             ),
-            midfield[1],
         )
+
+        action = strategy.choose(
+            prompt, solo_game(ai_home=True), match, TeamSide.HOME,
+        )
+
+        self.assertEqual(action.arguments["player_id"], midfield[1])
 
     def test_a_coaching_choice_never_leaves_a_space_uncovered(
         self,

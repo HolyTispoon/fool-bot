@@ -156,21 +156,19 @@ class TutorialBeat:
             else TeamSide.HOME
         )
 
-    def maneuver_for(self, side: str) -> Optional[str]:
+    def maneuver_for(self, side: str) -> str:
         """
-        The card this beat wants from the *coach*, when `side` -- the
-        "offense"/"defense" the maneuver menu is keyed by -- is theirs.
-        None when the menu belongs to Dinky, who is written straight
-        into the match rather than asked.
+        The card this beat wants from `side` -- the "offense"/"defense"
+        the maneuver menu is keyed by: the coach's card on their half
+        of it, Dinky's on the other. Both are rails on the same prompt
+        (`ManeuverHand.railed`) since step 7 of
+        docs/architecture-migration.md: Dinky answers the pick through
+        the service like a coach, and a rail is what the prompt
+        carries, so its card is refused off the script the way the
+        coach's is.
         """
         if (side == "offense") == self.player_has_ball:
             return self.player_maneuver
-        return None
-
-    def dinky_maneuver_for(self, side: str) -> Optional[str]:
-        """The mirror of `maneuver_for`, for the side Dinky picks."""
-        if (side == "offense") == self.player_has_ball:
-            return None
         return self.dinky_maneuver
 
 
@@ -631,15 +629,13 @@ def allowed_maneuvers(
     side: str,
 ) -> Optional[tuple[str, ...]]:
     """
-    The maneuver a coach may pick this beat, or None for no rail. Only
-    ever one, and only on the coach's own half of the menu -- Dinky's
-    card is written straight into the match and never goes through a
-    view.
+    The maneuver `side` may pick this beat, or None for no rail. Only
+    ever one, on either half of the menu: the coach's card on theirs,
+    Dinky's on the other (see `TutorialBeat.maneuver_for`).
     """
     if beat is None:
         return None
-    wanted = beat.maneuver_for(side)
-    return None if wanted is None else (wanted,)
+    return (beat.maneuver_for(side),)
 
 
 def resolve_choice(

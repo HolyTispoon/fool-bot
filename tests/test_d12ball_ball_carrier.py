@@ -31,6 +31,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.prompts import PendingPrompt, PlayerOptions, PromptKind
 from d12ball.game import D12BallGame, GameStatus, Team
 from d12ball.flow.turnovers import announce_new_play_reset
 
@@ -273,12 +274,28 @@ class TurnHandlerCandidateTests(unittest.TestCase):
         """
         cog, game, match, handler, teammate = self.build()
         strategy = cog.ai_strategies["dinky"]
-        free_pick = strategy.choose_ball_handler(match)
+
+        def dinkys_pick() -> str:
+            # The kickoff pick, asked as the prompt asks it: what the
+            # options offer is `turn_handler_candidates`, which the
+            # carrier narrows to themselves.
+            prompt = PendingPrompt(
+                PromptKind.BALL_HANDLER_SELECTION,
+                "",
+                options=PlayerOptions(
+                    tuple(cog.engine.turn_handler_candidates(game, match)),
+                ),
+            )
+            return strategy.choose(
+                prompt, game, match, match.ball.possession,
+            ).arguments["player_id"]
+
+        free_pick = dinkys_pick()
         forced = handler if free_pick == teammate else teammate
 
         match.set_ball_carrier(forced)
 
-        self.assertEqual(strategy.choose_ball_handler(match), forced)
+        self.assertEqual(dinkys_pick(), forced)
 
     def test_the_selection_view_offers_only_the_carrier(self) -> None:
         cog, game, match, _, teammate = self.build()

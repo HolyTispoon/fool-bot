@@ -5,10 +5,10 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 ## Where the code is
 
 Since **Phase 5** of the model/Discord split the window is a flow step:
-`open_substitution_window`, `run_ai_substitution_window`,
-`finish_substitution_window`, `coaching_window_note`, `coaching_summary`,
-`apply_substitution` and `cover_kickoff_space` all live in
-[`d12ball/flow/windows.py`](../../d12ball/flow/windows.py), and the three
+`open_substitution_window`, `finish_substitution_window`,
+`coaching_window_note`, `coaching_summary` and `apply_substitution` all
+live in [`d12ball/flow/windows.py`](../../d12ball/flow/windows.py), and
+the three
 stage sequences that hand windows out (`advance_setup_stage`,
 `advance_halftime_stage`, `advance_full_time_stage`) in
 [`periods.py`](../../d12ball/flow/periods.py) beside it. Names below
@@ -41,7 +41,21 @@ kickoff", "## Halftime") goes *inside* the prompt, above the allowance,
 so it rides in `FollowOn.kwargs` as `heading` rather than as narration the
 frontend would post above the menu. Narration named `lead_in` is whatever
 step opened the window talking -- a new play's reset, the full-time
-whistle -- and is its own message.
+whistle -- and is its own message. A heading is an instruction to a coach,
+which is why an AI side's window (below) never posts one; the time out's
+announcement used to be a heading and is narration since step 7 of
+docs/architecture-migration.md, because it has to be said whoever called
+([time-out.md](time-out.md)).
+
+**An AI side's window is the same prompt a coach's is**, answered through
+the service one hub action at a time (`DinkyAI.choose`, step 7): the offer
+is declared where Dinky has an injured player to get off and passed
+otherwise ("**🟣 Dinky AI passed.**"), the hub gets a `substitute` per
+injured player its allowance covers, a `reposition` onto the kickoff space
+where `CoachingHubOptions.finish_refusal` says it must, and then `done`,
+which says what a coach's Done says ("**Purple (Visiting) are done.** ...").
+Until step 7 it was a routine, `run_ai_substitution_window`, that ran the
+whole window inside `open_substitution_window` and worded it its own way.
 
 ## The Coaching Choice
 
@@ -187,8 +201,11 @@ with a minute rather than handed out by the play.
   period, and only at setup and halftime; it is now a property of an
   arrangement, which is what lets a goal restart without the conceding side
   dropping somebody back and paying for it. Full time is exempt because it
-  positions nobody (`offers_positioning`). An AI has no menu to be held in, so
-  `cover_kickoff_space` does the same job at the end of its window.
+  positions nobody (`offers_positioning`). The AI is held to it at the same
+  menu: `CoachingHubOptions.finish_refusal` carries the refusal, and Dinky
+  repositions the nearest midfielder onto the space before it says it is
+  done (`cover_kickoff_space` did the same at the end of its routine until
+  step 7).
   - **The standard deal and all five formations already satisfy it** -- a
     midfield packed from a side's own end always reaches that side's kickoff
     space, on every board -- so this costs a coach nothing until they use

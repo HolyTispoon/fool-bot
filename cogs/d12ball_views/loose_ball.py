@@ -278,7 +278,10 @@ class BallRecoveryView(SafeView):
             return
 
         # A ball already picked up is a stale click the driver refuses
-        # by kind.
+        # by kind. The adapter names the step, so the pickup comes
+        # back as a group of its own -- its own message, an event,
+        # with the maneuver's tail behind it the next one -- whoever
+        # sent the player, this button or the AI.
         result = await self.apply(
             interaction,
             game,
@@ -287,11 +290,6 @@ class BallRecoveryView(SafeView):
         if result is None:
             return
         await interaction.response.edit_message(view=None)
-        # Its own message: the pickup is an event, and the maneuver's
-        # tail behind it is the next one.
-        lines = " ".join(result.answer)
-        if lines:
-            await send_new_prompt(interaction, lines)
         await self.cog.present(interaction, game, result)
 
 

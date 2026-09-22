@@ -182,10 +182,10 @@ def continue_smooth(
     coach who declines and a Telekinetic who was never asked leave by
     the same door.
 
-    **Dinky never takes a Smooth**, so an AI side's Telekinetics are
-    skipped rather than prompted -- the same call as never ceding and
-    never pulling. Taking the ball over moves who plays the next turn,
-    which is a judgement, and Dinky makes none.
+    An AI side's Telekinetics are asked like a coach's and answer
+    through the service; Dinky declines (`DinkyAI.choose`), which is
+    the same call as never ceding and never pulling. Until step 7 of
+    docs/architecture-migration.md they were skipped here instead.
 
     Injured players are **not** skipped, unlike the pull's queue: a
     Smooth costs nothing, so there is no charge for an injured player
@@ -193,10 +193,6 @@ def continue_smooth(
     """
     while match.pending_smooth:
         player_id = match.pending_smooth[0]
-        if engine.controlling_user_id(game, match, player_id) is None:
-            match.pending_smooth.pop(0)
-            continue
-
         player = engine.get_player_definition(player_id)
         smooth_emoji = get_species_ability_emoji(
             engine.species_ability_emojis, SPECIES_TELEKINETIC,
@@ -270,17 +266,16 @@ def continue_mind_pull(
     Telekinetic who was never asked leave by the same door; this can
     never be where a turn stops for good.
 
-    **Dinky never pulls**, so an AI side's Telekinetics are skipped
-    rather than prompted. Paying a token for a one-in-six steal is a
-    judgement call, and Dinky makes none.
+    An AI side's Telekinetics are asked like a coach's and answer
+    through the service; Dinky declines (`DinkyAI.choose`), since
+    paying a token for a one-in-six steal is a judgement call and
+    Dinky makes none.
     """
     while match.pending_mind_pull:
         player_id = match.pending_mind_pull[0]
-        controller = engine.controlling_user_id(game, match, player_id)
         # Skipped rather than refused: a player who has been injured
-        # since the offer was queued cannot pay the token, and an AI's
-        # never wanted it.
-        if controller is None or player_id in match.injured:
+        # since the offer was queued cannot pay the token.
+        if player_id in match.injured:
             match.pending_mind_pull.pop(0)
             continue
 
@@ -607,32 +602,6 @@ def offer_scoring_attempt_choice(
     if taken is not None:
         return taken
 
-    narration = [lead_in] if lead_in else []
-
-    if engine.side_controlled_by_ai(game, match, "offense"):
-        attempt = engine.get_ai_strategy(
-            game
-        ).choose_scoring_opportunity_attempt(match)
-        if attempt:
-            return StepResult(
-                narration=narration,
-                next=FollowOn(
-                    FollowOnStep.START_SET_UP_SHOT,
-                    {
-                        "shooter_id": shooter_id,
-                        "maneuver_cost": distance_moved,
-                    },
-                ),
-            )
-        return decline_scoring_attempt(
-            engine,
-            game,
-            match,
-            distance_moved,
-            contest=contest_on_decline,
-            lead_in=lead_in,
-        )
-
     # **A `PendingPrompt` since Phase 6**, and what it took was
     # `MatchState.pending_scoring_opportunity`. It was a follow-on
     # until then for the reason `PendingPrompt`'s own docstring gives:
@@ -645,25 +614,20 @@ def offer_scoring_attempt_choice(
     # `scoring_opportunity_prompt` reads it, so the live question and
     # the restored one are the same question.
     #
-    # The `ask` opens with the pass's own lines because the offer is
-    # where this turn stops and there is nothing else to hang them on.
-    # A restart has not got them and does not invent them, which is the
-    # difference the run back's prompt has carried since Phase 4.
+    # The pass's own lines are the narration the prompt opens with: a
+    # frontend puts them in the offer's message, and the service posts
+    # them on their own where the AI answers. A restart has not got
+    # them and does not invent them, which is the difference the run
+    # back's prompt has carried since Phase 4.
     match.pending_scoring_opportunity = {
         "kind": "attempt",
         "shooter_id": shooter_id,
         "distance_moved": distance_moved,
         "contest_on_decline": contest_on_decline,
     }
-    restored = scoring_opportunity_prompt(engine, game, match)
     return StepResult(
-        next=PendingPrompt(
-            restored.kind,
-            f"{lead_in}\n\n{restored.ask}" if lead_in else restored.ask,
-            player_id=restored.player_id,
-            distance_moved=restored.distance_moved,
-            contest_on_decline=restored.contest_on_decline,
-        ),
+        narration=[lead_in] if lead_in else [],
+        next=scoring_opportunity_prompt(engine, game, match),
     )
 
 
@@ -1131,24 +1095,15 @@ def begin_shooter_choice(
     """
     Who takes a scoring opportunity the position has opened up.
 
-    `lead_in` is narration from the pass that set this up -- it rides
-    along on the "choose who takes the shot" prompt when a human has to
-    pick. When the pick is automatic there is no prompt to attach it
-    to, so it is posted on its own instead of being dropped.
+    `lead_in` is narration from the pass that set this up -- it opens
+    the "choose who takes the shot" prompt when there is one to put
+    up, and is carried on into the shot when the pick is automatic.
     """
-    if len(candidates) == 1 or engine.side_controlled_by_ai(
-        game, match, "offense",
-    ):
-        if len(candidates) == 1:
-            shooter_id = candidates[0]
-        else:
-            shooter_id = engine.get_ai_strategy(game).choose_shooter(
-                candidates, match,
-            )
+    if len(candidates) == 1:
         return StepResult(
             narration=[lead_in] if lead_in else [],
             next=FollowOn(
-                FollowOnStep.START_SET_UP_SHOT, {"shooter_id": shooter_id},
+                FollowOnStep.START_SET_UP_SHOT, {"shooter_id": candidates[0]},
             ),
         )
 
@@ -1160,12 +1115,12 @@ def begin_shooter_choice(
     # candidates are whoever is standing on the ball's space and
     # `scoring_opportunity_prompt` reads them back off the board.
     match.pending_scoring_opportunity = {"kind": "shooter"}
-    prefix = f"{lead_in}\n\n" if lead_in else ""
     mention = shooter_mention(engine, game, match)
     return StepResult(
+        narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.SHOOTER_CHOICE,
-            f"{prefix}{mention}, choose who takes the shot:",
+            f"{mention}, choose who takes the shot:",
             player_ids=list(candidates),
         ),
     )

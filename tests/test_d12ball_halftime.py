@@ -24,10 +24,12 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 from save_patches import suppressed_cog_saves
-from cog_steps import begin_halftime, begin_halftime_extra_token, begin_halftime_substitutions, begin_substitution_window, cover_kickoff_space, finish_halftime, finish_substitution_window
+from cog_steps import begin_halftime, begin_halftime_extra_token, begin_halftime_substitutions, begin_substitution_window, finish_halftime, finish_substitution_window
+from ai_answers import let_the_ai_answer
 
 
 def build_cog() -> D12Ball:
@@ -37,7 +39,10 @@ def build_cog() -> D12Ball:
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
     cog.engine = RulesEngine(
-        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+        cog.player_catalog,
+        cog.basic_ruleset,
+        cog.maneuver_catalog,
+        build_ai_strategies(cog.player_catalog, cog.maneuver_catalog),
     )
     cog.team_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -508,8 +513,10 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
     kickoff-space guarantee, which since 2026-08-16 is asked of every
     side in every window that positions anybody: an arrangement covers
     its own side's kickoff space. A human coach is refused Done until
-    it does (coaching_finish_refusal); an AI has no menu to be held in,
-    so cover_kickoff_space does it for them.
+    it does (coaching_finish_refusal); the AI is held to the same rule
+    at the same menu -- `CoachingHubOptions.finish_refusal` says so,
+    and Dinky repositions a midfielder onto the space before it says
+    it is done (step 7 of docs/architecture-migration.md).
 
     Board 6 is the one that tells the two sides' spaces apart, which is
     why these run on it.
@@ -608,15 +615,19 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
 
     def test_an_ai_visiting_side_covers_it_itself(self) -> None:
         cog = build_cog()
+        game = build_solo_game()
         match = self.build_match()
+        match.pending_halftime_stage = "coaching_visiting"
         match.open_coaching_window(
             TeamSide.VISITING, CoachingOccasion.HALFTIME,
         )
         self.assertFalse(match.kickoff_space_occupied_by(TeamSide.VISITING))
 
-        note = cover_kickoff_space(cog, match, TeamSide.VISITING)
+        taken = let_the_ai_answer(cog.engine, game, match)
 
-        self.assertIsNotNone(note)
+        self.assertEqual(
+            [action.choice for action in taken], ["reposition", "done"],
+        )
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.VISITING))
         # And whoever moved is a midfielder by assignment, so the move
         # stayed inside their own zone the way positioning has to.
@@ -626,15 +637,21 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
 
     def test_a_covered_space_is_left_alone(self) -> None:
         cog = build_cog()
+        game = build_solo_game()
         match = self.build_match()
+        match.pending_halftime_stage = "coaching_visiting"
         match.open_coaching_window(
             TeamSide.VISITING, CoachingOccasion.HALFTIME,
         )
-        cover_kickoff_space(cog, match, TeamSide.VISITING)
-
-        self.assertIsNone(
-            cover_kickoff_space(cog, match, TeamSide.VISITING),
+        let_the_ai_answer(cog.engine, game, match)
+        match.pending_halftime_stage = "coaching_visiting"
+        match.open_coaching_window(
+            TeamSide.VISITING, CoachingOccasion.HALFTIME,
         )
+
+        taken = let_the_ai_answer(cog.engine, game, match)
+
+        self.assertEqual([action.choice for action in taken], ["done"])
 
 
 class HalftimeKickoffBoardTests(unittest.IsolatedAsyncioTestCase):

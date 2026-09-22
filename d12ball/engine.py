@@ -81,6 +81,7 @@ from d12ball.formatting import (
     ball_space_label,
     contest_noun,
     destination_display_name,
+    format_player,
     format_player_with_team,
     format_team_side_label,
     get_damaged_emoji,
@@ -1043,43 +1044,45 @@ class RulesEngine:
         match: MatchState,
     ) -> tuple[str, ...]:
         """
-        Which sides the maneuver prompt has to offer buttons for --
-        every side of this maneuver a **person** still picks for.
+        Which sides the maneuver prompt has a hand on -- every side of
+        this maneuver that is asked, or was asked on the message a
+        coach is looking at.
 
-        Two things take a side off it, and both are settled before the
-        prompt is ever built:
+        Two things take a side off it:
 
         - **An unchallenged maneuver has no defense to pick for.** There
           is no challenger and there never will be one, so the offense
           is the whole prompt.
-        - **Dinky's side is picked before the prompt exists.**
-          `d12ball.flow.turn.begin_maneuver_action_selection` writes the AI's
-          maneuver straight into the match and only then builds the
-          prompt, so a solo game's prompt is one hand and one row of
-          buttons.
+        - **An AI side that has picked.** The AI answers the prompt
+          through the service before any message goes up (step 7 of
+          docs/architecture-migration.md), so its hand is on the
+          prompt only while it is still owed; once it has picked, the
+          prompt a coach sees is one hand and one row, as it always
+          was.
 
         **It is read off persisted state alone**, which is what lets a
         restart rebuild the identical view: the prompt is never edited
         once it is up (see `D12Ball.close_maneuver_prompt`), so the
         buttons on the message and the buttons the restored view
-        dispatches have to agree, and a side that has *already picked*
-        must therefore keep its buttons. `ManeuverActionPromptView.pick`
-        refuses the second click rather than the button being taken
-        away.
+        dispatches have to agree, and a coach's side that has *already
+        picked* must therefore keep its buttons.
+        `ManeuverActionPromptView.pick` refuses the second click rather
+        than the button being taken away.
         """
         sides = ["offense"]
         if not match.maneuver_uncontested:
             sides.append("defense")
 
-        if game.is_solo_game:
-            ai_side = (
-                "offense"
-                if self.possession_player_number(game, match) == 2
-                else "defense"
-            )
-            sides = [side for side in sides if side != ai_side]
+        def picked(side: str) -> bool:
+            return (
+                match.offense_maneuver if side == "offense"
+                else match.defense_maneuver
+            ) is not None
 
-        return tuple(sides)
+        return tuple(
+            side for side in sides
+            if not (self.side_controlled_by_ai(game, match, side) and picked(side))
+        )
 
     def maneuver_hand(
         self,
@@ -2046,10 +2049,9 @@ class RulesEngine:
         match: MatchState,
     ) -> None:
         """
-        Settle whichever side can't get a real human choice, i.e. is
-        AI-controlled. A side with no candidates at all is left unset
-        -- resolve_loose_ball reads that as "nobody available", not
-        "still deciding".
+        Settle whichever side has no choice to make. A side with no
+        candidates at all is left unset -- resolve_loose_ball reads
+        that as "nobody available", not "still deciding".
 
         A lone candidate is *not* auto-picked, unlike a forced run
         back: sending them is optional, and declining is what puts the
@@ -2061,6 +2063,10 @@ class RulesEngine:
         withhold them, so the only choice a prompt could offer is one
         the rules refuse. Two is the coach's pick, the same count-not-a-
         flag reading choose_action makes of automatic_challengers.
+
+        An AI side is asked like a coach and answers through the
+        service (`AIStrategy.choose`); until step 7 of
+        docs/architecture-migration.md this picked for it.
         """
         for side, skill_type, choose in (
             (
@@ -2089,18 +2095,6 @@ class RulesEngine:
                 choose(on_the_ball[0])
                 continue
 
-            candidates = self.loose_ball_candidates(match, side)
-            if not candidates:
-                continue
-            if self.side_controlled_by_ai(game, match, skill_type):
-                # The AI always contests -- it has no decline policy,
-                # and going out of bounds by choice is never obviously
-                # right (see d12ball/ai.py).
-                choose(
-                    self.get_ai_strategy(game).choose_loose_ball_player(
-                        match, candidates, skill_type,
-                    )
-                )
 
     def loose_ball_side_on_the_clock(
         self,
@@ -2838,8 +2832,9 @@ class RulesEngine:
         """
         side = TeamSide(side)
         setup = match.setup_for_side(side)
-        controller_id = self.side_controller_id(game, side)
-        mention = f"<@{controller_id}>" if controller_id else "Someone"
+        mention = format_player(
+            game, self.side_player_number(game, side), mention=True,
+        )
         header = (
             f"{mention}, **{format_team_side_label(setup)}** -- "
             f"{self.substitution_allowance_label(match)}."

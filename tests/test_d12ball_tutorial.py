@@ -61,6 +61,7 @@ from d12ball.game import (
     Team,
 )
 from cog_steps import begin_substitution_window, finish_setup_coaching
+from ai_answers import let_the_ai_answer
 
 
 CATALOG = load_player_catalog()
@@ -271,19 +272,25 @@ class TutorialScriptTests(unittest.TestCase):
                     (beat.player_maneuver,),
                 )
 
-    def test_dinky_never_picks_out_of_the_coachs_own_menu(self) -> None:
+    def test_each_half_of_the_menu_is_railed_onto_its_own_card(self) -> None:
         # The two halves of the menu are keyed "offense"/"defense" and
-        # the coach is on one of them; a beat handing Dinky a card for
-        # the coach's half would overwrite the pick they are railed on.
+        # the coach is on one of them: their half is railed onto the
+        # coach's card and Dinky's onto Dinky's, and both rails reach
+        # the prompt (`ManeuverHand.railed`) -- Dinky answers through
+        # the service and is refused off the script like the coach.
         for beat in tutorial.BEATS:
             coach_menu = "offense" if beat.player_has_ball else "defense"
+            dinky_menu = "defense" if beat.player_has_ball else "offense"
             with self.subTest(beat=beat.step):
-                self.assertIsNone(beat.dinky_maneuver_for(coach_menu))
                 self.assertEqual(
-                    beat.dinky_maneuver_for(
-                        "defense" if beat.player_has_ball else "offense"
-                    ),
-                    beat.dinky_maneuver,
+                    beat.maneuver_for(coach_menu), beat.player_maneuver,
+                )
+                self.assertEqual(
+                    beat.maneuver_for(dinky_menu), beat.dinky_maneuver,
+                )
+                self.assertEqual(
+                    tutorial.allowed_maneuvers(beat, dinky_menu),
+                    (beat.dinky_maneuver,),
                 )
 
     def test_a_scripted_contest_fixes_both_dice(self) -> None:
@@ -767,6 +774,9 @@ class TutorialRailTests(unittest.TestCase):
             match.challenger_id = match.setup_for_side(
                 match.defending_side(),
             ).field_players[0]
+            # Dinky picks before any prompt goes up, through the
+            # service; here the same answer, through the driver.
+            let_the_ai_answer(cog.engine, game, match)
         game.match_state = match.to_dict()
         cog.games["g1"] = game
         return cog, game, beat

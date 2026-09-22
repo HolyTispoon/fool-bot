@@ -96,18 +96,29 @@ Two things follow from that:
   clears.
 - **A state whose next step is the bot's is run, not re-asked**, and
   `owed_step` is what says which those are: a stage of setup, halftime or
-  full time with no window open, an AI side's extra token, shootout order or
-  shooter, Coaching Choice or pickup, a pickup nobody need make, the tail of
+  full time with no window open, a pickup nobody need make, the tail of
   a time out, a run back with only forced placements left, a loose ball both
   sides have answered, a won card with nothing to ask. Each names a
   `FollowOnStep` (`ADVANCE_SETUP_STAGE`, `ADVANCE_HALFTIME_STAGE`,
-  `ADVANCE_FULL_TIME_STAGE`, `ADVANCE_SHOOTOUT`, `RUN_AI_COACHING_WINDOW`,
+  `ADVANCE_FULL_TIME_STAGE`, `ADVANCE_SHOOTOUT`,
   `FINISH_TIME_OUT`, `BEGIN_BALL_RECOVERY`, `CONTINUE_RUN_BACK`,
   `RESOLVE_LOOSE_BALL`, `BEGIN_EFFECT_RESOLUTION`) and `GameService.resume`
   runs it through the same loop a click runs through. That is the whole
   difference between resume's two callers, and the reason `pending_prompt`
   returns a prompt, and `pending_turn_view` a view, rather than either
   posting it.
+  - **A state waiting on the AI is run the same way**, and there is no
+    view for it either. Since step 7 of
+    [../architecture-migration.md](../architecture-migration.md) an AI
+    side's extra token, shootout order or shooter, Coaching Choice and
+    pickup are the prompts a coach gets, answered by the service inside
+    the run that reaches them (`driver.ai_action`,
+    [game-service.md](game-service.md)); a save waiting on one is a run
+    that never finished. `resume` answers it and runs on ("the AI's
+    choice"); startup re-arms nothing for it and logs the game, as for
+    an owed step; `pending_turn_view` is `None` for it. Step 5 had made
+    those states owed steps of the bot's (`RUN_AI_COACHING_WINDOW` was the
+    seventh member), which step 7 took back out.
   - **The chain used to answer `PLAYER_ACTION` for four of those states** (a
     run back with nothing left to ask, a loose ball both sides had answered,
     a choiceless effect, the tail of a time out), so startup re-armed a
@@ -119,7 +130,8 @@ Two things follow from that:
     cog into `GameService.resume` with its own order is gone -- see
     [game-service.md](game-service.md). **The shootout's own reading did not
     fork**: `advance_shootout` moved whole, and the chain answers its three
-    sub-states in the same order, the AI's order or shooter as the step's.
+    sub-states in the same order, with the same asks the step puts up
+    (`shootout_order_prompt`, `shootout_pick_prompt`).
   - **That every one of those states reads back the same after a save and a
     load is asserted**, window by window and shootout sub-state by sub-state,
     in `WindowStateSurvivesASaveTests` (`tests/test_d12ball_periods_flow.py`).

@@ -343,11 +343,14 @@ def run_back_passes(
     The cascade, one pass at a time.
 
     Auto-place every forced run-back (no real choice: the open spaces
-    in a zone exactly match the players who need one), then the AI's
-    picks, then the drop back that fills an empty kickoff -- yielding a
-    result for each. A pass a coach has to answer yields a result
-    carrying the prompt and **ends the generator**; a cascade that runs
-    out of work ends it with a result naming `FINISH_RUN_BACK`.
+    in a zone exactly match the players who need one), then the drop
+    back that fills an empty kickoff -- yielding a result for each. A
+    pass a coach has to answer yields a result carrying the prompt and
+    **ends the generator**; a cascade that runs out of work ends it
+    with a result naming `FINISH_RUN_BACK`. An AI side's pick is the
+    same prompt, answered through the service (`AIStrategy.choose`);
+    until step 7 of docs/architecture-migration.md the cascade placed
+    for it here.
 
     **The caller persists after every yield**, which is the exception
     to principle 9 this module's docstring is about: a pass that ends
@@ -380,16 +383,6 @@ def run_back_passes(
 
         if step is not None:
             side, candidates = step
-
-            if engine.side_is_ai(game, side):
-                yield StepResult(
-                    narration=[
-                        run_back_ai_placement(
-                            engine, game, match, side, candidates,
-                        )
-                    ],
-                )
-                continue
 
             # A coach's choice ends the cascade here.
             yield StepResult(
@@ -461,43 +454,6 @@ def continue_run_back(
         narration=narration,
         board_changed=board_changed,
         next=following,
-    )
-
-
-def run_back_ai_placement(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    side: TeamSide,
-    candidates: list[str],
-) -> str:
-    """
-    Place one of an AI side's run-backs and describe it: the line comes
-    back for the cascade to batch with every other automatic placement.
-    """
-    # One candidate is a settled player and only the space is open;
-    # several is a stack Dinky picks out of, the same call a coach is
-    # given in the prompt.
-    player_id = (
-        candidates[0]
-        if len(candidates) == 1
-        else engine.get_ai_strategy(game).choose_run_back_player(
-            match, candidates,
-        )
-    )
-    zone = match.setup_for_side(side).assigned_zone(player_id)
-    player = engine.get_player_definition(player_id)
-    exempt_ids = engine.spread_exempt_ids(game, match, side)
-    space_index = engine.get_ai_strategy(game).choose_run_back_space(
-        match.placement_spaces_in_zone(side, zone, player_id, exempt_ids)
-    )
-    distance = match.run_back_player(player_id, zone, space_index, exempt_ids)
-    exhaustion_text = engine.apply_exhaustion(game, match, player_id, distance)
-
-    return (
-        f"{engine.format_player_label(match, player)} "
-        f"runs back to {space_label(zone, space_index)}."
-        f"\n{exhaustion_text}"
     )
 
 
@@ -801,18 +757,6 @@ def begin_ball_recovery(
             ),
         )
 
-    if engine.side_is_ai(game, side):
-        # Nearest, not best: this walk costs a token per space and wins
-        # nothing, so the only thing worth optimizing is how much it
-        # costs.
-        return StepResult(
-            narration=[lead_in] if lead_in else [],
-            next=FollowOn(
-                FollowOnStep.APPLY_BALL_RECOVERY,
-                {"player_id": min(candidates, key=match.distance_to_ball)},
-            ),
-        )
-
     number = (
         game.home_player_number
         if side == TeamSide.HOME
@@ -821,11 +765,11 @@ def begin_ball_recovery(
     mention = format_player_with_team(
         game, number, engine.team_emojis, mention=True,
     )
-    prefix = f"{lead_in}\n\n" if lead_in else ""
     return StepResult(
+        narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.BALL_RECOVERY,
-            f"{prefix}{mention}, everyone is back in position -- send "
+            f"{mention}, everyone is back in position -- send "
             "the nearest player either side of the ball to pick it up "
             f"at {space_label(match.ball.zone, match.ball.space_index)}:",
         ),

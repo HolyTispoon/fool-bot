@@ -50,7 +50,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
 from d12ball.components import (
     BALL_SPEED_MAX,
@@ -179,6 +179,46 @@ class PendingPrompt:
     #: `driver.answer` read one list. `None` for the two kinds with
     #: nothing to choose (the tutorial's Continue, the finished game).
     options: Optional[PromptOptions] = None
+
+
+@dataclass(frozen=True)
+class Action:
+    """
+    What somebody did, named by the question it answers.
+
+    **It names a prompt rather than a step**, which is the whole
+    difference between this and `FollowOn`. A step is what the bot does
+    next and the model names it; an action is what a *person* did, and
+    the only thing that makes it legal is that the match was waiting on
+    exactly that question. So an action carries the `PromptKind` it
+    answers and `apply` checks it against `pending_prompt` before
+    anything is applied -- which is a rule about whose turn it is, and
+    therefore the model's.
+
+    `choice` is which of the prompt's answers it is, where a prompt
+    offers more than one: "send" or "decline" on a loose ball, "take"
+    or "decline" on a scoring opportunity. A string rather than a
+    second enum, because the answers belong to the prompt and not to
+    the game -- a kind with one answer leaves it empty, and an
+    unrecognised one is refused the way a wrong kind is.
+
+    `arguments` is what the person chose and nothing else: a space, a
+    player, a distance. **Anything the position already says is read
+    off the prompt instead**, which is why `apply` hands the
+    `PendingPrompt` to the answer rather than only the action. The
+    loose ball's `skill_type` and the set-up's two numbers are the
+    model's own answers to its own question, and a frontend that had to
+    send them back could send back different ones.
+
+    Defined here rather than in `d12ball.flow.driver`, which is where
+    it is read from, because the AI builds one (`AIStrategy.choose`)
+    and the engine holds the AI: a prompt and its answer are one
+    module's, and the driver re-exports it.
+    """
+
+    kind: PromptKind
+    choice: str = ""
+    arguments: Mapping[str, Any] = field(default_factory=dict)
 
 
 # -- What each kind offers ------------------------------------------
@@ -379,6 +419,12 @@ class CoachingHubOptions:
     incoming_ids: tuple[str, ...]
     swaps: tuple[SwapOptions, ...]
     repositions: tuple[RepositionOptions, ...]
+    #: Why the window may not be closed yet, or `None` -- the one
+    #: thing that can hold a coach in it is their own kickoff space
+    #: standing empty (`RulesEngine.coaching_finish_refusal`). The
+    #: AI reads it to cover the space before it says it is done; a
+    #: frontend may grey the button with it.
+    finish_refusal: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -424,6 +470,56 @@ PromptOptions = Union[
     CoachingHubOptions,
     ShootoutOptions,
 ]
+
+
+def shootout_order_prompt(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> PendingPrompt:
+    """
+    The secret ordering, put to whichever sides still owe theirs.
+
+    **One ask for the live question and the restored one**, the way
+    `maneuver_action_ask` is: `periods.ask_shootout_orders` puts this
+    up and the chain re-reads it, and it names only the sides still
+    to answer -- so once the AI has set its order through the
+    service, the coach reads a question addressed to them alone.
+    """
+    owing = [
+        side
+        for side in (TeamSide.HOME, TeamSide.VISITING)
+        if not match.shootout_order_complete(side)
+    ]
+    return PendingPrompt(
+        PromptKind.SHOOTOUT_ORDER,
+        # Nobody has shot, so the usual "skill test 1 of 6, 0 — 0"
+        # is a scoreline with nothing in it yet.
+        "### Extreme shootout\n"
+        f"{engine.shootout_mentions(game, match, owing)}: set the "
+        "order your six players shoot in. Nobody else sees it.",
+    )
+
+
+def shootout_pick_prompt(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> PendingPrompt:
+    """Sudden death's pick, put to whichever sides still owe one --
+    `shootout_order_prompt`'s reason."""
+    owing = [
+        side
+        for side in (TeamSide.HOME, TeamSide.VISITING)
+        if match.shootout_shooter(side) is None
+    ]
+    return PendingPrompt(
+        PromptKind.SHOOTOUT_PICK,
+        f"{engine.shootout_heading(match)}\n"
+        f"{engine.shootout_mentions(game, match, owing)}: choose who "
+        "goes out next, from the players who have not shot yet "
+        "this round. Nobody else sees it until the reveal.",
+    )
 
 
 def run_back_prompt(
@@ -925,6 +1021,93 @@ def owed_step(
     return waiting if isinstance(waiting, FollowOn) else None
 
 
+def asked_sides(
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> tuple[TeamSide, ...]:
+    """
+    Which side of the board a prompt is asked of -- the third reader
+    over the chain, beside `pending_prompt` and `owed_step`.
+
+    **One reading of "whose question is this"**, so the service can
+    answer for an AI side (`GameService.run`) and, once step 9 of
+    docs/architecture-migration.md lands, so a frontend can render
+    the coach a line names. Empty for a question nobody in particular
+    owns: the six rolls, which either coach may press (CLAUDE.md,
+    "Nothing rolls dice on its own"), the tutorial's Continue and the
+    finished game. Two sides for the questions put to both at once --
+    the maneuver pick and the shootout's two menus -- narrowed to the
+    sides still to answer, which the options already say.
+
+    Read off the prompt's own parameters and the position, in that
+    order: the side or the player the prompt names where it names
+    one, the window's side, the defending side for the two questions
+    put to the defense, and possession for everything else. It is a
+    table by kind rather than a field on the prompt because every
+    branch of the chain would otherwise have to set it, and one that
+    forgot would read as nobody's.
+    """
+    kind = prompt.kind
+    if kind in NOBODYS_QUESTIONS:
+        return ()
+    if kind is PromptKind.MANEUVER_ACTION:
+        return tuple(
+            match.ball.possession if side == "offense"
+            else match.defending_side()
+            for side in prompt.options.owed()
+        )
+    if kind in (PromptKind.SHOOTOUT_ORDER, PromptKind.SHOOTOUT_PICK):
+        return tuple(prompt.options.owed())
+    if kind in (PromptKind.COACHING_HUB, PromptKind.COACHING_OFFER):
+        side = prompt.side or match.pending_coaching_side
+        return (TeamSide(side),) if side is not None else ()
+    if kind in (PromptKind.HALFTIME_EXTRA_TOKEN, PromptKind.LOOSE_BALL_PICK):
+        return (TeamSide(prompt.side),) if prompt.side is not None else ()
+    if kind in PLAYERS_OWN_QUESTIONS:
+        player_id = prompt.player_id or (
+            prompt.player_ids[0] if prompt.player_ids else None
+        )
+        return (
+            (match.side_for_player(player_id),)
+            if player_id is not None else ()
+        )
+    if kind in DEFENSES_QUESTIONS:
+        return (match.defending_side(),)
+    return (match.ball.possession,)
+
+
+#: The prompts nobody in particular is asked: either coach may press
+#: the roll, and the other two have no side at all.
+NOBODYS_QUESTIONS = frozenset({
+    PromptKind.TUTORIAL_CONTINUE,
+    PromptKind.GAME_OVER,
+    PromptKind.INJURY_TEST,
+    PromptKind.OWN_GOAL_ROLL,
+    PromptKind.SHOOTOUT_TEST,
+    PromptKind.LOOSE_BALL_SKILL_TEST,
+    PromptKind.SCORE_ATTEMPT,
+    PromptKind.SKILL_TEST,
+})
+
+#: The prompts put to whichever side the player they name is on --
+#: a Telekinetic's two offers, the stealer's speed, the run back's
+#: who and where.
+PLAYERS_OWN_QUESTIONS = frozenset({
+    PromptKind.MIND_PULL,
+    PromptKind.SMOOTH,
+    PromptKind.SPEED_DELTA_CHOICE,
+    PromptKind.RUN_BACK_PLAYER,
+    PromptKind.RUN_BACK_SPACE,
+})
+
+#: The two questions put to the defense: who challenges, and how far
+#: back a beaten Setup Pass goes.
+DEFENSES_QUESTIONS = frozenset({
+    PromptKind.MANEUVER_CHALLENGE,
+    PromptKind.SETUP_PASS_PUSH_BACK,
+})
+
+
 def pending(
     engine: "RulesEngine",
     game: D12BallGame,
@@ -1057,16 +1240,17 @@ def _pending(
                 if stage == "extra_token_home"
                 else TeamSide.VISITING
             )
-            # The same two questions `begin_halftime_extra_token`
-            # asks before it puts the menu up: a side with nobody
-            # eligible is passed over in silence, and an AI side
-            # picks for itself. Either is the stage's own step.
+            # The same question `begin_halftime_extra_token` asks
+            # before it puts the menu up: a side with nobody eligible
+            # is passed over in silence, which is the stage's own
+            # step. An AI side is asked like a coach and answers
+            # through the service (`AIStrategy.choose`).
             eligible = [
                 player_id
                 for player_id in match.setup_for_side(side).field_players
                 if player_id not in match.injured
             ]
-            if not eligible or engine.side_is_ai(game, side):
+            if not eligible:
                 return FollowOn(FollowOnStep.ADVANCE_HALFTIME_STAGE)
             return PendingPrompt(
                 PromptKind.HALFTIME_EXTRA_TOKEN,
@@ -1165,30 +1349,12 @@ def _pending(
         # test owes its checks before the next one is set up, and
         # ahead of everything below because the match underneath a
         # shootout is still whatever full time left there. An AI
-        # side's order or shooter is set by the step itself, so a
-        # position still owing one of those is the bot's.
+        # side's order or shooter is asked of it like a coach's
+        # (`ShootoutOptions.owed`), and the service answers for it.
         if not match.shootout_orders_complete:
-            if any(
-                engine.side_is_ai(game, side)
-                and not match.shootout_order_complete(side)
-                for side in (TeamSide.HOME, TeamSide.VISITING)
-            ):
-                return FollowOn(FollowOnStep.ADVANCE_SHOOTOUT)
-            return PendingPrompt(
-                PromptKind.SHOOTOUT_ORDER,
-                "Extreme shootout — set your shooting order:",
-            )
+            return shootout_order_prompt(engine, game, match)
         if not match.shootout_shooters_complete:
-            if any(
-                engine.side_is_ai(game, side)
-                and match.shootout_shooter(side) is None
-                for side in (TeamSide.HOME, TeamSide.VISITING)
-            ):
-                return FollowOn(FollowOnStep.ADVANCE_SHOOTOUT)
-            return PendingPrompt(
-                PromptKind.SHOOTOUT_PICK,
-                "Extreme shootout — choose who shoots next:",
-            )
+            return shootout_pick_prompt(engine, game, match)
         return PendingPrompt(
             PromptKind.SHOOTOUT_TEST,
             "Either player can roll the shootout skill test:",
@@ -1248,17 +1414,16 @@ def _pending(
     if match.pending_ball_recovery:
         # An out-of-bounds ball whose run back has already
         # finished, waiting on the winning side to send someone to
-        # pick it up -- unless the step has nobody to ask: an AI
-        # side sends its nearest, and a side with somebody already
-        # on the ball, or nobody fielded at all, places no one. The
-        # two questions are `begin_ball_recovery`'s own, asked in
-        # its order.
+        # pick it up -- unless the step has nobody to ask: a side
+        # with somebody already on the ball, or nobody fielded at
+        # all, places no one. The question is `begin_ball_recovery`'s
+        # own.
         side = match.ball.possession
         candidates = (
             [] if match.eligible_ball_handlers()
             else match.contest_candidates(side)
         )
-        if not candidates or engine.side_is_ai(game, side):
+        if not candidates:
             return FollowOn(FollowOnStep.BEGIN_BALL_RECOVERY)
         return PendingPrompt(
             PromptKind.BALL_RECOVERY,
@@ -1355,14 +1520,12 @@ def _window(
     ask: str,
 ) -> Union[PendingPrompt, FollowOn]:
     """
-    An open Coaching Choice: the menu or the offer for a coach, and
-    the routine for an AI side, which has no menu to put back up and
-    runs to completion.
+    An open Coaching Choice: the menu or the offer, for the side whose
+    window it is. An AI side's is the same prompt -- it answers it
+    through the service, one hub action at a time, the way a coach
+    does (step 7 of docs/architecture-migration.md).
     """
-    side = TeamSide(match.pending_coaching_side)
-    if engine.side_is_ai(game, side):
-        return FollowOn(FollowOnStep.RUN_AI_COACHING_WINDOW)
-    return PendingPrompt(kind, ask)
+    return PendingPrompt(kind, ask, side=TeamSide(match.pending_coaching_side))
 
 
 def _stage_window(
@@ -1800,6 +1963,7 @@ def _coaching_hub_options(
         incoming_ids=pool,
         swaps=tuple(swaps),
         repositions=tuple(repositions),
+        finish_refusal=engine.coaching_finish_refusal(match, side),
     )
 
 

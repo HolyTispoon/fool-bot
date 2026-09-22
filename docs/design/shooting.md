@@ -38,8 +38,8 @@ whole rule, over `BoardState.is_in_shooting_range`.
 - **Nothing gates `begin_score_attempt` itself.** The rule is enforced where the
   shot is *chosen*: `PlayerActionView` omits the button (and `build_turn_prompt`
   says why), `choose_action` refuses a stale click, `DinkyAI` only ever shoots
-  from the scoring space, and the 2-space High Pass's set-up asks
-  `can_attempt_score`.
+  from the scoring space (and only where the turn prompt offers the shot
+  live), and the 2-space High Pass's set-up asks `can_attempt_score`.
 - **The board image draws where range begins**, in `draw_shooting_range_band`
   -- a labelled bracket under the field, one for each side's range and (on
   board 7 and 9) a third over the space in nobody's. It used to be a dashed
@@ -132,7 +132,7 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
   furthest** (2026-08-18). `MatchState.high_pass_receivers_at` is the
   lookahead -- the before-the-throw twin of `high_pass_receiver_candidates`,
   excluding the passer for the same reason -- and
-  `DinkyAI.choose_high_pass_distance` falls back to the longest available only
+  `DinkyAI._longest_reaching_pass` falls back to the longest available only
   when no distance reaches anybody. It is not a rules change; it is that the AI's
   own maximizing was working against it, and
   [where the ball comes to rest](loose-balls.md#where-the-ball-comes-to-rest) sharpened the
