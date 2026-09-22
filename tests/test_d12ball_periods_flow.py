@@ -110,7 +110,7 @@ class EndPeriodTests(PeriodFixture):
         result = end_period(self.engine, self.game, self.match)
 
         self.assertEqual(self.match.scoreboard.period, MatchPeriod.SECOND_HALF)
-        self.assertEqual(self.match.scoreboard.time, 16)
+        self.assertEqual(self.match.scoreboard.time, 15)
         self.assertFalse(self.match.scoreboard.last_possession)
         self.assertIn("at 19", result.narration[0])
         self.assertTrue(result.narration[1].startswith("# Halftime"))

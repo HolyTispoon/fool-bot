@@ -1129,15 +1129,22 @@ class BallState:
             raise ValueError(f"Ball speed must be from 1 to {BALL_SPEED_MAX}.")
 
 
-# One running clock over both periods: 00-15 in the first half, 16-30
+# One running clock over both periods: 00-15 in the first half, 15-30
 # in the second -- see "Clock, halftime, and full time" in
 # docs/living-rules.md. A period's last minute is where **last
 # possession** begins and not where the clock stops; the clock keeps
 # counting for as long as that possession runs, so a first half can
-# genuinely end at 19. The second half then starts at 16 regardless,
-# which is what makes minutes 16 and up occur twice in a game.
+# genuinely end at 19. The second half then starts at 15 regardless,
+# which is what makes minutes 15 and up occur twice in a game.
+#
+# **The start is its own number, not the last minute plus one**
+# (the author, 2026-09-22). They were the same number until the
+# second half was moved back onto 15, and everything that needs
+# "where the second half begins" -- the halftime whistle, the (FH)
+# marker, the printed clock track's second band -- reads this
+# constant rather than doing that arithmetic again.
 FIRST_HALF_LAST_MINUTE = 15
-SECOND_HALF_START_MINUTE = 16
+SECOND_HALF_START_MINUTE = 15
 SECOND_HALF_LAST_MINUTE = 30
 
 
@@ -1225,12 +1232,20 @@ class GoalRecord:
         self.period = MatchPeriod(self.period)
 
     @property
-    def in_first_half_overrun(self) -> bool:
+    def minute_repeated_in_second_half(self) -> bool:
         """
         Whether this goal's minute is one the second half will reach
-        again: a first-half goal past 15, scored in that half's last
-        possession. It is exactly the condition the **(FH)** marker
+        again: a first-half goal at or past the minute the second half
+        starts on. It is exactly the condition the **(FH)** marker
         states, so the marker cannot drift from what it means.
+
+        **The test is the second half's first minute, not the first
+        half's last.** Those were the same line while the second half
+        started at 16; since it starts at 15 (the author, 2026-09-22)
+        the first half's own last minute is a number the second half
+        reaches too, so a goal on it is marked as well -- nothing about
+        it overran, but a first half's 15 and a second half's 15 are
+        the same number on the same sheet.
 
         The second half needs no marker of its own. It overruns as
         readily -- a goal at 31 or 32 -- but no first-half minute is
@@ -1240,7 +1255,7 @@ class GoalRecord:
         return (
             not self.shootout
             and self.period == MatchPeriod.FIRST_HALF
-            and self.time > period_last_minute(self.period)
+            and self.time >= SECOND_HALF_START_MINUTE
         )
 
     def to_dict(self) -> dict:

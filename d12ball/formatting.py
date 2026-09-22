@@ -409,15 +409,16 @@ def format_goal_time(goal: GoalRecord) -> str:
     """
     The minute a goal was scored, as a coach reads it back.
 
-    **(FH) is the whole of what the clock cannot say by itself.** It
-    runs past a period's last minute and the second half then starts at
-    16, so a first-half goal in the 17th minute and a second-half goal
-    in the 17th are the same number -- the marker is on the one that
-    cannot be reached again. `GoalRecord.in_first_half_overrun` is the
-    rule; this is only the wording.
+    **(FH) is the whole of what the clock cannot say by itself.** The
+    second half starts at 15 and the clock runs past a period's last
+    minute, so a first-half goal in the 17th minute and a second-half
+    goal in the 17th are the same number -- and so are the two 15s.
+    The marker is on the one that cannot be reached again.
+    `GoalRecord.minute_repeated_in_second_half` is the rule; this is
+    only the wording.
     """
     return f"{goal.time:02d}" + (
-        " (FH)" if goal.in_first_half_overrun else ""
+        " (FH)" if goal.minute_repeated_in_second_half else ""
     )
 
 

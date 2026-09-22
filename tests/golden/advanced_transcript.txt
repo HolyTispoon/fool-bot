@@ -716,7 +716,7 @@ Dinky AI, 🔥 Scorchit [MF] is exhausted and owes an injury test: a d12 that ha
 # Turnover!
 🔥 Scorchit [MF] steals the ball. Fire Demons (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
 
-**End of the first half!** The ball turns over at 18 under last possession -- the period ends. The second half starts at 16.
+**End of the first half!** The ball turns over at 18 under last possession -- the period ends. The second half starts at 15.
 --- message
 # Halftime
 Every fielded player recovers 1 exhaustion token:
@@ -814,7 +814,7 @@ The ball slips past them.
 
 The ball speed goes down to **1**.
 --- message
-Ball is now H1, Telekinetics (Home) has possession. Time has advanced 2, now at 18.
+Ball is now H1, Telekinetics (Home) has possession. Time has advanced 2, now at 17.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -842,7 +842,7 @@ No substitutions, and no change of shape.
 **Fire Demons (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now H1, Telekinetics (Home) has possession. Time has advanced 1, now at 19.
+Ball is now H1, Telekinetics (Home) has possession. Time has advanced 1, now at 18.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -890,7 +890,7 @@ Coach?
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now H1, Telekinetics (Home) has possession. Time has advanced 1, now at 20.
+Ball is now H1, Telekinetics (Home) has possession. Time has advanced 1, now at 19.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -930,7 +930,7 @@ You chose **Skilled Pass**.
 --- message
 🔮 **Smooth** — 🔮 Spectra [MF] takes the ball on **M1** (Midfield).
 
-Ball is now M1, Telekinetics (Home) has possession. Time has advanced 1, now at 21.
+Ball is now M1, Telekinetics (Home) has possession. Time has advanced 1, now at 20.
 --- message
 🔮 <@111>, it is your turn.
 

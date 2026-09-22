@@ -123,15 +123,19 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   itself and shrinks to fit, because a sixth shape added upstream lands there
   without anybody measuring.
 - **The clock and score tracks are printed aids, not components the rules
-  name.** What they count is a rule -- fifteen space-minutes, a clock that
-  stops there, a score a shootout can add six to -- but nothing upstream says
-  a board carries a track, so don't read them as one.
-- **A clock cell is captioned only where the caption is a rule.** 15 and 30
-  are bordered and say "last possession", because reaching one is the only
-  thing on this panel that changes what a coach may do; 00 and 16 were
-  captioned "kickoff" and "second-half kickoff" until 2026-09-22 and are now
-  plain, since where a half starts is already what the band over the row
-  says. **The minute is sized to clear its own border, not to fill the cell**:
+  name.** What they count is a rule -- fifteen space-minutes a half, a clock
+  that runs past them, a score a shootout can add six to -- but nothing
+  upstream says a board carries a track, so don't read them as one.
+- **A clock cell is captioned only where the caption is a rule.** The first
+  half's 15 and the second's 30 are bordered and say "last possession",
+  because reaching one is the only thing on this panel that changes what a
+  coach may do; 00 and the second half's own kickoff cell were captioned
+  "kickoff" and "second-half kickoff" until 2026-09-22 and are now plain,
+  since where a half starts is already what the band over the row says.
+  **A cell is captioned for its own band, not for its number**: since the
+  second half starts at 15 (the author, 2026-09-22) there is a 15 in each
+  band, and only the first half's is a last minute.
+  **The minute is sized to clear its own border, not to fill the cell**:
   a captioned cell has to hold a number and a caption between two edges of a
   border thick enough to be read as one, and a number drawn to the cell
   instead of to that space crossed it -- which on 15 and 30 is the border
