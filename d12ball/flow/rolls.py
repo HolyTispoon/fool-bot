@@ -50,12 +50,13 @@ from typing import Optional
 
 from d12ball.components import (
     EVENT_SHOT,
-    OVERDRIVE_BONUS,
-    OVERDRIVE_DRAIN_COST,
     EVENT_SKILL_TEST,
     MatchState,
+    OVERDRIVE_BONUS,
+    OVERDRIVE_DRAIN_COST,
     PlayerDefinition,
     PlayerRole,
+    RuleRefusal,
     SPECIES_CYBORG,
     TeamSide,
 )
@@ -66,6 +67,7 @@ from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
     contest_noun,
     contestant_detail,
+    format_ai_name,
     format_goal_time,
     format_player_with_team,
     format_team_side_label,
@@ -73,8 +75,10 @@ from d12ball.formatting import (
 )
 from d12ball.game import D12BallGame, Team, team_display_name
 from d12ball.prompts import (
+    OVERDRIVE_ROLLERS as _OVERDRIVE_ROLLERS,
     PendingPrompt,
     PromptKind,
+    overdrive_rollers as _overdrive_rollers,
     scoring_opportunity_prompt,
 )
 
@@ -1175,7 +1179,18 @@ def retract_shot_step(
     `RulesEngine.build_turn_prompt` as it was the first time.
     """
     if not match.may_cancel_pending_shot():
-        raise ValueError("This score attempt is no longer active.")
+        raise RuleRefusal("This score attempt is no longer active.")
+    if engine.side_is_ai(game, match.ball.possession):
+        # Not a rule of the game but a feature of how the AI plays:
+        # it does not misclick, so its shot is never walked back --
+        # and a human standing in for its rolls does not get to undo
+        # its choice either (the author, 2026-09-21; see "Every roll
+        # is a coach's" in docs/design/maneuvers.md). The prompt's
+        # options say so, and the frontend builds no Back for it.
+        raise RuleRefusal(
+            f"{format_ai_name(game.ai_opponent)}'s shot stands; only a "
+            "coach's own shot can be walked back."
+        )
 
     if not match.pending_shot_is_set_up:
         match.retract_pending_shot()
@@ -1342,49 +1357,12 @@ def shootout_test_step(
 # -- Overdrive, which rides on all six roll prompts --------------------
 
 
-#: Which players a given roll prompt puts an Overdrive offer to.
-#:
-#: **The same six lists the views build their buttons from**, which is
-#: what makes this one reading rather than two: a frontend asks for the
-#: rollers and offers whichever of them
-#: `RulesEngine.overdrive_candidates` still allows, and an action
-#: naming anybody else is refused by `declare_overdrive_step` against
-#: this same list.
-#:
-#: It is keyed on the prompt because that is what a declaration is
-#: attached to -- Overdrive is declared *before* a roll and spent by
-#: it, so "which roll are we in" is the whole of what decides who may
-#: take one. The six are the rules' own list.
-OVERDRIVE_ROLLERS = {
-    PromptKind.SKILL_TEST: lambda match, prompt: [
-        match.active_player_id, match.challenger_id,
-    ],
-    PromptKind.LOOSE_BALL_SKILL_TEST: lambda match, prompt: [
-        match.loose_ball_offense_player, match.loose_ball_defense_player,
-    ],
-    PromptKind.SCORE_ATTEMPT: lambda match, prompt: [
-        match.active_player_id,
-    ],
-    PromptKind.OWN_GOAL_ROLL: lambda match, prompt: [
-        match.active_player_id,
-    ],
-    PromptKind.INJURY_TEST: lambda match, prompt: [prompt.player_id],
-    PromptKind.SHOOTOUT_TEST: lambda match, prompt: [
-        match.shootout_shooter(side)
-        for side in (TeamSide.HOME, TeamSide.VISITING)
-    ],
-}
-
-
-def overdrive_rollers(
-    match: MatchState,
-    prompt: PendingPrompt,
-) -> list[str]:
-    """Who is rolling, for the roll this prompt is asking for."""
-    rollers = OVERDRIVE_ROLLERS.get(prompt.kind)
-    if rollers is None:
-        return []
-    return [player_id for player_id in rollers(match, prompt) if player_id]
+#: `OVERDRIVE_ROLLERS` and `overdrive_rollers` are `d12ball.prompts`'
+#: since the prompt's options were built there (step 6 of
+#: docs/architecture-migration.md); re-exported so a reader of this
+#: module still finds the roll's own list beside the roll.
+OVERDRIVE_ROLLERS = _OVERDRIVE_ROLLERS
+overdrive_rollers = _overdrive_rollers
 
 
 def declare_overdrive_step(
@@ -1419,9 +1397,9 @@ def declare_overdrive_step(
     docs/design/permissions.md.
     """
     if player_id not in overdrive_rollers(match, prompt):
-        raise ValueError("That player is not in this roll.")
+        raise RuleRefusal("That player is not in this roll.")
     if not engine.overdrive_candidates(game, match, [player_id]):
-        raise ValueError("That Overdrive is no longer available.")
+        raise RuleRefusal("That Overdrive is no longer available.")
 
     match.declare_overdrive(
         player_id, engine.exhaustion_threshold(game, player_id),

@@ -191,17 +191,9 @@ class ShootoutOrderSelectView(SafeView):
         self.game_id = game_id
         self.side = TeamSide(side)
 
-        game = cog.games.get(game_id)
-        match = (
-            cog.engine.load_match_state(game)
-            if game is not None and game.match_state is not None
-            else None
-        )
-        remaining = (
-            match.shootout_order_remaining(self.side)
-            if match is not None
-            else []
-        )
+        game, match = self.load_match()
+        options = self.prompt_options(game, match, PromptKind.SHOOTOUT_ORDER)
+        remaining = options.for_side(self.side) if options is not None else ()
 
         for player_id in remaining:
             button = discord.ui.Button(
@@ -406,15 +398,9 @@ class ShootoutPickSelectView(SafeView):
         self.game_id = game_id
         self.side = TeamSide(side)
 
-        game = cog.games.get(game_id)
-        match = (
-            cog.engine.load_match_state(game)
-            if game is not None and game.match_state is not None
-            else None
-        )
-        eligible = (
-            match.shootout_eligible(self.side) if match is not None else []
-        )
+        game, match = self.load_match()
+        options = self.prompt_options(game, match, PromptKind.SHOOTOUT_PICK)
+        eligible = options.for_side(self.side) if options is not None else ()
 
         for player_id in eligible:
             button = discord.ui.Button(
@@ -526,14 +512,10 @@ class ShootoutTestView(ShootoutView):
         # than the test charging it -- so it is offered here like
         # anywhere else.
         game, match = self.load_match()
-        if game is not None and match is not None:
+        options = self.prompt_options(game, match, PromptKind.SHOOTOUT_TEST)
+        if options is not None:
             self.add_overdrive_buttons(
-                game,
-                match,
-                [
-                    match.shootout_shooter(side)
-                    for side in (TeamSide.HOME, TeamSide.VISITING)
-                ],
+                game, match, options.overdrive_player_ids,
             )
 
     def owes(self, match: MatchState, side: TeamSide) -> bool:

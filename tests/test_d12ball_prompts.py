@@ -112,7 +112,12 @@ class PendingPromptTests(unittest.TestCase):
                         getattr(prompt, name), expected, name,
                     )
                 for name, blank in defaults.items():
-                    if name in ("kind", "ask") or name in fixture.params:
+                    # `options` is every kind's, built per kind and
+                    # asserted per kind in `OptionsTests`.
+                    if (
+                        name in ("kind", "ask", "options")
+                        or name in fixture.params
+                    ):
                         continue
                     self.assertEqual(
                         getattr(prompt, name), getattr(blank, name), name,

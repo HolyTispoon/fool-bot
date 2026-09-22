@@ -30,6 +30,7 @@ cog's, disjoint and exhaustive -- is asserted in
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from unittest import mock
 
 from d12ball.ai import build_ai_strategies
@@ -125,16 +126,23 @@ class LoopTests(DriverFixture):
         self.assertEqual(run.result.narration, ["a line"])
         self.assertIsNone(run.result.next)
 
-    def test_a_prompt_is_handed_back_untouched(self) -> None:
+    def test_a_prompt_is_handed_back_with_its_options_and_nothing_else(
+        self,
+    ) -> None:
         """
         The turn stops on a person, and the loop is not what decides
-        how they are asked.
+        how they are asked. What it adds is the prompt's `options`,
+        built off the position (step 6 of docs/architecture-migration.md);
+        the kind and the ask are the step's.
         """
         prompt = PendingPrompt(kind=PromptKind.PLAYER_ACTION, ask="Your turn.")
 
         run = self.advance(StepResult(next=prompt))
 
-        self.assertIs(run.result.next, prompt)
+        self.assertEqual(run.result.next, replace(
+            prompt, options=run.result.next.options,
+        ))
+        self.assertIsNotNone(run.result.next.options)
         self.assertFalse(run.ran)
 
     def test_a_step_the_frontend_stops_on_is_handed_back_with_its_arguments(

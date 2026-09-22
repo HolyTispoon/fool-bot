@@ -37,7 +37,7 @@ from __future__ import annotations
 from typing import Optional
 
 from d12ball import tutorial
-from d12ball.components import MatchState
+from d12ball.components import MatchState, RuleRefusal
 from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, StepResult
 from d12ball.game import D12BallGame
@@ -90,7 +90,7 @@ def continue_step(
     """
     gate = game.tutorial_gate
     if not gate:
-        raise ValueError("There is no note to continue from.")
+        raise RuleRefusal("There is no note to continue from.")
     game.tutorial_gate = None
 
     then = gate.get("then")

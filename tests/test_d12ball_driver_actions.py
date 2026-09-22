@@ -31,10 +31,10 @@ import random
 import unittest
 from unittest import mock
 
-from d12ball.components import MatchState, TeamSide
+from d12ball import tutorial
+from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.game import Formation, GameMode, Team
 from d12ball.flow import driver
-from d12ball.flow.effects import setup_pass_push_back_distances
 from d12ball.flow.windows import open_substitution_window
 from d12ball.prompts import PromptKind, pending_prompt
 
@@ -49,47 +49,25 @@ from prompt_fixtures import (
 )
 
 
-def _handler(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {
-        "player_id": fixture.match.turn_handler_candidates()[0],
-    }
+def _prompt(fixture: PromptFixture):
+    return pending_prompt(ENGINE, fixture.game, fixture.match)
 
 
-def _run_back_player(fixture: PromptFixture) -> tuple[str, dict]:
-    prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
-    return "", {"player_id": prompt.player_ids[0]}
+def _first_player(fixture: PromptFixture) -> tuple[str, dict]:
+    """A pick among players: the first the prompt offers."""
+    return "", {"player_id": _prompt(fixture).options.player_ids[0]}
 
 
 def _run_back_space(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    prompt = pending_prompt(ENGINE, fixture.game, match)
-    player_id = prompt.player_id
-    side = match.side_for_player(player_id)
-    zone = match.setup_for_side(side).assigned_zone(player_id)
-    spaces = ENGINE.placement_spaces_in_zone(
-        fixture.game, match, side, zone, player_id,
-    )
-    return "", {"space_index": spaces[0]}
-
-
-def _ball_recovery(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    return "", {
-        "player_id": match.contest_candidates(match.ball.possession)[0],
-    }
+    return "", {"space_index": _prompt(fixture).options.space_indices[0]}
 
 
 def _loose_ball_pick(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    side = ENGINE.loose_ball_prompt_side(match)
-    return "send", {
-        "player_id": ENGINE.loose_ball_candidates(match, side)[0],
-    }
+    return "send", {"player_id": _prompt(fixture).options.player_ids[0]}
 
 
 def _shooter_choice(fixture: PromptFixture) -> tuple[str, dict]:
-    prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
-    return "", {"shooter_id": prompt.player_ids[0]}
+    return "", {"shooter_id": _prompt(fixture).options.player_ids[0]}
 
 
 def _coaching_side(fixture: PromptFixture) -> TeamSide:
@@ -120,37 +98,25 @@ def _coaching_hub(fixture: PromptFixture) -> tuple[str, dict]:
     A substitution, which is the hub answer every occasion offers --
     the three positional ones are not on a full-time window's menu.
     """
-    match = fixture.match
     side = _coaching_side(fixture)
-    setup = match.setup_for_side(side)
+    options = _prompt(fixture).options
     return "substitute", {
         "side": side,
-        "outgoing_player_id": setup.field_players[0],
-        "incoming_player_id": setup.team_board.bench[0],
+        "outgoing_player_id": options.outgoing_ids[0],
+        "incoming_player_id": options.incoming_ids[0],
     }
 
 
 def _shootout_order(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    side = next(
-        side for side in TeamSide
-        if match.shootout_order_remaining(side)
-    )
-    return "send", {
-        "side": side,
-        "player_id": match.shootout_order_remaining(side)[0],
-    }
+    options = _prompt(fixture).options
+    side = options.owed()[0]
+    return "send", {"side": side, "player_id": options.for_side(side)[0]}
 
 
 def _shootout_pick(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    side = next(
-        side for side in TeamSide if match.shootout_shooter(side) is None
-    )
-    return "", {
-        "side": side,
-        "player_id": match.shootout_eligible(side)[0],
-    }
+    options = _prompt(fixture).options
+    side = options.owed()[0]
+    return "", {"side": side, "player_id": options.for_side(side)[0]}
 
 
 def _player_action(fixture: PromptFixture) -> tuple[str, dict]:
@@ -169,28 +135,9 @@ def _player_action(fixture: PromptFixture) -> tuple[str, dict]:
     return "maneuver", {}
 
 
-def _maneuver_challenge(fixture: PromptFixture) -> tuple[str, dict]:
-    return "send", {
-        "player_id": fixture.match.challenge_candidates()[0],
-    }
-
-
 def _maneuver_action(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    hand = ENGINE.maneuver_hand(fixture.game, match, "offense")
-    return "", {"side": "offense", "maneuver_key": hand[0].key}
-
-
-def _halftime_extra_token(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    side = pending_prompt(ENGINE, fixture.game, match).side
-    return "", {
-        "player_id": next(
-            player_id
-            for player_id in match.setup_for_side(side).field_players
-            if player_id not in match.injured
-        ),
-    }
+    hand = _prompt(fixture).options.hands[0]
+    return "", {"side": hand.side, "maneuver_key": hand.maneuver_keys[0]}
 
 
 def _own_goal(fixture: PromptFixture) -> tuple[str, dict]:
@@ -209,39 +156,18 @@ def _own_goal(fixture: PromptFixture) -> tuple[str, dict]:
 
 
 def _low_pass(fixture: PromptFixture) -> tuple[str, dict]:
-    prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
-    candidates = ENGINE.pass_candidates(
-        fixture.match, prompt.maneuver_key or "low_pass",
-    )
-    return "", {"distance": candidates[0][0]}
+    return "", {"distance": _prompt(fixture).options.passes[0].distance}
 
 
-def _high_pass(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {
-        "distance": ENGINE.high_pass_distance_options(fixture.match)[0],
-    }
-
-
-def _setup_pass(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {
-        "distance": ENGINE.setup_pass_distances(fixture.match)[0],
-    }
+def _first_distance(fixture: PromptFixture) -> tuple[str, dict]:
+    return "", {"distance": _prompt(fixture).options.distances[0]}
 
 
 def _speed_delta(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {"target_speed": fixture.match.ball.speed}
-
-
-def _dribble_burst(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {
-        "distance": ENGINE.dribble_burst_distances(fixture.match)[0],
-    }
-
-
-def _setup_pass_push_back(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {
-        "distance": setup_pass_push_back_distances(fixture.match)[0],
-    }
+    # The middle of the range, which is the current speed until the
+    # ball's own limits clamp one end.
+    targets = _prompt(fixture).options.targets
+    return "", {"target_speed": targets[len(targets) // 2]}
 
 
 #: The kinds that have a row in `driver.ANSWERS` and no legal answer:
@@ -250,17 +176,19 @@ UNANSWERABLE = frozenset({PromptKind.GAME_OVER})
 
 
 #: A legal answer to each prompt the driver can apply one to, read off
-#: the position the way a frontend reads it to build its buttons.
+#: the prompt's `options` the way a frontend reads them to build its
+#: buttons -- and nothing off the match, which is principle 10 as a
+#: thing that can be run (see `tests/test_driver_full_game.py`).
 #:
 #: **Every kind in `driver.ANSWERS` has a row**, which
 #: `test_every_answerable_kind_has_a_legal_action` asserts -- so a kind
 #: that arrives in the table without one fails here rather than going
 #: untested.
 LEGAL_ACTIONS = {
-    PromptKind.BALL_HANDLER_SELECTION: _handler,
-    PromptKind.RUN_BACK_PLAYER: _run_back_player,
+    PromptKind.BALL_HANDLER_SELECTION: _first_player,
+    PromptKind.RUN_BACK_PLAYER: _first_player,
     PromptKind.RUN_BACK_SPACE: _run_back_space,
-    PromptKind.BALL_RECOVERY: _ball_recovery,
+    PromptKind.BALL_RECOVERY: _first_player,
     PromptKind.LOOSE_BALL_PICK: _loose_ball_pick,
     PromptKind.SET_UP_ATTEMPT: lambda fixture: ("take", {}),
     PromptKind.SHOOTER_CHOICE: _shooter_choice,
@@ -278,17 +206,17 @@ LEGAL_ACTIONS = {
     PromptKind.COACHING_HUB: _coaching_hub,
     PromptKind.SHOOTOUT_ORDER: _shootout_order,
     PromptKind.SHOOTOUT_PICK: _shootout_pick,
-    PromptKind.MANEUVER_CHALLENGE: _maneuver_challenge,
+    PromptKind.MANEUVER_CHALLENGE: _loose_ball_pick,
     PromptKind.MANEUVER_ACTION: _maneuver_action,
     PromptKind.MIND_PULL: lambda fixture: ("take", {}),
-    PromptKind.HALFTIME_EXTRA_TOKEN: _halftime_extra_token,
+    PromptKind.HALFTIME_EXTRA_TOKEN: _first_player,
     PromptKind.LOW_PASS_CHOICE: _low_pass,
-    PromptKind.HIGH_PASS_CHOICE: _high_pass,
-    PromptKind.SETUP_PASS_CHOICE: _setup_pass,
+    PromptKind.HIGH_PASS_CHOICE: _first_distance,
+    PromptKind.SETUP_PASS_CHOICE: _first_distance,
     PromptKind.SPEED_DELTA_CHOICE: _speed_delta,
-    PromptKind.DRIBBLE_ADVANCE_CHOICE: lambda fixture: ("", {"distance": 1}),
-    PromptKind.DRIBBLE_BURST_CHOICE: _dribble_burst,
-    PromptKind.SETUP_PASS_PUSH_BACK: _setup_pass_push_back,
+    PromptKind.DRIBBLE_ADVANCE_CHOICE: _first_distance,
+    PromptKind.DRIBBLE_BURST_CHOICE: _first_distance,
+    PromptKind.SETUP_PASS_PUSH_BACK: _first_distance,
     PromptKind.TUTORIAL_CONTINUE: lambda fixture: ("", {}),
 }
 
@@ -649,11 +577,484 @@ class OverdriveTests(ApplyFixture):
         self.assertEqual(fixture.match.to_dict(), before)
 
 
+def _case(name: str) -> PromptFixture:
+    return next(case.build() for case in CASES if case.name == name)
+
+
+def _refused(fixture: PromptFixture, action: driver.Action) -> driver.Refusal:
+    """Apply `action` and assert it was refused with the match untouched."""
+    before = fixture.match.to_dict()
+    outcome = driver.apply(ENGINE, fixture.game, fixture.match, action)
+    assert isinstance(outcome, driver.Refusal), outcome
+    assert fixture.match.to_dict() == before, "a refusal moved something"
+    return outcome
+
+
 class PositionRefusalTests(ApplyFixture):
     """
-    A step refusing what was chosen, which arrives as a `ValueError`
+    A step refusing what was chosen, which arrives as a `RuleRefusal`
     and leaves as a `Refusal`.
     """
+
+    def test_an_argument_a_choice_needs_is_refused_as_missing(self) -> None:
+        """
+        Finding 4 of docs/web-app.md: a hub `reposition` with no
+        `space_index` used to raise `TypeError` out of
+        `MatchState.position_meeple`, past the driver's `ValueError`
+        net. `REQUIRED_ARGUMENTS` names it, so it is refused before
+        the adapter runs.
+        """
+        fixture = _case("coaching hub")
+        side = fixture.match.pending_coaching_side
+        player_id = fixture.match.setup_for_side(side).field_players[0]
+        refusal = _refused(
+            fixture,
+            driver.Action(
+                PromptKind.COACHING_HUB, "reposition",
+                {"side": side, "player_id": player_id},
+            ),
+        )
+        self.assertEqual(refusal.reason, "This answer needs space_index.")
+
+    def test_only_a_rule_refusal_is_a_refusal(self) -> None:
+        """
+        A bare `ValueError` out of an adapter is the interpreter's
+        sentence, not the position's, and propagates as a bug rather
+        than being shown to a coach as a rule.
+        """
+        fixture = _case("coaching hub")
+        with self.assertRaises(ValueError) as caught:
+            driver.apply(
+                ENGINE, fixture.game, fixture.match,
+                driver.Action(
+                    PromptKind.COACHING_HUB, "done", {"side": "sideways"},
+                ),
+            )
+        self.assertNotIsInstance(caught.exception, RuleRefusal)
+
+
+# -- A refused answer per kind per choice ----------------------------
+
+
+def _other_side(side) -> TeamSide:
+    return TeamSide.VISITING if TeamSide(side) is TeamSide.HOME else TeamSide.HOME
+
+
+def _not_offered(offered, universe) -> str:
+    """Somebody the prompt does not offer, from a wider pool."""
+    return next(candidate for candidate in universe if candidate not in offered)
+
+
+def _everybody(match: MatchState) -> list[str]:
+    return (
+        match.home.field_players + match.home.team_board.bench
+        + match.visiting.field_players + match.visiting.team_board.bench
+    )
+
+
+def _wrong_player(fixture: PromptFixture) -> dict:
+    options = _prompt(fixture).options
+    return {
+        "player_id": _not_offered(options.player_ids, _everybody(fixture.match)),
+    }
+
+
+def _wrong_distance(fixture: PromptFixture) -> dict:
+    return {"distance": 99}
+
+
+def _wrong_side_player(fixture: PromptFixture) -> dict:
+    """SMOOTH, MIND_PULL, INJURY_TEST: a player the prompt is not
+    about."""
+    prompt = _prompt(fixture)
+    return {
+        "player_id": _not_offered((prompt.player_id,), _everybody(fixture.match)),
+    }
+
+
+def _wrong_overdrive(fixture: PromptFixture) -> dict:
+    """A player who is not in this roll."""
+    match = fixture.match
+    if match.active_player_id is None:
+        match.active_player_id = match.home.field_players[0]
+    options = _prompt(fixture).options
+    return {
+        "player_id": _not_offered(
+            options.overdrive_player_ids, match.home.team_board.bench,
+        ),
+    }
+
+
+def _railed_tutorial(fixture: PromptFixture, key: str, wanted: str) -> None:
+    """Put the fixture's game on the beat that rails `key` to `wanted`."""
+    beat = next(
+        beat for beat in tutorial.BEATS if beat.choices.get(key) == wanted
+    )
+    fixture.game = build_game(
+        player_2_id=None, tutorial=True, tutorial_step=beat.step,
+    )
+
+
+def _railed_set_up_decline(fixture: PromptFixture) -> dict:
+    _railed_tutorial(fixture, "setup_attempt", "attempt")
+    return {}
+
+
+def _decline_with_somebody_on_the_ball(fixture: PromptFixture) -> dict:
+    """The fixture's side has a player standing on the ball, so the
+    contest is not theirs to decline (`may_decline_loose_ball`)."""
+    assert not _prompt(fixture).options.may_decline
+    return {}
+
+
+def _shot_out_of_range(fixture: PromptFixture) -> dict:
+    match = fixture.match
+    if match.active_player_id is None:
+        match.active_player_id = match.home.field_players[0]
+    assert not match.can_attempt_score()
+    return {"action_label": "shoot"}
+
+
+def _time_out_in_the_last_minute(fixture: PromptFixture) -> dict:
+    match = fixture.match
+    if match.active_player_id is None:
+        match.active_player_id = match.home.field_players[0]
+    match.scoreboard.last_possession = True
+    return {}
+
+
+def _other_side_s_window(fixture: PromptFixture) -> dict:
+    return {"side": _other_side(_coaching_side(fixture))}
+
+
+def _other_side_s_offer_decline(fixture: PromptFixture) -> dict:
+    return {**_other_side_s_window(fixture), "coach_name": "Coach"}
+
+
+def _formation_off_the_board(fixture: PromptFixture) -> dict:
+    side = _coaching_side(fixture)
+    options = _prompt(fixture).options
+    return {
+        "side": side,
+        "formation": next(
+            shape for shape in Formation if shape not in options.formations
+        ),
+    }
+
+
+def _substitute_from_the_field(fixture: PromptFixture) -> dict:
+    side = _coaching_side(fixture)
+    options = _prompt(fixture).options
+    return {
+        "side": side,
+        "outgoing_player_id": options.outgoing_ids[0],
+        "incoming_player_id": options.outgoing_ids[1],
+    }
+
+
+def _swap_inside_a_zone(fixture: PromptFixture) -> dict:
+    side = _coaching_side(fixture)
+    zones = fixture.match.setup_for_side(side).zones
+    first, second = next(
+        players for players in zones.values() if len(players) >= 2
+    )[:2]
+    return {"side": side, "player_id": first, "other_player_id": second}
+
+
+def _reposition_off_the_zone(fixture: PromptFixture) -> dict:
+    side = _coaching_side(fixture)
+    options = _prompt(fixture).options
+    return {
+        "side": side,
+        "player_id": options.repositions[0].player_id,
+        "space_index": 99,
+    }
+
+
+def _shootout_wrong_player(fixture: PromptFixture) -> dict:
+    options = _prompt(fixture).options
+    side = options.owed()[0]
+    return {
+        "side": side,
+        "player_id": _not_offered(options.for_side(side), _everybody(fixture.match)),
+    }
+
+
+def _restart_for_the_other_side(fixture: PromptFixture) -> dict:
+    """A side whose order is complete has nothing to start over."""
+    match = fixture.match
+    options = _prompt(fixture).options
+    side = options.owed()[0]
+    for player_id in options.for_side(side):
+        match.add_to_shootout_order(side, player_id)
+    return {"side": side}
+
+
+def _defender_on_the_ball(fixture: PromptFixture) -> dict:
+    match = fixture.match
+    walker = match.setup_for_side(match.defending_side()).field_players[0]
+    match.board.remove_meeple(walker)
+    match.board.place_meeple(walker, match.ball.zone, match.ball.space_index)
+    return {"player_id": None}
+
+
+def _card_not_in_hand(fixture: PromptFixture) -> dict:
+    hand = _prompt(fixture).options.hands[0]
+    return {"side": hand.side, "maneuver_key": "no_such_card"}
+
+
+def _ai_side_s_shot(fixture: PromptFixture) -> dict:
+    fixture.game = build_game(player_2_id=None)
+    match = fixture.match
+    match.pending_action = None
+    match.active_player_id = None
+    match.ball.possession = TeamSide.VISITING
+    handler = match.visiting.field_players[0]
+    match.board.remove_meeple(handler)
+    match.board.place_meeple(handler, match.ball.zone, match.ball.space_index)
+    match.select_ball_handler(handler)
+    match.pending_action = "shoot"
+    return {}
+
+
+def _wrong_speed(fixture: PromptFixture) -> dict:
+    return {"target_speed": 99}
+
+
+def _three_space_advance(fixture: PromptFixture) -> dict:
+    return {"distance": 3}
+
+
+def _wrong_shooter(fixture: PromptFixture) -> dict:
+    options = _prompt(fixture).options
+    return {
+        "shooter_id": _not_offered(options.player_ids, _everybody(fixture.match)),
+    }
+
+
+def _wrong_receiver(fixture: PromptFixture) -> dict:
+    option = _prompt(fixture).options.passes[0]
+    return {
+        "distance": option.distance,
+        "receiver_id": _not_offered(option.receiver_ids, _everybody(fixture.match)),
+    }
+
+
+#: For every kind the driver answers and every choice it offers, an
+#: answer of that choice the position refuses -- built off the prompt's
+#: options as the wrong thing: a player the prompt does not offer, a
+#: distance off the field, the other side's window, a rail the tutorial
+#: has fixed. `None` where the choice takes nothing the position could
+#: refuse (a roll is the button either coach may press; the tutorial's
+#: Continue holds nothing), so the wrong-kind refusal is the whole of
+#: what can go wrong with it.
+#:
+#: **Every pair has a row**, which `test_every_choice_has_a_refusal`
+#: asserts against `driver.ANSWERS` and `driver.CHOICES`; each refusal
+#: leaves the match byte for byte as it was, which is
+#: `test_a_refused_choice_changes_nothing`. The builder may finish the
+#: fixture's position first (a handler stood up, a rail put on), and
+#: the snapshot is taken after it has.
+REFUSED_ACTIONS = {
+    (PromptKind.TUTORIAL_CONTINUE, ""): None,
+    (PromptKind.SETUP_PASS_PUSH_BACK, ""): _wrong_distance,
+    (PromptKind.BALL_HANDLER_SELECTION, ""): _wrong_player,
+    (PromptKind.RUN_BACK_PLAYER, ""): _wrong_player,
+    (PromptKind.RUN_BACK_SPACE, ""): lambda fixture: {"space_index": 99},
+    (PromptKind.BALL_RECOVERY, ""): _wrong_player,
+    (PromptKind.LOOSE_BALL_PICK, "send"): _wrong_player,
+    (PromptKind.LOOSE_BALL_PICK, "decline"): _decline_with_somebody_on_the_ball,
+    (PromptKind.SET_UP_ATTEMPT, "take"): None,
+    (PromptKind.SET_UP_ATTEMPT, "decline"): _railed_set_up_decline,
+    (PromptKind.SHOOTER_CHOICE, ""): _wrong_shooter,
+    (PromptKind.SMOOTH, "take"): _wrong_side_player,
+    (PromptKind.SMOOTH, "decline"): _wrong_side_player,
+    (PromptKind.OWN_GOAL_ROLL, "roll"): None,
+    (PromptKind.OWN_GOAL_ROLL, "overdrive"): _wrong_overdrive,
+    (PromptKind.PLAYER_ACTION, "shoot"): _shot_out_of_range,
+    # A maneuver is always on: the position refuses it by kind alone.
+    (PromptKind.PLAYER_ACTION, "maneuver"): None,
+    (PromptKind.PLAYER_ACTION, "time_out"): _time_out_in_the_last_minute,
+    (PromptKind.COACHING_OFFER, "declare"): _other_side_s_window,
+    (PromptKind.COACHING_OFFER, "decline"): _other_side_s_offer_decline,
+    (PromptKind.COACHING_HUB, "formation"): _formation_off_the_board,
+    (PromptKind.COACHING_HUB, "substitute"): _substitute_from_the_field,
+    (PromptKind.COACHING_HUB, "swap"): _swap_inside_a_zone,
+    (PromptKind.COACHING_HUB, "reposition"): _reposition_off_the_zone,
+    (PromptKind.COACHING_HUB, "done"): _other_side_s_window,
+    (PromptKind.SHOOTOUT_ORDER, "send"): _shootout_wrong_player,
+    (PromptKind.SHOOTOUT_ORDER, "restart"): _restart_for_the_other_side,
+    (PromptKind.SHOOTOUT_PICK, ""): _shootout_wrong_player,
+    (PromptKind.MANEUVER_CHALLENGE, "send"): _wrong_player,
+    (PromptKind.MANEUVER_CHALLENGE, "decline"): _defender_on_the_ball,
+    (PromptKind.MANEUVER_ACTION, ""): _card_not_in_hand,
+    (PromptKind.INJURY_TEST, "roll"): _wrong_side_player,
+    (PromptKind.INJURY_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.MIND_PULL, "take"): _wrong_side_player,
+    (PromptKind.MIND_PULL, "decline"): _wrong_side_player,
+    (PromptKind.HALFTIME_EXTRA_TOKEN, ""): _wrong_player,
+    (PromptKind.SKILL_TEST, "roll"): None,
+    (PromptKind.SKILL_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.LOOSE_BALL_SKILL_TEST, "roll"): None,
+    (PromptKind.LOOSE_BALL_SKILL_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.SCORE_ATTEMPT, "roll"): None,
+    (PromptKind.SCORE_ATTEMPT, "back"): _ai_side_s_shot,
+    (PromptKind.SCORE_ATTEMPT, "overdrive"): _wrong_overdrive,
+    (PromptKind.SHOOTOUT_TEST, "roll"): None,
+    (PromptKind.SHOOTOUT_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.LOW_PASS_CHOICE, ""): _wrong_receiver,
+    (PromptKind.HIGH_PASS_CHOICE, ""): _wrong_distance,
+    (PromptKind.SETUP_PASS_CHOICE, ""): _wrong_distance,
+    (PromptKind.SPEED_DELTA_CHOICE, ""): _wrong_speed,
+    (PromptKind.DRIBBLE_ADVANCE_CHOICE, ""): _three_space_advance,
+    (PromptKind.DRIBBLE_BURST_CHOICE, ""): _wrong_distance,
+}
+
+
+class RefusedChoiceTests(ApplyFixture):
+    """
+    Every choice every kind offers, refused by the position and leaving
+    it untouched -- the second half of `test_a_refused_action_changes_nothing`,
+    which covers only the two refusals `answer` makes before an adapter
+    runs. Since step 6 of docs/architecture-migration.md every rule a
+    button held is the adapter's, and this is where that is measured.
+    """
+
+    def test_every_choice_has_a_refusal(self) -> None:
+        pairs = {
+            (kind, choice)
+            for kind in driver.ANSWERS
+            if kind not in UNANSWERABLE
+            for choice in driver.CHOICES.get(kind, ("",))
+        }
+        self.assertEqual(set(REFUSED_ACTIONS), pairs)
+
+    def test_a_refused_choice_changes_nothing(self) -> None:
+        for case, kind in _answerable_cases():
+            for choice in driver.CHOICES.get(kind, ("",)):
+                build = REFUSED_ACTIONS[(kind, choice)]
+                if build is None:
+                    continue
+                with self.subTest(case=case.name, choice=choice or "-"):
+                    fixture = case.build()
+                    arguments = build(fixture)
+                    self.assertIs(
+                        pending_prompt(ENGINE, fixture.game, fixture.match).kind,
+                        kind,
+                        "the builder moved the fixture off its prompt",
+                    )
+                    before = fixture.match.to_dict()
+                    outcome = driver.apply(
+                        ENGINE, fixture.game, fixture.match,
+                        driver.Action(kind, choice, arguments),
+                    )
+                    self.assertIsInstance(outcome, driver.Refusal, outcome)
+                    self.assertTrue(outcome.reason)
+                    self.assertEqual(fixture.match.to_dict(), before)
+
+
+class ButtonRuleTests(ApplyFixture):
+    """
+    The rules a disabled button used to hold alone, now refused by the
+    adapter (finding 3 of docs/web-app.md; step 6 of the migration).
+    Each refusal leaves the match untouched.
+    """
+
+    def test_a_substitution_past_the_allowance_is_refused(self) -> None:
+        fixture = _case("coaching hub")
+        match = fixture.match
+        side = match.pending_coaching_side
+        setup = match.setup_for_side(side)
+        # Spend the window's allowance through the same door.
+        while match.may_substitute():
+            run = driver.apply(
+                ENGINE, fixture.game, match,
+                driver.Action(
+                    PromptKind.COACHING_HUB, "substitute",
+                    {
+                        "side": side,
+                        "outgoing_player_id": setup.field_players[0],
+                        "incoming_player_id": match.substitution_pool(side)[0],
+                    },
+                ),
+            )
+            self.assertIsInstance(run, driver.DriverRun)
+        refusal = _refused(
+            fixture,
+            driver.Action(
+                PromptKind.COACHING_HUB, "substitute",
+                {
+                    "side": side,
+                    "outgoing_player_id": setup.field_players[0],
+                    "incoming_player_id": match.substitution_pool(side)[0],
+                },
+            ),
+        )
+        self.assertIn("No substitutions left", refusal.reason)
+
+    def test_a_swap_inside_one_zone_is_refused(self) -> None:
+        """A swap that moves nobody is not a swap (the author,
+        2026-09-21)."""
+        fixture = _case("coaching hub")
+        match = fixture.match
+        side = match.pending_coaching_side
+        zones = match.setup_for_side(side).zones
+        first, second = next(
+            players for players in zones.values() if len(players) >= 2
+        )[:2]
+        refusal = _refused(
+            fixture,
+            driver.Action(
+                PromptKind.COACHING_HUB, "swap",
+                {"side": side, "player_id": first, "other_player_id": second},
+            ),
+        )
+        self.assertIn("same zone", refusal.reason)
+
+    def test_an_ai_side_s_shot_is_never_walked_back(self) -> None:
+        """
+        Not a rule of the game but a feature of how the AI plays: it
+        does not misclick (the author, 2026-09-21). The visiting side
+        is Dinky's in a solo game, so its shot is the fixture's with
+        the ball turned over.
+        """
+        fixture = _case("score attempt")
+        fixture.game = build_game(player_2_id=None)
+        match = fixture.match
+        match.pending_action = None
+        match.active_player_id = None
+        match.ball.possession = TeamSide.VISITING
+        handler = match.visiting.field_players[0]
+        match.board.remove_meeple(handler)
+        match.board.place_meeple(handler, match.ball.zone, match.ball.space_index)
+        match.select_ball_handler(handler)
+        match.pending_action = "shoot"
+        self.assertTrue(ENGINE.side_is_ai(fixture.game, TeamSide.VISITING))
+        self.assertIs(
+            pending_prompt(ENGINE, fixture.game, match).kind,
+            PromptKind.SCORE_ATTEMPT,
+        )
+        refusal = _refused(
+            fixture, driver.Action(PromptKind.SCORE_ATTEMPT, "back"),
+        )
+        self.assertIn("shot stands", refusal.reason)
+
+    def test_declining_a_challenge_a_defender_on_the_ball_owes_is_refused(
+        self,
+    ) -> None:
+        fixture = _case("maneuver challenge")
+        match = fixture.match
+        defender = match.defending_side()
+        walker = match.setup_for_side(defender).field_players[0]
+        match.board.remove_meeple(walker)
+        match.board.place_meeple(walker, match.ball.zone, match.ball.space_index)
+        self.assertFalse(match.may_decline_challenge())
+        refusal = _refused(
+            fixture, driver.Action(PromptKind.MANEUVER_CHALLENGE, "decline"),
+        )
+        self.assertEqual(
+            refusal.reason, "A defender on the ball's space has to challenge.",
+        )
 
     def test_an_illegal_space_is_refused_with_the_step_s_own_reason(
         self,

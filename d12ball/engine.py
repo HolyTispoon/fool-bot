@@ -44,6 +44,7 @@ from typing import Optional
 
 from d12ball.ai import AIStrategy
 from d12ball.components import (
+    BALL_SPEED_MAX,
     DRIBBLE_BURST_MAX_DISTANCE,
     SETUP_PASS_DISTANCES,
     SETUP_PASS_FULLBACK_DISTANCE,
@@ -1877,6 +1878,59 @@ class RulesEngine:
         handler = self.get_player_definition(match.active_player_id)
         max_distance = 4 if handler.role == PlayerRole.FULLBACK else 3
         return match.high_pass_distances(match.ball.possession, max_distance)
+
+    def setup_pass_push_back_distances(self, match: MatchState) -> list[int]:
+        """
+        How much further back a beaten Setup Pass may be driven: 1, 2 or
+        3, less any that would run off the end of the field -- for the
+        reason `high_pass_distances` does not offer those: a longer push
+        landing where a shorter one already would is the same push
+        described twice.
+
+        Was `d12ball.flow.effects.setup_pass_push_back_distances` until
+        step 6 of docs/architecture-migration.md; here beside the other
+        candidate lists so the prompt's options can be built from it.
+        """
+        offense_side = match.ball.possession
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        return [
+            distance
+            for distance in (1, 2, 3)
+            if abs(
+                match.relative_flat_index(origin_flat, offense_side, -distance)
+                - origin_flat
+            )
+            == distance
+        ]
+
+    def speed_targets(
+        self,
+        match: MatchState,
+        player_id: str,
+        skill_type: str,
+    ) -> list[int]:
+        """
+        The ball speeds a player's speed manipulation may set: every
+        speed within their skill of the current one, clamped to the
+        ball's range, ascending. `skill_type` says which of their two
+        skills is the reach -- the offense's on a dribble or a Setup
+        Pass, the defense's on a steal.
+
+        **One computation**, since step 6 of
+        docs/architecture-migration.md: it used to be written in the
+        driver, the view (with a hard-coded 12) and the full-game
+        policy, and the three could only agree by care.
+        """
+        skill = self.player_catalog.effective_profile(
+            self.get_player_definition(player_id),
+        )
+        reach = skill.offense if skill_type == "offense" else skill.defense
+        return sorted({
+            max(1, min(BALL_SPEED_MAX, match.ball.speed + delta))
+            for delta in range(-reach, reach + 1)
+        })
 
     def high_pass_receiver_candidates(
         self,

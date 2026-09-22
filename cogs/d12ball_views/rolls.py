@@ -47,9 +47,10 @@ class SkillTestView(SafeView):
         # declared before the die and on this same message. Both sides
         # may be, and each is their own coach's to press.
         game, match = self.load_match()
-        if game is not None and match is not None:
+        options = self.prompt_options(game, match, PromptKind.SKILL_TEST)
+        if options is not None:
             self.add_overdrive_buttons(
-                game, match, [match.active_player_id, match.challenger_id],
+                game, match, options.overdrive_player_ids,
             )
 
     async def roll(self, interaction: discord.Interaction) -> None:
@@ -186,8 +187,11 @@ class InjuryTestView(SafeView):
         # drain to pass is also three more drain to have passed with.
         # That trade is the coach's to make.
         game, match = self.load_match()
-        if game is not None and match is not None:
-            self.add_overdrive_buttons(game, match, [player_id])
+        options = self.prompt_options(game, match, PromptKind.INJURY_TEST)
+        if options is not None:
+            self.add_overdrive_buttons(
+                game, match, options.overdrive_player_ids,
+            )
 
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
@@ -251,9 +255,10 @@ class OwnGoalRollView(SafeView):
 
         # Overdrive, for the handler who has to survive the roll.
         game, match = self.load_match()
-        if game is not None and match is not None:
+        options = self.prompt_options(game, match, PromptKind.OWN_GOAL_ROLL)
+        if options is not None:
             self.add_overdrive_buttons(
-                game, match, [match.active_player_id],
+                game, match, options.overdrive_player_ids,
             )
 
     async def roll(self, interaction: discord.Interaction) -> None:
@@ -312,23 +317,19 @@ class ScoreAttemptView(SafeView):
         # die is the defensive wall's and belongs to no card, so there
         # is nobody on that side to declare it.
         game, match = self.load_match()
-        if game is not None and match is not None:
+        options = self.prompt_options(game, match, PromptKind.SCORE_ATTEMPT)
+        if options is not None:
             self.add_overdrive_buttons(
-                game, match, [match.active_player_id],
+                game, match, options.overdrive_player_ids,
             )
 
-        # A shot not yet rolled always has somewhere to walk back to --
-        # see `MatchState.may_cancel_pending_shot` -- and only the side
-        # that chose it may reconsider. No `possession_user_id` means
-        # Dinky is the one shooting, which is not a choice a human
-        # standing in for its rolls gets to undo either (see "Every
-        # roll is a coach's" in docs/design/maneuvers.md).
-        if (
-            game is not None
-            and match is not None
-            and match.may_cancel_pending_shot()
-            and cog.engine.possession_user_id(game, match) is not None
-        ):
+        # A shot not yet rolled always has somewhere to walk back to,
+        # and only a coach's own shot is walked back: an AI side's
+        # stands, and a human standing in for its rolls does not get
+        # to undo its choice either (see "Every roll is a coach's" in
+        # docs/design/maneuvers.md). Both are the prompt's `back`,
+        # and `rolls.retract_shot_step` refuses off the same reading.
+        if options is not None and options.back:
             back = discord.ui.Button(
                 label="Back",
                 style=discord.ButtonStyle.secondary,
@@ -339,12 +340,7 @@ class ScoreAttemptView(SafeView):
                 # is railing this same choice (Back leads straight back
                 # to that view's decline), and the scripted goal at the
                 # end of beat 5 depends on nobody reaching it.
-                disabled=(
-                    match.pending_shot_is_set_up
-                    and cog.tutorial_railed_option(
-                        game, "setup_attempt", ("attempt", "decline"),
-                    ) == "attempt"
-                ),
+                disabled=options.back_railed,
             )
             back.callback = self.back
             self.add_item(back)

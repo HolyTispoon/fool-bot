@@ -7,6 +7,11 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 Two people develop on this repo in parallel, on different machines and
 different operating systems.
 
+- **Every task starts on a fresh branch off an up-to-date `main`.** Pull
+  `main` fast-forward first, then branch; never edit on `main`, and never
+  continue on the previous task's branch -- it is usually merged already
+  (so the new work would sit on a stale base) or still in review (so the
+  new work would land in somebody else's PR).
 - **Never force-push a branch that has been pushed.** The other developer may
   have it checked out and be testing against it.
 - Feature branches are short-lived and land on `main` via a pull request. Don't

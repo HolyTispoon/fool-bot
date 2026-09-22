@@ -72,8 +72,7 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Optional, Union
 
-from d12ball import tutorial
-from d12ball.components import BALL_SPEED_MAX, MatchState, TeamSide
+from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.engine import RulesEngine
 from d12ball.flow import (
     arrivals,
@@ -88,7 +87,13 @@ from d12ball.flow import (
 )
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.game import D12BallGame
-from d12ball.prompts import PendingPrompt, PromptKind, pending, pending_prompt
+from d12ball.prompts import (
+    PendingPrompt,
+    PromptKind,
+    pending,
+    pending_prompt,
+    with_options,
+)
 
 
 def _begin_maneuver_action_selection(
@@ -467,6 +472,12 @@ def advance(
             )
             narration = []
 
+    if isinstance(following, PendingPrompt):
+        # The step's own prompt, with what it offers built off the
+        # position it left -- so a frontend that renders `next`
+        # rather than re-reading the chain holds the same list.
+        following = with_options(engine, game, match, following)
+
     return DriverRun(
         result=StepResult(
             narration=narration,
@@ -637,17 +648,17 @@ STEP_OWED = (
 
 def _refuse(reason: str) -> None:
     """A refusal from inside an answer: `answer` turns it into one."""
-    raise ValueError(reason)
+    raise RuleRefusal(reason)
 
 
-def _rail(game: D12BallGame, key: str, options, chosen) -> None:
+def _rail(railed, chosen) -> None:
     """
     Refuse `chosen` where the tutorial's script rails this choice onto
-    another of `options`. Every rail a view greys buttons for is asked
-    again here, because the prompt may be an old one still sitting in
-    the channel -- see `tutorial.resolve_choice`.
+    `railed`, which the prompt's options carry. Every rail a view greys
+    buttons for is asked again here, because the prompt may be an old
+    one still sitting in the channel -- see `tutorial.resolve_choice`,
+    which the options were built with.
     """
-    railed = tutorial.resolve_choice(turn.tutorial_beat(game), key, options)
     if railed is not None and chosen != railed:
         _refuse(
             "The tutorial is on one step of a single continuous game, "
@@ -753,12 +764,11 @@ def _answer_loose_ball_pick(
     if skill_type is not None and skill_type != prompt.skill_type:
         _refuse("That side has already answered.")
     if choice == "decline":
-        refusal = arrivals.loose_ball_decline_refusal(match, prompt.skill_type)
-        if refusal is not None:
-            _refuse(refusal)
-        if tutorial.resolve_choice(
-            turn.tutorial_beat(game), "loose_ball_decline", ("never",),
-        ) == "never":
+        if not prompt.options.may_decline:
+            _refuse(
+                arrivals.loose_ball_decline_refusal(match, prompt.skill_type),
+            )
+        if prompt.options.decline_railed:
             _refuse(
                 "This step of the tutorial is about fighting for a "
                 "loose ball -- send somebody after it."
@@ -766,7 +776,7 @@ def _answer_loose_ball_pick(
         return arrivals.decline_loose_ball_contest(
             engine, game, match, skill_type=prompt.skill_type,
         )
-    if player_id not in engine.loose_ball_candidates(match, prompt.side):
+    if player_id not in prompt.options.player_ids:
         _refuse("That player cannot be sent after the ball from here.")
     return arrivals.choose_loose_ball_contestant(
         engine,
@@ -797,7 +807,7 @@ def _answer_set_up_attempt(
     if choice == "decline":
         # The tutorial ends on this shot, so declining it would end
         # the script on a pass and no goal.
-        _rail(game, "setup_attempt", ("attempt", "decline"), "decline")
+        _rail(prompt.options.railed, "decline")
         return arrivals.decline_scoring_attempt(
             engine,
             game,
@@ -824,7 +834,7 @@ def _answer_shooter_choice(
     shooter_id: str,
 ) -> StepResult:
     """Which of several candidates takes the shot."""
-    if shooter_id not in prompt.player_ids:
+    if shooter_id not in prompt.options.player_ids:
         _refuse("That player cannot take the shot from here.")
     return arrivals.take_scoring_opportunity(
         engine, game, match, shooter_id=shooter_id,
@@ -928,7 +938,7 @@ def _answer_coaching_hub(
     if choice == "done":
         return windows.finish_coaching_step(engine, game, match, side=side)
     if choice == "formation":
-        if formation not in engine.available_formations(match):
+        if formation not in prompt.options.formations:
             _refuse("That formation is not played on this board.")
         return StepResult(
             narration=[engine.apply_formation(match, side, formation)],
@@ -1044,7 +1054,7 @@ def _answer_game_over(
     an action on this one. A row here so every kind has an answer,
     and it refuses.
     """
-    raise ValueError("This game is over; nothing more is asked of it.")
+    raise RuleRefusal("This game is over; nothing more is asked of it.")
 
 
 def _answer_setup_pass_push_back(
@@ -1057,7 +1067,7 @@ def _answer_setup_pass_push_back(
     distance: int,
 ) -> StepResult:
     """Setup Pass's cost, spent: how much further back the ball goes."""
-    if distance not in effects.setup_pass_push_back_distances(match):
+    if distance not in prompt.options.distances:
         _refuse("That push runs off the end of the field.")
     return effects.setup_pass_push_back_step(
         engine, game, match, distance=distance,
@@ -1091,7 +1101,7 @@ def _answer_player_action(
     """
     refusal = turn.turn_action_refusal(engine, game, match, choice)
     if refusal is not None:
-        raise ValueError(refusal)
+        raise RuleRefusal(refusal)
     if choice == "time_out":
         return windows.begin_time_out(engine, game, match)
     if choice == "shoot":
@@ -1116,19 +1126,30 @@ def _answer_maneuver_challenge(
     Phase 4 -- three ways to make one pick, one step.
     """
     if choice == "decline":
+        # **Whether the challenge is the defense's to refuse is asked
+        # here**, ahead of the step: a defender already on the ball
+        # pays no walk-in and so cannot decline to, and a side with
+        # nobody to send has no choice at all. `may_decline_challenge`
+        # is the rule and the view's Send nobody button is built from
+        # the prompt's options (step 6 of docs/architecture-migration.md).
+        if not prompt.options.may_decline:
+            _refuse(
+                "A defender on the ball's space has to challenge."
+                if match.automatic_challengers()
+                else "The defense has nobody to send; the maneuver is "
+                "unchallenged on its own."
+            )
         # Railed during the tutorial's beat 3: the coach has nobody
         # standing near the ball there, and letting Dinky's maneuver
         # through unchallenged would leave nothing for the lesson's
         # Pressure to defend against.
-        if tutorial.resolve_choice(
-            turn.tutorial_beat(game), "challenge_decline", ("never",),
-        ) == "never":
+        if prompt.options.decline_railed:
             _refuse(
                 "This step of the tutorial wants a challenger sent. "
                 "Use the prompt at the bottom of the channel."
             )
         return turn.decline_challenge_step(engine, game, match)
-    if player_id not in match.challenge_candidates():
+    if player_id not in prompt.options.player_ids:
         _refuse("That player cannot challenge from where they stand.")
     return turn.auto_resolve_challenger(engine, game, match, player_id)
 
@@ -1147,7 +1168,7 @@ def _answer_maneuver_action(
     One coach's maneuver, picked.
 
     **The refusal is asked here and raised**, which is what puts it
-    through `answer`'s own `ValueError` door: "you have already chosen",
+    through `answer`'s own `RuleRefusal` door: "you have already chosen",
     a card the tutorial's rail does not want and a card that is not in
     this turn's hand are all rules about the position. Whose account
     may press the button is not, and is answered before this ever runs
@@ -1162,7 +1183,7 @@ def _answer_maneuver_action(
         engine, game, match, side, maneuver_key,
     )
     if refusal is not None:
-        raise ValueError(refusal)
+        raise RuleRefusal(refusal)
     return turn.maneuver_pick_step(
         engine, game, match, side=side, maneuver_key=maneuver_key,
     )
@@ -1239,8 +1260,7 @@ def _answer_halftime_extra_token(
     """
     if side is not None and TeamSide(side) != prompt.side:
         _refuse("That halftime step has already finished.")
-    setup = match.setup_for_side(prompt.side)
-    if player_id not in setup.field_players or player_id in match.injured:
+    if player_id not in prompt.options.player_ids:
         _refuse("That player cannot lose a token here.")
     return periods.halftime_extra_token_step(
         engine, game, match, player_id=player_id,
@@ -1356,6 +1376,10 @@ def _answer_score_attempt(
     does.
     """
     if choice == "back":
+        if prompt.options.back_railed:
+            # A set-up shot the tutorial rails to "attempt": Back
+            # leads straight to that offer's decline.
+            _rail("roll", "back")
         return rolls.retract_shot_step(engine, game, match)
     if choice == "overdrive":
         return _declared_overdrive(engine, game, match, prompt, player_id)
@@ -1401,13 +1425,13 @@ def _answer_low_pass_choice(
     checked against the position: the distances on offer are
     `pass_candidates`', and the receivers `low_pass_receivers`'.
     """
-    key = prompt.maneuver_key or "low_pass"
-    if distance not in {
-        offered for offered, _ in engine.pass_candidates(match, key)
-    }:
+    offered = {
+        option.distance: option for option in prompt.options.passes
+    }
+    if distance not in offered:
         _refuse("That pass is not on offer from where the ball is now.")
     if receiver_id is not None and receiver_id not in (
-        engine.low_pass_receivers(match, distance)
+        offered[distance].receiver_ids
     ):
         _refuse("That player is no longer standing there.")
     return effects.low_pass_step(
@@ -1434,13 +1458,12 @@ def _answer_high_pass_choice(
     distances that fit on the field, and the tutorial's where it rails
     one.
     """
-    distances = engine.high_pass_distance_options(match)
-    if distance not in distances:
+    if distance not in prompt.options.distances:
         _refuse(
             f"A {distance}-space pass runs off the end of the field "
             "from where the ball is now."
         )
-    _rail(game, "high_pass", distances, distance)
+    _rail(prompt.options.railed, distance)
     return effects.high_pass_step(engine, match, distance)
 
 
@@ -1461,7 +1484,7 @@ def _answer_setup_pass_choice(
     makes -- `RulesEngine.setup_pass_distances` empty is what decides
     it, which is why the frontend does not put a menu up for it.
     """
-    distances = engine.setup_pass_distances(match)
+    distances = prompt.options.distances
     if distance is None:
         if distances:
             _refuse("This Setup Pass still has somewhere to go.")
@@ -1495,23 +1518,13 @@ def _answer_speed_delta_choice(
     until Phase 6; it is the same reading, in the one place a second
     frontend can also ask it.
     """
-    skill = engine.player_catalog.effective_profile(
-        engine.get_player_definition(prompt.player_id),
-    )
-    reach = skill.offense if prompt.skill_type == "offense" else skill.defense
-    targets = sorted({
-        max(1, min(BALL_SPEED_MAX, match.ball.speed + delta))
-        for delta in range(-reach, reach + 1)
-    })
+    targets = prompt.options.targets
     if target_speed not in targets:
         _refuse(
             f"The ball's speed can only be set between {targets[0]} and "
             f"{targets[-1]} from here."
         )
-    # The tutorial's speed rail is "take the highest offered" -- the
-    # cap is the stealer's own defensive skill, so the script cannot
-    # name a number.
-    _rail(game, "speed", targets, target_speed)
+    _rail(prompt.options.railed, target_speed)
 
     turnover_occurred = (
         match.defense_maneuver in ("steal", "intercept")
@@ -1536,9 +1549,9 @@ def _answer_dribble_advance_choice(
     distance: int,
 ) -> StepResult:
     """A Playmaker's won Dribble Advance: one space or two."""
-    if distance not in (1, 2):
+    if distance not in prompt.options.distances:
         _refuse("A Dribble Advance is one space or two.")
-    _rail(game, "dribble_advance", (1, 2), distance)
+    _rail(prompt.options.railed, distance)
     return effects.dribble_advance_step(engine, game, match, distance)
 
 
@@ -1552,7 +1565,7 @@ def _answer_dribble_burst_choice(
     distance: int,
 ) -> StepResult:
     """A won Dribble Burst: how far, at a token a space."""
-    if distance not in engine.dribble_burst_distances(match):
+    if distance not in prompt.options.distances:
         _refuse("That distance is no longer available.")
     return effects.dribble_burst_step(engine, game, match, distance)
 
@@ -1650,11 +1663,42 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
 }
 
 
+#: The arguments a *choice* needs that its adapter's signature cannot
+#: say it needs.
+#:
+#: An adapter with several choices takes the union of their arguments,
+#: each defaulted to `None` because a different choice leaves it out
+#: -- the hub's "done" sends nothing and its "reposition" sends a
+#: player and a space. `_argument_mismatch` reads the signature for
+#: the arguments every choice needs and this table for the ones a
+#: particular choice does, so a `None` the adapter would go on to
+#: dereference is refused as missing rather than raised as a
+#: `TypeError` out of `MatchState.position_meeple` (finding 4 of
+#: docs/web-app.md). A kind or choice with no row needs nothing beyond
+#: its signature.
+REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
+    PromptKind.COACHING_HUB: {
+        "formation": ("formation",),
+        "substitute": ("outgoing_player_id", "incoming_player_id"),
+        "swap": ("player_id", "other_player_id"),
+        "reposition": ("player_id", "space_index"),
+    },
+    PromptKind.SHOOTOUT_ORDER: {"send": ("player_id",)},
+    PromptKind.LOOSE_BALL_PICK: {"send": ("player_id",)},
+    PromptKind.MANEUVER_CHALLENGE: {"send": ("player_id",)},
+    # Overdrive is declared by a player, on every roll it can be
+    # declared on.
+    **{kind: {"overdrive": ("player_id",)} for kind in ROLL_KINDS},
+}
+
+
 def _argument_mismatch(action: Action) -> Optional[str]:
     """
     Why this action's arguments do not fit the answer's signature, or
     None. The signature is the contract: every argument an answer takes
-    is keyword-only, so the names are the whole of it.
+    is keyword-only, so the names are the whole of it -- plus
+    `REQUIRED_ARGUMENTS` for what a choice needs of the arguments the
+    signature had to leave optional.
     """
     parameters = inspect.signature(ANSWERS[action.kind]).parameters
     keyword = {
@@ -1667,11 +1711,15 @@ def _argument_mismatch(action: Action) -> Optional[str]:
         return (
             f"This question does not take {', '.join(sorted(unknown))}."
         )
+    required = REQUIRED_ARGUMENTS.get(action.kind, {}).get(action.choice, ())
     missing = [
         name
         for name, parameter in keyword.items()
-        if parameter.default is inspect.Parameter.empty
-        and name not in action.arguments
+        if (
+            parameter.default is inspect.Parameter.empty
+            or name in required
+        )
+        and action.arguments.get(name) is None
     ]
     if missing:
         return f"This answer needs {', '.join(missing)}."
@@ -1748,12 +1796,15 @@ def answer(
     - the kind offers no such answer -- a "decline" on a prompt that
       cannot be declined.
 
-    A third comes from the answer itself: a step raises `ValueError`
+    A third comes from the answer itself: a step raises `RuleRefusal`
     where the position refuses what was chosen (a space that player may
     not take, a side that cannot be held back), and that is a refusal
     with its sentence already written, so it is returned as one rather
-    than left to each frontend to turn into a reply of its own. The
-    three views that catch it today word it exactly this way.
+    than left to each frontend to turn into a reply of its own. **Only
+    that is caught.** A bare `ValueError` -- `TeamSide` built from a
+    bad wire value, an argument the adapter dereferenced as `None` --
+    is the interpreter's sentence and not the position's, and it
+    propagates as the bug it is (finding 4 of docs/web-app.md).
 
     `ANSWERS` covers `PromptKind` exactly, and
     `tests/test_d12ball_driver_actions.py` asserts it, so a kind with
@@ -1790,13 +1841,12 @@ def answer(
             action.choice,
             **dict(action.arguments),
         )
-    except ValueError as refused:
-        # The position itself refusing what was chosen. It arrives as a
-        # `ValueError` because that is how the steps have always said
-        # it -- `MatchState.run_back_player` and its neighbours raise
-        # with the sentence already written -- and a refusal is what it
-        # has always meant. See `loose_ball_decline_refusal`, which is
-        # the same answer asked without applying anything.
+    except RuleRefusal as refused:
+        # The position itself refusing what was chosen --
+        # `MatchState.run_back_player` and its neighbours raise with
+        # the sentence already written. See
+        # `loose_ball_decline_refusal`, which is the same answer asked
+        # without applying anything.
         return Refusal(str(refused), waiting_on=waiting)
 
     if isinstance(answered, tuple):

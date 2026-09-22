@@ -70,16 +70,21 @@ expects.
   shot**: the turn action, the card, the dribble distance, the ball
   speed, the pass distance, the set-up shot, whether a loose ball
   may be waved through, and whether a maneuver challenge may be.
-  `TutorialBeat.choices` is the table and
-  `D12Ball.tutorial_railed_option` is the one question the views ask,
-  so a view adds a rail with one call rather than a branch.
+  `TutorialBeat.choices` is the table, and a rail reaches a view **on
+  the prompt's options** since step 6 of docs/architecture-migration.md
+  -- `railed`, `live`, `decline_railed`, built by `d12ball.prompts`
+  through `tutorial.resolve_choice` over `tutorial.beat_for_game` --
+  so a view greys a button off the same reading the driver refuses off
+  (`_rail`), and asks the tutorial nothing itself.
+  `D12Ball.tutorial_railed_option` was the one question the views used
+  to ask, and went with the change.
   - **A rail names a value, except when it cannot.** The ball speed a
     steal may set is capped by the stealer's own defensive skill, and
     who does the stealing is not something the script fixes -- so
     `CHOICE_MAX` means "the highest offered" and `resolve_choice` takes
-    the option list rather than a single value. That is also why
-    `SpeedDeltaChoiceView` collects its targets before building any
-    button.
+    the option list rather than a single value. That is also why the
+    speed targets are collected (`RulesEngine.speed_targets`) before
+    the rail is resolved.
   - **A rail matching nothing on offer is no rail**, rather than a
     prompt with every button dead. The script and the flow can only
     disagree by mistake, and a coach with nothing to press is a worse

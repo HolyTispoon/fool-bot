@@ -602,6 +602,18 @@ def beat_for_step(step: Optional[int]) -> Optional[TutorialBeat]:
     return None
 
 
+def beat_for_game(game) -> Optional[TutorialBeat]:
+    """
+    The beat a game is on, or None when no rail applies -- an ordinary
+    game, or a tutorial whose script has run out or been skipped.
+    `d12ball.flow.turn.tutorial_beat` and `D12Ball.tutorial_beat` are
+    both this.
+    """
+    if not game.in_tutorial:
+        return None
+    return beat_for_step(game.tutorial_step)
+
+
 def allowed_actions(beat: Optional[TutorialBeat]) -> Optional[tuple[str, ...]]:
     """
     The turn actions a coach may press this beat, or None for no rail.

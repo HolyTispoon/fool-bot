@@ -2269,29 +2269,6 @@ def offer_setup_pass_distance(
     )
 
 
-def setup_pass_push_back_distances(match: MatchState) -> list[int]:
-    """
-    How much further back a beaten Setup Pass may be driven: 1, 2 or
-    3, less any that would run off the end of the field -- for the
-    reason `high_pass_distances` does not offer those: a longer push
-    landing where a shorter one already would is the same push
-    described twice.
-    """
-    offense_side = match.ball.possession
-    origin_flat = match.board.flat_index(
-        match.ball.zone, match.ball.space_index,
-    )
-    return [
-        distance
-        for distance in (1, 2, 3)
-        if abs(
-            match.relative_flat_index(origin_flat, offense_side, -distance)
-            - origin_flat
-        )
-        == distance
-    ]
-
-
 def offer_setup_pass_push_back(
     engine: RulesEngine,
     game: D12BallGame,
@@ -2310,7 +2287,7 @@ def offer_setup_pass_push_back(
     The deflection's own line is the prompt's opening paragraph rather
     than a message above it, which is how the question always read.
     """
-    distances = setup_pass_push_back_distances(match)
+    distances = engine.setup_pass_push_back_distances(match)
 
     if not distances:
         # Named rather than called, so the loop sees the loose ball

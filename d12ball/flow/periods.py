@@ -45,6 +45,7 @@ from d12ball.components import (
     CoachingOccasion,
     MatchPeriod,
     MatchState,
+    RuleRefusal,
     SECOND_HALF_START_MINUTE,
     TeamSide,
     Zone,
@@ -881,7 +882,7 @@ def restart_shootout_order_step(
     other side may already have read it.
     """
     if match.shootout_order_complete(side):
-        raise ValueError(
+        raise RuleRefusal(
             "Your order is already set, and an order cannot be "
             "changed once it is."
         )
@@ -908,7 +909,7 @@ def shootout_pick_step(
     have.
     """
     if match.shootout_shooter(side) is not None:
-        raise ValueError("You have already chosen your shooter.")
+        raise RuleRefusal("You have already chosen your shooter.")
 
     match.set_shootout_shooter(side, player_id)
     player = engine.get_player_definition(player_id)

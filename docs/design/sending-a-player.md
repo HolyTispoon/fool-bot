@@ -88,9 +88,12 @@ nothing downstream has to know which happened.
   to challenge, so there is nothing to weigh and nothing to refuse: they
   challenge, as they always did. `automatic_challengers` is that reading -- it
   is what `begin_uncontested_maneuver` refuses on -- and `may_decline_challenge`
-  is the same fact from the defense's end, asked by `ManeuverChallengeView`
-  before it builds the Send nobody button and by the prompt before it words
-  one.
+  is the same fact from the defense's end, asked by the prompt before it words
+  one and, since step 6 of docs/architecture-migration.md, by
+  `driver._answer_maneuver_challenge` before it declines: the Send nobody
+  button is built from the prompt's `SendOptions.may_decline`, and a
+  decline the position does not offer is refused by the adapter rather
+  than only by the button not being there.
   - **Skipping the prompt is a count, not a flag.** `choose_action` applies the
     challenge unasked only when there is exactly **one** of them. Two is the
     defending coach's pick (the author, 2026-08-17), because a challenge is

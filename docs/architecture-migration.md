@@ -86,15 +86,15 @@ that commit.
 
 ### Rules enforced only by a button
 
-- `may_substitute` (`coaching.py:363`), `may_decline_challenge`
+- ~~`may_substitute` (`coaching.py:363`), `may_decline_challenge`
   (`turn.py:533`) and the same-zone swap filter (`coaching.py:756`)
   are checked when the buttons are built and nowhere in the driver.
-  The model accepts the illegal answer.
-- Option lists the view computes and the driver re-derives: the
+  The model accepts the illegal answer.~~ Step 6.
+- ~~Option lists the view computes and the driver re-derives: the
   push-back distances (`effects.py:453`, duplicating
   `setup_pass_push_back_distances`), the speed targets
   (`effects.py:968`), the halftime extra-token candidates, the hub's
-  four sub-menus.
+  four sub-menus.~~ Step 6: `PendingPrompt.options`.
 
 ### Setup and the lobby are outside the model
 
@@ -142,8 +142,10 @@ that commit.
 The architecture's migration order, mapped onto this code. Each step
 leaves the bot playable and the three goldens byte-identical unless
 the step says otherwise. Steps 1 to 4 landed together on the
-`architecture-simplification` branch and step 5 on `owed-step`; what
-they settled is in [docs/design/game-service.md](design/game-service.md).
+`architecture-simplification` branch, step 5 on `owed-step` and step
+6 on `step-6`; what they settled is in
+[docs/design/game-service.md](design/game-service.md) and, for step
+6, [docs/design/model-discord-split.md](design/model-discord-split.md).
 
 ### 1. `GameService` and `GameResult` -- done (this branch)
 
@@ -230,7 +232,7 @@ save (the first is `begin`'s, the second runs inside the whistle).
 `tests/test_d12ball_game_service_resume.py` resumes every fixture
 with no cog imported. The goldens did not change.
 
-### 6. Rules a button holds move into the adapters -- next
+### 6. Rules a button holds move into the adapters -- done (`step-6`)
 
 `may_substitute` into `apply_substitution`, `may_decline_challenge`
 into `_answer_maneuver_challenge`, the same-zone swap into
@@ -244,6 +246,42 @@ waits on nothing but the roll. `PendingPrompt` grows `options` per kind (proposa
 of `docs/web-app.md`) so a view, the web app and the full-game
 policy read the same list. One refuse-leaves-unchanged test per kind
 per choice.
+
+What landed, in three commits. `RuleRefusal` (a `ValueError`
+subclass, in `components.py`) is the one refusal channel: the
+`MatchState` mutators, the flow and the adapters raise it,
+`driver.answer` and the two cog catch sites catch it and nothing
+else, so a `TypeError` or a `TeamSide` built from a bad wire value
+is a bug again (finding 4); `driver.REQUIRED_ARGUMENTS` names what
+each *choice* needs of the arguments its adapter had to leave
+optional, so a hub `reposition` with no `space_index` is refused as
+missing. The four rules moved as above. `PendingPrompt.options` is a
+dataclass per shape (`PlayerOptions`, `SendOptions`,
+`DistanceOptions`, `ManeuverOptions`, `RollOptions`,
+`CoachingHubOptions`, `ShootoutOptions` and their neighbours in
+`d12ball/prompts.py`), built once by `pending` through the `OPTIONS`
+table and attached by `driver.advance` to a step's own `next` prompt
+through `with_options`, so a frontend that renders `next` and one
+that re-reads the chain hold one list; every adapter checks the
+action against it, every view builds its buttons from it
+(`SafeView.prompt_options`), and the full-game `Policy` and
+`LEGAL_ACTIONS` read it and nothing off the match. The speed targets
+are `RulesEngine.speed_targets` and the push back
+`RulesEngine.setup_pass_push_back_distances`; `OVERDRIVE_ROLLERS`
+is `prompts.py`'s; `D12Ball.tutorial_railed_option` and
+`D12Ball.tutorial_beat` are gone, since a rail reaches a view on the
+prompt. `tests/test_d12ball_driver_actions.REFUSED_ACTIONS` is a
+refused answer per kind per choice, forty-three of them, each leaving
+the match byte for byte. The goldens did not change.
+
+**Two positions the one chain misread were found by the policy
+walking them for the first time**, and read right in the same
+commit: the speed step a Pressure that beats a Dribble Burst owes
+the defense (the chain named `BEGIN_EFFECT_RESOLUTION` again, so a
+resume there would have replayed the pressure), and whose the
+steal's speed step is when a Smooth took the ball over during the
+run back (`pending_run_back_stays_player_id`, as `finish_run_back`
+hands it on, not the challenger). Neither is a rules change.
 
 ### 7. The AI chooses an `Action` -- next, its own PR
 

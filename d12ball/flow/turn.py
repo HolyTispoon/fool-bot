@@ -36,6 +36,7 @@ from d12ball.components import (
     EVENT_SKILL_TEST,
     EVENT_TURN_ACTION,
     MatchState,
+    RuleRefusal,
     SPECIES_CYBORG,
 )
 from d12ball.engine import RulesEngine
@@ -748,9 +749,7 @@ def tutorial_beat(game: D12BallGame):
     cog's is still the one every *view* asks, which is what its own
     docstring is about.
     """
-    if not game.in_tutorial:
-        return None
-    return tutorial.beat_for_step(game.tutorial_step)
+    return tutorial.beat_for_game(game)
 
 
 def scripted_or_random(
@@ -1038,7 +1037,7 @@ def start_turn(
 
     eligible_handlers = engine.turn_handler_candidates(game, match)
     if not eligible_handlers:
-        raise ValueError(
+        raise RuleRefusal(
             "The team in possession has no player in the ball's space."
         )
     carrying = match.ball_carrier_id in eligible_handlers

@@ -8,11 +8,10 @@ import discord
 from math import ceil
 from typing import Optional, TYPE_CHECKING
 
-from d12ball import tutorial
 from d12ball.flow import FollowOn, FollowOnStep
 from d12ball.flow.driver import Action
 from d12ball.flow.turn import turn_action_refusal
-from d12ball.prompts import PromptKind
+from d12ball.prompts import ManeuverHand, PromptKind
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MatchState,
@@ -45,18 +44,20 @@ class BallHandlerSelectionView(SafeView):
         self.cog = cog
         self.game_id = game_id
         game, match = self.load_match()
-        if game is None:
+        options = self.prompt_options(
+            game, match, PromptKind.BALL_HANDLER_SELECTION,
+        )
+        if options is None:
             return
 
-        # Not eligible_ball_handlers: a ball carrier narrows this to
+        # The prompt's candidates -- `turn_handler_candidates`, not
+        # `eligible_ball_handlers`: a ball carrier narrows this to
         # one button, which is the rule showing up as a menu with no
         # choice in it. send_turn_prompt normally skips the view
-        # entirely in that case; this is the restore path.
-        #
-        # Through the engine, so a Telekinetic standing on the ball
-        # gets a button of their own -- see "Mind Pull (Telekinetic)"
-        # in the living rules.
-        for player_id in cog.engine.turn_handler_candidates(game, match):
+        # entirely in that case; this is the restore path. A
+        # Telekinetic standing on the ball gets a button of their own
+        # -- see "Mind Pull (Telekinetic)" in the living rules.
+        for player_id in options.player_ids:
             player = self.cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
                 label=player_with_role(player)[:80],
@@ -139,55 +140,36 @@ class PlayerActionView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
-        game = cog.games.get(game_id)
-        can_shoot = True
-        can_time_out = False
-        if game is not None and game.match_state is not None:
-            match = cog.engine.load_match_state(game)
-            can_shoot = match.can_attempt_score()
-            can_time_out = match.may_call_time_out()
+        game, match = self.load_match()
+        options = self.prompt_options(game, match, PromptKind.PLAYER_ACTION)
+        # The prompt's `TurnOptions`: which of the three the position
+        # offers, in its order, and which the tutorial leaves live. A
+        # view built with no position to read gets the turn's two.
+        offered = options.actions if options is not None else (
+            "maneuver", "shoot",
+        )
+        live = options.live if options is not None else offered
 
-        actions = [
-            (
-                "Maneuver",
-                "maneuver",
-                discord.ButtonStyle.primary,
-            ),
-        ]
-        if can_shoot:
-            actions.append(
-                (
-                    "Shoot to score",
-                    "shoot",
-                    discord.ButtonStyle.danger,
-                ),
-            )
-        if can_time_out:
-            # Grey, and last: it is what a coach does when there is
-            # nothing worth playing, and it should never sit beside
-            # Maneuver as an equal.
-            actions.append(
-                (
-                    "Time out",
-                    "time_out",
-                    discord.ButtonStyle.secondary,
-                ),
-            )
+        # Grey, and last, for the time out: it is what a coach does
+        # when there is nothing worth playing, and it should never sit
+        # beside Maneuver as an equal.
+        buttons = {
+            "maneuver": ("Maneuver", discord.ButtonStyle.primary),
+            "shoot": ("Shoot to score", discord.ButtonStyle.danger),
+            "time_out": ("Time out", discord.ButtonStyle.secondary),
+        }
 
         # A tutorial beat names the one action it wants pressed, and
         # the rest are built **disabled** rather than left out: a coach
         # should see that shooting and the time out exist and read in
         # the lesson why neither is theirs yet. See d12ball/tutorial.py.
-        allowed = tutorial.allowed_actions(
-            self.cog.tutorial_beat(game) if game is not None else None
-        )
-
-        for label, action, style in actions:
+        for action in offered:
+            label, style = buttons[action]
             button = discord.ui.Button(
                 label=label,
                 style=style,
                 custom_id=f"d12ball:action:{game_id}:{action}",
-                disabled=allowed is not None and action not in allowed,
+                disabled=action not in live,
             )
 
             async def callback(
@@ -472,10 +454,13 @@ class ManeuverChallengeView(SafeView):
         self.game_id = game_id
 
         game, match = self.load_match()
-        if game is None:
+        options = self.prompt_options(
+            game, match, PromptKind.MANEUVER_CHALLENGE,
+        )
+        if options is None:
             return
 
-        for player_id in match.challenge_candidates():
+        for player_id in options.player_ids:
             player = self.cog.engine.get_player_definition(player_id)
             distance = match.distance_to_ball(player_id)
             button = discord.ui.Button(
@@ -498,11 +483,12 @@ class ManeuverChallengeView(SafeView):
             button.callback = callback
             self.add_item(button)
 
-        # Asked rather than assumed: this view is normally only built
-        # where the choice is real, but a restart can re-attach it to a
-        # prompt saved with a defender standing on the ball -- and that
-        # challenge is not the defense's to refuse.
-        if match.may_decline_challenge():
+        # The prompt says whether the challenge is the defense's to
+        # refuse: this view is normally only built where the choice is
+        # real, but a restart can re-attach it to a prompt saved with a
+        # defender standing on the ball, and `may_decline` is false
+        # there. The driver refuses off the same reading.
+        if options.may_decline:
             decline = discord.ui.Button(
                 label="Send nobody",
                 style=discord.ButtonStyle.secondary,
@@ -512,11 +498,7 @@ class ManeuverChallengeView(SafeView):
                 # nobody standing near the ball there, and letting
                 # Dinky's maneuver through unchallenged would leave
                 # nothing for the lesson's Pressure to defend against.
-                disabled=cog.tutorial_railed_option(
-                    cog.games.get(game_id),
-                    "challenge_decline",
-                    ("never",),
-                ) == "never",
+                disabled=options.decline_railed,
             )
             decline.callback = self.decline
             self.add_item(decline)
@@ -699,44 +681,47 @@ class ManeuverActionPromptView(SafeView):
         self.game_id = game_id
 
         game, match = self.load_match()
-        sides = (
-            cog.engine.maneuver_pick_sides(game, match)
-            if game is not None and match is not None
-            else ("offense",)
-        )
-        self.sides = sides
+        options = self.prompt_options(game, match, PromptKind.MANEUVER_ACTION)
+        # The prompt's `ManeuverOptions`: a hand per side on it, picked
+        # or not. A view built with no position to read gets the basic
+        # offense hand.
+        if options is not None:
+            hands = options.hands
+        else:
+            hands = (ManeuverHand(
+                "offense",
+                tuple(
+                    card.key
+                    for card in cog.maneuver_catalog.for_tier(
+                        "offense", MANEUVER_TIER_BASIC,
+                    )
+                ),
+                picked=False,
+            ),)
+        self.sides = tuple(hand.side for hand in hands)
 
         rows: list[list[discord.ui.Button]] = []
 
-        for side in sides:
+        for hand in hands:
+            side = hand.side
             # **The hand is the engine's answer, not the whole
             # catalog**, and it is asked **per side**: a basic game is
             # three cards, an unchallenged maneuver is basic whatever
             # the mode, and a gambit is held only by a coach whose team
             # is behind -- so one row here can be six buttons and the
-            # other three. See `RulesEngine.maneuver_tiers`. Asking
-            # there is what keeps these buttons, the hand image above
-            # them and `pick`'s own check from disagreeing about what a
-            # coach may play.
-            maneuvers = (
-                cog.engine.maneuver_hand(game, match, side)
-                if game is not None and match is not None
-                else cog.maneuver_catalog.for_tier(side, MANEUVER_TIER_BASIC)
-            )
-
-            # A tutorial beat rails the coach onto one card, and the
-            # others are built **disabled** rather than left out -- the
-            # whole point of the lesson is reading what the hand holds.
-            # Dinky's side is never on this prompt at all, so this only
-            # ever narrows a human's. See d12ball/tutorial.py.
-            allowed = (
-                tutorial.allowed_maneuvers(cog.tutorial_beat(game), side)
-                if game is not None
-                else None
-            )
-
+            # other three. See `RulesEngine.maneuver_tiers`, which the
+            # prompt's options are built from -- what keeps these
+            # buttons, the hand image above them and the driver's own
+            # check from disagreeing about what a coach may play.
+            #
+            # A tutorial beat rails the coach onto one card
+            # (`hand.railed`), and the others are built **disabled**
+            # rather than left out -- the whole point of the lesson is
+            # reading what the hand holds. Dinky's side is never on
+            # this prompt at all, so this only ever narrows a human's.
             buttons = []
-            for maneuver in maneuvers:
+            for key in hand.maneuver_keys:
+                maneuver = cog.maneuver_catalog.definition(key)
                 button = discord.ui.Button(
                     label=maneuver.name,
                     # The cards' own two colours, so a coach picks their
@@ -754,14 +739,14 @@ class ManeuverActionPromptView(SafeView):
                         f"{maneuver.key}"
                     ),
                     disabled=(
-                        allowed is not None and maneuver.key not in allowed
+                        hand.railed is not None and key != hand.railed
                     ),
                 )
 
                 async def callback(
                     interaction: discord.Interaction,
                     chosen_side: str = side,
-                    chosen_key: str = maneuver.key,
+                    chosen_key: str = key,
                 ) -> None:
                     await self.pick(interaction, chosen_side, chosen_key)
 

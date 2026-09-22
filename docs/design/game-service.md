@@ -62,8 +62,13 @@ coach reads. So `GameResult` carries:
 - `prompt`, `board_changed` (since the last drawn group), `detail`
   (a roll's numbers), and `match`, the position after the call.
 
-A web page renders the same groups and draws the same boards from
-the same dicts. Nothing in it is Discord's.
+The prompt carries its `options` -- what may be chosen, a dataclass
+per kind, attached by `driver.advance` to the step's own `next` and
+by `pending` to the chain's reading, so the two agree (step 6 of
+docs/architecture-migration.md; see
+[model-discord-split.md](model-discord-split.md)). A web page renders
+the same groups, draws the same boards from the same dicts and builds
+its controls from the same options. Nothing in it is Discord's.
 
 ## Batching is still the frontend's
 

@@ -24,6 +24,7 @@ from d12ball.components import (
     MatchState,
     PlayerDefinition,
     PlayerRole,
+    RuleRefusal,
     TeamSide,
     load_basic_ruleset,
     load_maneuver_catalog,
@@ -44,11 +45,13 @@ from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow import driver
 from d12ball.flow.turn import injured_word_and_emoji
 from d12ball.prompts import (
+    OPTIONS,
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
     owed_step,
     pending_prompt,
+    with_options,
 )
 from d12ball import tutorial
 from d12ball.render import (
@@ -1219,12 +1222,18 @@ class CoreMixin:
 
         Most kinds are a constructor taking the cog and the game id,
         and those are `PLAIN_PROMPT_VIEWS`; the eight that carry a
-        parameter are the branches below. `match` is here for the one
-        whose view is built from a candidate list rather than from the
-        prompt alone -- the loose ball's pick reads its buttons off the
-        board, and a prompt is what to ask rather than a rendering
-        brief.
+        parameter are the branches below. Every view builds its
+        buttons from the prompt's `options` (`SafeView.prompt_options`,
+        which re-reads the chain), and the three handed a list here
+        read the prompt's own; a prompt built without them -- by hand,
+        in a test or a command -- gets them off `match` first, so this
+        stays the one place a kind becomes a view whatever built the
+        prompt.
         """
+        if prompt.options is None and prompt.kind in OPTIONS:
+            prompt = with_options(
+                self.engine, self.games[game_id], match, prompt,
+            )
         kind = prompt.kind
         if kind is PromptKind.TUTORIAL_CONTINUE:
             return TutorialContinueView(self, game_id)
@@ -1241,14 +1250,12 @@ class CoreMixin:
         if kind is PromptKind.RUN_BACK_SPACE:
             return RunBackChoiceView(self, game_id, prompt.player_id)
         if kind is PromptKind.RUN_BACK_PLAYER:
-            return RunBackPlayerChoiceView(self, game_id, prompt.player_ids)
+            return RunBackPlayerChoiceView(
+                self, game_id, list(prompt.options.player_ids),
+            )
         if kind is PromptKind.LOOSE_BALL_PICK:
             return LooseBallChoiceView(
-                self,
-                game_id,
-                prompt.skill_type,
-                self.engine.loose_ball_candidates(match, prompt.side),
-                match,
+                self, game_id, prompt.skill_type, prompt.options, match,
             )
         if kind is PromptKind.LOW_PASS_CHOICE:
             return LowPassChoiceView(
@@ -1267,7 +1274,9 @@ class CoreMixin:
                 contest_on_decline=prompt.contest_on_decline,
             )
         if kind is PromptKind.SHOOTER_CHOICE:
-            return ShooterChoiceView(self, game_id, prompt.player_ids)
+            return ShooterChoiceView(
+                self, game_id, list(prompt.options.player_ids),
+            )
         return PLAIN_PROMPT_VIEWS[kind](self, game_id)
 
     # -- The service and the presenter -----------------------------------
@@ -1332,12 +1341,13 @@ class CoreMixin:
         step, a gate skipped, the tests' `run_step`).
 
         A step refusing a position it should never have been handed
-        raises `ValueError`; whatever ran before it is written down by
+        raises `RuleRefusal`; whatever ran before it is written down by
         the service, and the refusal is reported rather than acted on.
+        Any other error out of a step is a bug and propagates.
         """
         try:
             outcome = self.service.run(game, match, result, carry=carry)
-        except ValueError as error:
+        except RuleRefusal as error:
             await send_error_fallback(interaction, str(error))
             return
         await self.present(interaction, game, outcome)

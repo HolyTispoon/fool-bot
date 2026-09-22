@@ -6,7 +6,6 @@ the two questions `next_run_back_step` answers, sharing one message.
 import discord
 from typing import TYPE_CHECKING
 
-from d12ball.components import TeamSide
 from d12ball.flow.driver import Action
 from d12ball.prompts import PromptKind
 from cogs.d12ball_helpers import (
@@ -156,18 +155,13 @@ class RunBackChoiceView(SafeView):
         self.player_id = player_id
 
         game, match = self.load_match()
-        if game is None:
+        options = self.prompt_options(game, match, PromptKind.RUN_BACK_SPACE)
+        if options is None:
             return
-        side = (
-            TeamSide.HOME
-            if player_id in match.home.field_players
-            else TeamSide.VISITING
-        )
+        side = match.side_for_player(player_id)
         zone = match.setup_for_side(side).assigned_zone(player_id)
 
-        for space_index in cog.engine.placement_spaces_in_zone(
-            game, match, side, zone, player_id,
-        ):
+        for space_index in options.space_indices:
             button = discord.ui.Button(
                 # The distance is on the label because it is the price:
                 # a run back costs a token a space, so the two spaces of

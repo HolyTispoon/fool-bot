@@ -51,7 +51,6 @@ from d12ball.engine import RulesEngine
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow import driver
 from d12ball.flow.driver import Action, Refusal
-from d12ball.flow.turn import tutorial_beat
 from d12ball.game import (
     AIOpponent,
     D12BallGame,
@@ -60,7 +59,7 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
-from d12ball.prompts import PendingPrompt, PromptKind, pending_prompt
+from d12ball.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt
 from prompt_fixtures import CATALOG, MANEUVERS, RULESET
 
 from test_d12ball_driver_actions import LEGAL_ACTIONS, UNANSWERABLE
@@ -118,8 +117,13 @@ def build_match() -> MatchState:
 class Policy:
     """
     A legal answer to whatever the match is waiting on, read off the
-    position -- `tests/test_d12ball_driver_actions.LEGAL_ACTIONS` with
-    the few answers a whole game needs to be smarter about.
+    prompt's options -- `tests/test_d12ball_driver_actions.LEGAL_ACTIONS`
+    with the few answers a whole game needs to be smarter about.
+
+    **It reads `PendingPrompt.options` and nothing else** (step 6 of
+    docs/architecture-migration.md): a policy that read the match to
+    choose is a web app that would have to. `match` is still handed
+    in for `_Fixture`'s sake and never consulted here.
     """
 
     def __init__(self, engine: RulesEngine, game: D12BallGame):
@@ -128,36 +132,29 @@ class Policy:
 
     def action(self, match: MatchState, prompt: PendingPrompt) -> Action:
         kind = prompt.kind
+        options = prompt.options
         fixture = _Fixture(self.game, match)
         if kind is PromptKind.PLAYER_ACTION:
-            if match.can_attempt_score():
+            if "shoot" in options.live:
                 return Action(kind, "shoot", {"action_label": "shoot"})
-            if match.may_call_time_out():
+            if "time_out" in options.live:
                 return Action(kind, "time_out")
             return Action(kind, "maneuver")
         if kind is PromptKind.MANEUVER_ACTION:
             # Whichever side is still owed a pick; a two-human game
             # has both rows on one prompt and the offense answers
             # first here, as the prompt lists them.
-            side = "offense" if match.offense_maneuver is None else "defense"
-            hand = self.engine.maneuver_hand(self.game, match, side)
-            card = random.choice(hand)
-            return Action(kind, "", {"side": side, "maneuver_key": card.key})
+            hand = next(
+                hand for hand in options.hands if not hand.picked
+            )
+            card = random.choice(hand.maneuver_keys)
+            return Action(kind, "", {"side": hand.side, "maneuver_key": card})
         if kind is PromptKind.COACHING_HUB:
             return Action(kind, "done", {"side": match.pending_coaching_side})
         if kind is PromptKind.COACHING_OFFER:
             return Action(
                 kind, "decline",
                 {"side": match.pending_coaching_side, "coach_name": "Coach"},
-            )
-        if kind is PromptKind.SHOOTOUT_ORDER:
-            side = next(
-                side for side in TeamSide
-                if not match.shootout_order_complete(side)
-            )
-            return Action(
-                kind, "send",
-                {"side": side, "player_id": match.shootout_order_remaining(side)[0]},
             )
         choice, arguments = LEGAL_ACTIONS[kind](fixture)
         return Action(kind, choice, arguments)
@@ -169,51 +166,34 @@ class TutorialPolicy(Policy):
     choice, take it; everywhere else, the plain policy. What a Discord
     coach gets as greyed-out buttons a driver frontend gets as refusals
     (`driver._rail`), so a policy that ignored the rails would be
-    refused rather than railed -- which is the assertion.
+    refused rather than railed -- which is the assertion. The rails
+    are read off the options too (`live`, `railed`), the way a second
+    frontend would grey them.
     """
 
     def action(self, match: MatchState, prompt: PendingPrompt) -> Action:
         kind = prompt.kind
-        beat = tutorial_beat(self.game)
-        if kind is PromptKind.PLAYER_ACTION:
-            allowed = tutorial.allowed_actions(beat)
-            if allowed is not None:
-                action = allowed[0]
-                return Action(
-                    kind, action,
-                    {"action_label": "shoot"} if action == "shoot" else {},
-                )
+        options = prompt.options
+        if kind is PromptKind.PLAYER_ACTION and options.live != options.actions:
+            action = options.live[0]
+            return Action(
+                kind, action,
+                {"action_label": "shoot"} if action == "shoot" else {},
+            )
         if kind is PromptKind.MANEUVER_ACTION:
-            side = "offense" if match.offense_maneuver is None else "defense"
-            allowed = tutorial.allowed_maneuvers(beat, side)
-            if allowed is not None:
+            hand = next(
+                hand for hand in options.hands if not hand.picked
+            )
+            if hand.railed is not None:
                 return Action(
-                    kind, "", {"side": side, "maneuver_key": allowed[0]},
+                    kind, "", {"side": hand.side, "maneuver_key": hand.railed},
                 )
-        if kind is PromptKind.DRIBBLE_ADVANCE_CHOICE:
-            railed = tutorial.resolve_choice(beat, "dribble_advance", (1, 2))
-            if railed is not None:
-                return Action(kind, "", {"distance": railed})
-        if kind is PromptKind.HIGH_PASS_CHOICE:
-            distances = self.engine.high_pass_distance_options(match)
-            railed = tutorial.resolve_choice(beat, "high_pass", distances)
-            if railed is not None:
-                return Action(kind, "", {"distance": railed})
-        if kind is PromptKind.SPEED_DELTA_CHOICE:
-            skill = self.engine.player_catalog.effective_profile(
-                self.engine.get_player_definition(prompt.player_id),
-            )
-            reach = (
-                skill.offense if prompt.skill_type == "offense"
-                else skill.defense
-            )
-            targets = sorted({
-                max(1, min(12, match.ball.speed + delta))
-                for delta in range(-reach, reach + 1)
-            })
-            railed = tutorial.resolve_choice(beat, "speed", targets)
-            if railed is not None:
-                return Action(kind, "", {"target_speed": railed})
+        if kind in (
+            PromptKind.DRIBBLE_ADVANCE_CHOICE, PromptKind.HIGH_PASS_CHOICE,
+        ) and options.railed is not None:
+            return Action(kind, "", {"distance": options.railed})
+        if kind is PromptKind.SPEED_DELTA_CHOICE and options.railed is not None:
+            return Action(kind, "", {"target_speed": options.railed})
         if kind is PromptKind.SET_UP_ATTEMPT:
             return Action(kind, "take")
         return super().action(match, prompt)
@@ -264,6 +244,14 @@ def play(
             if game.is_finished or (until is not None and until(game)):
                 break
             prompt = pending_prompt(engine, game, match)
+            # A run ends on a prompt or on nothing; a position the bot
+            # still owes a step on is the chain and a step's own
+            # `next` disagreeing (the pressure-beats-burst speed
+            # choice was one), and is named rather than crashed on.
+            assert prompt is not None, (
+                "the run stopped on a position the bot owes a step on: "
+                f"{owed_step(engine, game, match)}"
+            )
             if prompt.kind in UNANSWERABLE:
                 break
             action = policy.action(match, prompt)
