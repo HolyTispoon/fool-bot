@@ -225,31 +225,19 @@ class CoachingModelTests(unittest.TestCase):
     def test_leaving_a_teammate_behind_stacks_instead_of_trading(
         self,
     ) -> None:
-        # Board 6 under 2-3-1 puts two of the three midfielders on one
-        # space. Either of them can step across onto the third without
-        # trading, because the space they leave stays covered.
-        match = self.build_match(
-            board_size=6, home_formation=Formation.TWO_THREE_ONE,
-        )
-        stacked = [
-            occupants
-            for occupants in match.board.spaces[Zone.MIDFIELD]
-            if len(
-                [
-                    player_id
-                    for player_id in occupants
-                    if player_id in set(match.home.field_players)
-                ]
-            )
-            > 1
-        ]
-        self.assertTrue(stacked, "expected 2-3-1 on board 6 to stack")
-        mover = [
-            player_id
-            for player_id in stacked[0]
-            if player_id in set(match.home.field_players)
-        ][0]
+        # Three cards in the two-space home goal zone, two of them on
+        # one space: either of the pair can step across onto the other
+        # without trading, because the space they leave stays covered.
+        match = self.build_match()
+        setup = match.home
+        extra = setup.zones[Zone.MIDFIELD].pop()
+        setup.zones[Zone.HOME_GOAL].append(extra)
+        match.board.remove_meeple(extra)
+        match.board.place_meeple(extra, Zone.HOME_GOAL, 0)
+
+        mover = extra
         origin = match.board.meeple_position(mover)
+        self.assertEqual(origin, (Zone.HOME_GOAL, 0))
         target = 1 - origin[1]
 
         self.assertEqual(
@@ -260,15 +248,13 @@ class CoachingModelTests(unittest.TestCase):
 
         self.assertIsNone(partner)
         self.assertEqual(
-            match.board.meeple_position(mover), (Zone.MIDFIELD, target),
+            match.board.meeple_position(mover), (Zone.HOME_GOAL, target),
         )
 
     def test_more_than_one_on_the_target_has_to_be_picked_between(
         self,
     ) -> None:
-        match = self.build_match(
-            board_size=6, home_formation=Formation.TWO_THREE_ONE,
-        )
+        match = self.build_match(home_formation=Formation.TWO_THREE_ONE)
         # Pile all three midfielders onto M1, then bring the odd one
         # out back: the trade is now ambiguous.
         midfielders = list(match.home.zones[Zone.MIDFIELD])

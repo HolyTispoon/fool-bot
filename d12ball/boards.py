@@ -709,11 +709,10 @@ def kickoff_marks(layout: BoardLayout) -> dict[int, list[TeamSide]]:
     """
     Which spaces are kickoff spaces, and whose.
 
-    On boards 7 and 9 both sides kick off from the true middle space
-    and the two sides land on one mark; board 6's midfield has no
-    middle, so each side kicks off from the space nearer its own goal
-    and the marks are separate -- which is why this is a map and not a
-    space. `kickoff_space_index` is the rule; this only places it on
+    Every board's midfield has a true middle, so both sides kick off
+    from it and the two land on one mark. It is still a map rather
+    than a space because the rule is asked per side --
+    `kickoff_space_index` is that rule; this only places its answer on
     the whole board.
     """
     before_midfield = layout.zone_spaces[Zone.HOME_GOAL]

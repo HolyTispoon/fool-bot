@@ -65,9 +65,11 @@ from prompt_fixtures import CATALOG, MANEUVERS, RULESET
 from test_d12ball_driver_actions import LEGAL_ACTIONS, UNANSWERABLE
 
 
-#: A seed the dumb policy reaches the shootout on. Swept 0-19 and the
-#: first level game kept; see the module docstring.
-SEED = 3
+#: A seed the dumb policy reaches the shootout on. Swept from 0 and the
+#: first level game kept; see the module docstring. Re-swept when the
+#: six-space board went (2026-09-22 in docs/rules-log.md) and this game
+#: moved to board 7, which is a different game from the first roll.
+SEED = 2
 
 #: More actions than any game takes: thirty-odd minutes a half at one
 #: a turn, a handful of prompts a turn, both halves and a shootout.
@@ -81,7 +83,7 @@ def build_engine() -> RulesEngine:
 
 
 def build_game() -> D12BallGame:
-    """Two coaches, advanced mode, board 6 -- the advanced golden's game
+    """Two coaches, advanced mode, board 7 -- the advanced golden's game
     with a person on both sides. No server, channel or message: a game
     played through the driver alone is not a Discord thing, and the
     record no longer asks for one (decision 3 of docs/web-app.md)."""
@@ -98,7 +100,7 @@ def build_game() -> D12BallGame:
         advanced_maneuvers=True,
         species_abilities=True,
         status=GameStatus.IN_PROGRESS,
-        board_size=6,
+        board_size=7,
     )
 
 
@@ -106,7 +108,7 @@ def build_match() -> MatchState:
     return MatchState.standard(
         catalog=CATALOG,
         ruleset=RULESET,
-        board_size=6,
+        board_size=7,
         home_team=Team.TELEKINETICS,
         visiting_team=Team.FIRE_DEMONS,
         home_formation=Formation.TWO_THREE_ONE,

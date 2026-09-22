@@ -1,11 +1,6 @@
 {
   "ruleset_id": "basic-v1",
   "board_layouts": {
-    "6": {
-      "home_goal": 2,
-      "midfield": 2,
-      "visitors_goal": 2
-    },
     "7": {
       "home_goal": 2,
       "midfield": 3,

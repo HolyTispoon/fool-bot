@@ -562,7 +562,7 @@ class CoachingFormationView(CoachingView):
 
     Only the shapes this match's board plays are offered
     (D12Ball.available_formations): 3-2-1 and 1-2-3 are the nine-space
-    board's, so on 6 and 7 there is nothing to grey out and three
+    board's, so on board 7 there is nothing to grey out and three
     buttons is the whole menu.
     """
 
@@ -1002,8 +1002,9 @@ async def apply_positioning(
 class CoachingPlaceSwapView(CoachingView):
     """
     Which of several teammates on the target space comes back. Only
-    reachable where a zone is stacked, which on the three basic shapes
-    means board 6's two-space midfield.
+    reachable where a zone is stacked, which no shape either board
+    plays produces -- a coach puts two on one space by hand in a
+    Coaching Choice.
     """
 
     def __init__(

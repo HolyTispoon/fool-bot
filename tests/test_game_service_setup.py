@@ -244,8 +244,13 @@ class ConfigureTests(SetupHarness):
 
         self.service.configure(game.game_id, "mode", "advanced")
         self.assertEqual((game.mode, game.board_size), (GameMode.ADVANCED, 9))
-        self.service.configure(game.game_id, "board", "6")
-        self.assertEqual(game.board_size, 6)
+        self.service.configure(game.game_id, "board", "7")
+        self.assertEqual(game.board_size, 7)
+        # The six-space board was withdrawn on 2026-09-22 (see the
+        # rules log), so the record refuses it however it is asked for.
+        with self.assertRaises(ValueError):
+            self.service.configure(game.game_id, "board", "6")
+        self.assertEqual(game.board_size, 7)
         self.service.configure(game.game_id, "module", "species")
         self.assertFalse(game.species_abilities)
         self.service.configure(game.game_id, "ai", "dinky")

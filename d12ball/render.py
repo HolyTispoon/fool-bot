@@ -120,12 +120,11 @@ JUMBOTRON_RIGHT = FIELD_FAR_RIGHT
 # image's 2200 it would arrive in Discord as an unreadable sliver.
 # 1280 keeps a meeple legible inline without a click.
 #
-# The width still has to fit a stack. The widest case is board 6's
-# two-space midfield holding three cards under 2-3-1 or 1-3-2, which
-# is two meeples on one space -- 155px into a 200px space. Every other
-# board and shape puts one card a space, and board 9's spaces are the
-# narrowest at 133px. So one MEEPLE_SIZE token always fits and the one
-# stack that exists fits too.
+# The width still has to fit a meeple. At 1280 a space is 171px on
+# board 7 and 133px on board 9, the narrowest, so one MEEPLE_SIZE
+# token always sits inside its own space. Two side by side are 155px,
+# and no shape either board plays overfills a zone, so a stack that
+# wide comes only from a coach placing one there by hand.
 COACHING_WIDTH = 1280
 COACHING_BOARD_LEFT = 40
 COACHING_BOARD_RIGHT = COACHING_WIDTH - 40
@@ -186,8 +185,8 @@ ZONE_COLORS = {
 }
 def zone_labels(board_size: int) -> dict[Zone, str]:
     """
-    "HOME ZONE" / "MIDFIELD" / "VISITORS ZONE" on the 6- and 7-space
-    boards; "HOME THIRD" / "MIDFIELD" / "VISITORS THIRD" on the 9-space
+    "HOME ZONE" / "MIDFIELD" / "VISITORS ZONE" on the 7-space board;
+    "HOME THIRD" / "MIDFIELD" / "VISITORS THIRD" on the 9-space
     board, the only one where the three areas (H/M/V) are all equal --
     see "The field" in the living rules and the 2026-08-24 entry in the
     rules log. Not the same thing as FONT_GOAL_ZONE below, which labels

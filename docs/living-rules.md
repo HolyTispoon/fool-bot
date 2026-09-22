@@ -64,11 +64,10 @@ The higher score at full time wins. A level score goes to the [extreme shootout]
 
 ### The field
 
-The field is a row of spaces divided into three zones, left to right: the home goal, midfield, and the visitors goal. A game is played on a board of 6, 7 or 9 spaces.
+The field is a row of spaces divided into three zones, left to right: the home goal, midfield, and the visitors goal. A game is played on a board of 7 or 9 spaces.
 
 | Board | Home goal | Midfield | Visitors goal |
 | --- | ---: | ---: | ---: |
-| 6 | 2 | 2 | 2 |
 | 7 (default) | 2 | 3 | 2 |
 | 9 | 3 | 3 | 3 |
 
@@ -90,19 +89,16 @@ A team may only shoot from within its **shooting range**, which is the far part 
 
 | Board | The visitors may shoot from | Neither | Home may shoot from |
 | --- | --- | --- | --- |
-| 6 | H1, H2, M1 | -- | M2, V1, V2 |
 | 7 | H1, H2, M1 | M2 | M3, V1, V2 |
 | 9 | H1, H2, H3, M1 | M2 | M3, V1, V2, V3 |
 
-A board with an odd number of spaces has a true middle space, and that space is in neither team's range.
+Both boards have an odd number of spaces, so both have a true middle space, and that space is in neither team's range.
 
 *Note.* The middle space is also the kickoff space, so no restart ever begins in range.
 
 ### The kickoff space
 
-On boards 7 and 9 the **kickoff space** is the middle space of midfield, and both teams kick off from it.
-
-Board 6's midfield is two spaces wide and has no middle, so each side kicks off from whichever of the two is nearer its own goal, and the two sides have different kickoff spaces.
+The **kickoff space** is the middle space of midfield, and both teams kick off from it.
 
 Every arrangement a coach settles has to cover their own kickoff space -- see [finishing a Coaching Choice](#finishing-a-coaching-choice).
 
@@ -175,7 +171,7 @@ A **live ball** is one in play. A **dead ball** is one being brought back into p
 
 ### Winning the toss
 
-Choose a 6-, 7- or 9-space board.
+Choose a 7- or 9-space board.
 
 One coach flips the coin: a fortune face wins them the toss and a doom face hands it to their opponent.
 
@@ -185,7 +181,7 @@ The winner chooses whether to be home or the visitors. Home kicks off the first 
 
 Both sides are dealt into **2-2-2** by role: the Fullback and one Defender in their own goal, the Midfielder and one Playmaker in midfield, the Winger and one Striker in the goal they attack. The remaining Defender, Playmaker and Striker start on the bench.
 
-A goal zone's two cards take the two ends of the zone, and midfield packs from that side's own end outward. On boards 6 and 7 that comes out the same as filling each zone in order. It is only visible on board 9, whose zones are three spaces deep: home deals to H1, H3, M1, M2, V1 and V3, and the visitors deal the mirror of it.
+A goal zone's two cards take the two ends of the zone, and midfield packs from that side's own end outward. On board 7 that comes out the same as filling each zone in order. It is only visible on board 9, whose zones are three spaces deep: home deals to H1, H3, M1, M2, V1 and V3, and the visitors deal the mirror of it.
 
 *Note.* Midfield packs rather than spreads because the kickoff space is in it. Every arrangement has to cover its own side's kickoff space, and packing from a side's own end reaches that space on every board.
 
@@ -717,23 +713,23 @@ The only side with nobody to bring on is one whose bench is empty and whose thre
 
 | Formation | Own goal | Midfield | The goal they attack | Boards |
 | --- | ---: | ---: | ---: | --- |
-| 2-2-2 | 2 | 2 | 2 | 6, 7, 9 |
-| 2-3-1 | 2 | 3 | 1 | 6, 7, 9 |
-| 1-3-2 | 1 | 3 | 2 | 6, 7, 9 |
+| 2-2-2 | 2 | 2 | 2 | 7, 9 |
+| 2-3-1 | 2 | 3 | 1 | 7, 9 |
+| 1-3-2 | 1 | 3 | 2 | 7, 9 |
 | 3-2-1 | 3 | 2 | 1 | 9 |
 | 1-2-3 | 1 | 2 | 3 | 9 |
 
-A formation is read from a coach's own goal forward. 3-2-1 and 1-2-3 are played on the nine-space board alone; the other three are played on every board, stacking where a zone is too shallow to hold them.
+A formation is read from a coach's own goal forward. 3-2-1 and 1-2-3 are played on the nine-space board alone; the other three are played on every board. No shape either board plays is deeper than the zone it fills, so a formation change deals one card a space -- but a shape that did would be dealt anyway, stacking.
 
 A formation change re-deals the whole side. The six on the field are ordered by defensive skill, highest first, and dealt from the coach's own end outward: one to each space of a zone, and then any surplus onto that zone's stack space.
 
-The stack space is the middle space of a three-space zone, or the space nearer the middle of the board in a two-space one -- except board 6's midfield, whose two spaces straddle the middle, where the surplus goes on the space nearer that coach's own goal.
+The stack space is the middle space of a three-space zone, or the space nearer the middle of the board in a two-space one.
 
 A coach who wants a particular player on a particular space moves them there afterwards with space positioning.
 
 ### Finishing a Coaching Choice
 
-**Every arrangement covers its own side's kickoff space**, in every Coaching Choice and either half, and a coach may not finish while theirs is empty. The standard deal and all five formations already satisfy it, so it only ever bites on a coach who has emptied the space with space positioning. On board 6 the two sides cover different spaces.
+**Every arrangement covers its own side's kickoff space**, in every Coaching Choice and either half, and a coach may not finish while theirs is empty. Both sides kick off from the one space, and each owes it its own coverage. The standard deal and all five formations already satisfy it, so it only ever bites on a coach who has emptied the space with space positioning.
 
 *Note.* That is what lets a restart kick off without anybody being moved back and charged for it.
 
@@ -1191,9 +1187,9 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 
 ## Appendix C. The boards
 
-The three boards at kickoff, with the standard deal on each: their zones, their shooting ranges and their kickoff spaces. The 9-space board is the one where the deal is not obvious -- home deals to H1, H3, M1, M2, V1 and V3, and the visitors deal the mirror of it.
+The two boards at kickoff, with the standard deal on each: their zones, their shooting ranges and their kickoff spaces. The 9-space board is the one where the deal is not obvious -- home deals to H1, H3, M1, M2, V1 and V3, and the visitors deal the mirror of it.
 
-![The three boards at kickoff](rulebooks/figures/fig-16-the-three-boards.png)
+![The two boards at kickoff](rulebooks/figures/fig-16-the-boards.png)
 
 ## Appendix D. Edition notes
 

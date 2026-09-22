@@ -322,9 +322,15 @@ def load_games() -> dict[str, D12BallGame]:
                 if key in known_fields
             }
 
+        # TypeError is a field the record no longer takes; ValueError
+        # is a value it no longer accepts -- a board size of 6, since
+        # the six-space board was withdrawn (2026-09-22 in
+        # docs/rules-log.md). Either way it is this game that is
+        # unreadable, and letting it out of here would take every other
+        # game in the file down with it.
         try:
             games[game_id] = D12BallGame(**game_data)
-        except TypeError as error:
+        except (TypeError, ValueError) as error:
             LOGGER.error("Skipping invalid saved game %s: %s", game_id, error)
 
     return games

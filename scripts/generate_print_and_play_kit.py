@@ -76,7 +76,7 @@ rather than trusting an old copy.
   reference cards (every pairing of the four species appears on one
   face), plus `print-sheet.png`.
 - **boards/** -- the field board at every size the ruleset defines
-  (6, 7, 9 spaces), the jumbotron board (clock, score, token
+  (7 and 9 spaces), the jumbotron board (clock, score, token
   supplies), and the team board (a coach's die and maneuvers, the
   bench, the formation strip -- one sheet holds both coaches' panels,
   cut in half).

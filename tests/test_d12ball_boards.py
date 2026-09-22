@@ -86,7 +86,6 @@ class D12BallFieldBoardTests(unittest.TestCase):
         the visitors' range, 1 home's, 0 the space in neither.
         """
         expected = {
-            6: [(-1, 0, 2), (1, 3, 5)],
             7: [(-1, 0, 2), (0, 3, 3), (1, 4, 6)],
             9: [(-1, 0, 3), (0, 4, 4), (1, 5, 8)],
         }
@@ -95,27 +94,27 @@ class D12BallFieldBoardTests(unittest.TestCase):
                 board = BoardState.empty(self.rules.board_layouts[board_size])
                 self.assertEqual(shooting_range_bands(board), bands)
 
-    def test_only_an_odd_board_has_a_space_in_nobody_s_range(self) -> None:
+    def test_every_board_has_one_space_in_nobody_s_range(self) -> None:
+        # Every board has an odd number of spaces, so every board has a
+        # true middle, and the middle is in neither side's range -- see
+        # "Shooting range" in the living rules.
         for board_size, layout in self.rules.board_layouts.items():
             board = BoardState.empty(layout)
             neither = [
                 band for band in shooting_range_bands(board) if band[0] == 0
             ]
             with self.subTest(board_size=board_size):
-                self.assertEqual(len(neither), board_size % 2)
+                self.assertEqual(len(neither), 1)
 
-    def test_board_six_marks_a_kickoff_space_for_each_side(self) -> None:
+    def test_every_board_marks_one_kickoff_space_for_both_sides(
+        self,
+    ) -> None:
         """
-        Board 6's midfield has no middle space, so the two sides kick
-        off from different ones and the print has to say which is
-        whose. Every other board marks one space for both.
+        Every midfield has a middle space, so both sides kick off from
+        it and the print carries one mark -- which is still drawn from
+        a map, because the rule is asked per side.
         """
-        marks = kickoff_marks(self.rules.board_layouts[6])
-        self.assertEqual(
-            marks, {2: [TeamSide.HOME], 3: [TeamSide.VISITING]}
-        )
-
-        for board_size in (7, 9):
+        for board_size in sorted(self.rules.board_layouts):
             with self.subTest(board_size=board_size):
                 marks = kickoff_marks(self.rules.board_layouts[board_size])
                 self.assertEqual(len(marks), 1)

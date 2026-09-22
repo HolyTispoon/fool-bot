@@ -27,6 +27,7 @@ from d12ball.game import (
     HomeChoice,
     SPECIES_TEAMS,
     Team,
+    VALID_BOARD_SIZES,
     team_display_name,
 )
 from cogs.d12ball_helpers import (
@@ -129,7 +130,7 @@ class GameConfigurationView(SafeView):
                 button.callback = module_callback
                 self.add_item(button)
 
-        for board_size in (6, 7, 9):
+        for board_size in sorted(VALID_BOARD_SIZES):
             button = discord.ui.Button(
                 label=str(board_size),
                 style=(

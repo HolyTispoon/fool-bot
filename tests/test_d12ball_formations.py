@@ -312,34 +312,41 @@ class FormationShapeTests(unittest.TestCase):
         # Home kick off, so somebody of theirs is on the kickoff space.
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
 
-    def test_a_stacking_formation_starts_with_every_space_taken(
-        self,
-    ) -> None:
-        # Board 6's two-space midfield is the only zone any of the
-        # three shapes overfills: 2-3-1 puts three cards in it.
-        match = MatchState.standard(
-            catalog=self.catalog,
-            ruleset=self.rules,
-            board_size=6,
-            home_team=Team.ORANGE,
-            visiting_team=Team.PURPLE,
-            home_formation=Formation.TWO_THREE_ONE,
-        )
-
-        home_players = set(match.home.field_players)
-        occupancy = [
-            [
-                player_id
-                for player_id in occupants
-                if player_id in home_players
-            ]
-            for occupants in match.board.spaces[Zone.MIDFIELD]
-        ]
-
-        self.assertEqual([len(space) for space in occupancy], [2, 1])
-        self.assertEqual(
-            match.open_spaces_in_zone(TeamSide.HOME, Zone.MIDFIELD), [],
-        )
+    def test_no_shape_either_board_plays_deals_a_stack(self) -> None:
+        # Since the six-space board went (2026-09-22 in the rules log)
+        # every zone is at least as deep as the shapes its board plays
+        # fill it, so a deal puts one card a space. A stack is still a
+        # legal arrangement -- a coach builds one by hand in a Coaching
+        # Choice -- but nothing deals one, and this is what notices if
+        # a new shape or board changes that quietly.
+        for board_size in sorted(self.rules.board_layouts):
+            for formation in self.rules.formations_for_board(board_size):
+                match = MatchState.standard(
+                    catalog=self.catalog,
+                    ruleset=self.rules,
+                    board_size=board_size,
+                    home_team=Team.ORANGE,
+                    visiting_team=Team.PURPLE,
+                    home_formation=formation,
+                )
+                home_players = set(match.home.field_players)
+                for zone in Zone:
+                    deepest = max(
+                        len(
+                            [
+                                player_id
+                                for player_id in occupants
+                                if player_id in home_players
+                            ]
+                        )
+                        for occupants in match.board.spaces[zone]
+                    )
+                    with self.subTest(
+                        board_size=board_size,
+                        formation=formation.value,
+                        zone=zone.value,
+                    ):
+                        self.assertLessEqual(deepest, 1)
 
 
 class BoardScopedFormationTests(unittest.TestCase):
@@ -347,8 +354,8 @@ class BoardScopedFormationTests(unittest.TestCase):
     3-2-1 and 1-2-3 are the nine-space board's alone -- the author's
     call, and the first thing to make a shape depend on the board it is
     played on. The rule is data (`board_sizes` in basic_rules.json) and
-    not geometry: 2-3-1 overfills board 6's midfield and is offered
-    there anyway.
+    not geometry: a shape too deep for a zone would be offered anyway,
+    and dealt stacking.
     """
 
     @classmethod
@@ -356,20 +363,18 @@ class BoardScopedFormationTests(unittest.TestCase):
         cls.catalog = load_player_catalog()
         cls.rules = load_basic_ruleset()
 
-    def test_board_9_offers_five_shapes_and_the_others_three(self) -> None:
+    def test_board_9_offers_five_shapes_and_board_7_three(self) -> None:
         self.assertEqual(
             list(self.rules.formations_for_board(9)), list(Formation),
         )
-        for board_size in (6, 7):
-            with self.subTest(board_size=board_size):
-                self.assertEqual(
-                    list(self.rules.formations_for_board(board_size)),
-                    [
-                        Formation.TWO_TWO_TWO,
-                        Formation.TWO_THREE_ONE,
-                        Formation.ONE_THREE_TWO,
-                    ],
-                )
+        self.assertEqual(
+            list(self.rules.formations_for_board(7)),
+            [
+                Formation.TWO_TWO_TWO,
+                Formation.TWO_THREE_ONE,
+                Formation.ONE_THREE_TWO,
+            ],
+        )
 
     def test_a_shape_a_board_does_not_play_is_refused_by_name(self) -> None:
         with self.assertRaises(ValueError) as refusal:
@@ -378,7 +383,7 @@ class BoardScopedFormationTests(unittest.TestCase):
         self.assertIn("1-2-3", str(refusal.exception))
         self.assertIn("9-space", str(refusal.exception))
         # The three every board plays are never refused.
-        for board_size in (6, 7, 9):
+        for board_size in (7, 9):
             self.rules.formation_shape(Formation.TWO_THREE_ONE, board_size)
 
     def test_a_match_cannot_be_dealt_a_shape_its_board_refuses(self) -> None:
@@ -452,7 +457,7 @@ class BoardScopedFormationTests(unittest.TestCase):
         match = MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
-            board_size=6,
+            board_size=7,
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
@@ -516,17 +521,16 @@ class CoverageRuleTests(unittest.TestCase):
     def test_a_covered_zone_opens_every_space_for_the_surplus(
         self,
     ) -> None:
-        match = self.build_match(
-            board_size=6, home_formation=Formation.TWO_THREE_ONE,
-        )
-        # A 2-3-1 defender, sent out of position and running back into
-        # a midfield whose two spaces its three cards already cover,
-        # may stand on either of them.
-        stray = match.home.zones[Zone.HOME_GOAL][0]
+        match = self.build_match()
+        # 2-2-2 covers both spaces of board 7's home goal zone, so a
+        # midfielder sent out of position and running back into it may
+        # stand on either of them -- on top of a teammate if that is
+        # where they want to be.
+        stray = match.home.zones[Zone.MIDFIELD][0]
 
         self.assertEqual(
             match.placement_spaces_in_zone(
-                TeamSide.HOME, Zone.MIDFIELD, stray,
+                TeamSide.HOME, Zone.HOME_GOAL, stray,
             ),
             [0, 1],
         )
@@ -555,19 +559,27 @@ class CoverageRuleTests(unittest.TestCase):
         )
 
     def test_running_back_may_stack_once_the_zone_is_covered(self) -> None:
-        match = self.build_match(
-            board_size=6, home_formation=Formation.TWO_THREE_ONE,
-        )
-        stray = match.home.zones[Zone.MIDFIELD][0]
+        # Three cards in board 7's two-space home goal zone -- the
+        # arrangement a Coaching Choice can make and no deal does.
+        match = self.build_match()
+        setup = match.home
+        extra = setup.zones[Zone.MIDFIELD].pop()
+        setup.zones[Zone.HOME_GOAL].append(extra)
+        match.board.remove_meeple(extra)
+        match.board.place_meeple(extra, Zone.HOME_GOAL, 0)
+
+        stray = setup.zones[Zone.HOME_GOAL][0]
         match.board.remove_meeple(stray)
         match.board.place_meeple(stray, Zone.VISITORS_GOAL, 1)
 
         self.assertIn(stray, match.displaced_players(TeamSide.HOME))
 
-        match.run_back_player(stray, Zone.MIDFIELD, 1)
+        # Both spaces are still covered without them, so they may run
+        # back onto either -- and either one stacks.
+        match.run_back_player(stray, Zone.HOME_GOAL, 1)
 
         self.assertEqual(
-            match.board.meeple_position(stray), (Zone.MIDFIELD, 1),
+            match.board.meeple_position(stray), (Zone.HOME_GOAL, 1),
         )
         match.validate(self.catalog)
 
@@ -584,12 +596,16 @@ class CoverageRuleTests(unittest.TestCase):
             match.run_back_player(stray, Zone.HOME_GOAL, teammate_space)
 
     def test_a_stack_only_breaks_up_while_a_space_is_free(self) -> None:
-        # 2-3-1's midfield fills board 6's two spaces, so its pair
-        # stays paired: nobody is asked to move somewhere that does
-        # not help.
-        match = self.build_match(
-            board_size=6, home_formation=Formation.TWO_THREE_ONE,
-        )
+        # Three cards in board 7's two-space home goal zone, which no
+        # shape deals but a Coaching Choice can arrange: both spaces
+        # are covered, so the pair stays paired and nobody is asked to
+        # move somewhere that does not help.
+        match = self.build_match()
+        setup = match.home
+        extra = setup.zones[Zone.MIDFIELD].pop()
+        setup.zones[Zone.HOME_GOAL].append(extra)
+        match.board.remove_meeple(extra)
+        match.board.place_meeple(extra, Zone.HOME_GOAL, 0)
 
         self.assertEqual(match.crowded_candidates(TeamSide.HOME), [])
 

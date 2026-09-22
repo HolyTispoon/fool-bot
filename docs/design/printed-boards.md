@@ -93,11 +93,12 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
 - **The geometry a board asserts is read off the same code the bot enforces.**
   `shooting_range_bands` walks `BoardState.is_in_shooting_range` a space at a
   time and `kickoff_marks` reads `kickoff_space_index`, rather than either
-  restating where the middle of the board is. That is what puts two kickoff
-  marks on board 6 (its midfield has no middle, so each side kicks off from
-  the space nearer its own goal) and one on 7 and 9, and what leaves the
+  restating where the middle of the board is. Both boards' midfields have a
+  middle, so both print one kickoff mark for the two sides -- `kickoff_marks`
+  is still a map rather than a space, because the rule is asked per side and a
+  board without a middle would answer it twice. It is also what leaves the
   bracket under the field agreeing with the living rules' own table.
-- **Every field size is rendered by default.** A print run wants the 6-, 7- and
+- **Every field size is rendered by default.** A print run wants the 7- and
   9-space boards; `--board-size` narrows it to one. The sizes come from
   `rules.board_layouts`, so a fourth layout added upstream is printed without
   the script being touched.

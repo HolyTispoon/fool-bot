@@ -307,7 +307,7 @@ still lets through.
 | Before touching | Read | What it settles |
 | --- | --- | --- |
 | Anything that models the game; the import scripts; `players.json`, `maneuvers.json`, `species.json`; `rules_doc.py` | [rules-and-data.md](docs/design/rules-and-data.md) | Where the rules live upstream, the two-column abilities, the formula-escape quirk, how `/d12ball rules_*` serve the living rules |
-| Formations, the deal, `placement_spaces_in_zone`, stacking, board 6 | [formations-and-occupancy.md](docs/design/formations-and-occupancy.md) | Shapes are data per board; occupancy is coverage, not a limit; who re-deals |
+| Formations, the deal, `placement_spaces_in_zone`, stacking | [formations-and-occupancy.md](docs/design/formations-and-occupancy.md) | Shapes are data per board; occupancy is coverage, not a limit; who re-deals |
 | Setup, halftime, full time, the coaching window, substitutions, `CoachingOccasion`, the kickoff-space hold | [coaching-choice.md](docs/design/coaching-choice.md) | Five occasions on one flow and one message; four substitution budgets; what survives on the match |
 | Challengers, walk-ins, `contest_candidates`, declining a challenge, the uncontested maneuver | [sending-a-player.md](docs/design/sending-a-player.md) | Distance is the measure; two candidates and ties; a count not a flag |
 | `ManeuverActionPromptView`, `send_field_prompt`, any prompt that asks a distance | [maneuver-prompt.md](docs/design/maneuver-prompt.md) | Why the prompt is public and never edited; the field strip under six prompts |
