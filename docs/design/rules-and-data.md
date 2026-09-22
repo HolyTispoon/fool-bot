@@ -24,6 +24,21 @@ body that has only ever existed in the author's head:
   it by hand and reading it as current is a mistake that has been made; the live tab is
   "Player Cards" (`gid=6660238`), and the scripts already point at the right ones.
 
+**One tab is the source of truth for each kind of thing, and the player cards tab is a
+rendering of them** (the author, 2026-09-22). `basic_abilities` (`gid=1822486506`) holds the
+six role abilities; `spec_abilities` (`gid=123199571`) the four species abilities;
+`maneuvers` (`gid=1487033386`) the twelve cards; `advanced_abilities` (`gid=354283038`) the
+per-player advanced role ability and advanced skill scores. The player cards tab
+(`gid=6660238`) is the roster -- who is on which team, in which role, with which species and
+basic scores -- and its `Basic`, `Advanced`, `OskillA` and `DskillA` columns are **what the
+card says**, built by formula from those tabs: `DD: Steals the ball when resolving Pressure.`
+with the role's initials in front (the `Initials` column of `basic_abilities`), `DD.` then the
+advanced ability on a line of its own, the basic score where there is no advanced one. The
+importer reads each ability from the tab it belongs to and **checks the card's copy against
+it** rather than reading the card; a mismatch is a stale copy and fails the import, not a
+special player. The link is deliberate and the difference is the point -- the cards tab shows
+what the cards should say, the abilities tabs hold the language of the abilities.
+
 **Every ability is imported twice**, in full and abbreviated -- `ability` and `ability_short` on
 each role profile in `players.json`, from the `basic_abilities` sheet's own two columns. Text
 that shows an ability on its own (the roster, the rules listing) uses the sentence;
@@ -31,9 +46,22 @@ anything captioning a portrait with it uses `RoleProfile.short_ability`, which f
 the sentence when there is no short form. **Don't shorten an ability in code.** Which half of a
 two-part ability survives is a rules judgement, so the author makes it upstream and the import
 carries it. Two quirks of that sheet are handled in the script and covered by
-`tests/test_d12ball_player_import.py`: the column is spelled `Abbreivated` and stored with a
-trailing space, and a cell beginning `+3` may be typed with a leading backtick so the
+`tests/test_d12ball_player_import.py`: the column was for a long time spelled `Abbreivated`
+and stored with a trailing space (it is `Abbreviated` since 2026-09-22, and both spellings are
+still accepted), and a cell beginning `+3` may be typed with a leading backtick so the
 spreadsheet doesn't read it as a formula.
+
+**The advanced sheet is imported and carried, not played.** Each player's record in
+`players.json` has `advanced_ability` (`""` for the twenty who have none yet) and
+`advanced_skills` -- only the scores the sheet gives, so `{"offense": 0, "defense": 8}` for
+one fullback, `{"defense": 4}` for a striker and `{}` for most; a missing key means the
+role's basic score. An advanced score is not held to 1-6 and a player's two need not sum to 7,
+which is why they are a dict on `PlayerDefinition` and not a `RoleProfile`. They are for the
+personal-ability module of advanced mode, which is not built (see "Blocked or deferred" in
+[rules-log.md](../rules-log.md)); until it is, nothing reads either field to decide a rule,
+`effective_profile` is the basic one in every mode, and the printed card back still repeats
+the basic sentence (see [cards.md](cards.md)). A player the advanced tab does not name at all
+comes out the same as one it leaves blank.
 
 **The escape is on sentences as well as abbreviations, and not predictably.** It was stripped
 from the abbreviated column alone -- which is where the `+3`s were first noticed -- and the
@@ -62,8 +90,8 @@ with each assumption named and each undecided cell marked; the author answered, 
 went into the living rules on 2026-08-19, and **the answered parts were deleted rather than
 kept in parallel** -- which is what happens to a worksheet, and the reason a settled rule has
 exactly one home. **Nothing left in it is a rule.** What it still holds is the player
-abilities that have no data yet, one cell that may be inert, two judgement calls the build
-made, and the map of where advanced mode touches the code. Don't read it as a specification,
+abilities that are imported but not played, one cell that may be inert, two judgement calls
+the build made, and the map of where advanced mode touches the code. Don't read it as a specification,
 and don't implement from it.
 
 **Take rules questions to the author rather than inferring them from the code** -- several

@@ -29,11 +29,15 @@ skills and portrait, with the keyword of the player's species ability
 set beside their role ability and the species' short form under it
 where the card has room for it.
 
-What the back is still waiting on is an *advanced role* ability. The
-sheet's `Advanced` column is empty for all thirty-six, so the band
-repeats the basic sentence rather than inventing one; see "Blocked or
-deferred" in docs/rules-log.md. When that column fills, the role half
-of the band is the only thing that changes.
+What the back is still waiting on is a decision about the *advanced
+role* ability. The sheet has one for sixteen players since 2026-09-22
+and the catalog carries it (`PlayerDefinition.advanced_ability`, with
+`advanced_skills` beside it), but how the back shows it -- alone, as
+the cards sheet words it, or under the basic sentence, and whether the
+stats row takes the advanced scores -- is the author's to settle; see
+"Blocked or deferred" in docs/rules-log.md. Until then the band repeats
+the basic sentence rather than guessing, and the role half of the band
+and the stats row are the only things that change when it is settled.
 """
 from PIL import Image, ImageFont
 
@@ -693,9 +697,10 @@ def render_player_card_back(
     What makes it the advanced one is the species keyword beside the
     role ability, since a species ability is only ever in play in an
     advanced game (see "Species abilities in the bot" in docs/design/species-abilities.md).
-    The role sentence itself is still the basic one, because the
-    sheet's `Advanced` ability column is empty for all thirty-six --
-    the band's role half is what changes when it fills.
+    The role sentence itself is still the basic one: the sheet's
+    advanced abilities are imported but how the back shows them is
+    not decided (see the module docstring) -- the band's role half is
+    what changes when it is.
 
     **The ability band starts at a fixed height on this face**, so the
     species badge on its heading row is in the same place on every card

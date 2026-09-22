@@ -339,6 +339,18 @@ class PlayerDefinition:
     # existed still loads; nothing here defaults a missing species to
     # anything meaningful, so a caller that needs one has to check.
     species: str = ""
+    # The advanced sheet's two per-player columns, imported and carried
+    # but not yet played: the advanced personal-ability module of
+    # advanced mode is not built (see "Blocked or deferred" in
+    # docs/rules-log.md), so nothing reads either to decide a rule.
+    # `advanced_ability` is "" for a player who has none. An advanced
+    # skill score is not held to 1-6 and a player's two need not sum
+    # to 7, so they are not a `RoleProfile`; `advanced_skills` carries
+    # only the scores the sheet gives, and a missing key means the
+    # role's basic score (the author, 2026-09-22). Both default so a
+    # players.json written before the sheet had them still loads.
+    advanced_ability: str = ""
+    advanced_skills: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -5235,6 +5247,8 @@ def load_player_catalog(
             role=PlayerRole(player_data["role"]),
             stat_overrides=player_data.get("stat_overrides", {}),
             species=player_data.get("species", ""),
+            advanced_ability=player_data.get("advanced_ability", ""),
+            advanced_skills=player_data.get("advanced_skills", {}),
         )
         for player_id, player_data in data["players"].items()
     }

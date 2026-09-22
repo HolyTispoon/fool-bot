@@ -18,10 +18,14 @@ Both upstream sources are prototypes and move. **Neither is complete, and both a
 living rules in places** -- see [Where upstream is behind](#where-upstream-is-behind), which is
 what a fresh pull should be diffed against.
 
-The sheet's tabs are `Sheet1` (gid 0, player cards), `basic_abilities` (1822486506),
-`spec_abilities` (123199571), `Benches` (884760728), `older Field` (1743933596),
-`maneuvers` (1487033386), `Coins` (36115124). The code imports `Sheet1`,
-`basic_abilities`, `spec_abilities` and `maneuvers`.
+The sheet's tabs are `player cards` (6660238), `basic_abilities` (1822486506),
+`spec_abilities` (123199571), `advanced_abilities` (354283038), `maneuvers` (1487033386),
+`Benches` (884760728), `matrix` (95040120), `older Field` (1743933596), and the
+pre-reshuffle `player cards before species reorg` (gid 0, stale -- see "The rules" in
+[design/rules-and-data.md](design/rules-and-data.md)). The code imports `player cards`,
+`basic_abilities`, `advanced_abilities`, `spec_abilities` and `maneuvers`; each abilities tab
+is the source of truth for its kind of ability and the player cards tab is what the cards
+say, linked by formula (the author, 2026-09-22).
 
 **Working practice.** Take rules questions to the author rather than inferring them from the
 code -- several mechanics exist only in the code, so there a bug and a deliberate decision look
@@ -146,6 +150,39 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-22 (later) -- sheet, the advanced abilities get a tab of their own, and the player cards tab becomes a rendering
+
+**No rule changed.** The author restructured the sheet and the import caught up.
+
+- **`advanced_abilities` is a new tab** (gid `354283038`), one row a player: `Advanced` (the
+  advanced role ability, blank for twenty of the thirty-six), `OskillA` and `DskillA` (advanced
+  skill scores, blank where the player keeps the role's basic score). *"In advanced mode
+  players will use this modified skills (once the personal ability skill module of advanced
+  mode will be implemented, which it isn't yet) -- and if there is no score they'll use the
+  standard score. Advanced skill scores can be higher and so for advanced skill score, the sum
+  of a player's skill score doesn't necessarily sum up to 7"* (the author). Today: Hellguard
+  [FB] 0/8, Flux [DD] offense 5, Tachyon [SK] defense 4.
+- **The player cards tab shows what the cards should say; the abilities tabs hold the language
+  of the abilities.** Its `Basic` column is now `DD: Steals the ball when resolving Pressure.`
+  -- the `basic_abilities` ability with that tab's new `Initials` column in front -- and its
+  `Advanced`, `OskillA` and `DskillA` are the advanced tab rendered the same way (`DD.` then
+  the ability on its own line; the basic score where there is no advanced one). All of it is
+  by formula, so the import checks each card cell against the tab it came from and refuses a
+  stale copy, rather than reading the card as the ability. *"The difference is intentional --
+  the player cards sheet shows what the cards should say while the basic_abilities sheet has
+  the language of the abilities. They are still linked."*
+- **`Abbreivated` is now spelled `Abbreviated`** on `basic_abilities`; the importer takes
+  either.
+- **What the bot does with it: nothing yet.** `players.json` carries `advanced_ability` and
+  `advanced_skills` per player and `PlayerDefinition` exposes both; no rule reads them,
+  `effective_profile` is the basic profile in every mode, and the printed card back still
+  repeats the basic sentence. The sixteen abilities are one-line sheet cells (*"Always Blazes
+  (no burn)."*, *"Is only Drained with 10+"*, *"Recharges 2 when stays put. Cost -1 when runs
+  back."*) and are not in the living rules; writing them there is the rules change, and this
+  is not it. See "Blocked or deferred".
+- **Re-imported the same day**, which also brought the six role abilities' current wording
+  (a full stop on the Fullback's and the Winger's) into `players.json`.
 
 ### 2026-09-22 -- author, Volatile's two verdicts renamed: surge -> blaze, backfire -> burn
 
@@ -2612,10 +2649,15 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 
 - **The advanced player abilities**, which are the other half of advanced mode -- see
   [Advanced mode](#advanced-mode----the-maneuvers-are-built-the-player-abilities-are-not) under
-  Still open. They have no data at all: the sheet's `Advanced` column is empty for all
-  thirty-six players. It also holds up the **back of a printed player card**, which is that
-  player's advanced version (the author, 2026-08-12): the printed cards are one-sided until the
-  column is filled, and filling it is what unblocks them.
+  Still open. **They have data since 2026-09-22** (see that entry): the sheet's
+  `advanced_abilities` tab gives sixteen players an advanced role ability and three of them
+  advanced skill scores, and the import carries both on `PlayerDefinition`. What is still
+  missing is the module that plays them -- the author calls it the personal-ability skill
+  module of advanced mode -- and the rules text for the sixteen abilities, which are one-line
+  sheet cells today and not in the living rules. The **back of a printed player card**, that
+  player's advanced version (the author, 2026-08-12), waits on the same thing plus a layout
+  decision: whether the back shows the advanced ability alone or under the basic one, and
+  whether its stats row takes the advanced scores.
 - **Three role abilities against their advanced card.** The sheet's `Interactions` column
   carries each advanced row's basic counterpart's abilities, and three of them contradict the
   card they sit on -- the Fullback against Clear and against Setup Pass, the Playmaker against
