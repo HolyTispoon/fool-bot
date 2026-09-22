@@ -2833,6 +2833,35 @@ class RulesEngine:
             "before finishing."
         )
 
+    def turn_reset_refusal(self, match: MatchState) -> Optional[str]:
+        """
+        Why the turn may not be thrown away here, or None -- the gate
+        on the recovery command's `force` (`GameService.reset_turn`).
+
+        Setup, halftime, the window before the shootout, the shootout
+        itself and a time out are **real positions in the game rather
+        than a turn gone wrong**, and clearing "the turn" under any of
+        them would drop something a coach has already done: the
+        shootout most of all, where there is no turn to clear and the
+        orders both coaches set would go with it; a time out has
+        already reset the turn and handed the ball over, so a cleared
+        one would ask the receiving side to act with nobody on the
+        ball. A plain resume walks each of them on instead.
+        """
+        if (
+            match.pending_setup_stage is not None
+            or match.pending_halftime_stage is not None
+            or match.pending_full_time_stage is not None
+            or match.pending_shootout
+            or match.pending_time_out
+        ):
+            return (
+                "This game is in setup, at halftime, in the extreme "
+                "shootout, or in a time out -- none of which clearing "
+                "the turn can skip past."
+            )
+        return None
+
     def time_out_confirmation(
         self,
         game: D12BallGame,

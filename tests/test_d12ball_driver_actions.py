@@ -299,6 +299,8 @@ LEGAL_ACTIONS = {
 def _answerable_cases():
     seen = set()
     for case in CASES:
+        if not case.asked:
+            continue
         kind = PromptKind[case.kind]
         if kind in LEGAL_ACTIONS and kind not in seen:
             seen.add(kind)
@@ -421,6 +423,54 @@ class LegalActionTests(ApplyFixture):
                     ENGINE, fixture.game, fixture.match, driver.Action(other),
                 )
                 self.assertEqual(fixture.match.to_dict(), before)
+
+
+class OwedStepTests(ApplyFixture):
+    """
+    A position the bot owes a step on refuses every answer, before any
+    adapter runs and whatever kind it names -- finding 1 of
+    docs/web-app.md: a turn action used to be **Answered** on the
+    `run_back_finished` fixture, with `pending_run_back` still set
+    underneath the maneuver it started.
+    """
+
+    def test_every_owed_state_refuses_every_kind_and_changes_nothing(
+        self,
+    ) -> None:
+        for case in CASES:
+            if case.asked:
+                continue
+            for kind in LEGAL_ACTIONS:
+                with self.subTest(f"{case.name} / {kind.name}"):
+                    fixture = case.build()
+                    before = fixture.match.to_dict()
+
+                    refusal = driver.apply(
+                        ENGINE, fixture.game, fixture.match, driver.Action(kind),
+                    )
+
+                    self.assertIsInstance(refusal, driver.Refusal)
+                    self.assertEqual(refusal.reason, driver.STEP_OWED)
+                    self.assertIsNone(refusal.waiting_on)
+                    self.assertEqual(fixture.match.to_dict(), before)
+
+    def test_a_turn_action_mid_cascade_no_longer_starts_a_maneuver(
+        self,
+    ) -> None:
+        fixture = next(
+            case for case in CASES if case.name == "run back, nothing left"
+        ).build()
+
+        refusal = driver.apply(
+            ENGINE,
+            fixture.game,
+            fixture.match,
+            driver.Action(PromptKind.PLAYER_ACTION, "maneuver"),
+        )
+
+        self.assertIsInstance(refusal, driver.Refusal)
+        self.assertIsNone(fixture.match.pending_action)
+        self.assertTrue(fixture.match.pending_run_back)
 
 
 class ChoiceTests(ApplyFixture):

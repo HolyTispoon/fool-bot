@@ -108,8 +108,8 @@ remainder.
 
 ### Errors
 
-1. **The model accepts a turn action while it still owes a step.**
-   *Confirmed. Open; migration step 5.* `pending_prompt` answers
+1. ~~**The model accepts a turn action while it still owes a step.**~~
+   *Confirmed; closed by migration step 5.* `pending_prompt` answered
    `PLAYER_ACTION` for the three "the bot's own next step" states its
    docstring names (`d12ball/prompts.py`, the fallbacks for a run back
    with only forced placements left, a ball recovery, an effect with
@@ -124,9 +124,11 @@ remainder.
    `GameService.resume` re-drives instead and never posts it, which is
    why nobody has seen it. This is what makes `apply_action` honest
    for a web request arriving mid-cascade, and it is the first thing
-   left.
-2. **Recovery is a second chain, and it mutates.** *Half closed;
-   the rest is step 5.* On `main` it was
+   left. **Closed**: `owed_step` names the step, `driver.answer`
+   refuses with `STEP_OWED` while one is owed, and the sweep re-arms
+   nothing over it.
+2. ~~**Recovery is a second chain, and it mutates.**~~ *Closed by
+   step 5.* On `main` it was
    `D12Ball.resume_pending_prompt`, nine flags in an order of its own,
    each handed to a cog routine that was not a `FollowOnStep`. On the
    branch that is `GameService.resume`: the ladder runs each owed
@@ -135,6 +137,8 @@ remainder.
    -- the ladder still exists, it just moved. Decision 1 is what
    removes it: the ladder's body becomes `owed_step`, read by
    `pending_prompt`'s neighbour, and `apply_action` reads it too.
+   **Done**: `GameService.resume` is `owed_step` run through `run`, or
+   the prompt handed back; the ladder is gone.
 3. **Four rules are enforced only by a disabled button, and the model
    accepts the illegal answer.** *The first confirmed. Open; migration
    step 6, and "remove game-rule validation duplicated in Discord
@@ -313,12 +317,12 @@ remainder.
 Done on the branch: the eleven dead wrappers and eighty-two more,
 `runs()`, `can_answer()`, `driver_answer`, the stale member notes in
 `result.py`, the `ANSWERS` and `effect_choice_prompt` docstrings,
-`flow/__init__.py`. One stands: `post_group` (was
+`flow/__init__.py`. ~~One stands: `post_group` (was
 `post_narration_group`) keys the challenge image on
 `match.challenger_id is not None` rather than on the group. The clean
 fix is for the `AUTO_RESOLVE_CHALLENGER` group to carry its
 `challenger_id` (the step's own kwarg) as a small `Narration` field;
-it goes with step 5. The goldens pin `--- message` boundaries and view
+it goes with step 5.~~ Done with step 5: `Narration.arguments`. The goldens pin `--- message` boundaries and view
 class names, which is the frontend's batching; that is fine while they
 drive the cog, and decision 9 is the golden a web app regresses
 against.
@@ -329,7 +333,7 @@ The migration worksheet has the steps; these are the pieces of each
 that the review settled and the migration does not spell out. The
 numbers are the migration's.
 
-- **Step 5, the owed step.** `owed_step(engine, game, match) ->
+- ~~**Step 5, the owed step.** `owed_step(engine, game, match) ->
   Optional[FollowOn]` in `d12ball/prompts.py`, read first by
   `GameService.resume` (whose ladder it replaces) and by
   `apply_action` (which refuses while it answers). The three
@@ -337,7 +341,11 @@ numbers are the migration's.
   it. The `AUTO_RESOLVE_CHALLENGER` group carries `challenger_id`.
   The two-frontend resume test lands here: save through the cog
   mid-cascade, restore through the service with no cog, and the
-  reverse, for every prompt kind and every owed step.
+  reverse, for every prompt kind and every owed step.~~ Done: the
+  two readers share one chain (`pending`), the four fallbacks are
+  `FollowOn`s, and `tests/test_d12ball_game_service_resume.py`
+  resumes every fixture in `tests/prompt_fixtures.py` with no cog
+  imported, beside `tests/test_d12ball_recovery.py`'s Discord half.
 - **Step 6, the adapters refuse, and the prompt carries its
   options.** A `RuleRefusal` exception replaces `ValueError` as the
   refusal channel: the steps that raise with the sentence already
@@ -385,7 +393,7 @@ numbers are the migration's.
   final save (decision 9). The three cog goldens stay, since they pin
   the batching a coach reads.
 - **Refuse-leaves-unchanged per kind per choice**, from step 6 on.
-- **Two-frontend resume**, from step 5 on.
+- **Two-frontend resume**, from step 5 on -- landed with it.
 - **The purity probe grows one check**: `d12ball/flow/` and
   `d12ball/prompts.py` import with `PIL` refused as well as `discord`;
   and it skips, and reports, a module whose only failure is a missing

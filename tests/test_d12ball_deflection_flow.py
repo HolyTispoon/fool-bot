@@ -42,7 +42,7 @@ from unittest import mock
 from d12ball.components import MatchState
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.effects import deflection_numbers, deflection_step
-from d12ball.prompts import pending_prompt
+from d12ball.prompts import pending
 
 from deflection_fixtures import (
     DEFLECTION_CASES,
@@ -197,14 +197,15 @@ class DeflectionStepTests(unittest.TestCase):
                 fixture = case.build()
                 run_step(fixture)
 
-                before = pending_prompt(ENGINE, fixture.game, fixture.match)
+                before = pending(ENGINE, fixture.game, fixture.match)
                 restored = MatchState.from_dict(
                     fixture.match.to_dict(), ENGINE.basic_ruleset,
                 )
-                after = pending_prompt(ENGINE, fixture.game, restored)
+                after = pending(ENGINE, fixture.game, restored)
 
-                self.assertEqual(before.kind, after.kind)
-                self.assertEqual(before.ask, after.ask)
+                # A question or the step the bot owes: the same one
+                # either way.
+                self.assertEqual(before, after)
                 self.assertEqual(
                     (restored.ball.zone, restored.ball.space_index),
                     fixture.ball_space,
@@ -292,12 +293,19 @@ class BoardWriteSuppressionTests(unittest.IsolatedAsyncioTestCase):
                 cog.announce_board_update = mock.AsyncMock()
                 cog.post_new_play_board = mock.AsyncMock()
                 cog.announce_maneuver_challenge = mock.AsyncMock()
+                # The walk-in's group is drawn of the challenger it
+                # names, so its follow-on carries one.
+                arguments = (
+                    {"challenger_id": "x"}
+                    if member is FollowOnStep.AUTO_RESOLVE_CHALLENGER
+                    else {}
+                )
                 with suppressed_cog_saves(), chain_stops_at(cog, member):
                     await cog.dispatch_step_result(
                         build_interaction(),
                         SimpleNamespace(game_id="g1", match_state=None),
                         SimpleNamespace(to_dict=dict, challenger_id=None),
-                        StepResult(next=FollowOn(member)),
+                        StepResult(next=FollowOn(member, arguments)),
                     )
                 cog.refresh_match_image.assert_not_awaited()
                 cog.announce_board_update.assert_not_awaited()

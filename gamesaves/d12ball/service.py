@@ -31,16 +31,16 @@ name to decide anything; it asks the `Batching` it was given.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum, auto
-from typing import Any, Callable, Optional, Sequence, Union
+from typing import Any, Callable, Mapping, Optional, Sequence, Union
 
 from d12ball.components import MatchState, TeamSide
 from d12ball.engine import RulesEngine
-from d12ball.flow import driver, periods, turnovers, windows
+from d12ball.flow import driver, periods
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.game import D12BallGame
-from d12ball.prompts import PendingPrompt, pending_prompt
+from d12ball.prompts import PendingPrompt, PromptKind, pending, pending_prompt
 from gamesaves.d12ball.storage import save_games
 
 
@@ -105,6 +105,9 @@ class Narration:
     board: Optional[dict] = None
     new_play: bool = False
     board_changed: bool = False
+    #: The step's own arguments, where a frontend's picture of the
+    #: group depends on one -- the challenger the walk-in named.
+    arguments: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def drawn(self) -> bool:
@@ -155,6 +158,25 @@ RESUME_COACHING_NOTE = (
     "has been undone."
 )
 
+#: What a resume says it found, by the step the bot owed -- the words
+#: `/d12ball resume` reports back. A step `owed_step` can name and
+#: this table does not is reported by its name, so a new member is
+#: never silent.
+OWED_STEP_NAMES: Mapping[FollowOnStep, str] = {
+    FollowOnStep.ADVANCE_SETUP_STAGE: "the pre-kickoff Coaching Choice",
+    FollowOnStep.ADVANCE_HALFTIME_STAGE: "halftime",
+    FollowOnStep.ADVANCE_FULL_TIME_STAGE: (
+        "the Coaching Choice before the shootout"
+    ),
+    FollowOnStep.ADVANCE_SHOOTOUT: "the extreme shootout",
+    FollowOnStep.RUN_AI_COACHING_WINDOW: "the AI's Coaching Choice",
+    FollowOnStep.FINISH_TIME_OUT: "the time out",
+    FollowOnStep.CONTINUE_RUN_BACK: "the run back",
+    FollowOnStep.BEGIN_BALL_RECOVERY: "the out-of-bounds pickup",
+    FollowOnStep.RESOLVE_LOOSE_BALL: "the loose ball",
+    FollowOnStep.BEGIN_EFFECT_RESOLUTION: "the maneuver's effect",
+}
+
 
 class GameService:
     """
@@ -201,7 +223,11 @@ class GameService:
         no match to write -- a status, a tutorial flag."""
         (self._save or save_games)(self.games)
 
-    def waiting_on(self, game: D12BallGame, match: MatchState) -> PendingPrompt:
+    def waiting_on(
+        self, game: D12BallGame, match: MatchState,
+    ) -> Optional[PendingPrompt]:
+        """What the match asks of somebody, or `None` while the bot
+        owes a step (`d12ball.prompts.owed_step`)."""
         return pending_prompt(self.engine, game, match)
 
     # -- The entry points -----------------------------------------------
@@ -301,48 +327,35 @@ class GameService:
         click. Returns what it was waiting on, in words, and the
         result.
 
-        This is the one reading of "the bot owes a step here", and it
-        is the model's for the reason `pending_prompt` is: a second
-        frontend that had to keep its own copy would strand the same
-        games a restart strands. Where nothing is owed the result is
-        the prompt and nothing runs.
+        **The reading is `d12ball.prompts.owed_step`'s**, the same
+        chain `pending_prompt` reads and `driver.answer` refuses
+        against, so a resume cannot come to run a different step from
+        the one a click is refused for. This used to be a ladder of
+        its own -- nine flags in an order of its own, each handed to a
+        flow function by name -- which was the second copy of "what is
+        this match waiting on" principle 3 in CLAUDE.md is against,
+        moved out of the cog and not yet gone. Where nothing is owed
+        the result is the prompt and nothing runs; an open Coaching
+        Choice comes back with a note above the allowance saying so.
         """
         game = self.game(game_id)
         match = self.load(game)
         engine = self.engine
 
-        if game.tutorial_gate:
-            # A note held behind Continue outranks every state below:
-            # the position underneath is what it was before the note
-            # went up, and re-driving it would run the thing the note
-            # explains without the note.
-            return "a tutorial note, re-posted above", self._prompt(game, match)
-
-        if match.pending_shootout and not match.pending_injury_tests:
-            # Two of the shootout's four steps are the bot's own, so a
-            # process that died between them leaves nothing to click.
-            # An owed injury check is the exception: that is a button.
-            return "the extreme shootout", self.run(
-                game, match, periods.advance_shootout(engine, game, match),
-                carry=False,
+        waiting = pending(engine, game, match)
+        if isinstance(waiting, FollowOn):
+            return (
+                OWED_STEP_NAMES.get(waiting.step, waiting.step.name),
+                self.run(game, match, StepResult(next=waiting)),
             )
 
-        if match.pending_coaching_side is not None:
-            # Ahead of the three stage checks below: setup, halftime
-            # and full time all run their coaching through this same
-            # window, and their own routines would re-open it -- which
-            # resets the allowance a coach had already spent.
+        prompt = waiting
+        if prompt.kind is PromptKind.TUTORIAL_CONTINUE:
+            return "a tutorial note, re-posted above", self._prompt(
+                game, match, prompt,
+            )
+        if prompt.kind in (PromptKind.COACHING_HUB, PromptKind.COACHING_OFFER):
             side = TeamSide(match.pending_coaching_side)
-            if engine.side_is_ai(game, side):
-                # No menu to put back up: the AI's window is a routine
-                # that runs to completion.
-                return "the AI's Coaching Choice", self.run(
-                    game,
-                    match,
-                    windows.run_ai_substitution_window(engine, game, match),
-                    carry=False,
-                )
-            prompt = self.waiting_on(game, match)
             return "the open Coaching Choice", self._prompt(
                 game,
                 match,
@@ -353,58 +366,46 @@ class GameService:
                     ),
                 ),
             )
+        return "a choice, re-posted above", self._prompt(game, match, prompt)
 
-        if match.pending_setup_stage is not None:
-            return "the pre-kickoff Coaching Choice", self.run(
-                game, match, periods.advance_setup_stage(engine, game, match),
-                carry=False,
-            )
+    def reset_turn(self, game_id: str) -> GameResult:
+        """
+        Throw the current turn away and ask the offense to choose
+        again -- the recovery command's `force`, for a position that
+        no longer hangs together. Refused where the position is not a
+        turn at all (`RulesEngine.turn_reset_refusal`): setup,
+        halftime, the shootout and a time out are walked on by
+        `resume` instead.
 
-        if match.pending_halftime_stage is not None:
-            return "halftime", self.run(
-                game, match,
-                periods.advance_halftime_stage(engine, game, match),
-                carry=False,
-            )
-
-        if match.pending_full_time_stage is not None:
-            return "the Coaching Choice before the shootout", self.run(
-                game, match,
-                periods.advance_full_time_stage(engine, game, match),
-                carry=False,
-            )
-
-        if match.pending_time_out:
-            # Both windows have closed -- the branch above would have
-            # caught one still open -- so what is left is the tail.
-            return "the time out", self.run(
-                game, match, windows.finish_time_out(engine, game, match),
-            )
-
-        if match.pending_run_back:
-            return "the run back", self.run(
-                game,
-                match,
-                StepResult(next=FollowOn(FollowOnStep.CONTINUE_RUN_BACK)),
-            )
-
-        if match.pending_ball_recovery:
-            return "the out-of-bounds pickup", self.run(
-                game, match, turnovers.begin_ball_recovery(engine, game, match),
-            )
-
-        return "a choice, re-posted above", self._prompt(game, match)
+        `reset_maneuver` clears the whole turn -- ball handler,
+        maneuver picks, run back, loose ball, kickoff fill, the
+        out-of-bounds pickup -- and the coaching window is closed
+        separately because it is not part of a turn.
+        """
+        game = self.game(game_id)
+        match = self.load(game)
+        refusal = self.engine.turn_reset_refusal(match)
+        if refusal is not None:
+            return GameResult(refusal=refusal, match=match)
+        match.reset_maneuver()
+        match.close_coaching_window()
+        return self.run(
+            game,
+            match,
+            StepResult(
+                board_changed=True,
+                next=FollowOn(FollowOnStep.SEND_TURN_PROMPT),
+            ),
+        )
 
     def _prompt(
         self,
         game: D12BallGame,
         match: MatchState,
-        prompt: Optional[PendingPrompt] = None,
+        prompt: PendingPrompt,
     ) -> GameResult:
         """The prompt the match is waiting on, and nothing run."""
-        return GameResult(
-            prompt=prompt or self.waiting_on(game, match), match=match,
-        )
+        return GameResult(prompt=prompt, match=match)
 
     # -- The loop --------------------------------------------------------
 
@@ -458,7 +459,8 @@ class GameService:
                 speaks_lines=batching.speaks_lines,
             )
             groups.extend(
-                Narration(group.narration, group.step) for group in run.groups
+                Narration(group.narration, group.step, arguments=group.arguments)
+                for group in run.groups
             )
             board_changed = board_changed or run.board_changed
             following = run.result.next
@@ -484,6 +486,7 @@ class GameService:
                         board=match.to_dict() if drawn else None,
                         new_play=run.result.new_play,
                         board_changed=run.result.board_changed,
+                        arguments=stopped.kwargs,
                     ),
                 )
                 if drawn:

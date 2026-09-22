@@ -69,18 +69,22 @@ Three more ways a restart strands a game, none of them about ephemerality:
 
 Two things follow from that:
 
-- **`pending_prompt` is the only reading of "what is this match waiting
-  on?"** It lives in `d12ball/prompts.py` with no Discord in it -- that is
-  the model/Discord split's first move, and the reasoning is in
-  [model-discord-split.md](model-discord-split.md) -- and answers with a
-  `PendingPrompt`: a `PromptKind`, the line to ask it with, and the few
-  parameters the question carries. `D12Ball.pending_turn_view` is the Discord
-  mapping over it -- `view_for_prompt` is the one place a kind becomes a
-  `discord.ui.View`, and the `ask` passes through untouched. Startup
-  re-attaches the view it returns to the message the prompt is already on;
-  `GameService.resume` hands the same one back and `D12Ball.resume_game` posts
-  it on a fresh message, through `render_prompt`, so it comes back with its
-  picture. A second copy
+- **`pending` in `d12ball/prompts.py` is the only reading of "what is this
+  match waiting on?"**, and `pending_prompt` and `owed_step` are its two
+  readers. It lives with no Discord in it -- that is the model/Discord
+  split's first move, and the reasoning is in
+  [model-discord-split.md](model-discord-split.md) -- and answers one of two
+  ways: a `PendingPrompt` -- a `PromptKind`, the line to ask it with, and the
+  few parameters the question carries -- where somebody is asked, or a
+  `FollowOn` naming the step the bot itself owes where nobody is.
+  `D12Ball.pending_turn_view` is the Discord mapping over the first --
+  `view_for_prompt` is the one place a kind becomes a `discord.ui.View`, and
+  the `ask` passes through untouched -- and returns `None` for the second,
+  because there is no button to restore for a step the bot owes. Startup
+  re-attaches the view it returns to the message the prompt is already on,
+  and skips (and logs) a game it gets `None` for; `GameService.resume` hands
+  the same prompt back and `D12Ball.resume_game` posts it on a fresh message,
+  through `render_prompt`, so it comes back with its picture. A second copy
   of that branch chain is how a resume comes to offer a different prompt from
   the one a restart restores -- and, once a web app asks the same question, how
   the two frontends come to disagree about whose turn it is. Its ordering
@@ -90,23 +94,32 @@ Two things follow from that:
   because all four leave `active_player_id` None, and a maneuver is recognised
   by `challenger_id` rather than `pending_action`, which `choose_challenger`
   clears.
-- **A state whose next step is the bot's is handed back to the routine that
-  drives it**, not re-asked: `continue_run_back`, `begin_ball_recovery`,
-  `advance_setup_stage`, `advance_halftime_stage`, `advance_full_time_stage`,
-  `run_ai_substitution_window`, `advance_shootout`, `finish_time_out`. That is the
-  whole difference between resume's two callers, and the reason
-  `pending_prompt` returns a prompt, and `pending_turn_view` a view, rather
-  than either posting it.
-  - **Each of those eight is still a method on the cog, and since Phase 5 of
-    the model/Discord split most of them are wrappers** over a step in
-    `d12ball/flow/` -- see
-    [model-discord-split.md](model-discord-split.md). The ladder is
-    `GameService.resume` now, in the model's half, and each branch runs the
-    flow function itself through `run` -- the cog no longer keeps a copy of
-    which state owes which step (see [game-service.md](game-service.md)).
-    **The shootout's own reading did not fork**: `advance_shootout` moved
-    whole, and `pending_prompt` still answers its three sub-states in the same
-    order.
+- **A state whose next step is the bot's is run, not re-asked**, and
+  `owed_step` is what says which those are: a stage of setup, halftime or
+  full time with no window open, an AI side's extra token, shootout order or
+  shooter, Coaching Choice or pickup, a pickup nobody need make, the tail of
+  a time out, a run back with only forced placements left, a loose ball both
+  sides have answered, a won card with nothing to ask. Each names a
+  `FollowOnStep` (`ADVANCE_SETUP_STAGE`, `ADVANCE_HALFTIME_STAGE`,
+  `ADVANCE_FULL_TIME_STAGE`, `ADVANCE_SHOOTOUT`, `RUN_AI_COACHING_WINDOW`,
+  `FINISH_TIME_OUT`, `BEGIN_BALL_RECOVERY`, `CONTINUE_RUN_BACK`,
+  `RESOLVE_LOOSE_BALL`, `BEGIN_EFFECT_RESOLUTION`) and `GameService.resume`
+  runs it through the same loop a click runs through. That is the whole
+  difference between resume's two callers, and the reason `pending_prompt`
+  returns a prompt, and `pending_turn_view` a view, rather than either
+  posting it.
+  - **The chain used to answer `PLAYER_ACTION` for four of those states** (a
+    run back with nothing left to ask, a loose ball both sides had answered,
+    a choiceless effect, the tail of a time out), so startup re-armed a
+    `PlayerActionView` over them and a turn action was *applied* mid-cascade
+    -- finding 1 of [../web-app.md](../web-app.md). Step 5 of
+    [../architecture-migration.md](../architecture-migration.md) closed it:
+    the fallbacks are `FollowOn`s, `driver.answer` refuses every action while
+    one is owed (`STEP_OWED`), and the resume ladder that had moved from the
+    cog into `GameService.resume` with its own order is gone -- see
+    [game-service.md](game-service.md). **The shootout's own reading did not
+    fork**: `advance_shootout` moved whole, and the chain answers its three
+    sub-states in the same order, the AI's order or shooter as the step's.
   - **That every one of those states reads back the same after a save and a
     load is asserted**, window by window and shootout sub-state by sub-state,
     in `WindowStateSurvivesASaveTests` (`tests/test_d12ball_periods_flow.py`).

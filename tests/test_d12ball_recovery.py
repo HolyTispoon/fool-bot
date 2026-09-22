@@ -47,8 +47,9 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from d12ball.flow import StepResult
+from d12ball.flow import FollowOnStep, StepResult
 from d12ball.game import D12BallGame, Formation, GameStatus, Team
+from d12ball.prompts import PromptKind, owed_step
 from save_patches import suppressed_cog_saves
 from cog_steps import resume_pending_prompt
 
@@ -68,7 +69,6 @@ def build_cog() -> D12Ball:
     )
     cog.boards = BoardRefresher(cog)
     cog.refresh_match_image = mock.AsyncMock()
-    cog.send_turn_prompt = mock.AsyncMock()
     cog.coaching_file = mock.AsyncMock(return_value=object())
     return cog
 
@@ -167,10 +167,26 @@ class PendingTurnViewTests(unittest.TestCase):
         # halftime outlives the change that renamed things.
         cog, match = self.build()
         match.pending_halftime_stage = "reposition_visiting"
+        match.open_coaching_window(
+            TeamSide.VISITING, CoachingOccasion.HALFTIME,
+        )
 
         view, _ = cog.pending_turn_view("g1", match)
 
         self.assertIsInstance(view, CoachingHubView)
+
+    def test_a_stage_with_no_window_open_restores_nothing(self) -> None:
+        # Between setting the stage and opening the window the next
+        # step is the bot's: nothing to re-arm, and `owed_step` names
+        # the advance a resume runs.
+        cog, match = self.build()
+        match.pending_halftime_stage = "coaching_home"
+
+        self.assertIsNone(cog.pending_turn_view("g1", match))
+        self.assertIs(
+            owed_step(cog.engine, cog.games["g1"], match).step,
+            FollowOnStep.ADVANCE_HALFTIME_STAGE,
+        )
 
     def test_an_undeclared_window_comes_back_as_the_offer(self) -> None:
         cog, match = self.build()
@@ -224,7 +240,12 @@ class PendingTurnViewTests(unittest.TestCase):
 
     def test_an_out_of_bounds_pickup_names_the_space(self) -> None:
         cog, match = self.build()
-        match.active_player_id = match.eligible_ball_handlers()[0]
+        # Nobody of theirs on the ball, or there would be no pickup to
+        # ask for.
+        for player_id in list(
+            match.board.spaces[match.ball.zone][match.ball.space_index],
+        ):
+            match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
         match.pending_ball_recovery = True
 
         view, ask = cog.pending_turn_view("g1", match)
@@ -401,19 +422,26 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
             home_formation=Formation.TWO_TWO_TWO,
         )
         game.match_state = match.to_dict()
-        # The run back is a `FollowOnStep`, so a stub on the cog is
-        # reached through the routing; the other steps the service
-        # owes are flow functions, patched where the service reads
-        # them (`gamesaves.d12ball.service` imports the modules).
+        # Every step the service can owe is a `FollowOnStep` now, so a
+        # stub on the cog is reached through the routing.
         cog.continue_run_back = mock.AsyncMock()
         return cog, game, match
 
-    def owed(self, module: str, name: str):
-        """Patch a flow function the service runs for a resumed state."""
-        return mock.patch(
-            f"d12ball.flow.{module}.{name}",
-            mock.Mock(return_value=StepResult()),
-        )
+    def owed(self, step: FollowOnStep):
+        """Stub the step the service runs for a resumed state, where
+        the driver reads it; the stub is what the `with` hands back."""
+        stub = mock.Mock(return_value=StepResult())
+        patch = mock.patch.dict("d12ball.flow.driver.MODEL_STEPS", {step: stub})
+
+        class Owed:
+            def __enter__(self):
+                patch.__enter__()
+                return stub
+
+            def __exit__(self, *exc):
+                return patch.__exit__(*exc)
+
+        return Owed()
 
     async def test_a_stranded_run_back_is_driven_on_not_re_asked(
         self,
@@ -437,18 +465,25 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         interaction.followup.send.assert_not_awaited()
 
     async def test_an_out_of_bounds_pickup_is_driven_on(self) -> None:
+        # The AI's pickup: nobody is asked, so the step is the bot's.
         cog, game, match = self.build()
-        match.active_player_id = match.eligible_ball_handlers()[0]
+        game.player_2_id = None
+        match.ball.possession = TeamSide.VISITING
+        for player_id in list(
+            match.board.spaces[match.ball.zone][match.ball.space_index],
+        ):
+            match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
         match.pending_ball_recovery = True
 
         with suppressed_cog_saves(), self.owed(
-            "turnovers", "begin_ball_recovery",
+            FollowOnStep.BEGIN_BALL_RECOVERY,
         ) as step:
-            await resume_pending_prompt(cog, 
+            waiting_on = await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
             )
 
         step.assert_called_once()
+        self.assertEqual(waiting_on, "the out-of-bounds pickup")
 
     async def test_an_open_window_is_re_posted_not_re_opened(self) -> None:
         """
@@ -492,7 +527,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with suppressed_cog_saves(), self.owed(
-            "windows", "run_ai_substitution_window",
+            FollowOnStep.RUN_AI_COACHING_WINDOW,
         ) as step:
             waiting_on = await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
@@ -509,7 +544,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.SETUP)
 
         with suppressed_cog_saves(), self.owed(
-            "periods", "advance_setup_stage",
+            FollowOnStep.ADVANCE_SETUP_STAGE,
         ) as step:
             await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
@@ -526,7 +561,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         match.pending_setup_stage = "coaching_home"
 
         with suppressed_cog_saves(), self.owed(
-            "periods", "advance_setup_stage",
+            FollowOnStep.ADVANCE_SETUP_STAGE,
         ) as step:
             waiting_on = await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
@@ -539,16 +574,35 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog, game, match = self.build()
-        match.pending_halftime_stage = "extra_token_visiting"
+        match.pending_halftime_stage = "coaching_visiting"
 
         with suppressed_cog_saves(), self.owed(
-            "periods", "advance_halftime_stage",
+            FollowOnStep.ADVANCE_HALFTIME_STAGE,
         ) as step:
-            await resume_pending_prompt(cog, 
+            waiting_on = await resume_pending_prompt(cog, 
                 build_interaction(), game, match,
             )
 
         step.assert_called_once()
+        self.assertEqual(waiting_on, "halftime")
+
+    async def test_a_coachs_extra_token_is_re_posted_not_advanced(
+        self,
+    ) -> None:
+        # A human side's extra-token pick is a question, and a resume
+        # puts it back rather than re-driving the stage over it.
+        cog, game, match = self.build()
+        match.pending_halftime_stage = "extra_token_visiting"
+        interaction = build_interaction()
+
+        with suppressed_cog_saves(), self.owed(
+            FollowOnStep.ADVANCE_HALFTIME_STAGE,
+        ) as step:
+            await resume_pending_prompt(cog, interaction, game, match)
+
+        step.assert_not_called()
+        _, kwargs = interaction.channel.send.await_args
+        self.assertIsInstance(kwargs["view"], HalftimeExtraTokenView)
 
     async def test_anything_else_posts_the_view_it_owes(self) -> None:
         cog, game, match = self.build()
@@ -589,6 +643,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
         cog.resume_game = mock.AsyncMock(
             return_value="the run back",
         )
+        cog.present = mock.AsyncMock()
         return cog, game, match
 
     async def run_resume(self, cog, interaction, force: bool = False):
@@ -649,7 +704,11 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(resumed.pending_action)
         self.assertFalse(resumed.pending_run_back)
         self.assertIsNone(resumed.pending_coaching_side)
-        cog.send_turn_prompt.assert_awaited_once()
+        # The offensive choice, re-posted through the service and the
+        # presenter -- the one door, like every other step.
+        cog.present.assert_awaited_once()
+        _, _, result = cog.present.await_args.args
+        self.assertIs(result.prompt.kind, PromptKind.PLAYER_ACTION)
         cog.resume_game.assert_not_awaited()
 
     async def test_force_will_not_skip_setup_or_halftime(self) -> None:
@@ -664,12 +723,15 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
                 setattr(match, stage_field, "coaching_home")
                 game.match_state = match.to_dict()
 
-                await self.run_resume(cog, build_interaction(), force=True)
+                interaction = build_interaction()
+                await self.run_resume(cog, interaction, force=True)
 
-                cog.send_turn_prompt.assert_not_awaited()
+                cog.present.assert_not_awaited()
                 self.assertIsNotNone(
                     getattr(cog.engine.load_match_state(game), stage_field),
                 )
+                message, _ = interaction.followup.send.await_args
+                self.assertIn("clearing the turn", message[0])
 
     async def test_force_will_not_skip_a_ceded_ball(self) -> None:
         """
@@ -683,7 +745,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
 
         await self.run_resume(cog, build_interaction(), force=True)
 
-        cog.send_turn_prompt.assert_not_awaited()
+        cog.present.assert_not_awaited()
         self.assertTrue(cog.engine.load_match_state(game).pending_time_out)
 
     async def test_a_state_that_will_not_load_says_so(self) -> None:

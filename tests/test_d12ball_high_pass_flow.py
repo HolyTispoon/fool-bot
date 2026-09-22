@@ -46,7 +46,7 @@ from d12ball.flow.effects import (
     setup_pass_step,
     throw_high_pass,
 )
-from d12ball.prompts import pending_prompt
+from d12ball.prompts import pending
 
 from high_pass_fixtures import (
     ENGINE,
@@ -264,14 +264,15 @@ class PassStepTests(unittest.TestCase):
                 fixture = case.build()
                 run_step(fixture)
 
-                before = pending_prompt(ENGINE, fixture.game, fixture.match)
+                before = pending(ENGINE, fixture.game, fixture.match)
                 restored = MatchState.from_dict(
                     fixture.match.to_dict(), ENGINE.basic_ruleset,
                 )
-                after = pending_prompt(ENGINE, fixture.game, restored)
+                after = pending(ENGINE, fixture.game, restored)
 
-                self.assertEqual(before.kind, after.kind)
-                self.assertEqual(before.ask, after.ask)
+                # A question or the step the bot owes: the same one
+                # either way.
+                self.assertEqual(before, after)
                 self.assertEqual(
                     (restored.ball.zone, restored.ball.space_index),
                     fixture.ball_space,

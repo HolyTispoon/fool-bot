@@ -17,9 +17,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
-from d12ball.prompts import PendingPrompt
+if TYPE_CHECKING:
+    # A type only: `d12ball.prompts` imports `FollowOn` from here, so
+    # that `owed_step` can name a step, and the two modules cannot
+    # both import the other at run time.
+    from d12ball.prompts import PendingPrompt
 
 
 class FollowOnStep(Enum):
@@ -276,6 +280,28 @@ class FollowOnStep(Enum):
     #: added was the choice of dispatcher, which is a row in the
     #: frontend's `own_message` set now like the whistle's.
     FINISH_SUBSTITUTION_WINDOW = auto()
+    #: **The steps the bot itself owes**, which `d12ball.prompts.owed_step`
+    #: names for a position nobody is asked anything on: the next stage
+    #: of setup, halftime or full time where no window is open; the
+    #: shootout's next step where an AI side's order or shooter is
+    #: still to be set; an AI side's Coaching Choice, which is a
+    #: routine and not a menu; the tail of a time out once both windows
+    #: have closed; the out-of-bounds pickup where the side is the
+    #: AI's or nobody need move. Added by step 5 of
+    #: docs/architecture-migration.md, when the recovery ladder in
+    #: `GameService.resume` stopped calling the flow functions by name
+    #: and started running whatever `owed_step` hands it -- so a
+    #: restart, a resume and a web request all read the same answer
+    #: to "is anybody asked here?". Every one of these is also called
+    #: inline by the step that ordinarily reaches it; the member is the
+    #: door a resume comes back in through.
+    ADVANCE_SETUP_STAGE = auto()
+    ADVANCE_HALFTIME_STAGE = auto()
+    ADVANCE_FULL_TIME_STAGE = auto()
+    ADVANCE_SHOOTOUT = auto()
+    RUN_AI_COACHING_WINDOW = auto()
+    FINISH_TIME_OUT = auto()
+    BEGIN_BALL_RECOVERY = auto()
 
 
 @dataclass(frozen=True)
