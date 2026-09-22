@@ -618,7 +618,14 @@ python3 scripts/render_role_cards.py --out cards/roles --sheet
   side by side, since "OFF 1  DEF 6" is not the same width as "OFF 4
   DEF 3". They stay in `CARD_OFFENSE_COLOR` / `CARD_DEFENSE_COLOR` --
   the same two colours `player_cards.draw_stats` and the bot's own card
-  draw them in, so a printed 6 and a drawn 6 are the same red.
+  draw them in, so a printed 6 and a drawn 6 are the same red. The stat
+  row's own left edge, otherwise blank once the numbers moved out to
+  make room below, prints `"basic skill values:"` in the same face and
+  size as OFF/DEF but plain and in ink -- so the row reads as a single
+  labelled line rather than a heading with unexplained numbers under
+  it. `STAT_ROW_GAP` between the name row and this one is 2, not the
+  6 an earlier pass left it at, once splitting the two stats into
+  their own stacked rows stopped needing the extra room.
 - **Only the full sentence, never `ability_short`** -- the same call
   the species and player cards make, and for the same reason: a card
   on a table is the whole of what its coach has. `ability_short` on a

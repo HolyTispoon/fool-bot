@@ -76,7 +76,7 @@ GRID_ROLES: tuple[tuple[PlayerRole, PlayerRole], ...] = (
 # own room to the ability text below rather than to a second stat row.
 NAME_ROW_HEIGHT = 76
 STAT_ROW_HEIGHT = 28
-STAT_ROW_GAP = 6
+STAT_ROW_GAP = 2
 BAND_HEIGHT = NAME_ROW_HEIGHT + STAT_ROW_GAP + STAT_ROW_HEIGHT
 
 # The badge nearly fills its own row rather than sitting small beside
@@ -205,9 +205,14 @@ def _draw_panel(
     # the pair reading as a column when the six panels sit side by
     # side. Same two colours `player_cards.draw_stats` and the bot's
     # own card draw them in, so a printed 6 and a drawn 6 are the same
-    # red or green.
+    # red or green. "basic skill values:" fills the width the row would
+    # otherwise leave blank to the numbers' left, in the same face and
+    # size as OFF/DEF but plain and in ink, so the row still reads as
+    # one row of small print rather than a second heading.
     stat_face = font(18, bold=True)
+    label_face = font(18)
     stat_gap = 14
+    stat_left = left + 12
     stat_right = right - 12
     stat_row_center = top + NAME_ROW_HEIGHT + STAT_ROW_GAP + STAT_ROW_HEIGHT / 2
     off_text = f"OFF {profile.offense}"
@@ -215,6 +220,11 @@ def _draw_panel(
     off_width = pen.text_size(off_text, stat_face)[0]
     def_width = pen.text_size(def_text, stat_face)[0]
     block_left = stat_right - off_width - stat_gap - def_width
+    pen.text(
+        (stat_left, stat_row_center),
+        "basic skill values:", label_face, INK,
+        anchor="lm",
+    )
     pen.text(
         (block_left, stat_row_center),
         off_text, stat_face, CARD_OFFENSE_COLOR,
