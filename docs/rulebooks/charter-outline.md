@@ -360,7 +360,7 @@ paragraph of Gambits.
 
 - 20.1 One ability per species; every player of the species has it on
   either side; in basic mode species is only a name.
-- 20.2 **Volatile (Fire Demon).** The ignite; surge and backfire; every
+- 20.2 **Volatile (Fire Demon).** The ignite; blaze and burn; every
   roll it covers; the four skill-test cases, lettered; outside a skill
   test it is only the number.
 - 20.3 **Lithium Powered (Cyborg).** Drain; Drained at 7; Damaged;

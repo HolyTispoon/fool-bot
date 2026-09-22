@@ -147,6 +147,24 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-22 -- author, Volatile's two verdicts renamed: surge -> blaze, backfire -> burn
+
+**No rule changed.** The two outcomes of an ignite's second die keep the same numbers and the
+same effects; only their names moved -- "surge" (5-12, adds) is now **blaze**, and "backfire"
+(1-4, subtracts) is now **burn**. `docs/living-rules.md`, `docs/design/species-abilities.md`,
+the engine (`IgnitedRoll.blaze`/`.burn`, `VOLATILE_BLAZE_MINIMUM`), the ignition die's rendered
+text (`BLAZE`/`BURN`) and the narration all took the new words in the same commit. Dated here
+rather than left silent because the rename touches `docs/living-rules.md` itself, same as any
+other change to its wording.
+
+**Untouched on purpose:** every quotation of the author's own words elsewhere in this log --
+those used "surge"/"backfire" because that was the name at the time, and renaming a quotation
+would misdate it. `d12ball/data/species.json`'s ability text is the sheet's own `spec_abilities`
+column and still reads "surge"/"backfire" until the sheet is edited upstream and
+`scripts/import_d12ball_species.py` re-run; no code reads that column for either word, so
+nothing here depends on it, but the sheet should be brought in line so the two do not keep
+disagreeing.
+
 ### 2026-09-21 (later) -- code only, a new play's window stops reading the half's time out
 
 **No rule changed, and none is stated here** -- the code was made to play the rule the Charter

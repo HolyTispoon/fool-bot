@@ -83,7 +83,7 @@ from d12ball.components import (
 from d12ball.flow.effects import shove_pressured_handler
 from d12ball.engine import (
     VOLATILE_IGNITE_FACES,
-    VOLATILE_SURGE_MINIMUM,
+    VOLATILE_BLAZE_MINIMUM,
     IgnitedRoll,
     RulesEngine,
 )
@@ -316,31 +316,31 @@ class IgniteTests(unittest.TestCase):
             )
             self.assertEqual(result.face, face)
 
-    def test_a_surge_adds_the_second_die(self):
+    def test_a_blaze_adds_the_second_die(self):
         with mock.patch("random.randint", return_value=9):
             result = self.engine.ignite(self.game, self.demon, 6)
-        self.assertTrue(result.surge)
-        self.assertFalse(result.backfire)
+        self.assertTrue(result.blaze)
+        self.assertFalse(result.burn)
         self.assertEqual(result.second, 9)
         self.assertEqual(result.modifier, 9)
 
-    def test_a_backfire_subtracts_it(self):
+    def test_a_burn_subtracts_it(self):
         with mock.patch("random.randint", return_value=3):
             result = self.engine.ignite(self.game, self.demon, 7)
-        self.assertFalse(result.surge)
-        self.assertTrue(result.backfire)
+        self.assertFalse(result.blaze)
+        self.assertTrue(result.burn)
         self.assertEqual(result.second, 3)
         self.assertEqual(result.modifier, -3)
 
-    def test_the_surge_boundary_is_the_rules_number(self):
-        # 5-12 surges, 1-4 backfires. Asserted across the whole range
+    def test_the_blaze_boundary_is_the_rules_number(self):
+        # 5-12 blazes, 1-4 burns. Asserted across the whole range
         # rather than at the two sides of the line, since a wrong
         # comparison passes a two-value check half the time.
         for second in range(1, 13):
             with mock.patch("random.randint", return_value=second):
                 result = self.engine.ignite(self.game, self.demon, 6)
             self.assertEqual(
-                result.surge, second >= VOLATILE_SURGE_MINIMUM, second,
+                result.blaze, second >= VOLATILE_BLAZE_MINIMUM, second,
             )
 
     def test_a_non_fire_demon_never_ignites(self):
@@ -396,32 +396,32 @@ class IgniteTests(unittest.TestCase):
 
     def test_an_ignite_says_which_way_it_went_and_on_what(self):
         with mock.patch("random.randint", return_value=9):
-            surge = self.engine.ignite(self.game, self.demon, 6)
+            blaze = self.engine.ignite(self.game, self.demon, 6)
         with mock.patch("random.randint", return_value=2):
-            backfire = self.engine.ignite(self.game, self.demon, 6)
-        self.assertIn("surge", surge.detail)
-        self.assertIn("+9", surge.detail)
-        self.assertIn("backfire", backfire.detail)
-        self.assertIn("-2", backfire.detail)
+            burn = self.engine.ignite(self.game, self.demon, 6)
+        self.assertIn("blaze", blaze.detail)
+        self.assertIn("+9", blaze.detail)
+        self.assertIn("burn", burn.detail)
+        self.assertIn("-2", burn.detail)
 
     def test_the_explanation_carries_both_dice_and_the_modifier(self):
         # The sentence beside the ignition die. Not asserted as prose
         # -- it will be revised -- but every number in it is one the
         # coach has to be able to check against the image.
         with mock.patch("random.randint", return_value=9):
-            surge = self.engine.ignite(self.game, self.demon, 6)
-        sentence = surge.explain("Somebody")
+            blaze = self.engine.ignite(self.game, self.demon, 6)
+        sentence = blaze.explain("Somebody")
         self.assertIn("Somebody", sentence)
         self.assertIn("6", sentence)
         self.assertIn("9", sentence)
         self.assertIn("+9", sentence)
-        self.assertIn("surge", sentence)
+        self.assertIn("blaze", sentence)
 
-    def test_a_backfire_explains_itself_as_a_subtraction(self):
+    def test_a_burn_explains_itself_as_a_subtraction(self):
         with mock.patch("random.randint", return_value=2):
-            backfire = self.engine.ignite(self.game, self.demon, 7)
-        sentence = backfire.explain("Somebody")
-        self.assertIn("backfire", sentence)
+            burn = self.engine.ignite(self.game, self.demon, 7)
+        sentence = burn.explain("Somebody")
+        self.assertIn("burn", sentence)
         self.assertIn("-2", sentence)
 
     def test_a_roll_that_did_not_ignite_explains_nothing(self):
@@ -695,8 +695,8 @@ class IgnitionIsShownEverywhereTests(unittest.TestCase):
 
 class VolatileTierRiderTests(unittest.TestCase):
     """
-    "A surge on the winning side resolves that side's maneuver as its
-    gambit ... a backfire on the losing side resolves the
+    "A blaze on the winning side resolves that side's maneuver as its
+    gambit ... a burn on the losing side resolves the
     opponent's."
 
     Both raise the **winner's** card -- the opponent of the losing side
@@ -708,36 +708,36 @@ class VolatileTierRiderTests(unittest.TestCase):
         self.engine = build_engine()
         self.game = build_game()
         self.plain = IgnitedRoll(face=3)
-        self.surge = IgnitedRoll(face=6, modifier=9, second=9, surge=True)
-        self.backfire = IgnitedRoll(face=6, modifier=-2, second=2, surge=False)
+        self.blaze = IgnitedRoll(face=6, modifier=9, second=9, blaze=True)
+        self.burn = IgnitedRoll(face=6, modifier=-2, second=2, blaze=False)
 
-    def test_a_surge_on_the_winner_raises_it(self):
+    def test_a_blaze_on_the_winner_raises_it(self):
         self.assertTrue(
             self.engine.volatile_raises_tier(
-                self.game, self.surge, self.plain,
+                self.game, self.blaze, self.plain,
             )
         )
 
-    def test_a_backfire_on_the_loser_raises_it(self):
+    def test_a_burn_on_the_loser_raises_it(self):
         self.assertTrue(
             self.engine.volatile_raises_tier(
-                self.game, self.plain, self.backfire,
+                self.game, self.plain, self.burn,
             )
         )
 
-    def test_a_backfire_on_the_winner_raises_nothing(self):
+    def test_a_burn_on_the_winner_raises_nothing(self):
         # They won carrying a penalty; the rider is the loser's to
         # hand over, not theirs to earn.
         self.assertFalse(
             self.engine.volatile_raises_tier(
-                self.game, self.backfire, self.plain,
+                self.game, self.burn, self.plain,
             )
         )
 
-    def test_a_surge_on_the_loser_raises_nothing(self):
+    def test_a_blaze_on_the_loser_raises_nothing(self):
         self.assertFalse(
             self.engine.volatile_raises_tier(
-                self.game, self.plain, self.surge,
+                self.game, self.plain, self.blaze,
             )
         )
 
@@ -748,20 +748,20 @@ class VolatileTierRiderTests(unittest.TestCase):
             )
         )
 
-    def test_a_surge_that_loses_pays_no_gambit_cost(self):
-        # "If a player loses a skill test on the surge, they do not
-        # resolve the gambit cost." A surge protects its
+    def test_a_blaze_that_loses_pays_no_gambit_cost(self):
+        # "If a player loses a skill test on the blaze, they do not
+        # resolve the gambit cost." A blaze protects its
         # player even where the cards would have charged them.
         self.assertIs(
-            self.engine.volatile_loser_cost(self.game, self.surge), False,
+            self.engine.volatile_loser_cost(self.game, self.blaze), False,
         )
 
-    def test_a_backfire_that_loses_pays_it(self):
-        # "However, if a volatile player loses on a backfire, they
+    def test_a_burn_that_loses_pays_it(self):
+        # "However, if a volatile player loses on a burn, they
         # resolve the cost of the gambit" -- the one thing
         # in the game that puts a cost in force off the dice.
         self.assertIs(
-            self.engine.volatile_loser_cost(self.game, self.backfire), True,
+            self.engine.volatile_loser_cost(self.game, self.burn), True,
         )
 
     def test_a_loser_who_did_not_ignite_falls_back_to_the_cards(self):
@@ -771,7 +771,7 @@ class VolatileTierRiderTests(unittest.TestCase):
 
     def test_no_cost_to_change_without_the_advanced_maneuvers(self):
         without = build_game(advanced_maneuvers=False)
-        for ignite in (self.surge, self.backfire, self.plain):
+        for ignite in (self.blaze, self.burn, self.plain):
             self.assertIsNone(
                 self.engine.volatile_loser_cost(without, ignite),
             )
@@ -779,16 +779,16 @@ class VolatileTierRiderTests(unittest.TestCase):
     def test_no_tier_to_change_without_the_advanced_maneuvers(self):
         # "in a game that took the species abilities without the
         # gambits -- there is no tier to change, and the
-        # surge or backfire is only the number."
+        # blaze or burn is only the number."
         without = build_game(advanced_maneuvers=False)
         self.assertFalse(
             self.engine.volatile_raises_tier(
-                without, self.surge, self.plain,
+                without, self.blaze, self.plain,
             )
         )
         self.assertFalse(
             self.engine.volatile_raises_tier(
-                without, self.plain, self.backfire,
+                without, self.plain, self.burn,
             )
         )
 
@@ -861,10 +861,10 @@ class ResolvingManeuverTests(unittest.TestCase):
             self.engine.resolving_maneuver(self.match, advanced), advanced,
         )
 
-    def test_a_surge_that_lost_suppresses_a_cost_the_cards_would_charge(self):
+    def test_a_blaze_that_lost_suppresses_a_cost_the_cards_would_charge(self):
         # The cards were decisive and the loser played an advanced
         # card, so `gambit_cost_applies` would charge them -- the
-        # surge is what takes it off.
+        # blaze is what takes it off.
         self.match.offense_maneuver = "dribble_advance"
         self.match.defense_maneuver = "clear"
         self.assertTrue(
@@ -879,9 +879,9 @@ class ResolvingManeuverTests(unittest.TestCase):
             self.engine.gambit_cost(self.match, "dribble_advance"),
         )
 
-    def test_a_backfire_that_lost_pays_where_the_cards_would_not(self):
+    def test_a_burn_that_lost_pays_where_the_cards_would_not(self):
         # A tie carries no gambit's effect at all, so nothing here is
-        # chargeable off the cards -- the backfire is the whole reason
+        # chargeable off the cards -- the burn is the whole reason
         # a cost applies.
         self.match.offense_maneuver = "low_pass"
         self.match.defense_maneuver = "clear"

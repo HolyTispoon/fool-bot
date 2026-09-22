@@ -60,7 +60,7 @@ from d12ball.components import (
     SPECIES_OOZE,
     SPECIES_TELEKINETIC,
     VOLATILE_IGNITE_FACES,
-    VOLATILE_SURGE_MINIMUM,
+    VOLATILE_BLAZE_MINIMUM,
     BasicRuleset,
     CoachingOccasion,
     FormationShape,
@@ -119,7 +119,7 @@ class IgnitedRoll:
     already building. That is what let all six roll sites take this
     without changing how they roll, display or total anything.
 
-    `second` is the ignite's own die, `surge` says which way it went,
+    `second` is the ignite's own die, `blaze` says which way it went,
     and `modifier` is 0 for every roll that did not ignite -- which is
     every roll in a basic game, and most rolls in an advanced one.
 
@@ -133,27 +133,27 @@ class IgnitedRoll:
     face: int
     modifier: int = 0
     second: Optional[int] = None
-    surge: bool = False
+    blaze: bool = False
 
     @property
     def ignited(self) -> bool:
         return self.second is not None
 
     @property
-    def backfire(self) -> bool:
-        return self.ignited and not self.surge
+    def burn(self) -> bool:
+        return self.ignited and not self.blaze
 
     @property
     def detail(self) -> Optional[str]:
         """
         The line this adds to the dice image's modifier list, or None
         when nothing happened. Worded so a coach can see the second die
-        that produced it -- "+9 Volatile surge (9)" rather than a bare
+        that produced it -- "+9 Volatile blaze (9)" rather than a bare
         number nothing on the image explains.
         """
         if not self.ignited:
             return None
-        word = "surge" if self.surge else "backfire"
+        word = "blaze" if self.blaze else "burn"
         return f"{self.modifier:+d} Volatile {word} ({self.second})"
 
     def explain(self, label: str) -> Optional[str]:
@@ -171,7 +171,7 @@ class IgnitedRoll:
 
         It names the numbers rather than the rule -- the natural face
         that ignited, the second die, and which side of
-        `VOLATILE_SURGE_MINIMUM` it fell -- because the rule itself is
+        `VOLATILE_BLAZE_MINIMUM` it fell -- because the rule itself is
         drawn on the image it captions (see `volatile_explainer_label`).
         `label` is the player as the caller already names them, emoji
         and role bracket included, so this reads like every other line
@@ -185,18 +185,18 @@ class IgnitedRoll:
         """
         if not self.ignited:
             return None
-        if self.surge:
+        if self.blaze:
             return (
                 f"🔥 **Volatile** — {label} rolled a natural {self.face}, "
                 f"so **the ball ignites**. The second d12 comes up "
-                f"**{self.second}** — {VOLATILE_SURGE_MINIMUM} or more, so "
-                f"it **surges**: **{self.modifier:+d}** to their roll."
+                f"**{self.second}** — {VOLATILE_BLAZE_MINIMUM} or more, so "
+                f"it **blazes**: **{self.modifier:+d}** to their roll."
             )
         return (
             f"🔥 **Volatile** — {label} rolled a natural {self.face}, so "
             f"**the ball ignites**. The second d12 comes up "
-            f"**{self.second}** — under {VOLATILE_SURGE_MINIMUM}, so it "
-            f"**backfires**: **{self.modifier:+d}** to their roll."
+            f"**{self.second}** — under {VOLATILE_BLAZE_MINIMUM}, so it "
+            f"**burns**: **{self.modifier:+d}** to their roll."
         )
 
 
@@ -524,12 +524,12 @@ class RulesEngine:
             return IgnitedRoll(face=face)
 
         second = random.randint(1, 12)
-        surge = second >= VOLATILE_SURGE_MINIMUM
+        blaze = second >= VOLATILE_BLAZE_MINIMUM
         return IgnitedRoll(
             face=face,
-            modifier=second if surge else -second,
+            modifier=second if blaze else -second,
             second=second,
-            surge=surge,
+            blaze=blaze,
         )
 
     def overdrive_candidates(
@@ -829,9 +829,9 @@ class RulesEngine:
         test -- **the winner's maneuver resolves as the gambit on
         its rank**.
 
-        The rules name two cases and they are the same case. "A surge
+        The rules name two cases and they are the same case. "A blaze
         on the winning side resolves *that side's* maneuver as its
-        gambit"; "a backfire on the losing side resolves *the
+        gambit"; "a burn on the losing side resolves *the
         opponent's*" -- and the opponent of the losing side is the
         winning side. So both raise the winner's card, which is why
         `MatchState.volatile_tier_upgrade` is one flag and not a side.
@@ -844,7 +844,7 @@ class RulesEngine:
         """
         if not self.gambits_apply(game):
             return False
-        return winner.surge or loser.backfire
+        return winner.blaze or loser.burn
 
     def volatile_loser_cost(
         self, game: D12BallGame, loser: IgnitedRoll,
@@ -854,18 +854,18 @@ class RulesEngine:
         they would otherwise pay -- the other half of Volatile's rider
         (the author, 2026-09-07).
 
-        `False` where they **surged and lost**: they pay no cost even
+        `False` where they **blazed and lost**: they pay no cost even
         where the cards would have charged one. `True` where they
-        **backfired and lost**: they pay theirs even where the cards
-        alone would not, which makes a backfire the one thing in the
+        **burned and lost**: they pay theirs even where the cards
+        alone would not, which makes a burn the one thing in the
         game that puts a cost in force off the dice. `None` otherwise,
         leaving `gambit_cost_applies` the whole answer.
 
         Read from the losing player's own die rather than from the
         matchup, which is why this is separate from
-        `volatile_raises_tier` rather than derivable from it: a surge
+        `volatile_raises_tier` rather than derivable from it: a blaze
         that loses suppresses a cost *and* raises nothing, and a
-        backfire that loses charges one *and* raises the opponent's
+        burn that loses charges one *and* raises the opponent's
         card.
 
         Gated on the gambits for the same reason the tier
@@ -873,9 +873,9 @@ class RulesEngine:
         """
         if not self.gambits_apply(game):
             return None
-        if loser.surge:
+        if loser.blaze:
             return False
-        if loser.backfire:
+        if loser.burn:
             return True
         return None
 
@@ -1198,8 +1198,8 @@ class RulesEngine:
 
         **Volatile's tier rider is the one thing that raises a card
         here**, and it is read off `match.volatile_tier_upgrade`, which
-        the skill test sets when the winner surged or the loser
-        backfired. It beats the tie downgrade above -- the rules say
+        the skill test sets when the winner blazed or the loser
+        burned. It beats the tie downgrade above -- the rules say
         "even where the cards tied and the basic card would otherwise
         resolve" -- and it only ever raises: a card already resolving
         as a gambit gains nothing, which falls out of the counterpart
@@ -1211,7 +1211,7 @@ class RulesEngine:
         **It raises the winner's card and nothing else.** The loser's
         cost is `gambit_cost`'s, which asks whether the *cards* were
         decisive -- an ignite decides a tier, not who won -- so a tie
-        raised to a gambit by a surge still carries no cost. That is
+        raised to a gambit by a blaze still carries no cost. That is
         the rules read literally: the rider speaks only to the card
         that resolves.
         """
@@ -1255,9 +1255,9 @@ class RulesEngine:
         if loser is None or not loser.is_gambit:
             return None
 
-        # **Volatile overrides the cards, both ways.** A surge that
+        # **Volatile overrides the cards, both ways.** A blaze that
         # lost pays nothing even where the card lost on the cards; a
-        # backfire that lost pays even where it did not. Asked before
+        # burn that lost pays even where it did not. Asked before
         # `gambit_cost_applies` because that is exactly what it
         # overrides -- see `volatile_loser_cost`.
         if match.volatile_loser_cost is False:

@@ -203,7 +203,7 @@ def score_skill_test(
 
     **Both ignites come back with the totals**, because this is the one
     roll site where Volatile does something besides arithmetic: the
-    caller needs to know which side surged or backfired to set the tier
+    caller needs to know which side blazed or burned to set the tier
     rider once it knows who won. See `RulesEngine.volatile_raises_tier`.
     """
     offense_skill = engine.player_catalog.effective_profile(
@@ -469,11 +469,11 @@ def skill_test_step(
         )
         volatile_lines.append(
             "🔥 **Volatile** — "
-            + ("the surge" if winner_ignite.surge else "the backfire")
+            + ("the blaze" if winner_ignite.blaze else "the burn")
             + f" raises it to **{raised}**."
         )
     # Said only where there is a gambit's cost for it to have changed:
-    # a coach told "the surge spares them the cost" of a card that
+    # a coach told "the blaze spares them the cost" of a card that
     # carried none is being answered a question nobody asked (see "What
     # a message says" in docs/design/naming-and-wording.md).
     loser_card = engine.maneuver_catalog.get(
@@ -485,10 +485,10 @@ def skill_test_step(
         and loser_card.is_gambit
     ):
         volatile_lines.append(
-            "🔥 **Volatile** — the backfire also costs them their "
+            "🔥 **Volatile** — the burn also costs them their "
             "gambit's price."
             if match.volatile_loser_cost
-            else "🔥 **Volatile** — the surge spares them their "
+            else "🔥 **Volatile** — the blaze spares them their "
             "gambit's cost."
         )
     volatile_note = "\n" + "\n".join(volatile_lines) if volatile_lines else ""
@@ -1239,7 +1239,7 @@ def score_shootout_test(
 
     **Volatile fires here too**, on each shooter's own die: the rules
     list a shootout test among the rolls it covers. A shootout owes no
-    injury check, which the ignite does not change -- what a backfire
+    injury check, which the ignite does not change -- what a burn
     costs here is the goal, not a card. Both ignites come back with the
     rest, in shooting order, for the caller to post as dice of their
     own.

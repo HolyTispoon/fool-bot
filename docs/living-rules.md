@@ -1049,23 +1049,23 @@ The species abilities are the second of the two modules advanced mode turns on, 
 
 **Every d12 a Fire Demon rolls can ignite.** When the die's own face -- before any skill or modifier -- comes up a natural **6 or 7**, the Fire Demon immediately rolls a second d12:
 
-- **5-12: a surge.** Add the second die to the Fire Demon's total for that roll.
-- **1-4: a backfire.** Subtract it.
+- **5-12: a blaze.** Add the second die to the Fire Demon's total for that roll.
+- **1-4: a burn.** Subtract it.
 
 Ignite is not a choice, and the second die never ignites in turn -- one reroll, however it falls.
 
-Every roll a Fire Demon makes is covered: their die in a [skill test](#the-skill-test) or a [contest for the ball](#where-the-ball-comes-to-rest) -- and if both players rolling are Fire Demons, each checks their own -- the shooter's die in a [score attempt](#score-attempt), the die kept in an [own-goal roll](#own-goal), an [injury check](#the-injury-check), and a [shootout test](#extreme-shootout). A backfire that drops an injury check below the token count injures the Fire Demon as any failed check does.
+Every roll a Fire Demon makes is covered: their die in a [skill test](#the-skill-test) or a [contest for the ball](#where-the-ball-comes-to-rest) -- and if both players rolling are Fire Demons, each checks their own -- the shooter's die in a [score attempt](#score-attempt), the die kept in an [own-goal roll](#own-goal), an [injury check](#the-injury-check), and a [shootout test](#extreme-shootout). A burn that drops an injury check below the token count injures the Fire Demon as any failed check does.
 
-**In a maneuver skill test the surge or backfire decides a tier, and what the loser pays.** Four cases, one for each way an ignite can land:
+**In a maneuver skill test the blaze or burn decides a tier, and what the loser pays.** Four cases, one for each way an ignite can land:
 
-- **A surge that wins** resolves that side's maneuver as **its advanced version -- the gambit on its rank** -- even where the [cards would have resolved the basic maneuver](#when-a-gambits-effect-fires), and whether or not that coach [may play a gambit](#who-may-play-a-gambit) this turn. A maneuver already resolving as a gambit gains nothing more.
-- **A surge that loses** upgrades nothing -- and **that player pays no [gambit's cost](#when-a-gambits-effect-fires)**, even where the cards would otherwise have charged them one.
-- **A backfire that loses** resolves the *opponent's* maneuver as its advanced version, **and that player pays their own gambit's cost** -- a backfire is the one thing that puts a cost in force where the cards alone would not.
-- **A backfire that wins** changes nothing but the number.
+- **A blaze that wins** resolves that side's maneuver as **its advanced version -- the gambit on its rank** -- even where the [cards would have resolved the basic maneuver](#when-a-gambits-effect-fires), and whether or not that coach [may play a gambit](#who-may-play-a-gambit) this turn. A maneuver already resolving as a gambit gains nothing more.
+- **A blaze that loses** upgrades nothing -- and **that player pays no [gambit's cost](#when-a-gambits-effect-fires)**, even where the cards would otherwise have charged them one.
+- **A burn that loses** resolves the *opponent's* maneuver as its advanced version, **and that player pays their own gambit's cost** -- a burn is the one thing that puts a cost in force where the cards alone would not.
+- **A burn that wins** changes nothing but the number.
 
-*Note.* A surge that wins is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as a gambit on its own, so even a player who *did* play the gambit gets it resolving as one for the first time. A backfire that wins won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
+*Note.* A blaze that wins is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as a gambit on its own, so even a player who *did* play the gambit gets it resolving as one for the first time. A burn that wins won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
 
-Outside a maneuver skill test -- or in a game that took the species abilities without the [gambits](#gambits) -- there is no tier to change, and the surge or backfire is only the number.
+Outside a maneuver skill test -- or in a game that took the species abilities without the [gambits](#gambits) -- there is no tier to change, and the blaze or burn is only the number.
 
 ### Lithium Powered (Cyborg)
 
@@ -1149,7 +1149,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 
 | Species | Ability |
 | --- | --- |
-| Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a surge that wins resolves that maneuver as its advanced version (its rank's gambit), a backfire that loses upgrades the opponent's and pays its own gambit's cost, and a surge that loses pays none. |
+| Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's gambit), a burn that loses upgrades the opponent's and pays its own gambit's cost, and a blaze that loses pays none. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7, Damaged rather than Injured. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: -1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball moves to or through your space -- take it over, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
@@ -1161,6 +1161,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 | Arrangement | [Definitions](#definitions); settled in [finishing a Coaching Choice](#finishing-a-coaching-choice) |
 | Back, forward | [Forward and back](#forward-and-back) |
 | Behind | [Who may play a gambit](#who-may-play-a-gambit) |
+| Blaze, burn | [Volatile (Fire Demon)](#volatile-fire-demon) |
 | Card, meeple | [Definitions](#definitions) |
 | Carrier | [Definitions](#definitions); [choosing the handler](#choosing-the-handler) |
 | Challenger | [Determining the two players](#determining-the-two-players) |
@@ -1186,7 +1187,6 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 | Skill test | [The skill test](#the-skill-test) |
 | Space minute | [Space minutes](#space-minutes) |
 | Speed | [The ball, the dice and the tokens](#the-ball-the-dice-and-the-tokens) |
-| Surge, backfire | [Volatile (Fire Demon)](#volatile-fire-demon) |
 | Time out | [Time out](#time-out) |
 
 ## Appendix C. The boards

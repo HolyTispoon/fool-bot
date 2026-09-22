@@ -276,7 +276,7 @@ MIND_PULL_TOKEN_COST = 1
 MIND_PULL_SUCCESS_FACES = (11, 12)
 
 # Volatile's two numbers: the faces that ignite a Fire Demon's die, and
-# the lowest second roll that surges rather than backfires -- see
+# the lowest second roll that blazes rather than burns -- see
 # "Volatile (Fire Demon)" in docs/living-rules.md. Both the author's
 # and neither derivable, so they are named rather than written into the
 # predicate that reads them.
@@ -285,10 +285,10 @@ MIND_PULL_SUCCESS_FACES = (11, 12)
 # `engine.py` where `RulesEngine.ignite` reads them, because the
 # ignition die image reads them too: `d12ball/render.py` cannot import
 # the engine (the engine imports it), and the band under that die --
-# "surges on 5-12" -- has to be the same 5 the roll was settled on.
+# "blazes on 5-12" -- has to be the same 5 the roll was settled on.
 # `engine.py` re-exports both for its own callers.
 VOLATILE_IGNITE_FACES = (6, 7)
-VOLATILE_SURGE_MINIMUM = 5
+VOLATILE_BLAZE_MINIMUM = 5
 
 # What each ability is called, for the messages the bot posts when one
 # fires. The names are the author's and are on the printed cards, so a
@@ -1768,8 +1768,8 @@ class MatchState:
     # gambit -- see "Volatile (Fire Demon)" in
     # docs/living-rules.md.
     #
-    # The rules name two cases and both come to the same one: a surge
-    # on the winning side raises that side's maneuver, and a backfire
+    # The rules name two cases and both come to the same one: a blaze
+    # on the winning side raises that side's maneuver, and a burn
     # on the losing side raises "the opponent's", who is the winner.
     # So this is one flag rather than a side, and `resolving_maneuver`
     # is the only thing that reads it.
@@ -1790,16 +1790,16 @@ class MatchState:
     # 2026-09-07).
     #
     # Three states, which is why it is a nullable bool rather than a
-    # flag: `False` is a **surge that lost** and pays no cost even
-    # where the cards would have charged one; `True` is a **backfire
+    # flag: `False` is a **blaze that lost** and pays no cost even
+    # where the cards would have charged one; `True` is a **burn
     # that lost** and pays theirs even where the cards alone would not;
     # `None` is every other roll, where `gambit_cost_applies` is the
     # whole answer as it always was.
     #
     # It is the loser's own ignite that decides it, not the matchup's
     # -- which is what makes it separate from `volatile_tier_upgrade`
-    # rather than derivable from it. A surge that loses suppresses a
-    # cost *and* raises nothing; a backfire that loses charges one
+    # rather than derivable from it. A blaze that loses suppresses a
+    # cost *and* raises nothing; a burn that loses charges one
     # *and* raises the opponent's card.
     #
     # Persisted and cleared with the rest of the turn, for the reason

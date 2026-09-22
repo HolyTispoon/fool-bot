@@ -1115,7 +1115,7 @@ class CoreMixin:
             view=None,
         )
         # The second die between the check and its verdict. It matters
-        # more here than anywhere: a backfire is the one thing in the
+        # more here than anywhere: a burn is the one thing in the
         # game that injures the player who rolled well.
         await self.post_volatile_ignition(
             interaction, match, (roll.player_id, roll.ignite),
