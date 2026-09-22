@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Render the three boards of the physical game.
 
-Print-ready at 300dpi, tabloid (11 x 17) by default -- a home or
-copy-shop printer's own size, where A3 is not; see `PAPERS` and
-`DEFAULT_PAPER` in `d12ball/boards.py`. Both the field board's own
-size and the team board's card areas hold a real poker card at
-tabloid:
+Print-ready at 300dpi. The field and the jumbotron are tabloid
+(11 x 17) by default -- a home or copy-shop printer's own size, where
+A3 is not; the team board is half a letter sheet, two coaches to a
+page. See `PAPERS`, `DEFAULT_PAPER` and `TEAM_BOARD_PAPER` in
+`d12ball/boards.py`:
 
     python3 scripts/render_boards.py --out print/
     python3 scripts/render_boards.py --teams --bleed --pdf
@@ -13,7 +13,10 @@ tabloid:
 
 Every field board the ruleset defines is written unless --board-size
 narrows it to one, so a print run comes out with the 6-, 7- and
-9-space fields, the jumbotron, and a team board.
+9-space fields, the jumbotron, and the team board -- **twice**: one
+board on its own (`team-board.png`, half a letter sheet) and a letter
+page carrying two of them to be cut apart, one for each coach
+(`team-board-2up.png`).
 
 The layout lives in `d12ball/boards.py`. Everything on either board is
 read from the same data the bot plays from, so re-running this is how a
@@ -34,11 +37,13 @@ from d12ball.boards import (  # noqa: E402
     MIN_TOKEN_INCHES,
     PAPERS,
     PRINT_DPI,
+    TEAM_BOARD_PAPER,
     card_slot_inches,
     cell_inches,
     render_field_board,
     render_jumbotron_board,
     render_team_board,
+    render_team_board_sheet,
 )
 from d12ball.components import (  # noqa: E402
     load_basic_ruleset,
@@ -98,10 +103,19 @@ def main() -> None:
         default=DEFAULT_PAPER,
         choices=sorted(PAPERS),
         help=(
-            f"Sheet size (default: {DEFAULT_PAPER}). The team board's "
-            f"card areas are cut for a poker card at {DEFAULT_PAPER}; "
-            "every other size scales the whole board, and its areas, "
-            "down with it."
+            f"Sheet size for the field and jumbotron boards (default: "
+            f"{DEFAULT_PAPER}). The team board has a paper of its own "
+            "-- see --team-paper."
+        ),
+    )
+    parser.add_argument(
+        "--team-paper",
+        default=TEAM_BOARD_PAPER,
+        choices=sorted(PAPERS),
+        help=(
+            f"The sheet a coach's two boards are cut from (default: "
+            f"{TEAM_BOARD_PAPER}). One board is half of it: the two-up "
+            "page is the whole sheet, cut across."
         ),
     )
     parser.add_argument(
@@ -140,26 +154,44 @@ def main() -> None:
 
     teams = tuple(Team) if args.teams else (None,)
     for team in teams:
-        board = render_team_board(
-            rules,
-            players,
-            maneuvers,
-            team=team,
-            paper=args.paper,
-            bleed=args.bleed,
-        )
         suffix = f"-{team.value}" if team else ""
-        save(board, args.out / f"team-board{suffix}.png", args.pdf)
+        # Two files per team: the board itself, and the page a match's
+        # two coaches are cut from. They are the same board -- the page
+        # pastes it twice -- so a print run picks whichever suits the
+        # paper it is going on.
+        save(
+            render_team_board(
+                rules,
+                players,
+                maneuvers,
+                team=team,
+                paper=args.team_paper,
+                bleed=args.bleed,
+            ),
+            args.out / f"team-board{suffix}.png",
+            args.pdf,
+        )
+        save(
+            render_team_board_sheet(
+                rules,
+                players,
+                maneuvers,
+                team=team,
+                paper=args.team_paper,
+                bleed=args.bleed,
+            ),
+            args.out / f"team-board-2up{suffix}.png",
+            args.pdf,
+        )
 
-    slot = card_slot_inches(args.paper)
+    slot = card_slot_inches(args.team_paper)
     print(
-        f"team board card areas hold a {slot[0]:.2f} x {slot[1]:.2f} in "
-        "card"
+        f"team board bench guides are {slot[0]:.2f} x {slot[1]:.2f} in"
         + (
             ""
             if slot[0] >= CARD_INCHES[0]
-            else "  -- smaller than a poker card, so this print reads "
-            "rather than plays"
+            else "  -- smaller than a poker card, so a bench stacks on "
+            "the area rather than inside the guide"
         )
     )
     cells = cell_inches(args.paper)

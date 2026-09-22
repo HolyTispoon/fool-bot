@@ -44,21 +44,23 @@ from typing import Optional, Sequence
 from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.cards import (
-    DEFENSE_COLOR,
     FACE_COLOR,
     INK,
     MUTED,
     OFFENSE_COLOR,
     PANEL_COLOR,
     PANEL_EDGE,
+    render_maneuver_card_back,
 )
+# The radius a card's own corners are drawn with -- `CORNER` reads as
+# a card's measurement where it is defined and as nothing in
+# particular here.
+from d12ball.cards import CORNER as CARD_CORNER_RADIUS
 from d12ball.components import (
-    MANEUVER_TIER_BASIC,
     BasicRuleset,
     BoardLayout,
     BoardState,
     ManeuverCatalog,
-    ManeuverDefinition,
     MatchPeriod,
     PlayerCatalog,
     PlayerRole,
@@ -88,19 +90,15 @@ PRINT_DPI = 300
 # carry.
 BLEED_INCHES = 0.125
 
-# Sheet sizes in inches, portrait. The field board is drawn landscape
-# and the team board portrait, which is what `sheet_pixels` swaps for.
+# Sheet sizes in inches, portrait. The field board is drawn portrait
+# and the jumbotron landscape, which is what `sheet_pixels` swaps for.
 #
 # **Tabloid (11 x 17in, the common US "ledger" print size) is the
-# default now**, over A3: it is the size a home or copy-shop printer
+# default**, over A3: it is the size a home or copy-shop printer
 # actually stocks in the US, where A3 is the size these boards were
-# first designed at and is still the only one whose team board takes a
-# real card (two rows of 3.5in cards plus a header and a footer is 11.3
-# inches, and tabloid's 11in short side comes out a card area short
-# however the bands are trimmed -- the author's call, made knowing that
-# trade). A4 and letter are proofs to read rather than boards to lay
-# cards on at any size. `card_slot_inches` is what tells a caller which
-# of the three it has.
+# first designed at. The team board is the exception and has a paper
+# of its own -- half a letter sheet, two coaches to a page; see
+# `TEAM_BOARD_PAPER`.
 PAPERS: dict[str, tuple[float, float]] = {
     "a3": (11.69, 16.54),
     "a4": (8.27, 11.69),
@@ -113,9 +111,11 @@ DEFAULT_PAPER = "tabloid"
 # proportions with it on the bot's board (CARD_SIZE is 110 x 154), so
 # the areas that hold them are cut for it.
 CARD_INCHES = (2.5, 3.5)
-# Every area on the team board holds three: a zone holds three cards
-# under 2-3-1 and 1-3-2, and the two benches hold three between the
-# nine players and the six on the field.
+# How many cards a zone row on the field board is guided for: three,
+# which is what a zone holds under 2-3-1 and 1-3-2. It is the guide
+# and not a limit -- see "The zone-assignment rows" in
+# docs/design/printed-boards.md. The team board's own benches take one
+# guide each now, a card's footprint, and a bench stacks on it.
 CARDS_PER_AREA = 3
 
 # The zone colours of the bot's board, lightened for paper. The bot
@@ -1075,8 +1075,8 @@ def draw_zone_assignment_cell(
     # A fixed handful of evenly spaced dashed guides, not a strict slot
     # count -- this is a staging area a coach fans any number of cards
     # across, not a fixed set of numbered spaces the way the strip is.
-    # `CARDS_PER_AREA` is a visual cue borrowed from the team board's
-    # own areas rather than a limit enforced here.
+    # `CARDS_PER_AREA` is a visual cue -- what a zone holds under the
+    # widest formation -- rather than a limit enforced here.
     slots = CARDS_PER_AREA
     for slot in range(1, slots):
         x = width * slot / slots
@@ -1808,118 +1808,292 @@ def load_token_art(name: str) -> Optional[Image.Image]:
 
 # ----------------------------------------------------------- team board
 
+# **A coach's board is half a sheet, cut across: two boards to a page,
+# one for each coach.** The old board stacked two panels on a tabloid
+# sheet for the same reason, and the reason it is letter now is that
+# letter is the one size every printer in the house has in it; the
+# board that came off the tabloid sheet was laid out in a mix of
+# sheet-relative and fixed-inch measurements, which is what put a title
+# through a line and a caption on top of its neighbour. See "The team
+# board" in docs/design/printed-boards.md.
+TEAM_BOARD_PAPER = "letter"
+
+# **Every size on this board is an inch of printed paper**, never a
+# share of the sheet. The board is one physical thing a coach reads at
+# arm's length, so what matters is how big a word comes off a printer,
+# and a band measured in inches with the text in it measured as a share
+# of the sheet's width is exactly how a line of type came to be drawn
+# through the rule under it.
+#
+# Six sizes, and nothing between them: the board's own title, a team's
+# name, a cell's title, a cell's caption, body text, and the small
+# print in the footer. A seventh size is a change to this list, not a
+# number written into a call.
+TEAM_TITLE_INCHES = 0.26
+TEAM_NAME_INCHES = 0.20
+TEAM_CELL_TITLE_INCHES = 0.165
+TEAM_CAPTION_INCHES = 0.105
+TEAM_BODY_INCHES = 0.12
+TEAM_SMALL_INCHES = 0.115
+
+# The margin the board keeps to the cut, and the gaps between its three
+# bands.
+TEAM_MARGIN_INCHES = 0.26
+TEAM_HEADER_GAP_INCHES = 0.10
+TEAM_FOOTER_GAP_INCHES = 0.16
+TEAM_COLUMN_GAP_INCHES = 0.16
+TEAM_AREA_PADDING_INCHES = 0.11
+# The rule under the header, in the team's own colour, and the air
+# over it: a line of type is measured from its own ascender, so a rule
+# set at the leading of the line above it lands on that line's
+# descenders. The old header drew it straight through them.
+TEAM_RULE_INCHES = 0.018
+TEAM_RULE_GAP_INCHES = 0.055
+# Between the footer's three blocks -- the shapes, the deal, and the
+# two reminders -- over and above each block's own leading.
+TEAM_FOOTER_LINE_GAP_INCHES = 0.05
+# Leading, as a multiple of a line's own size. A heading sits closer to
+# what it heads than body copy does to the next line of itself.
+TEAM_TITLE_LEADING = 1.15
+TEAM_LINE_LEADING = 1.4
+# The d12 badge in the footer, drawn rather than named: it is the one
+# component a coach keeps beside the cards.
+TEAM_DIE_INCHES = 0.17
+# The dashed line down the seam of the two-up page. It is on the seam
+# and so on the edge of both boards, which is the one place a mark
+# belongs on a sheet that is about to be cut in half.
+TEAM_CUT_INCHES = 0.01
+
+
+def print_font(inches: float, bold: bool = False) -> ImageFont.ImageFont:
+    """
+    A font at a printed height, in inches. `Sheet.font` sizes against
+    the sheet's own width, which is the right unit for a board whose
+    layout scales whole and the wrong one for a board sized in inches
+    -- see `TEAM_TITLE_INCHES`.
+    """
+    return load_font(max(6, round(inches * PRINT_DPI)), bold=bold)
+
+
+def fitted_print_font(
+    sheet: Sheet,
+    text: str,
+    max_width: float,
+    inches: float,
+    bold: bool = False,
+    minimum: float = 0.085,
+) -> Optional[ImageFont.ImageFont]:
+    """
+    The largest printed size at or below `inches` whose `text` fits,
+    or **None** if it would have to go below `minimum` to fit.
+
+    Returning nothing rather than something illegible is the rule the
+    old board broke: a caption shrunk until it fit read as a smudge,
+    and a smudge is a worse answer than a caption the layout has to be
+    changed to carry. Every caller either drops the line or wraps it.
+    """
+    size = inches
+    while size >= minimum:
+        face = print_font(size, bold=bold)
+        if sheet.text_width(text, face) <= max_width:
+            return face
+        size -= 0.005
+    return None
+
+
+def draw_fitted(
+    sheet: Sheet,
+    position: tuple[float, float],
+    text: str,
+    max_width: float,
+    inches: float,
+    fill: str,
+    bold: bool = False,
+    anchor: str = "la",
+    minimum: float = 0.085,
+) -> None:
+    """
+    A line that has to be drawn, at the largest printed size that fits
+    it -- and at `minimum` if nothing does, which is the last resort
+    rather than the layout: every line here is measured against the
+    room it has, and one that only fits at the floor is a line the
+    band has to be re-cut for.
+    """
+    face = fitted_print_font(
+        sheet, text, max_width, inches, bold=bold, minimum=minimum
+    ) or print_font(minimum, bold=bold)
+    sheet.text(position, text, face, fill, anchor=anchor)
+
 
 @dataclass(frozen=True)
 class TeamBoardGeometry:
     """
-    The team board's three cells: the bench, the back bench and the
-    head coach, in one row.
+    One coach's board: a header, a row of three cells -- the bench, the
+    back bench and the head coach -- and a footer.
 
-    **It used to be six -- the three zones across the top as well.**
-    Those moved to the field board (see "The zone-assignment rows" in
-    docs/design/printed-boards.md), which is what let two of these boards -- one for each
-    coach -- share a single sheet instead of each wanting one of its
-    own: dropping the zone row cut what a board needs to a single row
-    a card tall plus a header and a footer, which is a good deal short
-    of half of even the shorter side of an 11 x 17 sheet.
+    **The three cells are one row of equal columns**, and the row takes
+    whatever the header and the footer leave. Both of those are a fixed
+    number of lines at a fixed printed size, so they are measured off
+    their own type rather than given a share of the sheet: a header is
+    the same two lines on any paper, and a line that does not fit its
+    band is the bug this layout replaced.
 
-    `slot` is the card guide drawn inside an area, capped at a real
-    poker card so a bigger panel gives a roomier area rather than an
-    outsized guide.
+    `slot` is the card guide drawn inside a bench, capped at a real
+    poker card so a bigger sheet gives a roomier area rather than an
+    outsized guide. `card_slot_inches` reports it, and at half a letter
+    sheet it comes out under a poker card: the head, the footer and two
+    legible cell labels do not leave 3.5 inches between them, and the
+    author's call was legible over life-size. A coach stacks their
+    bench on the area, which is a real card wide either way.
     """
 
     left: float
     right: float
-    header_top: float
-    header_bottom: float
+    top: float
+    bottom: float
+    roster_top: float
+    rule_top: float
     columns: tuple[tuple[float, float], ...]
-    rows: tuple[tuple[float, float], ...]
+    label_top: float
+    caption_top: float
+    area_top: float
+    area_bottom: float
     slot: tuple[float, float]
-    slot_pitch: float
-    label_height: float
+    reference: tuple[float, float]
+    footer_top: float
+    footer_lines: tuple[float, float, float]
 
     @classmethod
     def for_sheet(cls, sheet: Sheet) -> "TeamBoardGeometry":
-        # Fixed inches, not a share of `content` -- a panel's own
-        # height is now half a landscape sheet's rather than a whole
-        # one, and a header sized as a percentage of that shrinks with
-        # it for no reason: the title is the same few words at any
-        # panel height, and the row below it is the one thing here
-        # that actually has to hold a fixed real-world size (a poker
-        # card). Sizing the header and footer in inches is what lets
-        # the row take the rest, exactly the way the old percentages
-        # meant to but stopped doing once panels got much shorter.
-        margin = round(0.25 * PRINT_DPI)
-        header = round(0.38 * PRINT_DPI)
-        footer = round(0.38 * PRINT_DPI)
-        gap = round(0.1 * PRINT_DPI)
+        def inches(value: float) -> float:
+            return value * PRINT_DPI
 
+        margin = inches(TEAM_MARGIN_INCHES)
         left = margin
         right = sheet.width - margin
         top = margin
         bottom = sheet.height - margin
-        content = bottom - top
-        row_height = content - header - footer - 2 * gap
 
-        header_bottom = top + header
-        rows = ((header_bottom + gap, header_bottom + gap + row_height),)
-        column_gap = sheet.u(20)
-        column_width = (right - left - 2 * column_gap) / 3
-        columns = tuple(
-            (
-                left + index * (column_width + column_gap),
-                left + index * (column_width + column_gap) + column_width,
-            )
-            for index in range(3)
+        # The header is its two lines and the rule under them.
+        roster_top = top + inches(TEAM_TITLE_INCHES * TEAM_TITLE_LEADING)
+        rule_top = roster_top + inches(
+            TEAM_BODY_INCHES * TEAM_LINE_LEADING + TEAM_RULE_GAP_INCHES
         )
 
-        label_height = round(0.28 * PRINT_DPI)
-        padding = round(0.08 * PRINT_DPI)
-        available_height = row_height - label_height - padding * 2
-        available_width = column_width - padding * 2
+        # **The footer's own lines are measured here**, not in the
+        # routine that draws them: the band and the lines in it are one
+        # measurement, and the old footer was two -- a band in inches
+        # and lines placed in sheet units, which is how the deal and
+        # the reminder came to be drawn below the bottom of the board
+        # and cropped away without a mark on the render.
+        deal_offset = inches(
+            TEAM_BODY_INCHES * TEAM_LINE_LEADING + TEAM_FOOTER_LINE_GAP_INCHES
+        )
+        reminder_offset = deal_offset + inches(
+            TEAM_BODY_INCHES * TEAM_LINE_LEADING + TEAM_FOOTER_LINE_GAP_INCHES
+        )
+        footer_height = reminder_offset + inches(
+            2 * TEAM_SMALL_INCHES * TEAM_LINE_LEADING
+        )
+        footer_top = bottom - footer_height
+
+        label_top = rule_top + inches(
+            TEAM_RULE_INCHES + TEAM_HEADER_GAP_INCHES
+        )
+        caption_top = label_top + inches(
+            TEAM_CELL_TITLE_INCHES * TEAM_TITLE_LEADING
+        )
+        # **The row is never taller than the cards in it.** On half a
+        # letter sheet it is shorter, and the cells take what there is;
+        # on a bigger sheet the leftover goes under the row as air
+        # rather than into the cells, because a cell taller than the
+        # card it holds is a card at the top of an empty box -- and the
+        # reference is capped at the card's own size regardless, since
+        # it is drawn at 300dpi and printing it larger only softens it.
+        area_top = caption_top + inches(
+            TEAM_CAPTION_INCHES * TEAM_LINE_LEADING
+        )
+        area_bottom = min(
+            footer_top - inches(TEAM_FOOTER_GAP_INCHES),
+            area_top
+            + inches(CARD_INCHES[1] + 2 * TEAM_AREA_PADDING_INCHES),
+        )
+
+        # **The head coach's column is the width of the card in it**,
+        # and the two benches divide what is left. The reference is the
+        # back of the maneuver card at the height the row leaves it,
+        # capped at a real card (it is drawn at 300dpi and printing it
+        # larger than the card would only soften it) -- so sizing the
+        # column to anything else leaves either a band of empty board
+        # beside the picture or a picture wider than its own cell.
+        column_gap = inches(TEAM_COLUMN_GAP_INCHES)
+        row_width = right - left - 2 * column_gap
+        reference_height = min(area_bottom - area_top, inches(CARD_INCHES[1]))
+        reference_width = (
+            reference_height * CARD_INCHES[0] / CARD_INCHES[1]
+        )
+        bench_width = (row_width - reference_width) / 2
+        columns = (
+            (left, left + bench_width),
+            (
+                left + bench_width + column_gap,
+                left + 2 * bench_width + column_gap,
+            ),
+            (right - reference_width, right),
+        )
+
+        padding = inches(TEAM_AREA_PADDING_INCHES)
         slot_height = min(
-            available_height,
-            CARD_INCHES[1] * PRINT_DPI,
-            # The fan needs room for the two cards behind the front
-            # one: a card shows at least four tenths of its width.
-            available_width
-            / (1 + 0.4 * (CARDS_PER_AREA - 1))
-            * CARD_INCHES[1]
-            / CARD_INCHES[0],
+            area_bottom - area_top - 2 * padding,
+            inches(CARD_INCHES[1]),
+            (bench_width - 2 * padding) * CARD_INCHES[1] / CARD_INCHES[0],
         )
         slot_width = slot_height * CARD_INCHES[0] / CARD_INCHES[1]
-        pitch = (available_width - slot_width) / (CARDS_PER_AREA - 1)
 
         return cls(
             left=left,
             right=right,
-            header_top=top,
-            header_bottom=header_bottom,
+            top=top,
+            bottom=bottom,
+            roster_top=roster_top,
+            rule_top=rule_top,
             columns=columns,
-            rows=rows,
+            label_top=label_top,
+            caption_top=caption_top,
+            area_top=area_top,
+            area_bottom=area_bottom,
             slot=(slot_width, slot_height),
-            slot_pitch=pitch,
-            label_height=label_height,
+            reference=(reference_width, reference_height),
+            footer_top=footer_top,
+            footer_lines=(
+                footer_top,
+                footer_top + deal_offset,
+                footer_top + reminder_offset,
+            ),
         )
 
-    def area(self, column: int, row: int = 0) -> tuple[float, float, float, float]:
+    def area(self, column: int) -> tuple[float, float, float, float]:
         left, right = self.columns[column]
-        top, bottom = self.rows[row]
-        return left, top + self.label_height, right, bottom
+        return left, self.area_top, right, self.area_bottom
 
 
-def card_slot_inches(paper: str = DEFAULT_PAPER) -> tuple[float, float]:
+def team_board_pixels(paper: str = TEAM_BOARD_PAPER) -> tuple[int, int]:
     """
-    How big a card the team board's areas are cut for, in inches. The
+    One coach's board: half a portrait sheet, cut across its width.
+    Two of them are a page -- see `render_team_board_sheet`.
+    """
+    width, height = sheet_pixels(paper, landscape=False)
+    return width, height // 2
+
+
+def card_slot_inches(paper: str = TEAM_BOARD_PAPER) -> tuple[float, float]:
+    """
+    How big a card the bench areas' guides are cut for, in inches. The
     CLI prints it, and it is what says whether a print can be laid
     cards on or only read.
-
-    Measured against one panel -- half the sheet's own height, since
-    two coaches' boards share the one sheet -- not the whole sheet,
-    which is what `render_team_board` actually cuts each area from.
     """
-    width, height = sheet_pixels(paper, landscape=True)
-    geometry = TeamBoardGeometry.for_sheet(Sheet(width, height // 2))
+    width, height = team_board_pixels(paper)
+    geometry = TeamBoardGeometry.for_sheet(Sheet(width, height))
     return (
         geometry.slot[0] / PRINT_DPI,
         geometry.slot[1] / PRINT_DPI,
@@ -1931,53 +2105,28 @@ def render_team_board(
     players: PlayerCatalog,
     maneuvers: ManeuverCatalog,
     team: Optional[Team] = None,
-    paper: str = DEFAULT_PAPER,
+    paper: str = TEAM_BOARD_PAPER,
     bleed: bool = False,
 ) -> Image.Image:
     """
-    Two coaches' boards, one sheet: each panel is the bench, the back
-    bench and the head coach's cell -- the three zone areas moved to
-    the field board (see "The zone-assignment rows" in docs/design/printed-boards.md),
-    which is what leaves a panel short enough that two of them, one
-    for each side of a match, share a single 11 x 17 sheet cut in
-    half rather than each wanting a sheet of its own.
+    **One coach's board**: the bench, the back bench and the head
+    coach's cell, under a header and over a footer.
 
-    **Landscape, unlike the field board.** Stacking the two panels top
-    to bottom over the sheet's own *short* side (11in) leaves each one
-    a real card's width to spare in every column; over the *long* side
-    (17in, which is what a portrait sheet's width would give the row
-    to divide three ways) a fanned poker card comes out narrower than
-    the card itself.
+    Half a letter sheet (8.5 x 5.5in), which is what makes two of them
+    a page -- `render_team_board_sheet` is that page, and this is the
+    board a coach who wants one per sheet prints. The three zone areas
+    are the field board's (see "The zone-assignment rows" in
+    docs/design/printed-boards.md), which is what leaves a board this
+    short in the first place.
 
-    `team` only colours it, the same on both panels -- a match's two
-    boards are printed and cut from the one sheet whichever side is
-    on it, so there is nothing here for two different teams to color
-    two different panels by.
+    `team` colours the rule under the header, the cell outlines and the
+    team's own name in the corner; with no team it is all ink.
     """
-    width, height = sheet_pixels(paper, landscape=True)
+    width, height = team_board_pixels(paper)
     sheet = Sheet(width, height)
-    panel_height = height // 2
-    for index in range(2):
-        panel = render_team_board_panel(
-            rules, players, maneuvers, team, width, panel_height,
-        )
-        sheet.image.paste(panel, (0, index * panel_height))
-
-    return add_bleed(sheet.image) if bleed else sheet.image
-
-
-def render_team_board_panel(
-    rules: BasicRuleset,
-    players: PlayerCatalog,
-    maneuvers: ManeuverCatalog,
-    team: Optional[Team],
-    width: int,
-    height: int,
-) -> Image.Image:
-    """One coach's own panel -- see `render_team_board`."""
-    sheet = Sheet(width, height, background=FACE_COLOR)
-    geometry = TeamBoardGeometry.for_sheet(sheet)
     accent = TEAM_COLORS[team] if team else INK
+
+    geometry = TeamBoardGeometry.for_sheet(sheet)
 
     draw_team_header(sheet, geometry, players, team, accent)
     draw_card_area(
@@ -1986,7 +2135,6 @@ def render_team_board_panel(
         column=0,
         title="BENCH",
         caption="players who have yet to play",
-        tint=PANEL_COLOR,
         accent=accent,
     )
     draw_card_area(
@@ -1995,13 +2143,57 @@ def render_team_board_panel(
         column=1,
         title="BACK BENCH",
         caption="injured players, and anyone subbed out",
-        tint=PANEL_COLOR,
         accent=accent,
     )
-    draw_head_coach_panel(sheet, geometry, rules, maneuvers, accent)
-    draw_team_footer(sheet, geometry, rules)
+    draw_head_coach_panel(sheet, geometry, maneuvers)
+    draw_team_footer(sheet, geometry, rules, accent)
 
-    return sheet.image
+    return add_bleed(sheet.image) if bleed else sheet.image
+
+
+def render_team_board_sheet(
+    rules: BasicRuleset,
+    players: PlayerCatalog,
+    maneuvers: ManeuverCatalog,
+    team: Optional[Team] = None,
+    paper: str = TEAM_BOARD_PAPER,
+    bleed: bool = False,
+) -> Image.Image:
+    """
+    **A match's two boards on one page**, cut across the middle -- the
+    same board twice, since the two coaches' boards are
+    interchangeable: `team` colours both or neither, and a match whose
+    two sides want their own colours prints two pages.
+
+    The board is drawn once and pasted twice rather than rendered
+    twice, which is what makes the two halves the same picture by
+    construction rather than by hoping two renders agree.
+    """
+    width, height = sheet_pixels(paper, landscape=False)
+    sheet = Sheet(width, height)
+    board = render_team_board(
+        rules, players, maneuvers, team=team, paper=paper
+    )
+    sheet.image.paste(board, (0, 0))
+    sheet.image.paste(board, (0, height - board.height))
+    draw_cut_line(sheet, board.height)
+
+    return add_bleed(sheet.image) if bleed else sheet.image
+
+
+def draw_cut_line(sheet: Sheet, y: float) -> None:
+    """Where to cut the page in two, and nothing else on the seam."""
+    draw_dashed_line(
+        sheet.draw,
+        0,
+        round(y),
+        sheet.width,
+        round(y),
+        fill=PANEL_EDGE,
+        width=max(1, round(TEAM_CUT_INCHES * PRINT_DPI)),
+        dash_length=round(0.10 * PRINT_DPI),
+        gap_length=round(0.08 * PRINT_DPI),
+    )
 
 
 def draw_team_header(
@@ -2011,36 +2203,51 @@ def draw_team_header(
     team: Optional[Team],
     accent: str,
 ) -> None:
-    top = geometry.header_top
-    bottom = geometry.header_bottom
-    sheet.rect(
-        (geometry.left, bottom - sheet.u(4), geometry.right, bottom),
-        fill=accent,
-    )
-    # Sized in fixed points off `load_font` directly, not `sheet.font`
-    # -- that scales with the *sheet's* own width, which is still the
-    # full 17in a panel spans even though the header above the row
-    # shrank to a fixed 0.38in tall. A title sized to the sheet came
-    # out taller than the header holding it.
-    title_font = load_font(round(0.24 * PRINT_DPI), bold=True)
-    sheet.text((geometry.left, top), "TEAM BOARD", title_font, INK)
-    sheet.text(
-        (geometry.left, top + round(0.24 * PRINT_DPI)),
-        roster_line(players),
-        load_font(round(0.11 * PRINT_DPI)),
-        MUTED,
-    )
+    """
+    The board's own title and the team's name on one line, the roster
+    under them, and the rule under that.
+
+    **The roster line is wrapped to what the title leaves**, not fitted
+    to it: the line names nine cards by role and is the first thing on
+    the board a coach actually reads. It used to be drawn at whatever
+    width it came out at and ran straight through the rule below.
+    """
+    title_font = print_font(TEAM_TITLE_INCHES, bold=True)
+    sheet.text((geometry.left, geometry.top), "TEAM BOARD", title_font, INK)
+
     # .replace before .upper(), not team_display_name (which title-
     # cases): an underscored team's value needs the same space an
     # ordinary one gets nowhere, but this header is deliberately all
     # caps, unlike everywhere team_display_name is used.
     name = team.value.replace("_", " ").upper() if team else "TEAM"
-    sheet.text(
-        (geometry.right, top),
+    title_width = sheet.text_width("TEAM BOARD", title_font)
+    draw_fitted(
+        sheet,
+        (geometry.right, geometry.top + 0.04 * PRINT_DPI),
         name,
-        load_font(round(0.22 * PRINT_DPI), bold=True),
+        geometry.right - geometry.left - title_width - 0.3 * PRINT_DPI,
+        TEAM_NAME_INCHES,
         accent,
+        bold=True,
         anchor="ra",
+    )
+    draw_fitted(
+        sheet,
+        (geometry.left, geometry.roster_top),
+        roster_line(players),
+        geometry.right - geometry.left,
+        TEAM_BODY_INCHES,
+        MUTED,
+    )
+
+    sheet.rect(
+        (
+            geometry.left,
+            geometry.rule_top,
+            geometry.right,
+            geometry.rule_top + TEAM_RULE_INCHES * PRINT_DPI,
+        ),
+        fill=accent,
     )
 
 
@@ -2060,222 +2267,157 @@ def roster_line(players: PlayerCatalog) -> str:
         if count
     ]
     return (
-        f"Six of your {len(roster)} on the field, three on the bench:  "
+        f"Six of your {len(roster)} on the field, three on the bench: "
         + " · ".join(parts)
+    )
+
+
+def draw_cell_label(
+    sheet: Sheet,
+    geometry: TeamBoardGeometry,
+    column: int,
+    title: str,
+    caption: str,
+) -> None:
+    """
+    A cell's name, with what belongs in it on the line under it.
+
+    **The caption is a second line, not the right-hand end of the
+    first.** Sharing one line is what put "players who have yet to
+    play" hard against the next cell's title, and a caption squeezed
+    into what a title leaves has no width of its own to be legible in.
+    A column is wide enough for either line on its own.
+    """
+    left, right = geometry.columns[column]
+    draw_fitted(
+        sheet,
+        (left, geometry.label_top),
+        title,
+        right - left,
+        TEAM_CELL_TITLE_INCHES,
+        INK,
+        bold=True,
+    )
+
+    caption_font = fitted_print_font(
+        sheet, caption, right - left, TEAM_CAPTION_INCHES
+    )
+    if caption_font is not None:
+        sheet.text(
+            (left, geometry.caption_top), caption, caption_font, MUTED
+        )
+
+
+def draw_card_area(
+    sheet: Sheet,
+    geometry: TeamBoardGeometry,
+    column: int,
+    title: str,
+    caption: str,
+    accent: str,
+) -> None:
+    """
+    One area a coach's cards sit in, with a card's own footprint
+    dashed inside it.
+
+    **One guide, not a fan of three.** A bench holds three cards
+    between them and the old board fanned three outlines across a
+    column five inches wide; half a letter sheet gives a column two
+    and a half, which is one card and no fan. The cards stack -- the
+    guide is where the stack goes, and the area around it is the room
+    to square them up.
+    """
+    left, right = geometry.columns[column]
+    draw_cell_label(sheet, geometry, column, title, caption)
+
+    area = geometry.area(column)
+    sheet.rect(
+        area,
+        radius=0.08 * PRINT_DPI,
+        fill=PANEL_COLOR,
+        outline=accent,
+        width=max(1, round(0.012 * PRINT_DPI)),
+    )
+
+    slot_width, slot_height = geometry.slot
+    slot_left = (left + right - slot_width) / 2
+    slot_top = (area[1] + area[3] - slot_height) / 2
+    sheet.dashed_rect(
+        (slot_left, slot_top, slot_left + slot_width, slot_top + slot_height),
+        outline=PANEL_EDGE,
+        width=max(1, round(0.01 * PRINT_DPI)),
+        dash=0.055 * PRINT_DPI,
     )
 
 
 def draw_head_coach_panel(
     sheet: Sheet,
     geometry: TeamBoardGeometry,
-    rules: BasicRuleset,
     maneuvers: ManeuverCatalog,
-    accent: str,
 ) -> None:
     """
-    The third cell: the coach's own d12, and the six maneuvers they
-    choose between.
+    The third cell: **the back of the maneuver card, printed on the
+    board**.
 
-    **No selection die, and no die faces anywhere on this board.** The
-    maneuver cards are how a maneuver is chosen -- a coach holds three
-    of each and plays one face down -- so printing "3-4 Dribble
-    Advance" beside them would name a component the table does not use.
-    What is left is the roster of maneuvers under the rank the matchup
-    table calls them by.
+    It is the same picture `render_maneuver_card_back` draws for the
+    deck -- the six ranks on one cycle, each node carrying the basic
+    card over its gambit, with a solid arrow to what it beats and a
+    dashed one to what it ties. A coach reading a matchup off the board
+    and a coach reading it off the card in their hand are reading one
+    picture, which is the whole reason it is pasted rather than redrawn
+    here: a second drawing of the cycle is a second thing to keep true
+    when a rank changes.
+
+    It replaces the two columns of names the cell used to carry, which
+    said which maneuver was which rank and nothing about what beat
+    what, in type a third the size of the heading over it.
+
+    **No frame around it.** The card has its own, and the cell's would
+    be a second border a tenth of an inch outside the first -- the
+    corners are cut instead, so the board's own cream shows around it
+    the way it does around a real card lying on the board rather than
+    leaving four white squares.
     """
     draw_cell_label(
         sheet,
         geometry,
         column=2,
         title="HEAD COACH",
-        caption="your die, and your maneuvers",
+        caption="both coaches play one face down",
     )
-    area = geometry.area(2)
-    sheet.rect(
-        area,
-        radius=sheet.u(10),
-        fill=FACE_COLOR,
-        outline=accent,
-        width=sheet.u(2.2),
+    art = rounded_corners(
+        render_maneuver_card_back(maneuvers, bleed=False),
+        CARD_CORNER_RADIUS,
     )
-
-    inner_left = area[0] + sheet.u(20)
-    inner_right = area[2] - sheet.u(20)
-    cursor = draw_die_slot(
-        sheet, rules, inner_left, area[1] + sheet.u(24), inner_right, accent
-    )
-    draw_maneuver_legend(
-        sheet,
-        maneuvers,
-        inner_left,
-        cursor + sheet.u(10),
-        inner_right,
-        area[3] - sheet.u(16),
-    )
+    left, top, right, _ = geometry.area(2)
+    sheet.paste(art, (left, top, right, top + geometry.reference[1]))
 
 
-def draw_die_slot(
-    sheet: Sheet,
-    rules: BasicRuleset,
-    left: float,
-    top: float,
-    right: float,
-    accent: str,
-) -> float:
+def rounded_corners(art: Image.Image, radius: float) -> Image.Image:
     """
-    The die a coach keeps, read from `basic_rules.json`: how many faces
-    it has and whose colour it is -- the team's, which is what `accent`
-    stands in for.
-
-    **Only the team die is drawn.** The ruleset still defines the two
-    selection d6s beside it, because that data is the bot's model and
-    the rules' component list; the printed board is where they have
-    stopped being used, and drawing an unused component is worse than
-    the divergence. See "The printed boards" in docs/design/printed-boards.md.
+    A card's corners cut out of its own background, at the radius the
+    card itself is drawn with -- `Sheet.paste` takes an RGBA image as
+    its own mask, so what is cut here is what the board shows through.
     """
-    die = rules.team_board.team_die
-    size = min((right - left) * 0.10, sheet.u(40))
-    center_x = left + size + sheet.u(6)
-    center_y = top + size
-
-    sheet.polygon(
-        polygon_points(center_x, center_y, size, die.sides),
-        fill=FACE_COLOR,
-        outline=accent,
-        width=sheet.u(3),
+    cut = art.convert("RGBA")
+    mask = Image.new("L", cut.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, cut.width - 1, cut.height - 1),
+        radius=round(radius),
+        fill=255,
     )
-    sheet.text(
-        (center_x, center_y),
-        f"d{die.sides}",
-        sheet.fitted_font(f"d{die.sides}", size * 1.3, 22, bold=True),
-        accent,
-        anchor="mm",
-    )
-    sheet.text(
-        (center_x + size + sheet.u(22), center_y - sheet.u(20)),
-        "YOUR TEAM DIE",
-        sheet.font(19, bold=True),
-        INK,
-    )
-    note = "Every roll in the game is a d12: skill tests, shots, injury checks."
-    sheet.text(
-        (center_x + size + sheet.u(22), center_y + sheet.u(6)),
-        note,
-        sheet.fitted_font(
-            note, right - center_x - size - sheet.u(22), 15
-        ),
-        MUTED,
-    )
-    return top + 2 * size + sheet.u(6)
-
-
-def draw_maneuver_legend(
-    sheet: Sheet,
-    maneuvers: ManeuverCatalog,
-    left: float,
-    top: float,
-    right: float,
-    bottom: float,
-) -> float:
-    """
-    The maneuvers, by the rank the matchup table names them by. This is
-    a coach's hand, not a die's faces -- the cards carry the effects, so
-    what belongs here is only which is which.
-
-    **Three rows a column, however many cards there are.** A rank
-    carries one card per tier and rank alone decides who beats whom, so
-    a row is a rank with both its names on it -- the basic card, and
-    its gambit under the same number. Twelve rows in a
-    panel sized for three is what listing them per card would give, and
-    it would print two O1s with nothing saying they are the same rank.
-
-    **The rows divide what is left of the cell rather than measuring a
-    fixed height.** Three rows at a size that fits one sheet run off
-    the bottom of the panel on another, and the panel is the only thing
-    on this board a reader would take for a mistake rather than a
-    layout that scaled.
-    """
-    heading = "MANEUVER CARDS  ·  BOTH COACHES PLAY ONE FACE DOWN"
-    sheet.text(
-        (left, top),
-        heading,
-        sheet.fitted_font(heading, right - left, 14, bold=True),
-        MUTED,
-    )
-    column_width = (right - left) / 2
-    rows_top = top + sheet.u(58)
-    ranks = sorted({m.rank for m in maneuvers.offense})
-    row_height = (bottom - rows_top) / len(ranks)
-    # Sized to the row rather than to the sheet, so the lines breathe
-    # on a board with room and close up on one without. A row now
-    # carries two names stacked, so it takes a third of its height
-    # rather than a half.
-    body_size = min(18, row_height / sheet.unit * 0.34)
-    rank_face = sheet.font(body_size * 1.15, bold=True)
-    rank_left = sheet.u(44)
-
-    columns = (
-        ("WITH THE BALL", maneuvers.offense, OFFENSE_COLOR, "O"),
-        ("CHALLENGING", maneuvers.defense, DEFENSE_COLOR, "D"),
-    )
-    # Every name at one size, fitted to the longest of them. Fitting
-    # each on its own left "Double Team" half the height of "Clear"
-    # beside it, which reads as emphasis rather than as the accident of
-    # length it is.
-    name_width = column_width - rank_left - sheet.u(10)
-    name_face = sheet.font(body_size)
-    for maneuver in maneuvers.offense + maneuvers.defense:
-        candidate = sheet.fitted_font(maneuver.name, name_width, body_size)
-        if candidate.size < name_face.size:
-            name_face = candidate
-
-    for index, (heading, side, color, letter) in enumerate(columns):
-        column_left = left + index * column_width
-        sheet.text(
-            (column_left, top + sheet.u(28)),
-            heading,
-            sheet.fitted_font(heading, column_width * 0.9, 15, bold=True),
-            color,
-        )
-        for row, rank in enumerate(ranks):
-            row_y = rows_top + row_height * (row + 0.5)
-            sheet.text(
-                (column_left, row_y),
-                f"{letter}{rank}",
-                rank_face,
-                color,
-                anchor="lm",
-            )
-            # Basic over gambit, the same order and the same reason
-            # as a node on the printed card back.
-            on_rank = sorted(
-                (m for m in side if m.rank == rank),
-                key=lambda m: m.tier != MANEUVER_TIER_BASIC,
-            )
-            offsets = (
-                (0.0,)
-                if len(on_rank) == 1
-                else (-row_height * 0.22, row_height * 0.22)
-            )
-            for maneuver, offset in zip(on_rank, offsets):
-                sheet.text(
-                    (column_left + rank_left, row_y + offset),
-                    maneuver.name,
-                    name_face,
-                    INK if not maneuver.is_gambit else MUTED,
-                    anchor="lm",
-                )
-    return bottom
+    cut.putalpha(mask)
+    return cut
 
 
 def formation_strip_segments(
     rules: BasicRuleset,
 ) -> list[tuple[str, bool, float]]:
     """
-    What the strip says, as (text, muted, the gap in units that follows
-    it) -- the heading, then the shapes every board plays, then each
-    group of shapes that needs a particular board under a label saying
-    which.
+    What the strip says, as (text, muted, the gap in **inches** that
+    follows it) -- the heading, then the shapes every board plays, then
+    each group of shapes that needs a particular board under a label
+    saying which.
 
     **A shape's name is its counts**, which `load_basic_ruleset`
     checks, so the strip prints the names alone: the `(2 / 3 / 1)` that
@@ -2297,12 +2439,12 @@ def formation_strip_segments(
             ).append(formation.value)
 
     segments: list[tuple[str, bool, float]] = [
-        ("FORMATIONS — READ FROM YOUR OWN GOAL", True, 22)
+        ("FORMATIONS — READ FROM YOUR OWN GOAL", True, 0.13)
     ]
-    segments.extend((name, False, 24) for name in universal)
+    segments.extend((name, False, 0.14) for name in universal)
     for label, names in restricted.items():
-        segments.append((label, True, 14))
-        segments.extend((name, False, 24) for name in names)
+        segments.append((label, True, 0.08))
+        segments.extend((name, False, 0.14) for name in names)
     return segments
 
 
@@ -2332,13 +2474,15 @@ def draw_formation_strip(
     scale = 1.0
     while True:
         faces = {
-            muted: sheet.font((14 if muted else 16) * scale, bold=True)
+            muted: print_font(
+                TEAM_BODY_INCHES * (0.92 if muted else 1.0) * scale, bold=True
+            )
             for muted in (True, False)
         }
         width = sum(
             sheet.text_width(text, faces[muted])
             for text, muted, _ in segments
-        ) + sum(sheet.u(gap * scale) for _, _, gap in segments[:-1])
+        ) + sum(gap * PRINT_DPI * scale for _, _, gap in segments[:-1])
         if width <= right - left or scale <= 0.5:
             break
         scale -= 0.05
@@ -2348,7 +2492,7 @@ def draw_formation_strip(
         sheet.text((cursor, top), text, faces[muted], MUTED if muted else INK)
         cursor += sheet.text_width(text, faces[muted])
         if index < len(segments) - 1:
-            cursor += sheet.u(gap * scale)
+            cursor += gap * PRINT_DPI * scale
     return cursor
 
 
@@ -2366,103 +2510,103 @@ def standard_deal_line(rules: BasicRuleset) -> str:
     return "Standard deal (2-2-2): " + " · ".join(parts) + "."
 
 
-def draw_cell_label(
-    sheet: Sheet,
-    geometry: TeamBoardGeometry,
-    column: int,
-    title: str,
-    caption: str,
-) -> None:
+def team_reminders(rules: BasicRuleset) -> tuple[str, str]:
     """
-    A cell's name, with what belongs in it to the right of it. The two
-    share one line and the caption is what gives: a title is the name
-    of an area a coach has to find, and "injured players, and anyone
-    subbed out" is a reminder they read once.
+    The two lines beside the die badge: what the die is for, and the
+    two things about a card on this board that are not on it.
+
+    **The die's faces are read from the ruleset**, never written here
+    -- the board may not claim a component the bot does not play. It is
+    the one die a coach keeps: the selection d6s the ruleset still
+    defines are not on this board and are not in the rules any more
+    (see "The printed boards" in docs/design/printed-boards.md).
     """
-    left, right = geometry.columns[column]
-    top = geometry.rows[0][0]
-    title_face = sheet.fitted_font(title, (right - left) * 0.52, 19, bold=True)
-    title_width = sheet.text_width(title, title_face)
-    sheet.text((left + sheet.u(4), top), title, title_face, INK)
-    sheet.text(
-        (right - sheet.u(4), top + sheet.u(6)),
-        caption,
-        sheet.fitted_font(
-            caption,
-            right - left - title_width - sheet.u(24),
-            13,
-        ),
-        MUTED,
-        anchor="ra",
+    die = rules.team_board.team_die
+    return (
+        f"Every roll in the game is a d{die.sides}: "
+        "skill tests, shots, injury checks.",
+        "A card's zone is assigned on the field board. A player is "
+        "Exhausted once their tokens exceed their defence.",
     )
 
 
-def draw_card_area(
+def draw_die_badge(
     sheet: Sheet,
-    geometry: TeamBoardGeometry,
-    column: int,
-    title: str,
-    caption: str,
-    tint: str,
+    rules: BasicRuleset,
+    center: tuple[float, float],
     accent: str,
 ) -> None:
     """
-    One area a card can be in, with three card outlines fanned across
-    it. Three is what either bench ever has to hold, between them.
+    The die a coach keeps, drawn at the size of the two lines it sits
+    beside: a shape on the board rather than a word in a sentence,
+    because it is a component they have to find in the box.
     """
-    left, right = geometry.columns[column]
-    draw_cell_label(sheet, geometry, column, title, caption)
-
-    area = geometry.area(column)
-    sheet.rect(
-        area,
-        radius=sheet.u(10),
-        fill=tint,
+    die = rules.team_board.team_die
+    radius = TEAM_DIE_INCHES * PRINT_DPI
+    sheet.polygon(
+        polygon_points(center[0], center[1], radius, die.sides),
+        fill=FACE_COLOR,
         outline=accent,
-        width=sheet.u(2.2),
+        width=max(1, round(0.012 * PRINT_DPI)),
     )
-
-    slot_width, slot_height = geometry.slot
-    slot_top = (area[1] + area[3] - slot_height) / 2
-    slot_left = area[0] + (
-        area[2] - area[0] - slot_width - geometry.slot_pitch * (CARDS_PER_AREA - 1)
-    ) / 2
-    for index in range(CARDS_PER_AREA):
-        card_left = slot_left + index * geometry.slot_pitch
-        sheet.dashed_rect(
-            (
-                card_left,
-                slot_top,
-                card_left + slot_width,
-                slot_top + slot_height,
-            ),
-            outline=PANEL_EDGE,
-            width=sheet.u(1.6),
-            dash=sheet.u(10),
-        )
+    draw_fitted(
+        sheet,
+        center,
+        f"d{die.sides}",
+        radius * 1.4,
+        TEAM_BODY_INCHES,
+        accent,
+        bold=True,
+        anchor="mm",
+    )
 
 
 def draw_team_footer(
     sheet: Sheet,
     geometry: TeamBoardGeometry,
     rules: BasicRuleset,
+    accent: str = INK,
 ) -> None:
-    top = geometry.rows[0][1] + sheet.u(16)
-    draw_formation_strip(sheet, rules, geometry.left, top, geometry.right)
-    sheet.text(
-        (geometry.left, top + sheet.u(28)),
+    """
+    The shapes, the deal, and the two reminders beside the die.
+
+    **Every line is drawn at a printed size and the band is measured
+    off those sizes**, so the last line lands above the bottom of the
+    board rather than off it -- the old footer put the deal and the
+    reminder below the edge of the panel, where they were silently
+    cut away by the crop.
+    """
+    strip_line, deal_line, reminder_line = geometry.footer_lines
+    draw_formation_strip(
+        sheet, rules, geometry.left, strip_line, geometry.right
+    )
+
+    draw_fitted(
+        sheet,
+        (geometry.left, deal_line),
         standard_deal_line(rules),
-        sheet.font(14),
+        geometry.right - geometry.left,
+        TEAM_BODY_INCHES,
         INK,
     )
-    closing = (
-        "A card's zone is assigned on the field board, not here, and "
-        "only a Coaching Choice moves it between zones. A player is "
-        "Exhausted once their tokens exceed their defence."
+
+    pitch = TEAM_SMALL_INCHES * TEAM_LINE_LEADING * PRINT_DPI
+    indent = geometry.left + TEAM_DIE_INCHES * 2.6 * PRINT_DPI
+    draw_die_badge(
+        sheet,
+        rules,
+        (
+            geometry.left + TEAM_DIE_INCHES * PRINT_DPI,
+            reminder_line + pitch * 0.85,
+        ),
+        accent,
     )
-    sheet.text(
-        (geometry.left, top + sheet.u(50)),
-        closing,
-        sheet.fitted_font(closing, geometry.right - geometry.left, 14),
-        MUTED,
-    )
+    for index, text in enumerate(team_reminders(rules)):
+        draw_fitted(
+            sheet,
+            (indent, reminder_line + index * pitch),
+            text,
+            geometry.right - indent,
+            TEAM_SMALL_INCHES,
+            MUTED,
+        )
