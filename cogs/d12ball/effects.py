@@ -4,11 +4,9 @@ shown.
 
 **Nothing here decides anything.** Every method below is one of two
 shapes: it calls one flow step in `d12ball/flow/` and hands the result
-to the dispatcher, or it names one step by its `FollowOnStep` and hands
-*that* to the dispatcher -- `D12Ball.run_step`. The decisions those
-steps used to be interleaved with (does anybody choose, what Dinky
-picks, what a card with nowhere to go does) are the `offer_*` steps in
-`d12ball/flow/effects.py` since Phase 6 of docs/design/model-discord-split.md.
+to the presenter, or it names one step by its `FollowOnStep`. The
+decisions (does anybody choose, what a card with nowhere to go does)
+are the `offer_*` steps in `d12ball/flow/effects.py`.
 
 What is left that is genuinely Discord's: the two dice images the
 own-goal roll and the Mind Pull put between their two sentences.
@@ -17,8 +15,6 @@ own-goal roll and the Mind Pull put between their two sentences.
 import asyncio
 import discord
 
-from d12ball.flow import FollowOnStep
-from d12ball.flow.effects import own_goal_roll_step
 from d12ball.components import MatchState
 from d12ball.game import D12BallGame, team_display_name
 from d12ball.render import (
@@ -35,18 +31,6 @@ class ManeuverEffectsMixin:
     The entry points into a maneuver's effect, and the dice a coach is
     shown.
     """
-
-    # -- Low Pass --------------------------------------------------
-
-
-    # -- Dribble Advance ---------------------------------------------
-
-
-    # -- High Pass -----------------------------------------------------
-
-
-    # -- The arrival gates' exits -------------------------------------
-
 
     async def post_mind_pull_die(
         self,
@@ -114,24 +98,6 @@ class ManeuverEffectsMixin:
         # it -- one message and one board refresh, which is the
         # batching every resolved maneuver already gets.
         await self.present(interaction, game, result)
-
-
-    # -- Loose ball ----------------------------------------------------
-
-
-    # -- Deflect -------------------------------------------------
-
-
-    # -- Steal ----------------------------------------------------------
-
-
-    # -- Pressure --------------------------------------------------------
-
-
-    # -- Ball-speed manipulation (Dribble Advance / Steal) --
-
-
-    # -- Own goal ----------------------------------------------------
 
 
     async def own_goal_roll_file(

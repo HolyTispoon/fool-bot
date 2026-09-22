@@ -2968,6 +2968,29 @@ class RulesEngine:
             )
         return None
 
+    def turn_in_progress(self, match: MatchState) -> Optional[str]:
+        """
+        What this turn is still waiting on, named -- "a maneuver
+        challenge", "a score attempt", "an own goal roll", "an injury
+        test" -- or `None` where the offense has nothing pending. The
+        gate on starting the offensive choice over without `force`:
+        a turn that is merely waiting wants its prompt back, not
+        throwing away.
+
+        An owed roll is read on its own because it leaves
+        `pending_action` clear (choosing the challenger cleared it
+        when the maneuver started).
+        """
+        if match.pending_action == "maneuver":
+            return "a maneuver challenge"
+        if match.pending_action == "shoot":
+            return "a score attempt"
+        if match.pending_own_goal:
+            return "an own goal roll"
+        if match.pending_injury_tests:
+            return "an injury test"
+        return None
+
     def time_out_confirmation(
         self,
         game: D12BallGame,

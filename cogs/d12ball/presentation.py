@@ -84,12 +84,25 @@ class PresentationMixin:
         edit or re-attach a view to a message that is gone; whatever
         prompt the resolution posts next sets its own.
         """
-        if game.turn_message_id is None or interaction.channel is None:
-            return
-
         if not match.maneuver_selections_complete:
             return
+        await self.close_turn_prompt(interaction, game)
 
+    async def close_turn_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Delete the message `turn_message_id` names -- the maneuver
+        prompt once both sides have picked, the shootout's "set your
+        order" or "choose your shooter" once both have answered -- and
+        clear the id with it, so nothing edits or re-attaches a view
+        to a message that is gone. Whatever prompt comes next records
+        its own.
+        """
+        if game.turn_message_id is None or interaction.channel is None:
+            return
         try:
             await interaction.channel.get_partial_message(
                 game.turn_message_id,
@@ -99,7 +112,6 @@ class PresentationMixin:
 
         game.turn_message_id = None
         save_games(self.games)
-
 
     def challenge_side(
         self,
@@ -369,12 +381,6 @@ class PresentationMixin:
 
         await self.boards.refresh(interaction.channel, game, png)
 
-    # The five below forward for the same reason: the gate moved, the
-    # call sites did not. Each is the identical call on `self.boards`,
-    # and the reasoning for every one of them is on the method it
-    # forwards to.
-
-
     def format_team_roster_entry(
         self,
         match: MatchState,
@@ -449,15 +455,10 @@ class PresentationMixin:
         `start_turn` behind it. Both callers, the two recovery
         commands, hold only the game.
         """
-        await self.present(
+        await self.present_result(
             interaction,
             game,
-            self.rendered(
-                game,
-                self.service.run_step(
-                    game.game_id, FollowOnStep.SEND_TURN_PROMPT,
-                ),
-            ),
+            self.service.run_step(game.game_id, FollowOnStep.SEND_TURN_PROMPT),
         )
 
     async def render_match_png(

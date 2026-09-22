@@ -40,7 +40,6 @@ from d12ball.engine import (
     SETUP_STAGES,
 )
 
-from cogs.d12ball.constants import MAX_DEBUG_CLOCK, MAX_RUN_BACK_PASSES
 from cogs.d12ball.slash_commands import CommandsMixin
 from cogs.d12ball.core import CoreMixin
 from cogs.d12ball.effects import ManeuverEffectsMixin
@@ -83,8 +82,6 @@ __all__ = [
     "setup",
     "LOGGER",
     "HIGH_PASS_CONTEST_HEADLINE",
-    "MAX_RUN_BACK_PASSES",
-    "MAX_DEBUG_CLOCK",
     "SETUP_STAGES",
     "HALFTIME_STAGES",
     "FULL_TIME_STAGES",

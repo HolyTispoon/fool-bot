@@ -464,7 +464,7 @@ class Debug(commands.Cog):
             d12ball_cog.games.pop(game_id)
 
         save_games(d12ball_cog.games)
-        next_game_number = d12ball_cog.get_next_game_number(guild)
+        next_game_number = d12ball_cog.service.next_game_number(guild.id)
 
         result = (
             f"Deleted {deleted_channels} PBD channel(s) and "

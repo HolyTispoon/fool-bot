@@ -342,7 +342,7 @@ class ShootoutOrderSelectView(SafeView):
         await send_new_prompt(interaction, result.answer[1])
 
         if match.shootout_orders_complete:
-            await self.cog.close_shootout_prompt(interaction, game)
+            await self.cog.close_turn_prompt(interaction, game)
             for block in result.answer[2:]:
                 await send_new_prompt(interaction, block)
             await self.cog.present(interaction, game, result)
@@ -479,7 +479,7 @@ class ShootoutPickSelectView(SafeView):
         await send_new_prompt(interaction, result.answer[1])
 
         if match.shootout_shooters_complete:
-            await self.cog.close_shootout_prompt(interaction, game)
+            await self.cog.close_turn_prompt(interaction, game)
             for block in result.answer[2:]:
                 await send_new_prompt(interaction, block)
             await self.cog.present(interaction, game, result)

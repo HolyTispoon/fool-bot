@@ -66,7 +66,7 @@ class ResetChannelsBackoffTests(unittest.IsolatedAsyncioTestCase):
         cog = Debug(mock.Mock())
         d12ball = SimpleNamespace(
             games={},
-            get_next_game_number=mock.Mock(return_value=1),
+            service=SimpleNamespace(next_game_number=mock.Mock(return_value=1)),
         )
         cog.bot.get_cog = mock.Mock(return_value=d12ball)
         interaction = self.build_interaction(channels)

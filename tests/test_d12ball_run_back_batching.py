@@ -14,9 +14,10 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
-from cogs.d12ball import MAX_RUN_BACK_PASSES, D12Ball
+from cogs.d12ball import D12Ball
 from cogs.d12ball_helpers import travel_space_phrase
 from d12ball.ai import build_ai_strategies
+from d12ball.flow.turnovers import MAX_RUN_BACK_PASSES
 from d12ball.components import (
     MatchState,
     TeamSide,
@@ -27,7 +28,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, GameMode, Team
-from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_full_image_links
 from cog_steps import continue_run_back, finish_maneuver_resolution
 
 
@@ -385,7 +386,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         )
         # The pick is written down (`MatchState.run_back_pick`), so the
         # cog's save is the one this click makes.
-        with suppressed_view_saves(), suppressed_cog_saves():
+        with suppressed_cog_saves():
             await view.choose(click, midfield[1])
 
         click.response.edit_message.assert_awaited_once()

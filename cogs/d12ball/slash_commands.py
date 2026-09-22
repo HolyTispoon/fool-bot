@@ -6,7 +6,6 @@ startup sweep that files finished games away.
 import asyncio
 import discord
 import re
-import time
 from typing import Optional
 
 from discord import app_commands
@@ -70,7 +69,14 @@ from cogs.d12ball_views import (
     TeamSelectionView,
 )
 
-from cogs.d12ball.constants import MAX_DEBUG_CLOCK
+
+
+# The highest the clock may be set to by hand. The clock itself has no
+# ceiling -- it runs for as long as a last possession does -- so this is
+# not a rule, only what two digits hold: everything that prints the
+# clock does so as `{:02d}`, and `/d12ball time 100` would be the one
+# state the scoreboard cannot draw.
+MAX_DEBUG_CLOCK = 99
 
 
 class CommandsMixin:
@@ -1828,90 +1834,39 @@ class CommandsMixin:
             return
         game, match = result
 
-        # The shootout is not a turn and has no offensive choice in it,
-        # so this would reset a maneuver that is not being played and
-        # then prompt for a ball nobody is holding. The window between
-        # the whistle and the shootout is the same: the second half is
-        # over, and there is no turn under it either.
-        if match.pending_shootout or match.pending_full_time_stage:
+        # A turn that is merely waiting -- on a challenge, a shot, an
+        # owed roll -- wants its prompt back, not throwing away; what it
+        # waits on is the model's to name (`RulesEngine.turn_in_progress`).
+        # A turn that is genuinely wedged wants `resume force:true`.
+        waiting = self.engine.turn_in_progress(match)
+        if waiting is not None:
             await interaction.followup.send(
-                "This game is in the extreme shootout, or the Coaching "
-                "Choice before it. Use `/d12ball resume` to put its "
+                f"This turn is still waiting on {waiting}. Use "
+                "`/d12ball resume` to put its prompt back up, or "
+                "`/d12ball resume force:true` to abandon the turn and "
+                "start the offensive choice over.",
+                ephemeral=True,
+            )
+            return
+
+        # Otherwise start the turn fresh: `GameService.reset_turn`
+        # clears the stale choice, re-derives the ball handler from the
+        # board and asks the offense again -- refused where the
+        # position is not a turn at all (setup, halftime, the shootout,
+        # a time out), which a plain resume walks on instead.
+        try:
+            result = self.rendered(game, self.service.reset_turn(game.game_id))
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+        if result.refused:
+            await interaction.followup.send(
+                f"{result.refusal} Use `/d12ball resume` to put its "
                 "prompt back up.",
                 ephemeral=True,
             )
             return
-
-        # A time out is the same again: the turn was reset before
-        # either window opened, so nothing below would notice, and the
-        # reset would drop a coach's open Coaching Choice on the floor
-        # along with the pick-up the ball may still owe.
-        if match.pending_time_out:
-            await interaction.followup.send(
-                "A time out is running and the Coaching Choice it "
-                "bought is still running. Use `/d12ball resume` to put "
-                "its prompt back up.",
-                ephemeral=True,
-            )
-            return
-
-        # Both refusals point at /d12ball resume, which is what these
-        # two states actually want: it re-posts the maneuver or score
-        # attempt prompt this turn is still owed rather than throwing
-        # the turn away. A turn that is genuinely wedged wants
-        # `resume force:true`.
-        if match.pending_action == "maneuver":
-            await interaction.followup.send(
-                "A maneuver challenge is already in progress for this "
-                "turn. Use `/d12ball resume` to put its prompt back up, "
-                "or `/d12ball resume force:true` to abandon the turn and "
-                "start the offensive choice over.",
-                ephemeral=True,
-            )
-            return
-
-        if match.pending_action == "shoot":
-            await interaction.followup.send(
-                "A score attempt is already in progress for this turn. "
-                "Use `/d12ball resume` to put its prompt back up, or "
-                "`/d12ball resume force:true` to abandon the turn and "
-                "start the offensive choice over.",
-                ephemeral=True,
-            )
-            return
-
-        # A third of the same: an owed roll leaves `pending_action`
-        # clear (`choose_challenger` cleared it when the maneuver
-        # started), so without this the turn's reset below would throw
-        # the roll away without saying so.
-        owed_roll = (
-            "an own goal roll"
-            if match.pending_own_goal
-            else "an injury test" if match.pending_injury_tests else None
-        )
-        if owed_roll is not None:
-            await interaction.followup.send(
-                f"This turn is still waiting on {owed_roll}. Use "
-                "`/d12ball resume` to put its button back up, or "
-                "`/d12ball resume force:true` to abandon the turn and "
-                "start the offensive choice over.",
-                ephemeral=True,
-            )
-            return
-
-        # A ball handler or a maneuver choice may already be recorded
-        # from a prior offensive choice whose effect was never resolved
-        # into a state change (e.g. an uncontested maneuver). Nothing
-        # else advances the match to its next turn, so this command
-        # always starts fresh: clear that stale choice and re-derive the
-        # ball handler from the board's current occupancy.
-        match.reset_maneuver()
-        self.service.persist(game, match)
-
-        try:
-            await self.send_turn_prompt(interaction, game)
-        except ValueError as error:
-            await interaction.followup.send(str(error), ephemeral=True)
+        await self.present(interaction, game, result)
 
     def may_administer_game(
         self,
@@ -2031,7 +1986,7 @@ class CommandsMixin:
         (`close_maneuver_prompt`), or the process died before the
         prompt it was about to send was recorded, or it died in the
         middle of a cascade whose next step was the bot's own. See
-        `resume_pending_prompt`.
+        `GameService.resume`.
 
         Plain resume changes nothing about the match; it only puts the
         question back. `force` is the escape hatch for state that is

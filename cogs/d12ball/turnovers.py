@@ -19,9 +19,6 @@ class TurnoverMixin:
     The three ways possession changes hands: the run back after a steal,
     """
 
-    # -- Run-back (after a turnover) ----------------------------------
-
-
     async def coaching_file(
         self,
         game: D12BallGame,
@@ -55,13 +52,6 @@ class TurnoverMixin:
         )
 
 
-    # -- Ceding the ball to coach --------------------------------------
-
-
-    # -- Out-of-bounds recovery (after the run back) ------------------
-
-    # -- Recovery -------------------------------------------------------
-
     async def resume_game(
         self,
         interaction: discord.Interaction,
@@ -80,5 +70,5 @@ class TurnoverMixin:
         `present` posts a fresh one, with its picture.
         """
         waiting_on, result = self.service.resume(game.game_id)
-        await self.present(interaction, game, self.rendered(game, result))
+        await self.present_result(interaction, game, result)
         return waiting_on
