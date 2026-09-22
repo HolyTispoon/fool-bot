@@ -55,7 +55,6 @@ BENCH_DESTINATIONS = ("bench", "back_bench")
 # the living rules and the 2026-08-24 entry in the rules log. Midfield's name
 # never changes, so it carries no entry here.
 OUTER_ZONE_WORD_BY_BOARD_SIZE = {
-    6: "Zone",
     7: "Zone",
     9: "Third",
 }

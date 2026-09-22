@@ -531,7 +531,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         match = MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
-            board_size=6,
+            board_size=7,
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
@@ -563,12 +563,13 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(refusal)
         self.assertIn("kickoff space", refusal)
 
-    def test_home_is_held_on_its_own_space_and_not_the_visitors(
+    def test_home_is_held_on_its_own_coverage_of_the_same_space(
         self,
     ) -> None:
-        # build_match empties the *visiting* kickoff space, which on
-        # board 6 is not home's -- so home is free until their own is
-        # empty, and then held on that one.
+        # Both sides kick off from the one middle space, but the
+        # coverage is each arrangement's own: build_match empties it of
+        # *visiting* meeples, so home is free until home's own leave
+        # it too.
         cog = build_cog()
         match = self.build_match()
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
@@ -763,23 +764,29 @@ class HalftimeEngineTests(unittest.TestCase):
 
         self.assertFalse(match.kickoff_space_occupied_by(TeamSide.VISITING))
 
-    def test_board_6_gives_each_side_its_own_kickoff_space(self) -> None:
-        # Two midfield spaces and no middle, so the two sides kick off
-        # from different ones and cover different ones.
-        match = MatchState.standard(
-            catalog=self.catalog,
-            ruleset=self.rules,
-            board_size=6,
-            home_team=Team.ORANGE,
-            visiting_team=Team.PURPLE,
-        )
+    def test_both_sides_kick_off_from_the_one_middle_space(self) -> None:
+        # Every midfield has a middle, so the two sides share a kickoff
+        # space -- and each still owes it its own coverage.
+        for board_size in sorted(self.rules.board_layouts):
+            with self.subTest(board_size=board_size):
+                match = MatchState.standard(
+                    catalog=self.catalog,
+                    ruleset=self.rules,
+                    board_size=board_size,
+                    home_team=Team.ORANGE,
+                    visiting_team=Team.PURPLE,
+                )
 
-        self.assertNotEqual(
-            match.kickoff_space_for(TeamSide.HOME),
-            match.kickoff_space_for(TeamSide.VISITING),
-        )
-        self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
-        self.assertTrue(match.kickoff_space_occupied_by(TeamSide.VISITING))
+                self.assertEqual(
+                    match.kickoff_space_for(TeamSide.HOME),
+                    match.kickoff_space_for(TeamSide.VISITING),
+                )
+                self.assertTrue(
+                    match.kickoff_space_occupied_by(TeamSide.HOME)
+                )
+                self.assertTrue(
+                    match.kickoff_space_occupied_by(TeamSide.VISITING)
+                )
 
 
 class CogMethodBindingTests(unittest.TestCase):

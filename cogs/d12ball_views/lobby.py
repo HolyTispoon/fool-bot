@@ -22,7 +22,12 @@ import discord
 from typing import TYPE_CHECKING
 
 from d12ball.components import RuleRefusal
-from d12ball.game import ADVANCED_MODULES, AIOpponent, GameMode
+from d12ball.game import (
+    ADVANCED_MODULES,
+    AIOpponent,
+    GameMode,
+    VALID_BOARD_SIZES,
+)
 from cogs.d12ball_helpers import (
     AI_OPPONENT_NAMES,
     HUB_ROLE_CUSTOM_ID_PREFIX,
@@ -286,7 +291,7 @@ class LobbyView(SafeView):
                 )
 
         selected_board = game.board_size if game else 7
-        for board_size in (6, 7, 9):
+        for board_size in sorted(VALID_BOARD_SIZES):
             self._add_button(
                 str(board_size),
                 (

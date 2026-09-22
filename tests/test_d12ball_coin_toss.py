@@ -1718,7 +1718,7 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
             build_setup_message(game),
         )
 
-    def test_switching_back_to_six_or_seven_keeps_the_recommendation(
+    def test_switching_back_to_seven_keeps_the_recommendation(
         self,
     ) -> None:
         game = build_game()
@@ -1729,9 +1729,9 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
         interaction = self.build_interaction(game.player_1_id)
 
         with suppressed_cog_saves():
-            asyncio.run(view.select_board_size(interaction, 6))
+            asyncio.run(view.select_board_size(interaction, 7))
 
-        self.assertEqual(game.board_size, 6)
+        self.assertEqual(game.board_size, 7)
         self.assertIn(
             "recommended to play advanced mode on a board size of 9",
             build_setup_message(game),

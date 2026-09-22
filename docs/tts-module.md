@@ -61,9 +61,9 @@ needs, in TTS's own vocabulary:
 
 | Component | TTS object | Source in this repo |
 | --- | --- | --- |
-| Field board | `Custom_Board` with three **states** (6, 7, 9 spaces), so one object is flipped between sizes rather than three boards cluttering the table | `boards.render_field_board`, per size |
+| Field board | `Custom_Board` with a **state** per board size (7 and 9 spaces), so one object is flipped between sizes rather than a board per size cluttering the table | `boards.render_field_board`, per size |
 | Jumbotron (clock, score, token silos) | `Custom_Board` | `boards.render_jumbotron_board` |
-| Team board, one per coach | `Custom_Board` | `boards.render_team_board`. The printed sheet stacks two panels to save paper; that is a printing economy, not a rule, so the table gets two boards |
+| Team board, one per coach | `Custom_Board` | `boards.render_team_board`, one board. `render_team_board_sheet` puts two on a page to save paper; that is a printing economy, not a rule, so the table gets two boards |
 | Maneuver cards, 12 per coach | `DeckCustom` over one face sheet and one shared back | `cards.render_maneuver_card`, `render_maneuver_card_back`, tiled by `cards.print_sheet` |
 | Player cards, 9 per team, a back of their own each | `DeckCustom` with a face sheet and a matching back sheet (`UniqueBack`) | `player_cards`, which already produces the paired sheets |
 | Species reference, 3 double-sided | `DeckCustom`, `UniqueBack` | `species_cards.render_species_card_set` |
@@ -97,7 +97,7 @@ Most of the work is done, and was done for the print-and-play kit
 - **Geometry without rendering.** `boards.FieldGeometry.space_bounds`
   says where each space is; `boards.cell_inches` says how big the clock
   and score cells are and `JumbotronGeometry.clock_cell` / `score_cell`
-  where; `boards.card_slot_inches` sizes the team board's card slots.
+  where; `boards.card_slot_inches` sizes the team board's bench guides.
   These exist so the CLI can report and the suite can assert a size
   rather than read it off a render, and that is exactly what a snap point
   needs: a coordinate the builder computes rather than types.
@@ -136,7 +136,7 @@ re-deriving the deal -- and the deal is a rule
 (`RulesEngine.placement_spaces_in_zone`, `apply_formation`,
 `kickoff_space_index`; board 9 packs midfield from a side's own end, and
 formations-and-occupancy.md is a whole file about why). A Lua that
-filled each zone in order would agree with the model on boards 6 and 7
+filled each zone in order would agree with the model on board 7
 and disagree on board 9, which is exactly the two-frontends failure
 principle 3 describes.
 
@@ -322,7 +322,7 @@ What the suite can hold without TTS present:
 
 - **The save is valid JSON and every URL in it resolves** to a file the
   same build wrote, so a renamed asset cannot ship as a broken table.
-- **Counts.** A snap point per space per board size (6, 7, 9), plus the
+- **Counts.** A snap point per space per board size (7 and 9), plus the
   zone-assignment rows; a card per maneuver in each maneuver deck; nine
   per team; the clock's sixteen cells and the score track's thirteen.
 - **The answers baked into `data.lua` are the model's.** The test asks

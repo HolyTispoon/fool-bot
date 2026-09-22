@@ -151,6 +151,37 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-22 (latest) -- author, the six-space board is withdrawn
+
+**A rule changed.** D12 Ball is played on a board of **7 or 9 spaces**. The six-space board
+is gone: *"after enough testing I've decided it's not a viable option so it's obsolete"* (the
+author). 7 remains the default and 9 the board advanced mode picks.
+
+What the withdrawal takes with it, all of it geometry the six-space board was the only case
+of:
+
+- **Every board now has a true middle**, so the kickoff space is that middle space and both
+  sides kick off from it. The per-side reading stays -- `kickoff_space_index` still takes the
+  kicking side and every arrangement still owes *its own* coverage of the space -- because the
+  rule is stated per side; the two answers just no longer differ. Board 6 was the one board
+  whose midfield had no middle, and where the two sides therefore covered different spaces.
+- **Every board has a space in neither side's shooting range**, for the same reason. Board 6
+  split three and three with nothing in between.
+- **No shape either board plays overfills a zone.** 2-3-1 and 1-3-2 put three cards in
+  midfield, which board 7 and board 9 both hold one card a space; board 6's two-space midfield
+  was the only zone any of the three basic shapes stacked in. A stack is still a legal
+  arrangement and the stack-space rule stays, because a coach can build one by hand with space
+  positioning and a future shape could be dealt into one -- but nothing deals a stack today.
+  The board-6 tie-break (a two-space midfield straddles the middle, so the surplus went toward
+  that coach's own goal) is gone with the board that needed it.
+- **A saved game on board 6 no longer loads.** The record refuses the size, and
+  `load_games` skips that one game with an ERROR rather than letting it take every other game
+  in the file down with it. A half-finished six-space game is not recoverable, which is the
+  price the author accepted in calling the option obsolete.
+
+**This file keeps its own mentions of board 6.** The log records how a rule got here, and the
+six-space board is part of that history; the living rules are where it had to go.
+
 ### 2026-09-22 (later) -- sheet, the advanced abilities get a tab of their own, and the player cards tab becomes a rendering
 
 **No rule changed.** The author restructured the sheet and the import caught up.

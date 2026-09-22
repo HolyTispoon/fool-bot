@@ -780,8 +780,9 @@ class FormationShape:
     # Which board sizes the shape may be played on, or None for every
     # board -- which is what the three shapes every game has always had
     # carry. It is data rather than a rule read off the geometry
-    # because the two disagree: 2-3-1 overfills a six-space midfield and
-    # is played there anyway. See Formation in d12ball/game.py.
+    # because the two need not agree: a shape too deep for a zone would
+    # be dealt there anyway, stacking. See Formation in
+    # d12ball/game.py.
     board_sizes: Optional[tuple[int, ...]] = None
 
     def __post_init__(self) -> None:
@@ -1383,8 +1384,10 @@ def kickoff_space_index(midfield_spaces: int, kicking_side: TeamSide) -> int:
     the kicking team's own goal. Home attacks from low indices to high,
     so a kicking home team is biased low and a kicking visiting team is
     biased high; the two formulas agree on the true middle when the
-    zone is odd-sized (i.e. board sizes 7 and 9), which is what makes
-    this one rule instead of two.
+    zone is odd-sized, which every board in the ruleset now is, so
+    both sides kick off from one space. It stays written per side
+    because the rule is stated per side -- every arrangement covers its
+    *own* kickoff space -- not because the two answers still differ.
     """
     kicking_side = TeamSide(kicking_side)
     if kicking_side == TeamSide.HOME:
@@ -1406,7 +1409,7 @@ def setup_space_order(
     stands on that side's own end of the zone, the last on the far
     end, and any in between are spaced evenly. A zone no deeper than
     it is full comes out exactly as packing it would -- which is every
-    goal zone on boards 6 and 7 -- so this is only ever visible on
+    goal zone on board 7 -- so this is only ever visible on
     board 9, where the three-space zones would otherwise bunch each
     pair against one edge and leave the third space empty. There it
     puts the home Defender on H3 and the home Striker on V3.
@@ -1415,7 +1418,7 @@ def setup_space_order(
     because the kickoff space is in it: the side kicking off has to
     have somebody standing on that space, and spreading two cards
     across a three-space midfield would leave the middle one -- the
-    kickoff space on boards 7 and 9 -- empty and hold the coach in the
+    kickoff space -- empty and hold the coach in the
     setup window until they moved somebody onto it.
 
     Either way a surplus goes round the zone again, so every space is
@@ -1441,7 +1444,6 @@ def setup_space_order(
 
 
 def formation_stack_space(
-    side: TeamSide,
     zone: Zone,
     zone_spaces: int,
 ) -> int:
@@ -1450,16 +1452,19 @@ def formation_stack_space(
     more cards in it than it has spaces -- see "Changing formation" in
     docs/living-rules.md.
 
-    A three-space zone stacks in the middle. A two-space zone stacks on
+    A three-space zone stacks in the middle; a two-space zone stacks on
     the space nearer the middle of the board, which for the two goal
-    zones is the one facing midfield. **Board 6's midfield is the
-    exception**: its two spaces straddle the middle and neither is
-    nearer it, so the surplus goes on the space nearer that coach's own
-    goal. That is also the only zone on any board where the question
-    comes up -- three cards in a two-space midfield is the one stack
-    the three basic shapes can produce.
+    zones is the one facing midfield. **No shape either board plays
+    fills a zone deeper than it is**, so nothing reaches this through a
+    formation change today; it stays because the rule is the re-deal's
+    and a shape that overfilled a zone would need it. A coach stacking
+    by hand in a Coaching Choice goes through `position_meeple`
+    instead, which asks them for the space.
+
+    It does not take a side. Every midfield in the ruleset is three
+    spaces deep, so a two-space zone is always a goal zone and the two
+    coaches read it the same way.
     """
-    side = TeamSide(side)
     zone = Zone(zone)
     if zone_spaces >= 3:
         return zone_spaces // 2
@@ -1467,9 +1472,7 @@ def formation_stack_space(
         return 0
     if zone == Zone.HOME_GOAL:
         return zone_spaces - 1
-    if zone == Zone.VISITORS_GOAL:
-        return 0
-    return 0 if side == TeamSide.HOME else zone_spaces - 1
+    return 0
 
 
 def formation_space_order(
@@ -1496,7 +1499,7 @@ def formation_space_order(
         if side == TeamSide.HOME
         else list(reversed(range(zone_spaces)))
     )
-    stack = formation_stack_space(side, zone, zone_spaces)
+    stack = formation_stack_space(zone, zone_spaces)
     return [
         outward[index] if index < zone_spaces else stack
         for index in range(player_count)
@@ -3871,9 +3874,8 @@ class MatchState:
         the coach chooses both times. A zone with none is left alone,
         which is what the coverage rule asks for: a stack only has to
         break up while some space in the zone still has nobody on it,
-        so a formation that puts more players in a zone than it has
-        spaces (2-3-1 or 1-3-2 on a six-space board) settles with the
-        surplus doubled up and nobody moving.
+        so a zone holding more players than it has spaces settles
+        with the surplus doubled up and nobody moving.
         """
         stays_player_id = self.pending_run_back_stays_player_id
         setup = self.setup_for_side(side)
@@ -4610,10 +4612,11 @@ class MatchState:
     def kickoff_space_for(self, side: TeamSide) -> int:
         """
         The midfield space `side` would kick off from, whether or not
-        anything is being kicked off right now. Boards 7 and 9 give
-        both sides the same space; board 6's midfield has no middle, so
-        each side has its own -- see "Field, direction, and shooting
-        range" in docs/living-rules.md.
+        anything is being kicked off right now. Every board's midfield
+        has a middle, so both sides kick off from the same space -- see
+        "The kickoff space" in docs/living-rules.md. It is still asked
+        per side, because the coverage each arrangement owes is its own
+        side's.
 
         Read off the rule rather than off the ball, because every
         arrangement has to cover this space and arrangements are set in
@@ -4647,8 +4650,8 @@ class MatchState:
         positions, without touching either one's zone assignment.
 
         This is what actually resolves a formation swap on a
-        fully-packed zone -- typically a 6-board, where the standard
-        2-2-2 leaves no slack. Reassigning two players' zones
+        fully-packed zone -- a goal zone under 2-2-2 on board 7, where
+        two cards fill two spaces. Reassigning two players' zones
         (swap_field_positions) can leave each one's *new* zone still
         fully occupied by whoever hasn't moved yet, with no open space
         for either to step into one at a time: trading their two
@@ -5276,8 +5279,8 @@ def load_basic_ruleset(
         )
         for board_size, zone_counts in data["board_layouts"].items()
     }
-    if set(layouts) != {6, 7, 9}:
-        raise ValueError("Basic rules must define board sizes 6, 7, and 9.")
+    if set(layouts) != {7, 9}:
+        raise ValueError("Basic rules must define board sizes 7 and 9.")
 
     formations: dict[Formation, FormationShape] = {}
     for name, entry in data["formations"].items():

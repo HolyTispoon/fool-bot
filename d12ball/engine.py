@@ -1817,10 +1817,9 @@ class RulesEngine:
         the offensive players standing on that space, minus the
         handler, who cannot pass to themselves.
 
-        Usually one, and then the destination *is* the choice. A
-        formation that stacks (2-3-1 or 1-3-2 on a six-space board)
-        makes two ordinary, and which of them receives the ball is the
-        passer's to pick: it decides who a Winger's set-up hands the
+        Usually one, and then the destination *is* the choice. A space
+        a coach has stacked makes two ordinary, and which of them
+        receives the ball is the passer's to pick: it decides who a Winger's set-up hands the
         shot to. Empty when the distance runs off the end of the
         board, or when the space holds nobody but the handler.
         """
@@ -2844,9 +2843,10 @@ class RulesEngine:
         somebody back and paying for it. A window that positions
         nothing (full time) has no arrangement to hold to it.
 
-        On board 6 the two sides kick off from different midfield
-        spaces, so this asks each about their own; on 7 and 9 it is one
-        space and both have to cover it.
+        Both sides kick off from the same midfield space, so both have
+        to cover it; this still asks each side about its own, because
+        the coverage belongs to the arrangement rather than to the
+        space.
         """
         side = TeamSide(side)
         occasion = match.coaching_occasion

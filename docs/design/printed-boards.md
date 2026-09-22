@@ -58,14 +58,12 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
     empty rather than failing the board.
 - **No die value is printed anywhere, and since 2026-08-17 that is the rule
   rather than a divergence from it.** Maneuvers are chosen with the cards, so
-  the two selection d6s are off the team board and the head coach cell lists
-  the maneuvers by rank (O1, D2) instead of by face -- **a row is a rank with
-  both its cards on it**, the basic name in ink and its gambit
-  under it in grey. Three rows a column however many cards exist: listing them
-  per card would print two O1s with nothing saying they are the same rank, in a
-  panel sized for three. The author retired
-  them from the rules outright, so the living rules no longer mention them
-  either -- see the dated entry in the rules log.
+  the two selection d6s are off the team board, and what a coach needs on the
+  board is which maneuver beats which rather than which face rolls it -- the
+  back of the maneuver card itself, printed in the head coach's cell (see "The
+  team board"). The author retired the selection dice from the rules outright,
+  so the living rules no longer mention them either -- see the dated entry in
+  the rules log.
   **The data and the code have not caught up.** `basic_rules.json` still
   defines `head_coach_dice`, `TeamBoardDefinition` still holds them,
   `maneuvers.json` still carries `die_values`, `ManeuverCatalog.offense_for_die`
@@ -73,32 +71,20 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   its maneuver by rolling a d6 through them. None of it reaches a coach, so
   retiring it is a code change and not a rules one -- but the sheet still has
   the column, so an import will keep writing it until the author drops it
-  upstream. `draw_die_slot` reads `team_die` alone and says why, and a test
+  upstream. `team_reminders` reads `team_die` alone and says why, and a test
   greps the module for `offense_die`/`die_values` because the data is still
   right there to pick up again by accident.
-- **The team board is landscape and holds two panels, not one.** Dropping the
-  three zone areas onto the field board (see "The zone-assignment rows" below)
-  left a single row -- the bench, the back bench and the head coach -- short
-  enough that a match's two coaches share one sheet, cut in half, rather than
-  each wanting a whole one: `render_team_board` draws the same panel twice,
-  stacked over the sheet's own short side. **Landscape, not portrait**, and
-  deliberately the opposite of the field board: stacking over the *short* side
-  (11in) leaves every column a real card's width of room over the long side
-  (17in), where stacking over the long side would leave the row only the short
-  side to divide three ways -- not enough for a fanned poker card, measured.
-  `card_slot_inches` is what says whether a panel holds a real card -- the CLI
-  prints it, and `TeamBoardGeometry` sizes the header and the footer in fixed
-  inches rather than as a share of the panel, which is what a header this much
-  shorter than the design it came from needed: a title sized to the *sheet's*
-  width came out taller than a header a third its old height, the day this
-  landed. `D12BallTeamBoardTests` asserts a panel's slot clears a real card at
-  A3 and at tabloid alike now -- both hold real cards, which is new: the three
-  zone areas were what cost tabloid the 0.7in it used to come up short by.
-- **A panel that has to fit divides what it is given.** The head coach cell
-  sizes its three maneuver rows from the height left under the die rather than
-  from a fixed measurement, because three rows that fit one sheet run off the
-  bottom of another -- and that overflow is the one thing on these boards a
-  reader would take for a bug rather than a layout that scaled.
+- **The team board is its own paper: half a letter sheet, and two files.**
+  `TEAM_BOARD_PAPER` is letter rather than the tabloid the field and the
+  jumbotron are drawn on, because letter is the size a printer in the house
+  actually has in it and a coach's board is the one board of the three that
+  gets printed twice. `render_team_board` is one board, 8.5 x 5.5in;
+  `render_team_board_sheet` is the letter page carrying two of them with a
+  dashed line down the seam, which is the sheet a match is cut from. The page
+  pastes the board rather than rendering it twice, so the two halves are the
+  same picture by construction -- `test_two_boards_are_a_page_and_they_are_the_same_board`
+  checks each half against the board itself, everything but the seam the cut
+  line is drawn down. See "The team board" below for what is on it.
 - **Nothing on any board is written in the module.** The layouts, the
   formations, the standard deal and the coach's die come from
   `basic_rules.json`, the six maneuvers from `maneuvers.json`, and the roster
@@ -107,11 +93,12 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
 - **The geometry a board asserts is read off the same code the bot enforces.**
   `shooting_range_bands` walks `BoardState.is_in_shooting_range` a space at a
   time and `kickoff_marks` reads `kickoff_space_index`, rather than either
-  restating where the middle of the board is. That is what puts two kickoff
-  marks on board 6 (its midfield has no middle, so each side kicks off from
-  the space nearer its own goal) and one on 7 and 9, and what leaves the
+  restating where the middle of the board is. Both boards' midfields have a
+  middle, so both print one kickoff mark for the two sides -- `kickoff_marks`
+  is still a map rather than a space, because the rule is asked per side and a
+  board without a middle would answer it twice. It is also what leaves the
   bracket under the field agreeing with the living rules' own table.
-- **Every field size is rendered by default.** A print run wants the 6-, 7- and
+- **Every field size is rendered by default.** A print run wants the 7- and
   9-space boards; `--board-size` narrows it to one. The sizes come from
   `rules.board_layouts`, so a fourth layout added upstream is printed without
   the script being touched.
@@ -144,8 +131,77 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   where a card is under one, and a stepped edge that small does not survive
   the print. Its canvas is allocated on first use, which is what lets
   `card_slot_inches` and `cell_inches` ask how a layout comes out without
-  drawing it.
+  drawing it. **The team board is the exception and measures in inches**
+  throughout -- see "The team board".
 - `print/` is generated output and is gitignored, like `cards/`.
+
+## The team board
+
+A coach's own board: a header, a row of three cells -- the bench, the back
+bench and the head coach -- and a footer. It is printed as two files,
+`team-board.png` (one board, 8.5 x 5.5in) and `team-board-2up.png` (a letter
+page carrying two of them, cut across the middle). It was redrawn from
+scratch in September 2026; what follows is why it is shaped the way it is,
+and each point is a fault the board it replaced actually had.
+
+- **Every size on it is an inch of printed paper.** `print_font` takes
+  inches, `TeamBoardGeometry` measures every band in inches, and
+  `TEAM_TITLE_INCHES` through `TEAM_SMALL_INCHES` are the six sizes the
+  board uses and the only ones. The old board mixed the two units -- a band
+  measured in inches holding type measured in thousandths of the sheet's
+  width -- and that is the whole of what went wrong with it: the roster line
+  was drawn through the rule under it, a caption landed on the next cell's
+  title, and the maneuver names came out a third the height of the heading
+  over them for no reason anybody chose. A board is one physical thing read
+  at arm's length; what matters is how big a word comes off the printer.
+- **The footer's own lines are measured by the geometry, not by the routine
+  that draws them.** `footer_lines` is where the three blocks go, and the
+  band is the sum of them. Two measurements of one band is how the standard
+  deal and the closing reminder came to be drawn *below* the bottom edge of
+  the old panel and cropped away -- on a render that looked fine, because
+  the crop is silent. `test_every_band_is_in_order_and_inside_the_board` is
+  that failure as a test.
+- **A line that cannot be legible is dropped, not shrunk.**
+  `fitted_print_font` answers with `None` below its floor and
+  `draw_fitted` is for lines that have to be drawn whatever happens; a
+  caption uses the first and is left off when it will not fit. It is the
+  same call the field board's zone cells make (see "The zone-assignment
+  rows"), and for the same reason: a caption nobody can read is a worse
+  failure than one left off.
+- **A cell's caption is a second line, not the right-hand end of the
+  title's.** Sharing one line is what put "players who have yet to play"
+  hard against the next cell's title, and a caption squeezed into what a
+  title leaves has no width of its own to be legible in.
+- **The head coach's cell is the back of the maneuver card, pasted.** It is
+  the same picture `cards.render_maneuver_card_back` draws for the deck --
+  the six ranks on one cycle, a solid arrow to what a rank beats and a
+  dashed one to what it ties -- so a coach reading a matchup off the board
+  and a coach reading it off the card in their hand are reading one picture.
+  It replaced two columns of names that said which maneuver was which rank
+  and nothing about what beat what. It is pasted rather than redrawn because
+  a second drawing of the cycle is a second thing to keep true when a rank
+  changes; its corners are cut to the card's own radius so the board's cream
+  shows around it rather than four white squares.
+- **The column is cut to the card, not the card fitted to a third of the
+  row.** `reference` is the back at the height the row leaves it, capped at a
+  real card (it is drawn at 300dpi and printing it larger would only soften
+  it), and the two benches divide what is left. Equal thirds left a band of
+  empty board beside the picture.
+- **A bench holds one card guide, and it is under poker size.** Half a letter
+  sheet does not leave 3.5 inches between a legible header, two legible cell
+  labels and a footer, and the author's call was legible over life-size: the
+  guide is a card's proportions at the height the row has, the cells are wider
+  than a real card, and a bench stacks on the area rather than inside the
+  guide. `card_slot_inches` reports it and the CLI says so in as many words.
+  The three-card fan the old board drew across a five-inch column is gone with
+  the column.
+- **The die is in the footer, drawn.** It is the one component a coach keeps
+  beside the cards, so it is a shape on the board rather than a word in a
+  sentence -- and its faces are read from `basic_rules.json` like everything
+  else here, so the board cannot claim a die the bot does not roll.
+- **The cut line is on the seam of the two-up page and on neither board.**
+  A dashed line down the middle of the sheet is the one mark on it that
+  belongs to the page rather than to either coach.
 
 ## End zones
 

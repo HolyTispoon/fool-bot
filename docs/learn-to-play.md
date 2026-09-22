@@ -7,7 +7,7 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 
 ## What is in the box
 
-- **The field board**, in three sizes: 6, 7 and 9 spaces. This book plays the 7-space board.
+- **The field board**, in two sizes: 7 and 9 spaces. This book plays the 7-space board.
 - **The jumbotron**: the clock, the score, and the piles the tokens come from.
 - **Two team boards**, one a coach: the bench, the back bench, and a reminder of the six maneuvers.
 - **Eighteen player cards**, nine a team, and a meeple for each.

@@ -126,10 +126,10 @@ class Formation(str, Enum):
     3-2-1 and 1-2-3 put three cards in a goal zone, which only the
     nine-space board has three spaces for, so those two are listed for
     board 9 alone. That is the author's call and not a consequence of
-    the geometry -- 2-3-1 and 1-3-2 overfill a six-space board's
-    midfield and are played there anyway, stacking, which is what the
-    run back's coverage rule is written for (see "Occupancy" in
-    docs/living-rules.md). Which board a shape may be picked on is
+    the geometry: a shape too deep for a zone would be dealt anyway,
+    stacking, which is what the run back's coverage rule is written for
+    (see "Occupancy" in docs/living-rules.md). No shape the two boards
+    share stacks. Which board a shape may be picked on is
     `BasicRuleset.formations_for_board`, never a size test written out
     somewhere else.
     """
@@ -162,7 +162,12 @@ class CoinFace(str, Enum):
     DOOM = "doom"
 
 
-VALID_BOARD_SIZES = {6, 7, 9}
+#: The boards a game may be played on. The six-space board was
+#: withdrawn on 2026-09-22 -- see that day's entry in docs/rules-log.md
+#: -- so a record carrying it no longer loads, which `load_games`
+#: reports as an invalid save rather than letting it take every other
+#: game down with it.
+VALID_BOARD_SIZES = {7, 9}
 
 # The two halves of advanced mode, by the key a button carries:
 # the field on `D12BallGame` it toggles, and its name on the button. Both

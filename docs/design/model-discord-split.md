@@ -1373,7 +1373,8 @@ rewords a result has changed the game.
 
 ### The advanced golden
 
-An advanced solo game, Telekinetics against Fire Demons on board 6 in 2-3-1,
+An advanced solo game, Telekinetics against Fire Demons on board 7 in 2-3-1
+(board 6 until the six-space board was withdrawn on 2026-09-22),
 recorded on the old code as the Phase 4 branch's first commit so that the
 move is what it is compared against. It reaches all twelve maneuvers, the
 Mind Pull and Smooth offers, a loose ball (contest pick and skill test), an
