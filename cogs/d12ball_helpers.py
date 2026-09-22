@@ -66,6 +66,7 @@ from d12ball.formatting import (
     travel_space_phrase,
 )
 from d12ball.game import (
+    ADVANCED_MODULES,
     AIOpponent,
     COLOR_TEAMS,
     CoinFace,
@@ -776,18 +777,17 @@ async def get_or_create_category(
 # why they are opt-*outs* on the game record and why nothing here is
 # offered in a basic game.
 #
-# The table is keyed by the word a button carries in its custom_id, and
-# names the field it toggles and what a coach reads on the button. Both
-# the setup settings block and the lobby build their buttons out of it
-# and toggle through `toggle_advanced_module`, so the two screens
-# cannot come to offer different modules or disagree about which of
-# them may be turned off.
-ADVANCED_MODULES: dict[str, tuple[str, str]] = {
-    "maneuvers": ("advanced_maneuvers", "Gambits"),
-    "species": ("species_abilities", "Species"),
-}
-# What each module is, for the setup and lobby messages -- a button
-# reading "Maneuvers: on" says which half is on and nothing about what
+# The table, `ADVANCED_MODULES`, is the record's (`d12ball/game.py`)
+# and re-exported here: keyed by the word a button carries in its
+# custom_id, naming the field it toggles and what a coach reads on the
+# button. Both the setup settings block and the lobby build their
+# buttons out of it and toggle through `GameService.configure`, so the
+# two screens cannot come to offer different modules or disagree about
+# which of them may be turned off -- that rule is
+# `D12BallGame.toggle_advanced_module`'s.
+#
+# What each half is, for the setup and lobby messages -- a button
+# reading "Gambits: on" says which half is on and nothing about what
 # it does.
 ADVANCED_MODULE_DESCRIPTIONS: dict[str, str] = {
     "maneuvers": "a gambit on every rank",
@@ -798,33 +798,6 @@ ADVANCED_MODULE_DESCRIPTIONS: dict[str, str] = {
 def advanced_module_label(game: D12BallGame, key: str) -> str:
     field, name = ADVANCED_MODULES[key]
     return f"{name}: {'on' if getattr(game, field) else 'off'}"
-
-
-def toggle_advanced_module(game: D12BallGame, key: str) -> Optional[str]:
-    """
-    Turn one half of advanced mode off or back on, or say why not.
-
-    Both halves off is a basic game reached the long way round, and the
-    mode buttons are right there -- so the last one still on is refused
-    rather than quietly leaving a coach in an advanced game with
-    nothing advanced in it.
-    """
-    field, _ = ADVANCED_MODULES[key]
-
-    turning_off = getattr(game, field)
-    others_on = any(
-        getattr(game, other)
-        for other_key, (other, _) in ADVANCED_MODULES.items()
-        if other_key != key
-    )
-    if turning_off and not others_on:
-        return (
-            "An advanced game plays at least one of its two modules. "
-            "Pick Basic if you want neither."
-        )
-
-    setattr(game, field, not turning_off)
-    return None
 
 
 def describe_game_mode(game: D12BallGame) -> str:

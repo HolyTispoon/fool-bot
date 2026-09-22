@@ -182,9 +182,10 @@ previous turn produced -- these are outcomes, not settings:
 
 The standard deal gives home the ball, so a coach who wins the toss is
 railed onto Home (`HomeAwaySelectionView`) and Dinky takes the visitors
-when Dinky wins it (`CoinFlipView.flip_coin`, overriding
+when Dinky wins it (`GameService.flip_coin`, overriding
 `DinkyAI.choose_home_or_visiting` at the call site -- it takes no
-arguments, so it cannot know which game is asking).
+arguments, so it cannot know which game is asking, and a tutorial is a
+property of the game).
 
 ### The three fields, and the counter
 

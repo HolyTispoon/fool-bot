@@ -62,7 +62,9 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow import FollowOnStep
+from gamesaves.d12ball.service import GameService
 from flow_stubs import chain_stops_at, lead_in_of, was_reached
+from prompt_fixtures import ENGINE
 from save_patches import (
     LINKING_COG_MODULES,
     suppressed_cog_saves,
@@ -149,19 +151,18 @@ DOOM_EMOJI_ID = 1532254775624601702
 class FakeCog:
     """
     Stands in for the cog when building a view: the games it knows
-    about and the coin emoji it has resolved.
+    about, the coin emoji it has resolved, and the service a click
+    goes through -- over the real engine, since which teams a pick
+    rules out and which pool Dinky draws from are exactly what these
+    tests check, and a stub would be asserting itself.
     """
 
     def __init__(self, game, coin_emojis: dict) -> None:
         self.games = {game.game_id: game}
         self.coin_emojis = coin_emojis
         self.team_emojis = {}
-        # The team picker refuses a team sharing a player with one
-        # already taken, which is a question about the rosters -- so a
-        # view cannot be built without one. The real catalog rather
-        # than a stub: which teams overlap is exactly what these tests
-        # are checking, and a stub would be asserting itself.
-        self.player_catalog = load_player_catalog()
+        self.engine = ENGINE
+        self.service = GameService(ENGINE, self.games)
 
 
 def build_coin_emojis() -> dict:
@@ -371,7 +372,7 @@ class D12BallCoinTossTests(unittest.TestCase):
             game = build_game()
             game.player_1_team = first
             game.player_2_team = None
-            excluded = TeamSelectionView.excluded_teams(game, None)
+            excluded = game.excluded_teams(None)
 
             for second in Team:
                 if second in excluded:
@@ -423,7 +424,9 @@ class D12BallCoinTossTests(unittest.TestCase):
         Nobody is holding the AI's buttons, so the pool it draws from
         is the only check a solo game has -- and it has to agree with
         the one the picker greys out by, or Dinky lands on the one
-        matchup a coach cannot pick.
+        matchup a coach cannot pick. The pool is the record's
+        (`ai_team_pool`) and the draw the strategy's, through
+        `GameService.pick_team`.
         """
         game = build_game(player_2_id=None)
         game.player_1_team = None
@@ -440,7 +443,7 @@ class D12BallCoinTossTests(unittest.TestCase):
             ),
         )
 
-        with suppressed_view_saves(), \
+        with suppressed_cog_saves(), \
                 mock.patch(
                     "random.choice",
                     side_effect=lambda pool: pool[0],
@@ -451,6 +454,7 @@ class D12BallCoinTossTests(unittest.TestCase):
             set(choice.call_args.args[0]),
             set(Team) - {Team.ORANGE, paired_team(Team.ORANGE)},
         )
+        self.assertEqual(game.player_2_team, choice.call_args.args[0][0])
         # Against what the picker would have greyed out at the moment
         # Dinky was handed its pool -- one side chosen, the other open.
         mid_pick = build_game()
@@ -458,7 +462,7 @@ class D12BallCoinTossTests(unittest.TestCase):
         mid_pick.player_2_team = None
         self.assertEqual(
             set(choice.call_args.args[0]),
-            set(Team) - TeamSelectionView.excluded_teams(mid_pick, None),
+            set(Team) - mid_pick.excluded_teams(None),
         )
 
     def test_test_game_user_controls_offense_and_defense(self) -> None:
@@ -1679,7 +1683,7 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
         view = CoinFlipView(cog, game.game_id)
         interaction = self.build_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(view.select_mode(interaction, GameMode.ADVANCED))
 
         self.assertEqual(game.board_size, 9)
@@ -1698,7 +1702,7 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
         view = CoinFlipView(cog, game.game_id)
         interaction = self.build_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(view.select_board_size(interaction, 6))
 
         self.assertEqual(game.board_size, 6)

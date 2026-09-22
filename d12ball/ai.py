@@ -42,7 +42,7 @@ from .components import (
     Zone,
 )
 from .formatting import format_ai_name
-from .game import AIOpponent, HomeChoice
+from .game import AIOpponent, HomeChoice, Team
 from .prompts import (
     Action,
     CoachingHubOptions,
@@ -61,10 +61,24 @@ class AIStrategy(ABC):
         self.maneuver_catalog = maneuver_catalog
 
     @abstractmethod
+    def choose_team(self, pool: list[Team]) -> Team:
+        """
+        The AI's team, drawn from what Player 1's pick left it
+        (`D12BallGame.ai_team_pool`). Nobody is holding the AI's
+        buttons, so the pool it draws from is the only check a solo
+        game has -- and the pool is the record's, the same rule the
+        picker greys out by, so the AI cannot land on the one matchup
+        a coach may not pick.
+        """
+        ...
+
+    @abstractmethod
     def choose_home_or_visiting(self) -> HomeChoice:
-        """The lobby's one question to the AI, asked at the coin toss;
-        not a prompt, since setup is outside the turn driver (step 8
-        of docs/architecture-migration.md)."""
+        """Setup's other question to the AI, asked at the coin toss it
+        won; not a prompt, since setup is outside the turn driver
+        (step 8 of docs/architecture-migration.md). A tutorial does
+        not ask: its script is written for a coach with the ball at
+        kickoff, so `GameService.flip_coin` seats Dinky visiting."""
         ...
 
     @abstractmethod
@@ -108,6 +122,9 @@ class DinkyAI(AIStrategy):
     it is a fact about the board, which is the only kind of decision
     Dinky makes.
     """
+
+    def choose_team(self, pool: list[Team]) -> Team:
+        return random.choice(pool)
 
     def choose_home_or_visiting(self) -> HomeChoice:
         return random.choice((HomeChoice.HOME, HomeChoice.VISITING))

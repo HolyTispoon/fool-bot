@@ -201,8 +201,13 @@ remainder.
 
 ### Gaps a web app would have to fill by copying
 
-7. **There is no model path from a lobby to kickoff.** *Open;
-   migration step 8, as service methods (decision 6).* The team pick,
+7. ~~**There is no model path from a lobby to kickoff.**~~ *Closed by
+   step 8 (decisions 3 and 6): `GameService.create_game`, the lobby
+   moves, `configure`, `pick_team`, `flip_coin` and
+   `choose_home_or_visiting`, each over a rule on `D12BallGame`, and
+   the three Discord ids optional;
+   `tests/test_game_service_setup.py` walks the path with no frontend
+   and no channel.* The team pick,
    the AI's team draw (`random.choice` in the view), the coin toss
    (`random.choice` in the view), home or visiting, the tutorial's
    "Dinky takes visiting", the pairing exclusions, which side a
@@ -392,8 +397,15 @@ numbers are the migration's.
   same way. `TEAM_COLORS` and `ChallengeSide` move below `render.py`.
   The `Random` per match through `RulesEngine`, the four bypassing
   rolls first. The goldens regenerate once, for the tokens.
-- **Step 8, setup as service methods.** Decision 6's five methods,
-  and decision 3's optional ids in their own commit.
+- ~~**Step 8, setup as service methods.** Decision 6's five methods,
+  and decision 3's optional ids in their own commit.~~ Done, in two
+  commits on `step-8`; what the step records is in
+  `docs/architecture-migration.md` under step 8. Two things the review
+  did not spell out: the rules went onto the record (`D12BallGame`
+  refuses with `RuleRefusal`, which moved to `d12ball/game.py`) and
+  the service is the thin door over them, so a web app validates a
+  lobby click the way the bot does; and the randomness went to the
+  engine and the strategy, not the service, per decision 7.
 - **Step 10, the web app.** The wire shapes of finding 10; the
   per-game lock of decision 5, taken by the bot's views too; an
   asyncio server in the bot's process over the same `GameService`. A

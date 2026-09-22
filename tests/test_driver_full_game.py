@@ -82,13 +82,12 @@ def build_engine() -> RulesEngine:
 
 def build_game() -> D12BallGame:
     """Two coaches, advanced mode, board 6 -- the advanced golden's game
-    with a person on both sides."""
+    with a person on both sides. No server, channel or message: a game
+    played through the driver alone is not a Discord thing, and the
+    record no longer asks for one (decision 3 of docs/web-app.md)."""
     return D12BallGame(
         game_id="driver-game",
         game_number=1,
-        guild_id=1,
-        channel_id=2,
-        message_id=None,
         player_1_id=111,
         player_2_id=222,
         player_1_team=Team.TELEKINETICS,
@@ -353,9 +352,6 @@ def build_tutorial_game() -> D12BallGame:
     return D12BallGame(
         game_id="driver-tutorial",
         game_number=2,
-        guild_id=1,
-        channel_id=3,
-        message_id=None,
         player_1_id=111,
         player_2_id=None,
         ai_opponent=AIOpponent.DINKY,

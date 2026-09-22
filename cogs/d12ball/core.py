@@ -775,21 +775,14 @@ class CoreMixin:
         self,
         guild: discord.Guild,
     ) -> int:
-        existing_numbers = [
-            game.game_number
-            for game in self.games.values()
-            if game.guild_id == guild.id
-        ]
-
-        if not existing_numbers:
-            return 1
-
-        return max(existing_numbers) + 1
+        """`GameService.next_game_number` for a server -- the channel
+        reset in `cogs/debug.py` asks it here."""
+        return self.service.next_game_number(guild.id)
 
 
     def game_for_channel(self, channel_id: int) -> Optional[D12BallGame]:
         for game in self.games.values():
-            if game.channel_id == channel_id:
+            if game.channel_id is not None and game.channel_id == channel_id:
                 return game
         return None
 

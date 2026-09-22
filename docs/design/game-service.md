@@ -147,6 +147,77 @@ message and one board refresh ([rate-limits.md](rate-limits.md)). It
 is the service undoing one `own_message` close, on the frontend's
 say-so, and it is confined to `_answer_for_ai`.
 
+## Setup and the lobby are service methods, not prompt kinds
+
+Step 8 of [../architecture-migration.md](../architecture-migration.md),
+decision 6 of [../web-app.md](../web-app.md). Nothing before the
+kickoff is a turn: no `MatchState` exists until the sides are settled,
+so there is no `PendingPrompt` to answer and no `driver` to run. What
+there is, is a record -- `D12BallGame` -- and a dozen changes to it
+that each have a rule: who may take the second seat, what a tutorial
+pins, which team the other side's pick rules out, who may choose home
+or visiting. ARCHITECTURE.md says lobby operations "can use small
+service methods" and "do not need to pass through the turn driver",
+and that is the shape: `next_game_number`, `create_game`,
+`discard_game`, `lobby_join`, `lobby_observe`, `lobby_leave`,
+`configure`, `start_lobby`, `reopen_lobby`, `pick_team`, `flip_coin`
+and `choose_home_or_visiting`, each load, one change, save once,
+return the record.
+
+**The rules are the record's, and it refuses with `RuleRefusal`.**
+Each service method is a thin door over a method of the same name on
+`D12BallGame` (`configure` over `configure`, `start_lobby` over
+`start_lobby`, ...), which is where the sentence lives: "This lobby is
+full", "That team is no longer available", "The tutorial is played on
+a 7-space board". The service lets the exception through and writes
+nothing, so a frontend's `except RuleRefusal` is the whole of its
+error handling, and a web app validates a lobby click exactly as the
+bot does. `RuleRefusal` moved to `d12ball/game.py` for this -- the
+record is the leaf of the model and `components.py` imports from it
+-- and is still imported from `components` everywhere else. The
+record's older mutators (`resolve_coin_toss`,
+`choose_home_or_visiting`, `start_game`, `finish_game`, `abandon`)
+raise it now too. A value the record cannot read -- a board size of
+8, a setting nobody offers -- is a bug in the frontend and a bare
+`ValueError`, per step 6.
+
+**The service constructs nothing random** (decision 7). The coin is
+`RulesEngine.flip_coin`, and the AI's team is
+`AIStrategy.choose_team(pool)` over `D12BallGame.ai_team_pool` -- the
+same `excluded_teams` reading the picker greys out by and `pick_team`
+refuses against, so Dinky cannot land on the one matchup a coach may
+not pick. `flip_coin` is the one method with a branch: in a solo game
+the AI won, it takes the AI's side for it (visiting in a tutorial,
+whose script is written for a coach with the ball at kickoff;
+`choose_home_or_visiting` otherwise) and deals the match, so the
+coach's next question is `begin`'s window and not one the AI has
+already answered.
+
+**What stays the frontend's** is what it always was: the channel and
+its permissions, the message and its id, whose account clicked.
+`open_new_game` and `open_lobby` make the channel, then the record
+through `create_game` with the ids the record now carries as
+optional (decision 3, the step's first commit), then post the message
+and write its id through `save`; a message that could not be posted
+is `discard_game`, and a lobby whose team picker could not be posted
+is `reopen_lobby`. A game helper's team pick is told which side it is
+for by `D12BallGame.team_pick_lands_on`, but *that* it is a helper's
+is the view's to know. Two record-only writes remain in the setup
+views -- the message id after the coin's choice message goes up, and
+after the lobby's team picker -- and both are `GameService.save`, so
+`cogs/d12ball_views` binds `save_games` nowhere.
+
+**`configure` is one method for every setting**, keyed by the word a
+button carries (`GAME_SETTINGS`), taking the enum or its wire string.
+The lobby and the setup settings block each offer a subset -- the
+Test game and Tutorial toggles and the name are the lobby's, the AI
+row an open solo game's -- and the record refuses the rest by its
+state, never by which screen asked. One consequence the author
+should know: a tutorial created by `/d12ball create_game` used to
+reach the setup screen with live mode and board buttons, and could be
+put on a nine-space board its script is not written for; the pin is
+the record's now and holds for the whole of setup.
+
 ## The presenter saves nothing
 
 `D12Ball.present(interaction, game, result)` is the whole of the

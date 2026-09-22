@@ -19,15 +19,19 @@ answer for all of them (`suppressed_view_saves`, `suppressed_cog_saves` and
 the thing), and `tests/test_d12ball_package_shape.py` fails if a submodule
 starts saving and is not named there.
 
-- **Naming the right module is not the whole of it, because most views do
-  not save through their own binding.** `suppressed_view_saves` covers the
-  three view submodules that call `save_games` themselves; every other view
-  saves through `self.cog.persist`, which is `cogs.d12ball.core`'s binding
-  and needs `suppressed_cog_saves`. A test that wraps only the first is the
-  same silent failure one step along -- it reads as suppressed, and the cog
-  writes underneath it. Nineteen call sites on `main` were doing exactly
-  that, across six files, and the suite was green for all of them. **A view
-  usually needs both helpers**, not the one that matches its package.
+- **Naming the right module is not the whole of it, because no view saves
+  through its own binding any more.** `suppressed_view_saves` used to cover
+  the view submodules that called `save_games` themselves; since step 8 of
+  docs/architecture-migration.md there are none (`SAVING_VIEW_MODULES` is
+  empty, and the package-shape test keeps it so), and it patches nothing.
+  Every view changes the game through `GameService`, whose save is
+  `gamesaves.d12ball.service`'s binding and needs `suppressed_cog_saves`. A
+  test that wraps only the first is the silent failure -- it reads as
+  suppressed, and the service writes underneath it -- which the stray-save
+  guard now turns into an error at the call. Nineteen call sites on `main`
+  were once doing exactly that, across six files, with the suite green for
+  all of them. **`suppressed_cog_saves` is the one that does the work**; the
+  other is kept for the seventy-odd call sites that name both.
 - **A forgotten suppression now fails the test that forgot it.**
   `save_patches.guard_stray_saves` replaces `save_games` in all ten modules
   that bind it with a stand-in that raises, and importing `save_patches`

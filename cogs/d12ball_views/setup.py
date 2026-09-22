@@ -2,15 +2,22 @@
 Setup: team selection, game settings, the coin toss, the
 home-or-visiting choice, and the rematch offer at full time. The
 pre-game lobby that now precedes all of this is in `lobby.py`.
+
+Every change a view here makes to the game record goes through
+`GameService` -- `configure`, `pick_team`, `flip_coin`,
+`choose_home_or_visiting` (step 8 of docs/architecture-migration.md):
+the record rules on it and refuses with `RuleRefusal`, the service
+saves once, and the view shows the refusal or redraws itself. Nothing
+in this module decides who may pick what, and nothing in it saves.
 """
 
 import aiohttp
 import discord
-import random
 from typing import Optional, TYPE_CHECKING
 
-from d12ball import tutorial
+from d12ball.components import RuleRefusal
 from d12ball.game import (
+    ADVANCED_MODULES,
     AIOpponent,
     COLOR_TEAMS,
     CoinFace,
@@ -20,13 +27,9 @@ from d12ball.game import (
     HomeChoice,
     SPECIES_TEAMS,
     Team,
-    paired_team,
     team_display_name,
 )
-from d12ball.render import TEAM_COLORS
-from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
-    ADVANCED_MODULES,
     AI_OPPONENT_NAMES,
     LOGGER,
     advanced_module_label,
@@ -34,13 +37,11 @@ from cogs.d12ball_helpers import (
     build_home_choice_message,
     build_setup_message,
     format_coin_emoji,
-    format_player,
     format_player_with_team,
     get_team_emoji,
     is_game_helper,
     refresh_player_names,
     send_new_prompt,
-    toggle_advanced_module,
 )
 
 from cogs.d12ball_views.base import SafeView
@@ -187,10 +188,19 @@ class GameConfigurationView(SafeView):
             button.callback = ai_opponent_callback
             self.add_item(button)
 
-    async def validate_configuration_change(
+    async def change_setting(
         self,
         interaction: discord.Interaction,
-    ) -> Optional[D12BallGame]:
+        setting: str,
+        value: object,
+    ) -> None:
+        """
+        One setting, through `GameService.configure`, and the block
+        redrawn. Whether this click may change the game's settings is
+        the only thing decided here -- either player, or a game helper
+        -- and every other reason for nothing to happen is the
+        record's, shown as it says it.
+        """
         game = self.cog.games.get(self.game_id)
 
         if game is None:
@@ -198,139 +208,57 @@ class GameConfigurationView(SafeView):
                 "I could not find this game.",
                 ephemeral=True,
             )
-            return None
-
-        if game.status != GameStatus.SETUP:
-            await interaction.response.send_message(
-                "Game settings can only be changed during setup.",
-                ephemeral=True,
-            )
-            return None
+            return
 
         if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only the players in this game can change its settings.",
                 ephemeral=True,
             )
-            return None
+            return
 
-        return game
+        try:
+            self.cog.service.configure(self.game_id, setting, value)
+        except RuleRefusal as error:
+            await interaction.response.send_message(str(error), ephemeral=True)
+            return
+
+        refreshed_view = type(self)(
+            cog=self.cog,
+            game_id=self.game_id,
+        )
+        await interaction.response.edit_message(
+            content=build_setup_message(game, self.cog.team_emojis),
+            view=refreshed_view,
+        )
 
     async def select_mode(
         self,
         interaction: discord.Interaction,
         selected_mode: GameMode,
     ) -> None:
-        game = await self.validate_configuration_change(interaction)
-        if game is None:
-            return
-
-        # **Advanced mode is one switch over two modules** -- the
-        # second set of maneuvers and the species abilities -- and
-        # picking it here brings both. Which of them a game actually
-        # plays is the pair of toggles beside these buttons; a coach
-        # who wants neither picks Basic. The two are deliberately left
-        # as they are when the mode goes back to Basic, so a mis-click
-        # on the mode does not undo them.
-        game.mode = selected_mode
-
-        # Advanced mode's extra maneuvers need the room a nine-space
-        # board gives them, so picking it defaults the board size to 9
-        # -- a coach may still pick 6 or 7 afterwards, and the setup
-        # message keeps recommending 9 either way (see
-        # build_setup_message).
-        if selected_mode == GameMode.ADVANCED:
-            game.board_size = 9
-        save_games(self.cog.games)
-
-        refreshed_view = type(self)(
-            cog=self.cog,
-            game_id=self.game_id,
-        )
-        await interaction.response.edit_message(
-            content=build_setup_message(game, self.cog.team_emojis),
-            view=refreshed_view,
-        )
+        await self.change_setting(interaction, "mode", selected_mode)
 
     async def select_module(
         self,
         interaction: discord.Interaction,
         module_key: str,
     ) -> None:
-        """
-        Turn one half of advanced mode off, or back on. The rule about
-        the last one still on is `toggle_advanced_module`'s, shared
-        with the lobby's own settings -- see "Species abilities in the
-        bot".
-        """
-        game = await self.validate_configuration_change(interaction)
-        if game is None:
-            return
-
-        refusal = toggle_advanced_module(game, module_key)
-        if refusal is not None:
-            await interaction.response.send_message(refusal, ephemeral=True)
-            return
-
-        save_games(self.cog.games)
-
-        refreshed_view = type(self)(
-            cog=self.cog,
-            game_id=self.game_id,
-        )
-        await interaction.response.edit_message(
-            content=build_setup_message(game, self.cog.team_emojis),
-            view=refreshed_view,
-        )
+        await self.change_setting(interaction, "module", module_key)
 
     async def select_ai_opponent(
         self,
         interaction: discord.Interaction,
         selected_ai_type: AIOpponent,
     ) -> None:
-        game = await self.validate_configuration_change(interaction)
-        if game is None:
-            return
-
-        if selected_ai_type == AIOpponent.DECENT:
-            await interaction.response.send_message(
-                "Decent AI is not yet ready, please play against Dinky AI.",
-                ephemeral=True,
-            )
-            return
-
-        game.ai_opponent = AIOpponent.DINKY
-        save_games(self.cog.games)
-
-        refreshed_view = type(self)(
-            cog=self.cog,
-            game_id=self.game_id,
-        )
-        await interaction.response.edit_message(
-            content=build_setup_message(game, self.cog.team_emojis),
-            view=refreshed_view,
-        )
+        await self.change_setting(interaction, "ai", selected_ai_type)
 
     async def select_board_size(
         self,
         interaction: discord.Interaction,
         selected_board_size: int,
     ) -> None:
-        game = await self.validate_configuration_change(interaction)
-        if game is None:
-            return
-
-        game.board_size = selected_board_size
-        save_games(self.cog.games)
-
-        refreshed_view = type(self)(
-            cog=self.cog,
-            game_id=self.game_id,
-        )
-        await interaction.response.edit_message(
-            content=build_setup_message(game, self.cog.team_emojis),
-            view=refreshed_view,
-        )
+        await self.change_setting(interaction, "board", selected_board_size)
 
 
 class TeamSelectionView(GameConfigurationView):
@@ -351,10 +279,10 @@ class TeamSelectionView(GameConfigurationView):
     the same screen; two sides at two rows apiece is four, which would
     leave nothing for a shared row's worth of ambiguity anyway, so it
     now prompts them one after another instead, each with the full
-    two-row budget to itself. `_picking_player_number` is the only
-    place that decides which screen a test game is on: `None` once
-    neither side needs asking (a normal game), 1 while Player 1 has not
-    chosen, 2 once they have and Player 2 has not.
+    two-row budget to itself. Which screen a test game is on, and
+    which teams a screen greys out, are the record's
+    (`D12BallGame.picking_player_number`, `excluded_teams`): the same
+    reading `GameService.pick_team` refuses a stale click against.
     """
 
     def configuration_start_row(
@@ -378,8 +306,12 @@ class TeamSelectionView(GameConfigurationView):
         self.game_id = game_id
 
         game = self.cog.games.get(game_id)
-        player_number = self.picking_player_number(game)
-        excluded = self.excluded_teams(game, player_number)
+        player_number = (
+            game.picking_player_number() if game is not None else None
+        )
+        excluded = (
+            game.excluded_teams(player_number) if game is not None else set()
+        )
 
         for row, row_teams in enumerate((COLOR_TEAMS, SPECIES_TEAMS)):
             for team in row_teams:
@@ -420,70 +352,6 @@ class TeamSelectionView(GameConfigurationView):
                 button.callback = callback
                 self.add_item(button)
 
-    @staticmethod
-    def picking_player_number(
-        game: Optional[D12BallGame],
-    ) -> Optional[int]:
-        """
-        `None` for a normal game's shared row; 1 or 2 for a test
-        game's sequential screens, the side that has not chosen yet.
-        Player 1 always goes first, since nothing else orders them.
-        """
-        if game is None or not game.test_game:
-            return None
-        if game.player_1_team is None:
-            return 1
-        return 2
-
-    @staticmethod
-    def excluded_teams(
-        game: Optional[D12BallGame],
-        player_number: Optional[int],
-    ) -> set[Team]:
-        """
-        Every team this screen must refuse: whichever side(s) already
-        have one, and that team's own `paired_team()`.
-
-        **The pairing is refused for its color, not for its roster.**
-        A color team and its species team share a hex (`TEAM_COLORS`
-        gives Fire Demons Orange's own `#FFA500`), so that one match
-        would draw both sides' cards, meeples and tokens in the same
-        color -- the board is where a coach reads which meeples are
-        theirs, and there is nothing else on it that says. Every other
-        color/species matchup is offered and playable: the 2 or 3
-        players those rosters share are fielded as two cards, one a
-        side. See "One player, both sides" in docs/design/teams-and-players.md.
-        """
-        if game is None:
-            return set()
-
-        if player_number == 1:
-            # The sequential test-game screen for whoever goes first:
-            # nothing is chosen yet, by construction.
-            already_chosen: list[Team] = []
-        elif player_number == 2:
-            # The sequential test-game screen for whoever goes second:
-            # only the side that has already gone is excluded here.
-            already_chosen = (
-                [game.player_1_team]
-                if game.player_1_team is not None
-                else []
-            )
-        else:
-            # The shared row (a normal game) refuses on behalf of
-            # either side, whichever has already picked.
-            already_chosen = [
-                team
-                for team in (game.player_1_team, game.player_2_team)
-                if team is not None
-            ]
-
-        excluded: set[Team] = set()
-        for team in already_chosen:
-            excluded.add(team)
-            excluded.add(paired_team(team))
-        return excluded
-
     async def select_team(
         self,
         interaction: discord.Interaction,
@@ -499,87 +367,35 @@ class TeamSelectionView(GameConfigurationView):
             )
             return
 
-        if game.status != GameStatus.SETUP:
-            await interaction.response.send_message(
-                "Team selection is already closed.",
-                ephemeral=True,
-            )
-            return
-
+        # Whose pick this is. A test game's button names the side and
+        # its one user holds both; a normal game's coach picks their
+        # own; a game helper holds neither, so their pick lands where
+        # the record says (`team_pick_lands_on`).
         if game.test_game:
-            is_player_1 = (
-                interaction.user.id == game.player_1_id
-                and selected_player_number == 1
-            )
-            is_player_2 = (
-                interaction.user.id == game.player_2_id
-                and selected_player_number == 2
-            )
+            is_player = interaction.user.id == game.player_1_id
+            player_number = selected_player_number
         else:
-            is_player_1 = interaction.user.id == game.player_1_id
-            is_player_2 = (
-                game.player_2_id is not None
-                and interaction.user.id == game.player_2_id
+            is_player = interaction.user.id in (
+                game.player_1_id, game.player_2_id,
             )
+            player_number = 1 if interaction.user.id == game.player_1_id else 2
 
-        if not is_player_1 and not is_player_2:
+        if not is_player:
             if not is_game_helper(interaction.user):
                 await interaction.response.send_message(
                     "Only the players in this game can choose teams.",
                     ephemeral=True,
                 )
                 return
+            player_number = game.team_pick_lands_on(selected_player_number)
 
-            # A game helper holds neither side, so **which side this
-            # pick lands on has to be settled here** rather than read
-            # off the clicker -- see "Who may act on a game" in
-            # docs/design/permissions.md. A test game's button names it outright; a
-            # normal game's two sides share one row, so it goes to the
-            # side that has not chosen yet, Player 1 first. That is the
-            # same order `picking_player_number` puts a test game's
-            # sequential screens in, and it is the order the shared row
-            # is filled in anyway. Getting this wrong is silent: the
-            # `else` below would have quietly given every helper's pick
-            # to Player 2.
-            is_player_1 = (
-                selected_player_number == 1
-                if game.test_game
-                else game.player_1_team is None
+        try:
+            self.cog.service.pick_team(
+                self.game_id, player_number, selected_team,
             )
-            is_player_2 = not is_player_1
-
-        excluded = self.excluded_teams(
-            game, selected_player_number if game.test_game else None,
-        )
-        if selected_team in excluded:
-            # A stale click on a screen this game has moved past --
-            # the button should already have been disabled, but a
-            # second browser tab or a slow double-click can still get
-            # one through.
-            await interaction.response.send_message(
-                "That team is no longer available.",
-                ephemeral=True,
-            )
+        except RuleRefusal as error:
+            await interaction.response.send_message(str(error), ephemeral=True)
             return
-
-        if is_player_1:
-            game.player_1_team = selected_team
-            if game.player_2_id is None:
-                available_ai_teams = [
-                    team
-                    for team in Team
-                    if team != selected_team
-                    and team != paired_team(selected_team)
-                ]
-
-                game.player_2_team = random.choice(
-                    available_ai_teams
-                )
-
-        else:
-            game.player_2_team = selected_team
-
-        save_games(self.cog.games)
 
         message = build_setup_message(game, self.cog.team_emojis)
 
@@ -648,47 +464,6 @@ class CoinFlipView(GameConfigurationView):
         self.add_item(self.flip_button)
         self.add_configuration_buttons()
 
-    def settle_coin_toss(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        flipping_player_number: int,
-    ) -> None:
-        """
-        Throw the coin, record who won it, and -- in a solo game Dinky
-        won -- take Dinky's side for it.
-        """
-        face = random.choice((CoinFace.FORTUNE, CoinFace.DOOM))
-
-        refresh_player_names(game, interaction.guild)
-        winner_player_number = game.resolve_coin_toss(
-            flipping_player_number,
-            face,
-        )
-
-        game.coin_winner = format_player(game, winner_player_number)
-        game.start_game()
-
-        if not (game.is_solo_game and winner_player_number == 2):
-            return
-
-        # The tutorial's script is written for a coach with the ball at
-        # kickoff, so Dinky takes the visiting side and leaves them
-        # home. `DinkyAI.choose_home_or_visiting` is a coin flip of its
-        # own and is overridden here rather than inside the strategy:
-        # it takes no arguments, so it cannot know which game is
-        # asking, and a tutorial is a property of the game. The coach's
-        # own half of this is the rail on HomeAwaySelectionView.
-        ai_choice = (
-            HomeChoice.VISITING
-            if game.tutorial
-            else self.cog.engine.get_ai_strategy(
-                game,
-            ).choose_home_or_visiting()
-        )
-        game.choose_home_or_visiting(2, ai_choice)
-        self.cog.engine.initialize_standard_match(game)
-
     async def announce_coin_toss(
         self,
         interaction: discord.Interaction,
@@ -737,7 +512,7 @@ class CoinFlipView(GameConfigurationView):
             ),
         )
         game.message_id = choice_message.id
-        save_games(self.cog.games)
+        self.cog.service.save()
 
     async def flip_coin(
         self,
@@ -777,16 +552,21 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
-        # The coin is read from the flipping player's point of view, so
-        # it has to be flipped *as* somebody -- a game helper is neither
-        # player, and flips on Player 1's behalf. Which of the two it is
-        # changes nothing but the wording: the coin is fair either way,
-        # so the winner is as likely to be one as the other.
-        self.settle_coin_toss(
-            interaction,
-            game,
-            2 if interaction.user.id == game.player_2_id else 1,
-        )
+        # The names the record carries are refreshed from the server
+        # before the toss names its winner. A game helper is neither
+        # player, and flips on Player 1's behalf: the coin is fair
+        # either way, so the winner is as likely to be one as the
+        # other, and the service words the toss from the flipper's
+        # point of view.
+        refresh_player_names(game, interaction.guild)
+        try:
+            self.cog.service.flip_coin(
+                self.game_id,
+                2 if interaction.user.id == game.player_2_id else 1,
+            )
+        except RuleRefusal as error:
+            await interaction.response.send_message(str(error), ephemeral=True)
+            return
 
         await self.announce_coin_toss(interaction, game)
 
@@ -824,7 +604,7 @@ class HomeAwaySelectionView(SafeView):
         # A tutorial is scripted from the kickoff forward and its coach
         # starts with the ball, so a coach who wins the toss is railed
         # onto Home -- built disabled rather than hidden, like every
-        # other rail. Dinky's half of this is in CoinFlipView.flip_coin.
+        # other rail. Dinky's half of this is in `GameService.flip_coin`.
         tutorial_home_only = bool(
             game is not None and game.tutorial and not assignment_complete
         )
@@ -879,13 +659,6 @@ class HomeAwaySelectionView(SafeView):
             )
             return
 
-        if game.home_and_visiting_selected:
-            await interaction.response.send_message(
-                "Home and visiting teams have already been assigned.",
-                ephemeral=True,
-            )
-            return
-
         winner_player_number = game.coin_winner_player_number
         refresh_player_names(game, interaction.guild)
         winner_user_id = (
@@ -901,9 +674,13 @@ class HomeAwaySelectionView(SafeView):
             )
             return
 
-        game.choose_home_or_visiting(winner_player_number, choice)
-        self.cog.engine.initialize_standard_match(game)
-        save_games(self.cog.games)
+        try:
+            self.cog.service.choose_home_or_visiting(
+                self.game_id, winner_player_number, choice,
+            )
+        except RuleRefusal as error:
+            await interaction.response.send_message(str(error), ephemeral=True)
+            return
 
         refreshed_view = HomeAwaySelectionView(
             cog=self.cog,

@@ -810,10 +810,13 @@ in one call, which is what a web app wants.
   docs/design/permissions.md puts it.
   - **`RuleRefusal`, not `ValueError`, since step 6 of the
     migration.** It is a `ValueError` subclass defined in
-    `components.py`, raised by the match-state mutators that refuse a
-    position, by the flow and by the adapters' `_refuse`, and it is
-    the only thing `answer` -- and the cog's two catch sites,
-    `SafeView.apply` and `dispatch_step_result` -- catch. The net used
+    `d12ball/game.py` (since step 8, when the game record started
+    refusing too; `components.py` re-exports it), raised by the
+    match-state mutators that refuse a position, by the flow, by the
+    adapters' `_refuse` and by the record's lobby and setup methods,
+    and it is the only thing `answer` -- and the cog's catch sites,
+    `SafeView.apply`, `dispatch_step_result` and the setup views'
+    calls into the service's setup methods -- catch. The net used
     to be `ValueError` itself, which caught the interpreter's own
     sentences too: `TeamSide` built from a bad wire value came back
     as a refusal worded by Python and shown to a coach, and a

@@ -8,29 +8,28 @@ the toggle button per role on the hub's second message, built off
 lobby channel's message -- Join / Observe / Leave / Start Game, the Test
 game and Tutorial toggles, a Name button (opening `LobbyNameModal`), and
 the mode (with its two module toggles), board-size and opponent
-settings -- and hands each click back to the cog so the game-record and
-channel-permission changes live next to `open_new_game`.
+settings -- and hands Join, Observe, Leave and Start back to the cog,
+where the channel-permission changes live next to `open_lobby`. A
+setting changed here goes through `GameService.configure`: the record
+rules on it (`D12BallGame.configure`), the service saves, the view
+redraws. Nothing in this module saves.
 
 Imports from `base` only, which is what keeps `cogs/d12ball_views` a DAG
-(see `tests/test_d12ball_package_shape.py`). It binds `save_games`
-directly, like `setup.py`, so it is listed in `SAVING_VIEW_MODULES` in
-`tests/save_patches.py`.
+(see `tests/test_d12ball_package_shape.py`).
 """
 
 import discord
 from typing import TYPE_CHECKING
 
-from d12ball.game import AIOpponent, GameMode
-from gamesaves.d12ball.storage import save_games
+from d12ball.components import RuleRefusal
+from d12ball.game import ADVANCED_MODULES, AIOpponent, GameMode
 from cogs.d12ball_helpers import (
-    ADVANCED_MODULES,
     AI_OPPONENT_NAMES,
     HUB_ROLE_CUSTOM_ID_PREFIX,
     HUB_ROLES,
     advanced_module_label,
     build_lobby_message,
     may_act_in_game,
-    toggle_advanced_module,
 )
 
 from cogs.d12ball_views.base import SafeView
@@ -145,15 +144,18 @@ class LobbyNameModal(discord.ui.Modal, title="Name this game"):
             )
             return
 
-        game.game_name = str(self.game_name.value).strip() or None
-        # Acknowledge the click before persisting -- see
-        # `D12Ball._refresh_lobby` for why the save comes second.
+        try:
+            self.cog.service.configure(
+                self.game_id, "name", str(self.game_name.value),
+            )
+        except RuleRefusal as error:
+            await interaction.response.send_message(str(error), ephemeral=True)
+            return
         await interaction.response.edit_message(
             content=build_lobby_message(game, self.cog.d12_emoji),
             view=LobbyView(self.cog, self.game_id),
             allowed_mentions=discord.AllowedMentions.none(),
         )
-        save_games(self.cog.games)
 
 
 class LobbyView(SafeView):
@@ -398,80 +400,18 @@ class LobbyView(SafeView):
             )
             return
 
-        if setting in ("test", "tutorial"):
-            if game.player_2_id is not None:
-                await interaction.response.send_message(
-                    "Someone has already joined -- they would have to leave "
-                    "first.",
-                    ephemeral=True,
-                )
-                return
-            if setting == "test":
-                game.test_game = not game.test_game
-                if game.test_game:
-                    game.tutorial = False
-            else:
-                game.tutorial = not game.tutorial
-                if game.tutorial:
-                    # One person against Dinky, and the script is written
-                    # for Basic on a 7-space board -- see
-                    # d12ball/tutorial.py.
-                    game.test_game = False
-                    game.ai_opponent = AIOpponent.DINKY
-                    game.mode = GameMode.BASIC
-                    game.board_size = 7
-        elif setting == "mode":
-            if game.tutorial:
-                await interaction.response.send_message(
-                    "The tutorial is a Basic-mode game. Turn Tutorial off "
-                    "to change the mode.",
-                    ephemeral=True,
-                )
-                return
-            game.mode = GameMode(value)
-            # Advanced mode's extra maneuvers want the room a 9-space
-            # board gives them -- default to it, the coach may still pick
-            # 6 or 7. Same choice CoinFlipView's settings make.
-            if game.mode == GameMode.ADVANCED:
-                game.board_size = 9
-        elif setting == "module":
-            refusal = toggle_advanced_module(game, value)
-            if refusal is not None:
-                await interaction.response.send_message(
-                    refusal,
-                    ephemeral=True,
-                )
-                return
-        elif setting == "board":
-            if game.tutorial:
-                await interaction.response.send_message(
-                    "The tutorial is played on a 7-space board. Turn "
-                    "Tutorial off to change the board.",
-                    ephemeral=True,
-                )
-                return
-            game.board_size = int(value)
-        elif setting == "ai":
-            ai_type = AIOpponent(value)
-            if ai_type == AIOpponent.DECENT:
-                await interaction.response.send_message(
-                    "Decent AI is not ready yet -- play against Dinky AI.",
-                    ephemeral=True,
-                )
-                return
-            game.ai_opponent = ai_type
-        else:
-            await interaction.response.send_message(
-                "I did not understand that button.",
-                ephemeral=True,
-            )
+        # Which setting, and what may be done with it in this lobby --
+        # the tutorial pinning Basic on a 7-space board, a joined lobby
+        # having no Test game toggle, the last module on staying on --
+        # is the record's; the view only carries the click.
+        try:
+            self.cog.service.configure(game.game_id, setting, value)
+        except RuleRefusal as error:
+            await interaction.response.send_message(str(error), ephemeral=True)
             return
 
-        # Acknowledge the click before persisting -- see
-        # `D12Ball._refresh_lobby` for why the save comes second.
         await interaction.response.edit_message(
             content=build_lobby_message(game, self.cog.d12_emoji),
             view=LobbyView(self.cog, self.game_id),
             allowed_mentions=discord.AllowedMentions.none(),
         )
-        save_games(self.cog.games)

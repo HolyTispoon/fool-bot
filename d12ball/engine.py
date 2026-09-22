@@ -97,6 +97,7 @@ from d12ball.formatting import (
 )
 from d12ball.game import (
     AIOpponent,
+    CoinFace,
     D12BallGame,
     Formation,
     GameMode,
@@ -1298,6 +1299,16 @@ class RulesEngine:
         return self.basic_ruleset.formations_for_board(
             match.board.layout.board_size
         )
+
+    def flip_coin(self) -> CoinFace:
+        """
+        The coin toss that starts a game: a fair coin, read from the
+        flipping coach's point of view by `D12BallGame.resolve_coin_toss`.
+        The engine's rather than the service's, like every die (decision
+        7 of docs/web-app.md: the `Random` is the engine's, or the
+        match's, never the service's).
+        """
+        return random.choice((CoinFace.FORTUNE, CoinFace.DOOM))
 
     def initialize_standard_match(
         self,

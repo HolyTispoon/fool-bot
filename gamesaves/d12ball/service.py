@@ -29,6 +29,18 @@ an AI answer's lines are its own", handed to the service once at
 construction. The service never reads a step's name to decide
 anything; it asks the `Batching` it was given.
 
+**Setup and the lobby are service methods, not prompt kinds**
+(decision 6 of docs/web-app.md; ARCHITECTURE.md, part 2: "lobby
+operations can use small service methods"). `create_game`, the four
+lobby operations, `configure`, `pick_team`, `flip_coin` and
+`choose_home_or_visiting` each load the record, apply one change the
+record itself rules on (`D12BallGame`, which refuses with
+`RuleRefusal`), draw what the AI or the coin has to add through the
+engine and its strategies, and save once. There is no turn to run,
+so they hand back the record rather than a `GameResult`, and a
+refusal is the exception itself: nothing was written, and the
+frontend shows the sentence.
+
 **The AI answers here.** When the run reaches a prompt put to an AI
 side, `run` asks the strategy for an `Action` (`driver.ai_action`),
 puts it through `driver.answer` like a click, and carries on -- so
@@ -44,15 +56,24 @@ the loop stops there and the AI never rolls.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field, replace
 from enum import Enum, auto
 from typing import Any, Callable, Mapping, Optional, Sequence, Union
 
-from d12ball.components import MatchState, TeamSide
+from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.engine import RulesEngine
 from d12ball.flow import driver, periods
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.game import D12BallGame
+from d12ball.formatting import format_player
+from d12ball.game import (
+    AIOpponent,
+    D12BallGame,
+    GameMode,
+    GameStatus,
+    HomeChoice,
+    Team,
+)
 from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
@@ -280,6 +301,224 @@ class GameService:
         """What the match asks of somebody, or `None` while the bot
         owes a step (`d12ball.prompts.owed_step`)."""
         return pending_prompt(self.engine, game, match)
+
+    # -- Setup and the lobby ---------------------------------------------
+    #
+    # Each of these is load, one change to the record, save once. The
+    # rules are `D12BallGame`'s -- who may join, what a tutorial pins,
+    # which team the other side's pick rules out -- and it refuses with
+    # `RuleRefusal`, which comes straight through: nothing was written.
+    # What the AI or the coin adds is drawn here, from the engine and
+    # its strategies, never by a frontend.
+
+    def next_game_number(self, guild_id: Optional[int]) -> int:
+        """The number after the last one given out where this game is
+        played -- per server, and one sequence for the games played
+        nowhere on Discord."""
+        existing = [
+            game.game_number
+            for game in self.games.values()
+            if game.guild_id == guild_id
+        ]
+        return max(existing, default=0) + 1
+
+    def create_game(
+        self,
+        *,
+        player_1_id: int,
+        player_1_name: Optional[str],
+        player_2_id: Optional[int] = None,
+        player_2_name: Optional[str] = None,
+        guild_id: Optional[int] = None,
+        channel_id: Optional[int] = None,
+        game_number: Optional[int] = None,
+        in_lobby: bool = False,
+        test_game: bool = False,
+        tutorial: bool = False,
+        mode: GameMode = GameMode.BASIC,
+        advanced_maneuvers: bool = True,
+        species_abilities: bool = True,
+        board_size: int = 7,
+        ai_opponent: Optional[AIOpponent] = None,
+        game_name: Optional[str] = None,
+    ) -> D12BallGame:
+        """
+        A new game record, in setup, saved.
+
+        A lobby (`in_lobby`) settles nothing yet -- who takes the other
+        side is Start Game's -- so it carries no AI opponent; anything
+        else with no second player is a solo game against Dinky unless
+        another AI was asked for. The settings arguments exist for the
+        rematch, which carries the finished game's configuration over;
+        a fresh game takes the defaults and settles them in setup. The
+        Discord ids are the frontend's to pass or leave out: a game
+        the web app creates has none.
+        """
+        if game_number is None:
+            game_number = self.next_game_number(guild_id)
+        game = D12BallGame(
+            game_id=uuid.uuid4().hex,
+            game_number=game_number,
+            guild_id=guild_id,
+            channel_id=channel_id,
+            message_id=None,
+            player_1_id=player_1_id,
+            player_2_id=player_2_id,
+            player_1_name=player_1_name,
+            player_2_name=player_2_name,
+            test_game=test_game,
+            game_name=game_name,
+            mode=mode,
+            # Which halves of advanced mode this game plays. They mean
+            # nothing in a basic game and are carried anyway, so a
+            # rematch of a maneuvers-only game that flips to Advanced
+            # in setup comes back as the game it is a rematch of.
+            advanced_maneuvers=advanced_maneuvers,
+            species_abilities=species_abilities,
+            status=GameStatus.SETUP,
+            board_size=board_size,
+            ai_opponent=(
+                None
+                if in_lobby or player_2_id is not None
+                else ai_opponent or AIOpponent.DINKY
+            ),
+            tutorial=tutorial,
+            # The step is set at kickoff, not here: setup is played
+            # exactly as an ordinary game plays it -- teams, the coin
+            # toss, home or visiting -- and the script starts with the
+            # first turn. `in_tutorial` is False until then, so nothing
+            # in setup is on rails.
+            tutorial_step=None,
+            in_lobby=in_lobby,
+        )
+        self.games[game.game_id] = game
+        self.save()
+        return game
+
+    def discard_game(self, game_id: str) -> None:
+        """
+        Forget a game that never got started -- a frontend that could
+        not put its first message up has nothing to hand anybody. Only
+        a game still in setup with no match may be discarded; anything
+        played is abandoned, not erased.
+        """
+        game = self.game(game_id)
+        if game.status != GameStatus.SETUP or game.match_state is not None:
+            raise ValueError("Only a game that never started may be discarded.")
+        del self.games[game_id]
+        self.save()
+
+    def lobby_join(
+        self, game_id: str, user_id: int, user_name: Optional[str],
+    ) -> D12BallGame:
+        game = self.game(game_id)
+        game.lobby_join(user_id, user_name)
+        self.save()
+        return game
+
+    def lobby_observe(self, game_id: str, user_id: int) -> D12BallGame:
+        game = self.game(game_id)
+        game.lobby_observe(user_id)
+        self.save()
+        return game
+
+    def lobby_leave(self, game_id: str, user_id: int) -> D12BallGame:
+        game = self.game(game_id)
+        game.lobby_leave(user_id)
+        self.save()
+        return game
+
+    def configure(
+        self, game_id: str, setting: str, value: object = None,
+    ) -> D12BallGame:
+        """One setting changed -- `D12BallGame.configure`, saved."""
+        game = self.game(game_id)
+        game.configure(setting, value)
+        self.save()
+        return game
+
+    def start_lobby(self, game_id: str) -> D12BallGame:
+        """Leave the lobby with the other side settled
+        (`D12BallGame.start_lobby`); team selection follows."""
+        game = self.game(game_id)
+        game.start_lobby()
+        self.save()
+        return game
+
+    def reopen_lobby(self, game_id: str) -> D12BallGame:
+        """`start_lobby` undone, for a frontend that could not put the
+        started game up."""
+        game = self.game(game_id)
+        game.reopen_lobby()
+        self.save()
+        return game
+
+    def pick_team(
+        self, game_id: str, player_number: int, team: Team,
+    ) -> D12BallGame:
+        """
+        One side's team, and -- once Player 1 of a solo game has
+        picked -- the AI's, drawn by its strategy from the pool the
+        record leaves it. Saved.
+        """
+        game = self.game(game_id)
+        game.pick_team(player_number, team)
+        if player_number == 1 and game.is_solo_game:
+            strategy = self.engine.get_ai_strategy(game)
+            game.player_2_team = strategy.choose_team(game.ai_team_pool())
+        self.save()
+        return game
+
+    def flip_coin(self, game_id: str, flipping_player_number: int) -> D12BallGame:
+        """
+        Throw the coin, record who won it, start the game -- and, in a
+        solo game the AI won, take the AI's side for it and deal the
+        match, so the coach's next prompt is the pre-kickoff Coaching
+        Choice (`begin`) rather than a question the AI has already
+        answered.
+
+        The coin is read from the flipping coach's point of view, so
+        it has to be flipped *as* somebody; which of the two changes
+        nothing but the wording, since the coin is fair either way.
+        The tutorial's script is written for a coach with the ball at
+        kickoff, so Dinky takes the visiting side and leaves them home:
+        decided here rather than inside the strategy, because a
+        tutorial is a property of the game and the strategy's question
+        takes no game. The coach's own half of that is the rail on the
+        home-or-visiting prompt.
+        """
+        game = self.game(game_id)
+        if game.in_lobby or not game.teams_selected:
+            raise RuleRefusal(
+                "Both teams must be picked before the coin is flipped."
+            )
+        winner = game.resolve_coin_toss(
+            flipping_player_number, self.engine.flip_coin(),
+        )
+        game.coin_winner = format_player(game, winner)
+        game.start_game()
+
+        if game.is_solo_game and winner == 2:
+            choice = (
+                HomeChoice.VISITING
+                if game.tutorial
+                else self.engine.get_ai_strategy(game).choose_home_or_visiting()
+            )
+            game.choose_home_or_visiting(2, choice)
+            self.engine.initialize_standard_match(game)
+        self.save()
+        return game
+
+    def choose_home_or_visiting(
+        self, game_id: str, player_number: int, choice: HomeChoice,
+    ) -> D12BallGame:
+        """The coin-toss winner's choice, and the deal that follows
+        it. Saved; `begin` opens the pre-kickoff window next."""
+        game = self.game(game_id)
+        game.choose_home_or_visiting(player_number, HomeChoice(choice))
+        self.engine.initialize_standard_match(game)
+        self.save()
+        return game
 
     # -- The entry points -----------------------------------------------
 
