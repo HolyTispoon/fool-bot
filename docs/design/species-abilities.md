@@ -292,9 +292,13 @@ missing other half for Injured, scoped the same way.
   `render_match_image`/`render_coaching_image` as a `cyborg_ids` set the same
   way `species_icons` already threads a bool -- this module still never reads
   a player's species or the game's own bools to decide it (see the
-  `species_icons` comment in `render.py`). `D12Ball.cyborg_condition_ids`
+  `species_icons` comment in `render.py`). `RulesEngine.cyborg_condition_ids`
   answers it once, off `match.exhausted | match.injured` filtered through
-  `has_species_ability`, for both render entry points to share.
+  `has_species_ability`, for both render entry points to share. It was
+  `D12Ball.cyborg_condition_ids` until step 10 of
+  docs/architecture-migration.md, when the web app came to draw the same
+  board: which players carry a Cyborg's own marks is a rule, and a rule on
+  the cog is one a second frontend would have to copy.
 - **New art, not a recolour.** `drained.png`/`damaged.png`
   (`scripts/render_condition_tokens.py`) are their own icons and application
   emoji (`DRAINED_EMOJI_NAME`/`DAMAGED_EMOJI_NAME`), teal/amber rather than the
@@ -321,7 +325,7 @@ missing other half for Injured, scoped the same way.
   `draw_card`'s `cyborg` flag now also picks this icon in
   `draw_exhaustion_badge`, the same "which icon, never whether one is
   drawn" rule as Drained/Damaged above. That meant widening what
-  `D12Ball.cyborg_condition_ids` answers: it used to be "currently
+  `cyborg_condition_ids` answers: it used to be "currently
   Exhausted or Injured", which left a Cyborg mid-count (tokens above zero
   but below `CYBORG_DRAINED_AT`) drawing the amber triangle, so it now
   unions in `match.exhaustion.keys()` too. Board art only, for now -- it

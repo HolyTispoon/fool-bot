@@ -16,6 +16,7 @@ const POLL_MS = 2500;
 let latest = 0;
 let boardVersion = 0;
 let drawing = false;
+let shownPrompt = null;
 
 const el = (id) => document.getElementById(id);
 
@@ -129,6 +130,15 @@ function drawEntries(state) {
 function drawPrompt(state) {
   const box = el("prompt");
   const controls = el("controls");
+  /*
+   * Only when it has actually changed. The page re-reads the whole
+   * state every couple of seconds, and rebuilding the controls each
+   * time would throw away a menu somebody is halfway through
+   * choosing from.
+   */
+  const shape = JSON.stringify(state.prompt);
+  if (shape === shownPrompt) return;
+  shownPrompt = shape;
   controls.replaceChildren();
   if (!state.prompt) {
     box.hidden = true;
