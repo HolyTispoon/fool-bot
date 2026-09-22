@@ -25,11 +25,14 @@ from d12ball.boards import (
     HALF_PAPERS,
     MIN_TOKEN_INCHES,
     PRINT_DPI,
+    JUMBOTRON_PAPER,
+    SCORE_COLUMNS,
     SCORE_TRACK_MAX,
     TEAM_BOARD_PAPER,
     TEAM_CUT_INCHES,
     TOKEN_SUPPLIES,
     FieldGeometry,
+    JumbotronGeometry,
     Sheet,
     TeamBoardGeometry,
     card_slot_inches,
@@ -620,10 +623,88 @@ class D12BallTeamBoardTests(unittest.TestCase):
 
 
 class D12BallJumbotronTests(unittest.TestCase):
-    def test_the_board_is_rendered_at_print_size(self) -> None:
-        self.assertEqual(
-            render_jumbotron_board().size, sheet_pixels(DEFAULT_PAPER, True)
+    def jumbotron_geometry(self) -> JumbotronGeometry:
+        return JumbotronGeometry.for_sheet(
+            Sheet(*sheet_pixels(JUMBOTRON_PAPER, landscape=False))
         )
+
+    def test_the_board_is_a_letter_sheet_portrait(self) -> None:
+        """
+        A paper of its own, like the team board, and not the field
+        board's tabloid: this is the board with no field on it, so it
+        is the one that can be fitted onto the sheet a house printer
+        has in it.
+        """
+        self.assertEqual(JUMBOTRON_PAPER, "letter")
+        self.assertEqual(
+            render_jumbotron_board().size,
+            sheet_pixels(JUMBOTRON_PAPER, landscape=False),
+        )
+
+    def test_the_smaller_sheet_did_not_reach_the_clock(self) -> None:
+        """
+        **Portrait is the clock's doing.** Letter landscape has the
+        width for the clock only at thirteen cells to a row, which
+        would put halftime in the middle of one -- so the sheet turned
+        instead, and the track is the four rows of eight it always was.
+        The score is what paid for the smaller sheet, not this.
+        """
+        self.assertEqual(CLOCK_COLUMNS, 8)
+        self.assertEqual(self.jumbotron_geometry().clock_rows, 4)
+
+    def test_the_score_track_wraps_rather_than_shrinking(self) -> None:
+        """
+        Thirteen cells across a letter sheet would be two-thirds of an
+        inch each, under the token this board exists to give a cell to.
+        Wrapped, every value still has exactly one cell and no row runs
+        past the column count.
+        """
+        geometry = self.jumbotron_geometry()
+        self.assertEqual(geometry.score_rows, 2)
+        seen = {}
+        for value in range(SCORE_TRACK_MAX + 1):
+            row, column = divmod(value, SCORE_COLUMNS)
+            self.assertLess(row, geometry.score_rows)
+            self.assertLess(column, SCORE_COLUMNS)
+            self.assertNotIn((row, column), seen)
+            seen[(row, column)] = value
+        self.assertEqual(len(seen), SCORE_TRACK_MAX + 1)
+
+    def test_both_sides_tracks_fit_inside_the_score_panel(self) -> None:
+        """
+        The panel grew from two rows to four on a sheet that got
+        smaller, which is exactly where a row would come to be drawn
+        below the panel it belongs to -- silently, the way the team
+        board's footer once was.
+        """
+        geometry = self.jumbotron_geometry()
+        _, row_height = geometry.score_cell()
+        bottom = (
+            geometry.score_top
+            + geometry.label_height
+            + 2 * geometry.score_rows * row_height
+        )
+        self.assertLessEqual(bottom, geometry.score_bottom)
+
+    def test_every_panel_is_in_order_and_inside_the_sheet(self) -> None:
+        """The three panels and the footer, top to bottom, on the page."""
+        geometry = self.jumbotron_geometry()
+        _, height = sheet_pixels(JUMBOTRON_PAPER, landscape=False)
+        edges = (
+            geometry.header_top,
+            geometry.header_bottom,
+            geometry.clock_top,
+            geometry.clock_bottom,
+            geometry.score_top,
+            geometry.score_bottom,
+            geometry.supply_top,
+            geometry.supply_bottom,
+            geometry.footer_y,
+        )
+        self.assertGreater(edges[0], 0)
+        self.assertLess(edges[-1], height)
+        for earlier, later in zip(edges, edges[1:]):
+            self.assertLessEqual(earlier, later)
 
     def test_every_cell_can_hold_a_token(self) -> None:
         """

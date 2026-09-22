@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Render the three boards of the physical game.
 
-Print-ready at 300dpi. The field and the jumbotron are tabloid
-(11 x 17) by default -- a home or copy-shop printer's own size, where
-A3 is not; the team board is half a letter sheet, two coaches to a
-page. See `PAPERS`, `DEFAULT_PAPER` and `TEAM_BOARD_PAPER` in
+Print-ready at 300dpi. The field board is tabloid (11 x 17) by
+default -- a home or copy-shop printer's own size, where A3 is not.
+**The jumbotron is a letter sheet, portrait**, and the team board is
+half a letter sheet, two coaches to a page: both have a paper of their
+own, because letter is the size a printer in the house actually has in
+it and neither board has a field on it to pay for a bigger sheet. See
+`PAPERS`, `DEFAULT_PAPER`, `JUMBOTRON_PAPER` and `TEAM_BOARD_PAPER` in
 `d12ball/boards.py`:
 
     python3 scripts/render_boards.py --out print/
@@ -41,6 +44,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from d12ball.boards import (  # noqa: E402
     CARD_INCHES,
     DEFAULT_PAPER,
+    JUMBOTRON_PAPER,
     MIN_TOKEN_INCHES,
     PAPERS,
     PRINT_DPI,
@@ -112,9 +116,19 @@ def main() -> None:
         default=DEFAULT_PAPER,
         choices=sorted(PAPERS),
         help=(
-            f"Sheet size for the field and jumbotron boards (default: "
-            f"{DEFAULT_PAPER}). The team board has a paper of its own "
-            "-- see --team-paper."
+            f"Sheet size for the field board (default: {DEFAULT_PAPER}). "
+            "The jumbotron and the team board each have a paper of "
+            "their own -- see --jumbotron-paper and --team-paper."
+        ),
+    )
+    parser.add_argument(
+        "--jumbotron-paper",
+        default=JUMBOTRON_PAPER,
+        choices=sorted(PAPERS),
+        help=(
+            f"The sheet the jumbotron is drawn on, portrait (default: "
+            f"{JUMBOTRON_PAPER}). Anything smaller takes its cells "
+            "under a token; the CLI says so."
         ),
     )
     parser.add_argument(
@@ -180,7 +194,9 @@ def main() -> None:
             )
 
     save(
-        render_jumbotron_board(paper=args.paper, bleed=args.bleed),
+        render_jumbotron_board(
+            paper=args.jumbotron_paper, bleed=args.bleed
+        ),
         args.out / "jumbotron-board.png",
         args.pdf,
     )
@@ -240,7 +256,7 @@ def main() -> None:
             "the area rather than inside the guide"
         )
     )
-    cells = cell_inches(args.paper)
+    cells = cell_inches(args.jumbotron_paper)
     for name, (width, height) in cells.items():
         note = (
             ""

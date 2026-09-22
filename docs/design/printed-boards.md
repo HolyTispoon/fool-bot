@@ -6,16 +6,19 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 
 `d12ball/boards.py` draws the three boards the tabletop game is played on --
 the **field board**, the **jumbotron board** and a coach's **team board** --
-print-ready at 300dpi. **Tabloid (11 x 17) is the default now**, not A3 --
-the field board portrait, the other two landscape; see `PAPERS` and
-`DEFAULT_PAPER` for why tabloid rather than A3 is the one a home or copy-shop
-printer actually stocks.
+print-ready at 300dpi. **Only the field board is tabloid (11 x 17)**, and it
+is portrait; the jumbotron is a letter sheet portrait (`JUMBOTRON_PAPER`) and
+the team board half a letter sheet (`TEAM_BOARD_PAPER`). See `PAPERS` and
+`DEFAULT_PAPER` for why tabloid rather than A3 is the big size a home or
+copy-shop printer actually stocks, and "The jumbotron's own paper" for why
+only one board still needs it.
 
 ```bash
 python3 scripts/render_boards.py --out print/          # every field size
 python3 scripts/render_boards.py --teams --bleed --pdf
 python3 scripts/render_boards.py --board-size 9        # just the one field
 python3 scripts/render_boards.py --no-halves           # tabloid sheets only
+python3 scripts/render_boards.py --jumbotron-paper a4  # its own sheet size
 ```
 
 - **They follow `cards.py`, not `render.py`.** The palette is the maneuver
@@ -25,6 +28,10 @@ python3 scripts/render_boards.py --no-halves           # tabloid sheets only
   Everything is measured in inches, with the same 1/8in bleed the cards carry.
   The boards keep `FACE_COLOR`'s cream where the cards went white: a board is
   one sheet a game.
+- **The jumbotron is a letter sheet of its own, portrait**, and the team
+  board half a letter one: the field board is the only board still drawn on
+  tabloid, because its spaces are the only thing on any of them that cannot
+  be made smaller. See "The jumbotron's own paper".
 - **The clock and the score are the jumbotron's, not the field's.** They were
   bands under the field, where sixteen minutes across a sheet that was already
   carrying the field left a cell an inch wide -- too small to stand a token in,
@@ -160,6 +167,59 @@ python3 scripts/render_boards.py --no-halves           # tabloid sheets only
   throughout -- see "The team board".
 - `print/` is generated output and is gitignored, like `cards/`.
 
+## The jumbotron's own paper
+
+`JUMBOTRON_PAPER` is **letter, portrait** -- one sheet, not the field board's
+tabloid. Like the team board it has a paper of its own for the plain reason
+that letter is what a printer in the house has in it, and it is a board that
+can be fitted onto one: it carries no field, so nothing on it has to be wide
+enough to stand two sides' meeples on. After this, the field board is the
+only board that still wants a big sheet, and even it prints on letter as two
+halves (above).
+
+- **Portrait rather than landscape is the clock's doing, not a preference.**
+  Letter landscape is 11 x 8.5, and its width fits the clock only if the
+  track runs thirteen cells to a row. `CLOCK_COLUMNS` is eight precisely so
+  that halftime lands at the end of a row and each half is two whole bands
+  rather than a colour change half way along one -- that is a rule about the
+  track, and `test_the_clock_is_the_game_and_the_halves_are_whole_rows`
+  asserts it as `(HALFTIME_MINUTE + 1) % CLOCK_COLUMNS == 0`. Turning the
+  sheet costs nothing and keeps it, so the sheet turned. The clock is the
+  four rows of eight it always was; `test_the_smaller_sheet_did_not_reach_the_clock`
+  is that in the suite.
+- **The score track is what paid for the smaller sheet.** Thirteen cells in
+  one row wants ten inches of track and a letter sheet has seven and
+  three-quarters between its margins once the HOME/VISITORS label column is
+  out -- which would have put a score cell at two-thirds of an inch, under
+  the token this whole board exists to give a cell to. So it **wraps rather
+  than shrinks**, `SCORE_COLUMNS` cells to a row and two rows a side, which
+  is the same answer the clock already gives and for the same reason. Seven
+  is the widest wrap that clears `MIN_TOKEN_INCHES` with room over, and it
+  splits 0-12 into 0-6 and 7-12 -- one short second row rather than two
+  ragged ones.
+  - **A side's label sits beside its whole block, not beside its first row.**
+    The word names the side; hung off the top row it read as a label for that
+    row alone once there were two of them.
+  - `test_both_sides_tracks_fit_inside_the_score_panel` is the fault this
+    invites: a panel that went from two rows to four on a sheet that got
+    smaller is exactly where a row comes to be drawn below the panel it
+    belongs to, and a crop is silent -- the same failure the team board's
+    footer records below.
+- **The header, the footer and the gaps paid the rest.** They are the only
+  things on this board that are not a cell, so the nine rows of cells the
+  sheet now carries came out of them: every one is a smaller share than the
+  tabloid board used. It is the same trade the tabloid switch made when the
+  score and supply cells went under the floor by a sliver, one rank further
+  along -- and `test_every_cell_can_hold_a_token` reads `cell_inches()` on
+  this board's own paper, so it is still the thing that catches a share
+  redivided too far.
+- **Every measurement on this board is a share of the sheet's width**, so
+  halving the sheet halved the type with it. That is the cost, and it is
+  real: the footer line is about eight point now where it was fifteen. The
+  cells did not shrink with it, because the panel shares were redivided
+  rather than scaled -- a clock cell is 0.96 x 0.81in against the tabloid
+  board's 1.93 x 0.85, so it lost its width and kept its height.
+
 ## Printing a board on two small sheets
 
 `render_field_board_halves` writes the field board a second way: two letter
@@ -209,10 +269,9 @@ letter printer and no tabloid one can still put the real board on the table.
   takes it back off the seam, so the two still butt together. Bleeding the
   sheet and then cutting it would have put half a margin down the middle of
   the field and none on two of the outer edges.
-- **The jumbotron is not split.** It is a tabloid sheet too and would halve
-  into two letter portrait sheets the same way (`halve_sheet` cuts a landscape
-  sheet across its width), but nobody has asked for it and a seam through the
-  clock rows has not been looked at.
+- **The jumbotron is not split, and does not need to be.** It is a letter
+  sheet in its own right now -- see "The jumbotron's own paper" -- so the
+  field board is the only one left that a letter printer cannot take whole.
 
 ## The team board
 
