@@ -8,7 +8,7 @@ It imports from no sibling, which is what keeps the package a DAG.
 
 import asyncio
 import discord
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 from d12ball.components import (
     OVERDRIVE_BONUS,
@@ -197,18 +197,6 @@ class SafeView(discord.ui.View):
             )
         return game, match
 
-    def is_game_participant(self, game: D12BallGame, user_id: int) -> bool:
-        """
-        Whether `user_id` is one of the two coaches in `game` -- never
-        the AI, which has no user id to be.
-
-        This is a fact about the game and is **not** the authorization
-        check: a game helper is not a participant and may still press
-        the button. Ask `may_act_in_game` or `may_act_for` for that --
-        see "Who may act on a game" in docs/design/permissions.md.
-        """
-        return user_id in game_participant_ids(game)
-
     def may_act_in_game(
         self,
         interaction: discord.Interaction,
@@ -364,6 +352,17 @@ class SafeView(discord.ui.View):
         else:
             await interaction.response.send_message(reason, ephemeral=True)
 
+    async def refuse_on_menu(
+        self,
+        interaction: discord.Interaction,
+        reason: str,
+    ) -> None:
+        """
+        `refuse` for a click on the person's own ephemeral menu: the
+        refusal replaces the menu rather than landing beside it.
+        """
+        await interaction.response.edit_message(content=reason, view=None)
+
     async def apply(
         self,
         interaction: discord.Interaction,
@@ -371,6 +370,7 @@ class SafeView(discord.ui.View):
         action: Action,
         *,
         carry_from: CarryFrom = None,
+        refuse: Optional[Callable[..., Awaitable[None]]] = None,
     ) -> Optional[GameResult]:
         """
         Apply what the person did, through `GameService` -- **the one
@@ -405,7 +405,7 @@ class SafeView(discord.ui.View):
             await send_error_fallback(interaction, str(error))
             return None
         if result.refused:
-            await self.refuse(interaction, result.refusal)
+            await (refuse or self.refuse)(interaction, result.refusal)
             return None
         return result
 

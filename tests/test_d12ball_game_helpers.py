@@ -390,26 +390,11 @@ class LivePlayHelperTests(unittest.TestCase):
         return cog, game, match
 
     def refusal(self, view, game, match, side, user) -> None:
-        return view.pick_refusal(
-            game,
-            match,
-            side,
-            self.first_maneuver(view, side),
-            build_interaction(user),
-        )
-
-    def first_maneuver(self, view, side: str) -> str:
-        catalog = view.cog.maneuver_catalog
-        definitions = catalog.offense if side == "offense" else catalog.defense
-        return definitions[0].key
+        return view.pick_refusal(game, match, side, build_interaction(user))
 
     def confirmed_refusal(self, view, game, match, side, user) -> None:
         return view.pick_refusal(
-            game,
-            match,
-            side,
-            self.first_maneuver(view, side),
-            build_interaction(user, confirmed=True),
+            game, match, side, build_interaction(user, confirmed=True),
         )
 
     def test_a_helper_may_pick_for_either_side_once_confirmed(self) -> None:

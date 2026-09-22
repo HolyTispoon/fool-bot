@@ -39,6 +39,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, GameMode, GameStatus, Team
+from d12ball.flow.effects import offer_low_pass
 from roster import fielded
 from save_patches import suppressed_cog_saves, suppressed_full_image_links
 import cog_steps
@@ -173,7 +174,14 @@ class HalfFieldPromptTests(unittest.IsolatedAsyncioTestCase):
 
         view = sent.await_args.args[4]
         self.assertIsInstance(view, LowPassChoiceView)
-        self.assertEqual(view.key, "skilled_pass")
+        # Which card is being resolved is the prompt's, not the view's:
+        # the step names it, and the destinations offered are the
+        # Skilled Pass's reach.
+        self.assertEqual(
+            offer_low_pass(cog.engine, game, match, key="skilled_pass")
+            .next.maneuver_key,
+            "skilled_pass",
+        )
 
     async def test_the_funnel_puts_the_field_on_the_prompt(self) -> None:
         """

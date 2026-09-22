@@ -70,17 +70,11 @@ class LooseBallChoiceView(SafeView):
         self.game_id = game_id
         self.side = side
 
-        ball_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
-
-        for player_id in options.player_ids:
+        for player_id, distance in zip(options.player_ids, options.distances):
             player = cog.engine.get_player_definition(player_id)
             zone, space_index = match.board.meeple_position(player_id)
-            distance = abs(
-                match.board.flat_index(zone, space_index) - ball_flat
-            )
             space_word = "space" if distance == 1 else "spaces"
+
             location_note = (
                 f"({space_label(zone, space_index)}, {distance} "
                 f"{space_word} from the ball)"
@@ -237,10 +231,10 @@ class BallRecoveryView(SafeView):
         if options is None:
             return
 
-        for player_id in options.player_ids:
+        for player_id, distance in zip(options.player_ids, options.distances):
             player = cog.engine.get_player_definition(player_id)
-            distance = match.distance_to_ball(player_id)
             space_word = "space" if distance == 1 else "spaces"
+
             button = discord.ui.Button(
                 label=(
                     f"{player_with_role(player)} ({distance} {space_word} "

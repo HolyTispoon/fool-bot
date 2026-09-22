@@ -30,11 +30,12 @@ there is now one.
   permission check into it**: it was the first gate to let somebody act on a
   game they are not in, and the whole point is that it is no longer the only
   one.
-- **`is_game_participant` is a fact about the game, not the authorization
-  check.** It still answers "is this one of the two coaches", which is what
-  `game_participant_ids` is for and what a display or a mention wants. A
-  helper is not a participant and may still press the button, so a *gate*
-  that asks it is a gate that has stopped being the rule.
+- **Being a participant is a fact about the game, not the authorization
+  check.** `game_participant_ids` answers "who are the two coaches", which
+  is what a display or a mention wants. A helper is not a participant and
+  may still press the button, so a *gate* that asks it is a gate that has
+  stopped being the rule. (`SafeView.is_game_participant` was a wrapper over
+  it with no caller, and went.)
 - **A helper holds no side, which is the only thing that needed deciding
   anywhere.** Almost every gate names the coach it belongs to
   (`side_controller_id`, `controlling_user_id`, `possession_user_id`,

@@ -57,7 +57,9 @@ from d12ball.components import (
     MatchState,
     PlayerRole,
     TeamSide,
+    Zone,
 )
+
 from d12ball.flow.result import FollowOn, FollowOnStep
 from d12ball.formatting import (
     address_coach,
@@ -311,9 +313,18 @@ class PlayerOptions:
     """
 
     player_ids: tuple[str, ...]
+    #: BALL_RECOVERY: how far each candidate is from the ball, in the
+    #: order of `player_ids` -- the price on the button. Empty for the
+    #: kinds where nothing is charged.
+    distances: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
-        return {"shape": "player", "player_ids": list(self.player_ids)}
+        return {
+            "shape": "player",
+            "player_ids": list(self.player_ids),
+            "distances": list(self.distances),
+        }
+
 
 
 @dataclass(frozen=True)
@@ -330,6 +341,11 @@ class SendOptions:
     player_ids: tuple[str, ...]
     may_decline: bool
     decline_railed: bool = False
+    #: How far each candidate is from the ball, in the order of
+    #: `player_ids`: the walk-in a challenger pays, the reach a
+    #: contestant needs. On the prompt so that a button's label and a
+    #: web page's read one measure and neither asks the board itself.
+    distances: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -337,17 +353,33 @@ class SendOptions:
             "player_ids": list(self.player_ids),
             "may_decline": self.may_decline,
             "decline_railed": self.decline_railed,
+            "distances": list(self.distances),
         }
+
 
 
 @dataclass(frozen=True)
 class SpaceOptions:
-    """RUN_BACK_SPACE: where the prompt's player may run back to."""
+    """
+    RUN_BACK_SPACE: where the prompt's player may run back to -- the
+    spaces of their own zone, and what each costs. A run back is
+    charged a token a space (`MatchState.run_back_distance`), so the
+    distance is the price on the button, and it is on the prompt so
+    that no frontend measures it itself.
+    """
 
     space_indices: tuple[int, ...]
+    zone: Optional[Zone] = None
+    distances: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
-        return {"shape": "space", "space_indices": list(self.space_indices)}
+        return {
+            "shape": "space",
+            "space_indices": list(self.space_indices),
+            "zone": None if self.zone is None else Zone(self.zone).value,
+            "distances": list(self.distances),
+        }
+
 
 
 @dataclass(frozen=True)
@@ -360,13 +392,19 @@ class DistanceOptions:
 
     distances: tuple[int, ...]
     railed: Optional[int] = None
+    #: SETUP_PASS_CHOICE with nowhere to go: the card's one way out of
+    #: play, answered with no distance at all. Said outright rather
+    #: than left for a frontend to infer from an empty list.
+    may_pass_out: bool = False
 
     def to_dict(self) -> dict:
         return {
             "shape": "distance",
             "distances": list(self.distances),
             "railed": self.railed,
+            "may_pass_out": self.may_pass_out,
         }
+
 
 
 @dataclass(frozen=True)
@@ -447,6 +485,10 @@ class ManeuverHand:
     maneuver_keys: tuple[str, ...]
     picked: bool
     railed: Optional[str] = None
+    #: Which side of the board holds this hand -- "offense" is whoever
+    #: has the ball, and that is read once, here, rather than by each
+    #: frontend and `asked_sides` separately.
+    team_side: Optional[TeamSide] = None
 
     def to_dict(self) -> dict:
         return {
@@ -454,7 +496,12 @@ class ManeuverHand:
             "maneuver_keys": list(self.maneuver_keys),
             "picked": self.picked,
             "railed": self.railed,
+            "team_side": (
+                None if self.team_side is None
+                else TeamSide(self.team_side).value
+            ),
         }
+
 
 
 @dataclass(frozen=True)
@@ -555,12 +602,17 @@ class RepositionOptions:
 
     player_id: str
     spaces: tuple[RepositionSpace, ...]
+    #: The zone the spaces are in -- the player's own -- so a label
+    #: names the space without asking the setup where they stand.
+    zone: Optional[Zone] = None
 
     def to_dict(self) -> dict:
         return {
             "player_id": self.player_id,
             "spaces": [space.to_dict() for space in self.spaces],
+            "zone": None if self.zone is None else Zone(self.zone).value,
         }
+
 
 
 @dataclass(frozen=True)
@@ -1244,17 +1296,20 @@ def asked_sides(
         return ()
     if kind is PromptKind.MANEUVER_ACTION:
         return tuple(
-            match.ball.possession if side == "offense"
-            else match.defending_side()
-            for side in prompt.options.owed()
+            hand.team_side
+            for hand in prompt.options.hands
+            if not hand.picked
         )
     if kind in (PromptKind.SHOOTOUT_ORDER, PromptKind.SHOOTOUT_PICK):
         return tuple(prompt.options.owed())
-    if kind in (PromptKind.COACHING_HUB, PromptKind.COACHING_OFFER):
-        side = prompt.side or match.pending_coaching_side
-        return (TeamSide(side),) if side is not None else ()
-    if kind in (PromptKind.HALFTIME_EXTRA_TOKEN, PromptKind.LOOSE_BALL_PICK):
+    if kind in (
+        PromptKind.COACHING_HUB,
+        PromptKind.COACHING_OFFER,
+        PromptKind.HALFTIME_EXTRA_TOKEN,
+        PromptKind.LOOSE_BALL_PICK,
+    ):
         return (TeamSide(prompt.side),) if prompt.side is not None else ()
+
     if kind in PLAYERS_OWN_QUESTIONS:
         player_id = prompt.player_id or (
             prompt.player_ids[0] if prompt.player_ids else None
@@ -1880,7 +1935,12 @@ def _maneuver_options(
             ),
             picked=picked is not None,
             railed=allowed[0] if allowed else None,
+            team_side=(
+                match.ball.possession if side == "offense"
+                else match.defending_side()
+            ),
         ))
+
     return ManeuverOptions(tuple(hands))
 
 
@@ -1890,11 +1950,14 @@ def _challenge_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> SendOptions:
+    candidates = tuple(match.challenge_candidates())
     return SendOptions(
-        player_ids=tuple(match.challenge_candidates()),
+        player_ids=candidates,
         may_decline=match.may_decline_challenge(),
         decline_railed=_decline_railed(game, "challenge_decline"),
+        distances=_distances_to_ball(match, candidates),
     )
+
 
 
 def _loose_ball_options(
@@ -1903,11 +1966,21 @@ def _loose_ball_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> SendOptions:
+    candidates = tuple(engine.loose_ball_candidates(match, prompt.side))
     return SendOptions(
-        player_ids=tuple(engine.loose_ball_candidates(match, prompt.side)),
+        player_ids=candidates,
         may_decline=match.may_decline_loose_ball(prompt.side),
         decline_railed=_decline_railed(game, "loose_ball_decline"),
+        distances=_distances_to_ball(match, candidates),
     )
+
+
+def _distances_to_ball(
+    match: MatchState, player_ids: tuple[str, ...],
+) -> tuple[int, ...]:
+    """Each candidate's distance to the ball, in their order."""
+    return tuple(match.distance_to_ball(player_id) for player_id in player_ids)
+
 
 
 def _handler_options(
@@ -1939,11 +2012,20 @@ def _run_back_space_options(
 ) -> SpaceOptions:
     side = match.side_for_player(prompt.player_id)
     zone = match.setup_for_side(side).assigned_zone(prompt.player_id)
-    return SpaceOptions(tuple(
+    spaces = tuple(
         engine.placement_spaces_in_zone(
             game, match, side, zone, prompt.player_id,
         ),
-    ))
+    )
+    return SpaceOptions(
+        spaces,
+        zone=zone,
+        distances=tuple(
+            match.run_back_distance(prompt.player_id, zone, space_index)
+            for space_index in spaces
+        ),
+    )
+
 
 
 def _ball_recovery_options(
@@ -1952,7 +2034,9 @@ def _ball_recovery_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> PlayerOptions:
-    return PlayerOptions(tuple(match.contest_candidates(match.ball.possession)))
+    candidates = tuple(match.contest_candidates(match.ball.possession))
+    return PlayerOptions(candidates, _distances_to_ball(match, candidates))
+
 
 
 def _halftime_token_options(
@@ -2028,7 +2112,9 @@ def _setup_pass_options(
 ) -> DistanceOptions:
     # Empty is the card's one way out of play: a pass with nowhere to
     # go, which the answer sends with no distance at all.
-    return DistanceOptions(tuple(engine.setup_pass_distances(match)))
+    distances = tuple(engine.setup_pass_distances(match))
+    return DistanceOptions(distances, may_pass_out=not distances)
+
 
 
 def _speed_options(
@@ -2141,7 +2227,10 @@ def _coaching_hub_options(
                         if other in team
                     ),
                 ))
-            repositions.append(RepositionOptions(player_id, tuple(spaces)))
+            repositions.append(
+                RepositionOptions(player_id, tuple(spaces), zone=zone),
+            )
+
 
     return CoachingHubOptions(
         formations=(

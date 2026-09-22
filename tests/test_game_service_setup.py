@@ -472,6 +472,38 @@ class CoinAndSidesTests(SetupHarness):
         result = self.service.begin(game.game_id)
         self.assertEqual(result.prompt.kind, PromptKind.COACHING_HUB)
 
+    def test_a_tutorials_coach_is_home_whoever_wins(self) -> None:
+        """
+        The record's rail (`D12BallGame.home_choice_rail`): the script
+        is written for a coach with the ball at kickoff. A coach who
+        wins the toss may take Home and nothing else; Dinky, winning,
+        takes Visiting -- one reading for the button, the refusal and
+        the service's own choice for Dinky.
+        """
+        for seed in range(12):
+            self.seeded(seed)
+            game = self.open_lobby()
+            self.service.configure(game.game_id, "tutorial")
+            self.service.start_lobby(game.game_id)
+            self.service.pick_team(game.game_id, 1, Team.ORANGE)
+            self.service.flip_coin(game.game_id, 1)
+            if game.coin_winner_player_number == 1:
+                break
+        else:  # pragma: no cover - twelve tails in a row
+            self.fail("the coach never won the toss")
+
+        self.assertEqual(game.home_choice_rail(1), HomeChoice.HOME)
+        self.assertIn(
+            "plays Home",
+            self.refused(
+                self.service.choose_home_or_visiting,
+                game.game_id, 1, HomeChoice.VISITING,
+            ),
+        )
+        self.service.choose_home_or_visiting(game.game_id, 1, HomeChoice.HOME)
+        self.assertEqual(game.home_player_number, 1)
+        self.assertIsNone(game.home_choice_rail(1))
+
     def test_dinky_winning_the_toss_chooses_for_itself(self) -> None:
         """
         Whichever way the coin lands, the record ends up in one of two

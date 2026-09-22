@@ -566,11 +566,10 @@ class GameService:
         it has to be flipped *as* somebody; which of the two changes
         nothing but the wording, since the coin is fair either way.
         The tutorial's script is written for a coach with the ball at
-        kickoff, so Dinky takes the visiting side and leaves them home:
-        decided here rather than inside the strategy, because a
-        tutorial is a property of the game and the strategy's question
-        takes no game. The coach's own half of that is the rail on the
-        home-or-visiting prompt.
+        kickoff, so Dinky takes the visiting side and leaves them home
+        -- the record's rail (`D12BallGame.home_choice_rail`), which
+        is the same reading the coach's own Home button is railed by.
+
         """
         game = self.game(game_id)
         if game.in_lobby or not game.teams_selected:
@@ -585,11 +584,11 @@ class GameService:
 
         if game.is_solo_game and winner == 2:
             choice = (
-                HomeChoice.VISITING
-                if game.tutorial
-                else self.engine.get_ai_strategy(game).choose_home_or_visiting()
+                game.home_choice_rail(2)
+                or self.engine.get_ai_strategy(game).choose_home_or_visiting()
             )
             game.choose_home_or_visiting(2, choice)
+
             self.engine.initialize_standard_match(game)
         self.save()
         return game

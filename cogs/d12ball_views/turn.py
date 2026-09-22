@@ -11,11 +11,8 @@ from typing import Optional, TYPE_CHECKING
 from d12ball.flow import FollowOn, FollowOnStep
 from d12ball.flow.driver import Action
 from d12ball.flow.turn import turn_action_refusal
-from d12ball.prompts import ManeuverHand, PromptKind
-from d12ball.components import (
-    MANEUVER_TIER_BASIC,
-    MatchState,
-)
+from d12ball.prompts import PromptKind
+from d12ball.components import MatchState
 from d12ball.game import (
     D12BallGame,
 )
@@ -256,12 +253,14 @@ class PlayerActionView(SafeView):
         # A stale prompt: the button was built for a position that has
         # moved on. The confirmation would be refused the same way
         # through the driver, but there is no reason to open it -- and
-        # the sentence is the model's (`turn_action_refusal`), because
-        # it says what the position is.
+        # the sentence is the model's (`turn_action_refusal`, the
+        # predicate the driver applies), because it says what the
+        # position is.
         refusal = turn_action_refusal(self.cog.engine, game, match, "time_out")
         if refusal is not None:
             await interaction.response.send_message(refusal, ephemeral=True)
             return
+
         await interaction.response.edit_message(
             content=self.cog.engine.time_out_confirmation(game, match),
             view=TimeOutConfirmView(
@@ -452,11 +451,11 @@ class ManeuverChallengeView(SafeView):
         if options is None:
             return
 
-        for player_id in options.player_ids:
+        for player_id, distance in zip(options.player_ids, options.distances):
             player = self.cog.engine.get_player_definition(player_id)
-            distance = match.distance_to_ball(player_id)
             button = discord.ui.Button(
                 label=f"{player_with_role(player)} ({distance})"[:80],
+
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:challenger:{game_id}:{player_id}"
@@ -671,24 +670,13 @@ class ManeuverActionPromptView(SafeView):
         game, match = self.load_match()
         options = self.prompt_options(game, match, PromptKind.MANEUVER_ACTION)
         # The prompt's `ManeuverOptions`: a hand per side on it, picked
-        # or not. A view built with no position to read gets the basic
-        # offense hand.
-        if options is not None:
-            hands = options.hands
-        else:
-            hands = (ManeuverHand(
-                "offense",
-                tuple(
-                    card.key
-                    for card in cog.maneuver_catalog.for_tier(
-                        "offense", MANEUVER_TIER_BASIC,
-                    )
-                ),
-                picked=False,
-            ),)
+        # or not. A view built with no position to read builds nothing,
+        # like every other view over a prompt.
+        hands = options.hands if options is not None else ()
         self.sides = tuple(hand.side for hand in hands)
 
         rows: list[list[discord.ui.Button]] = []
+
 
         for hand in hands:
             side = hand.side
@@ -808,7 +796,6 @@ class ManeuverActionPromptView(SafeView):
         game: D12BallGame,
         match: MatchState,
         side: str,
-        maneuver_key: str,
         interaction: discord.Interaction,
     ) -> Optional[str]:
         """
@@ -817,12 +804,12 @@ class ManeuverActionPromptView(SafeView):
         **Authorization is answered first**, and that ordering is a
         rule rather than a habit: the other coach's row is sitting on
         the same message, so replying "that side has already chosen"
-        to a click on it would say whether they had. It is also the
-        half that stays here -- whose Discord account may press a
-        button is a fact about a person (see
-        docs/design/permissions.md) -- and the three below it are
-        rules, so they are `d12ball.flow.turn.maneuver_pick_refusal`'s
-        since Phase 6.
+        to a click on it would say whether they had. It is the half
+        that stays here -- whose Discord account may press a button is
+        a fact about a person (see docs/design/permissions.md) -- and
+        every rule about the pick is
+        `d12ball.flow.turn.maneuver_pick_refusal`'s.
+
 
         It takes the interaction rather than the clicker's id because a
         game helper may pick for either side and the permission is on
@@ -853,9 +840,8 @@ class ManeuverActionPromptView(SafeView):
         if game is None:
             return
 
-        refusal = self.pick_refusal(
-            game, match, side, maneuver_key, interaction,
-        )
+        refusal = self.pick_refusal(game, match, side, interaction)
+
         if refusal is not None:
             await interaction.response.send_message(refusal, ephemeral=True)
             return

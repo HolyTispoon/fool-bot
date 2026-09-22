@@ -1339,21 +1339,17 @@ class CoreMixin:
                 self, game_id, prompt.skill_type, prompt.options, match,
             )
         if kind is PromptKind.LOW_PASS_CHOICE:
-            return LowPassChoiceView(
-                self, game_id, key=prompt.maneuver_key, free=prompt.free,
-            )
+            return LowPassChoiceView(self, game_id)
         if kind is PromptKind.SPEED_DELTA_CHOICE:
-            return SpeedDeltaChoiceView(
-                self, game_id, prompt.player_id, prompt.skill_type,
-            )
+            return SpeedDeltaChoiceView(self, game_id, prompt.player_id)
         if kind is PromptKind.SET_UP_ATTEMPT:
             return SetUpAttemptChoiceView(
                 self,
                 game_id,
                 prompt.player_id,
-                prompt.distance_moved,
                 contest_on_decline=prompt.contest_on_decline,
             )
+
         if kind is PromptKind.SHOOTER_CHOICE:
             return ShooterChoiceView(
                 self, game_id, list(prompt.options.player_ids),

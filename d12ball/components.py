@@ -3767,12 +3767,29 @@ class MatchState:
             )
         )
 
+    def ball_destination(self, side: TeamSide, spaces: int) -> tuple[Zone, int]:
+        """
+        Where the ball lands moved `spaces` in `side`'s attacking
+        direction from where it is -- a negative count is a push the
+        other way -- clamped to the field the way every relative move
+        is. A pass menu names the space a distance reaches, and this
+        is the one measure of it, so a label and the move agree.
+        """
+        return self.board.position_at_flat_index(
+            self.relative_flat_index(
+                self.board.flat_index(self.ball.zone, self.ball.space_index),
+                side,
+                spaces,
+            )
+        )
+
     def relative_flat_index(
         self,
         origin_flat: int,
         side: TeamSide,
         spaces: int,
     ) -> int:
+
         """
         `origin_flat` shifted `spaces` steps in `side`'s attack
         direction, clamped to the board edge. Shared by

@@ -60,8 +60,7 @@ CHOICE_LABELS: Mapping[str, str] = {
     "take": "Take it",
     "decline": "Let it go",
     "declare": "Coach",
-    "send": "Send somebody",
-    "restart": "Start the order again",
+
     "roll": "Roll",
     "back": "Back",
     "done": "Done",
@@ -392,7 +391,8 @@ def _turn(asked: Asked) -> list:
 def _roll(asked: Asked) -> list:
     options = asked.options
     controls = [button(CHOICE_LABELS["roll"], asked.kind, "roll")]
-    if getattr(options, "back", False):
+    if options.back:
+
         controls.append(
             button(
                 CHOICE_LABELS["back"],
@@ -444,7 +444,8 @@ def _decision(asked: Asked) -> list:
 def _decision_arguments(asked: Asked, choice: str) -> dict:
     """The two decisions whose answer names who is answering."""
     if asked.kind is PromptKind.COACHING_OFFER:
-        return {"side": asked.prompt.side or asked.match.pending_coaching_side}
+        return {"side": asked.prompt.side}
+
     if asked.kind in (PromptKind.MIND_PULL, PromptKind.SMOOTH):
         return {"player_id": asked.prompt.player_id}
     return {}
@@ -521,27 +522,23 @@ def _run_back_space(asked: Asked) -> list:
     the label because it is the price -- a token a space, the same
     reading the Discord button puts there (`travel_space_label`).
     """
-    match = asked.match
-    player_id = asked.prompt.player_id
-    side = match.side_for_player(player_id)
-    zone = match.setup_for_side(side).assigned_zone(player_id)
+    options = asked.options
     return [
         section(
             None,
             [
                 button(
-                    travel_space_label(
-                        zone,
-                        space_index,
-                        match.run_back_distance(player_id, zone, space_index),
-                    ),
+                    travel_space_label(options.zone, space_index, distance),
                     asked.kind,
                     space_index=space_index,
                 )
-                for space_index in asked.options.space_indices
+                for space_index, distance in zip(
+                    options.space_indices, options.distances,
+                )
             ],
         )
     ]
+
 
 
 def _distance(asked: Asked) -> list:
@@ -562,11 +559,12 @@ def _distance(asked: Asked) -> list:
         )
         for distance in options.distances
     ]
-    if not options.distances and asked.kind is PromptKind.SETUP_PASS_CHOICE:
+    if options.may_pass_out:
         # A Setup Pass with nowhere to go is the card's one way out of
         # play, and it is the absence of a distance rather than a
         # choice -- the driver reads it the same way.
         distances = [button("Put it out of play", asked.kind)]
+
     return [section(None, distances)]
 
 
@@ -651,17 +649,12 @@ def _maneuver(asked: Asked) -> list:
     both are in, so the other side's hand is not in what this viewer
     is sent -- see the module docstring.
     """
-    match = asked.match
     mine = set(asked.sides())
     controls = []
     for hand in asked.options.hands:
-        side = (
-            match.ball.possession
-            if hand.side == "offense"
-            else match.defending_side()
-        )
-        if side not in mine or hand.picked:
+        if hand.team_side not in mine or hand.picked:
             continue
+
         controls.extend(
             button(
                 asked.engine.maneuver_name(key),
@@ -731,8 +724,9 @@ def _coaching_hub(asked: Asked) -> list:
     refused (`finish_refusal`, the kickoff space a side must cover).
     """
     options = asked.options
-    side = asked.prompt.side or asked.match.pending_coaching_side
+    side = asked.prompt.side
     return [
+
         section(
             "Formation",
             [
@@ -810,7 +804,8 @@ def _coaching_hub(asked: Asked) -> list:
                 for swap in options.swaps
             ],
         ),
-        section("Move within a zone", _repositions(asked, side)),
+        section("Move within a zone", _repositions(asked)),
+
         section(
             None,
             [
@@ -827,24 +822,23 @@ def _coaching_hub(asked: Asked) -> list:
     ]
 
 
-def _repositions(asked: Asked, side) -> list[dict]:
+def _repositions(asked: Asked) -> list[dict]:
+
     """
     A meeple moved inside its own zone -- and, where more than one
     teammate is standing on the space it is moving to, which of them
     comes back to keep the zone covered. One is no choice and the
     driver takes it; several is the second question, as a chooser.
     """
-    match = asked.match
+    side = asked.prompt.side
     controls: list[dict] = []
     for entry in asked.options.repositions:
-        zone = match.setup_for_side(TeamSide(side)).assigned_zone(
-            entry.player_id,
-        )
         for space in entry.spaces:
             label = (
                 f"{asked.label(entry.player_id)} to "
-                f"{space_label(zone, space.space_index)}"
+                f"{space_label(entry.zone, space.space_index)}"
             )
+
             if len(space.trade_with) > 1:
                 controls.append(
                     chooser(

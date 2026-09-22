@@ -298,7 +298,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         )
         cog.begin_loose_ball = mock.AsyncMock()
 
-        view = SetUpAttemptChoiceView(cog, game.game_id, receiver, 2)
+        view = SetUpAttemptChoiceView(cog, game.game_id, receiver)
         self.assertEqual(
             [item.label for item in view.children][1],
             "Decline -- resolve as a normal pass",
@@ -325,7 +325,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball = mock.AsyncMock()
 
         view = SetUpAttemptChoiceView(
-            cog, game.game_id, receiver, 2, contest_on_decline=True,
+            cog, game.game_id, receiver, contest_on_decline=True,
         )
         self.assertEqual(
             [item.label for item in view.children][1],

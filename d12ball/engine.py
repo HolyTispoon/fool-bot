@@ -211,7 +211,13 @@ class IgnitedRoll:
 # extra-exhaustion-token choice and its own Coaching Choice, **the
 # visitors first** throughout: they kick off the second half, so they
 # are the side whose arrangement the restart depends on.
+#: The one distance a Fullback's reach adds to a High Pass or a Setup
+#: Pass menu -- "High pass up to 4", read as a number (the author,
+#: 2026-08-19). `pass_ability_note` names it on the button.
+FULLBACK_PASS_REACH = 4
+
 HALFTIME_STAGES = (
+
     "extra_token_visiting",
     "extra_token_home",
     "coaching_visiting",
@@ -1895,8 +1901,48 @@ class RulesEngine:
         the ball has moved out from under.
         """
         handler = self.get_player_definition(match.active_player_id)
-        max_distance = 4 if handler.role == PlayerRole.FULLBACK else 3
+        max_distance = (
+            FULLBACK_PASS_REACH if handler.role == PlayerRole.FULLBACK else 3
+        )
         return match.high_pass_distances(match.ball.possession, max_distance)
+
+    def pass_ability_note(self, distance: int) -> str:
+        """
+        " (Fullback ability)" for the one distance only a Fullback's
+        reach puts on a High Pass or Setup Pass menu, else "". Which
+        distance that is, is a rule (`high_pass_distance_options`,
+        `setup_pass_distances`), so the menu asks here rather than
+        knowing the number.
+        """
+        return " (Fullback ability)" if distance == FULLBACK_PASS_REACH else ""
+
+    def dribble_burst_cost(self, match: MatchState, distance: int) -> int:
+        """
+        What a Dribble Burst of `distance` charges the handler: a token
+        a space, one fewer for a Playmaker (the author, 2026-08-26),
+        floored at 0 -- a burst that moved nowhere costs nothing, and
+        the discount cannot turn a run into a token back. The step
+        charges this and the menu prices its buttons by it.
+        """
+        handler = self.get_player_definition(match.active_player_id)
+        discount = 1 if handler.role == PlayerRole.PLAYMAKER else 0
+        return max(0, distance - discount)
+
+    def dribble_burst_note(self, match: MatchState, distance: int) -> str:
+        """
+        Where a burst of `distance` lands and what it costs -- "M3,
+        2 tokens" -- for the button offering it. Naming the destination
+        is what "3 spaces" does not say: which way this side attacks
+        and where that lands is read off the board, and the board has
+        usually scrolled away.
+        """
+        zone, space_index = match.relative_move_destination(
+            match.active_player_id, match.ball.possession, distance,
+        )
+        tokens = self.dribble_burst_cost(match, distance)
+        token_word = "token" if tokens == 1 else "tokens"
+        return f"{space_label(zone, space_index)}, {tokens} {token_word}"
+
 
     def setup_pass_push_back_distances(self, match: MatchState) -> list[int]:
         """
@@ -2721,16 +2767,11 @@ class RulesEngine:
         answer the coach is weighing.
         """
         offense_side = match.ball.possession
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
-        target_flat = match.relative_flat_index(
-            origin_flat, offense_side, distance,
-        )
-        zone, space_index = match.board.position_at_flat_index(target_flat)
+        zone, space_index = match.ball_destination(offense_side, distance)
         offense_players = set(
             match.setup_for_side(offense_side).field_players,
         )
+
         occupants = [
             player_id
             for player_id in match.board.spaces[zone][space_index]

@@ -835,6 +835,19 @@ class D12BallGame:
 
         return winner_player_number
 
+    def home_choice_rail(self, player_number: int) -> Optional[HomeChoice]:
+        """
+        The one side the coin's winner may take, or `None` where the
+        choice is theirs. A tutorial is scripted from the kickoff
+        forward for a coach with the ball, so its coach (player 1) is
+        Home whoever wins the toss: the coach is railed onto Home, and
+        Dinky, winning, takes Visiting. A frontend greys the other
+        button off this; `choose_home_or_visiting` refuses it.
+        """
+        if not self.tutorial or self.home_and_visiting_selected:
+            return None
+        return HomeChoice.HOME if player_number == 1 else HomeChoice.VISITING
+
     def choose_home_or_visiting(
         self,
         player_number: int,
@@ -850,6 +863,10 @@ class D12BallGame:
             raise RuleRefusal("Home and visiting teams are already assigned.")
 
         choice = HomeChoice(choice)
+        rail = self.home_choice_rail(player_number)
+        if rail is not None and choice != rail:
+            raise RuleRefusal("In the tutorial the coach plays Home.")
+
         other_player_number = 2 if player_number == 1 else 1
 
         if choice == HomeChoice.HOME:
