@@ -29,6 +29,13 @@ economy rather than a rule. The views call the forwarding methods above
 for the two things that *are* rules -- what a swap does, and what the
 window changed.
 
+**A swap that moves nobody is not a swap** (the author, 2026-09-21):
+`swap_field_positions` refuses two players assigned to the same zone,
+which the zone menu used to filter out of the second pick and nothing
+in the model refused. The menu's second pick is the prompt's
+`SwapOptions.partner_ids` -- everyone in a *different* zone -- and
+moving a meeple within its zone is what space positioning is for.
+
 **`heading` is not a lead-in.** The window's own opening line ("## Before
 kickoff", "## Halftime") goes *inside* the prompt, above the allowance,
 so it rides in `FollowOn.kwargs` as `heading` rather than as narration the
@@ -80,7 +87,13 @@ with a minute rather than handed out by the play.
 - **Four substitution budgets, not one.** Setup is unlimited, so
   `substitutions_remaining()` returns **None** there -- callers have to tell
   that apart from a limit of zero, which is what `may_substitute()` and
-  `substitution_allowance_label` are for. Open play's -- a new play's or a
+  `substitution_allowance_label` are for. **`apply_substitution` asks
+  `may_substitute` itself, before anybody moves** (step 6 of
+  docs/architecture-migration.md); until then only the hub's button
+  did, and a third new-play substitution sent through the driver went
+  through with "No substitutions left." in its own narration. The
+  button is built from the prompt's `CoachingHubOptions.may_substitute`,
+  which is the same reading plus whether there is anybody to bring on. Open play's -- a new play's or a
   time out's, which draw on the same pot -- come out of
   `half_substitutions_used`, per side, cleared at halftime; halftime's two and
   full time's one are counted inside the window and charged to neither half.

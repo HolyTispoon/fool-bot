@@ -448,6 +448,16 @@ the AI's. The two that were not always like this were the one-sided ones: the
 own goal and the injury test had no opposing roll to wait for, so the bot rolled
 them itself and posted the answer.
 
+**A shot is walked back only by the coach who chose it, and never for an
+AI side.** "Back" on the score attempt is an answer to that prompt
+(`retract_shot_step`), and a human standing in for the AI's rolls does
+not get to undo its choice -- not a rule of the game but a feature of
+how the AI plays: it does not misclick (the author, 2026-09-21). Since
+step 6 of docs/architecture-migration.md the step refuses it, and the
+prompt's `RollOptions.back` is what the view builds the button from, so
+an AI side's score attempt carries no Back and waits on nothing but the
+roll.
+
 Both are now places a turn can **stop**, and that is the whole cost of it:
 
 - **What the roll was going to do next has to outlive the wait.** An own goal

@@ -56,9 +56,40 @@ move had no rules risk to weigh against it.
 - **A prompt carries what its branch decided and nothing else.** The six
   parameters (`player_ids`, `player_id`, `side`, `maneuver_key`, `skill_type`,
   `free`) are the ones the branches actually held. Anything else a frontend
-  needs it asks the engine for with the match it already has -- the loose
-  ball's candidate list is read in `view_for_prompt`, not carried, because a
+  needs it asks the engine for with the match it already has -- a
   prompt is what to ask rather than a rendering brief.
+- **And, since step 6 of the migration, what may be chosen:
+  `PendingPrompt.options`.** The exception to the bullet above, made
+  on purpose (decision 2 of [../web-app.md](../web-app.md)): the
+  candidate list a view built its buttons from and the adapter
+  refused against were the same engine call made twice, and in four
+  places three times -- the speed targets in the driver, the view
+  (with a hard-coded 12) and the full-game policy. Now `pending`
+  builds them once, through the `OPTIONS` table keyed on the kind,
+  and `driver.advance` attaches them to a step's own `next` prompt
+  through `with_options`, so a frontend that renders `next` and one
+  that re-reads the chain hold one list. **A dataclass per shape, not
+  a flat list**: `PlayerOptions` (a pick among players), `SendOptions`
+  (a pick that may be nobody, with `may_decline` and the rail),
+  `SpaceOptions`, `DistanceOptions`, `LowPassOptions` (a distance and
+  who is standing there), `SpeedOptions`, `TurnOptions` (which of the
+  three actions is offered, and which live), `ManeuverOptions` (a
+  `ManeuverHand` per side on the prompt, picked or not -- the message
+  is never edited, so a restored view carries the same buttons),
+  `RollOptions` (who may declare Overdrive, and on a score attempt
+  whether the shot may be walked back), `DecisionOptions`,
+  `CoachingHubOptions` (the four sub-menus) and `ShootoutOptions`
+  (both sides at once). **The rail is part of the offer**: where the
+  tutorial fixes a choice the options say which (`railed`, `live`,
+  `decline_railed`), so a Discord view greys the rest and a web page
+  does the same without asking `tutorial.resolve_choice`; the driver
+  refuses off the same reading (`_rail`). Every adapter checks the
+  action against the options, every view builds from them
+  (`SafeView.prompt_options`, which reads the chain and builds
+  nothing where the position is not asking that question), and the
+  full-game `Policy` reads them and nothing off the match -- which is
+  principle 10 as a thing that can be run. `test_a_prompt_carries_what_its_branch_carries_and_no_more`
+  leaves `options` out of its "no more" for this reason.
 - **`view_for_prompt` is the only place a kind becomes a view.** A later phase
   rendering a step's next prompt comes through it rather than growing a second
   table; two tables is the same failure as two chains, one step further down.
@@ -759,12 +790,27 @@ in one call, which is what a web app wants.
   `answer` can give is a rule: the match is waiting on a different
   question (the stale click a restart re-attaching an old prompt
   produces), the kind offers no such answer, or the position refuses
-  what was chosen. That last one arrives as the `ValueError` the steps
-  have always raised -- `MatchState.run_back_player` and its
-  neighbours raise with the sentence already written -- and leaves as
-  a `Refusal`, so a frontend has one door rather than two. Whose
-  Discord account may press a button is not one of those reasons and
-  stays where docs/design/permissions.md puts it.
+  what was chosen. That last one arrives as `RuleRefusal` --
+  `MatchState.run_back_player` and its neighbours raise with the
+  sentence already written -- and leaves as a `Refusal`, so a
+  frontend has one door rather than two. Whose Discord account may
+  press a button is not one of those reasons and stays where
+  docs/design/permissions.md puts it.
+  - **`RuleRefusal`, not `ValueError`, since step 6 of the
+    migration.** It is a `ValueError` subclass defined in
+    `components.py`, raised by the match-state mutators that refuse a
+    position, by the flow and by the adapters' `_refuse`, and it is
+    the only thing `answer` -- and the cog's two catch sites,
+    `SafeView.apply` and `dispatch_step_result` -- catch. The net used
+    to be `ValueError` itself, which caught the interpreter's own
+    sentences too: `TeamSide` built from a bad wire value came back
+    as a refusal worded by Python and shown to a coach, and a
+    `TypeError` out of an adapter that dereferenced a `None` slipped
+    past it as a saved half-step (finding 4 of
+    [../web-app.md](../web-app.md)). Now either is a bug and
+    propagates. The validation raises -- a catalog missing a team,
+    `validate()`'s invariants -- stay `ValueError`, because they are
+    not the position refusing a choice.
 - **`ANSWERS` covers `PromptKind` exactly**, so every question this
   game asks has a model function behind it.
   `test_every_prompt_kind_has_a_model_answer` asserts the equality, so
@@ -778,11 +824,17 @@ in one call, which is what a web app wants.
 one increment.** `answer` makes three checks of its own before it
 calls the adapter -- the kind, whether the choice is one the prompt
 offers, and whether the action's arguments fit the adapter's
-signature (`_argument_mismatch`, read off `inspect.signature`, so a
-missing or unknown keyword is a `Refusal` rather than a `TypeError`
-out of the middle of a step). After that, every refusal is one the
-adapter or the model makes: a `ValueError` out of `MatchState`, the
-engine or the step, or an adapter's own `_refuse`.
+signature (`_argument_mismatch`, read off `inspect.signature` and
+`REQUIRED_ARGUMENTS`, so a missing or unknown keyword is a `Refusal`
+rather than a `TypeError` out of the middle of a step).
+`REQUIRED_ARGUMENTS` is what the signature cannot say: an adapter
+with several choices takes the union of their arguments, each
+defaulted to `None` because a different choice leaves it out -- the
+hub's "done" sends nothing and its "reposition" a player and a space
+-- so the table names, per choice, which of those a `None` would be
+dereferenced in. After that, every refusal is one the adapter or the
+model makes: a `RuleRefusal` out of `MatchState`, the engine or the
+step, or an adapter's own `_refuse`.
 
 Measured on the shared fixtures through `apply` with no cog imported,
 the third increment found that *some* adapters refused before they
@@ -811,6 +863,20 @@ tutorial's rails are asked again in the model (`_rail`, over
 `tutorial.resolve_choice`) because the prompt may be an old one still
 sitting in the channel; the coaching answers check the window is the
 side's (`_window_is`). Every adapter refuses before it mutates.
+Since step 6 the list an adapter checks against is the prompt's own
+`options` rather than a second engine call, and the four rules only
+a disabled button used to hold are the adapters' too (finding 3 of
+[../web-app.md](../web-app.md)): `apply_substitution` asks
+`may_substitute` before anybody moves, `_answer_maneuver_challenge`
+asks `may_decline_challenge`, `swap_field_positions` refuses a swap
+inside one zone (a swap that moves nobody is not a swap -- the
+author, 2026-09-21), and `retract_shot_step` refuses an AI side's
+shot (not a rule of the game but a feature of how the AI plays: it
+does not misclick, so its score attempt carries no Back and waits on
+nothing but the roll).
+`tests/test_d12ball_driver_actions.REFUSED_ACTIONS` is the measure: a
+refused answer per kind per offered choice, forty-three of them, each
+leaving the match byte for byte as it was.
 `tests/test_d12ball_driver_actions.py` asserts a legal answer per
 kind applies, that the two refusals `answer` makes itself leave the
 match byte-for-byte as it was, and that a refused space carries the
@@ -963,7 +1029,9 @@ stayed in `cogs/` and only the arithmetic crossed.
   "done" ends the window. `OVERDRIVE_ROLLERS` is who is rolling, keyed
   on the prompt because "which roll are we in" is the whole of what
   decides who may take one, and it is the same six lists the views
-  build their buttons from. That puts "once per roll, not while
+  build their buttons from -- through `RollOptions.overdrive_player_ids`
+  since step 6, which is why the table lives in `d12ball/prompts.py`
+  now and `rolls` re-exports it. That puts "once per roll, not while
   injured, not on a stale prompt" inside `ANSWERS`; who *may* press it
   is a fact about a Discord account and stays in `SafeView`. The
   author settled this on PR #259, against two alternatives: an action

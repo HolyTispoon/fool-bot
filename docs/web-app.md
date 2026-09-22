@@ -139,10 +139,10 @@ remainder.
    `pending_prompt`'s neighbour, and `apply_action` reads it too.
    **Done**: `GameService.resume` is `owed_step` run through `run`, or
    the prompt handed back; the ladder is gone.
-3. **Four rules are enforced only by a disabled button, and the model
-   accepts the illegal answer.** *The first confirmed. Open; migration
-   step 6, and "remove game-rule validation duplicated in Discord
-   callbacks" on the architecture's own list.*
+3. ~~**Four rules are enforced only by a disabled button, and the model
+   accepts the illegal answer.**~~ *The first confirmed. Closed by
+   migration step 6 for the first three and `may_decline_challenge`;
+   the fourth, the shootout's `side`, is finding 9's and stays open.*
    - The substitution allowance. `windows.apply_substitution` never
      asks `may_substitute`; the hub button does
      (`cogs/d12ball_views/coaching.py`). On the `coaching_hub` fixture
@@ -163,8 +163,9 @@ remainder.
    an AI side's shot is never retracted, not as a rule of the game
    but as a feature of how the AI plays, so `retract_shot_step`
    refuses it and the AI's score attempt carries no Back button.
-4. **`answer` can escape as a bare exception.** *Confirmed. Open;
-   with step 6.* `_argument_mismatch` flags a missing argument only
+4. ~~**`answer` can escape as a bare exception.**~~ *Confirmed. Closed
+   by step 6: `RuleRefusal` is the one channel `answer` catches, and
+   `REQUIRED_ARGUMENTS` refuses a `None` an adapter would dereference.* `_argument_mismatch` flags a missing argument only
    where the adapter gives it no default, and several adapters default
    a required argument to `None` and pass it into arithmetic: a hub
    `reposition` with no `space_index` raises `TypeError` out of
@@ -210,8 +211,10 @@ remainder.
    its own reading of these states. `D12BallGame` requires a guild id,
    a channel id and a message id to exist; `tests/test_driver_full_game.py`
    fabricates all three (decision 3 is the answer).
-8. **Option lists the prompt does not carry, and the model does not
-   expose.** *Open; the second half of step 6 (decision 2).* The proof
+8. ~~**Option lists the prompt does not carry, and the model does not
+   expose.**~~ *Closed by step 6 (decision 2): `PendingPrompt.options`,
+   a dataclass per shape, carries every list below and the rails;
+   the `Policy` reads it and nothing else.* The proof
    is `tests/test_driver_full_game.py`'s `Policy`, which re-derives
    every one of these itself. Per kind:
    - `SPEED_DELTA_CHOICE`: the target list is computed inline in the
@@ -346,7 +349,7 @@ numbers are the migration's.
   `FollowOn`s, and `tests/test_d12ball_game_service_resume.py`
   resumes every fixture in `tests/prompt_fixtures.py` with no cog
   imported, beside `tests/test_d12ball_recovery.py`'s Discord half.
-- **Step 6, the adapters refuse, and the prompt carries its
+- ~~**Step 6, the adapters refuse, and the prompt carries its
   options.** A `RuleRefusal` exception replaces `ValueError` as the
   refusal channel: the steps that raise with the sentence already
   written raise it, `answer` and the service catch only it, and
@@ -358,7 +361,13 @@ numbers are the migration's.
   the full-game `Policy` moved onto it in the same commit. One
   refuse-leaves-unchanged test per kind per offered choice, made the
   way `test_a_refused_action_changes_nothing` makes it for the wrong
-  kind.
+  kind.~~ Done, in three commits on `step-6`; the options landed as
+  one commit for every kind rather than one per kind, because the
+  attachment point (`with_options`, in `pending` and at the end of
+  `driver.advance`) is one line and the views could not read half a
+  table. `REQUIRED_ARGUMENTS` is how `_argument_mismatch` knows which
+  `None` a choice will dereference. What the step records is in
+  `docs/architecture-migration.md` under step 6.
 - **Step 7, the AI.** `AIStrategy.choose(prompt, match) -> Action`
   and a loop in `GameService.apply_action` while the prompt's side is
   the AI's, stopping at a roll; the forks go. Its own PR, worded per
@@ -392,7 +401,8 @@ numbers are the migration's.
   with the default `Batching()`, pinning the `GameResult`s and the
   final save (decision 9). The three cog goldens stay, since they pin
   the batching a coach reads.
-- **Refuse-leaves-unchanged per kind per choice**, from step 6 on.
+- ~~**Refuse-leaves-unchanged per kind per choice**, from step 6 on.~~
+  `tests/test_d12ball_driver_actions.REFUSED_ACTIONS`.
 - **Two-frontend resume**, from step 5 on -- landed with it.
 - **The purity probe grows one check**: `d12ball/flow/` and
   `d12ball/prompts.py` import with `PIL` refused as well as `discord`;
