@@ -80,7 +80,7 @@ class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
         return MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
-            board_size=6,
+            board_size=7,
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
@@ -152,7 +152,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         return MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
-            board_size=6,
+            board_size=7,
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
@@ -275,7 +275,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
             )
 
     def test_apply_reposition_moves_a_meeple_for_free(self) -> None:
-        # A 6-board's zones are exactly full (2-2-2, no slack), so a
+        # Board 7's goal zones are exactly full (2-2-2, no slack), so a
         # swap alone never leaves an open space to step into -- this
         # exercises apply_reposition against a player who's simply
         # wandered out of position, the case it's actually built for.
@@ -353,7 +353,7 @@ class DinkySubstitutionTests(unittest.TestCase):
         return MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
-            board_size=6,
+            board_size=7,
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )

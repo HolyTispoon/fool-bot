@@ -12,8 +12,8 @@ page. See `PAPERS`, `DEFAULT_PAPER` and `TEAM_BOARD_PAPER` in
     python3 scripts/render_boards.py --board-size 9
 
 Every field board the ruleset defines is written unless --board-size
-narrows it to one, so a print run comes out with the 6-, 7- and
-9-space fields, the jumbotron, and the team board -- **twice**: one
+narrows it to one, so a print run comes out with the 7- and 9-space
+fields, the jumbotron, and the team board -- **twice**: one
 board on its own (`team-board.png`, half a letter sheet) and a letter
 page carrying two of them to be cut apart, one for each coach
 (`team-board-2up.png`).
@@ -84,7 +84,7 @@ def main() -> None:
     parser.add_argument(
         "--board-size",
         type=int,
-        choices=(6, 7, 9),
+        choices=(7, 9),
         help=(
             "Render only this field board. Every size the ruleset "
             "defines is written otherwise."

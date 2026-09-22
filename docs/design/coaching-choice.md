@@ -209,8 +209,10 @@ with a minute rather than handed out by the play.
   - **The standard deal and all five formations already satisfy it** -- a
     midfield packed from a side's own end always reaches that side's kickoff
     space, on every board -- so this costs a coach nothing until they use
-    space positioning to empty it deliberately. Board 6 is the only board
-    where the two sides cover *different* spaces.
+    space positioning to empty it deliberately. Both sides kick off from the
+    one middle space, and each owes it its own coverage: the question is
+    asked per side because the coverage is the arrangement's, not because
+    the spaces differ.
   - **`pending_kickoff_fill` survives as a fallback, not as a rule.** A game
     saved before this landed can hold an arrangement that leaves the space
     empty, and both developers run the bot against their own saves.

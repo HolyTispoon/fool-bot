@@ -278,7 +278,6 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_board_layouts_match_confirmed_zone_sizes(self) -> None:
         expected = {
-            6: (2, 2, 2),
             7: (2, 3, 2),
             9: (3, 3, 3),
         }
@@ -541,7 +540,7 @@ class D12BallComponentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             match.validate(self.catalog)
 
-    def standard_match(self, board_size: int = 6) -> MatchState:
+    def standard_match(self, board_size: int = 7) -> MatchState:
         return MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
@@ -756,13 +755,13 @@ class D12BallComponentTests(unittest.TestCase):
     def test_swap_meeple_positions_resolves_a_fully_packed_zone(
         self,
     ) -> None:
-        # On a 6-board, 2-2-2 leaves each zone exactly full: after
-        # swapping two players' zone assignments, neither zone has an
-        # open space for its new member to step into one at a time,
-        # since whoever they swapped with hasn't physically left yet.
-        # Trading positions directly is the only thing that resolves
-        # this without a full run back.
-        match = self.standard_match(board_size=6)
+        # 2-2-2 puts two cards in each two-space goal zone, so both
+        # are exactly full: after swapping two players' zone
+        # assignments, neither zone has an open space for its new
+        # member to step into one at a time, since whoever they swapped
+        # with hasn't physically left yet. Trading positions directly
+        # is the only thing that resolves this without a full run back.
+        match = self.standard_match(board_size=7)
         first = fielded(match, PlayerRole.FULLBACK)
         second = fielded(match, PlayerRole.STRIKER)
         match.swap_field_positions(TeamSide.HOME, first, second)
@@ -1346,11 +1345,11 @@ class D12BallComponentTests(unittest.TestCase):
         # The coaching image draws each zone's assigned cards under
         # that zone, centred on it. Three in a zone is the most any
         # basic shape allows: midfield holds three under 2-3-1 and
-        # 1-3-2 on every board, and a goal zone does under board 9's
+        # 1-3-2 on either board, and a goal zone does under board 9's
         # own 3-2-1 and 1-2-3. So every shape the board plays is asked,
         # of every zone it fills with three.
         row = 3 * CARD_SIZE[0] + 2 * COACHING_CARD_GAP
-        for board_size in (6, 7, 9):
+        for board_size in (7, 9):
             for formation in self.rules.formations_for_board(board_size):
                 match = MatchState.standard(
                     catalog=self.catalog,
@@ -1373,44 +1372,6 @@ class D12BallComponentTests(unittest.TestCase):
                         zone=zone.value,
                     ):
                         self.assertLessEqual(row, right - left)
-
-    def test_a_stacked_coaching_space_still_fits_its_meeples(self) -> None:
-        # Board 6's two-space midfield under 2-3-1 is the only place a
-        # Coaching Choice can put two of a side's meeples on one space,
-        # and the coaching image's width is chosen to fit exactly that
-        # -- see COACHING_WIDTH. If a future board or shape stacks more,
-        # or the image narrows, the tokens start overlapping the space
-        # border and this is the check that notices.
-        match = MatchState.standard(
-            catalog=self.catalog,
-            ruleset=self.rules,
-            board_size=6,
-            home_team=Team.ORANGE,
-            visiting_team=Team.TEAL,
-            home_formation=Formation.TWO_THREE_ONE,
-        )
-        bounds = zone_bounds_between(
-            match, COACHING_BOARD_LEFT, COACHING_BOARD_RIGHT,
-        )
-        deepest = max(
-            len(
-                [
-                    player_id
-                    for player_id in occupants
-                    if player_id in set(match.home.field_players)
-                ]
-            )
-            for zone in Zone
-            for occupants in match.board.spaces[zone]
-        )
-        self.assertEqual(deepest, 2)
-
-        narrowest = min(
-            (right - left) / len(match.board.spaces[zone])
-            for zone, (left, right) in bounds.items()
-        )
-        stack_width = deepest * MEEPLE_SIZE + (deepest - 1) * 3
-        self.assertLess(stack_width, narrowest - 20)
 
     def test_meeple_names_shrink_to_fit_a_stacked_space(self) -> None:
         # A formation can put a whole zone's players on one space, so
@@ -1947,13 +1908,15 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         self,
     ) -> None:
         """
-        The rules' worked example: a home shot from the third space of a
-        6-board travels 3 spaces and faces every visiting meeple from
-        the ball's own space outwards.
+        A home shot from the far end of midfield travels 3 spaces and
+        faces every visiting meeple from the ball's own space
+        outwards. Taken off the middle on purpose: the middle of an
+        odd board is the same distance either way, and a shot has to
+        read its own direction.
         """
-        match = self.build_match(6)
+        match = self.build_match(7)
         match.ball.zone = Zone.MIDFIELD
-        match.ball.space_index = 1
+        match.ball.space_index = 2
 
         self.assertEqual(match.ball.possession, TeamSide.HOME)
         self.assertEqual(
@@ -1961,7 +1924,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
                 match.ball.zone,
                 match.ball.space_index,
             ),
-            3,
+            4,
         )
         self.assertEqual(match.spaces_to_goal(), 3)
         self.assertEqual(
@@ -1996,12 +1959,12 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         From the same space, the visitors shoot towards the low end of
         the board, so both the distance and the defenders differ.
         """
-        match = self.build_match(6)
+        match = self.build_match(7)
         match.ball.zone = Zone.MIDFIELD
-        match.ball.space_index = 1
+        match.ball.space_index = 2
         match.ball.possession = TeamSide.VISITING
 
-        self.assertEqual(match.spaces_to_goal(), 4)
+        self.assertEqual(match.spaces_to_goal(), 5)
         self.assertEqual(
             self.defender_roles(match),
             [
@@ -2025,7 +1988,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         same run of spaces, from every space of every board size and for
         either team in possession.
         """
-        for board_size in (6, 7, 9):
+        for board_size in (7, 9):
             match = self.build_match(board_size)
             for zone in Zone:
                 for space_index in range(len(match.board.spaces[zone])):
@@ -2078,7 +2041,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
                                     )
 
     def test_an_empty_path_leaves_the_defence_with_no_skill(self) -> None:
-        match = self.build_match(6)
+        match = self.build_match(7)
         match.ball.zone = Zone.VISITORS_GOAL
         match.ball.space_index = 1
 
@@ -2107,7 +2070,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
     def test_own_goal_restart_space_is_closest_to_that_side_own_goal(
         self,
     ) -> None:
-        for board_size in (6, 7, 9):
+        for board_size in (7, 9):
             match = self.build_match(board_size)
 
             self.assertEqual(
@@ -2181,7 +2144,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
     ) -> None:
         for side in TeamSide:
             with self.subTest(side=side):
-                match = self.build_match(6)
+                match = self.build_match(7)
                 match.ball.speed = 9
 
                 match.restart_after_goal(side)
@@ -2222,7 +2185,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         # and anything its substitution window placed -- so the
         # question is only worth asking once they have settled, which
         # D12Ball.continue_run_back does.
-        match = self.build_match(6)
+        match = self.build_match(7)
 
         match.restart_after_goal(TeamSide.HOME)
 
@@ -2346,18 +2309,22 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ScoreboardState(time=-1)
 
-    def test_kickoff_space_index_matches_the_rules_fix(self) -> None:
-        # 7/9-boards: true middle regardless of who's kicking off.
+    def test_kickoff_space_index_is_the_true_middle_for_both_sides(
+        self,
+    ) -> None:
+        # Every midfield in the ruleset is three spaces deep, so the
+        # kicking side never moves the answer.
         self.assertEqual(kickoff_space_index(3, TeamSide.HOME), 1)
         self.assertEqual(kickoff_space_index(3, TeamSide.VISITING), 1)
-        # 6-board: biased toward the kicking team's own goal.
-        self.assertEqual(kickoff_space_index(2, TeamSide.HOME), 0)
-        self.assertEqual(kickoff_space_index(2, TeamSide.VISITING), 1)
 
-    def test_standard_match_uses_the_fixed_six_board_kickoff(self) -> None:
-        match = self.build_match(6)
-        self.assertEqual(match.ball.zone, Zone.MIDFIELD)
-        self.assertEqual(match.ball.space_index, 0)
+    def test_a_standard_match_kicks_off_from_the_middle_of_midfield(
+        self,
+    ) -> None:
+        for board_size in (7, 9):
+            with self.subTest(board_size=board_size):
+                match = self.build_match(board_size)
+                self.assertEqual(match.ball.zone, Zone.MIDFIELD)
+                self.assertEqual(match.ball.space_index, 1)
 
     def test_set_ball_space_allows_an_empty_destination(self) -> None:
         match = self.build_match(7)

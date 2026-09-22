@@ -12,10 +12,12 @@ setup is now one, so a game need not kick off in the shape it was dealt.
 
 **Which board plays which shape is data, not geometry.** `board_sizes` on a
 shape in `basic_rules.json` lists the boards it may be picked on, and leaving
-it out means every board. It is not "a shape that would stack is refused":
-2-3-1 and 1-3-2 overfill board 6's midfield and are played there anyway. 3-2-1
-and 1-2-3 need a goal zone three deep, and being board 9's alone is the
-author's call (2026-08-12 in the rules log). `BasicRuleset.formations_for_board`
+it out means every board. It is not "a shape that would stack is refused" --
+a shape too deep for a zone would be offered anyway, and dealt stacking; that
+is what 2-3-1 and 1-3-2 did on the six-space board until it was withdrawn
+(2026-09-22 in the rules log). 3-2-1 and 1-2-3 need a goal zone three deep,
+and being board 9's alone is the author's call (2026-08-12 in the rules
+log). `BasicRuleset.formations_for_board`
 is the only reading of it -- `D12Ball.available_formations` for a match, which
 is what the Formation menu builds from and what `current_formation` names a
 side's shape out of -- and `BasicRuleset.formation_shape` is the matching
@@ -23,12 +25,14 @@ refusal, so a shape offered in one place cannot be refused in another.
 **A formation is named by its counts**, which `load_basic_ruleset` checks; that
 is what lets the printed team board list the names and nothing else.
 
-**Stacking is board-dependent.** Three in midfield fits board 7 and board 9 one
-card a space; only board 6, whose midfield has two spaces, makes 2-3-1 or 1-3-2
-overfill a zone. Board 9's two shapes stack nowhere -- its zones are three
-spaces deep and neither puts more than three cards in one. So the occupancy
-machinery below is exercised on board 6 and by `/coach`, not by the default
-board -- render a sample at `--board-size 6` to see a stack.
+**No shape either board plays stacks.** Three in midfield fits board 7 and
+board 9 one card a space, and board 9's own two shapes put three in a
+three-space goal zone. The six-space board, whose midfield had two spaces, was
+the one that made 2-3-1 and 1-3-2 overfill a zone, and it went on 2026-09-22.
+So the occupancy machinery below is now exercised by `/coach` alone -- a stack
+is an arrangement a coach builds with space positioning, not one a deal hands
+them. `formation_stack_space` stays because the stacking rule is the re-deal's
+and a future shape or board would need it.
 
 **The deal spreads a goal zone's pair and packs midfield**, which is
 `setup_space_order` and only ever visible on board 9 -- the one board whose
@@ -66,14 +70,16 @@ that rule for free. **This is the standard deal only**; a formation change re-de
   by *area* (`own_goal` / `midfield` / `opponent_goal`) that a coach filled one
   select at a time -- `zone_for_area` and `SETUP_AREAS` survive from it, and are
   still how a shape is read from a coach's own end.
-- **Board 6's midfield is the only zone whose stack space is a judgement call.**
-  A surplus goes on the middle space of a three-space zone, or the
-  centre-nearer space of a two-space one -- except there, where the two spaces
-  straddle the centre. `formation_stack_space` breaks that tie toward the
-  coach's own goal, which is the author's call and the only stack the three
-  basic shapes can produce.
+- **`formation_stack_space` no longer takes a side.** A surplus goes on the
+  middle space of a three-space zone, or the centre-nearer space of a
+  two-space one, which for a goal zone is the space facing midfield. The one
+  zone where that was a judgement call was the six-space board's midfield,
+  whose two spaces straddled the centre: the tie was broken toward the coach's
+  own goal, which is why the function took a side at all. Every midfield in
+  the ruleset is three spaces deep now, so a two-space zone is always a goal
+  zone and both coaches read it the same way.
 - **A Low Pass into a stack asks who receives it.** Several teammates on one
-  space is ordinary under a stacking shape, and the receiver is what a Winger's
+  space is an ordinary arrangement, and the receiver is what a Winger's
   set-up hands the shot to, so `low_pass_receivers` lists them and
   `LowPassReceiverView` puts the choice to the passer. `low_pass_candidates`
   still names one player per destination -- that is a button label, not the

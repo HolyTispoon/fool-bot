@@ -210,7 +210,7 @@ renderer output in the final book if the author wants the book to look
 like the bot, or be redrawn by the artist over the same positions.
 
 **The Charter's own figures** are three: the field with its zones,
-shooting ranges and kickoff spaces for all three boards; the cycle; and
+shooting ranges and kickoff spaces for both boards; the cycle; and
 the standard deal on board 9, which is the only board where the deal is
 not obvious. All three come off the renderer today.
 

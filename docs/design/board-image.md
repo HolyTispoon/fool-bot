@@ -10,7 +10,7 @@ output is a PNG of the expected dimensions.
 
 ```bash
 python3 scripts/render_sample.py --home purple --visiting teal --out board.png
-python3 scripts/render_sample.py --home-formation 2-3-1 --board-size 6  # stacked meeples
+python3 scripts/render_sample.py --home-formation 2-3-1 --board-size 9
 python3 scripts/render_sample.py --coaching home       # a coach's own half
 python3 scripts/render_sample.py --field               # the field on its own
 python3 scripts/render_sample.py --list-games
@@ -31,9 +31,9 @@ not done. The 2026-09-18 split of the rendering layer's oversized functions
 (`draw_strip`, `render_matchup`, the card back and face, the reference
 image, `draw_board` and the three verdict dice) was done that way against
 107 images: every card on both tiers, the sheet, the hands and the bleed
-cut, the boards at all three sizes plus a stacked 6 and a species 9, both
+cut, the boards at every size plus a stack and a species 9, both
 coaching halves, the field strip, the print boards, and every branch of
-every dice image. Cover both tiers and all three board sizes at least --
+every dice image. Cover both tiers and both board sizes at least --
 `draw_strip` draws a basic card on the 7-space strip and an advanced one on
 the 9, and `render_maneuver_card_back` draws a different hexagon per tier.
 The renders are deterministic (two runs, identical hashes), which is what
@@ -124,9 +124,19 @@ and a strip a third of that height is shown at its own size or smaller.
 Two things set its width, and both are three cards wide. A zone's **assigned
 cards** are drawn under that zone, and midfield holds three under 2-3-1 and
 1-3-2 (a goal zone does under board 9's 3-2-1 and 1-2-3, which is the same
-three); a space has to fit a **stack**, which is board 6's two-space midfield
-under those same shapes. `D12BallComponentTests` checks both, because the
-suite cannot see the image and an overflow here is silent.
+three); a space has to fit a **stack**. `D12BallComponentTests` checks the
+first, because the suite cannot see the image and an overflow here is silent.
+
+**Nothing deals a stack any more, and the coaching image was sized for the
+one that did.** The width was set on board 6's two-space midfield under 2-3-1
+-- two meeples, 155px, into a 200px space. With the six-space board withdrawn
+(2026-09-22 in [rules-log.md](../rules-log.md)) no shape overfills a zone, and
+the narrowest space is board 9's 133px, so a stack a coach builds by hand with
+space positioning is wider than the space it stands on. That was already true
+of a hand-built stack on board 7 before the withdrawal; what changed is that
+the case the width was chosen for is gone, so `COACHING_WIDTH`'s note now
+states the meeple it does fit. Widening the image, or shrinking the tokens in
+a stacked space, is an open rendering question rather than a regression.
 
 **The cards and the two benches are on it for a reason.** Exhaustion counts and
 the Exhausted and Injured badges are drawn nowhere else, and which pool a
@@ -181,10 +191,11 @@ and judged at the width Discord shows the field strip (~900px), not at the
 - **The two rows moved to make room.** `VISITING_MEEPLE_TOP` and
   `HOME_MEEPLE_TOP` are the offsets, the ball token reads the same two, and
   the home row moved up 15px so each row keeps about the same space for
-  names (54px and 51px). Every stack still fits: board 6's two-meeple
-  midfield is 155px into ~330 on the match image and into 200 on the
-  coaching one, which is what `test_a_stacked_coaching_space_still_fits_its_meeples` and
-  `test_a_meeple_carries_its_species_over_its_role` hold.
+  names (54px and 51px). A two-meeple stack is 155px, which the match
+  image's ~330px spaces hold and the coaching image's no longer does --
+  see "Nothing deals a stack any more" above.
+  `test_a_meeple_carries_its_species_over_its_role` holds the sizes that
+  are still checked.
 - **The icon is drawn only in a game playing species abilities** (the
   author, 2026-09-18). In a basic game, or an advanced one that opted the
   module out, species is a name on the card and nothing a coach acts on, so

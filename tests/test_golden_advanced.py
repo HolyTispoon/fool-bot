@@ -25,9 +25,11 @@ moving, not beside it.
   and never takes a Smooth (see "Mind Pull, and the arrival gate" in
   docs/design/species-abilities.md), so an AI Telekinetic would be
   skipped rather than asked and the gate would go unrecorded.
-- **Board 6 in 2-3-1**, because that is three meeples in a two-space
-  midfield -- the stack a run back has to ask about. Board 6 in 2-2-2
-  covers exactly and would never raise the question.
+- **Board 7 in 2-3-1**, because 2-3-1 leaves each two-space goal zone
+  holding exactly two cards: both spaces are covered from the deal, so
+  a displaced player running back into one has to stack, which is the
+  second question a run back asks. (It was board 6 in 2-3-1 until the
+  six-space board went -- 2026-09-22 in docs/rules-log.md.)
 - **Solo against Dinky**, so one user id presses every button. A
   two-human game would need the presser to change hands with possession,
   and `SafeView.may_act_for` would reject half the presses.
@@ -65,16 +67,24 @@ halftime extra token and a coaching window.
 **What it still does not.** The loose ball's *contest pick*
 (`LooseBallChoiceView`, "choose who goes after it") -- this run's loose
 balls all come down where somebody is already standing, which
-pre-declines the other side and settles without asking; the free pickup
-after a time-out (`begin_ball_recovery`), which needs the ball loose at
-the moment a coach calls one; and full time and the shootout, which are
-past where the step budget stops. Those are Phase 5's ground and want a
+pre-declines the other side and settles without asking; the choice of
+ball handler (`BallHandlerSelectionView`), which wants two of the side
+in possession on the ball's own space with nobody carrying it, and no
+deal on either board puts two on the kickoff space any more (it did on
+board 6, under 2-3-1) -- `tests/test_d12ball_driver_actions.py` and
+`tests/prompt_fixtures.py` ask that prompt directly instead; the free
+pickup after a time-out (`begin_ball_recovery`), which needs the ball
+loose at the moment a coach calls one; and full time and the shootout,
+which are past where the step budget stops. Those are Phase 5's ground and want a
 golden of their own.
 
-**The seed was re-picked once**, when PR #243 and PR #244 landed on main
-under this branch: both are rule changes in the code this phase moves,
-so the game seed 44 had played was no longer the game it plays. See the
-pull request for what that cost and what was checked.
+**The seed has been re-picked twice.** Once when PR #243 and PR #244
+landed on main under this branch: both are rule changes in the code
+this phase moves, so the game seed 44 had played was no longer the game
+it plays. Again when the six-space board was withdrawn (2026-09-22 in
+docs/rules-log.md) and this game moved to board 7, which is a different
+game from the first roll. Both times the seed was swept and scored on
+the coverage below, not chosen.
 
 Regenerating is the tutorial golden's rule, and for the same reason --
 see that module's docstring:
@@ -127,7 +137,7 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 #: module rather than patching `randint` is what makes the run
 #: reproducible at all: the flow also reaches `random.shuffle` and
 #: `random.choice`, which a patch on `randint` leaves free.
-ADVANCED_SEED = 37
+ADVANCED_SEED = 134
 
 #: The game is not played to full time: the budget stops it in the
 #: second half, which is as far as Phase 4's ground goes. Full time and
@@ -184,11 +194,16 @@ def build_advanced_game():
 
 
 def build_advanced_match() -> MatchState:
-    """Board 6 in 2-3-1: three meeples in a two-space midfield."""
+    """
+    Board 7 in 2-3-1: each goal zone holds two cards on its two
+    spaces, so both are covered from the deal and a displaced player
+    running back into one has to stack -- the run back's second
+    question, which is what this game is here to reach.
+    """
     return MatchState.standard(
         catalog=CATALOG,
         ruleset=RULES,
-        board_size=6,
+        board_size=7,
         home_team=Team.TELEKINETICS,
         visiting_team=Team.FIRE_DEMONS,
         home_formation=Formation.TWO_THREE_ONE,
@@ -367,7 +382,6 @@ class AdvancedGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
             "ScoreAttemptView",
             "SetupPassChoiceView",
             "ManeuverChallengeView",
-            "BallHandlerSelectionView",
         ):
             self.assertIn(
                 view_name,

@@ -156,7 +156,7 @@ class InterveningDefenderTests(unittest.TestCase):
         return MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
-            board_size=6,
+            board_size=7,
             home_team=Team.ORANGE,
             visiting_team=Team.TEAL,
         )
