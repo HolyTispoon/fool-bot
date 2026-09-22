@@ -30,7 +30,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import suppressed_cog_saves
 from cog_steps import apply_exhaustion, resolve_maneuver, run_own_goal_roll
 
 
@@ -182,7 +182,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(1 <= defense_roll <= 12)
 
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint",
             side_effect=[offense_roll, defense_roll],
         ):

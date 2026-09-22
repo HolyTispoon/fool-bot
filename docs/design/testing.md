@@ -14,24 +14,22 @@ each submodule, so the same patch reaches none of them. It fails *silently*
 -- the patch applies to the package, the test passes, and the real save
 writes `data/d12ball_games.json`, because not one of those forty-odd patches
 was ever bound with `as` or asserted on. `tests/save_patches.py` is the one
-answer for all of them (`suppressed_view_saves`, `suppressed_cog_saves` and
-`suppressed_full_image_links`, each patching every submodule that names
+answer for all of them (`suppressed_cog_saves` and
+`suppressed_full_image_links`, each patching every module that names
 the thing), and `tests/test_d12ball_package_shape.py` fails if a submodule
 starts saving and is not named there.
 
-- **Naming the right module is not the whole of it, because no view saves
-  through its own binding any more.** `suppressed_view_saves` used to cover
-  the view submodules that called `save_games` themselves; since step 8 of
-  docs/architecture-migration.md there are none (`SAVING_VIEW_MODULES` is
-  empty, and the package-shape test keeps it so), and it patches nothing.
-  Every view changes the game through `GameService`, whose save is
-  `gamesaves.d12ball.service`'s binding and needs `suppressed_cog_saves`. A
-  test that wraps only the first is the silent failure -- it reads as
-  suppressed, and the service writes underneath it -- which the stray-save
-  guard now turns into an error at the call. Nineteen call sites on `main`
-  were once doing exactly that, across six files, with the suite green for
-  all of them. **`suppressed_cog_saves` is the one that does the work**; the
-  other is kept for the seventy-odd call sites that name both.
+- **No view saves through its own binding.** Every view changes the game
+  through `GameService`, whose save is `gamesaves.d12ball.service`'s
+  binding, and `suppressed_cog_saves` patches it beside the mixins'.
+  `SAVING_VIEW_MODULES` in `save_patches` is kept empty by the
+  package-shape test, so a view that starts binding `save_games` fails the
+  suite rather than writing the file. (There was a `suppressed_view_saves`
+  over that list; once it patched nothing it went, along with the
+  fifty-odd call sites that named both. A test that wrapped only it was
+  the silent failure -- it read as suppressed, and the service wrote
+  underneath -- which the stray-save guard turns into an error at the
+  call.)
 - **A forgotten suppression now fails the test that forgot it.**
   `save_patches.guard_stray_saves` replaces `save_games` in all ten modules
   that bind it with a stand-in that raises, and importing `save_patches`
@@ -122,11 +120,11 @@ model" now.
   they are about; where the attribute is not a stub the real step runs,
   so installing it costs a test that does not use it nothing. **Since
   the last increment it is armed for every test cog by import**
-  (`arm_cog_stub_routing`, which wraps `D12Ball.dispatch_step_result`,
-  `apply_action`, `resume_game`, `begin_setup_coaching` and
-  `send_turn_prompt` once at the class -- every cog method that runs
-  the service's loop; `save_patches` imports `flow_stubs`, so anything
-  that suppresses saves has it), because once every click went through
+  (`arm_cog_stub_routing`, which wraps the cog's `service` property
+  once at the class so the `GameService.run` it hands back -- the one
+  loop every click, step, begin, resume and reset reduces to -- runs
+  with the routing in force; `save_patches` imports `flow_stubs`, so
+  anything that suppresses saves has it), because once every click went through
   the driver, fifty-odd cog builders that had relied on the cog awaiting
   its own attribute would each have needed the `enterContext`. The
   precedence when both are in play is: a `chain_stops_at` recorder, then

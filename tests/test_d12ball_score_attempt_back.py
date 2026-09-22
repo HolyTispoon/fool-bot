@@ -24,7 +24,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import suppressed_cog_saves
 
 
 def build_cog() -> D12Ball:
@@ -100,7 +100,7 @@ class ScoreAttemptBackTests(unittest.IsolatedAsyncioTestCase):
         self, cog: D12Ball, game: D12BallGame, view: ScoreAttemptView,
         interaction,
     ) -> None:
-        with suppressed_cog_saves(), suppressed_view_saves(), mock.patch.object(
+        with suppressed_cog_saves(), mock.patch.object(
             view, "may_act_for_possession", return_value=True,
         ):
             await view.back(interaction)

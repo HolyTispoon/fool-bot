@@ -20,7 +20,7 @@ for every member.
 
 The recorder it yields is the stub itself, called with
 `(engine, game, match, lead_in=..., **kwargs)`; a test reading
-arguments should use `arguments_of` rather than indexing.
+arguments should use `named_arguments` rather than indexing.
 
 `driver_reaches_cog_stubs` is the other half: dozens of tests build a
 cog with `cog.some_step = AsyncMock()` and assert on it afterwards, and
@@ -73,23 +73,6 @@ def chain_stops_at(
     patched[member] = recorder
     with mock.patch.object(driver, "MODEL_STEPS", patched):
         yield recorder
-
-
-def arguments_of(recorder: Any) -> tuple[tuple[Any, ...], Mapping[str, Any]]:
-    """
-    The positional and keyword arguments a stub was called with,
-    whichever side it was on.
-
-    The leading three differ by side -- `(interaction, game, match)`
-    against `(engine, game, match)` -- and every argument a step
-    actually carries arrives by keyword (rank D2's lesson, in
-    docs/design/model-discord-split.md), so a test wanting `distance_moved`
-    or `lead_in` reads the mapping and never an index.
-    """
-    if not recorder.call_args_list:  # pragma: no cover - never reached
-        raise AssertionError("the chain never reached that step")
-    call = recorder.call_args_list[0]
-    return call.args, call.kwargs
 
 
 @contextlib.contextmanager
@@ -196,13 +179,11 @@ def chain_records_at(
         yield record
 
 
-#: The cog attribute each step the driver runs still answers to.
-#:
-#: Every one of them kept its cog method -- the driver calls the flow
-#: function directly, but the method is an entry point in its own
-#: right for a click or a test. The name is the member lower-cased for
-#: all of them, which is asserted rather than assumed in
-#: `tests/test_d12ball_package_shape.py`.
+#: The cog attribute a test's stub for each step goes under: the member
+#: lower-cased. The cog itself no longer has a method of that name for
+#: most of them -- a test that writes `cog.begin_run_back = AsyncMock()`
+#: is naming the step, and the routing below is what makes the driver
+#: reach it.
 MODEL_STEP_ATTRIBUTES: Mapping[FollowOnStep, str] = {
     member: member.name.lower() for member in REAL_MODEL_STEPS
 }
@@ -300,7 +281,6 @@ def injury_queue_stops_the_chain(cog: Any) -> Iterator[Any]:
     anything, which is the "stop here" the `AsyncMock` gave for free.
     """
     recorder = mock.Mock(return_value=StepResult())
-    cog.begin_injury_tests = mock.AsyncMock()
     with mock.patch(
         "d12ball.flow.injuries.begin_injury_tests", recorder,
     ), mock.patch(
@@ -311,19 +291,20 @@ def injury_queue_stops_the_chain(cog: Any) -> Iterator[Any]:
 
 def arm_cog_stub_routing() -> None:
     """
-    Make every dispatch on every test cog reach the stubs a test has
-    put on it, without each test asking.
+    Make every run on every test cog reach the stubs a test has put on
+    it, without each test asking.
 
-    Before Phase 6 collapsed the cog's dispatch table, a test that
-    stubbed `cog.begin_run_back = AsyncMock()` stopped the chain there
-    for free: the cog awaited its own attribute. The driver never
-    looks at the cog, so the same stub is now reached only through
-    `driver_reaches_cog_stubs` -- and fifty-odd cog builders across
-    the suite were written against the old behaviour. Rather than
-    wrap each of them, `D12Ball.dispatch_step_result` is wrapped once,
-    at the class, so the routing is in force for the duration of every
-    dispatch on any cog. A cog with no stubs on it runs the real steps,
-    exactly as `_as_a_step` promises.
+    Before the driver ran the chain, a test that stubbed
+    `cog.begin_run_back = AsyncMock()` stopped it there for free: the
+    cog awaited its own attribute. The driver never looks at the cog,
+    so the same stub is reached only through `driver_reaches_cog_stubs`
+    -- and fifty-odd cog builders across the suite were written against
+    the old behaviour. Rather than wrap each of them, the cog's
+    `service` property is wrapped once, at the class, so the
+    `GameService.run` it hands back -- the one loop every click, step,
+    begin, resume and reset reduces to -- runs with the routing in
+    force. A cog with no stubs on it runs the real steps, exactly as
+    `_as_a_step` promises.
 
     Armed by importing this module, the way `save_patches` arms the
     stray-save guard: `unittest discover` imports every test module
@@ -332,42 +313,26 @@ def arm_cog_stub_routing() -> None:
     """
     from cogs.d12ball import D12Ball
 
-    def wrap_async(name: str) -> None:
-        original = getattr(D12Ball, name)
-        if getattr(original, "_routes_cog_stubs", False):
-            return
+    original = D12Ball.service
+    if getattr(original.fget, "_routes_cog_stubs", False):
+        return
 
-        async def routed(self, *args, **kwargs):
-            with driver_reaches_cog_stubs(self):
-                return await original(self, *args, **kwargs)
+    def service(self):
+        found = original.fget(self)
+        if not getattr(found, "_routes_cog_stubs", False):
+            real_run = found.run
 
-        routed._routes_cog_stubs = True
-        routed.__wrapped__ = original
-        setattr(D12Ball, name, routed)
+            def routed(*args, **kwargs):
+                with driver_reaches_cog_stubs(self):
+                    return real_run(*args, **kwargs)
 
-    def wrap_sync(name: str) -> None:
-        original = getattr(D12Ball, name)
-        if getattr(original, "_routes_cog_stubs", False):
-            return
+            found.run = routed
+            found._routes_cog_stubs = True
+        return found
 
-        def routed(self, *args, **kwargs):
-            with driver_reaches_cog_stubs(self):
-                return original(self, *args, **kwargs)
-
-        routed._routes_cog_stubs = True
-        routed.__wrapped__ = original
-        setattr(D12Ball, name, routed)
-
-    # The two cog methods that run the service's loop: the bot's own
-    # steps go through `dispatch_step_result`, a click through
-    # `apply_action`. Both are wrapped at the class so the routing is
-    # in force for the duration of every run on any cog.
-    wrap_async("dispatch_step_result")
-    wrap_sync("apply_action")
-    # The recovery and setup entry points run the service too.
-    wrap_async("resume_game")
-    wrap_async("begin_setup_coaching")
-    wrap_async("send_turn_prompt")
+    service._routes_cog_stubs = True
+    service.__doc__ = original.__doc__
+    D12Ball.service = property(service)
 
 
 arm_cog_stub_routing()

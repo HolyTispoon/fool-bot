@@ -36,7 +36,7 @@ from d12ball.game import D12BallGame, GameStatus, Team
 from d12ball.flow.turnovers import announce_new_play_reset
 
 from flow_stubs import driver_reaches_cog_stubs
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import suppressed_cog_saves
 from cog_steps import apply_dribble_advance, apply_low_pass, begin_loose_ball, begin_run_back, resolve_loose_ball, resolve_pressure, resolve_steal
 
 
@@ -519,7 +519,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         self, cog: D12Ball, game: D12BallGame, dice: list[int],
     ) -> MatchState:
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=dice,
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",

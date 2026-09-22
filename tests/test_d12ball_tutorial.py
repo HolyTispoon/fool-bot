@@ -30,7 +30,7 @@ import discord
 
 from cogs.d12ball import presentation as presentation_mod
 from cogs.d12ball_views import turn as turn_views
-from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_full_image_links
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
     HomeAwaySelectionView,
@@ -469,7 +469,6 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         signatures = []
 
         with suppressed_cog_saves(), \
-                suppressed_view_saves(), \
                 mock.patch.object(
                     turn_views, "add_full_image_button_to_response",
                     mock.AsyncMock()), \

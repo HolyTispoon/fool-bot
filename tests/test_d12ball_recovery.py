@@ -51,7 +51,7 @@ from d12ball.flow import FollowOnStep, StepResult
 from d12ball.game import D12BallGame, Formation, GameStatus, Team
 from d12ball.prompts import PromptKind, owed_step
 from save_patches import suppressed_cog_saves
-from cog_steps import resume_pending_prompt
+from cog_steps import resume
 
 
 def build_cog() -> D12Ball:
@@ -456,7 +456,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            waiting_on = await resume_pending_prompt(cog, 
+            waiting_on = await resume(cog, 
                 interaction, game, match,
             )
 
@@ -481,7 +481,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         cog.present = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            waiting_on = await resume_pending_prompt(cog, 
+            waiting_on = await resume(cog, 
                 build_interaction(), game, match,
             )
 
@@ -510,7 +510,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            waiting_on = await resume_pending_prompt(cog, 
+            waiting_on = await resume(cog, 
                 interaction, game, match,
             )
 
@@ -538,7 +538,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         cog.present = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            waiting_on = await resume_pending_prompt(cog, 
+            waiting_on = await resume(cog, 
                 build_interaction(), game, match,
             )
 
@@ -560,7 +560,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), self.owed(
             FollowOnStep.ADVANCE_SETUP_STAGE,
         ) as step:
-            await resume_pending_prompt(cog, 
+            await resume(cog, 
                 build_interaction(), game, match,
             )
 
@@ -577,7 +577,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), self.owed(
             FollowOnStep.ADVANCE_SETUP_STAGE,
         ) as step:
-            waiting_on = await resume_pending_prompt(cog, 
+            waiting_on = await resume(cog, 
                 build_interaction(), game, match,
             )
 
@@ -593,7 +593,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), self.owed(
             FollowOnStep.ADVANCE_HALFTIME_STAGE,
         ) as step:
-            waiting_on = await resume_pending_prompt(cog, 
+            waiting_on = await resume(cog, 
                 build_interaction(), game, match,
             )
 
@@ -612,7 +612,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), self.owed(
             FollowOnStep.ADVANCE_HALFTIME_STAGE,
         ) as step:
-            await resume_pending_prompt(cog, interaction, game, match)
+            await resume(cog, interaction, game, match)
 
         step.assert_not_called()
         _, kwargs = interaction.channel.send.await_args
@@ -625,7 +625,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_cog_saves():
-            await resume_pending_prompt(cog, interaction, game, match)
+            await resume(cog, interaction, game, match)
 
         _, kwargs = interaction.channel.send.await_args
         self.assertIsInstance(kwargs["view"], ScoreAttemptView)

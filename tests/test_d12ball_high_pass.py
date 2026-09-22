@@ -42,7 +42,7 @@ from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from roster import display_name, fielded
 from flow_stubs import driver_reaches_cog_stubs
-from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_full_image_links
 from cog_steps import apply_high_pass, begin_loose_ball, decline_scoring_attempt, resolve_high_pass
 
 
@@ -244,7 +244,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         possession_before = match.ball.possession
 
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint",
             side_effect=self.rolls_for(cog, receiver, challenger, "offense"),
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
@@ -274,7 +274,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         possession_before = match.ball.possession
 
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint",
             side_effect=self.rolls_for(cog, receiver, challenger, "defense"),
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
@@ -362,7 +362,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         possession_before = match.ball.possession
 
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint",
             side_effect=self.rolls_for(cog, receiver, challenger, "defense"),
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
@@ -392,7 +392,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         possession_before = match.ball.possession
 
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint",
             side_effect=self.rolls_for(cog, receiver, challenger, "offense"),
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
@@ -413,7 +413,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         possession_before = match.ball.possession
 
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint",
             side_effect=self.rolls_for(cog, receiver, challenger, "defense"),
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
@@ -435,7 +435,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         )
 
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint",
             side_effect=self.rolls_for(cog, receiver, challenger, "offense"),
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
@@ -664,7 +664,7 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
             raise Stop
 
         view = ScoreAttemptView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", return_value=7,
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice", side_effect=capture,

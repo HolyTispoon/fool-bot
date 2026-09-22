@@ -105,7 +105,6 @@ from cogs.d12ball_views import turn as turn_views
 from save_patches import (
     suppressed_cog_saves,
     suppressed_full_image_links,
-    suppressed_view_saves,
 )
 
 from d12ball.components import MatchState
@@ -252,7 +251,6 @@ async def record_playthrough(seed: int = ADVANCED_SEED) -> tuple[str, dict]:
         seen = len(recorder.messages)
 
     with suppressed_cog_saves(), \
-            suppressed_view_saves(), \
             suppressed_full_image_links(), \
             mock.patch.object(
                 turn_views,

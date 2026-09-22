@@ -37,7 +37,7 @@ from d12ball.render import (
     group_text_lines,
     render_score_attempt,
 )
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import suppressed_cog_saves
 from cog_steps import start_set_up_shot
 
 
@@ -223,7 +223,7 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
         """Roll the shot, and hand back what the dice image was told."""
         interaction = build_interaction()
         view = ScoreAttemptView(cog, game.game_id)
-        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=rolls,
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
