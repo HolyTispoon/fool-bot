@@ -23,7 +23,6 @@ from d12ball.components import (
 from d12ball.engine import IgnitedRoll
 from d12ball.flow import FollowOnStep
 from d12ball.game import D12BallGame, team_display_name
-from d12ball import tutorial
 from d12ball.render import (
     TEAM_COLORS,
     render_field_image,
@@ -389,45 +388,6 @@ class PresentationMixin:
                 for player_id, location in members
             )
         return "\n".join(lines)
-
-
-    def tutorial_beat(self, game: D12BallGame):
-        """
-        The beat now in progress, or None when no rail applies -- an
-        ordinary game, or a tutorial whose script has run out or been
-        skipped. Every rail in the views comes through here, so there
-        is one answer to "is this coach being taught right now".
-        """
-        if not game.in_tutorial:
-            return None
-        return tutorial.beat_for_step(game.tutorial_step)
-
-    def tutorial_railed_option(
-        self,
-        game: Optional[D12BallGame],
-        key: str,
-        options,
-    ) -> Optional[object]:
-        """
-        The one option the beat now running allows out of `options`, or
-        None when nothing is railed.
-
-        One question for every sub-choice a beat pins down -- the
-        dribble distance, the ball speed, the pass distance, the set-up
-        shot, whether a loose ball may be waved through -- so a view
-        adds a rail with one call rather than a branch of its own. See
-        `d12ball/tutorial.py` for why those are railed and a run-back
-        space is not.
-
-        It takes the options rather than a single value because one of
-        the rails cannot name its value up front: the ball speed a
-        steal may set is capped by the stealer's own defensive skill.
-        """
-        if game is None:
-            return None
-        return tutorial.resolve_choice(
-            self.tutorial_beat(game), key, options,
-        )
 
 
     async def send_turn_prompt(

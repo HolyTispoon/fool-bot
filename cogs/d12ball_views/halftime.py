@@ -78,11 +78,13 @@ class HalftimeExtraTokenView(HalftimeView):
         game, match = self.load()
         if match is None or match.pending_halftime_stage != self.stage:
             return
-        setup = match.setup_for_side(side)
+        options = self.prompt_options(
+            game, match, PromptKind.HALFTIME_EXTRA_TOKEN,
+        )
+        if options is None:
+            return
 
-        for player_id in setup.field_players:
-            if player_id in match.injured:
-                continue
+        for player_id in options.player_ids:
             tokens = match.exhaustion.get(player_id, 0)
             label = f"{cog.engine.format_roster_player(player_id)} ({tokens})"
             button = discord.ui.Button(

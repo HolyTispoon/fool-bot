@@ -14,7 +14,6 @@ docs/living-rules.md.
 """
 
 import unittest
-from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball_views import DribbleAdvanceChoiceView
@@ -24,9 +23,11 @@ from d12ball.components import (
     TeamSide,
     Zone,
     load_basic_ruleset,
+    load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.game import Team
+from d12ball.engine import RulesEngine
+from d12ball.game import D12BallGame, GameStatus, Team
 
 
 class DribbleAdvanceDestinationTests(unittest.TestCase):
@@ -53,9 +54,35 @@ class DribbleAdvanceDestinationTests(unittest.TestCase):
         match.ball.possession = side
         match.set_ball_space(zone, space)
 
-        game = SimpleNamespace(match_state=match.to_dict(), game_id="g1")
+        # The won Dribble Advance the view is asked on, since a view
+        # builds its buttons from what the chain says the match is
+        # waiting on: a challenger sent, both cards picked, the
+        # Playmaker's card winning.
+        match.challenger_id = match.setup_for_side(
+            match.defending_side(),
+        ).field_players[0]
+        match.offense_maneuver = "dribble_advance"
+        match.defense_maneuver = "deflect"
+        game = D12BallGame(
+            game_id="g1",
+            game_number=1,
+            guild_id=1,
+            channel_id=1,
+            message_id=None,
+            player_1_id=111,
+            player_2_id=222,
+            player_1_team=Team.ORANGE,
+            player_2_team=Team.PURPLE,
+            home_player_number=1,
+            visiting_player_number=2,
+            status=GameStatus.IN_PROGRESS,
+            match_state=match.to_dict(),
+        )
         cog = mock.Mock()
         cog.games = {"g1": game}
+        cog.engine = RulesEngine(
+            self.catalog, self.rules, load_maneuver_catalog(), {},
+        )
         cog.engine.load_match_state = mock.Mock(return_value=match)
         return DribbleAdvanceChoiceView(cog, "g1")
 

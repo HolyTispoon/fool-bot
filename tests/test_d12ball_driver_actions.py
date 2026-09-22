@@ -34,7 +34,6 @@ from unittest import mock
 from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.game import Formation, GameMode, Team
 from d12ball.flow import driver
-from d12ball.flow.effects import setup_pass_push_back_distances
 from d12ball.flow.windows import open_substitution_window
 from d12ball.prompts import PromptKind, pending_prompt
 
@@ -49,47 +48,25 @@ from prompt_fixtures import (
 )
 
 
-def _handler(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {
-        "player_id": fixture.match.turn_handler_candidates()[0],
-    }
+def _prompt(fixture: PromptFixture):
+    return pending_prompt(ENGINE, fixture.game, fixture.match)
 
 
-def _run_back_player(fixture: PromptFixture) -> tuple[str, dict]:
-    prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
-    return "", {"player_id": prompt.player_ids[0]}
+def _first_player(fixture: PromptFixture) -> tuple[str, dict]:
+    """A pick among players: the first the prompt offers."""
+    return "", {"player_id": _prompt(fixture).options.player_ids[0]}
 
 
 def _run_back_space(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    prompt = pending_prompt(ENGINE, fixture.game, match)
-    player_id = prompt.player_id
-    side = match.side_for_player(player_id)
-    zone = match.setup_for_side(side).assigned_zone(player_id)
-    spaces = ENGINE.placement_spaces_in_zone(
-        fixture.game, match, side, zone, player_id,
-    )
-    return "", {"space_index": spaces[0]}
-
-
-def _ball_recovery(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    return "", {
-        "player_id": match.contest_candidates(match.ball.possession)[0],
-    }
+    return "", {"space_index": _prompt(fixture).options.space_indices[0]}
 
 
 def _loose_ball_pick(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    side = ENGINE.loose_ball_prompt_side(match)
-    return "send", {
-        "player_id": ENGINE.loose_ball_candidates(match, side)[0],
-    }
+    return "send", {"player_id": _prompt(fixture).options.player_ids[0]}
 
 
 def _shooter_choice(fixture: PromptFixture) -> tuple[str, dict]:
-    prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
-    return "", {"shooter_id": prompt.player_ids[0]}
+    return "", {"shooter_id": _prompt(fixture).options.player_ids[0]}
 
 
 def _coaching_side(fixture: PromptFixture) -> TeamSide:
@@ -120,37 +97,25 @@ def _coaching_hub(fixture: PromptFixture) -> tuple[str, dict]:
     A substitution, which is the hub answer every occasion offers --
     the three positional ones are not on a full-time window's menu.
     """
-    match = fixture.match
     side = _coaching_side(fixture)
-    setup = match.setup_for_side(side)
+    options = _prompt(fixture).options
     return "substitute", {
         "side": side,
-        "outgoing_player_id": setup.field_players[0],
-        "incoming_player_id": setup.team_board.bench[0],
+        "outgoing_player_id": options.outgoing_ids[0],
+        "incoming_player_id": options.incoming_ids[0],
     }
 
 
 def _shootout_order(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    side = next(
-        side for side in TeamSide
-        if match.shootout_order_remaining(side)
-    )
-    return "send", {
-        "side": side,
-        "player_id": match.shootout_order_remaining(side)[0],
-    }
+    options = _prompt(fixture).options
+    side = options.owed()[0]
+    return "send", {"side": side, "player_id": options.for_side(side)[0]}
 
 
 def _shootout_pick(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    side = next(
-        side for side in TeamSide if match.shootout_shooter(side) is None
-    )
-    return "", {
-        "side": side,
-        "player_id": match.shootout_eligible(side)[0],
-    }
+    options = _prompt(fixture).options
+    side = options.owed()[0]
+    return "", {"side": side, "player_id": options.for_side(side)[0]}
 
 
 def _player_action(fixture: PromptFixture) -> tuple[str, dict]:
@@ -169,28 +134,9 @@ def _player_action(fixture: PromptFixture) -> tuple[str, dict]:
     return "maneuver", {}
 
 
-def _maneuver_challenge(fixture: PromptFixture) -> tuple[str, dict]:
-    return "send", {
-        "player_id": fixture.match.challenge_candidates()[0],
-    }
-
-
 def _maneuver_action(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    hand = ENGINE.maneuver_hand(fixture.game, match, "offense")
-    return "", {"side": "offense", "maneuver_key": hand[0].key}
-
-
-def _halftime_extra_token(fixture: PromptFixture) -> tuple[str, dict]:
-    match = fixture.match
-    side = pending_prompt(ENGINE, fixture.game, match).side
-    return "", {
-        "player_id": next(
-            player_id
-            for player_id in match.setup_for_side(side).field_players
-            if player_id not in match.injured
-        ),
-    }
+    hand = _prompt(fixture).options.hands[0]
+    return "", {"side": hand.side, "maneuver_key": hand.maneuver_keys[0]}
 
 
 def _own_goal(fixture: PromptFixture) -> tuple[str, dict]:
@@ -209,39 +155,18 @@ def _own_goal(fixture: PromptFixture) -> tuple[str, dict]:
 
 
 def _low_pass(fixture: PromptFixture) -> tuple[str, dict]:
-    prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
-    candidates = ENGINE.pass_candidates(
-        fixture.match, prompt.maneuver_key or "low_pass",
-    )
-    return "", {"distance": candidates[0][0]}
+    return "", {"distance": _prompt(fixture).options.passes[0].distance}
 
 
-def _high_pass(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {
-        "distance": ENGINE.high_pass_distance_options(fixture.match)[0],
-    }
-
-
-def _setup_pass(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {
-        "distance": ENGINE.setup_pass_distances(fixture.match)[0],
-    }
+def _first_distance(fixture: PromptFixture) -> tuple[str, dict]:
+    return "", {"distance": _prompt(fixture).options.distances[0]}
 
 
 def _speed_delta(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {"target_speed": fixture.match.ball.speed}
-
-
-def _dribble_burst(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {
-        "distance": ENGINE.dribble_burst_distances(fixture.match)[0],
-    }
-
-
-def _setup_pass_push_back(fixture: PromptFixture) -> tuple[str, dict]:
-    return "", {
-        "distance": setup_pass_push_back_distances(fixture.match)[0],
-    }
+    # The middle of the range, which is the current speed until the
+    # ball's own limits clamp one end.
+    targets = _prompt(fixture).options.targets
+    return "", {"target_speed": targets[len(targets) // 2]}
 
 
 #: The kinds that have a row in `driver.ANSWERS` and no legal answer:
@@ -250,17 +175,19 @@ UNANSWERABLE = frozenset({PromptKind.GAME_OVER})
 
 
 #: A legal answer to each prompt the driver can apply one to, read off
-#: the position the way a frontend reads it to build its buttons.
+#: the prompt's `options` the way a frontend reads them to build its
+#: buttons -- and nothing off the match, which is principle 10 as a
+#: thing that can be run (see `tests/test_driver_full_game.py`).
 #:
 #: **Every kind in `driver.ANSWERS` has a row**, which
 #: `test_every_answerable_kind_has_a_legal_action` asserts -- so a kind
 #: that arrives in the table without one fails here rather than going
 #: untested.
 LEGAL_ACTIONS = {
-    PromptKind.BALL_HANDLER_SELECTION: _handler,
-    PromptKind.RUN_BACK_PLAYER: _run_back_player,
+    PromptKind.BALL_HANDLER_SELECTION: _first_player,
+    PromptKind.RUN_BACK_PLAYER: _first_player,
     PromptKind.RUN_BACK_SPACE: _run_back_space,
-    PromptKind.BALL_RECOVERY: _ball_recovery,
+    PromptKind.BALL_RECOVERY: _first_player,
     PromptKind.LOOSE_BALL_PICK: _loose_ball_pick,
     PromptKind.SET_UP_ATTEMPT: lambda fixture: ("take", {}),
     PromptKind.SHOOTER_CHOICE: _shooter_choice,
@@ -278,17 +205,17 @@ LEGAL_ACTIONS = {
     PromptKind.COACHING_HUB: _coaching_hub,
     PromptKind.SHOOTOUT_ORDER: _shootout_order,
     PromptKind.SHOOTOUT_PICK: _shootout_pick,
-    PromptKind.MANEUVER_CHALLENGE: _maneuver_challenge,
+    PromptKind.MANEUVER_CHALLENGE: _loose_ball_pick,
     PromptKind.MANEUVER_ACTION: _maneuver_action,
     PromptKind.MIND_PULL: lambda fixture: ("take", {}),
-    PromptKind.HALFTIME_EXTRA_TOKEN: _halftime_extra_token,
+    PromptKind.HALFTIME_EXTRA_TOKEN: _first_player,
     PromptKind.LOW_PASS_CHOICE: _low_pass,
-    PromptKind.HIGH_PASS_CHOICE: _high_pass,
-    PromptKind.SETUP_PASS_CHOICE: _setup_pass,
+    PromptKind.HIGH_PASS_CHOICE: _first_distance,
+    PromptKind.SETUP_PASS_CHOICE: _first_distance,
     PromptKind.SPEED_DELTA_CHOICE: _speed_delta,
-    PromptKind.DRIBBLE_ADVANCE_CHOICE: lambda fixture: ("", {"distance": 1}),
-    PromptKind.DRIBBLE_BURST_CHOICE: _dribble_burst,
-    PromptKind.SETUP_PASS_PUSH_BACK: _setup_pass_push_back,
+    PromptKind.DRIBBLE_ADVANCE_CHOICE: _first_distance,
+    PromptKind.DRIBBLE_BURST_CHOICE: _first_distance,
+    PromptKind.SETUP_PASS_PUSH_BACK: _first_distance,
     PromptKind.TUTORIAL_CONTINUE: lambda fixture: ("", {}),
 }
 

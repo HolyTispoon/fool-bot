@@ -1242,14 +1242,12 @@ class CoreMixin:
         if kind is PromptKind.RUN_BACK_SPACE:
             return RunBackChoiceView(self, game_id, prompt.player_id)
         if kind is PromptKind.RUN_BACK_PLAYER:
-            return RunBackPlayerChoiceView(self, game_id, prompt.player_ids)
+            return RunBackPlayerChoiceView(
+                self, game_id, list(prompt.options.player_ids),
+            )
         if kind is PromptKind.LOOSE_BALL_PICK:
             return LooseBallChoiceView(
-                self,
-                game_id,
-                prompt.skill_type,
-                self.engine.loose_ball_candidates(match, prompt.side),
-                match,
+                self, game_id, prompt.skill_type, prompt.options, match,
             )
         if kind is PromptKind.LOW_PASS_CHOICE:
             return LowPassChoiceView(
@@ -1268,7 +1266,9 @@ class CoreMixin:
                 contest_on_decline=prompt.contest_on_decline,
             )
         if kind is PromptKind.SHOOTER_CHOICE:
-            return ShooterChoiceView(self, game_id, prompt.player_ids)
+            return ShooterChoiceView(
+                self, game_id, list(prompt.options.player_ids),
+            )
         return PLAIN_PROMPT_VIEWS[kind](self, game_id)
 
     # -- The service and the presenter -----------------------------------

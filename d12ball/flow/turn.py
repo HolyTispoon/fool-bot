@@ -749,9 +749,7 @@ def tutorial_beat(game: D12BallGame):
     cog's is still the one every *view* asks, which is what its own
     docstring is about.
     """
-    if not game.in_tutorial:
-        return None
-    return tutorial.beat_for_step(game.tutorial_step)
+    return tutorial.beat_for_game(game)
 
 
 def scripted_or_random(

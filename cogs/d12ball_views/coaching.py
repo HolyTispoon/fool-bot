@@ -13,7 +13,7 @@ from d12ball.components import (
     Zone,
 )
 from d12ball.flow.driver import Action
-from d12ball.prompts import PromptKind
+from d12ball.prompts import CoachingHubOptions, PromptKind, RepositionSpace
 from d12ball.game import (
     D12BallGame,
     Formation,
@@ -65,6 +65,35 @@ class CoachingView(SafeView):
 
     def load(self) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
         return self.load_match()
+
+    def hub_options(
+        self,
+        game: Optional[D12BallGame],
+        match: Optional[MatchState],
+    ) -> Optional[CoachingHubOptions]:
+        """
+        What the open window offers -- `CoachingHubOptions`, off the
+        one chain -- or `None` where no hub is up, in which case the
+        menu builds nothing. Every sub-menu is a step of one answer on
+        the hub's own message, so they all read the hub's options.
+        """
+        return self.prompt_options(game, match, PromptKind.COACHING_HUB)
+
+    @staticmethod
+    def spaces_for(
+        options: Optional[CoachingHubOptions],
+        player_id: str,
+    ) -> tuple[RepositionSpace, ...]:
+        """The spaces one meeple may move to, off the hub's options."""
+        if options is None:
+            return ()
+        return next(
+            (
+                entry.spaces for entry in options.repositions
+                if entry.player_id == player_id
+            ),
+            (),
+        )
 
     def side(self, match: MatchState) -> TeamSide:
         return TeamSide(match.pending_coaching_side)
@@ -331,14 +360,15 @@ class CoachingHubView(CoachingView):
         super().__init__(cog, game_id)
 
         game, match = self.load()
-        if match is None or match.pending_coaching_side is None:
+        options = self.hub_options(game, match)
+        if options is None:
             return
-        side = self.side(match)
-        occasion = match.coaching_occasion
-        positioning = occasion is None or occasion.offers_positioning
+        # The occasion's `offers_positioning`, as the prompt carries
+        # it: no shapes on offer is the window before the shootout.
+        positioning = bool(options.formations)
 
         if positioning:
-            formation = cog.engine.current_formation(match, side)
+            formation = options.current_formation
             # The shape in brackets is the one they are in now, not the
             # one the button switches to, so it says so -- a bare
             # "(2-2-2)" reads as the destination.
@@ -352,8 +382,9 @@ class CoachingHubView(CoachingView):
             f"Substitution ({cog.engine.substitution_button_label(match)})",
             f"d12ball:coach_sub:{game_id}",
             self.open_substitution,
-            enabled=match.may_substitute()
-            and bool(match.substitution_pool(side)),
+            # The allowance and the pool, both the prompt's; the
+            # adapter refuses off the same reading.
+            enabled=options.may_substitute,
         )
         if positioning:
             self.add_action(
@@ -539,11 +570,12 @@ class CoachingFormationView(CoachingView):
         super().__init__(cog, game_id)
 
         game, match = self.load()
-        if match is None or match.pending_coaching_side is None:
+        options = self.hub_options(game, match)
+        if options is None:
             return
-        current = cog.engine.current_formation(match, self.side(match))
+        current = options.current_formation
 
-        for choice in cog.engine.available_formations(match):
+        for choice in options.formations:
             button = discord.ui.Button(
                 label=(
                     f"{choice.value}"
@@ -595,19 +627,20 @@ class CoachingSubstitutionOutView(CoachingView):
         super().__init__(cog, game_id)
 
         game, match = self.load()
-        if match is None or match.pending_coaching_side is None:
+        options = self.hub_options(game, match)
+        if options is None:
             return
-        side = self.side(match)
         # Who may come on does not depend on who goes off, so this is
         # all-or-nothing: with both benches spent there is nobody to
-        # offer for anybody, and the hub has already disabled the
-        # button that opens this. It used to be a per-player filter,
-        # from when the back bench opened only for an injured swap.
-        if not match.substitution_pool(side):
+        # offer for anybody (`outgoing_ids` is empty), and the hub has
+        # already disabled the button that opens this. It used to be a
+        # per-player filter, from when the back bench opened only for
+        # an injured swap.
+        if not options.outgoing_ids:
             self.add_back_button(row=4)
             return
 
-        for player_id in match.setup_for_side(side).field_players:
+        for player_id in options.outgoing_ids:
             injured = player_id in match.injured
             injured_word, _ = self.cog.injured_word_and_emoji(
                 game, player_id,
@@ -674,10 +707,11 @@ class CoachingSubstitutionInView(CoachingView):
         self.outgoing_player_id = outgoing_player_id
 
         game, match = self.load()
-        if match is None or match.pending_coaching_side is None:
+        options = self.hub_options(game, match)
+        if options is None:
             return
 
-        for player_id in match.substitution_pool(self.side(match)):
+        for player_id in options.incoming_ids:
             button = discord.ui.Button(
                 label=cog.engine.format_roster_player(player_id)[:80],
                 style=discord.ButtonStyle.primary,
@@ -732,23 +766,27 @@ class CoachingZoneView(CoachingView):
         self.first_player_id = first_player_id
 
         game, match = self.load()
-        if match is None or match.pending_coaching_side is None:
+        options = self.hub_options(game, match)
+        if options is None:
             return
-        setup = match.setup_for_side(self.side(match))
-        first_zone = (
-            setup.assigned_zone(first_player_id)
-            if first_player_id
-            else None
-        )
+        # The first pick is anybody with a partner; the second is that
+        # player's partners -- everyone in a *different* zone, since
+        # a swap that moves nobody is not a swap and the adapter
+        # refuses it.
+        if first_player_id is None:
+            candidates = tuple(
+                swap.player_id for swap in options.swaps if swap.partner_ids
+            )
+        else:
+            candidates = next(
+                (
+                    swap.partner_ids for swap in options.swaps
+                    if swap.player_id == first_player_id
+                ),
+                (),
+            )
 
-        for player_id in setup.field_players:
-            if player_id == first_player_id:
-                continue
-            if (
-                first_zone is not None
-                and setup.assigned_zone(player_id) == first_zone
-            ):
-                continue
+        for player_id in candidates:
             button = discord.ui.Button(
                 label=self.player_button_label(match, player_id),
                 style=discord.ButtonStyle.secondary,
@@ -807,12 +845,11 @@ class CoachingPlaceView(CoachingView):
         super().__init__(cog, game_id)
 
         game, match = self.load()
-        if match is None or match.pending_coaching_side is None:
+        options = self.hub_options(game, match)
+        if options is None:
             return
 
-        for player_id in match.setup_for_side(
-            self.side(match),
-        ).field_players:
+        for player_id in (entry.player_id for entry in options.repositions):
             button = discord.ui.Button(
                 label=self.player_button_label(match, player_id, with_space=True),
                 style=discord.ButtonStyle.secondary,
@@ -866,21 +903,14 @@ class CoachingPlaceSpaceView(CoachingView):
         self.player_id = player_id
 
         game, match = self.load()
-        if match is None or match.pending_coaching_side is None:
+        options = self.hub_options(game, match)
+        if options is None:
             return
         side = self.side(match)
         zone = match.setup_for_side(side).assigned_zone(player_id)
-        position = match.board.meeple_position(player_id)
-        team_players = set(match.setup_for_side(side).field_players)
 
-        for space_index in range(len(match.board.spaces[zone])):
-            if position == (zone, space_index):
-                continue
-            here = [
-                occupant
-                for occupant in match.board.spaces[zone][space_index]
-                if occupant in team_players
-            ]
+        for space in self.spaces_for(options, player_id):
+            space_index, here = space.space_index, space.trade_with
             button = discord.ui.Button(
                 label=(
                     space_label(zone, space_index)
@@ -913,9 +943,14 @@ class CoachingPlaceSpaceView(CoachingView):
         if game is None or match is None:
             return
 
-        side = self.side(match)
-        candidates = match.positioning_swap_candidates(
-            side, self.player_id, space_index,
+        options = self.hub_options(game, match)
+        candidates = next(
+            (
+                space.trade_with
+                for space in self.spaces_for(options, self.player_id)
+                if space.space_index == space_index
+            ),
+            (),
         )
         if len(candidates) > 1:
             player = self.cog.engine.get_player_definition(self.player_id)
@@ -983,12 +1018,19 @@ class CoachingPlaceSwapView(CoachingView):
         self.space_index = space_index
 
         game, match = self.load()
-        if match is None or match.pending_coaching_side is None:
+        options = self.hub_options(game, match)
+        if options is None:
             return
+        trade_with = next(
+            (
+                space.trade_with
+                for space in self.spaces_for(options, player_id)
+                if space.space_index == space_index
+            ),
+            (),
+        )
 
-        for other_id in match.positioning_swap_candidates(
-            self.side(match), player_id, space_index,
-        ):
+        for other_id in trade_with:
             button = discord.ui.Button(
                 label=self.cog.engine.format_roster_player(other_id)[:80],
                 style=discord.ButtonStyle.primary,

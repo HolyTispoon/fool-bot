@@ -11,7 +11,7 @@ from d12ball.components import (
     MatchState,
 )
 from d12ball.flow.driver import Action
-from d12ball.prompts import PromptKind
+from d12ball.prompts import PromptKind, SendOptions
 from d12ball.game import (
     D12BallGame,
 )
@@ -62,7 +62,7 @@ class LooseBallChoiceView(SafeView):
         cog: "D12Ball",
         game_id: str,
         side: str,
-        candidates: list[str],
+        options: SendOptions,
         match: MatchState,
     ):
         super().__init__(timeout=None)
@@ -74,7 +74,7 @@ class LooseBallChoiceView(SafeView):
             match.ball.zone, match.ball.space_index,
         )
 
-        for player_id in candidates:
+        for player_id in options.player_ids:
             player = cog.engine.get_player_definition(player_id)
             zone, space_index = match.board.meeple_position(player_id)
             distance = abs(
@@ -106,11 +106,7 @@ class LooseBallChoiceView(SafeView):
             button.callback = callback
             self.add_item(button)
 
-        if match.may_decline_loose_ball(
-            match.ball.possession
-            if side == "offense"
-            else match.defending_side()
-        ):
+        if options.may_decline:
             decline = discord.ui.Button(
                 label="Send nobody",
                 style=discord.ButtonStyle.secondary,
@@ -121,11 +117,7 @@ class LooseBallChoiceView(SafeView):
                 # way -- but the lesson beside this prompt is that both
                 # sides send somebody, and a greyed button is the one
                 # way to say so on the prompt itself.
-                disabled=cog.tutorial_railed_option(
-                    cog.games.get(game_id),
-                    "loose_ball_decline",
-                    ("never",),
-                ) == "never",
+                disabled=options.decline_railed,
             )
             decline.callback = self.decline
             self.add_item(decline)
@@ -241,11 +233,11 @@ class BallRecoveryView(SafeView):
         self.game_id = game_id
 
         game, match = self.load_match()
-        if game is None:
+        options = self.prompt_options(game, match, PromptKind.BALL_RECOVERY)
+        if options is None:
             return
-        side = match.ball.possession
 
-        for player_id in match.contest_candidates(side):
+        for player_id in options.player_ids:
             player = cog.engine.get_player_definition(player_id)
             distance = match.distance_to_ball(player_id)
             space_word = "space" if distance == 1 else "spaces"
@@ -335,14 +327,12 @@ class LooseBallSkillTestView(SafeView):
 
         # Overdrive, for whichever contestant is a Cyborg.
         game, match = self.load_match()
-        if game is not None and match is not None:
+        options = self.prompt_options(
+            game, match, PromptKind.LOOSE_BALL_SKILL_TEST,
+        )
+        if options is not None:
             self.add_overdrive_buttons(
-                game,
-                match,
-                [
-                    match.loose_ball_offense_player,
-                    match.loose_ball_defense_player,
-                ],
+                game, match, options.overdrive_player_ids,
             )
 
     async def roll(self, interaction: discord.Interaction) -> None:

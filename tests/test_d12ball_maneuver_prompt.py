@@ -521,6 +521,10 @@ class ManeuverPickShowsTheCardsTests(
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
+        # A handler as well as a challenger: the view builds its rows
+        # from the prompt's options, and the chain reads a match with
+        # no handler as the kickoff.
+        match.active_player_id = match.home.field_players[0]
         match.challenger_id = match.visiting.field_players[0]
         game.match_state = match.to_dict()
         cog.engine.load_match_state = mock.Mock(return_value=match)
@@ -553,6 +557,10 @@ class ManeuverPickShowsTheCardsTests(
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
+        # A handler as well as a challenger: the view builds its rows
+        # from the prompt's options, and the chain reads a match with
+        # no handler as the kickoff.
+        match.active_player_id = match.home.field_players[0]
         match.challenger_id = match.visiting.field_players[0]
         game.match_state = match.to_dict()
         cog.engine.load_match_state = mock.Mock(return_value=match)

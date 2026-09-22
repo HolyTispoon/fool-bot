@@ -72,8 +72,7 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Optional, Union
 
-from d12ball import tutorial
-from d12ball.components import BALL_SPEED_MAX, MatchState, RuleRefusal, TeamSide
+from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.engine import RulesEngine
 from d12ball.flow import (
     arrivals,
@@ -88,7 +87,13 @@ from d12ball.flow import (
 )
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.game import D12BallGame
-from d12ball.prompts import PendingPrompt, PromptKind, pending, pending_prompt
+from d12ball.prompts import (
+    PendingPrompt,
+    PromptKind,
+    pending,
+    pending_prompt,
+    with_options,
+)
 
 
 def _begin_maneuver_action_selection(
@@ -467,6 +472,12 @@ def advance(
             )
             narration = []
 
+    if isinstance(following, PendingPrompt):
+        # The step's own prompt, with what it offers built off the
+        # position it left -- so a frontend that renders `next`
+        # rather than re-reading the chain holds the same list.
+        following = with_options(engine, game, match, following)
+
     return DriverRun(
         result=StepResult(
             narration=narration,
@@ -640,14 +651,14 @@ def _refuse(reason: str) -> None:
     raise RuleRefusal(reason)
 
 
-def _rail(game: D12BallGame, key: str, options, chosen) -> None:
+def _rail(railed, chosen) -> None:
     """
     Refuse `chosen` where the tutorial's script rails this choice onto
-    another of `options`. Every rail a view greys buttons for is asked
-    again here, because the prompt may be an old one still sitting in
-    the channel -- see `tutorial.resolve_choice`.
+    `railed`, which the prompt's options carry. Every rail a view greys
+    buttons for is asked again here, because the prompt may be an old
+    one still sitting in the channel -- see `tutorial.resolve_choice`,
+    which the options were built with.
     """
-    railed = tutorial.resolve_choice(turn.tutorial_beat(game), key, options)
     if railed is not None and chosen != railed:
         _refuse(
             "The tutorial is on one step of a single continuous game, "
@@ -753,12 +764,11 @@ def _answer_loose_ball_pick(
     if skill_type is not None and skill_type != prompt.skill_type:
         _refuse("That side has already answered.")
     if choice == "decline":
-        refusal = arrivals.loose_ball_decline_refusal(match, prompt.skill_type)
-        if refusal is not None:
-            _refuse(refusal)
-        if tutorial.resolve_choice(
-            turn.tutorial_beat(game), "loose_ball_decline", ("never",),
-        ) == "never":
+        if not prompt.options.may_decline:
+            _refuse(
+                arrivals.loose_ball_decline_refusal(match, prompt.skill_type),
+            )
+        if prompt.options.decline_railed:
             _refuse(
                 "This step of the tutorial is about fighting for a "
                 "loose ball -- send somebody after it."
@@ -766,7 +776,7 @@ def _answer_loose_ball_pick(
         return arrivals.decline_loose_ball_contest(
             engine, game, match, skill_type=prompt.skill_type,
         )
-    if player_id not in engine.loose_ball_candidates(match, prompt.side):
+    if player_id not in prompt.options.player_ids:
         _refuse("That player cannot be sent after the ball from here.")
     return arrivals.choose_loose_ball_contestant(
         engine,
@@ -797,7 +807,7 @@ def _answer_set_up_attempt(
     if choice == "decline":
         # The tutorial ends on this shot, so declining it would end
         # the script on a pass and no goal.
-        _rail(game, "setup_attempt", ("attempt", "decline"), "decline")
+        _rail(prompt.options.railed, "decline")
         return arrivals.decline_scoring_attempt(
             engine,
             game,
@@ -824,7 +834,7 @@ def _answer_shooter_choice(
     shooter_id: str,
 ) -> StepResult:
     """Which of several candidates takes the shot."""
-    if shooter_id not in prompt.player_ids:
+    if shooter_id not in prompt.options.player_ids:
         _refuse("That player cannot take the shot from here.")
     return arrivals.take_scoring_opportunity(
         engine, game, match, shooter_id=shooter_id,
@@ -928,7 +938,7 @@ def _answer_coaching_hub(
     if choice == "done":
         return windows.finish_coaching_step(engine, game, match, side=side)
     if choice == "formation":
-        if formation not in engine.available_formations(match):
+        if formation not in prompt.options.formations:
             _refuse("That formation is not played on this board.")
         return StepResult(
             narration=[engine.apply_formation(match, side, formation)],
@@ -1057,7 +1067,7 @@ def _answer_setup_pass_push_back(
     distance: int,
 ) -> StepResult:
     """Setup Pass's cost, spent: how much further back the ball goes."""
-    if distance not in effects.setup_pass_push_back_distances(match):
+    if distance not in prompt.options.distances:
         _refuse("That push runs off the end of the field.")
     return effects.setup_pass_push_back_step(
         engine, game, match, distance=distance,
@@ -1122,7 +1132,7 @@ def _answer_maneuver_challenge(
         # nobody to send has no choice at all. `may_decline_challenge`
         # is the rule and the view's Send nobody button is built from
         # the prompt's options (step 6 of docs/architecture-migration.md).
-        if not match.may_decline_challenge():
+        if not prompt.options.may_decline:
             _refuse(
                 "A defender on the ball's space has to challenge."
                 if match.automatic_challengers()
@@ -1133,15 +1143,13 @@ def _answer_maneuver_challenge(
         # standing near the ball there, and letting Dinky's maneuver
         # through unchallenged would leave nothing for the lesson's
         # Pressure to defend against.
-        if tutorial.resolve_choice(
-            turn.tutorial_beat(game), "challenge_decline", ("never",),
-        ) == "never":
+        if prompt.options.decline_railed:
             _refuse(
                 "This step of the tutorial wants a challenger sent. "
                 "Use the prompt at the bottom of the channel."
             )
         return turn.decline_challenge_step(engine, game, match)
-    if player_id not in match.challenge_candidates():
+    if player_id not in prompt.options.player_ids:
         _refuse("That player cannot challenge from where they stand.")
     return turn.auto_resolve_challenger(engine, game, match, player_id)
 
@@ -1252,8 +1260,7 @@ def _answer_halftime_extra_token(
     """
     if side is not None and TeamSide(side) != prompt.side:
         _refuse("That halftime step has already finished.")
-    setup = match.setup_for_side(prompt.side)
-    if player_id not in setup.field_players or player_id in match.injured:
+    if player_id not in prompt.options.player_ids:
         _refuse("That player cannot lose a token here.")
     return periods.halftime_extra_token_step(
         engine, game, match, player_id=player_id,
@@ -1369,6 +1376,10 @@ def _answer_score_attempt(
     does.
     """
     if choice == "back":
+        if prompt.options.back_railed:
+            # A set-up shot the tutorial rails to "attempt": Back
+            # leads straight to that offer's decline.
+            _rail("roll", "back")
         return rolls.retract_shot_step(engine, game, match)
     if choice == "overdrive":
         return _declared_overdrive(engine, game, match, prompt, player_id)
@@ -1414,13 +1425,13 @@ def _answer_low_pass_choice(
     checked against the position: the distances on offer are
     `pass_candidates`', and the receivers `low_pass_receivers`'.
     """
-    key = prompt.maneuver_key or "low_pass"
-    if distance not in {
-        offered for offered, _ in engine.pass_candidates(match, key)
-    }:
+    offered = {
+        option.distance: option for option in prompt.options.passes
+    }
+    if distance not in offered:
         _refuse("That pass is not on offer from where the ball is now.")
     if receiver_id is not None and receiver_id not in (
-        engine.low_pass_receivers(match, distance)
+        offered[distance].receiver_ids
     ):
         _refuse("That player is no longer standing there.")
     return effects.low_pass_step(
@@ -1447,13 +1458,12 @@ def _answer_high_pass_choice(
     distances that fit on the field, and the tutorial's where it rails
     one.
     """
-    distances = engine.high_pass_distance_options(match)
-    if distance not in distances:
+    if distance not in prompt.options.distances:
         _refuse(
             f"A {distance}-space pass runs off the end of the field "
             "from where the ball is now."
         )
-    _rail(game, "high_pass", distances, distance)
+    _rail(prompt.options.railed, distance)
     return effects.high_pass_step(engine, match, distance)
 
 
@@ -1474,7 +1484,7 @@ def _answer_setup_pass_choice(
     makes -- `RulesEngine.setup_pass_distances` empty is what decides
     it, which is why the frontend does not put a menu up for it.
     """
-    distances = engine.setup_pass_distances(match)
+    distances = prompt.options.distances
     if distance is None:
         if distances:
             _refuse("This Setup Pass still has somewhere to go.")
@@ -1508,23 +1518,13 @@ def _answer_speed_delta_choice(
     until Phase 6; it is the same reading, in the one place a second
     frontend can also ask it.
     """
-    skill = engine.player_catalog.effective_profile(
-        engine.get_player_definition(prompt.player_id),
-    )
-    reach = skill.offense if prompt.skill_type == "offense" else skill.defense
-    targets = sorted({
-        max(1, min(BALL_SPEED_MAX, match.ball.speed + delta))
-        for delta in range(-reach, reach + 1)
-    })
+    targets = prompt.options.targets
     if target_speed not in targets:
         _refuse(
             f"The ball's speed can only be set between {targets[0]} and "
             f"{targets[-1]} from here."
         )
-    # The tutorial's speed rail is "take the highest offered" -- the
-    # cap is the stealer's own defensive skill, so the script cannot
-    # name a number.
-    _rail(game, "speed", targets, target_speed)
+    _rail(prompt.options.railed, target_speed)
 
     turnover_occurred = (
         match.defense_maneuver in ("steal", "intercept")
@@ -1549,9 +1549,9 @@ def _answer_dribble_advance_choice(
     distance: int,
 ) -> StepResult:
     """A Playmaker's won Dribble Advance: one space or two."""
-    if distance not in (1, 2):
+    if distance not in prompt.options.distances:
         _refuse("A Dribble Advance is one space or two.")
-    _rail(game, "dribble_advance", (1, 2), distance)
+    _rail(prompt.options.railed, distance)
     return effects.dribble_advance_step(engine, game, match, distance)
 
 
@@ -1565,7 +1565,7 @@ def _answer_dribble_burst_choice(
     distance: int,
 ) -> StepResult:
     """A won Dribble Burst: how far, at a token a space."""
-    if distance not in engine.dribble_burst_distances(match):
+    if distance not in prompt.options.distances:
         _refuse("That distance is no longer available.")
     return effects.dribble_burst_step(engine, game, match, distance)
 

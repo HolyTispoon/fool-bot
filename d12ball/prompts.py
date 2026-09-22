@@ -48,11 +48,12 @@ dribbles' and Steal/Intercept's, told apart by `maneuver_key`, and
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING, Optional, Union
 
 from d12ball.components import (
+    BALL_SPEED_MAX,
     MatchState,
     PlayerRole,
     TeamSide,
@@ -63,7 +64,7 @@ from d12ball.formatting import (
     format_player_with_team,
     space_label,
 )
-from d12ball.game import D12BallGame
+from d12ball.game import D12BallGame, Formation
 from d12ball import tutorial
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -170,6 +171,259 @@ class PendingPrompt:
     #: same disadvantage, so declining lands in the long-pass contest
     #: rather than settling the ball (2026-08-10).
     contest_on_decline: bool = False
+    #: **What may be chosen**, as the dataclass this kind's options
+    #: take (`OPTIONS`, below): the candidates, the distances, the
+    #: hand, the hub's four lists -- and which of them the tutorial
+    #: rails off. Built once, in `pending`, off the same engine
+    #: calls the adapter refuses against, so a view, the web app and
+    #: `driver.answer` read one list. `None` for the two kinds with
+    #: nothing to choose (the tutorial's Continue, the finished game).
+    options: Optional[PromptOptions] = None
+
+
+# -- What each kind offers ------------------------------------------
+#
+# **A dataclass per shape, not a flat list** (decision 2 of
+# docs/web-app.md): the hub has four lists and a formation menu, and
+# a flat list of strings would hand the model's structure back to the
+# frontend to parse. Every list is a tuple so a prompt stays hashable
+# and two readings of one position compare equal.
+#
+# **The rail is part of the offer.** Where the tutorial fixes a choice
+# the options say which one, so a Discord view greys the rest and a
+# web page does the same without asking `tutorial.resolve_choice`
+# itself. The driver refuses off the same reading (`_rail`).
+
+
+@dataclass(frozen=True)
+class PlayerOptions:
+    """
+    A pick among players, nothing else to it: the ball handler, who of
+    a stack runs back, who picks the ball up, who takes the shot, who
+    loses the halftime token.
+    """
+
+    player_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SendOptions:
+    """
+    A pick among players that may also be nobody -- the challenger,
+    the loose-ball contestant. `may_decline` is the rule (a defender
+    already on the ball pays no walk-in, so cannot decline to); a
+    tutorial beat that rails the decline off says so in
+    `decline_railed`, and the frontend builds the button dead rather
+    than absent.
+    """
+
+    player_ids: tuple[str, ...]
+    may_decline: bool
+    decline_railed: bool = False
+
+
+@dataclass(frozen=True)
+class SpaceOptions:
+    """RUN_BACK_SPACE: where the prompt's player may run back to."""
+
+    space_indices: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class DistanceOptions:
+    """
+    How far: a High Pass, a Setup Pass, a Dribble Advance, a Dribble
+    Burst, the push back a beaten Setup Pass owes. `railed` is the one
+    distance the tutorial allows, or `None`.
+    """
+
+    distances: tuple[int, ...]
+    railed: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class PassOption:
+    """One Low Pass on offer: the distance, and who is standing there
+    to receive it (several where teammates share the space)."""
+
+    distance: int
+    receiver_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class LowPassOptions:
+    """LOW_PASS_CHOICE, plain, Skilled or free."""
+
+    passes: tuple[PassOption, ...]
+
+
+@dataclass(frozen=True)
+class SpeedOptions:
+    """SPEED_DELTA_CHOICE: the speeds within the player's reach."""
+
+    targets: tuple[int, ...]
+    railed: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class TurnOptions:
+    """
+    PLAYER_ACTION: which of the three actions the position offers,
+    in the order a frontend lays them out, and which of those the
+    tutorial leaves live. A shot out of range is not offered at all;
+    a railed one is offered and dead, so a coach reads in the lesson
+    why it is not theirs yet.
+    """
+
+    actions: tuple[str, ...]
+    live: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ManeuverHand:
+    """
+    One side's row on the maneuver prompt: the cards it may play
+    (`RulesEngine.maneuver_tiers`, per side), the one the tutorial
+    allows, and whether the side has picked already -- kept on the
+    prompt rather than dropped, because the message is never edited
+    and a restored view has to carry the same buttons.
+    """
+
+    side: str
+    maneuver_keys: tuple[str, ...]
+    picked: bool
+    railed: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ManeuverOptions:
+    """MANEUVER_ACTION: a hand per side on the prompt."""
+
+    hands: tuple[ManeuverHand, ...]
+
+    def owed(self) -> tuple[str, ...]:
+        """The sides still to pick."""
+        return tuple(hand.side for hand in self.hands if not hand.picked)
+
+
+@dataclass(frozen=True)
+class RollOptions:
+    """
+    The six roll prompts. The roll is the button either coach may
+    press; what varies is who may declare Overdrive before it, and --
+    on a score attempt alone -- whether the shot may still be walked
+    back (`back`), and whether the tutorial has railed that walk-back
+    off (`back_railed`).
+    """
+
+    overdrive_player_ids: tuple[str, ...]
+    back: bool = False
+    back_railed: bool = False
+
+
+@dataclass(frozen=True)
+class DecisionOptions:
+    """
+    A yes or a no: take the set-up shot or decline it, take the ball
+    over or leave it, reach for it or let it go, coach or pass.
+    `choices` are this kind's two answers as `driver.CHOICES` spells
+    them; `railed` is the one the tutorial fixes, or `None`.
+    """
+
+    choices: tuple[str, ...]
+    railed: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class SwapOptions:
+    """One fielded player and who they may change zones with."""
+
+    player_id: str
+    partner_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RepositionSpace:
+    """One space a meeple may move to within its zone, and which
+    teammate has to come back to make room where several stand there
+    (empty where the move is plain, or trades with the only one)."""
+
+    space_index: int
+    trade_with: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RepositionOptions:
+    """One fielded player and the spaces of their zone they may move
+    to -- every one but where they stand, the trade rule keeping
+    coverage whichever is picked."""
+
+    player_id: str
+    spaces: tuple[RepositionSpace, ...]
+
+
+@dataclass(frozen=True)
+class CoachingHubOptions:
+    """
+    COACHING_HUB: the window's four sub-menus, for the side whose
+    window is open. `formations` is empty where the occasion offers
+    no positioning (the window before the shootout), as are `swaps`
+    and `repositions`. `may_substitute` is the allowance *and* the
+    pool: with either spent there is nobody to offer for anybody.
+    """
+
+    formations: tuple[Formation, ...]
+    current_formation: Optional[Formation]
+    may_substitute: bool
+    outgoing_ids: tuple[str, ...]
+    incoming_ids: tuple[str, ...]
+    swaps: tuple[SwapOptions, ...]
+    repositions: tuple[RepositionOptions, ...]
+
+
+@dataclass(frozen=True)
+class SidePlayers:
+    """One side's players on a shootout prompt: who may still be put
+    in the order, or who may still shoot. Empty once that side has
+    answered."""
+
+    side: TeamSide
+    player_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ShootoutOptions:
+    """SHOOTOUT_ORDER and SHOOTOUT_PICK: both sides at once, each
+    answering on its own menu."""
+
+    sides: tuple[SidePlayers, ...]
+
+    def owed(self) -> tuple[TeamSide, ...]:
+        """The sides still to answer."""
+        return tuple(entry.side for entry in self.sides if entry.player_ids)
+
+    def for_side(self, side: TeamSide) -> tuple[str, ...]:
+        """One side's players, or nothing once it has answered."""
+        for entry in self.sides:
+            if entry.side == side:
+                return entry.player_ids
+        return ()
+
+
+PromptOptions = Union[
+    PlayerOptions,
+    SendOptions,
+    SpaceOptions,
+    DistanceOptions,
+    LowPassOptions,
+    SpeedOptions,
+    TurnOptions,
+    ManeuverOptions,
+    RollOptions,
+    DecisionOptions,
+    CoachingHubOptions,
+    ShootoutOptions,
+]
 
 
 def run_back_prompt(
@@ -558,9 +812,36 @@ def effect_choice_prompt(
         return _speed_delta(
             engine, game, match, match.active_player_id, "offense", winner_key,
         )
-    if winner_key in ("steal", "intercept"):
+    if winner_key in ("steal", "intercept") or (
+        winner_key in ("pressure", "double_team")
+        and engine.gambit_cost(match, winner_key) == "dribble_burst"
+    ):
+        # The defense's speed step after a steal -- the card's own,
+        # or **Dribble Burst's cost**: beaten by a pressure, the
+        # defense takes the ball at the speed the burst put into it
+        # and gets the same step once everyone is back in position
+        # (`apply_pressure_turnover`). The run back answers ahead of
+        # this while it lasts; after it the winner alone says a speed
+        # choice is owed. Both read since step 6 of
+        # docs/architecture-migration.md, when the full-game policy
+        # first walked the burst's window and found the chain naming
+        # the pressure's own resolution again.
+        #
+        # **Whose step it is, is whoever holds the ball after the run
+        # back**, which `finish_run_back` hands on as
+        # `pending_run_back_stays_player_id` -- the stealer as a rule,
+        # but a substitution in the window before the run back moves
+        # the exemption to whoever came on (`MatchState.substitute`).
+        # Read off the same field, so a restart asks the same player
+        # the step did; the challenger is the fallback for a save
+        # from before the field was written.
         return _speed_delta(
-            engine, game, match, match.challenger_id, "defense", winner_key,
+            engine,
+            game,
+            match,
+            match.pending_run_back_stays_player_id or match.challenger_id,
+            "defense",
+            winner_key,
         )
     if (
         winner_key in ("deflect", "clear")
@@ -655,6 +936,47 @@ def pending(
     called directly only where either answer will do, which is a
     `StepResult.next` -- the tutorial's Continue, holding nothing,
     hands on to whichever it is.
+
+    The chain is `_pending`; what this adds is the prompt's `options`
+    (`OPTIONS`, by kind), built here once so every reader -- a view,
+    `driver.answer`, a web page -- holds the same list.
+    """
+    waiting = _pending(engine, game, match)
+    if isinstance(waiting, FollowOn):
+        return waiting
+    return with_options(engine, game, match, waiting)
+
+
+def with_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> PendingPrompt:
+    """
+    The prompt with its options built off the position -- `OPTIONS`
+    by kind, or the prompt as it was for a kind with nothing to
+    choose.
+
+    Two callers: `pending`, for the chain's own reading, and
+    `driver.advance`, for the prompt a step hands back as its `next`
+    -- the same question, worded by the step that reached it, and it
+    has to carry the same list. Built off the prompt's own parameters
+    (the player asked, the side, the card) so the two agree.
+    """
+    build = OPTIONS.get(prompt.kind)
+    if build is None:
+        return prompt
+    return replace(prompt, options=build(engine, game, match, prompt))
+
+
+def _pending(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> Union[PendingPrompt, FollowOn]:
+    """
+    The chain itself -- see `pending`, which is this plus the options.
 
     Ordering matters more than it looks:
 
@@ -1063,3 +1385,457 @@ def _stage_window(
     if match.pending_coaching_side is None:
         return FollowOn(advance)
     return _window(engine, game, match, PromptKind.COACHING_HUB, ask)
+
+
+# -- Building the options --------------------------------------------
+
+
+#: Which players a given roll prompt puts an Overdrive offer to.
+#:
+#: **The same six lists the views build their buttons from**, which is
+#: what makes this one reading rather than two: `RollOptions` carries
+#: whichever of them `RulesEngine.overdrive_candidates` still allows,
+#: and an action naming anybody else is refused by
+#: `d12ball.flow.rolls.declare_overdrive_step` against this same list.
+#:
+#: It is keyed on the prompt because that is what a declaration is
+#: attached to -- Overdrive is declared *before* a roll and spent by
+#: it, so "which roll are we in" is the whole of what decides who may
+#: take one. The six are the rules' own list. It lived in `rolls.py`
+#: until the options were built here.
+OVERDRIVE_ROLLERS = {
+    PromptKind.SKILL_TEST: lambda match, prompt: [
+        match.active_player_id, match.challenger_id,
+    ],
+    PromptKind.LOOSE_BALL_SKILL_TEST: lambda match, prompt: [
+        match.loose_ball_offense_player, match.loose_ball_defense_player,
+    ],
+    PromptKind.SCORE_ATTEMPT: lambda match, prompt: [
+        match.active_player_id,
+    ],
+    PromptKind.OWN_GOAL_ROLL: lambda match, prompt: [
+        match.active_player_id,
+    ],
+    PromptKind.INJURY_TEST: lambda match, prompt: [prompt.player_id],
+    PromptKind.SHOOTOUT_TEST: lambda match, prompt: [
+        match.shootout_shooter(side)
+        for side in (TeamSide.HOME, TeamSide.VISITING)
+    ],
+}
+
+
+def overdrive_rollers(
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> list[str]:
+    """Who is rolling, for the roll this prompt is asking for."""
+    rollers = OVERDRIVE_ROLLERS.get(prompt.kind)
+    if rollers is None:
+        return []
+    return [player_id for player_id in rollers(match, prompt) if player_id]
+
+
+def _railed(game: D12BallGame, key: str, options) -> Optional[object]:
+    """The one option the tutorial allows out of `options`, or None."""
+    return tutorial.resolve_choice(tutorial.beat_for_game(game), key, options)
+
+
+def _decline_railed(game: D12BallGame, key: str) -> bool:
+    """Whether the tutorial has railed this prompt's decline off."""
+    return _railed(game, key, ("never",)) == "never"
+
+
+def _roll_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> RollOptions:
+    return RollOptions(
+        overdrive_player_ids=tuple(
+            engine.overdrive_candidates(
+                game, match, overdrive_rollers(match, prompt),
+            ),
+        ),
+    )
+
+
+def _score_attempt_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> RollOptions:
+    # A shot not yet rolled always has somewhere to walk back to, and
+    # only a coach's own shot is walked back: an AI side's stands
+    # (`rolls.retract_shot_step`). A tutorial beat that rails a
+    # set-up shot to "attempt" is railing this same choice, since Back
+    # leads straight to that offer's decline.
+    return replace(
+        _roll_options(engine, game, match, prompt),
+        back=(
+            match.may_cancel_pending_shot()
+            and not engine.side_is_ai(game, match.ball.possession)
+        ),
+        back_railed=(
+            match.pending_shot_is_set_up
+            and _railed(game, "setup_attempt", ("attempt", "decline"))
+            == "attempt"
+        ),
+    )
+
+
+def _turn_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> TurnOptions:
+    actions = ["maneuver"]
+    if match.can_attempt_score():
+        actions.append("shoot")
+    if match.may_call_time_out():
+        actions.append("time_out")
+    allowed = tutorial.allowed_actions(tutorial.beat_for_game(game))
+    live = [
+        action for action in actions
+        if allowed is None or action in allowed
+    ]
+    return TurnOptions(tuple(actions), tuple(live))
+
+
+def _maneuver_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> ManeuverOptions:
+    beat = tutorial.beat_for_game(game)
+    hands = []
+    for side in engine.maneuver_pick_sides(game, match):
+        allowed = tutorial.allowed_maneuvers(beat, side)
+        picked = (
+            match.offense_maneuver if side == "offense"
+            else match.defense_maneuver
+        )
+        hands.append(ManeuverHand(
+            side=side,
+            maneuver_keys=tuple(
+                card.key for card in engine.maneuver_hand(game, match, side)
+            ),
+            picked=picked is not None,
+            railed=allowed[0] if allowed else None,
+        ))
+    return ManeuverOptions(tuple(hands))
+
+
+def _challenge_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> SendOptions:
+    return SendOptions(
+        player_ids=tuple(match.challenge_candidates()),
+        may_decline=match.may_decline_challenge(),
+        decline_railed=_decline_railed(game, "challenge_decline"),
+    )
+
+
+def _loose_ball_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> SendOptions:
+    return SendOptions(
+        player_ids=tuple(engine.loose_ball_candidates(match, prompt.side)),
+        may_decline=match.may_decline_loose_ball(prompt.side),
+        decline_railed=_decline_railed(game, "loose_ball_decline"),
+    )
+
+
+def _handler_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> PlayerOptions:
+    # Not `eligible_ball_handlers`: a ball carrier narrows this to one.
+    return PlayerOptions(tuple(engine.turn_handler_candidates(game, match)))
+
+
+def _named_players(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> PlayerOptions:
+    """RUN_BACK_PLAYER and SHOOTER_CHOICE: the branch already named
+    them."""
+    return PlayerOptions(tuple(prompt.player_ids))
+
+
+def _run_back_space_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> SpaceOptions:
+    side = match.side_for_player(prompt.player_id)
+    zone = match.setup_for_side(side).assigned_zone(prompt.player_id)
+    return SpaceOptions(tuple(
+        engine.placement_spaces_in_zone(
+            game, match, side, zone, prompt.player_id,
+        ),
+    ))
+
+
+def _ball_recovery_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> PlayerOptions:
+    return PlayerOptions(tuple(match.contest_candidates(match.ball.possession)))
+
+
+def _halftime_token_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> PlayerOptions:
+    return PlayerOptions(tuple(
+        player_id
+        for player_id in match.setup_for_side(prompt.side).field_players
+        if player_id not in match.injured
+    ))
+
+
+def _set_up_attempt_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> DecisionOptions:
+    # The script names the rail as the button did ("attempt"); the
+    # answer is `driver.CHOICES`' word for it.
+    railed = _railed(game, "setup_attempt", ("attempt", "decline"))
+    return DecisionOptions(
+        ("take", "decline"),
+        railed={"attempt": "take", "decline": "decline"}.get(railed),
+    )
+
+
+def _decision(*choices: str):
+    def build(
+        engine: "RulesEngine",
+        game: D12BallGame,
+        match: MatchState,
+        prompt: PendingPrompt,
+    ) -> DecisionOptions:
+        return DecisionOptions(choices)
+    return build
+
+
+def _low_pass_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> LowPassOptions:
+    key = prompt.maneuver_key or "low_pass"
+    return LowPassOptions(tuple(
+        PassOption(
+            distance,
+            tuple(engine.low_pass_receivers(match, distance)),
+        )
+        for distance, _ in engine.pass_candidates(match, key)
+    ))
+
+
+def _high_pass_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> DistanceOptions:
+    distances = tuple(engine.high_pass_distance_options(match))
+    return DistanceOptions(distances, _railed(game, "high_pass", distances))
+
+
+def _setup_pass_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> DistanceOptions:
+    # Empty is the card's one way out of play: a pass with nowhere to
+    # go, which the answer sends with no distance at all.
+    return DistanceOptions(tuple(engine.setup_pass_distances(match)))
+
+
+def _speed_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> SpeedOptions:
+    targets = tuple(
+        engine.speed_targets(match, prompt.player_id, prompt.skill_type),
+    )
+    # The tutorial's speed rail is "take the highest offered" -- the
+    # cap is the stealer's own defensive skill, so the script cannot
+    # name a number.
+    return SpeedOptions(targets, _railed(game, "speed", targets))
+
+
+def _dribble_advance_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> DistanceOptions:
+    return DistanceOptions((1, 2), _railed(game, "dribble_advance", (1, 2)))
+
+
+def _dribble_burst_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> DistanceOptions:
+    return DistanceOptions(tuple(engine.dribble_burst_distances(match)))
+
+
+def _push_back_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> DistanceOptions:
+    return DistanceOptions(tuple(engine.setup_pass_push_back_distances(match)))
+
+
+def _shootout_order_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> ShootoutOptions:
+    return ShootoutOptions(tuple(
+        SidePlayers(side, tuple(match.shootout_order_remaining(side)))
+        for side in (TeamSide.HOME, TeamSide.VISITING)
+    ))
+
+
+def _shootout_pick_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> ShootoutOptions:
+    return ShootoutOptions(tuple(
+        SidePlayers(
+            side,
+            () if match.shootout_shooter(side) is not None
+            else tuple(match.shootout_eligible(side)),
+        )
+        for side in (TeamSide.HOME, TeamSide.VISITING)
+    ))
+
+
+def _coaching_hub_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> CoachingHubOptions:
+    side = TeamSide(match.pending_coaching_side)
+    setup = match.setup_for_side(side)
+    occasion = match.coaching_occasion
+    positioning = occasion is None or occasion.offers_positioning
+    pool = tuple(match.substitution_pool(side))
+    fielded = tuple(setup.field_players)
+    team = set(fielded)
+
+    swaps: list[SwapOptions] = []
+    repositions: list[RepositionOptions] = []
+    if positioning:
+        for player_id in fielded:
+            zone = setup.assigned_zone(player_id)
+            swaps.append(SwapOptions(
+                player_id,
+                tuple(
+                    other for other in fielded
+                    if other != player_id
+                    and setup.assigned_zone(other) != zone
+                ),
+            ))
+            standing = match.board.meeple_position(player_id)
+            spaces = []
+            for space_index in range(len(match.board.spaces[zone])):
+                if standing == (zone, space_index):
+                    continue
+                spaces.append(RepositionSpace(
+                    space_index,
+                    tuple(
+                        other
+                        for other in match.board.spaces[zone][space_index]
+                        if other in team
+                    ),
+                ))
+            repositions.append(RepositionOptions(player_id, tuple(spaces)))
+
+    return CoachingHubOptions(
+        formations=(
+            tuple(engine.available_formations(match)) if positioning else ()
+        ),
+        current_formation=(
+            engine.current_formation(match, side) if positioning else None
+        ),
+        may_substitute=match.may_substitute() and bool(pool),
+        outgoing_ids=fielded if pool else (),
+        incoming_ids=pool,
+        swaps=tuple(swaps),
+        repositions=tuple(repositions),
+    )
+
+
+#: What each kind offers, built off the position -- the second table
+#: over `PromptKind` beside the chain, and the one a frontend builds
+#: its buttons from. A kind with no row (the tutorial's Continue, the
+#: finished game) has nothing to choose.
+OPTIONS = {
+    PromptKind.COACHING_HUB: _coaching_hub_options,
+    PromptKind.COACHING_OFFER: _decision("declare", "decline"),
+    PromptKind.HALFTIME_EXTRA_TOKEN: _halftime_token_options,
+    PromptKind.MIND_PULL: _decision("take", "decline"),
+    PromptKind.SMOOTH: _decision("take", "decline"),
+    PromptKind.INJURY_TEST: _roll_options,
+    PromptKind.OWN_GOAL_ROLL: _roll_options,
+    PromptKind.SHOOTOUT_ORDER: _shootout_order_options,
+    PromptKind.SHOOTOUT_PICK: _shootout_pick_options,
+    PromptKind.SHOOTOUT_TEST: _roll_options,
+    PromptKind.PLAYER_ACTION: _turn_options,
+    PromptKind.BALL_HANDLER_SELECTION: _handler_options,
+    PromptKind.RUN_BACK_SPACE: _run_back_space_options,
+    PromptKind.RUN_BACK_PLAYER: _named_players,
+    PromptKind.BALL_RECOVERY: _ball_recovery_options,
+    PromptKind.LOOSE_BALL_PICK: _loose_ball_options,
+    PromptKind.LOOSE_BALL_SKILL_TEST: _roll_options,
+    PromptKind.SCORE_ATTEMPT: _score_attempt_options,
+    PromptKind.SET_UP_ATTEMPT: _set_up_attempt_options,
+    PromptKind.SHOOTER_CHOICE: _named_players,
+    PromptKind.MANEUVER_CHALLENGE: _challenge_options,
+    PromptKind.MANEUVER_ACTION: _maneuver_options,
+    PromptKind.SKILL_TEST: _roll_options,
+    PromptKind.LOW_PASS_CHOICE: _low_pass_options,
+    PromptKind.HIGH_PASS_CHOICE: _high_pass_options,
+    PromptKind.SETUP_PASS_CHOICE: _setup_pass_options,
+    PromptKind.SPEED_DELTA_CHOICE: _speed_options,
+    PromptKind.DRIBBLE_ADVANCE_CHOICE: _dribble_advance_options,
+    PromptKind.DRIBBLE_BURST_CHOICE: _dribble_burst_options,
+    PromptKind.SETUP_PASS_PUSH_BACK: _push_back_options,
+}

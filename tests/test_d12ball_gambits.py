@@ -337,6 +337,11 @@ class ManeuverHandTests(GambitHarness, unittest.TestCase):
     def test_the_buttons_are_the_hand(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
         open_gambits(match)
+        # Still picking: the view builds its rows from the prompt's
+        # options, and the chain reads two picks made as the maneuver
+        # settled.
+        match.offense_maneuver = None
+        match.defense_maneuver = None
         cog.engine.load_match_state = mock.Mock(return_value=match)
 
         view = ManeuverActionPromptView(cog, game.game_id)

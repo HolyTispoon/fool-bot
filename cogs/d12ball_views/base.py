@@ -27,7 +27,7 @@ from d12ball.render import (
 )
 from d12ball.flow.driver import STEP_OWED, Action
 from d12ball.formatting import contestant_detail  # noqa: F401 -- re-exported
-from d12ball.prompts import pending_prompt
+from d12ball.prompts import PromptKind, pending_prompt
 from gamesaves.d12ball.service import CarryFrom, GameResult
 from cogs.d12ball_helpers import (
     ERROR_RECOVERY_ADVICE,
@@ -404,6 +404,32 @@ class SafeView(discord.ui.View):
             self.cog.engine.defending_user_id(game, match),
         )
 
+    def prompt_options(
+        self,
+        game: Optional[D12BallGame],
+        match: Optional[MatchState],
+        kind: PromptKind,
+    ):
+        """
+        What the prompt this view answers offers, read off the one
+        chain -- or `None` where the position is not asking that
+        question, in which case the view builds nothing, the way it
+        already does for a match it cannot load.
+
+        **A view builds its buttons from `PendingPrompt.options` and
+        nothing else** since step 6 of docs/architecture-migration.md:
+        the candidates, the distances, the hand, which button the
+        tutorial greys. The driver refuses off the same list, so the
+        buttons and the refusals cannot drift apart, and a web page
+        reads the same object.
+        """
+        if game is None or match is None:
+            return None
+        prompt = pending_prompt(self.cog.engine, game, match)
+        if prompt is None or prompt.kind is not kind:
+            return None
+        return prompt.options
+
     def add_overdrive_buttons(
         self,
         game: D12BallGame,
@@ -422,16 +448,16 @@ class SafeView(discord.ui.View):
         on the same message rather than a step of its own: the coach
         whose Cyborg it is presses it, the message says so, and
         whoever was going to press Roll still does. `player_ids` is
-        whoever is rolling here, which only the prompt knows.
+        the prompt's `RollOptions.overdrive_player_ids`: whoever is
+        rolling here and may still declare, which the prompt knows
+        (`d12ball.prompts.OVERDRIVE_ROLLERS`).
 
         The button is **not** built for a Cyborg who has already
         declared -- "once per roll" -- so a message that has been
         clicked comes back with one fewer button, which is also how a
         coach can see the declaration took.
         """
-        for player_id in self.cog.engine.overdrive_candidates(
-            game, match, player_ids,
-        ):
+        for player_id in player_ids:
             player = self.cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
                 label=(

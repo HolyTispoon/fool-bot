@@ -739,7 +739,13 @@ class TutorialRailTests(unittest.TestCase):
     your hand cannot be taught by hiding two of them.
     """
 
-    def build(self, beat_index: int):
+    def build(self, beat_index: int, picking: bool = False):
+        """
+        The beat's match: the turn prompt's position, or with
+        `picking` the maneuver pick's -- a handler on the ball and a
+        challenger sent -- since a view builds its buttons from what
+        the chain says the match is waiting on.
+        """
         cog = build_cog()
         beat = tutorial.BEATS[beat_index]
         game = build_game(tutorial_step=beat.step, tutorial_staged=True)
@@ -751,6 +757,16 @@ class TutorialRailTests(unittest.TestCase):
             # reads possession to work out whose row to build -- see
             # RulesEngine.maneuver_pick_sides.
             match.ball.possession = TeamSide.VISITING
+            handler = match.visiting.field_players[0]
+            match.board.remove_meeple(handler)
+            match.board.place_meeple(
+                handler, match.ball.zone, match.ball.space_index,
+            )
+            match.select_ball_handler(handler)
+        if picking:
+            match.challenger_id = match.setup_for_side(
+                match.defending_side(),
+            ).field_players[0]
         game.match_state = match.to_dict()
         cog.games["g1"] = game
         return cog, game, beat
@@ -783,7 +799,7 @@ class TutorialRailTests(unittest.TestCase):
         )
 
     def test_the_other_two_cards_are_shown_and_disabled(self) -> None:
-        cog, game, beat = self.build(0)
+        cog, game, beat = self.build(0, picking=True)
 
         view = ManeuverActionPromptView(cog, "g1")
         cards = self.cards(view)
@@ -800,7 +816,7 @@ class TutorialRailTests(unittest.TestCase):
         )
 
     def test_a_defending_beat_rails_the_defense_menu(self) -> None:
-        cog, game, beat = self.build(2)
+        cog, game, beat = self.build(2, picking=True)
 
         # Dinky is on offense in a defending beat, so the prompt is
         # the coach's own row and nothing else -- see
@@ -813,7 +829,10 @@ class TutorialRailTests(unittest.TestCase):
         cog, game, beat = self.build(0)
 
         self.assertEqual(
-            cog.tutorial_railed_option(game, "dribble_advance", (1, 2)), 2,
+            tutorial.resolve_choice(
+                tutorial.beat_for_game(game), "dribble_advance", (1, 2),
+            ),
+            2,
         )
 
     def test_a_choice_the_beat_says_nothing_about_is_free(self) -> None:
@@ -822,7 +841,9 @@ class TutorialRailTests(unittest.TestCase):
         cog, game, _ = self.build(0)
 
         self.assertIsNone(
-            cog.tutorial_railed_option(game, "high_pass", (2, 3)),
+            tutorial.resolve_choice(
+                tutorial.beat_for_game(game), "high_pass", (2, 3),
+            ),
         )
 
     def test_nothing_is_railed_once_the_tutorial_is_over(self) -> None:
@@ -833,7 +854,9 @@ class TutorialRailTests(unittest.TestCase):
 
         self.assertFalse(any(labels.values()))
         self.assertIsNone(
-            cog.tutorial_railed_option(game, "dribble_advance", (1, 2)),
+            tutorial.resolve_choice(
+                tutorial.beat_for_game(game), "dribble_advance", (1, 2),
+            ),
         )
 
     def test_an_ordinary_game_is_railed_by_nothing(self) -> None:

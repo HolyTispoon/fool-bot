@@ -70,11 +70,12 @@ class LowPassChoiceView(SafeView):
         self.free = free
 
         game, match = self.load_match()
-        if game is None:
+        options = self.prompt_options(game, match, PromptKind.LOW_PASS_CHOICE)
+        if options is None:
             return
 
-        for distance, teammate_id in cog.engine.pass_candidates(match, key):
-            teammate = cog.engine.get_player_definition(teammate_id)
+        for option in options.passes:
+            distance, receivers = option.distance, option.receiver_ids
             origin_flat = match.board.flat_index(
                 match.ball.zone, match.ball.space_index,
             )
@@ -84,7 +85,6 @@ class LowPassChoiceView(SafeView):
             zone, space_index = match.board.position_at_flat_index(
                 target_flat,
             )
-            receivers = cog.engine.low_pass_receivers(match, distance)
             if len(receivers) > 1:
                 # Naming one of several would misread the choice: the
                 # space is what is being picked here, and who receives
@@ -94,6 +94,7 @@ class LowPassChoiceView(SafeView):
                     f"{space_label(zone, space_index)}"
                 )
             else:
+                teammate = cog.engine.get_player_definition(receivers[0])
                 label = (
                     f"{player_with_role(teammate)} -- "
                     f"{space_label(zone, space_index)}"
@@ -233,10 +234,18 @@ class LowPassReceiverView(SafeView):
         self.free = free
 
         game, match = self.load_match()
-        if game is None:
+        options = self.prompt_options(game, match, PromptKind.LOW_PASS_CHOICE)
+        if options is None:
             return
+        receivers = next(
+            (
+                option.receiver_ids for option in options.passes
+                if option.distance == distance
+            ),
+            (),
+        )
 
-        for player_id in cog.engine.low_pass_receivers(match, distance):
+        for player_id in receivers:
             player = cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
                 label=player_with_role(player)[:80],
@@ -344,10 +353,13 @@ class SetupPassChoiceView(SafeView):
         self.game_id = game_id
 
         game, match = self.load_match()
-        if game is None:
+        options = self.prompt_options(
+            game, match, PromptKind.SETUP_PASS_CHOICE,
+        )
+        if options is None:
             return
 
-        for distance in cog.engine.setup_pass_distances(match):
+        for distance in options.distances:
             note = (
                 "same space"
                 if distance == 0
@@ -440,19 +452,22 @@ class SetupPassPushBackView(SafeView):
         self.game_id = game_id
 
         game, match = self.load_match()
-        if game is None:
+        options = self.prompt_options(
+            game, match, PromptKind.SETUP_PASS_PUSH_BACK,
+        )
+        if options is None:
             return
 
         offense_side = match.ball.possession
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
-        for distance in (1, 2, 3):
+        # The prompt's distances: 1, 2 or 3, less any that run off
+        # the end of the field (`RulesEngine.setup_pass_push_back_distances`).
+        for distance in options.distances:
             target_flat = match.relative_flat_index(
                 origin_flat, offense_side, -distance,
             )
-            if abs(target_flat - origin_flat) != distance:
-                continue
             zone, space_index = match.board.position_at_flat_index(target_flat)
             button = discord.ui.Button(
                 label=(
@@ -533,13 +548,12 @@ class HighPassChoiceView(SafeView):
         self.game_id = game_id
 
         game, match = self.load_match()
-        if game is None:
+        options = self.prompt_options(game, match, PromptKind.HIGH_PASS_CHOICE)
+        if options is None:
             return
+        railed = options.railed
 
-        distances = cog.engine.high_pass_distance_options(match)
-        railed = cog.tutorial_railed_option(game, "high_pass", distances)
-
-        for distance in distances:
+        for distance in options.distances:
             ability_note = " (Fullback ability)" if distance == 4 else ""
             destination_note = cog.engine.high_pass_destination_note(match, distance)
             button = discord.ui.Button(
@@ -652,15 +666,18 @@ class SetUpAttemptChoiceView(SafeView):
             style=discord.ButtonStyle.secondary,
             custom_id=f"d12ball:setup_attempt:{game_id}:decline",
             # The tutorial ends on this shot, so declining it would end
-            # the script on a pass and no goal.
-            disabled=cog.tutorial_railed_option(
-                cog.games.get(game_id),
-                "setup_attempt",
-                ("attempt", "decline"),
-            ) == "attempt",
+            # the script on a pass and no goal -- the prompt's options
+            # say so (`railed`), and the driver refuses off the same.
+            disabled=self._decline_railed(),
         )
         decline_button.callback = self.decline
         self.add_item(decline_button)
+
+    def _decline_railed(self) -> bool:
+        """Whether the tutorial has railed this offer to the shot."""
+        game, match = self.load_match()
+        options = self.prompt_options(game, match, PromptKind.SET_UP_ATTEMPT)
+        return options is not None and options.railed == "take"
 
     async def attempt(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
@@ -737,16 +754,14 @@ class DribbleAdvanceChoiceView(SafeView):
         # the destination also shows when the longer dribble buys
         # nothing, because the field ran out and both clamp to the same
         # space.
-        game = cog.games.get(game_id)
-        match = (
-            cog.engine.load_match_state(game)
-            if game is not None and game.match_state is not None
-            else None
+        game, match = self.load_match()
+        options = self.prompt_options(
+            game, match, PromptKind.DRIBBLE_ADVANCE_CHOICE,
         )
+        distances = options.distances if options is not None else (1, 2)
+        railed = options.railed if options is not None else None
 
-        railed = cog.tutorial_railed_option(game, "dribble_advance", (1, 2))
-
-        for distance in (1, 2):
+        for distance in distances:
             space_word = "space" if distance == 1 else "spaces"
             destination = (
                 match.relative_move_destination(
@@ -841,7 +856,10 @@ class DribbleBurstChoiceView(SafeView):
         self.game_id = game_id
 
         game, match = self.load_match()
-        if game is None or match.active_player_id is None:
+        options = self.prompt_options(
+            game, match, PromptKind.DRIBBLE_BURST_CHOICE,
+        )
+        if options is None or match.active_player_id is None:
             # No handler means no run to price. Only reachable in the
             # same narrow crash window every other reconstructed view
             # has; the empty view falls back to PlayerActionView.
@@ -853,7 +871,7 @@ class DribbleBurstChoiceView(SafeView):
             == PlayerRole.PLAYMAKER
         )
 
-        for distance in cog.engine.dribble_burst_distances(match):
+        for distance in options.distances:
             space_word = "space" if distance == 1 else "spaces"
             # Naming the destination is what "3 spaces" does not say:
             # which way this side attacks and where that lands is read
@@ -939,26 +957,19 @@ class SpeedDeltaChoiceView(SafeView):
         self.skill_type = skill_type
 
         game, match = self.load_match()
-        if game is None:
-            return
-        profile = cog.player_catalog.effective_profile(
-            cog.engine.get_player_definition(player_id),
+        options = self.prompt_options(
+            game, match, PromptKind.SPEED_DELTA_CHOICE,
         )
-        skill = profile.offense if skill_type == "offense" else profile.defense
+        if options is None:
+            return
         current = match.ball.speed
+        # The prompt's targets (`RulesEngine.speed_targets`), and the
+        # one the tutorial rails to -- "take the highest offered",
+        # since the cap is the stealer's own defensive skill and the
+        # script cannot name a number.
+        railed = options.railed
 
-        # The targets are collected before any button is built, because
-        # the tutorial's speed rail is "take the highest offered" -- the
-        # cap is the stealer's own defensive skill, so the script cannot
-        # name a number. See D12Ball.tutorial_railed_option.
-        targets: list[int] = []
-        for delta in range(-skill, skill + 1):
-            target = max(1, min(12, current + delta))
-            if target not in targets:
-                targets.append(target)
-        railed = cog.tutorial_railed_option(game, "speed", targets)
-
-        for target in targets:
+        for target in options.targets:
             actual_delta = target - current
             if actual_delta == 0:
                 label = f"{target} (no change)"

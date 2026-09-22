@@ -111,6 +111,7 @@ from d12ball.prompts import (  # noqa: F401
     loose_ball_pick_prompt,
     maneuver_prompt_wording as flow_maneuver_prompt_wording,
     run_back_prompt,
+    with_options,
 )
 from typing import (  # noqa: F401
     Optional,
@@ -304,7 +305,10 @@ def build_loose_ball_view(cog, game_id: str, match: MatchState) -> Optional[disc
     prompt = loose_ball_pick_prompt(cog.engine, match)
     if prompt is None:
         return None
-    return cog.view_for_prompt(game_id, match, prompt)
+    game = cog.games[game_id]
+    return cog.view_for_prompt(
+        game_id, match, with_options(cog.engine, game, match, prompt),
+    )
 
 
 async def begin_loose_ball(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, distance_moved: int, lead_in: str='', headline: Optional[str]=None, is_high_pass: bool=False) -> None:
@@ -566,7 +570,7 @@ def tutorial_player_side(cog, game: D12BallGame) -> TeamSide:
 
 
 def tutorial_dice(cog, game: D12BallGame, kind: str, count: int) -> Optional[list[int]]:
-    return tutorial.scripted_dice(cog.tutorial_beat(game), kind, count)
+    return tutorial.scripted_dice(tutorial.beat_for_game(game), kind, count)
 
 
 # -- The live routines that moved into GameService ---------------------
