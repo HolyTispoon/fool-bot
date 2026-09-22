@@ -1321,12 +1321,15 @@ class D12BallRoleEmojiTests(unittest.TestCase):
 
     def test_the_art_is_named_exactly_as_the_upload_must_be(self) -> None:
         """
-        Nothing in the bot opens these files -- they exist to be
-        uploaded by hand under the names the loader asks for -- so a
-        file named one way and a lookup spelled another is caught by
+        Nothing in the *message* path opens these files -- they exist
+        to be uploaded by hand under the names the loader asks for, so
+        a file named one way and a lookup spelled another is caught by
         nobody until every role shows brackets on the live bot.
-        Compared against the directory's own listing rather than
-        `Path.exists`, for the reason the bundled-art test gives.
+        (`d12ball/role_cards.py` does open the plain badge, for the
+        print reference card -- a different reader, checked by its own
+        suite, not this upload-name contract.) Compared against the
+        directory's own listing rather than `Path.exists`, for the
+        reason the bundled-art test gives.
         """
         listing = os.listdir(self.EMOJI_DIR)
         for name in ROLE_EMOJI_NAMES.values():

@@ -16,8 +16,12 @@ docs/design/naming-and-wording.md for which places that is, and which stay text.
 It writes nothing unless asked, because what it overwrites is tracked
 art -- the same reason `render_condition_tokens.py` is a dry run by
 default. **Uploading is still a manual step**: the Developer Portal's
-"Emojis" tab, one file per name. Nothing in the bot reads these files,
-so a change here reaches Discord only when the new files are uploaded.
+"Emojis" tab, one file per name -- nothing in the *message* path reads
+these files, so a change here reaches Discord only when the new files
+are uploaded. `d12ball/role_cards.py` is the one exception: it opens
+the plain badge straight off disk to draw the print reference card, so
+a change here reaches that card by re-running
+`scripts/render_role_cards.py`, with no upload needed.
 
 The badge is a white rounded square with an ink edge and the two
 initials in ink. White inside a dark outline is the team emoji's own
