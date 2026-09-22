@@ -146,8 +146,11 @@ class CoachingView(SafeView):
         steps -- opening a submenu changes nothing on the board.
         """
         payload = {
-            "content": self.cog.engine.coaching_prompt(
-                game, match, self.side(match), note,
+            "content": self.cog.render_text(
+                self.cog.engine.coaching_prompt(
+                    game, match, self.side(match), note,
+                ),
+                game,
             ),
             "view": view,
         }

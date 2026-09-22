@@ -468,7 +468,7 @@ class ShootoutFlowTests(PeriodFixture):
         # -- of the coach alone, now.
         prompt = pending_prompt(self.engine, solo, self.match)
         self.assertEqual(prompt.kind, PromptKind.SHOOTOUT_ORDER)
-        self.assertIn("<@111>: set the order", prompt.ask)
+        self.assertIn("{coach:1}: set the order", prompt.ask)
 
     def test_both_orders_in_reveals_the_first_test(self) -> None:
         self.match.begin_shootout()

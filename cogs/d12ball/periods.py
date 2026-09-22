@@ -90,7 +90,9 @@ class PeriodMixin:
         and the sides: `GameService.begin`, presented. Both callers are
         setup views holding only the game.
         """
-        await self.present(interaction, game, self.service.begin(game.game_id))
+        await self.present(
+            interaction, game, self.rendered(game, self.service.begin(game.game_id)),
+        )
 
     def shootout_order_text(
         self,
@@ -103,9 +105,12 @@ class PeriodMixin:
         forwarding method over
         `d12ball.flow.periods.shootout_order_text`, kept because the
         two ephemeral menus and the roll prompt's "Your Order" all read
-        it from here.
+        it from here -- rendered, since the flow names each player
+        with tokens.
         """
-        return shootout_order_text(self.engine, game, match, side)
+        return self.render_text(
+            shootout_order_text(self.engine, game, match, side), game,
+        )
 
     async def close_shootout_prompt(
         self,

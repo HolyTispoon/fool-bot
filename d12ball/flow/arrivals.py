@@ -50,10 +50,11 @@ from d12ball.formatting import (
     ball_location_line,
     ball_space_phrase,
     contest_noun,
+    address_coach,
     format_team_side_label,
-    get_species_ability_emoji,
     space_label,
 )
+from d12ball import tokens
 from d12ball.game import D12BallGame
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
@@ -194,9 +195,7 @@ def continue_smooth(
     while match.pending_smooth:
         player_id = match.pending_smooth[0]
         player = engine.get_player_definition(player_id)
-        smooth_emoji = get_species_ability_emoji(
-            engine.species_ability_emojis, SPECIES_TELEKINETIC,
-        )
+        smooth_emoji = tokens.species(SPECIES_TELEKINETIC)
         return StepResult(
             next=PendingPrompt(
                 PromptKind.SMOOTH,
@@ -280,9 +279,7 @@ def continue_mind_pull(
             continue
 
         player = engine.get_player_definition(player_id)
-        mind_pull_emoji = get_species_ability_emoji(
-            engine.species_ability_emojis, SPECIES_TELEKINETIC,
-        )
+        mind_pull_emoji = tokens.species(SPECIES_TELEKINETIC)
         faces = "-".join(str(face) for face in MIND_PULL_SUCCESS_FACES)
         return StepResult(
             next=PendingPrompt(
@@ -1184,10 +1181,11 @@ def begin_own_goal_roll(
     offense_skill = engine.player_catalog.effective_profile(
         offense_player,
     ).offense
-    controller_id = engine.controlling_user_id(
-        game, match, offense_player.player_id,
+    mention = address_coach(
+        engine.controlling_player_number(
+            game, match, offense_player.player_id,
+        ),
     )
-    mention = f"<@{controller_id}>" if controller_id else "Someone"
 
     prefix = f"{lead_in}\n\n" if lead_in else ""
     return StepResult(
@@ -1488,9 +1486,7 @@ def attempt_mind_pull_step(
     # test's does, so an ignite has to be said in words or the number a
     # coach reads and the verdict they are given would not add up.
     ignite_note = f" ({ignite.detail}, {total})" if ignite.detail else ""
-    mind_pull_emoji = get_species_ability_emoji(
-        engine.species_ability_emojis, SPECIES_TELEKINETIC,
-    )
+    mind_pull_emoji = tokens.species(SPECIES_TELEKINETIC)
     note = "\n".join(filter(None, (
         f"{mind_pull_emoji} **Mind Pull** — "
         f"{engine.format_player_label(match, player)} reaches for the "

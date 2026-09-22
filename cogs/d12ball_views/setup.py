@@ -228,7 +228,7 @@ class GameConfigurationView(SafeView):
             game_id=self.game_id,
         )
         await interaction.response.edit_message(
-            content=build_setup_message(game, self.cog.team_emojis),
+            content=self.cog.render_text(build_setup_message(game), game),
             view=refreshed_view,
         )
 
@@ -397,7 +397,7 @@ class TeamSelectionView(GameConfigurationView):
             await interaction.response.send_message(str(error), ephemeral=True)
             return
 
-        message = build_setup_message(game, self.cog.team_emojis)
+        message = self.cog.render_text(build_setup_message(game), game)
 
         if game.teams_selected:
             # Resolved before the view is built, because the flip
@@ -428,7 +428,7 @@ class TeamSelectionView(GameConfigurationView):
         self,
         game: D12BallGame,
     ) -> str:
-        return build_setup_message(game, self.cog.team_emojis)
+        return self.cog.render_text(build_setup_message(game), game)
 
 
 class CoinFlipView(GameConfigurationView):
@@ -479,10 +479,8 @@ class CoinFlipView(GameConfigurationView):
         "Discord's rate limits".
         """
         await interaction.response.edit_message(
-            content=build_setup_message(
-                game,
-                self.cog.team_emojis,
-                mention_players=False,
+            content=self.cog.render_text(
+                build_setup_message(game, mention_players=False), game,
             ),
             view=None,
         )
@@ -505,7 +503,7 @@ class CoinFlipView(GameConfigurationView):
         # `d12ball.flow.periods.finish_setup_coaching`.
         choice_message = await send_new_prompt(
             interaction,
-            build_home_choice_message(game, self.cog.team_emojis),
+            self.cog.render_text(build_home_choice_message(game), game),
             view=HomeAwaySelectionView(
                 cog=self.cog,
                 game_id=self.game_id,
@@ -539,7 +537,9 @@ class CoinFlipView(GameConfigurationView):
             # put the choice back rather than only refusing, since the
             # message they clicked is the one carrying it.
             await interaction.response.edit_message(
-                content=build_home_choice_message(game, self.cog.team_emojis),
+                content=self.cog.render_text(
+                    build_home_choice_message(game), game,
+                ),
                 view=HomeAwaySelectionView(
                     cog=self.cog,
                     game_id=self.game_id,
@@ -690,12 +690,12 @@ class HomeAwaySelectionView(SafeView):
         # until both coaches are done setting up -- see the same note
         # on the coin flip, and `d12ball.flow.periods.finish_setup_coaching`.
         await interaction.response.edit_message(
-            content=build_home_choice_message(game, self.cog.team_emojis),
+            content=self.cog.render_text(build_home_choice_message(game), game),
             view=refreshed_view,
         )
 
-        winner = format_player_with_team(
-            game, winner_player_number, self.cog.team_emojis,
+        winner = self.cog.render_text(
+            format_player_with_team(game, winner_player_number), game,
         )
         await send_new_prompt(
             interaction, f"{winner} chose **{choice.value.title()}**.",

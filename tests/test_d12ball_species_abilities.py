@@ -2641,9 +2641,11 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
             )
         lead_in = self.cog.begin_run_back.await_args.kwargs["lead_in"]
         player = self.cog.engine.get_player_definition(self.puller)
+        # A stubbed step is handed the model's own lines, tokens and
+        # all; the cog renders them only on the way out.
         self.assertIn(
-            f"## {self.cog.player_label(self.match, player)} grabs the "
-            "ball with their telekinetic powers!",
+            f"## {self.cog.engine.format_player_label(self.match, player)} "
+            "grabs the ball with their telekinetic powers!",
             lead_in,
         )
         self.assertIn("Turnover!", lead_in)

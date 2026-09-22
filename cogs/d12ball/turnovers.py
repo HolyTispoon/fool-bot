@@ -80,5 +80,5 @@ class TurnoverMixin:
         `present` posts a fresh one, with its picture.
         """
         waiting_on, result = self.service.resume(game.game_id)
-        await self.present(interaction, game, result)
+        await self.present(interaction, game, self.rendered(game, result))
         return waiting_on

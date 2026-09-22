@@ -59,8 +59,8 @@ from d12ball.formatting import (
     format_goal_time,
     format_player_with_team,
     format_team_side_label,
-    get_species_ability_emoji,
 )
+from d12ball import tokens
 from d12ball.game import D12BallGame, team_display_name
 from d12ball.prompts import PendingPrompt, PromptKind, speed_choice_ask
 
@@ -1852,9 +1852,7 @@ def take_smooth_step(
     match.pending_smooth_resume = None
     match.apply_smooth(player_id)
 
-    smooth_emoji = get_species_ability_emoji(
-        engine.species_ability_emojis, SPECIES_TELEKINETIC,
-    )
+    smooth_emoji = tokens.species(SPECIES_TELEKINETIC)
     lead_in = (
         f"{smooth_emoji} **Smooth** — "
         f"{engine.format_player_label(match, player)} takes the ball "
@@ -2006,11 +2004,10 @@ def _possession_mention(
     game: D12BallGame,
     match: MatchState,
 ) -> str:
-    """The coach in possession, as a mention with their team's emoji."""
+    """The coach in possession, addressed, with their team's mark."""
     return format_player_with_team(
         game,
         engine.possession_player_number(game, match),
-        engine.team_emojis,
         mention=True,
     )
 
@@ -2253,7 +2250,6 @@ def offer_setup_pass_push_back(
     mention = format_player_with_team(
         game,
         engine.defending_player_number(game, match),
-        engine.team_emojis,
         mention=True,
     )
     return StepResult(

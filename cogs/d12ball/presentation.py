@@ -405,7 +405,12 @@ class PresentationMixin:
         await self.present(
             interaction,
             game,
-            self.service.run_step(game.game_id, FollowOnStep.SEND_TURN_PROMPT),
+            self.rendered(
+                game,
+                self.service.run_step(
+                    game.game_id, FollowOnStep.SEND_TURN_PROMPT,
+                ),
+            ),
         )
 
     async def render_match_png(

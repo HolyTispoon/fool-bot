@@ -459,7 +459,7 @@ Either player can roll:
 
 That overshoots toward their own goal!
 
-**Own goal risk!** Someone, 🔥 Hellguard [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (1). A total of 7 or more and the own goal is avoided.
+**Own goal risk!** Dinky AI, 🔥 Hellguard [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (1). A total of 7 or more and the own goal is avoided.
 === press 45: OwnGoalRollView -> 'Roll for the own goal'
 --- message
 **Own goal risk!** 🔥 Hellguard [FB] rolls at an advantage: higher of 9/7 is 9, + 1 (offensive skill) = 10

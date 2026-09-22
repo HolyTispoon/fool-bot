@@ -2066,7 +2066,9 @@ class CommandsMixin:
             # rather than a turn gone wrong, and a plain resume walks
             # them on.
             try:
-                result = self.service.reset_turn(game.game_id)
+                result = self.rendered(
+                    game, self.service.reset_turn(game.game_id),
+                )
             except ValueError as error:
                 await interaction.followup.send(str(error), ephemeral=True)
                 return

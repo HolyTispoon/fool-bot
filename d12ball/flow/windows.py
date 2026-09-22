@@ -51,11 +51,10 @@ from d12ball.engine import RulesEngine
 from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turnovers import begin_ball_recovery
+from d12ball import tokens
 from d12ball.formatting import (
     destination_display_name,
     format_team_side_label,
-    get_exhaust_emoji,
-    get_team_emoji,
     space_label,
 )
 from d12ball.game import D12BallGame
@@ -253,7 +252,7 @@ def apply_substitution(
         )
         noun = "drain" if incoming_drain else "exhaustion"
         remaining = match.exhaustion.get(incoming_player_id, 0)
-        exhaust_emoji = get_exhaust_emoji(engine.condition_emojis)
+        exhaust_emoji = tokens.condition(tokens.CONDITION_EXHAUST)
         text += (
             f"\nBack on from the back bench, down to {remaining} "
             f"{noun} {'token' if remaining == 1 else 'tokens'} "
@@ -373,7 +372,7 @@ def decline_coaching_step(
     return StepResult(
         narration=[
             "# Coaching Choice\n"
-            f"**{get_team_emoji(engine.team_emojis, setup.team)} "
+            f"**{tokens.team(setup.team)} "
             f"{coach_name} passed.**"
         ],
         next=FollowOn(FollowOnStep.FINISH_SUBSTITUTION_WINDOW),

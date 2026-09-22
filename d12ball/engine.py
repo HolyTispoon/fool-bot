@@ -84,12 +84,6 @@ from d12ball.formatting import (
     format_player,
     format_player_with_team,
     format_team_side_label,
-    get_damaged_emoji,
-    get_drained_emoji,
-    get_exhaust_emoji,
-    get_exhausted_emoji,
-    get_injured_emoji,
-    get_team_emoji,
     player_with_role,
     role_initials,
     space_label,
@@ -104,6 +98,7 @@ from d12ball.game import (
     Team,
     team_display_name,
 )
+from d12ball import tokens
 from d12ball.render import TEAM_COLORS, ChallengeSide
 
 
@@ -263,51 +258,13 @@ class RulesEngine:
         self.basic_ruleset = basic_ruleset
         self.maneuver_catalog = maneuver_catalog
         self.ai_strategies = ai_strategies
-        # `(PlayerRole, Team | None) -> "<:role_fullback_orange:id>"`,
-        # the application emoji a *message* writes after a player's
-        # name in place of `[FB]` -- one badge a role, in that side's
-        # own colour, with the plain cut filed under a team of None
-        # (see `format_roster_player_for_message`). Empty until the
-        # cog's cog_load has fetched them, and every lookup falls back
-        # to the brackets until then. This is the one copy:
-        # `D12Ball.role_emojis` is a property over it, so the cog and
-        # the engine cannot hold two dicts that disagree about which
-        # upload exists. It is the only Discord-shaped thing the engine
-        # holds, and it is a string per role rather than anything that
-        # needs discord.py -- what the engine still cannot do is fetch
-        # it.
-        self.role_emojis: dict[tuple[PlayerRole, Optional[Team]], str] = {}
-        # `Team -> "<:team_orange:id>"`, the application emoji a coach
-        # or a player is named with in place of the plain-circle
-        # fallback (see `format_player_with_team`, `format_player_label`
-        # below). Empty until cog_load has fetched them, same as
-        # `role_emojis` just above and for the same reason:
-        # `D12Ball.team_emojis` is a property over this one dict, not a
-        # second copy, since cog_load *replaces* the dict on every
-        # fetch and a reference handed to the engine at construction
-        # would go stale the moment that landed.
-        self.team_emojis: dict[Team, str] = {}
-        # `"exhaust" -> "<:exhaust:id>"` and the four conditions beside
-        # it, the application emoji an exhaustion charge is written
-        # with (see `describe_exhaustion_gain` below). Here for the
-        # same reason as the two dicts above and arrived for the same
-        # one: `describe_exhaustion_gain` is narration, narration is
-        # the model's (principle 5 in CLAUDE.md), and it cannot ask a
-        # cog for the emoji. `D12Ball.condition_emojis` is a property
-        # over this one dict. The *names* these are fetched by stay in
-        # cogs/d12ball_helpers.py beside `load_condition_emojis`, which
-        # is the half that needs discord.py.
-        self.condition_emojis: dict[str, str] = {}
-        # `"telekinetic" -> "<:telekinetic_color:id>"`, each species'
-        # own ink icon in colour, the emoji an ability's own banner is
-        # flagged with. Its readers today are Mind Pull's and Smooth's
-        # banners in cogs/d12ball/effects.py, which could have read a
-        # cog attribute -- it is here with the other three so there is
-        # one dict rather than two that can disagree about which
-        # upload exists, and so the wording still has it once those
-        # steps lift into d12ball/flow/. `D12Ball.species_ability_
-        # emojis` is a property over this one dict.
-        self.species_ability_emojis: dict[str, str] = {}
+        # Nothing Discord-shaped is held here. The four emoji dicts
+        # the engine carried until step 9 of
+        # docs/architecture-migration.md -- a badge per role, a ring
+        # per team, the condition marks and the species icons -- live
+        # on the cog that fetches them, and a sentence that names one
+        # writes a token for it (`d12ball/tokens.py`) that the cog
+        # renders at its door.
 
     def apply_exhaustion(
         self,
@@ -372,12 +329,12 @@ class RulesEngine:
             if drain:
                 return (
                     f"{self.format_player_label(match, player)} is damaged "
-                    f"{get_damaged_emoji(self.condition_emojis)} and gains "
+                    f"{tokens.condition(tokens.CONDITION_DAMAGED)} and gains "
                     "no drain tokens."
                 )
             return (
                 f"{self.format_player_label(match, player)} is injured "
-                f"{get_injured_emoji(self.condition_emojis)} and gains no "
+                f"{tokens.condition(tokens.CONDITION_INJURED)} and gains no "
                 "exhaustion tokens."
             )
         if amount <= 0:
@@ -392,7 +349,7 @@ class RulesEngine:
             # line.
             return ""
 
-        exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
+        exhaust_emoji = tokens.condition(tokens.CONDITION_EXHAUST)
         total = match.exhaustion.get(player_id, 0)
         token_word = "token" if amount == 1 else "tokens"
         noun = "drain" if drain else "exhaustion"
@@ -404,13 +361,13 @@ class RulesEngine:
 
         if self.retest_exhausted(game, match, player_id):
             if drain:
-                drained_emoji = get_drained_emoji(self.condition_emojis)
+                drained_emoji = tokens.condition(tokens.CONDITION_DRAINED)
                 text += (
                     f"\n{self.format_player_label(match, player)} is now "
                     f"*drained* {drained_emoji}"
                 )
             else:
-                exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
+                exhausted_emoji = tokens.condition(tokens.CONDITION_EXHAUSTED)
                 text += (
                     f"\n{self.format_player_label(match, player)} is now "
                     f"*exhausted* {exhausted_emoji}"
@@ -1035,7 +992,7 @@ class RulesEngine:
             return "Both coaches may play a gambit this maneuver."
 
         coach = format_player_with_team(
-            game, self.side_player_number(game, holders[0]), self.team_emojis,
+            game, self.side_player_number(game, holders[0]),
         )
         return f"{coach} may play a gambit this maneuver."
 
@@ -1385,18 +1342,6 @@ class RulesEngine:
     ) -> PlayerDefinition:
         return self.player_catalog.player_by_id(player_id)
 
-    def side_player_number(
-        self,
-        game: D12BallGame,
-        side: TeamSide,
-    ) -> Optional[int]:
-        """Which coach plays this side of the board."""
-        return (
-            game.home_player_number
-            if TeamSide(side) == TeamSide.HOME
-            else game.visiting_player_number
-        )
-
     def possession_player_number(
         self,
         game: D12BallGame,
@@ -1544,6 +1489,27 @@ class RulesEngine:
             else match.defense_maneuver
         )
 
+    def controlling_player_number(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+    ) -> Optional[int]:
+        """
+        Which coach controls whichever team `player_id` belongs to,
+        independent of ball possession -- safe to call right after a
+        turnover flips possession, unlike `possession_player_number`.
+        What a sentence addresses that coach by (`tokens.coach`);
+        `controlling_user_id` below is the account behind it, for the
+        frontend's gates.
+        """
+        side = (
+            TeamSide.HOME
+            if player_id in match.home.field_players
+            else TeamSide.VISITING
+        )
+        return self.side_player_number(game, side)
+
     def controlling_user_id(
         self,
         game: D12BallGame,
@@ -1552,19 +1518,9 @@ class RulesEngine:
     ) -> Optional[int]:
         """
         The Discord user controlling whichever team `player_id` belongs
-        to, independent of ball possession -- safe to call right after
-        a turnover flips possession, unlike possession_user_id.
+        to -- `controlling_player_number`'s account.
         """
-        side = (
-            TeamSide.HOME
-            if player_id in match.home.field_players
-            else TeamSide.VISITING
-        )
-        number = (
-            game.home_player_number
-            if side == TeamSide.HOME
-            else game.visiting_player_number
-        )
+        number = self.controlling_player_number(game, match, player_id)
         if number == 1:
             return game.player_1_id
         if number == 2:
@@ -2196,7 +2152,9 @@ class RulesEngine:
         self,
         game: D12BallGame,
         side: TeamSide,
-    ) -> int:
+    ) -> Optional[int]:
+        """Which coach plays this side of the board -- `None` before
+        the coin has seated anybody."""
         return (
             game.home_player_number
             if TeamSide(side) == TeamSide.HOME
@@ -2751,9 +2709,8 @@ class RulesEngine:
         it back up on its own, and a restart re-arms it wherever it is
         in the channel.
 
-        The coach is named with their side's emoji (see
-        `format_player_with_team`), read off `self.team_emojis` --
-        see the comment above it in `__init__`.
+        The coach is named with their side's mark (see
+        `format_player_with_team`).
         """
         skill_type = self.loose_ball_side_on_the_clock(match)
         number = (
@@ -2761,9 +2718,7 @@ class RulesEngine:
             if skill_type == "offense"
             else self.defending_player_number(game, match)
         )
-        mention = format_player_with_team(
-            game, number, self.team_emojis, mention=True,
-        )
+        mention = format_player_with_team(game, number, mention=True)
         noun = contest_noun(match)
         where = ball_space_label(match)
         side = self.loose_ball_prompt_side(match)
@@ -3011,13 +2966,17 @@ class RulesEngine:
         match: MatchState,
         sides: list[TeamSide],
     ) -> str:
-        """Whoever a shootout step is still waiting on, named."""
+        """
+        Whoever a shootout step is still waiting on, addressed -- the
+        coach of each side (`{coach:n}`), or the side itself where
+        nobody coaches it yet.
+        """
         parts = []
         for side in sides:
-            controller_id = self.side_controller_id(game, side)
+            number = self.side_player_number(game, side)
             parts.append(
-                f"<@{controller_id}>"
-                if controller_id
+                tokens.coach(number)
+                if number in (1, 2)
                 else format_team_side_label(match.setup_for_side(side))
             )
         return " and ".join(parts) or "Someone"
@@ -3103,8 +3062,9 @@ class RulesEngine:
     ) -> str:
         """
         `format_roster_player` for text going into a *message*, where
-        the role emoji renders -- "Hellguard <:role_fullback:id>" once
-        the badges are uploaded, and the brackets until then.
+        the role badge renders -- "Hellguard {role:fullback:orange}",
+        a token the frontend draws as the badge once uploaded and as
+        the brackets until then (`d12ball/tokens.py`).
 
         Two methods rather than a flag because the plain form is the
         safe default: the same markup in a button label or an
@@ -3120,7 +3080,7 @@ class RulesEngine:
         than being unable to call this at all.
         """
         return player_with_role(
-            self.get_player_definition(player_id), self.role_emojis, team,
+            self.get_player_definition(player_id), badge=True, team=team,
         )
 
     def format_player_label(
@@ -3129,8 +3089,10 @@ class RulesEngine:
         """
         "🟠 Hellguard [FB]" -- a player named the way every message
         outside this engine's own two builders names them, with the
-        team emoji in front as well as the role badge.
-        `D12Ball.player_label` forwards to this so no call site moved.
+        team mark in front as well as the role badge, both as tokens
+        (`{team:orange} Hellguard {role:fullback:orange}`) for the
+        frontend to draw. `D12Ball.player_label` renders this so no
+        call site moved.
 
         **Distinct from `format_roster_player_for_message` on
         purpose, not a flag on it.** That one is the narrower form --
@@ -3144,8 +3106,8 @@ class RulesEngine:
         """
         team = match.team_for_player(player.player_id)
         return (
-            f"{get_team_emoji(self.team_emojis, team)} "
-            f"{player_with_role(player, self.role_emojis, team)}"
+            f"{tokens.team(team)} "
+            f"{player_with_role(player, badge=True, team=team)}"
         )
 
     def format_roster_player_with_team(
@@ -3241,12 +3203,10 @@ class RulesEngine:
         match: MatchState,
         carrying: bool = False,
     ) -> str:
-        # `self.team_emojis` -- see build_loose_ball_prompt.
         player_number = self.possession_player_number(game, match)
         controller = format_player_with_team(
             game,
             player_number,
-            self.team_emojis,
             mention=player_number is not None,
         )
 

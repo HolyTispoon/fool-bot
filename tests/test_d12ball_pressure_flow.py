@@ -272,7 +272,10 @@ class PressureWrapperTests(unittest.IsolatedAsyncioTestCase):
             if call.args
         ]
         self.assertEqual(len(posted), 1)
-        self.assertTrue(posted[0].startswith(fixture.narration))
+        # What reaches the channel is the model's line, rendered.
+        self.assertTrue(posted[0].startswith(
+            cog.render_text(fixture.narration, fixture.game),
+        ))
         self.assertIn("**Own goal risk!**", posted[0])
         self.assertEqual(cog.refresh_match_image.await_count, 1)
         # And the roll still owes what it owed: the wait is a place

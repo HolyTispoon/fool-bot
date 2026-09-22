@@ -60,6 +60,7 @@ from d12ball.components import (
 )
 from d12ball.flow.result import FollowOn, FollowOnStep
 from d12ball.formatting import (
+    address_coach,
     contest_noun,
     format_player_with_team,
     space_label,
@@ -673,7 +674,6 @@ def shooter_mention(
     return format_player_with_team(
         game,
         engine.possession_player_number(game, match),
-        engine.team_emojis,
         mention=True,
     )
 
@@ -704,7 +704,6 @@ def maneuver_prompt_wording(
             engine.possession_player_number(game, match)
             if side == "offense"
             else engine.defending_player_number(game, match),
-            engine.team_emojis,
             mention=True,
         )
         for side in sides
@@ -786,8 +785,9 @@ def speed_choice_ask(
         engine.get_player_definition(player_id),
     )
     skill_value = skill.offense if skill_type == "offense" else skill.defense
-    controller_id = engine.controlling_user_id(game, match, player_id)
-    mention = f"<@{controller_id}>" if controller_id else "Someone"
+    mention = address_coach(
+        engine.controlling_player_number(game, match, player_id),
+    )
     return f"{mention}, manipulate the ball's speed (up to {skill_value}):"
 
 

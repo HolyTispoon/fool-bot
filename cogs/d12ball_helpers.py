@@ -7,7 +7,7 @@ the misc board/interaction helpers that don't need cog state.
 import logging
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Mapping, Optional
 
 import aiohttp
 import discord
@@ -26,23 +26,20 @@ from d12ball.components import (
     SPECIES_TELEKINETIC,
     Zone,
 )
+from d12ball import tokens
 from d12ball.formatting import (
     AI_OPPONENT_NAMES,
     HIGH_PASS_CONTEST_HEADLINE,
     BENCH_DESTINATIONS,
-    DAMAGED_EMOJI_FALLBACK,
-    DRAINED_EMOJI_FALLBACK,
-    EXHAUSTED_EMOJI_FALLBACK,
-    EXHAUST_EMOJI_FALLBACK,
-    INJURED_EMOJI_FALLBACK,
-    TEAM_EMOJI_FALLBACKS,
     ZONE_LETTERS,
+    address_coach,
     ball_location_line,
     build_full_time_summary,
     build_goal_log,
     ball_space_label,
     ball_space_phrase,
     challenger_prompt_ask,
+    coach_name,
     contest_noun,
     contestant_detail,
     destination_display_name,
@@ -53,14 +50,8 @@ from d12ball.formatting import (
     format_player_with_team,
     format_player_with_team_name,
     format_team_side_label,
-    get_damaged_emoji,
-    get_drained_emoji,
-    get_exhaust_emoji,
-    get_exhausted_emoji,
-    get_injured_emoji,
-    get_species_ability_emoji,
-    get_team_emoji,
     player_with_role,
+    role_brackets,
     space_label,
     travel_space_label,
     travel_space_phrase,
@@ -94,7 +85,7 @@ PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
 # ZONE_LETTERS and BENCH_DESTINATIONS are imported above from
 # d12ball.formatting, which is also where space_label -- the reader
 # of ZONE_LETTERS -- now lives. ROLE_INITIALS is not re-exported:
-# `role_initials` is its one reader outside the drawing modules,
+# `role_brackets` is its one reader outside the drawing modules,
 # and `player_with_role` is the only thing that should be building
 # a name out of it -- see "Naming a player" in docs/design/naming-and-wording.md.
 COIN_EMOJI_NAMES = {
@@ -646,36 +637,188 @@ class HelperConfirmationRequired(Exception):
         self.coach_ids = coach_ids
 
 
-def format_role_bracket(
-    player: PlayerDefinition,
-    team_emojis: dict[Team, str],
-    team: Team,
-    role_emojis: Optional[dict[tuple[PlayerRole, Optional[Team]], str]] = None,
+# What a team is drawn as before its application emoji has been
+# fetched, or when the upload is missing. The uploaded emoji (a letter
+# in a team-coloured ring) are looked up by name in `load_team_emojis`
+# above; this is what a message shows until then.
+TEAM_EMOJI_FALLBACKS = {
+    Team.ORANGE: "🟠",
+    Team.TEAL: "🔵",
+    Team.PURPLE: "🟣",
+    Team.SLIME: "🟢",
+    # A species team shares its paired color team's ring (see "Team
+    # colors" in docs/design/teams-and-players.md), so its fallback has to read differently
+    # from a plain colored circle before the real upload replaces it.
+    Team.FIRE_DEMONS: "🔥",
+    Team.CYBORGS: "🤖",
+    Team.TELEKINETICS: "🔮",
+    Team.OOZES: "🫧",
+}
+
+
+def get_team_emoji(team_emojis: Mapping[Team, str], team: Team) -> str:
+    return team_emojis.get(team, TEAM_EMOJI_FALLBACKS[team])
+
+
+# The condition emoji a message shows when the application has no
+# upload of its own by that name -- the exhaustion token, the
+# Exhausted and Injured conditions, and a Cyborg's own words for the
+# last two (see "Lithium Powered" in docs/living-rules.md). The
+# *names* the uploads are looked up by are above, beside
+# `load_condition_emojis`, which is what fetches them.
+EXHAUST_EMOJI_FALLBACK = "😮‍💨"
+EXHAUSTED_EMOJI_FALLBACK = "🥵"
+INJURED_EMOJI_FALLBACK = "🤕"
+DRAINED_EMOJI_FALLBACK = "🪫"
+DAMAGED_EMOJI_FALLBACK = "💥"
+
+CONDITION_EMOJI_FALLBACKS = {
+    tokens.CONDITION_EXHAUST: EXHAUST_EMOJI_FALLBACK,
+    tokens.CONDITION_EXHAUSTED: EXHAUSTED_EMOJI_FALLBACK,
+    tokens.CONDITION_INJURED: INJURED_EMOJI_FALLBACK,
+    tokens.CONDITION_DRAINED: DRAINED_EMOJI_FALLBACK,
+    tokens.CONDITION_DAMAGED: DAMAGED_EMOJI_FALLBACK,
+}
+
+
+def get_condition_emoji(condition_emojis: Mapping[str, str], name: str) -> str:
+    return condition_emojis.get(name, CONDITION_EMOJI_FALLBACKS[name])
+
+
+def get_exhaust_emoji(condition_emojis: Mapping[str, str]) -> str:
+    return get_condition_emoji(condition_emojis, tokens.CONDITION_EXHAUST)
+
+
+def get_exhausted_emoji(condition_emojis: Mapping[str, str]) -> str:
+    return get_condition_emoji(condition_emojis, tokens.CONDITION_EXHAUSTED)
+
+
+def get_injured_emoji(condition_emojis: Mapping[str, str]) -> str:
+    return get_condition_emoji(condition_emojis, tokens.CONDITION_INJURED)
+
+
+def get_drained_emoji(condition_emojis: Mapping[str, str]) -> str:
+    return get_condition_emoji(condition_emojis, tokens.CONDITION_DRAINED)
+
+
+def get_damaged_emoji(condition_emojis: Mapping[str, str]) -> str:
+    return get_condition_emoji(condition_emojis, tokens.CONDITION_DAMAGED)
+
+
+# What a species ability is drawn as before its application emoji has
+# been fetched, or when the upload is missing -- the same team badge
+# that species' own fallback above uses, so a coach who has never seen
+# the real upload still reads the ability as belonging to that team's
+# species. The uploaded emoji (the species' own ink icon, in colour)
+# are looked up by name in `load_species_ability_emojis` above.
+SPECIES_ABILITY_EMOJI_FALLBACKS = {
+    SPECIES_FIRE_DEMON: TEAM_EMOJI_FALLBACKS[Team.FIRE_DEMONS],
+    SPECIES_CYBORG: TEAM_EMOJI_FALLBACKS[Team.CYBORGS],
+    SPECIES_TELEKINETIC: TEAM_EMOJI_FALLBACKS[Team.TELEKINETICS],
+    SPECIES_OOZE: TEAM_EMOJI_FALLBACKS[Team.OOZES],
+}
+
+
+def get_species_ability_emoji(
+    species_ability_emojis: Mapping[str, str], species: str,
 ) -> str:
-    """
-    "🟠 Hellguard [FB]" -- `player_with_role` with the team emoji in
-    front, which is the form every *message* names a player in. The
-    emoji says which of a player's two rosters this card is being shown
-    as, since `PlayerDefinition` no longer carries a team of its own;
-    every caller already has a match or a setup in scope to read it off
-    (`match.team_for_player(...)`, or `setup.team` when the player is
-    known to be on that side).
+    return species_ability_emojis.get(
+        species, SPECIES_ABILITY_EMOJI_FALLBACKS[species],
+    )
 
-    `role_emojis` is the role's own badge in place of the brackets
-    (see `load_role_emojis`); a message is the one place custom emoji
-    render, so this is the form that takes it and `player_with_role`
-    on its own is the form that does not. **The team is passed on to
-    the badge as well as read for the emoji in front**, so the badge
-    is drawn with that side's own colour on its edge -- one team
-    argument answering both, which is what stops the ring and the
-    badge on one line ever naming two different sides.
 
-    **A button gets the position instead of the emoji**, which is the
-    only place the two forms differ -- see `player_with_role` and
-    "Naming a player" in docs/design/naming-and-wording.md.
+def get_role_emoji(
+    role_emojis: Mapping[tuple[PlayerRole, Optional[Team]], str],
+    role: PlayerRole,
+    team: Optional[Team],
+) -> Optional[str]:
     """
-    team_emoji = get_team_emoji(team_emojis, team)
-    return f"{team_emoji} {player_with_role(player, role_emojis, team)}"
+    The badge for a role, in a side's colour where that cut has been
+    uploaded and the plain cut otherwise -- `None` where neither has,
+    so the caller writes the brackets.
+
+    **Three steps down, not two.** The colour cut, then the plain
+    badge, then the brackets: an application that has uploaded the six
+    and none of the twenty-four reads exactly as it did before the
+    colours existed, and one that has uploaded three colours of six
+    roles shows those three and falls back for the rest, rather than
+    showing blanks.
+    """
+    emoji = role_emojis.get((role, team))
+    if emoji is None and team is not None:
+        emoji = role_emojis.get((role, None))
+    return emoji or None
+
+
+@dataclass(frozen=True)
+class DiscordTokens:
+    """
+    How Discord draws what the model's sentences name -- the one
+    resolver for `d12ball.tokens` on this frontend (step 9 of
+    docs/architecture-migration.md).
+
+    A `{team:orange}` is the application's ring for that team, or the
+    Unicode circle until the upload has been fetched; a
+    `{role:fullback:orange}` is the badge in that side's colour, the
+    plain cut, or `[FB]`; a `{condition:exhaust}` and a
+    `{species:cyborg}` are their uploads or their fallbacks; and a
+    `{coach:1}` is a mention of the account, the AI's name for the AI,
+    and "Player 1" in a test game -- what `format_player(mention=True)`
+    built for itself until this class existed. The four dicts are the
+    cog's, replaced whole on every fetch, so this is built at the call
+    (`D12Ball.render_text`) rather than held.
+
+    A token this cannot resolve is left as it stands, which is how a
+    test sees one the model wrote and nothing here knew.
+    """
+
+    team_emojis: Mapping[Team, str]
+    role_emojis: Mapping[tuple[PlayerRole, Optional[Team]], str]
+    condition_emojis: Mapping[str, str]
+    species_ability_emojis: Mapping[str, str]
+    game: Optional[D12BallGame] = None
+
+    def render(self, text: str) -> str:
+        return tokens.render(text, self.resolve)
+
+    def resolve(self, kind: str, arguments: tuple[str, ...]) -> Optional[str]:
+        try:
+            if kind == "team":
+                return get_team_emoji(self.team_emojis, Team(arguments[0]))
+            if kind == "role":
+                role = PlayerRole(arguments[0])
+                team = Team(arguments[1]) if len(arguments) > 1 else None
+                emoji = get_role_emoji(self.role_emojis, role, team)
+                return emoji or role_brackets(role)
+            if kind == "condition":
+                return get_condition_emoji(self.condition_emojis, arguments[0])
+            if kind == "species":
+                return get_species_ability_emoji(
+                    self.species_ability_emojis, arguments[0],
+                )
+            if kind == "coach":
+                return self.mention(int(arguments[0]))
+        except (KeyError, ValueError):
+            return None
+        return None
+
+    def mention(self, player_number: int) -> Optional[str]:
+        """
+        A coach addressed: `<@id>` for a person's account, and their
+        name for anybody Discord cannot ping -- the AI, and either
+        seat of a test game, where `coach_name` already says "Player
+        1". `None` with no game to read the account off, which leaves
+        the token in place for the test that catches it.
+        """
+        game = self.game
+        if game is None or player_number not in (1, 2):
+            return None
+        if not game.test_game:
+            if player_number == 1 and game.player_1_id is not None:
+                return f"<@{game.player_1_id}>"
+            if player_number == 2 and game.player_2_id is not None:
+                return f"<@{game.player_2_id}>"
+        return coach_name(game, player_number)
 
 
 # destination_display_name, format_team_side_label, space_label,
@@ -820,21 +963,15 @@ def describe_game_mode(game: D12BallGame) -> str:
 
 def build_setup_message(
     game: D12BallGame,
-    team_emojis: dict[Team, str],
     mention_players: bool = True,
 ) -> str:
-    player_1 = format_player_with_team(
-        game,
-        1,
-        team_emojis,
-        mention=mention_players,
-    )
-    player_2 = format_player_with_team(
-        game,
-        2,
-        team_emojis,
-        mention=mention_players,
-    )
+    """
+    The setup screen's text, with the coaches and their teams as
+    tokens: the caller renders it (`D12Ball.render_text`) before it
+    is sent.
+    """
+    player_1 = format_player_with_team(game, 1, mention=mention_players)
+    player_2 = format_player_with_team(game, 2, mention=mention_players)
 
     text = (
         "## D12 Ball game setup\n\n"
@@ -1182,24 +1319,20 @@ def format_coin_emoji(
     return coin_emojis.get(CoinFace(face), COIN_EMOJI_FALLBACK)
 
 
-def build_home_choice_message(
-    game: D12BallGame,
-    team_emojis: dict[Team, str],
-) -> str:
-    winner = format_player_with_team(
-        game,
-        game.coin_winner_player_number,
-        team_emojis,
-    )
+def build_home_choice_message(game: D12BallGame) -> str:
+    """
+    The coin toss's result and the Home-or-Visiting question, with
+    the coaches as tokens: the caller renders it
+    (`D12Ball.render_text`) before it is sent.
+    """
+    winner = format_player_with_team(game, game.coin_winner_player_number)
 
     if (
         game.coin_face is not None
         and game.coin_flipped_by_player_number is not None
     ):
         flipper = format_player_with_team(
-            game,
-            game.coin_flipped_by_player_number,
-            team_emojis,
+            game, game.coin_flipped_by_player_number,
         )
         # The coin itself goes out as its own message, so that Discord
         # renders it large; this text does not repeat it.
@@ -1216,15 +1349,9 @@ def build_home_choice_message(
         )
 
     if game.home_and_visiting_selected:
-        home_player = format_player_with_team(
-            game,
-            game.home_player_number,
-            team_emojis,
-        )
+        home_player = format_player_with_team(game, game.home_player_number)
         visiting_player = format_player_with_team(
-            game,
-            game.visiting_player_number,
-            team_emojis,
+            game, game.visiting_player_number,
         )
 
         if game.is_solo_game and game.coin_winner_player_number == 2:
@@ -1240,10 +1367,7 @@ def build_home_choice_message(
         )
     else:
         winner_mention = format_player_with_team(
-            game,
-            game.coin_winner_player_number,
-            team_emojis,
-            mention=True,
+            game, game.coin_winner_player_number, mention=True,
         )
         text += (
             f"\n\n{winner_mention}, choose whether you want to play "

@@ -577,12 +577,12 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
 class RoleEmojiOnTheCogTests(unittest.TestCase):
     """
     A message names a player through `D12Ball.player_label`, and the
-    role emoji reach it through one dict held on the engine -- the
-    cog's `role_emojis` is a view of that copy, so a load that lands
-    on the cog is what the engine's own prompt builders read too.
+    role emoji reach it through the cog's own dict: the engine writes
+    a `{role:...}` token and knows no emoji, and the cog renders it
+    (`render_text`) from what it fetched.
     """
 
-    def test_the_cog_and_the_engine_share_one_dict(self) -> None:
+    def test_the_engine_holds_no_emoji(self) -> None:
         from d12ball.components import PlayerRole
 
         cog = build_cog()
@@ -590,8 +590,12 @@ class RoleEmojiOnTheCogTests(unittest.TestCase):
 
         cog.role_emojis = badges
 
-        self.assertIs(cog.engine.role_emojis, badges)
         self.assertIs(cog.role_emojis, badges)
+        for name in (
+            "role_emojis", "team_emojis", "condition_emojis",
+            "species_ability_emojis",
+        ):
+            self.assertFalse(hasattr(cog.engine, name), name)
 
     def test_player_label_carries_the_role_emoji(self) -> None:
         from d12ball.components import PlayerRole

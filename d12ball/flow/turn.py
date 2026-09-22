@@ -46,9 +46,8 @@ from d12ball.formatting import (
     challenger_prompt_ask,
     format_player_with_team,
     format_team_side_label,
-    get_damaged_emoji,
-    get_injured_emoji,
 )
+from d12ball import tokens
 from d12ball.game import D12BallGame, team_display_name
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
@@ -72,8 +71,8 @@ def injured_word_and_emoji(
     second rule.
     """
     if engine.has_species_ability(game, player_id, SPECIES_CYBORG):
-        return "damaged", get_damaged_emoji(engine.condition_emojis)
-    return "injured", get_injured_emoji(engine.condition_emojis)
+        return "damaged", tokens.condition(tokens.CONDITION_DAMAGED)
+    return "injured", tokens.condition(tokens.CONDITION_INJURED)
 
 
 def maneuver_winner_text(
@@ -187,12 +186,10 @@ def resolve_maneuver(
     offense_display = format_player_with_team(
         game,
         engine.possession_player_number(game, match),
-        engine.team_emojis,
     )
     defense_display = format_player_with_team(
         game,
         engine.defending_player_number(game, match),
-        engine.team_emojis,
     )
 
     if match.maneuver_uncontested:
@@ -469,7 +466,6 @@ def begin_shot_step(
     offense_display = format_player_with_team(
         game,
         engine.possession_player_number(game, match),
-        engine.team_emojis,
     )
     return StepResult(
         narration=[
@@ -501,7 +497,6 @@ def challenger_choice_prompt(
     defender_mention = format_player_with_team(
         game,
         engine.defending_player_number(game, match),
-        engine.team_emojis,
         mention=True,
     )
     handler_team = match.team_for_player(handler.player_id)
@@ -674,7 +669,7 @@ def maneuver_pick_step(
             else engine.defending_player_number(game, match)
         )
         narration.append(
-            f"{format_player_with_team(game, side_number, engine.team_emojis)}"
+            f"{format_player_with_team(game, side_number)}"
             " has picked their maneuver."
         )
 

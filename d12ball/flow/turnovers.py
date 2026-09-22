@@ -47,7 +47,11 @@ from typing import Iterator, Optional
 from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.formatting import format_player_with_team, space_label
+from d12ball.formatting import (
+    address_coach,
+    format_player_with_team,
+    space_label,
+)
 from d12ball.game import D12BallGame
 from d12ball.prompts import PendingPrompt, PromptKind, run_back_prompt
 
@@ -532,8 +536,7 @@ def run_back_choice_prompt(
     if prompt is None:  # pragma: no cover - the caller has just read it
         return None
 
-    controller_id = engine.side_controller_id(game, side)
-    mention = f"<@{controller_id}>" if controller_id else "Someone"
+    mention = address_coach(engine.side_player_number(game, side))
     if prompt.kind is PromptKind.RUN_BACK_SPACE:
         ask = run_back_space_ask(
             engine, game, match, side, prompt.player_id, mention,
@@ -763,7 +766,7 @@ def begin_ball_recovery(
         else game.visiting_player_number
     )
     mention = format_player_with_team(
-        game, number, engine.team_emojis, mention=True,
+        game, number, mention=True,
     )
     return StepResult(
         narration=[lead_in] if lead_in else [],
@@ -825,11 +828,13 @@ def run_back_player_step(
                 match,
                 side,
                 player_id,
-                # The bare mention the view has always used here, not
-                # the emoji-and-name one the cascade's own prompt
+                # The bare address the view has always used here, not
+                # the mark-and-name one the cascade's own prompt
                 # carries: this question is an edit of the one above it
                 # and the coach has already been named there.
-                f"<@{engine.controlling_user_id(game, match, player_id)}>",
+                address_coach(
+                    engine.controlling_player_number(game, match, player_id),
+                ),
             ),
             player_id=player_id,
         ),

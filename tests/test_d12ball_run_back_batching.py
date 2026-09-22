@@ -98,6 +98,9 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             visiting_player_number=2,
             player_1_id=11,
             player_2_id=None,
+            player_1_name=None,
+            player_2_name=None,
+            test_game=False,
             turn_message_id=None,
             # A run back charges exhaustion, and the Exhausted
             # threshold is now a question about which modules the game

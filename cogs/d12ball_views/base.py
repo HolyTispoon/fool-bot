@@ -273,10 +273,11 @@ class SafeView(discord.ui.View):
         out of the channel's edit bucket (see "Discord's rate limits").
         """
         game = self.cog.games.get(self.game_id)
-        names = describe_coaches(
-            game, required.coach_ids, self.cog.team_emojis,
+        names = self.cog.render_text(
+            describe_coaches(game, required.coach_ids, with_team=True),
+            game,
         )
-        label_names = describe_coaches(game, required.coach_ids, {})
+        label_names = describe_coaches(game, required.coach_ids)
 
         if interaction.response.is_done() or interaction.message is None:
             # Nothing of ours responds before it gates, so this is a
@@ -540,14 +541,15 @@ HELPER_CONFIRMATION_TIMEOUT = 120
 def describe_coaches(
     game: Optional[D12BallGame],
     coach_ids: tuple[Optional[int], ...],
-    team_emojis: dict[Team, str],
+    with_team: bool = False,
 ) -> str:
     """
     The coach or coaches a helper's click would act for, named the way
     every message names one -- "🟠 One", or "🟠 One or 🟣 Two" for a
     button either coach may press. `None` is an AI side, named as
-    `format_player` names it. With an empty emoji dict this is the
-    plain form a button label can carry.
+    `format_player` names it. `with_team` puts the team's mark in
+    front as a token, for a message the caller renders; without it
+    this is the plain form a button label can carry.
     """
     if game is None:
         return "the other coach"
@@ -559,8 +561,8 @@ def describe_coaches(
             numbers.append(2)
     names = []
     for number in dict.fromkeys(numbers):
-        if team_emojis:
-            names.append(format_player_with_team(game, number, team_emojis))
+        if with_team:
+            names.append(format_player_with_team(game, number))
         else:
             names.append(format_player(game, number))
     return " or ".join(names)

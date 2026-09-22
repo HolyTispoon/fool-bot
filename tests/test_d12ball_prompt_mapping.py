@@ -81,7 +81,11 @@ class PendingTurnViewEquivalenceTests(unittest.TestCase):
                 )
 
                 self.assertIsInstance(view, getattr(views, case.view))
-                self.assertEqual(ask, fixture.ask)
+                # The model's ask, with its tokens drawn for Discord.
+                self.assertEqual(
+                    ask, cog.render_text(fixture.ask, fixture.game),
+                )
+                self.assertNotIn("{", ask)
 
     def test_an_owed_state_restores_nothing(self) -> None:
         """

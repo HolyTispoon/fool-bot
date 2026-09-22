@@ -693,7 +693,7 @@ def settle_loose_ball_winner(
         else engine.defending_player_number(game, match)
     )
     winner_mention = format_player_with_team(
-        game, winner_number, engine.team_emojis, mention=True,
+        game, winner_number, mention=True,
     )
     winner_player = offense_player if outcome == "offense" else defense_player
 
