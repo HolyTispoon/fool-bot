@@ -75,6 +75,7 @@ from gamesaves.d12ball.service import (
     StopHandling,
 )
 from discord_emoji_cache import ensure_cached_emojis
+from gamelocks import GameLocks
 from cogs.d12ball_helpers import (
     COIN_EMOJI_NAMES,
     DiscordTokens,
@@ -1321,6 +1322,26 @@ class CoreMixin:
         return PLAIN_PROMPT_VIEWS[kind](self, game_id)
 
     # -- The service and the presenter -----------------------------------
+
+    @property
+    def locks(self) -> GameLocks:
+        """
+        **One lock per game, held around a click's whole answer** --
+        the apply *and* what it puts in the channel -- so two answers
+        cannot be presented in the other order from the one they were
+        applied in. See `gamelocks.py` for why that, and not the apply
+        alone, is what needs holding; `SafeView._scheduled_task` is
+        where every click takes it, and the web app takes the same one
+        over the same games (decision 5 of docs/web-app.md).
+
+        Built on first use, like `service`, so a cog a test assembles
+        without `__init__` has one.
+        """
+        locks = self.__dict__.get("_locks")
+        if locks is None:
+            locks = GameLocks()
+            self.__dict__["_locks"] = locks
+        return locks
 
     @property
     def service(self) -> GameService:
