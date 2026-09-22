@@ -31,19 +31,24 @@ import contextlib
 import importlib
 from unittest import mock
 
-# The view submodules that call `save_games` themselves. Views not
-# listed here save through `self.cog.persist`, which is patched at
-# `cogs.d12ball.save_games` by the same call sites.
-SAVING_VIEW_MODULES = (
-    "cogs.d12ball_views.setup",
-    "cogs.d12ball_views.lobby",
-
-)
+# The view submodules that call `save_games` themselves. **None, since
+# step 8 of docs/architecture-migration.md**: the setup and lobby views
+# were the last two, and they change the record through `GameService`
+# now, whose save `suppressed_cog_saves` reaches. The list stays so the
+# package-shape test keeps proving it empty -- a view that starts
+# binding `save_games` again fails the suite rather than writing
+# `data/d12ball_games.json` during it.
+SAVING_VIEW_MODULES = ()
 
 
 @contextlib.contextmanager
 def suppressed_view_saves():
-    """Keep every view's own `save_games` off the disk."""
+    """
+    Keep every view's own `save_games` off the disk -- of which there
+    are none any more (see `SAVING_VIEW_MODULES`), so this patches
+    nothing. Kept for the seventy-odd call sites that wrap a view in
+    both helpers; the one that does the work is `suppressed_cog_saves`.
+    """
     with contextlib.ExitStack() as stack:
         for module in SAVING_VIEW_MODULES:
             stack.enter_context(mock.patch(f"{module}.save_games"))

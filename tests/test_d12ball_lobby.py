@@ -32,12 +32,16 @@ from cogs.d12ball_views import (
 )
 from d12ball.game import AIOpponent, D12BallGame, GameMode, GameStatus
 from gamesaves.d12ball import hub as hub_storage
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from prompt_fixtures import ENGINE
+from save_patches import suppressed_cog_saves
 
 
 def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
     cog.games = {}
+    # Every change to a lobby goes through the service, which is built
+    # over the cog's engine.
+    cog.engine = ENGINE
     cog.hubs = {}
     cog.d12_emoji = None
     cog.d12_button_emoji = None
@@ -370,7 +374,7 @@ class LobbyViewTests(unittest.TestCase):
         view = LobbyView(cog, game.game_id)
         interaction = fake_interaction(555)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(
                 view.change_setting(interaction, game, "mode", "advanced")
             )
@@ -385,11 +389,11 @@ class LobbyViewTests(unittest.TestCase):
         view = LobbyView(cog, game.game_id)
         interaction = fake_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(view.change_setting(interaction, game, "test", ""))
         self.assertTrue(game.test_game)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(view.change_setting(interaction, game, "test", ""))
         self.assertFalse(game.test_game)
 
@@ -400,7 +404,7 @@ class LobbyViewTests(unittest.TestCase):
         view = LobbyView(cog, game.game_id)
         interaction = fake_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(view.change_setting(interaction, game, "test", ""))
 
         self.assertFalse(game.test_game)
@@ -413,7 +417,7 @@ class LobbyViewTests(unittest.TestCase):
         view = LobbyView(cog, game.game_id)
         interaction = fake_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(
                 view.change_setting(interaction, game, "mode", "advanced")
             )
@@ -430,7 +434,7 @@ class LobbyViewTests(unittest.TestCase):
         view = LobbyView(cog, game.game_id)
         interaction = fake_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(
                 view.change_setting(interaction, game, "tutorial", "")
             )
@@ -448,7 +452,7 @@ class LobbyViewTests(unittest.TestCase):
         view = LobbyView(cog, game.game_id)
         interaction = fake_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(
                 view.change_setting(interaction, game, "mode", "advanced")
             )
@@ -478,7 +482,7 @@ class LobbyViewTests(unittest.TestCase):
         modal.game_name._value = "The Cup Final"
         interaction = fake_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(modal.on_submit(interaction))
 
         self.assertEqual(game.game_name, "The Cup Final")
@@ -491,7 +495,7 @@ class LobbyViewTests(unittest.TestCase):
         modal.game_name._value = "Nope"
         interaction = fake_interaction(555)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(modal.on_submit(interaction))
 
         self.assertIsNone(game.game_name)

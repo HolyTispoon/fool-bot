@@ -98,13 +98,13 @@ that commit.
 
 ### Setup and the lobby are outside the model
 
-- Team pick, the AI's team draw (`random.choice`, `setup.py:575`),
+- ~~Team pick, the AI's team draw (`random.choice`, `setup.py:575`),
   the coin toss (`random.choice`, `setup.py:661`), home-or-visiting,
   Dinky's tutorial answer and `initialize_standard_match` all run in
   `cogs/d12ball_views/setup.py`. The lobby's toggles mutate the game
-  record in `lobby.py`. No service method, no prompt kind.
-- Three shootout views call `driver_answer` directly and hand-roll
-  the refusal so it lands on an ephemeral menu.
+  record in `lobby.py`. No service method, no prompt kind.~~ Step 8.
+- ~~Three shootout views call `driver_answer` directly and hand-roll
+  the refusal so it lands on an ephemeral menu.~~ Step 3.
 
 ### The AI mutates through its own paths
 
@@ -143,9 +143,10 @@ The architecture's migration order, mapped onto this code. Each step
 leaves the bot playable and the three goldens byte-identical unless
 the step says otherwise. Steps 1 to 4 landed together on the
 `architecture-simplification` branch, step 5 on `owed-step`, step 6
-on `step-6` and step 7 on `step-7`; what they settled is in
-[docs/design/game-service.md](design/game-service.md) and, for steps
-6 and 7, [docs/design/model-discord-split.md](design/model-discord-split.md).
+on `step-6`, step 7 on `step-7` and step 8 on `step-8`; what they
+settled is in [docs/design/game-service.md](design/game-service.md)
+and, for steps 6 and 7,
+[docs/design/model-discord-split.md](design/model-discord-split.md).
 
 ### 1. `GameService` and `GameResult` -- done (this branch)
 
@@ -377,7 +378,7 @@ the High Pass, the run back, the kickoff cover) ask it that way now.
 same function, so the driver-level tutorial run plays Dinky's turns
 as the service would.
 
-### 8. Setup and the lobby as service methods -- next
+### 8. Setup and the lobby as service methods -- done (`step-8`)
 
 `create_game`, `pick_team`, `flip_coin`, `choose_home_or_visiting`,
 `start_game` on the service; the randomness and
@@ -388,6 +389,54 @@ become optional** -- `guild_id`, `channel_id` and `message_id` as
 that is a change to the saved record. Every existing save reads back
 unchanged; a game the web app creates has no channel, and the startup
 sweep skips one.
+
+What landed, in two commits. **The ids first, on their own**: the
+three are `Optional[int] = None` and keyword-only, so the required
+`player_1_id` may still follow them and the saved dict keeps its key
+order; the startup sweep, `fetch_game_channel`,
+`game_channel_is_archived` and `game_for_channel` each skip or refuse
+a game with none; `tests/test_driver_full_game.py` stopped fabricating
+them. **Then the methods.** The rules are the record's:
+`D12BallGame` gained `lobby_join`, `lobby_observe`, `lobby_leave`,
+`configure` (every setting by the key a button carries --
+`GAME_SETTINGS` -- from the enum or its wire string), `start_lobby`
+and `reopen_lobby`, `pick_team`, `excluded_teams`,
+`picking_player_number`, `team_pick_lands_on` and `ai_team_pool`,
+each refusing with `RuleRefusal`, which moved to `d12ball/game.py`
+(the leaf) and is re-exported from `components.py`; the record's
+older mutators (`resolve_coin_toss`, `choose_home_or_visiting`,
+`start_game`, `finish_game`, `abandon`) raise it too. `GameService`
+gained the door over each -- `next_game_number`, `create_game`,
+`discard_game`, the three lobby moves, `configure`, `start_lobby`,
+`reopen_lobby`, `pick_team`, `flip_coin`,
+`choose_home_or_visiting` -- each load, apply, save once, return the
+record; a refusal is the exception itself and nothing is written.
+The randomness went to the model, not the service (decision 7): the
+coin is `RulesEngine.flip_coin` and the AI's team is
+`AIStrategy.choose_team(pool)` over `D12BallGame.ai_team_pool`, the
+same pool the picker greys out by. `flip_coin` seats Dinky visiting
+in a tutorial, as the view did. `ADVANCED_MODULES` and the
+last-module-on rule moved onto the record from `cogs/d12ball_helpers.py`.
+The setup and lobby views, `open_new_game`, `open_lobby` and the
+four lobby methods on the cog call the service and show what it
+refuses; `cogs/d12ball_views` binds no `save_games` anywhere now
+(`SAVING_VIEW_MODULES` is empty and `suppressed_view_saves` patches
+nothing), and the two record-only writes left in the setup flow --
+the message id after a post -- go through `GameService.save`.
+
+Three things the bot does differently, none a rule of the game. A
+lobby click saves before the message is edited rather than after,
+as every click past the lobby has since step 3 (the ack-then-save
+order was a guard against a slow disk on the live host, and it now
+holds for none of the clicks). A tutorial's setup screen can no
+longer put it on a nine-space board or in Advanced mode: the pin
+was the lobby's only, and `configure` holds it for the whole of
+setup. The two wordings of the Decent AI refusal are one. Finding 7
+of `docs/web-app.md` is closed:
+`tests/test_game_service_setup.py` opens a lobby, joins, configures,
+starts, picks, flips, chooses and reaches the pre-kickoff window
+through the service alone, on a record with no server, channel or
+message. The goldens did not change.
 
 ### 9. Discord out of the model -- next
 

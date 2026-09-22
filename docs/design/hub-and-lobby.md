@@ -66,8 +66,9 @@ does bar naming specific opponents up front). Two pieces:
 
 - **The lobby** is an ordinary `SETUP` game with `in_lobby=True` on the record
   (`d12ball/game.py`). `D12Ball.open_lobby` creates its channel through the
-  existing `create_private_game_channel` (named `d12ball-pbdN-lobby`), builds
-  the game with `player_2_id`/`ai_opponent` **both None**, and posts a
+  existing `create_private_game_channel` (named `d12ball-pbdN-lobby`), makes
+  the record through `GameService.create_game(in_lobby=True)` -- so
+  `player_2_id`/`ai_opponent` are **both None** -- and posts a
   `LobbyView` -- Join / Observe / Leave / Start Game, the Test game and Tutorial
   toggles, a **Name** button (opening `LobbyNameModal`, the one text field in
   the flow), and the mode / board-size / opponent settings -- plus, while
@@ -85,6 +86,16 @@ does bar naming specific opponents up front). Two pieces:
     so it is one request and best-effort. Observer overwrites are keyed by
     `discord.Object(id=..., type=Member)` -- `TextChannel.edit(overwrites=...)`
     accepts them and an observer may not be in the member cache.
+  - **Every change to the record is the record's own rule, through the
+    service** (step 8 of [../architecture-migration.md](../architecture-migration.md);
+    see "Setup and the lobby" in [game-service.md](game-service.md)):
+    `D12BallGame.lobby_join`, `lobby_observe`, `lobby_leave`, `configure`
+    and `start_lobby` refuse with `RuleRefusal` and the sentence to show,
+    `GameService` saves once, and the cog's `lobby_*` methods and the
+    view's `change_setting` show the refusal or redraw the message. The
+    save comes *before* the message edit, as it does for every click past
+    the lobby; the old order (acknowledge, then save, against a slow disk
+    on the live host) is gone with the rest of the views' own saves.
   - **Join** fills `player_2_id` (and clears any AI pick, and drops the user
     from `observer_ids`). **Observe** appends to `game.observer_ids` -- a list
     field, `field(default_factory=list)`, persisted; a player may not observe.
@@ -116,7 +127,9 @@ does bar naming specific opponents up front). Two pieces:
     Leave are deliberately not widened -- those are about the clicker
     themselves, and a helper joining would make them a player. See
     [Who may act on a game](permissions.md#who-may-act-on-a-game).
-  - **Start Game** (`lobby_start`, any player) finalises the record, does the
+  - **Start Game** (`lobby_start`, any player) finalises the record
+    (`GameService.start_lobby`, and `reopen_lobby` if the team picker
+    cannot be posted), does the
     **one-time best-effort** `channel.edit` (rename + lockdown -- the deliberate
     exception to "Archiving ... never renames it" under "Game channels" in [channels-and-archive.md](channels-and-archive.md)), then
     `post_game_setup_message`, the same `TeamSelectionView` the rest of setup

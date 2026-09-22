@@ -41,11 +41,13 @@ there is now one.
   `defending_user_id`) and `may_act_for` simply widens it, so a helper acts
   for either side and the flow is untouched. Three places had to answer
   *which* side instead, because they read it off the clicker:
-  - **The team picker.** A normal game's two sides share one row, so
-    `select_team` fills the side that has not chosen yet, Player 1 first --
-    the same order `picking_player_number` puts a test game's sequential
-    screens in. The `else` branch would otherwise have given every helper's
-    pick to Player 2, silently.
+  - **The team picker.** A normal game's two sides share one row, so a
+    helper's pick fills the side that has not chosen yet, Player 1 first
+    (`D12BallGame.team_pick_lands_on`) -- the same order
+    `picking_player_number` puts a test game's sequential screens in. The
+    `else` branch would otherwise have given every helper's pick to Player
+    2, silently. The view still decides *that* it is a helper's pick; the
+    record decides where it lands.
   - **The coin flip.** The coin is read from the flipping player's point of
     view, so it has to be flipped *as* somebody; a helper flips on Player 1's
     behalf. The coin is fair either way, so this changes the wording and

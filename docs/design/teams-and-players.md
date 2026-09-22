@@ -104,11 +104,14 @@ anywhere in the code.
   `TEAM_COLORS` gives Fire Demons Orange's own `#FFA500`, so that one
   match would draw both sides' cards, meeples and tokens in the same
   color -- and the board is where a coach reads which meeples are
-  theirs. `TeamSelectionView.excluded_teams` (`cogs/d12ball_views.py`)
-  drops a chosen team's `paired_team()` from the other side's options,
-  the same way it already dropped the team itself, and the AI's random
-  pick is filtered the same way -- nobody is holding Dinky's buttons,
-  so that pool is the only check a solo game has.
+  theirs. `D12BallGame.excluded_teams` (`d12ball/game.py`) drops a
+  chosen team's `paired_team()` from the other side's options, the
+  same way it already dropped the team itself; the team picker greys
+  out by it, `D12BallGame.pick_team` refuses a stale click against it,
+  and the AI's draw (`AIStrategy.choose_team`, through
+  `GameService.pick_team`) is from `ai_team_pool`, the same reading --
+  nobody is holding Dinky's buttons, so that pool is the only check a
+  solo game has.
   - **It is not a rule about shared rosters, and must not be rewritten
     as one.** Every other color/species matchup shares players too --
     a color team is 3 of its own species plus **2 of each other**, so

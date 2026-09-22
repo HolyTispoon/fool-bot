@@ -22,12 +22,13 @@ may then take just one.
   "advanced" three things a coach has to tell apart.
 - **A coach picks them in setup, as two toggles beside the mode buttons**,
   and both screens build them out of one table: `ADVANCED_MODULES` in
-  `cogs/d12ball_helpers.py`, keyed by the word the button carries in its
-  custom_id and naming the field it toggles. `toggle_advanced_module` is the
-  click, shared by `GameConfigurationView.select_module` (the settings block
-  on `CoinFlipView`) and the lobby's `change_setting`, so the two screens
-  cannot come to offer different modules or disagree about which may be
-  turned off.
+  `d12ball/game.py` (re-exported by `cogs/d12ball_helpers.py`), keyed by
+  the word the button carries in its custom_id and naming the field it
+  toggles. `D12BallGame.toggle_advanced_module` is the click, reached
+  through `GameService.configure` by `GameConfigurationView.select_module`
+  (the settings block on `CoinFlipView`) and the lobby's `change_setting`
+  alike, so the two screens cannot come to offer different modules or
+  disagree about which may be turned off.
   - **They are offered only while Advanced is on**, on the mode row itself --
     four buttons of Discord's five -- because they are what narrows the
     switch beside them. A basic game plays neither, and two dead buttons say

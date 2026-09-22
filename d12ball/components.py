@@ -8,7 +8,11 @@ from math import ceil
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from d12ball.game import Formation, Team, team_display_name
+# `RuleRefusal` is defined beside the game record, the leaf of the
+# model, because the record refuses too (a coin flipped twice, a lobby
+# nobody may join) and this module imports from it; it is still
+# imported from here everywhere else.
+from d12ball.game import Formation, RuleRefusal, Team, team_display_name  # noqa: F401
 
 
 DATA_FOLDER = Path(__file__).resolve().parent / "data"
@@ -16,28 +20,6 @@ PLAYERS_FILE = DATA_FOLDER / "players.json"
 BASIC_RULES_FILE = DATA_FOLDER / "basic_rules.json"
 MANEUVERS_FILE = DATA_FOLDER / "maneuvers.json"
 SPECIES_FILE = DATA_FOLDER / "species.json"
-
-
-class RuleRefusal(ValueError):
-    """
-    The position refusing what was chosen, with the sentence to show.
-
-    **The one channel a refusal travels on.** A step, a `MatchState`
-    mutator or an adapter in `d12ball.flow.driver` raises this where a
-    rule says no -- a space that player may not take, a substitution
-    with none left, a swap that moves nobody -- and `driver.answer`
-    catches this and nothing else, turning it into a `Refusal` a
-    frontend shows. Until step 6 of docs/architecture-migration.md the
-    channel was `ValueError`, which caught the interpreter's own
-    sentences too: a `TeamSide` built from a bad wire value came back
-    as a refusal worded by Python and shown to a person. A
-    `ValueError` that is not one of these is a bug again, and
-    propagates.
-
-    A subclass of `ValueError` so that every caller that already read
-    a refusal as one still does; what changed is what the model's own
-    door catches.
-    """
 
 
 class Zone(str, Enum):

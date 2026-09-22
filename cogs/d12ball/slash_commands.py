@@ -7,7 +7,6 @@ import asyncio
 import discord
 import re
 import time
-import uuid
 from typing import Optional
 
 from discord import app_commands
@@ -16,6 +15,7 @@ from d12ball.components import (
     MatchPeriod,
     MatchState,
     PlayerRole,
+    RuleRefusal,
     TeamSide,
     Zone,
 )
@@ -992,7 +992,7 @@ class CommandsMixin:
         finished game's configuration over; a fresh game takes the
         defaults and settles them in setup.
         """
-        game_number = self.get_next_game_number(guild)
+        game_number = self.service.next_game_number(guild.id)
         resolved_ai_opponent = (
             None if player_2 else ai_opponent or AIOpponent.DINKY
         )
@@ -1030,14 +1030,13 @@ class CommandsMixin:
             created_by,
         )
 
-        game_id = uuid.uuid4().hex
-
-        game = D12BallGame(
-            game_id=game_id,
-            game_number=game_number,
+        # The record is the service's to make (step 8 of
+        # docs/architecture-migration.md); what the channel is called
+        # and where it is are this frontend's, passed in.
+        game = self.service.create_game(
             guild_id=guild.id,
             channel_id=game_channel.id,
-            message_id=None,
+            game_number=game_number,
             player_1_id=player_1.id,
             player_2_id=player_2.id if player_2 else None,
             player_1_name=player_1_name,
@@ -1045,37 +1044,24 @@ class CommandsMixin:
             test_game=test_game,
             game_name=game_name,
             mode=mode,
-            # Which halves of advanced mode this game plays. They mean
-            # nothing in a basic game and are carried anyway, so a
-            # rematch of a maneuvers-only game that flips to Advanced
-            # in setup comes back as the game it is a rematch of.
             advanced_maneuvers=advanced_maneuvers,
             species_abilities=species_abilities,
-            status=GameStatus.SETUP,
             board_size=board_size,
             ai_opponent=resolved_ai_opponent,
             tutorial=tutorial,
-            # The step is set at kickoff, not here: setup is played
-            # exactly as an ordinary game plays it -- teams, the coin
-            # toss, home or visiting -- and the script starts with the
-            # first turn. `in_tutorial` is False until then, so nothing
-            # in setup is on rails.
-            tutorial_step=None,
         )
-
-        self.games[game_id] = game
 
         try:
             game.message_id = await self.post_game_setup_message(
                 game_channel, game,
             )
         except ValueError:
-            # The record was only ever added so the view could build
+            # The record was only ever made so the view could build
             # its message off it; with nothing posted there is no game.
-            self.games.pop(game_id, None)
+            self.service.discard_game(game.game_id)
             raise
 
-        save_games(self.games)
+        self.service.save()
         return game
 
     # -- The game-creation hub and the lobby --------------------------
@@ -1317,7 +1303,7 @@ class CommandsMixin:
         await interaction.response.defer(ephemeral=True)
 
         creator = interaction.user
-        game_number = self.get_next_game_number(guild)
+        game_number = self.service.next_game_number(guild.id)
 
         try:
             channel = await self.create_private_game_channel(
@@ -1335,30 +1321,23 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        game_id = uuid.uuid4().hex
-        game = D12BallGame(
-            game_id=game_id,
-            game_number=game_number,
+        game = self.service.create_game(
             guild_id=guild.id,
             channel_id=channel.id,
-            message_id=None,
+            game_number=game_number,
             player_1_id=creator.id,
-            player_2_id=None,
             player_1_name=creator.display_name,
-            player_2_name=None,
-            status=GameStatus.SETUP,
             in_lobby=True,
         )
-        self.games[game_id] = game
 
         try:
             message = await channel.send(
                 build_lobby_message(game, self.d12_emoji),
-                view=LobbyView(self, game_id),
+                view=LobbyView(self, game.game_id),
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         except discord.HTTPException as error:
-            self.games.pop(game_id, None)
+            self.service.discard_game(game.game_id)
             await interaction.followup.send(
                 f"The lobby channel was created, but I could not post its "
                 f"message: {error}",
@@ -1367,7 +1346,7 @@ class CommandsMixin:
             return
 
         game.message_id = message.id
-        save_games(self.games)
+        self.service.save()
 
         await interaction.followup.send(
             f"Your lobby is ready: <#{channel.id}>",
@@ -1379,13 +1358,9 @@ class CommandsMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
     ) -> None:
-        # Acknowledge the click first, persist after. `save_games` is a
-        # synchronous disk write, and on the live bot's Google Drive
-        # mount it can block the loop for seconds -- long enough for
-        # Discord to drop the interaction and turn the edit into a
-        # `10062 Unknown interaction`. The live game is the in-memory
-        # one either way; the file is only what a restart reads. Same
-        # order `lobby_start` already uses.
+        # The record has already been changed and saved by the service
+        # by the time this redraws the message, as it is for every
+        # click past the lobby (docs/design/game-service.md).
         await interaction.response.edit_message(
             content=build_lobby_message(game, self.d12_emoji),
             view=LobbyView(self, game.game_id),
@@ -1393,7 +1368,11 @@ class CommandsMixin:
             # edit that adds one must not ping them.
             allowed_mentions=discord.AllowedMentions.none(),
         )
-        save_games(self.games)
+
+    # Join, Observe and Leave are about the clicker themselves, which
+    # is why none of the three is gated: the record refuses whoever
+    # may not do what they asked (`D12BallGame.lobby_join` and its
+    # neighbours), and the sentence it refuses with is the reply.
 
     async def lobby_join(
         self,
@@ -1401,35 +1380,13 @@ class CommandsMixin:
         game: D12BallGame,
     ) -> None:
         user = interaction.user
-        if user.id == game.player_1_id:
-            await interaction.response.send_message(
-                "You are already in this lobby.", ephemeral=True,
+        try:
+            self.service.lobby_join(
+                game.game_id, user.id, getattr(user, "display_name", None),
             )
+        except RuleRefusal as error:
+            await interaction.response.send_message(str(error), ephemeral=True)
             return
-        if game.test_game or game.tutorial:
-            await interaction.response.send_message(
-                "This is a one-player game. The creator can switch it to a "
-                "two-player game so you can join.",
-                ephemeral=True,
-            )
-            return
-        if game.player_2_id is not None:
-            await interaction.response.send_message(
-                "This lobby is full -- a game is two players. You can still "
-                "**Observe**.",
-                ephemeral=True,
-            )
-            return
-
-        game.player_2_id = user.id
-        game.player_2_name = getattr(user, "display_name", None)
-        # Joining as a player supersedes observing.
-        if user.id in game.observer_ids:
-            game.observer_ids.remove(user.id)
-        # A second human settles the opponent: it is no longer a solo
-        # game, so clear any AI pick the creator made.
-        game.ai_opponent = None
-
         await self._refresh_lobby(interaction, game)
 
     async def lobby_observe(
@@ -1437,22 +1394,11 @@ class CommandsMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
     ) -> None:
-        user = interaction.user
-        if user.id in (game.player_1_id, game.player_2_id):
-            await interaction.response.send_message(
-                "You are playing in this game, not observing it.",
-                ephemeral=True,
-            )
+        try:
+            self.service.lobby_observe(game.game_id, interaction.user.id)
+        except RuleRefusal as error:
+            await interaction.response.send_message(str(error), ephemeral=True)
             return
-        if user.id in game.observer_ids:
-            await interaction.response.send_message(
-                "You are already on the observer list. **Leave** to drop "
-                "off it.",
-                ephemeral=True,
-            )
-            return
-
-        game.observer_ids.append(user.id)
         await self._refresh_lobby(interaction, game)
 
     async def lobby_leave(
@@ -1460,43 +1406,12 @@ class CommandsMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
     ) -> None:
-        user = interaction.user
-
-        if user.id in game.observer_ids:
-            game.observer_ids.remove(user.id)
-            await self._refresh_lobby(interaction, game)
+        try:
+            self.service.lobby_leave(game.game_id, interaction.user.id)
+        except RuleRefusal as error:
+            await interaction.response.send_message(str(error), ephemeral=True)
             return
-
-        if user.id == game.player_2_id:
-            game.player_2_id = None
-            game.player_2_name = None
-            await self._refresh_lobby(interaction, game)
-            return
-
-        if user.id != game.player_1_id:
-            await interaction.response.send_message(
-                "You are not in this lobby.", ephemeral=True,
-            )
-            return
-
-        # The creator is leaving. Hand the lobby to the other player if
-        # there is one; otherwise it stays open -- a lobby is never
-        # abandoned just because it emptied out, so the creator can keep
-        # it up and wait for someone to join.
-        if game.player_2_id is not None:
-            game.player_1_id = game.player_2_id
-            game.player_1_name = game.player_2_name
-            game.player_2_id = None
-            game.player_2_name = None
-            await self._refresh_lobby(interaction, game)
-            return
-
-        await interaction.response.send_message(
-            "You are the only player, so there is nobody to hand the lobby "
-            "to -- it stays open. Share this channel to invite someone, or "
-            "just start the game to play solo.",
-            ephemeral=True,
-        )
+        await self._refresh_lobby(interaction, game)
 
     async def lobby_start(
         self,
@@ -1517,27 +1432,22 @@ class CommandsMixin:
             )
             return
 
-        if game.test_game:
-            # One person on both sides -- Player 2 is the creator, and
-            # `__post_init__`'s "same user" rule holds again from here
-            # (it is relaxed only while `in_lobby`).
-            game.player_2_id = game.player_1_id
-            game.player_2_name = game.player_1_name
-            game.ai_opponent = None
-        elif game.tutorial or game.player_2_id is None:
-            # The tutorial, and any other lobby nobody joined, is a solo
-            # game against Dinky.
-            game.ai_opponent = game.ai_opponent or AIOpponent.DINKY
-
-        game.in_lobby = False
+        # Who takes the other side is the record's to settle
+        # (`D12BallGame.start_lobby`); the service saves it before the
+        # team picker is put up, since the picker is built off it.
+        try:
+            self.service.start_lobby(game.game_id)
+        except RuleRefusal as error:
+            await interaction.response.send_message(str(error), ephemeral=True)
+            return
 
         try:
             new_message_id = await self.post_game_setup_message(channel, game)
         except ValueError as error:
-            game.in_lobby = True
-            if game.test_game:
-                game.player_2_id = None
-                game.player_2_name = None
+            # Nothing to pick teams on: the lobby's own message is what
+            # the channel still shows, so the record goes back to being
+            # the lobby it was.
+            self.service.reopen_lobby(game.game_id)
             await interaction.response.send_message(
                 f"I could not start the game: {error}", ephemeral=True,
             )
@@ -1606,7 +1516,7 @@ class CommandsMixin:
             pass
 
         game.message_id = new_message_id
-        save_games(self.games)
+        self.service.save()
 
     async def start_rematch(
         self,

@@ -25,7 +25,7 @@ from save_patches import (
     SAVING_MODULES,
     SAVING_VIEW_MODULES,
     refuse_stray_save,
-    suppressed_view_saves,
+    suppressed_cog_saves,
 )
 
 PACKAGE = Path(views.__file__).parent
@@ -376,8 +376,8 @@ class StraySaveGuardTests(unittest.TestCase):
         `mock.patch` restores what it replaced, which is what lets the
         guard survive the four hundred-odd suppressions in the suite.
         """
-        module = importlib.import_module(SAVING_VIEW_MODULES[0])
-        with suppressed_view_saves():
+        module = importlib.import_module(SAVING_COG_MODULES[0])
+        with suppressed_cog_saves():
             self.assertIsNot(vars(module)["save_games"], refuse_stray_save)
         self.assertIs(vars(module)["save_games"], refuse_stray_save)
 

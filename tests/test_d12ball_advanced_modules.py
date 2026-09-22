@@ -16,17 +16,23 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball_helpers import (
-    ADVANCED_MODULES,
     advanced_module_label,
     build_lobby_message,
     build_setup_message,
     describe_game_mode,
-    toggle_advanced_module,
 )
 from cogs.d12ball_views import CoinFlipView, LobbyView
-from d12ball.components import load_player_catalog
-from d12ball.game import D12BallGame, GameMode, GameStatus, Team
-from save_patches import suppressed_view_saves
+from d12ball.components import RuleRefusal
+from d12ball.game import (
+    ADVANCED_MODULES,
+    D12BallGame,
+    GameMode,
+    GameStatus,
+    Team,
+)
+from gamesaves.d12ball.service import GameService
+from prompt_fixtures import ENGINE
+from save_patches import suppressed_cog_saves
 
 
 def build_game(**overrides) -> D12BallGame:
@@ -69,7 +75,10 @@ class FakeCog:
         self.team_emojis = {}
         self.d12_emoji = None
         self.d12_button_emoji = None
-        self.player_catalog = load_player_catalog()
+        # A setting is changed through the service (step 8 of
+        # docs/architecture-migration.md), so a view cannot be clicked
+        # without one.
+        self.service = GameService(ENGINE, self.games)
 
 
 def build_interaction(user_id: int) -> SimpleNamespace:
@@ -92,28 +101,29 @@ def module_custom_ids(view) -> set[str]:
 
 class ToggleRuleTests(unittest.TestCase):
     """
-    `toggle_advanced_module` is the one implementation both screens
-    toggle through, so the rule about the last module still on cannot
-    hold on one of them and not the other.
+    `D12BallGame.toggle_advanced_module` is the one implementation both
+    screens toggle through (`GameService.configure`), so the rule about
+    the last module still on cannot hold on one of them and not the
+    other.
     """
 
     def test_a_module_toggles_off_and_back_on(self) -> None:
         game = build_game()
 
-        self.assertIsNone(toggle_advanced_module(game, "species"))
+        game.toggle_advanced_module("species")
         self.assertFalse(game.species_abilities)
         self.assertTrue(game.advanced_maneuvers)
 
-        self.assertIsNone(toggle_advanced_module(game, "species"))
+        game.toggle_advanced_module("species")
         self.assertTrue(game.species_abilities)
 
     def test_the_last_module_on_may_not_be_turned_off(self) -> None:
         game = build_game(advanced_maneuvers=False)
 
-        refusal = toggle_advanced_module(game, "species")
+        with self.assertRaises(RuleRefusal) as refused:
+            game.toggle_advanced_module("species")
 
-        self.assertIsNotNone(refusal)
-        self.assertIn("Basic", refusal)
+        self.assertIn("Basic", str(refused.exception))
         self.assertTrue(game.species_abilities)
 
     def test_every_module_names_a_field_on_the_game_record(self) -> None:
@@ -202,7 +212,7 @@ class SetupSettingsTests(unittest.TestCase):
         view = CoinFlipView(FakeCog(game), game.game_id)
         interaction = build_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(view.select_module(interaction, "species"))
 
         self.assertFalse(game.species_abilities)
@@ -213,7 +223,7 @@ class SetupSettingsTests(unittest.TestCase):
         view = CoinFlipView(FakeCog(game), game.game_id)
         interaction = build_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(view.select_module(interaction, "maneuvers"))
 
         self.assertTrue(game.advanced_maneuvers)
@@ -225,7 +235,7 @@ class SetupSettingsTests(unittest.TestCase):
         view = CoinFlipView(FakeCog(game), game.game_id)
         interaction = build_interaction(999)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(view.select_module(interaction, "species"))
 
         self.assertTrue(game.species_abilities)
@@ -238,7 +248,7 @@ class SetupSettingsTests(unittest.TestCase):
         view = CoinFlipView(FakeCog(game), game.game_id)
         interaction = build_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(view.select_mode(interaction, GameMode.BASIC))
 
         self.assertFalse(game.species_abilities)
@@ -272,7 +282,7 @@ class LobbySettingsTests(unittest.TestCase):
         view = LobbyView(FakeCog(game), game.game_id)
         interaction = build_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(
                 view.change_setting(interaction, game, "module", "maneuvers")
             )
@@ -286,7 +296,7 @@ class LobbySettingsTests(unittest.TestCase):
         view = LobbyView(FakeCog(game), game.game_id)
         interaction = build_interaction(game.player_1_id)
 
-        with suppressed_view_saves():
+        with suppressed_cog_saves():
             asyncio.run(
                 view.change_setting(interaction, game, "module", "species")
             )

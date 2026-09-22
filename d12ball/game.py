@@ -3,6 +3,30 @@ from enum import Enum
 from typing import Optional
 
 
+class RuleRefusal(ValueError):
+    """
+    The position refusing what was chosen, with the sentence to show.
+
+    **The one channel a refusal travels on.** A step, a `MatchState`
+    mutator, an adapter in `d12ball.flow.driver` or a method on the
+    game record below raises this where a rule says no -- a space that
+    player may not take, a substitution with none left, a swap that
+    moves nobody, a coin flipped twice, a lobby nobody may join -- and
+    `driver.answer` and the setup methods on `GameService` let this
+    through and nothing else, so a frontend shows it and a bug
+    propagates. Until step 6 of docs/architecture-migration.md the
+    channel was `ValueError`, which caught the interpreter's own
+    sentences too: a `TeamSide` built from a bad wire value came back
+    as a refusal worded by Python and shown to a person. A
+    `ValueError` that is not one of these is a bug again.
+
+    A subclass of `ValueError` so that every caller that already read
+    a refusal as one still does; what changed is what the model's own
+    door catches. Defined here, the leaf of the model, because the
+    record refuses too; `d12ball.components` re-exports it.
+    """
+
+
 class Team(str, Enum):
     """
     Eight rosters along two axes, since the 2026-08-17 reshuffle: the
@@ -139,6 +163,26 @@ class CoinFace(str, Enum):
 
 
 VALID_BOARD_SIZES = {6, 7, 9}
+
+# The two halves of advanced mode, by the key a button carries:
+# the field on `D12BallGame` it toggles, and its name on the button. Both
+# the setup settings block and the lobby build their buttons out of it
+# and toggle through `D12BallGame.toggle_advanced_module`, so the two
+# screens cannot come to offer different modules or disagree about
+# which of them may be turned off.
+ADVANCED_MODULES: dict[str, tuple[str, str]] = {
+    "maneuvers": ("advanced_maneuvers", "Gambits"),
+    "species": ("species_abilities", "Species"),
+}
+
+#: What `D12BallGame.configure` may be asked to set. The lobby and the
+#: setup settings block each offer a subset; the record refuses the
+#: rest by its state (a game past its lobby has no Test game toggle),
+#: never by which screen asked.
+GAME_SETTINGS = ("mode", "module", "board", "ai", "test", "tutorial", "name")
+
+#: What a lobby refuses once Start Game has been pressed.
+LOBBY_CLOSED = "This lobby is no longer open."
 
 
 @dataclass
@@ -421,6 +465,338 @@ class D12BallGame:
             and self.visiting_player_number is not None
         )
 
+    # -- The lobby ----------------------------------------------------
+    #
+    # Every rule about who is in a game before it starts, and what its
+    # settings may be, is the record's: `GameService` calls one of these
+    # and saves, a frontend reports the refusal. See "The game-creation
+    # hub and the lobby" in docs/design/hub-and-lobby.md.
+
+    def require_lobby(self) -> None:
+        if not self.in_lobby:
+            raise RuleRefusal(LOBBY_CLOSED)
+
+    def lobby_join(self, user_id: int, user_name: Optional[str]) -> None:
+        """
+        Take the second seat. Refused for the creator, for a
+        one-player game, and for a lobby that is full; joining
+        supersedes observing and settles the opponent, so any AI pick
+        the creator made is cleared.
+        """
+        self.require_lobby()
+        if user_id == self.player_1_id:
+            raise RuleRefusal("You are already in this lobby.")
+        if self.test_game or self.tutorial:
+            raise RuleRefusal(
+                "This is a one-player game. The creator can switch it to "
+                "a two-player game so you can join."
+            )
+        if self.player_2_id is not None:
+            raise RuleRefusal(
+                "This lobby is full -- a game is two players. You can "
+                "still **Observe**."
+            )
+
+        self.player_2_id = user_id
+        self.player_2_name = user_name
+        if user_id in self.observer_ids:
+            self.observer_ids.remove(user_id)
+        self.ai_opponent = None
+
+    def lobby_observe(self, user_id: int) -> None:
+        """Ask to keep watching once the game locks its channel down.
+        A player is never an observer."""
+        self.require_lobby()
+        if user_id in (self.player_1_id, self.player_2_id):
+            raise RuleRefusal(
+                "You are playing in this game, not observing it."
+            )
+        if user_id in self.observer_ids:
+            raise RuleRefusal(
+                "You are already on the observer list. **Leave** to drop "
+                "off it."
+            )
+        self.observer_ids.append(user_id)
+
+    def lobby_leave(self, user_id: int) -> None:
+        """
+        Drop off whichever list the person is on. The creator leaving
+        with a second player present hands them the lobby; the creator
+        leaving alone is refused -- a lobby is never abandoned just
+        because it emptied out.
+        """
+        self.require_lobby()
+        if user_id in self.observer_ids:
+            self.observer_ids.remove(user_id)
+            return
+        if user_id == self.player_2_id:
+            self.player_2_id = None
+            self.player_2_name = None
+            return
+        if user_id != self.player_1_id:
+            raise RuleRefusal("You are not in this lobby.")
+        if self.player_2_id is None:
+            raise RuleRefusal(
+                "You are the only player, so there is nobody to hand the "
+                "lobby to -- it stays open. Share this channel to invite "
+                "someone, or just start the game to play solo."
+            )
+        self.player_1_id = self.player_2_id
+        self.player_1_name = self.player_2_name
+        self.player_2_id = None
+        self.player_2_name = None
+
+    def toggle_advanced_module(self, key: str) -> None:
+        """
+        Turn one half of advanced mode off or back on.
+
+        Both halves off is a basic game reached the long way round, and
+        the mode buttons are right there -- so the last one still on is
+        refused rather than quietly leaving a coach in an advanced game
+        with nothing advanced in it.
+        """
+        field_name, _ = ADVANCED_MODULES[key]
+        turning_off = getattr(self, field_name)
+        others_on = any(
+            getattr(self, other)
+            for other_key, (other, _) in ADVANCED_MODULES.items()
+            if other_key != key
+        )
+        if turning_off and not others_on:
+            raise RuleRefusal(
+                "An advanced game plays at least one of its two modules. "
+                "Pick Basic if you want neither."
+            )
+        setattr(self, field_name, not turning_off)
+
+    def configure(self, setting: str, value: object = None) -> None:
+        """
+        Change one setting, by the key a button carries (`GAME_SETTINGS`).
+
+        A value arrives as the enum or as its wire string, whichever
+        the frontend holds; one the record cannot read is a bug in the
+        frontend and raises as one, where a rule about *this* game --
+        the tutorial pins Basic on a 7-space board, a joined lobby has
+        no Test game toggle, the last module on stays on -- is refused
+        with the sentence to show.
+
+        `mode`, `module`, `board` and `ai` are open for the whole of
+        setup; `test`, `tutorial` and `name` only in the lobby, since
+        each is settled by Start Game. **Advanced mode is one switch
+        over two modules** and picking it brings both; the two are
+        left as they were when the mode goes back to Basic, so a
+        mis-click on the mode does not undo them. Advanced mode's
+        extra maneuvers want the room a nine-space board gives them,
+        so picking it defaults the board to 9 -- a coach may still
+        pick 6 or 7 afterwards.
+        """
+        if setting not in GAME_SETTINGS:
+            raise ValueError(f"Unknown game setting {setting!r}.")
+        if self.status != GameStatus.SETUP:
+            raise RuleRefusal(
+                "Game settings can only be changed during setup."
+            )
+
+        if setting in ("test", "tutorial"):
+            self.require_lobby()
+            if self.player_2_id is not None:
+                raise RuleRefusal(
+                    "Someone has already joined -- they would have to "
+                    "leave first."
+                )
+            if setting == "test":
+                self.test_game = not self.test_game
+                if self.test_game:
+                    self.tutorial = False
+            else:
+                self.tutorial = not self.tutorial
+                if self.tutorial:
+                    # One person against Dinky, and the script is
+                    # written for Basic on a 7-space board -- see
+                    # d12ball/tutorial.py.
+                    self.test_game = False
+                    self.ai_opponent = AIOpponent.DINKY
+                    self.mode = GameMode.BASIC
+                    self.board_size = 7
+        elif setting == "name":
+            self.require_lobby()
+            self.game_name = str(value or "").strip() or None
+        elif setting == "mode":
+            if self.tutorial:
+                raise RuleRefusal(
+                    "The tutorial is a Basic-mode game. Turn Tutorial off "
+                    "to change the mode."
+                )
+            self.mode = GameMode(value)
+            if self.mode == GameMode.ADVANCED:
+                self.board_size = 9
+        elif setting == "module":
+            self.toggle_advanced_module(str(value))
+        elif setting == "board":
+            if self.tutorial:
+                raise RuleRefusal(
+                    "The tutorial is played on a 7-space board. Turn "
+                    "Tutorial off to change the board."
+                )
+            board_size = int(value)
+            if board_size not in VALID_BOARD_SIZES:
+                raise ValueError(
+                    f"Board size must be one of {sorted(VALID_BOARD_SIZES)}."
+                )
+            self.board_size = board_size
+        elif setting == "ai":
+            ai_opponent = AIOpponent(value)
+            if ai_opponent == AIOpponent.DECENT:
+                raise RuleRefusal(
+                    "Decent AI is not ready yet -- play against Dinky AI."
+                )
+            if (
+                self.player_2_id is not None
+                or self.test_game
+                or self.tutorial
+            ):
+                raise RuleRefusal(
+                    "The other side of this game is already taken."
+                )
+            self.ai_opponent = ai_opponent
+
+    def start_lobby(self) -> None:
+        """
+        Settle who takes the other side and leave the lobby: a test
+        game seats the creator on both sides (`__post_init__`'s "same
+        user" rule holds again from here -- it is relaxed only while
+        `in_lobby`), and the tutorial, or any lobby nobody joined, is
+        a solo game against Dinky.
+        """
+        self.require_lobby()
+        if self.test_game:
+            self.player_2_id = self.player_1_id
+            self.player_2_name = self.player_1_name
+            self.ai_opponent = None
+        elif self.tutorial or self.player_2_id is None:
+            self.ai_opponent = self.ai_opponent or AIOpponent.DINKY
+        self.in_lobby = False
+
+    def reopen_lobby(self) -> None:
+        """
+        `start_lobby` undone, for a frontend that could not put the
+        started game up: the record goes back to the lobby it was, so
+        the lobby's own message keeps working.
+        """
+        if self.in_lobby or self.status != GameStatus.SETUP:
+            raise RuleRefusal("This game has left its lobby.")
+        if self.test_game:
+            self.player_2_id = None
+            self.player_2_name = None
+        self.in_lobby = True
+
+    # -- Team selection ----------------------------------------------
+
+    def picking_player_number(self) -> Optional[int]:
+        """
+        Whose team pick is next on a screen that has to say: `None`
+        for a normal game's shared row, where whichever coach clicks
+        picks their own side; 1 or 2 for a test game's sequential
+        screens, the side that has not chosen yet. Player 1 always
+        goes first, since nothing else orders them -- and that is the
+        order a helper's pick on the shared row lands in too
+        (`team_pick_lands_on`).
+        """
+        if not self.test_game:
+            return None
+        if self.player_1_team is None:
+            return 1
+        return 2
+
+    def team_pick_lands_on(self, requested: Optional[int]) -> int:
+        """
+        Which side a pick made by nobody in particular is for -- a
+        game helper holds neither side, so the pick has to be told
+        (see "Who may act on a game" in docs/design/permissions.md). A
+        test game's button names the side outright; a normal game's
+        two sides share one row, so it goes to the side that has not
+        chosen yet, Player 1 first. Getting this wrong is silent: an
+        `else` would quietly give every helper's pick to Player 2.
+        """
+        if self.test_game:
+            return requested if requested in (1, 2) else 1
+        return 1 if self.player_1_team is None else 2
+
+    def excluded_teams(self, player_number: Optional[int]) -> set[Team]:
+        """
+        Every team a pick for `player_number` must refuse: whichever
+        side(s) already have one, and that team's own `paired_team()`.
+        `None` is the normal game's shared row, which refuses on
+        behalf of either side.
+
+        **The pairing is refused for its color, not for its roster.**
+        A color team and its species team share a hex (`TEAM_COLORS`
+        gives Fire Demons Orange's own `#FFA500`), so that one match
+        would draw both sides' cards, meeples and tokens in the same
+        color -- the board is where a coach reads which meeples are
+        theirs, and there is nothing else on it that says. Every other
+        color/species matchup is offered and playable: the 2 or 3
+        players those rosters share are fielded as two cards, one a
+        side. See "One player, both sides" in
+        docs/design/teams-and-players.md.
+        """
+        if player_number == 1:
+            # The sequential test-game screen for whoever goes first:
+            # nothing is chosen yet, by construction.
+            already_chosen: list[Team] = []
+        elif player_number == 2:
+            # The sequential test-game screen for whoever goes second:
+            # only the side that has already gone is excluded here.
+            already_chosen = (
+                [self.player_1_team]
+                if self.player_1_team is not None
+                else []
+            )
+        else:
+            already_chosen = [
+                team
+                for team in (self.player_1_team, self.player_2_team)
+                if team is not None
+            ]
+
+        excluded: set[Team] = set()
+        for team in already_chosen:
+            excluded.add(team)
+            excluded.add(paired_team(team))
+        return excluded
+
+    def ai_team_pool(self) -> list[Team]:
+        """The teams an AI side may still be drawn from, once Player 1
+        has picked: everything but that team and its pair."""
+        return [
+            team for team in Team
+            if team not in self.excluded_teams(None)
+        ]
+
+    def pick_team(self, player_number: int, team: Team) -> None:
+        """
+        Record one side's team. Refused once selection has closed and
+        for a team the other side's pick rules out -- a stale click on
+        a screen the game has moved past, which the button should
+        already have refused, but a second browser tab or a slow
+        double-click can still get one through.
+        """
+        if player_number not in (1, 2):
+            raise ValueError("Player numbers must be either 1 or 2.")
+        if self.status != GameStatus.SETUP or self.in_lobby:
+            raise RuleRefusal("Team selection is already closed.")
+        team = Team(team)
+        if team in self.excluded_teams(
+            player_number if self.test_game else None,
+        ):
+            raise RuleRefusal("That team is no longer available.")
+        if player_number == 1:
+            self.player_1_team = team
+        else:
+            self.player_2_team = team
+
+    # -- The coin toss and the sides ---------------------------------
+
     def resolve_coin_toss(
         self,
         flipping_player_number: int,
@@ -434,7 +810,7 @@ class D12BallGame:
         hands it to their opponent.
         """
         if self.coin_flipped:
-            raise ValueError("The coin has already been flipped.")
+            raise RuleRefusal("The coin has already been flipped.")
 
         if flipping_player_number not in {1, 2}:
             raise ValueError("Player numbers must be either 1 or 2.")
@@ -460,13 +836,13 @@ class D12BallGame:
         choice: HomeChoice,
     ) -> None:
         if not self.coin_flipped:
-            raise ValueError("The coin must be flipped first.")
+            raise RuleRefusal("The coin must be flipped first.")
 
         if self.coin_winner_player_number != player_number:
-            raise ValueError("Only the coin-toss winner can choose.")
+            raise RuleRefusal("Only the coin-toss winner can choose.")
 
         if self.home_and_visiting_selected:
-            raise ValueError("Home and visiting teams are already assigned.")
+            raise RuleRefusal("Home and visiting teams are already assigned.")
 
         choice = HomeChoice(choice)
         other_player_number = 2 if player_number == 1 else 1
@@ -483,7 +859,7 @@ class D12BallGame:
         Move the game from setup to in progress.
         """
         if self.status != GameStatus.SETUP:
-            raise ValueError(
+            raise RuleRefusal(
                 "Only a game in setup can be started."
             )
 
@@ -494,7 +870,7 @@ class D12BallGame:
         Mark an active game as finished.
         """
         if self.status != GameStatus.IN_PROGRESS:
-            raise ValueError(
+            raise RuleRefusal(
                 "Only a game in progress can be finished."
             )
 
@@ -512,7 +888,7 @@ class D12BallGame:
         abandoning twice cannot un-finish a real result.
         """
         if self.status == GameStatus.FINISHED:
-            raise ValueError("This game has already finished.")
+            raise RuleRefusal("This game has already finished.")
 
         self.status = GameStatus.FINISHED
         self.abandoned = True

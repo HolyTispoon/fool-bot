@@ -48,6 +48,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.components import TeamSide
 from d12ball.game import D12BallGame, GameMode, GameStatus, Team
@@ -68,7 +69,12 @@ def build_cog() -> D12Ball:
     cog.d12_emoji = None
     cog.coin_emojis = {}
     cog.engine = RulesEngine(
-        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+        cog.player_catalog,
+        cog.basic_ruleset,
+        cog.maneuver_catalog,
+        # A solo game's team pick draws Dinky's team through its
+        # strategy (`GameService.pick_team`).
+        build_ai_strategies(cog.player_catalog, cog.maneuver_catalog),
     )
     return cog
 
