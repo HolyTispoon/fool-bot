@@ -360,7 +360,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             cog.engine.get_player_definition(player_id),
         )
 
-        side = cog.engine.challenge_side(
+        side = cog.challenge_side(
             player_id, match.team_for_player(player_id), attacking=True,
         )
 

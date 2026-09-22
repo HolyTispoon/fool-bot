@@ -22,9 +22,11 @@ from d12ball.components import (
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.flow import FollowOnStep
-from d12ball.game import D12BallGame, team_display_name
+from d12ball.formatting import role_initials
+from d12ball.game import D12BallGame, Team, team_display_name
 from d12ball.render import (
     TEAM_COLORS,
+    ChallengeSide,
     render_field_image,
     render_maneuver_challenge,
     render_match_image,
@@ -100,6 +102,52 @@ class PresentationMixin:
         save_games(self.games)
 
 
+    def challenge_side(
+        self,
+        player_id: str,
+        team: Team,
+        attacking: bool,
+        modifiers: tuple[str, ...] = (),
+        contribution: Optional[int] = None,
+        halved: bool = False,
+    ) -> ChallengeSide:
+        """
+        A player as a matchup image draws them. The ability is the
+        short form: this is a caption under a portrait, next to
+        another player's, and the sentence version wrapped to three
+        lines and set the height of the whole image. The full text is
+        still what the roster and the rules listing show.
+
+        `contribution` and `halved` are a score attempt's defenders
+        only -- everyone else adds their whole skill and is drawn
+        without a word about it. `team` is which of the player's two
+        rosters this match is fielding them as -- read by both callers
+        off `match.team_for_player`, since a player's own definition no
+        longer carries one.
+
+        A rendering brief, so it is the frontend's: it was
+        `RulesEngine.challenge_side` until step 9 of
+        docs/architecture-migration.md, and the one thing that made
+        the engine import `d12ball/render.py` -- and Pillow with it,
+        in every process that loaded the model. The numbers it reads
+        are the catalog's; the colour is `TEAM_COLORS`'s, which lives
+        with the renderer that draws it.
+        """
+        player = self.engine.get_player_definition(player_id)
+        profile = self.engine.player_catalog.effective_profile(player)
+        return ChallengeSide(
+            name=player.name,
+            role=role_initials(player),
+            team_color=TEAM_COLORS[Team(team)],
+            team_label=team_display_name(team),
+            skill_name="Offensive" if attacking else "Defensive",
+            skill=profile.offense if attacking else profile.defense,
+            ability=profile.short_ability,
+            modifiers=modifiers,
+            contribution=contribution,
+            halved=halved,
+        )
+
     async def build_maneuver_challenge_file(
         self,
         match: MatchState,
@@ -117,12 +165,12 @@ class PresentationMixin:
         return discord.File(
             await asyncio.to_thread(
                 render_maneuver_challenge,
-                self.engine.challenge_side(
+                self.challenge_side(
                     match.active_player_id,
                     match.team_for_player(match.active_player_id),
                     attacking=True,
                 ),
-                self.engine.challenge_side(
+                self.challenge_side(
                     defender_id,
                     match.team_for_player(defender_id),
                     attacking=False,
@@ -167,14 +215,14 @@ class PresentationMixin:
         return discord.File(
             await asyncio.to_thread(
                 render_score_attempt,
-                self.engine.challenge_side(
+                self.challenge_side(
                     shooter.player_id,
                     match.team_for_player(shooter.player_id),
                     attacking=True,
                     modifiers=tuple(modifiers),
                 ),
                 [
-                    self.engine.challenge_side(
+                    self.challenge_side(
                         defender.player.player_id,
                         match.team_for_player(defender.player.player_id),
                         attacking=False,

@@ -18,14 +18,16 @@ multi-step flow across several of these decisions plus a board refresh
 itself sends messages and batches board writes, which is exactly the
 Discord-facing half this module has no business holding.
 
-Some methods here build prompt text or a `ChallengeSide` for the
-matchup image -- `build_turn_prompt`, `challenge_side`, and their
+Some methods here build prompt text -- `build_turn_prompt` and its
 kind. That is presentation, not a rule, but it is presentation over
 nothing but the match and the catalogs: no emoji, no interaction, no
-cog. `d12ball/formatting.py` is where the plain-text half of that
-lives (space codes, team-side labels, player names), imported here the
-same way it is imported into cogs/d12ball_helpers.py -- see that
-module's own docstring for why the split runs where it does.
+cog, and no Pillow (the matchup image's brief, `challenge_side`, is
+the cog's since step 9 of docs/architecture-migration.md, so this
+module imports nothing from `d12ball/render.py`). `d12ball/formatting.py`
+is where the plain-text half of that lives (space codes, team-side
+labels, player names), imported here the same way it is imported into
+cogs/d12ball_helpers.py -- see that module's own docstring for why
+the split runs where it does.
 
 `D12Ball.engine` is the one instance a game's cog builds at startup,
 from the same four things `RulesEngine.__init__` takes: the player
@@ -85,7 +87,6 @@ from d12ball.formatting import (
     format_player_with_team,
     format_team_side_label,
     player_with_role,
-    role_initials,
     space_label,
     travel_space_phrase,
 )
@@ -99,7 +100,6 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball import tokens
-from d12ball.render import TEAM_COLORS, ChallengeSide
 
 
 @dataclass(frozen=True)
@@ -3004,44 +3004,6 @@ class RulesEngine:
             return f"{name} {word}"
         offense = self.player_catalog.effective_profile(player).offense
         return f"{name} +{offense}"
-
-    def challenge_side(
-        self,
-        player_id: str,
-        team: Team,
-        attacking: bool,
-        modifiers: tuple[str, ...] = (),
-        contribution: Optional[int] = None,
-        halved: bool = False,
-    ) -> ChallengeSide:
-        """
-        A player as a matchup image draws them. The ability is the
-        short form: this is a caption under a portrait, next to
-        another player's, and the sentence version wrapped to three
-        lines and set the height of the whole image. The full text is
-        still what the roster and the rules listing show.
-
-        `contribution` and `halved` are a score attempt's defenders
-        only -- everyone else adds their whole skill and is drawn
-        without a word about it. `team` is which of the player's two
-        rosters this match is fielding them as -- read by both callers
-        off `match.team_for_player`, since a player's own definition no
-        longer carries one.
-        """
-        player = self.get_player_definition(player_id)
-        profile = self.player_catalog.effective_profile(player)
-        return ChallengeSide(
-            name=player.name,
-            role=role_initials(player),
-            team_color=TEAM_COLORS[Team(team)],
-            team_label=team_display_name(team),
-            skill_name="Offensive" if attacking else "Defensive",
-            skill=profile.offense if attacking else profile.defense,
-            ability=profile.short_ability,
-            modifiers=modifiers,
-            contribution=contribution,
-            halved=halved,
-        )
 
     def format_roster_player(self, player_id: str) -> str:
         """
