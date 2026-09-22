@@ -78,6 +78,7 @@ from discord_emoji_cache import ensure_cached_emojis
 from cogs.d12ball_helpers import (
     COIN_EMOJI_NAMES,
     DiscordTokens,
+    build_maneuver_action_caption,
     EMOJI_REFETCH_INTERVAL,
     ERROR_RECOVERY_ADVICE,
     LOGGER,
@@ -1041,7 +1042,8 @@ class CoreMixin:
         Everything here is a picture: the hand image, the link to the
         full-size version, and the field strip under it. Who is being
         asked and what they are told arrives in `content`, which is
-        the prompt's own ask (`maneuver_action_ask`); a tutorial's note
+        this frontend's caption over the prompt's own ask
+        (`build_maneuver_action_caption`); a tutorial's note
         has already been shown and clicked through by the time this is
         reached (`d12ball.flow.gates`).
         """
@@ -1621,8 +1623,15 @@ class CoreMixin:
             return
 
         if kind is PromptKind.MANEUVER_ACTION:
+            # The one ask this frontend words for itself: the model
+            # says who picks and that the pick is secret, and Discord
+            # adds which row is theirs (`build_maneuver_action_caption`).
+            caption = self.render_text(
+                build_maneuver_action_caption(self.engine, game, match), game,
+            )
             await self.send_maneuver_action_prompt(
-                interaction, game, match, content,
+                interaction, game, match,
+                "\n\n".join(filter(None, (lead_in, caption))),
             )
             return
 

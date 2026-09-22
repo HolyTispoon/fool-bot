@@ -135,7 +135,7 @@ class Policy:
         fixture = _Fixture(self.game, match)
         if kind is PromptKind.PLAYER_ACTION:
             if "shoot" in options.live:
-                return Action(kind, "shoot", {"action_label": "shoot"})
+                return Action(kind, "shoot")
             if "time_out" in options.live:
                 return Action(kind, "time_out")
             return Action(kind, "maneuver")
@@ -153,7 +153,7 @@ class Policy:
         if kind is PromptKind.COACHING_OFFER:
             return Action(
                 kind, "decline",
-                {"side": match.pending_coaching_side, "coach_name": "Coach"},
+                {"side": match.pending_coaching_side},
             )
         choice, arguments = LEGAL_ACTIONS[kind](fixture)
         return Action(kind, choice, arguments)
@@ -175,10 +175,7 @@ class TutorialPolicy(Policy):
         options = prompt.options
         if kind is PromptKind.PLAYER_ACTION and options.live != options.actions:
             action = options.live[0]
-            return Action(
-                kind, action,
-                {"action_label": "shoot"} if action == "shoot" else {},
-            )
+            return Action(kind, action)
         if kind is PromptKind.MANEUVER_ACTION:
             hand = next(
                 hand for hand in options.hands if not hand.picked

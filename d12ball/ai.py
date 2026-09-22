@@ -450,11 +450,7 @@ class DinkyAI(AIStrategy):
         """
         if self._injured_swap(match, side) is not None:
             return Action(prompt.kind, "declare", {"side": side})
-        return Action(
-            prompt.kind,
-            "decline",
-            {"side": side, "coach_name": format_ai_name(game.ai_opponent)},
-        )
+        return Action(prompt.kind, "decline", {"side": side})
 
     def _coaching_hub(self, prompt, game, match, side, options) -> Action:
         """

@@ -678,12 +678,6 @@ def shooter_mention(
     )
 
 
-#: Which row a lone side is told to press, by name. The buttons carry
-#: the colour themselves (see `ManeuverActionPromptView`); this is the
-#: word for it in the line above them.
-MANEUVER_ROW_COLOURS = {"offense": "red", "defense": "green"}
-
-
 def maneuver_prompt_wording(
     engine: "RulesEngine",
     game: D12BallGame,
@@ -691,12 +685,21 @@ def maneuver_prompt_wording(
     sides: list[str],
 ) -> tuple[list[str], str]:
     """
-    Who is mentioned above the maneuver prompt, and what they are told
+    Who is addressed above the maneuver prompt, and what they are told
     to do.
 
     Both come off the same `sides` list the buttons are built from,
     which is the point: a coach named here and given no row to press
     would stall a game, and nothing else would catch it.
+
+    The instruction says what the position asks -- a pick, and a
+    secret one -- and nothing about where the buttons are. Until step
+    9 of docs/architecture-migration.md it named the row's colour
+    ("from the red row", "red for the offense, green for the
+    defense"), which is Discord's layout and not the game's; the
+    Discord prompt words that for itself
+    (`cogs.d12ball_helpers.build_maneuver_action_caption`), and a web
+    page has its own buttons to point at.
     """
     waiting_on = [
         format_player_with_team(
@@ -709,27 +712,24 @@ def maneuver_prompt_wording(
         for side in sides
     ]
 
-    # The buttons are on the message, so there is nothing to tell a
-    # coach to open. What the wording has to do instead is say which
-    # row is theirs, since a contested prompt carries both.
-    #
-    # A lone side is not always the offense: a solo game's prompt is
-    # one row, and it is the *defense's* whenever Dinky has the ball.
-    # So the colour is read off the side rather than written down -- it
-    # is the row's own colour either way (offense red, defense green;
-    # see ManeuverActionPromptView).
     instruction = (
-        "choose a maneuver from the "
-        f"{MANEUVER_ROW_COLOURS[sides[0]]} row -- only you can "
-        "see what you picked."
+        "choose a maneuver -- only you can see what you picked."
         if len(sides) == 1
-        else (
-            "both sides pick privately from the same message: red "
-            "for the offense, green for the defense. Only you can "
-            "see what you picked."
-        )
+        else "both sides pick privately -- only you can see what you picked."
     )
     return waiting_on, instruction
+
+
+def maneuver_gambit_paragraph(ask: str, gambit_access: str) -> str:
+    """
+    Who holds their gambits, under the ask and above the cards --
+    `""` for a basic game, which adds nothing. One join, so the
+    Discord caption and the model's ask put the paragraph in the same
+    place.
+    """
+    if gambit_access:
+        return f"{ask}\n\n{gambit_access}"
+    return ask
 
 
 def maneuver_action_ask(
@@ -759,11 +759,10 @@ def maneuver_action_ask(
     waiting_on, instruction = maneuver_prompt_wording(
         engine, game, match, sides,
     )
-    ask = f"{' and '.join(waiting_on)}, {instruction}"
-    gambit_access = engine.describe_gambit_access(game, match)
-    if gambit_access:
-        ask = f"{ask}\n\n{gambit_access}"
-    return ask
+    return maneuver_gambit_paragraph(
+        f"{' and '.join(waiting_on)}, {instruction}",
+        engine.describe_gambit_access(game, match),
+    )
 
 
 def speed_choice_ask(

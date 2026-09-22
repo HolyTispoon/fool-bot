@@ -172,7 +172,7 @@ The ball was left with Quillon [PM], who takes this turn.
 Choose an action:
 === press 18: PlayerActionView -> 'Shoot to score'
 --- message
-🔮 Player 1 has chosen to Shoot to score with 🔮 Quillon [PM].
+🔮 Player 1 has chosen to shoot to score with 🔮 Quillon [PM].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 19: ScoreAttemptView -> 'Roll the score attempt'
@@ -226,7 +226,7 @@ The ball was left with Noxar [SK], who takes this turn.
 Choose an action:
 === press 22: PlayerActionView -> 'Shoot to score'
 --- message
-🔮 Player 1 has chosen to Shoot to score with 🔮 Noxar [SK].
+🔮 Player 1 has chosen to shoot to score with 🔮 Noxar [SK].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 23: ScoreAttemptView -> 'Roll the score attempt'
@@ -744,7 +744,7 @@ Coach?
 === press 68: CoachingOfferView -> 'Pass'
 --- message
 # Coaching Choice
-**🔮 Coach passed.**
+**🔮 Player 1 passed.**
 --- message
 The ball speed goes down to **1**.
 --- message
@@ -793,7 +793,7 @@ Coach?
 === press 72: CoachingOfferView -> 'Pass'
 --- message
 # Coaching Choice
-**🔮 Coach passed.**
+**🔮 Player 1 passed.**
 --- message
 The ball speed goes down to **1**.
 --- message

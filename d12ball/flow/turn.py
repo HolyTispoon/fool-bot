@@ -416,8 +416,8 @@ def turn_action_refusal(
     allowed = tutorial.allowed_actions(tutorial_beat(game))
     if allowed is not None and action not in allowed:
         return (
-            "The tutorial is on this step's action. Use the prompt "
-            "at the bottom of the channel."
+            "The tutorial is on this step's action. Use the current "
+            "prompt."
         )
 
     if action == "shoot" and not match.can_attempt_score():
@@ -444,15 +444,16 @@ def begin_shot_step(
     engine: RulesEngine,
     game: D12BallGame,
     match: MatchState,
-    action_label: str,
 ) -> StepResult:
     """
     Take the shot on, and say who is taking it.
 
-    `action_label` is the button's own word for it, which the tutorial
-    rewrites, so the sentence takes it rather than deciding it -- the
-    one thing on this path that is the frontend's, and it is a label
-    rather than a rule.
+    The sentence took the button's own label until step 9 of
+    docs/architecture-migration.md ("has chosen to Shoot to score"
+    for a coach, and the default for the AI), on the grounds that the
+    tutorial rewrote it; nothing did, and a label crossing from the
+    frontend into narration was the one thing on this path that was
+    not the model's. It is one sentence now, in one voice.
 
     It ends on the roll prompt. What the frontend puts up for that
     kind is the composition image and then the prompt -- two uploads
@@ -469,7 +470,7 @@ def begin_shot_step(
     )
     return StepResult(
         narration=[
-            f"{offense_display} has chosen to {action_label} with "
+            f"{offense_display} has chosen to shoot to score with "
             f"{engine.format_player_label(match, handler)}."
         ],
         next=PendingPrompt(PromptKind.SCORE_ATTEMPT, SCORE_ATTEMPT_ASK),
@@ -613,7 +614,7 @@ def maneuver_pick_refusal(
         return (
             "This step of the tutorial wants "
             f"**{engine.maneuver_name(allowed[0])}**. Use the "
-            "prompt at the bottom of the channel."
+            "current prompt."
         )
 
     playable = {
@@ -623,7 +624,7 @@ def maneuver_pick_refusal(
     if maneuver_key not in playable:
         return (
             "That maneuver isn't in your hand for this turn. Use the "
-            "prompt at the bottom of the channel."
+            "current prompt."
         )
 
     return None

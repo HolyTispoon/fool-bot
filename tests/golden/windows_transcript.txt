@@ -69,7 +69,7 @@ The ball was left with Sizzifizik [PM], who takes this turn.
 Choose an action:
 === press 8: PlayerActionView -> 'Shoot to score'
 --- message
-🟠 Player 1 has chosen to Shoot to score with 🟠 Sizzifizik [PM].
+🟠 Player 1 has chosen to shoot to score with 🟠 Sizzifizik [PM].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 9: ScoreAttemptView -> 'Roll the score attempt'
@@ -172,7 +172,7 @@ Coach?
 === press 16: CoachingOfferView -> 'Pass'
 --- message
 # Coaching Choice
-**🟠 Coach passed.**
+**🟠 Player 1 passed.**
 --- message
 The ball speed goes down to **1**.
 --- message
@@ -530,7 +530,7 @@ The ball was left with Flickerwing [WG], who takes this turn.
 Choose an action:
 === press 46: PlayerActionView -> 'Shoot to score'
 --- message
-🟠 Player 1 has chosen to Shoot to score with 🟠 Flickerwing [WG].
+🟠 Player 1 has chosen to shoot to score with 🟠 Flickerwing [WG].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 47: ScoreAttemptView -> 'Roll the score attempt'

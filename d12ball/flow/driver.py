@@ -663,8 +663,7 @@ def _rail(railed, chosen) -> None:
     if railed is not None and chosen != railed:
         _refuse(
             "The tutorial is on one step of a single continuous game, "
-            "so this choice is fixed. Use the prompt at the bottom of "
-            "the channel."
+            "so this choice is fixed. Use the current prompt."
         )
 
 
@@ -891,23 +890,20 @@ def _answer_coaching_offer(
     choice: str,
     *,
     side: TeamSide,
-    coach_name: str = "",
 ) -> StepResult:
     """
     A coaching window that was *offered* rather than given, taken up or
     passed.
 
-    `coach_name` is what to call the person who passed -- a label the
-    frontend supplies rather than a rule, the way a shot's
-    `action_label` is. Nothing in the match knows what to call a
-    Discord account. `side` is checked against the open window: a
-    window that has closed, or the other side's, is a stale click.
+    `side` is checked against the open window: a window that has
+    closed, or the other side's, is a stale click. Who passed is the
+    side's coach, named off the record (`decline_coaching_step`); the
+    frontend supplied a display name until step 9 of
+    docs/architecture-migration.md.
     """
     _window_is(match, side)
     if choice == "decline":
-        return windows.decline_coaching_step(
-            engine, game, match, side=side, coach_name=coach_name,
-        )
+        return windows.decline_coaching_step(engine, game, match, side=side)
     return windows.declare_coaching_step(engine, game, match)
 
 
@@ -1093,8 +1089,6 @@ def _answer_player_action(
     match: MatchState,
     prompt: PendingPrompt,
     choice: str,
-    *,
-    action_label: str = "shoot to score",
 ) -> StepResult:
     """
     The turn itself: shoot, maneuver, or call a time out.
@@ -1107,10 +1101,6 @@ def _answer_player_action(
     three reasons the button would not have been built. The Discord
     view confirms it first (`TimeOutConfirmView`), and Back is not an
     action -- it puts the prompt back up.
-
-    `action_label` is the button's own word for the shot, which the
-    tutorial rewrites; it is a label rather than a rule, which is why
-    it arrives with the action.
     """
     refusal = turn.turn_action_refusal(engine, game, match, choice)
     if refusal is not None:
@@ -1118,7 +1108,7 @@ def _answer_player_action(
     if choice == "time_out":
         return windows.begin_time_out(engine, game, match)
     if choice == "shoot":
-        return turn.begin_shot_step(engine, game, match, action_label)
+        return turn.begin_shot_step(engine, game, match)
     return turn.begin_maneuver_step(engine, game, match)
 
 
@@ -1163,7 +1153,7 @@ def _answer_maneuver_challenge(
         if prompt.options.decline_railed:
             _refuse(
                 "This step of the tutorial wants a challenger sent. "
-                "Use the prompt at the bottom of the channel."
+                "Use the current prompt."
             )
         return turn.decline_challenge_step(engine, game, match)
     if player_id not in prompt.options.player_ids:

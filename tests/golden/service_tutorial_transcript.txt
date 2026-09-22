@@ -48,7 +48,7 @@ Dinky's playmaker is standing on the ball, so they are the one challenging you.
 --- group action MANEUVER_ACTION ''
 {team:purple} Dinky AI has picked their maneuver.
 --- prompt MANEUVER_ACTION
-{team:orange} {coach:1}, choose a maneuver from the red row -- only you can see what you picked.
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
 === action 5: MANEUVER_ACTION '' {"side": "offense", "maneuver_key": "dribble_advance"}
 --- answer
 {team:orange} Player 1 has picked their maneuver.
@@ -102,7 +102,7 @@ Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is 
 --- group action MANEUVER_ACTION ''
 {team:purple} Dinky AI has picked their maneuver.
 --- prompt MANEUVER_ACTION
-{team:orange} {coach:1}, choose a maneuver from the red row -- only you can see what you picked.
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
 === action 12: MANEUVER_ACTION '' {"side": "offense", "maneuver_key": "low_pass"}
 --- answer
 {team:orange} Player 1 has picked their maneuver.
@@ -174,7 +174,7 @@ Defending, your hand is the other half of the cycle:
 --- group action MANEUVER_ACTION ''
 {team:purple} Dinky AI has picked their maneuver.
 --- prompt MANEUVER_ACTION
-{team:orange} {coach:1}, choose a maneuver from the green row -- only you can see what you picked.
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
 === action 18: MANEUVER_ACTION '' {"side": "defense", "maneuver_key": "pressure"}
 --- answer
 {team:orange} Player 1 has picked their maneuver.
@@ -209,7 +209,7 @@ Then you get to set the **ball's speed**, up to your stealer's defensive skill. 
 --- group action MANEUVER_ACTION ''
 {team:purple} Dinky AI has picked their maneuver.
 --- prompt MANEUVER_ACTION
-{team:orange} {coach:1}, choose a maneuver from the green row -- only you can see what you picked.
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
 === action 22: MANEUVER_ACTION '' {"side": "defense", "maneuver_key": "steal"}
 --- answer
 {team:orange} Player 1 has picked their maneuver.
@@ -271,7 +271,7 @@ Their fullback is standing on V2, so you get their whole defensive skill of 6 ag
 --- group action MANEUVER_ACTION ''
 {team:purple} Dinky AI has picked their maneuver.
 --- prompt MANEUVER_ACTION
-{team:orange} {coach:1}, choose a maneuver from the red row -- only you can see what you picked.
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
 === action 27: MANEUVER_ACTION '' {"side": "offense", "maneuver_key": "high_pass"}
 --- answer
 {team:orange} Player 1 has picked their maneuver.
@@ -332,5 +332,5 @@ Good luck.
 --- group action MANEUVER_ACTION ''
 {team:purple} Dinky AI has picked their maneuver.
 --- prompt MANEUVER_ACTION
-{team:orange} {coach:1}, choose a maneuver from the green row -- only you can see what you picked.
+{team:orange} {coach:1}, choose a maneuver -- only you can see what you picked.
 --- board changed

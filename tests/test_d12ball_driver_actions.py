@@ -713,7 +713,7 @@ def _shot_out_of_range(fixture: PromptFixture) -> dict:
     if match.active_player_id is None:
         match.active_player_id = match.home.field_players[0]
     assert not match.can_attempt_score()
-    return {"action_label": "shoot"}
+    return {}
 
 
 def _time_out_in_the_last_minute(fixture: PromptFixture) -> dict:
@@ -729,7 +729,7 @@ def _other_side_s_window(fixture: PromptFixture) -> dict:
 
 
 def _other_side_s_offer_decline(fixture: PromptFixture) -> dict:
-    return {**_other_side_s_window(fixture), "coach_name": "Coach"}
+    return _other_side_s_window(fixture)
 
 
 def _formation_off_the_board(fixture: PromptFixture) -> dict:

@@ -27,6 +27,7 @@ from d12ball.components import (
     Zone,
 )
 from d12ball import tokens
+from d12ball.prompts import maneuver_gambit_paragraph, maneuver_prompt_wording
 from d12ball.formatting import (
     AI_OPPONENT_NAMES,
     HIGH_PASS_CONTEST_HEADLINE,
@@ -116,6 +117,52 @@ MANEUVER_ROW_COLOURS = {
     "offense": "red",
     "defense": "green",
 }
+
+
+def maneuver_row_instruction(sides: list[str]) -> str:
+    """
+    What a coach is told to do above the maneuver prompt, with the
+    row that is theirs -- this frontend's own wording of
+    `d12ball.prompts.maneuver_prompt_wording`'s instruction, which
+    says "choose a maneuver" and nothing about where.
+
+    The buttons are on the message, so there is nothing to tell a
+    coach to open. What the wording has to do instead is say which
+    row is theirs, since a contested prompt carries both. A lone side
+    is not always the offense: a solo game's prompt is one row, and it
+    is the *defense's* whenever Dinky has the ball. So the colour is
+    read off the side rather than written down -- it is the row's own
+    colour either way (offense red, defense green; see
+    ManeuverActionPromptView).
+    """
+    if len(sides) == 1:
+        return (
+            "choose a maneuver from the "
+            f"{MANEUVER_ROW_COLOURS[sides[0]]} row -- only you can "
+            "see what you picked."
+        )
+    return (
+        "both sides pick privately from the same message: red "
+        "for the offense, green for the defense. Only you can "
+        "see what you picked."
+    )
+
+
+def build_maneuver_action_caption(engine, game: D12BallGame, match: MatchState) -> str:
+    """
+    The whole of what the Discord maneuver prompt says: who is being
+    asked (the model's, as tokens), which row is theirs (this
+    frontend's), and who holds their gambits (the model's). The
+    caller renders it. The shape is `d12ball.prompts.maneuver_action_ask`'s
+    with the instruction swapped, so the two cannot come to disagree
+    about who is named or where the gambit paragraph goes.
+    """
+    sides = list(engine.maneuver_pick_sides(game, match))
+    waiting_on, _ = maneuver_prompt_wording(engine, game, match, sides)
+    return maneuver_gambit_paragraph(
+        f"{' and '.join(waiting_on)}, {maneuver_row_instruction(sides)}",
+        engine.describe_gambit_access(game, match),
+    )
 
 # contest_noun is imported above, from d12ball.formatting.
 
