@@ -45,11 +45,13 @@ from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.flow import driver
 from d12ball.flow.turn import injured_word_and_emoji
 from d12ball.prompts import (
+    OPTIONS,
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
     owed_step,
     pending_prompt,
+    with_options,
 )
 from d12ball import tutorial
 from d12ball.render import (
@@ -1220,12 +1222,18 @@ class CoreMixin:
 
         Most kinds are a constructor taking the cog and the game id,
         and those are `PLAIN_PROMPT_VIEWS`; the eight that carry a
-        parameter are the branches below. `match` is here for the one
-        whose view is built from a candidate list rather than from the
-        prompt alone -- the loose ball's pick reads its buttons off the
-        board, and a prompt is what to ask rather than a rendering
-        brief.
+        parameter are the branches below. Every view builds its
+        buttons from the prompt's `options` (`SafeView.prompt_options`,
+        which re-reads the chain), and the three handed a list here
+        read the prompt's own; a prompt built without them -- by hand,
+        in a test or a command -- gets them off `match` first, so this
+        stays the one place a kind becomes a view whatever built the
+        prompt.
         """
+        if prompt.options is None and prompt.kind in OPTIONS:
+            prompt = with_options(
+                self.engine, self.games[game_id], match, prompt,
+            )
         kind = prompt.kind
         if kind is PromptKind.TUTORIAL_CONTINUE:
             return TutorialContinueView(self, game_id)
