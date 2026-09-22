@@ -31,6 +31,7 @@ import random
 import unittest
 from unittest import mock
 
+from d12ball import tutorial
 from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.game import Formation, GameMode, Team
 from d12ball.flow import driver
@@ -632,6 +633,326 @@ class PositionRefusalTests(ApplyFixture):
         self.assertNotIsInstance(caught.exception, RuleRefusal)
 
 
+# -- A refused answer per kind per choice ----------------------------
+
+
+def _other_side(side) -> TeamSide:
+    return TeamSide.VISITING if TeamSide(side) is TeamSide.HOME else TeamSide.HOME
+
+
+def _not_offered(offered, universe) -> str:
+    """Somebody the prompt does not offer, from a wider pool."""
+    return next(candidate for candidate in universe if candidate not in offered)
+
+
+def _everybody(match: MatchState) -> list[str]:
+    return (
+        match.home.field_players + match.home.team_board.bench
+        + match.visiting.field_players + match.visiting.team_board.bench
+    )
+
+
+def _wrong_player(fixture: PromptFixture) -> dict:
+    options = _prompt(fixture).options
+    return {
+        "player_id": _not_offered(options.player_ids, _everybody(fixture.match)),
+    }
+
+
+def _wrong_distance(fixture: PromptFixture) -> dict:
+    return {"distance": 99}
+
+
+def _wrong_side_player(fixture: PromptFixture) -> dict:
+    """SMOOTH, MIND_PULL, INJURY_TEST: a player the prompt is not
+    about."""
+    prompt = _prompt(fixture)
+    return {
+        "player_id": _not_offered((prompt.player_id,), _everybody(fixture.match)),
+    }
+
+
+def _wrong_overdrive(fixture: PromptFixture) -> dict:
+    """A player who is not in this roll."""
+    match = fixture.match
+    if match.active_player_id is None:
+        match.active_player_id = match.home.field_players[0]
+    options = _prompt(fixture).options
+    return {
+        "player_id": _not_offered(
+            options.overdrive_player_ids, match.home.team_board.bench,
+        ),
+    }
+
+
+def _railed_tutorial(fixture: PromptFixture, key: str, wanted: str) -> None:
+    """Put the fixture's game on the beat that rails `key` to `wanted`."""
+    beat = next(
+        beat for beat in tutorial.BEATS if beat.choices.get(key) == wanted
+    )
+    fixture.game = build_game(
+        player_2_id=None, tutorial=True, tutorial_step=beat.step,
+    )
+
+
+def _railed_set_up_decline(fixture: PromptFixture) -> dict:
+    _railed_tutorial(fixture, "setup_attempt", "attempt")
+    return {}
+
+
+def _decline_with_somebody_on_the_ball(fixture: PromptFixture) -> dict:
+    """The fixture's side has a player standing on the ball, so the
+    contest is not theirs to decline (`may_decline_loose_ball`)."""
+    assert not _prompt(fixture).options.may_decline
+    return {}
+
+
+def _shot_out_of_range(fixture: PromptFixture) -> dict:
+    match = fixture.match
+    if match.active_player_id is None:
+        match.active_player_id = match.home.field_players[0]
+    assert not match.can_attempt_score()
+    return {"action_label": "shoot"}
+
+
+def _time_out_in_the_last_minute(fixture: PromptFixture) -> dict:
+    match = fixture.match
+    if match.active_player_id is None:
+        match.active_player_id = match.home.field_players[0]
+    match.scoreboard.last_possession = True
+    return {}
+
+
+def _other_side_s_window(fixture: PromptFixture) -> dict:
+    return {"side": _other_side(_coaching_side(fixture))}
+
+
+def _other_side_s_offer_decline(fixture: PromptFixture) -> dict:
+    return {**_other_side_s_window(fixture), "coach_name": "Coach"}
+
+
+def _formation_off_the_board(fixture: PromptFixture) -> dict:
+    side = _coaching_side(fixture)
+    options = _prompt(fixture).options
+    return {
+        "side": side,
+        "formation": next(
+            shape for shape in Formation if shape not in options.formations
+        ),
+    }
+
+
+def _substitute_from_the_field(fixture: PromptFixture) -> dict:
+    side = _coaching_side(fixture)
+    options = _prompt(fixture).options
+    return {
+        "side": side,
+        "outgoing_player_id": options.outgoing_ids[0],
+        "incoming_player_id": options.outgoing_ids[1],
+    }
+
+
+def _swap_inside_a_zone(fixture: PromptFixture) -> dict:
+    side = _coaching_side(fixture)
+    zones = fixture.match.setup_for_side(side).zones
+    first, second = next(
+        players for players in zones.values() if len(players) >= 2
+    )[:2]
+    return {"side": side, "player_id": first, "other_player_id": second}
+
+
+def _reposition_off_the_zone(fixture: PromptFixture) -> dict:
+    side = _coaching_side(fixture)
+    options = _prompt(fixture).options
+    return {
+        "side": side,
+        "player_id": options.repositions[0].player_id,
+        "space_index": 99,
+    }
+
+
+def _shootout_wrong_player(fixture: PromptFixture) -> dict:
+    options = _prompt(fixture).options
+    side = options.owed()[0]
+    return {
+        "side": side,
+        "player_id": _not_offered(options.for_side(side), _everybody(fixture.match)),
+    }
+
+
+def _restart_for_the_other_side(fixture: PromptFixture) -> dict:
+    """A side whose order is complete has nothing to start over."""
+    match = fixture.match
+    options = _prompt(fixture).options
+    side = options.owed()[0]
+    for player_id in options.for_side(side):
+        match.add_to_shootout_order(side, player_id)
+    return {"side": side}
+
+
+def _defender_on_the_ball(fixture: PromptFixture) -> dict:
+    match = fixture.match
+    walker = match.setup_for_side(match.defending_side()).field_players[0]
+    match.board.remove_meeple(walker)
+    match.board.place_meeple(walker, match.ball.zone, match.ball.space_index)
+    return {"player_id": None}
+
+
+def _card_not_in_hand(fixture: PromptFixture) -> dict:
+    hand = _prompt(fixture).options.hands[0]
+    return {"side": hand.side, "maneuver_key": "no_such_card"}
+
+
+def _ai_side_s_shot(fixture: PromptFixture) -> dict:
+    fixture.game = build_game(player_2_id=None)
+    match = fixture.match
+    match.pending_action = None
+    match.active_player_id = None
+    match.ball.possession = TeamSide.VISITING
+    handler = match.visiting.field_players[0]
+    match.board.remove_meeple(handler)
+    match.board.place_meeple(handler, match.ball.zone, match.ball.space_index)
+    match.select_ball_handler(handler)
+    match.pending_action = "shoot"
+    return {}
+
+
+def _wrong_speed(fixture: PromptFixture) -> dict:
+    return {"target_speed": 99}
+
+
+def _three_space_advance(fixture: PromptFixture) -> dict:
+    return {"distance": 3}
+
+
+def _wrong_shooter(fixture: PromptFixture) -> dict:
+    options = _prompt(fixture).options
+    return {
+        "shooter_id": _not_offered(options.player_ids, _everybody(fixture.match)),
+    }
+
+
+def _wrong_receiver(fixture: PromptFixture) -> dict:
+    option = _prompt(fixture).options.passes[0]
+    return {
+        "distance": option.distance,
+        "receiver_id": _not_offered(option.receiver_ids, _everybody(fixture.match)),
+    }
+
+
+#: For every kind the driver answers and every choice it offers, an
+#: answer of that choice the position refuses -- built off the prompt's
+#: options as the wrong thing: a player the prompt does not offer, a
+#: distance off the field, the other side's window, a rail the tutorial
+#: has fixed. `None` where the choice takes nothing the position could
+#: refuse (a roll is the button either coach may press; the tutorial's
+#: Continue holds nothing), so the wrong-kind refusal is the whole of
+#: what can go wrong with it.
+#:
+#: **Every pair has a row**, which `test_every_choice_has_a_refusal`
+#: asserts against `driver.ANSWERS` and `driver.CHOICES`; each refusal
+#: leaves the match byte for byte as it was, which is
+#: `test_a_refused_choice_changes_nothing`. The builder may finish the
+#: fixture's position first (a handler stood up, a rail put on), and
+#: the snapshot is taken after it has.
+REFUSED_ACTIONS = {
+    (PromptKind.TUTORIAL_CONTINUE, ""): None,
+    (PromptKind.SETUP_PASS_PUSH_BACK, ""): _wrong_distance,
+    (PromptKind.BALL_HANDLER_SELECTION, ""): _wrong_player,
+    (PromptKind.RUN_BACK_PLAYER, ""): _wrong_player,
+    (PromptKind.RUN_BACK_SPACE, ""): lambda fixture: {"space_index": 99},
+    (PromptKind.BALL_RECOVERY, ""): _wrong_player,
+    (PromptKind.LOOSE_BALL_PICK, "send"): _wrong_player,
+    (PromptKind.LOOSE_BALL_PICK, "decline"): _decline_with_somebody_on_the_ball,
+    (PromptKind.SET_UP_ATTEMPT, "take"): None,
+    (PromptKind.SET_UP_ATTEMPT, "decline"): _railed_set_up_decline,
+    (PromptKind.SHOOTER_CHOICE, ""): _wrong_shooter,
+    (PromptKind.SMOOTH, "take"): _wrong_side_player,
+    (PromptKind.SMOOTH, "decline"): _wrong_side_player,
+    (PromptKind.OWN_GOAL_ROLL, "roll"): None,
+    (PromptKind.OWN_GOAL_ROLL, "overdrive"): _wrong_overdrive,
+    (PromptKind.PLAYER_ACTION, "shoot"): _shot_out_of_range,
+    # A maneuver is always on: the position refuses it by kind alone.
+    (PromptKind.PLAYER_ACTION, "maneuver"): None,
+    (PromptKind.PLAYER_ACTION, "time_out"): _time_out_in_the_last_minute,
+    (PromptKind.COACHING_OFFER, "declare"): _other_side_s_window,
+    (PromptKind.COACHING_OFFER, "decline"): _other_side_s_offer_decline,
+    (PromptKind.COACHING_HUB, "formation"): _formation_off_the_board,
+    (PromptKind.COACHING_HUB, "substitute"): _substitute_from_the_field,
+    (PromptKind.COACHING_HUB, "swap"): _swap_inside_a_zone,
+    (PromptKind.COACHING_HUB, "reposition"): _reposition_off_the_zone,
+    (PromptKind.COACHING_HUB, "done"): _other_side_s_window,
+    (PromptKind.SHOOTOUT_ORDER, "send"): _shootout_wrong_player,
+    (PromptKind.SHOOTOUT_ORDER, "restart"): _restart_for_the_other_side,
+    (PromptKind.SHOOTOUT_PICK, ""): _shootout_wrong_player,
+    (PromptKind.MANEUVER_CHALLENGE, "send"): _wrong_player,
+    (PromptKind.MANEUVER_CHALLENGE, "decline"): _defender_on_the_ball,
+    (PromptKind.MANEUVER_ACTION, ""): _card_not_in_hand,
+    (PromptKind.INJURY_TEST, "roll"): _wrong_side_player,
+    (PromptKind.INJURY_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.MIND_PULL, "take"): _wrong_side_player,
+    (PromptKind.MIND_PULL, "decline"): _wrong_side_player,
+    (PromptKind.HALFTIME_EXTRA_TOKEN, ""): _wrong_player,
+    (PromptKind.SKILL_TEST, "roll"): None,
+    (PromptKind.SKILL_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.LOOSE_BALL_SKILL_TEST, "roll"): None,
+    (PromptKind.LOOSE_BALL_SKILL_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.SCORE_ATTEMPT, "roll"): None,
+    (PromptKind.SCORE_ATTEMPT, "back"): _ai_side_s_shot,
+    (PromptKind.SCORE_ATTEMPT, "overdrive"): _wrong_overdrive,
+    (PromptKind.SHOOTOUT_TEST, "roll"): None,
+    (PromptKind.SHOOTOUT_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.LOW_PASS_CHOICE, ""): _wrong_receiver,
+    (PromptKind.HIGH_PASS_CHOICE, ""): _wrong_distance,
+    (PromptKind.SETUP_PASS_CHOICE, ""): _wrong_distance,
+    (PromptKind.SPEED_DELTA_CHOICE, ""): _wrong_speed,
+    (PromptKind.DRIBBLE_ADVANCE_CHOICE, ""): _three_space_advance,
+    (PromptKind.DRIBBLE_BURST_CHOICE, ""): _wrong_distance,
+}
+
+
+class RefusedChoiceTests(ApplyFixture):
+    """
+    Every choice every kind offers, refused by the position and leaving
+    it untouched -- the second half of `test_a_refused_action_changes_nothing`,
+    which covers only the two refusals `answer` makes before an adapter
+    runs. Since step 6 of docs/architecture-migration.md every rule a
+    button held is the adapter's, and this is where that is measured.
+    """
+
+    def test_every_choice_has_a_refusal(self) -> None:
+        pairs = {
+            (kind, choice)
+            for kind in driver.ANSWERS
+            if kind not in UNANSWERABLE
+            for choice in driver.CHOICES.get(kind, ("",))
+        }
+        self.assertEqual(set(REFUSED_ACTIONS), pairs)
+
+    def test_a_refused_choice_changes_nothing(self) -> None:
+        for case, kind in _answerable_cases():
+            for choice in driver.CHOICES.get(kind, ("",)):
+                build = REFUSED_ACTIONS[(kind, choice)]
+                if build is None:
+                    continue
+                with self.subTest(case=case.name, choice=choice or "-"):
+                    fixture = case.build()
+                    arguments = build(fixture)
+                    self.assertIs(
+                        pending_prompt(ENGINE, fixture.game, fixture.match).kind,
+                        kind,
+                        "the builder moved the fixture off its prompt",
+                    )
+                    before = fixture.match.to_dict()
+                    outcome = driver.apply(
+                        ENGINE, fixture.game, fixture.match,
+                        driver.Action(kind, choice, arguments),
+                    )
+                    self.assertIsInstance(outcome, driver.Refusal, outcome)
+                    self.assertTrue(outcome.reason)
+                    self.assertEqual(fixture.match.to_dict(), before)
+
+
 class ButtonRuleTests(ApplyFixture):
     """
     The rules a disabled button used to hold alone, now refused by the
@@ -688,7 +1009,7 @@ class ButtonRuleTests(ApplyFixture):
                 {"side": side, "player_id": first, "other_player_id": second},
             ),
         )
-        self.assertIn("both assigned", refusal.reason)
+        self.assertIn("same zone", refusal.reason)
 
     def test_an_ai_side_s_shot_is_never_walked_back(self) -> None:
         """

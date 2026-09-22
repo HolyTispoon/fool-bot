@@ -4439,9 +4439,8 @@ class MatchState:
             # 2026-09-21). Moving a meeple within its zone is
             # `position_meeple`'s.
             raise RuleRefusal(
-                f"{player_id} and {other_player_id} are both assigned "
-                f"to {zone.value}; a zone assignment trades two "
-                "players in different zones."
+                "Both players are assigned to the same zone; a zone "
+                "assignment trades two players in different zones."
             )
 
         setup.zones[zone][setup.zones[zone].index(player_id)] = (
