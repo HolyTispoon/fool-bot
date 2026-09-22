@@ -64,6 +64,7 @@ from d12ball.components import (
     MatchPeriod,
     PlayerCatalog,
     PlayerRole,
+    SECOND_HALF_START_MINUTE,
     TeamSide,
     Zone,
     kickoff_space_index,
@@ -128,12 +129,13 @@ ZONE_TINTS = {
     Zone.VISITORS_GOAL: "#f1e4d9",
 }
 
-# The clock is one running count over both periods, and both numbers
-# are read off the code the bot enforces rather than written here: the
-# first half's last minute is where it breaks, the second's is where the
-# track ends. The score track runs further than a match is ever likely
-# to, because a shootout adds up to six goals to a side that was already
-# level.
+# The clock is one running count over both periods, and all three
+# numbers are read off the code the bot enforces rather than written
+# here: the first half's last minute is where it breaks, the second
+# half's first is where it picks up again, and the second's last is
+# where the track ends. The score track runs further than a match is
+# ever likely to, because a shootout adds up to six goals to a side
+# that was already level.
 CLOCK_MINUTES = period_last_minute(MatchPeriod.SECOND_HALF)
 HALFTIME_MINUTE = period_last_minute(MatchPeriod.FIRST_HALF)
 SCORE_TRACK_MAX = 12
@@ -143,6 +145,21 @@ SCORE_TRACK_MAX = 12
 # is exactly two rows and the two bands are bands rather than a colour
 # change halfway along one.
 CLOCK_COLUMNS = 8
+# The two bands, and the cells under them. **A minute is not a
+# position on this track**: the second half starts on the first half's
+# last minute (the author, 2026-09-22), so 15 has a cell in each band
+# and everything that draws the track counts cells rather than
+# counting minutes. Sixteen cells a half is what makes each band two
+# whole rows of eight, with nothing left over.
+CLOCK_BANDS = (
+    (0, HALFTIME_MINUTE),
+    (SECOND_HALF_START_MINUTE, CLOCK_MINUTES),
+)
+CLOCK_CELLS = tuple(
+    (band, minute)
+    for band, (first, last) in enumerate(CLOCK_BANDS)
+    for minute in range(first, last + 1)
+)
 # The three token pools a coach draws from all game. They are a supply
 # and not a tally: a player's own tokens are stacked on their card, the
 # way the bot draws them on the card rather than on the jumbotron.
@@ -576,7 +593,7 @@ def draw_field_header(
     y = top + sheet.u(84)
     for note in (
         f"Two periods on one running clock, 00-{HALFTIME_MINUTE} and "
-        f"{HALFTIME_MINUTE + 1}-{CLOCK_MINUTES}. Home kicks off the "
+        f"{SECOND_HALF_START_MINUTE}-{CLOCK_MINUTES}. Home kicks off the "
         "first, the visitors the second.",
         "The clock, the score and the token supplies are kept on the "
         "jumbotron board.",
@@ -1205,7 +1222,7 @@ class JumbotronGeometry:
     one of them above `MIN_TOKEN_INCHES`.
 
     **The clock is four rows, not two**, since it now runs the whole
-    game rather than one period: 00-15 and 16-30, two rows a half with
+    game rather than one period: 00-15 and 15-30, two rows a half with
     the break falling at the end of a row. That halved the height a row
     had, which is what the panel shares were redivided for -- and it is
     the thing to check first if a band is ever added here, because a
@@ -1292,7 +1309,7 @@ class JumbotronGeometry:
 
     @property
     def clock_rows(self) -> int:
-        return -(-(CLOCK_MINUTES + 1) // CLOCK_COLUMNS)
+        return -(-len(CLOCK_CELLS) // CLOCK_COLUMNS)
 
     @property
     def clock_band_label_height(self) -> float:
@@ -1438,16 +1455,15 @@ def draw_jumbotron_header(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     sheet.text(
         (geometry.right, bottom - sheet.u(48)),
         f"00-{HALFTIME_MINUTE} in the first half, "
-        f"{HALFTIME_MINUTE + 1}-{CLOCK_MINUTES} in the second.",
+        f"{SECOND_HALF_START_MINUTE}-{CLOCK_MINUTES} in the second.",
         sheet.font(16),
         MUTED,
         anchor="ra",
     )
     sheet.text(
         (geometry.right, bottom - sheet.u(24)),
-        "The second half starts at "
-        f"{HALFTIME_MINUTE + 1} however far past {HALFTIME_MINUTE} the "
-        "first ran.",
+        f"The second half starts at {SECOND_HALF_START_MINUTE} however "
+        "far the first half's last possession ran.",
         sheet.font(16),
         MUTED,
         anchor="ra",
@@ -1462,11 +1478,14 @@ class ClockTrackGeometry:
     it from three different bands (the frame, the two half labels and
     the cells) that all have to agree on the same cells.
 
-    `cell_origin` is the one place that turns a minute into a row and
-    column. The band label above each half is charged once per half
-    rather than once per row, which is the only reason it is arithmetic
-    rather than a nested loop -- the break falls at the end of a row by
-    construction (see `CLOCK_COLUMNS`), so a minute knows its own band.
+    `cell_origin` is the one place that turns a **cell** into a row and
+    column, and it takes a cell rather than a minute because the second
+    half opens on the first half's last minute: 15 has a cell in each
+    band, so a minute no longer names a position (see `CLOCK_CELLS`).
+    The band label above each half is charged once per half rather than
+    once per row, which is the only reason it is arithmetic rather than
+    a nested loop -- the break falls at the end of a row by
+    construction (see `CLOCK_COLUMNS`), so a cell knows its own band.
     """
 
     left: float
@@ -1494,11 +1513,11 @@ class ClockTrackGeometry:
             band_label=geometry.clock_band_label_height,
         )
 
-    def cell_origin(self, minute: int) -> tuple[float, float]:
-        row = minute // CLOCK_COLUMNS
-        band = 0 if minute <= HALFTIME_MINUTE else 1
+    def cell_origin(self, position: int) -> tuple[float, float]:
+        row = position // CLOCK_COLUMNS
+        band = CLOCK_CELLS[position][0]
         return (
-            self.cells_left + (minute % CLOCK_COLUMNS) * self.cell_width,
+            self.cells_left + (position % CLOCK_COLUMNS) * self.cell_width,
             self.cells_top + (band + 1) * self.band_label
             + row * self.cell_height,
         )
@@ -1512,10 +1531,15 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     **The overrun has no cells, and no note either.** The clock runs
     past a period's last minute for as long as its last possession
     does, and a track drawn for that would be a row of squares nobody
-    can say the length of. The second half's last row is a cell short
-    and that slot is left empty: what it used to spell out is already
-    said twice over, by the caption under 15 and 30 and by the footer
-    under the whole board.
+    can say the length of. What that used to want spelling out in the
+    track's spare slot is already said twice over, by the caption under
+    15 and 30 and by the footer under the whole board -- and since the
+    second half starts on 15 there is no spare slot left anyway: each
+    band is sixteen cells, two full rows.
+
+    **The two 15s are two cells and mean different things.** The first
+    half's is its last minute, bordered and captioned like 30; the
+    second half's is where that half kicks off, and is a plain cell.
     """
     track = ClockTrackGeometry.for_jumbotron(geometry)
     draw_clock_track_frame(sheet, track)
@@ -1550,10 +1574,11 @@ def draw_clock_track_frame(sheet: Sheet, track: ClockTrackGeometry) -> None:
 
 def draw_clock_half_bands(sheet: Sheet, track: ClockTrackGeometry) -> None:
     band_face = sheet.font(14, bold=True)
-    for band, (first, last_minute) in enumerate(
-        ((0, HALFTIME_MINUTE), (HALFTIME_MINUTE + 1, CLOCK_MINUTES))
-    ):
-        label_top = track.cell_origin(first)[1] - track.band_label
+    for band, (first, last_minute) in enumerate(CLOCK_BANDS):
+        label_top = (
+            track.cell_origin(CLOCK_CELLS.index((band, first)))[1]
+            - track.band_label
+        )
         # Centred in its own strip, for the reason the panel title is:
         # a label that clears the row under it by a hair and the line
         # over it by less is a label neither of them owns.
@@ -1574,9 +1599,11 @@ def draw_clock_cells(sheet: Sheet, track: ClockTrackGeometry) -> None:
     may do -- see "Last possession".
     """
     number_face = sheet.font(28, bold=True)
-    for minute in range(CLOCK_MINUTES + 1):
-        cell_left, cell_top = track.cell_origin(minute)
-        last = minute in (HALFTIME_MINUTE, CLOCK_MINUTES)
+    for position, (band, minute) in enumerate(CLOCK_CELLS):
+        cell_left, cell_top = track.cell_origin(position)
+        # Its own band's last minute, not "15 or 30": the second
+        # half's first cell is also a 15, and it is a plain one.
+        last = minute == CLOCK_BANDS[band][1]
         sheet.rect(
             (
                 cell_left + sheet.u(4),

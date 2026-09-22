@@ -805,7 +805,7 @@
       "period": "second_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
-      "time": 16
+      "time": 15
     },
     {
       "details": {
@@ -819,7 +819,7 @@
       "period": "second_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
-      "time": 16
+      "time": 15
     },
     {
       "details": {
@@ -831,7 +831,7 @@
       "period": "second_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
-      "time": 16
+      "time": 15
     },
     {
       "details": {
@@ -843,7 +843,7 @@
       "period": "second_half",
       "player_id": "quillon_playmaker",
       "side": "home",
-      "time": 16
+      "time": 15
     },
     {
       "details": {
@@ -857,7 +857,7 @@
       "period": "second_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
-      "time": 16
+      "time": 15
     },
     {
       "details": {},
@@ -865,7 +865,7 @@
       "period": "second_half",
       "player_id": "umbrik_fullback",
       "side": "home",
-      "time": 18
+      "time": 17
     },
     {
       "details": {
@@ -879,7 +879,7 @@
       "period": "second_half",
       "player_id": "umbrik_fullback",
       "side": "home",
-      "time": 19
+      "time": 18
     },
     {
       "details": {
@@ -893,7 +893,7 @@
       "period": "second_half",
       "player_id": "umbrik_fullback",
       "side": "home",
-      "time": 19
+      "time": 18
     },
     {
       "details": {
@@ -908,7 +908,7 @@
       "period": "second_half",
       "player_id": "umbrik_fullback",
       "side": "home",
-      "time": 19
+      "time": 18
     },
     {
       "details": {
@@ -919,7 +919,7 @@
       "period": "second_half",
       "player_id": "umbrik_fullback",
       "side": "home",
-      "time": 20
+      "time": 19
     },
     {
       "details": {
@@ -933,7 +933,7 @@
       "period": "second_half",
       "player_id": "umbrik_fullback",
       "side": "home",
-      "time": 20
+      "time": 19
     },
     {
       "details": {
@@ -947,7 +947,7 @@
       "period": "second_half",
       "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 21
+      "time": 20
     }
   ],
   "exhausted": [
@@ -1077,7 +1077,7 @@
     "home_score": 1,
     "last_possession": false,
     "period": "second_half",
-    "time": 21,
+    "time": 20,
     "visiting_score": 1
   },
   "shootout_goals": {},

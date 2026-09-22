@@ -115,12 +115,13 @@ def end_period(
     if match.scoreboard.period == MatchPeriod.FIRST_HALF:
         first_half_ended_at = match.scoreboard.time
         match.scoreboard.period = MatchPeriod.SECOND_HALF
-        # The second half starts at 16 however far past 15 the
+        # The second half starts at 15 however far past 15 the
         # first half ran, so the number on the clock means the same
-        # thing in every game. It is set here rather than at the
-        # kickoff for the reason everything else in this branch is:
-        # halftime is played with the second half's board already
-        # on the scoreboard.
+        # thing in every game -- and each half gets the same fifteen
+        # minutes of play from its own kickoff. It is set here rather
+        # than at the kickoff for the reason everything else in this
+        # branch is: halftime is played with the second half's board
+        # already on the scoreboard.
         match.scoreboard.time = SECOND_HALF_START_MINUTE
         match.scoreboard.last_possession = False
         # A time out is once every half, so both sides get theirs

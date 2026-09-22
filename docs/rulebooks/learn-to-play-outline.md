@@ -237,7 +237,7 @@ loses.
   one. The clock never stops. When it reaches 15, whoever has the ball
   has *last possession*: the next turnover ends the half. Halftime
   recovers a token and offers both coaches a Coaching Choice; the
-  second half starts at 16 with the visitors kicking off. (Law 16)
+  second half starts at 15 with the visitors kicking off. (Law 16)
 - **Full time and the shootout.** Higher score wins. Level, and each
   coach lines up their six in secret and shoots one against one, d12 +
   offense, best of six with sudden death after. (Law 17)

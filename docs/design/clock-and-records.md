@@ -28,7 +28,7 @@ is a run of **separate** messages rather than one paragraph, which is
 
 ## The running clock
 
-One clock over both periods -- 00-15 in the first half, 16-30 in the second --
+One clock over both periods -- 00-15 in the first half, 15-30 in the second --
 and it **does not stop**. See "Clock, halftime, and full time" in the living
 rules, and the 2026-08-15 entry in the rules log for the author's reasoning.
 `MatchState.advance_time` is the whole of it.
@@ -48,9 +48,16 @@ rules, and the 2026-08-15 entry in the rules log for the author's reasoning.
 - **The second half starts at `SECOND_HALF_START_MINUTE` regardless**, set in
   `end_period` at the whistle rather than at the kickoff -- halftime is played
   with the second half's number already on the scoreboard. That is what makes
-  **minutes 16 and up occur twice in a game**, once in the first half's last
-  possession and once in the second half proper, which is why the goal log
-  records a goal's period as well as its minute.
+  **minutes 15 and up occur twice in a game**, once in the first half and once
+  in the second, which is why the goal log records a goal's period as well as
+  its minute.
+- **The start is its own number, and since 2026-09-22 it is not the first
+  half's last minute plus one.** The author moved the second half back onto
+  15, so each half gets the same fifteen minutes of play from its own kickoff
+  -- and `SECOND_HALF_START_MINUTE` stopped being `FIRST_HALF_LAST_MINUTE + 1`.
+  Everything that asks "where does the second half begin?" reads the constant:
+  the whistle, the **(FH)** marker, and the printed clock track's second band.
+  That arithmetic is what a site would reach for first, and it is now wrong.
 - **The clock has no ceiling, and `ScoreboardState.__post_init__` no longer
   pretends otherwise.** Its range check was the clamp restated; a floor is all
   that is left, or a game saved at 19 would not reload. `MAX_DEBUG_CLOCK` in the
@@ -60,16 +67,24 @@ rules, and the 2026-08-15 entry in the rules log for the author's reasoning.
   so a side sitting on 3 gets a long half. Nothing migrates it: the alternative
   is rewriting a live game's clock on load, and both developers run the bot
   against their own saves.
-- **The printed jumbotron is drawn from the same two numbers.** `CLOCK_MINUTES`
-  and `HALFTIME_MINUTE` in `d12ball/boards.py` are `period_last_minute` calls,
-  so a period settled upstream reaches the print by re-rendering. Eight columns
-  is what puts halftime at the end of a row, which is what lets the two halves
-  be drawn as bands; the second half's last row is a cell short, and that spare
-  slot is left empty -- **the minutes past 15 and 30 have no cells**, because
-  nothing bounds how many there are. The slot carried three lines of small
-  print saying so until 2026-09-22, when it came out: the caption under 15 and
-  30 and the footer under the whole board each say the same thing, and a note
-  in a cell a token can stand on reads as a fourth place to put one.
+- **The printed jumbotron is drawn from the same three numbers.**
+  `CLOCK_MINUTES` and `HALFTIME_MINUTE` in `d12ball/boards.py` are
+  `period_last_minute` calls and the second band opens on
+  `SECOND_HALF_START_MINUTE`, so a period settled upstream reaches the print by
+  re-rendering. Eight columns is what puts halftime at the end of a row, which
+  is what lets the two halves be drawn as bands. **The minutes past 15 and 30
+  have no cells**, because nothing bounds how many there are; the track said so
+  in small print in its spare slot until 2026-09-22, when that came out -- the
+  caption under 15 and 30 and the footer under the whole board each say the
+  same thing, and a note in a cell a token can stand on reads as a fourth place
+  to put one.
+- **A cell is not a minute, since the second half moved onto 15.** Both bands
+  are sixteen cells, so the track is four full rows and has no spare slot left;
+  15 has a cell in each band. `CLOCK_CELLS` is the sequence of
+  `(band, minute)` pairs the track is drawn from, `cell_origin` takes a
+  position in it, and a cell is captioned **last possession** when its minute
+  is its *own* band's last -- the second half's 15 is a plain cell, and a
+  `minute in (15, 30)` test would have bordered it.
 
 ## The goal log
 
@@ -93,9 +108,12 @@ which is the whole reason this exists.
   or that line would contradict the heading over it.
 - **The period is stored beside the minute and is not decoration.** The clock
   [runs past a period's last minute](#the-running-clock) and the second half
-  starts at 16, so a first half can reach 17 and so can the second.
-  `GoalRecord.in_first_half_overrun` is the ambiguous case and is exactly the
-  condition **(FH)** states, so the marker cannot drift from what it means. The
+  starts at 15, so a first half can reach 17 and so can the second -- and both
+  halves have a 15. `GoalRecord.minute_repeated_in_second_half` is the
+  ambiguous case and is exactly the condition **(FH)** states, so the marker
+  cannot drift from what it means. It tests the minute against the second
+  half's **first** minute, not the first half's last: those were the same line
+  until 2026-09-22, and the first half's own 15 is now marked too. The
   second half needs no marker of its own: it overruns as readily, but with the
   first half's overrun always marked, an unmarked number can only be read one
   way.

@@ -7,7 +7,7 @@ the period's last minute -- 15 in the first half, 30 in the second -- so
 the maneuver that puts the clock there never ends the period even when
 it is itself a turnover; only a later turnover does. The clock does not
 stop there either: it runs on for as long as that possession does, and
-the second half then starts at 16 whatever the first half ran to.
+the second half then starts at 15 whatever the first half ran to.
 
 And full time settles the game only when the scores differ: a level one
 opens the extreme shootout, which is covered in
@@ -243,12 +243,13 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
             "last possession", " ".join(sent_texts(interaction)).lower()
         )
 
-    async def test_the_second_half_starts_at_16(self) -> None:
+    async def test_the_second_half_starts_at_15(self) -> None:
         """
         However far past 15 the first half ran. The number on the clock
         means the same thing in every game, which is the whole reason
         the running count does not simply carry on from where the first
-        half stopped.
+        half stopped. It is 15 rather than 16 since 2026-09-22, so each
+        half gets the same fifteen minutes from its own kickoff.
         """
         cog = build_cog()
         game = build_game()
@@ -263,7 +264,7 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
             await end_period(cog, interaction, game, match)
 
         self.assertEqual(match.scoreboard.period, MatchPeriod.SECOND_HALF)
-        self.assertEqual(match.scoreboard.time, 16)
+        self.assertEqual(match.scoreboard.time, 15)
         self.assertFalse(match.scoreboard.last_possession)
         self.assertEqual(match.scoreboard.last_minute, 30)
         # The whistle carries straight on into halftime, which is one
@@ -439,33 +440,41 @@ class GoalLogTests(unittest.TestCase):
         # side the goal counted for, which is not the scorer's.
         self.assertIn(f"{self.name(conceder)} {{role:fullback}} (OG)", log)
 
-    def test_a_first_half_goal_past_15_is_marked(self) -> None:
+    def test_a_first_half_goal_from_15_on_is_marked(self) -> None:
         """
-        The clock runs on, and the second half starts at 16, so 17 is a
-        minute both halves reach. (FH) is on the one that cannot come
-        round again.
+        The clock runs on, and the second half starts at 15, so 15 and
+        17 alike are minutes both halves reach. (FH) is on the one that
+        cannot come round again.
         """
         match = self.build_match()
         scorer = match.home.field_players[0]
         match.scoreboard.time = 17
 
         match.award_goal(scorer)
-        self.assertTrue(match.goals[-1].in_first_half_overrun)
+        self.assertTrue(match.goals[-1].minute_repeated_in_second_half)
         self.assertIn("`17 (FH)`", self.log(match))
 
         # The same minute in the second half is the ordinary case and
         # carries nothing.
         match.scoreboard.period = MatchPeriod.SECOND_HALF
         match.award_goal(scorer)
-        self.assertFalse(match.goals[-1].in_first_half_overrun)
+        self.assertFalse(match.goals[-1].minute_repeated_in_second_half)
         self.assertIn("`17`", self.log(match))
 
-        # And a first-half goal on 15 itself is unambiguous: the second
-        # half never reaches it.
+        # And 15 itself is marked, since 2026-09-22: it is the first
+        # half's last minute and the minute the second half kicks off
+        # on, so the two are the same number on the sheet.
         match.scoreboard.period = MatchPeriod.FIRST_HALF
         match.scoreboard.time = 15
         match.award_goal(scorer)
-        self.assertFalse(match.goals[-1].in_first_half_overrun)
+        self.assertTrue(match.goals[-1].minute_repeated_in_second_half)
+        self.assertIn("`15 (FH)`", self.log(match))
+
+        # 14 is the last first-half minute the second half cannot
+        # reach, so nothing is marked below the break.
+        match.scoreboard.time = 14
+        match.award_goal(scorer)
+        self.assertFalse(match.goals[-1].minute_repeated_in_second_half)
 
     def test_shootout_goals_are_listed_apart(self) -> None:
         match = self.build_match()
@@ -498,7 +507,7 @@ class GoalLogTests(unittest.TestCase):
             [goal.to_dict() for goal in restored.goals],
             [goal.to_dict() for goal in match.goals],
         )
-        self.assertTrue(restored.goals[0].in_first_half_overrun)
+        self.assertTrue(restored.goals[0].minute_repeated_in_second_half)
         self.assertTrue(restored.goals[1].own_goal)
 
     def test_a_game_older_than_the_log_still_loads_and_says_so(
