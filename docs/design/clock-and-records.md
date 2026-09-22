@@ -65,8 +65,11 @@ rules, and the 2026-08-15 entry in the rules log for the author's reasoning.
   so a period settled upstream reaches the print by re-rendering. Eight columns
   is what puts halftime at the end of a row, which is what lets the two halves
   be drawn as bands; the second half's last row is a cell short, and that spare
-  slot carries the note about the overrun -- **the minutes past 15 and 30 have
-  no cells**, because nothing bounds how many there are.
+  slot is left empty -- **the minutes past 15 and 30 have no cells**, because
+  nothing bounds how many there are. The slot carried three lines of small
+  print saying so until 2026-09-22, when it came out: the caption under 15 and
+  30 and the footer under the whole board each say the same thing, and a note
+  in a cell a token can stand on reads as a fourth place to put one.
 
 ## The goal log
 

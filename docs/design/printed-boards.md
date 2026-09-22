@@ -125,6 +125,16 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   name.** What they count is a rule -- fifteen space-minutes, a clock that
   stops there, a score a shootout can add six to -- but nothing upstream says
   a board carries a track, so don't read them as one.
+- **A clock cell is captioned only where the caption is a rule.** 15 and 30
+  are bordered and say "last possession", because reaching one is the only
+  thing on this panel that changes what a coach may do; 00 and 16 were
+  captioned "kickoff" and "second-half kickoff" until 2026-09-22 and are now
+  plain, since where a half starts is already what the band over the row
+  says. **The minute is sized to clear its own border, not to fill the cell**:
+  a captioned cell has to hold a number and a caption between two edges of a
+  border thick enough to be read as one, and a number drawn to the cell
+  instead of to that space crossed it -- which on 15 and 30 is the border
+  doing the telling.
 - **`Sheet` measures in thousandths of the sheet's width** and does not
   supersample, unlike `cards.Pen`: a board is tens of megapixels at 300dpi,
   where a card is under one, and a stepped edge that small does not survive
