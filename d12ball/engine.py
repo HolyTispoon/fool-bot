@@ -331,6 +331,59 @@ class RulesEngine:
         match.add_exhaustion(player_id, amount)
         return self.describe_exhaustion_gain(game, match, player_id, amount)
 
+    def drain_wording(
+        self, game: D12BallGame, player_id: str,
+    ) -> bool:
+        """
+        Whether this player's exhaustion is read in the Cyborgs' own
+        words -- **drain** tokens, **Drained**, **Damaged**.
+
+        One question rather than a `has_species_ability` call at every
+        site that words a condition, because the three words move
+        together: a player counting drain tokens is a player who
+        becomes Drained, and a line that got one of the three from
+        this reading and another from its own would be wording one
+        player two ways. See "Lithium Powered" in
+        docs/living-rules.md.
+        """
+        return self.has_species_ability(game, player_id, SPECIES_CYBORG)
+
+    def token_word_and_mark(
+        self, game: D12BallGame, player_id: str,
+    ) -> tuple[str, str]:
+        """
+        What this player's exhaustion tokens are called, and the mark
+        a sentence counts them out in.
+        """
+        if self.drain_wording(game, player_id):
+            return "drain", tokens.condition(tokens.CONDITION_DRAIN)
+        return "exhaustion", tokens.condition(tokens.CONDITION_EXHAUST)
+
+    def exhausted_word_and_mark(
+        self, game: D12BallGame, player_id: str,
+    ) -> tuple[str, str]:
+        """
+        What this player is called once their tokens pass their
+        threshold, and the mark for it.
+        """
+        if self.drain_wording(game, player_id):
+            return "drained", tokens.condition(tokens.CONDITION_DRAINED)
+        return "exhausted", tokens.condition(tokens.CONDITION_EXHAUSTED)
+
+    def injured_word_and_mark(
+        self, game: D12BallGame, player_id: str,
+    ) -> tuple[str, str]:
+        """
+        What this player is called once they are out of the contest,
+        and the mark for it.
+
+        `d12ball.flow.turn.injured_word_and_emoji` is the older name
+        this answers under, kept because a dozen steps call it.
+        """
+        if self.drain_wording(game, player_id):
+            return "damaged", tokens.condition(tokens.CONDITION_DAMAGED)
+        return "injured", tokens.condition(tokens.CONDITION_INJURED)
+
     def describe_exhaustion_gain(
         self,
         game: D12BallGame,
@@ -352,18 +405,12 @@ class RulesEngine:
         # A Cyborg's tokens are drain, and are called that everywhere a
         # coach reads them -- the mechanic is the same and the word is
         # the ability. See "Lithium Powered" in docs/living-rules.md.
-        drain = self.has_species_ability(game, player_id, SPECIES_CYBORG)
+        noun, exhaust_emoji = self.token_word_and_mark(game, player_id)
         if player_id in match.injured:
-            if drain:
-                return (
-                    f"{self.format_player_label(match, player)} is damaged "
-                    f"{tokens.condition(tokens.CONDITION_DAMAGED)} and gains "
-                    "no drain tokens."
-                )
+            out_word, out_emoji = self.injured_word_and_mark(game, player_id)
             return (
-                f"{self.format_player_label(match, player)} is injured "
-                f"{tokens.condition(tokens.CONDITION_INJURED)} and gains no "
-                "exhaustion tokens."
+                f"{self.format_player_label(match, player)} is {out_word} "
+                f"{out_emoji} and gains no {noun} tokens."
             )
         if amount <= 0:
             # Nothing to say, and the silence is the answer (the
@@ -377,10 +424,12 @@ class RulesEngine:
             # line.
             return ""
 
-        exhaust_emoji = tokens.condition(tokens.CONDITION_EXHAUST)
+        # The mark is the Cyborgs' own teal triangle where the word is
+        # theirs (`token_word_and_mark`): the card draws a Cyborg's
+        # tally in teal (`render.draw_exhaustion_badge`), and the same
+        # tokens in two colours would read as two different costs.
         total = match.exhaustion.get(player_id, 0)
         token_word = "token" if amount == 1 else "tokens"
-        noun = "drain" if drain else "exhaustion"
         text = (
             f"{self.format_player_label(match, player)} gains {amount} "
             f"{noun} {token_word} {exhaust_emoji * amount} (now {total} "
@@ -388,18 +437,11 @@ class RulesEngine:
         )
 
         if self.retest_exhausted(game, match, player_id):
-            if drain:
-                drained_emoji = tokens.condition(tokens.CONDITION_DRAINED)
-                text += (
-                    f"\n{self.format_player_label(match, player)} is now "
-                    f"*drained* {drained_emoji}"
-                )
-            else:
-                exhausted_emoji = tokens.condition(tokens.CONDITION_EXHAUSTED)
-                text += (
-                    f"\n{self.format_player_label(match, player)} is now "
-                    f"*exhausted* {exhausted_emoji}"
-                )
+            word, emoji = self.exhausted_word_and_mark(game, player_id)
+            text += (
+                f"\n{self.format_player_label(match, player)} is now "
+                f"*{word}* {emoji}"
+            )
         return text
 
     def gambits_apply(self, game: D12BallGame) -> bool:
@@ -937,8 +979,8 @@ class RulesEngine:
         than the other -- the bench does not count, and a Cyborg's
         Drained and Damaged are Exhausted and Injured under their own
         words (`match.exhausted` and `match.injured` hold both; the
-        words are `injured_word_and_emoji`'s and the drain wording in
-        `describe_exhaustion_gain`).
+        words are `injured_word_and_mark`'s and
+        `exhausted_word_and_mark`'s).
 
         Widened from injured-only on 2026-09-20: an Exhausted player is
         already carrying a real disadvantage (one skill test roll away

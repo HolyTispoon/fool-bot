@@ -542,7 +542,7 @@ class CoachingHubView(CoachingView):
 
         await interaction.response.send_message(
             "\n\n".join(
-                self.cog.build_team_roster_section(match, setup)
+                self.cog.build_team_roster_section(game, match, setup)
                 for setup in setups
             ),
             ephemeral=True,

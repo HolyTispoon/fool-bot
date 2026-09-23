@@ -41,9 +41,6 @@ from cogs.d12ball_helpers import (
     board_image_filename,
     format_player_with_team_name,
     format_team_side_label,
-    get_exhaust_emoji,
-    get_exhausted_emoji,
-    get_injured_emoji,
     get_or_create_category,
     pin_board_message,
     send_new_prompt,
@@ -383,6 +380,7 @@ class PresentationMixin:
 
     def format_team_roster_entry(
         self,
+        game: D12BallGame,
         match: MatchState,
         player_id: str,
         location: Optional[str] = None,
@@ -393,24 +391,29 @@ class PresentationMixin:
         (e.g. "H1") for a player on the board, and None on a bench --
         the group heading above the line already names the place, so
         the line only has to say where within it.
+
+        It takes the `game` for the three words a Cyborg reads their
+        own condition in -- drain tokens, Drained, Damaged. They are
+        the model's answers (`CoreMixin.token_word_and_emoji` and its
+        two neighbours) rather than a species check here: whose
+        exhaustion is drain is a rule, and this is a frontend.
         """
         player = self.engine.get_player_definition(player_id)
-        tokens = match.exhaustion.get(player_id, 0)
+        count = match.exhaustion.get(player_id, 0)
+        _, token_emoji = self.token_word_and_emoji(game, player_id)
 
         conditions = []
         if player_id in match.exhausted:
-            conditions.append(
-                f"exhausted {get_exhausted_emoji(self.condition_emojis)}"
-            )
+            word, emoji = self.exhausted_word_and_emoji(game, player_id)
+            conditions.append(f"{word} {emoji}")
         if player_id in match.injured:
-            conditions.append(
-                f"injured {get_injured_emoji(self.condition_emojis)}"
-            )
+            word, emoji = self.injured_word_and_emoji(game, player_id)
+            conditions.append(f"{word} {emoji}")
 
         entry = self.player_label(match, player)
         if location is not None:
             entry += f" — {location}"
-        entry += f" — {tokens} {get_exhaust_emoji(self.condition_emojis)}"
+        entry += f" — {count} {token_emoji}"
         if conditions:
             entry += f" — {', '.join(conditions)}"
         if show_abilities:
@@ -421,6 +424,7 @@ class PresentationMixin:
 
     def build_team_roster_section(
         self,
+        game: D12BallGame,
         match: MatchState,
         setup: TeamSetup,
         show_abilities: bool = False,
@@ -433,6 +437,7 @@ class PresentationMixin:
                 continue
             lines.extend(
                 self.format_team_roster_entry(
+                    game,
                     match,
                     player_id,
                     location=location,

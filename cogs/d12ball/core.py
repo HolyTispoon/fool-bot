@@ -1123,6 +1123,32 @@ class CoreMixin:
         word, mark = injured_word_and_emoji(self.engine, game, player_id)
         return word, self.render_text(mark)
 
+    def exhausted_word_and_emoji(
+        self,
+        game: D12BallGame,
+        player_id: str,
+    ) -> tuple[str, str]:
+        """
+        What a player over their token threshold is called, and the
+        mark for it: `RulesEngine.exhausted_word_and_mark`, rendered
+        here.
+        """
+        word, mark = self.engine.exhausted_word_and_mark(game, player_id)
+        return word, self.render_text(mark)
+
+    def token_word_and_emoji(
+        self,
+        game: D12BallGame,
+        player_id: str,
+    ) -> tuple[str, str]:
+        """
+        What a player's exhaustion tokens are called, and the mark they
+        are counted out in: `RulesEngine.token_word_and_mark`, rendered
+        here.
+        """
+        word, mark = self.engine.token_word_and_mark(game, player_id)
+        return word, self.render_text(mark)
+
 
     async def post_injury_die(
         self,

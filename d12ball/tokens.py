@@ -41,17 +41,29 @@ from d12ball.game import Team
 
 #: The condition marks a sentence may carry, by the name the token
 #: spells. The exhaustion token, the two conditions it leads to, and
-#: a Cyborg's own two words for them (see "Lithium Powered" in
+#: a Cyborg's own three words for them (see "Lithium Powered" in
 #: docs/living-rules.md).
+#:
+#: **A Cyborg's token is its own mark.** Drain is exhaustion under
+#: another name, so the pair reads the same way the human one does --
+#: `drain` is the token and `drained` the condition it leads to,
+#: exactly as `exhaust` is to `exhausted`. It is a separate mark
+#: rather than the exhaust one because the board already draws a
+#: Cyborg's tally in the Cyborgs' own teal (`exhaust_cyborg.png`,
+#: `render.draw_exhaustion_badge`), and a sentence counting out amber
+#: triangles beside a card showing teal ones is the same tally in two
+#: colours.
 CONDITION_EXHAUST = "exhaust"
 CONDITION_EXHAUSTED = "exhausted"
 CONDITION_INJURED = "injured"
+CONDITION_DRAIN = "drain"
 CONDITION_DRAINED = "drained"
 CONDITION_DAMAGED = "damaged"
 CONDITIONS = (
     CONDITION_EXHAUST,
     CONDITION_EXHAUSTED,
     CONDITION_INJURED,
+    CONDITION_DRAIN,
     CONDITION_DRAINED,
     CONDITION_DAMAGED,
 )
@@ -90,7 +102,8 @@ def role(player_role: PlayerRole, value: Optional[Team] = None) -> str:
 
 
 def condition(name: str) -> str:
-    """An exhaustion token, or one of the four condition marks."""
+    """An exhaustion or drain token, or one of the four condition
+    marks."""
     if name not in CONDITIONS:
         raise ValueError(f"not a condition mark: {name!r}")
     return f"{{condition:{name}}}"

@@ -95,6 +95,7 @@ from d12ball.game import (
     Team,
 )
 from cogs.d12ball_helpers import get_damaged_emoji, get_injured_emoji
+from d12ball import tokens
 
 from roster import field_players, fielded_of_species
 from d12ball.prompts import PromptKind, pending_prompt
@@ -1073,6 +1074,70 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertIn("damaged", text)
         self.assertIn("drain tokens", text)
         self.assertNotIn("injured", text)
+
+    def test_a_cyborgs_tokens_are_counted_in_their_own_mark(self) -> None:
+        # The card draws a Cyborg's tally in the Cyborgs' teal
+        # (`exhaust_cyborg.png`); a sentence counting the same tokens
+        # out in the amber triangle is that tally in two colours.
+        text = describe_exhaustion_gain(
+            self.cog, self.game, self.match, self.cyborg, 2,
+        )
+        self.assertIn(tokens.condition(tokens.CONDITION_DRAIN) * 2, text)
+        self.assertNotIn(tokens.condition(tokens.CONDITION_EXHAUST), text)
+
+    def test_everybody_elses_tokens_stay_the_exhaustion_mark(self) -> None:
+        text = describe_exhaustion_gain(
+            self.cog, self.game, self.match, self.other, 2,
+        )
+        self.assertIn(tokens.condition(tokens.CONDITION_EXHAUST) * 2, text)
+        self.assertNotIn(tokens.condition(tokens.CONDITION_DRAIN), text)
+
+    def test_a_basic_game_counts_a_cyborgs_tokens_in_amber(self) -> None:
+        # Drain is the ability's word, and the ability is off.
+        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+        text = describe_exhaustion_gain(
+            self.cog, basic, self.match, self.cyborg, 1,
+        )
+        self.assertIn(tokens.condition(tokens.CONDITION_EXHAUST), text)
+        self.assertNotIn(tokens.condition(tokens.CONDITION_DRAIN), text)
+
+    def test_the_roster_line_reads_a_cyborg_in_their_own_words(self) -> None:
+        # /team_roster is where a coach goes to read how tired everyone
+        # is, so it is the last place that should call a Cyborg
+        # exhausted.
+        self.match.exhaustion[self.cyborg] = CYBORG_DRAINED_AT
+        self.match.exhausted.add(self.cyborg)
+
+        line = self.cog.format_team_roster_entry(
+            self.game, self.match, self.cyborg,
+        )
+
+        self.assertIn("drained", line)
+        self.assertNotIn("exhausted", line)
+        _, drain_emoji = self.cog.token_word_and_emoji(self.game, self.cyborg)
+        self.assertIn(f"{CYBORG_DRAINED_AT} {drain_emoji}", line)
+
+        # Injuring clears the tokens and the Exhausted flag, so the two
+        # never share a line -- read it again for the other word.
+        self.match.mark_injured(self.cyborg)
+        line = self.cog.format_team_roster_entry(
+            self.game, self.match, self.cyborg,
+        )
+        self.assertIn("damaged", line)
+        self.assertNotIn("injured", line)
+
+    def test_the_roster_line_leaves_everybody_else_alone(self) -> None:
+        self.match.exhaustion[self.other] = 3
+        self.match.exhausted.add(self.other)
+
+        line = self.cog.format_team_roster_entry(
+            self.game, self.match, self.other,
+        )
+
+        self.assertIn("exhausted", line)
+        self.assertNotIn("drained", line)
+        _, exhaust_emoji = self.cog.token_word_and_emoji(self.game, self.other)
+        self.assertIn(f"3 {exhaust_emoji}", line)
 
     def test_cyborg_condition_ids_answers_off_exhausted_and_injured(
         self,
