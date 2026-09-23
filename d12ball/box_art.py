@@ -33,11 +33,12 @@ left off rather than guessed at.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from math import atan2, cos, hypot, sin, sqrt
 from typing import Optional, Sequence
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from d12ball.boards import (
     BLEED_INCHES,
@@ -654,6 +655,45 @@ D12_NORMALS: tuple[tuple[float, float, float], ...] = tuple(
 D12_TILT = (-0.42, 0.30)
 D12_SUPERSAMPLE = 4
 _D12_CACHE: dict[tuple, Image.Image] = {}
+_D12_GRAIN: dict[int, Image.Image] = {}
+
+
+@dataclass(frozen=True)
+class DieMaterial:
+    """
+    What the ball is made of.
+
+    It was white, which is what a d12 is in a dice shop and nothing
+    this game's art has ever contained: the balls in the players' own
+    portraits are dark, dimpled, organic things. So the die is drawn
+    as a piece of hard dark rubber -- a lit face, a shadowed one, a
+    grain over both, worn seams where the faces meet, and bone
+    numerals cut into it.
+    """
+
+    body: str
+    # The seam between two faces: a worn edge catches light rather
+    # than going darker, which is what makes rubber read as rubber and
+    # not as a wireframe.
+    seam: str
+    # The silhouette, which does go darker -- it is the edge of the
+    # object, not a crease in it.
+    edge: str
+    numeral: str
+    # How deep the grain is, 0 to 1.
+    grain: float
+
+
+# Leather rather than the grey of a dice-shop d12: this ball is the
+# one a fire demon kicks. The author's pick from four the material was
+# tried in (a stone grey, this, a tyre black and an ooze green).
+BALL_MATERIAL = DieMaterial(
+    body="#4a3f33",
+    seam="#6d5f4c",
+    edge="#1d1813",
+    numeral="#efe6d2",
+    grain=0.40,
+)
 
 
 def _dot(a, b) -> float:
@@ -702,30 +742,76 @@ def _turned(v, tilt: tuple[float, float]):
     return (x, y, z)
 
 
+def die_grain(size: int, depth: float) -> Image.Image:
+    """
+    The mottling of the die's own surface, as a grey to be overlaid.
+
+    Hashed off each pixel's coordinates rather than drawn from
+    `random`: a render of this panel is the same bytes every time,
+    which is what lets a drawing change be checked by hash (see "Look
+    at the image" in CLAUDE.md). Two scales of it, because one is
+    noise and two is a material -- a coarse blotch under a fine
+    speckle.
+    """
+    if size in _D12_GRAIN:
+        return _D12_GRAIN[size]
+
+    def value(x: int, y: int, salt: int) -> int:
+        seed = (x * 73856093) ^ (y * 19349663) ^ (salt * 83492791)
+        seed = (seed ^ (seed >> 13)) * 1274126177
+        return (seed >> 16) & 0xFF
+
+    coarse = Image.new("L", (max(4, size // 24), max(4, size // 24)))
+    coarse.putdata(
+        [
+            value(x, y, 1)
+            for y in range(coarse.height)
+            for x in range(coarse.width)
+        ]
+    )
+    fine = Image.new("L", (max(8, size // 6), max(8, size // 6)))
+    fine.putdata(
+        [value(x, y, 2) for y in range(fine.height) for x in range(fine.width)]
+    )
+    grain = Image.blend(
+        coarse.resize((size, size), Image.Resampling.BICUBIC)
+        .filter(ImageFilter.GaussianBlur(size / 90)),
+        fine.resize((size, size), Image.Resampling.BILINEAR)
+        .filter(ImageFilter.GaussianBlur(size / 400)),
+        0.45,
+    )
+    # Pulled towards mid-grey, which is what `overlay` leaves alone:
+    # `depth` is then how far the surface varies from its own colour.
+    grain = Image.eval(grain, lambda v: round(128 + (v - 128) * depth))
+    _D12_GRAIN[size] = grain
+    return grain
+
+
 def d12_art(
     size: int,
     face: str = "12",
-    body: str = "#ffffff",
-    ink: str = PAPER_INK,
+    material: DieMaterial = BALL_MATERIAL,
 ) -> Image.Image:
     """
-    A d12 -- the die itself, drawn as a solid.
+    A d12 -- the die itself, drawn as a solid and as a material.
 
     Six of the twelve faces are towards the reader at any angle; each
     is filled by how square it is to them, which is what makes it read
-    as a die rather than as a wireframe. Drawn four times over and
-    scaled down, because Pillow does not antialias a polygon edge and
-    a die is nothing but polygon edges.
+    as a die rather than as a wireframe, and the whole is then grained
+    and seamed so it reads as something cast rather than something
+    printed. Drawn four times over and scaled down, because Pillow
+    does not antialias a polygon edge and a die is nothing but polygon
+    edges.
     """
-    key = (size, face, body, ink)
+    key = (size, face, material)
     if key in _D12_CACHE:
         return _D12_CACHE[key]
 
     span = max(8, size) * D12_SUPERSAMPLE
-    art = Image.new("RGBA", (span, span), (0, 0, 0, 0))
-    pen = ImageDraw.Draw(art)
-    tone = Image.new("RGB", (1, 1), body).getpixel((0, 0))
-    edge_color = Image.new("RGB", (1, 1), ink).getpixel((0, 0))
+    body = Image.new("RGB", (span, span), material.body)
+    mask = Image.new("L", (span, span), 0)
+    shading = ImageDraw.Draw(body)
+    silhouette = ImageDraw.Draw(mask)
 
     turned = [
         (_turned(normal, D12_TILT), [_turned(v, D12_TILT) for v in corners])
@@ -740,19 +826,36 @@ def d12_art(
         return (span / 2 + v[0] * scale, span / 2 - v[1] * scale)
 
     towards = [(n, corners) for n, corners in turned if n[2] > 0.01]
-    line = max(1, round(span * 0.005))
+    tone = Image.new("RGB", (1, 1), material.body).getpixel((0, 0))
     for normal, corners in sorted(
         towards, key=lambda one: sum(v[2] for v in one[1])
     ):
-        shade = 0.62 + 0.38 * max(0.0, normal[2])
-        pen.polygon(
-            [flat(v) for v in corners],
-            fill=tuple(min(255, round(c * shade)) for c in tone) + (255,),
-            outline=edge_color + (255,),
-            width=line,
+        # A face square to the reader is lit; one turning away falls
+        # off to a little over half. Rubber has no specular to speak
+        # of, so the range is narrow and there is no white in it.
+        shade = 0.55 + 0.75 * max(0.0, normal[2])
+        points = [flat(v) for v in corners]
+        shading.polygon(
+            points, fill=tuple(min(255, round(c * shade)) for c in tone)
+        )
+        silhouette.polygon(points, fill=255)
+
+    if material.grain:
+        body = ImageChops.overlay(
+            body, Image.merge("RGB", (die_grain(span, material.grain),) * 3)
         )
 
-    # The number goes on whichever face is squarest to the reader.
+    # The seams, over the grain: a worn edge on a cast piece catches
+    # the light rather than going darker.
+    seams = ImageDraw.Draw(body)
+    line = max(1, round(span * 0.004))
+    for _, corners in towards:
+        seams.polygon(
+            [flat(v) for v in corners], outline=material.seam, width=line
+        )
+
+    # The number, cut in: a shadow a hair below it and the bone face
+    # over that.
     front = max(towards, key=lambda one: one[0][2])
     points = [flat(v) for v in front[1]]
     middle = (
@@ -763,11 +866,28 @@ def d12_art(
     numerals = round(room * 1.4)
     while numerals > 6:
         numeral_font = load_font(numerals, bold=True)
-        if pen.textlength(face, font=numeral_font) <= room * 1.5:
+        if seams.textlength(face, font=numeral_font) <= room * 1.5:
             break
         numerals -= 2
-    pen.text(
-        middle, face, font=numeral_font, fill=edge_color + (255,), anchor="mm"
+    seams.text(
+        (middle[0], middle[1] + span * 0.006),
+        face,
+        font=numeral_font,
+        fill=material.edge,
+        anchor="mm",
+    )
+    seams.text(
+        middle, face, font=numeral_font, fill=material.numeral, anchor="mm"
+    )
+
+    art = Image.new("RGBA", (span, span), (0, 0, 0, 0))
+    art.paste(body, (0, 0), mask)
+    # The silhouette last, so the object has an edge against whatever
+    # it is standing on.
+    ImageDraw.Draw(art).polygon(
+        silhouette_outline(towards, flat),
+        outline=material.edge,
+        width=max(1, round(span * 0.008)),
     )
 
     _D12_CACHE[key] = art.resize(
@@ -776,16 +896,38 @@ def d12_art(
     return _D12_CACHE[key]
 
 
+def silhouette_outline(towards, flat) -> list[tuple[float, float]]:
+    """
+    The die's own outline: the convex hull of the faces facing the
+    reader, which for a convex solid is exactly its silhouette.
+
+    Drawn as one polygon rather than as twelve outlined faces, so the
+    edge of the object is one weight and the seams inside it another.
+    """
+    points = [flat(v) for _, corners in towards for v in corners]
+    points.sort()
+    def half(order):
+        built: list[tuple[float, float]] = []
+        for point in order:
+            while len(built) >= 2:
+                (ax, ay), (bx, by) = built[-2], built[-1]
+                if (bx - ax) * (point[1] - ay) - (by - ay) * (point[0] - ax) > 0:
+                    break
+                built.pop()
+            built.append(point)
+        return built
+    return half(points)[:-1] + half(reversed(points))[:-1]
+
+
 def draw_d12(
     sheet: Sheet,
     center: tuple[float, float],
     radius: float,
     face: str = "12",
-    body: str = "#ffffff",
-    ink: str = PAPER_INK,
+    material: DieMaterial = BALL_MATERIAL,
 ) -> None:
     """The ball, which is a d12, centred on a point."""
-    art = d12_art(round(radius * 2), face, body, ink)
+    art = d12_art(round(radius * 2), face, material)
     paste_rgba(sheet, art, (center[0] - art.width / 2, center[1] - art.height / 2))
 
 
@@ -1188,6 +1330,128 @@ def render_box_cover(
     return sheet.image
 
 
+# A banner, for the top of a Notion page or a Screentop table: the
+# same art as the cover, laid out wide with the title beside the
+# players rather than above them. 10 x 4in at 300dpi is 3000 x 1200 --
+# twice a Notion page cover, so it still reads when that crops it.
+BANNER_INCHES = (10.0, 4.0)
+
+
+def render_banner(
+    facts: Optional[BoxFacts] = None,
+    catalog: Optional[PlayerCatalog] = None,
+    rules: Optional[BasicRuleset] = None,
+    bleed: bool = False,
+    palette: CoverPalette = NIGHT_COVER,
+) -> Image.Image:
+    """
+    The cover's art at banner proportions: the four on the right, the
+    title hard beside them on the left.
+
+    A banner is not a cropped cover. A cover's title sits over the
+    players with a field of sky between; crop that to a strip and what
+    survives is either the words or the art. So the two are one
+    composition read two ways -- same cast, same palettes, same
+    tagline -- and the only thing that moves is where the title goes.
+
+    It defaults to the night palette, because a banner is read on a
+    screen and never printed; `PAGE_COVER` gives the white one for a
+    page that wants it.
+    """
+    catalog = catalog or load_player_catalog()
+    rules = rules or load_basic_ruleset()
+    facts = facts or BoxFacts.read(catalog=catalog, rules=rules)
+    width, height = BANNER_INCHES
+    panel = Panel(width, height, bleed=bleed)
+    sheet = panel.sheet(palette.ground)
+    if palette.glows:
+        sheet.image.paste(
+            vertical_gradient(panel.pixels, "#05090e", "#16242f"), (0, 0)
+        )
+
+    field_top = panel.y(3.42)
+    field_bottom = panel.y(height)
+    if palette.glows:
+        paste_glow(
+            sheet, (panel.x(width * 0.7), field_top), inches(9.0), "#3f7fb8", 90
+        )
+    draw_cover_field(sheet, panel, rules, field_top, field_bottom, palette)
+
+    baseline = panel.y(3.82)
+    cast = cast_portraits(catalog)
+    facing_right = [one for one in cast if one[1] == "right"]
+    facing_left = [one for one in cast if one[1] == "left"]
+    for group, places in zip((facing_right, facing_left), BANNER_PLACES):
+        for (portrait, _, color), (share, figure, depth) in zip(group, places):
+            portrait = (
+                hazed(portrait, depth * palette.haze_share, palette.haze)
+                if depth
+                else portrait
+            )
+            fitted = standing_art(portrait, inches(figure))
+            center = clamp_center(
+                panel.x(width * share), fitted.width, panel, width, COVER_EDGE
+            )
+            paste_glow(
+                sheet,
+                (
+                    center,
+                    baseline - inches(figure * (0.4 if palette.glows else 0.1)),
+                ),
+                inches(figure * (1.1 if palette.glows else 0.5)),
+                color,
+                80 if palette.glows else 40,
+            )
+            shadow = radial_glow(round(fitted.width * 1.1), palette.shadow, 150)
+            shadow = shadow.resize(
+                (shadow.width, max(1, round(shadow.height * 0.22))),
+                Image.Resampling.BICUBIC,
+            )
+            paste_rgba(
+                sheet,
+                shadow,
+                (center - shadow.width / 2, baseline - shadow.height * 0.62),
+            )
+            paste_standing(sheet, portrait, center, baseline, inches(figure))
+
+    ball_center = (panel.x(width * 0.695), panel.y(1.32))
+    if palette.glows:
+        paste_glow(sheet, ball_center, inches(2.6), palette.accent, 170)
+    draw_d12(sheet, ball_center, inches(0.44))
+
+    # The title block, hard against the group rather than over it.
+    left = panel.x(0.55)
+    words = inches(3.95)
+    letterspaced(
+        sheet, (left, panel.y(1.12)), PUBLISHER.upper(), 0.14, palette.accent,
+        0.06, anchor="left",
+    )
+    title = fitted_display(sheet, TITLE.upper(), words, 1.35)
+    sheet.text(
+        (left, panel.y(1.95)), TITLE.upper(), title, palette.ink, anchor="lm"
+    )
+    sheet.rect(
+        (left, panel.y(2.52), left + inches(1.5), panel.y(2.52) + inches(0.02)),
+        fill=palette.accent,
+    )
+    # One line, shrunk to the room the players leave: a tagline
+    # wrapped onto a second line runs under whoever is standing next
+    # to it.
+    draw_fitted(
+        sheet, (left, panel.y(2.72)), TAGLINE, words, 0.185, palette.muted,
+    )
+    return sheet.image
+
+
+# Where the four stand on a banner: the whole group in the right half,
+# so the title has the left to itself. The shares are of the banner's
+# own width, and the heights are what a four-inch panel leaves.
+BANNER_PLACES: tuple[tuple[tuple[float, float, float], ...], ...] = (
+    ((0.545, 2.6, 0.45), (0.675, 3.15, 0.0)),
+    ((0.945, 2.6, 0.45), (0.825, 3.15, 0.0)),
+)
+
+
 def draw_chip_row(
     sheet: Sheet,
     chips: Sequence[str],
@@ -1280,6 +1544,130 @@ def render_box_side(
 BARCODE_INCHES = (1.47, 1.02)
 
 
+# The meeple, as the Screentop table draws it -- the author's own
+# path, so a piece on a printed panel and a piece on the virtual table
+# are one shape rather than two drawings of the same idea. It is an
+# SVG path with the origin at the middle of the piece; `meeple_outline`
+# flattens it once and everything else scales that.
+MEEPLE_PATH = (
+    "M 0 -29.62 C -3.98 -29.62 -6.83 -27.5 -8.5 -24.86 C -9.96 -22.51 "
+    "-10.58 -19.75 -10.7 -17.34 C -15.22 -15.13 -20.2 -12.87 -24.22 "
+    "-10.58 C -26.34 -9.4 -28.17 -8.17 -29.56 -6.87 C -30.95 -5.55 "
+    "-31.97 -4.08 -31.97 -2.35 C -31.97 -1.62 -31.61 -1.02 -31.19 -0.58 "
+    "C -30.78 -0.13 -30.32 0.2 -29.76 0.51 C -28.63 1.18 -27.24 1.69 "
+    "-25.73 2.15 C -23.44 2.84 -20.88 3.36 -18.67 3.56 C -20.88 7.36 "
+    "-23.82 10.86 -26.39 14.23 C -29.38 18.09 -31.97 21.8 -31.97 25.95 "
+    "C -31.97 26.52 -31.97 26.96 -31.93 27.44 C -31.88 27.91 -31.73 "
+    "28.5 -31.28 28.94 C -30.8 29.39 -30.25 29.52 -29.76 29.56 C -29.31 "
+    "29.64 -28.84 29.62 -28.25 29.62 L -11.82 29.62 C -10.62 29.62 "
+    "-9.76 29.69 -8.85 29.11 C -7.94 28.53 -7.63 27.74 -6.98 26.57 "
+    "L -6.96 26.55 L -6.95 26.51 S -5.51 23.58 -3.82 20.73 C -2.95 "
+    "19.28 -2.04 17.84 -1.22 16.81 C -0.81 16.3 -0.45 15.91 -0.16 15.67 "
+    "C -0.09 15.6 -0.06 15.6 0 15.56 C 0.06 15.6 0.09 15.6 0.17 15.67 "
+    "C 0.42 15.91 0.82 16.3 1.22 16.81 C 2.04 17.84 2.96 19.28 3.82 "
+    "20.73 C 5.52 23.58 6.95 26.51 6.95 26.51 L 6.97 26.55 L 6.98 26.57 "
+    "C 7.63 27.74 7.94 28.53 8.84 29.11 C 9.72 29.69 10.59 29.62 11.78 "
+    "29.62 L 28.3 29.62 C 28.88 29.62 29.34 29.64 29.79 29.56 C 30.28 "
+    "29.52 30.82 29.39 31.29 28.93 C 31.75 28.48 31.89 27.91 31.93 "
+    "27.44 C 31.98 26.96 31.98 26.52 31.98 25.95 C 31.98 21.8 29.39 "
+    "18.09 26.4 14.23 C 23.82 10.86 20.88 7.36 18.67 3.56 C 20.88 3.36 "
+    "23.45 2.84 25.73 2.15 C 27.23 1.69 28.63 1.18 29.76 0.51 C 30.32 "
+    "0.2 30.79 -0.13 31.2 -0.58 C 31.62 -1.01 31.98 -1.6 31.98 -2.35 "
+    "C 31.98 -4.08 30.95 -5.53 29.56 -6.86 C 28.18 -8.17 26.34 -9.39 "
+    "24.22 -10.57 C 20.21 -12.87 15.23 -15.13 10.71 -17.34 C 10.59 "
+    "-19.75 9.97 -22.49 8.5 -24.86 C 6.83 -27.5 3.98 -29.62 0 -29.62 Z"
+)
+# Where the role's two letters sit on the piece, in the path's own
+# units: below the arms, on the chest, which is where the Screentop
+# table puts them.
+MEEPLE_CODE_CENTER = 11.0
+MEEPLE_CODE_WIDTH = 26.0
+_PATH_TOKEN = re.compile(r"[MCSLZ]|-?\d+(?:\.\d+)?")
+_MEEPLE_OUTLINE: list[tuple[float, float]] = []
+
+
+def flatten_path(path: str, steps: int = 14) -> list[tuple[float, float]]:
+    """
+    An SVG path as a polygon, for the subset the meeple is written in
+    (absolute `M`, `L`, `C`, `S`, `Z`).
+
+    Pillow draws polygons, not curves, so every cubic is sampled --
+    fourteen segments each, which at any size these panels print at is
+    under a printed dot. It is a reader rather than a rewrite of the
+    path because the path is the author's: retyping it as a list of
+    points is how the piece on the box would come to differ from the
+    piece on the table.
+    """
+    tokens = _PATH_TOKEN.findall(path)
+    points: list[tuple[float, float]] = []
+    index = 0
+    command = ""
+    current = start = (0.0, 0.0)
+    control: Optional[tuple[float, float]] = None
+    while index < len(tokens):
+        if tokens[index] in "MCSLZ":
+            command = tokens[index]
+            index += 1
+            if command == "Z":
+                points.append(start)
+                control = None
+                continue
+        numbers = []
+        for _ in range({"M": 2, "L": 2, "C": 6, "S": 4}[command]):
+            numbers.append(float(tokens[index]))
+            index += 1
+        if command in ("M", "L"):
+            current = (numbers[0], numbers[1])
+            if command == "M":
+                start = current
+            points.append(current)
+            control = None
+            continue
+        if command == "C":
+            first = (numbers[0], numbers[1])
+            second = (numbers[2], numbers[3])
+            end = (numbers[4], numbers[5])
+        else:
+            # `S` reflects the previous curve's second control point,
+            # which is the whole of what makes it smooth.
+            first = (
+                (2 * current[0] - control[0], 2 * current[1] - control[1])
+                if control
+                else current
+            )
+            second = (numbers[0], numbers[1])
+            end = (numbers[2], numbers[3])
+        for step in range(1, steps + 1):
+            t = step / steps
+            u = 1 - t
+            points.append(
+                (
+                    u ** 3 * current[0] + 3 * u * u * t * first[0]
+                    + 3 * u * t * t * second[0] + t ** 3 * end[0],
+                    u ** 3 * current[1] + 3 * u * u * t * first[1]
+                    + 3 * u * t * t * second[1] + t ** 3 * end[1],
+                )
+            )
+        control = second
+        current = end
+    return points
+
+
+def meeple_outline() -> list[tuple[float, float]]:
+    """The path, flattened once and kept."""
+    if not _MEEPLE_OUTLINE:
+        _MEEPLE_OUTLINE.extend(flatten_path(MEEPLE_PATH))
+    return _MEEPLE_OUTLINE
+
+
+def meeple_size() -> tuple[float, float]:
+    """How wide and tall the piece is in the path's own units."""
+    outline = meeple_outline()
+    xs = [x for x, _ in outline]
+    ys = [y for _, y in outline]
+    return max(xs) - min(xs), max(ys) - min(ys)
+
+
 def draw_meeple(
     sheet: Sheet,
     center_x: float,
@@ -1295,58 +1683,42 @@ def draw_meeple(
 
     The bot draws a player as a coloured disc because a screen token
     is a label; what stands on a table is a pawn, so the picture of
-    the game shows the pawn -- the same one the Screentop table uses,
-    role code and all. The two letters are `ROLE_INITIALS`, the
-    spelling every other drawing of a role reads (see `role_initials`
-    in `d12ball/formatting.py`), and their colour is
-    `high_contrast_ink`, because white disappears on slime green.
-
-    Drawn rather than bundled as art, so it comes out at whatever size
-    a panel leaves and takes its colour from `TEAM_COLORS`.
+    the game shows the pawn -- and it shows the author's own outline
+    (`MEEPLE_PATH`), the one the Screentop table draws, rather than a
+    silhouette redrawn from a screenshot. The two letters are
+    `ROLE_INITIALS`, the spelling every other drawing of a role reads
+    (see `role_initials` in `d12ball/formatting.py`), and their colour
+    is `high_contrast_ink`, because white disappears on slime green.
     """
-    width = height
-
-    def point(x: float, y: float) -> tuple[float, float]:
-        """Offsets from the centre, and up from the base, in widths and heights."""
-        return (center_x + x * width, base - y * height)
-
-    line = max(1, round(height * 0.035))
+    outline_points = meeple_outline()
+    _, path_height = meeple_size()
+    scale = height / path_height
+    bottom = max(y for _, y in outline_points)
     sheet.polygon(
         [
-            point(-0.42, 0.00), point(-0.11, 0.00), point(-0.05, 0.22),
-            point(0.05, 0.22), point(0.11, 0.00), point(0.42, 0.00),
-            point(0.36, 0.34), point(0.50, 0.40), point(0.46, 0.53),
-            point(0.24, 0.57), point(0.17, 0.66), point(-0.17, 0.66),
-            point(-0.24, 0.57), point(-0.46, 0.53), point(-0.50, 0.40),
-            point(-0.36, 0.34),
+            (center_x + x * scale, base + (y - bottom) * scale)
+            for x, y in outline_points
         ],
         fill=fill,
         outline=outline,
-        width=line,
-    )
-    radius = 0.20 * height
-    head = point(0.0, 0.80)
-    sheet.draw.ellipse(
-        (
-            head[0] - radius, head[1] - radius,
-            head[0] + radius, head[1] + radius,
-        ),
-        fill=fill,
-        outline=outline,
-        width=line,
+        width=max(1, round(height * 0.03)),
     )
     if not code:
         return
     # Fitted to the chest rather than set at a share of the height: a
     # role is two letters and some of them are wider than others.
-    size = round(height * 0.30)
+    size = round(height * 0.3)
     while size > 4:
         face = load_font(size, bold=True)
-        if sheet.text_width(code, face) <= width * 0.46:
+        if sheet.text_width(code, face) <= MEEPLE_CODE_WIDTH * scale:
             break
         size -= 1
     sheet.text(
-        point(0.0, 0.36), code, face, high_contrast_ink(fill), anchor="mm"
+        (center_x, base + (MEEPLE_CODE_CENTER - bottom) * scale),
+        code,
+        face,
+        high_contrast_ink(fill),
+        anchor="mm",
     )
 
 

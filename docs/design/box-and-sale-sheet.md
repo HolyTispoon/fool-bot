@@ -16,6 +16,7 @@ python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 | --- | --- | --- |
 | `box-cover.png` | 11.375in square | The lid: the title, four players, the ball, the facts |
 | `box-cover-night.png` | 11.375in square | The same cover for a screen, not for the printer |
+| `banner.png` / `banner-night.png` | 3000 x 1200px | The same art laid out wide, for a Notion page or a Screentop table |
 | `box-side.png` | 11.375 x 2.75in | One wall -- and all four, since the box is square |
 | `box-bottom.png` | 11.375in square | What is in the box, how a turn goes, a picture of the game |
 | `sale-sheet.png` | letter | One page for a buyer or a convention table |
@@ -170,18 +171,34 @@ is the printed one. So the box shows the printed one.
 
 ### The meeples
 
-**A meeple is the piece, drawn as a piece**: the classic silhouette, in its
-team's colour, with the player's role on its chest -- the same thing the
+**A meeple is the piece, drawn as a piece**: the author's own outline, in its
+team's colour, with the player's role on its chest -- the same piece the
 Screentop table puts on the board, which is what a coach recognises. The bot
 draws a player as a coloured disc with a label in it, which is right on a
-screen and wrong on a picture of a tabletop: a disc is a token, and what
+screen and wrong in a picture of a tabletop: a disc is a token, and what
 stands on a printed board is a pawn.
 
-The two letters are `ROLE_INITIALS`, the spelling every other drawing of a
-role reads, and their colour is `high_contrast_ink`, because white
-disappears on slime green. Drawn rather than bundled as art, so a meeple
-comes out at whatever size a panel leaves and takes its colour from
-`TEAM_COLORS` like everything else.
+**`MEEPLE_PATH` is the Screentop table's own SVG path**, and `flatten_path`
+reads it. The first version was a polygon traced by eye off a screenshot and
+it looked like a gingerbread man -- the arms too straight, the piece as wide
+as it was tall. Reading the path is not just more accurate, it is the only
+way the two stay the same shape: retyping a curve as a list of points is how
+the piece on the box comes to differ from the piece on the table.
+
+- `flatten_path` covers the subset the path is written in -- absolute `M`,
+  `L`, `C`, `S`, `Z` -- and samples each cubic into fourteen segments, which
+  at any size these panels print at is under a printed dot. Pillow draws
+  polygons, not curves.
+- **`S` is the one command that is not self-contained**: its first control
+  point is the previous curve's second one mirrored through the join. Read as
+  if it carried its own, the outline kinks where the curves meet, which only
+  shows at size; `test_a_smooth_curve_reflects_the_control_point` pins it on a
+  path built for the purpose, since the meeple's own `S` follows two `L`s and
+  the reflection there is a no-op.
+- The two letters are `ROLE_INITIALS`, the spelling every other drawing of a
+  role reads, and their colour is `high_contrast_ink`, because white
+  disappears on slime green. The piece takes its colour from `TEAM_COLORS`
+  like everything else.
 
 ### The die
 
@@ -189,6 +206,29 @@ comes out at whatever size a panel leaves and takes its colour from
 dodecahedron, turns it, and fills the six faces that are towards the reader
 by how square each one is. It replaced a flat twelve-sided polygon, which is
 a badge rather than a die.
+
+**And it is made of something.** The first solid was white, which is what a
+d12 is in a dice shop and what nothing else in this game's art is -- the
+balls in the players' own portraits are dark, dimpled, organic things, and a
+white die on the cover read as a sticker laid over the picture. `DieMaterial`
+is what it is made of instead: `BALL_MATERIAL` is dark leather, with a lit
+face and a shadowed one, a grain over both, worn seams where the faces meet,
+and bone numerals cut in. The author picked it from four the material was
+tried in -- a stone grey, this, a tyre black and an ooze green.
+
+- **The grain is hashed off each pixel's coordinates, not drawn from
+  `random`.** A render of a panel is then the same bytes every time, which is
+  what lets a drawing change be checked by hash ("Look at the image" in
+  CLAUDE.md), and `test_it_is_the_same_die_every_render` holds it. Two scales
+  of noise, because one is noise and two is a material.
+- **A seam is lighter than the face and the silhouette is darker.** A worn
+  edge on a cast piece catches the light; the outline of the object does not.
+  Drawing every face outlined would give both the same weight, so the
+  silhouette is the convex hull of the visible faces -- which for a convex
+  solid is exactly its outline -- drawn once at its own width.
+- `test_the_ball_is_made_of_something` fails on a white die, because that is
+  the thing that was wrong with the first one and a default colour is an easy
+  thing to slip back in.
 
 - **The face list is computed, not tabulated.** A face is the five vertices
   furthest along its own normal, wound around it; sixty indices written out
@@ -202,6 +242,25 @@ a badge rather than a die.
   that pentagon, and on the board picture it shows the ball's **speed** read
   off `match.ball.speed` rather than a 12 -- which is the whole of what the
   face means (Law 7).
+
+## The banner
+
+`render_banner` is the same art at 3000 x 1200 -- twice a Notion page cover,
+so it survives being cropped there -- with the title **beside** the players
+rather than above them, for the top of a Notion page or a Screentop table.
+
+**A banner is not a cropped cover.** A cover's title sits over the players
+with a field of sky between them; crop that to a strip and what survives is
+either the words or the art. So the two are one composition read two ways --
+same cast, same palettes, same quoted tagline -- and the only thing that
+moves is where the title goes. `BANNER_PLACES` puts the group in the right
+half and the title block has the left to itself.
+
+It defaults to the night palette, because a banner is read on a screen and
+never printed; the page one is written beside it for a white page that wants
+it. The tagline is one fitted line rather than a wrapped paragraph: on a
+panel four inches tall, a second line runs under whoever is standing next to
+it.
 
 ## The cover's four
 
@@ -256,6 +315,6 @@ panel without a word.
 The suite checks claims, geometry, the corners for ink and the die for
 flatness; it cannot see a picture, exactly as it cannot see the bot's board or
 the printed ones. **Look at the image** --
-`scripts/render_box_art.py --out box/` writes all seven files -- six printed
-panels and the night cover -- and reports the box's own dimensions and the
-QR's module size.
+`scripts/render_box_art.py --out box/` writes all nine files -- six printed
+panels, the night cover and the two banners -- and reports the box's own
+dimensions and the QR's module size.

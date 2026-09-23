@@ -17,7 +17,9 @@ import unittest
 
 from d12ball import box_art
 from d12ball.box_art import (
+    BANNER_INCHES,
     BARCODE_INCHES,
+    MEEPLE_PATH,
     NIGHT_COVER,
     PAGE_COVER,
     BOX_DEPTH_INCHES,
@@ -38,15 +40,20 @@ from d12ball.box_art import (
     box_contents,
     box_inches,
     cast_color,
+    d12_art,
     d12_faces,
     draw_qr,
+    flatten_path,
     folded_board_inches,
     game_in_brief,
+    meeple_outline,
+    meeple_size,
     plain,
     qr_matrix,
     qr_module_inches,
     render_box_bottom,
     render_box_cover,
+    render_banner,
     render_box_side,
     render_playtest_card_back,
     render_playtest_card_front,
@@ -364,6 +371,40 @@ class PrintedInWhiteTests(unittest.TestCase):
 class DieTests(unittest.TestCase):
     """The d12 on these panels is the solid, not a twelve-sided badge."""
 
+    def test_the_ball_is_made_of_something(self) -> None:
+        """
+        It was white, which is what a d12 is in a dice shop and what
+        nothing else in this game's art is: the balls in the players'
+        own portraits are dark, dimpled things. The die is drawn as a
+        material now, so nothing on it is paper-white.
+        """
+        art = d12_art(120)
+        self.assertEqual(art.mode, "RGBA")
+        opaque = [
+            pixel[:3]
+            for pixel in art.convert("RGBA").getdata()
+            if pixel[3] > 250
+        ]
+        self.assertTrue(opaque)
+        body = [
+            pixel for pixel in opaque
+            # The numerals are bone and are meant to be pale; what
+            # must not be white is the die itself.
+            if not (min(pixel) > 200)
+        ]
+        self.assertGreater(len(body), len(opaque) * 0.8)
+        self.assertEqual(
+            [pixel for pixel in opaque if pixel == (255, 255, 255)], []
+        )
+
+    def test_it_is_the_same_die_every_render(self) -> None:
+        """
+        The grain is hashed off each pixel rather than drawn from
+        `random`, so a panel is the same bytes twice -- which is what
+        lets a drawing change be checked by hash.
+        """
+        self.assertEqual(d12_art(64).tobytes(), d12_art(64).tobytes())
+
     def test_it_has_twelve_pentagons(self) -> None:
         faces = d12_faces()
         self.assertEqual(len(faces), 12)
@@ -395,6 +436,41 @@ class DieTests(unittest.TestCase):
 
 class MeepleTests(unittest.TestCase):
     """What stands on the board in a picture of it is a piece with a role on it."""
+
+    def test_the_outline_is_the_authors_own_path(self) -> None:
+        """
+        Flattened from `MEEPLE_PATH`, the path the Screentop table
+        draws, rather than a silhouette redrawn from a screenshot --
+        so a piece on a panel and a piece on the table are one shape.
+        """
+        outline = meeple_outline()
+        self.assertGreater(len(outline), 200)
+        self.assertEqual(outline[0], outline[-1], "the path is not closed")
+        width, height = meeple_size()
+        # The piece as the path draws it: a shade wider than it is
+        # tall, arms out.
+        self.assertAlmostEqual(width, 63.95, places=2)
+        self.assertAlmostEqual(height, 59.24, places=2)
+
+    def test_a_smooth_curve_reflects_the_control_point(self) -> None:
+        """
+        `S` is the one command in the path that is not self-contained:
+        its first control point is the previous curve's second one,
+        mirrored through the join. Read as if it carried its own, the
+        outline kinks where the curves meet.
+        """
+        self.assertIn(" S ", MEEPLE_PATH)
+        # After `C 0 10 10 10 10 0` the join is at (10, 0) with the
+        # last control at (10, 10), so the reflection is (10, -10).
+        smooth = flatten_path("M 0 0 C 0 10 10 10 10 0 S 20 -10 20 0")
+        spelled = flatten_path(
+            "M 0 0 C 0 10 10 10 10 0 C 10 -10 20 -10 20 0"
+        )
+        unreflected = flatten_path(
+            "M 0 0 C 0 10 10 10 10 0 C 10 10 20 -10 20 0"
+        )
+        self.assertEqual(smooth, spelled)
+        self.assertNotEqual(smooth, unreflected)
 
     def test_every_role_has_two_letters_to_wear(self) -> None:
         catalog = load_player_catalog()
@@ -442,6 +518,18 @@ class PanelRenderTests(unittest.TestCase):
         with_contact = render_sale_sheet(contact=("you@example.com",))
         self.assertNotEqual(
             with_contact.tobytes(), render_sale_sheet().tobytes()
+        )
+
+    def test_the_banner_is_twice_a_notion_cover(self) -> None:
+        banner = render_banner()
+        self.assert_size(banner, *BANNER_INCHES)
+        self.assertEqual(banner.size, (3000, 1200))
+
+    def test_the_banner_is_the_covers_art_laid_out_wide(self) -> None:
+        """Same palettes, different placement -- not a cropped cover."""
+        self.assertNotEqual(
+            render_banner(palette=PAGE_COVER).tobytes(),
+            render_banner(palette=NIGHT_COVER).tobytes(),
         )
 
     def test_the_playtest_card(self) -> None:

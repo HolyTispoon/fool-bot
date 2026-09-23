@@ -31,6 +31,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.box_art import (  # noqa: E402
     NIGHT_COVER,
+    PAGE_COVER,
     PRINT_DPI,
     QR_MIN_MODULE_INCHES,
     SURVEY_URL,
@@ -42,6 +43,7 @@ from d12ball.box_art import (  # noqa: E402
     render_box_bottom,
     render_box_cover,
     render_box_side,
+    render_banner,
     render_playtest_card_back,
     render_playtest_card_front,
     render_sale_sheet,
@@ -55,6 +57,7 @@ from d12ball.components import (  # noqa: E402
 
 PANELS = (
     "cover",
+    "banner",
     "side",
     "bottom",
     "sale-sheet",
@@ -182,6 +185,29 @@ def main() -> None:
             arguments.pdf,
         )
         print("  box-cover-night.png is for screens, not for the printer")
+    if "banner" in wanted:
+        # Wide, for the top of a Notion page or a Screentop table --
+        # the cover's art with the title beside the players rather
+        # than above them. The night one is the default there; the
+        # page one is for a white page that wants it.
+        save(
+            render_banner(
+                facts=facts, catalog=catalog, rules=rules,
+                bleed=arguments.bleed, palette=NIGHT_COVER,
+            ),
+            out / "banner-night.png",
+            arguments.pdf,
+        )
+        save(
+            render_banner(
+                facts=facts, catalog=catalog, rules=rules,
+                bleed=arguments.bleed, palette=PAGE_COVER,
+            ),
+            out / "banner.png",
+            arguments.pdf,
+        )
+        print("  banners are 3000 x 1200 -- twice a Notion page cover")
+
     if "side" in wanted:
         save(
             render_box_side(facts=facts, bleed=arguments.bleed),
