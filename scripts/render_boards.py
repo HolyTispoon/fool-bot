@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Render the three boards of the physical game.
 
-Print-ready at 300dpi. The field and the jumbotron are tabloid
-(11 x 17) by default -- a home or copy-shop printer's own size, where
-A3 is not; the team board is half a letter sheet, two coaches to a
-page. See `PAPERS`, `DEFAULT_PAPER` and `TEAM_BOARD_PAPER` in
+Print-ready at 300dpi. The field board is tabloid (11 x 17) by
+default -- a home or copy-shop printer's own size, where A3 is not.
+**The jumbotron is a letter sheet, landscape**, and the team board is
+half a letter sheet, two coaches to a page: both have a paper of their
+own, because letter is the size a printer in the house actually has in
+it and neither board has a field on it to pay for a bigger sheet. See
+`PAPERS`, `DEFAULT_PAPER`, `JUMBOTRON_PAPER` and `TEAM_BOARD_PAPER` in
 `d12ball/boards.py`:
 
     python3 scripts/render_boards.py --out print/
@@ -17,6 +20,13 @@ fields, the jumbotron, and the team board -- **twice**: one
 board on its own (`team-board.png`, half a letter sheet) and a letter
 page carrying two of them to be cut apart, one for each coach
 (`team-board-2up.png`).
+
+A field board also comes out **three ways**: whole on the tabloid
+sheet (`field-board-7.png`), and as its own top and bottom halves on
+letter (`field-board-7-top.png`, `field-board-7-bottom.png`), which
+taped along the cut are that same board at the same size -- for a
+house with a letter printer and no tabloid one. --no-halves leaves
+them out.
 
 The layout lives in `d12ball/boards.py`. Everything on either board is
 read from the same data the bot plays from, so re-running this is how a
@@ -34,13 +44,16 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from d12ball.boards import (  # noqa: E402
     CARD_INCHES,
     DEFAULT_PAPER,
+    JUMBOTRON_PAPER,
     MIN_TOKEN_INCHES,
     PAPERS,
     PRINT_DPI,
     TEAM_BOARD_PAPER,
     card_slot_inches,
     cell_inches,
+    half_paper,
     render_field_board,
+    render_field_board_halves,
     render_jumbotron_board,
     render_team_board,
     render_team_board_sheet,
@@ -103,9 +116,19 @@ def main() -> None:
         default=DEFAULT_PAPER,
         choices=sorted(PAPERS),
         help=(
-            f"Sheet size for the field and jumbotron boards (default: "
-            f"{DEFAULT_PAPER}). The team board has a paper of its own "
-            "-- see --team-paper."
+            f"Sheet size for the field board (default: {DEFAULT_PAPER}). "
+            "The jumbotron and the team board each have a paper of "
+            "their own -- see --jumbotron-paper and --team-paper."
+        ),
+    )
+    parser.add_argument(
+        "--jumbotron-paper",
+        default=JUMBOTRON_PAPER,
+        choices=sorted(PAPERS),
+        help=(
+            f"The sheet the jumbotron is drawn on, landscape (default: "
+            f"{JUMBOTRON_PAPER}). Anything smaller takes its cells "
+            "under a token; the CLI says so."
         ),
     )
     parser.add_argument(
@@ -116,6 +139,16 @@ def main() -> None:
             f"The sheet a coach's two boards are cut from (default: "
             f"{TEAM_BOARD_PAPER}). One board is half of it: the two-up "
             "page is the whole sheet, cut across."
+        ),
+    )
+    parser.add_argument(
+        "--no-halves",
+        dest="halves",
+        action="store_false",
+        help=(
+            "Skip the two half-sheet files each field board is also "
+            "written as. They are the same board cut in two, for a "
+            "printer that does not take the whole sheet."
         ),
     )
     parser.add_argument(
@@ -145,9 +178,25 @@ def main() -> None:
             rules, board_size, paper=args.paper, bleed=args.bleed
         )
         save(board, args.out / f"field-board-{board_size}.png", args.pdf)
+        if not args.halves:
+            continue
+        # The same board, cut in two -- not a second layout for the
+        # smaller paper, so the two taped together are the sheet above
+        # and a space is the size it is on it.
+        halves = render_field_board_halves(
+            rules, board_size, paper=args.paper, bleed=args.bleed
+        )
+        for name, half in zip(("top", "bottom"), halves):
+            save(
+                half,
+                args.out / f"field-board-{board_size}-{name}.png",
+                args.pdf,
+            )
 
     save(
-        render_jumbotron_board(paper=args.paper, bleed=args.bleed),
+        render_jumbotron_board(
+            paper=args.jumbotron_paper, bleed=args.bleed
+        ),
         args.out / "jumbotron-board.png",
         args.pdf,
     )
@@ -184,6 +233,19 @@ def main() -> None:
             args.pdf,
         )
 
+    if args.halves:
+        halved = half_paper(args.paper)
+        size = (
+            f"{halved} sheets, landscape"
+            if halved
+            else f"half a {args.paper} sheet, which is no paper size of "
+            "its own"
+        )
+        print(
+            f"field board halves are {size}  -- tape the two along the "
+            "cut for the whole board"
+        )
+
     slot = card_slot_inches(args.team_paper)
     print(
         f"team board bench guides are {slot[0]:.2f} x {slot[1]:.2f} in"
@@ -194,7 +256,7 @@ def main() -> None:
             "the area rather than inside the guide"
         )
     )
-    cells = cell_inches(args.paper)
+    cells = cell_inches(args.jumbotron_paper)
     for name, (width, height) in cells.items():
         note = (
             ""

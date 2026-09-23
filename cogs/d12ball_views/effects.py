@@ -6,7 +6,7 @@ they are the same shape -- one prompt answering one question.
 """
 
 import discord
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from d12ball.flow.driver import Action
 from d12ball.prompts import PromptKind
@@ -1137,8 +1137,15 @@ class SmoothView(SafeView):
     cost); a Smooth costs nothing and cannot fail, so the only reason
     to decline is not wanting the ball on that space. That is still a
     real choice -- it moves who takes the next turn, and it stops the
-    ball short of where the pass was going -- so it is still asked,
-    and "Leave it" is the decline.
+    ball short of where the pass was going -- so it is still asked.
+
+    **The decline names the player it leaves the ball with**, off
+    `SmoothOptions.keeper_id` (`RulesEngine.smooth_keeper`), because
+    "Leave it" said what the button did not do and a Smooth is a
+    choice between two players holding the ball. Where the arrival
+    this offer is holding back leaves nobody holding it -- a loose
+    ball, a new play -- there is no keeper to name and "Leave it" is
+    what is left to say.
 
     **Only that player's own coach may answer.** The same rule the
     pull has, for a simpler reason: it is their player and their turn
@@ -1156,11 +1163,13 @@ class SmoothView(SafeView):
         cog: "D12Ball",
         game_id: str,
         player_id: str,
+        keeper_id: Optional[str] = None,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
         self.player_id = player_id
+        self.keeper_id = keeper_id
 
         player = cog.engine.get_player_definition(player_id)
         take = discord.ui.Button(
@@ -1171,8 +1180,15 @@ class SmoothView(SafeView):
         take.callback = self.take
         self.add_item(take)
 
+        keeper = (
+            cog.engine.get_player_definition(keeper_id)
+            if keeper_id else None
+        )
         leave = discord.ui.Button(
-            label="Leave it",
+            label=(
+                f"{player_with_role(keeper)} keeps the ball"[:80]
+                if keeper is not None else "Leave it"
+            ),
             style=discord.ButtonStyle.secondary,
             custom_id=f"d12ball:smooth_decline:{game_id}:{player_id}",
         )

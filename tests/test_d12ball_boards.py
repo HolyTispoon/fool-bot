@@ -22,13 +22,25 @@ from d12ball.boards import (
     CLOCK_MINUTES,
     DEFAULT_PAPER,
     HALFTIME_MINUTE,
+    HALF_PAPERS,
     MIN_TOKEN_INCHES,
     PRINT_DPI,
+    JUMBOTRON_FOOTER,
+    JUMBOTRON_FOOTER_SIZE,
+    JUMBOTRON_HEADER,
+    JUMBOTRON_NOTES,
+    JUMBOTRON_NOTE_LEADING,
+    JUMBOTRON_NOTE_SIZE,
+    JUMBOTRON_PAPER,
+    JUMBOTRON_TITLE_SIZE,
+    PANEL_TITLE_SIZE,
+    SCORE_COLUMNS,
     SCORE_TRACK_MAX,
     TEAM_BOARD_PAPER,
     TEAM_CUT_INCHES,
     TOKEN_SUPPLIES,
     FieldGeometry,
+    JumbotronGeometry,
     Sheet,
     TeamBoardGeometry,
     card_slot_inches,
@@ -36,8 +48,11 @@ from d12ball.boards import (
     draw_formation_strip,
     fitted_print_font,
     formation_strip_segments,
+    half_paper,
+    halve_sheet,
     kickoff_marks,
     render_field_board,
+    render_field_board_halves,
     render_jumbotron_board,
     load_token_art,
     render_team_board,
@@ -182,6 +197,142 @@ class D12BallFieldBoardTests(unittest.TestCase):
         self.assertLess(geometry.visiting_zone_bottom, geometry.header_top)
         self.assertLess(geometry.range_bottom, geometry.home_zone_top)
         self.assertLessEqual(geometry.home_zone_bottom, sheet.height)
+
+
+class D12BallHalfSheetTests(unittest.TestCase):
+    """
+    The field board printed on two small sheets instead of one big one.
+
+    The whole claim of the halves is that they are the board -- print
+    them, tape the cut, and a coach has the tabloid board at the size
+    it prints at. So what the suite checks is that nothing has been
+    re-laid-out behind that claim, and that the cut still lands where
+    the halves can be taped without a word across the seam.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.rules = load_basic_ruleset()
+
+    def test_the_two_halves_are_the_board(self) -> None:
+        """
+        **The invariant the halves exist for**, and the one a second
+        layout for the smaller paper would break silently: pasted back
+        together they are the sheet, pixel for pixel, so a space is
+        the width it is on the tabloid board rather than whatever fits
+        a letter one.
+        """
+        for board_size in sorted(self.rules.board_layouts):
+            with self.subTest(board_size=board_size):
+                board = render_field_board(self.rules, board_size)
+                top, bottom = render_field_board_halves(
+                    self.rules, board_size
+                )
+                joined = Image.new("RGB", board.size)
+                joined.paste(top, (0, 0))
+                joined.paste(bottom, (0, top.height))
+                self.assertEqual(joined.tobytes(), board.tobytes())
+
+    def test_a_half_is_a_sheet_of_the_paper_below(self) -> None:
+        """
+        Half a tabloid sheet is a letter one turned the other way, to
+        the pixel -- which is the only reason this works at all. A half
+        that had to be scaled to fit its paper would be a smaller
+        board, not the same one.
+        """
+        halved = half_paper(DEFAULT_PAPER)
+        self.assertEqual(halved, "letter")
+        for board_size in sorted(self.rules.board_layouts):
+            for name, half in zip(
+                ("top", "bottom"),
+                render_field_board_halves(self.rules, board_size),
+            ):
+                with self.subTest(board_size=board_size, half=name):
+                    self.assertEqual(
+                        half.size, sheet_pixels(halved, landscape=True)
+                    )
+
+    def test_every_paper_that_names_its_halves_really_halves_into_it(
+        self,
+    ) -> None:
+        for paper, halved in HALF_PAPERS.items():
+            with self.subTest(paper=paper):
+                width, height = sheet_pixels(paper, landscape=False)
+                self.assertEqual(
+                    (width, height // 2),
+                    sheet_pixels(halved, landscape=True),
+                )
+                self.assertEqual(height % 2, 0)
+
+    def test_a_paper_that_halves_into_nothing_standard_says_so(
+        self,
+    ) -> None:
+        """Absent rather than approximated -- it still renders."""
+        self.assertIsNone(half_paper("letter"))
+        with self.assertRaises(ValueError):
+            half_paper("a0")
+
+    def test_the_cut_falls_across_the_strip_and_clear_of_its_words(
+        self,
+    ) -> None:
+        """
+        Where the cut lands is not a choice -- only the exact middle
+        gives two halves that both fit the paper -- so this is a check
+        on the *layout*: if a band ever moves so that the middle of the
+        sheet crosses the header, a zone-assignment row or the strip's
+        own labels, the halves start cutting words in two and somebody
+        should look at the picture before shipping them.
+
+        The strip is the safe place for a seam because it is tints and
+        outlines: its zone names and space codes are all hung from its
+        top, which is what `strip_label_bottom` measures.
+        """
+        width, height = sheet_pixels(DEFAULT_PAPER, landscape=False)
+        seam = height // 2
+        for board_size in sorted(self.rules.board_layouts):
+            with self.subTest(board_size=board_size):
+                geometry = FieldGeometry.for_sheet(
+                    Sheet(width, height),
+                    self.rules.board_layouts[board_size],
+                )
+                self.assertLess(seam, geometry.strip_bottom)
+                self.assertGreater(
+                    (seam - geometry.strip_label_bottom) / PRINT_DPI,
+                    MIN_TOKEN_INCHES,
+                )
+
+    def test_each_half_gets_its_own_bleed_and_the_cut_gets_none(
+        self,
+    ) -> None:
+        """
+        The board is halved first and each half bled after, so the two
+        still butt together once a shop has trimmed into the margin --
+        bleeding the sheet and then cutting it would put half the
+        margin down the seam and none on two of the outer edges.
+        """
+        plain = render_field_board_halves(self.rules, 7)
+        bled = render_field_board_halves(self.rules, 7, bleed=True)
+        bleed = 2 * round(BLEED_INCHES * PRINT_DPI)
+        for name, before, after in zip(("top", "bottom"), plain, bled):
+            with self.subTest(half=name):
+                self.assertEqual(after.width - before.width, bleed)
+                self.assertEqual(after.height - before.height, bleed)
+
+    def test_a_sheet_is_cut_across_its_longer_side(self) -> None:
+        """
+        Top and bottom for a portrait sheet, left and right for a
+        landscape one -- the cut that leaves two halves of the paper
+        below, whichever way the board is drawn.
+        """
+        portrait = halve_sheet(Image.new("RGB", (10, 20)))
+        self.assertEqual([half.size for half in portrait], [(10, 10)] * 2)
+        landscape = halve_sheet(Image.new("RGB", (20, 10)))
+        self.assertEqual([half.size for half in landscape], [(10, 10)] * 2)
+
+    def test_an_odd_sheet_still_halves_into_the_whole_of_it(self) -> None:
+        """The spare pixel goes to the second half rather than nowhere."""
+        first, second = halve_sheet(Image.new("RGB", (10, 21)))
+        self.assertEqual((first.height, second.height), (10, 11))
 
 
 class D12BallTeamBoardTests(unittest.TestCase):
@@ -480,9 +631,148 @@ class D12BallTeamBoardTests(unittest.TestCase):
 
 
 class D12BallJumbotronTests(unittest.TestCase):
-    def test_the_board_is_rendered_at_print_size(self) -> None:
+    def jumbotron_geometry(self) -> JumbotronGeometry:
+        return JumbotronGeometry.for_sheet(
+            Sheet(*sheet_pixels(JUMBOTRON_PAPER, landscape=True))
+        )
+
+    def test_the_board_is_a_letter_sheet_landscape(self) -> None:
+        """
+        A paper of its own, like the team board, and not the field
+        board's tabloid: this is the board with no field on it, so it
+        is the one that can be fitted onto the sheet a house printer
+        has in it. **Landscape and only landscape** -- it sits across
+        the table in front of two coaches, and a second orientation
+        was a second picture to look at for nobody's benefit.
+        """
+        self.assertEqual(JUMBOTRON_PAPER, "letter")
         self.assertEqual(
-            render_jumbotron_board().size, sheet_pixels(DEFAULT_PAPER, True)
+            render_jumbotron_board().size,
+            sheet_pixels(JUMBOTRON_PAPER, landscape=True),
+        )
+
+    def test_the_supplies_are_a_strip_beside_the_tracks(self) -> None:
+        """
+        **The change the score track's ten cells were bought with.**
+        Three silos on a full-width band left most of that band empty
+        either side of them; down the side they take the width of a
+        margin and the tracks get the row back.
+
+        So what this holds is that they are beside and not under: the
+        strip starts after the tracks end, it runs their full height,
+        and it is wide enough for a silo to stand in.
+        """
+        geometry = self.jumbotron_geometry()
+        self.assertGreater(geometry.supply_left, geometry.tracks_right)
+        self.assertLessEqual(geometry.supply_right, geometry.right)
+        self.assertEqual(geometry.supply_top, geometry.clock_top)
+        self.assertEqual(geometry.supply_bottom, geometry.score_bottom)
+        width, _ = geometry.supply_cell()
+        self.assertGreaterEqual(
+            geometry.supply_right - geometry.supply_left,
+            width + 2 * geometry.padding,
+        )
+
+    def test_the_smaller_sheet_did_not_reach_the_clock(self) -> None:
+        """
+        **Portrait is the clock's doing.** Letter landscape has the
+        width for the clock only at thirteen cells to a row, which
+        would put halftime in the middle of one -- so the sheet turned
+        instead, and the track is the four rows of eight it always was.
+        The score is what paid for the smaller sheet, not this.
+        """
+        self.assertEqual(CLOCK_COLUMNS, 8)
+        self.assertEqual(self.jumbotron_geometry().clock_rows, 4)
+
+    def test_the_score_track_wraps_rather_than_shrinking(self) -> None:
+        """
+        At eleven cells across the width the supply strip left it, the
+        track is one row a side and nothing wraps -- but the wrap is a
+        measurement rather than a decision, so this checks the
+        arithmetic holds either way: every value has exactly one cell,
+        no row runs past the column count, and the rows are however
+        many `SCORE_COLUMNS` makes them.
+        """
+        geometry = self.jumbotron_geometry()
+        self.assertEqual(geometry.score_rows, 1)
+        self.assertEqual(SCORE_COLUMNS, SCORE_TRACK_MAX + 1)
+        seen = {}
+        for value in range(SCORE_TRACK_MAX + 1):
+            row, column = divmod(value, SCORE_COLUMNS)
+            self.assertLess(row, geometry.score_rows)
+            self.assertLess(column, SCORE_COLUMNS)
+            self.assertNotIn((row, column), seen)
+            seen[(row, column)] = value
+        self.assertEqual(len(seen), SCORE_TRACK_MAX + 1)
+
+    def test_both_sides_tracks_fit_inside_the_score_panel(self) -> None:
+        """
+        The panel grew from two rows to four on a sheet that got
+        smaller, which is exactly where a row would come to be drawn
+        below the panel it belongs to -- silently, the way the team
+        board's footer once was.
+        """
+        geometry = self.jumbotron_geometry()
+        _, row_height = geometry.score_cell()
+        bottom = (
+            geometry.score_top
+            + geometry.label_height
+            + 2 * geometry.band_label_height
+            + 2 * geometry.score_rows * row_height
+        )
+        self.assertLessEqual(bottom, geometry.score_bottom)
+
+    def test_every_panel_is_in_order_and_inside_the_sheet(self) -> None:
+        """The three panels and the footer, top to bottom, on the page."""
+        geometry = self.jumbotron_geometry()
+        _, height = sheet_pixels(JUMBOTRON_PAPER, landscape=True)
+        edges = (
+            geometry.header_top,
+            geometry.header_bottom,
+            geometry.clock_top,
+            geometry.clock_bottom,
+            geometry.score_top,
+            geometry.score_bottom,
+            geometry.footer_y,
+        )
+        self.assertGreater(edges[0], 0)
+        self.assertLess(edges[-1], height)
+        for earlier, later in zip(edges, edges[1:]):
+            self.assertLessEqual(earlier, later)
+
+    def test_a_band_is_big_enough_for_the_type_in_it(self) -> None:
+        """
+        **The regression the chrome was re-measured for.** The header,
+        the footer and a panel's label strip were shares of the sheet's
+        *height* while everything drawn in them is sized as a share of
+        its *width*, so a landscape sheet held fewer lines than there
+        are -- which put the clock panel's own title and the half's
+        label into one strip, reading as one paragraph. That is the
+        fault "The clock panel's two label lines" in
+        docs/design/printed-boards.md records as already fixed once.
+
+        Each band is derived from its own type now, so this checks the
+        derivation rather than a number: a band holds the block that
+        goes in it, in either orientation.
+        """
+        self.assertGreaterEqual(
+            JUMBOTRON_HEADER,
+            JUMBOTRON_NOTES * JUMBOTRON_NOTE_SIZE * JUMBOTRON_NOTE_LEADING,
+        )
+        self.assertGreaterEqual(JUMBOTRON_HEADER, JUMBOTRON_TITLE_SIZE)
+        self.assertGreaterEqual(JUMBOTRON_FOOTER, JUMBOTRON_FOOTER_SIZE)
+        sheet = Sheet(*sheet_pixels(JUMBOTRON_PAPER, landscape=True))
+        geometry = JumbotronGeometry.for_sheet(sheet)
+        # A panel title and the band label under it are two different
+        # things and each needs its own line. Both tracks carry both
+        # now, which is what "SCORE" overrunning into "HOME" was.
+        self.assertGreaterEqual(
+            geometry.label_height, sheet.u(PANEL_TITLE_SIZE)
+        )
+        self.assertGreaterEqual(geometry.band_label_height, sheet.u(14))
+        self.assertGreaterEqual(
+            geometry.header_bottom - geometry.header_top,
+            sheet.u(JUMBOTRON_TITLE_SIZE),
         )
 
     def test_every_cell_can_hold_a_token(self) -> None:
@@ -556,12 +846,26 @@ class D12BallJumbotronTests(unittest.TestCase):
                 # Its own resolution, not render.py's 26px thumbnail.
                 self.assertGreater(art.width, 300)
 
-    def test_the_score_track_outruns_a_shootout(self) -> None:
+    def test_the_score_track_is_ten_and_a_shootout_can_outrun_it(
+        self,
+    ) -> None:
         """
-        A shootout adds six pairings to a score that was already level,
-        so a track has to hold a plausible match score plus six.
+        **This used to assert the opposite**, that the track held a
+        plausible match score plus the six a shootout can add, and 12
+        was chosen for it. The author cut it to 6 on 2026-09-22 when
+        the board came off tabloid, and put it to 10 on 2026-09-23 once
+        the token supplies went down the side and left it the room.
+
+        Ten still does not outrun a shootout, and that remains the
+        knowing trade. What the suite holds is that it was the one
+        meant: the track is shorter than a shootout's reach, and every
+        cell clears the token floor, which is what the length was
+        traded for (see `test_every_cell_can_hold_a_token`). A track
+        that crept up again without the cells being re-measured would
+        fail one or the other.
         """
-        self.assertGreaterEqual(SCORE_TRACK_MAX, 6 + 6)
+        self.assertEqual(SCORE_TRACK_MAX, 10)
+        self.assertLess(SCORE_TRACK_MAX, 6 + 6)
 
 
 class D12BallPrintSizeTests(unittest.TestCase):

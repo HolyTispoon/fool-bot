@@ -17,6 +17,15 @@ sharing the field board cost both of them room. The three token
 supplies are there for the neighbouring reason -- they are the loose
 pieces of the game rather than any part of the position.
 
+**Only the field board is tabloid.** The jumbotron and the team board
+are letter, each with a paper of its own (`JUMBOTRON_PAPER`,
+`TEAM_BOARD_PAPER`), because letter is the sheet a printer in the
+house has in it and neither of them carries a field to pay for
+anything bigger. The field board is the one that cannot be shrunk --
+its spaces have to hold two sides' meeples -- so instead it prints
+either whole on tabloid or as two letter halves taped along the cut;
+see `render_field_board_halves`.
+
 Everything the boards assert is read from the data the bot plays
 from -- `basic_rules.json` for the layouts, the formations and the
 coach's die, `maneuvers.json` for the six maneuvers, and `players.json`
@@ -91,8 +100,10 @@ PRINT_DPI = 300
 # carry.
 BLEED_INCHES = 0.125
 
-# Sheet sizes in inches, portrait. The field board is drawn portrait
-# and the jumbotron landscape, which is what `sheet_pixels` swaps for.
+# Sheet sizes in inches, portrait. Every board here is drawn portrait
+# now -- the field on tabloid, the jumbotron on letter -- so nothing
+# asks `sheet_pixels` to swap any more except a field board's own
+# halves, which come out of the cut already turned.
 #
 # **Tabloid (11 x 17in, the common US "ledger" print size) is the
 # default**, over A3: it is the size a home or copy-shop printer
@@ -107,6 +118,38 @@ PAPERS: dict[str, tuple[float, float]] = {
     "letter": (8.5, 11.0),
 }
 DEFAULT_PAPER = "tabloid"
+# **The jumbotron has a paper of its own -- letter, portrait.** Like
+# the team board (see `TEAM_BOARD_PAPER`) it is not the sheet the field
+# board is drawn on, and for the same reason: letter is what a printer
+# in the house actually has in it, and this is the board with no field
+# on it to pay for a bigger sheet.
+#
+# **Portrait rather than landscape is the clock's doing, not a
+# preference.** Letter landscape is eleven inches wide and eight and a
+# half tall, which is enough width for the clock only if it runs
+# thirteen cells to a row -- and `CLOCK_COLUMNS` is eight precisely so
+# that halftime lands at the end of a row and each half is two whole
+# bands (see `CLOCK_COLUMNS`, and
+# `test_the_clock_is_the_game_and_the_halves_are_whole_rows`). That is
+# a rule about the track. Turning the sheet costs nothing and keeps it,
+# so the sheet turns.
+JUMBOTRON_PAPER = "letter"
+
+# What a sheet's two halves are, when they are a paper of their own.
+#
+# A board drawn on one of these prints **either way**: whole on the
+# sheet, or as two halves on the paper below it, butted back together
+# to the same board. The cut is across the long dimension, so a half
+# keeps the sheet's full width and half its length -- which on both of
+# these pairs is exactly the next size down, turned the other way
+# (tabloid's 11 x 17 halves into 11 x 8.5, a letter sheet landscape;
+# A3's into A4 by the same ISO property). Papers that halve into
+# nothing standard are absent rather than approximated: the halves
+# still render, they are just not a size a printer stocks.
+HALF_PAPERS: dict[str, str] = {
+    "tabloid": "letter",
+    "a3": "a4",
+}
 
 # Poker size, the maneuver cards' own -- the player cards share their
 # proportions with it on the bot's board (CARD_SIZE is 110 x 154), so
@@ -138,13 +181,89 @@ ZONE_TINTS = {
 # that was already level.
 CLOCK_MINUTES = period_last_minute(MatchPeriod.SECOND_HALF)
 HALFTIME_MINUTE = period_last_minute(MatchPeriod.FIRST_HALF)
-SCORE_TRACK_MAX = 12
+# **Ten** (the author, 2026-09-23). It was twelve, then six when the
+# board came off tabloid and the track had nowhere to be that wide,
+# and it is ten now that the token supplies are a strip down the side
+# rather than a band across the bottom: the row they vacated is what
+# the track is standing in. Ten still does not outrun a shootout --
+# six pairings can be added to a score that was already level, so a
+# match level at full time can finish past the end of it -- and that
+# remains a knowing trade, because the track is a printed aid and not
+# a component the rules name (see "Rendering" in CLAUDE.md). Running
+# off the end costs a coach a note on the sheet; a cell under
+# `MIN_TOKEN_INCHES` costs them the use of the board.
+SCORE_TRACK_MAX = 10
+# How many score cells go in a row before the track wraps. Eleven is
+# the whole track, so nothing wraps -- but the wrap is a measurement
+# rather than a decision, so a track that grows again breaks into rows
+# on its own instead of shrinking its cells, exactly as the clock
+# already does.
+SCORE_COLUMNS = 11
 # Eight rather than sixteen across, which is what makes a cell something
 # a token stands in -- the reason these tracks came off the field board.
 # Eight also puts the halftime break at the end of a row, so each half
 # is exactly two rows and the two bands are bands rather than a colour
 # change halfway along one.
 CLOCK_COLUMNS = 8
+# The largest type any panel title on the jumbotron is set in -- SCORE
+# and TOKENS are 17, the clock's own title a size down at 15 -- and
+# the leading a line of it wants to sit in a strip of its own. It is
+# what `JumbotronGeometry.label_height` is measured from, and the
+# point of measuring it from the type is that a label strip stops
+# being a share of the header: the header is trimmed for the height
+# budget (see `for_sheet`), and trimming it used to drag every label
+# strip down with it until the panel title and the half's own label
+# touched and read as one paragraph -- the exact fault "The clock
+# panel's two label lines" in docs/design/printed-boards.md records as
+# already fixed once.
+PANEL_TITLE_SIZE = 17
+PANEL_TITLE_LEADING = 1.35
+# The jumbotron's own chrome -- the header band, the footer band and
+# the gap between two panels -- **measured in the sheet's own units,
+# not as a share of its height**. Everything drawn in them is type,
+# and type here is sized in `u`, which is a share of the sheet's
+# *width*; a band that was a share of the height therefore held a
+# different number of lines on every sheet, and on a landscape one it
+# held fewer than there are. That is what put the panel's title and
+# the half's own label into the same strip.
+#
+# The type in the header and the footer, and what the bands are
+# therefore worth. **Both bands are derived from their own contents,
+# never chosen**: a band picked by eye and type sized separately is two
+# measurements of one thing, and it is the same fault the team board's
+# footer records -- a line drawn below the band it belongs to, on a
+# render that looks fine, because the crop is silent.
+JUMBOTRON_TITLE_SIZE = 40
+JUMBOTRON_NOTE_SIZE = 16
+JUMBOTRON_NOTE_LEADING = 1.25
+JUMBOTRON_NOTES = 2
+JUMBOTRON_FOOTER_SIZE = 15
+# The title is on the left of the band and the notes on the right, so
+# the band is **the taller of the two blocks, not their sum**.
+JUMBOTRON_HEADER = max(
+    JUMBOTRON_TITLE_SIZE * 1.1,
+    JUMBOTRON_NOTES * JUMBOTRON_NOTE_SIZE * JUMBOTRON_NOTE_LEADING,
+)
+JUMBOTRON_FOOTER = JUMBOTRON_FOOTER_SIZE * 1.25
+# What two panels keep between them. It is the one number here still
+# chosen rather than measured, because nothing is drawn in it -- and
+# it is charged three times, so it is bought out of the cells
+# directly.
+JUMBOTRON_GAP = 9
+# **The token supplies are a strip down the right-hand side**, not a
+# band across the bottom. Three silos on a full-width row left most of
+# a row of the sheet empty either side of them, and a row of this
+# sheet is what the score track needed to run to ten: the strip is a
+# silo wide and the tracks take the rest, so the sheet carries the
+# same three pieces in the space of a margin.
+SUPPLY_STRIP = 112
+# How the height left over is split between the clock and the score.
+# The clock takes the larger share because it is four rows of cells to
+# the score's two, and both carry a title and two band labels -- so
+# the split is what makes a clock cell and a score cell come out the
+# same height, which is the only reason to choose it rather than
+# measure it.
+CLOCK_SHARE = 0.64
 # The two bands, and the cells under them. **A minute is not a
 # position on this track**: the second half starts on the first half's
 # last minute (the author, 2026-09-22), so 15 has a cell in each band
@@ -379,6 +498,52 @@ def add_bleed(image: Image.Image, background: str = FACE_COLOR) -> Image.Image:
     return sheet
 
 
+def half_paper(paper: str) -> Optional[str]:
+    """The paper a sheet's two halves are, or `None` if it is not one."""
+    if paper not in PAPERS:
+        raise ValueError(
+            f"Unknown paper size {paper!r}; expected one of "
+            f"{', '.join(sorted(PAPERS))}."
+        )
+    return HALF_PAPERS.get(paper)
+
+
+def halve_sheet(image: Image.Image) -> tuple[Image.Image, Image.Image]:
+    """
+    Cut a rendered sheet in two across its longer dimension.
+
+    **It is a cut of the finished picture, not a second layout**, which
+    is the whole of why it is safe: the two halves butted back together
+    are the sheet, pixel for pixel, so a board printed on two small
+    sheets is the same board -- the same space width, the same card
+    rows -- as the one printed on one big one. Re-laying a board out
+    for a smaller paper would print a different game.
+
+    Where the cut lands is not a choice either. A half has to fit the
+    paper below, and only the exact middle gives two halves that both
+    do, so the seam falls wherever the layout happens to put it -- on
+    the field board, across the strip. See "Printing a board on two
+    small sheets" in docs/design/printed-boards.md.
+
+    The halves are returned in reading order: top and bottom for a
+    portrait sheet, left and right for a landscape one. An odd length
+    gives the second half the spare pixel, so the two still sum to the
+    whole.
+    """
+    width, height = image.size
+    if height >= width:
+        cut = height // 2
+        return (
+            image.crop((0, 0, width, cut)),
+            image.crop((0, cut, width, height)),
+        )
+    cut = width // 2
+    return (
+        image.crop((0, 0, cut, height)),
+        image.crop((cut, 0, width, height)),
+    )
+
+
 # ---------------------------------------------------------------- field
 
 
@@ -422,6 +587,7 @@ class FieldGeometry:
     direction_top: float
     direction_bottom: float
     strip_top: float
+    strip_label_bottom: float
     strip_bottom: float
     range_top: float
     range_bottom: float
@@ -484,6 +650,14 @@ class FieldGeometry:
         strip_bottom = strip_top + strip
         range_top = strip_bottom + gap
 
+        # The band across the top of the strip that carries the zone
+        # names, with the space codes hung immediately under it. It is
+        # measured here rather than in `draw_field_strip` because it is
+        # also the answer to "how far down the strip do its own words
+        # reach" -- which is what says whether a half-sheet cut lands
+        # clear of them; see `halve_sheet`.
+        strip_label_bottom = strip_top + sheet.u(34)
+
         return cls(
             left=left,
             right=right,
@@ -494,6 +668,7 @@ class FieldGeometry:
             direction_top=direction_top,
             direction_bottom=direction_bottom,
             strip_top=strip_top,
+            strip_label_bottom=strip_label_bottom,
             strip_bottom=strip_bottom,
             range_top=range_top,
             range_bottom=range_top + ranges,
@@ -563,6 +738,40 @@ def render_field_board(
     draw_zone_assignment_rows(sheet, geometry, layout)
 
     return add_bleed(sheet.image) if bleed else sheet.image
+
+
+def render_field_board_halves(
+    rules: BasicRuleset,
+    board_size: int = 7,
+    paper: str = DEFAULT_PAPER,
+    bleed: bool = False,
+) -> tuple[Image.Image, Image.Image]:
+    """
+    **The same field board, on two sheets of the paper below** -- the
+    top half and the bottom half, taped along the cut to make the board
+    `render_field_board` draws whole.
+
+    It is for the printer a house actually has: the field board is
+    tabloid, and a letter printer cannot print it at all otherwise,
+    where scaling it to fit would hand a coach a board whose spaces are
+    too small to stand two meeples on. Two letter sheets print it at
+    its real size.
+
+    The cut is `halve_sheet`'s -- the finished board, halved, never
+    re-laid-out for the smaller paper -- so the seam runs across the
+    strip, a little above the middle of a space. That is the cost of
+    both halves fitting the paper; nothing is moved to dodge it,
+    because moving it would change the board the tabloid sheet prints.
+
+    **The board is halved before any bleed, and each half gets its
+    own.** A half is a sheet a printer trims like any other, and
+    trimming into the bleed takes the added margin back off the seam,
+    so the two still butt together.
+    """
+    top, bottom = halve_sheet(
+        render_field_board(rules, board_size, paper=paper)
+    )
+    return (add_bleed(top), add_bleed(bottom)) if bleed else (top, bottom)
 
 
 def draw_field_header(
@@ -674,7 +883,7 @@ def draw_field_strip(
     # than free over the spaces, which is where it collided with the
     # space codes -- the same band the bot's board leaves above its
     # spaces, for the same reason.
-    band_bottom = top + sheet.u(34)
+    band_bottom = geometry.strip_label_bottom
     code_face = sheet.font(15, bold=True)
     labels = zone_labels(layout.board_size)
 
@@ -1227,19 +1436,35 @@ class JumbotronGeometry:
     had, which is what the panel shares were redivided for -- and it is
     the thing to check first if a band is ever added here, because a
     cell going under a token is silent on the render.
+
+    **The score is four rows too**, two a side, since this board went
+    to letter: thirteen cells in one row is ten inches of track and a
+    letter sheet has not got it. The panel shares and the chrome around
+    them were redivided again for that -- see `for_sheet` and
+    `SCORE_COLUMNS`.
     """
 
     left: float
     right: float
+    # Where the clock and the score panels end. It is short of `right`
+    # by the supply strip -- see `SUPPLY_STRIP`. Everything measured
+    # off the cells reads this; the header and the footer read `right`
+    # and span the sheet.
+    tracks_right: float
     header_top: float
     header_bottom: float
     clock_top: float
     clock_bottom: float
     score_top: float
     score_bottom: float
+    supply_left: float
     supply_top: float
     supply_bottom: float
     footer_y: float
+    # The strip a panel keeps for its own title, measured off the type
+    # that goes in it rather than off the header's share -- see
+    # `PANEL_TITLE_SIZE`.
+    label_height: float
     # What a panel keeps clear inside its own edge. It is a field
     # rather than an `sheet.u(18)` at each site because the cell
     # measurements have to subtract it: they used to divide the panel's
@@ -1265,37 +1490,57 @@ class JumbotronGeometry:
         # by a sliver -- the header shrank a further point to give both
         # the room back; the clock has plenty to spare (its own cell is
         # more than double the floor) so its share gives up the rest.
-        gap = content * 0.025
-        header = content * 0.08
-        footer = content * 0.035
+        # **The chrome is trimmed to what letter leaves, and only the
+        # chrome.** The header, the footer and the three gaps between
+        # panels are the only things on this board that are not a cell,
+        # so when it came off tabloid they are what paid: every one is
+        # a smaller share than the tabloid board used. It is the same
+        # trade the tabloid switch itself made when the score and
+        # supply cells went under the floor by a sliver, one rank
+        # further along.
+        #
+        # These hold for **either orientation** -- this is the one
+        # board drawn both ways (see `render_jumbotron_board`), and a
+        # letter sheet turned landscape has two and a half inches less
+        # height to divide while its type is *bigger*, being a share of
+        # the longer side. Landscape is the binding case for every
+        # number here; portrait has room to spare.
+        gap = sheet.u(JUMBOTRON_GAP)
+        header = sheet.u(JUMBOTRON_HEADER)
+        footer = sheet.u(JUMBOTRON_FOOTER)
+        # Three gaps: under the header, between the two tracks, and
+        # over the footer. The supply strip runs beside the tracks
+        # rather than under them, so it costs none.
         panels = content - header - footer - 3 * gap
-        # The clock takes most of it: four rows of cells to the score's
-        # two, and its are the ones a minute token sits in all game. The
-        # supplies take least -- a well holds a heap of tokens rather
-        # than one standing in a square, so it is sized by the two lines
-        # of label over it and not by the token.
-        clock = panels * 0.53
-        supply = panels * 0.20
+        # The strip is the full height of the two tracks beside it, so
+        # the panels below divide what is left of the *height* only --
+        # the supplies no longer take a share of it at all.
+        supply_left = right - sheet.u(SUPPLY_STRIP)
+        tracks_right = supply_left - gap
+
+        clock = (panels - gap) * CLOCK_SHARE
 
         header_bottom = top + header
         clock_top = header_bottom + gap
         clock_bottom = clock_top + clock
         score_top = clock_bottom + gap
-        score_bottom = score_top + panels - clock - supply
-        supply_top = score_bottom + gap
+        score_bottom = clock_top + panels
 
         return cls(
             left=left,
             right=right,
+            tracks_right=tracks_right,
             header_top=top,
             header_bottom=header_bottom,
             clock_top=clock_top,
             clock_bottom=clock_bottom,
             score_top=score_top,
             score_bottom=score_bottom,
-            supply_top=supply_top,
-            supply_bottom=supply_top + supply,
+            supply_left=supply_left,
+            supply_top=clock_top,
+            supply_bottom=score_bottom,
             footer_y=bottom - footer / 2,
+            label_height=sheet.u(PANEL_TITLE_SIZE * PANEL_TITLE_LEADING),
             padding=sheet.u(18),
         )
 
@@ -1305,82 +1550,86 @@ class JumbotronGeometry:
 
     @property
     def cells_width(self) -> float:
-        return self.right - self.left - 2 * self.padding
+        """The width a track has, which stops short of the strip."""
+        return self.tracks_right - self.left - 2 * self.padding
 
     @property
     def clock_rows(self) -> int:
         return -(-len(CLOCK_CELLS) // CLOCK_COLUMNS)
 
     @property
-    def clock_band_label_height(self) -> float:
+    def band_label_height(self) -> float:
         """
-        The strip over each half's two rows, which says which half they
-        are. It is charged twice out of the clock panel, so it is here
-        rather than inside the drawing -- `clock_cell` has to measure
-        what is left after it.
+        The strip over a band of rows, saying what the band is -- which
+        half of the clock, or whose score. **Both tracks charge it
+        twice**, so it is here rather than inside either drawing:
+        `clock_cell` and `score_cell` both have to measure what is left
+        after it.
+
+        The score's side labels went from beside its rows to over them
+        when the track grew to eleven cells: beside, the HOME/VISITORS
+        column was an inch of the width that eleven cells needed, and
+        over them the label reads the way the clock's own band labels
+        already do.
         """
         return self.label_height * 0.7
 
     def clock_cell(self) -> tuple[float, float]:
-        used = self.label_height + 2 * self.clock_band_label_height
+        used = self.label_height + 2 * self.band_label_height
         return (
             self.cells_width / CLOCK_COLUMNS,
             (self.clock_bottom - self.clock_top - used) / self.clock_rows,
         )
 
+    @property
+    def score_rows(self) -> int:
+        """
+        How many rows one side's track wraps into -- see
+        `SCORE_COLUMNS`. Both sides wrap the same way, so the panel
+        holds twice this.
+        """
+        return -(-(SCORE_TRACK_MAX + 1) // SCORE_COLUMNS)
+
     def score_cell(self) -> tuple[float, float]:
+        used = self.label_height + 2 * self.band_label_height
         return (
-            (self.cells_width - self.score_label_width)
-            / (SCORE_TRACK_MAX + 1),
-            (self.score_bottom - self.score_top - self.label_height) / 2,
+            self.cells_width / SCORE_COLUMNS,
+            (self.score_bottom - self.score_top - used)
+            / (2 * self.score_rows),
         )
 
     def supply_cell(self) -> tuple[float, float]:
         """
         One silo, which is a fixed measurement rather than a share of
-        the panel: it holds a stack of tokens, and a piece does not get
-        bigger because the sheet did. It is capped by the room under the
-        label all the same, so a smaller paper shrinks it rather than
-        running it off the panel.
+        the strip: it holds a stack of tokens, and a piece does not get
+        bigger because the sheet did.
+
+        **It is capped by the strip's width now, not by its height.**
+        The three silos stand one above another down the side, so the
+        strip is as tall as the tracks beside it and there is height to
+        spare; what a smaller paper takes away is the width, and a silo
+        shrinks to it rather than running off the edge.
         """
         available = (
-            self.supply_bottom
-            - self.supply_top
-            - self.supply_label_height
-            - self.padding
+            self.supply_right - self.supply_left - 2 * self.padding
         )
-        height = min(SILO_INCHES[1] * PRINT_DPI, available)
-        return (height * SILO_INCHES[0] / SILO_INCHES[1], height)
+        width = min(SILO_INCHES[0] * PRINT_DPI, available)
+        return (width, width * SILO_INCHES[1] / SILO_INCHES[0])
 
     @property
-    def supply_label_height(self) -> float:
-        """
-        Shorter than a track's: this panel's label is one word, and the
-        silos under it are the smallest thing on the board.
-        """
-        return self.label_height * 0.6
-
-    @property
-    def label_height(self) -> float:
-        """
-        The strip a panel keeps for its own title. It is a share of the
-        header, which the third panel made shorter -- so this is a
-        larger share of a smaller number, and the titles clear the cells
-        under them by the same margin they always did.
-        """
-        return (self.header_bottom - self.header_top) * 0.48
-
-    @property
-    def score_label_width(self) -> float:
-        return (self.right - self.left) * 0.11
+    def supply_right(self) -> float:
+        return self.right
 
 
-def cell_inches(paper: str = DEFAULT_PAPER) -> dict[str, tuple[float, float]]:
+def cell_inches(
+    paper: str = JUMBOTRON_PAPER,
+) -> dict[str, tuple[float, float]]:
     """
     How big the clock's and the score's cells print. This is the whole
     reason the jumbotron is its own board, so it is a number the CLI
     reports and the suite asserts rather than something read off a
     render.
+
     """
     geometry = JumbotronGeometry.for_sheet(
         Sheet(*sheet_pixels(paper, landscape=True))
@@ -1395,7 +1644,7 @@ def cell_inches(paper: str = DEFAULT_PAPER) -> dict[str, tuple[float, float]]:
 
 
 def render_jumbotron_board(
-    paper: str = DEFAULT_PAPER,
+    paper: str = JUMBOTRON_PAPER,
     bleed: bool = False,
 ) -> Image.Image:
     """
@@ -1406,6 +1655,19 @@ def render_jumbotron_board(
     than the position -- which is why it comes off the field board
     rather than sharing it. The tracks are printed aids and not
     components the rules name; everything they count is a rule.
+
+    **One letter sheet** -- `JUMBOTRON_PAPER`, not the field board's
+    tabloid. It is the sheet a house printer takes, and this is the
+    board that can be fitted onto it, having no field to lay out.
+
+    **Landscape, and only landscape** (the author, 2026-09-23). It was
+    drawn portrait as well for a while; a board that sits across the
+    table in front of two coaches is a landscape thing, and a second
+    orientation was a second picture to look at for no one's benefit.
+    What made landscape workable was moving the token supplies off
+    their full-width band and down the side -- see
+    `draw_token_supplies` -- which is also what left the score track
+    room to run to ten.
 
     **The supplies are silos, not tallies.** A player's own tokens go on
     their card, where the bot draws them; what a coach has no other home
@@ -1430,7 +1692,9 @@ def render_jumbotron_board(
         footer,
         # Fitted rather than sized: this line grew when the clock did,
         # and at a fixed size it ran off both edges of the sheet.
-        sheet.fitted_font(footer, geometry.cells_width, 15),
+        sheet.fitted_font(
+            footer, geometry.cells_width, JUMBOTRON_FOOTER_SIZE
+        ),
         MUTED,
         anchor="mm",
     )
@@ -1439,12 +1703,21 @@ def render_jumbotron_board(
 
 
 def draw_jumbotron_header(sheet: Sheet, geometry: JumbotronGeometry) -> None:
+    """
+    The board's title on the left and its two notes on the right.
+
+    **The notes are laid out from the bottom of the band upward, by
+    their own line height.** They used to hang at two fixed offsets
+    written for the band the tabloid board had; on a sheet whose band
+    is measured rather than shared, a fixed offset is a line placed off
+    the top of it. See `JUMBOTRON_NOTE_SIZE`.
+    """
     top = geometry.header_top
     bottom = geometry.header_bottom
     sheet.text(
         (geometry.left, top),
         "JUMBOTRON",
-        sheet.font(40, bold=True),
+        sheet.font(JUMBOTRON_TITLE_SIZE, bold=True),
         INK,
     )
     # No period boxes, and no subtitle either. The boxes were two ticked
@@ -1452,22 +1725,22 @@ def draw_jumbotron_header(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     # now runs the whole game in two labelled bands, so where the minute
     # token is standing is already which half it is -- and each panel
     # names itself, which is what the subtitle was doing over the top.
-    sheet.text(
-        (geometry.right, bottom - sheet.u(48)),
+    notes = (
         f"00-{HALFTIME_MINUTE} in the first half, "
         f"{SECOND_HALF_START_MINUTE}-{CLOCK_MINUTES} in the second.",
-        sheet.font(16),
-        MUTED,
-        anchor="ra",
-    )
-    sheet.text(
-        (geometry.right, bottom - sheet.u(24)),
         f"The second half starts at {SECOND_HALF_START_MINUTE} however "
         "far the first half's last possession ran.",
-        sheet.font(16),
-        MUTED,
-        anchor="ra",
     )
+    line = sheet.u(JUMBOTRON_NOTE_SIZE * JUMBOTRON_NOTE_LEADING)
+    note_face = sheet.font(JUMBOTRON_NOTE_SIZE)
+    for index, note in enumerate(reversed(notes)):
+        sheet.text(
+            (geometry.right, bottom - (index + 1) * line),
+            note,
+            note_face,
+            MUTED,
+            anchor="ra",
+        )
 
 
 @dataclass(frozen=True)
@@ -1503,14 +1776,14 @@ class ClockTrackGeometry:
         cell_width, cell_height = geometry.clock_cell()
         return cls(
             left=geometry.left,
-            right=geometry.right,
+            right=geometry.tracks_right,
             top=geometry.clock_top,
             bottom=geometry.clock_bottom,
             cells_left=geometry.cells_left,
             cells_top=geometry.clock_top + geometry.label_height,
             cell_width=cell_width,
             cell_height=cell_height,
-            band_label=geometry.clock_band_label_height,
+            band_label=geometry.band_label_height,
         )
 
     def cell_origin(self, position: int) -> tuple[float, float]:
@@ -1651,16 +1924,24 @@ def draw_clock_cells(sheet: Sheet, track: ClockTrackGeometry) -> None:
 
 def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     """
-    A row each. It runs to 12 because a shootout goal is a goal: six
-    pairings can be added to a score that was already level, so a track
-    cut to what a match alone reaches would run out exactly when the
-    game is being decided.
+    A row each, running to `SCORE_TRACK_MAX` -- ten, standing in the
+    row the token supplies vacated when they went to the side; see the
+    constant for what it still gives up.
+
+    **It wraps rather than shrinking**, and at eleven cells across the
+    width the strip left it, it does not have to.
+    A track too long for the sheet breaks at `SCORE_COLUMNS` and runs
+    on underneath -- the same answer the clock already gives, for the
+    same reason -- rather than taking a cell under the token this whole
+    board exists to give a cell to. A side's label sits beside its
+    whole block rather than beside its first row, so it still names the
+    side and not the row if the track ever does wrap again.
     """
     sheet.rect(
         (
             geometry.left,
             geometry.score_top,
-            geometry.right,
+            geometry.tracks_right,
             geometry.score_bottom,
         ),
         radius=sheet.u(10),
@@ -1668,38 +1949,48 @@ def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
         outline=PANEL_EDGE,
         width=sheet.u(2),
     )
+    # Centred in the strip the panel keeps for its title, exactly as
+    # the clock's is: hung from the top at a fixed offset it reached
+    # past the strip and into the HOME band's own label, which is the
+    # same collision `band_label_height` records for the clock.
     sheet.text(
-        (geometry.cells_left, geometry.score_top + sheet.u(10)),
+        (
+            geometry.cells_left,
+            geometry.score_top + geometry.label_height / 2,
+        ),
         "SCORE",
-        sheet.font(17, bold=True),
+        sheet.font(PANEL_TITLE_SIZE, bold=True),
         MUTED,
+        anchor="lm",
     )
 
-    label_width = geometry.score_label_width
-    cells_left = geometry.cells_left + label_width
+    cells_left = geometry.cells_left
     cell_width, row_height = geometry.score_cell()
+    band_label = geometry.band_label_height
     rows_top = geometry.score_top + geometry.label_height
     number_face = sheet.fitted_font(
         str(SCORE_TRACK_MAX), cell_width * 0.5, 34, bold=True
     )
-    # "VISITORS" is the long one and the cells start where the label
-    # column ends, so it is fitted rather than sized -- an overrun here
-    # runs the word straight through the 0 cell.
-    label_face = sheet.fitted_font(
-        "VISITORS", label_width - sheet.u(16), 22, bold=True
-    )
+    label_face = sheet.font(14, bold=True)
 
-    for row, label in enumerate(("HOME", "VISITORS")):
-        row_top = rows_top + row * row_height
+    rows = geometry.score_rows
+    for side, label in enumerate(("HOME", "VISITORS")):
+        band_top = rows_top + side * (band_label + rows * row_height)
+        # Centred in its own strip over the side's rows, the way the
+        # clock's half labels are -- see `band_label_height` for why
+        # the word came off the side of the track and went over it.
         sheet.text(
-            (geometry.cells_left, row_top + row_height / 2),
+            (cells_left, band_top + band_label / 2),
             label,
             label_face,
             INK,
             anchor="lm",
         )
+        block_top = band_top + band_label
         for value in range(SCORE_TRACK_MAX + 1):
-            cell_left = cells_left + value * cell_width
+            row, column = divmod(value, SCORE_COLUMNS)
+            row_top = block_top + row * row_height
+            cell_left = cells_left + column * cell_width
             sheet.rect(
                 (
                     cell_left + sheet.u(3),
@@ -1736,14 +2027,21 @@ def draw_token_supplies(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     coach is holding a copy of, and a well the width of a third of the
     sheet would be a heap rather than a stack.
 
-    The trio is centred, so the space either side reads as the tray it
-    is rather than as a list that stopped early.
+    **It is a strip down the side of the sheet, not a band across the
+    bottom.** Three silos on a full-width row left most of that row
+    empty either side of them, and a row of this sheet is what the
+    score track needed to reach ten. Beside the tracks the same three
+    pieces take the width of a margin, and stand one above another the
+    way a tray of pieces sits beside a board rather than under it.
+
+    The trio is spread down the strip rather than stacked at one end,
+    so the space between them reads as the tray it is.
     """
     sheet.rect(
         (
-            geometry.left,
+            geometry.supply_left,
             geometry.supply_top,
-            geometry.right,
+            geometry.supply_right,
             geometry.supply_bottom,
         ),
         radius=sheet.u(10),
@@ -1751,21 +2049,34 @@ def draw_token_supplies(sheet: Sheet, geometry: JumbotronGeometry) -> None:
         outline=PANEL_EDGE,
         width=sheet.u(2),
     )
+    silos_left = geometry.supply_left + geometry.padding
+    silo_width, minimum = geometry.supply_cell()
+    # The strip is a silo wide, so the title is fitted to it rather
+    # than set: at the size the other panel titles use it ran off both
+    # edges of a column this narrow. Centred in its strip like theirs.
     sheet.text(
-        (geometry.cells_left, geometry.supply_top + sheet.u(8)),
+        (silos_left, geometry.supply_top + geometry.label_height / 2),
         "TOKENS",
-        sheet.font(17, bold=True),
+        sheet.fitted_font("TOKENS", silo_width, PANEL_TITLE_SIZE, bold=True),
         MUTED,
+        anchor="lm",
     )
 
-    silo_width, silo_height = geometry.supply_cell()
-    gap = silo_width * 0.5
-    span = len(TOKEN_SUPPLIES) * silo_width + (len(TOKEN_SUPPLIES) - 1) * gap
-    silos_left = (geometry.left + geometry.right - span) / 2
-    silos_top = geometry.supply_bottom - geometry.padding - silo_height
+    top = geometry.supply_top + geometry.label_height
+    room = geometry.supply_bottom - geometry.padding - top
+    gap = geometry.padding
+    # **A silo's width is the piece; its height is stack room.** The
+    # width is fixed, because a token does not get bigger because the
+    # sheet did -- but down the side of the sheet there is height to
+    # spare, and a well a coach piles pieces into may as well be as
+    # deep as the strip allows. Never shorter than `SILO_INCHES` makes
+    # it, so a narrower strip shrinks the well rather than squaring it.
+    count = len(TOKEN_SUPPLIES)
+    silo_height = max(minimum, (room - (count - 1) * gap) / count)
 
     for index, name in enumerate(TOKEN_SUPPLIES):
-        left = silos_left + index * (silo_width + gap)
+        left = silos_left
+        silos_top = top + index * (silo_height + gap)
         sheet.rect(
             (left, silos_top, left + silo_width, silos_top + silo_height),
             radius=sheet.u(8),
