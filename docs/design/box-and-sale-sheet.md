@@ -17,11 +17,15 @@ python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 | `box-cover.png` | 11.375in square | The lid: the title, four players, the ball, the facts |
 | `box-cover-night.png` | 11.375in square | The same cover for a screen, not for the printer |
 | `banner.png` / `banner-night.png` | 3000 x 1200px | The same art laid out wide, for a Notion page |
-| `screentop-banner.png` | 1280 x 720px | The same again at the size a Screentop table asks for |
+| `screentop-banner.png` / `-night.png` | 1280 x 720px | The same again at the size a Screentop table asks for |
 | `box-side.png` | 11.375 x 2.75in | One wall -- and all four, since the box is square |
 | `box-bottom.png` | 11.375in square | What is in the box, how a turn goes, a picture of the game |
 | `sale-sheet.png` | letter | One page for a buyer or a convention table |
 | `playtest-card-front/back.png` | 6 x 4in | The board on the front, the survey QR on the back |
+
+Every piece that comes in two grounds follows one spelling: `<name>.png` is
+the page one and `<name>-night.png` the screen one -- the cover, the wide
+banner and the Screentop banner all come in both.
 
 `box/` is generated output and is gitignored, like `cards/`, `print/` and
 `print-and-play/`. Run it again when the game under it changes; don't keep a
@@ -252,9 +256,13 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
   first build used it and produced a lump nobody would call a die.
   `test_every_face_is_flat` is that bug as an assertion.
 - **The number goes on whichever face is squarest to the reader**, sized to
-  that pentagon, and on the board picture it shows the ball's **speed** read
-  off `match.ball.speed` rather than a 12 -- which is the whole of what the
-  face means (Law 7).
+  that pentagon.
+- **The board's ball is the flat mark, not the solid** (`draw_flat_d12`). The
+  solid is the object and belongs on a cover; on the picture of the board the
+  ball is a piece standing on a space at a third of an inch, where a shaded
+  die is a smudge and a twelve-sided polygon is a ball. It shows the ball's
+  **speed**, read off `match.ball.speed` rather than written here, which is
+  the whole of what a face means (Law 7).
 - **Every face is inset into the solid and what shows between two of them is
   the bevel.** A cast piece has no sharp edges; drawing the creases as lines
   gave a die with a wireframe over it. The inset is the rounded edge seen
@@ -316,13 +324,26 @@ monster, and the first fan came out four fire demons.
 `SaleSheetCardsTests` is that. The cards are `player_cards.render_player_card`'s
 own, not a second drawing of a card.
 
+**The fan holds maneuver cards too** (`sale_sheet_fan`): a player card is who
+is on the field and a maneuver card is what they do, and they are the same
+size, which is why they fan together at all.
+
 **They are fanned rather than tiled.** A card small enough for eight to sit
 side by side is a stamp; eight overlapped are eight cards, of which seven
-show their name and their art -- which is what somebody looks at anyway.
+show their name and their art -- which is what somebody looks at anyway. The
+last one is whole, so at least one card is on the page in full.
+
+**The foot carries a QR to the game's own page** (`PAGE_URL`), beside the
+line an address goes on. It is a second address rather than the survey's --
+one asks how a game went, the other says what the game is -- and it is there
+so that a sheet handed across a table is not a dead end when nobody has
+filled the line in.
 
 Everything the old sheet said in sentences is still in the box: the component
 list and how a turn goes are on the underside, and the rules are in the two
-books.
+books. What is *not* on the sheet any more is anything that repeats them --
+the counts under the fan and the Charter's line in the foot both went, on the
+same call that took the prose out.
 
 ## The cover's four
 

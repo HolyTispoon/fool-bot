@@ -214,18 +214,29 @@ def main() -> None:
             out / "banner.png",
             arguments.pdf,
         )
-        # And the one a Screentop table asks for by the pixel.
+        # And the one a Screentop table asks for by the pixel, light
+        # and dark like the others: `<name>.png` is the page one and
+        # `<name>-night.png` the screen one, on every piece that comes
+        # in both.
+        save(
+            render_banner(
+                facts=facts, catalog=catalog, rules=rules,
+                palette=PAGE_COVER, size=SCREENTOP_BANNER_INCHES,
+            ),
+            out / "screentop-banner.png",
+            arguments.pdf,
+        )
         save(
             render_banner(
                 facts=facts, catalog=catalog, rules=rules,
                 palette=NIGHT_COVER, size=SCREENTOP_BANNER_INCHES,
             ),
-            out / "screentop-banner.png",
+            out / "screentop-banner-night.png",
             arguments.pdf,
         )
         print(
             "  banner*.png is 3000 x 1200 (twice a Notion page cover); "
-            "screentop-banner.png is 1280 x 720"
+            "screentop-banner*.png is 1280 x 720. -night is the dark one"
         )
 
     if "side" in wanted:
@@ -248,8 +259,8 @@ def main() -> None:
         save(
             render_sale_sheet(
                 facts=facts, catalog=catalog, rules=rules,
-                contact=arguments.contact, claims=claims,
-                bleed=arguments.bleed,
+                maneuvers=maneuvers, contact=arguments.contact,
+                claims=claims, bleed=arguments.bleed,
             ),
             out / "sale-sheet.png",
             arguments.pdf,

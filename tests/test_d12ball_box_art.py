@@ -22,6 +22,7 @@ from d12ball.box_art import (
     MEEPLE_PATH,
     NIGHT_COVER,
     PAGE_COVER,
+    PAGE_URL,
     BOX_DEPTH_INCHES,
     CHARTER_LINE,
     DEFAULT_CLAIMS,
@@ -31,6 +32,7 @@ from d12ball.box_art import (
     PRINT_DPI,
     QR_MIN_MODULE_INCHES,
     SALE_SHEET_CARDS,
+    SALE_SHEET_PLAYER_CARDS,
     SCREENTOP_BANNER_INCHES,
     SCREENTOP_BANNER_PIXELS,
     SURVEY_URL,
@@ -45,6 +47,7 @@ from d12ball.box_art import (
     cast_color,
     d12_art,
     d12_faces,
+    draw_flat_d12,
     draw_qr,
     flatten_path,
     folded_board_inches,
@@ -62,6 +65,7 @@ from d12ball.box_art import (
     render_sale_sheet,
     retail_chips,
     sale_sheet_cards,
+    sale_sheet_fan,
 )
 from d12ball.boards import BLEED_INCHES, DEFAULT_PAPER, PAPERS, Sheet
 from d12ball.components import (
@@ -306,6 +310,22 @@ class SurveyCodeTests(unittest.TestCase):
         # would cause: a URL one character longer needs a bigger code.
         self.assertGreater(len(qr_matrix(SURVEY_URL)), len(qr_matrix("x")))
 
+    def test_the_sale_sheet_points_at_the_games_own_page(self) -> None:
+        """
+        A second address, not the survey's: one asks how a game went,
+        the other says what the game is. It is on the sheet so that a
+        copy handed across a table is not a dead end when nobody has
+        written a contact on the line.
+        """
+        self.assertTrue(PAGE_URL.startswith("https://"))
+        self.assertNotEqual(PAGE_URL, SURVEY_URL)
+        module = qr_module_inches(PAGE_URL, 1.0)
+        self.assertGreaterEqual(
+            module,
+            QR_MIN_MODULE_INCHES,
+            f"the sheet's QR modules are {module * 25.4:.2f}mm",
+        )
+
     def test_a_module_is_big_enough_to_scan(self) -> None:
         module = qr_module_inches(SURVEY_URL, 1.8)
         self.assertGreaterEqual(
@@ -385,6 +405,24 @@ class PrintedInWhiteTests(unittest.TestCase):
 
 class DieTests(unittest.TestCase):
     """The d12 on these panels is the solid, not a twelve-sided badge."""
+
+    def test_the_board_keeps_the_flat_mark(self) -> None:
+        """
+        The solid is the object, and belongs on a cover. On the
+        picture of the board the ball is a piece standing on a space
+        at a third of an inch, where a shaded die is a smudge and a
+        flat twelve-sided mark is a ball -- the author's call.
+        """
+        sheet = Sheet(300, 300, background="#ff0000")
+        draw_flat_d12(sheet, (150, 150), 100, "1")
+        image = sheet.image.convert("RGB")
+        # White inside the mark, clear of the numeral in the middle of
+        # it, and the sheet's own colour outside: a twelve-sided
+        # polygon, not a full square.
+        self.assertEqual(image.getpixel((150, 70))[:3], (255, 255, 255))
+        self.assertEqual(image.getpixel((80, 150))[:3], (255, 255, 255))
+        self.assertEqual(image.getpixel((5, 5))[:3], (255, 0, 0))
+        self.assertEqual(image.getpixel((295, 295))[:3], (255, 0, 0))
 
     def test_the_ball_is_made_of_something(self) -> None:
         """
@@ -510,6 +548,17 @@ class MeepleTests(unittest.TestCase):
 
 class SaleSheetCardsTests(unittest.TestCase):
     """The sheet is components, and the fan is not four of one monster."""
+
+    def test_the_fan_holds_maneuver_cards_as_well(self) -> None:
+        """
+        A player card is who is on the field and a maneuver card is
+        what they do; the sheet shows both rather than a row of one
+        and a mention of the other.
+        """
+        cards = sale_sheet_fan(load_player_catalog(), load_maneuver_catalog())
+        self.assertEqual(len(cards), SALE_SHEET_CARDS)
+        self.assertGreater(len(cards), SALE_SHEET_PLAYER_CARDS)
+        self.assertEqual({card.size for card in cards}, {(750, 1050)})
 
     def test_the_fan_is_drawn_from_every_colour_team(self) -> None:
         catalog = load_player_catalog()

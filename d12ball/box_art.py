@@ -76,6 +76,7 @@ from d12ball.components import (
 from d12ball.game import COLOR_TEAMS, Formation, Team
 from d12ball.render import (
     ROLE_INITIALS,
+    polygon_points,
     TEAM_COLORS,
     ZONE_COLORS,
     high_contrast_ink,
@@ -105,6 +106,13 @@ TITLE = "D12 Ball"
 # than a literal in the drawing code because it is the one thing on
 # the card that will be replaced without the card being redesigned,
 # and `scripts/render_box_art.py --survey-url` overrides it.
+# The game's own page, which is what a sale sheet sends somebody to.
+# A second address rather than the survey's: one asks how a game went,
+# the other says what the game is.
+PAGE_URL = (
+    "https://propheticfools.notion.site/"
+    "D12-Ball-6c9e1ea7ca61825391e881ec5fbfdca5?pvs=74"
+)
 SURVEY_URL = (
     "https://app.notion.com/p/3a5e1ea7ca618006b187cd98ebf0c9ff"
     "?v=3a5e1ea7ca6180478080000c31b041d0&source=copy_link"
@@ -919,6 +927,42 @@ def silhouette_outline(faces, flat) -> list[tuple[float, float]]:
             built.append(point)
         return built
     return half(points)[:-1] + half(reversed(points))[:-1]
+
+
+def draw_flat_d12(
+    sheet: Sheet,
+    center: tuple[float, float],
+    radius: float,
+    face: str = "12",
+    fill: str = PAPER,
+    ink: str = PAPER_INK,
+) -> None:
+    """
+    The ball as a **flat** twelve-sided mark: a polygon with the face
+    on it.
+
+    The solid belongs on a cover, where it is the object itself. On
+    the picture of the board it is a piece standing on a space
+    alongside eight meeples, drawn at a third of an inch, and a shaded
+    die at that size is a smudge where a flat one is a ball. The
+    author's call: the board keeps the mark, the covers keep the die.
+    """
+    sheet.polygon(
+        polygon_points(center[0], center[1], radius, 12),
+        fill=fill,
+        outline=ink,
+        width=max(2, round(radius * 0.08)),
+    )
+    draw_fitted(
+        sheet,
+        center,
+        face,
+        radius * 1.15,
+        radius / PRINT_DPI * 1.1,
+        ink,
+        bold=True,
+        anchor="mm",
+    )
 
 
 def draw_d12(
@@ -1833,7 +1877,7 @@ def board_photo(
     # The face it shows is the ball's speed, which at kickoff is 1 --
     # read off the ball rather than written here, since that is the
     # whole of what the face means (Law 7).
-    draw_d12(
+    draw_flat_d12(
         sheet,
         ((left + right) / 2, geometry.strip_top + strip_height * 0.5),
         (right - left) * 0.19,
@@ -2222,6 +2266,9 @@ SALE_SHEET_PAPER = "letter"
 # one is slid over the last: enough of a card to read its name and
 # its art, which is what a fan is for.
 SALE_SHEET_CARDS = 8
+# Of those, how many are players; the rest are maneuvers, which is
+# what a coach is actually holding.
+SALE_SHEET_PLAYER_CARDS = 6
 
 
 def sale_sheet_cards(
@@ -2238,7 +2285,9 @@ def sale_sheet_cards(
     demons says the game has one.
     """
     chosen: list[tuple[PlayerDefinition, Team]] = []
-    per_team = max(1, count // len(COLOR_TEAMS))
+    # Rounded up, so a count that is not a multiple of four still
+    # visits every team before it runs out.
+    per_team = max(1, -(-count // len(COLOR_TEAMS)))
     for index in range(per_team):
         for position, team in enumerate(COLOR_TEAMS):
             players = catalog.teams[team].players
@@ -2248,10 +2297,40 @@ def sale_sheet_cards(
     return chosen[:count]
 
 
+def sale_sheet_fan(
+    catalog: PlayerCatalog,
+    maneuvers: ManeuverCatalog,
+    count: int = SALE_SHEET_CARDS,
+    players: int = SALE_SHEET_PLAYER_CARDS,
+) -> list[Image.Image]:
+    """
+    What the fan holds: player cards, then one maneuver card from
+    each side of a maneuver.
+
+    Both are what a coach picks up -- a player card is who is on the
+    field and a maneuver card is what they do -- so the sheet shows
+    both rather than a row of one and a mention of the other. They are
+    the same size, which is why they fan together at all.
+    """
+    cards = [
+        render_player_card(catalog, player, team, False)
+        for player, team in sale_sheet_cards(catalog, players)
+    ]
+    pair = (first_basic(maneuvers.offense), first_basic(maneuvers.defense))
+    for definition, is_offense in zip(pair, (True, False)):
+        if len(cards) >= count:
+            break
+        cards.append(
+            render_maneuver_card(maneuvers, catalog, definition, is_offense, False)
+        )
+    return cards
+
+
 def render_sale_sheet(
     facts: Optional[BoxFacts] = None,
     catalog: Optional[PlayerCatalog] = None,
     rules: Optional[BasicRuleset] = None,
+    maneuvers: Optional[ManeuverCatalog] = None,
     contact: Sequence[str] = (),
     claims: RetailClaims = DEFAULT_CLAIMS,
     bleed: bool = False,
@@ -2276,7 +2355,10 @@ def render_sale_sheet(
     """
     catalog = catalog or load_player_catalog()
     rules = rules or load_basic_ruleset()
-    facts = facts or BoxFacts.read(catalog=catalog, rules=rules)
+    maneuvers = maneuvers or load_maneuver_catalog()
+    facts = facts or BoxFacts.read(
+        catalog=catalog, maneuvers=maneuvers, rules=rules
+    )
     width, height = PAPERS[SALE_SHEET_PAPER]
     panel = Panel(width, height, bleed=bleed)
     sheet = panel.sheet(PAPER)
@@ -2344,85 +2426,89 @@ def render_sale_sheet(
     # first, so the sheet shows as many as it can hold.
     fan_top = caption_y + inches(0.38)
     fan_height = inches(2.2)
-    fan_cards(sheet, catalog, left, fan_top, content, fan_height)
-    draw_fitted(
-        sheet,
-        (left, fan_top + fan_height + inches(0.14)),
-        f"{facts.players_per_team} players a team, across {facts.teams} teams "
-        f"and {facts.species} species -- and {facts.maneuvers} maneuver cards.",
-        content * 0.8,
-        0.13,
-        PAPER_MUTED,
+    fan_cards(
+        sheet, sale_sheet_fan(catalog, maneuvers), left, fan_top, content,
+        fan_height,
     )
 
-    # The foot: where an answer goes.
-    foot_top = panel.y(height - margin - 1.0)
+    # The foot: where an answer goes, and the code that answers it
+    # without one -- the game's own page, so a sheet handed across a
+    # table is not a dead end when nobody has filled the line in.
+    foot_top = panel.y(height - margin - 1.25)
+    foot_bottom = panel.y(height - margin)
     sheet.rect(
-        (left, foot_top, right, panel.y(height - margin)),
+        (left, foot_top, right, foot_bottom),
         radius=inches(0.09),
         fill=PANEL,
         outline=PANEL_EDGE_INK,
         width=max(1, round(inches(0.012))),
     )
+    code = 1.0
+    code_left = right - inches(code + 0.16)
+    sheet.rect(
+        (
+            code_left - inches(0.05),
+            foot_top + inches(0.1),
+            code_left + inches(code + 0.05),
+            foot_top + inches(code + 0.2),
+        ),
+        radius=inches(0.04),
+        fill="#ffffff",
+        outline=PANEL_EDGE_INK,
+        width=max(1, round(inches(0.01))),
+    )
+    draw_qr(sheet, PAGE_URL, code_left, foot_top + inches(0.15), code)
+
+    words = code_left - inches(0.4) - (left + inches(0.28))
     draw_fitted(
         sheet,
-        (left + inches(0.28), foot_top + inches(0.2)),
+        (left + inches(0.28), foot_top + inches(0.24)),
         "For a playtest copy, a demo or the rulebooks:",
-        content - inches(0.56),
+        words,
         0.15,
         PAPER_INK,
         bold=True,
     )
-    line_y = foot_top + inches(0.56)
+    line_y = foot_top + inches(0.62)
     if contact:
         for entry in contact:
             line_y = draw_wrapped(
-                sheet, left + inches(0.28), line_y, content - inches(0.56),
-                entry, 0.13, PAPER_INK,
+                sheet, left + inches(0.28), line_y, words, entry, 0.13,
+                PAPER_INK,
             )
     else:
         sheet.rect(
             (
                 left + inches(0.28),
                 line_y + inches(0.14),
-                right - inches(0.28),
+                left + inches(0.28) + words,
                 line_y + inches(0.15),
             ),
             fill=PANEL_EDGE_INK,
         )
-    draw_fitted(
-        sheet,
-        (right - inches(0.28), panel.y(height - margin) - inches(0.22)),
-        CHARTER_LINE,
-        content * 0.5,
-        0.12,
-        PAPER_MUTED,
-        anchor="rs",
-    )
     return sheet.image
 
 
 def fan_cards(
     sheet: Sheet,
-    catalog: PlayerCatalog,
+    cards: Sequence[Image.Image],
     left: float,
     top: float,
     width: float,
     height: float,
 ) -> None:
     """
-    Player cards laid across the sheet, each sliding over the last.
+    Cards laid across the sheet, each sliding over the last.
 
     Overlapped rather than tiled: a card small enough for eight of
     them to sit side by side is a stamp, where eight fanned are eight
     cards of which the first seven show their name and their art --
-    which is what somebody looks at anyway.
+    which is what somebody looks at anyway. The last one is whole, so
+    at least one card is on the page in full.
     """
-    chosen = sale_sheet_cards(catalog)
     card_width = height * CARD_WIDTH / CARD_HEIGHT
-    step = (width - card_width) / max(1, len(chosen) - 1)
-    for index, (player, team) in enumerate(chosen):
-        art = render_player_card(catalog, player, team, False)
+    step = (width - card_width) / max(1, len(cards) - 1)
+    for index, art in enumerate(cards):
         fitted = art.resize(
             (max(1, round(card_width)), max(1, round(height))),
             Image.Resampling.LANCZOS,
