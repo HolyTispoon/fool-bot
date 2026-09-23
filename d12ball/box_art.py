@@ -76,7 +76,6 @@ from d12ball.components import (
 from d12ball.game import COLOR_TEAMS, Formation, Team
 from d12ball.render import (
     ROLE_INITIALS,
-    polygon_points,
     TEAM_COLORS,
     ZONE_COLORS,
     high_contrast_ink,
@@ -927,42 +926,6 @@ def silhouette_outline(faces, flat) -> list[tuple[float, float]]:
             built.append(point)
         return built
     return half(points)[:-1] + half(reversed(points))[:-1]
-
-
-def draw_flat_d12(
-    sheet: Sheet,
-    center: tuple[float, float],
-    radius: float,
-    face: str = "12",
-    fill: str = PAPER,
-    ink: str = PAPER_INK,
-) -> None:
-    """
-    The ball as a **flat** twelve-sided mark: a polygon with the face
-    on it.
-
-    The solid belongs on a cover, where it is the object itself. On
-    the picture of the board it is a piece standing on a space
-    alongside eight meeples, drawn at a third of an inch, and a shaded
-    die at that size is a smudge where a flat one is a ball. The
-    author's call: the board keeps the mark, the covers keep the die.
-    """
-    sheet.polygon(
-        polygon_points(center[0], center[1], radius, 12),
-        fill=fill,
-        outline=ink,
-        width=max(2, round(radius * 0.08)),
-    )
-    draw_fitted(
-        sheet,
-        center,
-        face,
-        radius * 1.15,
-        radius / PRINT_DPI * 1.1,
-        ink,
-        bold=True,
-        anchor="mm",
-    )
 
 
 def draw_d12(
@@ -1868,21 +1831,15 @@ def board_photo(
     )
     draw_meeples_on_board(sheet, geometry, match, catalog)
 
-    # The ball stands where the deal put it, which on both boards is
-    # the kickoff space the board itself already marks.
-    left, right = geometry.space_bounds(
-        match.board.flat_index(match.ball.zone, match.ball.space_index)
-    )
+    # **Nothing draws a ball here.** `boards.draw_kickoff_marks`
+    # already prints one on the kickoff space -- a twelve-sided mark
+    # with the ball's speed on it and "KICKOFF / ball at speed 1"
+    # under it -- and a second one laid over it came out as two balls,
+    # the board's showing round the edge of this module's. Covering it
+    # instead would mean a copy of that mark's own placement here,
+    # which is the kind of second reading that drifts; the board is
+    # the thing being photographed, so the board's ball is the ball.
     strip_height = geometry.strip_bottom - geometry.strip_top
-    # The face it shows is the ball's speed, which at kickoff is 1 --
-    # read off the ball rather than written here, since that is the
-    # whole of what the face means (Law 7).
-    draw_flat_d12(
-        sheet,
-        ((left + right) / 2, geometry.strip_top + strip_height * 0.5),
-        (right - left) * 0.19,
-        face=str(match.ball.speed),
-    )
 
     # Cut to the board itself: the title, the arrows, the strip and
     # the range bracket. The two zone-assignment rows are most of this

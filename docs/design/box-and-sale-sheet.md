@@ -257,12 +257,16 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
   `test_every_face_is_flat` is that bug as an assertion.
 - **The number goes on whichever face is squarest to the reader**, sized to
   that pentagon.
-- **The board's ball is the flat mark, not the solid** (`draw_flat_d12`). The
-  solid is the object and belongs on a cover; on the picture of the board the
-  ball is a piece standing on a space at a third of an inch, where a shaded
-  die is a smudge and a twelve-sided polygon is a ball. It shows the ball's
-  **speed**, read off `match.ball.speed` rather than written here, which is
-  the whole of what a face means (Law 7).
+- **Nothing here draws a ball on the board at all.** `draw_kickoff_marks` in
+  `boards.py` already prints one on the kickoff space -- twelve-sided, with
+  the ball's speed on it and "KICKOFF / ball at speed 1" under it -- and this
+  module laid a second over it, which came out as two balls with the board's
+  showing round the edge of the overlay. Covering it would mean a copy of
+  that mark's own placement here, and the board is the thing being
+  photographed, so the board's ball is the ball.
+  `test_the_board_photo_draws_no_ball_of_its_own` keeps it that way. The
+  solid, `d12_art`, stays where it is the object rather than a piece on a
+  space: the covers, the banners and the sale sheet's header.
 - **Every face is inset into the solid and what shows between two of them is
   the bevel.** A cast piece has no sharp edges; drawing the creases as lines
   gave a die with a wireframe over it. The inset is the rounded edge seen

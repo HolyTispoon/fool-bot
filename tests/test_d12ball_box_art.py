@@ -13,6 +13,7 @@ the drawn panel and compared with the encoder's own matrix.
 Looking at the images is still the job -- see "Look at the image" in
 CLAUDE.md, and `scripts/render_box_art.py`.
 """
+import inspect
 import unittest
 
 from d12ball import box_art
@@ -47,7 +48,6 @@ from d12ball.box_art import (
     cast_color,
     d12_art,
     d12_faces,
-    draw_flat_d12,
     draw_qr,
     flatten_path,
     folded_board_inches,
@@ -406,23 +406,19 @@ class PrintedInWhiteTests(unittest.TestCase):
 class DieTests(unittest.TestCase):
     """The d12 on these panels is the solid, not a twelve-sided badge."""
 
-    def test_the_board_keeps_the_flat_mark(self) -> None:
+    def test_the_board_photo_draws_no_ball_of_its_own(self) -> None:
         """
-        The solid is the object, and belongs on a cover. On the
-        picture of the board the ball is a piece standing on a space
-        at a third of an inch, where a shaded die is a smudge and a
-        flat twelve-sided mark is a ball -- the author's call.
+        `boards.draw_kickoff_marks` already prints one on the kickoff
+        space -- twelve-sided, with the ball's speed on it -- and a
+        second one laid over it came out as two balls, the board's
+        showing round the edge of this module's. The board is the
+        thing being photographed, so the board's ball is the ball.
         """
-        sheet = Sheet(300, 300, background="#ff0000")
-        draw_flat_d12(sheet, (150, 150), 100, "1")
-        image = sheet.image.convert("RGB")
-        # White inside the mark, clear of the numeral in the middle of
-        # it, and the sheet's own colour outside: a twelve-sided
-        # polygon, not a full square.
-        self.assertEqual(image.getpixel((150, 70))[:3], (255, 255, 255))
-        self.assertEqual(image.getpixel((80, 150))[:3], (255, 255, 255))
-        self.assertEqual(image.getpixel((5, 5))[:3], (255, 0, 0))
-        self.assertEqual(image.getpixel((295, 295))[:3], (255, 0, 0))
+        source = inspect.getsource(box_art.board_photo)
+        self.assertNotIn("draw_d12", source)
+        self.assertNotIn(
+            "draw_d12", inspect.getsource(box_art.draw_meeples_on_board)
+        )
 
     def test_the_ball_is_made_of_something(self) -> None:
         """
