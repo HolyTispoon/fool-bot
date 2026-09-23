@@ -328,10 +328,33 @@ missing other half for Injured, scoped the same way.
   `cyborg_condition_ids` answers: it used to be "currently
   Exhausted or Injured", which left a Cyborg mid-count (tokens above zero
   but below `CYBORG_DRAINED_AT`) drawing the amber triangle, so it now
-  unions in `match.exhaustion.keys()` too. Board art only, for now -- it
-  has no application emoji of its own, since nothing in the cog's own text
-  messages names an exhaustion *count* the way `describe_exhaustion_gain`
-  names the Drained/Exhausted condition.
+  unions in `match.exhaustion.keys()` too.
+  - **And it became an application emoji too, 2026-09-23**, because the
+    board was the only place it ever reached: `describe_exhaustion_gain`
+    already said "gains 2 drain tokens" and then counted them out in the
+    amber `{condition:exhaust}`, so the card showed a teal tally and the
+    sentence beside it an amber one -- the same cost in two colours (the
+    author, reading a run back out of a channel). The mark the model
+    writes is **`{condition:drain}`**, a sixth member of
+    `tokens.CONDITIONS` standing to `drained` exactly as `exhaust`
+    stands to `exhausted`: the token, and the condition it leads to.
+    The upload it is fetched by is named `exhaust_cyborg` after the art,
+    the way every upload is -- **the one mark whose token spelling and
+    emoji name differ**, which is why `CONDITION_EMOJI_NAMES` is a table
+    rather than an identity, and a test in
+    `tests/test_d12ball_coin_toss.py` pins both that pairing and the
+    rule that every mark in `tokens.CONDITIONS` has an upload name and a
+    fallback. The plain fallback is ⚡ rather than Exhausted's 😮‍💨 or
+    Drained's 🪫: a drain token is charge spent, and a coach counting
+    three of them has to be able to tell the tally from the condition it
+    is heading for.
+    The two sentences that count tokens out pick the mark off the same
+    `has_species_ability` reading they already word the noun with --
+    `RulesEngine.describe_exhaustion_gain` and the back-bench line in
+    `d12ball/flow/windows.py`. `CoreMixin.format_team_roster_entry` still
+    draws the amber triangle for everyone: that line says "exhausted"
+    and "injured" for a Cyborg too, so its icon is the smaller half of a
+    wording fix that has not been made.
 - **`exhaust.png`'s content got its own redraw, same day.** The pill and its
   small "ZZZ" (black ink on an amber pill, both at the same tiny scale that
   read as an unbroken bar at 26px) are gone; `scripts/redraw_exhaust_zs.py`

@@ -66,7 +66,7 @@ CHOICE_LABELS: Mapping[str, str] = {
     "done": "Done",
 }
 
-#: How this frontend draws the five condition marks. Discord fetches
+#: How this frontend draws the six condition marks. Discord fetches
 #: an application emoji for each and falls back to one of these when
 #: the upload has not landed (`CONDITION_EMOJI_FALLBACKS`); a page has
 #: no upload to wait for, so the fallback is what it draws. They are
@@ -77,6 +77,7 @@ CONDITION_MARKS: Mapping[str, str] = {
     tokens.CONDITION_EXHAUST: "😮‍💨",
     tokens.CONDITION_EXHAUSTED: "🥵",
     tokens.CONDITION_INJURED: "🤕",
+    tokens.CONDITION_DRAIN: "⚡",
     tokens.CONDITION_DRAINED: "🪫",
     tokens.CONDITION_DAMAGED: "💥",
 }

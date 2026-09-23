@@ -12,6 +12,9 @@ from cogs.d12ball import D12Ball
 from cogs.d12ball_helpers import (
     COIN_EMOJI_FALLBACK,
     COIN_EMOJI_NAMES,
+    CONDITION_EMOJI_FALLBACKS,
+    CONDITION_EMOJI_NAMES,
+    DRAIN_EMOJI_FALLBACK,
     EMOJI_REFETCH_INTERVAL,
     EXHAUST_EMOJI_FALLBACK,
     EXHAUSTED_EMOJI_FALLBACK,
@@ -26,6 +29,7 @@ from cogs.d12ball_helpers import (
     build_home_choice_message,
     format_coin_emoji,
     format_player_with_team,
+    get_drain_emoji,
     get_exhaust_emoji,
     get_exhausted_emoji,
     get_injured_emoji,
@@ -38,6 +42,7 @@ from cogs.d12ball_helpers import (
     load_team_emojis,
 )
 from cogs.d12ball_views import CoinFlipView, TeamSelectionView
+from d12ball import tokens
 from d12ball.render import TEAM_COLORS
 from d12ball.game import (
     CoinFace,
@@ -1213,12 +1218,32 @@ class D12BallConditionEmojiTests(unittest.TestCase):
         self.assertEqual(get_exhaust_emoji({}), EXHAUST_EMOJI_FALLBACK)
         self.assertEqual(get_exhausted_emoji({}), EXHAUSTED_EMOJI_FALLBACK)
         self.assertEqual(get_injured_emoji({}), INJURED_EMOJI_FALLBACK)
+        self.assertEqual(get_drain_emoji({}), DRAIN_EMOJI_FALLBACK)
+
+    def test_every_condition_mark_is_fetched_and_has_a_fallback(self) -> None:
+        # A new mark in `d12ball/tokens.py` is an upload to look up and
+        # a plain character to fall back to. A mark with neither shows
+        # in a message as the bare `{condition:...}` the resolver
+        # declined, which is what this is here to catch.
+        self.assertEqual(set(CONDITION_EMOJI_NAMES), set(tokens.CONDITIONS))
+        self.assertEqual(
+            set(CONDITION_EMOJI_FALLBACKS), set(tokens.CONDITIONS),
+        )
+
+    def test_a_cyborgs_token_is_fetched_by_the_arts_own_name(self) -> None:
+        # The one mark whose token spelling and upload name differ:
+        # the model says `drain`, the upload is named after
+        # images/emoji/exhaust_cyborg.png like every other one.
+        self.assertEqual(
+            CONDITION_EMOJI_NAMES[tokens.CONDITION_DRAIN], "exhaust_cyborg",
+        )
 
     def test_resolved_conditions_use_the_application_emoji(self) -> None:
         condition_emojis = {
             "exhaust": "<:exhaust:100>",
             "exhausted": "<:exhausted:101>",
             "injured": "<:injured:102>",
+            "drain": "<:exhaust_cyborg:103>",
         }
 
         self.assertEqual(
@@ -1229,6 +1254,9 @@ class D12BallConditionEmojiTests(unittest.TestCase):
         )
         self.assertEqual(
             get_injured_emoji(condition_emojis), "<:injured:102>",
+        )
+        self.assertEqual(
+            get_drain_emoji(condition_emojis), "<:exhaust_cyborg:103>",
         )
 
 

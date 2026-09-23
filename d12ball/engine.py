@@ -377,7 +377,13 @@ class RulesEngine:
             # line.
             return ""
 
-        exhaust_emoji = tokens.condition(tokens.CONDITION_EXHAUST)
+        # A Cyborg's tally is drawn in the Cyborgs' own teal on the
+        # card (`render.draw_exhaustion_badge`), so the mark the
+        # sentence counts out is theirs too -- the same tokens in two
+        # colours would read as two different costs.
+        exhaust_emoji = tokens.condition(
+            tokens.CONDITION_DRAIN if drain else tokens.CONDITION_EXHAUST
+        )
         total = match.exhaustion.get(player_id, 0)
         token_word = "token" if amount == 1 else "tokens"
         noun = "drain" if drain else "exhaustion"

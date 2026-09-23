@@ -253,7 +253,10 @@ def apply_substitution(
         )
         noun = "drain" if incoming_drain else "exhaustion"
         remaining = match.exhaustion.get(incoming_player_id, 0)
-        exhaust_emoji = tokens.condition(tokens.CONDITION_EXHAUST)
+        exhaust_emoji = tokens.condition(
+            tokens.CONDITION_DRAIN if incoming_drain
+            else tokens.CONDITION_EXHAUST
+        )
         text += (
             f"\nBack on from the back bench, down to {remaining} "
             f"{noun} {'token' if remaining == 1 else 'tokens'} "

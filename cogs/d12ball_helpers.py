@@ -188,6 +188,13 @@ INJURED_EMOJI_NAME = "injured"
 # own plain emoji on an application with no upload.
 DRAINED_EMOJI_NAME = "drained"
 DAMAGED_EMOJI_NAME = "damaged"
+# And a Cyborg's own word for the exhaustion *token*, from
+# images/emoji/exhaust_cyborg.png -- the same triangle the amber
+# `exhaust` upload draws, re-expressed in the Cyborgs' teal by
+# scripts/recolor_exhaust_token.py. The board has drawn a Cyborg's
+# tally in that teal since 2026-09-19; this is the upload that lets a
+# sentence counting the same tokens out show the same colour.
+EXHAUST_CYBORG_EMOJI_NAME = "exhaust_cyborg"
 
 # Team emoji (a letter in a team-colored ring, images/emoji/team_*.png)
 # are uploaded to the application (Developer Portal "Emojis" tab) and
@@ -205,7 +212,7 @@ TEAM_EMOJI_NAMES = {
 }
 # TEAM_EMOJI_FALLBACKS and get_team_emoji are imported above from
 # d12ball.formatting, where format_player_with_team reads them. So
-# are the five condition-emoji fallbacks and their lookups -- see
+# are the condition-emoji fallbacks and their lookups -- see
 # the note beside them there; what stays here is the *names* the
 # uploads are fetched by.
 
@@ -256,6 +263,12 @@ CONDITION_EMOJI_NAMES = {
     "exhaust": EXHAUST_EMOJI_NAME,
     "exhausted": EXHAUSTED_EMOJI_NAME,
     "injured": INJURED_EMOJI_NAME,
+    # The token mark and the emoji name differ here, and only here: the
+    # model spells a Cyborg's token `drain`, beside the `drained` it
+    # leads to, while the upload is named after the art it was made
+    # from (images/emoji/exhaust_cyborg.png), the way every other
+    # upload is.
+    "drain": EXHAUST_CYBORG_EMOJI_NAME,
     "drained": DRAINED_EMOJI_NAME,
     "damaged": DAMAGED_EMOJI_NAME,
 }
@@ -314,9 +327,9 @@ async def load_condition_emojis(
     emojis_by_name: Optional[dict[str, discord.Emoji]] = None,
 ) -> dict[str, str]:
     """
-    Look up the condition emoji -- the exhaustion token, and the
-    exhausted and injured conditions -- among the application's emoji,
-    the same way load_coin_emojis does.
+    Look up the condition emoji -- the exhaustion and drain tokens,
+    and the four conditions they lead to -- among the application's
+    emoji, the same way load_coin_emojis does.
 
     `emojis_by_name` is an already-fetched application emoji list, from
     a caller that is looking several things up out of the same one.
@@ -709,13 +722,19 @@ def get_team_emoji(team_emojis: Mapping[Team, str], team: Team) -> str:
 
 # The condition emoji a message shows when the application has no
 # upload of its own by that name -- the exhaustion token, the
-# Exhausted and Injured conditions, and a Cyborg's own words for the
-# last two (see "Lithium Powered" in docs/living-rules.md). The
+# Exhausted and Injured conditions, and a Cyborg's own words for all
+# three (see "Lithium Powered" in docs/living-rules.md). The
 # *names* the uploads are looked up by are above, beside
 # `load_condition_emojis`, which is what fetches them.
 EXHAUST_EMOJI_FALLBACK = "😮‍💨"
 EXHAUSTED_EMOJI_FALLBACK = "🥵"
 INJURED_EMOJI_FALLBACK = "🤕"
+# A drain token is a unit of charge spent, so it falls back to the
+# bolt rather than to the exhausted breath -- and to something other
+# than the 🪫 Drained already holds, since a coach counting three of
+# them has to be able to tell a tally from the condition it is
+# heading for.
+DRAIN_EMOJI_FALLBACK = "⚡"
 DRAINED_EMOJI_FALLBACK = "🪫"
 DAMAGED_EMOJI_FALLBACK = "💥"
 
@@ -723,6 +742,7 @@ CONDITION_EMOJI_FALLBACKS = {
     tokens.CONDITION_EXHAUST: EXHAUST_EMOJI_FALLBACK,
     tokens.CONDITION_EXHAUSTED: EXHAUSTED_EMOJI_FALLBACK,
     tokens.CONDITION_INJURED: INJURED_EMOJI_FALLBACK,
+    tokens.CONDITION_DRAIN: DRAIN_EMOJI_FALLBACK,
     tokens.CONDITION_DRAINED: DRAINED_EMOJI_FALLBACK,
     tokens.CONDITION_DAMAGED: DAMAGED_EMOJI_FALLBACK,
 }
@@ -734,6 +754,10 @@ def get_condition_emoji(condition_emojis: Mapping[str, str], name: str) -> str:
 
 def get_exhaust_emoji(condition_emojis: Mapping[str, str]) -> str:
     return get_condition_emoji(condition_emojis, tokens.CONDITION_EXHAUST)
+
+
+def get_drain_emoji(condition_emojis: Mapping[str, str]) -> str:
+    return get_condition_emoji(condition_emojis, tokens.CONDITION_DRAIN)
 
 
 def get_exhausted_emoji(condition_emojis: Mapping[str, str]) -> str:
