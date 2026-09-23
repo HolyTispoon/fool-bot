@@ -29,6 +29,10 @@ from d12ball.components import (
     Zone,
 )
 from d12ball import tokens
+from d12ball.space_numbering import (
+    FLAT_SPACE_NUMBERING,
+    flat_space_number,
+)
 from d12ball.game import AIOpponent, D12BallGame, Team, team_display_name
 
 
@@ -151,11 +155,29 @@ def format_team_side_label(setup) -> str:
     return f"{team_display_name(setup.team)} ({setup.side.value.title()})"
 
 
-def space_label(zone: Zone, space_index: int) -> str:
+def space_label(zone: Zone, space_index: int, board=None) -> str:
+    """
+    What a space is called in a sentence or on a button -- "H1", or
+    the flat "1" while the numbering experiment is on.
+
+    `board` is the live `BoardState` (or a bare `BoardLayout` where
+    there is no game, as on the printed sheets), and it is read only
+    by the experiment, which needs the zone sizes to count across
+    them -- see `d12ball/space_numbering.py`. Passing nothing gives
+    the 7-space board's numbering. **Drop the parameter when the
+    experiment is reverted**; the letter form never needed it.
+    """
+    if FLAT_SPACE_NUMBERING:
+        return str(flat_space_number(zone, space_index, board))
     return f"{ZONE_LETTERS[zone]}{space_index + 1}"
 
 
-def travel_space_label(zone: Zone, space_index: int, distance: int) -> str:
+def travel_space_label(
+    zone: Zone,
+    space_index: int,
+    distance: int,
+    board=None,
+) -> str:
     """
     A destination with what reaching it costs -- "H1 (2 spaces)".
 
@@ -165,10 +187,15 @@ def travel_space_label(zone: Zone, space_index: int, distance: int) -> str:
     sentence beside it, because the button is the thing being pressed.
     """
     unit = "space" if distance == 1 else "spaces"
-    return f"{space_label(zone, space_index)} ({distance} {unit})"
+    return f"{space_label(zone, space_index, board)} ({distance} {unit})"
 
 
-def travel_space_phrase(zone: Zone, space_index: int, distance: int) -> str:
+def travel_space_phrase(
+    zone: Zone,
+    space_index: int,
+    distance: int,
+    board=None,
+) -> str:
     """
     The same destination and the same price, worded for a sentence
     rather than for a button -- "H1 (2 spaces away)".
@@ -181,12 +208,17 @@ def travel_space_phrase(zone: Zone, space_index: int, distance: int) -> str:
     button charges cannot drift apart.
     """
     unit = "space" if distance == 1 else "spaces"
-    return f"{space_label(zone, space_index)} ({distance} {unit} away)"
+    return (
+        f"{space_label(zone, space_index, board)} "
+        f"({distance} {unit} away)"
+    )
 
 
 def ball_space_label(match: MatchState) -> str:
     """Where the ball is standing, as a space code -- e.g. "M2"."""
-    return space_label(match.ball.zone, match.ball.space_index)
+    return space_label(
+        match.ball.zone, match.ball.space_index, match.board,
+    )
 
 
 def role_initials(player) -> str:

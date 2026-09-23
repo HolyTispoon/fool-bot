@@ -76,7 +76,7 @@ class LooseBallChoiceView(SafeView):
             space_word = "space" if distance == 1 else "spaces"
 
             location_note = (
-                f"({space_label(zone, space_index)}, {distance} "
+                f"({space_label(zone, space_index, match.board)}, {distance} "
                 f"{space_word} from the ball)"
             )
             button = discord.ui.Button(

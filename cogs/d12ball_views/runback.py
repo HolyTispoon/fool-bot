@@ -77,7 +77,7 @@ class RunBackPlayerChoiceView(SafeView):
             name = player_with_role(player)
             button = discord.ui.Button(
                 label=(
-                    f"{name} — {space_label(*position)}"
+                    f"{name} — {space_label(*position, match.board)}"
                     if position is not None
                     else name
                 )[:80],
@@ -165,7 +165,9 @@ class RunBackChoiceView(SafeView):
                 # a run back costs a token a space, so the two spaces of
                 # a zone are rarely the same offer. Both are the
                 # prompt's (`SpaceOptions`). See travel_space_label.
-                label=travel_space_label(options.zone, space_index, distance),
+                label=travel_space_label(
+                    options.zone, space_index, distance, match.board,
+                ),
 
                 style=discord.ButtonStyle.primary,
                 custom_id=(

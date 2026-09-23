@@ -77,10 +77,13 @@ tutorial beyond that: it puts the note back up like any other prompt.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
-from .components import MatchState, PlayerRole, TeamSide
+from .components import MatchState, PlayerRole, TeamSide, Zone
+from .formatting import space_label
+from .space_numbering import FLAT_SPACE_NUMBERING
 
 
 # Maneuver **keys**, spelled once. They are the catalog's own, out of
@@ -526,6 +529,60 @@ SKIPPED = (
     "playing for real -- the board, the score and the clock stay "
     "exactly as they are."
 )
+
+
+# --- TEMPORARY EXPERIMENT: flat space numbering ---------------------
+# Every lesson above names spaces in the letter form -- "M2",
+# "H1-H2" -- because that is what the game called them when the
+# script was written, and the prose reads them out mid-sentence
+# rather than building them. While the numbering experiment is on,
+# the notes are rewritten here, once, as this module is loaded, so
+# that a lesson and the board a coach reads it beside cannot
+# disagree about what a space is called.
+#
+# A plain substitution is exact because the tutorial is always
+# played on the 7-space board (`create_game` refuses any other), so
+# the codes can be read straight off the text.
+#
+# **Delete this whole block to revert** -- the notes go back to the
+# letter form they are written in. See
+# docs/SPACE-NUMBERING-EXPERIMENT.md.
+_EXPERIMENT_SPACE_CODE = re.compile(r"\b([HMV])([1-3])\b")
+
+_EXPERIMENT_ZONES = {
+    "H": Zone.HOME_GOAL,
+    "M": Zone.MIDFIELD,
+    "V": Zone.VISITORS_GOAL,
+}
+
+
+def renumber_spaces(text: str) -> str:
+    """Every space code in a note, as the bot currently names it."""
+    if not FLAT_SPACE_NUMBERING:
+        return text
+    return _EXPERIMENT_SPACE_CODE.sub(
+        lambda found: space_label(
+            _EXPERIMENT_ZONES[found.group(1)], int(found.group(2)) - 1,
+        ),
+        text,
+    )
+
+
+if FLAT_SPACE_NUMBERING:
+    WELCOME = renumber_spaces(WELCOME)
+    COACHING_NOTE = renumber_spaces(COACHING_NOTE)
+    HANDOVER = renumber_spaces(HANDOVER)
+    SKIPPED = renumber_spaces(SKIPPED)
+    BEATS = tuple(
+        replace(
+            beat,
+            lesson=renumber_spaces(beat.lesson),
+            maneuver_note=renumber_spaces(beat.maneuver_note),
+            speed_note=renumber_spaces(beat.speed_note),
+        )
+        for beat in BEATS
+    )
+
 
 
 # The notes a Continue gate can hold, by key -- what

@@ -2011,7 +2011,8 @@ class RulesEngine:
         )
         tokens = self.dribble_burst_cost(match, distance)
         token_word = "token" if tokens == 1 else "tokens"
-        return f"{space_label(zone, space_index)}, {tokens} {token_word}"
+        where = space_label(zone, space_index, match.board)
+        return f"{where}, {tokens} {token_word}"
 
 
     def setup_pass_push_back_distances(self, match: MatchState) -> list[int]:
@@ -2849,10 +2850,10 @@ class RulesEngine:
             and player_id != match.active_player_id
         ]
         if not occupants:
-            return f"{space_label(zone, space_index)}, no teammate"
+            return f"{space_label(zone, space_index, match.board)}, no teammate"
         teammate = self.get_player_definition(occupants[0])
         return (
-            f"{space_label(zone, space_index)}-"
+            f"{space_label(zone, space_index, match.board)}-"
             f"{player_with_role(teammate)}"
         )
 
@@ -2923,7 +2924,7 @@ class RulesEngine:
             zone = zone_for_area(side, area)
             names = ", ".join(
                 f"{self.format_roster_player_for_message(player_id, setup.team)} "
-                f"({space_label(zone, space_index)})"
+                f"({space_label(zone, space_index, match.board)})"
                 for player_id, placed_zone, space_index in placement
                 if placed_zone == zone
             )
@@ -3002,10 +3003,13 @@ class RulesEngine:
             return None
         if match.kickoff_space_occupied_by(side):
             return None
+        kickoff_space = space_label(
+            Zone.MIDFIELD, match.kickoff_space_for(side), match.board,
+        )
         return (
             "Every arrangement has to cover its own kickoff space, so "
             f"{side.value} need a player on "
-            f"{space_label(Zone.MIDFIELD, match.kickoff_space_for(side))} "
+            f"{kickoff_space} "
             "before finishing."
         )
 
@@ -3092,7 +3096,7 @@ class RulesEngine:
         other = format_team_side_label(
             match.setup_for_side(match.defending_side())
         )
-        where = space_label(match.ball.zone, match.ball.space_index)
+        where = ball_space_label(match)
         return "\n".join([
             "# Take a time out?",
             "You may take a time out once per half. If you do, play "
@@ -3321,7 +3325,7 @@ class RulesEngine:
             (
                 destination_display_name(zone.value, board_size),
                 [
-                    (player_id, space_label(zone, space_index))
+                    (player_id, space_label(zone, space_index, match.board))
                     for space_index, _, player_id in sorted(placed[zone])
                 ],
             )

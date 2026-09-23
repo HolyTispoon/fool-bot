@@ -17,6 +17,7 @@ from unittest import mock
 
 from cogs.d12ball import D12Ball
 from cogs.d12ball_helpers import space_label
+from space_codes import code, codes
 from cogs.d12ball_views import (
     CoachingFormationView,
     CoachingHubView,
@@ -276,7 +277,9 @@ class FormationShapeTests(unittest.TestCase):
                 candidate for candidate in setup.field_players
                 if self.catalog.player_by_id(candidate).role == role
             )
-            return space_label(*match.board.meeple_position(player_id))
+            return space_label(
+                *match.board.meeple_position(player_id), match.board,
+            )
 
         self.assertEqual(
             [
@@ -290,7 +293,7 @@ class FormationShapeTests(unittest.TestCase):
                     PlayerRole.STRIKER,
                 )
             ],
-            ["H1", "H3", "M1", "M2", "V1", "V3"],
+            codes(match.board, "H1", "H3", "M1", "M2", "V1", "V3"),
         )
         # The visiting side reads the board from the other end, so its
         # deal is the mirror image, midfield included.
@@ -306,7 +309,7 @@ class FormationShapeTests(unittest.TestCase):
                     PlayerRole.STRIKER,
                 )
             ],
-            ["V3", "V1", "M3", "M2", "H3", "H1"],
+            codes(match.board, "V3", "V1", "M3", "M2", "H3", "H1"),
         )
         # Home kick off, so somebody of theirs is on the kickoff space.
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
@@ -412,19 +415,23 @@ class BoardScopedFormationTests(unittest.TestCase):
 
         def spaces(side: TeamSide, zone: Zone) -> list[str]:
             return sorted(
-                space_label(*match.board.meeple_position(player_id))
+                space_label(
+                    *match.board.meeple_position(player_id),
+                    match.board,
+                )
                 for player_id in match.setup_for_side(side).zones[zone]
             )
 
         self.assertEqual(spaces(TeamSide.HOME, Zone.HOME_GOAL),
-                         ["H1", "H2", "H3"])
-        self.assertEqual(spaces(TeamSide.HOME, Zone.VISITORS_GOAL), ["V1"])
+                         codes(match.board, "H1", "H2", "H3"))
+        self.assertEqual(spaces(TeamSide.HOME, Zone.VISITORS_GOAL),
+                         codes(match.board, "V1"))
         # 1-2-3 is read from the visitors' own goal, so their three
         # attackers stand in the home goal zone.
         self.assertEqual(spaces(TeamSide.VISITING, Zone.HOME_GOAL),
-                         ["H1", "H2", "H3"])
+                         codes(match.board, "H1", "H2", "H3"))
         self.assertEqual(spaces(TeamSide.VISITING, Zone.VISITORS_GOAL),
-                         ["V3"])
+                         codes(match.board, "V3"))
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
 
     def test_a_shape_off_this_board_names_no_formation(self) -> None:
@@ -795,10 +802,13 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         # Three cards into a three-space zone, one apiece.
         self.assertEqual(
             sorted(
-                space_label(*match.board.meeple_position(player_id))
+                space_label(
+                    *match.board.meeple_position(player_id),
+                    match.board,
+                )
                 for player_id in match.home.zones[Zone.HOME_GOAL]
             ),
-            ["H1", "H2", "H3"],
+            codes(match.board, "H1", "H2", "H3"),
         )
 
     def test_the_shape_they_are_in_cannot_be_re_picked(self) -> None:
@@ -924,7 +934,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         return cog, game, match, cog.engine.low_pass_receivers(match, 0)
 
     def test_a_shared_destination_is_labelled_by_its_count(self) -> None:
-        cog, game, _, others = self.build()
+        cog, game, match, others = self.build()
 
         labels = [
             item.label
@@ -932,7 +942,10 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         ]
 
         # Naming one of three would misread what is being picked.
-        self.assertIn(f"{len(others)} players -- M3", labels)
+        self.assertIn(
+            f"{len(others)} players -- {code(match.board, 'M3')}",
+            labels,
+        )
 
     async def test_the_destination_prompt_carries_the_field_strip(
         self,

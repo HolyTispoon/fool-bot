@@ -63,6 +63,7 @@ from d12ball.components import (
 from d12ball.flow.result import FollowOn, FollowOnStep
 from d12ball.formatting import (
     address_coach,
+    ball_space_label,
     contest_noun,
     format_player_with_team,
     space_label,
@@ -1718,7 +1719,7 @@ def _pending(
             PromptKind.BALL_RECOVERY,
             "Send the nearest player either side of the ball to "
             "pick it up at "
-            f"{space_label(match.ball.zone, match.ball.space_index)}:",
+            f"{ball_space_label(match)}:",
         )
 
     if match.pending_loose_ball:

@@ -558,7 +558,12 @@ def _run_back_space(asked: Asked) -> list:
             None,
             [
                 button(
-                    travel_space_label(options.zone, space_index, distance),
+                    travel_space_label(
+                        options.zone,
+                        space_index,
+                        distance,
+                        asked.match.board,
+                    ),
                     asked.kind,
                     space_index=space_index,
                 )
@@ -866,7 +871,7 @@ def _repositions(asked: Asked) -> list[dict]:
         for space in entry.spaces:
             label = (
                 f"{asked.label(entry.player_id)} to "
-                f"{space_label(entry.zone, space.space_index)}"
+                f"{space_label(entry.zone, space.space_index, asked.match.board)}"
             )
 
             if len(space.trade_with) > 1:

@@ -38,6 +38,7 @@ from cogs.d12ball_helpers import (
     FIELD_IMAGE_FILENAME,
     PBD_ARCHIVE_CATEGORY_NAME,
     add_full_image_button,
+    ball_space_label,
     board_image_filename,
     format_player_with_team_name,
     format_team_side_label,
@@ -184,7 +185,7 @@ class PresentationMixin:
                     attacking=False,
                 ),
                 location=(
-                    f"{space_label(match.ball.zone, match.ball.space_index)}"
+                    f"{ball_space_label(match)}"
                     f" — {zone_labels(match.board.layout.board_size)[match.ball.zone].title()}"
                 ),
             ),
@@ -240,7 +241,7 @@ class PresentationMixin:
                     for defender in defenders
                 ],
                 location=(
-                    f"{space_label(match.ball.zone, match.ball.space_index)}"
+                    f"{ball_space_label(match)}"
                     f" → {format_team_side_label(defending_setup)} goal"
                 ),
             ),

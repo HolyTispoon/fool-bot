@@ -82,13 +82,13 @@ class LowPassChoiceView(SafeView):
                 # comes next.
                 label = (
                     f"{len(receivers)} players -- "
-                    f"{space_label(zone, space_index)}"
+                    f"{space_label(zone, space_index, match.board)}"
                 )
             else:
                 teammate = cog.engine.get_player_definition(receivers[0])
                 label = (
                     f"{player_with_role(teammate)} -- "
-                    f"{space_label(zone, space_index)}"
+                    f"{space_label(zone, space_index, match.board)}"
                 )
             button = discord.ui.Button(
                 label=label,
@@ -161,10 +161,11 @@ class LowPassChoiceView(SafeView):
             link = build_full_image_button(interaction.message)
             if link is not None:
                 receiver_view.add_item(link)
+            where = space_label(zone, space_index, match.board)
             await interaction.response.edit_message(
                 content=(
                     f"**{coach}** is "
-                    f"passing to {space_label(zone, space_index)}. Which "
+                    f"passing to {where}. Which "
                     "player receives it?"
                 ),
                 view=receiver_view,
@@ -194,7 +195,7 @@ class LowPassChoiceView(SafeView):
                 "to pass the ball to "
                 f"{self.cog.player_label(match, teammate)} at "
 
-                f"{space_label(zone, space_index)}."
+                f"{space_label(zone, space_index, match.board)}."
             ),
             view=None,
             # The strip this was asked over shows the ball where it
@@ -311,7 +312,7 @@ class LowPassReceiverView(SafeView):
                 f"**{coach}** chose "
                 "to pass the ball to "
                 f"{self.cog.player_label(match, receiver)} at "
-                f"{space_label(zone, space_index)}."
+                f"{space_label(zone, space_index, match.board)}."
             ),
             view=None,
             # The ball on it has not moved yet, so the picture goes
@@ -458,10 +459,11 @@ class SetupPassPushBackView(SafeView):
         # the end of the field (`RulesEngine.setup_pass_push_back_distances`).
         for distance in options.distances:
             zone, space_index = match.ball_destination(offense_side, -distance)
+            where = space_label(zone, space_index, match.board)
             button = discord.ui.Button(
 
                 label=(
-                    f"{distance} back ({space_label(zone, space_index)})"
+                    f"{distance} back ({where})"
                 ),
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:setup_pass_push:{game_id}:{distance}",
@@ -760,7 +762,7 @@ class DribbleAdvanceChoiceView(SafeView):
                 else None
             )
             destination_note = (
-                f" ({space_label(*destination)})"
+                f" ({space_label(*destination, match.board)})"
                 if destination is not None
                 else ""
             )

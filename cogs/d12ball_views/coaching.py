@@ -274,7 +274,7 @@ class CoachingView(SafeView):
         where = destination_display_name(zone.value, match.board.layout.board_size)
         if with_space:
             position = match.board.meeple_position(player_id)
-            where = space_label(*position) if position else where
+            where = space_label(*position, match.board) if position else where
         return f"{self.cog.engine.format_roster_player(player_id)} - {where}"[:80]
 
 
@@ -932,7 +932,7 @@ class CoachingPlaceSpaceView(CoachingView):
             space_index, here = space.space_index, space.trade_with
             button = discord.ui.Button(
                 label=(
-                    space_label(zone, space_index)
+                    space_label(zone, space_index, match.board)
                     + (f" - {len(here)} of yours" if here else " - free")
                 ),
                 style=discord.ButtonStyle.primary,

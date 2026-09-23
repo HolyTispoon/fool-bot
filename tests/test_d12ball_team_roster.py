@@ -29,6 +29,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team, team_display_name
+from space_codes import code
 
 
 def build_cog() -> D12Ball:
@@ -126,7 +127,10 @@ class TeamRosterGroupingTests(unittest.TestCase):
         places = dict(cog.engine.roster_places(match, match.home))
         self.assertEqual(
             places["Home Zone"],
-            [(second, "H1"), (first, "H2")],
+            [
+                (second, code(match.board, "H1")),
+                (first, code(match.board, "H2")),
+            ],
         )
 
     def test_a_displaced_player_is_listed_where_they_stand(self) -> None:
@@ -142,7 +146,9 @@ class TeamRosterGroupingTests(unittest.TestCase):
         self.assertNotIn(
             player_id, [listed for listed, _ in places["Home Zone"]],
         )
-        self.assertIn((player_id, "M1"), places["Midfield"])
+        self.assertIn(
+            (player_id, code(match.board, "M1")), places["Midfield"],
+        )
 
     def test_an_empty_place_still_gets_a_heading(self) -> None:
         # A zone nobody is standing in is information, not clutter.
