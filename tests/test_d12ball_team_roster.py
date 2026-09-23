@@ -149,7 +149,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
         cog = build_cog()
         match = self.build_match()
 
-        text = cog.build_team_roster_section(match, match.home)
+        text = cog.build_team_roster_section(build_game(), match, match.home)
 
         self.assertIn("__Back Bench__\n*nobody*", text)
         for heading in ("Home Zone", "Midfield", "Visitors Zone", "Bench"):
@@ -162,7 +162,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
         match = self.build_match()
 
         text = cog.build_team_roster_section(
-            match, match.home, show_abilities=True,
+            build_game(), match, match.home, show_abilities=True,
         )
 
         self.assertLess(len(text), 2000)

@@ -43,7 +43,6 @@ from d12ball.components import (
     EVENT_TIME_OUT,
     MatchState,
     RuleRefusal,
-    SPECIES_CYBORG,
     TeamSide,
 )
 from d12ball import tutorial
@@ -226,15 +225,11 @@ def apply_substitution(
 
     outgoing = engine.get_player_definition(outgoing_player_id)
     incoming = engine.get_player_definition(incoming_player_id)
-    outgoing_drain = engine.has_species_ability(
-        game, outgoing_player_id, SPECIES_CYBORG,
-    )
-    was_damaged = was_injured and outgoing_drain
+    out_word, _ = engine.injured_word_and_mark(game, outgoing_player_id)
     text = (
         f"{engine.format_player_label(match, incoming)} comes on "
         f"for {engine.format_player_label(match, outgoing)}"
-        f"{' (damaged)' if was_damaged else ''}"
-        f"{' (injured)' if was_injured and not outgoing_drain else ''}."
+        f"{f' ({out_word})' if was_injured else ''}."
     )
 
     if from_back_bench:
@@ -248,24 +243,21 @@ def apply_substitution(
         # wrong, since half of a big drain total is still well
         # over a striker's defence of 2 and nowhere near 7.
         threshold = engine.exhaustion_threshold(game, incoming_player_id)
-        incoming_drain = engine.has_species_ability(
-            game, incoming_player_id, SPECIES_CYBORG,
+        noun, exhaust_emoji = engine.token_word_and_mark(
+            game, incoming_player_id,
         )
-        noun = "drain" if incoming_drain else "exhaustion"
         remaining = match.exhaustion.get(incoming_player_id, 0)
-        exhaust_emoji = tokens.condition(
-            tokens.CONDITION_DRAIN if incoming_drain
-            else tokens.CONDITION_EXHAUST
-        )
         text += (
             f"\nBack on from the back bench, down to {remaining} "
             f"{noun} {'token' if remaining == 1 else 'tokens'} "
             f"{exhaust_emoji * remaining}."
         )
         if match.mark_exhausted_if_needed(incoming_player_id, threshold):
-            condition = "Drained" if incoming_drain else "Exhausted"
+            condition, _ = engine.exhausted_word_and_mark(
+                game, incoming_player_id,
+            )
             text += (
-                f" Still **{condition}** -- {remaining} is over "
+                f" Still **{condition.title()}** -- {remaining} is over "
                 f"{threshold}."
             )
 

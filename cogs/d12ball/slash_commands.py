@@ -1644,7 +1644,7 @@ class CommandsMixin:
         for setup in setups:
             await interaction.followup.send(
                 self.build_team_roster_section(
-                    match, setup, show_abilities=abilities,
+                    game, match, setup, show_abilities=abilities,
                 )
             )
 

@@ -348,13 +348,28 @@ missing other half for Injured, scoped the same way.
     Drained's 🪫: a drain token is charge spent, and a coach counting
     three of them has to be able to tell the tally from the condition it
     is heading for.
-    The two sentences that count tokens out pick the mark off the same
-    `has_species_ability` reading they already word the noun with --
-    `RulesEngine.describe_exhaustion_gain` and the back-bench line in
-    `d12ball/flow/windows.py`. `CoreMixin.format_team_roster_entry` still
-    draws the amber triangle for everyone: that line says "exhausted"
-    and "injured" for a Cyborg too, so its icon is the smaller half of a
-    wording fix that has not been made.
+    **The three words moved onto the engine at the same time**, because
+    the roster line needed all of them and a frontend may not decide
+    which. `RulesEngine.token_word_and_mark`,
+    `exhausted_word_and_mark` and `injured_word_and_mark` each answer a
+    word and its token, all three off one `drain_wording` reading --
+    one question rather than a `has_species_ability` call per site,
+    since a player counting drain tokens is a player who becomes
+    Drained, and a line taking one word from this reading and another
+    from its own would word one player two ways.
+    `d12ball.flow.turn.injured_word_and_emoji` is now a forwarder,
+    kept because a dozen steps call it by that name;
+    `describe_exhaustion_gain` and the two substitution sentences in
+    `d12ball/flow/windows.py` lost their inline branches to it, which
+    is the duplication the earlier note beside
+    `CoreMixin.injured_word_and_emoji` predicted.
+    `format_team_roster_entry` reads all three through the cog's
+    forwarders (`token_word_and_emoji`, `exhausted_word_and_emoji`,
+    `injured_word_and_emoji`) and so takes the `game` now, as does
+    `build_team_roster_section` above it -- both callers had one in
+    hand. That line was the last place calling a Cyborg exhausted and
+    drawing them an amber triangle, which is what
+    `/d12ball team_roster` exists to answer.
 - **`exhaust.png`'s content got its own redraw, same day.** The pill and its
   small "ZZZ" (black ink on an amber pill, both at the same tiny scale that
   read as an unbroken bar at 26px) are gone; `scripts/redraw_exhaust_zs.py`

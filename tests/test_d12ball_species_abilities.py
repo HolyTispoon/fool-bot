@@ -1101,6 +1101,44 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertIn(tokens.condition(tokens.CONDITION_EXHAUST), text)
         self.assertNotIn(tokens.condition(tokens.CONDITION_DRAIN), text)
 
+    def test_the_roster_line_reads_a_cyborg_in_their_own_words(self) -> None:
+        # /team_roster is where a coach goes to read how tired everyone
+        # is, so it is the last place that should call a Cyborg
+        # exhausted.
+        self.match.exhaustion[self.cyborg] = CYBORG_DRAINED_AT
+        self.match.exhausted.add(self.cyborg)
+
+        line = self.cog.format_team_roster_entry(
+            self.game, self.match, self.cyborg,
+        )
+
+        self.assertIn("drained", line)
+        self.assertNotIn("exhausted", line)
+        _, drain_emoji = self.cog.token_word_and_emoji(self.game, self.cyborg)
+        self.assertIn(f"{CYBORG_DRAINED_AT} {drain_emoji}", line)
+
+        # Injuring clears the tokens and the Exhausted flag, so the two
+        # never share a line -- read it again for the other word.
+        self.match.mark_injured(self.cyborg)
+        line = self.cog.format_team_roster_entry(
+            self.game, self.match, self.cyborg,
+        )
+        self.assertIn("damaged", line)
+        self.assertNotIn("injured", line)
+
+    def test_the_roster_line_leaves_everybody_else_alone(self) -> None:
+        self.match.exhaustion[self.other] = 3
+        self.match.exhausted.add(self.other)
+
+        line = self.cog.format_team_roster_entry(
+            self.game, self.match, self.other,
+        )
+
+        self.assertIn("exhausted", line)
+        self.assertNotIn("drained", line)
+        _, exhaust_emoji = self.cog.token_word_and_emoji(self.game, self.other)
+        self.assertIn(f"3 {exhaust_emoji}", line)
+
     def test_cyborg_condition_ids_answers_off_exhausted_and_injured(
         self,
     ) -> None:

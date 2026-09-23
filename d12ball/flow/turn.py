@@ -36,7 +36,6 @@ from d12ball.components import (
     EVENT_TURN_ACTION,
     MatchState,
     RuleRefusal,
-    SPECIES_CYBORG,
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
@@ -46,7 +45,6 @@ from d12ball.formatting import (
     format_player_with_team,
     format_team_side_label,
 )
-from d12ball import tokens
 from d12ball.game import D12BallGame, team_display_name
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
@@ -68,10 +66,12 @@ def injured_word_and_emoji(
     A Cyborg is **damaged** rather than injured -- the same condition
     under a different name, which is the species' own wording and not a
     second rule.
+
+    The answer is `RulesEngine.injured_word_and_mark`, beside the two
+    that word a Cyborg's tokens and their Drained line; this is the
+    name a dozen steps already call it by.
     """
-    if engine.has_species_ability(game, player_id, SPECIES_CYBORG):
-        return "damaged", tokens.condition(tokens.CONDITION_DAMAGED)
-    return "injured", tokens.condition(tokens.CONDITION_INJURED)
+    return engine.injured_word_and_mark(game, player_id)
 
 
 def maneuver_winner_text(
