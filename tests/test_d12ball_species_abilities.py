@@ -112,6 +112,7 @@ from flow_stubs import (
 from save_patches import suppressed_cog_saves
 from d12ball.flow.injuries import injury_test_step
 from d12ball.flow.windows import coaching_window_note
+from d12ball.flow.periods import begin_halftime, halftime_extra_token_step
 from d12ball.components import CoachingOccasion
 from d12ball.render import render_injury_test_die
 from cog_steps import apply_pressure, begin_run_back, continue_mind_pull, continue_smooth, describe_exhaustion_gain, finish_maneuver_resolution, run_mind_pull, run_smooth
@@ -1156,6 +1157,27 @@ class DamagedWordingTests(unittest.TestCase):
             ).getvalue()
 
         self.assertNotEqual(verdict_png("damaged"), verdict_png("injured"))
+
+    def test_halftime_recovery_calls_a_cyborgs_tokens_drain(self) -> None:
+        self.match.exhaustion[self.cyborg] = 3
+        self.match.exhaustion[self.other] = 3
+
+        text = "\n".join(
+            begin_halftime(self.cog.engine, self.game, self.match).narration
+        )
+
+        # One line each: the Cyborg's in drain, everybody else's not.
+        self.assertIn("recovers 1 drain token", text)
+        self.assertIn("recovers 1 exhaustion token", text)
+
+    def test_the_halftime_extra_token_calls_a_cyborgs_tokens_drain(
+        self,
+    ) -> None:
+        self.match.exhaustion[self.cyborg] = 3
+        result = halftime_extra_token_step(
+            self.cog.engine, self.game, self.match, player_id=self.cyborg,
+        )
+        self.assertIn("an extra drain token", result.narration[0])
 
     def test_the_coaching_nudge_calls_a_cyborg_damaged(self) -> None:
         self.match.mark_injured(self.cyborg)

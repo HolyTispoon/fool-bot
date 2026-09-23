@@ -2145,12 +2145,13 @@ def offer_dribble_burst(
             dribble_burst_step(engine, game, match, 0), lead_in,
         )
 
+    noun, _ = engine.token_word_and_mark(game, match.active_player_id)
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.DRIBBLE_BURST_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose your "
-            "Dribble Burst distance (1 exhaustion token a space):",
+            f"Dribble Burst distance (1 {noun} token a space):",
         ),
     )
 

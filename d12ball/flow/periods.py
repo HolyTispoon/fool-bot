@@ -350,9 +350,10 @@ def begin_halftime(
             removed = match.recover_exhaustion(player_id, 1, threshold)
             if removed:
                 remaining = match.exhaustion.get(player_id, 0)
+                noun, _ = engine.token_word_and_mark(game, player_id)
                 recovery_lines.append(
                     f"{engine.format_player_label(match, player)} "
-                    f"recovers 1 exhaustion token (now {remaining})."
+                    f"recovers 1 {noun} token (now {remaining})."
                 )
 
     body = (
@@ -461,6 +462,7 @@ def halftime_extra_token_step(
     engine.next_halftime_stage(match)
 
     remaining = match.exhaustion.get(player_id, 0)
+    noun, _ = engine.token_word_and_mark(game, player_id)
     # What halftime does next comes back with the answer: the first
     # block is this pick's own line, the rest are the next stage's,
     # and the frontend keeps them apart (the answer replaces the
@@ -469,7 +471,7 @@ def halftime_extra_token_step(
     result.narration.insert(
         0,
         f"{engine.format_player_label(match, player)} loses "
-        f"an extra exhaustion token (now {remaining})."
+        f"an extra {noun} token (now {remaining})."
         if removed
         else f"{engine.format_player_label(match, player)} "
         "had no tokens to lose.",
