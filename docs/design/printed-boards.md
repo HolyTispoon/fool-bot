@@ -11,8 +11,7 @@ is portrait; the jumbotron is a letter sheet portrait (`JUMBOTRON_PAPER`) and
 the team board half a letter sheet (`TEAM_BOARD_PAPER`). See `PAPERS` and
 `DEFAULT_PAPER` for why tabloid rather than A3 is the big size a home or
 copy-shop printer actually stocks, and "The jumbotron's own paper" for why
-only one board still needs it -- and for why the jumbotron comes out both
-portrait and landscape.
+only one board still needs it.
 
 ```bash
 python3 scripts/render_boards.py --out print/          # every field size
@@ -22,8 +21,7 @@ python3 scripts/render_boards.py --no-halves           # tabloid sheets only
 python3 scripts/render_boards.py --jumbotron-paper a4  # its own sheet size
 ```
 
-The jumbotron comes out twice, portrait and landscape; the field board three
-times, whole and as two halves. See below for both.
+The field board comes out three times, whole and as two halves. See below.
 
 - **They follow `cards.py`, not `render.py`.** The palette is the maneuver
   cards' -- dark ink on a light face -- because a print goes on paper and the
@@ -32,8 +30,8 @@ times, whole and as two halves. See below for both.
   Everything is measured in inches, with the same 1/8in bleed the cards carry.
   The boards keep `FACE_COLOR`'s cream where the cards went white: a board is
   one sheet a game.
-- **The jumbotron is a letter sheet of its own, drawn both ways up**, and the
-  team board half a letter one: the field board is the only board still drawn on
+- **The jumbotron is a letter sheet of its own, landscape**, and the team
+  board half a letter one: the field board is the only board still drawn on
   tabloid, because its spaces are the only thing on any of them that cannot
   be made smaller. See "The jumbotron's own paper".
 - **The clock and the score are the jumbotron's, not the field's.** They were
@@ -173,7 +171,7 @@ times, whole and as two halves. See below for both.
 
 ## The jumbotron's own paper
 
-`JUMBOTRON_PAPER` is **letter** -- one sheet, either way up, not the field
+`JUMBOTRON_PAPER` is **letter, landscape** -- one sheet, not the field
 board's tabloid. Like the team board it has a paper of its own for the plain reason
 that letter is what a printer in the house has in it, and it is a board that
 can be fitted onto one: it carries no field, so nothing on it has to be wide
@@ -181,16 +179,13 @@ enough to stand two sides' meeples on. After this, the field board is the
 only board that still wants a big sheet, and even it prints on letter as two
 halves (above).
 
-- **It is the one board drawn both ways up**, and they are one layout on a
-  turned sheet rather than two designs: `render_jumbotron_board(landscape=...)`,
-  written as `jumbotron-board.png` and `jumbotron-board-landscape.png`.
-  Portrait is the roomier and the default -- its cells come out around an
-  inch where landscape's are a little over three-quarters. **Landscape is the
-  binding case for every number on this board**: it has two and a half inches
-  less height to divide *and* bigger type, since type here is a share of the
-  sheet's width and landscape's width is the sheet's longer side. Anything
-  redivided here is checked in both, which is why `cell_inches` takes the
-  orientation and the suite's jumbotron tests run over `FACINGS`.
+- **Landscape, and only landscape** (the author, 2026-09-23). It was drawn
+  portrait as well for a while, and portrait was the roomier of the two, but a
+  board that sits across the table in front of two coaches is a landscape
+  thing and a second orientation was a second picture to look at for nobody's
+  benefit. What made landscape workable in the first place was moving the
+  token supplies off their full-width band and down the side -- see "The
+  supply strip" below.
 - **The clock never moved for any of this.** Letter landscape has the width
   for the clock only if the track runs thirteen cells to a row, and
   `CLOCK_COLUMNS` is eight precisely so halftime lands at the end of a row
@@ -199,27 +194,47 @@ halves (above).
   `(HALFTIME_MINUTE + 1) % CLOCK_COLUMNS == 0`. It is four rows of eight on
   both sheets; `test_the_smaller_sheet_did_not_reach_the_clock` is that in
   the suite.
-- **The score track is what paid, and it paid twice.** On the move to letter
-  it wrapped to two rows a side, because thirteen cells in one row wants ten
-  inches of track and a letter sheet has seven and three-quarters between its
-  margins once the HOME/VISITORS label column is out. Then the author cut the
-  track itself from 12 to 6 (2026-09-22) to buy every cell on the board the
-  room, and at six it is one row a side again and nothing wraps.
-  - **What that gives up is the shootout, knowingly.** Six pairings can be
-    added to a score that was already level, so a match that was 3-3 at full
-    time can finish past the end of this track and a coach has nowhere to
-    stand the token. That was the whole argument for 12. It was traded
-    because the track is a printed aid and not a component the rules name --
-    running off the end of it costs a coach a note on the sheet, where a cell
-    under `MIN_TOKEN_INCHES` costs them the use of the board.
-    `test_the_score_track_is_six_and_a_shootout_can_outrun_it` records the
+- **The supply strip.** The three token silos are a **strip down the
+  right-hand side**, not a band across the bottom. On a full-width band they
+  left most of a row of the sheet empty either side of them, and a row of this
+  sheet is what the score track needed. Beside the tracks the same three
+  pieces take the width of a margin: `SUPPLY_STRIP` is that width,
+  `tracks_right` is where the clock and the score stop, and everything
+  measured off the cells reads the narrow pair while the header and the footer
+  still span the sheet. `test_the_supplies_are_a_strip_beside_the_tracks`
+  holds that it is beside and not under.
+  - **A silo's width is the piece; its height is stack room.** The width is
+    fixed at `SILO_INCHES`, because a token does not get bigger because the
+    sheet did -- but down the side there is height to spare, and a well a
+    coach piles pieces into may as well be as deep as the strip allows. It is
+    never shorter than `SILO_INCHES` makes it, so a narrower strip shrinks the
+    well rather than squaring it.
+- **The score track is what the strip paid for, and it has moved twice
+  before.** On the move to letter it wrapped to two rows a side, because
+  thirteen cells in one row wants ten inches of track. Then the author cut it
+  from 12 to 6 (2026-09-22) to buy every cell the room. With the supplies off
+  the bottom row it runs to **10** (2026-09-23), one row a side, eleven cells
+  across the width the strip left it.
+  - **What it still gives up is the shootout, knowingly.** Six pairings can be
+    added to a score that was already level, so a match level at full time can
+    finish past the end of this track and a coach has nowhere to stand the
+    token. That was the whole argument for 12. It stays traded because the
+    track is a printed aid and not a component the rules name -- running off
+    the end costs a coach a note on the sheet, where a cell under
+    `MIN_TOKEN_INCHES` costs them the use of the board.
+    `test_the_score_track_is_ten_and_a_shootout_can_outrun_it` records the
     decision where the old test asserted its opposite.
+  - **A side's label went from beside its rows to over them.** Beside, the
+    HOME/VISITORS column was an inch of width that eleven cells needed; over
+    them the label reads the way the clock's own band labels already do, which
+    is why both now measure `band_label_height` rather than the clock alone.
+    The score panel's own title is centred in its strip for the same reason
+    the clock's is -- hung from the top at a fixed offset, "SCORE" reached
+    past the strip and into "HOME".
   - **The wrap stayed even though nothing wraps**, because it is a
     measurement rather than a decision: a track that grows again breaks into
     rows on its own instead of shrinking its cells, exactly as the clock
-    already does. A side's label sits beside its whole block rather than its
-    first row for the same reason -- the word names the side, and it will
-    still name the side if there are two rows again.
+    already does.
   - `test_both_sides_tracks_fit_inside_the_score_panel` is the fault this
     invites: a panel whose row count is computed is where a row comes to be
     drawn below the panel it belongs to, and a crop is silent -- the same
@@ -247,16 +262,18 @@ halves (above).
   - `JUMBOTRON_GAP` is the one number here still chosen rather than measured,
     because nothing is drawn in it. It is charged three times, so on the
     landscape sheet it comes out of the cells directly.
-- **The panel shares are the tabloid board's own, unchanged** (0.53-ish for
-  the clock, 0.20 for the supplies). They were redivided while the score ran
-  to twelve and wrapped to four rows; cutting the track put the score back to
-  one row a side, and the shares went back with it.
-- **Every measurement on this board is a share of the sheet's width**, so
-  halving the sheet halved the type with it. That is the cost and it is real:
-  the footer line is about eight point on the portrait sheet where it was
-  fifteen on tabloid. The cells did not shrink with it -- a portrait clock
-  cell is 0.96 x 1.20in against the tabloid board's 1.93 x 0.85, so it lost
-  its width and gained height.
+- **There is one share left, `CLOCK_SHARE`.** The supplies take no height at
+  all now, so the only thing still divided is what the clock and the score get
+  of the height between them -- and it is chosen rather than measured for one
+  reason: it is what makes a clock cell and a score cell come out the same
+  height. The clock takes the larger part because it is four rows to the
+  score's two, with both carrying a title and two band labels.
+- **Every measurement on this board is a share of the sheet's width**, so the
+  smaller sheet took the type down with it. That is the cost and it is real:
+  the footer line is about eight point where it was fifteen on tabloid. The
+  cells did not shrink with it -- a clock cell is 1.08 x 0.94in against the
+  tabloid board's 1.93 x 0.85, so it lost width and gained height, and a score
+  cell is 0.79 x 0.92 where eleven of them used to be thirteen at 1.05 x 0.91.
 
 ## Printing a board on two small sheets
 
