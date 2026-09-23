@@ -76,19 +76,33 @@ rather than trusting an old copy.
   reference cards (every pairing of the four species appears on one
   face), plus `print-sheet.png`.
 - **boards/** -- the field board at every size the ruleset defines
-  (7 and 9 spaces), the jumbotron board (clock, score, token
-  supplies), and the team board (a coach's die and maneuvers, the
-  bench, the formation strip -- one sheet holds both coaches' panels,
-  cut in half).
+  (7 and 9 spaces), each also as a `-top` and `-bottom` half for a
+  letter printer; the jumbotron board (clock, score, token supplies);
+  and the team board (a coach's die and maneuvers, the bench, the
+  formation strip -- one sheet holds both coaches' panels, cut in
+  half).
 
 ## Paper and cutting
 
-Cards are poker size (2.5 x 3.5in) at 300dpi. Boards are {paper}
-({paper_size}) at 300dpi, which is what a home or copy-shop printer
-actually stocks -- see `PAPERS` / `DEFAULT_PAPER` in
-`d12ball/boards.py`. Cut cards on the rounded outline printed on each
-one; a print-sheet's cells are sized so dividing the sheet into an
-even grid cuts every card dead centre (see "The printed boards" in
+Cards are poker size (2.5 x 3.5in) at 300dpi, and every board is
+300dpi too.
+
+**Only the field board wants a big sheet.** It is {paper}
+({paper_size}) -- see `PAPERS` / `DEFAULT_PAPER` in
+`d12ball/boards.py` -- because its spaces have to be wide enough to
+stand two sides' meeples on, and shrinking it to letter would take
+that away. If you have no printer that size, print
+`field-board-<n>-top.png` and `field-board-<n>-bottom.png` instead:
+they are that same board cut in half, two letter sheets, taped along
+the cut, at exactly the size the big sheet prints.
+
+**Everything else is letter** ({letter_size}), the size a printer in
+the house has in it: the jumbotron on one sheet, landscape, and the
+team board two coaches to a page.
+
+Cut cards on the rounded outline printed on each one; a print-sheet's
+cells are sized so dividing the sheet into an even grid cuts every
+card dead centre (see "The printed boards" in
 `docs/design/printed-boards.md`). Pass `--bleed` when building the kit
 if a print shop wants the extra 1/8in margin to trim into.
 
@@ -134,6 +148,7 @@ def write_readme(out_dir: Path, paper: str, team_count: int, players_per_team: i
         players_per_team=players_per_team,
         paper=paper,
         paper_size=f"{width:.2f} x {height:.2f}in",
+        letter_size="{:.2f} x {:.2f}in".format(*PAPERS["letter"]),
     )
     (out_dir / "README.md").write_text(readme)
     print(f"wrote {out_dir / 'README.md'}")
@@ -168,7 +183,10 @@ def main() -> None:
         "--paper",
         default=DEFAULT_PAPER,
         choices=sorted(PAPERS),
-        help=f"Board sheet size (default: {DEFAULT_PAPER}).",
+        help=(
+            f"The field board's sheet size (default: {DEFAULT_PAPER}). "
+            "The jumbotron and the team board have papers of their own."
+        ),
     )
     parser.add_argument(
         "--teams",
