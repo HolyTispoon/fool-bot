@@ -250,7 +250,7 @@ def main() -> None:
         save(
             render_box_bottom(
                 facts=facts, catalog=catalog, rules=rules,
-                maneuvers=maneuvers, bleed=arguments.bleed,
+                maneuvers=maneuvers, claims=claims, bleed=arguments.bleed,
             ),
             out / "box-bottom.png",
             arguments.pdf,

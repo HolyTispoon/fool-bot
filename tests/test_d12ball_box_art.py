@@ -28,7 +28,6 @@ from d12ball.box_art import (
     CHARTER_LINE,
     DEFAULT_CLAIMS,
     COVER_CAST,
-    HOOK,
     PLAYTEST_CARD_INCHES,
     PRINT_DPI,
     QR_MIN_MODULE_INCHES,
@@ -106,8 +105,7 @@ class BoxArtQuotesTests(unittest.TestCase):
             "word for word. Quote the books, or change them first.",
         )
 
-    def test_the_hook_and_the_charters_line_are_the_books_own_words(self) -> None:
-        self.assert_quoted(HOOK)
+    def test_the_charters_own_line_is_the_books_words(self) -> None:
         self.assert_quoted(CHARTER_LINE)
 
     def test_the_strapline_is_the_one_line_in_its_own_voice(self) -> None:

@@ -118,8 +118,18 @@ The rest is read the same way:
   parsed out of the markdown. Its sentences addressed to the reader of that
   book -- "This book plays the 7-space board" -- are dropped, because a box is
   not the book and the sentence is false the moment it is read off one.
-- **The blurb is Law 1**, which is the back of the box whether it meant to be
-  or not.
+- **The underside opens in the box's own voice, not the book's.** It used to
+  lead with the Learn to Play's first paragraph, which is a book teaching
+  somebody the game rather than a box telling them what it is -- and it said
+  "two coaches" and "thirty minutes on a clock" beside a cover that says two
+  players and 30-45 minutes. It carries `STRAPLINE` and the same three chips
+  as the cover now. For the same reason the three beats of a turn lost the
+  Laws printed under them (nobody turning a box over is looking up 6.4;
+  `TURN_BEATS` still holds each citation, because the test that the beats are
+  quoted checks the Charter has the Law they came from), and the footer lost
+  the Charter's own line and the paragraph about what outranks what -- a rule
+  about the rules, true and of no interest in a shop. What is left is a
+  credit.
 - **One line is in the box's own voice, and it is named.** `STRAPLINE` -- "a
   fast playing fantasy sports game of some strategy, a lot of tactics, a
   little luck and a bucket of d12s" -- is the author's, and it is allowed

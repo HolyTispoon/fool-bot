@@ -337,11 +337,8 @@ class BoxFacts:
 # words drift out of them -- which is the same guarantee the printed
 # boards get from reading their layouts out of `basic_rules.json`,
 # applied to sentences instead of numbers.
-HOOK = (
-    "Two coaches. Nine players each, six on the field. Thirty minutes "
-    "on a clock that never stops. You win on goals -- and a level game "
-    "goes to the shootout, so somebody always wins."
-)
+CHARTER_LINE = "The Charter settles every question."
+
 # The line under the title, and the one piece of copy on any of these
 # panels that is not quoted from the books: it is the author's own
 # (2026-09-23), and it states no rule -- it says how the game plays,
@@ -351,7 +348,6 @@ STRAPLINE = (
     "A fast playing fantasy sports game of some strategy, a lot of "
     "tactics, a little luck and a bucket of d12s"
 )
-CHARTER_LINE = "The Charter settles every question."
 
 # The three beats of a turn, each a sentence of the Learn to Play's
 # own and the Law it is taught under.
@@ -1935,6 +1931,7 @@ def render_box_bottom(
     catalog: Optional[PlayerCatalog] = None,
     rules: Optional[BasicRuleset] = None,
     maneuvers: Optional[ManeuverCatalog] = None,
+    claims: RetailClaims = DEFAULT_CLAIMS,
     bleed: bool = False,
 ) -> Image.Image:
     """
@@ -1968,14 +1965,31 @@ def render_box_bottom(
     sheet.rect(
         (left, panel.y(1.38), right, panel.y(1.38) + inches(0.02)), fill=ACCENT
     )
-    draw_wrapped(
-        sheet, left, panel.y(1.62), content, HOOK, 0.235, PAPER_INK, leading=1.45
+    # The line under the title is the author's own, the same one the
+    # cover carries: this panel used to open with the Learn to Play's
+    # first paragraph, which is a book teaching somebody the game and
+    # not a box telling them what it is -- and it said "two coaches"
+    # and "thirty minutes on a clock" beside a cover that says two
+    # players and 30-45 minutes.
+    below = draw_wrapped(
+        sheet, left, panel.y(1.62), content * 0.86, STRAPLINE, 0.235,
+        PAPER_INK, leading=1.4,
+    )
+    draw_chip_row(
+        sheet,
+        retail_chips(facts, claims),
+        left + content / 2,
+        below + inches(0.3),
+        content,
+        PAPER_INK,
+        PANEL_EDGE_INK,
+        size_inches=0.165,
     )
 
     # The game itself, and one card from each side of a maneuver --
     # because a maneuver is two of them.
-    photo_top = panel.y(2.7)
-    photo_bottom = photo_top + inches(2.35)
+    photo_top = panel.y(2.95)
+    photo_bottom = photo_top + inches(2.25)
     photo_right = left + inches(4.6)
     draw_framed(
         sheet,
@@ -1997,7 +2011,7 @@ def render_box_bottom(
     draw_fitted(
         sheet,
         (left, photo_bottom + inches(0.22)),
-        "The printed field board at kickoff, and two of the twelve cards.",
+        "The field board at kickoff, and two of the twelve maneuver cards.",
         inches(4.6),
         0.145,
         PAPER_MUTED,
@@ -2031,8 +2045,8 @@ def render_box_bottom(
     right_y = draw_heading(
         sheet, second, top, column, "HOW A TURN GOES", 0.2, ACCENT, PANEL_EDGE_INK
     )
-    for index, (line, law) in enumerate(TURN_BEATS, start=1):
-        right_y = draw_beat(sheet, second, right_y, column, index, line, law)
+    for index, (line, _) in enumerate(TURN_BEATS, start=1):
+        right_y = draw_beat(sheet, second, right_y, column, index, line)
     right_y = draw_heading(
         sheet,
         second,
@@ -2062,25 +2076,17 @@ def render_box_bottom(
         (left, footer - inches(1.1), right, footer - inches(1.08)),
         fill=PANEL_EDGE_INK,
     )
+    # A credit and nothing else. It used to carry the Charter's own
+    # line and a paragraph about what outranks what, which is a rule
+    # about the rules -- true, and of no interest whatever to somebody
+    # turning a box over in a shop.
     words = content - inches(BARCODE_INCHES[0] + 0.45)
     draw_fitted(
         sheet,
-        (left, footer - inches(0.92)),
-        CHARTER_LINE,
+        (left, footer - inches(0.78)),
+        f"{TITLE} is published by {PUBLISHER}.",
         words,
-        0.185,
-        PAPER_INK,
-        bold=True,
-    )
-    draw_wrapped(
-        sheet,
-        left,
-        footer - inches(0.58),
-        words,
-        f"{TITLE} is published by {PUBLISHER}. The rules are the D12Ball "
-        "Charter, and the Charter is what settles a table's argument -- "
-        "it outranks this box, the cards and the boards.",
-        0.13,
+        0.16,
         PAPER_MUTED,
     )
     draw_barcode_area(sheet, right, footer)
@@ -2128,9 +2134,16 @@ def draw_beat(
     width: float,
     number: int,
     line: str,
-    law: str,
 ) -> float:
-    """One of the three beats: a numbered disc, the sentence, its Law."""
+    """
+    One of the three beats: a numbered disc and the sentence.
+
+    Each beat used to carry the Law it is taught under, which is right
+    in the Learn to Play and is rules-lawyering on a box -- nobody
+    picking one up off a shelf is looking up 6.4. `TURN_BEATS` still
+    holds the citation, because the test that the beats are quoted
+    checks the Charter has the Law they came from.
+    """
     radius = inches(0.17)
     center = (left + radius, top + radius)
     sheet.draw.ellipse(
@@ -2147,12 +2160,10 @@ def draw_beat(
     )
     indent = inches(0.52)
     below = draw_wrapped(
-        sheet, left + indent, top, width - indent, line, 0.165, PAPER_INK, bold=True
+        sheet, left + indent, top, width - indent, line, 0.165, PAPER_INK,
+        bold=True,
     )
-    below = draw_wrapped(
-        sheet, left + indent, below, width - indent, law, 0.12, ACCENT
-    )
-    return below + inches(0.1)
+    return below + inches(0.16)
 
 
 def draw_species_row(
