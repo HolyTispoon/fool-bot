@@ -1175,6 +1175,9 @@ class CoreMixin:
 
         player = self.engine.get_player_definition(roll.player_id)
         player_team = match.team_for_player(roll.player_id)
+        injured_word, _ = injured_word_and_emoji(
+            self.engine, game, roll.player_id,
+        )
         dice_file = discord.File(
             await asyncio.to_thread(
                 render_injury_test_die,
@@ -1184,6 +1187,7 @@ class CoreMixin:
                 player.name,
                 roll.safe,
                 bool(roll.overdrive),
+                injured_word,
             ),
             filename="injury_test_die.png",
         )

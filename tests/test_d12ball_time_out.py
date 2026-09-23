@@ -575,7 +575,7 @@ class CoachingNoteTests(unittest.TestCase):
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
-        return coaching_window_note(cog, 
+        return coaching_window_note(cog, build_game(),
             match, TeamSide.HOME, occasion, is_response, False,
         )
 

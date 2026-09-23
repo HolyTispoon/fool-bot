@@ -69,6 +69,7 @@ LOGGER = logging.getLogger(__name__)
 
 def coaching_window_note(
     engine: RulesEngine,
+    game: D12BallGame,
     match: MatchState,
     side: TeamSide,
     occasion: CoachingOccasion,
@@ -123,16 +124,21 @@ def coaching_window_note(
     # An injured player is worth pointing out, but only as a
     # nudge: nothing compels a side to get them off, and a coach
     # may leave them on, disadvantaged, all game.
-    injured_ids = match.injured_field_players(side)
-    if injured_ids:
-        injured = ", ".join(
+    # A Cyborg is Damaged rather than Injured, so the side's players
+    # are grouped by their own word -- one line per word.
+    by_word: dict[str, list[str]] = {}
+    for player_id in match.injured_field_players(side):
+        word, _ = engine.injured_word_and_mark(game, player_id)
+        by_word.setdefault(word, []).append(player_id)
+    for word, player_ids in by_word.items():
+        named = ", ".join(
             engine.format_player_label(
                 match, engine.get_player_definition(player_id),
             )
-            for player_id in injured_ids
+            for player_id in player_ids
         )
-        verb = "is" if len(injured_ids) == 1 else "are"
-        lines.append(f"{injured} {verb} injured and still on the field.")
+        verb = "is" if len(player_ids) == 1 else "are"
+        lines.append(f"{named} {verb} {word} and still on the field.")
 
     return "\n".join(lines)
 
@@ -476,7 +482,7 @@ def open_substitution_window(
     )
 
     note = coaching_window_note(
-        engine, match, side, occasion, is_response, restored,
+        engine, game, match, side, occasion, is_response, restored,
     )
     return StepResult(
         # Only when the restore actually moved somebody. Halftime does

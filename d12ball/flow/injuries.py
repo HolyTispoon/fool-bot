@@ -28,7 +28,6 @@ from d12ball.components import (
     EVENT_INJURY_TEST,
     MatchState,
     PlayerDefinition,
-    SPECIES_CYBORG,
     legacy_maneuver_key,
 )
 from d12ball.engine import RulesEngine
@@ -329,9 +328,12 @@ def injury_test_step(
         injured=not safe,
     )
 
-    drain = engine.has_species_ability(game, player_id, SPECIES_CYBORG)
+    drain = engine.drain_wording(game, player_id)
     exhausted_word = "drained" if drain else "exhausted"
     token_noun = "drain" if drain else "exhaustion"
+    # The check keeps its name for everybody (it is an injury check in
+    # the living rules), but what it does to a Cyborg is damage.
+    harm_noun = "damage" if drain else "injury"
 
     if safe:
         content = (
@@ -352,7 +354,7 @@ def injury_test_step(
             f"{engine.format_player_label(match, player)} is "
             f"{exhausted_word} and rolls an injury test: "
             f"{roll}{ignite_note} does not beat their {current_tokens} "
-            f"{token_noun} tokens — injury! They are **{word}** {emoji}."
+            f"{token_noun} tokens — {harm_noun}! They are **{word}** {emoji}."
         )
 
     result = continue_injury_tests(engine, game, match)

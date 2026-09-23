@@ -596,6 +596,7 @@ class CoachingWindowFlowTests(PeriodFixture):
 
         note = coaching_window_note(
             self.engine,
+            self.game,
             self.match,
             TeamSide.HOME,
             CoachingOccasion.NEW_PLAY,
@@ -612,6 +613,7 @@ class CoachingWindowFlowTests(PeriodFixture):
         self.assertEqual(
             coaching_window_note(
                 self.engine,
+                self.game,
                 self.match,
                 TeamSide.HOME,
                 CoachingOccasion.TIME_OUT,
@@ -623,6 +625,7 @@ class CoachingWindowFlowTests(PeriodFixture):
         self.assertEqual(
             coaching_window_note(
                 self.engine,
+                self.game,
                 self.match,
                 TeamSide.HOME,
                 CoachingOccasion.NEW_PLAY,
