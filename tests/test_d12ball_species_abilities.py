@@ -110,6 +110,11 @@ from flow_stubs import (
     injury_queue_stops_the_chain,
 )
 from save_patches import suppressed_cog_saves
+from d12ball.flow.injuries import injury_test_step
+from d12ball.flow.windows import coaching_window_note
+from d12ball.flow.periods import begin_halftime, halftime_extra_token_step
+from d12ball.components import CoachingOccasion
+from d12ball.render import render_injury_test_die
 from cog_steps import apply_pressure, begin_run_back, continue_mind_pull, continue_smooth, describe_exhaustion_gain, finish_maneuver_resolution, run_mind_pull, run_smooth
 
 
@@ -1125,6 +1130,66 @@ class DamagedWordingTests(unittest.TestCase):
         )
         self.assertIn("damaged", line)
         self.assertNotIn("injured", line)
+
+    def test_a_failed_injury_test_calls_a_cyborg_damaged(self) -> None:
+        # The check keeps its name; what it does to a Cyborg does not.
+        self.match.exhaustion[self.cyborg] = 8
+        self.match.exhausted.add(self.cyborg)
+        self.match.pending_injury_tests.append(self.cyborg)
+        with mock.patch("random.Random.randint", return_value=2):
+            _, result = injury_test_step(
+                self.cog.engine, self.game, self.match, self.cyborg,
+            )
+
+        line = result.narration[0]
+        self.assertIn("damage!", line)
+        self.assertIn("**damaged**", line)
+        self.assertNotIn("injury!", line)
+        self.assertNotIn("injured", line)
+
+    def test_the_injury_test_die_says_damaged(self) -> None:
+        # Pixels, not words: DAMAGED and INJURED are different widths,
+        # so a verdict that ignored the word would draw the same image.
+        def verdict_png(word: str) -> bytes:
+            return render_injury_test_die(
+                2, "#3a8a86", "Cyborgs", "Tachyon", False,
+                injured_word=word,
+            ).getvalue()
+
+        self.assertNotEqual(verdict_png("damaged"), verdict_png("injured"))
+
+    def test_halftime_recovery_calls_a_cyborgs_tokens_drain(self) -> None:
+        self.match.exhaustion[self.cyborg] = 3
+        self.match.exhaustion[self.other] = 3
+
+        text = "\n".join(
+            begin_halftime(self.cog.engine, self.game, self.match).narration
+        )
+
+        # One line each: the Cyborg's in drain, everybody else's not.
+        self.assertIn("recovers 1 drain token", text)
+        self.assertIn("recovers 1 exhaustion token", text)
+
+    def test_the_halftime_extra_token_calls_a_cyborgs_tokens_drain(
+        self,
+    ) -> None:
+        self.match.exhaustion[self.cyborg] = 3
+        result = halftime_extra_token_step(
+            self.cog.engine, self.game, self.match, player_id=self.cyborg,
+        )
+        self.assertIn("an extra drain token", result.narration[0])
+
+    def test_the_coaching_nudge_calls_a_cyborg_damaged(self) -> None:
+        self.match.mark_injured(self.cyborg)
+        side = self.match.side_for_player(self.cyborg)
+
+        note = coaching_window_note(
+            self.cog.engine, self.game, self.match, side,
+            CoachingOccasion.NEW_PLAY, is_response=False, restored=False,
+        )
+
+        self.assertIn("damaged and still on the field", note)
+        self.assertNotIn("injured", note)
 
     def test_the_roster_line_leaves_everybody_else_alone(self) -> None:
         self.match.exhaustion[self.other] = 3

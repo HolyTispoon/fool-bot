@@ -410,8 +410,8 @@ def apply_reposition(cog, match: MatchState, side: TeamSide, player_id: str, spa
     return flow_apply_reposition(cog.engine, match, side, player_id, space_index, swap_with)
 
 
-def coaching_window_note(cog, match: MatchState, side: TeamSide, occasion: CoachingOccasion, is_response: bool, restored: bool) -> str:
-    return flow_coaching_window_note(cog.engine, match, side, occasion, is_response, restored)
+def coaching_window_note(cog, game: D12BallGame, match: MatchState, side: TeamSide, occasion: CoachingOccasion, is_response: bool, restored: bool) -> str:
+    return flow_coaching_window_note(cog.engine, game, match, side, occasion, is_response, restored)
 
 
 async def begin_substitution_window(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, side: TeamSide, occasion: CoachingOccasion=CoachingOccasion.NEW_PLAY, is_response: bool=False, lead_in: str='') -> None:

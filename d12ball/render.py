@@ -2659,6 +2659,7 @@ def render_injury_test_die(
     player_name: str,
     safe: bool,
     overdriven: bool = False,
+    injured_word: str = "injured",
 ) -> BytesIO:
     """
     Render an injury test as one small d12 -- the same size as a skill
@@ -2674,8 +2675,12 @@ def render_injury_test_die(
     `overdriven` is "any d12 the Cyborg themselves rolls" reaching an
     injury check -- the same supercharged halo-and-ring
     `render_skill_test_dice` wears on the die it was spent on.
+
+    `injured_word` is the caller's answer to what a failed check makes
+    this player -- "damaged" for a Cyborg -- so the verdict is theirs
+    and never decided here.
     """
-    verdict = "SAFE" if safe else "INJURED"
+    verdict = "SAFE" if safe else injured_word.upper()
     verdict_color = (
         INJURY_TEST_SAFE_COLOR if safe else INJURY_TEST_INJURED_COLOR
     )
