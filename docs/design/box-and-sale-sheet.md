@@ -15,6 +15,7 @@ python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 | Panel | Size | What it is |
 | --- | --- | --- |
 | `box-cover.png` | 11.375in square | The lid: the title, four players, the ball, the facts |
+| `box-cover-night.png` | 11.375in square | The same cover for a screen, not for the printer |
 | `box-side.png` | 11.375 x 2.75in | One wall -- and all four, since the box is square |
 | `box-bottom.png` | 11.375in square | What is in the box, how a turn goes, a picture of the game |
 | `sale-sheet.png` | letter | One page for a buyer or a convention table |
@@ -24,24 +25,44 @@ python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 `print-and-play/`. Run it again when the game under it changes; don't keep a
 stale copy.
 
-## Nothing here is a component, and that is the whole difference
+## Everything is printed on white, and nothing is printed dark
 
-The printed boards follow `cards.py` -- dark ink on a light face -- because a
-board is printed at home and read at the table, and a dark board is the wrong
-thing to hand a printer (see [printed-boards.md](printed-boards.md)). None of
-these five is played off, so that reasoning does not carry, and the palette
-splits along what each one is for:
+The first cover was drawn in the bot's night palette, because that is
+where the game's look already lives. **It is not printable.** A
+full-bleed dark cover is a solid across every panel of the wrap at
+once, which is the most expensive thing a print run can be asked for
+and the first line a quote comes back high on -- the author's call,
+made on the first render, and it is now the constraint the whole set
+is drawn under.
 
-- **The box is drawn in the bot's own night palette**: `ZONE_COLORS` and
-  `TEAM_COLORS` imported from `render.py` rather than restated, so a cover and
-  the board a coach sees in Discord are the same greys and the same four team
-  hues by construction. A box is manufactured once and has to be found on a
-  shelf; ink economy is somebody else's problem and the dark is the game's own
-  look.
-- **The sale sheet and the back of the playtest card are paper**, the
-  maneuver cards' palette exactly as the boards borrow it, because both are
-  things somebody prints on an office printer and hands over. The sale sheet's
-  header band is the box's night, so the page and the box read as one game.
+So these five follow `boards.py` and `cards.py` after all: **dark ink
+on a light ground**, and what carries the game's look is the art, the
+four team colours and the type. `PrintedInWhiteTests` samples the four
+corners of every printed panel and fails if any of them is inked,
+because a gradient or a scrim creeping back in looks fine on a screen
+and turns up on a quote.
+
+**The ground is white, not the cards' and boards' cream.** `FACE_COLOR`
+is what a component is printed on; a page is a page. It is deliberately
+not imported here, and `PANEL` is a neutral grey rather than the cards'
+warm one for the same reason. The one thing that keeps the cream is the
+picture of the printed board, because that is the board, photographed
+rather than restyled.
+
+The gold the jumbotron's clock is drawn in (`#f0b429`) disappears into
+white paper at text sizes, so `ACCENT` is the same hue taken down far
+enough to be read on it.
+
+**The night cover survives as one file, `box-cover-night.png`.** It is
+the same layout in `NIGHT_COVER` rather than `PAGE_COVER` -- a
+`CoverPalette` is the only difference between them, so a change to the
+cover is a change to both -- and it is for a post, a store page or a
+header, where ink costs nothing. The CLI says so as it writes it. The
+two palettes differ in more than colour: the night cover carries the
+glows behind the title, the ball and each figure, which are light and
+therefore a screen's; and the back rank is washed towards the dark
+rather than towards the page, at a full share rather than a half one,
+because white haze eats a figure much faster than dark does.
 
 ## The box is cut for the board, not chosen
 
@@ -97,10 +118,9 @@ The rest is read the same way:
   `len(TeamSide)`, because "how many coaches" and "how many sides" are the same
   question and only one of them has an answer in the code; the fielded six are
   the standard deal's own role counts.
-- **The picture of the game is `render_match_image`'s own output** for a
-  standard deal, not a photograph and not a second drawing of the board. What
-  is printed on the box is what a coach actually sees, and a change to the
-  board reaches the box by re-rendering.
+- **The picture of the game is the printed field board**, with meeples on it
+  at the standard deal and the ball on the kickoff space -- see "The picture
+  of the game" below.
 
 ## What the box deliberately does not say
 
@@ -123,6 +143,65 @@ this could catch.
 EAN-13 at its nominal 37.29 x 25.93mm, printed white and labelled. The number
 belongs to whoever publishes the game, and a barcode that scans as something
 else is worse than a blank.
+
+## The picture of the game
+
+`board_photo` is `boards.render_field_board`'s own board with pieces set on
+it. It was the bot's `render_match_image` at first, which was wrong twice
+over: that board is a screen's -- dark, and therefore the same press problem
+as the cover -- and what somebody buying this game will have on their table
+is the printed one. So the box shows the printed one.
+
+- **It is the real board, not a drawing of one.** The panel is rendered by
+  `render_field_board` and pasted into a `Sheet` of its own size, which is
+  what lets `FieldGeometry.for_sheet` say where every space is without a
+  second copy of the layout. A layout change upstream moves the meeples with
+  it.
+- **The deal is `MatchState.standard`'s** and the sides are read with
+  `side_for_player`, so the picture cannot show a formation the game does not
+  deal. Home stands on the near half of a space and the visitors on the far
+  half: a space belongs to nobody, and the only thing dividing it is which
+  coach is reaching across the table.
+- **The crop stops inside both zone-assignment rows.** The board is portrait
+  and most of its length is those two card rows -- and the visiting coach's is
+  printed upside down, which is right on a table and a mistake in a picture.
+  `strip_only` cuts further, to the spaces and the range bracket alone, for a
+  panel much wider than it is tall (the playtest card's front).
+
+### The meeples
+
+**A meeple is the piece, drawn as a piece**: the classic silhouette, in its
+team's colour, with the player's role on its chest -- the same thing the
+Screentop table puts on the board, which is what a coach recognises. The bot
+draws a player as a coloured disc with a label in it, which is right on a
+screen and wrong on a picture of a tabletop: a disc is a token, and what
+stands on a printed board is a pawn.
+
+The two letters are `ROLE_INITIALS`, the spelling every other drawing of a
+role reads, and their colour is `high_contrast_ink`, because white
+disappears on slime green. Drawn rather than bundled as art, so a meeple
+comes out at whatever size a panel leaves and takes its colour from
+`TEAM_COLORS` like everything else.
+
+### The die
+
+**The ball is a d12, so it is drawn as one**: `d12_art` builds a regular
+dodecahedron, turns it, and fills the six faces that are towards the reader
+by how square each one is. It replaced a flat twelve-sided polygon, which is
+a badge rather than a die.
+
+- **The face list is computed, not tabulated.** A face is the five vertices
+  furthest along its own normal, wound around it; sixty indices written out
+  would be sixty chances to transpose two of them with no way to notice.
+- **The dual matters.** The twelve face normals are the `(0, ±φ, ±1)` family,
+  not the `(0, ±1, ±φ)` one -- the same icosahedron turned, and against these
+  vertices its "faces" are five points that are merely near each other. The
+  first build used it and produced a lump nobody would call a die.
+  `test_every_face_is_flat` is that bug as an assertion.
+- **The number goes on whichever face is squarest to the reader**, sized to
+  that pentagon, and on the board picture it shows the ball's **speed** read
+  off `match.ball.speed` rather than a 12 -- which is the whole of what the
+  face means (Law 7).
 
 ## The cover's four
 
@@ -174,7 +253,9 @@ panel without a word.
 
 ## Looking at them
 
-The suite checks claims and geometry; it cannot see a picture, exactly as it
-cannot see the bot's board or the printed ones. **Look at the image** --
-`scripts/render_box_art.py --out box/` writes all six files and reports the
-box's own dimensions and the QR's module size.
+The suite checks claims, geometry, the corners for ink and the die for
+flatness; it cannot see a picture, exactly as it cannot see the bot's board or
+the printed ones. **Look at the image** --
+`scripts/render_box_art.py --out box/` writes all seven files -- six printed
+panels and the night cover -- and reports the box's own dimensions and the
+QR's module size.

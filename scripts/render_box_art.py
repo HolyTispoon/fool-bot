@@ -30,6 +30,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.box_art import (  # noqa: E402
+    NIGHT_COVER,
     PRINT_DPI,
     QR_MIN_MODULE_INCHES,
     SURVEY_URL,
@@ -168,6 +169,19 @@ def main() -> None:
             out / "box-cover.png",
             arguments.pdf,
         )
+        # The same cover in the bot's night palette. It is not for the
+        # printer -- a full-bleed dark cover is the expensive thing
+        # this set is drawn on white to avoid -- it is for a post, a
+        # store page or a header, where ink costs nothing.
+        save(
+            render_box_cover(
+                facts=facts, catalog=catalog, rules=rules, claims=claims,
+                bleed=arguments.bleed, palette=NIGHT_COVER,
+            ),
+            out / "box-cover-night.png",
+            arguments.pdf,
+        )
+        print("  box-cover-night.png is for screens, not for the printer")
     if "side" in wanted:
         save(
             render_box_side(facts=facts, bleed=arguments.bleed),

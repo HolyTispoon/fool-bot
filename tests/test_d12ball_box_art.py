@@ -18,6 +18,8 @@ import unittest
 from d12ball import box_art
 from d12ball.box_art import (
     BARCODE_INCHES,
+    NIGHT_COVER,
+    PAGE_COVER,
     BOX_DEPTH_INCHES,
     CHARTER_LINE,
     COVER_CAST,
@@ -32,9 +34,11 @@ from d12ball.box_art import (
     BoxFacts,
     Panel,
     RetailClaims,
+    board_photo,
     box_contents,
     box_inches,
     cast_color,
+    d12_faces,
     draw_qr,
     folded_board_inches,
     game_in_brief,
@@ -56,7 +60,8 @@ from d12ball.components import (
     load_player_catalog,
     load_species_abilities,
 )
-from d12ball.render import TEAM_COLORS, load_player_portrait
+from d12ball.game import Team
+from d12ball.render import ROLE_INITIALS, TEAM_COLORS, load_player_portrait
 from d12ball.rules_doc import LIVING_RULES_PATH
 
 
@@ -311,6 +316,105 @@ class SurveyCodeTests(unittest.TestCase):
                     is_dark,
                     f"module {row},{column} came out wrong",
                 )
+
+
+class PrintedInWhiteTests(unittest.TestCase):
+    """
+    Nothing printed is flooded with ink.
+
+    A dark cover is a solid across every panel of the wrap at once,
+    which is the most expensive thing a print run can be asked for --
+    the author's call, and the reason this whole set is drawn on
+    white. A gradient or a scrim creeping back in is exactly the kind
+    of change that looks fine on a screen and turns up on a quote, so
+    the corners of every printed panel are checked for paper.
+    """
+
+    def assert_paper(self, image, panel: str) -> None:
+        for corner in (
+            (2, 2),
+            (image.width - 3, 2),
+            (2, image.height - 3),
+            (image.width - 3, image.height - 3),
+        ):
+            pixel = image.convert("RGB").getpixel(corner)
+            self.assertGreater(
+                min(pixel),
+                235,
+                f"{panel} is inked into its corner at {corner}: {pixel}",
+            )
+
+    def test_every_printed_panel_is_paper_in_the_corners(self) -> None:
+        self.assert_paper(render_box_cover(), "the cover")
+        self.assert_paper(render_box_side(), "the side")
+        self.assert_paper(render_box_bottom(), "the underside")
+        self.assert_paper(render_sale_sheet(), "the sale sheet")
+        self.assert_paper(render_playtest_card_front(), "the card front")
+        self.assert_paper(render_playtest_card_back(), "the card back")
+
+    def test_the_night_cover_is_the_one_that_is_not_printed(self) -> None:
+        """It is for a screen, so it may flood -- and it is a different picture."""
+        night = render_box_cover(palette=NIGHT_COVER)
+        self.assertLess(min(night.convert("RGB").getpixel((2, 2))), 60)
+        self.assertNotEqual(
+            night.tobytes(), render_box_cover(palette=PAGE_COVER).tobytes()
+        )
+
+
+class DieTests(unittest.TestCase):
+    """The d12 on these panels is the solid, not a twelve-sided badge."""
+
+    def test_it_has_twelve_pentagons(self) -> None:
+        faces = d12_faces()
+        self.assertEqual(len(faces), 12)
+        for _, corners in faces:
+            self.assertEqual(len(corners), 5)
+
+    def test_every_face_is_flat(self) -> None:
+        """
+        Five vertices on one plane, which is what says the face list is
+        right: a dodecahedron built against the wrong dual has five
+        vertices that are merely near each other, and comes out as a
+        lump nobody recognises.
+        """
+        for normal, corners in d12_faces():
+            depths = [
+                sum(axis * part for axis, part in zip(normal, corner))
+                for corner in corners
+            ]
+            self.assertAlmostEqual(min(depths), max(depths), places=6)
+
+    def test_every_vertex_is_on_the_same_sphere(self) -> None:
+        radii = {
+            round(sum(axis ** 2 for axis in corner) ** 0.5, 6)
+            for _, corners in d12_faces()
+            for corner in corners
+        }
+        self.assertEqual(len(radii), 1)
+
+
+class MeepleTests(unittest.TestCase):
+    """What stands on the board in a picture of it is a piece with a role on it."""
+
+    def test_every_role_has_two_letters_to_wear(self) -> None:
+        catalog = load_player_catalog()
+        for definition in catalog.teams.values():
+            for player in definition.players:
+                self.assertIn(player.role.value, ROLE_INITIALS)
+
+    def test_the_picture_is_the_printed_board_with_both_sides_on_it(self) -> None:
+        photo = board_photo().convert("RGB")
+        colors = {color for _, color in photo.getcolors(maxcolors=1 << 20)}
+        for team in (Team.PURPLE, Team.TEAL):
+            wanted = tuple(
+                int(TEAM_COLORS[team][index:index + 2], 16)
+                for index in (1, 3, 5)
+            )
+            self.assertIn(
+                wanted,
+                colors,
+                f"no {team.value} meeple on the board picture",
+            )
 
 
 class PanelRenderTests(unittest.TestCase):

@@ -433,12 +433,13 @@ class NamingAPlayerTests(unittest.TestCase):
     """
 
     # Where the initials are a drawn glyph rather than a name: the
-    # meeple tokens, the card header badges and the printed cards.
-    # Those are pictures of a role, not a player's name, and they are
-    # measured and placed rather than interpolated.
+    # meeple tokens, the card header badges, the printed cards, and
+    # the meeples standing on the board in the box art's picture of
+    # the game. Those are pictures of a role, not a player's name, and
+    # they are measured and placed rather than interpolated.
     DRAWING_MODULES = ("d12ball/render.py", "d12ball/cards.py",
                        "d12ball/player_cards.py", "d12ball/boards.py",
-                       "d12ball/species_cards.py")
+                       "d12ball/species_cards.py", "d12ball/box_art.py")
 
     def test_only_the_formatter_spells_the_role_brackets(self) -> None:
         """
