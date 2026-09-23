@@ -19,7 +19,6 @@ import unittest
 from d12ball import box_art
 from d12ball.box_art import (
     BANNER_INCHES,
-    BARCODE_INCHES,
     MEEPLE_PATH,
     NIGHT_COVER,
     PAGE_COVER,
@@ -37,12 +36,10 @@ from d12ball.box_art import (
     SCREENTOP_BANNER_PIXELS,
     SURVEY_URL,
     STRAPLINE,
-    TURN_BEATS,
     BoxFacts,
     Panel,
     RetailClaims,
     board_photo,
-    box_contents,
     box_inches,
     cast_color,
     d12_art,
@@ -55,7 +52,6 @@ from d12ball.box_art import (
     plain,
     qr_matrix,
     qr_module_inches,
-    render_box_bottom,
     render_box_cover,
     render_banner,
     render_box_side,
@@ -120,41 +116,9 @@ class BoxArtQuotesTests(unittest.TestCase):
         self.assertNotIn(STRAPLINE, self.text)
         self.assertNotIn(".", STRAPLINE)
 
-    def test_every_beat_of_a_turn_is_quoted(self) -> None:
-        for line, _ in TURN_BEATS:
-            self.assert_quoted(line)
-
-    def test_every_beat_names_a_law_the_charter_has(self) -> None:
-        laws = plain(LIVING_RULES_PATH.read_text())
-        for _, law in TURN_BEATS:
-            number = law.split()[1].split(".")[0]
-            self.assertRegex(
-                laws,
-                rf"Law {number}\.",
-                f"{law} is cited on the box and the Charter has no Law "
-                f"{number}.",
-            )
-
-
-class BoxContentsTests(unittest.TestCase):
-    """The component list is the Learn to Play's, minus the book itself."""
-
-    def test_every_component_of_the_books_own_list_is_on_the_box(self) -> None:
-        section = box_art.learn_to_play_section("what-is-in-the-box")
-        bullets = [line for line in section.splitlines() if line.startswith("- ")]
-        self.assertEqual(len(bullets), len(box_contents()))
-
-    def test_no_entry_still_addresses_the_reader_of_the_book(self) -> None:
-        for entry in box_contents():
-            self.assertNotIn("this book", entry.lower())
-
-    def test_every_entry_is_a_sentence(self) -> None:
-        for entry in box_contents():
-            self.assertTrue(entry.endswith("."), entry)
-
 
 class BoxFactsTests(unittest.TestCase):
-    """Every number on the box is the game's own."""
+    """Every number on these panels is the game's own."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -257,12 +221,6 @@ class BoxGeometryTests(unittest.TestCase):
         self.assertAlmostEqual(
             Panel(6.0, 4.0, bleed=True).x(0), round(BLEED_INCHES * PRINT_DPI)
         )
-
-    def test_the_barcode_area_is_a_real_symbols_size(self) -> None:
-        """EAN-13 at its nominal 37.29 x 25.93mm."""
-        width, height = BARCODE_INCHES
-        self.assertAlmostEqual(width * 25.4, 37.29, delta=0.3)
-        self.assertAlmostEqual(height * 25.4, 25.93, delta=0.3)
 
 
 class CoverCastTests(unittest.TestCase):
@@ -387,7 +345,6 @@ class PrintedInWhiteTests(unittest.TestCase):
     def test_every_printed_panel_is_paper_in_the_corners(self) -> None:
         self.assert_paper(render_box_cover(), "the cover")
         self.assert_paper(render_box_side(), "the side")
-        self.assert_paper(render_box_bottom(), "the underside")
         self.assert_paper(render_sale_sheet(), "the sale sheet")
         self.assert_paper(render_playtest_card_front(), "the card front")
         self.assert_paper(render_playtest_card_back(), "the card back")
@@ -592,7 +549,6 @@ class PanelRenderTests(unittest.TestCase):
         side, _, depth = box_inches()
         self.assert_size(render_box_cover(), side, side)
         self.assert_size(render_box_side(), side, depth)
-        self.assert_size(render_box_bottom(), side, side)
 
     def test_the_sale_sheet_is_a_letter_page(self) -> None:
         self.assert_size(render_sale_sheet(), *PAPERS[box_art.SALE_SHEET_PAPER])

@@ -42,7 +42,6 @@ from d12ball.box_art import (  # noqa: E402
     box_inches,
     folded_board_inches,
     qr_module_inches,
-    render_box_bottom,
     render_box_cover,
     render_box_side,
     render_banner,
@@ -61,7 +60,6 @@ PANELS = (
     "cover",
     "banner",
     "side",
-    "bottom",
     "sale-sheet",
     "playtest-card",
 )
@@ -246,15 +244,6 @@ def main() -> None:
             arguments.pdf,
         )
         print("  the box is square, so this one panel is all four sides")
-    if "bottom" in wanted:
-        save(
-            render_box_bottom(
-                facts=facts, catalog=catalog, rules=rules,
-                maneuvers=maneuvers, claims=claims, bleed=arguments.bleed,
-            ),
-            out / "box-bottom.png",
-            arguments.pdf,
-        )
     if "sale-sheet" in wanted:
         save(
             render_sale_sheet(
@@ -267,6 +256,7 @@ def main() -> None:
         )
         if not arguments.contact:
             print("  no --contact given; the answer panel is left ruled and empty")
+        print("  this is the box's underside as well, for now")
     if "playtest-card" in wanted:
         save(
             render_playtest_card_front(

@@ -82,15 +82,9 @@ from d12ball.render import (
     load_font,
     load_goal_zone_font,
     load_player_portrait,
-    species_icon,
     wrap_text,
 )
-from d12ball.rules_doc import (
-    LOCAL_LINK_PATTERN,
-    PROJECT_ROOT,
-    load_rules_document,
-    parse_rules_document,
-)
+from d12ball.rules_doc import LOCAL_LINK_PATTERN, PROJECT_ROOT
 
 
 LEARN_TO_PLAY_PATH = PROJECT_ROOT / "docs" / "learn-to-play.md"
@@ -349,17 +343,6 @@ STRAPLINE = (
     "tactics, a little luck and a bucket of d12s"
 )
 
-# The three beats of a turn, each a sentence of the Learn to Play's
-# own and the Law it is taught under.
-TURN_BEATS: tuple[tuple[str, str], ...] = (
-    (
-        "A maneuver is a fight for the ball between two players",
-        "Law 6.1",
-    ),
-    ("Rank decides, not dice.", "Law 6.3"),
-    ("A tie is not a draw.", "Law 6.4"),
-)
-
 def plain(markdown: str) -> str:
     """
     A line of either book as a box prints it: no emphasis marks, and a
@@ -371,57 +354,6 @@ def plain(markdown: str) -> str:
     """
     text = LOCAL_LINK_PATTERN.sub(r"\1", markdown)
     return text.replace("**", "").replace("*", "").strip()
-
-
-def learn_to_play_section(slug: str) -> str:
-    book = parse_rules_document(LEARN_TO_PLAY_PATH.read_text())
-    section = book.find(slug)
-    if section is None:
-        raise ValueError(f"No section {slug!r} in {LEARN_TO_PLAY_PATH.name}.")
-    return section.text
-
-
-def living_rules_section(slug: str) -> str:
-    section = load_rules_document().find(slug)
-    if section is None:
-        raise ValueError(f"No section {slug!r} in the living rules.")
-    return section.text
-
-
-def body_paragraphs(section_text: str) -> tuple[str, ...]:
-    """A section's paragraphs, heading and notes dropped."""
-    blocks = [block.strip() for block in section_text.split("\n\n")]
-    return tuple(
-        plain(block)
-        for block in blocks
-        if block and not block.startswith(("#", ">", "-", "|", "!"))
-    )
-
-
-def box_contents() -> tuple[str, ...]:
-    """
-    What is in the box, from the Learn to Play's own list of it.
-
-    Its sentences addressed to the reader of that book -- "This book
-    plays the 7-space board" -- are dropped, because a box is not the
-    book and the sentence is false the moment it is read off one. What
-    is left is the component and nothing else.
-    """
-    lines: list[str] = []
-    for line in learn_to_play_section("what-is-in-the-box").splitlines():
-        if not line.startswith("- "):
-            continue
-        sentences = [
-            sentence.strip()
-            for sentence in plain(line[2:]).split(". ")
-            if "this book" not in sentence.lower()
-        ]
-        entry = ". ".join(sentences).strip()
-        if entry and not entry.endswith((".", "!")):
-            entry += "."
-        if entry:
-            lines.append(entry)
-    return tuple(lines)
 
 
 # -------------------------------------------------------- the drawing
@@ -1001,25 +933,6 @@ def draw_centered(
     return top
 
 
-def draw_heading(
-    sheet: Sheet,
-    left: float,
-    top: float,
-    width: float,
-    text: str,
-    size_inches: float,
-    ink: str,
-    rule: Optional[str] = None,
-) -> float:
-    """A small caps-style section heading over a hairline. Returns the y below it."""
-    draw_fitted(sheet, (left, top), text, width, size_inches, ink, bold=True)
-    below = top + inches(size_inches * 1.5)
-    if rule is not None:
-        sheet.rect((left, below, left + width, below + inches(0.012)), fill=rule)
-        below += inches(0.14)
-    return below
-
-
 def letterspaced_width(
     sheet: Sheet, text: str, size_inches: float, spacing: float
 ) -> float:
@@ -1596,14 +1509,6 @@ def render_box_side(
     return sheet.image
 
 
-# ------------------------------------------------------- the underside
-
-# The area a retail barcode is printed in, at the nominal size of an
-# EAN-13 symbol (37.29 x 25.93mm). Reserved and labelled rather than
-# drawn: the number belongs to whoever publishes the game, and a
-# barcode that scans as something else is worse than a blank.
-BARCODE_INCHES = (1.47, 1.02)
-
 
 # The meeple, as the Screentop table draws it -- the author's own
 # path, so a piece on a printed panel and a piece on the virtual table
@@ -1926,173 +1831,6 @@ def draw_framed(
     )
 
 
-def render_box_bottom(
-    facts: Optional[BoxFacts] = None,
-    catalog: Optional[PlayerCatalog] = None,
-    rules: Optional[BasicRuleset] = None,
-    maneuvers: Optional[ManeuverCatalog] = None,
-    claims: RetailClaims = DEFAULT_CLAIMS,
-    bleed: bool = False,
-) -> Image.Image:
-    """
-    The underside of the box: what is in it, how a turn goes, and a
-    picture of the game being played.
-
-    Every list on it is read rather than written -- the components are
-    the Learn to Play's own, the counts are the catalogs', and the
-    three beats are quoted from the books with their Laws beside them.
-    """
-    catalog = catalog or load_player_catalog()
-    rules = rules or load_basic_ruleset()
-    maneuvers = maneuvers or load_maneuver_catalog()
-    facts = facts or BoxFacts.read(catalog=catalog, maneuvers=maneuvers, rules=rules)
-    side = box_inches()[0]
-    panel = Panel(side, side, bleed=bleed)
-    sheet = panel.sheet(PAPER)
-
-    margin = 0.75
-    left = panel.x(margin)
-    right = panel.x(side - margin)
-    content = right - left
-
-    # The header, and the hook under it.
-    title = fitted_display(sheet, TITLE.upper(), content * 0.45, 0.78)
-    sheet.text((left, panel.y(0.95)), TITLE.upper(), title, PAPER_INK, anchor="lm")
-    letterspaced(
-        sheet, (right, panel.y(0.95)), PUBLISHER.upper(), 0.15, ACCENT, 0.06,
-        anchor="right",
-    )
-    sheet.rect(
-        (left, panel.y(1.38), right, panel.y(1.38) + inches(0.02)), fill=ACCENT
-    )
-    # The line under the title is the author's own, the same one the
-    # cover carries: this panel used to open with the Learn to Play's
-    # first paragraph, which is a book teaching somebody the game and
-    # not a box telling them what it is -- and it said "two coaches"
-    # and "thirty minutes on a clock" beside a cover that says two
-    # players and 30-45 minutes.
-    below = draw_wrapped(
-        sheet, left, panel.y(1.62), content * 0.86, STRAPLINE, 0.235,
-        PAPER_INK, leading=1.4,
-    )
-    draw_chip_row(
-        sheet,
-        retail_chips(facts, claims),
-        left + content / 2,
-        below + inches(0.3),
-        content,
-        PAPER_INK,
-        PANEL_EDGE_INK,
-        size_inches=0.165,
-    )
-
-    # The game itself, and one card from each side of a maneuver --
-    # because a maneuver is two of them.
-    photo_top = panel.y(2.95)
-    photo_bottom = photo_top + inches(2.25)
-    photo_right = left + inches(4.6)
-    draw_framed(
-        sheet,
-        board_photo(rules, catalog),
-        (left, photo_top, photo_right, photo_bottom),
-        PANEL_EDGE_INK,
-    )
-    pair = (first_basic(maneuvers.offense), first_basic(maneuvers.defense))
-    card_width = (photo_bottom - photo_top) * CARD_WIDTH / CARD_HEIGHT
-    x = right - card_width * 2 - inches(0.35)
-    for definition, is_offense in zip(pair, (True, False)):
-        draw_framed(
-        sheet,
-        render_maneuver_card(maneuvers, catalog, definition, is_offense, False),
-        (x, photo_top, x + card_width, photo_bottom),
-        PANEL_EDGE_INK,
-        )
-        x += card_width + inches(0.35)
-    draw_fitted(
-        sheet,
-        (left, photo_bottom + inches(0.22)),
-        "The field board at kickoff, and two of the twelve maneuver cards.",
-        inches(4.6),
-        0.145,
-        PAPER_MUTED,
-    )
-    draw_species_row(
-        sheet, right, photo_bottom + inches(0.1), inches(5.0)
-    )
-
-    # Two columns: what is in the box, and what a turn is.
-    column = (content - inches(0.7)) / 2
-    second = left + column + inches(0.7)
-    top = photo_bottom + inches(1.05)
-
-    y = draw_heading(
-        sheet, left, top, column, "WHAT IS IN THE BOX", 0.2, ACCENT, PANEL_EDGE_INK
-    )
-    for entry in box_contents():
-        y = draw_bullet(sheet, left, y, column, entry, 0.14, PAPER_MUTED, ACCENT)
-    draw_fitted(
-        sheet,
-        (left, y + inches(0.14)),
-        f"{facts.basic_maneuvers} basic cards and {facts.gambits} gambits · "
-        f"{facts.teams} teams · {facts.species} species · "
-        f"{facts.players_per_team} players a team",
-        column,
-        0.145,
-        ACCENT,
-        bold=True,
-    )
-
-    right_y = draw_heading(
-        sheet, second, top, column, "HOW A TURN GOES", 0.2, ACCENT, PANEL_EDGE_INK
-    )
-    for index, (line, _) in enumerate(TURN_BEATS, start=1):
-        right_y = draw_beat(sheet, second, right_y, column, index, line)
-    right_y = draw_heading(
-        sheet,
-        second,
-        right_y + inches(0.12),
-        column,
-        "TWO MODES",
-        0.2,
-        ACCENT,
-        PANEL_EDGE_INK,
-    )
-    draw_wrapped(
-        sheet,
-        second,
-        right_y,
-        column,
-        "Basic mode is the whole game on its own. Advanced mode adds a "
-        "second card to every maneuver and gives each of the "
-        f"{facts.species} species an ability.",
-        0.145,
-        PAPER_MUTED,
-    )
-
-    # The footer: the one sentence that outranks everything printed
-    # anywhere, and the space the barcode goes in.
-    footer = panel.y(side - margin + 0.05)
-    sheet.rect(
-        (left, footer - inches(1.1), right, footer - inches(1.08)),
-        fill=PANEL_EDGE_INK,
-    )
-    # A credit and nothing else. It used to carry the Charter's own
-    # line and a paragraph about what outranks what, which is a rule
-    # about the rules -- true, and of no interest whatever to somebody
-    # turning a box over in a shop.
-    words = content - inches(BARCODE_INCHES[0] + 0.45)
-    draw_fitted(
-        sheet,
-        (left, footer - inches(0.78)),
-        f"{TITLE} is published by {PUBLISHER}.",
-        words,
-        0.16,
-        PAPER_MUTED,
-    )
-    draw_barcode_area(sheet, right, footer)
-    return sheet.image
-
-
 def first_basic(definitions: Sequence):
     """The first card of a side that a basic game is played with."""
     for definition in definitions:
@@ -2127,112 +1865,12 @@ def draw_bullet(
     return below + inches(0.05)
 
 
-def draw_beat(
-    sheet: Sheet,
-    left: float,
-    top: float,
-    width: float,
-    number: int,
-    line: str,
-) -> float:
-    """
-    One of the three beats: a numbered disc and the sentence.
-
-    Each beat used to carry the Law it is taught under, which is right
-    in the Learn to Play and is rules-lawyering on a box -- nobody
-    picking one up off a shelf is looking up 6.4. `TURN_BEATS` still
-    holds the citation, because the test that the beats are quoted
-    checks the Charter has the Law they came from.
-    """
-    radius = inches(0.17)
-    center = (left + radius, top + radius)
-    sheet.draw.ellipse(
-        (
-        center[0] - radius,
-        center[1] - radius,
-        center[0] + radius,
-        center[1] + radius,
-        ),
-        fill=ACCENT,
-    )
-    sheet.text(
-        center, str(number), print_font(0.16, bold=True), "#101822", anchor="mm"
-    )
-    indent = inches(0.52)
-    below = draw_wrapped(
-        sheet, left + indent, top, width - indent, line, 0.165, PAPER_INK,
-        bold=True,
-    )
-    return below + inches(0.16)
-
-
-def draw_species_row(
-    sheet: Sheet, right: float, top: float, width: float
-) -> float:
-    """
-    The four species, as the icons the cards and the meeples wear,
-    hung off the right edge with their caption under them.
-
-    The icons are `render.species_icon`'s, coloured through it rather
-    than pasted from the coloured files on disk -- see "Anything
-    drawing a species icon asks render.species_icon" in CLAUDE.md.
-    """
-    names = list(load_species_abilities())
-    # Each species' own team, so the four icons come out in the four
-    # team hues rather than in one ink.
-    colors = [
-        TEAM_COLORS[team]
-        for team in (
-            Team.FIRE_DEMONS, Team.CYBORGS, Team.TELEKINETICS, Team.OOZES
-        )
-    ]
-    size = inches(0.46)
-    gap = inches(0.3)
-    span = size * len(names) + gap * (len(names) - 1)
-    x = right - span
-    for name, color in zip(names, colors):
-        icon = species_icon(name, color, size=round(size))
-        if icon is not None:
-            paste_rgba(sheet, icon, (x, top))
-        x += size + gap
-    draw_fitted(
-        sheet,
-        (right, top + size + inches(0.18)),
-        "four species, each with an ability in advanced mode",
-        width,
-        0.145,
-        PAPER_MUTED,
-        anchor="ra",
-    )
-    return top + size
-
-
-def draw_barcode_area(sheet: Sheet, right: float, bottom: float) -> None:
-    box = (
-        right - inches(BARCODE_INCHES[0]),
-        bottom - inches(BARCODE_INCHES[1]),
-        right,
-        bottom,
-    )
-    sheet.rect(box, fill="#ffffff")
-    draw_fitted(
-        sheet,
-        ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2),
-        "BARCODE",
-        inches(BARCODE_INCHES[0]) * 0.8,
-        0.13,
-        "#8c9aa6",
-        bold=True,
-        anchor="mm",
-    )
-
-
 # ------------------------------------------------------- the sale sheet
 
 SALE_SHEET_PAPER = "letter"
-# How many player cards are fanned across the sheet, and how far each
-# one is slid over the last: enough of a card to read its name and
-# its art, which is what a fan is for.
+# How many cards are fanned across the sheet, and how far each one is
+# slid over the last: enough of a card to read its name and its art,
+# which is what a fan is for.
 SALE_SHEET_CARDS = 8
 # Of those, how many are players; the rest are maneuvers, which is
 # what a coach is actually holding.

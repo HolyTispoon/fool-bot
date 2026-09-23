@@ -19,8 +19,7 @@ python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 | `banner.png` / `banner-night.png` | 3000 x 1200px | The same art laid out wide, for a Notion page |
 | `screentop-banner.png` / `-night.png` | 1280 x 720px | The same again at the size a Screentop table asks for |
 | `box-side.png` | 11.375 x 2.75in | One wall -- and all four, since the box is square |
-| `box-bottom.png` | 11.375in square | What is in the box, how a turn goes, a picture of the game |
-| `sale-sheet.png` | letter | One page for a buyer or a convention table |
+| `sale-sheet.png` | letter | One page for a buyer or a convention table -- **and the box's underside, for now** |
 | `playtest-card-front/back.png` | 6 x 4in | The board on the front, the survey QR on the back |
 
 Every piece that comes in two grounds follows one spelling: `<name>.png` is
@@ -114,22 +113,6 @@ taught under.
 
 The rest is read the same way:
 
-- **The component list is the Learn to Play's own "What is in the box"**,
-  parsed out of the markdown. Its sentences addressed to the reader of that
-  book -- "This book plays the 7-space board" -- are dropped, because a box is
-  not the book and the sentence is false the moment it is read off one.
-- **The underside opens in the box's own voice, not the book's.** It used to
-  lead with the Learn to Play's first paragraph, which is a book teaching
-  somebody the game rather than a box telling them what it is -- and it said
-  "two coaches" and "thirty minutes on a clock" beside a cover that says two
-  players and 30-45 minutes. It carries `STRAPLINE` and the same three chips
-  as the cover now. For the same reason the three beats of a turn lost the
-  Laws printed under them (nobody turning a box over is looking up 6.4;
-  `TURN_BEATS` still holds each citation, because the test that the beats are
-  quoted checks the Charter has the Law they came from), and the footer lost
-  the Charter's own line and the paragraph about what outranks what -- a rule
-  about the rules, true and of no interest in a shop. What is left is a
-  credit.
 - **One line is in the box's own voice, and it is named.** `STRAPLINE` -- "a
   fast playing fantasy sports game of some strategy, a lot of tactics, a
   little luck and a bucket of d12s" -- is the author's, and it is allowed
@@ -159,18 +142,19 @@ what any *other* claim gets until a person supplies it, and
 
 Those three are the whole of the cover's copy under the art:
 `retail_chips` is how many players, how long, and how old, and nothing else.
-What is in the box is on the underside, where somebody who has already picked
-it up will read it.
+What is in the box is on the sale sheet, which is the underside for now --
+see "There is no underside" below.
 
 **No contact details on the sale sheet unless given.** `--contact` fills the
 answer panel; with nothing given it is ruled and empty. An address nobody has
 supplied is the one thing on that page that could be wrong in a way none of
 this could catch.
 
-**The barcode is a reserved area, not a barcode.** `BARCODE_INCHES` is an
-EAN-13 at its nominal 37.29 x 25.93mm, printed white and labelled. The number
-belongs to whoever publishes the game, and a barcode that scans as something
-else is worse than a blank.
+**There is no barcode any more.** It was a reserved area on the underside --
+an EAN-13 at its nominal 37.29 x 25.93mm, printed white and labelled, since
+the number belongs to whoever publishes the game and a barcode that scans as
+something else is worse than a blank. It went with the panel that carried it
+and wants a home when a real underside is drawn.
 
 ## The picture of the game
 
@@ -353,11 +337,32 @@ one asks how a game went, the other says what the game is -- and it is there
 so that a sheet handed across a table is not a dead end when nobody has
 filled the line in.
 
-Everything the old sheet said in sentences is still in the box: the component
-list and how a turn goes are on the underside, and the rules are in the two
-books. What is *not* on the sheet any more is anything that repeats them --
-the counts under the fan and the Charter's line in the foot both went, on the
-same call that took the prose out.
+What is *not* on the sheet is anything that repeats the books -- the counts
+under the fan and the Charter's line in the foot both went, on the same call
+that took the prose out.
+
+## There is no underside
+
+`render_box_bottom` was drawn three times and scrapped: first crowded, then
+white, then rewritten in the box's own voice with the Laws and the Charter's
+precedence note taken off it. The author's call after the third was to stop
+drawing it and **put the sale sheet on the bottom of the box for now**, so
+`box-bottom.png` is not written any more.
+
+What went with it is worth knowing, because a real underside will want most
+of it back:
+
+- **The component list read out of the Learn to Play's own "What is in the
+  box"** (`box_contents`), with the sentences addressed to that book's reader
+  -- "This book plays the 7-space board" -- dropped, since a box is not the
+  book and the sentence is false the moment it is read off one. That is the
+  shape to bring back: the list is the book's, not a second copy.
+- **The three beats of a turn**, quoted, and the note on the two modes.
+- **The barcode reserve**, above.
+
+It is in the history rather than commented out, because a panel nobody
+renders is a panel that stops being true. `git log -- d12ball/box_art.py` has
+it.
 
 ## The cover's four
 
