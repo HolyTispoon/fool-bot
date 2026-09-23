@@ -16,7 +16,8 @@ python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 | --- | --- | --- |
 | `box-cover.png` | 11.375in square | The lid: the title, four players, the ball, the facts |
 | `box-cover-night.png` | 11.375in square | The same cover for a screen, not for the printer |
-| `banner.png` / `banner-night.png` | 3000 x 1200px | The same art laid out wide, for a Notion page or a Screentop table |
+| `banner.png` / `banner-night.png` | 3000 x 1200px | The same art laid out wide, for a Notion page |
+| `screentop-banner.png` | 1280 x 720px | The same again at the size a Screentop table asks for |
 | `box-side.png` | 11.375 x 2.75in | One wall -- and all four, since the box is square |
 | `box-bottom.png` | 11.375in square | What is in the box, how a turn goes, a picture of the game |
 | `sale-sheet.png` | letter | One page for a buyer or a convention table |
@@ -115,6 +116,12 @@ The rest is read the same way:
   not the book and the sentence is false the moment it is read off one.
 - **The blurb is Law 1**, which is the back of the box whether it meant to be
   or not.
+- **One line is in the box's own voice, and it is named.** `STRAPLINE` -- "a
+  fast playing fantasy sports game of some strategy, a lot of tactics, a
+  little luck and a bucket of d12s" -- is the author's, and it is allowed
+  because it states no rule: it says how the game plays. It is the exemption
+  rather than a hole in the rule, so it is one constant with a date on it and
+  `test_the_strapline_is_the_one_line_in_its_own_voice` holds its shape.
 - **Every number is `BoxFacts`**, read off the catalogs: the coaches are
   `len(TeamSide)`, because "how many coaches" and "how many sides" are the same
   question and only one of them has an answer in the code; the fielded six are
@@ -123,17 +130,23 @@ The rest is read the same way:
   at the standard deal and the ball on the kickoff space -- see "The picture
   of the game" below.
 
-## What the box deliberately does not say
+## What the box says that this code cannot work out
 
-**No playing time and no age rating.** Both are retail claims and nothing in
-this repository measures either. The thirty minutes the game is played over is
-fifteen space minutes a half on a clock that never stops -- it is not a wall
-clock, and printing it as one would be the box lying about the product.
-`RetailClaims` is where both go once somebody has sat at a table with a
-stopwatch: pass `--play-minutes` and `--min-age` and the chips appear on the
-cover and rows appear in the sale sheet's glance table; pass neither and they
-are left off rather than guessed at. It is `fitted_print_font`'s rule about a
-caption it cannot draw legibly, applied to a claim nobody can check.
+**A playing time and an age rating are printed, and neither is measured
+here.** Nothing in this repository can time a table or judge a ten-year-old,
+and the thirty minutes the game runs over is fifteen space minutes a half on
+a clock that never stops -- not a wall clock, and printing *that* as one
+would be the box lying about the product. So the two live in one dated
+constant, `DEFAULT_CLAIMS`: **two players, 30-45 minutes, ages 10+, the
+author's own, 2026-09-23**. They are printed because somebody who has run the
+table said so. `RetailClaims()` carries nothing and prints nothing, which is
+what any *other* claim gets until a person supplies it, and
+`--play-minutes` / `--min-age` override the defaults.
+
+Those three are the whole of the cover's copy under the art:
+`retail_chips` is how many players, how long, and how old, and nothing else.
+What is in the box is on the underside, where somebody who has already picked
+it up will read it.
 
 **No contact details on the sale sheet unless given.** `--contact` fills the
 answer panel; with nothing given it is ruled and empty. An address nobody has
@@ -242,12 +255,38 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
   that pentagon, and on the board picture it shows the ball's **speed** read
   off `match.ball.speed` rather than a 12 -- which is the whole of what the
   face means (Law 7).
+- **Every face is inset into the solid and what shows between two of them is
+  the bevel.** A cast piece has no sharp edges; drawing the creases as lines
+  gave a die with a wireframe over it. The inset is the rounded edge seen
+  from straight on, which is why there is no seam colour drawn any more, only
+  a face colour set into one.
+- **The outline is the hull of *every* vertex, not of the visible faces.** A
+  face seen edge-on still holds part of the silhouette, so a hull of the
+  faces turned towards the reader cuts a flat notch out of the shape. Faces
+  under a threshold are dropped from the *shading* for the neighbouring
+  reason: a face barely off edge-on projects as a sliver and reads as a chip
+  out of the solid.
+- **It is turned less than it was.** Far enough and a dodecahedron's own
+  silhouette goes lopsided -- correctly, it is the shape's outline -- and
+  reads as a rock rather than a die.
 
 ## The banner
 
-`render_banner` is the same art at 3000 x 1200 -- twice a Notion page cover,
-so it survives being cropped there -- with the title **beside** the players
-rather than above them, for the top of a Notion page or a Screentop table.
+`render_banner` is the same art with the title **beside** the players rather
+than above them, at two sizes: 3000 x 1200 (twice a Notion page cover, so it
+survives being cropped there) and 1280 x 720, which is what a Screentop table
+asks for.
+
+**Two shapes, one composition, so the layout is written in shares of the
+panel rather than in inches.** 16:9 is half again as tall for its width as
+2.5:1; every measurement here is a fraction of the width or the height, and a
+figure is sized against the height but capped by `BANNER_FIGURE_SHARE` of the
+width -- without that cap, four players scaled to a 16:9 panel's height fill
+it end to end and bury each other.
+
+**The ball is on the ground between the two nearest players**, not in the air
+over them: at head height it lands on somebody's face, and a ball on a field
+is where a ball is anyway.
 
 **A banner is not a cropped cover.** A cover's title sits over the players
 with a field of sky between them; crop that to a strip and what survives is
@@ -261,6 +300,29 @@ never printed; the page one is written beside it for a white page that wants
 it. The tagline is one fitted line rather than a wrapped paragraph: on a
 panel four inches tall, a second line runs under whoever is standing next to
 it.
+
+## The sale sheet is components, not prose
+
+The first sale sheet was three columns of writing -- the game in Law 1's own
+words, four quoted lines, the whole component list, an at-a-glance table. It
+is a page nobody reads at a booth, and the author's call was blunt: more
+components, far less text.
+
+So the sheet is the printed board, a **fan of player cards**, and the three
+facts a shopper checks. `sale_sheet_cards` picks which cards, from the four
+colour teams in turn and from a different part of each roster -- a roster is
+grouped by species, so the first player of all four teams is four of the same
+monster, and the first fan came out four fire demons.
+`SaleSheetCardsTests` is that. The cards are `player_cards.render_player_card`'s
+own, not a second drawing of a card.
+
+**They are fanned rather than tiled.** A card small enough for eight to sit
+side by side is a stamp; eight overlapped are eight cards, of which seven
+show their name and their art -- which is what somebody looks at anyway.
+
+Everything the old sheet said in sentences is still in the box: the component
+list and how a turn goes are on the underside, and the rules are in the two
+books.
 
 ## The cover's four
 
@@ -315,6 +377,7 @@ panel without a word.
 The suite checks claims, geometry, the corners for ink and the die for
 flatness; it cannot see a picture, exactly as it cannot see the bot's board or
 the printed ones. **Look at the image** --
-`scripts/render_box_art.py --out box/` writes all nine files -- six printed
-panels, the night cover and the two banners -- and reports the box's own
-dimensions and the QR's module size.
+`scripts/render_box_art.py --out box/` writes all ten files -- six printed
+panels, the night cover and the three banners -- and reports the box's own
+dimensions, the QR's module size, and that the playing time and the age are
+the author's.

@@ -24,14 +24,17 @@ from d12ball.box_art import (
     PAGE_COVER,
     BOX_DEPTH_INCHES,
     CHARTER_LINE,
+    DEFAULT_CLAIMS,
     COVER_CAST,
     HOOK,
     PLAYTEST_CARD_INCHES,
     PRINT_DPI,
     QR_MIN_MODULE_INCHES,
-    SELLING_LINES,
+    SALE_SHEET_CARDS,
+    SCREENTOP_BANNER_INCHES,
+    SCREENTOP_BANNER_PIXELS,
     SURVEY_URL,
-    TAGLINE,
+    STRAPLINE,
     TURN_BEATS,
     BoxFacts,
     Panel,
@@ -45,7 +48,6 @@ from d12ball.box_art import (
     draw_qr,
     flatten_path,
     folded_board_inches,
-    game_in_brief,
     meeple_outline,
     meeple_size,
     plain,
@@ -58,6 +60,8 @@ from d12ball.box_art import (
     render_playtest_card_back,
     render_playtest_card_front,
     render_sale_sheet,
+    retail_chips,
+    sale_sheet_cards,
 )
 from d12ball.boards import BLEED_INCHES, DEFAULT_PAPER, PAPERS, Sheet
 from d12ball.components import (
@@ -67,7 +71,7 @@ from d12ball.components import (
     load_player_catalog,
     load_species_abilities,
 )
-from d12ball.game import Team
+from d12ball.game import COLOR_TEAMS, Team
 from d12ball.render import ROLE_INITIALS, TEAM_COLORS, load_player_portrait
 from d12ball.rules_doc import LIVING_RULES_PATH
 
@@ -98,10 +102,21 @@ class BoxArtQuotesTests(unittest.TestCase):
             "word for word. Quote the books, or change them first.",
         )
 
-    def test_the_hook_and_the_tagline_are_the_books_own_words(self) -> None:
+    def test_the_hook_and_the_charters_line_are_the_books_own_words(self) -> None:
         self.assert_quoted(HOOK)
-        self.assert_quoted(TAGLINE)
         self.assert_quoted(CHARTER_LINE)
+
+    def test_the_strapline_is_the_one_line_in_its_own_voice(self) -> None:
+        """
+        The author's own (2026-09-23), and the only copy on any panel
+        that is not quoted. It is allowed because it states no rule --
+        it says how the game plays. Anything in it that reads as a
+        rule would have to be quoted like everything else, so this
+        test holds the shape of the exemption: one line, named, and
+        not a sentence out of either book.
+        """
+        self.assertNotIn(STRAPLINE, self.text)
+        self.assertNotIn(".", STRAPLINE)
 
     def test_every_beat_of_a_turn_is_quoted(self) -> None:
         for line, _ in TURN_BEATS:
@@ -117,16 +132,6 @@ class BoxArtQuotesTests(unittest.TestCase):
                 f"{law} is cited on the box and the Charter has no Law "
                 f"{number}.",
             )
-
-    def test_every_selling_line_is_quoted(self) -> None:
-        for line in SELLING_LINES:
-            self.assert_quoted(line)
-
-    def test_the_blurb_is_the_charters_own_first_law(self) -> None:
-        paragraphs = game_in_brief()
-        self.assertTrue(paragraphs)
-        for paragraph in paragraphs:
-            self.assert_quoted(paragraph)
 
 
 class BoxContentsTests(unittest.TestCase):
@@ -185,25 +190,35 @@ class BoxFactsTests(unittest.TestCase):
         )
         self.assertLess(self.facts.fielded, self.facts.players_per_team)
 
-    def test_the_glance_table_says_something_for_every_row(self) -> None:
-        for label, value in self.facts.glance_rows():
-            self.assertTrue(label and value, (label, value))
-
 
 class RetailClaimsTests(unittest.TestCase):
-    """A playing time and an age are printed only when somebody has one."""
+    """
+    A playing time and an age are the author's, not this code's.
 
-    def test_nothing_is_claimed_by_default(self) -> None:
+    Nothing here measures either, so `RetailClaims()` carries nothing
+    and prints nothing; what the panels show is `DEFAULT_CLAIMS`,
+    which is what the author gave.
+    """
+
+    def test_nothing_is_claimed_without_one(self) -> None:
         self.assertEqual(RetailClaims().chips, ())
 
-    def test_a_measured_claim_becomes_a_chip(self) -> None:
+    def test_a_claim_becomes_a_chip(self) -> None:
         self.assertEqual(
             RetailClaims(play_minutes=(45, 60), minimum_age=12).chips,
-            ("45-60 MIN", "AGES 12+"),
+            ("45-60 MINUTES", "AGES 12+"),
         )
 
     def test_one_number_is_not_printed_as_a_range(self) -> None:
-        self.assertEqual(RetailClaims(play_minutes=(50, 50)).chips, ("50 MIN",))
+        self.assertEqual(
+            RetailClaims(play_minutes=(50, 50)).chips, ("50 MINUTES",)
+        )
+
+    def test_the_cover_carries_the_three_a_shopper_checks(self) -> None:
+        self.assertEqual(
+            retail_chips(BoxFacts.read(), DEFAULT_CLAIMS),
+            ["2 PLAYERS", "30-45 MINUTES", "AGES 10+"],
+        )
 
 
 class BoxGeometryTests(unittest.TestCase):
@@ -382,7 +397,7 @@ class DieTests(unittest.TestCase):
         self.assertEqual(art.mode, "RGBA")
         opaque = [
             pixel[:3]
-            for pixel in art.convert("RGBA").getdata()
+            for pixel in art.convert("RGBA").get_flattened_data()
             if pixel[3] > 250
         ]
         self.assertTrue(opaque)
@@ -493,6 +508,34 @@ class MeepleTests(unittest.TestCase):
             )
 
 
+class SaleSheetCardsTests(unittest.TestCase):
+    """The sheet is components, and the fan is not four of one monster."""
+
+    def test_the_fan_is_drawn_from_every_colour_team(self) -> None:
+        catalog = load_player_catalog()
+        chosen = sale_sheet_cards(catalog)
+        self.assertEqual(len(chosen), SALE_SHEET_CARDS)
+        self.assertEqual(
+            {team for _, team in chosen}, set(COLOR_TEAMS)
+        )
+
+    def test_the_fan_is_not_all_one_species(self) -> None:
+        """
+        A roster is grouped by species, so taking the first player of
+        each team is four of the same monster -- which is what the
+        first fan came out as.
+        """
+        species = {
+            player.species for player, _ in sale_sheet_cards(load_player_catalog())
+        }
+        self.assertGreaterEqual(len(species), 3)
+
+    def test_every_card_is_a_player_of_the_team_it_is_printed_for(self) -> None:
+        catalog = load_player_catalog()
+        for player, team in sale_sheet_cards(catalog):
+            self.assertIn(player, catalog.teams[team].players)
+
+
 class PanelRenderTests(unittest.TestCase):
     """Every panel renders, at the size the printer is told to expect."""
 
@@ -524,6 +567,13 @@ class PanelRenderTests(unittest.TestCase):
         banner = render_banner()
         self.assert_size(banner, *BANNER_INCHES)
         self.assertEqual(banner.size, (3000, 1200))
+
+    def test_the_screentop_banner_is_what_that_table_asks_for(self) -> None:
+        """1280 x 720 to the pixel, which is why the layout is in shares."""
+        self.assertEqual(
+            render_banner(size=SCREENTOP_BANNER_INCHES).size,
+            SCREENTOP_BANNER_PIXELS,
+        )
 
     def test_the_banner_is_the_covers_art_laid_out_wide(self) -> None:
         """Same palettes, different placement -- not a cropped cover."""

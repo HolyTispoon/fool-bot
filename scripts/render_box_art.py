@@ -33,8 +33,10 @@ from d12ball.box_art import (  # noqa: E402
     NIGHT_COVER,
     PAGE_COVER,
     PRINT_DPI,
+    SCREENTOP_BANNER_INCHES,
     QR_MIN_MODULE_INCHES,
     SURVEY_URL,
+    DEFAULT_CLAIMS,
     BoxFacts,
     RetailClaims,
     box_inches,
@@ -134,14 +136,20 @@ def main() -> None:
         "--play-minutes",
         type=minutes,
         help=(
-            "Printed playing time, e.g. 45-60. Only pass it once "
-            "somebody has timed a real game; nothing here can check it."
+            "Printed playing time, e.g. 45-60. The author's own "
+            f"{DEFAULT_CLAIMS.play_minutes[0]}-"
+            f"{DEFAULT_CLAIMS.play_minutes[1]} is printed without it; "
+            "nothing here can check either."
         ),
     )
     parser.add_argument(
         "--min-age",
         type=int,
-        help="Printed minimum age. The same caveat as --play-minutes.",
+        help=(
+            f"Printed minimum age (the author's own "
+            f"{DEFAULT_CLAIMS.minimum_age}+ without it). The same caveat "
+            "as --play-minutes."
+        ),
     )
     arguments = parser.parse_args()
 
@@ -151,8 +159,8 @@ def main() -> None:
     maneuvers = load_maneuver_catalog()
     facts = BoxFacts.read(catalog=catalog, maneuvers=maneuvers, rules=rules)
     claims = RetailClaims(
-        play_minutes=arguments.play_minutes,
-        minimum_age=arguments.min_age,
+        play_minutes=arguments.play_minutes or DEFAULT_CLAIMS.play_minutes,
+        minimum_age=arguments.min_age or DEFAULT_CLAIMS.minimum_age,
     )
 
     side, _, depth = box_inches()
@@ -206,7 +214,19 @@ def main() -> None:
             out / "banner.png",
             arguments.pdf,
         )
-        print("  banners are 3000 x 1200 -- twice a Notion page cover")
+        # And the one a Screentop table asks for by the pixel.
+        save(
+            render_banner(
+                facts=facts, catalog=catalog, rules=rules,
+                palette=NIGHT_COVER, size=SCREENTOP_BANNER_INCHES,
+            ),
+            out / "screentop-banner.png",
+            arguments.pdf,
+        )
+        print(
+            "  banner*.png is 3000 x 1200 (twice a Notion page cover); "
+            "screentop-banner.png is 1280 x 720"
+        )
 
     if "side" in wanted:
         save(
@@ -258,11 +278,10 @@ def main() -> None:
             f"{arguments.survey_url}"
         )
 
-    if claims.play_minutes is None or claims.minimum_age is None:
-        print(
-            "note: no playing time or age rating is printed unless "
-            "--play-minutes / --min-age are given."
-        )
+    print(
+        "note: the playing time and the age rating are the author's own "
+        "(see DEFAULT_CLAIMS); --play-minutes / --min-age override them."
+    )
 
 
 if __name__ == "__main__":

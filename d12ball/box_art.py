@@ -59,9 +59,11 @@ from d12ball.cards import (
     MUTED,
     render_maneuver_card,
 )
+from d12ball.player_cards import render_player_card
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     BasicRuleset,
+    PlayerDefinition,
     ManeuverCatalog,
     MatchState,
     PlayerCatalog,
@@ -71,7 +73,7 @@ from d12ball.components import (
     load_player_catalog,
     load_species_abilities,
 )
-from d12ball.game import Formation, Team
+from d12ball.game import COLOR_TEAMS, Formation, Team
 from d12ball.render import (
     ROLE_INITIALS,
     TEAM_COLORS,
@@ -231,10 +233,16 @@ class RetailClaims:
     The two things a box carries that the game cannot be asked for.
 
     A playing time and an age rating are measured at a table, not read
-    out of `basic_rules.json`, so both default to nothing and the chip
-    is left off rather than invented -- the same call
+    out of `basic_rules.json`, so neither is something this code can
+    answer: `RetailClaims()` carries nothing and a chip with nothing
+    behind it is left off rather than invented -- the same call
     `fitted_print_font` makes about a caption it cannot draw legibly.
-    Fill them in on the command line once somebody has the numbers.
+
+    **`DEFAULT_CLAIMS` is what the author gave on 2026-09-23**: two
+    players, 30-45 minutes, ages 10+. They are printed because
+    somebody who has run the table said so, not because anything here
+    worked them out, which is why they live in one constant with a
+    date on it rather than being written into the panels.
     """
 
     play_minutes: Optional[tuple[int, int]] = None
@@ -245,13 +253,16 @@ class RetailClaims:
         chips: list[str] = []
         if self.play_minutes is not None:
             low, high = self.play_minutes
-            chips.append(f"{low}-{high} MIN" if low != high else f"{low} MIN")
+            chips.append(
+                f"{low}-{high} MINUTES" if low != high else f"{low} MINUTES"
+            )
         if self.minimum_age is not None:
             chips.append(f"AGES {self.minimum_age}+")
         return tuple(chips)
 
 
 NO_CLAIMS = RetailClaims()
+DEFAULT_CLAIMS = RetailClaims(play_minutes=(30, 45), minimum_age=10)
 
 
 # ---------------------------------------------------- what the game is
@@ -311,27 +322,6 @@ class BoxFacts:
     def board_sizes_phrase(self) -> str:
         return " and ".join(str(size) for size in self.board_sizes)
 
-    def glance_rows(self) -> tuple[tuple[str, str], ...]:
-        """The at-a-glance table on the sale sheet."""
-        return (
-            ("Coaches", str(self.coaches)),
-            (
-                "Players",
-                f"{self.players_per_team} a team, "
-                f"{self.fielded} on the field",
-            ),
-            ("Teams", f"{self.teams}, across {self.species} species"),
-            (
-                "Maneuver cards",
-                f"{self.maneuvers} -- {self.basic_maneuvers} basic, "
-                f"{self.gambits} gambits",
-            ),
-            ("Field boards", f"{self.board_sizes_phrase} spaces"),
-            ("Formations", str(self.formations)),
-            ("Dice", "d12, and the ball is one"),
-            ("Modes", "Basic and advanced"),
-        )
-
 
 # ------------------------------------------------- what the books say
 
@@ -345,7 +335,15 @@ HOOK = (
     "on a clock that never stops. You win on goals -- and a level game "
     "goes to the shootout, so somebody always wins."
 )
-TAGLINE = "The ball is a d12, and the face it shows is its speed."
+# The line under the title, and the one piece of copy on any of these
+# panels that is not quoted from the books: it is the author's own
+# (2026-09-23), and it states no rule -- it says how the game plays,
+# which is the one thing a box is allowed to say in its own voice.
+# `BoxArtQuotesTests` covers the quoted lines and not this one.
+STRAPLINE = (
+    "A fast playing fantasy sports game of some strategy, a lot of "
+    "tactics, a little luck and a bucket of d12s"
+)
 CHARTER_LINE = "The Charter settles every question."
 
 # The three beats of a turn, each a sentence of the Learn to Play's
@@ -358,15 +356,6 @@ TURN_BEATS: tuple[tuple[str, str], ...] = (
     ("Rank decides, not dice.", "Law 6.3"),
     ("A tie is not a draw.", "Law 6.4"),
 )
-
-# What makes it worth a shelf, in the books' own words.
-SELLING_LINES: tuple[str, ...] = (
-    "Rank decides, not dice.",
-    "The ball is a d12, and the face it shows is its speed.",
-    "A tie is not a draw.",
-    "A level score goes to the extreme shootout, so every game is settled.",
-)
-
 
 def plain(markdown: str) -> str:
     """
@@ -430,11 +419,6 @@ def box_contents() -> tuple[str, ...]:
         if entry:
             lines.append(entry)
     return tuple(lines)
-
-
-def game_in_brief() -> tuple[str, ...]:
-    """Law 1, which is the back of the box whether it meant to be or not."""
-    return body_paragraphs(living_rules_section("the-game-in-brief"))
 
 
 # -------------------------------------------------------- the drawing
@@ -649,10 +633,15 @@ D12_NORMALS: tuple[tuple[float, float, float], ...] = tuple(
     + [(a, 0, b * PHI) for a in (1, -1) for b in (1, -1)]
     + [(a * PHI, b, 0) for a in (1, -1) for b in (1, -1)]
 )
-# How the die is turned: far enough for the numbered face to sit
-# square to the reader with five more faces around it, which is a die
-# on a table rather than a flat twelve-sided badge.
-D12_TILT = (-0.42, 0.30)
+# How the die is turned: the numbered face square to the reader with
+# five more around it, which is a die on a table rather than a flat
+# twelve-sided badge. Less than it was -- turned further, the
+# silhouette of a dodecahedron goes lopsided (correctly; it is the
+# shape's own outline) and reads as a chipped rock.
+D12_TILT = (-0.20, 0.15)
+# How far a face is set into the solid, as a share of its own size:
+# the gap is the rounded edge between two faces.
+D12_FACE_INSET = 0.93
 D12_SUPERSAMPLE = 4
 _D12_CACHE: dict[tuple, Image.Image] = {}
 _D12_GRAIN: dict[int, Image.Image] = {}
@@ -672,9 +661,9 @@ class DieMaterial:
     """
 
     body: str
-    # The seam between two faces: a worn edge catches light rather
-    # than going darker, which is what makes rubber read as rubber and
-    # not as a wireframe.
+    # The bevel a face is set into. A cast piece has no sharp edges:
+    # every face is inset and what shows between two of them is this,
+    # which is what a rounded edge looks like from straight on.
     seam: str
     # The silhouette, which does go darker -- it is the edge of the
     # object, not a crease in it.
@@ -825,8 +814,21 @@ def d12_art(
     def flat(v) -> tuple[float, float]:
         return (span / 2 + v[0] * scale, span / 2 - v[1] * scale)
 
-    towards = [(n, corners) for n, corners in turned if n[2] > 0.01]
+    # A face barely off edge-on projects as a sliver, which reads as a
+    # chip out of the solid rather than as a face. Dropped, it is
+    # bevel like any other rounded edge.
+    towards = [(n, corners) for n, corners in turned if n[2] > 0.12]
     tone = Image.new("RGB", (1, 1), material.body).getpixel((0, 0))
+
+    # The solid's own outline is the hull of **every** vertex, not of
+    # the faces turned towards the reader: a face seen edge-on still
+    # holds part of the silhouette, so a hull of the visible ones
+    # alone cuts a flat notch out of the shape. Filled in the bevel
+    # colour first; every face is then inset into it, so what shows
+    # between two faces is a rounded edge rather than a drawn line.
+    outline = silhouette_outline(turned, flat)
+    shading.polygon(outline, fill=material.seam)
+    silhouette.polygon(outline, fill=255)
     for normal, corners in sorted(
         towards, key=lambda one: sum(v[2] for v in one[1])
     ):
@@ -835,24 +837,26 @@ def d12_art(
         # of, so the range is narrow and there is no white in it.
         shade = 0.55 + 0.75 * max(0.0, normal[2])
         points = [flat(v) for v in corners]
-        shading.polygon(
-            points, fill=tuple(min(255, round(c * shade)) for c in tone)
+        middle = (
+            sum(p[0] for p in points) / 5,
+            sum(p[1] for p in points) / 5,
         )
-        silhouette.polygon(points, fill=255)
+        inset = [
+            (
+                middle[0] + (p[0] - middle[0]) * D12_FACE_INSET,
+                middle[1] + (p[1] - middle[1]) * D12_FACE_INSET,
+            )
+            for p in points
+        ]
+        shading.polygon(
+            inset, fill=tuple(min(255, round(c * shade)) for c in tone)
+        )
 
     if material.grain:
         body = ImageChops.overlay(
             body, Image.merge("RGB", (die_grain(span, material.grain),) * 3)
         )
-
-    # The seams, over the grain: a worn edge on a cast piece catches
-    # the light rather than going darker.
     seams = ImageDraw.Draw(body)
-    line = max(1, round(span * 0.004))
-    for _, corners in towards:
-        seams.polygon(
-            [flat(v) for v in corners], outline=material.seam, width=line
-        )
 
     # The number, cut in: a shadow a hair below it and the bone face
     # over that.
@@ -885,9 +889,7 @@ def d12_art(
     # The silhouette last, so the object has an edge against whatever
     # it is standing on.
     ImageDraw.Draw(art).polygon(
-        silhouette_outline(towards, flat),
-        outline=material.edge,
-        width=max(1, round(span * 0.008)),
+        outline, outline=material.edge, width=max(1, round(span * 0.008))
     )
 
     _D12_CACHE[key] = art.resize(
@@ -896,15 +898,15 @@ def d12_art(
     return _D12_CACHE[key]
 
 
-def silhouette_outline(towards, flat) -> list[tuple[float, float]]:
+def silhouette_outline(faces, flat) -> list[tuple[float, float]]:
     """
-    The die's own outline: the convex hull of the faces facing the
-    reader, which for a convex solid is exactly its silhouette.
+    The die's own outline: the convex hull of every projected vertex,
+    which for a convex solid is exactly its silhouette.
 
     Drawn as one polygon rather than as twelve outlined faces, so the
-    edge of the object is one weight and the seams inside it another.
+    edge of the object is one weight and what is inside it another.
     """
-    points = [flat(v) for _, corners in towards for v in corners]
+    points = [flat(v) for _, corners in faces for v in corners]
     points.sort()
     def half(order):
         built: list[tuple[float, float]] = []
@@ -973,6 +975,25 @@ def draw_wrapped(
     step = inches(size_inches * leading)
     for line in wrap_text(sheet.draw, text, face, round(width)):
         sheet.text((left, top), line, face, fill)
+        top += step
+    return top
+
+
+def draw_centered(
+    sheet: Sheet,
+    center_x: float,
+    top: float,
+    width: float,
+    text: str,
+    size_inches: float,
+    fill: str,
+    leading: float = 1.3,
+) -> float:
+    """A centred paragraph, wrapped to `width`. Returns the y below it."""
+    face = print_font(size_inches)
+    step = inches(size_inches * leading)
+    for line in wrap_text(sheet.draw, text, face, round(width)):
+        sheet.text((center_x, top), line, face, fill, anchor="ma")
         top += step
     return top
 
@@ -1175,7 +1196,7 @@ def render_box_cover(
     facts: Optional[BoxFacts] = None,
     catalog: Optional[PlayerCatalog] = None,
     rules: Optional[BasicRuleset] = None,
-    claims: RetailClaims = NO_CLAIMS,
+    claims: RetailClaims = DEFAULT_CLAIMS,
     bleed: bool = False,
     palette: CoverPalette = PAGE_COVER,
 ) -> Image.Image:
@@ -1230,14 +1251,9 @@ def render_box_cover(
             ),
             fill=palette.accent,
         )
-    draw_fitted(
-        sheet,
-        (middle, panel.y(3.35)),
-        TAGLINE,
-        content,
-        0.235,
+    draw_centered(
+        sheet, middle, panel.y(3.22), content * 0.82, STRAPLINE, 0.225,
         palette.muted,
-        anchor="mm",
     )
 
     # The scene. The field is the bottom of the picture, the four
@@ -1305,36 +1321,49 @@ def render_box_cover(
         paste_glow(sheet, ball_center, inches(3.9), palette.accent, 170)
     draw_d12(sheet, ball_center, inches(0.7))
 
-    # The facts, and then the one line about where it is played.
-    chips = [
-        f"{facts.coaches} COACHES",
-        f"{facts.players_per_team} A TEAM · {facts.fielded} ON THE FIELD",
-        f"{facts.maneuvers} MANEUVER CARDS",
-        "BASIC & ADVANCED",
-        *claims.chips,
-    ]
+    # What a shopper checks before anything else: how many of them,
+    # how long, and how old. Nothing else -- the rest of what is in
+    # the box is on the underside, where somebody who has already
+    # picked it up will read it.
     draw_chip_row(
-        sheet, chips, middle, panel.y(10.15), content,
-        palette.ink, palette.edge,
-    )
-
-    draw_fitted(
-        sheet,
-        (middle, panel.y(10.78)),
-        "Play it at the table, or on Discord.",
-        content,
-        0.2,
-        palette.muted,
-        anchor="mm",
+        sheet, retail_chips(facts, claims), middle, panel.y(10.4), content,
+        palette.ink, palette.edge, size_inches=0.185,
     )
     return sheet.image
 
 
-# A banner, for the top of a Notion page or a Screentop table: the
-# same art as the cover, laid out wide with the title beside the
-# players rather than above them. 10 x 4in at 300dpi is 3000 x 1200 --
-# twice a Notion page cover, so it still reads when that crops it.
+def retail_chips(facts: BoxFacts, claims: RetailClaims) -> list[str]:
+    """The three facts a box is bought on."""
+    return [f"{facts.coaches} PLAYERS", *claims.chips]
+
+
+# Banners. The same art as the cover, laid out wide with the title
+# beside the players rather than above them.
+#
+# `BANNER_INCHES` is 10 x 4in at 300dpi -- 3000 x 1200, twice a Notion
+# page cover, so it still reads when that crops it.
+# `SCREENTOP_BANNER_PIXELS` is what a Screentop table asks for
+# exactly: 1280 x 720, which is 16:9 rather than 2.5:1, so the layout
+# is written in **shares of the panel** and not in inches. Two shapes,
+# one composition.
 BANNER_INCHES = (10.0, 4.0)
+SCREENTOP_BANNER_PIXELS = (1280, 720)
+SCREENTOP_BANNER_INCHES = (
+    SCREENTOP_BANNER_PIXELS[0] / PRINT_DPI,
+    SCREENTOP_BANNER_PIXELS[1] / PRINT_DPI,
+)
+# What a figure is measured against on a banner: its share of the
+# height, capped by this share of the width, so the group takes the
+# same slice of the panel whatever shape it is.
+BANNER_FIGURE_SHARE = 0.4
+
+# Where the four stand on a banner, as shares: the group in the right
+# half, so the title has the left to itself. Each is (share of the
+# width, share of the height, how far back).
+BANNER_PLACES: tuple[tuple[tuple[float, float, float], ...], ...] = (
+    ((0.580, 0.65, 0.45), (0.705, 0.79, 0.0)),
+    ((0.950, 0.65, 0.45), (0.830, 0.79, 0.0)),
+)
 
 
 def render_banner(
@@ -1343,6 +1372,7 @@ def render_banner(
     rules: Optional[BasicRuleset] = None,
     bleed: bool = False,
     palette: CoverPalette = NIGHT_COVER,
+    size: tuple[float, float] = BANNER_INCHES,
 ) -> Image.Image:
     """
     The cover's art at banner proportions: the four on the right, the
@@ -1352,16 +1382,19 @@ def render_banner(
     players with a field of sky between; crop that to a strip and what
     survives is either the words or the art. So the two are one
     composition read two ways -- same cast, same palettes, same
-    tagline -- and the only thing that moves is where the title goes.
+    strapline -- and the only thing that moves is where the title
+    goes.
 
-    It defaults to the night palette, because a banner is read on a
-    screen and never printed; `PAGE_COVER` gives the white one for a
-    page that wants it.
+    Everything below is a share of the panel rather than an inch, so
+    the same picture comes out at 2.5:1 for a Notion page and at 16:9
+    for a Screentop table. It defaults to the night palette, because a
+    banner is read on a screen and never printed; `PAGE_COVER` gives
+    the white one for a page that wants it.
     """
     catalog = catalog or load_player_catalog()
     rules = rules or load_basic_ruleset()
     facts = facts or BoxFacts.read(catalog=catalog, rules=rules)
-    width, height = BANNER_INCHES
+    width, height = size
     panel = Panel(width, height, bleed=bleed)
     sheet = panel.sheet(palette.ground)
     if palette.glows:
@@ -1369,20 +1402,29 @@ def render_banner(
             vertical_gradient(panel.pixels, "#05090e", "#16242f"), (0, 0)
         )
 
-    field_top = panel.y(3.42)
-    field_bottom = panel.y(height)
+    field_top = panel.y(height * 0.855)
     if palette.glows:
         paste_glow(
-            sheet, (panel.x(width * 0.7), field_top), inches(9.0), "#3f7fb8", 90
+            sheet,
+            (panel.x(width * 0.7), field_top),
+            inches(width * 0.9),
+            "#3f7fb8",
+            90,
         )
-    draw_cover_field(sheet, panel, rules, field_top, field_bottom, palette)
+    draw_cover_field(sheet, panel, rules, field_top, panel.y(height), palette)
 
-    baseline = panel.y(3.82)
+    baseline = panel.y(height * 0.955)
     cast = cast_portraits(catalog)
     facing_right = [one for one in cast if one[1] == "right"]
     facing_left = [one for one in cast if one[1] == "left"]
     for group, places in zip((facing_right, facing_left), BANNER_PLACES):
-        for (portrait, _, color), (share, figure, depth) in zip(group, places):
+        for (portrait, _, color), (across, tall, depth) in zip(group, places):
+            # A figure is sized against the panel's height, but never
+            # past what keeps the group inside its own share of the
+            # width: a 16:9 panel is half again as tall for its width
+            # as a 2.5:1 one, and four players scaled to its height
+            # fill it end to end.
+            figure = tall * min(height, width * BANNER_FIGURE_SHARE)
             portrait = (
                 hazed(portrait, depth * palette.haze_share, palette.haze)
                 if depth
@@ -1390,7 +1432,7 @@ def render_banner(
             )
             fitted = standing_art(portrait, inches(figure))
             center = clamp_center(
-                panel.x(width * share), fitted.width, panel, width, COVER_EDGE
+                panel.x(width * across), fitted.width, panel, width, COVER_EDGE
             )
             paste_glow(
                 sheet,
@@ -1414,42 +1456,58 @@ def render_banner(
             )
             paste_standing(sheet, portrait, center, baseline, inches(figure))
 
-    ball_center = (panel.x(width * 0.695), panel.y(1.32))
+    # The ball is **on the ground between the two nearest players**,
+    # not in the air over them: at head height it lands on somebody's
+    # face, and a ball on a field is where a ball is anyway.
+    ball_radius = min(height, width * BANNER_FIGURE_SHARE) * 0.115
+    ball_center = (
+        panel.x(width * 0.768),
+        baseline - inches(ball_radius * 0.9),
+    )
     if palette.glows:
-        paste_glow(sheet, ball_center, inches(2.6), palette.accent, 170)
-    draw_d12(sheet, ball_center, inches(0.44))
+        paste_glow(sheet, ball_center, inches(height * 0.7), palette.accent, 150)
+    draw_d12(sheet, ball_center, inches(ball_radius))
 
     # The title block, hard against the group rather than over it.
-    left = panel.x(0.55)
-    words = inches(3.95)
+    left = panel.x(width * 0.055)
+    words = width * 0.36
     letterspaced(
-        sheet, (left, panel.y(1.12)), PUBLISHER.upper(), 0.14, palette.accent,
-        0.06, anchor="left",
+        sheet,
+        (left, panel.y(height * 0.26)),
+        PUBLISHER.upper(),
+        height * 0.035,
+        palette.accent,
+        height * 0.015,
+        anchor="left",
     )
-    title = fitted_display(sheet, TITLE.upper(), words, 1.35)
+    title = fitted_display(sheet, TITLE.upper(), inches(words), height * 0.34)
     sheet.text(
-        (left, panel.y(1.95)), TITLE.upper(), title, palette.ink, anchor="lm"
+        (left, panel.y(height * 0.455)),
+        TITLE.upper(),
+        title,
+        palette.ink,
+        anchor="lm",
     )
     sheet.rect(
-        (left, panel.y(2.52), left + inches(1.5), panel.y(2.52) + inches(0.02)),
+        (
+            left,
+            panel.y(height * 0.585),
+            left + inches(width * 0.15),
+            panel.y(height * 0.585) + inches(height * 0.005),
+        ),
         fill=palette.accent,
     )
-    # One line, shrunk to the room the players leave: a tagline
-    # wrapped onto a second line runs under whoever is standing next
-    # to it.
-    draw_fitted(
-        sheet, (left, panel.y(2.72)), TAGLINE, words, 0.185, palette.muted,
+    draw_wrapped(
+        sheet,
+        left,
+        panel.y(height * 0.635),
+        inches(words),
+        STRAPLINE,
+        height * 0.042,
+        palette.muted,
+        leading=1.3,
     )
     return sheet.image
-
-
-# Where the four stand on a banner: the whole group in the right half,
-# so the title has the left to itself. The shares are of the banner's
-# own width, and the heights are what a four-inch panel leaves.
-BANNER_PLACES: tuple[tuple[tuple[float, float, float], ...], ...] = (
-    ((0.545, 2.6, 0.45), (0.675, 3.15, 0.0)),
-    ((0.945, 2.6, 0.45), (0.825, 3.15, 0.0)),
-)
 
 
 def draw_chip_row(
@@ -2160,6 +2218,34 @@ def draw_barcode_area(sheet: Sheet, right: float, bottom: float) -> None:
 # ------------------------------------------------------- the sale sheet
 
 SALE_SHEET_PAPER = "letter"
+# How many player cards are fanned across the sheet, and how far each
+# one is slid over the last: enough of a card to read its name and
+# its art, which is what a fan is for.
+SALE_SHEET_CARDS = 8
+
+
+def sale_sheet_cards(
+    catalog: PlayerCatalog, count: int = SALE_SHEET_CARDS
+) -> list[tuple[PlayerDefinition, Team]]:
+    """
+    Which cards are fanned across the sheet: taken from the four
+    colour teams in turn, and from a different part of each roster.
+
+    Read rather than listed, so an import that revises the roster
+    revises the fan. The offset per team is what keeps the species
+    mixed: a roster is grouped by species, so the first player of all
+    four teams is four of the same monster, and a fan of four fire
+    demons says the game has one.
+    """
+    chosen: list[tuple[PlayerDefinition, Team]] = []
+    per_team = max(1, count // len(COLOR_TEAMS))
+    for index in range(per_team):
+        for position, team in enumerate(COLOR_TEAMS):
+            players = catalog.teams[team].players
+            start = position * len(players) // len(COLOR_TEAMS)
+            step = index * len(players) // per_team
+            chosen.append((players[(start + step) % len(players)], team))
+    return chosen[:count]
 
 
 def render_sale_sheet(
@@ -2167,21 +2253,26 @@ def render_sale_sheet(
     catalog: Optional[PlayerCatalog] = None,
     rules: Optional[BasicRuleset] = None,
     contact: Sequence[str] = (),
-    claims: RetailClaims = NO_CLAIMS,
+    claims: RetailClaims = DEFAULT_CLAIMS,
     bleed: bool = False,
 ) -> Image.Image:
     """
-    One letter page for a buyer, a distributor or a convention table.
+    One letter page for a buyer, a distributor or a convention table:
+    **the components, and almost no words**.
 
-    Light, unlike the box: this is the piece somebody prints on an
-    office printer and hands over, and the boards are drawn on a light
-    face for exactly that reason. Only the header band is the box's
-    night, so the two are recognisably one game.
+    The first version was three columns of prose -- the game in Law
+    1's words, four quoted lines, the whole component list -- which is
+    a page nobody reads at a booth. What sells a game across a table
+    is what is in the box, so the sheet is the printed board, a fan of
+    player cards, a pair of maneuver cards and the three facts a
+    shopper checks; everything a reader would have to be sitting down
+    for is on the box's own underside and in the rulebooks.
 
-    `contact` is whatever lines the sheet should be answered on. There
-    is no default: an address nobody has given is the one thing on
-    this page that could be wrong in a way nothing here could catch,
-    so the space is left ruled and empty instead.
+    Light, unlike a banner: this is the piece somebody prints on an
+    office printer and hands over. `contact` is whatever lines it
+    should be answered on; with none given the space is left ruled and
+    empty, since an address nobody has supplied is the one thing here
+    that could be wrong in a way nothing could catch.
     """
     catalog = catalog or load_player_catalog()
     rules = rules or load_basic_ruleset()
@@ -2190,245 +2281,159 @@ def render_sale_sheet(
     panel = Panel(width, height, bleed=bleed)
     sheet = panel.sheet(PAPER)
 
-    margin = 0.55
+    margin = 0.45
     left = panel.x(margin)
     right = panel.x(width - margin)
     content = right - left
 
-    # The header. It was a dark band, which on a page somebody prints
-    # in an office is a whole sheet of toner for a stripe; the rule
-    # under the title does the same work.
-    band_bottom = panel.y(2.0)
-    title = fitted_display(sheet, TITLE.upper(), content * 0.62, 1.05)
-    sheet.text((left, panel.y(0.92)), TITLE.upper(), title, PAPER_INK, anchor="lm")
+    # The header: the name, the line under it, and who makes it.
+    title = fitted_display(sheet, TITLE.upper(), content * 0.62, 1.0)
+    sheet.text((left, panel.y(0.95)), TITLE.upper(), title, PAPER_INK, anchor="lm")
     letterspaced(
-        sheet, (right, panel.y(0.72)), PUBLISHER.upper(), 0.13, ACCENT, 0.05,
+        sheet, (right, panel.y(0.62)), PUBLISHER.upper(), 0.13, ACCENT, 0.05,
         anchor="right",
     )
-    ball_center = (right - inches(0.45), panel.y(1.3))
-    draw_d12(sheet, ball_center, inches(0.4))
-    draw_fitted(
-        sheet,
-        (left, panel.y(1.55)),
-        TAGLINE,
-        content * 0.7,
-        0.185,
-        PAPER_MUTED,
+    ball_center = (right - inches(0.42), panel.y(1.2))
+    draw_d12(sheet, ball_center, inches(0.38))
+    draw_wrapped(
+        sheet, left, panel.y(1.42), content * 0.72, STRAPLINE, 0.165, PAPER_MUTED,
     )
-
     sheet.rect(
-        (left, band_bottom - inches(0.22), right, band_bottom - inches(0.19)),
-        fill=PAPER_INK,
+        (left, panel.y(2.0), right, panel.y(2.0) + inches(0.025)), fill=PAPER_INK
     )
 
-    top = band_bottom + inches(0.3)
-    top = draw_wrapped(
-        sheet, left, top, content, HOOK, 0.175, PAPER_INK, bold=True, leading=1.4
+    # The three facts a shopper checks, and then nothing else in words.
+    draw_chip_row(
+        sheet,
+        retail_chips(facts, claims),
+        (left + right) / 2,
+        panel.y(2.3),
+        content,
+        PAPER_INK,
+        PANEL_EDGE_INK,
+        size_inches=0.16,
     )
 
-    columns_top = top + inches(0.3)
-    left_column = inches(4.55)
-    right_left = left + left_column + inches(0.45)
-    right_column = right - right_left
-    # Where the answer panel starts. Measured before either column is
-    # drawn, because both of them stop where it does: a line that runs
-    # under it is a line nobody reads.
-    foot_top = panel.y(height - margin - 1.15)
-
-    # The left column: what the game is, what is unusual about it, and
-    # what a buyer is getting in the box.
-    y = draw_heading(
-        sheet, left, columns_top, left_column, "THE GAME", 0.17,
-        PAPER_INK, PANEL_EDGE_INK,
-    )
-    for paragraph in game_in_brief()[:2]:
-        y = draw_wrapped(
-            sheet, left, y, left_column, paragraph, 0.135, PAPER_INK
-        ) + inches(0.1)
-
-    y = draw_heading(
-        sheet, left, y + inches(0.16), left_column,
-        "WHAT MAKES IT DIFFERENT", 0.17, PAPER_INK, PANEL_EDGE_INK,
-    )
-    for line in SELLING_LINES:
-        y = draw_bullet(
-            sheet, left, y, left_column, line, 0.135, PAPER_INK, ACCENT
-        )
-
-    y = draw_heading(
-        sheet, left, y + inches(0.16), left_column,
-        "WHAT IS IN THE BOX", 0.17, PAPER_INK, PANEL_EDGE_INK,
-    )
-    for entry in box_contents():
-        y = draw_bullet(
-            sheet, left, y, left_column, entry, 0.12, PAPER_MUTED, PANEL_EDGE_INK
-        )
-
-    # The right column: the table a buyer reads first, then the game.
-    glance_bottom = draw_glance_panel(
-        sheet, right_left, columns_top, right_column, facts, claims
-    )
-    photo_top = glance_bottom + inches(0.3)
-    photo = board_photo(rules, catalog)
-    # Cut to what is left above the answer panel rather than to the
-    # column's own width: the picture is the most compressible thing
-    # on this page, and its caption running under the panel is how the
-    # last version lost the second half of a sentence.
-    photo_height = min(
-        right_column * photo.height / photo.width,
-        foot_top - photo_top - inches(0.75),
-    )
+    # The board, across the sheet.
+    photo = board_photo(rules, catalog, strip_only=True)
+    photo_top = panel.y(2.7)
+    # Cut to the room between the chips and the fan rather than to the
+    # sheet's width: the board is the tallest thing here for its
+    # width, and at full width it pushes the cards off the page.
+    photo_height = inches(3.6)
+    photo_width = photo_height * photo.width / photo.height
+    photo_left = (left + right) / 2 - photo_width / 2
     draw_framed(
         sheet,
         photo,
-        (right_left, photo_top, right, photo_top + photo_height),
+        (photo_left, photo_top, photo_left + photo_width, photo_top + photo_height),
         PANEL_EDGE_INK,
-        width=0.014,
+        width=0.012,
     )
-    caption_y = draw_wrapped(
+    caption_y = photo_top + photo_height + inches(0.14)
+    draw_fitted(
         sheet,
-        right_left,
-        photo_top + photo_height + inches(0.1),
-        right_column,
-        "The printed field board at kickoff.",
-        0.115,
+        (left, caption_y),
+        "The field board at kickoff.",
+        content * 0.6,
+        0.13,
         PAPER_MUTED,
     )
-    # Two lines that are each dropped rather than crowded, in the
-    # order they are worth keeping.
-    if caption_y + inches(0.42) < foot_top:
-        caption_y = draw_wrapped(
-            sheet,
-            right_left,
-            caption_y + inches(0.04),
-            right_column,
-            "The same game plays on Discord, where the bot deals and "
-            "keeps the clock.",
-            0.115,
-            PAPER_MUTED,
-        )
-    species_top = caption_y + inches(0.18)
-    if species_top + inches(0.75) < foot_top:
-        draw_species_row(sheet, right, species_top, right_column)
+
+    # The cards, fanned: a player card is the thing somebody picks up
+    # first, so the sheet shows as many as it can hold.
+    fan_top = caption_y + inches(0.38)
+    fan_height = inches(2.2)
+    fan_cards(sheet, catalog, left, fan_top, content, fan_height)
+    draw_fitted(
+        sheet,
+        (left, fan_top + fan_height + inches(0.14)),
+        f"{facts.players_per_team} players a team, across {facts.teams} teams "
+        f"and {facts.species} species -- and {facts.maneuvers} maneuver cards.",
+        content * 0.8,
+        0.13,
+        PAPER_MUTED,
+    )
 
     # The foot: where an answer goes.
+    foot_top = panel.y(height - margin - 1.0)
     sheet.rect(
         (left, foot_top, right, panel.y(height - margin)),
-        radius=inches(0.1),
+        radius=inches(0.09),
         fill=PANEL,
         outline=PANEL_EDGE_INK,
-        width=max(1, round(inches(0.014))),
+        width=max(1, round(inches(0.012))),
     )
     draw_fitted(
         sheet,
-        (left + inches(0.3), foot_top + inches(0.22)),
+        (left + inches(0.28), foot_top + inches(0.2)),
         "For a playtest copy, a demo or the rulebooks:",
-        content - inches(0.6),
-        0.155,
+        content - inches(0.56),
+        0.15,
         PAPER_INK,
         bold=True,
     )
-    line_y = foot_top + inches(0.62)
+    line_y = foot_top + inches(0.56)
     if contact:
         for entry in contact:
             line_y = draw_wrapped(
-                sheet, left + inches(0.3), line_y, content - inches(0.6),
-                entry, 0.135, PAPER_INK,
+                sheet, left + inches(0.28), line_y, content - inches(0.56),
+                entry, 0.13, PAPER_INK,
             )
     else:
         sheet.rect(
             (
-                left + inches(0.3),
-                line_y + inches(0.16),
-                right - inches(0.3),
-                line_y + inches(0.17),
+                left + inches(0.28),
+                line_y + inches(0.14),
+                right - inches(0.28),
+                line_y + inches(0.15),
             ),
             fill=PANEL_EDGE_INK,
         )
     draw_fitted(
         sheet,
-        (right - inches(0.3), panel.y(height - margin) - inches(0.28)),
+        (right - inches(0.28), panel.y(height - margin) - inches(0.22)),
         CHARTER_LINE,
         content * 0.5,
-        0.125,
+        0.12,
         PAPER_MUTED,
         anchor="rs",
     )
     return sheet.image
 
 
-def draw_glance_panel(
+def fan_cards(
     sheet: Sheet,
+    catalog: PlayerCatalog,
     left: float,
     top: float,
     width: float,
-    facts: BoxFacts,
-    claims: RetailClaims,
-) -> float:
+    height: float,
+) -> None:
     """
-    The table a buyer reads before anything else on the page.
+    Player cards laid across the sheet, each sliding over the last.
 
-    Every row is `BoxFacts`, which is every row read off the game. A
-    playing time and an age rating are rows here only once somebody
-    has measured them -- see `RetailClaims`.
+    Overlapped rather than tiled: a card small enough for eight of
+    them to sit side by side is a stamp, where eight fanned are eight
+    cards of which the first seven show their name and their art --
+    which is what somebody looks at anyway.
     """
-    rows = list(facts.glance_rows())
-    if claims.play_minutes is not None:
-        low, high = claims.play_minutes
-        rows.insert(
-            1, ("Playing time", f"{low}-{high} min" if low != high else f"{low} min")
+    chosen = sale_sheet_cards(catalog)
+    card_width = height * CARD_WIDTH / CARD_HEIGHT
+    step = (width - card_width) / max(1, len(chosen) - 1)
+    for index, (player, team) in enumerate(chosen):
+        art = render_player_card(catalog, player, team, False)
+        fitted = art.resize(
+            (max(1, round(card_width)), max(1, round(height))),
+            Image.Resampling.LANCZOS,
         )
-    if claims.minimum_age is not None:
-        rows.insert(2, ("Ages", f"{claims.minimum_age}+"))
-
-    padding = inches(0.18)
-    label_width = width * 0.47
-    y = top + padding + inches(0.42)
-    heights = []
-    for _, value in rows:
-        lines = wrap_text(
-            sheet.draw,
-            value,
-            print_font(0.125),
-            round(width - label_width - padding * 2),
+        x = round(left + index * step)
+        sheet.image.paste(fitted, (x, round(top)))
+        sheet.rect(
+            (x, top, x + card_width, top + height),
+            outline=PANEL_EDGE_INK,
+            width=max(1, round(inches(0.01))),
         )
-        heights.append(max(1, len(lines)) * inches(0.125 * 1.35) + inches(0.06))
-    bottom = y + sum(heights) + padding - inches(0.06)
-
-    sheet.rect(
-        (left, top, left + width, bottom),
-        radius=inches(0.1),
-        fill=PANEL,
-        outline=PANEL_EDGE_INK,
-        width=max(1, round(inches(0.014))),
-    )
-    draw_fitted(
-        sheet,
-        (left + padding, top + padding),
-        "AT A GLANCE",
-        width - padding * 2,
-        0.155,
-        PAPER_INK,
-        bold=True,
-    )
-    for (label, value), step in zip(rows, heights):
-        sheet.text(
-            (left + padding, y),
-            label,
-            print_font(0.115, bold=True),
-            PAPER_INK,
-        )
-        draw_wrapped(
-            sheet,
-            left + padding + label_width,
-            y,
-            width - label_width - padding * 2,
-            value,
-            0.125,
-            PAPER_MUTED,
-        )
-        y += step
-    return bottom
 
 
 # ---------------------------------------------------- the playtest card
