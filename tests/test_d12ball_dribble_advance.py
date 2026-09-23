@@ -28,6 +28,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, GameStatus, Team
+from space_codes import code
 
 
 class DribbleAdvanceDestinationTests(unittest.TestCase):
@@ -84,6 +85,7 @@ class DribbleAdvanceDestinationTests(unittest.TestCase):
             self.catalog, self.rules, load_maneuver_catalog(), {},
         )
         cog.engine.load_match_state = mock.Mock(return_value=match)
+        self.board = match.board
         return DribbleAdvanceChoiceView(cog, "g1")
 
     def labels(self, view: DribbleAdvanceChoiceView) -> list[str]:
@@ -94,7 +96,10 @@ class DribbleAdvanceDestinationTests(unittest.TestCase):
         # on the next two spaces along.
         self.assertEqual(
             self.labels(self.build(TeamSide.HOME, Zone.MIDFIELD, 0)),
-            ["Advance 1 space (M2)", "Advance 2 spaces (M3)"],
+            [
+                f"Advance 1 space ({code(self.board, 'M2')})",
+                f"Advance 2 spaces ({code(self.board, 'M3')})",
+            ],
         )
 
     def test_the_visiting_side_advances_the_other_way(self) -> None:
@@ -103,7 +108,10 @@ class DribbleAdvanceDestinationTests(unittest.TestCase):
         # which is the whole reason the button says where.
         self.assertEqual(
             self.labels(self.build(TeamSide.VISITING, Zone.MIDFIELD, 2)),
-            ["Advance 1 space (M2)", "Advance 2 spaces (M1)"],
+            [
+                f"Advance 1 space ({code(self.board, 'M2')})",
+                f"Advance 2 spaces ({code(self.board, 'M1')})",
+            ],
         )
 
     def test_a_dribble_that_runs_out_of_field_says_so(self) -> None:
@@ -113,7 +121,10 @@ class DribbleAdvanceDestinationTests(unittest.TestCase):
         # exactly what a coach cannot tell from "1 or 2".
         self.assertEqual(
             self.labels(self.build(TeamSide.HOME, Zone.VISITORS_GOAL, 1)),
-            ["Advance 1 space (V2)", "Advance 2 spaces (V2)"],
+            [
+                f"Advance 1 space ({code(self.board, 'V2')})",
+                f"Advance 2 spaces ({code(self.board, 'V2')})",
+            ],
         )
 
 

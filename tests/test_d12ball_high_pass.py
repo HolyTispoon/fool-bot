@@ -41,6 +41,7 @@ from ai_answers import solo_game
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from roster import display_name, fielded
+from space_codes import code
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves, suppressed_full_image_links
 from cog_steps import apply_high_pass, begin_loose_ball, decline_scoring_attempt, resolve_high_pass
@@ -507,12 +508,14 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
                 cog, game.game_id,
             ).children],
             [
-                f"2 spaces (V1-{winger} [WG])",
-                f"3 spaces (V2-{striker} [SK])",
+                f"2 spaces ({code(match.board, 'V1')}-{winger} [WG])",
+                f"3 spaces ({code(match.board, 'V2')}-{striker} [SK])",
             ],
         )
 
-        cog, game, _ = self.build(Zone.MIDFIELD, 0, PlayerRole.FULLBACK)
+        cog, game, match = self.build(
+            Zone.MIDFIELD, 0, PlayerRole.FULLBACK,
+        )
         self.assertEqual(
             [item.label for item in HighPassChoiceView(
                 cog, game.game_id,
@@ -521,9 +524,10 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
                 # The space is named even where nobody is standing
                 # on it: a pass landing there is loose, so which
                 # space it is is half the coach's answer.
-                "2 spaces (M3, no teammate)",
-                f"3 spaces (V1-{winger} [WG])",
-                f"4 spaces (Fullback ability) (V2-{striker} [SK])",
+                f"2 spaces ({code(match.board, 'M3')}, no teammate)",
+                f"3 spaces ({code(match.board, 'V1')}-{winger} [WG])",
+                f"4 spaces (Fullback ability) "
+                f"({code(match.board, 'V2')}-{striker} [SK])",
             ],
         )
 
@@ -534,7 +538,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             [item.label for item in HighPassChoiceView(
                 cog, game.game_id,
             ).children],
-            [f"2 spaces (V2-{striker} [SK])"],
+            [f"2 spaces ({code(match.board, 'V2')}-{striker} [SK])"],
         )
 
     async def test_a_click_on_a_distance_no_longer_on_offer_is_refused(

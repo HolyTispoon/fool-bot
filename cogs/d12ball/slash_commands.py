@@ -2437,7 +2437,7 @@ class CommandsMixin:
     )
     @app_commands.describe(
         meeple="A currently fielded player.",
-        destination="The board space to move them to, e.g. H1.",
+        destination="The board space to move them to, e.g. 1.",
     )
     @app_commands.guild_only()
     async def meeple_move(
@@ -2465,7 +2465,7 @@ class CommandsMixin:
             interaction,
             game,
             f"{self.player_label(match, player)} moved to "
-            f"{space_label(zone, space_index)}.",
+            f"{space_label(zone, space_index, match.board)}.",
         )
 
     @meeple_move.autocomplete("meeple")
@@ -2503,7 +2503,7 @@ class CommandsMixin:
         description="Place the ball on any board space.",
     )
     @app_commands.describe(
-        destination="The board space to move the ball to, e.g. H1.",
+        destination="The board space to move the ball to, e.g. 1.",
     )
     @app_commands.guild_only()
     async def ball_move(
@@ -2529,7 +2529,7 @@ class CommandsMixin:
         await self.announce_board_update(
             interaction,
             game,
-            f"The ball moved to {space_label(zone, space_index)}. "
+            f"The ball moved to {space_label(zone, space_index, match.board)}. "
             f"{team_display_name(possession_team)} has possession.",
         )
 

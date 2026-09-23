@@ -52,6 +52,7 @@ from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turnovers import begin_ball_recovery
 from d12ball import tokens
 from d12ball.formatting import (
+    ball_space_label,
     coach_name,
     destination_display_name,
     format_team_side_label,
@@ -327,12 +328,12 @@ def apply_reposition(
     if partner is None:
         return (
             f"{engine.format_player_label(match, player)} moves "
-            f"to {space_label(zone, space_index)}. No exhaustion cost."
+            f"to {space_label(zone, space_index, match.board)}. No exhaustion cost."
         )
     other = engine.get_player_definition(partner)
     return (
         f"{engine.format_player_label(match, player)} moves to "
-        f"{space_label(zone, space_index)} and "
+        f"{space_label(zone, space_index, match.board)} and "
         f"{engine.format_player_label(match, other)} takes their "
         "place. No exhaustion cost."
     )
@@ -731,7 +732,7 @@ def begin_time_out(
             f"# {label} call a time out\n"
             "Both coaches get a Coaching Choice. The ball stays "
             f"with {label} on "
-            f"{space_label(match.ball.zone, match.ball.space_index)}."
+            f"{ball_space_label(match)}."
         ],
         board_changed=True,
         next=FollowOn(

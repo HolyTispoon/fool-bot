@@ -49,6 +49,7 @@ from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import (
     address_coach,
+    ball_space_label,
     format_player_with_team,
     space_label,
 )
@@ -270,7 +271,7 @@ def announce_new_play_reset(
             player = engine.get_player_definition(player_id)
             moved.append(
                 f"{engine.format_player_label(match, player)} to "
-                f"{space_label(zone, space_index)}"
+                f"{space_label(zone, space_index, match.board)}"
             )
 
     prefix = f"{lead_in}\n\n" if lead_in else ""
@@ -497,7 +498,7 @@ def run_back_kickoff_fill(
         return True, (
             f"{engine.format_player_label(match, player)} "
             "drops back to "
-            f"{space_label(match.ball.zone, match.ball.space_index)} "
+            f"{ball_space_label(match)} "
             f"to start the kickoff.\n{exhaustion_text}"
         )
 
@@ -592,7 +593,7 @@ def run_back_player_ask(
         position = match.board.meeple_position(player_id)
         lines.append(
             f"{engine.format_player_label(match, player)} on "
-            f"{space_label(*position)}"
+            f"{space_label(*position, match.board)}"
             if position is not None
             else engine.format_player_label(match, player)
         )
@@ -774,7 +775,7 @@ def begin_ball_recovery(
             PromptKind.BALL_RECOVERY,
             f"{mention}, everyone is back in position -- send "
             "the nearest player either side of the ball to pick it up "
-            f"at {space_label(match.ball.zone, match.ball.space_index)}:",
+            f"at {ball_space_label(match)}:",
         ),
     )
 
@@ -882,7 +883,7 @@ def run_back_space_step(
     return StepResult(
         narration=[
             f"{engine.format_player_label(match, player)} "
-            f"runs back to {space_label(zone, space_index)}."
+            f"runs back to {space_label(zone, space_index, match.board)}."
             f"\n{exhaustion_text}",
         ],
         board_changed=True,
@@ -933,7 +934,7 @@ def recover_ball_step(
                     f"{prefix}"
                     f"{engine.format_player_label(match, player)} picks "
                     "the ball up at "
-                    f"{space_label(match.ball.zone, match.ball.space_index)}.",
+                    f"{ball_space_label(match)}.",
                     exhaustion_text,
                 ) if part
             ),

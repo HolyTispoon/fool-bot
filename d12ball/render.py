@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.components import (
     duplicate_card_id,
+    BoardState,
     MIND_PULL_SUCCESS_FACES,
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
@@ -30,6 +31,10 @@ from d12ball.components import (
     Zone,
 )
 from d12ball.game import TEAM_PAIRS, Team, team_display_name
+from d12ball.space_numbering import (
+    FLAT_SPACE_NUMBERING,
+    flat_space_number,
+)
 
 
 IMAGE_WIDTH = 2200
@@ -951,7 +956,20 @@ def player_index(
     }
 
 
-def space_code(zone: Zone, space_index: int) -> str:
+def space_code(zone: Zone, space_index: int, board=None) -> str:
+    """
+    The code drawn in a space's corner -- "H1", or the flat "1" while
+    the numbering experiment is on.
+
+    `board` is the `BoardState` a match is being drawn from, or the
+    `BoardLayout` alone on the printed sheets, and only the experiment
+    reads it: a flat number has to count the spaces in the zones to
+    its left, which differ by board size. **Drop the parameter when
+    the experiment is reverted** -- see
+    `d12ball/space_numbering.py`.
+    """
+    if FLAT_SPACE_NUMBERING:
+        return str(flat_space_number(zone, space_index, board))
     return f"{ZONE_CODES[zone]}{space_index + 1}"
 
 
@@ -1351,7 +1369,7 @@ def draw_space(
     )
     draw.text(
         (space_left + 15, BOARD_TOP + 66),
-        space_code(zone, space_index),
+        space_code(zone, space_index, match.board),
         font=FONT_SMALL,
         fill="#c8d1dc",
     )
@@ -4623,6 +4641,7 @@ def draw_coaching_space(
     occupants: list[str],
     space_left: int,
     space_right: int,
+    board: Optional[BoardState] = None,
     species_icons: bool = False,
 ) -> None:
     """
@@ -4643,7 +4662,7 @@ def draw_coaching_space(
     )
     draw.text(
         (space_left + 15, COACHING_BOARD_TOP + 52),
-        space_code(zone, space_index),
+        space_code(zone, space_index, board),
         font=FONT_SMALL,
         fill="#c8d1dc",
     )
@@ -4751,7 +4770,7 @@ def render_coaching_image(
             draw_coaching_space(
                 canvas, draw, players, team_players, setup.team, side,
                 zone, space_index, occupants, space_left, space_right,
-                species_icons=species_icons,
+                board=match.board, species_icons=species_icons,
             )
 
     draw_assignment_cards(

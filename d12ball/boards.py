@@ -907,7 +907,7 @@ def draw_field_strip(
             )
             sheet.text(
                 (space_left + sheet.u(12), band_bottom + sheet.u(10)),
-                space_code(zone, space_index),
+                space_code(zone, space_index, layout),
                 code_face,
                 MUTED,
             )

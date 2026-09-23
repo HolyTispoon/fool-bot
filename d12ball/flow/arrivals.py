@@ -47,6 +47,7 @@ from d12ball.wire import jsonable
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
+    ball_space_label,
     HIGH_PASS_CONTEST_HEADLINE,
     ball_location_line,
     ball_space_phrase,
@@ -546,7 +547,7 @@ def finish_maneuver_resolution(
     )
     narration.append(
         f"{prefix}Ball is now "
-        f"{space_label(match.ball.zone, match.ball.space_index)}, "
+        f"{ball_space_label(match)}, "
         f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
         f"has possession. {clock}"
     )

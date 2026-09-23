@@ -903,7 +903,7 @@ def space_choices(match: MatchState) -> list[tuple[str, str]]:
     (value, label) pairs for every board space, e.g. ("home_goal:0", "H1").
     """
     return [
-        (f"{zone.value}:{space_index}", space_label(zone, space_index))
+        (f"{zone.value}:{space_index}", space_label(zone, space_index, match.board))
         for zone in Zone
         for space_index in range(len(match.board.spaces[zone]))
     ]
