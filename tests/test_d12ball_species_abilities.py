@@ -2728,6 +2728,17 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
             for call in self.interaction.followup.send.await_args_list
         ]
 
+    def spend_path(self) -> None:
+        """
+        What the gate does before it queues a pull on the landing
+        space, where `setUp` puts the puller: the landing stage spends
+        the path. A queue built by hand over an unspent path would read
+        as the crossed stage, and draining it would ask the landing
+        space again -- a position no gate produces.
+        """
+        self.match.last_ball_path = []
+        self.match.last_ball_movers = []
+
     async def test_a_crossed_telekinetic_stops_the_turn_to_ask(self):
         with suppressed_cog_saves():
             await finish_maneuver_resolution(self.cog, 
@@ -2783,6 +2794,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
     async def test_declining_the_last_offer_resumes_the_arrival(self):
         # The queue's one exit: a coach who declines has to leave the
         # turn exactly where the pull found it.
+        self.spend_path()
         self.match.pending_mind_pull = []
         self.match.pending_mind_pull_resume = {
             "kind": "finish_maneuver", "distance_moved": 1,
@@ -2809,6 +2821,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         )
         self.cog.games[solo.game_id] = solo
         self.cog.finish_maneuver_resolution = mock.AsyncMock()
+        self.spend_path()
         self.match.pending_mind_pull = [self.puller]
         self.match.pending_mind_pull_resume = {
             "kind": "finish_maneuver", "distance_moved": 1,
@@ -2824,6 +2837,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         self.cog.finish_maneuver_resolution.assert_awaited()
 
     async def test_a_pull_that_lands_turns_the_ball_over(self):
+        self.spend_path()
         self.match.pending_mind_pull = [self.puller]
         self.match.pending_mind_pull_resume = {
             "kind": "finish_maneuver", "distance_moved": 2,
@@ -2852,6 +2866,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.match.pending_mind_pull_resume)
 
     async def test_a_pull_that_misses_still_costs_the_token(self):
+        self.spend_path()
         self.match.pending_mind_pull = [self.puller]
         self.match.pending_mind_pull_resume = {
             "kind": "finish_maneuver", "distance_moved": 1,
@@ -2877,6 +2892,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         # The roll is shown, not summarised: the offer message is
         # edited into the die image, the same way every other roll in
         # the game reports itself.
+        self.spend_path()
         self.match.pending_mind_pull = [self.puller]
         self.match.pending_mind_pull_resume = {
             "kind": "finish_maneuver", "distance_moved": 1,
@@ -2901,6 +2917,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         # The author's own wording, and at the skill test's own size:
         # a roll that has just taken the ball off the other side is
         # not something to find in the middle of a paragraph.
+        self.spend_path()
         self.match.pending_mind_pull = [self.puller]
         self.match.pending_mind_pull_resume = {
             "kind": "finish_maneuver", "distance_moved": 1,
@@ -2924,6 +2941,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("pull it in", lead_in)
 
     async def test_a_restart_mid_offer_puts_the_same_question_back(self):
+        self.spend_path()
         self.match.pending_mind_pull = [self.puller]
         view, prompt = self.cog.pending_turn_view(
             self.game.game_id, self.match,
@@ -3222,8 +3240,9 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
 
 class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
     """
-    **The Smooth gate, through the real cog.** Smooth is asked first at
-    every arrival, and a Smooth that is taken pre-empts what the
+    **The Smooth gate, through the real cog.** Smooth is asked where the
+    ball lands, after any pull on a space it passed and before any pull
+    on the landing space, and a Smooth that is taken pre-empts what the
     movement was going to lead to -- including, and this is the case
     the author settled on 2026-09-20, the own-goal roll an overshot
     Double Team was about to ask for.
@@ -3332,6 +3351,42 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.match.pending_mind_pull, [opponent])
         self.assertTrue(
             any(isinstance(v, MindPullView) for v in self.sent_views()),
+        )
+        self.cog.finish_maneuver_resolution.assert_not_awaited()
+
+    async def test_a_pull_the_ball_passes_first_goes_before_the_smooth(self):
+        # The author, 2026-09-24: an opponent the ball passes on its way
+        # is asked before the teammate where it lands -- the ball
+        # reached them first. Only once every crossed pull is let go is
+        # the landing space's Smooth offered.
+        opponent = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, self.match.defending_side(),
+        )
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        landing = self.match.board.position_at_flat_index(origin + 2)
+        self.match.board.place_meeple(opponent, *self.crossed)
+        self.match.board.place_meeple(self.taker, *landing)
+        self.match.set_ball_space(*landing)
+
+        with suppressed_cog_saves():
+            await self.arrive(
+                {"kind": "finish_maneuver", "distance_moved": 2},
+            )
+            self.assertIn(opponent, self.match.pending_mind_pull)
+            self.assertEqual(self.match.pending_smooth, [])
+            # The crossed stage leaves the path for the landing space.
+            self.assertNotEqual(self.match.last_ball_path, [])
+
+            self.match.pending_mind_pull = []
+            await continue_mind_pull(self.cog,
+                self.interaction, self.game, self.match,
+            )
+
+        self.assertIn(self.taker, self.match.pending_smooth)
+        self.assertTrue(
+            any(isinstance(v, SmoothView) for v in self.sent_views()),
         )
         self.cog.finish_maneuver_resolution.assert_not_awaited()
 

@@ -883,32 +883,40 @@ nobody anything.
 - **The own-goal case is gone rather than guarded.** The only own-goal
   risk is a Pressure against a handler already on the last space, which
   moves the ball nowhere, so the path is empty and nobody is asked.
-- **Smooth-then-pull still holds on one movement**, and now the two read
-  different spaces of it: a ball that crosses an opposing Telekinetic and
-  lands on a friendly one asks the Smooth first. The 2026-09-20 ruling
-  (*"smooth goes first"*) was made when both read the whole path; it was
-  kept rather than reinterpreted, and whether the pull on an earlier space
-  should now go first is a question for the author.
+- **The pull on the way goes before the Smooth where it lands** (the
+  author, 2026-09-24, answering the question the narrowing raised). Once
+  the two read different spaces, "smooth goes first" (2026-09-20, when
+  both read the whole path) would have let a teammate at the end of a pass
+  take the ball before an opponent it had already passed could reach for
+  it. So the order now follows the ball, and "smooth goes first" survives
+  only on the one space the two still share, the landing space.
 
 **`check_for_ball_arrival` is the single gate the five arrival points call**,
-and it runs Smooth then Mind Pull. Two things about that order are
-load-bearing:
+and it runs three stages in the order the ball meets them: the pulls on the
+spaces it passes through (`landing=False`), the Smooth where it lands, then
+the pulls on the landing space (`landing=True`, together
+`check_for_landing`). Three things about that are load-bearing:
 
-- **Smooth does not spend `last_ball_path`; the pull does.** The pull is the
-  last reader, so it keeps the unconditional `last_ball_path = []` it always
-  had, and Smooth deliberately leaves the path alone -- a Smooth that nobody
-  wanted must still leave the pull its movement. This is the one mechanical
-  difference between the two gate functions and the reason they are not one
-  function with a side argument.
-- **Smooth first is a rules decision, not an ordering convenience**, because
-  either one taken stops the ball and ends the movement. It is written down
-  in three places that must agree -- `check_for_ball_arrival`,
-  `continue_smooth`'s hand-off, and `pending_prompt`'s branch order, which is
-  what a restart comes back to. The sheet does not say; the author
-  settled it on 2026-09-20 (*"smooth goes first"*), and the cost that
-  buys -- an opposing Telekinetic gets no roll at all whenever one of
-  the possessing side's is also on the path -- is recorded with the
-  ruling in [rules-log.md](../rules-log.md).
+- **The order is a rules decision, not an ordering convenience**, because
+  any interrupt taken stops the ball and ends the movement, so whichever is
+  asked first decides whether the rest are asked at all. It lives in
+  `check_for_ball_arrival`, `continue_mind_pull`'s drain and
+  `continue_smooth`'s hand-off.
+- **The path is the stage marker, and only the last stage spends it.** The
+  crossed pulls leave `last_ball_path` set; the landing pulls keep the
+  unconditional `last_ball_path = []` the gate always had, so a movement
+  still offers nothing twice when two gates run in a row. When the pull
+  queue drains, a path still set means the crossed stage has just finished
+  and the landing space is owed; an empty one means the movement is done.
+  That is why this needed **no new saved field**: `last_ball_path` is
+  already in `MATCH_SAVED_FIELDS`, so a restart mid-queue comes back to the
+  same stage, and a save from before this change -- whose pull queue was
+  always queued over a spent path -- drains straight to its arrival as it
+  always did. A test that builds a pull queue by hand has to spend the path
+  itself, or it has built the crossed stage (`MindPullInterruptTests.spend_path`).
+- **The two queues are never full at once**, so `pending_prompt`'s branch
+  order between `pending_smooth` and `pending_mind_pull` no longer carries
+  the rule; the queue that is full, and the path, do.
 
 **A landed Smooth ends the maneuver; it does not run a turnover.** That is
 the one place it parts company with a landed pull, and it falls straight out
