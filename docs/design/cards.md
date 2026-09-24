@@ -478,8 +478,8 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     move to resist.
   - **What the back is still waiting on is a decision about the advanced
     *role* ability.** The sheet's `advanced_abilities` tab has one for sixteen
-    players and advanced skill scores for three since 2026-09-22, and the
-    import carries them (`PlayerDefinition.advanced_ability` /
+    players since 2026-09-22, the player cards tab carries the advanced skill
+    scores (`OskillA`, `DskillA`), and the import carries both (`PlayerDefinition.advanced_ability` /
     `.advanced_skills`), but the band still repeats the basic sentence and the
     stats row the basic scores: what the back shows -- the advanced ability
     alone, as the cards sheet's own `Advanced` column words it (`DD.` then the
