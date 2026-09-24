@@ -27,17 +27,14 @@ DEFAULT_ABILITIES_SOURCE = (
 )
 # The `advanced_abilities` tab: one row a player, carrying the advanced
 # role ability and the advanced skill scores that only some players
-# have. The player cards sheet shows the same three things again, as
-# the card will print them (see `card_advanced_parts`); this tab is
-# where they are written.
+# have. The player cards sheet may show the same things again, as the
+# card will print them, but this tab is where they are written and the
+# only place they are read from.
 DEFAULT_ADVANCED_SOURCE = (
     "https://docs.google.com/spreadsheets/d/"
     "1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/"
     "export?format=csv&gid=354283038"
 )
-# --abilities takes a CSV path or URL; this asks for the player cards
-# sheet's own Basic column instead of a separate abilities sheet.
-ABILITIES_FROM_PLAYERS = "players"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = PROJECT_ROOT / "d12ball" / "data" / "players.json"
 DEFAULT_IMAGES = PROJECT_ROOT / "d12ball" / "images" / "player_images"
@@ -79,29 +76,18 @@ REQUIRED_COLUMNS = {
     "Oskill",
     "Dskill",
 }
-# The player cards sheet's copy of the basic ability, formerly "Ability".
-# It is required only when that sheet is where the abilities are read from;
-# reading the abilities sheet does not need the copy to be there at all.
-BASIC_COLUMN = "Basic"
-# The player cards sheet's copies of the advanced sheet's three columns,
-# each checked against it where the column is there -- the same
-# stale-copy check `Basic` gets, not a second source.
+# The player cards sheet is the roster and nothing more: who is on which
+# team, in which role, with which species and basic scores. Its ability
+# columns (`Basic`, `Advanced`, `OskillA`, `DskillA`) are the card's
+# rendering of the abilities sheets and are neither read nor checked --
+# the abilities sheets are the source of truth (the author, 2026-09-24).
+# The advanced sheet's own columns:
 ADVANCED_COLUMN = "Advanced"
 ADVANCED_SKILL_COLUMNS = {"offense": "OskillA", "defense": "DskillA"}
-REQUIRED_ABILITY_COLUMNS = {"Role", "Initials", "Ability"}
+REQUIRED_ABILITY_COLUMNS = {"Role", "Ability"}
 REQUIRED_ADVANCED_COLUMNS = {"player_id", ADVANCED_COLUMN} | set(
     ADVANCED_SKILL_COLUMNS.values()
 )
-# What the player cards sheet prints for an ability, with the role's
-# initials in front: `DD: Steals the ball when resolving Pressure.` on
-# the basic face, and `DD.` then the advanced ability on its own line
-# on the advanced one. The sheet builds both by formula from the
-# abilities sheets, so the text after the initials is checked against
-# the sheet it came from rather than read as the ability -- the cards
-# sheet says what the card says, the abilities sheets say what the
-# ability is, and the two are linked, not the same.
-CARD_BASIC_ABILITY = re.compile(r"^([A-Z]{2}): (.*)$", re.DOTALL)
-CARD_ADVANCED_ABILITY = re.compile(r"^([A-Z]{2})\.(.*)$", re.DOTALL)
 # The abilities sheet's short form of each ability, for places that show
 # an ability next to something else and have no room for a sentence --
 # the matchup images, today. The sheet spells the column "Abbreivated";
@@ -114,11 +100,6 @@ ABBREVIATED_COLUMNS = ("Abbreviated", "Abbreivated")
 class RoleAbility(NamedTuple):
     text: str
     short: str
-    # The role's two-letter badge (`FB`, `DD`, ...) as the card prints
-    # it in front of the ability. Read from the sheet rather than
-    # copied from d12ball/formatting.py so the script stays free of the
-    # package, and so the check is against what the card actually says.
-    initials: str = ""
 
 
 class AdvancedProfile(NamedTuple):
@@ -133,31 +114,6 @@ class AdvancedProfile(NamedTuple):
 
     ability: str
     skills: dict[str, int]
-
-
-def card_basic_parts(text: str) -> tuple[str, str]:
-    """
-    Split the player cards sheet's `Basic` cell into the initials and
-    the ability the card prints after them. A cell without the prefix
-    comes back with empty initials and its whole text, so a sheet that
-    never had the prefix still reads.
-    """
-    match = CARD_BASIC_ABILITY.match(text)
-    if match is None:
-        return "", strip_formula_escape(text)
-    return match.group(1), strip_formula_escape(match.group(2).strip())
-
-
-def card_advanced_parts(text: str) -> tuple[str, str]:
-    """
-    The same for the `Advanced` cell: `DD.` and, after whatever line
-    break and spacing the sheet's formula put there, the advanced
-    ability -- or nothing, for a player who has none yet.
-    """
-    match = CARD_ADVANCED_ABILITY.match(text)
-    if match is None:
-        return "", strip_formula_escape(text.strip())
-    return match.group(1), strip_formula_escape(match.group(2).strip())
 
 
 def strip_formula_escape(value: str) -> str:
@@ -255,7 +211,6 @@ def import_abilities(
 
     for row_number, row in enumerate(rows, start=2):
         role = (row.get("Role") or "").strip().lower()
-        initials = (row.get("Initials") or "").strip()
         ability = strip_formula_escape((row.get("Ability") or "").strip())
         short = strip_formula_escape((row.get(short_column) or "").strip())
 
@@ -265,8 +220,6 @@ def import_abilities(
             raise ValueError(f"Row {row_number}: unknown role {role!r}.")
         if role in abilities:
             raise ValueError(f"Duplicate role in the abilities sheet: {role}")
-        if not initials:
-            raise ValueError(f"{role}: Initials is required.")
         if not ability:
             raise ValueError(f"{role}: Ability is required.")
         if not short:
@@ -276,9 +229,7 @@ def import_abilities(
                 "sentence."
             )
 
-        abilities[role] = RoleAbility(
-            text=ability, short=short, initials=initials,
-        )
+        abilities[role] = RoleAbility(text=ability, short=short)
 
     missing_roles = sorted(set(EXPECTED_ROLE_COUNTS) - set(abilities))
     if missing_roles:
@@ -326,8 +277,8 @@ def import_players(
     rows: Iterable[dict[str, str]],
     images_folder: Path,
     data_version: int,
-    role_abilities: dict[str, RoleAbility] | None = None,
-    abilities_source: str = DEFAULT_SOURCE,
+    role_abilities: dict[str, RoleAbility],
+    abilities_source: str = DEFAULT_ABILITIES_SOURCE,
     advanced: dict[str, AdvancedProfile] | None = None,
     advanced_source: str = DEFAULT_ADVANCED_SOURCE,
 ) -> dict:
@@ -341,12 +292,11 @@ def import_players(
     are built from the same 36 rows, so a player's id ends up named by
     both rosters without its record ever being written out twice.
 
-    `advanced` is the advanced sheet by player id, and a player it
-    does not name has no advanced ability and no advanced score. The
-    cards sheet's own `Advanced`, `OskillA` and `DskillA` are the
-    card's rendering of it -- initials in front, the basic score where
-    there is no advanced one -- and are checked against it the way
-    `Basic` is checked against the abilities sheet.
+    Every ability comes from the abilities sheets: `role_abilities` is
+    the basic_abilities sheet by role, and `advanced` the advanced
+    sheet by player id -- a player it does not name has no advanced
+    ability and no advanced score. The cards sheet's own ability
+    columns are the card's rendering of those and are ignored.
     """
     flat_players: dict[str, dict] = {}
     players_by_team: dict[str, list[str]] = defaultdict(list)
@@ -365,13 +315,6 @@ def import_players(
         name = (row.get("Name") or "").strip()
         team = (row.get("Team") or "").strip().lower()
         species = (row.get("Species") or "").strip().lower().replace(" ", "_")
-        # Split the same way the abilities sheet's own column is
-        # stripped, and it has to be the same way round: the Basic
-        # column is the card's copy of that one, and the check below
-        # compares them.
-        basic_initials, basic = card_basic_parts(
-            (row.get(BASIC_COLUMN) or "").strip()
-        )
 
         if not name:
             raise ValueError(f"Row {row_number}: Name is required.")
@@ -402,37 +345,12 @@ def import_players(
         if player_id in flat_players:
             raise ValueError(f"Duplicate player_id: {player_id}")
 
-        if role_abilities is None:
-            if not basic:
-                raise ValueError(f"{player_id}: Basic ability is required.")
-            # The player cards sheet carries no short form, so the
-            # sentence stands in for one. Reading the abilities sheet
-            # (the default) is the way to get real abbreviations.
-            ability = RoleAbility(
-                text=basic, short=basic, initials=basic_initials,
-            )
-        else:
-            ability = role_abilities[role]
-            # The Basic column is the abilities sheet's ability with the
-            # role's initials in front, so a row that disagrees means
-            # the card's copy is stale rather than that the player is
-            # special.
-            if basic and (basic, basic_initials) != (
-                ability.text, ability.initials,
-            ):
-                raise ValueError(
-                    f"{player_id}: Basic ability does not match the "
-                    f"{role} ability in the abilities sheet "
-                    f"({ability.initials}: {ability.text})."
-                )
+        ability = role_abilities[role]
 
         offense = parse_skill(row.get("Oskill"), "Oskill", player_id)
         defense = parse_skill(row.get("Dskill"), "Dskill", player_id)
         advanced_profile = advanced.get(
             player_id, AdvancedProfile(ability="", skills={}),
-        )
-        check_card_advanced(
-            row, player_id, ability, advanced_profile, offense, defense,
         )
         profile = {
             "offense": offense,
@@ -552,43 +470,6 @@ def import_players(
     }
 
 
-def check_card_advanced(
-    row: dict[str, str],
-    player_id: str,
-    ability: RoleAbility,
-    advanced: AdvancedProfile,
-    offense: int,
-    defense: int,
-) -> None:
-    """
-    The player cards sheet's `Advanced`, `OskillA` and `DskillA` are
-    what the advanced face of the card prints, built by formula from
-    the advanced sheet: the initials then the ability, and the basic
-    score wherever there is no advanced one. Each is checked only where
-    the column is there, and a row that disagrees is a stale copy.
-    """
-    if row.get(ADVANCED_COLUMN) is not None:
-        initials, text = card_advanced_parts(row[ADVANCED_COLUMN].strip())
-        if (initials, text) != (ability.initials, advanced.ability):
-            raise ValueError(
-                f"{player_id}: Advanced ability on the player cards "
-                "sheet does not match the advanced sheet "
-                f"({ability.initials}. {advanced.ability})."
-            )
-
-    basic_skills = {"offense": offense, "defense": defense}
-    for stat, column in ADVANCED_SKILL_COLUMNS.items():
-        raw = (row.get(column) or "").strip()
-        if not raw:
-            continue
-        expected = advanced.skills.get(stat, basic_skills[stat])
-        if parse_advanced_skill(raw, column, player_id) != expected:
-            raise ValueError(
-                f"{player_id}: {column} on the player cards sheet is "
-                f"{raw}, but the advanced sheet gives {expected}."
-            )
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
@@ -605,9 +486,7 @@ def main() -> None:
         default=DEFAULT_ABILITIES_SOURCE,
         help=(
             "Where the basic role abilities come from: a local CSV path or "
-            "public CSV URL for the basic_abilities sheet, or "
-            f"{ABILITIES_FROM_PLAYERS!r} to read the player cards sheet's "
-            "own Basic column instead."
+            "public CSV URL for the basic_abilities sheet."
         ),
     )
     parser.add_argument(
@@ -636,24 +515,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    role_abilities = None
-    abilities_source = DEFAULT_SOURCE
-    if args.abilities != ABILITIES_FROM_PLAYERS:
-        abilities_reader = strip_header_names(
-            csv.DictReader(io.StringIO(read_source(args.abilities)))
+    abilities_reader = strip_header_names(
+        csv.DictReader(io.StringIO(read_source(args.abilities)))
+    )
+    ability_columns = set(abilities_reader.fieldnames or [])
+    missing_columns = sorted(REQUIRED_ABILITY_COLUMNS - ability_columns)
+    short_column = abbreviated_column(ability_columns)
+    if short_column is None:
+        missing_columns.append(ABBREVIATED_COLUMNS[0])
+    if missing_columns:
+        raise ValueError(
+            "Abilities sheet is missing columns: "
+            + ", ".join(sorted(missing_columns))
         )
-        ability_columns = set(abilities_reader.fieldnames or [])
-        missing_columns = sorted(REQUIRED_ABILITY_COLUMNS - ability_columns)
-        short_column = abbreviated_column(ability_columns)
-        if short_column is None:
-            missing_columns.append(ABBREVIATED_COLUMNS[0])
-        if missing_columns:
-            raise ValueError(
-                "Abilities sheet is missing columns: "
-                + ", ".join(sorted(missing_columns))
-            )
-        role_abilities = import_abilities(abilities_reader, short_column)
-        abilities_source = DEFAULT_ABILITIES_SOURCE
+    role_abilities = import_abilities(abilities_reader, short_column)
 
     advanced_reader = strip_header_names(
         csv.DictReader(io.StringIO(read_source(args.advanced)))
@@ -670,10 +545,7 @@ def main() -> None:
     source_text = read_source(args.source)
     reader = strip_header_names(csv.DictReader(io.StringIO(source_text)))
     columns = set(reader.fieldnames or [])
-    required_columns = set(REQUIRED_COLUMNS)
-    if role_abilities is None:
-        required_columns.add(BASIC_COLUMN)
-    missing_columns = sorted(required_columns - columns)
+    missing_columns = sorted(REQUIRED_COLUMNS - columns)
     if missing_columns:
         raise ValueError(
             "Spreadsheet is missing columns: "
@@ -685,7 +557,7 @@ def main() -> None:
         args.images,
         args.data_version,
         role_abilities=role_abilities,
-        abilities_source=abilities_source,
+        abilities_source=DEFAULT_ABILITIES_SOURCE,
         advanced=advanced,
         advanced_source=DEFAULT_ADVANCED_SOURCE,
     )

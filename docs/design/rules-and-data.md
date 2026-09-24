@@ -24,20 +24,19 @@ body that has only ever existed in the author's head:
   it by hand and reading it as current is a mistake that has been made; the live tab is
   "Player Cards" (`gid=6660238`), and the scripts already point at the right ones.
 
-**One tab is the source of truth for each kind of thing, and the player cards tab is a
-rendering of them** (the author, 2026-09-22). `basic_abilities` (`gid=1822486506`) holds the
-six role abilities; `spec_abilities` (`gid=123199571`) the four species abilities;
+**One tab is the source of truth for each kind of thing, and the player cards tab is only the
+roster** (the author, 2026-09-22 and 2026-09-24). `basic_abilities` (`gid=1822486506`) holds
+the six role abilities; `spec_abilities` (`gid=123199571`) the four species abilities;
 `maneuvers` (`gid=1487033386`) the twelve cards; `advanced_abilities` (`gid=354283038`) the
 per-player advanced role ability and advanced skill scores. The player cards tab
-(`gid=6660238`) is the roster -- who is on which team, in which role, with which species and
-basic scores -- and its `Basic`, `Advanced`, `OskillA` and `DskillA` columns are **what the
-card says**, built by formula from those tabs: `DD: Steals the ball when resolving Pressure.`
-with the role's initials in front (the `Initials` column of `basic_abilities`), `DD.` then the
-advanced ability on a line of its own, the basic score where there is no advanced one. The
-importer reads each ability from the tab it belongs to and **checks the card's copy against
-it** rather than reading the card; a mismatch is a stale copy and fails the import, not a
-special player. The link is deliberate and the difference is the point -- the cards tab shows
-what the cards should say, the abilities tabs hold the language of the abilities.
+(`gid=6660238`) says who is on which team, in which role, with which species and basic
+scores, and nothing else is read from it. Its `Basic`, `Advanced`, `OskillA` and `DskillA`
+columns are the card's rendering of the abilities tabs, built by formula, and **the importer
+neither reads nor checks them**. It used to check them and fail on a mismatch as a stale
+copy; that made every edit to the card's wording in the sheet an import failure, when the
+card is the sheet's to lay out and the abilities tabs already say what the ability is. So
+there is no `--abilities players` mode either -- the basic abilities come from
+`basic_abilities` or nowhere.
 
 **Every ability is imported twice**, in full and abbreviated -- `ability` and `ability_short` on
 each role profile in `players.json`, from the `basic_abilities` sheet's own two columns. Text
