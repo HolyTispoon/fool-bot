@@ -303,8 +303,6 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   piece. The old `contact_sheet` put a gutter between the cards *and* around
   the outside, which made a quarter of its width a card plus a quarter of a
   gutter -- every cut but the first came out off-centre.
-  `D12BallManeuverTests` divides a rendered sheet and checks the pieces,
-  since nothing else would notice.
   - **The two margins are different numbers because only one of them is
     under pressure.** Four poker cards across is 10in of card before any
     gutter at all, and a letter page turned landscape has about 10.5in of
@@ -314,10 +312,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     rounded outline rather than on the space around it, so the gutter can go
     narrow without costing anything. Height is under no such pressure: a
     thirteen-card sheet is 14.6in whatever the gutter, and is tiled or
-    printed a page at a time either way.
-    `test_a_print_sheet_fits_a_letter_page_across` is the guard -- nothing
-    about the image says how wide it is meant to be, so the arithmetic is
-    asserted rather than looked at.
+    printed a page at a time either way. Nothing about the image says how
+    wide it is meant to be, so check the arithmetic -- width over 300dpi,
+    against 10.5in -- after changing either margin.
 - **The header's corner names the tier, not the die faces.** It printed
   "die 1-2" while the cards and the selection die had to coexist, then "BASIC
   MANEUVER" while there was only one set; it now reads the card's own tier,
@@ -351,7 +348,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 
 `d12ball/player_cards.py` draws the roster as cards -- one a player, poker
 size at 300dpi, the same as a maneuver's and out of the same `Pen`, palette
-and `print_sheet`.
+and `print_sheet`. The player, species and role cards are print-only and carry
+no tests -- nothing printed does (the author, 2026-09-23) -- so a change to one
+is checked by rendering the cards and looking.
 
 ```bash
 python3 scripts/render_player_cards.py --out cards/players --sheet
@@ -369,15 +368,14 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
 - **What the print adds is the ability, and it is the full sentence.** The
   bot has the roster and the rules commands a click away; a card on a table is
   the whole of what its coach has, so the sentence goes under the portrait.
-  Never `ability_short` -- see "Every ability is imported twice" --
-  and `D12BallPlayerCardTests` greps the module to keep it that way.
+  Never `ability_short` -- see "Every ability is imported twice".
 - **The ability is measured before anything is drawn, and the portrait takes
   what is left.** Its length is the one thing on the card the layout does not
   choose, so the header and stats are pinned to the top, the ability band to
   the bottom, and the picture gets the middle. That is silent when it goes
   wrong -- a longer ability squeezes the portrait rather than overflowing --
-  which is why the suite asserts a floor on the slot rather than only that a
-  card renders.
+  which is why the slot has a floor, and why a render that merely completes
+  proves nothing.
 - **A portrait prints at about 190dpi and that is deliberate.** The art is the
   bot's own, around 400px, and there is no larger source, so `PORTRAIT_MAX_SCALE`
   lets it up to 1.6x and no further: kept to its native size it would print
@@ -446,9 +444,8 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     bigger picture, and here it cannot, because the picture's bottom edge *is*
     the badge's position. Every back gets the same portrait slot and the same
     band, and a card whose text does not fill the band leaves white under it.
-    `test_the_advanced_badge_sits_in_one_place_on_every_card` is the guard,
-    and the way it breaks is somebody laying the band out from the bottom edge
-    up again, the way the front still does.
+    The way it breaks is somebody laying the band out from the bottom edge up
+    again, the way the front still does.
   - **The species' short form goes under it where the band has room, and the
     question is asked of the species rather than of the card.** How much of
     the band a card has left depends on how long its *role* ability runs, so
@@ -464,9 +461,8 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     the data.** A species whose short form stops fitting simply stops carrying
     one and the cards go on printing. What has to fit unconditionally is the
     role ability on its own, which is 153 units against 340 -- an import that
-    doubled one fails
-    `test_a_role_ability_alone_always_fits_the_advanced_band` rather than
-    printing off the bottom of a card.
+    doubled one would print off the bottom of a card, so look at the backs
+    after an import that lengthens a role ability.
   - **`MIN_BACK_PORTRAIT_HEIGHT` is 360 against the front's 380, and the
     20 units are what buy the fixed band.** The front is the picture face and
     the back is the rules face -- it carries a second ability where the front
@@ -512,8 +508,8 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
   carries that species' ability, so a species-vs-species game only needs the
   two abilities in play. `CARD_FACES` is the three ways to split the four
   abilities into two disjoint pairs -- the perfect matchings of K4 -- so the
-  three double-sided cards carry all six pairings, **each face exactly one**
-  (`test_every_pairing_appears_on_exactly_one_face`). Lay the card whose face
+  three double-sided cards carry all six pairings, **each face exactly one**.
+  Lay the card whose face
   matches the two teams between the coaches; its back holds the other two,
   which is harmless. A mixed colour team fields all four species, so that
   coach gets the whole set.

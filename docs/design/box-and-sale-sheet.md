@@ -12,6 +12,10 @@ python3 scripts/render_box_art.py --bleed --pdf
 python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 ```
 
+None of it has tests -- the print materials carry none (the author,
+2026-09-23) -- so what follows is checked by rendering and looking; see
+"Looking at them".
+
 | Panel | Size | What it is |
 | --- | --- | --- |
 | `box-cover.png` | 11.375in square | The lid: the title, four players, the ball, the facts |
@@ -42,10 +46,9 @@ is drawn under.
 
 So these five follow `boards.py` and `cards.py` after all: **dark ink
 on a light ground**, and what carries the game's look is the art, the
-four team colours and the type. `PrintedInWhiteTests` samples the four
-corners of every printed panel and fails if any of them is inked,
-because a gradient or a scrim creeping back in looks fine on a screen
-and turns up on a quote.
+four team colours and the type. Check the corners of every printed panel
+for ink after a change, because a gradient or a scrim creeping back in looks
+fine on a screen and turns up on a quote.
 
 **The ground is white, not the cards' and boards' cream.** `FACE_COLOR`
 is what a component is printed on; a page is a page. It is deliberately
@@ -75,8 +78,7 @@ because white haze eats a figure much faster than dark does.
 tabloid, folds across its long side to 11 x 8.5in, and the wider of those two
 is what the box has to clear. That makes the footprint square at 11.375in --
 `folded_board_inches` and `BOX_CLEARANCE_INCHES` are the whole derivation, and
-`test_every_paper_the_boards_print_on_still_folds_into_a_box` holds it for
-every paper `boards.py` prints on. The depth is the one measurement with
+it has to hold for every paper `boards.py` prints on. The depth is the one measurement with
 nothing to read it off; `BOX_DEPTH_INCHES` is the author's call and says so.
 
 **The four faces are separate files with their own bleed, not a lid wrap.**
@@ -104,8 +106,8 @@ What is borrowed from `boards.py` is `Sheet` itself and the inch-measured type
 ## The box may not word a rule for itself
 
 Every sentence on these panels that states a rule is **quoted from the Charter
-or the Learn to Play, word for word**, and `BoxArtQuotesTests` fails if the
-words drift out of either book. It is the same guarantee the printed boards
+or the Learn to Play, word for word**, and a change to either book means
+checking the quoted lines are still in it. It is the same guarantee the printed boards
 get from reading their layouts out of `basic_rules.json`, applied to sentences
 instead of numbers -- the hook, the tagline, the three beats of a turn and the
 four selling lines are all the books' own, and each beat cites the Law it is
@@ -117,8 +119,7 @@ The rest is read the same way:
   fast playing fantasy sports game of some strategy, a lot of tactics, a
   little luck and a bucket of d12s" -- is the author's, and it is allowed
   because it states no rule: it says how the game plays. It is the exemption
-  rather than a hole in the rule, so it is one constant with a date on it and
-  `test_the_strapline_is_the_one_line_in_its_own_voice` holds its shape.
+  rather than a hole in the rule, so it is one constant with a date on it.
 - **Every number is `BoxFacts`**, read off the catalogs: the coaches are
   `len(TeamSide)`, because "how many coaches" and "how many sides" are the same
   question and only one of them has an answer in the code; the fielded six are
@@ -203,9 +204,8 @@ the piece on the box comes to differ from the piece on the table.
 - **`S` is the one command that is not self-contained**: its first control
   point is the previous curve's second one mirrored through the join. Read as
   if it carried its own, the outline kinks where the curves meet, which only
-  shows at size; `test_a_smooth_curve_reflects_the_control_point` pins it on a
-  path built for the purpose, since the meeple's own `S` follows two `L`s and
-  the reflection there is a no-op.
+  shows at size -- and not on the meeple, whose own `S` follows two `L`s, so
+  the reflection there is a no-op and a mistake in it would not show.
 - The two letters are `ROLE_INITIALS`, the spelling every other drawing of a
   role reads, and their colour is `high_contrast_ink`, because white
   disappears on slime green. The piece takes its colour from `TEAM_COLORS`
@@ -230,16 +230,15 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
 - **The grain is hashed off each pixel's coordinates, not drawn from
   `random`.** A render of a panel is then the same bytes every time, which is
   what lets a drawing change be checked by hash ("Look at the image" in
-  CLAUDE.md), and `test_it_is_the_same_die_every_render` holds it. Two scales
+  CLAUDE.md). Two scales
   of noise, because one is noise and two is a material.
 - **A seam is lighter than the face and the silhouette is darker.** A worn
   edge on a cast piece catches the light; the outline of the object does not.
   Drawing every face outlined would give both the same weight, so the
   silhouette is the convex hull of the visible faces -- which for a convex
   solid is exactly its outline -- drawn once at its own width.
-- `test_the_ball_is_made_of_something` fails on a white die, because that is
-  the thing that was wrong with the first one and a default colour is an easy
-  thing to slip back in.
+- Watch for a white die: it is the thing that was wrong with the first one,
+  and a default colour is an easy thing to slip back in.
 
 - **The face list is computed, not tabulated.** A face is the five vertices
   furthest along its own normal, wound around it; sixty indices written out
@@ -247,8 +246,8 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
 - **The dual matters.** The twelve face normals are the `(0, ±φ, ±1)` family,
   not the `(0, ±1, ±φ)` one -- the same icosahedron turned, and against these
   vertices its "faces" are five points that are merely near each other. The
-  first build used it and produced a lump nobody would call a die.
-  `test_every_face_is_flat` is that bug as an assertion.
+  first build used it and produced a lump nobody would call a die -- every
+  face has to come out flat.
 - **The number goes on whichever face is squarest to the reader**, sized to
   that pentagon.
 - **Nothing here draws a ball on the board at all.** `draw_kickoff_marks` in
@@ -257,9 +256,7 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
   module laid a second over it, which came out as two balls with the board's
   showing round the edge of the overlay. Covering it would mean a copy of
   that mark's own placement here, and the board is the thing being
-  photographed, so the board's ball is the ball.
-  `test_the_board_photo_draws_no_ball_of_its_own` keeps it that way. The
-  solid, `d12_art`, stays where it is the object rather than a piece on a
+  photographed, so the board's ball is the ball. The solid, `d12_art`, stays where it is the object rather than a piece on a
   space: the covers, the banners and the sale sheet's header.
 - **Every face is inset into the solid and what shows between two of them is
   the bevel.** A cast piece has no sharp edges; drawing the creases as lines
@@ -318,8 +315,7 @@ So the sheet is the printed board, a **fan of player cards**, and the three
 facts a shopper checks. `sale_sheet_cards` picks which cards, from the four
 colour teams in turn and from a different part of each roster -- a roster is
 grouped by species, so the first player of all four teams is four of the same
-monster, and the first fan came out four fire demons.
-`SaleSheetCardsTests` is that. The cards are `player_cards.render_player_card`'s
+monster, and the first fan came out four fire demons. The cards are `player_cards.render_player_card`'s
 own, not a second drawing of a card.
 
 **The fan holds maneuver cards too** (`sale_sheet_fan`): a player card is who
@@ -375,8 +371,8 @@ team share a hex, so which is found first cannot change the answer).
 **Facing is why the names are written down.** The portraits carry squad
 numbers, so the art cannot be mirrored to make somebody face the other way --
 a flipped number is a number nobody wears. Two face each way, one player of
-each of the four species, and `CoverCastTests` fails if a roster revision
-renames one of them or if the four stop being two and two.
+each of the four species, and a roster revision that renames one of them, or
+leaves the four no longer two and two, needs the cast re-picked.
 
 The back rank is **darkened rather than faded** (`into_the_dark`): a cut-out
 at reduced opacity shows the sky through the middle of a player, where the
@@ -397,15 +393,14 @@ panel without a word.
 
 - **The code is drawn module by module** onto the panel rather than generated
   as a PNG and scaled: a resize lands module edges between pixels and softens
-  exactly the contrast a scanner is looking for. `test_what_is_drawn_is_what_
-  was_encoded` reads every module back off the drawn panel at its own centre
-  and compares it with the encoder's matrix, because a QR is unreadable to
-  everyone who looks at the render.
+  exactly the contrast a scanner is looking for. A QR is unreadable to
+  everyone who looks at the render, so check a change by scanning the
+  printed card.
 - **`QR_MIN_MODULE_INCHES` is 0.4mm**, the floor a phone reads reliably off an
   office printer. The card's own code comes out at 0.86mm; a longer URL makes
-  a denser code at the same printed size, so the test is what catches an
-  address that has quietly grown past what the card can carry. Change the URL
-  with `--survey-url`.
+  a denser code at the same printed size, and the CLI reports the module size
+  so an address that has quietly grown past what the card can carry shows
+  there. Change the URL with `--survey-url`.
 - **`qrcode` is imported inside the function**, not at the top of the module.
   It is pinned in `requirements.txt`, but the bot imports this package and the
   only thing in it that needs a QR encoder is a card nobody renders from the
@@ -414,9 +409,8 @@ panel without a word.
 
 ## Looking at them
 
-The suite checks claims, geometry, the corners for ink and the die for
-flatness; it cannot see a picture, exactly as it cannot see the bot's board or
-the printed ones. **Look at the image** --
+Nothing tests any of it, so the render is the only check. **Look at the
+image** --
 `scripts/render_box_art.py --out box/` writes all ten files -- six printed
 panels, the night cover and the three banners -- and reports the box's own
 dimensions, the QR's module size, and that the playing time and the age are

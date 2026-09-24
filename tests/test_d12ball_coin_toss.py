@@ -1383,8 +1383,8 @@ class D12BallRoleEmojiTests(unittest.TestCase):
         a file named one way and a lookup spelled another is caught by
         nobody until every role shows brackets on the live bot.
         (`d12ball/role_cards.py` does open the plain badge, for the
-        print reference card -- a different reader, checked by its own
-        suite, not this upload-name contract.) Compared against the
+        print reference card -- a different reader, and print carries
+        no tests, so not this upload-name contract.) Compared against the
         directory's own listing rather than `Path.exists`, for the
         reason the bundled-art test gives.
         """

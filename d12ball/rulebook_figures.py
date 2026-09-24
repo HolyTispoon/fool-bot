@@ -655,7 +655,7 @@ def walkthrough_figure(beat: int) -> FigureBuilder:
 
 
 # Every figure by the file stem it is written under. The outlines
-# reference these names, and a test holds the committed files to them.
+# reference these names, and the committed files should match them.
 FIGURES: dict[str, FigureBuilder] = {
     "fig-01-the-field": kickoff_figure,
     "fig-02-the-cycle": lambda catalog: cycle_figure(MANEUVER_TIER_BASIC),
