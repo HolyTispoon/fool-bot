@@ -1555,13 +1555,11 @@ def _pending(
 
     if match.pending_smooth:
         # The two queues are never both full: `check_for_ball_arrival`
-        # queues the pulls on the spaces the ball passed, then the
-        # Smooth where it lands, then the pulls on the landing space,
-        # each only once the one before has drained -- so this branch
-        # and the pull's below could come in either order. It stays
-        # first because it always has, and the stage a restart comes
-        # back to is read off the queue that is full and the path
-        # (`continue_mind_pull`), not off this order.
+        # queues every pull on the path first and the Smooth where the
+        # ball lands only once they have drained -- so this branch and
+        # the pull's below could come in either order. The stage a
+        # restart comes back to is read off the queue that is full and
+        # the path (`continue_mind_pull`), not off this order.
         player = engine.get_player_definition(match.pending_smooth[0])
         smooth_emoji = tokens.species(SPECIES_TELEKINETIC)
         return PendingPrompt(

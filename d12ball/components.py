@@ -3160,9 +3160,8 @@ class MatchState:
         it set would offer the ball again at the next arrival point.
         `pending_mind_pull` is cleared too, although
         `check_for_ball_arrival` never has both queues full at once:
-        a Smooth is offered only after every pull on the way has been
-        let go, and the landing space's pulls are queued only after
-        the Smooth has.
+        a Smooth is offered only after every pull on the path has been
+        let go or has missed.
         """
         zone, space_index = self.board.meeple_position(player_id)
         self.ball.zone = zone

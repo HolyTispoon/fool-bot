@@ -883,37 +883,39 @@ nobody anything.
 - **The own-goal case is gone rather than guarded.** The only own-goal
   risk is a Pressure against a handler already on the last space, which
   moves the ball nowhere, so the path is empty and nobody is asked.
-- **The pull on the way goes before the Smooth where it lands** (the
-  author, 2026-09-24, answering the question the narrowing raised). Once
-  the two read different spaces, "smooth goes first" (2026-09-20, when
-  both read the whole path) would have let a teammate at the end of a pass
-  take the ball before an opponent it had already passed could reach for
-  it. So the order now follows the ball, and "smooth goes first" survives
-  only on the one space the two still share, the landing space.
+- **Mind Pull is asked before Smooth, everywhere** (the author,
+  2026-09-24). Once the two read different spaces, the pull on a space the
+  ball passes had to come before the Smooth where it lands; asked about
+  the landing space too, the author answered that the pull goes first
+  there as well, and did not recognise the 2026-09-20 "smooth goes first"
+  entry the earlier order had been built on. So the order follows the
+  ball, and the Smooth is last because the landing space is the last
+  space it reaches.
 
 **`check_for_ball_arrival` is the single gate the five arrival points call**,
-and it runs three stages in the order the ball meets them: the pulls on the
-spaces it passes through (`landing=False`), the Smooth where it lands, then
-the pulls on the landing space (`landing=True`, together
-`check_for_landing`). Three things about that are load-bearing:
+and it runs two stages: every opposing pull on the path, in the order the
+ball reaches them, then the Smooth where it lands. Three things about that
+are load-bearing:
 
 - **The order is a rules decision, not an ordering convenience**, because
-  any interrupt taken stops the ball and ends the movement, so whichever is
-  asked first decides whether the rest are asked at all. It lives in
-  `check_for_ball_arrival`, `continue_mind_pull`'s drain and
-  `continue_smooth`'s hand-off.
-- **The path is the stage marker, and only the last stage spends it.** The
-  crossed pulls leave `last_ball_path` set; the landing pulls keep the
-  unconditional `last_ball_path = []` the gate always had, so a movement
-  still offers nothing twice when two gates run in a row. When the pull
-  queue drains, a path still set means the crossed stage has just finished
-  and the landing space is owed; an empty one means the movement is done.
-  That is why this needed **no new saved field**: `last_ball_path` is
-  already in `MATCH_SAVED_FIELDS`, so a restart mid-queue comes back to the
-  same stage, and a save from before this change -- whose pull queue was
-  always queued over a spent path -- drains straight to its arrival as it
-  always did. A test that builds a pull queue by hand has to spend the path
-  itself, or it has built the crossed stage (`MindPullInterruptTests.spend_path`).
+  either interrupt taken stops the ball and ends the movement, so whichever
+  is asked first decides whether the other is asked at all. It lives in
+  `check_for_ball_arrival` and `continue_mind_pull`'s drain.
+- **The path is the stage marker, and the Smooth stage spends it.** The
+  pull no longer clears `last_ball_path`; `check_for_smooth` does
+  (`spend_path`) when nobody may take the ball, and `continue_smooth` when
+  its queue drains -- the same unconditional spend the gate always made,
+  moved to the last stage, so a movement still offers nothing twice when
+  two gates run in a row. When the pull queue drains, a path still set
+  means the Smooth is owed; an empty one means the movement is done. That
+  is why this needed **no new saved field**: `last_ball_path` is already
+  in `MATCH_SAVED_FIELDS`, so a restart mid-queue comes back to the same
+  stage. A save from before the change that is paused on a pull had its
+  path already spent and drains straight to its arrival, as it always
+  did; one paused on a **Smooth** offer was built in the old order, and
+  when that Smooth is declined the path is spent without the pulls it
+  would once have handed on to -- a pull lost on one movement of a game
+  that straddles the deploy, accepted rather than given a migration.
 - **The two queues are never full at once**, so `pending_prompt`'s branch
   order between `pending_smooth` and `pending_mind_pull` no longer carries
   the rule; the queue that is full, and the path, do.

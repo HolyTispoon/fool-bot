@@ -2,8 +2,8 @@
 Where a ball that has moved is settled, as flow steps.
 
 **The gates and the arrivals they guard are one module because they are
-one ordering.** `check_for_ball_arrival` runs the pulls on the spaces the
-ball passes, then Smooth where it lands, then the pulls on that space;
+one ordering.** `check_for_ball_arrival` runs Mind Pull on every space
+the ball crosses, then Smooth where it lands;
 `check_for_loose_ball` asks whether anybody of the possessing side is
 standing where the ball came down; and the five arrival points each open
 with one or both. Which runs first, and which of the two spends
@@ -79,58 +79,36 @@ def check_for_ball_arrival(
     resume: dict,
 ) -> Optional[StepResult]:
     """
-    **The one gate every ball arrival runs through**, in three stages
-    that follow the ball: the pulls on the spaces it passes through,
-    then the Smooth where it lands, then the pulls on the landing
-    space. A `StepResult` when any of them took over, so a caller is
-    one `if ...: return` exactly as it was when Mind Pull was the
-    whole of it.
+    **The one gate every ball arrival runs through**, in two stages
+    that follow the ball: every opposing pull on its path, in the
+    order it reaches them, then the Smooth where it lands. A
+    `StepResult` when either took over, so a caller is one
+    `if ...: return` exactly as it was when Mind Pull was the whole of
+    it.
 
     **The order is a rule, not a convenience**, because whichever
     interrupt is taken stops the ball and the rest are never asked.
-    A pull on a space the ball passes before it lands goes before the
-    Smooth where it lands (the author, 2026-09-24) -- the ball reached
-    that opponent first. On the landing space itself the Smooth goes
-    first, which is 2026-09-20's "smooth goes first" on the one space
-    the two still share.
+    Mind Pull goes first -- on the spaces the ball passes and on the
+    space it lands on alike (the author, 2026-09-24) -- and a Smooth is
+    offered only once every pull has been let go or has missed.
 
-    **The path is the stage marker, and it is spent only by the last
-    stage.** The crossed pulls leave it set, so `continue_mind_pull`
-    knows on draining that the landing space is still owed; the
-    landing pulls spend it, the same unconditional spend as ever. That
-    needs no field of its own on the match, and a restart mid-queue
-    comes back to the same stage.
+    **The path is the stage marker, and the Smooth stage spends it.**
+    The pulls leave `last_ball_path` set, so `continue_mind_pull` knows
+    on draining that the landing space's Smooth is still owed; the
+    Smooth stage spends it whether or not anybody is offered one, the
+    same unconditional spend the gate has always made. That needs no
+    field of its own on the match, and a restart mid-queue comes back
+    to the same stage.
 
     `resume` is the arrival this interrupted, as `{"kind": ..., ...}`:
     a coach may take minutes over the offer, and between the interrupt
     and the answer nothing else on the match says what the ball was
     about to do.
     """
-    taken = check_for_mind_pull(
-        engine, game, match, resume, landing=False,
-    )
+    taken = check_for_mind_pull(engine, game, match, resume)
     if taken is not None:
         return taken
-    return check_for_landing(engine, game, match, resume)
-
-
-def check_for_landing(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    resume: dict,
-) -> Optional[StepResult]:
-    """
-    The last two stages of `check_for_ball_arrival`, on the space the
-    ball comes to rest on: the possessing side's Smooth, then the
-    opposing side's pull. Reached from the gate when nobody on the way
-    could pull, and from `continue_mind_pull` when everybody on the way
-    let it go.
-    """
-    taken = check_for_smooth(engine, game, match, resume)
-    if taken is not None:
-        return taken
-    return check_for_mind_pull(engine, game, match, resume, landing=True)
+    return check_for_smooth(engine, game, match, resume)
 
 
 def check_for_smooth(
@@ -146,11 +124,14 @@ def check_for_smooth(
     only the space the ball arrives at, where the pull reads every
     space it crosses (see `RulesEngine.smooth_candidates`).
 
-    **It does not spend the path.** The landing space's pull runs after
-    it on the same movement and needs it -- see `check_for_ball_arrival`.
+    **It is the last stage, so it spends the path** -- here when nobody
+    may take it, and in `continue_smooth` once the queue has drained.
+    Reached from the gate when nobody could pull, and from
+    `continue_mind_pull` when everybody let the ball go.
     """
     candidates = engine.smooth_candidates(game, match)
     if not candidates:
+        spend_path(match)
         return None
 
     match.pending_smooth = candidates
@@ -163,17 +144,9 @@ def check_for_mind_pull(
     game: D12BallGame,
     match: MatchState,
     resume: dict,
-    *,
-    landing: Optional[bool] = None,
 ) -> Optional[StepResult]:
     """
     Did the ball just cross an opposing Telekinetic who may pull it in?
-
-    `landing` is `RulesEngine.mind_pull_candidates`' own: `False` asks
-    of the spaces the ball passes through and **leaves the path set**,
-    because the landing space is still owed its Smooth and its pull;
-    `True` asks of the landing space and `None` of the whole path, and
-    both spend it.
 
     Mind Pull "resolves before the ball settles", so this sits at the
     top of the five functions that settle an arrival:
@@ -186,28 +159,31 @@ def check_for_mind_pull(
     docs/design/species-abilities.md for what each of the last two
     catches that the first three do not.
 
-    **The path is consumed whether or not anybody may pull.** That is
-    what stops the same movement being offered twice when two gates run
-    in a row -- `finish_maneuver_resolution` gates and then calls
-    `check_for_loose_ball`, which reaches the second gate with the path
-    already spent.
+    **It leaves the path set**, because the Smooth where the ball lands
+    is still owed after it; `check_for_smooth` is the last stage and
+    spends it. That spend is what stops the same movement being offered
+    twice when two gates run in a row -- `finish_maneuver_resolution`
+    gates and then calls `check_for_loose_ball`, which reaches the
+    second gate with the path already spent.
     """
-    candidates = engine.mind_pull_candidates(game, match, landing=landing)
-    # Spent either way, and before the early return: a movement that
-    # offered nobody a pull must not offer one at the next arrival
-    # point either. The movers go with it -- they are only disqualified
-    # from the movement that moved them, so a second movement in the
-    # same turn must find them eligible again. The crossed stage alone
-    # leaves both for the landing space behind it.
-    if landing is not False:
-        match.last_ball_path = []
-        match.last_ball_movers = []
+    candidates = engine.mind_pull_candidates(game, match)
     if not candidates:
         return None
 
     match.pending_mind_pull = candidates
     match.pending_mind_pull_resume = resume
     return continue_mind_pull(engine, game, match)
+
+
+def spend_path(match: MatchState) -> None:
+    """
+    The movement has been offered to everybody it can be: forget it.
+    The movers go with it -- they are only disqualified from the
+    movement that moved them, so a second movement in the same turn
+    must find them eligible again.
+    """
+    match.last_ball_path = []
+    match.last_ball_movers = []
 
 
 def continue_smooth(
@@ -248,15 +224,10 @@ def continue_smooth(
     resume = match.pending_smooth_resume
     match.pending_smooth_resume = None
 
-    # Nobody took it, so the movement carries on to the opposing side's
-    # pull on the landing space -- the last stage of
-    # `check_for_ball_arrival`, reached here rather than there because
-    # the queue above may have taken minutes to drain.
-    taken = check_for_mind_pull(
-        engine, game, match, resume or {}, landing=True,
-    )
-    if taken is not None:
-        return taken
+    # Nobody took it. The pulls were asked before this queue was
+    # built, so the movement has been offered to everybody it can be
+    # and the arrival it held back goes ahead.
+    spend_path(match)
     return dispatch_arrival_resume(engine, game, match, resume)
 
 
@@ -333,12 +304,12 @@ def continue_mind_pull(
 
     resume = match.pending_mind_pull_resume
     match.pending_mind_pull_resume = None
-    # A path still set means this was the crossed stage: everybody the
-    # ball passed let it go, and the landing space's Smooth and pull are
-    # still owed before the arrival happens. The landing stage spends
-    # the path, so this is asked once per movement.
+    # A path still set means the Smooth stage is still owed: every
+    # pull was let go or missed, and the ball has yet to be offered to
+    # the possessing side where it lands. The Smooth stage spends the
+    # path, so this is asked once per movement.
     if match.last_ball_path:
-        taken = check_for_landing(engine, game, match, resume or {})
+        taken = check_for_smooth(engine, game, match, resume or {})
         if taken is not None:
             return taken
     return dispatch_arrival_resume(engine, game, match, resume)
