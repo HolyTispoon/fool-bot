@@ -18,12 +18,8 @@ from d12ball.cards import (
     HAND_HEADING_GAP,
     HAND_HEADING_SIZE,
     HAND_MARGIN,
-    SHEET_COLUMNS,
-    SHEET_MARGIN_X,
-    SHEET_MARGIN_Y,
     CARD_HEIGHT,
     CARD_WIDTH,
-    print_sheet,
     render_maneuver_card,
     render_maneuver_card_back,
     render_maneuver_hands,
@@ -2783,72 +2779,6 @@ class D12BallManeuverTests(unittest.TestCase):
         self.assertEqual(
             sorted(named), sorted(maneuver.key for maneuver in basic)
         )
-
-    def test_a_print_sheet_divides_evenly_into_its_cards(self) -> None:
-        """
-        The sheet is cut by dividing it into an even grid, by hand or
-        by a splitter, so every cell has to be the same size and every
-        card centred in one. The old sheet had a gutter round the
-        outside as well as between the cards, which put every cut but
-        the first off-centre.
-        """
-        players = load_player_catalog()
-        cards = [
-            render_maneuver_card(
-                self.catalog, players, maneuver, is_offense, bleed=False
-            )
-            for maneuvers, is_offense in (
-                (self.catalog.offense, True),
-                (self.catalog.defense, False),
-            )
-            for maneuver in maneuvers
-        ]
-        back = render_maneuver_card_back(self.catalog, bleed=False)
-        while len(cards) % SHEET_COLUMNS:
-            cards.append(back)
-
-        sheet = print_sheet(cards)
-        rows = len(cards) // SHEET_COLUMNS
-        self.assertEqual(sheet.width % SHEET_COLUMNS, 0)
-        self.assertEqual(sheet.height % rows, 0)
-
-        cell = (sheet.width // SHEET_COLUMNS, sheet.height // rows)
-        for index in range(len(cards)):
-            column, row = index % SHEET_COLUMNS, index // SHEET_COLUMNS
-            piece = sheet.crop(
-                (
-                    column * cell[0],
-                    row * cell[1],
-                    (column + 1) * cell[0],
-                    (row + 1) * cell[1],
-                )
-            )
-            with self.subTest(cell=index):
-                # The card sits dead centre: the margin is the same on
-                # both sides and on top and bottom.
-                self.assertEqual(
-                    piece.size,
-                    (
-                        cards[index].width + SHEET_MARGIN_X * 2,
-                        cards[index].height + SHEET_MARGIN_Y * 2,
-                    ),
-                )
-
-    def test_a_print_sheet_fits_a_letter_page_across(self) -> None:
-        """
-        Four poker cards across is 10in of card, and a letter page
-        turned landscape has about 10.5in of printable width -- so the
-        gutter is the whole of what decides whether a sheet printed at
-        100% keeps its outside columns or loses them. Nothing about
-        the image says how wide it is meant to be, so the arithmetic
-        is asserted rather than looked at.
-        """
-        card = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), "white")
-        sheet = print_sheet([card] * SHEET_COLUMNS)
-        # The cards are drawn at 300dpi, and a letter page turned
-        # landscape is 11in less the quarter-inch a printer cannot
-        # reach on each side.
-        self.assertLessEqual(sheet.width / 300, 11.0 - 0.25 * 2)
 
     def test_a_card_names_every_ability_that_touches_its_maneuver(
         self,

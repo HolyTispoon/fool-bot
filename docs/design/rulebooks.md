@@ -10,7 +10,9 @@ the Game**, the numbered, exhaustive source of truth. The plan, the two
 outlines and the illustration sketches are in
 [docs/rulebooks/](../rulebooks/) -- **nothing in that folder is a
 rule**, and it goes when the books have shipped. This file is about the
-code that builds them.
+code that builds them. The books and their figures carry no tests -- the
+print materials have none (the author, 2026-09-23) -- so a build is
+checked by reading the PDF.
 
 - **The Charter is the living rules, restructured in place -- not a
   second file.** CLAUDE.md's hard rule that there is one copy of the
@@ -23,9 +25,8 @@ code that builds them.
 - **The Charter's structure is load-bearing for the numbers.** Every
   level-2 heading that is not front matter, a Part or an Appendix is a
   Law, in file order; every level-3 heading under it a section. The
-  Learn to Play cites those numbers and `test_rulebooks.py` pins the ones
-  it cites, so inserting a Law or a section fails the suite until the
-  citations are looked at. Two headings with one slug fail
+  Learn to Play cites those numbers, so inserting a Law or a section means
+  looking at every citation after it. Two headings with one slug fail
   `test_d12ball_rules_lookup.py` (the anchor test), which is why the
   sections are named `The own-goal roll` and `What a send costs` rather
   than `The roll` twice.
@@ -61,10 +62,9 @@ code that builds them.
   italic, inline code, links, nested bullet and numbered lists, tables
   with alignment, images with a caption, `>` quotes, fenced code, and
   `---` alone on a line as a page break -- and raises `MarkdownError`
-  on anything else rather than dropping it. HTML is refused outright.
-  `test_rulebooks.py` parses the living rules and every file in
-  `docs/rulebooks/` so a line outside the subset fails the suite, not
-  the print run.
+  on anything else rather than dropping it, so a line outside the subset
+  fails the build loudly rather than printing wrong. HTML is refused
+  outright.
 - **reportlab is the one new dependency**, pinned in `requirements.txt`.
   A rulebook is running text with tables, a contents page and page
   numbers; Pillow has no paragraph, and every other route needs a
@@ -94,6 +94,6 @@ code that builds them.
   so a change to `d12ball/tutorial.py` regenerates the chapter.
 - **`docs/rulebooks/figures/` is committed and regenerated whole** by
   `--figures`, never edited by hand -- like `d12ball/data/`. `FIGURES` is
-  the registry of stems, and the suite holds the folder's listing to it
-  and every image an outline references to a file, so a renamed figure
-  or a stale file fails a test rather than printing a broken page.
+  the registry of stems; the folder's listing should match it and every
+  image an outline references should be a file in it, or a renamed figure
+  or a stale file prints a broken page.

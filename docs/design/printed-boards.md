@@ -6,7 +6,9 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 
 `d12ball/boards.py` draws the three boards the tabletop game is played on --
 the **field board**, the **jumbotron board** and a coach's **team board** --
-print-ready at 300dpi. **Only the field board is tabloid (11 x 17)**, and it
+print-ready at 300dpi. The boards carry no tests -- nothing printed does
+(the author, 2026-09-23) -- so a change to one is checked by rendering it
+and looking. **Only the field board is tabloid (11 x 17)**, and it
 is portrait; the jumbotron is a letter sheet portrait (`JUMBOTRON_PAPER`) and
 the team board half a letter sheet (`TEAM_BOARD_PAPER`). See `PAPERS` and
 `DEFAULT_PAPER` for why tabloid rather than A3 is the big size a home or
@@ -40,10 +42,9 @@ The field board comes out three times, whole and as two halves. See below.
   which is the only thing those cells are for. On their own board the clock is
   rows of eight (`CLOCK_COLUMNS`), two a half, and every track clears
   `MIN_TOKEN_INCHES`;
-  `cell_inches` is that measurement, reported by the CLI and asserted by
-  `D12BallJumbotronTests`. The field board got the whole of that space back,
-  which is what makes a space tall enough for two sides' meeples --
-  `FieldGeometry.space_inches`, asserted the same way. It is the split the bot's
+  `cell_inches` is that measurement, reported by the CLI. The field board got
+  the whole of that space back, which is what makes a space tall enough for
+  two sides' meeples -- `FieldGeometry.space_inches`, reported the same way. It is the split the bot's
   own board already makes: a jumbotron is the state of the match, the field is
   the position.
 - **The three token supplies are on the jumbotron for the neighbouring
@@ -81,9 +82,9 @@ The field board comes out three times, whole and as two halves. See below.
   its maneuver by rolling a d6 through them. None of it reaches a coach, so
   retiring it is a code change and not a rules one -- but the sheet still has
   the column, so an import will keep writing it until the author drops it
-  upstream. `team_reminders` reads `team_die` alone and says why, and a test
-  greps the module for `offense_die`/`die_values` because the data is still
-  right there to pick up again by accident.
+  upstream. `team_reminders` reads `team_die` alone and says why; don't
+  reach for `offense_die`/`die_values` in the module, because the data is
+  still right there to pick up again by accident.
 - **The team board is its own paper: half a letter sheet, and two files.**
   `TEAM_BOARD_PAPER` is letter rather than the tabloid the field and the
   jumbotron are drawn on, because letter is the size a printer in the house
@@ -92,9 +93,8 @@ The field board comes out three times, whole and as two halves. See below.
   `render_team_board_sheet` is the letter page carrying two of them with a
   dashed line down the seam, which is the sheet a match is cut from. The page
   pastes the board rather than rendering it twice, so the two halves are the
-  same picture by construction -- `test_two_boards_are_a_page_and_they_are_the_same_board`
-  checks each half against the board itself, everything but the seam the cut
-  line is drawn down. See "The team board" below for what is on it.
+  same picture by construction -- everything but the seam the cut line is
+  drawn down. See "The team board" below for what is on it.
 - **Nothing on any board is written in the module.** The layouts, the
   formations, the standard deal and the coach's die come from
   `basic_rules.json`, the six maneuvers from `maneuvers.json`, and the roster
@@ -190,10 +190,9 @@ halves (above).
   for the clock only if the track runs thirteen cells to a row, and
   `CLOCK_COLUMNS` is eight precisely so halftime lands at the end of a row
   and each half is two whole bands rather than a colour change half way along
-  one -- a rule about the track, asserted as
+  one -- a rule about the track,
   `(HALFTIME_MINUTE + 1) % CLOCK_COLUMNS == 0`. It is four rows of eight on
-  both sheets; `test_the_smaller_sheet_did_not_reach_the_clock` is that in
-  the suite.
+  both sheets.
 - **The supply strip.** The three token silos are a **strip down the
   right-hand side**, not a band across the bottom. On a full-width band they
   left most of a row of the sheet empty either side of them, and a row of this
@@ -201,8 +200,7 @@ halves (above).
   pieces take the width of a margin: `SUPPLY_STRIP` is that width,
   `tracks_right` is where the clock and the score stop, and everything
   measured off the cells reads the narrow pair while the header and the footer
-  still span the sheet. `test_the_supplies_are_a_strip_beside_the_tracks`
-  holds that it is beside and not under.
+  still span the sheet.
   - **A silo's width is the piece; its height is stack room.** The width is
     fixed at `SILO_INCHES`, because a token does not get bigger because the
     sheet did -- but down the side there is height to spare, and a well a
@@ -222,8 +220,6 @@ halves (above).
     track is a printed aid and not a component the rules name -- running off
     the end costs a coach a note on the sheet, where a cell under
     `MIN_TOKEN_INCHES` costs them the use of the board.
-    `test_the_score_track_is_ten_and_a_shootout_can_outrun_it` records the
-    decision where the old test asserted its opposite.
   - **A side's label went from beside its rows to over them.** Beside, the
     HOME/VISITORS column was an inch of width that eleven cells needed; over
     them the label reads the way the clock's own band labels already do, which
@@ -235,9 +231,9 @@ halves (above).
     measurement rather than a decision: a track that grows again breaks into
     rows on its own instead of shrinking its cells, exactly as the clock
     already does.
-  - `test_both_sides_tracks_fit_inside_the_score_panel` is the fault this
-    invites: a panel whose row count is computed is where a row comes to be
-    drawn below the panel it belongs to, and a crop is silent -- the same
+  - **Check that both sides' tracks fit inside the score panel** after a
+    change to it: a panel whose row count is computed is where a row comes to
+    be drawn below the panel it belongs to, and a crop is silent -- the same
     failure the team board's footer records below.
 - **The chrome is measured in the sheet's own units, not as a share of its
   height, and that was a real bug.** The header band, the footer band and a
@@ -257,8 +253,6 @@ halves (above).
     `PANEL_TITLE_SIZE` does the same for a panel's label strip, which used to
     be `header * 0.48` and so shrank whenever the header was trimmed for a
     reason that had nothing to do with type.
-    `test_a_band_is_big_enough_for_the_type_in_it` checks the derivation
-    rather than the numbers.
   - `JUMBOTRON_GAP` is the one number here still chosen rather than measured,
     because nothing is drawn in it. It is charged three times, so on the
     landscape sheet it comes out of the cells directly.
@@ -289,31 +283,29 @@ letter printer and no tabloid one can still put the real board on the table.
   Re-laying the board out for the smaller paper would have printed a
   *different game* -- a space is the width the sheet's own arithmetic gives
   it (`FieldGeometry.space_width`), and a board laid out on letter would have
-  narrower ones. `test_the_two_halves_are_the_board` pastes the two back
-  together and compares the result with the board pixel for pixel, the same
-  check `test_two_boards_are_a_page_and_they_are_the_same_board` makes of the
-  team board's page and for the same reason: two pictures that are supposed
-  to be one should be one by construction, not by hoping two renders agree.
+  narrower ones. The two taped back together are the board pixel for pixel,
+  as the team board's page is its two boards, and for the same reason: two
+  pictures that are supposed to be one should be one by construction, not by
+  hoping two renders agree.
 - **Half a tabloid sheet is exactly a letter sheet, turned the other way**,
   and that is the only reason any of this works: 11 x 17 halves into 11 x 8.5,
   which is letter landscape to the pixel at 300dpi, so nothing is scaled and
   the printed board is the size it says it is. `HALF_PAPERS` is that pairing
   as data -- tabloid into letter, A3 into A4 by the same ISO property -- and
-  `test_every_paper_that_names_its_halves_really_halves_into_it` checks it in
-  pixels rather than in inches, because the rounding is where a half-pixel
-  would hide. A paper that halves into nothing standard is **absent from the
+  a new pairing is checked in pixels rather than in inches, because the
+  rounding is where a half-pixel would hide. A paper that halves into nothing standard is **absent from the
   table rather than approximated**: the halves still render, `half_paper`
   answers `None`, and the CLI says as much instead of naming a size a printer
   does not stock.
-- **Where the cut lands is not a choice, so the layout is what is checked.**
+- **Where the cut lands is not a choice, so the layout is what to check.**
   Both halves have to fit the paper below, and only the exact middle gives two
   that do -- so the seam falls wherever the board's bands happen to put it,
   which on the field board is across the strip, a little under half way down
   a space. Nothing is moved to dodge it, because moving it would change the
-  board the tabloid sheet prints. What the suite guards instead is that the
-  middle of the sheet keeps landing somewhere a seam is harmless:
-  `test_the_cut_falls_across_the_strip_and_clear_of_its_words` fails if it
-  ever crosses the header, a zone-assignment row or the strip's own labels.
+  board the tabloid sheet prints. What to check instead, after any change to
+  the field board's bands, is that the middle of the sheet still lands
+  somewhere a seam is harmless -- never across the header, a zone-assignment
+  row or the strip's own labels.
   The strip is the safe place because it is tints and outlines -- its zone
   names and space codes are all hung from its top, which is what
   `FieldGeometry.strip_label_bottom` measures. That measurement moved onto the
@@ -352,8 +344,7 @@ and each point is a fault the board it replaced actually had.
   band is the sum of them. Two measurements of one band is how the standard
   deal and the closing reminder came to be drawn *below* the bottom edge of
   the old panel and cropped away -- on a render that looked fine, because
-  the crop is silent. `test_every_band_is_in_order_and_inside_the_board` is
-  that failure as a test.
+  the crop is silent, so look at the whole render after a change to a band.
 - **A line that cannot be legible is dropped, not shrunk.**
   `fitted_print_font` answers with `None` below its floor and
   `draw_fitted` is for lines that have to be drawn whatever happens; a
@@ -456,8 +447,9 @@ into without widening the board itself.
     since the field board went portrait to make room for the zone-assignment
     rows (below): the strip now divides an 11in width instead of a 17in one,
     so every inch an end zone takes is an inch a space cannot have. Don't grow
-    it without checking `test_a_space_is_big_enough_to_stand_meeples_on`, whose
-    width floor is 1.0in now, not the 1.5in a landscape sheet could promise.
+    it without checking that a space is still big enough to stand meeples on
+    -- a width floor of 1.0in now, not the 1.5in a landscape sheet could
+    promise.
 
 ## The zone-assignment rows
 

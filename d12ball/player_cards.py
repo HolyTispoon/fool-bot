@@ -401,7 +401,7 @@ def _species_abilities() -> dict[str, dict[str, str]]:
 
 
 # Read once and kept, rather than at import: this module is imported by
-# the render scripts and by the suite, and a card is drawn seventy-two
+# the render scripts and by the box art, and a card is drawn seventy-two
 # times a run.
 _SPECIES_ABILITIES: dict[str, dict[str, str]] | None = None
 
