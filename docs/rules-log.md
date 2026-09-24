@@ -42,16 +42,6 @@ copy is in git at commit `5e05bdd` if a future pull wants to diff against upstre
 
 ## Still open
 
-### Does a pull on an earlier space still wait behind a Smooth where the ball lands?
-
-On 2026-09-20 the author settled that a movement offers the Smooth before the pull (*"smooth
-goes first"*), when both read every space the ball crossed. Since 2026-09-24 Smooth reads only
-the space the ball arrives at, so the two can now sit on different spaces: a pass crosses an
-opposing Telekinetic and lands on a friendly one. The bot still asks the Smooth first, and a
-Smooth taken there means the opponent gets no roll even though the ball passed them first. That
-was kept rather than reinterpreted; whether the pull on the earlier space should now go first
-is the author's call.
-
 ### Is the exhaustion work in PR #9 the intended scope?
 
 The author's answer to "exhaustion accumulates but does nothing" was "yet, it's in my PR"
@@ -161,7 +151,25 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-09-24 -- author, Smooth is offered only where the ball arrives
+### 2026-09-24 (2 of 2) -- author, a pull on the way goes before the Smooth where the ball lands
+
+Asked on the PR that narrowed Smooth, since the narrowing put the two halves on different spaces
+of one movement: should a pull on a space the ball passes still wait behind a Smooth where it
+lands? The author: *"Yes a mind pull on a space the ball passes before it lands should happen
+before smooth where it lands."*
+
+**The order now follows the ball.** The pulls on the spaces it passes through, in the order it
+reaches them; then the Smooth where it lands; then any pull on the landing space. The
+2026-09-20 ruling (*"smooth goes first"*) was made when both halves read the whole path, and
+it now holds only on the landing space, the one space they still share -- that part was not
+re-asked, and the ruling has not been reinterpreted there.
+
+So a pass that crosses an opposing Telekinetic and lands on a friendly one offers the pull
+first, and a pull that lands there means the teammate is never asked. Implemented as three
+stages of `check_for_ball_arrival`, with the unspent path marking which stage a drained pull
+queue belongs to -- no new saved field (see "Smooth" in docs/design/species-abilities.md).
+
+### 2026-09-24 (1 of 2) -- author, Smooth is offered only where the ball arrives
 
 The author: *"Smooth only works when the ball gets to the space, not through. So the gate is
 different from Mind Pull, it's just like the old ability Slip-In that Slimey used to have."*
@@ -175,8 +183,8 @@ its prompt. Mind Pull is unchanged and still reads every space the ball crosses.
 
 What carries over unchanged, because nothing in the ruling touches it: the player a movement
 moved is still offered nothing, nor is the player it delivers the ball to (both 2026-09-20);
-a dead ball still reaches nobody; taking it is still not a turnover; and Smooth is still asked
-before the pull on the same movement.
+a dead ball still reaches nobody; and taking it is still not a turnover. Which of Smooth and a
+pull is asked first on one movement is the entry above.
 
 **One consequence worth saying.** The 2026-09-20 note that a Smooth pre-empts an overshooting
 shove's own-goal roll no longer has a case: the only own-goal risk is a Pressure against a
