@@ -42,6 +42,16 @@ copy is in git at commit `5e05bdd` if a future pull wants to diff against upstre
 
 ## Still open
 
+### Does a pull on an earlier space still wait behind a Smooth where the ball lands?
+
+On 2026-09-20 the author settled that a movement offers the Smooth before the pull (*"smooth
+goes first"*), when both read every space the ball crossed. Since 2026-09-24 Smooth reads only
+the space the ball arrives at, so the two can now sit on different spaces: a pass crosses an
+opposing Telekinetic and lands on a friendly one. The bot still asks the Smooth first, and a
+Smooth taken there means the opponent gets no roll even though the ball passed them first. That
+was kept rather than reinterpreted; whether the pull on the earlier space should now go first
+is the author's call.
+
 ### Is the exhaustion work in PR #9 the intended scope?
 
 The author's answer to "exhaustion accumulates but does nothing" was "yet, it's in my PR"
@@ -150,6 +160,38 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-24 -- author, Smooth is offered only where the ball arrives
+
+The author: *"Smooth only works when the ball gets to the space, not through. So the gate is
+different from Mind Pull, it's just like the old ability Slip-In that Slimey used to have."*
+
+**The trigger narrows from the ball's whole path to its last space.** Since 2026-09-20 Smooth
+had been read off the path in Mind Pull's own words ("moves to or through your space"), so a
+pass could be taken out of the air by a teammate it merely crossed. It is now offered only to a
+Telekinetic of the side in possession standing on the space the ball comes to rest on -- Slip
+in's case ("when a teammate handling the ball arrives at their space"), with Smooth's offer and
+its prompt. Mind Pull is unchanged and still reads every space the ball crosses.
+
+What carries over unchanged, because nothing in the ruling touches it: the player a movement
+moved is still offered nothing, nor is the player it delivers the ball to (both 2026-09-20);
+a dead ball still reaches nobody; taking it is still not a turnover; and Smooth is still asked
+before the pull on the same movement.
+
+**One consequence worth saying.** The 2026-09-20 note that a Smooth pre-empts an overshooting
+shove's own-goal roll no longer has a case: the only own-goal risk is a Pressure against a
+handler already on the last space, which moves the ball nowhere, so the ball arrives at no
+space and nobody is offered a Smooth.
+
+Implemented as `RulesEngine.smooth_candidates` reading only the last entry of
+`last_ball_path`, which `ball_path_to` always ends on where the ball lands. The full-game
+driver test's seed and the advanced golden's seed were re-swept, since both played a Smooth
+the ball only passed through.
+
+**Not yet done: the sheet.** The `spec_abilities` tab still reads *"the ball moves to or
+through your space"* for Smooth, so `d12ball/data/species.json` -- regenerated whole by
+`scripts/import_d12ball_species.py`, never hand-edited -- still says it too, and so do the
+printed species cards. Recorded under "Where upstream is behind".
 
 ### 2026-09-23 -- author, a Cyborg's injury check is a damage test, and "drain" is a verb
 
@@ -2585,6 +2627,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | The maneuvers sheet has a "Die value" column, and the component data two head-coach d6s | Maneuvers are chosen from the cards; the selection dice are not part of the rules at all (2026-08-17). The column and `head_coach_dice` are still imported, so a fresh pull rewrites them |
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
 | The maneuvers sheet's `Mode` column reads `basic` / `advanced` | A gambit, on the rank of a basic maneuver. The importer keeps the sheet's word as the tier value, so a fresh pull rewrites it unchanged |
+| Smooth: "the ball moves to or through your space" (the `spec_abilities` tab, and so `species.json` and the printed species cards) | Only where the ball comes to rest -- a Telekinetic it passes through is offered nothing (2026-09-24) |
 
 ---
 
