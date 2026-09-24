@@ -24,20 +24,20 @@ body that has only ever existed in the author's head:
   it by hand and reading it as current is a mistake that has been made; the live tab is
   "Player Cards" (`gid=6660238`), and the scripts already point at the right ones.
 
-**One tab is the source of truth for each kind of thing, and the player cards tab is a
-rendering of them** (the author, 2026-09-22). `basic_abilities` (`gid=1822486506`) holds the
-six role abilities; `spec_abilities` (`gid=123199571`) the four species abilities;
-`maneuvers` (`gid=1487033386`) the twelve cards; `advanced_abilities` (`gid=354283038`) the
-per-player advanced role ability and advanced skill scores. The player cards tab
-(`gid=6660238`) is the roster -- who is on which team, in which role, with which species and
-basic scores -- and its `Basic`, `Advanced`, `OskillA` and `DskillA` columns are **what the
-card says**, built by formula from those tabs: `DD: Steals the ball when resolving Pressure.`
-with the role's initials in front (the `Initials` column of `basic_abilities`), `DD.` then the
-advanced ability on a line of its own, the basic score where there is no advanced one. The
-importer reads each ability from the tab it belongs to and **checks the card's copy against
-it** rather than reading the card; a mismatch is a stale copy and fails the import, not a
-special player. The link is deliberate and the difference is the point -- the cards tab shows
-what the cards should say, the abilities tabs hold the language of the abilities.
+**One tab is the source of truth for each kind of thing, and the player cards tab is the
+roster and the scores** (the author, 2026-09-22 and 2026-09-24). `basic_abilities`
+(`gid=1822486506`) holds the six role abilities; `spec_abilities` (`gid=123199571`) the four
+species abilities; `maneuvers` (`gid=1487033386`) the twelve cards; `advanced_abilities`
+(`gid=354283038`) the per-player advanced role ability. The player cards tab
+(`gid=6660238`) says who is on which team, in which role, with which species, basic scores
+(`Oskill`, `Dskill`) and advanced scores (`OskillA`, `DskillA`). Its `Basic` and `Advanced`
+columns are the card's rendering of the abilities tabs, built by formula, and **the importer
+neither reads nor checks them**. It used to check them and fail on a mismatch as a stale
+copy; that made every edit to the card's wording in the sheet an import failure, when the
+card is the sheet's to lay out and the abilities tabs already say what the ability is. So
+there is no `--abilities players` mode either -- the basic abilities come from
+`basic_abilities` or nowhere. The advanced tab's own score columns, where it still has them,
+are not read.
 
 **Every ability is imported twice**, in full and abbreviated -- `ability` and `ability_short` on
 each role profile in `players.json`, from the `basic_abilities` sheet's own two columns. Text
@@ -53,9 +53,11 @@ spreadsheet doesn't read it as a formula.
 
 **The advanced sheet is imported and carried, not played.** Each player's record in
 `players.json` has `advanced_ability` (`""` for the twenty who have none yet) and
-`advanced_skills` -- only the scores the sheet gives, so `{"offense": 0, "defense": 8}` for
-one fullback, `{"defense": 4}` for a striker and `{}` for most; a missing key means the
-role's basic score. An advanced score is not held to 1-6 and a player's two need not sum to 7,
+`advanced_skills` -- only the scores that differ from the role's basic ones, so
+`{"offense": 0, "defense": 8}` for one fullback, `{"defense": 4}` for a striker and `{}` for
+most; a missing key means the role's basic score. The player cards tab's `OskillA` and
+`DskillA` show the basic score where a player has no advanced one, and that and a blank cell
+both come out as a missing key, so the two spellings of "no advanced score" cannot disagree. An advanced score is not held to 1-6 and a player's two need not sum to 7,
 which is why they are a dict on `PlayerDefinition` and not a `RoleProfile`. They are for the
 personal-ability module of advanced mode, which is not built (see "Blocked or deferred" in
 [rules-log.md](../rules-log.md)); until it is, nothing reads either field to decide a rule,
