@@ -151,23 +151,24 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-09-24 (2 of 2) -- author, a pull on the way goes before the Smooth where the ball lands
+### 2026-09-24 (2 of 2) -- author, Mind Pull is asked before Smooth
 
 Asked on the PR that narrowed Smooth, since the narrowing put the two halves on different spaces
 of one movement: should a pull on a space the ball passes still wait behind a Smooth where it
 lands? The author: *"Yes a mind pull on a space the ball passes before it lands should happen
-before smooth where it lands."*
+before smooth where it lands."* Asked then about the landing space, where a Telekinetic of each
+side can stand: *"when did I say smooth go first? mind pull should go first in this case as
+well"*.
 
-**The order now follows the ball.** The pulls on the spaces it passes through, in the order it
-reaches them; then the Smooth where it lands; then any pull on the landing space. The
-2026-09-20 ruling (*"smooth goes first"*) was made when both halves read the whole path, and
-it now holds only on the landing space, the one space they still share -- that part was not
-re-asked, and the ruling has not been reinterpreted there.
+**Every pull on the movement is offered before the Smooth**, in the order the ball reaches the
+pullers, the landing space included; the Smooth is offered only once every pull has been
+declined or has missed. This replaces the 2026-09-20 entry "Smooth is asked before Mind Pull"
+below, whose quote (*"smooth goes first"*) the author does not recognise -- it was recorded by
+an earlier session from a chat this repository has no copy of, so it is kept as history and
+marked superseded rather than deleted.
 
-So a pass that crosses an opposing Telekinetic and lands on a friendly one offers the pull
-first, and a pull that lands there means the teammate is never asked. Implemented as three
-stages of `check_for_ball_arrival`, with the unspent path marking which stage a drained pull
-queue belongs to -- no new saved field (see "Smooth" in docs/design/species-abilities.md).
+Implemented as two stages of `check_for_ball_arrival`, with the unspent path marking that the
+Smooth is still owed -- no new saved field (see "Smooth" in docs/design/species-abilities.md).
 
 ### 2026-09-24 (1 of 2) -- author, Smooth is offered only where the ball arrives
 
@@ -569,6 +570,9 @@ that caused it and not to the turn: a second movement in the same turn finds eve
 again.
 
 ### 2026-09-20 (later) -- author, Smooth is asked before Mind Pull
+
+**Superseded 2026-09-24**: Mind Pull is asked first, and the author does not recognise the quote
+below -- see "Mind Pull is asked before Smooth" above.
 
 Put to the author while building Smooth, because the sheet settles what each half of the
 ability does and says nothing about the race between them. A ball can cross a Telekinetic of

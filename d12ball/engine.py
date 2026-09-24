@@ -778,11 +778,7 @@ class RulesEngine:
         return match.turn_handler_candidates()
 
     def mind_pull_candidates(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        *,
-        landing: Optional[bool] = None,
+        self, game: D12BallGame, match: MatchState,
     ) -> list[str]:
         """
         The Telekinetics the ball just crossed who may try to pull it
@@ -794,15 +790,6 @@ class RulesEngine:
         Read off `match.last_ball_path`, which `set_ball_space`
         recorded, so this needs no argument beyond the match and
         answers the same way after a restart.
-
-        **`landing` splits the path where Smooth splits the turn
-        order.** `False` is the spaces the ball passes through,
-        `True` the one it comes to rest on, and `None` the whole path.
-        The gate asks the two halves separately because a Smooth sits
-        between them: a pull on a space the ball passes before it
-        lands is asked before the Smooth where it lands, and a pull on
-        the landing space after it (the author, 2026-09-24, and
-        2026-09-20's "smooth goes first" for the space they share).
 
         Three things narrow it, and each is a sentence of the rule:
 
@@ -835,14 +822,8 @@ class RulesEngine:
         theirs = set(match.setup_for_side(defending).field_players)
         moved = set(match.last_ball_movers)
 
-        path = match.last_ball_path
-        if landing is True:
-            path = path[-1:]
-        elif landing is False:
-            path = path[:-1]
-
         candidates: list[str] = []
-        for zone_value, space_index in path:
+        for zone_value, space_index in match.last_ball_path:
             for player_id in match.board.spaces[Zone(zone_value)][space_index]:
                 if player_id not in theirs or player_id in candidates:
                     continue

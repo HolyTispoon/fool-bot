@@ -1117,7 +1117,7 @@ A successful pull is a [steal](#turnovers): ball speed resets to 1, players run 
 
 **Smooth is not a [turnover](#turnovers).** Possession never changed hands, so nobody runs back, ball speed is untouched, and the turn simply ends with a different player holding the ball. The one movement Smooth cannot pre-empt is a run back that a turnover has already caused: there the Telekinetic takes the ball over and the run back still happens, with them as the carrier who stays.
 
-**Both halves are asked on one movement, in the order the ball meets them.** A pull on a space the ball passes through is offered before the Smooth where it lands; on the landing space itself, the Smooth is offered before the pull. Whichever is taken ends the movement and nothing after it is offered; one that is declined or misses leaves the rest exactly as they were.
+**Both halves are asked on one movement, Mind Pull first.** Every pull the movement offers -- on a space the ball passes through or on the space it lands on -- is offered before the Smooth where it lands. A pull that lands ends the movement and no Smooth is offered; once every pull has been declined or has missed, the Smooth is offered exactly as it would have been.
 
 ### Slimey (Ooze)
 
