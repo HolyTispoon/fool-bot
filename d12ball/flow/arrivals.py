@@ -282,14 +282,12 @@ def continue_mind_pull(
 
         player = engine.get_player_definition(player_id)
         mind_pull_emoji = tokens.species(SPECIES_TELEKINETIC)
-        faces = "-".join(str(face) for face in MIND_PULL_SUCCESS_FACES)
         return StepResult(
             next=PendingPrompt(
                 PromptKind.MIND_PULL,
-                f"{mind_pull_emoji} **Mind Pull** — the ball crossed "
-                f"{engine.format_player_label(match, player)}, who may "
-                f"reach out for it: {MIND_PULL_TOKEN_COST} exhaustion "
-                f"token and a d12, pulling it in on a {faces}.",
+                f"The ball crossed {engine.format_player_label(match, player)}, "
+                f"who may {mind_pull_emoji} Mind Pull it for "
+                f"{MIND_PULL_TOKEN_COST} exhaustion.",
                 player_id=player_id,
             ),
         )

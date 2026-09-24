@@ -1135,7 +1135,7 @@ class SmoothView(SafeView):
     in docs/living-rules.md.
 
     **One button, not two.** A pull is a decision worth two (the token
-    is spent whether or not it lands, so "Let it go" is declining a
+    is spent whether or not it lands, so "Pass" is declining a
     cost); a Smooth costs nothing and cannot fail, so the only reason
     to decline is not wanting the ball on that space. That is still a
     real choice -- it moves who takes the next turn, and it stops the
@@ -1297,9 +1297,8 @@ class MindPullView(SafeView):
         self.game_id = game_id
         self.player_id = player_id
 
-        player = cog.engine.get_player_definition(player_id)
         pull = discord.ui.Button(
-            label=f"{player_with_role(player)} reaches for it"[:80],
+            label="Mind Pull",
             style=discord.ButtonStyle.primary,
             custom_id=f"d12ball:mind_pull:{game_id}:{player_id}",
         )
@@ -1307,7 +1306,7 @@ class MindPullView(SafeView):
         self.add_item(pull)
 
         let_go = discord.ui.Button(
-            label="Let it go",
+            label="Pass",
             style=discord.ButtonStyle.secondary,
             custom_id=f"d12ball:mind_pull_decline:{game_id}:{player_id}",
         )
