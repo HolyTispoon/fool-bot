@@ -607,7 +607,7 @@ def species_figure() -> Image.Image:
     """The four species icons, one line each, for the appendix."""
     entries = [
         ("fire_demon", render.TEAM_COLORS[Team.FIRE_DEMONS], "Fire Demon - Volatile", "A natural 6 or 7 on any d12 ignites: roll again and add it (5-12) or subtract it (1-4)."),
-        ("cyborg", render.TEAM_COLORS[Team.CYBORGS], "Cyborg - Lithium Powered", "Tokens are drain, Drained at 7. Overdrive: 3 drain for +5 before a roll. Charge-up: -1 drain for standing still in a run back."),
+        ("cyborg", render.TEAM_COLORS[Team.CYBORGS], "Cyborg - Lithium Powered", "Tokens are drain, Drained at 7. Overdrive: drain 3 for +5 before a roll. Charge-up: -1 drain for standing still in a run back."),
         ("telekinetic", render.TEAM_COLORS[Team.TELEKINETICS], "Telekinetic - Mind Pull", "The opponent's ball crossing your space: 1 token, roll a d12, 11-12 pulls it in. Your own ball: take it over for free (Smooth)."),
         ("ooze", render.TEAM_COLORS[Team.OOZES], "Ooze - Slimey", "Merge: an Ooze on the ball who is not rolling adds their skill to their side. Spreadable: counts as 0 toward occupancy."),
     ]

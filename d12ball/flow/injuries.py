@@ -64,13 +64,21 @@ def injury_test_ask(
         engine.controlling_player_number(game, match, player_id),
     )
     tokens = match.exhaustion.get(player_id, 0)
+    exhausted_word, _ = engine.exhausted_word_and_mark(game, player_id)
+    token_noun, _ = engine.token_word_and_mark(game, player_id)
+    test_name = _with_article(engine.injury_test_name(game, player_id))
     return (
         f"{mention}, "
         f"{engine.format_player_label(match, player)} is "
-        "exhausted and owes an injury test: a d12 that has to "
-        f"beat their {tokens} exhaustion "
+        f"{exhausted_word} and owes {test_name}: a d12 that has to "
+        f"beat their {tokens} {token_noun} "
         f"{'token' if tokens == 1 else 'tokens'}."
     )
+
+
+def _with_article(test_name: str) -> str:
+    """ "an injury test", "a damage test". """
+    return f"{'an' if test_name[0] in 'aeiou' else 'a'} {test_name}"
 
 
 def begin_injury_tests(
@@ -331,14 +339,15 @@ def injury_test_step(
     drain = engine.drain_wording(game, player_id)
     exhausted_word = "drained" if drain else "exhausted"
     token_noun = "drain" if drain else "exhaustion"
-    # The check keeps its name for everybody (it is an injury check in
-    # the living rules), but what it does to a Cyborg is damage.
+    # A Cyborg's check is a damage test, and what it does to them is
+    # damage (the author, 2026-09-23).
+    test_name = _with_article(engine.injury_test_name(game, player_id))
     harm_noun = "damage" if drain else "injury"
 
     if safe:
         content = (
             f"{engine.format_player_label(match, player)} is "
-            f"{exhausted_word} and rolls an injury test: "
+            f"{exhausted_word} and rolls {test_name}: "
             f"{roll}{ignite_note} beats their {current_tokens} "
             f"{token_noun} tokens — safe."
         )
@@ -352,7 +361,7 @@ def injury_test_step(
         word, emoji = injured_word_and_emoji(engine, game, player_id)
         content = (
             f"{engine.format_player_label(match, player)} is "
-            f"{exhausted_word} and rolls an injury test: "
+            f"{exhausted_word} and rolls {test_name}: "
             f"{roll}{ignite_note} does not beat their {current_tokens} "
             f"{token_noun} tokens — {harm_noun}! They are **{word}** {emoji}."
         )

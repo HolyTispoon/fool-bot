@@ -398,6 +398,25 @@ missing other half for Injured, scoped the same way.
     its bounding box, so a glyph's own diagonal stroke still can't touch
     its neighbour.
 
+**A Cyborg's injury check is a damage test, and "drain" is a verb** (the
+author, 2026-09-23). The third and fourth words of the same set: a Drained
+Cyborg takes a damage test and, failing it, is Damaged; a Cyborg *drains 2*
+where anybody else gains 2 exhaustion tokens.
+
+- **`RulesEngine.injury_test_name` is the one answer to what the check is
+  called**, beside `token_word_and_mark` and the other `drain_wording`
+  readers. The narration, the pending prompt, the button and the title drawn
+  on the die (`render_injury_test_die`'s `title`, passed by the cog, since
+  `render.py` decides no wording) all ask it. The code keeps its own name --
+  `PromptKind.INJURY_TEST`, `pending_injury_tests`, the custom_id -- because
+  those are saved or shared with the web app and name the mechanic, not what
+  a coach reads.
+- **The verb is only for gaining.** `describe_exhaustion_gain`, Overdrive's
+  line and button, and the Dribble Burst prompt say *drain N*; a line that
+  *removes* drain (Charge-up, halftime) or counts it (the check's target)
+  still says drain tokens, because "drains 1" there would read as the
+  opposite of what happened.
+
 **Overdrive is the only thing in the game declared before a roll**, which is
 what it cost to build. Every roll already sits behind a button any coach may
 press, so the declaration is a **second button on that same prompt** rather

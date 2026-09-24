@@ -1188,6 +1188,7 @@ class CoreMixin:
                 roll.safe,
                 bool(roll.overdrive),
                 injured_word,
+                self.engine.injury_test_name(game, roll.player_id).upper(),
             ),
             filename="injury_test_die.png",
         )

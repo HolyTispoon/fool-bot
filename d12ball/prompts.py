@@ -1603,10 +1603,12 @@ def _pending(
         # ball with no active player at all, which the kickoff
         # branch below would misread.
         player = engine.get_player_definition(match.pending_injury_tests[0])
+        test_name = engine.injury_test_name(game, player.player_id)
         return PendingPrompt(
             PromptKind.INJURY_TEST,
             f"{engine.format_player_label(match, player)} still "
-            "owes an injury test:",
+            f"owes {'a' if test_name[0] not in 'aeiou' else 'an'} "
+            f"{test_name}:",
             player_id=player.player_id,
         )
 

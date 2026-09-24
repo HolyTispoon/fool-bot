@@ -110,7 +110,7 @@ from flow_stubs import (
     injury_queue_stops_the_chain,
 )
 from save_patches import suppressed_cog_saves
-from d12ball.flow.injuries import injury_test_step
+from d12ball.flow.injuries import injury_test_ask, injury_test_step
 from d12ball.flow.windows import coaching_window_note
 from d12ball.flow.periods import begin_halftime, halftime_extra_token_step
 from d12ball.components import CoachingOccasion
@@ -1077,8 +1077,9 @@ class DamagedWordingTests(unittest.TestCase):
             self.game, self.match, self.cyborg, 1,
         )
         self.assertIn("damaged", text)
-        self.assertIn("drain tokens", text)
+        self.assertIn("does not drain", text)
         self.assertNotIn("injured", text)
+        self.assertNotIn("tokens", text)
 
     def test_a_cyborgs_tokens_are_counted_in_their_own_mark(self) -> None:
         # The card draws a Cyborg's tally in the Cyborgs' teal
@@ -1089,6 +1090,46 @@ class DamagedWordingTests(unittest.TestCase):
         )
         self.assertIn(tokens.condition(tokens.CONDITION_DRAIN) * 2, text)
         self.assertNotIn(tokens.condition(tokens.CONDITION_EXHAUST), text)
+
+    def test_a_cyborg_drains_rather_than_gains(self) -> None:
+        # "Drain 2" is two drain tokens gained (the author, 2026-09-23).
+        text = describe_exhaustion_gain(
+            self.cog, self.game, self.match, self.cyborg, 2,
+        )
+        self.assertIn(" drains 2 ", text)
+        self.assertNotIn("gains", text)
+
+    def test_everybody_else_still_gains_exhaustion_tokens(self) -> None:
+        text = describe_exhaustion_gain(
+            self.cog, self.game, self.match, self.other, 2,
+        )
+        self.assertIn(" gains 2 exhaustion tokens ", text)
+
+    def test_a_cyborgs_injury_check_is_a_damage_test(self) -> None:
+        engine = self.cog.engine
+        self.assertEqual(
+            engine.injury_test_name(self.game, self.cyborg), "damage test",
+        )
+        self.assertEqual(
+            engine.injury_test_name(self.game, self.other), "injury test",
+        )
+        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+        self.assertEqual(
+            engine.injury_test_name(basic, self.cyborg), "injury test",
+        )
+
+    def test_a_cyborg_is_asked_for_a_damage_test(self) -> None:
+        self.match.exhaustion[self.cyborg] = 8
+        self.match.exhausted.add(self.cyborg)
+        ask = injury_test_ask(
+            self.cog.engine, self.game, self.match, self.cyborg,
+        )
+        self.assertIn("is drained and owes a damage test", ask)
+        self.assertIn("their 8 drain tokens", ask)
+        self.match.pending_injury_tests.append(self.cyborg)
+        prompt = pending_prompt(self.cog.engine, self.game, self.match)
+        self.assertEqual(prompt.kind, PromptKind.INJURY_TEST)
+        self.assertIn("still owes a damage test:", prompt.ask)
 
     def test_everybody_elses_tokens_stay_the_exhaustion_mark(self) -> None:
         text = describe_exhaustion_gain(
@@ -1146,6 +1187,8 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertIn("**damaged**", line)
         self.assertNotIn("injury!", line)
         self.assertNotIn("injured", line)
+        self.assertIn("rolls a damage test", line)
+        self.assertNotIn("injury test", line)
 
     def test_the_injury_test_die_says_damaged(self) -> None:
         # Pixels, not words: DAMAGED and INJURED are different widths,
