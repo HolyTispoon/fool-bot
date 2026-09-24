@@ -1043,14 +1043,14 @@ The species abilities are the second of the two modules advanced mode turns on, 
 
 ### Volatile (Fire Demon)
 
-**Every d12 a Fire Demon rolls can ignite.** When the die's own face -- before any skill or modifier -- comes up a natural **6 or 7**, the Fire Demon immediately rolls a second d12:
+**A Fire Demon's die can ignite.** In the rolls listed below, when the die's own face -- before any skill or modifier -- comes up a natural **6 or 7**, the Fire Demon immediately rolls a second d12:
 
 - **5-12: a blaze.** Add the second die to the Fire Demon's total for that roll.
 - **1-4: a burn.** Subtract it.
 
 Ignite is not a choice, and the second die never ignites in turn -- one reroll, however it falls.
 
-Every roll a Fire Demon makes is covered: their die in a [skill test](#the-skill-test) or a [contest for the ball](#where-the-ball-comes-to-rest) -- and if both players rolling are Fire Demons, each checks their own -- the shooter's die in a [score attempt](#score-attempt), the die kept in an [own-goal roll](#own-goal), an [injury check](#the-injury-check), and a [shootout test](#extreme-shootout). A burn that drops an injury check below the token count injures the Fire Demon as any failed check does.
+Four rolls are covered: their die in a [skill test](#the-skill-test) or a [contest for the ball](#where-the-ball-comes-to-rest) -- and if both players rolling are Fire Demons, each checks their own -- the shooter's die in a [score attempt](#score-attempt), and a [shootout test](#extreme-shootout). An [injury check](#the-injury-check) and an [own-goal roll](#own-goal) never ignite: a natural 6 or 7 there is only a 6 or 7.
 
 **In a maneuver skill test the blaze or burn decides a tier, and what the loser pays.** Four cases, one for each way an ignite can land:
 
@@ -1147,7 +1147,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 
 | Species | Ability |
 | --- | --- |
-| Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's gambit), a burn that loses upgrades the opponent's and pays its own gambit's cost, and a blaze that loses pays none. |
+| Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's gambit), a burn that loses upgrades the opponent's and pays its own gambit's cost, and a blaze that loses pays none. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: drain 3 for +5 on a roll, declared before it. Charge-up: -1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball moves to or through your space -- take it over, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |

@@ -75,9 +75,18 @@ may then take just one.
 
 ### Volatile, and the roll funnel
 
-**`RulesEngine.ignite` is the funnel every d12 in the game comes through**,
-and it is what stops the next ability that reads a die being written at six
-call sites. Volatile is the only one that reads one today.
+**`RulesEngine.ignite` is the funnel every d12 Volatile covers comes
+through**, and it is what stops the next ability that reads a die being
+written at every roll site. Volatile is the only one that reads one today.
+
+**The injury check and the own-goal roll do not call it** (the author,
+2026-09-23: Volatile reaches neither). Both rolls have no tier to change,
+so all an ignite gave them was a swing -- a burn failing a check the face
+had passed, a blaze passing one it had failed. So neither `InjuryRoll` nor
+`OwnGoalRoll` carries an ignite and neither posts a second die. A site that
+does not ask is following the rule rather than swallowing a die:
+`IgnitionIsShownEverywhereTests` fails only a site that asks and never
+shows.
 
 - **It takes the face rather than rolling it.** Each site already knows how
   to get its own dice -- `scripted_or_random`, the tutorial's scripted
@@ -90,23 +99,17 @@ call sites. Volatile is the only one that reads one today.
   modifier -- which is why all six sites took this without changing how they
   roll, display or total anything, and why the dice image explains itself
   with no new drawing code.
-- **The six sites, and what each passes**: the maneuver skill test and the
+- **The sites, and what each passes**: the maneuver skill test and the
   loose-ball/High-Pass contest pass each side's own player (so two Fire
   Demons each check their own); the score attempt passes **only the
   shooter** -- its second die is the defensive wall's and belongs to no card,
   which is why `ignite` takes an optional player and answers "no ignite" for
-  None; the own goal passes **the die that is kept**, since it is rolled at
-  an advantage and the rules name "the die kept"; the injury check and the
-  shootout test pass their one roller.
+  None; the shootout test passes its one roller; and Mind Pull's roll
+  passes through though it cannot ignite today.
 - **Injury does not withhold it.** What an injured contestant loses is their
   own skill modifier and only that; an ignite is the die, not a modifier the
   player brings -- the same reading that leaves the ball speed modifier
   alone.
-- **A burn on an injury check injures the Fire Demon**, which falls out
-  of applying the modifier to the check rather than being special-cased. The
-  die image draws the natural face, so `run_injury_test` says the ignite in
-  words -- otherwise the number a coach reads and the verdict they are given
-  would not add up.
 - **Volatile's two numbers live in `d12ball/components.py`**, beside the
   other three species', rather than in the engine that reads them:
   `d12ball/render.py` cannot import the engine (the engine imports it) and
@@ -130,7 +133,7 @@ the result.
   has to add up; `explain` is the sentence over the second die's own image,
   which has to say why there is a second die at all. Written apart they
   come to disagree about which way a roll went.
-- **One helper for all seven call sites**, which is `ignite` read from the
+- **One helper for every call site**, which is `ignite` read from the
   other end: the funnel owns what a die means and this owns what a coach is
   shown of it. Each site hands over the pairs it has -- a contest both
   sides, a score attempt only the shooter -- and a roll that did not ignite

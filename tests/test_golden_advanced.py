@@ -78,13 +78,16 @@ loose at the moment a coach calls one; and full time and the shootout,
 which are past where the step budget stops. Those are Phase 5's ground and want a
 golden of their own.
 
-**The seed has been re-picked twice.** Once when PR #243 and PR #244
+**The seed has been re-picked three times.** Once when PR #243 and PR #244
 landed on main under this branch: both are rule changes in the code
 this phase moves, so the game seed 44 had played was no longer the game
 it plays. Again when the six-space board was withdrawn (2026-09-22 in
 docs/rules-log.md) and this game moved to board 7, which is a different
-game from the first roll. Both times the seed was swept and scored on
-the coverage below, not chosen.
+game from the first roll. And when Volatile stopped reaching the injury
+check and the own-goal roll (2026-09-23 in docs/rules-log.md): an ignite
+there no longer draws a second die, which shifts every draw after it,
+and seed 134's game stopped reaching the own-goal roll. Each time the
+seed was swept and scored on the coverage below, not chosen.
 
 Regenerating is the tutorial golden's rule, and for the same reason --
 see that module's docstring:
@@ -135,7 +138,7 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 #: the engine's own `rng`, where every draw the game makes comes from
 #: (the dice, the shuffle, the AI's picks), rather than the module
 #: `random`, which nothing in the model reads.
-ADVANCED_SEED = 134
+ADVANCED_SEED = 391
 
 #: The game is not played to full time: the budget stops it in the
 #: second half, which is as far as Phase 4's ground goes. Full time and

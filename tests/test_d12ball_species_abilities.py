@@ -80,7 +80,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.flow.effects import shove_pressured_handler
+from d12ball.flow.effects import own_goal_roll_step, shove_pressured_handler
 from d12ball.engine import (
     VOLATILE_IGNITE_FACES,
     VOLATILE_BLAZE_MINIMUM,
@@ -500,6 +500,58 @@ def followup_messages(interaction) -> list[str]:
     ]
 
 
+class VolatileDoesNotReachTests(unittest.TestCase):
+    """
+    "An injury check and an own-goal roll never ignite: a natural 6 or 7
+    there is only a 6 or 7" (the author, 2026-09-23).
+
+    Each die is scripted so that an ignite, had one been rolled, would
+    have changed the verdict -- and the draw count says no second die
+    was thrown at all.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game()
+        self.match = build_match(self.engine, self.game)
+        self.demon = fielded_of_species(self.match, SPECIES_FIRE_DEMON)
+
+    def test_a_fire_demons_injury_check_does_not_ignite(self):
+        # A 6 against 6 tokens fails; a blaze of 12 would have saved it.
+        self.match.exhaustion[self.demon] = 6
+        self.match.exhausted.add(self.demon)
+        self.match.pending_injury_tests.append(self.demon)
+        with mock.patch(
+            "random.Random.randint", side_effect=[6, 12],
+        ) as randint:
+            roll, result = injury_test_step(
+                self.engine, self.game, self.match, self.demon,
+            )
+        self.assertEqual(randint.call_count, 1)
+        self.assertFalse(roll.safe)
+        self.assertIn(self.demon, self.match.injured)
+        self.assertNotIn("Volatile", result.narration[0])
+        self.assertNotIn("ignite", roll.to_dict())
+
+    def test_a_fire_demons_own_goal_roll_does_not_ignite(self):
+        # The kept 7 is safe for anyone; a burn of 3 would have taken it
+        # back under for a handler of skill 2 or less.
+        self.match.active_player_id = self.demon
+        self.match.ball.possession = self.match.side_for_player(self.demon)
+        self.match.pending_own_goal = True
+        self.match.pending_own_goal_distance = 1
+        with mock.patch(
+            "random.Random.randint", side_effect=[7, 1, 3],
+        ) as randint:
+            roll, result = own_goal_roll_step(
+                self.engine, self.game, self.match,
+            )
+        self.assertEqual(randint.call_count, 2)
+        self.assertTrue(roll.safe)
+        self.assertNotIn("Volatile", result.narration[0])
+        self.assertNotIn("ignite", roll.to_dict())
+
+
 class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
     """
     The second die a coach watches.
@@ -640,7 +692,7 @@ class IgnitionIsShownEverywhereTests(unittest.TestCase):
         Read off the AST rather than grepped, for
         `tests/test_model_purity.py`'s reason: the claim is that a
         *field* on what the step returns is the ignite, and a mention
-        in a comment or a local name is not that. `OwnGoalRoll.ignite`
+        in a comment or a local name is not that. `MindPullRoll.ignite`
         and `ContestDice.ignites` are the two today.
         """
         for node in ast.walk(ast.parse(source)):
@@ -669,7 +721,7 @@ class IgnitionIsShownEverywhereTests(unittest.TestCase):
         has to *post* the die. A module in `d12ball/flow/` cannot post
         anything, so what it owes instead is handing the ignites back
         for a frontend to post -- which is what `ContestDice.ignites`
-        and `OwnGoalRoll.ignite` are. Either way the coach sees the
+        and `MindPullRoll.ignite` are. Either way the coach sees the
         second die; what changed is which side of the line writes it
         down.
         """

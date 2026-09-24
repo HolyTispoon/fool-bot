@@ -151,6 +151,22 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-23 (later) -- author, Volatile no longer ignites an injury check or an own-goal roll
+
+The author: *"volatile should not affect injury tests or own goals."* Until now every d12 a Fire
+Demon rolled could ignite; now four rolls do -- the skill test, the contest for the ball, the
+shooter's die in a score attempt and the shootout test -- and a natural 6 or 7 on an injury
+check or an own-goal roll is only the number.
+
+- **What it removes.** On an injury check a 6 or 7 is the middle of the die, so the ignite made
+  the check swing: a burn failed a check the natural face would have passed (below 6 tokens),
+  and a blaze passed one it would have failed (6 tokens and up, about +11 points at 7-11
+  tokens). On an own-goal roll, kept at an advantage, a burn mostly lost a roll the face had
+  already made. Neither roll has a tier to change, so they carried only the variance.
+- **The skill-test rider is untouched**, and the other three rolls still carry the number.
+- **Upstream is behind**: the sheet's Volatile text reads *"When a Fire Demon rolls a natural 6
+  or 7"* with no exception, and `species.json` is never edited by hand.
+
 ### 2026-09-23 -- author, a Cyborg's injury check is a damage test, and "drain" is a verb
 
 Two words, no mechanic. The author: *"in advanced mode the test to see if a Cyborg gets damaged
@@ -2546,6 +2562,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Cleanup restarts "from the middle (back of the midfield)" | The same kickoff space rule, for every restart |
 | "Clash" / "clash roll" | Skill test |
 | Lithium Powered: "can gain 3 drain tokens to add +5", "3 drain → +5" (the sheet) | Drain 3 for +5 -- *drain* is the verb for gaining drain |
+| Volatile: "When a Fire Demon rolls a natural 6 or 7", on any roll (the sheet) | Only a skill test, a contest, a score attempt's shooter and a shootout test ignite; never an injury check or an own-goal roll |
 | A score attempt's "each player rolls a d12" | Exactly two dice, one per coach; the defence sums intervening meeples |
 | Every meeple in the way adds its whole defensive skill | Full on the ball's own space, half rounded up beyond it |
 | Nothing about what a score attempt costs | Nothing for a plain attempt; 1 token to a shooter off a set-up, after the roll |
