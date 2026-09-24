@@ -31,7 +31,6 @@ from d12ball.components import (
     legacy_maneuver_key,
 )
 from d12ball.engine import RulesEngine
-from d12ball.wire import jsonable
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turn import injured_word_and_emoji, scripted_or_random
 from d12ball.formatting import address_coach
@@ -244,15 +243,14 @@ class InjuryRoll:
     the sentence beside this; what is here is the face, whether it was
     safe, and whether Overdrive was on it -- which is what
     `render_injury_test_die` draws and what a frontend with no dice
-    image ignores. `ignite` rides along for the second die, the way it
-    does on every other roll.
+    image ignores. There is no `ignite`: Volatile does not reach an
+    injury check (the author, 2026-09-23).
     """
 
     player_id: str
     roll: int
     safe: bool
     overdrive: int
-    ignite: object
 
     def to_dict(self) -> dict:
         return {
@@ -261,7 +259,6 @@ class InjuryRoll:
             "roll": self.roll,
             "safe": self.safe,
             "overdrive": self.overdrive,
-            "ignite": jsonable(self.ignite),
         }
 
 
@@ -298,26 +295,21 @@ def injury_test_step(
     # see `BLANKET_ROLLS`. The check still runs and the coach still
     # watches it.
     roll = scripted_or_random(engine, game, "injury", 1)[0]
-    # Volatile fires on an injury check like any other d12 -- so a
-    # burn that drops the check below the token count injures the
-    # Fire Demon who rolled it, which the living rules say outright
-    # rather than leaving to be inferred.
-    ignite = engine.ignite(game, player_id, roll)
+    # **Volatile does not reach this roll** (the author, 2026-09-23):
+    # a Fire Demon's natural 6 or 7 here is only the number, so the
+    # check is not asked through `engine.ignite` at all. Overdrive
+    # still is -- it is the Cyborg's to spend on any roll.
     overdrive = match.overdrive_modifier(player_id)
     match.consume_overdrive()
-    check = roll + ignite.modifier + overdrive
+    check = roll + overdrive
     current_tokens = match.exhaustion.get(player_id, 0)
     safe = check > current_tokens
-    # The die image draws the natural face, so an ignite has to be said
-    # in words or the number a coach reads and the verdict they are
-    # given would not add up.
-    modifiers = ", ".join(
-        part for part in (
-            ignite.detail,
-            f"+{overdrive} Overdrive" if overdrive else "",
-        ) if part
+    # The die image draws the natural face, so a modifier has to be
+    # said in words or the number a coach reads and the verdict they
+    # are given would not add up.
+    overdrive_note = (
+        f" (+{overdrive} Overdrive, {check})" if overdrive else ""
     )
-    ignite_note = f" ({modifiers}, {check})" if modifiers else ""
 
     if player_id in match.pending_injury_tests:
         match.pending_injury_tests.remove(player_id)
@@ -348,7 +340,7 @@ def injury_test_step(
         content = (
             f"{engine.format_player_label(match, player)} is "
             f"{exhausted_word} and rolls {test_name}: "
-            f"{roll}{ignite_note} beats their {current_tokens} "
+            f"{roll}{overdrive_note} beats their {current_tokens} "
             f"{token_noun} tokens — safe."
         )
     else:
@@ -362,7 +354,7 @@ def injury_test_step(
         content = (
             f"{engine.format_player_label(match, player)} is "
             f"{exhausted_word} and rolls {test_name}: "
-            f"{roll}{ignite_note} does not beat their {current_tokens} "
+            f"{roll}{overdrive_note} does not beat their {current_tokens} "
             f"{token_noun} tokens — {harm_noun}! They are **{word}** {emoji}."
         )
 
@@ -370,6 +362,6 @@ def injury_test_step(
     result.narration.insert(0, content)
     result.board_changed = result.board_changed or not safe
     return (
-        InjuryRoll(player_id, roll, safe, overdrive, ignite),
+        InjuryRoll(player_id, roll, safe, overdrive),
         result,
     )

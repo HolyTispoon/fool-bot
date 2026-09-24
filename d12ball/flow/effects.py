@@ -50,7 +50,6 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.engine import RulesEngine
-from d12ball.wire import jsonable
 from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turn import record_maneuver, scripted_or_random, tutorial_beat
@@ -966,7 +965,6 @@ class OwnGoalRoll:
     rolls: tuple[int, int]
     offense_skill: int
     safe: bool
-    ignite: Optional[object]
     overdrive: int
 
     def to_dict(self) -> dict:
@@ -975,7 +973,6 @@ class OwnGoalRoll:
             "rolls": list(self.rolls),
             "offense_skill": self.offense_skill,
             "safe": self.safe,
-            "ignite": jsonable(self.ignite),
             "overdrive": self.overdrive,
         }
 
@@ -1013,13 +1010,12 @@ def own_goal_roll_step(
     ).offense
 
     rolls = tuple(scripted_or_random(engine, game, "own_goal", 2))
-    # Volatile reads the die that is **kept**, not both: an own goal is
-    # rolled at an advantage, and the rules name "the die kept in an
-    # own-goal roll".
-    ignite = engine.ignite(game, offense_player.player_id, max(rolls))
+    # **Volatile does not reach this roll** (the author, 2026-09-23),
+    # so neither die is asked through `engine.ignite`: a Fire Demon's
+    # natural 6 or 7 here is only the number.
     overdrive = match.overdrive_modifier(offense_player.player_id)
     match.consume_overdrive()
-    safe = max(rolls) + offense_skill + ignite.modifier + overdrive >= 7
+    safe = max(rolls) + offense_skill + overdrive >= 7
 
     # Logged ahead of `apply_own_goal_outcome`, which is what concedes
     # the goal, so the risk sits above the goal it sometimes produced.
@@ -1043,18 +1039,15 @@ def own_goal_roll_step(
     )
 
     taken = max(rolls)
-    modifier = ignite.modifier if ignite else 0
     breakdown = (
         f"**Own goal risk!** "
         f"{engine.format_player_label(match, offense_player)} "
         f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
         f"is {taken}, + {offense_skill} (offensive skill)"
     )
-    if ignite and ignite.detail:
-        breakdown += f", {ignite.detail}"
     if overdrive:
         breakdown += f", +{overdrive} Overdrive"
-    breakdown += f" = {taken + offense_skill + modifier + overdrive}"
+    breakdown += f" = {taken + offense_skill + overdrive}"
 
     verdict = apply_own_goal_outcome(
         engine, match, offense_player, distance_moved, safe,
@@ -1062,7 +1055,7 @@ def own_goal_roll_step(
     )
 
     return (
-        OwnGoalRoll(rolls, offense_skill, safe, ignite, overdrive),
+        OwnGoalRoll(rolls, offense_skill, safe, overdrive),
         StepResult(
             narration=[breakdown, verdict],
             board_changed=True,
