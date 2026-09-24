@@ -182,9 +182,9 @@ class DetailWireTests(unittest.TestCase):
 
     def test_the_single_die_rolls_are_json(self) -> None:
         for detail in (
-            OwnGoalRoll((3, 9), 2, True, IgnitedRoll(9), 0),
+            OwnGoalRoll((3, 9), 2, True, 0),
             MindPullRoll("p1", 8, True, None),
-            InjuryRoll("p1", 4, False, 3, None),
+            InjuryRoll("p1", 4, False, 3),
         ):
             with self.subTest(type(detail).__name__):
                 json.dumps(detail.to_dict())

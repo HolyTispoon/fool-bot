@@ -17,9 +17,10 @@ and the type.
 the catalogs (`players.json`, `maneuvers.json`, `basic_rules.json`),
 the component list is the Learn to Play's own "What is in the box",
 and every sentence quoted as a rule is quoted verbatim from
-`docs/living-rules.md` or `docs/learn-to-play.md` --
-`tests/test_d12ball_box_art.py` checks each one is still in one of
-them word for word. A box that claims a rule the game does not play is
+`docs/living-rules.md` or `docs/learn-to-play.md`, and must still be
+in one of them word for word -- nothing tests it (the print materials
+carry no tests, the author, 2026-09-23), so a change to either book is
+checked against this module by hand. A box that claims a rule the game does not play is
 the failure this is built to make impossible, and it is the same rule
 the printed boards are held to.
 
@@ -327,8 +328,8 @@ class BoxFacts:
 # ------------------------------------------------- what the books say
 
 # A box may not word a rule for itself. Every line below is quoted
-# from one of the two books, and `BoxArtQuotesTests` fails if the
-# words drift out of them -- which is the same guarantee the printed
+# from one of the two books, and has to be re-checked against them
+# when either changes -- which is the same guarantee the printed
 # boards get from reading their layouts out of `basic_rules.json`,
 # applied to sentences instead of numbers.
 CHARTER_LINE = "The Charter settles every question."
@@ -337,7 +338,6 @@ CHARTER_LINE = "The Charter settles every question."
 # panels that is not quoted from the books: it is the author's own
 # (2026-09-23), and it states no rule -- it says how the game plays,
 # which is the one thing a box is allowed to say in its own voice.
-# `BoxArtQuotesTests` covers the quoted lines and not this one.
 STRAPLINE = (
     "A fast playing fantasy sports game of some strategy, a lot of "
     "tactics, a little luck and a bucket of d12s"
@@ -2135,8 +2135,8 @@ def fan_cards(
 PLAYTEST_CARD_INCHES = (6.0, 4.0)
 # The smallest module a printed QR may be drawn at. 0.4mm is the
 # floor a phone camera reads reliably off an office printer at arm's
-# length; the card's own code comes out well above it, and
-# `BoxArtSurveyTests` fails if a longer URL ever pushes it under.
+# length; the card's own code comes out well above it, and a longer
+# URL is what could push it under.
 QR_MIN_MODULE_INCHES = 0.4 / 25.4
 
 

@@ -1,22 +1,19 @@
 """
 The four species abilities: the import off the sheet's `spec_abilities`
-tab, the reference cards drawn from what it writes, and the icons.
+tab and the icons. The printed reference cards have no tests -- nothing
+printed does (the author, 2026-09-23).
 
-The suite cannot see a picture, so what the card test checks is what a
-print gets wrong silently -- a face that is no longer poker size, and a
-pairing that never made it onto a card. The import test covers the
-formula-guard strip (shared with the player import) and the "every
-species present" check.
+The import test covers the formula-guard strip (shared with the player
+import) and the "every species present" check.
 
-The icon tests are the same shape and for the same reason. An icon is
+The icon tests check what a render gets wrong silently. An icon is
 loaded through a swallowed OSError so a render can go on without it,
 and it is drawn in three different inks on three different grounds --
 so a species with no art, or a tint that quietly did nothing, comes out
 as a card that simply has no icon on it. That is invisible to a test
 that only asks whether the card rendered.
 
-See scripts/import_d12ball_species.py, scripts/render_species_icons.py
-and d12ball/species_cards.py.
+See scripts/import_d12ball_species.py and scripts/render_species_icons.py.
 """
 import csv
 import importlib.util
@@ -27,7 +24,6 @@ from pathlib import Path
 
 from PIL import Image
 
-from d12ball.cards import BLEED, CARD_HEIGHT, CARD_WIDTH
 from d12ball.render import (
     SPECIES_ICON_DIR,
     TEAM_COLORS,
@@ -36,12 +32,9 @@ from d12ball.render import (
     species_icon,
 )
 from d12ball.species_cards import (
-    CARD_FACES,
     SPECIES_ORDER,
     SPECIES_TEAM,
     load_species_abilities,
-    render_species_card,
-    render_species_card_set,
 )
 
 
@@ -121,43 +114,6 @@ class SpeciesDataTests(unittest.TestCase):
                     and entry[field][1:2] in ("+", "-", "="),
                     f"{species}.{field} still escaped",
                 )
-
-
-class SpeciesCardTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.abilities = load_species_abilities()
-
-    def test_every_pairing_appears_on_exactly_one_face(self) -> None:
-        faces = [frozenset(pair) for card in CARD_FACES for pair in card]
-        every_pair = {
-            frozenset((a, b))
-            for i, a in enumerate(SPECIES_ORDER)
-            for b in SPECIES_ORDER[i + 1:]
-        }
-        self.assertEqual(len(faces), 6)
-        self.assertEqual(len(set(faces)), 6)
-        self.assertEqual(set(faces), every_pair)
-
-    def test_a_face_is_poker_size(self) -> None:
-        card = render_species_card(self.abilities, ("fire_demon", "cyborg"))
-        self.assertEqual(card.size, (CARD_WIDTH, CARD_HEIGHT))
-
-    def test_bleed_adds_a_trim_margin(self) -> None:
-        card = render_species_card(
-            self.abilities, ("fire_demon", "cyborg"), bleed=True
-        )
-        self.assertEqual(
-            card.size, (CARD_WIDTH + BLEED * 2, CARD_HEIGHT + BLEED * 2)
-        )
-
-    def test_the_set_is_three_double_sided_cards(self) -> None:
-        faces = render_species_card_set(self.abilities)
-        self.assertEqual(len(faces), 6)
-        self.assertEqual(
-            [name for name, _ in faces],
-            ["1-front", "1-back", "2-front", "2-back", "3-front", "3-back"],
-        )
 
 
 class D12BallSpeciesIconTests(unittest.TestCase):

@@ -129,10 +129,8 @@ DEFAULT_PAPER = "tabloid"
 # half tall, which is enough width for the clock only if it runs
 # thirteen cells to a row -- and `CLOCK_COLUMNS` is eight precisely so
 # that halftime lands at the end of a row and each half is two whole
-# bands (see `CLOCK_COLUMNS`, and
-# `test_the_clock_is_the_game_and_the_halves_are_whole_rows`). That is
-# a rule about the track. Turning the sheet costs nothing and keeps it,
-# so the sheet turns.
+# bands (see `CLOCK_COLUMNS`). That is a rule about the track.
+# Turning the sheet costs nothing and keeps it, so the sheet turns.
 JUMBOTRON_PAPER = "letter"
 
 # What a sheet's two halves are, when they are a paper of their own.
@@ -1427,8 +1425,8 @@ class JumbotronGeometry:
     sheet already carrying the field left a cell too small to stand a
     token in. On their own sheet the clock runs rows of eight instead of
     one long row, which is what turns an inch-wide cell into a two-inch
-    one -- `cell_inches` is that measurement, and the suite holds every
-    one of them above `MIN_TOKEN_INCHES`.
+    one -- `cell_inches` is that measurement, and every one of them
+    stays above `MIN_TOKEN_INCHES`.
 
     **The clock is four rows, not two**, since it now runs the whole
     game rather than one period: 00-15 and 15-30, two rows a half with
@@ -1627,8 +1625,7 @@ def cell_inches(
     """
     How big the clock's and the score's cells print. This is the whole
     reason the jumbotron is its own board, so it is a number the CLI
-    reports and the suite asserts rather than something read off a
-    render.
+    reports rather than something read off a render.
 
     """
     geometry = JumbotronGeometry.for_sheet(

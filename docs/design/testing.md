@@ -4,6 +4,13 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 
 ## The test suite
 
+**The print materials have no tests** (the author, 2026-09-23): `box_art.py`,
+`boards.py`, `player_cards.py`, `role_cards.py`, `species_cards.py`,
+`rulebooks.py` and `rulebook_figures.py`. A printed sheet is checked the way
+the bot's board is: render it and look. What the bot itself draws from the
+same art -- the species icons, the bundled files' names -- is still tested,
+since a player sees those without anybody having rendered them first.
+
 **A patch target naming a module is a patch on that module's own binding.**
 This bit both package splits, and bit the cog's hardest: 192 patches of
 `cogs.d12ball.save_games` against six mixins that all save.
