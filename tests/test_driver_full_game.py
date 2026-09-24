@@ -67,8 +67,10 @@ from test_d12ball_driver_actions import LEGAL_ACTIONS, UNANSWERABLE
 #: A seed the dumb policy reaches the shootout on. Swept from 0 and the
 #: first level game kept; see the module docstring. Re-swept when the
 #: six-space board went (2026-09-22 in docs/rules-log.md) and this game
-#: moved to board 7, which is a different game from the first roll.
-SEED = 2
+#: moved to board 7, which is a different game from the first roll, and
+#: again when Smooth stopped reading the spaces the ball passes through
+#: (2026-09-24), which took a Smooth out of seed 2's game.
+SEED = 4
 
 #: More actions than any game takes: thirty-odd minutes a half at one
 #: a turn, a handful of prompts a turn, both halves and a shootout.

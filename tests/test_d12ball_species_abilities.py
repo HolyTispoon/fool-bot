@@ -1543,14 +1543,14 @@ class ChargeUpTests(unittest.TestCase):
 
 class SmoothCandidateTests(unittest.TestCase):
     """
-    **Smooth**: "When your team has possession and the ball moves to
-    or through your space, you may take it over instead."
+    **Smooth**: when your team has possession and the ball comes to
+    rest on your space, you may take it over instead.
 
-    It replaced Slip in on 2026-09-20 and is a different shape: Slip
-    in narrowed *who may take the turn* after a resolution had already
-    left the ball somewhere, where Smooth reads the ball's own path and
-    stops it. So these are `mind_pull_candidates`' tests with the side
-    flipped, not `turn_handler_candidates`' tests.
+    It replaced Slip in on 2026-09-20 and reads the arrival gate, so
+    these are `mind_pull_candidates`' tests with the side flipped, not
+    `turn_handler_candidates`' tests. Since 2026-09-24 it reads only
+    the space the ball arrives at -- Slip in's case -- where the pull
+    reads every space the ball crosses.
     """
 
     def setUp(self) -> None:
@@ -1575,6 +1575,33 @@ class SmoothCandidateTests(unittest.TestCase):
         self.assertEqual(
             self.engine.smooth_candidates(self.game, self.match),
             [self.taker],
+        )
+
+    def test_a_telekinetic_the_ball_only_passes_through_may_not(self):
+        # "Smooth only works when the ball gets to the space, not
+        # through" (the author, 2026-09-24) -- where a pull is offered
+        # on every space the ball crosses.
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        crossed = self.match.board.position_at_flat_index(origin + 1)
+        landing = self.match.board.position_at_flat_index(origin + 2)
+        self.match.board.place_meeple(self.taker, *crossed)
+        self.match.set_ball_space(*landing)
+        self.assertNotIn(
+            self.taker,
+            self.engine.smooth_candidates(self.game, self.match),
+        )
+
+        # The same movement, with the Telekinetic where it lands.
+        self.match.set_ball_space(*self.match.board.position_at_flat_index(
+            origin,
+        ))
+        self.match.board.place_meeple(self.taker, *landing)
+        self.match.set_ball_space(*landing)
+        self.assertIn(
+            self.taker,
+            self.engine.smooth_candidates(self.game, self.match),
         )
 
     def test_the_ball_s_own_starting_space_is_not_moved_to(self):

@@ -113,9 +113,11 @@ def check_for_smooth(
     resume: dict,
 ) -> Optional[StepResult]:
     """
-    Did the ball just move to or through one of its **own** side's
+    Did the ball just come to rest on one of its **own** side's
     Telekinetics, who may take it over? The twin of
-    `check_for_mind_pull`, and the same contract.
+    `check_for_mind_pull`, and the same contract -- though it reads
+    only the space the ball arrives at, where the pull reads every
+    space it crosses (see `RulesEngine.smooth_candidates`).
 
     **It does not spend the path.** `check_for_mind_pull` runs after it
     on the same movement and needs it -- see `check_for_ball_arrival`.
