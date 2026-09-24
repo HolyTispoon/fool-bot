@@ -1105,19 +1105,19 @@ Mind Pull resolves **before** the ball settles [where it comes to rest](#where-t
 
 A successful pull is a [steal](#turnovers): ball speed resets to 1, players run back, and the Telekinetic is the carrier who does not. The maneuver that moved the ball still costs its space minute.
 
-**Smooth.** The other half of the ability, and the same interrupt with the price taken off. **When the Telekinetic's own side has possession and the ball moves to or through their space**, they may take it over: no token, no roll, and it cannot fail. The ball stops on their space and they become the [carrier](#choosing-the-handler).
+**Smooth.** The other half of the ability, with the price taken off. **When the Telekinetic's own side has possession and the ball comes to rest on their space**, they may take it over: no token, no roll, and it cannot fail. The ball stays on their space and they become the [carrier](#choosing-the-handler).
 
-Smooth is read off the ball's path exactly as a pull is, so the same two sentences hold: the ball's own starting space does not count as moved to, and a ball being brought back into play after it has gone dead crosses nobody. Where the ball reaches several of a side's Telekinetics, each is asked in the order it reaches them and the first to take it stops it there.
+**Smooth is offered only where the ball arrives, never on a space it passes through** -- the one place it parts from a pull. A Telekinetic the ball merely crosses on its way somewhere else is offered nothing. The rest of the path reading holds as it does for a pull: the ball's own starting space does not count as moved to, a ball that goes nowhere arrives nowhere, and a ball being brought back into play after it has gone dead reaches nobody. Where several of a side's Telekinetics stand on the space the ball arrives at, each is asked in turn and the first to take it holds it.
 
 **Taking it over means taking it off somebody, so the player the movement is delivering it to is not offered a Smooth.** A [Low Pass](#low-pass) aimed at a Telekinetic, a Telekinetic who catches a [High Pass](#high-pass) or a [Setup Pass](#setup-pass), a Telekinetic who has just taken the ball by [Steal](#steal) or [Intercept](#intercept) -- each of them ends the movement holding the ball anyway, and there is nothing left for the ability to change. A teammate standing on the same space as the intended receiver *is* offered one, and taking it is what makes them the carrier instead.
 
 *Note.* It is the same sentence as the one above about whoever the movement moved, read at the other end: a Smooth is for a ball that was going somewhere else.
 
-**Smooth resolves before the ball settles**, and takes with it whatever the movement was going to lead to -- a reception, a scoring opportunity, a contest, a loose ball. A handler about to be forced into an [own-goal roll](#own-goal) by an overshooting [Double Team](#double-team) is the sharpest case: if their own Telekinetic takes the ball during the shove, the roll never happens and there is no own-goal risk at all.
+**Smooth resolves before the ball settles**, and takes with it whatever the arrival was going to lead to -- a reception, a scoring opportunity, a contest. A Pressure that risks an [own goal](#own-goal) moves the ball nowhere, so it reaches no space and offers no Smooth.
 
 **Smooth is not a [turnover](#turnovers).** Possession never changed hands, so nobody runs back, ball speed is untouched, and the turn simply ends with a different player holding the ball. The one movement Smooth cannot pre-empt is a run back that a turnover has already caused: there the Telekinetic takes the ball over and the run back still happens, with them as the carrier who stays.
 
-**Both halves are asked on one movement, Smooth first.** A ball crossing a Telekinetic of each side offers the possessing side's Smooth before the opposing side's pull, so a side can take its own ball out of the air before an opponent reaches for it. A Smooth that is taken ends the movement and no pull is offered; one that is declined leaves the pull exactly as it was.
+**Both halves are asked on one movement, Mind Pull first.** Every pull the movement offers -- on a space the ball passes through or on the space it lands on -- is offered before the Smooth where it lands. A pull that lands ends the movement and no Smooth is offered; once every pull has been declined or has missed, the Smooth is offered exactly as it would have been.
 
 ### Slimey (Ooze)
 
@@ -1149,7 +1149,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 | --- | --- |
 | Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's gambit), a burn that loses upgrades the opponent's and pays its own gambit's cost, and a blaze that loses pays none. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: drain 3 for +5 on a roll, declared before it. Charge-up: -1 drain for not moving at all during a run back. |
-| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball moves to or through your space -- take it over, free. |
+| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball comes to rest on your space -- take it over, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 
 ## Appendix B. Glossary

@@ -1554,14 +1554,12 @@ def _pending(
         )
 
     if match.pending_smooth:
-        # Ahead of the pull for the reason `check_for_ball_arrival`
-        # asks it first: both are owed on one movement, and a Smooth
-        # that is taken stops the ball short of where the pull would
-        # have reached for it. A restart has to come back to the same
-        # offer the flow was on, so the two orderings are one ordering
-        # written twice -- which is exactly the second copy this file
-        # exists to prevent, and is why the reason is written down
-        # here rather than only in the cog.
+        # The two queues are never both full: `check_for_ball_arrival`
+        # queues every pull on the path first and the Smooth where the
+        # ball lands only once they have drained -- so this branch and
+        # the pull's below could come in either order. The stage a
+        # restart comes back to is read off the queue that is full and
+        # the path (`continue_mind_pull`), not off this order.
         player = engine.get_player_definition(match.pending_smooth[0])
         smooth_emoji = tokens.species(SPECIES_TELEKINETIC)
         return PendingPrompt(

@@ -1595,14 +1595,14 @@ class ChargeUpTests(unittest.TestCase):
 
 class SmoothCandidateTests(unittest.TestCase):
     """
-    **Smooth**: "When your team has possession and the ball moves to
-    or through your space, you may take it over instead."
+    **Smooth**: when your team has possession and the ball comes to
+    rest on your space, you may take it over instead.
 
-    It replaced Slip in on 2026-09-20 and is a different shape: Slip
-    in narrowed *who may take the turn* after a resolution had already
-    left the ball somewhere, where Smooth reads the ball's own path and
-    stops it. So these are `mind_pull_candidates`' tests with the side
-    flipped, not `turn_handler_candidates`' tests.
+    It replaced Slip in on 2026-09-20 and reads the arrival gate, so
+    these are `mind_pull_candidates`' tests with the side flipped, not
+    `turn_handler_candidates`' tests. Since 2026-09-24 it reads only
+    the space the ball arrives at -- Slip in's case -- where the pull
+    reads every space the ball crosses.
     """
 
     def setUp(self) -> None:
@@ -1627,6 +1627,33 @@ class SmoothCandidateTests(unittest.TestCase):
         self.assertEqual(
             self.engine.smooth_candidates(self.game, self.match),
             [self.taker],
+        )
+
+    def test_a_telekinetic_the_ball_only_passes_through_may_not(self):
+        # "Smooth only works when the ball gets to the space, not
+        # through" (the author, 2026-09-24) -- where a pull is offered
+        # on every space the ball crosses.
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        crossed = self.match.board.position_at_flat_index(origin + 1)
+        landing = self.match.board.position_at_flat_index(origin + 2)
+        self.match.board.place_meeple(self.taker, *crossed)
+        self.match.set_ball_space(*landing)
+        self.assertNotIn(
+            self.taker,
+            self.engine.smooth_candidates(self.game, self.match),
+        )
+
+        # The same movement, with the Telekinetic where it lands.
+        self.match.set_ball_space(*self.match.board.position_at_flat_index(
+            origin,
+        ))
+        self.match.board.place_meeple(self.taker, *landing)
+        self.match.set_ball_space(*landing)
+        self.assertIn(
+            self.taker,
+            self.engine.smooth_candidates(self.game, self.match),
         )
 
     def test_the_ball_s_own_starting_space_is_not_moved_to(self):
@@ -2773,9 +2800,16 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         # `finish_maneuver_resolution` gates and then calls
         # `check_for_loose_ball`, which reaches the second gate; the
         # spent path is what stops that asking again.
+        # The path outlives the pull, for the Smooth behind it, and is
+        # spent once the last offer on the movement has been answered.
         with suppressed_cog_saves():
             await finish_maneuver_resolution(self.cog, 
                 self.interaction, self.game, self.match, distance_moved=1,
+            )
+            self.assertNotEqual(self.match.last_ball_path, [])
+            self.match.pending_mind_pull = []
+            await continue_mind_pull(self.cog,
+                self.interaction, self.game, self.match,
             )
         self.assertEqual(self.match.last_ball_path, [])
         self.assertFalse(
@@ -3173,8 +3207,9 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(
             any(isinstance(v, OwnGoalRollView) for v in self.sent_views()),
         )
-        # Spent on the way through, like every other gate.
-        self.assertEqual(self.match.last_ball_path, [])
+        # Left for the Smooth, which is asked after every pull and is
+        # the stage that spends it.
+        self.assertNotEqual(self.match.last_ball_path, [])
 
     async def test_the_shove_really_moved_the_ball_a_space(self):
         # The fixture's own claim, asserted rather than assumed: a
@@ -3247,8 +3282,9 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
 
 class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
     """
-    **The Smooth gate, through the real cog.** Smooth is asked first at
-    every arrival, and a Smooth that is taken pre-empts what the
+    **The Smooth gate, through the real cog.** Smooth is asked where the
+    ball lands, after every pull on its path, and a Smooth that is taken
+    pre-empts what the
     movement was going to lead to -- including, and this is the case
     the author settled on 2026-09-20, the own-goal roll an overshot
     Double Team was about to ask for.
@@ -3323,22 +3359,25 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
             self.match.pending_smooth_resume["kind"], "finish_maneuver",
         )
 
-    async def test_the_smooth_gate_leaves_the_path_for_the_pull(self):
-        # The one mechanical difference between the two gates: the
-        # pull spends the path, Smooth must not, or a movement that
-        # crossed both sides' Telekinetics would offer only the first.
-        self.cross(self.taker)
+    async def test_the_pull_gate_leaves_the_path_for_the_smooth(self):
+        # The pull is asked first and the Smooth where the ball lands
+        # after it, so the pull must not spend the path -- a pull
+        # nobody wanted has to leave the Smooth its movement.
+        opponent = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, self.match.defending_side(),
+        )
+        self.cross(opponent)
         with suppressed_cog_saves():
-            check_for_smooth(
+            check_for_mind_pull(
                 self.cog.engine, self.game, self.match,
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
         self.assertNotEqual(self.match.last_ball_path, [])
 
-    async def test_declining_hands_the_movement_to_the_pull(self):
-        # A Telekinetic of each side on the same crossed space: the
-        # teammate is asked first, and letting it run must still leave
-        # the opponent their roll.
+    async def test_on_the_landing_space_the_pull_goes_first(self):
+        # A Telekinetic of each side where the ball lands: the opponent
+        # is asked first (the author, 2026-09-24), and letting it go
+        # must still leave the teammate their Smooth.
         opponent = fielded_of_species(
             self.match, SPECIES_TELEKINETIC, self.match.defending_side(),
         )
@@ -3349,14 +3388,52 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
             await self.arrive(
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
-            self.match.pending_smooth.remove(self.taker)
-            await continue_smooth(self.cog, 
+            self.assertIn(opponent, self.match.pending_mind_pull)
+            self.assertEqual(self.match.pending_smooth, [])
+
+            self.match.pending_mind_pull = []
+            await continue_mind_pull(self.cog,
                 self.interaction, self.game, self.match,
             )
 
-        self.assertEqual(self.match.pending_mind_pull, [opponent])
+        self.assertEqual(self.match.pending_smooth, [self.taker])
         self.assertTrue(
-            any(isinstance(v, MindPullView) for v in self.sent_views()),
+            any(isinstance(v, SmoothView) for v in self.sent_views()),
+        )
+        self.cog.finish_maneuver_resolution.assert_not_awaited()
+
+    async def test_a_pull_the_ball_passes_first_goes_before_the_smooth(self):
+        # The author, 2026-09-24: an opponent the ball passes on its way
+        # is asked before the teammate where it lands. Only once every
+        # pull is let go is the Smooth offered.
+        opponent = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, self.match.defending_side(),
+        )
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        landing = self.match.board.position_at_flat_index(origin + 2)
+        self.match.board.place_meeple(opponent, *self.crossed)
+        self.match.board.place_meeple(self.taker, *landing)
+        self.match.set_ball_space(*landing)
+
+        with suppressed_cog_saves():
+            await self.arrive(
+                {"kind": "finish_maneuver", "distance_moved": 2},
+            )
+            self.assertIn(opponent, self.match.pending_mind_pull)
+            self.assertEqual(self.match.pending_smooth, [])
+            # The pull stage leaves the path for the Smooth.
+            self.assertNotEqual(self.match.last_ball_path, [])
+
+            self.match.pending_mind_pull = []
+            await continue_mind_pull(self.cog,
+                self.interaction, self.game, self.match,
+            )
+
+        self.assertIn(self.taker, self.match.pending_smooth)
+        self.assertTrue(
+            any(isinstance(v, SmoothView) for v in self.sent_views()),
         )
         self.cog.finish_maneuver_resolution.assert_not_awaited()
 
@@ -3603,10 +3680,15 @@ class MovedWithTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.match.last_ball_movers, [])
 
     async def test_the_gate_clears_them_with_the_path(self):
+        # A movement that offers nobody anything, so the gate runs to
+        # its end: both sides here are Telekinetics, and anyone standing
+        # on the space would be asked first and keep the path alive.
+        for player_id in list(self.match.board.spaces[Zone.MIDFIELD][1]):
+            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
         self.match.last_ball_movers = [self.handler]
         self.match.last_ball_path = [[Zone.MIDFIELD.value, 1]]
         with suppressed_cog_saves():
-            check_for_mind_pull(
+            check_for_ball_arrival(
                 self.cog.engine, self.game, self.match,
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )

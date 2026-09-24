@@ -3158,10 +3158,10 @@ class MatchState:
         The path is cleared with it for the same reason a pull clears
         it: the movement that offered this Smooth is over, and leaving
         it set would offer the ball again at the next arrival point.
-        `pending_mind_pull` is cleared too -- the opposing side's
-        pulls were owed on a movement that no longer ends where it
-        was going to, and `check_for_ball_arrival` asks Smooth first
-        precisely so that this is the only order it can happen in.
+        `pending_mind_pull` is cleared too, although
+        `check_for_ball_arrival` never has both queues full at once:
+        a Smooth is offered only after every pull on the path has been
+        let go or has missed.
         """
         zone, space_index = self.board.meeple_position(player_id)
         self.ball.zone = zone

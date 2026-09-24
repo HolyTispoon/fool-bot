@@ -151,6 +151,57 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-24 (2 of 2) -- author, Mind Pull is asked before Smooth
+
+Asked on the PR that narrowed Smooth, since the narrowing put the two halves on different spaces
+of one movement: should a pull on a space the ball passes still wait behind a Smooth where it
+lands? The author: *"Yes a mind pull on a space the ball passes before it lands should happen
+before smooth where it lands."* Asked then about the landing space, where a Telekinetic of each
+side can stand: *"when did I say smooth go first? mind pull should go first in this case as
+well"*.
+
+**Every pull on the movement is offered before the Smooth**, in the order the ball reaches the
+pullers, the landing space included; the Smooth is offered only once every pull has been
+declined or has missed. This replaces the 2026-09-20 entry "Smooth is asked before Mind Pull"
+below, whose quote (*"smooth goes first"*) the author does not recognise -- it was recorded by
+an earlier session from a chat this repository has no copy of, so it is kept as history and
+marked superseded rather than deleted.
+
+Implemented as two stages of `check_for_ball_arrival`, with the unspent path marking that the
+Smooth is still owed -- no new saved field (see "Smooth" in docs/design/species-abilities.md).
+
+### 2026-09-24 (1 of 2) -- author, Smooth is offered only where the ball arrives
+
+The author: *"Smooth only works when the ball gets to the space, not through. So the gate is
+different from Mind Pull, it's just like the old ability Slip-In that Slimey used to have."*
+
+**The trigger narrows from the ball's whole path to its last space.** Since 2026-09-20 Smooth
+had been read off the path in Mind Pull's own words ("moves to or through your space"), so a
+pass could be taken out of the air by a teammate it merely crossed. It is now offered only to a
+Telekinetic of the side in possession standing on the space the ball comes to rest on -- Slip
+in's case ("when a teammate handling the ball arrives at their space"), with Smooth's offer and
+its prompt. Mind Pull is unchanged and still reads every space the ball crosses.
+
+What carries over unchanged, because nothing in the ruling touches it: the player a movement
+moved is still offered nothing, nor is the player it delivers the ball to (both 2026-09-20);
+a dead ball still reaches nobody; and taking it is still not a turnover. Which of Smooth and a
+pull is asked first on one movement is the entry above.
+
+**One consequence worth saying.** The 2026-09-20 note that a Smooth pre-empts an overshooting
+shove's own-goal roll no longer has a case: the only own-goal risk is a Pressure against a
+handler already on the last space, which moves the ball nowhere, so the ball arrives at no
+space and nobody is offered a Smooth.
+
+Implemented as `RulesEngine.smooth_candidates` reading only the last entry of
+`last_ball_path`, which `ball_path_to` always ends on where the ball lands. The full-game
+driver test's seed and the advanced golden's seed were re-swept, since both played a Smooth
+the ball only passed through.
+
+**Not yet done: the sheet.** The `spec_abilities` tab still reads *"the ball moves to or
+through your space"* for Smooth, so `d12ball/data/species.json` -- regenerated whole by
+`scripts/import_d12ball_species.py`, never hand-edited -- still says it too, and so do the
+printed species cards. Recorded under "Where upstream is behind".
+
 ### 2026-09-23 (later) -- author, Volatile no longer ignites an injury check or an own-goal roll
 
 The author: *"volatile should not affect injury tests or own goals."* Until now every d12 a Fire
@@ -535,6 +586,9 @@ that caused it and not to the turn: a second movement in the same turn finds eve
 again.
 
 ### 2026-09-20 (later) -- author, Smooth is asked before Mind Pull
+
+**Superseded 2026-09-24**: Mind Pull is asked first, and the author does not recognise the quote
+below -- see "Mind Pull is asked before Smooth" above.
 
 Put to the author while building Smooth, because the sheet settles what each half of the
 ability does and says nothing about the race between them. A ball can cross a Telekinetic of
@@ -2602,6 +2656,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | The maneuvers sheet has a "Die value" column, and the component data two head-coach d6s | Maneuvers are chosen from the cards; the selection dice are not part of the rules at all (2026-08-17). The column and `head_coach_dice` are still imported, so a fresh pull rewrites them |
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
 | The maneuvers sheet's `Mode` column reads `basic` / `advanced` | A gambit, on the rank of a basic maneuver. The importer keeps the sheet's word as the tier value, so a fresh pull rewrites it unchanged |
+| Smooth: "the ball moves to or through your space" (the `spec_abilities` tab, and so `species.json` and the printed species cards) | Only where the ball comes to rest -- a Telekinetic it passes through is offered nothing (2026-09-24) |
 
 ---
 

@@ -803,7 +803,9 @@ gate.** "When your team has possession and the ball moves to or through your
 space, you may take it over instead" (the sheet's `spec_abilities` tab,
 2026-09-20). Free, no roll, cannot fail. It replaced **Slip in**, which had
 moved to the Telekinetics from the Oozes only days earlier -- see both
-2026-09-20 entries in [rules-log.md](../rules-log.md).
+2026-09-20 entries in [rules-log.md](../rules-log.md). **Since 2026-09-24 it
+reads only the space the ball arrives at**, not the ones it passes through --
+see "Only where the ball arrives" below.
 
 **The replacement changed the shape, not just the name, and that is the whole
 of this section.** Slip in asked *after* the fact: a resolution had already
@@ -859,30 +861,67 @@ that spends a token on a 1-in-6, or one that simply takes the ball.
     branches, the steal and the intercept), and `select_ball_handler` clears
     it at the top of the turn, so nothing stale reaches the gate.
   - **What it does not take away is the whole point of the ability**: a
-    Telekinetic the ball passes *through* on its way somewhere else, and a
     Telekinetic standing on the landing space beside the player the pass was
-    aimed at. The second is Slip in's own case, which is what Smooth
-    replaced it with.
+    aimed at. That is Slip in's own case, and since 2026-09-24 it is the
+    only one (below).
+
+**Only where the ball arrives (the author, 2026-09-24).** *"Smooth only
+works when the ball gets to the space, not through. So the gate is
+different from Mind Pull, it's just like the old ability Slip-In."* So
+`smooth_candidates` walks `last_ball_path[-1:]` where
+`mind_pull_candidates` walks the whole path. The last entry is always where
+the ball lands -- `ball_path_to` excludes the start and includes the end,
+and `set_ball_space` overwrites the path on every move, so a movement made
+of two calls still ends on the space the ball is standing on -- and an
+empty path (a clamped move, a restart) has no last entry and offers
+nobody anything.
+
+- **It stayed on the arrival gate rather than going back to
+  `turn_handler_candidates`**, although the author named Slip in. What the
+  ruling changed is *which spaces count*, and the rest of what Smooth
+  became on 2026-09-20 -- the prompt, the keeper, the two exclusions, the
+  pre-emption, the restart recovery through `pending_smooth` -- answers
+  the same on the last space as on any other. Moving it back would have
+  been a second change the ruling did not ask for.
+- **The own-goal case is gone rather than guarded.** The only own-goal
+  risk is a Pressure against a handler already on the last space, which
+  moves the ball nowhere, so the path is empty and nobody is asked.
+- **Mind Pull is asked before Smooth, everywhere** (the author,
+  2026-09-24). Once the two read different spaces, the pull on a space the
+  ball passes had to come before the Smooth where it lands; asked about
+  the landing space too, the author answered that the pull goes first
+  there as well, and did not recognise the 2026-09-20 "smooth goes first"
+  entry the earlier order had been built on. So the order follows the
+  ball, and the Smooth is last because the landing space is the last
+  space it reaches.
 
 **`check_for_ball_arrival` is the single gate the five arrival points call**,
-and it runs Smooth then Mind Pull. Two things about that order are
-load-bearing:
+and it runs two stages: every opposing pull on the path, in the order the
+ball reaches them, then the Smooth where it lands. Three things about that
+are load-bearing:
 
-- **Smooth does not spend `last_ball_path`; the pull does.** The pull is the
-  last reader, so it keeps the unconditional `last_ball_path = []` it always
-  had, and Smooth deliberately leaves the path alone -- a Smooth that nobody
-  wanted must still leave the pull its movement. This is the one mechanical
-  difference between the two gate functions and the reason they are not one
-  function with a side argument.
-- **Smooth first is a rules decision, not an ordering convenience**, because
-  either one taken stops the ball and ends the movement. It is written down
-  in three places that must agree -- `check_for_ball_arrival`,
-  `continue_smooth`'s hand-off, and `pending_prompt`'s branch order, which is
-  what a restart comes back to. The sheet does not say; the author
-  settled it on 2026-09-20 (*"smooth goes first"*), and the cost that
-  buys -- an opposing Telekinetic gets no roll at all whenever one of
-  the possessing side's is also on the path -- is recorded with the
-  ruling in [rules-log.md](../rules-log.md).
+- **The order is a rules decision, not an ordering convenience**, because
+  either interrupt taken stops the ball and ends the movement, so whichever
+  is asked first decides whether the other is asked at all. It lives in
+  `check_for_ball_arrival` and `continue_mind_pull`'s drain.
+- **The path is the stage marker, and the Smooth stage spends it.** The
+  pull no longer clears `last_ball_path`; `check_for_smooth` does
+  (`spend_path`) when nobody may take the ball, and `continue_smooth` when
+  its queue drains -- the same unconditional spend the gate always made,
+  moved to the last stage, so a movement still offers nothing twice when
+  two gates run in a row. When the pull queue drains, a path still set
+  means the Smooth is owed; an empty one means the movement is done. That
+  is why this needed **no new saved field**: `last_ball_path` is already
+  in `MATCH_SAVED_FIELDS`, so a restart mid-queue comes back to the same
+  stage. A save from before the change that is paused on a pull had its
+  path already spent and drains straight to its arrival, as it always
+  did; one paused on a **Smooth** offer was built in the old order, and
+  when that Smooth is declined the path is spent without the pulls it
+  would once have handed on to -- a pull lost on one movement of a game
+  that straddles the deploy, accepted rather than given a migration.
+- **The two queues are never full at once**, so `pending_prompt`'s branch
+  order between `pending_smooth` and `pending_mind_pull` no longer carries
+  the rule; the queue that is full, and the path, do.
 
 **A landed Smooth ends the maneuver; it does not run a turnover.** That is
 the one place it parts company with a landed pull, and it falls straight out
@@ -892,10 +931,10 @@ line, and it clears `pending_mind_pull` along with the path -- the opposing
 side's pulls were owed on a movement that no longer ends where it was going.
 
 - **The arrival it pre-empted does not happen**, which is the pull's rule
-  reaching Smooth unchanged, and it is what makes an overshooting Double Team
-  safe: `run_smooth` has no `"own_goal"` branch to read, because "the roll
-  never happens" is just what pre-emption already means (the author,
-  2026-09-20). A rule that needs no code is usually the right rule.
+  reaching Smooth unchanged. `run_smooth` has no `"own_goal"` branch to
+  read: on 2026-09-20 that was because "the roll never happens" is just what
+  pre-emption already means (the author), and since 2026-09-24 an own-goal
+  shove moves the ball nowhere and so is never offered a Smooth at all.
 - **`"run_back"` is the one kind it cannot pre-empt**, and the one branch
   `run_smooth` does carry. `begin_run_back` is not a question about where the
   ball settles -- it is the consequence of a turnover that already happened --

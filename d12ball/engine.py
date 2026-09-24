@@ -658,13 +658,20 @@ class RulesEngine:
     ) -> list[str]:
         """
         **Smooth** (Mind Pull, Telekinetic): the Telekinetics of the
-        side **in possession** that the ball just moved to or through,
-        who may take it over as it passes -- **in the order the ball
-        reached them**, the same ordering a pull is offered in and for
-        the same reason.
+        side **in possession** standing on the space the ball just
+        moved **to**, who may take it over as it arrives.
 
-        The exact twin of `mind_pull_candidates` with two differences,
-        and each is a clause of the rule:
+        The twin of `mind_pull_candidates`, and each difference is a
+        clause of the rule:
+
+        - **The space it comes to rest on, not the ones it passes
+          over.** "Smooth only works when the ball gets to the space,
+          not through" (the author, 2026-09-24) -- Slip in's gate
+          rather than the pull's. So this reads only the last entry of
+          `last_ball_path`, which `ball_path_to` always ends on where
+          the ball lands; a Telekinetic the ball merely crosses is
+          offered nothing, and a movement that goes nowhere (an empty
+          path) offers nobody anything.
 
         - **Your own side, not the opponents'.** "When your team has
           possession" -- so this reads `match.ball.possession` where
@@ -714,7 +721,7 @@ class RulesEngine:
         carrier_id = match.ball_carrier_id
 
         candidates: list[str] = []
-        for zone_value, space_index in match.last_ball_path:
+        for zone_value, space_index in match.last_ball_path[-1:]:
             for player_id in match.board.spaces[Zone(zone_value)][space_index]:
                 if player_id not in ours or player_id in candidates:
                     continue
