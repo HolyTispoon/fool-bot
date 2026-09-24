@@ -143,6 +143,47 @@ class ClickDispatchTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ran, [True])
 
+    async def test_a_view_with_no_game_is_dispatched_without_a_lock(
+        self,
+    ) -> None:
+        """
+        The hub's views belong to no game and set no `game_id`; a click
+        on one used to raise AttributeError before its callback ran.
+        """
+        ran: list[bool] = []
+
+        class Cog:
+            locks = GameLocks()
+
+        class View(SafeView):
+            def __init__(self) -> None:
+                super().__init__(timeout=None)
+                self.cog = Cog()
+
+        async def callback(interaction) -> None:
+            ran.append(True)
+
+        await View()._scheduled_task(_Item(callback), _interaction())
+
+        self.assertEqual(ran, [True])
+        self.assertEqual(Cog.locks._locks, {})
+
+    async def test_the_hub_views_are_dispatched(self) -> None:
+        from cogs.d12ball_views.lobby import HubRolesView, NewGameHubView
+
+        for view_class in (NewGameHubView, HubRolesView):
+            with self.subTest(view=view_class.__name__):
+                ran: list[bool] = []
+                cog = SimpleNamespace(locks=GameLocks())
+                view = view_class(cog)
+
+                async def callback(interaction) -> None:
+                    ran.append(True)
+
+                await view._scheduled_task(_Item(callback), _interaction())
+
+                self.assertEqual(ran, [True])
+
 
 def _interaction() -> SimpleNamespace:
     """The least of a `discord.Interaction` that dispatch touches."""
