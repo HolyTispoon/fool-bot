@@ -893,7 +893,7 @@ A rule in Part II wins over a rule in Part I for a game playing the module it be
 | The skill test adds one challenger's defensive skill ([Law 6](#the-skill-test)) | Under a Double Team it adds both defenders' ([Double Team](#double-team)) | Gambits |
 | A coach chooses from three cards ([Law 6](#choosing-and-revealing)) | A coach who is behind chooses from six, against a challenge ([Law 19](#gambits)) | Gambits |
 | A player is Exhausted when tokens exceed defensive skill ([Law 15](#becoming-exhausted)) | A Cyborg is Drained at 7 or more, whatever their skill ([Lithium Powered](#lithium-powered-cyborg)) | Species |
-| A player who fails an injury check is Injured ([Law 15](#the-injury-check)) | A Cyborg is Damaged, the same condition under their own word ([Lithium Powered](#lithium-powered-cyborg)) | Species |
+| A player who fails an injury check is Injured ([Law 15](#the-injury-check)) | A Cyborg's check is a damage test, and failing it makes them Damaged -- the same check and condition under their own words ([Lithium Powered](#lithium-powered-cyborg)) | Species |
 | Nothing else costs tokens ([Law 15](#gaining-tokens)) | Mind Pull costs 1 and Overdrive 3 ([Mind Pull](#mind-pull-telekinetic), [Lithium Powered](#lithium-powered-cyborg)) | Species |
 | A ball at rest is settled by whoever stands there ([Law 10](#where-the-ball-comes-to-rest)) | A Telekinetic may pull or take a moving ball before it settles ([Mind Pull](#mind-pull-telekinetic)) | Species |
 | A skill test is rolled by two players ([Law 6](#the-skill-test)) | An Ooze on the space who is not rolling adds to their side ([Slimey](#slimey-ooze)) | Species |
@@ -1067,13 +1067,15 @@ Outside a maneuver skill test -- or in a game that took the species abilities wi
 
 **A Cyborg's tokens are drain.** They are gained and spent exactly as exhaustion tokens -- wherever a rule gives or removes an exhaustion token, a Cyborg gains or loses a drain token instead -- but a Cyborg does not become [Exhausted](#becoming-exhausted) on the ordinary threshold.
 
+**Drain** is also the verb: a Cyborg who **drains 2** gains 2 drain tokens. Wherever a rule would give a Cyborg exhaustion tokens, they drain that many instead.
+
 A Cyborg carrying **7 or more** drain is **Drained**, which counts as Exhausted everywhere the rules use that word: the [injury check](#the-injury-check) after a skill test, the halftime [recovery](#recovery) re-test, and anywhere else. Below 7 a Cyborg is never Exhausted, however low their defensive skill.
 
-**A Cyborg who fails an injury check is Damaged, not Injured.** It is the same disadvantage under the Cyborgs' own word -- everywhere the rules say [Injured](#playing-injured), a Damaged Cyborg is meant, and nothing about the check, the disadvantage or the substitution rules differs for them. Only the word (and the token art) is a Cyborg's own.
+**A Cyborg's injury check is a damage test, and a Cyborg who fails it is Damaged, not Injured.** It is the same check and the same disadvantage under the Cyborgs' own words -- everywhere the rules say [injury check](#the-injury-check) or [Injured](#playing-injured), a Cyborg's damage test or a Damaged Cyborg is meant, and nothing about the check, the disadvantage or the substitution rules differs for them. Only the words (and the token art) are a Cyborg's own.
 
-**Overdrive.** Once per roll, *before* the die is thrown, a Cyborg may take **3 drain tokens** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls -- a [skill test](#the-skill-test), a [score attempt](#score-attempt), an [own-goal roll](#own-goal), an [injury check](#the-injury-check), a [contest](#where-the-ball-comes-to-rest) or a [shootout test](#extreme-shootout).
+**Overdrive.** Once per roll, *before* the die is thrown, a Cyborg may **drain 3** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls -- a [skill test](#the-skill-test), a [score attempt](#score-attempt), an [own-goal roll](#own-goal), a [damage test](#the-injury-check), a [contest](#where-the-ball-comes-to-rest) or a [shootout test](#extreme-shootout).
 
-A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven for another 3 drain. A Drained Cyborg may still Overdrive -- the drain stacks. Overdrive is a flat bonus rather than a skill modifier, so a [Damaged](#playing-injured) Cyborg keeps it.
+A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven by draining another 3. A Drained Cyborg may still Overdrive -- the drain stacks. Overdrive is a flat bonus rather than a skill modifier, so a [Damaged](#playing-injured) Cyborg keeps it.
 
 **Charge-up.** Whenever players [run back](#running-back-after-a-steal), a Cyborg who **does not move** removes **1 drain token**. Once per run back, never below zero.
 
@@ -1146,7 +1148,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 | Species | Ability |
 | --- | --- |
 | Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's gambit), a burn that loses upgrades the opponent's and pays its own gambit's cost, and a blaze that loses pays none. |
-| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7, Damaged rather than Injured. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: -1 drain for not moving at all during a run back. |
+| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: drain 3 for +5 on a roll, declared before it. Charge-up: -1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball moves to or through your space -- take it over, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 
@@ -1163,7 +1165,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 | Challenger | [Determining the two players](#determining-the-two-players) |
 | Contest | [The contest](#the-contest) |
 | Coverage | [Occupancy](#occupancy) |
-| Damaged, Drained | [Lithium Powered (Cyborg)](#lithium-powered-cyborg) |
+| Damaged, damage test, drain (verb), Drained | [Lithium Powered (Cyborg)](#lithium-powered-cyborg) |
 | Dead ball, live ball | [Definitions](#definitions) |
 | Exhausted | [Becoming Exhausted](#becoming-exhausted) |
 | Exhaustion token | [The ball, the dice and the tokens](#the-ball-the-dice-and-the-tokens); [gaining tokens](#gaining-tokens) |

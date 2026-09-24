@@ -384,6 +384,17 @@ class RulesEngine:
             return "damaged", tokens.condition(tokens.CONDITION_DAMAGED)
         return "injured", tokens.condition(tokens.CONDITION_INJURED)
 
+    def injury_test_name(self, game: D12BallGame, player_id: str) -> str:
+        """
+        What this player's injury check is called: a Cyborg's is a
+        **damage test**, since what it risks is Damaged (the author,
+        2026-09-23). The same check under the Cyborgs' own word, like
+        the other three `drain_wording` answers.
+        """
+        if self.drain_wording(game, player_id):
+            return "damage test"
+        return "injury test"
+
     def describe_exhaustion_gain(
         self,
         game: D12BallGame,
@@ -406,11 +417,15 @@ class RulesEngine:
         # coach reads them -- the mechanic is the same and the word is
         # the ability. See "Lithium Powered" in docs/living-rules.md.
         noun, exhaust_emoji = self.token_word_and_mark(game, player_id)
+        drain = self.drain_wording(game, player_id)
         if player_id in match.injured:
             out_word, out_emoji = self.injured_word_and_mark(game, player_id)
+            gains_nothing = (
+                "does not drain" if drain else f"gains no {noun} tokens"
+            )
             return (
                 f"{self.format_player_label(match, player)} is {out_word} "
-                f"{out_emoji} and gains no {noun} tokens."
+                f"{out_emoji} and {gains_nothing}."
             )
         if amount <= 0:
             # Nothing to say, and the silence is the answer (the
@@ -428,12 +443,19 @@ class RulesEngine:
         # theirs (`token_word_and_mark`): the card draws a Cyborg's
         # tally in teal (`render.draw_exhaustion_badge`), and the same
         # tokens in two colours would read as two different costs.
+        #
+        # A Cyborg *drains*: "drain 2" is two drain tokens gained, one
+        # verb where everybody else gains a noun (the author,
+        # 2026-09-23).
         total = match.exhaustion.get(player_id, 0)
         token_word = "token" if amount == 1 else "tokens"
+        gained = (
+            f"drains {amount}" if drain
+            else f"gains {amount} {noun} {token_word}"
+        )
         text = (
-            f"{self.format_player_label(match, player)} gains {amount} "
-            f"{noun} {token_word} {exhaust_emoji * amount} (now {total} "
-            "total)."
+            f"{self.format_player_label(match, player)} {gained} "
+            f"{exhaust_emoji * amount} (now {total} total)."
         )
 
         if self.retest_exhausted(game, match, player_id):

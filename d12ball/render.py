@@ -2678,6 +2678,7 @@ def render_injury_test_die(
     safe: bool,
     overdriven: bool = False,
     injured_word: str = "injured",
+    title: str = INJURY_TEST_TITLE,
 ) -> BytesIO:
     """
     Render an injury test as one small d12 -- the same size as a skill
@@ -2696,7 +2697,8 @@ def render_injury_test_die(
 
     `injured_word` is the caller's answer to what a failed check makes
     this player -- "damaged" for a Cyborg -- so the verdict is theirs
-    and never decided here.
+    and never decided here; `title` is the same for what the check is
+    called -- "DAMAGE TEST" for a Cyborg.
     """
     verdict = "SAFE" if safe else injured_word.upper()
     verdict_color = (
@@ -2742,7 +2744,7 @@ def render_injury_test_die(
     draw = ImageDraw.Draw(canvas)
 
     draw_title_across(
-        draw, width, INJURY_TEST_TITLE_TOP, INJURY_TEST_TITLE,
+        draw, width, INJURY_TEST_TITLE_TOP, title,
         FONT_DICE_TOTAL, "#ffffff",
     )
     if overdriven:

@@ -1439,8 +1439,8 @@ def declare_overdrive_step(
     return StepResult(
         narration=[
             f"⚡ **Overdrive** — "
-            f"{engine.format_player_label(match, player)} takes "
-            f"{OVERDRIVE_DRAIN_COST} drain for "
+            f"{engine.format_player_label(match, player)} drains "
+            f"{OVERDRIVE_DRAIN_COST} for "
             f"+{OVERDRIVE_BONUS} on this roll."
         ],
         next=prompt,

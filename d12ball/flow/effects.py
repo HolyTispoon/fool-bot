@@ -2145,13 +2145,18 @@ def offer_dribble_burst(
             dribble_burst_step(engine, game, match, 0), lead_in,
         )
 
-    noun, _ = engine.token_word_and_mark(game, match.active_player_id)
+    # "Drain 1" is a Cyborg's word for gaining a drain token.
+    cost = (
+        "drain 1"
+        if engine.drain_wording(game, match.active_player_id)
+        else "1 exhaustion token"
+    )
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.DRIBBLE_BURST_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose your "
-            f"Dribble Burst distance (1 {noun} token a space):",
+            f"Dribble Burst distance ({cost} a space):",
         ),
     )
 

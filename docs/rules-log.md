@@ -151,6 +151,22 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-23 -- author, a Cyborg's injury check is a damage test, and "drain" is a verb
+
+Two words, no mechanic. The author: *"in advanced mode the test to see if a Cyborg gets damaged
+should be called a damage test instead of an injury test"*, and a Cyborg no longer "gains
+drain": *"if it says 'drain 2' it means that the cyborg gains 2 drain tokens"*.
+
+- **The damage test is the injury check under the Cyborgs' own word**, completing the set
+  Drained (2026-09-06) and Damaged (2026-09-19) started: a Cyborg who is Drained takes a damage
+  test and, failing it, is Damaged. Same roll, same target, same Overdrive. Gated exactly as the
+  other two words are -- species abilities on, the player a Cyborg.
+- **"Drain N" means N drain tokens gained.** Overdrive is now *drain 3 for +5*, and the bot
+  says a Cyborg *drains 2* where it said *gains 2 drain tokens*. Losing drain is unchanged
+  wording -- Charge-up and halftime still remove drain tokens; the verb is only for gaining.
+- **Upstream is behind** on the second: the sheet's Lithium Powered text still reads *"can gain 3
+  drain tokens"* and *"3 drain -> +5"*, and `species.json` is never edited by hand.
+
 ### 2026-09-22 (newest) -- author, the second half starts at 15 rather than 16
 
 **A rule changed.** *"Halftime should start at 15, not 16"* (the author). The clock's two
@@ -2529,6 +2545,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | "Place the ball ... on the space 3 of the home team" | The kickoff space, by board size |
 | Cleanup restarts "from the middle (back of the midfield)" | The same kickoff space rule, for every restart |
 | "Clash" / "clash roll" | Skill test |
+| Lithium Powered: "can gain 3 drain tokens to add +5", "3 drain → +5" (the sheet) | Drain 3 for +5 -- *drain* is the verb for gaining drain |
 | A score attempt's "each player rolls a d12" | Exactly two dice, one per coach; the defence sums intervening meeples |
 | Every meeple in the way adds its whole defensive skill | Full on the ball's own space, half rounded up beyond it |
 | Nothing about what a score attempt costs | Nothing for a plain attempt; 1 token to a shooter off a set-up, after the roll |

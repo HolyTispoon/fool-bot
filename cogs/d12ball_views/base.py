@@ -501,7 +501,7 @@ class SafeView(discord.ui.View):
             button = discord.ui.Button(
                 label=(
                     f"⚡ Overdrive: {player_with_role(player)} "
-                    f"({OVERDRIVE_DRAIN_COST} drain, +{OVERDRIVE_BONUS})"
+                    f"(drain {OVERDRIVE_DRAIN_COST}, +{OVERDRIVE_BONUS})"
                 )[:80],
                 style=discord.ButtonStyle.secondary,
                 # The player is in the custom_id as well as the match's
