@@ -136,7 +136,9 @@ finished showing what came back. The Discord half takes it in
 `SafeView._scheduled_task`, which overrides discord.py's own click
 dispatch because that is the only place a callback can be wrapped
 (`interaction_check` runs before it and cannot hold anything across
-it); `tests/test_game_locks.py` ratchets that the method being
+it); a view that belongs to no game -- the hub's two -- takes no lock,
+since there is nothing to order its click against;
+`tests/test_game_locks.py` ratchets that the method being
 overridden still exists.
 
 ## What a page is handed

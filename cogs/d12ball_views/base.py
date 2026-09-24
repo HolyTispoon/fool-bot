@@ -97,8 +97,13 @@ class SafeView(discord.ui.View):
     Every subclass carries `self.cog` and `self.game_id`, set in
     `__init__` before anything below is ever called -- that is what
     lets `load_match`/`require_match` read them rather than take them
-    as parameters.
+    as parameters. The two hub views (`NewGameHubView`, `HubRolesView`)
+    belong to no game, since a lobby does not exist yet; they leave
+    `game_id` at the class default of None.
     """
+
+    # None on a view that belongs to no game -- the hub's.
+    game_id: Optional[str] = None
 
     # Whether a game helper's click for somebody else is put behind a
     # confirmation before it acts. True for every view in a game;
@@ -135,10 +140,12 @@ class SafeView(discord.ui.View):
         rather than quietly leaving every click unordered.
 
         A cog that is a test double holds nothing: there is no game
-        loop to order against.
+        loop to order against. Neither does a view with no game (the
+        hub's two): there is no game for its click to be ordered
+        against, and the lobby it opens is a new one.
         """
         locks = getattr(self.cog, "locks", None)
-        if not isinstance(locks, GameLocks):
+        if not isinstance(locks, GameLocks) or self.game_id is None:
             await super()._scheduled_task(item, interaction)
             return
         async with locks.hold(self.game_id):
