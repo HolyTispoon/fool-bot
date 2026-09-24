@@ -58,7 +58,7 @@ CHOICE_LABELS: Mapping[str, str] = {
     "maneuver": "Maneuver",
     "time_out": "Call a time out",
     "take": "Take it",
-    "decline": "Let it go",
+    "decline": "Pass",
     "declare": "Coach",
 
     "roll": "Roll",

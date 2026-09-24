@@ -88,8 +88,8 @@ Ball is now 7, Fire Demons (Visiting) has possession. Time has advanced 1, now a
 
 ## **Low Pass** succeeds!
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Noxar [SK], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 11: MindPullView -> 'Noxar [SK] reaches for it'
+The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 11: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
 🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
@@ -113,8 +113,8 @@ You chose **Pressure**.
 
 ## **Low Pass** wins!
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Zenith [WG], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 13: MindPullView -> 'Zenith [WG] reaches for it'
+The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 13: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
 🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 1 total).
@@ -138,20 +138,20 @@ You chose **Steal**.
 
 ## **High Pass** wins!
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Quillon [PM], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 15: MindPullView -> 'Quillon [PM] reaches for it'
+The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 15: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Quillon [PM] reaches for the ball.
 🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 2 total).
 The ball slips past them.
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Spectra [MF], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 16: MindPullView -> 'Let it go'
+The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 16: MindPullView -> 'Pass'
 --- message
 🔮 Spectra [MF] lets the ball go past.
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Dravox [DD], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 17: MindPullView -> 'Dravox [DD] reaches for it'
+The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 17: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
 🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
@@ -198,8 +198,8 @@ Either player can roll:
 --- message
 ## **Low Pass** wins the skill test!
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Umbrik [FB], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 21: MindPullView -> 'Umbrik [FB] reaches for it'
+The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 21: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Umbrik [FB] reaches for the ball.
 🔮 Umbrik [FB] gains 1 exhaustion token 😮‍💨 (now 1 total).
@@ -462,8 +462,8 @@ You chose **Skilled Pass**.
 
 ## **Steal** wins!
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Dravox [DD], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 45: MindPullView -> 'Dravox [DD] reaches for it'
+The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 45: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
 🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 5 total).
@@ -480,8 +480,8 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 --- message
 Ball speed is now **2**.
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Umbrik [FB], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 46: MindPullView -> 'Let it go'
+The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 46: MindPullView -> 'Pass'
 --- message
 🔮 Umbrik [FB] lets the ball go past.
 --- message
@@ -533,8 +533,8 @@ You chose **Skilled Pass**.
 
 ## **Steal** wins!
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Zenith [WG], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 51: MindPullView -> 'Zenith [WG] reaches for it'
+The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 51: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
 🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 2 total).
@@ -554,13 +554,13 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 --- message
 Ball speed is now **4**.
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Quillon [PM], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 52: MindPullView -> 'Let it go'
+The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 52: MindPullView -> 'Pass'
 --- message
 🔮 Quillon [PM] lets the ball go past.
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Spectra [MF], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 53: MindPullView -> 'Spectra [MF] reaches for it'
+The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 53: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
 🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 1 total).
@@ -742,8 +742,8 @@ Either player can roll:
 --- message
 ## **Clear** wins the skill test!
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Zenith [WG], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 70: MindPullView -> 'Let it go'
+The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 70: MindPullView -> 'Pass'
 --- message
 🔮 Zenith [WG] lets the ball go past.
 --- message
@@ -811,8 +811,8 @@ You chose **Clear**.
 --- message
 Ball speed is now **6**.
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Dravox [DD], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 75: MindPullView -> 'Dravox [DD] reaches for it'
+The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 75: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
 🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 8 total).
@@ -836,8 +836,8 @@ You chose **Intercept**.
 
 ## **High Pass** wins!
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Umbrik [FB], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 77: MindPullView -> 'Umbrik [FB] reaches for it'
+The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 77: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Umbrik [FB] reaches for the ball.
 🔮 Umbrik [FB] gains 1 exhaustion token 😮‍💨 (now 2 total).
