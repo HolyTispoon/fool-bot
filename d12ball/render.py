@@ -374,14 +374,16 @@ _MEEPLE_LABEL_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
 # -- the same piece the box art and the sale sheet stand on the printed
 # board. It fills the width of the 76px square the disc filled and
 # stands on its floor, so the rows, the ball and the names are placed
-# exactly as they were. The icon and the initials sit on the body,
-# where the piece is wide enough for them; the three heights below are
-# in the path's own units (see meeple_y).
+# exactly as they were. The initials sit on the body, where the piece
+# is wide enough for them, and the icon over them with its top across
+# the neck into the head (the author, 2026-09-25), which keeps it clear
+# of the initials; the three heights below are in the path's own units
+# (see meeple_y) -- the neck is at about -17.5.
 MEEPLE_SIZE = 76
 MEEPLE_SPECIES_ICON_SIZE = 24
 MEEPLE_OUTLINE_WIDTH = 3
-MEEPLE_ICON_CENTER = -6.0
-MEEPLE_ROLE_CENTER = 10.0
+MEEPLE_ICON_CENTER = -11.0
+MEEPLE_ROLE_CENTER = 9.0
 MEEPLE_SOLO_CENTER = 4.0
 BALL_RADIUS = 27
 # Where the two rows of meeples sit on the board. The visiting row's
