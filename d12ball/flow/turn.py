@@ -854,12 +854,8 @@ def begin_maneuver_skill_test(
     )
     offense_player = engine.get_player_definition(match.active_player_id)
     defense_player = engine.get_player_definition(match.challenger_id)
-    offense_skill = engine.player_catalog.effective_profile(
-        offense_player,
-    ).offense
-    defense_skill = engine.player_catalog.effective_profile(
-        defense_player,
-    ).defense
+    offense_skill = engine.skills(game, offense_player.player_id).offense
+    defense_skill = engine.skills(game, defense_player.player_id).defense
 
     prefix = f"{lead_in}\n\n" if lead_in else ""
     return StepResult(

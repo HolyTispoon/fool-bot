@@ -551,9 +551,10 @@ class WebApp:
         """
         One player's card, read-only. `face=board` is the face the
         bot's board draws (the default); `face=full` is the printed
-        card with the whole ability on it -- its advanced face in a
-        game with the species abilities on, which is the card a coach
-        in that game is holding.
+        card with the whole ability on it -- its advanced face in an
+        advanced game (`personal_abilities_apply`: the personal ability
+        and the advanced skills are that face), which is the card a
+        coach in that game is holding.
         """
         game = self._game(request)
         match = self._match(game)
@@ -579,7 +580,11 @@ class WebApp:
             if not 0 <= exhaustion <= 20:
                 raise web.HTTPBadRequest(text="No card carries that many.")
             exhausted, injured, cyborg = flags
-            key = ("board", card_id, team, exhaustion, *flags)
+            # The skills an advanced game prints, answered off the
+            # game rather than the request (`RulesEngine.card_skills`).
+            skills = self.engine.card_skills(game, match)
+            printed = skills.get(card_id)
+            key = ("board", card_id, team, exhaustion, *flags, printed)
             draw = lambda: pictures.board_card_png(  # noqa: E731
                 catalog,
                 card_id,
@@ -588,9 +593,10 @@ class WebApp:
                 exhausted=exhausted,
                 injured=injured,
                 cyborg=cyborg,
+                card_skills=skills,
             )
         else:
-            advanced = self.engine.species_abilities_apply(game)
+            advanced = self.engine.personal_abilities_apply(game)
             key = ("full", card_id, team, advanced)
             draw = lambda: pictures.player_card_png(  # noqa: E731
                 catalog, card_id, team, advanced=advanced, size="full",
@@ -725,6 +731,7 @@ class WebApp:
             title=self._title(game, match),
             species_icons=self.engine.species_abilities_apply(game),
             cyborg_ids=self.engine.cyborg_condition_ids(game, match),
+            card_skills=self.engine.card_skills(game, match),
         ).getvalue()
 
     # -- What a page is handed ---------------------------------------

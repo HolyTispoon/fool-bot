@@ -59,7 +59,6 @@ from d12ball.formatting import (
     travel_space_phrase,
 )
 from d12ball.game import (
-    ADVANCED_MODULES,
     AIOpponent,
     COLOR_TEAMS,
     CoinFace,
@@ -986,54 +985,43 @@ async def get_or_create_category(
     return await guild.create_category(name=name, reason=reason)
 
 
-# -- The two halves of advanced mode -------------------------------
+# -- The three modes ----------------------------------------------
 #
-# Advanced mode is one switch over two modules -- the advanced
-# maneuvers and the species abilities -- and a game may take just one
-# of them (see "Species abilities in the bot"). The switch is what a
-# coach picks; these are what an advanced game leaves behind, which is
-# why they are opt-*outs* on the game record and why nothing here is
-# offered in a basic game.
-#
-# The table, `ADVANCED_MODULES`, is the record's (`d12ball/game.py`)
-# and re-exported here: keyed by the word a button carries in its
-# custom_id, naming the field it toggles and what a coach reads on the
-# button. Both the setup settings block and the lobby build their
-# buttons out of it and toggle through `GameService.configure`, so the
-# two screens cannot come to offer different modules or disagree about
-# which of them may be turned off -- that rule is
-# `D12BallGame.toggle_advanced_module`'s.
-#
-# What each half is, for the setup and lobby messages -- a button
-# reading "Gambits: on" says which half is on and nothing about what
-# it does.
-ADVANCED_MODULE_DESCRIPTIONS: dict[str, str] = {
-    "maneuvers": "a gambit on every rank",
-    "species": "species abilities",
-}
-
-
-def advanced_module_label(game: D12BallGame, key: str) -> str:
-    field, name = ADVANCED_MODULES[key]
-    return f"{name}: {'on' if getattr(game, field) else 'off'}"
+# Training, basic and advanced, in the order each adds to the one
+# before it (2026-09-25; see "Modes" in
+# docs/design/species-abilities.md). The setup settings block and the
+# lobby both build their mode row out of this, so the two screens
+# cannot come to offer different modes or word them differently.
+GAME_MODE_BUTTONS: tuple[tuple[str, GameMode], ...] = (
+    ("Training", GameMode.TRAINING),
+    ("Basic", GameMode.BASIC),
+    ("Advanced", GameMode.ADVANCED),
+)
 
 
 def describe_game_mode(game: D12BallGame) -> str:
     """
-    What this game's mode means, in the coach's own terms: the cards a
-    basic game deals, and for an advanced one the modules it is
-    actually playing. Read off the modules rather than off the mode
-    alone, or a game that opted the maneuvers out would still be
-    advertised as six cards a side.
+    What this game's mode means, in the coach's own terms: the cards it
+    deals and the abilities it plays. Read off the record's opt-outs as
+    well as the mode, so an advanced game saved with a module turned off
+    (before 2026-09-25) is not advertised as playing it -- the same
+    reading `RulesEngine.gambits_apply` and `species_abilities_apply`
+    make.
     """
-    if game.mode == GameMode.BASIC:
-        return "three maneuvers a side"
-
-    return ", ".join(
-        description
-        for key, description in ADVANCED_MODULE_DESCRIPTIONS.items()
-        if getattr(game, ADVANCED_MODULES[key][0])
+    gambits = game.mode == GameMode.ADVANCED and game.advanced_maneuvers
+    species = (
+        game.mode != GameMode.TRAINING
+        and game.species_abilities
+        and not game.tutorial
     )
+    parts = [
+        "a gambit on every rank" if gambits else "three maneuvers a side",
+    ]
+    if species:
+        parts.append("species abilities")
+    if game.mode == GameMode.ADVANCED and not game.tutorial:
+        parts.append("personal abilities")
+    return ", ".join(parts)
 
 
 def build_setup_message(

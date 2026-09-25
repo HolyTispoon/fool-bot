@@ -41,6 +41,7 @@ from d12ball.render import (
     FONT_SMALL,
     FONT_TOKEN_ROLE,
     FONT_TOKEN_SOLO,
+    card_profile,
     MEEPLE_ICON_CENTER,
     MEEPLE_OUTLINE_WIDTH,
     MEEPLE_PATH,
@@ -125,13 +126,14 @@ def board_layout(
     """
     board = match.board
     cyborgs = engine.cyborg_condition_ids(game, match)
+    skills = engine.card_skills(game, match)
     catalog = engine.player_catalog
     home_ids = set(match.home.field_players)
     visiting_ids = set(match.visiting.field_players)
 
     def card(card_id: str) -> dict:
         player = catalog.player_by_id(card_id)
-        profile = catalog.effective_profile(player)
+        profile = card_profile(catalog, player, skills)
         team = match.team_for_player(card_id)
         return {
             "id": card_id,
@@ -145,6 +147,9 @@ def board_layout(
                 f"&e={int(card_id in match.exhausted)}"
                 f"&i={int(card_id in match.injured)}"
                 f"&c={int(card_id in cyborgs)}"
+                # The skills it prints, so a card whose numbers change
+                # is a new address rather than a browser's old copy.
+                f"&s={profile.offense}-{profile.defense}"
             ),
             "exhaustion": match.exhaustion.get(card_id, 0),
             "exhausted": card_id in match.exhausted,

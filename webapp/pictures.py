@@ -3,8 +3,9 @@ The pictures a page draws the game with, other than the board's own
 layout: the player cards, the maneuver cards and the bot's emoji.
 
 **Every one is the model's own drawing**, never a second one. A player
-card is `player_cards.render_player_card` (its advanced face,
-`render_player_card_back`, in a game with the species abilities on),
+card on the board is `render.draw_card`, and the printed card it
+opens as is `player_cards.render_player_card` (its advanced face,
+`render_player_card_back`, in an advanced game),
 a maneuver card is `cards.render_maneuver_card`, and the role badges,
 team marks and condition marks are the PNGs the bot uploads as its
 application emoji. A page that drew its own card would be a third
@@ -12,8 +13,9 @@ layout to keep right beside the printed one and the board's -- see
 docs/design/cards.md, "One layout for print and Discord".
 
 Nothing here reads a rule. What a card *is* is the catalog's; which
-face a game shows is `RulesEngine.species_abilities_apply`, asked by
-the caller. Pillow is CPU-bound, so every render is the caller's to
+face a game shows is `RulesEngine.personal_abilities_apply`, and
+which skills a board card prints is `RulesEngine.card_skills`, both
+asked by the caller. Pillow is CPU-bound, so every render is the caller's to
 put in a worker thread (`asyncio.to_thread`), as every render on
 Discord is.
 """
@@ -22,7 +24,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import Mapping, Optional
 
 from PIL import Image, ImageDraw
 
@@ -35,6 +37,7 @@ from d12ball.render import (
     BOARD_TOP,
     CARD_SIZE,
     GOAL_ZONE_WIDTH,
+    card_profile,
     draw_card,
     draw_end_zone,
 )
@@ -101,6 +104,7 @@ def board_card_png(
     exhausted: bool,
     injured: bool,
     cyborg: bool,
+    card_skills: Mapping[str, tuple[int, int]],
 ) -> bytes:
     """
     A player's card exactly as the bot's board draws it:
@@ -110,6 +114,8 @@ def board_card_png(
     Damaged) in its slot on the same row. Those are measured per card
     off the card's own fonts, which is why the page is handed this
     picture rather than laying the marks over a bare card itself.
+    `card_skills` is `RulesEngine.card_skills`, the skills an advanced
+    game prints in place of the role's, read by `render.card_profile`.
     """
     player = catalog.player_by_id(card_id)
     width, height = CARD_SIZE
@@ -120,7 +126,7 @@ def board_card_png(
         canvas,
         ImageDraw.Draw(canvas),
         player,
-        catalog.effective_profile(player),
+        card_profile(catalog, player, card_skills),
         CARD_FRAME,
         CARD_FRAME,
         team,

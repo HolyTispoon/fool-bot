@@ -161,7 +161,9 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(card["exhaustion"], 2)
         self.assertTrue(card["injured"])
         # The picture is drawn with the marks, so its address says them.
-        self.assertEqual(card["image"], f"/card/{card_id}.png?x=2&e=0&i=1&c=0")
+        self.assertTrue(
+            card["image"].startswith(f"/card/{card_id}.png?x=2&e=0&i=1&c=0&s="),
+        )
 
 
 class StyleTests(unittest.TestCase):

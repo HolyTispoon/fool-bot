@@ -53,6 +53,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
 from d12ball.components import (
+    OVERDRIVE_DRAIN_COST,
     SPECIES_TELEKINETIC,
     MatchState,
     PlayerRole,
@@ -397,6 +398,11 @@ class DistanceOptions:
     #: play, answered with no distance at all. Said outright rather
     #: than left for a frontend to infer from an empty list.
     may_pass_out: bool = False
+    #: Quantor (Law 21): the teammate who may drain 3 to run onto this
+    #: pass, and the distances they may run onto -- answered with the
+    #: distance and `runner=True`. See `RulesEngine.pass_runner`.
+    runner_id: Optional[str] = None
+    runner_distances: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -404,6 +410,8 @@ class DistanceOptions:
             "distances": list(self.distances),
             "railed": self.railed,
             "may_pass_out": self.may_pass_out,
+            "runner_id": self.runner_id,
+            "runner_distances": list(self.runner_distances),
         }
 
 
@@ -535,11 +543,26 @@ class RollOptions:
     overdrive_player_ids: tuple[str, ...]
     back: bool = False
     back_railed: bool = False
+    # Gearclaw's Boost (Law 21): who may declare one on this roll.
+    boost_player_ids: tuple[str, ...] = ()
+    # What each offered Overdrive drains, `(player_id, drain)` -- 3,
+    # or Voltus's 2 -- so a button's label is the prompt's number and
+    # not a second reading of the rule.
+    overdrive_costs: tuple[tuple[str, int], ...] = ()
+
+    def overdrive_cost(self, player_id: str) -> int:
+        return dict(self.overdrive_costs).get(
+            player_id, OVERDRIVE_DRAIN_COST,
+        )
 
     def to_dict(self) -> dict:
         return {
             "shape": "roll",
             "overdrive_player_ids": list(self.overdrive_player_ids),
+            "boost_player_ids": list(self.boost_player_ids),
+            "overdrive_costs": {
+                player_id: cost for player_id, cost in self.overdrive_costs
+            },
             "back": self.back,
             "back_railed": self.back_railed,
         }
@@ -1059,10 +1082,7 @@ def speed_choice_ask(
     `maneuver_action_ask`'s reason: the tutorial holds this one behind
     a note too.
     """
-    skill = engine.player_catalog.effective_profile(
-        engine.get_player_definition(player_id),
-    )
-    skill_value = skill.offense if skill_type == "offense" else skill.defense
+    skill_value = engine.skills(game, player_id).of(skill_type)
     mention = address_coach(
         engine.controlling_player_number(game, match, player_id),
     )
@@ -1897,7 +1917,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     # own third, below, because a declared shot can also be walked
     # back.
     **{
-        kind: ("roll", "overdrive")
+        kind: ("roll", "overdrive", "boost")
         for kind in ROLL_KINDS
     },
     PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
@@ -1911,7 +1931,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.COACHING_HUB: (
         "formation", "substitute", "swap", "reposition", "done",
     ),
-    PromptKind.SCORE_ATTEMPT: ("roll", "back", "overdrive"),
+    PromptKind.SCORE_ATTEMPT: ("roll", "back", "overdrive", "boost"),
 }
 
 
@@ -1942,13 +1962,31 @@ def _roll_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> RollOptions:
-    return RollOptions(
-        overdrive_player_ids=tuple(
-            engine.overdrive_candidates(
-                game, match, overdrive_rollers(match, prompt),
-            ),
+    return RollOptions(**_declarations(engine, game, match, prompt))
+
+
+def _declarations(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> dict:
+    """
+    The declarations a roll prompt offers before its die: Overdrive,
+    with what each drains, and Gearclaw's Boost.
+    """
+    rollers = overdrive_rollers(match, prompt)
+    overdrives = tuple(engine.overdrive_candidates(game, match, rollers))
+    return {
+        "overdrive_player_ids": overdrives,
+        "boost_player_ids": tuple(
+            engine.boost_candidates(game, match, rollers),
         ),
-    )
+        "overdrive_costs": tuple(
+            (player_id, engine.overdrive_cost(game, player_id))
+            for player_id in overdrives
+        ),
+    }
 
 
 def _score_attempt_options(
@@ -2195,7 +2233,13 @@ def _high_pass_options(
     prompt: PendingPrompt,
 ) -> DistanceOptions:
     distances = tuple(engine.high_pass_distance_options(match))
-    return DistanceOptions(distances, _railed(game, "high_pass", distances))
+    runner_id, runner_distances = engine.pass_runner(game, match, distances)
+    return DistanceOptions(
+        distances,
+        _railed(game, "high_pass", distances),
+        runner_id=runner_id,
+        runner_distances=runner_distances,
+    )
 
 
 def _setup_pass_options(
@@ -2207,7 +2251,13 @@ def _setup_pass_options(
     # Empty is the card's one way out of play: a pass with nowhere to
     # go, which the answer sends with no distance at all.
     distances = tuple(engine.setup_pass_distances(match))
-    return DistanceOptions(distances, may_pass_out=not distances)
+    runner_id, runner_distances = engine.pass_runner(game, match, distances)
+    return DistanceOptions(
+        distances,
+        may_pass_out=not distances,
+        runner_id=runner_id,
+        runner_distances=runner_distances,
+    )
 
 
 
@@ -2218,7 +2268,9 @@ def _speed_options(
     prompt: PendingPrompt,
 ) -> SpeedOptions:
     targets = tuple(
-        engine.speed_targets(match, prompt.player_id, prompt.skill_type),
+        engine.speed_targets(
+            match, prompt.player_id, prompt.skill_type, game,
+        ),
     )
     # The tutorial's speed rail is "take the highest offered" -- the
     # cap is the stealer's own defensive skill, so the script cannot
@@ -2232,7 +2284,10 @@ def _dribble_advance_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> DistanceOptions:
-    return DistanceOptions((1, 2), _railed(game, "dribble_advance", (1, 2)))
+    distances = engine.dribble_advance_distances(game, match)
+    return DistanceOptions(
+        distances, _railed(game, "dribble_advance", distances),
+    )
 
 
 def _dribble_burst_options(

@@ -616,7 +616,7 @@ def species_figure() -> Image.Image:
     width = 1800
     canvas = Image.new("RGB", (width, TITLE_BAND + len(entries) * row_h + 40), FACE_COLOR)
     draw = ImageDraw.Draw(canvas)
-    draw_title(draw, "Figure 15 - The four species (advanced mode)", width)
+    draw_title(draw, "Figure 15 - The four species (basic and advanced mode)", width)
     name_font = render.load_font(38, bold=True)
     text_font = render.load_font(30)
     y = TITLE_BAND + 30

@@ -41,7 +41,7 @@ side is only ever "insert `.engine`" at each call site.
 
 import random
 from collections.abc import Collection
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 from d12ball.ai import AIStrategy
@@ -54,6 +54,8 @@ from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
     CYBORG_DRAINED_AT,
+    MIND_PULL_SUCCESS_FACES,
+    MIND_PULL_TOKEN_COST,
     OVERDRIVE_BONUS,
     OVERDRIVE_DRAIN_COST,
     SETUP_AREAS,
@@ -76,6 +78,7 @@ from d12ball.components import (
     TeamSetup,
     TeamSide,
     Zone,
+    catalog_player_id,
     formation_space_order,
     zone_for_area,
 )
@@ -100,6 +103,35 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball import tokens
+from d12ball.personal_abilities import (
+    BRIGHTBURN_BURN_RECOVERY,
+    BULWARK_DRAINED_AT,
+    EMBERDASH_ADVANCE_MAX,
+    PERSONAL_ABILITIES,
+    SIZZIFIZIK_IGNITE_FACES,
+    SPECTRA_PULL_MINIMUM,
+    STRIDER_CHARGE_UP,
+    STRIDER_RUN_BACK_MAXIMUM,
+    VOLTUS_OVERDRIVE_DRAIN_COST,
+    PersonalAbility,
+)
+
+
+@dataclass(frozen=True)
+class PlayerSkills:
+    """
+    A player's two skills as this game plays them -- the role's, or in
+    advanced mode the player's own advanced scores where they have any
+    (Law 21, "Advanced skills"). Not a `RoleProfile`, because an
+    advanced score is not held to 1-6. `RulesEngine.skills` is the one
+    way to get one.
+    """
+
+    offense: int
+    defense: int
+
+    def of(self, kind: str) -> int:
+        return self.offense if kind == "offense" else self.defense
 
 
 @dataclass(frozen=True)
@@ -118,7 +150,7 @@ class IgnitedRoll:
 
     `second` is the ignite's own die, `blaze` says which way it went,
     and `modifier` is 0 for every roll that did not ignite -- which is
-    every roll in a basic game, and most rolls in an advanced one.
+    every roll in a training game, and most rolls in any other.
 
     **`second` is also a die a coach watches**, not only a number in
     `modifier`: it is drawn on an ignition die of its own and captioned
@@ -131,6 +163,36 @@ class IgnitedRoll:
     modifier: int = 0
     second: Optional[int] = None
     blaze: bool = False
+    # The Fire Demon's personal ability, where one shaped this ignite
+    # (Law 21): `always_blazes`, `wide_ignition` or `bright_burn`.
+    personal: Optional[str] = None
+    # Brightburn's tokens shed by this burn -- set by the roll site,
+    # which holds the match (`RulesEngine.settle_burn`).
+    recovered: int = 0
+
+    @property
+    def upgrades_opponent(self) -> bool:
+        """Whether a burn that loses hands the opponent the gambit."""
+        return self.burn and self.personal != PersonalAbility.BRIGHT_BURN
+
+    @property
+    def rule(self) -> Optional[str]:
+        """
+        The rule the ignition die is captioned with, where a personal
+        ability changed it -- None for the plain Volatile rule, which
+        the renderer words for itself (`volatile_explainer_label`).
+        """
+        if self.personal == PersonalAbility.WIDE_IGNITION:
+            faces = SIZZIFIZIK_IGNITE_FACES
+            return (
+                f"a natural {faces[0]} to {faces[-1]} ignites — the second "
+                f"d12 adds on {VOLATILE_BLAZE_MINIMUM}-12, subtracts on "
+                f"1-{VOLATILE_BLAZE_MINIMUM - 1}"
+            )
+        if self.personal == PersonalAbility.ALWAYS_BLAZES:
+            faces = " or ".join(str(face) for face in VOLATILE_IGNITE_FACES)
+            return f"a natural {faces} ignites — the second d12 always adds"
+        return None
 
     @property
     def ignited(self) -> bool:
@@ -182,19 +244,33 @@ class IgnitedRoll:
         """
         if not self.ignited:
             return None
+        opening = (
+            f"🔥 **Volatile** — {label} rolled a natural {self.face}, "
+            f"so **the ball ignites**. The second d12 comes up "
+            f"**{self.second}**"
+        )
+        if self.blaze and self.personal == PersonalAbility.ALWAYS_BLAZES:
+            return (
+                f"{opening}, and they always blaze: "
+                f"**{self.modifier:+d}** to their roll."
+            )
         if self.blaze:
             return (
-                f"🔥 **Volatile** — {label} rolled a natural {self.face}, "
-                f"so **the ball ignites**. The second d12 comes up "
-                f"**{self.second}** — {VOLATILE_BLAZE_MINIMUM} or more, so "
-                f"it **blazes**: **{self.modifier:+d}** to their roll."
+                f"{opening} — {VOLATILE_BLAZE_MINIMUM} or more, so it "
+                f"**blazes**: **{self.modifier:+d}** to their roll."
             )
-        return (
-            f"🔥 **Volatile** — {label} rolled a natural {self.face}, so "
-            f"**the ball ignites**. The second d12 comes up "
-            f"**{self.second}** — under {VOLATILE_BLAZE_MINIMUM}, so it "
+        sentence = (
+            f"{opening} — under {VOLATILE_BLAZE_MINIMUM}, so it "
             f"**burns**: **{self.modifier:+d}** to their roll."
         )
+        if self.personal == PersonalAbility.BRIGHT_BURN:
+            sentence += " Their burn upgrades nothing"
+            sentence += (
+                f", and sheds {self.recovered} token."
+                if self.recovered
+                else "."
+            )
+        return sentence
 
     def to_dict(self) -> dict:
         """The die, as a frontend with no dice image reads it."""
@@ -203,6 +279,8 @@ class IgnitedRoll:
             "modifier": self.modifier,
             "second": self.second,
             "blaze": self.blaze,
+            "personal": self.personal,
+            "recovered": self.recovered,
         }
 
 
@@ -468,27 +546,36 @@ class RulesEngine:
 
     def gambits_apply(self, game: D12BallGame) -> bool:
         """
-        Whether this game is playing the **gambits** -- the
-        first of the two modules advanced mode turns on.
+        Whether this game is playing the **gambits**, which advanced
+        mode adds and no other mode plays.
 
-        Advanced mode is one switch and brings both modules with it; a
-        game may then take just one of the two (the author, PR #177
-        review), which is what `game.advanced_maneuvers` says. Both
-        halves are asked here so no call site can check the mode and
-        forget the opt-out, or the other way round.
+        `game.advanced_maneuvers` is the opt-out advanced mode carried
+        until 2026-09-25, when the modes became three and the toggles
+        went (see "Modes" in docs/design/species-abilities.md). Nothing
+        sets it any more; it is still read so an advanced game saved
+        with the gambits turned off plays on as it was started.
         """
         return game.mode == GameMode.ADVANCED and game.advanced_maneuvers
 
     def species_abilities_apply(self, game: D12BallGame) -> bool:
         """
-        Whether this game is playing the **species abilities** -- the
-        second module, and the twin of `gambits_apply`.
+        Whether this game is playing the **species abilities**: basic
+        and advanced mode do, training mode does not (2026-09-25; see
+        "Species abilities" in docs/living-rules.md). In training mode
+        species is only a name on the card.
 
-        In a basic game species is only a name on the card and every
-        player follows the standard rules; see "Species abilities" in
-        docs/living-rules.md.
+        **A tutorial never does**, whatever its mode says. The tutorial
+        is a training game, and one saved before training mode existed
+        carries `basic` -- which now plays the species abilities its
+        scripted beats were never written for. `game.species_abilities`
+        is the legacy opt-out, read for the reason `gambits_apply`
+        reads its twin.
         """
-        return game.mode == GameMode.ADVANCED and game.species_abilities
+        return (
+            game.mode in (GameMode.BASIC, GameMode.ADVANCED)
+            and game.species_abilities
+            and not game.tutorial
+        )
 
     def species_of(self, player_id: str) -> str:
         """
@@ -521,7 +608,7 @@ class RulesEngine:
         reason `settled_maneuver_winner` is one predicate over three
         call sites -- the two are always asked in the same breath, and
         a site that checks the species and forgets the module plays a
-        basic game by advanced rules. Nothing may read
+        training game by species rules. Nothing may read
         `PlayerDefinition.species` to decide a rule without coming
         through here.
 
@@ -533,6 +620,91 @@ class RulesEngine:
         if not self.species_abilities_apply(game):
             return False
         return self.species_of(player_id) == species
+
+    def personal_abilities_apply(self, game: D12BallGame) -> bool:
+        """
+        Whether this game plays the **personal abilities** and the
+        advanced skill scores: advanced mode alone (Law 21), and never a
+        tutorial, for the reason `species_abilities_apply` gives.
+        """
+        return game.mode == GameMode.ADVANCED and not game.tutorial
+
+    def has_personal_ability(
+        self,
+        game: Optional[D12BallGame],
+        player_id: Optional[str],
+        ability: PersonalAbility,
+    ) -> bool:
+        """
+        **The one question every personal-ability site asks**: does this
+        card, in this game, hold that ability? The twin of
+        `has_species_ability`, folding the mode gate into the lookup so
+        no site can check the player and forget the mode.
+
+        Tolerant of no game and no player, because several roll sites
+        ask it of a die that belongs to nobody (the defensive wall's).
+        A card fielded on the second side is the same person
+        (`catalog_player_id`).
+        """
+        if game is None or player_id is None:
+            return False
+        if not self.personal_abilities_apply(game):
+            return False
+        row = PERSONAL_ABILITIES.get(catalog_player_id(player_id))
+        return row is not None and row[0] == ability
+
+    def skills(
+        self, game: Optional[D12BallGame], player_id: str,
+    ) -> PlayerSkills:
+        """
+        **A player's offensive and defensive skill, as this game plays
+        them** -- the one reading every roll, threshold and bonus asks.
+        The role's profile, with the player's advanced scores laid over
+        it in a game playing the personal abilities (Law 21, "Advanced
+        skills"); a player with no advanced score of a kind keeps the
+        role's.
+
+        `game` may be None only for a caller that has no game to ask,
+        which reads the role's skills, as a training game would.
+        """
+        player = self.get_player_definition(player_id)
+        profile = self.player_catalog.effective_profile(player)
+        offense, defense = profile.offense, profile.defense
+        if game is not None and self.personal_abilities_apply(game):
+            offense = player.advanced_skills.get("offense", offense)
+            defense = player.advanced_skills.get("defense", defense)
+        return PlayerSkills(offense=offense, defense=defense)
+
+    def card_skills(
+        self, game: D12BallGame, match: MatchState,
+    ) -> dict[str, tuple[int, int]]:
+        """
+        The `(offense, defense)` a board card should print wherever it
+        is not the role's -- a player's advanced skills in an advanced
+        game (Law 21). What `render.py`'s `card_skills` needs, answered
+        here for the reason `cyborg_condition_ids` is: the renderer is
+        handed the numbers and never the game. Every card of both sides
+        is asked, bench and back bench included, since the team board
+        draws them all.
+        """
+        if not self.personal_abilities_apply(game):
+            return {}
+        answer: dict[str, tuple[int, int]] = {}
+        for setup in (match.home, match.visiting):
+            for player_id in (
+                *setup.field_players,
+                *setup.team_board.bench,
+                *setup.team_board.back_bench,
+            ):
+                skills = self.skills(game, player_id)
+                profile = self.player_catalog.effective_profile(
+                    self.get_player_definition(player_id),
+                )
+                if (skills.offense, skills.defense) != (
+                    profile.offense, profile.defense,
+                ):
+                    answer[player_id] = (skills.offense, skills.defense)
+        return answer
 
     def cyborg_condition_ids(
         self,
@@ -595,21 +767,66 @@ class RulesEngine:
           attempt is the board's, not a card's, and a roll with no
           Fire Demon behind it comes back as the face and nothing else.
         """
-        if face not in VOLATILE_IGNITE_FACES:
-            return IgnitedRoll(face=face)
         if player_id is None:
             return IgnitedRoll(face=face)
         if not self.has_species_ability(game, player_id, SPECIES_FIRE_DEMON):
             return IgnitedRoll(face=face)
+        # Law 21: three Fire Demons read their own die differently.
+        personal = next(
+            (
+                ability
+                for ability in (
+                    PersonalAbility.WIDE_IGNITION,
+                    PersonalAbility.ALWAYS_BLAZES,
+                    PersonalAbility.BRIGHT_BURN,
+                )
+                if self.has_personal_ability(game, player_id, ability)
+            ),
+            None,
+        )
+        faces = (
+            SIZZIFIZIK_IGNITE_FACES
+            if personal == PersonalAbility.WIDE_IGNITION
+            else VOLATILE_IGNITE_FACES
+        )
+        if face not in faces:
+            return IgnitedRoll(face=face)
 
         second = self.rng.randint(1, 12)
-        blaze = second >= VOLATILE_BLAZE_MINIMUM
+        blaze = (
+            personal == PersonalAbility.ALWAYS_BLAZES
+            or second >= VOLATILE_BLAZE_MINIMUM
+        )
         return IgnitedRoll(
             face=face,
             modifier=second if blaze else -second,
             second=second,
             blaze=blaze,
+            personal=personal.value if personal else None,
         )
+
+    def settle_burn(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: Optional[str],
+        ignite: IgnitedRoll,
+    ) -> IgnitedRoll:
+        """
+        **Brightburn sheds a token on every burn** (Law 21), in any roll
+        Volatile covers. The roll site calls this beside `ignite`,
+        because the ignite is read before there is a match to change;
+        what comes back carries how many came off, for the sentence
+        posted with the ignition die (`IgnitedRoll.explain`).
+        """
+        if not ignite.burn or ignite.personal != PersonalAbility.BRIGHT_BURN:
+            return ignite
+        removed = match.recover_exhaustion(
+            player_id,
+            BRIGHTBURN_BURN_RECOVERY,
+            self.exhaustion_threshold(game, player_id),
+        )
+        return replace(ignite, recovered=removed)
 
     def overdrive_candidates(
         self,
@@ -639,19 +856,57 @@ class RulesEngine:
             for player_id in player_ids
             if player_id is not None
             and player_id not in match.pending_overdrive
+            and player_id not in match.pending_boost
             and player_id not in match.injured
             and self.has_species_ability(game, player_id, SPECIES_CYBORG)
         ]
 
+    def overdrive_cost(self, game: D12BallGame, player_id: str) -> int:
+        """
+        The drain an Overdrive takes from this Cyborg: 3, or Voltus's 2
+        (Law 21).
+        """
+        if self.has_personal_ability(
+            game, player_id, PersonalAbility.CHEAP_OVERDRIVE,
+        ):
+            return VOLTUS_OVERDRIVE_DRAIN_COST
+        return OVERDRIVE_DRAIN_COST
+
+    def boost_candidates(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_ids: Collection[Optional[str]],
+    ) -> list[str]:
+        """
+        Which of the players about to roll may still declare **Boost**
+        -- Gearclaw's personal ability (Law 21), offered on every roll
+        an Overdrive is and on the same terms: `overdrive_candidates`,
+        narrowed to the player who holds it. A roll declared either way
+        is closed to the other, which that same list already says.
+        """
+        return [
+            player_id
+            for player_id in self.overdrive_candidates(
+                game, match, player_ids,
+            )
+            if self.has_personal_ability(
+                game, player_id, PersonalAbility.BOOST,
+            )
+        ]
+
     def overdrive_detail(self, match: MatchState, player_id: str) -> str:
         """
-        The line a declared Overdrive adds to the dice image's modifier
-        list, or "" -- the twin of `IgnitedRoll.detail`, and worded the
-        same way so a coach reads one list of modifiers however they
-        were earned.
+        The line a declared Overdrive or Boost adds to the dice image's
+        modifier list, or "" -- the twin of `IgnitedRoll.detail`, and
+        worded the same way so a coach reads one list of modifiers
+        however they were earned.
         """
         modifier = match.overdrive_modifier(player_id)
-        return f"+{modifier} Overdrive" if modifier else ""
+        if not modifier:
+            return ""
+        word = "Boost" if player_id in match.pending_boost else "Overdrive"
+        return f"+{modifier} {word}"
 
     def smooth_candidates(
         self, game: D12BallGame, match: MatchState,
@@ -822,9 +1077,21 @@ class RulesEngine:
         theirs = set(match.setup_for_side(defending).field_players)
         moved = set(match.last_ball_movers)
 
+        board = match.board
+        ordered = board.spaces_in_order()
         candidates: list[str] = []
         for zone_value, space_index in match.last_ball_path:
-            for player_id in match.board.spaces[Zone(zone_value)][space_index]:
+            flat = board.flat_index(Zone(zone_value), space_index)
+            # The space itself, then the two beside it for Noxar alone,
+            # who pulls from next to the ball as well (Law 21) -- in
+            # that order, which is the order the ball reaches them.
+            reached = [(player_id, False) for player_id in ordered[flat]]
+            for beside in (flat - 1, flat + 1):
+                if 0 <= beside < len(ordered):
+                    reached.extend(
+                        (player_id, True) for player_id in ordered[beside]
+                    )
+            for player_id, adjacent in reached:
                 if player_id not in theirs or player_id in candidates:
                     continue
                 if player_id in moved:
@@ -835,8 +1102,33 @@ class RulesEngine:
                     game, player_id, SPECIES_TELEKINETIC,
                 ):
                     continue
+                if adjacent and not self.has_personal_ability(
+                    game, player_id, PersonalAbility.ADJACENT_PULL,
+                ):
+                    continue
                 candidates.append(player_id)
         return candidates
+
+    def mind_pull_cost(self, game: D12BallGame, player_id: str) -> int:
+        """The tokens a Mind Pull costs: 1, or Quillon's none (Law 21)."""
+        if self.has_personal_ability(
+            game, player_id, PersonalAbility.FREE_PULL,
+        ):
+            return 0
+        return MIND_PULL_TOKEN_COST
+
+    def mind_pull_minimum(self, game: D12BallGame, player_id: str) -> int:
+        """
+        The lowest total a Mind Pull lands on: 11, or Spectra's 8
+        (Law 21). "On 11-12" is read as 11 or more, because an ignite
+        could carry a total past 12 and a higher roll is never a worse
+        one.
+        """
+        if self.has_personal_ability(
+            game, player_id, PersonalAbility.STRONG_PULL,
+        ):
+            return SPECTRA_PULL_MINIMUM
+        return min(MIND_PULL_SUCCESS_FACES)
 
     def merge_bonus(
         self,
@@ -880,11 +1172,10 @@ class RulesEngine:
                 continue
             if not self.has_species_ability(game, player_id, SPECIES_OOZE):
                 continue
-            player = self.get_player_definition(player_id)
-            profile = self.player_catalog.effective_profile(player)
-            value = profile.offense if skill == "offense" else profile.defense
+            value = self.skills(game, player_id).of(skill)
             if not value:
                 continue
+            player = self.get_player_definition(player_id)
             total += value
             lines.append(f"+{value} {player.name} (Merge)")
             contributors.append((player.name, value))
@@ -958,39 +1249,75 @@ class RulesEngine:
         """
         if not self.gambits_apply(game):
             return False
-        return winner.blaze or loser.burn
+        # Brightburn's burn upgrades nothing (Law 21), which the ignite
+        # already knows (`IgnitedRoll.upgrades_opponent`).
+        return winner.blaze or loser.upgrades_opponent
+
+    def overdrive_raises_tier(
+        self,
+        game: D12BallGame,
+        winner_id: Optional[str],
+        overdriven: Collection[str],
+    ) -> bool:
+        """
+        **Synapse's personal ability** (Law 21): a maneuver skill test
+        won on a roll Synapse Overdrove resolves the winner's maneuver
+        as its gambit, whether or not the coach may play one -- the
+        winning blaze's rider, reached by a different road, so it sets
+        the same flag (`MatchState.volatile_tier_upgrade`). Gated on
+        the gambits for the reason `volatile_raises_tier` is.
+        """
+        if not self.gambits_apply(game):
+            return False
+        return winner_id in overdriven and self.has_personal_ability(
+            game, winner_id, PersonalAbility.OVERDRIVE_UPGRADE,
+        )
+
+    def dice_resolve_gambit(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        winner_id: Optional[str],
+        outcome: str,
+        winner_key: Optional[str],
+    ) -> bool:
+        """
+        **Dravox and Hexis** (Law 21): a maneuver skill test they win
+        with a gambit they played resolves it as the gambit, where a
+        card that did not win on the cards otherwise resolves as its
+        basic maneuver. Dravox's is a defensive gambit, Hexis's an
+        offensive one, so each is read from the side the win came on.
+        A basic card is not upgraded. Sets the same flag a winning
+        blaze does, which resolves the winner's own card as played.
+        """
+        if not self.gambits_apply(game) or winner_key is None:
+            return False
+        card = self.maneuver_catalog.get(winner_key)
+        if card is None or not card.is_gambit:
+            return False
+        ability = (
+            PersonalAbility.OFFENSIVE_GAMBITS
+            if outcome == "offense"
+            else PersonalAbility.DEFENSIVE_GAMBITS
+        )
+        return self.has_personal_ability(game, winner_id, ability)
 
     def volatile_loser_cost(
         self, game: D12BallGame, loser: IgnitedRoll,
     ) -> Optional[bool]:
         """
-        What the losing side's own ignite does to the gambit's cost
-        they would otherwise pay -- the other half of Volatile's rider
-        (the author, 2026-09-07).
+        What the losing side's ignite does to the gambit's cost they
+        would otherwise pay: **nothing**, since 2026-09-25 (Law 20, "an
+        ignite never decides a gambit's cost"; the author dropped the
+        cost half of the 2026-09-07 answer). Always `None`, which
+        leaves `gambit_cost_applies` the whole answer.
 
-        `False` where they **blazed and lost**: they pay no cost even
-        where the cards would have charged one. `True` where they
-        **burned and lost**: they pay theirs even where the cards
-        alone would not, which makes a burn the one thing in the
-        game that puts a cost in force off the dice. `None` otherwise,
-        leaving `gambit_cost_applies` the whole answer.
-
-        Read from the losing player's own die rather than from the
-        matchup, which is why this is separate from
-        `volatile_raises_tier` rather than derivable from it: a blaze
-        that loses suppresses a cost *and* raises nothing, and a
-        burn that loses charges one *and* raises the opponent's
-        card.
-
-        Gated on the gambits for the same reason the tier
-        is: with no gambits in play there is no cost to change.
+        Kept rather than removed because `MatchState.volatile_loser_cost`
+        is a saved field (CLAUDE.md: legacy fallbacks stay): a match
+        saved between a skill test and its effect under the old rule
+        still carries its `True` or `False`, and `gambit_cost` still
+        reads it for that one maneuver.
         """
-        if not self.gambits_apply(game):
-            return None
-        if loser.blaze:
-            return False
-        if loser.burn:
-            return True
         return None
 
     def trailing(self, match: MatchState, side: TeamSide) -> bool:
@@ -1562,6 +1889,7 @@ class RulesEngine:
     def intervening_defenders(
         self,
         match: MatchState,
+        game: Optional[D12BallGame] = None,
     ) -> list[ShotDefender]:
         """
         Every defending player between the ball and the goal it is
@@ -1574,8 +1902,15 @@ class RulesEngine:
         defenders = []
         for player_id, on_ball in match.defenders_between_ball_and_goal():
             player = self.get_player_definition(player_id)
-            defense = self.player_catalog.effective_profile(player).defense
-            defenders.append(ShotDefender(player, defense, on_ball))
+            defense = self.skills(game, player_id).defense
+            defenders.append(ShotDefender(
+                player,
+                defense,
+                on_ball,
+                full_block=self.has_personal_ability(
+                    game, player_id, PersonalAbility.FULL_BLOCK,
+                ),
+            ))
         return defenders
 
     def settled_maneuver_winner(self, match: MatchState) -> Optional[str]:
@@ -2015,17 +2350,87 @@ class RulesEngine:
         """
         return " (Fullback ability)" if distance == FULLBACK_PASS_REACH else ""
 
-    def dribble_burst_cost(self, match: MatchState, distance: int) -> int:
+    def dribble_burst_cost(
+        self,
+        match: MatchState,
+        distance: int,
+        game: Optional[D12BallGame] = None,
+    ) -> int:
         """
         What a Dribble Burst of `distance` charges the handler: a token
         a space, one fewer for a Playmaker (the author, 2026-08-26),
         floored at 0 -- a burst that moved nowhere costs nothing, and
-        the discount cannot turn a run into a token back. The step
-        charges this and the menu prices its buttons by it.
+        the discount cannot turn a run into a token back. Nothing at
+        all for Emberdash (Law 21). The step charges this and the menu
+        prices its buttons by it.
         """
+        if self.has_personal_ability(
+            game, match.active_player_id, PersonalAbility.FREE_BURST,
+        ):
+            return 0
         handler = self.get_player_definition(match.active_player_id)
         discount = 1 if handler.role == PlayerRole.PLAYMAKER else 0
         return max(0, distance - discount)
+
+    def pass_runner(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        distances: Collection[int],
+    ) -> tuple[Optional[str], tuple[int, ...]]:
+        """
+        **Quantor** (Law 21): the passing side's player who may drain 3
+        to run onto a teammate's High Pass or Setup Pass, and the
+        distances they may run onto -- or `(None, ())`.
+
+        Never the passer, never an injured player, and only a distance
+        whose space is on the field: a High Pass that overshoots is
+        clamped short of where it was aimed, so there is no target
+        space to run to. The distances are the prompt's own, so this
+        narrows what is already offered rather than offering anything
+        new. Carried on the prompt's options, so the button, the refusal
+        and the web app read one answer.
+        """
+        if game is None or not self.personal_abilities_apply(game):
+            return None, ()
+        side = match.ball.possession
+        runner = next(
+            (
+                player_id
+                for player_id in match.setup_for_side(side).field_players
+                if player_id != match.active_player_id
+                and player_id not in match.injured
+                and self.has_personal_ability(
+                    game, player_id, PersonalAbility.RUN_ON,
+                )
+            ),
+            None,
+        )
+        if runner is None:
+            return None, ()
+        # A Setup Pass only offers distances on the field already, so
+        # the test only ever removes an overshooting High Pass; it is
+        # asked of both so a Setup Pass that grew one could not slip by.
+        reachable = tuple(
+            distance
+            for distance in distances
+            if not match.high_pass_overshoots(side, distance)
+        )
+        return (runner, reachable) if reachable else (None, ())
+
+    def dribble_advance_distances(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> tuple[int, ...]:
+        """
+        How far a Playmaker's Dribble Advance may go: up to 2, or
+        Emberdash's 3 (Law 21). Everybody else advances 1 and is not
+        asked (`offer_dribble_advance`).
+        """
+        if self.has_personal_ability(
+            game, match.active_player_id, PersonalAbility.FREE_BURST,
+        ):
+            return tuple(range(1, EMBERDASH_ADVANCE_MAX + 1))
+        return (1, 2)
 
     def dribble_burst_note(
         self, game: D12BallGame, match: MatchState, distance: int,
@@ -2042,7 +2447,7 @@ class RulesEngine:
         zone, space_index = match.relative_move_destination(
             match.active_player_id, match.ball.possession, distance,
         )
-        cost = self.dribble_burst_cost(match, distance)
+        cost = self.dribble_burst_cost(match, distance, game)
         noun, _ = self.token_word_and_mark(game, match.active_player_id)
         where = space_label(zone, space_index, match.board)
         return f"{where}, {cost} {noun}"
@@ -2079,6 +2484,7 @@ class RulesEngine:
         match: MatchState,
         player_id: str,
         skill_type: str,
+        game: Optional[D12BallGame] = None,
     ) -> list[int]:
         """
         The ball speeds a player's speed manipulation may set: every
@@ -2092,10 +2498,7 @@ class RulesEngine:
         driver, the view (with a hard-coded 12) and the full-game
         policy, and the three could only agree by care.
         """
-        skill = self.player_catalog.effective_profile(
-            self.get_player_definition(player_id),
-        )
-        reach = skill.offense if skill_type == "offense" else skill.defense
+        reach = self.skills(game, player_id).of(skill_type)
         return sorted({
             max(1, min(BALL_SPEED_MAX, match.ball.speed + delta))
             for delta in range(-reach, reach + 1)
@@ -2398,6 +2801,7 @@ class RulesEngine:
         self,
         match: MatchState,
         side: TeamSide,
+        game: Optional[D12BallGame] = None,
     ) -> list[str]:
         """
         A side's six, best defender first. Ties break at random, which
@@ -2409,9 +2813,7 @@ class RulesEngine:
         self.rng.shuffle(players)
         return sorted(
             players,
-            key=lambda player_id: -self.player_catalog.effective_profile(
-                self.get_player_definition(player_id)
-            ).defense,
+            key=lambda player_id: -self.skills(game, player_id).defense,
         )
 
     def formation_placement(
@@ -2419,6 +2821,7 @@ class RulesEngine:
         match: MatchState,
         side: TeamSide,
         formation: Formation,
+        game: Optional[D12BallGame] = None,
     ) -> list[tuple[str, Zone, int]]:
         """
         Where a side's six stand after switching to `formation`: the
@@ -2434,7 +2837,7 @@ class RulesEngine:
         """
         side = TeamSide(side)
         shape = self.formation_shape(match, formation)
-        ordered = self.defense_ordered_field_players(match, side)
+        ordered = self.defense_ordered_field_players(match, side, game)
 
         placement: list[tuple[str, Zone, int]] = []
         cursor = 0
@@ -2551,6 +2954,30 @@ class RulesEngine:
             + self.run_back_crowded(game, match, side)
         )
 
+    def charge_up_amount(self, game: D12BallGame, player_id: str) -> int:
+        """
+        The drain a Cyborg's Charge-up removes: 1, or Strider's 2
+        (Law 21).
+        """
+        if self.has_personal_ability(
+            game, player_id, PersonalAbility.EFFICIENT_RUN,
+        ):
+            return STRIDER_CHARGE_UP
+        return 1
+
+    def run_back_cost(
+        self, game: D12BallGame, player_id: str, distance: int,
+    ) -> int:
+        """
+        The tokens a run back of `distance` spaces charges this player:
+        one a space, or for Strider 1 at most (Law 21).
+        """
+        if self.has_personal_ability(
+            game, player_id, PersonalAbility.EFFICIENT_RUN,
+        ):
+            return min(distance, STRIDER_RUN_BACK_MAXIMUM)
+        return distance
+
     def charge_up_players(
         self, game: D12BallGame, match: MatchState,
     ) -> list[str]:
@@ -2659,7 +3086,10 @@ class RulesEngine:
                         distance = match.run_back_player(
                             player_id, zone, space_index, exempt_ids,
                         )
-                        match.add_exhaustion(player_id, distance)
+                        match.add_exhaustion(
+                            player_id,
+                            self.run_back_cost(game, player_id, distance),
+                        )
                         # A forced run back is applied silently, so
                         # there is no message here to carry the
                         # threshold test the way apply_exhaustion's
@@ -2805,9 +3235,12 @@ class RulesEngine:
         module.
         """
         if self.has_species_ability(game, player_id, SPECIES_CYBORG):
+            if self.has_personal_ability(
+                game, player_id, PersonalAbility.HIGH_DRAIN_THRESHOLD,
+            ):
+                return BULWARK_DRAINED_AT - 1
             return CYBORG_DRAINED_AT - 1
-        player = self.get_player_definition(player_id)
-        return self.player_catalog.effective_profile(player).defense
+        return self.skills(game, player_id).defense
 
     def retest_exhausted(
         self, game: D12BallGame, match: MatchState, player_id: str,
@@ -2940,10 +3373,11 @@ class RulesEngine:
         match: MatchState,
         side: TeamSide,
         formation: Formation,
+        game: Optional[D12BallGame] = None,
     ) -> str:
         """Switch a side into `formation` and describe where they land."""
         side = TeamSide(side)
-        placement = self.formation_placement(match, side, formation)
+        placement = self.formation_placement(match, side, formation, game)
         match.deploy_side(side, placement)
 
         setup = match.setup_for_side(side)
@@ -3225,7 +3659,7 @@ class RulesEngine:
                 else "injured"
             )
             return f"{name} {word}"
-        offense = self.player_catalog.effective_profile(player).offense
+        offense = self.skills(game, player_id).offense
         return f"{name} +{offense}"
 
     def format_roster_player(self, player_id: str) -> str:

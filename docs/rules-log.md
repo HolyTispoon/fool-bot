@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-26.
+**As of:** 2026-09-25.
 
 ## Where the rules come from
 
@@ -70,6 +70,8 @@ printed cards for now.
 review). `GameMode` is still a single BASIC/ADVANCED switch and the opt-out is two bools on the
 game record beside it (`advanced_maneuvers`, `species_abilities`), both defaulting on -- so
 turning advanced mode on brings both, and a game may drop either.
+*Superseded on 2026-09-25*: there are three modes, the species abilities are basic mode's, and
+advanced mode always plays both -- see that entry.
 
 **All four abilities are built** (2026-09-07).
 
@@ -150,6 +152,129 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-25 (last) -- author and sheet, Volatile decides no cost, and the personal abilities move on
+
+**An ignite never decides a gambit's cost.** Asked with the Volatile text from the sheet --
+*"In a skill test, a blaze that wins resolves your maneuver as its advanced version; a burn that
+loses resolves your opponent's maneuver as its advanced version"* -- the author: *"There's
+nothing here about paying the gambit's cost. It's only about upgrading the opponent's
+maneuver."* A losing player pays their gambit's cost where they would have *"with or without
+ignition and in the case of blaze as well as burn."* Asked whether that drops the cost half of
+the 2026-09-07 entry below (a losing surge spared the cost, a losing backfire imposed it):
+*"Drop it."* **That half of 2026-09-07 is superseded**; its tier half stands. With it goes the
+open reading about Brightburn's cost, which was only ever that rule.
+
+**Confirmed by the author:** Noxar's adjacent pull lands on Noxar's space; Acidel's ability
+covers Double Team, and a declined Acidel shot leaves the ball with Acidel's side.
+
+**From the sheet** (re-imported the same day), with the author's answers where the cell left a
+reading open:
+
+- **Spectra:** *"Mind Pulls succeds on 8+"* -- a flat 8, replacing the +3.
+- **Strider:** *"Max 1 drain when runs back"* -- a cap of 1, replacing "cost -1".
+- **Ozul:** new advanced skills, 6 offense and 5 defense.
+- **Emberdash:** *"Dribble Advance up to 3 or Dribble Burst with no exhaustion."*
+- **Dravox and Hexis:** *"Resolves defensive (offensive) gambit's bonuses when winning with
+  skill test."* Asked whether a basic card they played is upgraded too: only a gambit they
+  played resolves as one.
+- **Quantor:** *"Before resolving High Pass or Setup Pass, add 3 drain to move Quantor to the
+  target space of the pass. Quantor gains possession without contest."* Asked who passes: a
+  teammate, and on a Setup Pass Quantor takes the scoring opportunity. Written so that it is
+  declared with the distance, only for a space on the field -- a High Pass that overshoots has
+  no target space to run to.
+- **Bulwark:** the cell briefly read "Damaged only on 10+", which the author called a mistake
+  and reverted; it reads *"Is only drained at 10."*, the rule unchanged.
+- Acidel, Gearclaw and Voltus were reworded with no change of meaning.
+
+### 2026-09-25 (latest) -- author, a personal ability does not replace the role ability
+
+Asked when the advanced side of the player card was drawn with the personal ability in the role
+ability's place: does the replacement hold in play? The author: *"Card only; both apply."* A
+player with a personal ability keeps their role ability in advanced mode; the card prints only
+the personal one because the role's is on the front. Written into Law 21, "Whose they are". No
+change to the bot, which already played both.
+
+### 2026-09-25 (later) -- author, the personal abilities are written into the Charter
+
+The sixteen `advanced_abilities` cells become Law 21, with the author's answers to the readings
+the one-line cells left open:
+
+- **Strider:** *"recharge 2 just means they remove two drain. And cost minus one when runs back
+  means that they gain a number of drain tokens equal to the number of spaces they ran minus
+  one."*
+- **Gearclaw:** Boost is *"declared blind before the roll like overdrive"*; asked whether Boost
+  and Overdrive stack on one roll: *"Either, not both."*
+- **Acidel:** *"scoring opportunity replaces the own goal."*
+- **Goopkeeper:** *"full block means they just contribute their full value of their defense
+  skill rather than just halfway, which is what would usually be the case when they are not on
+  the ball."*
+- **Synapse:** asked whether an Overdriven win upgrades the maneuver even when the coach may not
+  play a gambit, as a winning blaze does: *"Yes, always."*
+- **Brightburn:** the token removal is *"on any burn"*.
+
+The advanced skill scores (Flux, Hellguard, Tachyon) move from Law 18 into Law 21 as a table,
+with the rule the author gave on 2026-09-22.
+
+**Settled later the same day** -- see the entry above. The four readings as first written:
+
+- **Brightburn and their own gambit's cost.** A Fire Demon's burn that loses pays their own
+  gambit's cost even where the cards alone would not have charged one (Law 20). The sheet
+  cancels only the opponent's upgrade for Brightburn, so the Charter leaves the cost as Law 20
+  has it. The author asked which case this is: it is a skill test after tied cards, where
+  without the burn no cost applies.
+- **Noxar's adjacent pull lands on Noxar's space.** The cell says only "can Mind Pull adjacent
+  spaces"; a pull brings the ball to the puller everywhere else.
+- **Acidel's ability covers Double Team**, the advanced version of Pressure, as well as Pressure.
+- **Acidel's declined shot leaves the ball with Acidel's side.** "Replaces the own goal" is read
+  as the own-goal roll being gone entirely, so a declined set-up resolves as the Intercept
+  overshoot's does: the side that took the ball keeps it where it stands.
+- **Spectra pulls on 11 or more**, since +3 carries a total past 12.
+
+**In the bot**, all sixteen are played -- see "Personal abilities" in
+docs/design/species-abilities.md.
+
+### 2026-09-25 -- author, three modes: training, basic and advanced
+
+The author: *"from now on species abilities are part of basic mode and what currently basic mode
+will be called training mode and training mode has no species abilities at all the tutorial is
+in training mode obviously and all three options should be offered. advance mode ads gambit and
+individual special abilities that are on the spreadsheet for some but not all players."*
+
+**A game is played in one of three modes, each adding to the one before it:**
+
+- **Training mode** is what basic mode was until today: Part I of the Charter and nothing else,
+  with species only a name on the card. The tutorial is a training game.
+- **Basic mode** adds the species abilities (Law 20).
+- **Advanced mode** adds the gambits (Law 19) and the players' personal abilities -- the
+  `advanced_abilities` tab's sixteen abilities and three sets of advanced skill scores -- to
+  basic mode.
+
+**What this replaces.** Since PR #177's review, advanced mode was one switch over two modules,
+the gambits and the species abilities, and a game could take just one of them. The species
+abilities now belong to basic mode, and the author named three modes to offer rather than
+modules to toggle, so **the opt-out is gone from the rules**: advanced mode always plays the
+gambits and the species abilities. Two consequences in the Charter that follow from the ruling
+rather than being new decisions:
+
+- Volatile's tier change needs the gambits, so in basic mode a blaze or a burn is only the
+  number -- the case the Charter already described as "a game that took the species abilities
+  without the gambits", now named as basic mode.
+- "In basic mode the two teams are identical" (Law 2) is now training mode's: with species
+  abilities on, the two teams' species differ in play.
+
+**Personal abilities go into the Charter by name only** (Law 18, "Personal abilities"): which
+mode plays them, and that an advanced skill replaces the role's skill of the same kind (the
+author, 2026-09-22 entry below). The sixteen abilities themselves are still one-line sheet cells
+and are not written into the Charter one by one; that is still open, under "Blocked or deferred".
+
+In the bot: `GameMode` gains `training`, and `basic` keeps its saved value with the new meaning,
+so an unfinished basic game saved before today plays its remaining turns with the species
+abilities on. A tutorial saved as `basic` is held to training by `species_abilities_apply`,
+because its scripted beats were written without them. The setup and lobby screens offer the
+three modes and no longer offer the module toggles; the two opt-out fields stay on the record
+so an advanced game saved with one module off plays on as it was started. The personal
+abilities are not played by the bot yet.
 
 ### 2026-09-24 (2 of 2) -- author, Mind Pull is asked before Smooth
 
@@ -2788,6 +2913,11 @@ From the author, for `foolbot.py`'s generic commands:
   injured player is downgraded to a skill test they have to win. Specified since the rules
   were first vendored on 2026-07-25 and built on 2026-08-09; the readings it rests on are in
   [Still open](#still-open).
+- **The personal abilities and the advanced skill scores** (Law 21), all sixteen, since
+  2026-09-25, with the four readings in that day's entry still the author's to confirm. The
+  printed player card's back shows them (the author, 2026-09-25: the personal ability instead of
+  the role's on the card, while in play a player keeps both, and the advanced scores), and so do
+  the player cards the bot draws on the board and the coaching image.
 - **The extreme shootout**, end to end: a secret order a side at a time, the reveal, the
   skill test with its injury checks, the "cannot be caught" stop, and sudden death with a
   fresh pick each test. It is the only thing that settles a level game now that league mode
@@ -2799,17 +2929,6 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 
 ### Blocked or deferred
 
-- **The advanced player abilities**, which are the other half of advanced mode -- see
-  [Advanced mode](#advanced-mode----the-maneuvers-are-built-the-player-abilities-are-not) under
-  Still open. **They have data since 2026-09-22** (see that entry): the sheet's
-  `advanced_abilities` tab gives sixteen players an advanced role ability and three of them
-  advanced skill scores, and the import carries both on `PlayerDefinition`. What is still
-  missing is the module that plays them -- the author calls it the personal-ability skill
-  module of advanced mode -- and the rules text for the sixteen abilities, which are one-line
-  sheet cells today and not in the living rules. The **back of a printed player card**, that
-  player's advanced version (the author, 2026-08-12), waits on the same thing plus a layout
-  decision: whether the back shows the advanced ability alone or under the basic one, and
-  whether its stats row takes the advanced scores.
 - **Three role abilities against their advanced card.** The sheet's `Interactions` column
   carries each advanced row's basic counterpart's abilities, and three of them contradict the
   card they sit on -- the Fullback against Clear and against Setup Pass, the Playmaker against

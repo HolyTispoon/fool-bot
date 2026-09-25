@@ -162,8 +162,10 @@ def build_match(engine: RulesEngine, game: D12BallGame) -> MatchState:
 
 class ModuleSwitchTests(unittest.TestCase):
     """
-    "Advanced mode turns on two modules ... Both come on with it, and a
-    game may take just one of the two."
+    The three modes (2026-09-25): training plays no ability, basic adds
+    the species abilities, advanced adds the gambits on top. The two
+    opt-outs on the record are what an advanced game saved before then
+    could have turned off, and are still honoured.
     """
 
     def setUp(self) -> None:
@@ -174,21 +176,33 @@ class ModuleSwitchTests(unittest.TestCase):
         self.assertTrue(self.engine.gambits_apply(game))
         self.assertTrue(self.engine.species_abilities_apply(game))
 
-    def test_a_basic_game_has_neither(self):
+    def test_a_basic_game_plays_the_species_abilities_alone(self):
         game = build_game(mode=GameMode.BASIC)
+        self.assertFalse(self.engine.gambits_apply(game))
+        self.assertTrue(self.engine.species_abilities_apply(game))
+
+    def test_a_training_game_has_neither(self):
+        game = build_game(mode=GameMode.TRAINING)
         self.assertFalse(self.engine.gambits_apply(game))
         self.assertFalse(self.engine.species_abilities_apply(game))
 
-    def test_a_basic_game_ignores_the_opt_outs_entirely(self):
-        # The two fields mean nothing outside advanced mode: `mode` is
-        # the whole answer there, which is what stops a basic game
-        # played by somebody's stale settings turning an ability on.
+    def test_a_training_game_ignores_the_opt_outs_entirely(self):
+        # `mode` is the whole answer there, which is what stops a
+        # training game played by somebody's stale settings turning an
+        # ability on.
         game = build_game(
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,
         )
         self.assertFalse(self.engine.gambits_apply(game))
+        self.assertFalse(self.engine.species_abilities_apply(game))
+
+    def test_a_tutorial_saved_as_basic_plays_no_species_ability(self):
+        # A tutorial saved before training mode existed carries
+        # `basic`, which now means the species abilities -- but its
+        # script was written for a game without them.
+        game = build_game(mode=GameMode.BASIC, tutorial=True)
         self.assertFalse(self.engine.species_abilities_apply(game))
 
     def test_a_game_may_take_the_abilities_without_the_maneuvers(self):
@@ -260,12 +274,12 @@ class SpeciesGateTests(unittest.TestCase):
                 other,
             )
 
-    def test_no_ability_in_a_basic_game(self):
-        basic = build_game(mode=GameMode.BASIC)
+    def test_no_ability_in_a_training_game(self):
+        training = build_game(mode=GameMode.TRAINING)
         demon = fielded_of_species(self.match, SPECIES_FIRE_DEMON)
         self.assertFalse(
             self.engine.has_species_ability(
-                basic, demon, SPECIES_FIRE_DEMON,
+                training, demon, SPECIES_FIRE_DEMON,
             )
         )
 
@@ -379,11 +393,11 @@ class IgniteTests(unittest.TestCase):
             self.assertFalse(result.ignited)
             self.assertEqual(result.modifier, 0)
 
-    def test_nothing_ignites_in_a_basic_game(self):
-        basic = build_game(mode=GameMode.BASIC)
+    def test_nothing_ignites_in_a_training_game(self):
+        training = build_game(mode=GameMode.TRAINING)
         for face in VOLATILE_IGNITE_FACES:
             self.assertFalse(
-                self.engine.ignite(basic, self.demon, face).ignited
+                self.engine.ignite(training, self.demon, face).ignited
             )
 
     def test_the_second_die_does_not_ignite_in_turn(self):
@@ -589,7 +603,7 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(call.kwargs.get("file"))
 
     async def test_a_roll_that_did_not_ignite_is_not_posted(self) -> None:
-        # Most rolls in an advanced game and every roll in a basic one.
+        # Most rolls in a species game and every roll in a training one.
         interaction = build_ignition_interaction()
 
         await self.cog.post_volatile_ignition(
@@ -807,21 +821,15 @@ class VolatileTierRiderTests(unittest.TestCase):
             )
         )
 
-    def test_a_blaze_that_loses_pays_no_gambit_cost(self):
-        # "If a player loses a skill test on the blaze, they do not
-        # resolve the gambit cost." A blaze protects its
-        # player even where the cards would have charged them.
-        self.assertIs(
-            self.engine.volatile_loser_cost(self.game, self.blaze), False,
-        )
-
-    def test_a_burn_that_loses_pays_it(self):
-        # "However, if a volatile player loses on a burn, they
-        # resolve the cost of the gambit" -- the one thing
-        # in the game that puts a cost in force off the dice.
-        self.assertIs(
-            self.engine.volatile_loser_cost(self.game, self.burn), True,
-        )
+    def test_an_ignite_decides_no_gambit_cost(self):
+        # "There's nothing here about paying the gambit's cost" (the
+        # author, 2026-09-25): a losing player pays their cost "with or
+        # without ignition and in the case of blaze as well as burn".
+        # The 2026-09-07 cost rider is gone.
+        for ignite in (self.blaze, self.burn):
+            self.assertIsNone(
+                self.engine.volatile_loser_cost(self.game, ignite),
+            )
 
     def test_a_loser_who_did_not_ignite_falls_back_to_the_cards(self):
         self.assertIsNone(
@@ -1021,7 +1029,11 @@ class DrainThresholdTests(unittest.TestCase):
         self.engine = build_engine()
         # Nine Cyborgs a side is the cleanest fixture for a threshold
         # that is about the species and not about the role.
-        self.game = build_game(player_1_team=Team.CYBORGS)
+        # Basic mode: the species rule alone, with no Cyborg's
+        # personal ability (Law 21) moving the numbers.
+        self.game = build_game(
+            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
         self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
 
@@ -1064,10 +1076,10 @@ class DrainThresholdTests(unittest.TestCase):
         )
         self.assertNotIn(weakest, self.match.exhausted)
 
-    def test_a_basic_game_gives_a_cyborg_no_such_thing(self):
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+    def test_a_training_game_gives_a_cyborg_no_such_thing(self):
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
         self.assertEqual(
-            self.engine.exhaustion_threshold(basic, self.cyborg),
+            self.engine.exhaustion_threshold(training, self.cyborg),
             self.defense_of(self.cyborg),
         )
 
@@ -1110,9 +1122,9 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertEqual(word, "injured")
         self.assertEqual(emoji, get_injured_emoji(self.cog.condition_emojis))
 
-    def test_a_basic_game_gives_a_cyborg_no_such_thing(self) -> None:
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
-        word, _ = self.cog.injured_word_and_emoji(basic, self.cyborg)
+    def test_a_training_game_gives_a_cyborg_no_such_thing(self) -> None:
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
+        word, _ = self.cog.injured_word_and_emoji(training, self.cyborg)
         self.assertEqual(word, "injured")
 
     def test_the_underlying_condition_is_untouched(self) -> None:
@@ -1165,9 +1177,9 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertEqual(
             engine.injury_test_name(self.game, self.other), "injury test",
         )
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
         self.assertEqual(
-            engine.injury_test_name(basic, self.cyborg), "injury test",
+            engine.injury_test_name(training, self.cyborg), "injury test",
         )
 
     def test_a_cyborg_is_asked_for_a_damage_test(self) -> None:
@@ -1190,11 +1202,11 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertIn(tokens.condition(tokens.CONDITION_EXHAUST) * 2, text)
         self.assertNotIn(tokens.condition(tokens.CONDITION_DRAIN), text)
 
-    def test_a_basic_game_counts_a_cyborgs_tokens_in_amber(self) -> None:
+    def test_a_training_game_counts_a_cyborgs_tokens_in_amber(self) -> None:
         # Drain is the ability's word, and the ability is off.
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
         text = describe_exhaustion_gain(
-            self.cog, basic, self.match, self.cyborg, 1,
+            self.cog, training, self.match, self.cyborg, 1,
         )
         self.assertIn(tokens.condition(tokens.CONDITION_EXHAUST), text)
         self.assertNotIn(tokens.condition(tokens.CONDITION_DRAIN), text)
@@ -1324,7 +1336,11 @@ class OverdriveTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        self.game = build_game(player_1_team=Team.CYBORGS)
+        # Basic mode: the species rule alone, with no Cyborg's
+        # personal ability (Law 21) moving the numbers.
+        self.game = build_game(
+            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
         self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
 
@@ -1402,11 +1418,11 @@ class OverdriveTests(unittest.TestCase):
         )
         self.assertEqual(offered, [self.cyborg])
 
-    def test_nobody_is_offered_it_in_a_basic_game(self):
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+    def test_nobody_is_offered_it_in_a_training_game(self):
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
         self.assertEqual(
             self.engine.overdrive_candidates(
-                basic, self.match, [self.cyborg],
+                training, self.match, [self.cyborg],
             ),
             [],
         )
@@ -1465,7 +1481,11 @@ class ChargeUpTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        self.game = build_game(player_1_team=Team.CYBORGS)
+        # Basic mode: the species rule alone, with no Cyborg's
+        # personal ability (Law 21) moving the numbers.
+        self.game = build_game(
+            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
 
     def charged(self) -> list[str]:
@@ -1544,12 +1564,12 @@ class ChargeUpTests(unittest.TestCase):
         self.assertEqual(self.match.exhaustion.get(cyborg, 0), 0)
         self.assertNotIn(cyborg, self.charged())
 
-    def test_a_basic_game_charges_nobody_up(self):
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+    def test_a_training_game_charges_nobody_up(self):
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
         cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
         self.match.add_exhaustion(cyborg, 4)
         self.assertEqual(
-            self.engine.charge_up_players(basic, self.match), [],
+            self.engine.charge_up_players(training, self.match), [],
         )
 
     def test_a_non_cyborg_never_charges_up(self):
@@ -1741,11 +1761,11 @@ class SmoothCandidateTests(unittest.TestCase):
 
     def test_without_the_module_nobody_may(self):
         self.cross(self.taker)
-        basic = build_game(
-            player_1_team=Team.TELEKINETICS, mode=GameMode.BASIC,
+        training = build_game(
+            player_1_team=Team.TELEKINETICS, mode=GameMode.TRAINING,
         )
         self.assertEqual(
-            self.engine.smooth_candidates(basic, self.match), [],
+            self.engine.smooth_candidates(training, self.match), [],
         )
 
     def test_an_injured_telekinetic_may_still_take_it(self):
@@ -2065,13 +2085,13 @@ class MergeTests(unittest.TestCase):
         )
         self.assertEqual(bonus, 0)
 
-    def test_a_basic_game_merges_nobody(self):
+    def test_a_training_game_merges_nobody(self):
         roller, bystander = field_players(self.match)[:2]
         self.stand_on_the_ball(roller)
         self.stand_on_the_ball(bystander)
-        basic = build_game(player_1_team=Team.OOZES, mode=GameMode.BASIC)
+        training = build_game(player_1_team=Team.OOZES, mode=GameMode.TRAINING)
         bonus, lines, contributors = self.engine.merge_bonus(
-            basic, self.match, self.side, (roller,), "offense",
+            training, self.match, self.side, (roller,), "offense",
         )
         self.assertEqual((bonus, lines, contributors), (0, [], []))
 
@@ -2138,9 +2158,9 @@ class SpreadableTests(unittest.TestCase):
         )
 
     def test_without_the_module_nobody_is_exempt(self):
-        basic = build_game(player_1_team=Team.OOZES, mode=GameMode.BASIC)
+        training = build_game(player_1_team=Team.OOZES, mode=GameMode.TRAINING)
         self.assertEqual(
-            self.engine.spread_exempt_ids(basic, self.match, TeamSide.HOME),
+            self.engine.spread_exempt_ids(training, self.match, TeamSide.HOME),
             set(),
         )
 
@@ -2549,16 +2569,16 @@ class MindPullCandidateTests(unittest.TestCase):
         match.set_ball_space(zone, index)
         self.assertEqual(self.engine.mind_pull_candidates(game, match), [])
 
-    def test_a_basic_game_offers_nobody_a_pull(self):
+    def test_a_training_game_offers_nobody_a_pull(self):
         defender = self.defenders()[0]
         self.line_up_on_the_path(defender)
-        basic = build_game(
+        training = build_game(
             player_1_team=Team.PURPLE,
             player_2_team=Team.TELEKINETICS,
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
         )
         self.assertEqual(
-            self.engine.mind_pull_candidates(basic, self.match), [],
+            self.engine.mind_pull_candidates(training, self.match), [],
         )
 
     def test_nobody_is_offered_twice_for_one_movement(self):
@@ -2826,16 +2846,16 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(interrupted)
         self.assertEqual(self.match.pending_mind_pull, [])
 
-    async def test_a_basic_game_never_interrupts(self):
-        basic = build_game(
+    async def test_a_training_game_never_interrupts(self):
+        training = build_game(
             player_1_team=Team.PURPLE,
             player_2_team=Team.TELEKINETICS,
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
         )
-        self.cog.games[basic.game_id] = basic
+        self.cog.games[training.game_id] = training
         with suppressed_cog_saves():
             interrupted = check_for_mind_pull(
-                self.cog.engine, basic, self.match, {"kind": "x"},
+                self.cog.engine, training, self.match, {"kind": "x"},
             )
         self.assertIsNone(interrupted)
 

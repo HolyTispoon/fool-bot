@@ -1370,6 +1370,7 @@
   "offense_maneuver": null,
   "pending_action": null,
   "pending_ball_recovery": false,
+  "pending_boost": [],
   "pending_coaching_declared": false,
   "pending_coaching_formation": null,
   "pending_coaching_is_response": false,

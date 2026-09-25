@@ -109,6 +109,20 @@ def team_display_name(team: Team) -> str:
 
 
 class GameMode(str, Enum):
+    """
+    The three modes a game is played in (2026-09-25): **training**, the
+    game with no ability of any kind (Part I of the Charter alone);
+    **basic**, which adds the species abilities; and **advanced**, which
+    adds the gambits and the players' individual abilities on top. See
+    "Modes" in docs/design/species-abilities.md.
+
+    `basic` is the value every save made before training mode existed
+    carries, and it now means the game with species abilities -- the
+    value was kept rather than renamed (CLAUDE.md: don't rename saved
+    keys), so an unfinished basic game plays on as a basic game.
+    """
+
+    TRAINING = "training"
     BASIC = "basic"
     ADVANCED = "advanced"
 
@@ -169,22 +183,11 @@ class CoinFace(str, Enum):
 #: game down with it.
 VALID_BOARD_SIZES = {7, 9}
 
-# The two halves of advanced mode, by the key a button carries:
-# the field on `D12BallGame` it toggles, and its name on the button. Both
-# the setup settings block and the lobby build their buttons out of it
-# and toggle through `D12BallGame.toggle_advanced_module`, so the two
-# screens cannot come to offer different modules or disagree about
-# which of them may be turned off.
-ADVANCED_MODULES: dict[str, tuple[str, str]] = {
-    "maneuvers": ("advanced_maneuvers", "Gambits"),
-    "species": ("species_abilities", "Species"),
-}
-
 #: What `D12BallGame.configure` may be asked to set. The lobby and the
 #: setup settings block each offer a subset; the record refuses the
 #: rest by its state (a game past its lobby has no Test game toggle),
 #: never by which screen asked.
-GAME_SETTINGS = ("mode", "module", "board", "ai", "test", "tutorial", "name")
+GAME_SETTINGS = ("mode", "board", "ai", "test", "tutorial", "name")
 
 #: What a lobby refuses once Start Game has been pressed.
 LOBBY_CLOSED = "This lobby is no longer open."
@@ -270,19 +273,14 @@ class D12BallGame:
     status: GameStatus = GameStatus.SETUP
     board_size: int = 7
 
-    # The two modules advanced mode turns on -- the gambits
-    # and the species abilities. "Turning it on brings both; a game may
-    # take just one of the two" (the author, PR #177 review), so these
-    # are opt-*outs* rather than opt-ins: both default True and mean
-    # nothing at all in a basic game, where `mode` is the whole answer.
-    #
-    # That is why they are two bools rather than a third GameMode value
-    # or a set of enabled modules. A game is basic or advanced -- one
-    # switch, which is what a coach picks in the lobby and what every
-    # existing save carries -- and these two say what an advanced game
-    # left behind. Defaulting True is what makes a game saved before
-    # them (and every advanced game played so far) read as both modules
-    # on, which is what those games actually were.
+    # Two opt-outs advanced mode carried until 2026-09-25, when it was
+    # one switch over two modules (the gambits and the species
+    # abilities) and a game could drop either. The modes became three
+    # that day and species abilities moved into basic, so the toggles
+    # went; nothing sets these to False any more. They stay on the
+    # record because they are saved fields (CLAUDE.md: legacy fallbacks
+    # stay) and an advanced game started with one module off plays on
+    # as it was started.
     #
     # Nothing may read either of these directly to decide a rule:
     # `RulesEngine.gambits_apply` and
@@ -551,29 +549,6 @@ class D12BallGame:
         self.player_2_id = None
         self.player_2_name = None
 
-    def toggle_advanced_module(self, key: str) -> None:
-        """
-        Turn one half of advanced mode off or back on.
-
-        Both halves off is a basic game reached the long way round, and
-        the mode buttons are right there -- so the last one still on is
-        refused rather than quietly leaving a coach in an advanced game
-        with nothing advanced in it.
-        """
-        field_name, _ = ADVANCED_MODULES[key]
-        turning_off = getattr(self, field_name)
-        others_on = any(
-            getattr(self, other)
-            for other_key, (other, _) in ADVANCED_MODULES.items()
-            if other_key != key
-        )
-        if turning_off and not others_on:
-            raise RuleRefusal(
-                "An advanced game plays at least one of its two modules. "
-                "Pick Basic if you want neither."
-            )
-        setattr(self, field_name, not turning_off)
-
     def configure(self, setting: str, value: object = None) -> None:
         """
         Change one setting, by the key a button carries (`GAME_SETTINGS`).
@@ -581,16 +556,13 @@ class D12BallGame:
         A value arrives as the enum or as its wire string, whichever
         the frontend holds; one the record cannot read is a bug in the
         frontend and raises as one, where a rule about *this* game --
-        the tutorial pins Basic on a 7-space board, a joined lobby has
-        no Test game toggle, the last module on stays on -- is refused
-        with the sentence to show.
+        the tutorial pins Training on a 7-space board, a joined lobby
+        has no Test game toggle -- is refused with the sentence to
+        show.
 
-        `mode`, `module`, `board` and `ai` are open for the whole of
-        setup; `test`, `tutorial` and `name` only in the lobby, since
-        each is settled by Start Game. **Advanced mode is one switch
-        over two modules** and picking it brings both; the two are
-        left as they were when the mode goes back to Basic, so a
-        mis-click on the mode does not undo them. Advanced mode's
+        `mode`, `board` and `ai` are open for the whole of setup;
+        `test`, `tutorial` and `name` only in the lobby, since each is
+        settled by Start Game. Advanced mode's
         extra maneuvers want the room a nine-space board gives them,
         so picking it defaults the board to 9 -- a coach may still
         pick 6 or 7 afterwards.
@@ -617,11 +589,11 @@ class D12BallGame:
                 self.tutorial = not self.tutorial
                 if self.tutorial:
                     # One person against Dinky, and the script is
-                    # written for Basic on a 7-space board -- see
+                    # written for Training on a 7-space board -- see
                     # d12ball/tutorial.py.
                     self.test_game = False
                     self.ai_opponent = AIOpponent.DINKY
-                    self.mode = GameMode.BASIC
+                    self.mode = GameMode.TRAINING
                     self.board_size = 7
         elif setting == "name":
             self.require_lobby()
@@ -629,14 +601,12 @@ class D12BallGame:
         elif setting == "mode":
             if self.tutorial:
                 raise RuleRefusal(
-                    "The tutorial is a Basic-mode game. Turn Tutorial off "
-                    "to change the mode."
+                    "The tutorial is a Training-mode game. Turn Tutorial "
+                    "off to change the mode."
                 )
             self.mode = GameMode(value)
             if self.mode == GameMode.ADVANCED:
                 self.board_size = 9
-        elif setting == "module":
-            self.toggle_advanced_module(str(value))
         elif setting == "board":
             if self.tutorial:
                 raise RuleRefusal(

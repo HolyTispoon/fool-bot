@@ -200,7 +200,7 @@ def begin_setup_coaching(
     """
     Offer both coaches a Coaching Choice before kickoff, home
     first -- see "Setup" in docs/living-rules.md. Both
-    teams are dealt the standard 2-2-2 and, in basic mode, dealt
+    teams are dealt the standard 2-2-2 and, in training mode, dealt
     identically; this is where a coach may change any of it rather
     than waiting for their first window.
 

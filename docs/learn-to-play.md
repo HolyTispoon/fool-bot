@@ -1,6 +1,6 @@
 # D12 Ball: Learn to Play
 
-This book teaches you to play D12 Ball in **basic mode**, which is the whole game as a new table should meet it. **The Charter settles every question.** If this book and the Charter disagree, the Charter is right, and this book has left something out on purpose. Every rule here names the Law it comes from, as *(Law 6.4)*, so you can read the whole of it when you want to.
+This book teaches you to play D12 Ball in **training mode**, which is the whole game as a new table should meet it. **The Charter settles every question.** If this book and the Charter disagree, the Charter is right, and this book has left something out on purpose. Every rule here names the Law it comes from, as *(Law 6.4)*, so you can read the whole of it when you want to.
 
 Two coaches. Nine players each, six on the field. Thirty minutes on a clock that never stops. You win on goals -- and a level game goes to the shootout, so somebody always wins.
 
@@ -11,12 +11,12 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 - **The jumbotron**: the clock, the score, and the piles the tokens come from.
 - **Two team boards**, one a coach: the bench, the back bench, and a reminder of the six maneuvers.
 - **Eighteen player cards**, nine a team, and a meeple for each.
-- **Twelve maneuver cards.** Six are the basic cards this book teaches; the six with the gambit band are advanced mode and stay in the box for now.
+- **Twelve maneuver cards.** Six are the basic cards this book teaches; the six with the gambit band are advanced mode's and stay in the box for now.
 - **The ball**: a d12. **Four more d12s** for rolling.
 - **Exhaustion tokens**, and the two condition markers, Exhausted and Injured.
 - **The coin**, for the toss.
 
-> **Basic and advanced mode.** Basic mode is everything in this book. Advanced mode adds a second card to every maneuver and gives each species an ability; the appendix on the last page says what it adds, and Part II of the Charter says all of it.
+> **Training, basic and advanced mode.** Training mode is everything in this book. Basic mode gives each species an ability; advanced mode adds a second card to every maneuver and some players' own abilities on top. The appendix on the last page says what each adds, and Part II of the Charter says all of it.
 
 
 ## The field, the players, the deal
@@ -158,17 +158,19 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 **Full time and the shootout.** The higher score wins. Level, and each coach lines up their six in secret and the pairs shoot one against one: d12 + offensive skill, higher scores, a tie stands. Best of six, then sudden death. *(Law 17)*
 
 
-## Appendix: advanced mode
+## Appendix: basic and advanced mode
 
-Advanced mode switches on two things, and a game may take either without the other. Everything here is Part II of the Charter, Laws 18 to 20.
+Basic mode adds the species abilities to everything in this book. Advanced mode adds the gambits and the players' personal abilities to basic mode. Everything here is Part II of the Charter, Laws 18 to 21.
 
 ![Figure 14 - The twelve cards on the cycle](rulebooks/figures/fig-14-the-gambits.png)
 
-**Gambits.** Every rank gets a second card, the **gambit**: the same maneuver, bigger, and with a price when it is beaten. Skilled Pass reaches any teammate within 3; Dribble Burst runs up to 4; Setup Pass sets up a shot; Clear knocks the ball back 3; Intercept steals forward; Double Team pushes 2 with help. A gambit is the advanced version of the basic card on its rank, so the cycle does not change. You hold your gambits only while your team is **behind** -- fewer goals, or more Exhausted-or-Injured players on the field -- and a gambit can only be played against a challenge. *(Law 19)*
+**Gambits (advanced).** Every rank gets a second card, the **gambit**: the same maneuver, bigger, and with a price when it is beaten. Skilled Pass reaches any teammate within 3; Dribble Burst runs up to 4; Setup Pass sets up a shot; Clear knocks the ball back 3; Intercept steals forward; Double Team pushes 2 with help. A gambit is the advanced version of the basic card on its rank, so the cycle does not change. You hold your gambits only while your team is **behind** -- fewer goals, or more Exhausted-or-Injured players on the field -- and a gambit can only be played against a challenge. *(Law 19)*
 
 ![Figure 15 - The four species](rulebooks/figures/fig-15-the-species.png)
 
-**Species abilities.** Fire Demons **ignite** on a natural 6 or 7. Cyborgs run on **drain** and can **Overdrive** a roll. Telekinetics **pull** the opponent's ball as it crosses them, and take their own ball for free. Oozes **merge** into a skill test on their space. The species reference cards in the box carry the rest, and the Charter carries all of it. *(Law 20)*
+**Species abilities (basic and advanced).** Fire Demons **ignite** on a natural 6 or 7. Cyborgs run on **drain** and can **Overdrive** a roll. Telekinetics **pull** the opponent's ball as it crosses them, and take their own ball for free. Oozes **merge** into a skill test on their space. The species reference cards in the box carry the rest, and the Charter carries all of it. *(Law 20)*
+
+**Personal abilities (advanced).** Some players carry an ability of their own, and a few a higher skill, on the advanced side of their card. *(Law 21)*
 
 
 ## Quick reference

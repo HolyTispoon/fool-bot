@@ -238,10 +238,11 @@ page always sent.
 and the team boards moved beside it, as above) --
 [board-image.md](board-image.md), "The web page's board". It is not
 the PNG because the cards on it have to be cards: each is the board's
-own face of that player (`render.build_player_card`), which opens as
-the printed card with its whole ability on a click
-(`player_cards.render_player_card`, its advanced face in a game with
-the species abilities on), and previews under a pointer. A maneuver
+own card for that player (`render.draw_card`, with its marks and, in
+an advanced game, its advanced skills), which opens as the printed
+card with its whole ability on a click
+(`player_cards.render_player_card`, its advanced face in an advanced
+game), and previews under a pointer. A maneuver
 prompt's hand is the printed maneuver cards, and pressing one plays
 it. Every one of those pictures is the model's own drawing, served by
 `webapp/pictures.py` in a worker thread and cached; the page draws no

@@ -4,7 +4,7 @@ from io import BytesIO
 import re
 from math import cos, hypot, pi, radians, sin
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import Mapping, NamedTuple, Optional
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -361,9 +361,9 @@ _MEEPLE_LABEL_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
 # initials are also in the name label a coach reads anyway.
 #
 # **The icon is drawn only when the game plays species abilities**
-# (the author, 2026-09-18): in a basic game, or an advanced one that
-# opted the module out, species is a name on the card and nothing a
-# coach acts on, so the disc carries the initials alone -- at a size
+# (the author, 2026-09-18): in a training game, or an advanced one
+# saved with the module opted out, species is a name on the card and
+# nothing a coach acts on, so the disc carries the initials alone -- at a size
 # that fills it, since it is still 76px. Whether to draw it is the
 # `species_icons` flag every render entry point takes; the cog answers
 # it from `RulesEngine.species_abilities_apply`, and this module never
@@ -374,14 +374,16 @@ _MEEPLE_LABEL_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
 # -- the same piece the box art and the sale sheet stand on the printed
 # board. It fills the width of the 76px square the disc filled and
 # stands on its floor, so the rows, the ball and the names are placed
-# exactly as they were. The icon and the initials sit on the body,
-# where the piece is wide enough for them; the three heights below are
-# in the path's own units (see meeple_y).
+# exactly as they were. The initials sit on the body, where the piece
+# is wide enough for them, and the icon over them with its top across
+# the neck into the head (the author, 2026-09-25), which keeps it clear
+# of the initials; the three heights below are in the path's own units
+# (see meeple_y) -- the neck is at about -17.5.
 MEEPLE_SIZE = 76
 MEEPLE_SPECIES_ICON_SIZE = 24
 MEEPLE_OUTLINE_WIDTH = 3
-MEEPLE_ICON_CENTER = -6.0
-MEEPLE_ROLE_CENTER = 10.0
+MEEPLE_ICON_CENTER = -12.0
+MEEPLE_ROLE_CENTER = 8.0
 MEEPLE_SOLO_CENTER = 4.0
 BALL_RADIUS = 27
 # Where the two rows of meeples sit on the board. The visiting row's
@@ -813,9 +815,39 @@ def fit_card_name(
 _PLAYER_CARD_CACHE: dict[tuple[str, int, int], tuple[Image.Image, int, int]] = {}
 
 
+@dataclass(frozen=True)
+class CardStats:
+    """
+    The two numbers a board card prints where they are not the role's:
+    a player's advanced skills in an advanced game (Law 21). Not a
+    `RoleProfile`, because an advanced score is not held to 1-6.
+    """
+
+    offense: int
+    defense: int
+
+
+def card_profile(
+    catalog: PlayerCatalog,
+    player: PlayerDefinition,
+    card_skills: Mapping[str, tuple[int, int]],
+):
+    """
+    What a board card prints for this player: the role's profile, or
+    the skills the engine answered for this game
+    (`RulesEngine.card_skills`). The renderer is handed the numbers
+    rather than the game, for the reason `cyborg_ids` is: it may not
+    read the game to decide what is true.
+    """
+    if player.player_id in card_skills:
+        offense, defense = card_skills[player.player_id]
+        return CardStats(offense=offense, defense=defense)
+    return catalog.effective_profile(player)
+
+
 def rendered_player_card(
     player: PlayerDefinition,
-    profile: RoleProfile,
+    profile: "RoleProfile | CardStats",
 ) -> tuple[Image.Image, int, int]:
     """
     Build (and cache) a player's card at CARD_SIZE, along with the
@@ -842,7 +874,7 @@ def rendered_player_card(
 
 def build_player_card(
     player: PlayerDefinition,
-    profile: RoleProfile,
+    profile: "RoleProfile | CardStats",
 ) -> tuple[Image.Image, int, int]:
     """
     Compose a player's card at CARD_INTERNAL_SIZE: a white rectangle
@@ -1018,7 +1050,7 @@ def draw_card(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
     player: PlayerDefinition,
-    profile: RoleProfile,
+    profile: "RoleProfile | CardStats",
     x: int,
     y: int,
     team: Team,
@@ -1300,6 +1332,7 @@ def draw_assignment_cards(
     injured: set[str] = frozenset(),
     gap: int = 12,
     cyborg_ids: frozenset[str] = frozenset(),
+    card_skills: Mapping[str, tuple[int, int]] = {},
 ) -> None:
     for zone in Zone:
         left, right = bounds[zone]
@@ -1315,7 +1348,7 @@ def draw_assignment_cards(
                 canvas,
                 draw,
                 player,
-                catalog.effective_profile(player),
+                card_profile(catalog, player, card_skills),
                 x,
                 y,
                 team=setup.team,
@@ -2975,6 +3008,7 @@ def render_mind_pull_die(
     team_label: str,
     player_name: str,
     pulled: bool,
+    target_label: Optional[str] = None,
 ) -> BytesIO:
     """
     A Mind Pull attempt as one die, the Telekinetic taking it, and the
@@ -2998,7 +3032,9 @@ def render_mind_pull_die(
     verdict_color = (
         MIND_PULL_AURA_COLOR if pulled else MIND_PULL_MISSED_COLOR
     )
-    target_label = mind_pull_target_label()
+    # A personal ability's own band (Spectra, Law 21) where the roll
+    # carries one; the rule's otherwise.
+    target_label = target_label or mind_pull_target_label()
     # Measured on a throwaway canvas: the real one cannot be created
     # until these widths have decided how big it needs to be. The halo
     # is wider than the die, so it -- not the polygon -- is what the
@@ -3139,6 +3175,7 @@ def render_volatile_die(
     player_name: str,
     blaze: bool,
     modifier: int,
+    explainer: Optional[str] = None,
 ) -> BytesIO:
     """
     The extra die an ignite rolled, on an image of its own: the second
@@ -3159,12 +3196,16 @@ def render_volatile_die(
     The face itself stays the roller's *team* colour, because a Fire
     Demon plays for any of the eight teams (see "One player, both
     sides") and whose roll it is still has to be legible.
+
+    `explainer` is the rule the image is captioned with where a
+    personal ability changed it (`IgnitedRoll.rule`); None is the plain
+    Volatile rule.
     """
     verdict = VOLATILE_BLAZE_TEXT if blaze else VOLATILE_BURN_TEXT
     verdict = f"{verdict} {modifier:+d}"
     verdict_color = VOLATILE_AURA_COLOR if blaze else VOLATILE_BURN_COLOR
     trigger_label = f"ignited on {face}"
-    explainer = volatile_explainer_label()
+    explainer = explainer or volatile_explainer_label()
     # Measured on a throwaway canvas: the real one cannot be created
     # until these widths have decided how big it needs to be. The halo
     # is wider than the die, so it -- not the polygon -- is what the
@@ -4696,6 +4737,7 @@ def draw_team_board(
     exhausted: set[str] = frozenset(),
     injured: set[str] = frozenset(),
     cyborg_ids: frozenset[str] = frozenset(),
+    card_skills: Mapping[str, tuple[int, int]] = {},
 ) -> None:
     color = TEAM_COLORS[setup.team]
     draw.rounded_rectangle(
@@ -4736,7 +4778,7 @@ def draw_team_board(
             canvas,
             draw,
             player,
-            catalog.effective_profile(player),
+            card_profile(catalog, player, card_skills),
             card_x,
             y + 68,
             team=setup.team,
@@ -4775,7 +4817,7 @@ def draw_team_board(
                 canvas,
                 draw,
                 player,
-                catalog.effective_profile(player),
+                card_profile(catalog, player, card_skills),
                 card_x,
                 y + 68,
                 team=setup.team,
@@ -4852,6 +4894,7 @@ def render_coaching_image(
     title: str,
     species_icons: bool = False,
     cyborg_ids: frozenset[str] = frozenset(),
+    card_skills: Mapping[str, tuple[int, int]] = {},
 ) -> BytesIO:
     """
     One coach's own half of the field, for the
@@ -4945,9 +4988,11 @@ def render_coaching_image(
         match.injured,
         gap=COACHING_CARD_GAP,
         cyborg_ids=cyborg_ids,
+        card_skills=card_skills,
     )
     draw_coaching_benches(
         canvas, draw, setup, players, catalog, match, cyborg_ids=cyborg_ids,
+        card_skills=card_skills,
     )
 
     return png_bytes(canvas)
@@ -4992,6 +5037,7 @@ def draw_coaching_benches(
     catalog: PlayerCatalog,
     match: MatchState,
     cyborg_ids: frozenset[str] = frozenset(),
+    card_skills: Mapping[str, tuple[int, int]] = {},
 ) -> None:
     """
     The coach's two pools under the card rows. Which pool a player is
@@ -5029,7 +5075,7 @@ def draw_coaching_benches(
                 canvas,
                 draw,
                 player,
-                catalog.effective_profile(player),
+                card_profile(catalog, player, card_skills),
                 card_x,
                 COACHING_BENCH_CARDS_TOP,
                 team=setup.team,
@@ -5093,6 +5139,7 @@ def render_match_image(
     title: str | None = None,
     species_icons: bool = False,
     cyborg_ids: frozenset[str] = frozenset(),
+    card_skills: Mapping[str, tuple[int, int]] = {},
 ) -> BytesIO:
     players = player_index(catalog)
     canvas = Image.new(
@@ -5134,6 +5181,7 @@ def render_match_image(
         match.exhausted,
         match.injured,
         cyborg_ids=cyborg_ids,
+        card_skills=card_skills,
     )
     draw_board(canvas, draw, match, players, species_icons=species_icons)
     draw_assignment_cards(
@@ -5148,6 +5196,7 @@ def render_match_image(
         match.exhausted,
         match.injured,
         cyborg_ids=cyborg_ids,
+        card_skills=card_skills,
     )
     team_board_width = (
         FIELD_FAR_RIGHT - FIELD_FAR_LEFT - TEAM_BOARD_GAP
@@ -5165,6 +5214,7 @@ def render_match_image(
         match.exhausted,
         match.injured,
         cyborg_ids=cyborg_ids,
+        card_skills=card_skills,
     )
     draw_team_board(
         canvas,
@@ -5179,6 +5229,7 @@ def render_match_image(
         match.exhausted,
         match.injured,
         cyborg_ids=cyborg_ids,
+        card_skills=card_skills,
     )
 
     # BILINEAR here, not LANCZOS: this is a pure 1.5x upscale of an
