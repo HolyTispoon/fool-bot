@@ -105,10 +105,19 @@ at a site that already existed rather than a mechanic of its own.
   Merge, the shot's wall, the speed reach, the Exhausted line, the
   formation deal and the shootout label. `effective_profile` is left to
   display and to Dinky's tie-breaks, which are judgement rather than a
-  rule. **Known gap:** the player cards drawn on the board and the
-  coaching image still show the role's numbers, because the renderer
-  is handed profiles and not the game; the matchup and shot images do
-  show the game's.
+  rule.
+- **The board's cards print the game's skills too.** The renderer may
+  not read the game, so `RulesEngine.card_skills(game, match)` answers
+  the numbers -- every card of both sides, bench and back bench
+  included, whose advanced scores differ from the role's, and nothing
+  outside advanced mode -- and `render_match_image` and
+  `render_coaching_image` take it as `card_skills`, beside
+  `cyborg_ids` and for the same reason. `render.card_profile` is the
+  one place a card swaps its profile for them; `CardStats` carries
+  the pair because an advanced score is not held to 1-6. Empty, it
+  draws every image byte-identical to before (checked by SHA-256 on
+  both board sizes and the coaching image). The matchup and shot
+  images read `skills` directly, since the cog holds the game there.
 - **Each ability is asked where its number already lived**, never
   re-derived:
   - *Volatile* -- `ignite` reads Sizzifizik's faces and Blazebulk's

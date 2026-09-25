@@ -673,6 +673,37 @@ class RulesEngine:
             defense = player.advanced_skills.get("defense", defense)
         return PlayerSkills(offense=offense, defense=defense)
 
+    def card_skills(
+        self, game: D12BallGame, match: MatchState,
+    ) -> dict[str, tuple[int, int]]:
+        """
+        The `(offense, defense)` a board card should print wherever it
+        is not the role's -- a player's advanced skills in an advanced
+        game (Law 21). What `render.py`'s `card_skills` needs, answered
+        here for the reason `cyborg_condition_ids` is: the renderer is
+        handed the numbers and never the game. Every card of both sides
+        is asked, bench and back bench included, since the team board
+        draws them all.
+        """
+        if not self.personal_abilities_apply(game):
+            return {}
+        answer: dict[str, tuple[int, int]] = {}
+        for setup in (match.home, match.visiting):
+            for player_id in (
+                *setup.field_players,
+                *setup.team_board.bench,
+                *setup.team_board.back_bench,
+            ):
+                skills = self.skills(game, player_id)
+                profile = self.player_catalog.effective_profile(
+                    self.get_player_definition(player_id),
+                )
+                if (skills.offense, skills.defense) != (
+                    profile.offense, profile.defense,
+                ):
+                    answer[player_id] = (skills.offense, skills.defense)
+        return answer
+
     def cyborg_condition_ids(
         self,
         game: D12BallGame,

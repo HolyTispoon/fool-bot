@@ -432,6 +432,7 @@ class WebApp:
             title=title,
             species_icons=self.engine.species_abilities_apply(game),
             cyborg_ids=self.engine.cyborg_condition_ids(game, match),
+            card_skills=self.engine.card_skills(game, match),
         ).getvalue()
 
     # -- What a page is handed ---------------------------------------

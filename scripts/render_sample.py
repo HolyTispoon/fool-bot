@@ -65,7 +65,35 @@ def list_games() -> int:
     return 0
 
 
-def match_from_saved_game(game_id: str) -> tuple[MatchState, str, bool]:
+def advanced_card_skills(
+    match: MatchState, catalog,
+) -> dict[str, tuple[int, int]]:
+    """
+    The same answer RulesEngine.card_skills gives an advanced game --
+    every card whose advanced skills differ from its role's -- read off
+    the catalog, since this script builds no engine.
+    """
+    answer = {}
+    for setup in (match.home, match.visiting):
+        for player_id in (
+            *setup.field_players,
+            *setup.team_board.bench,
+            *setup.team_board.back_bench,
+        ):
+            player = catalog.player_by_id(player_id)
+            profile = catalog.effective_profile(player)
+            skills = (
+                player.advanced_skills.get("offense", profile.offense),
+                player.advanced_skills.get("defense", profile.defense),
+            )
+            if skills != (profile.offense, profile.defense):
+                answer[player_id] = skills
+    return answer
+
+
+def match_from_saved_game(
+    game_id: str,
+) -> tuple[MatchState, str, bool, bool]:
     games = load_games()
     game = games.get(game_id)
     if game is None:
@@ -85,7 +113,9 @@ def match_from_saved_game(game_id: str) -> tuple[MatchState, str, bool]:
         and game.species_abilities
         and not game.tutorial
     )
-    return match, f"PBD{game.game_number}", species_icons
+    # ...and RulesEngine.personal_abilities_apply's, for the cards.
+    advanced = game.mode == GameMode.ADVANCED and not game.tutorial
+    return match, f"PBD{game.game_number}", species_icons, advanced
 
 
 def main() -> None:
@@ -145,6 +175,15 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--advanced",
+        action="store_true",
+        help=(
+            "Draw the cards as an advanced game does, with the players' "
+            "advanced skills (Law 21). A --game is drawn the way its own "
+            "record says."
+        ),
+    )
+    parser.add_argument(
         "--training",
         # The flag's name before training mode existed.
         "--basic",
@@ -180,7 +219,9 @@ def main() -> None:
     catalog = load_player_catalog()
 
     if arguments.game:
-        match, label, species_icons = match_from_saved_game(arguments.game)
+        match, label, species_icons, advanced = match_from_saved_game(
+            arguments.game,
+        )
     else:
         if arguments.home == arguments.visiting:
             raise SystemExit("--home and --visiting must be different teams.")
@@ -201,6 +242,8 @@ def main() -> None:
             raise SystemExit(str(error)) from error
         label = "Sample"
         species_icons = not arguments.training
+        advanced = arguments.advanced
+    card_skills = advanced_card_skills(match, catalog) if advanced else {}
 
     if arguments.field:
         image = render_field_image(match, catalog, species_icons=species_icons)
@@ -215,6 +258,7 @@ def main() -> None:
                 f"{team_display_name(setup.team)} ({side.value.title()})"
             ),
             species_icons=species_icons,
+            card_skills=card_skills,
         )
     else:
         image = render_match_image(
@@ -226,6 +270,7 @@ def main() -> None:
                 f"{period_label(match)}"
             ),
             species_icons=species_icons,
+            card_skills=card_skills,
         )
 
     arguments.out.parent.mkdir(parents=True, exist_ok=True)

@@ -2882,8 +2882,8 @@ From the author, for `foolbot.py`'s generic commands:
 - **The personal abilities and the advanced skill scores** (Law 21), all sixteen, since
   2026-09-25, with the four readings in that day's entry still the author's to confirm. The
   printed player card's back shows them (the author, 2026-09-25: the personal ability instead of
-  the role's on the card, while in play a player keeps both, and the advanced scores); the player
-  cards drawn on the board still show the role's numbers.
+  the role's on the card, while in play a player keeps both, and the advanced scores), and so do
+  the player cards the bot draws on the board and the coaching image.
 - **The extreme shootout**, end to end: a secret order a side at a time, the reveal, the
   skill test with its injury checks, the "cannot be caught" stop, and sudden death with a
   fresh pick each test. It is the only thing that settles a level game now that league mode

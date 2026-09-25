@@ -196,6 +196,57 @@ class AdvancedSkillTests(unittest.TestCase):
         )
 
 
+class CardSkillTests(unittest.TestCase):
+    """
+    The numbers the board's cards print (`RulesEngine.card_skills`):
+    the advanced scores in an advanced game, for every card of both
+    sides whose scores differ from the role's, and nothing otherwise.
+    """
+
+    def setUp(self) -> None:
+        self.players = json.loads(
+            PLAYERS_JSON.read_text(encoding="utf-8"),
+        )["players"]
+
+    def build(self, mode: GameMode):
+        game = build_game(
+            mode=mode,
+            player_1_team=Team.FIRE_DEMONS,
+            player_2_team=Team.CYBORGS,
+        )
+        return game, build_match(ENGINE, game)
+
+    def test_an_advanced_game_prints_every_advanced_score(self) -> None:
+        game, match = self.build(GameMode.ADVANCED)
+        answer = ENGINE.card_skills(game, match)
+        on_the_teams = {
+            player_id
+            for setup in (match.home, match.visiting)
+            for player_id in (
+                *setup.field_players,
+                *setup.team_board.bench,
+                *setup.team_board.back_bench,
+            )
+        }
+        scored = {
+            player_id for player_id in on_the_teams
+            if self.players[catalog_player_id(player_id)]["advanced_skills"]
+        }
+        self.assertTrue(scored)
+        self.assertEqual(set(answer), scored)
+        for player_id in scored:
+            skills = ENGINE.skills(game, player_id)
+            self.assertEqual(
+                answer[player_id], (skills.offense, skills.defense),
+            )
+
+    def test_no_other_mode_prints_anything_but_the_role(self) -> None:
+        for mode in (GameMode.TRAINING, GameMode.BASIC):
+            with self.subTest(mode.value):
+                game, match = self.build(mode)
+                self.assertEqual(ENGINE.card_skills(game, match), {})
+
+
 class FireDemonTests(unittest.TestCase):
     def setUp(self) -> None:
         self.game = advanced(player_1_team=Team.FIRE_DEMONS)
