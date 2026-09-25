@@ -1058,12 +1058,13 @@ Ignite is not a choice, and the second die never ignites in turn -- one reroll, 
 
 Four rolls are covered: their die in a [skill test](#the-skill-test) or a [contest for the ball](#where-the-ball-comes-to-rest) -- and if both players rolling are Fire Demons, each checks their own -- the shooter's die in a [score attempt](#score-attempt), and a [shootout test](#extreme-shootout). An [injury check](#the-injury-check) and an [own-goal roll](#own-goal) never ignite: a natural 6 or 7 there is only a 6 or 7.
 
-**In a maneuver skill test the blaze or burn decides a tier, and what the loser pays.** Four cases, one for each way an ignite can land:
+**In a maneuver skill test the blaze or burn can decide a tier.** Four cases, one for each way an ignite can land:
 
 - **A blaze that wins** resolves that side's maneuver as **its advanced version -- the gambit on its rank** -- even where the [cards would have resolved the basic maneuver](#when-a-gambits-effect-fires), and whether or not that coach [may play a gambit](#who-may-play-a-gambit) this turn. A maneuver already resolving as a gambit gains nothing more.
-- **A blaze that loses** upgrades nothing -- and **that player pays no [gambit's cost](#when-a-gambits-effect-fires)**, even where the cards would otherwise have charged them one.
-- **A burn that loses** resolves the *opponent's* maneuver as its advanced version, **and that player pays their own gambit's cost** -- a burn is the one thing that puts a cost in force where the cards alone would not.
-- **A burn that wins** changes nothing but the number.
+- **A burn that loses** resolves the *opponent's* maneuver as its advanced version, the same way.
+- **A blaze that loses** and **a burn that wins** change nothing but the number.
+
+**An ignite never decides a [gambit's cost](#when-a-gambits-effect-fires).** A player who loses the skill test pays their own gambit's cost exactly where they would have without the ignite, whichever way it went.
 
 *Note.* A blaze that wins is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as a gambit on its own, so even a player who *did* play the gambit gets it resolving as one for the first time. A burn that wins won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
 
@@ -1139,7 +1140,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 
 ### Whose they are
 
-**Some players carry an ability of their own, and three carry an advanced skill.** Both are played in [advanced mode](#what-each-mode-plays) and in no other. A personal ability belongs to the player rather than their role or their species, so a player fielded on both sides of one game carries it on both cards.
+**Some players carry an ability of their own, and four carry an advanced skill.** Both are played in [advanced mode](#what-each-mode-plays) and in no other. A personal ability belongs to the player rather than their role or their species, so a player fielded on both sides of one game carries it on both cards.
 
 A personal ability is played **beside the player's role ability, never instead of it**: a player keeps their role's ability in advanced mode. The advanced side of a card prints the personal ability in the role's place, and the role's is on the other side.
 
@@ -1153,6 +1154,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 | --- | ---: | ---: |
 | Flux (Defender, Cyborg) | 5 | 5 |
 | Hellguard (Fullback, Fire Demon) | 0 | 8 |
+| Ozul (Playmaker, Ooze) | 6 | 5 |
 | Tachyon (Striker, Cyborg) | 6 | 4 |
 
 ### Fire Demons
@@ -1163,6 +1165,8 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Brightburn's burn upgrades nothing.** A burn that loses a maneuver skill test does not resolve the opponent's maneuver as its advanced version. Every burn, in any roll, removes 1 token from Brightburn.
 
+**Emberdash runs further.** Emberdash's [Dribble Advance](#dribble-advance) may go up to 3 spaces, and their [Dribble Burst](#dribble-burst) costs no exhaustion.
+
 ### Cyborgs
 
 **Bulwark is Drained at 10.** Bulwark is Drained at 10 or more drain tokens rather than 7, and never below.
@@ -1171,7 +1175,9 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Gearclaw may Boost.** Once per roll, before the die is thrown, Gearclaw may **drain 1** to add **+3** to that roll. It is declared blind, on any roll Gearclaw could Overdrive, and follows every rule of Overdrive -- except that on one roll Gearclaw may Boost or Overdrive, never both.
 
-**Strider runs on less.** When Strider [charges up](#lithium-powered-cyborg), they remove 2 drain tokens rather than 1. When they run back, they gain 1 token fewer than the spaces they run, never fewer than none.
+**Strider runs on less.** When Strider [charges up](#lithium-powered-cyborg), they remove 2 drain tokens rather than 1. A [run back](#running-back-after-a-steal) drains Strider 1 at most, however far they run.
+
+**Quantor runs onto the pass.** When a teammate's won [High Pass](#high-pass) or [Setup Pass](#setup-pass) is about to resolve, Quantor may **drain 3** to move to the space the pass is aimed at and receive it there, without a contest. The pass then resolves with Quantor as its receiver: a High Pass of 2 in range and a Setup Pass set up Quantor's [scoring opportunity](#scoring-opportunities), and a longer High Pass is simply received. It is declared with the pass's distance, only for a distance whose space is on the field, and never on Quantor's own pass.
 
 **Synapse's Overdrive decides a tier.** When Synapse wins a maneuver skill test on a roll they Overdrove, their maneuver resolves as its advanced version -- the gambit on its rank -- whether or not their coach [may play a gambit](#who-may-play-a-gambit) this turn, exactly as a [blaze that wins](#volatile-fire-demon) does. A maneuver already resolving as a gambit gains nothing more.
 
@@ -1181,7 +1187,9 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Quillon pulls for free.** Quillon takes no token for a Mind Pull.
 
-**Spectra pulls harder.** Spectra adds 3 to a Mind Pull roll, so pulls on a total of 11 or more.
+**Spectra pulls harder.** Spectra's Mind Pull succeeds on 8 or more.
+
+**Dravox and Hexis play their gambits on the dice.** When Dravox wins a maneuver skill test with a defensive gambit they played, or Hexis with an offensive one, it resolves as the gambit -- where a card that did not win on the cards [would otherwise resolve as its basic maneuver](#when-a-gambits-effect-fires). A basic card they played is not upgraded.
 
 ### Oozes
 
@@ -1207,7 +1215,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 | Species | Ability |
 | --- | --- |
-| Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's gambit), a burn that loses upgrades the opponent's and pays its own gambit's cost, and a blaze that loses pays none. |
+| Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's gambit), and a burn that loses upgrades the opponent's. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: drain 3 for +5 on a roll, declared before it. Charge-up: -1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball comes to rest on your space -- take it over, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |

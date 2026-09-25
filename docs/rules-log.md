@@ -153,6 +153,40 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-25 (last) -- author and sheet, Volatile decides no cost, and the personal abilities move on
+
+**An ignite never decides a gambit's cost.** Asked with the Volatile text from the sheet --
+*"In a skill test, a blaze that wins resolves your maneuver as its advanced version; a burn that
+loses resolves your opponent's maneuver as its advanced version"* -- the author: *"There's
+nothing here about paying the gambit's cost. It's only about upgrading the opponent's
+maneuver."* A losing player pays their gambit's cost where they would have *"with or without
+ignition and in the case of blaze as well as burn."* Asked whether that drops the cost half of
+the 2026-09-07 entry below (a losing surge spared the cost, a losing backfire imposed it):
+*"Drop it."* **That half of 2026-09-07 is superseded**; its tier half stands. With it goes the
+open reading about Brightburn's cost, which was only ever that rule.
+
+**Confirmed by the author:** Noxar's adjacent pull lands on Noxar's space; Acidel's ability
+covers Double Team, and a declined Acidel shot leaves the ball with Acidel's side.
+
+**From the sheet** (re-imported the same day), with the author's answers where the cell left a
+reading open:
+
+- **Spectra:** *"Mind Pulls succeds on 8+"* -- a flat 8, replacing the +3.
+- **Strider:** *"Max 1 drain when runs back"* -- a cap of 1, replacing "cost -1".
+- **Ozul:** new advanced skills, 6 offense and 5 defense.
+- **Emberdash:** *"Dribble Advance up to 3 or Dribble Burst with no exhaustion."*
+- **Dravox and Hexis:** *"Resolves defensive (offensive) gambit's bonuses when winning with
+  skill test."* Asked whether a basic card they played is upgraded too: only a gambit they
+  played resolves as one.
+- **Quantor:** *"Before resolving High Pass or Setup Pass, add 3 drain to move Quantor to the
+  target space of the pass. Quantor gains possession without contest."* Asked who passes: a
+  teammate, and on a Setup Pass Quantor takes the scoring opportunity. Written so that it is
+  declared with the distance, only for a space on the field -- a High Pass that overshoots has
+  no target space to run to.
+- **Bulwark:** the cell briefly read "Damaged only on 10+", which the author called a mistake
+  and reverted; it reads *"Is only drained at 10."*, the rule unchanged.
+- Acidel, Gearclaw and Voltus were reworded with no change of meaning.
+
 ### 2026-09-25 (latest) -- author, a personal ability does not replace the role ability
 
 Asked when the advanced side of the player card was drawn with the personal ability in the role
@@ -182,7 +216,7 @@ the one-line cells left open:
 The advanced skill scores (Flux, Hellguard, Tachyon) move from Law 18 into Law 21 as a table,
 with the rule the author gave on 2026-09-22.
 
-**Still the author's to settle**, each written in the Charter at its literal reading:
+**Settled later the same day** -- see the entry above. The four readings as first written:
 
 - **Brightburn and their own gambit's cost.** A Fire Demon's burn that loses pays their own
   gambit's cost even where the cards alone would not have charged one (Law 20). The sheet
