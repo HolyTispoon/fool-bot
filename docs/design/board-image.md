@@ -176,7 +176,9 @@ not carry.
 
 **A meeple is the species icon over the role initials, and it is 76px
 because it carries both -- in a game playing species abilities.** `draw_meeple_face` is the face; `draw_meeple_group`
-composites it onto the canvas it now takes. It was a 56px disc with the
+composites it onto the canvas it now takes. (It is the Screentop meeple
+now, not a disc -- see "A meeple is the Screentop piece" below; what follows
+is how the disc got to 76px, which is the square the meeple fills.) It was a 56px disc with the
 initials alone until 2026-09-18, when species abilities made what a card *is*
 as much a fact of the position as what it does. Thirteen drawings were tried
 and judged at the width Discord shows the field strip (~900px), not at the
@@ -225,8 +227,37 @@ and judged at the width Discord shows the field strip (~900px), not at the
   the one worth checking), `--basic` for the other, and a `--game` the way
   its own record says.
 - **A missing icon falls back the same way** -- initials alone, filling the
-  disc -- because the loader is silent (see "A bundled file's name is
+  body -- because the loader is silent (see "A bundled file's name is
   case-sensitive...").
+
+**A meeple is the Screentop piece, not a disc** (the author, 2026-09-25).
+The token is `MEEPLE_PATH` -- the Screentop table's own SVG outline, the
+one the box art and the sale sheet stand on the printed board -- read by
+`flatten_path` and fitted by `meeple_points`. It is **copied, not traced**:
+a second drawing of the piece is how the bot's meeple would come to differ
+from the table's, and the path and its reader moved from `box_art.py` into
+`render.py` so there is one of each (box art imports them; all ten box
+panels hashed identical across the move).
+
+- **It fills the square the disc did.** The piece is as wide as
+  `MEEPLE_SIZE` (it is a little wider than tall) and stands on the
+  square's floor, so the two rows, the ball token and the names are placed
+  exactly as before -- nothing else on the board moved.
+- **Everything on it sits on the body.** The head is too small to carry
+  anything at 76px, so the species icon (24px) is on the chest and the
+  initials under it, above the notch between the legs, which would
+  otherwise cut the letters. The heights are in the path's own units
+  (`MEEPLE_ICON_CENTER`, `MEEPLE_ROLE_CENTER`, `MEEPLE_SOLO_CENTER`, read
+  by `meeple_y`), so they follow the piece rather than the square.
+  `test_a_meeple_carries_its_species_over_its_role` checks the icon clears
+  the initials and the initials clear the notch.
+- **The solo initials are 20px, down from 26.** The body is narrower than
+  the disc was, and 20 is the size at which "WG", the widest pair, stays
+  between the arms.
+- The icon went from 38px to 24 to fit the chest. The four silhouettes
+  were drawn to survive 18px (see "The species icons" in
+  [cards.md](cards.md)), so 24 is above the floor -- but it is smaller
+  than it was, and worth a look at the width Discord shows the strip.
 
 **The ball token hangs off the possessing side's meeples, except when they have
 none there.** `ball_token_x` is the whole of the placement: normally it tucks

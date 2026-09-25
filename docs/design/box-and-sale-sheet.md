@@ -186,12 +186,13 @@ is the printed one. So the box shows the printed one.
 **A meeple is the piece, drawn as a piece**: the author's own outline, in its
 team's colour, with the player's role on its chest -- the same piece the
 Screentop table puts on the board, which is what a coach recognises. The bot
-draws a player as a coloured disc with a label in it, which is right on a
-screen and wrong in a picture of a tabletop: a disc is a token, and what
-stands on a printed board is a pawn.
+used to draw a player as a coloured disc with a label in it; since 2026-09-25
+it draws this same piece too (see "A meeple is the Screentop piece" in
+[board-image.md](board-image.md)).
 
 **`MEEPLE_PATH` is the Screentop table's own SVG path**, and `flatten_path`
-reads it. The first version was a polygon traced by eye off a screenshot and
+reads it. Both live in `render.py` and `box_art.py` imports them, so the box,
+the bot and the table are one outline. The first version was a polygon traced by eye off a screenshot and
 it looked like a gingerbread man -- the arms too straight, the piece as wide
 as it was tall. Reading the path is not just more accurate, it is the only
 way the two stay the same shape: retyping a curve as a list of points is how
