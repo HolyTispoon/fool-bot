@@ -29,7 +29,7 @@ What that changes in what shipped:
 | The server starts in the cog's `cog_load` when `FOOLBOT_WEB_PORT` is set, on the bot's event loop. | **Its own process**, `python3 -m webapp`, with no Discord token and no bot. |
 | One `games` dict and one save file, `data/d12ball_games.json`, shared by both frontends. | **Its own games and its own file**, `data/d12ball_web_games.json`, in the same format. Neither process writes the other's file. The one read across the line is the statistics (below): the bot reads the web file read-only when a coach asks for the numbers. |
 | The cog's `GameService`, `RulesEngine` and `GameLocks`, handed in. | **Its own service, engine and locks**, built from the same model loaders the cog uses. |
-| A coach is a Discord account; `/d12ball web_link` hands them a link. | **A room with a link, and seats claimed in it** (decision 1 below); the slash command goes. |
+| A coach is a Discord account; `/d12ball web_link` hands them a link. | **A room with a link; the first two in are its coaches, the rest observers, and a seat may change hands** (decision 1 below); the slash command goes. |
 | `GameService.listeners` so a page sees a turn taken on Discord. | Kept, for the same reason one step over: a page sees the turn the *other web coach* took, and an observer sees both. |
 | "One process, one service, a lock per game" (decision 5 of [web-app.md](web-app.md)), because two processes over one file would clobber each other. | **One process per file.** The reasoning stands; the file is what it was about. Two processes over two files do not touch. |
 | The web app inherits `DiscordBatching` through the cog's service. | Gone with the shared service: the web app's service takes the default `Batching()`. |
@@ -83,32 +83,55 @@ so nobody re-opens them.
 
 1. **Rooms and seats, like Screentop.gg or playingcards.io.** A room
    is created and has a link of its own that stays good; the room is
-   saved. Whoever opens the link comes in as an **Observer**, the
-   default role. The two coaching seats are claimed in the room. The
-   author named the seats **Home Team Coach** and **Visitors Team
-   Coach**.
+   saved. Two coaching seats, **Coach 1** and **Coach 2**, renamed
+   Home and Visitors once the coin has settled it and the game has
+   started (the author revised the seat names on 2026-09-25 after
+   the Charter's "Winning the toss" was raised: the winner of the
+   coin chooses, so no seat is Home before it). **The first two
+   people into a room are seated**: the creator is Coach 1, the next
+   to arrive is Coach 2, and everyone after that is an **Observer**.
+   A coach may leave a seat and take it again, before or during the
+   game, so a person can jump in and out from different devices. An
+   **admin** may kick a seat whose holder's device is gone; anyone in
+   the room may become admin, but it is a deliberate act of its own,
+   and a kick is gated by an "Are you sure?" confirmation.
    - **Underneath a seat is still a name and a signed cookie**, the
      recommendation the author took for the identity: on first visit
      the page asks for a name, the server issues an id (an `int` the
      record takes the way it takes a Discord id) and sets a cookie
      carrying `{id, name}` with an HMAC under `FOOLBOT_WEB_SECRET`,
-     stored nowhere. Claiming a seat writes that id into the room's
-     record (`player_1_id` or `player_2_id`, through the service's
-     lobby moves); coming back to the room with the cookie finds the
-     seat still yours. With no secret set, identities die with the
-     process, which is the same safe default the links had.
-   - **One thing to settle before step 2 names the seats.** The
-     Charter's "Winning the toss" (Setting up a game) says one coach
-     flips the coin and *the winner chooses whether to be home or the
-     visitors*. A seat that is Home before the coin is flipped is a
-     rules change. Two readings, and the plan below takes the first
-     until the author says otherwise: **(a)** the two seats are the
-     two coaches, labelled Home and Visitors from the moment the coin
-     settles it and "Coach" until then, so the room plays the Charter
-     as written; **(b)** the seat claimed *is* the side, a web game
-     skips the toss, and that is a dated entry in `docs/rules-log.md`
-     and a line in the living rules, in their own commit, before step
-     2 lands.
+     stored nowhere. A seat holds that id in the room's record
+     (`player_1_id` or `player_2_id`); coming back with the cookie
+     finds the seat still yours. A cookie is per device, which is why
+     "from another device" is leave-and-take (or kick-and-take): the
+     new device is a new identity, and the seat takes it. With no
+     secret set, identities die with the process, which is the same
+     safe default the links had.
+   - **What the record has to learn.** Its lobby moves as written
+     take seat 2 only, shift the other coach into seat 1 when the
+     creator leaves, refuse the only coach leaving, and refuse every
+     move once the game has started. A room needs a seat to change
+     hands at any time, without the other seat moving: two record
+     methods, `take_seat` (whichever seat is free, or the named one)
+     and `vacate_seat`, allowed before and after kickoff, refusing
+     with `RuleRefusal` when the seat is held by somebody else or
+     there is none free. Safe mid-game because everything the match
+     keeps about a side is by player *number* (`home_player_number`,
+     `coin_winner_player_number`), never by id, and
+     `refresh_player_names` already re-reads the names. `player_1_id`
+     becomes `Optional[int]`, `None` only after a vacate, so every
+     existing save loads unchanged. The Discord lobby keeps its own
+     moves untouched. Its own commit, reviewed as a change to the
+     record's rules.
+   - **Roles are the frontend's.** Who is admin in a room, and who is
+     watching, is web state in the web app's own file
+     (`data/d12ball_web_rooms.json`), never on the game record: the
+     save format is the contract and a room role is not a fact about
+     the game. A kick is the frontend's authorisation (the admin) over
+     the record's rule (`vacate_seat` for the seated id), the way a
+     Discord helper's `manage_channels` gates a click the record then
+     judges (ARCHITECTURE.md, "Keep Discord authorization ... in the
+     Discord frontend").
 2. **Where the web process runs: the same Windows machine as the bot,
    the `K:\` checkout.** One `git pull` updates both, one `data/`
    folder holds both files, and the tunnel is on a machine that
@@ -250,7 +273,7 @@ person was ever named to the web app. Nothing on the web can be
 played until the page knows who is reading it and which seat they
 hold.
 
-**What it is, under decision 1.** Three pieces:
+**What it is, under decision 1.** Four pieces:
 
 - **The identity**: `webapp/identity.py`, a `Coach(id: int, name:
   str)` in a signed cookie, `coach_for(request)` that reads and
@@ -260,29 +283,32 @@ hold.
   needs (an id, a number, a name, two seats, a status, settings), and
   a link `/room/{game_id}` that stays good for as long as the record
   exists. `POST /api/rooms` creates one through `create_game` with
-  `in_lobby=True` and *no seat taken*, since the creator is an
-  observer until they claim one. That is a small change to
-  `create_game`, which today seats the creator as player 1: it gains
-  the case of a room with both seats empty, which `D12BallGame`'s
-  lobby rules have to accept (`lobby_join` seats whichever is free).
-  Reviewed as a change to the record's rules, its own commit.
-- **The seats**: claimed and released through the service's lobby
-  moves (`lobby_join`, `lobby_leave`), and named as decision 1(a)
-  says: "Coach" until the coin, then Home and Visitors. Everyone else
-  in the room is an observer, sees everything both coaches are shown
-  except a side's secrets (the other hand, the shootout orders, which
-  `present.py` already withholds from anyone but that seat), and
-  answers nothing. `Viewer` becomes "which seat of *this* room is
-  this coach in, if either", by comparing the cookie's id with the
-  record's two ids, the same comparison `SafeView.may_act_for` makes
-  with a Discord id.
+  `in_lobby=True`, the creator in seat 1 as today.
+- **The seats**: the record's two new methods, `take_seat` and
+  `vacate_seat` (decision 1), through two service doors. Arriving at
+  a room with a seat free takes it, so the second person in is Coach
+  2; anyone after is an observer, who sees everything both coaches
+  are shown except a side's secrets (the other hand, the shootout
+  orders, which `present.py` already withholds from anyone but that
+  seat) and answers nothing. Leave and take work before and after
+  kickoff. Seats are labelled Coach 1 and Coach 2 until the coin, and
+  Home / Visitors from the moment the record's `home_player_number`
+  says so. `Viewer` becomes "which seat of *this* room is this coach
+  in, if either", by comparing the cookie's id with the record's two
+  ids, the same comparison `SafeView.may_act_for` makes with a
+  Discord id.
+- **The roles**: `webapp/rooms.py`, the web app's own state per room
+  (admin ids, observers seen) in `data/d12ball_web_rooms.json`, its
+  own file, never the save. "Become admin" is a button of its own with
+  a confirmation; an admin sees a "Kick" on each held seat, gated by
+  "Are you sure?", which calls `vacate_seat` for the seated id.
 
 **What must not happen.** A second gate. What a seat may *answer* is
 still `asked_sides`, read by `present.py`; the identity says which
-seat, never whether the seat may act. And a rule about seats in
-`webapp/`: who may claim, who may leave, whether a full room refuses,
-are the record's (`lobby_join`/`lobby_leave` refuse with
-`RuleRefusal`) and the page shows the sentence.
+seat, never whether the seat may act. A rule about seats in
+`webapp/`: who may take, whether a held seat refuses, are the
+record's (`take_seat`/`vacate_seat` refuse with `RuleRefusal`) and the
+page shows the sentence. And a room role on the game record.
 
 **Prompt.**
 
@@ -291,10 +317,13 @@ Read CLAUDE.md, docs/web-app-next.md (decision 1 and step 2),
 docs/design/web-app.md (as rewritten by step 1), docs/design/
 hub-and-lobby.md, docs/design/permissions.md and docs/design/
 game-service.md ("setup and the lobby"). Branch off an up-to-date
-main. Decision 1 as recorded: rooms with a persistent link, Observer
-by default, two claimable coaching seats over a signed-cookie
-identity; the seats are "Coach" until the coin and Home / Visitors
-after (reading (a)) unless the author has since chosen (b).
+main. Decision 1 as recorded: rooms with a persistent link; the
+first two in are seated as Coach 1 and Coach 2 and everyone after is
+an observer; a seat may be left and taken again before or during the
+game (so a person can change devices); an admin may kick a seat
+behind a confirmation, and anyone may become admin by a deliberate
+act; the seats read Home / Visitors once the coin has settled it.
+Four commits.
 
 1. webapp/identity.py: Coach(id: int, name: str); serialise it into
    one cookie (base64 JSON + HMAC-SHA256 under keys.secret(), compared
@@ -308,44 +337,76 @@ after (reading (a)) unless the author has since chosen (b).
    the request is HTTPS, HttpOnly, SameSite=Lax, a year) and answers
    {id, name}; GET /api/me answers the coach or null. A rename keeps
    the id.
-2. A room with both seats empty. GameService.create_game seats the
-   creator as player 1 today. Add the case of a lobby with no seat
-   taken (player_1_id None), which means D12BallGame.lobby_join seats
-   whichever seat is free, lobby_leave frees it, and every predicate
-   that reads player_1_id copes with None; player_1_id's type becomes
-   Optional[int] with None as the default written only by this path,
-   so every existing save still loads unchanged. Read
-   tests/test_game_service_setup.py and extend it. Own commit,
-   reviewed as a change to the record's rules; say in the PR body
-   which predicates you checked.
-3. Rooms and seats on the web. POST /api/rooms -> create_game with
-   in_lobby=True and no seat, answering the room id; the page goes to
-   /room/{id}, which serves game.html. POST /api/room/{id}/seat/
-   {claim|leave} over lobby_join / lobby_leave with the cookie's id
-   and name, RuleRefusal -> 409 with the sentence. _state gains
-   "room": both seats (name or null, and "yours" for the viewer's),
-   the observers' count, and the viewer's role: "observer",
-   "coach" (and, once the coin has settled it, "home" or
-   "visiting", read off the record's home_player_number /
-   visiting_player_number, never worked out here). A viewer who is
-   nobody yet is shown the name form first. Seat labels: "Coach"
-   until the coin, then "Home Team Coach" / "Visitors Team Coach".
-   An observer is offered no controls (asked_sides already does
-   this) and never a side's secrets (present.py already withholds
-   them; add a test that an observer's MANEUVER_ACTION and shootout
-   payloads carry neither side's).
+2. A seat that changes hands. Read D12BallGame.lobby_join,
+   lobby_observe and lobby_leave (d12ball/game.py) and leave them as
+   they are: the Discord lobby depends on the creator's seat shifting
+   and on the moves closing at start. Add two methods beside them,
+   with no require_lobby: take_seat(user_id, user_name, seat=None)
+   takes the free seat (or the named one) and refuses with
+   RuleRefusal when both are held, when the seat named is held by
+   somebody else, when the person already holds a seat, or on a
+   one-player game (test_game, tutorial) for seat 2, the way
+   lobby_join does; vacate_seat(user_id) empties whichever seat that
+   id holds and refuses if it holds none. Neither shifts the other
+   seat. player_1_id becomes Optional[int]; None is written only by
+   vacate_seat, so every existing save loads unchanged. Check every
+   predicate that reads player_1_id or player_2_id (game_participant_
+   ids, is_solo_game, may_act_for, the startup sweep, stats.game_
+   category, coin_winner_player_number's legacy fallback) copes with
+   None and with an id that changed mid-game; the match keeps its
+   sides by player number, so a changed id must change nothing about
+   the position -- add a test that takes seat 2 with a new id
+   mid-match and the next prompt is unchanged, and that
+   refresh_player_names picks the new name up. Service doors:
+   GameService.take_seat and vacate_seat, load, one change, save
+   once. Own commit, reviewed as a change to the record's rules; say
+   in the PR body which predicates you checked.
+3. Rooms, seats and roles on the web. POST /api/rooms -> create_game
+   with in_lobby=True and the creator in seat 1, answering the room
+   id; the page goes to /room/{id}, which serves game.html. On a
+   coach's first GET of a room with a free seat, the server takes it
+   for them (the second person in is Coach 2) -- through
+   GameService.take_seat, so the record still judges it; anyone after
+   is an observer. POST /api/room/{id}/seat/{take|leave} over
+   take_seat / vacate_seat with the cookie's id and name, RuleRefusal
+   -> 409 with the sentence. webapp/rooms.py: the web app's own state
+   per room -- admin ids and observers seen -- in
+   data/d12ball_web_rooms.json, written on change, read at start,
+   never the save (see gotchas.md on data/ and do what the journal
+   will do in step 9). POST /api/room/{id}/admin makes the caller an
+   admin (the page confirms first: "Take the admin role for this
+   room?"); POST /api/room/{id}/seat/kick {seat} is refused unless
+   the caller is an admin, and calls vacate_seat for the seated id;
+   the page's Kick button confirms "Are you sure?" before posting.
+   _state gains "room": both seats (name or null, "yours" for the
+   viewer's), the observers' count, whether the viewer is admin, and
+   the viewer's role: "observer", "coach" (and, once the coin has
+   settled it, "home" or "visiting", read off the record's
+   home_player_number / visiting_player_number, never worked out
+   here). A viewer who is nobody yet is shown the name form first.
+   Seat labels: "Coach 1" / "Coach 2" until the coin, then "Home Team
+   Coach" / "Visitors Team Coach". An observer is offered no controls
+   (asked_sides already does this) and never a side's secrets
+   (present.py already withholds them; add a test that an observer's
+   MANEUVER_ACTION and shootout payloads carry neither side's).
 4. Tests in tests/test_web_app.py (replacing the key-based ones): a
-   cookie round-trips; a tampered cookie is nobody; two coaches claim
-   the two seats and each gets their own controls; a third visitor is
-   an observer with none; leaving a seat frees it; a full room refuses
-   a third claim with the record's sentence; the room link answers
-   after a service restart (load the file again and open it).
+   cookie round-trips; a tampered cookie is nobody; the creator is
+   Coach 1 and the second arrival is seated as Coach 2 with their own
+   controls; a third arrival is an observer with none; leaving seat 2
+   frees it and a new cookie (a "second device") takes it and gets
+   the same controls, before kickoff and again mid-match; a seat
+   held by somebody else refuses a take with the record's sentence;
+   a kick by a non-admin is 403, by an admin vacates the seat; the
+   room link and the admin role answer after a restart (load both
+   files again and open the room).
 
 Docs: docs/design/web-app.md gains "Rooms, seats and who holds them"
-with the cookie derivation, why nothing is stored, and why the seat
-names follow the coin. PR against the template; the "New persisted
-field" line applies to player_1_id's None (an old save never carries
-it; say so).
+with the cookie derivation, why nothing is stored, why a seat may
+change hands mid-game and what keeps that safe (sides by number),
+why the roles are the frontend's file and not the record's, and why
+the seat names follow the coin. PR against the template; the "New
+persisted field" line applies to player_1_id's None (an old save
+never carries it; say so).
 ```
 
 ### 3. The room's table: setup, kickoff, the rematch
@@ -424,10 +485,10 @@ commits.
    old room follows it (put the new id in the old room's state).
    Remove the GAME_OVER exemption in tests/test_web_app.py.
 
-Tests, over HTTP: two coaches claim seats, start, both pick, one
-tosses, the winner chooses, begin opens the pre-kickoff Coaching
-Choice and the first prompt, and the seat labels read Home / Visitors
-from the coin on; an AI room reaches the first prompt with the AI's
+Tests, over HTTP: two coaches arrive and are seated, start, both
+pick, one tosses, the winner chooses, begin opens the pre-kickoff
+Coaching Choice and the first prompt, and the seat labels read Home /
+Visitors from the coin on; an AI room reaches the first prompt with the AI's
 pick drawn by the engine; a refused pick (excluded pairing) is a 409
 carrying the record's sentence and writes nothing; an observer's
 table presses are 403; a finished game (the GAME_OVER fixture)
@@ -481,12 +542,15 @@ beside the bot. Little or no Python.
 2. If keeping it running needs a script, add scripts/run_web_app.ps1
    beside update_main_bot.ps1; nothing one-off.
 3. Add a "Playtest checklist" under step 4 of docs/web-app-next.md:
-   one person opens a room and shares the link, the other arrives as
-   an observer and claims the second seat, a third person watches as
-   an observer; setup through kickoff, a goal, a loose ball, a
-   coaching window, the end and a rematch; for each, note whether
-   all three pages agreed about whose turn it was and what happened,
-   and what each coach wished the page had shown.
+   one person opens a room and shares the link, the other arrives and
+   is seated as Coach 2, a third person arrives as an observer; setup
+   through kickoff, a goal, a loose ball, a coaching window; one
+   coach leaves the seat on a laptop and takes it again on a phone
+   mid-game; the observer becomes admin and kicks a seat whose device
+   was closed, and the kicked coach takes it back; the end and a
+   rematch; for each, note whether all three pages agreed about whose
+   turn it was and what happened, and what each coach wished the page
+   had shown.
 4. PR against the template; docs and one script, say so under
    Testing.
 ```
