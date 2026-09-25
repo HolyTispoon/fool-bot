@@ -1141,6 +1141,8 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 
 **Some players carry an ability of their own, and three carry an advanced skill.** Both are played in [advanced mode](#what-each-mode-plays) and in no other. A personal ability belongs to the player rather than their role or their species, so a player fielded on both sides of one game carries it on both cards.
 
+A personal ability is played **beside the player's role ability, never instead of it**: a player keeps their role's ability in advanced mode. The advanced side of a card prints the personal ability in the role's place, and the role's is on the other side.
+
 Most personal abilities change the player's own [species ability](#species-abilities). Where the two say different things, the personal ability wins for that player, and everything it does not mention works as the species ability says.
 
 ### Advanced skills

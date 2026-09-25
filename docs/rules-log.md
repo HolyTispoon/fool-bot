@@ -153,6 +153,14 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-25 (latest) -- author, a personal ability does not replace the role ability
+
+Asked when the advanced side of the player card was drawn with the personal ability in the role
+ability's place: does the replacement hold in play? The author: *"Card only; both apply."* A
+player with a personal ability keeps their role ability in advanced mode; the card prints only
+the personal one because the role's is on the front. Written into Law 21, "Whose they are". No
+change to the bot, which already played both.
+
 ### 2026-09-25 (later) -- author, the personal abilities are written into the Charter
 
 The sixteen `advanced_abilities` cells become Law 21, with the author's answers to the readings
