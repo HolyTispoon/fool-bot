@@ -562,7 +562,7 @@ def finish_maneuver_resolution(
         f"at {match.scoreboard.time:02d}."
     )
     narration.append(
-        f"{prefix}Ball is now "
+        f"{prefix}Ball is now in "
         f"{ball_space_label(match)}, "
         f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
         f"has possession. {clock}"

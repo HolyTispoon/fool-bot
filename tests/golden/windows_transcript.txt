@@ -25,7 +25,7 @@ No substitutions, and no change of shape.
 **Purple (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now space 4, Orange (Home) has possession. Time has advanced 1, now at 01.
+Ball is now in space 4, Orange (Home) has possession. Time has advanced 1, now at 01.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -60,7 +60,7 @@ Chose **2 spaces**.
 --- message
 Ball speed is now **2**.
 --- message
-Ball is now space 6, Orange (Home) has possession. Time has advanced 1, now at 02.
+Ball is now in space 6, Orange (Home) has possession. Time has advanced 1, now at 02.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -83,7 +83,7 @@ Orange 1:0 Purple
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now space 4, Purple (Visiting) has possession. Time has advanced 1, now at 03.
+Ball is now in space 4, Purple (Visiting) has possession. Time has advanced 1, now at 03.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -112,7 +112,7 @@ Either player can roll:
 --- message
 🟣 Glompex [MF] picks up the ball.
 --- message
-Ball is now space 5, Purple (Visiting) has possession. Time has advanced 1, now at 04.
+Ball is now in space 5, Purple (Visiting) has possession. Time has advanced 1, now at 04.
 --- message
 🟣 Glompex [MF] will maneuver for Purple.
 
@@ -137,7 +137,7 @@ Either player can roll:
 --- message
 🟣 Quantor [WG] keeps possession after the high pass! 🟣 Dinky AI has possession.
 --- message
-Ball is now space 2, Purple (Visiting) has possession. Time has advanced 2, now at 06.
+Ball is now in space 2, Purple (Visiting) has possession. Time has advanced 2, now at 06.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -176,7 +176,7 @@ Coach?
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now space 4, Orange (Home) has possession. Time has advanced 3, now at 09.
+Ball is now in space 4, Orange (Home) has possession. Time has advanced 3, now at 09.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -201,7 +201,7 @@ You chose **High Pass**.
 --- message
 🟠 Spectra [MF] picks up the ball.
 --- message
-Ball is now space 3, Orange (Home) has possession. Time has advanced 1, now at 10.
+Ball is now in space 3, Orange (Home) has possession. Time has advanced 1, now at 10.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -229,7 +229,7 @@ You chose **Dribble Advance**.
 --- message
 **Pressure:** 🟠 Spectra [MF] and the ball go back 1 space. 🟣 Emberdash [PM] moves forward.
 
-Ball is now space 2, Orange (Home) has possession. Time has advanced 1, now at 11.
+Ball is now in space 2, Orange (Home) has possession. Time has advanced 1, now at 11.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -268,7 +268,7 @@ Space 3 (1 away) or space 5 (3 away).
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now space 3, Purple (Visiting) has possession. Time has advanced 1, now at 12.
+Ball is now in space 3, Purple (Visiting) has possession. Time has advanced 1, now at 12.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -286,7 +286,7 @@ You chose **Pressure**.
 --- message
 **Low Pass:** the ball moves 1 space forward. Ball speed is now 5.
 
-Ball is now space 2, Purple (Visiting) has possession. Time has advanced 1, now at 13.
+Ball is now in space 2, Purple (Visiting) has possession. Time has advanced 1, now at 13.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -306,7 +306,7 @@ You chose **Deflect**.
 --- message
 Ball speed is now **10**.
 --- message
-Ball is now space 1, Purple (Visiting) has possession. Time has advanced 1, now at 14.
+Ball is now in space 1, Purple (Visiting) has possession. Time has advanced 1, now at 14.
 --- message
 🟣 Dinky AI has chosen to shoot to score with 🟣 Quantor [WG].
 --- message
@@ -336,7 +336,7 @@ The ball speed goes down to **1**.
 --- message
 The clock reaches 15 -- this is now **last possession**. The turnover that got here doesn't end it -- Orange (Home) came out of that maneuver with the ball, so they play last possession out. The clock keeps running.
 --- message
-Ball is now space 1, Orange (Home) has possession. Time has advanced 1, now at 15.
+Ball is now in space 1, Orange (Home) has possession. Time has advanced 1, now at 15.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -401,7 +401,7 @@ Every fielded player recovers 1 exhaustion token:
 🟣 Emberdash [PM] loses an extra exhaustion token (now 0).
 --- message
 <@111>, Orange (Home): choose one fielded player to lose an extra exhaustion token.
-=== press 34: HalftimeExtraTokenView -> 'Sizzifizik [PM] (0)'
+=== press 34: HalftimeExtraTokenView -> 'Sizzifizik [PM] (0 exhaustion)'
 --- message
 🟠 Sizzifizik [PM] had no exhaustion to lose.
 --- message
@@ -451,7 +451,7 @@ You chose **Pressure**.
 --- message
 **Pressure:** 🟣 Emberdash [PM] and the ball go back 1 space. 🟠 Sizzifizik [PM] moves forward.
 
-Ball is now space 5, Purple (Visiting) has possession. Time has advanced 1, now at 16.
+Ball is now in space 5, Purple (Visiting) has possession. Time has advanced 1, now at 16.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -491,7 +491,7 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 🟣 Glompex [MF] runs back to space 3.
 🟣 Glompex [MF] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 2 total).
 --- message
-Ball is now space 6, Orange (Home) has possession. Time has advanced 1, now at 17.
+Ball is now in space 6, Orange (Home) has possession. Time has advanced 1, now at 17.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -521,7 +521,7 @@ You chose **Dribble Advance**.
 --- message
 Ball speed is now **3**.
 --- message
-Ball is now space 7, Orange (Home) has possession. Time has advanced 1, now at 18.
+Ball is now in space 7, Orange (Home) has possession. Time has advanced 1, now at 18.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -543,7 +543,7 @@ Purple (Visiting) manages to avoid a goal! (phew)
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now space 7, Purple (Visiting) has possession. Time has advanced 1, now at 19.
+Ball is now in space 7, Purple (Visiting) has possession. Time has advanced 1, now at 19.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -577,7 +577,7 @@ That overshoots toward their own goal!
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now space 7, Purple (Visiting) has possession. Time has advanced 1, now at 20.
+Ball is now in space 7, Purple (Visiting) has possession. Time has advanced 1, now at 20.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -605,7 +605,7 @@ Either player can roll:
 --- message
 🟣 Emberdash [PM] keeps possession after the high pass! 🟣 Dinky AI has possession.
 --- message
-Ball is now space 4, Purple (Visiting) has possession. Time has advanced 2, now at 22.
+Ball is now in space 4, Purple (Visiting) has possession. Time has advanced 2, now at 22.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -623,7 +623,7 @@ You chose **Deflect**.
 --- message
 🟣 Glompex [MF] picks up the ball.
 --- message
-Ball is now space 5, Purple (Visiting) has possession. Time has advanced 1, now at 23.
+Ball is now in space 5, Purple (Visiting) has possession. Time has advanced 1, now at 23.
 --- message
 🟣 Glompex [MF] will maneuver for Purple.
 
@@ -649,7 +649,7 @@ You chose **Pressure**.
 --- message
 **Low Pass:** the ball moves 1 space forward. Ball speed is now 2.
 
-Ball is now space 4, Purple (Visiting) has possession. Time has advanced 1, now at 24.
+Ball is now in space 4, Purple (Visiting) has possession. Time has advanced 1, now at 24.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -669,7 +669,7 @@ You chose **Deflect**.
 --- message
 Ball speed is now **6**.
 --- message
-Ball is now space 2, Purple (Visiting) has possession. Time has advanced 1, now at 25.
+Ball is now in space 2, Purple (Visiting) has possession. Time has advanced 1, now at 25.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -700,7 +700,7 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 --- message
 Ball speed is now **3**.
 --- message
-Ball is now space 1, Orange (Home) has possession. Time has advanced 1, now at 26.
+Ball is now in space 1, Orange (Home) has possession. Time has advanced 1, now at 26.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -729,7 +729,7 @@ No substitutions, and no change of shape.
 **Purple (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now space 1, Orange (Home) has possession. Time has advanced 1, now at 27.
+Ball is now in space 1, Orange (Home) has possession. Time has advanced 1, now at 27.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -770,7 +770,7 @@ Either player can roll:
 --- message
 Ball speed is now **2**.
 --- message
-Ball is now space 2, Orange (Home) has possession. Time has advanced 1, now at 28.
+Ball is now in space 2, Orange (Home) has possession. Time has advanced 1, now at 28.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -802,7 +802,7 @@ Chose **2 spaces**.
 
 The clock reaches 30 -- this is now **last possession**. Play continues until the ball turns over, which ends the period. The clock keeps running.
 --- message
-Ball is now space 4, Orange (Home) has possession. Time has advanced 2, now at 30.
+Ball is now in space 4, Orange (Home) has possession. Time has advanced 2, now at 30.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -827,7 +827,7 @@ You chose **High Pass**.
 --- message
 🟠 Spectra [MF] picks up the ball.
 --- message
-Ball is now space 3, Orange (Home) has possession. Time has advanced 1, now at 31.
+Ball is now in space 3, Orange (Home) has possession. Time has advanced 1, now at 31.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -860,7 +860,7 @@ You chose **Dribble Advance**.
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now space 4, Orange (Home) has possession. Time has advanced 1, now at 32.
+Ball is now in space 4, Orange (Home) has possession. Time has advanced 1, now at 32.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -888,7 +888,7 @@ You chose **Dribble Advance**.
 --- message
 **Pressure:** 🟠 Spectra [MF] and the ball go back 1 space. 🟣 Glompex [MF] moves forward.
 
-Ball is now space 3, Orange (Home) has possession. Time has advanced 1, now at 33.
+Ball is now in space 3, Orange (Home) has possession. Time has advanced 1, now at 33.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -921,7 +921,7 @@ You chose **Low Pass**.
 --- message
 **Low Pass:** the ball moves 1 space backward. Ball speed is now 5.
 
-Ball is now space 2, Orange (Home) has possession. Time has advanced 1, now at 34.
+Ball is now in space 2, Orange (Home) has possession. Time has advanced 1, now at 34.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -951,7 +951,7 @@ You chose **Dribble Advance**.
 --- message
 Ball speed is now **6**.
 --- message
-Ball is now space 3, Orange (Home) has possession. Time has advanced 1, now at 35.
+Ball is now in space 3, Orange (Home) has possession. Time has advanced 1, now at 35.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -976,7 +976,7 @@ You chose **Dribble Advance**.
 --- message
 **Pressure:** 🟠 Goopkeeper [FB] and the ball go back 1 space. 🟣 Glompex [MF] moves forward.
 
-Ball is now space 2, Orange (Home) has possession. Time has advanced 1, now at 36.
+Ball is now in space 2, Orange (Home) has possession. Time has advanced 1, now at 36.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -1006,7 +1006,7 @@ You chose **Low Pass**.
 --- message
 **Low Pass:** the ball moves 1 space forward. Ball speed is now 7.
 
-Ball is now space 3, Orange (Home) has possession. Time has advanced 1, now at 37.
+Ball is now in space 3, Orange (Home) has possession. Time has advanced 1, now at 37.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -1039,7 +1039,7 @@ You chose **Low Pass**.
 --- message
 **Low Pass:** the ball moves 1 space backward. Ball speed is now 8.
 
-Ball is now space 2, Orange (Home) has possession. Time has advanced 1, now at 38.
+Ball is now in space 2, Orange (Home) has possession. Time has advanced 1, now at 38.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -1069,7 +1069,7 @@ You chose **Dribble Advance**.
 --- message
 Ball speed is now **9**.
 --- message
-Ball is now space 3, Orange (Home) has possession. Time has advanced 1, now at 39.
+Ball is now in space 3, Orange (Home) has possession. Time has advanced 1, now at 39.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -1094,7 +1094,7 @@ You chose **Dribble Advance**.
 --- message
 **Pressure:** 🟠 Goopkeeper [FB] and the ball go back 1 space. 🟣 Emberdash [PM] moves forward.
 
-Ball is now space 2, Orange (Home) has possession. Time has advanced 1, now at 40.
+Ball is now in space 2, Orange (Home) has possession. Time has advanced 1, now at 40.
 --- message
 🟠 <@111>, it is your turn.
 

@@ -56,7 +56,7 @@ Ball speed is now **1**.
 --- message
 🔮 **Smooth** — 🔮 Zenith [WG] takes the ball on **space 5** (Midfield).
 
-Ball is now space 5, Telekinetics (Home) has possession. Time has advanced 1, now at 01.
+Ball is now in space 5, Telekinetics (Home) has possession. Time has advanced 1, now at 01.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -78,7 +78,7 @@ Fire Demons (Visiting) manages to avoid a goal! (phew)
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 02.
+Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 02.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -102,7 +102,7 @@ The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
 🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
 The ball slips past them.
 --- message
-Ball is now space 6, Fire Demons (Visiting) has possession. Time has advanced 1, now at 03.
+Ball is now in space 6, Fire Demons (Visiting) has possession. Time has advanced 1, now at 03.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -120,7 +120,7 @@ You chose **Pressure**.
 --- message
 **Pressure:** 🔥 Hellguard [FB] and the ball go back 1 space. 🔮 Noxar [SK] moves forward.
 
-Ball is now space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 04.
+Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 04.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -170,7 +170,7 @@ Fire Demons (Visiting) manages to avoid a goal! (phew)
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now space 7, Fire Demons (Visiting) has possession. Time has advanced 2, now at 06.
+Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 2, now at 06.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -214,7 +214,7 @@ That overshoots toward their own goal!
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 07.
+Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 07.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -258,7 +258,7 @@ Either player can roll:
 --- message
 🔥 Sizzifizik [PM] keeps possession after the high pass! 🔥 Dinky AI has possession.
 --- message
-Ball is now space 4, Fire Demons (Visiting) has possession. Time has advanced 2, now at 09.
+Ball is now in space 4, Fire Demons (Visiting) has possession. Time has advanced 2, now at 09.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -307,7 +307,7 @@ The ball slips past them.
 --- message
 **Low Pass:** the ball moves 2 spaces forward. Ball speed is now 2.
 
-Ball is now space 2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 10.
+Ball is now in space 2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 10.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -333,7 +333,7 @@ You chose **Double Team**.
 # Players run back!
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
 --- message
-Ball is now space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 11.
+Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 11.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -361,7 +361,7 @@ No substitutions, and no change of shape.
 **Fire Demons (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 12.
+Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 12.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -403,7 +403,7 @@ Ball speed is now **2**.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now space 7, Fire Demons (Visiting) has possession. Time has advanced 2, now at 14.
+Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 2, now at 14.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -442,7 +442,7 @@ The ball speed goes down to **1**.
 --- message
 The clock reaches 15 -- this is now **last possession**. The turnover that got here doesn't end it -- Telekinetics (Home) came out of that maneuver with the ball, so they play last possession out. The clock keeps running.
 --- message
-Ball is now space 5, Telekinetics (Home) has possession. Time has advanced 2, now at 16.
+Ball is now in space 5, Telekinetics (Home) has possession. Time has advanced 2, now at 16.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -475,7 +475,7 @@ Every fielded player recovers 1 exhaustion token:
 🔥 Sizzifizik [PM] loses an extra exhaustion token (now 1).
 --- message
 <@111>, Telekinetics (Home): choose one fielded player to lose an extra exhaustion token.
-=== press 44: HalftimeExtraTokenView -> 'Dravox [DD] (2)'
+=== press 44: HalftimeExtraTokenView -> 'Dravox [DD] (2 exhaustion)'
 --- message
 🔮 Dravox [DD] loses an extra exhaustion token (now 1).
 --- message
@@ -523,7 +523,7 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 --- message
 Ball speed is now **3**.
 --- message
-Ball is now space 5, Telekinetics (Home) has possession. Time has advanced 1, now at 16.
+Ball is now in space 5, Telekinetics (Home) has possession. Time has advanced 1, now at 16.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -579,7 +579,7 @@ The ball slips past them.
 --- message
 **Low Pass:** the ball moves 2 spaces forward. Ball speed is now 6.
 
-Ball is now space 4, Fire Demons (Visiting) has possession. Time has advanced 0, now at 16.
+Ball is now in space 4, Fire Demons (Visiting) has possession. Time has advanced 0, now at 16.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -608,7 +608,7 @@ The ball slips past them.
 
 **Double Team** was beaten -- 🔮 Quillon [PM] and 🔮 Spectra [MF] are each shoved a space forward, away from their own goal.
 
-Ball is now space 2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 17.
+Ball is now in space 2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 17.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -659,7 +659,7 @@ Dinky AI, 🔥 Flickerwing [WG] is exhausted and owes an injury test: a d12 that
 --- message
 🔥 Flickerwing [WG] is exhausted and rolls an injury test: 7 beats their 3 exhaustion tokens — safe.
 --- message
-Ball is now space 3, Fire Demons (Visiting) has possession. Time has advanced 1, now at 18.
+Ball is now in space 3, Fire Demons (Visiting) has possession. Time has advanced 1, now at 18.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -735,7 +735,7 @@ Either player can roll:
 --- message
 🔮 Noxar [SK] is exhausted and rolls an injury test: 8 beats their 7 exhaustion tokens — safe.
 --- message
-Ball is now space 6, Fire Demons (Visiting) has possession. Time has advanced 1, now at 19.
+Ball is now in space 6, Fire Demons (Visiting) has possession. Time has advanced 1, now at 19.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -808,7 +808,7 @@ Space 3 (2 away).
 🔮 Quillon [PM] runs back to space 3.
 🔮 Quillon [PM] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 7 total).
 --- message
-Ball is now space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 20.
+Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 20.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -837,7 +837,7 @@ No substitutions, and no change of shape.
 **Fire Demons (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 21.
+Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 21.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -898,7 +898,7 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now space 5, Fire Demons (Visiting) has possession. Time has advanced 1, now at 22.
+Ball is now in space 5, Fire Demons (Visiting) has possession. Time has advanced 1, now at 22.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -930,7 +930,7 @@ The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
 🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 2 total).
 The ball slips past them.
 --- message
-Ball is now space 3, Fire Demons (Visiting) has possession. Time has advanced 1, now at 23.
+Ball is now in space 3, Fire Demons (Visiting) has possession. Time has advanced 1, now at 23.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -964,7 +964,7 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 --- message
 Ball speed is now **2**.
 --- message
-Ball is now space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 24.
+Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 24.
 --- message
 🔮 <@111>, it is your turn.
 

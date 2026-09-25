@@ -76,8 +76,15 @@ class HalftimeExtraTokenView(HalftimeView):
             return
 
         for player_id in options.player_ids:
+            # The count says what it counts: "(3)" beside a name
+            # could be anything, and "tokens" alone is every token on
+            # the board. A Cyborg's reads "drain".
             tokens = match.exhaustion.get(player_id, 0)
-            label = f"{cog.engine.format_roster_player(player_id)} ({tokens})"
+            noun, _ = cog.engine.token_word_and_mark(game, player_id)
+            label = (
+                f"{cog.engine.format_roster_player(player_id)} "
+                f"({tokens} {noun})"
+            )
             button = discord.ui.Button(
                 label=label[:80],
                 style=discord.ButtonStyle.secondary,

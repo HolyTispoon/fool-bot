@@ -162,7 +162,7 @@ def space_label(zone: Zone, space_index: int, board=None) -> str:
 
     The word goes with the number because a bare number sits beside
     counts, distances, minutes and scores everywhere a space is named
-    ("Ball is now 3 ... now at 37", "2 spaces (4-...)"), and nothing
+    ("Ball is now in 3 ... now at 37", "2 spaces (4-...)"), and nothing
     else says which one is the space. It is lowercase because a space
     is named mid-sentence far more often than at the start; a caller
     that opens a label or a sentence with it runs it through

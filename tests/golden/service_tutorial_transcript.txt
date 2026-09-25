@@ -73,7 +73,7 @@ You get a choice here too: the ball's own speed, up to your player's skill. It c
 --- answer
 Ball speed is now **3**.
 --- prompt TUTORIAL_CONTINUE
-Ball is now space 6, Orange (Home) has possession. Time has advanced 1, now at 01.
+Ball is now in space 6, Orange (Home) has possession. Time has advanced 1, now at 01.
 
 ## 2. Every role has an ability
 Dribble Advance beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from space 4 to **space 6**.
@@ -141,7 +141,7 @@ Space 4 (2 away) or space 5 (1 away).
 {team:orange} Sizzifizik {role:playmaker:orange} runs back to space 4.
 {team:orange} Sizzifizik {role:playmaker:orange} gains 2 exhaustion tokens {condition:exhaust}{condition:exhaust} (now 3 total).
 --- prompt TUTORIAL_CONTINUE
-Ball is now space 5, Purple (Visiting) has possession. Time has advanced 1, now at 02.
+Ball is now in space 5, Purple (Visiting) has possession. Time has advanced 1, now at 02.
 
 ## 3. Your turn to defend
 Dang it. You lost possession. Dinky won the skill test, and their Deflect knocked the ball back to **space 5** -- right onto one of their own midfielders, who was already standing there. Nobody of yours was, so it went straight to them: no roll, and never loose at all. Your playmaker, left standing outside her own zone at space 6, has run back into midfield -- and paid an exhaustion token per space to do it.
@@ -184,7 +184,7 @@ Defending, your hand is the other half of the cycle:
 
 ## **Pressure** wins! **Pressure:** {team:purple} Glompex {role:midfielder:purple} and the ball go back 1 space. {team:orange} Sizzifizik {role:playmaker:orange} moves forward.
 
-Ball is now space 6, Purple (Visiting) has possession. Time has advanced 1, now at 03.
+Ball is now in space 6, Purple (Visiting) has possession. Time has advanced 1, now at 03.
 
 ## 4. Winning the ball back
 Pressure drove them backwards: their handler and the ball went back a space to **space 6**, and your challenger moved up onto them. Dinky still has it -- but they have lost ground, and you are standing on the ball.
@@ -233,7 +233,7 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 --- answer
 Ball speed is now **4**.
 --- prompt TUTORIAL_CONTINUE
-Ball is now space 5, Orange (Home) has possession. Time has advanced 1, now at 04.
+Ball is now in space 5, Orange (Home) has possession. Time has advanced 1, now at 04.
 
 ## 5. A shot at goal
 The ball is yours again, on **space 5**, and moving fast. This is the last lesson, and it is worth a goal.
@@ -313,7 +313,7 @@ Both teams reset to the positions their coaches last set:
 --- prompt TUTORIAL_CONTINUE
 The ball speed goes down to **1**.
 
-Ball is now space 4, Purple (Visiting) has possession. Time has advanced 3, now at 07.
+Ball is now in space 4, Purple (Visiting) has possession. Time has advanced 3, now at 07.
 
 # That's the tutorial
 The rails are off -- every button is live from here, and Dinky is playing for real.
