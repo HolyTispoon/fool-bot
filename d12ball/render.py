@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass, replace
 from io import BytesIO
+import re
 from math import cos, hypot, pi, radians, sin
 from pathlib import Path
 from typing import NamedTuple, Optional
@@ -297,12 +298,14 @@ FONT_COACHING_ZONE = load_font(28, bold=True)
 FONT_TOKEN = load_font(19, bold=True)
 # The role initials on a meeple, under its species icon -- see
 # draw_meeple_group. Smaller than FONT_TOKEN because they share the
-# disc with the icon now; the ball's "12" keeps FONT_TOKEN.
+# meeple's body with the icon; the ball's "12" keeps FONT_TOKEN.
 FONT_TOKEN_ROLE = load_font(18, bold=True)
-# The initials alone, when no species icon shares the disc with them:
-# a game not playing species abilities, or an icon that failed to
-# load. Sized to fill a 76px disc on their own.
-FONT_TOKEN_SOLO = load_font(26, bold=True)
+# The initials alone, when no species icon shares the meeple with
+# them: a game not playing species abilities, or an icon that failed
+# to load. Sized so the widest pair, "WG", stays inside the body
+# between the arms (it was 26 on the disc, which the body is narrower
+# than).
+FONT_TOKEN_SOLO = load_font(20, bold=True)
 FONT_BADGE_COUNT = load_font(16, bold=True)
 FONT_MANEUVER_RANK = load_font(34, bold=True)
 FONT_MANEUVER_LEGEND = load_font(22)
@@ -365,10 +368,21 @@ _MEEPLE_LABEL_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
 # `species_icons` flag every render entry point takes; the cog answers
 # it from `RulesEngine.species_abilities_apply`, and this module never
 # reads the game's own bools (see "Species abilities in the bot").
+#
+# **The token is the meeple, not a disc** (the author, 2026-09-25): the
+# Screentop table's own outline, `MEEPLE_PATH`, read by `flatten_path`
+# -- the same piece the box art and the sale sheet stand on the printed
+# board. It fills the width of the 76px square the disc filled and
+# stands on its floor, so the rows, the ball and the names are placed
+# exactly as they were. The icon and the initials sit on the body,
+# where the piece is wide enough for them; the three heights below are
+# in the path's own units (see meeple_y).
 MEEPLE_SIZE = 76
-MEEPLE_SPECIES_ICON_SIZE = 38
-MEEPLE_SPECIES_ICON_TOP = 7
-MEEPLE_ROLE_BOTTOM_INSET = 28
+MEEPLE_SPECIES_ICON_SIZE = 24
+MEEPLE_OUTLINE_WIDTH = 3
+MEEPLE_ICON_CENTER = -6.0
+MEEPLE_ROLE_CENTER = 10.0
+MEEPLE_SOLO_CENTER = 4.0
 BALL_RADIUS = 27
 # Where the two rows of meeples sit on the board. The visiting row's
 # names stop above the home row's tokens, and the home row's stop at
@@ -1806,6 +1820,132 @@ def ball_token_x(
     return group_bounds[0] - BALL_RADIUS - 3
 
 
+# The meeple, as the Screentop table draws it -- the author's own
+# path, so a piece on the bot's board, a piece on a printed panel and
+# a piece on the virtual table are one shape rather than three drawings
+# of the same idea. It is an SVG path with the origin at the middle of
+# the piece; `meeple_outline` flattens it once and everything else
+# scales that. It lives here rather than in box_art.py because the bot
+# draws it too, and box_art imports it from here.
+MEEPLE_PATH = (
+    "M 0 -29.62 C -3.98 -29.62 -6.83 -27.5 -8.5 -24.86 C -9.96 -22.51 "
+    "-10.58 -19.75 -10.7 -17.34 C -15.22 -15.13 -20.2 -12.87 -24.22 "
+    "-10.58 C -26.34 -9.4 -28.17 -8.17 -29.56 -6.87 C -30.95 -5.55 "
+    "-31.97 -4.08 -31.97 -2.35 C -31.97 -1.62 -31.61 -1.02 -31.19 -0.58 "
+    "C -30.78 -0.13 -30.32 0.2 -29.76 0.51 C -28.63 1.18 -27.24 1.69 "
+    "-25.73 2.15 C -23.44 2.84 -20.88 3.36 -18.67 3.56 C -20.88 7.36 "
+    "-23.82 10.86 -26.39 14.23 C -29.38 18.09 -31.97 21.8 -31.97 25.95 "
+    "C -31.97 26.52 -31.97 26.96 -31.93 27.44 C -31.88 27.91 -31.73 "
+    "28.5 -31.28 28.94 C -30.8 29.39 -30.25 29.52 -29.76 29.56 C -29.31 "
+    "29.64 -28.84 29.62 -28.25 29.62 L -11.82 29.62 C -10.62 29.62 "
+    "-9.76 29.69 -8.85 29.11 C -7.94 28.53 -7.63 27.74 -6.98 26.57 "
+    "L -6.96 26.55 L -6.95 26.51 S -5.51 23.58 -3.82 20.73 C -2.95 "
+    "19.28 -2.04 17.84 -1.22 16.81 C -0.81 16.3 -0.45 15.91 -0.16 15.67 "
+    "C -0.09 15.6 -0.06 15.6 0 15.56 C 0.06 15.6 0.09 15.6 0.17 15.67 "
+    "C 0.42 15.91 0.82 16.3 1.22 16.81 C 2.04 17.84 2.96 19.28 3.82 "
+    "20.73 C 5.52 23.58 6.95 26.51 6.95 26.51 L 6.97 26.55 L 6.98 26.57 "
+    "C 7.63 27.74 7.94 28.53 8.84 29.11 C 9.72 29.69 10.59 29.62 11.78 "
+    "29.62 L 28.3 29.62 C 28.88 29.62 29.34 29.64 29.79 29.56 C 30.28 "
+    "29.52 30.82 29.39 31.29 28.93 C 31.75 28.48 31.89 27.91 31.93 "
+    "27.44 C 31.98 26.96 31.98 26.52 31.98 25.95 C 31.98 21.8 29.39 "
+    "18.09 26.4 14.23 C 23.82 10.86 20.88 7.36 18.67 3.56 C 20.88 3.36 "
+    "23.45 2.84 25.73 2.15 C 27.23 1.69 28.63 1.18 29.76 0.51 C 30.32 "
+    "0.2 30.79 -0.13 31.2 -0.58 C 31.62 -1.01 31.98 -1.6 31.98 -2.35 "
+    "C 31.98 -4.08 30.95 -5.53 29.56 -6.86 C 28.18 -8.17 26.34 -9.39 "
+    "24.22 -10.57 C 20.21 -12.87 15.23 -15.13 10.71 -17.34 C 10.59 "
+    "-19.75 9.97 -22.49 8.5 -24.86 C 6.83 -27.5 3.98 -29.62 0 -29.62 Z"
+)
+# Where the role's two letters sit on the piece, in the path's own
+# units: below the arms, on the chest, which is where the Screentop
+# table puts them.
+MEEPLE_CODE_CENTER = 11.0
+MEEPLE_CODE_WIDTH = 26.0
+_PATH_TOKEN = re.compile(r"[MCSLZ]|-?\d+(?:\.\d+)?")
+_MEEPLE_OUTLINE: list[tuple[float, float]] = []
+
+
+def flatten_path(path: str, steps: int = 14) -> list[tuple[float, float]]:
+    """
+    An SVG path as a polygon, for the subset the meeple is written in
+    (absolute `M`, `L`, `C`, `S`, `Z`).
+
+    Pillow draws polygons, not curves, so every cubic is sampled --
+    fourteen segments each, which at any size these panels print at is
+    under a printed dot. It is a reader rather than a rewrite of the
+    path because the path is the author's: retyping it as a list of
+    points is how the piece on the box would come to differ from the
+    piece on the table.
+    """
+    tokens = _PATH_TOKEN.findall(path)
+    points: list[tuple[float, float]] = []
+    index = 0
+    command = ""
+    current = start = (0.0, 0.0)
+    control: Optional[tuple[float, float]] = None
+    while index < len(tokens):
+        if tokens[index] in "MCSLZ":
+            command = tokens[index]
+            index += 1
+            if command == "Z":
+                points.append(start)
+                control = None
+                continue
+        numbers = []
+        for _ in range({"M": 2, "L": 2, "C": 6, "S": 4}[command]):
+            numbers.append(float(tokens[index]))
+            index += 1
+        if command in ("M", "L"):
+            current = (numbers[0], numbers[1])
+            if command == "M":
+                start = current
+            points.append(current)
+            control = None
+            continue
+        if command == "C":
+            first = (numbers[0], numbers[1])
+            second = (numbers[2], numbers[3])
+            end = (numbers[4], numbers[5])
+        else:
+            # `S` reflects the previous curve's second control point,
+            # which is the whole of what makes it smooth.
+            first = (
+                (2 * current[0] - control[0], 2 * current[1] - control[1])
+                if control
+                else current
+            )
+            second = (numbers[0], numbers[1])
+            end = (numbers[2], numbers[3])
+        for step in range(1, steps + 1):
+            t = step / steps
+            u = 1 - t
+            points.append(
+                (
+                    u ** 3 * current[0] + 3 * u * u * t * first[0]
+                    + 3 * u * t * t * second[0] + t ** 3 * end[0],
+                    u ** 3 * current[1] + 3 * u * u * t * first[1]
+                    + 3 * u * t * t * second[1] + t ** 3 * end[1],
+                )
+            )
+        control = second
+        current = end
+    return points
+
+
+def meeple_outline() -> list[tuple[float, float]]:
+    """The path, flattened once and kept."""
+    if not _MEEPLE_OUTLINE:
+        _MEEPLE_OUTLINE.extend(flatten_path(MEEPLE_PATH))
+    return _MEEPLE_OUTLINE
+
+
+def meeple_size() -> tuple[float, float]:
+    """How wide and tall the piece is in the path's own units."""
+    outline = meeple_outline()
+    xs = [x for x, _ in outline]
+    ys = [y for _, y in outline]
+    return max(xs) - min(xs), max(ys) - min(ys)
+
+
 def draw_meeple_group(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -1825,14 +1965,16 @@ def draw_meeple_group(
     listed under them, one per line.
 
     **A token is the species icon over the role initials.** The icon is
-    the bigger of the two and sits in the top of the disc, in the same
+    the bigger of the two and sits on the meeple's chest, in the same
     ink as the initials and the outline -- a species colour would be
     the team's own (see "Team colors" in docs/design/teams-and-players.md), so the shape is
     the whole signal, and the four silhouettes were drawn to survive
     18px for exactly this. `canvas` is what the icon is composited
     onto; everything else here is drawn with `draw`. `species_icons`
     is whether the game plays species abilities at all -- off, the
-    disc carries the initials alone (see MEEPLE_SIZE). A species whose
+    meeple carries the initials alone (see MEEPLE_SIZE). The piece is
+    the Screentop table's outline (meeple_points), outlined in the
+    same ink. A species whose
     icon is missing falls back to the initials alone, centred, which is
     the token as it was before the icon -- the loader is silent on
     purpose (see load_species_icon).
@@ -1880,16 +2022,11 @@ def draw_meeple_group(
     token_ink = high_contrast_ink(color)
     for player_index, player_id in enumerate(occupants):
         player = players[player_id]
-        draw.ellipse(
-            (
-                token_x,
-                token_y,
-                token_x + token_size,
-                token_y + token_size,
-            ),
+        draw.polygon(
+            meeple_points(token_x, token_y),
             fill=color,
             outline=token_ink,
-            width=4,
+            width=MEEPLE_OUTLINE_WIDTH,
         )
         draw_meeple_face(
             canvas, draw, player, token_x, token_y, token_ink,
@@ -1916,6 +2053,31 @@ def draw_meeple_group(
     return group_left, group_left + total_width
 
 
+def meeple_points(token_x: int, token_y: int) -> list[tuple[float, float]]:
+    """
+    The meeple's outline, fitted into the `MEEPLE_SIZE` square at
+    (`token_x`, `token_y`): as wide as the square, standing on its
+    floor. The piece is a little wider than it is tall, so it keeps
+    the square's width -- the rows, the ball and the names are all
+    placed off that square, and none of them moves.
+    """
+    scale = MEEPLE_SIZE / meeple_size()[0]
+    center_x = token_x + MEEPLE_SIZE / 2
+    base = token_y + MEEPLE_SIZE
+    bottom = max(y for _, y in meeple_outline())
+    return [
+        (center_x + x * scale, base + (y - bottom) * scale)
+        for x, y in meeple_outline()
+    ]
+
+
+def meeple_y(token_y: int, path_y: float) -> float:
+    """A height on the piece, in the path's own units, as a canvas y."""
+    scale = MEEPLE_SIZE / meeple_size()[0]
+    bottom = max(y for _, y in meeple_outline())
+    return token_y + MEEPLE_SIZE + (path_y - bottom) * scale
+
+
 def draw_meeple_face(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -1926,52 +2088,46 @@ def draw_meeple_face(
     species_icons: bool,
 ) -> None:
     """
-    What is written on a meeple: the species icon over the role
-    initials, both in `ink`, when `species_icons` is set -- and the
-    initials alone, centred and larger, when it is not. See
-    draw_meeple_group for why the disc carries both and why the icon
-    is the larger, and the note by MEEPLE_SIZE for who decides the
-    flag.
+    What is written on a meeple: the species icon on its chest over
+    the role initials, both in `ink`, when `species_icons` is set --
+    and the initials alone, centred on the body and larger, when it is
+    not. See draw_meeple_group for why the piece carries both, and the
+    note by MEEPLE_SIZE for who decides the flag.
     """
     initials = ROLE_INITIALS[player.role.value]
+    center_x = token_x + MEEPLE_SIZE / 2
     icon = (
         species_icon(player.species, ink, MEEPLE_SPECIES_ICON_SIZE)
         if species_icons
         else None
     )
     if icon is None:
-        # Nothing shares the disc with the initials: a game not playing
-        # species abilities, or an icon that failed to load. Either way
-        # the initials take the whole face.
-        initials_width = draw.textlength(initials, font=FONT_TOKEN_SOLO)
-        bbox = draw.textbbox((0, 0), initials, font=FONT_TOKEN_SOLO)
+        # Nothing shares the body with the initials: a game not
+        # playing species abilities, or an icon that failed to load.
+        # Either way the initials take the whole chest.
         draw.text(
-            (
-                token_x + (MEEPLE_SIZE - initials_width) / 2,
-                token_y + (MEEPLE_SIZE - (bbox[3] - bbox[1])) / 2 - bbox[1],
-            ),
+            (center_x, meeple_y(token_y, MEEPLE_SOLO_CENTER)),
             initials,
             font=FONT_TOKEN_SOLO,
             fill=ink,
+            anchor="mm",
         )
         return
 
+    icon_center_y = meeple_y(token_y, MEEPLE_ICON_CENTER)
     canvas.alpha_composite(
         icon,
         (
-            token_x + (MEEPLE_SIZE - MEEPLE_SPECIES_ICON_SIZE) // 2,
-            token_y + MEEPLE_SPECIES_ICON_TOP,
+            round(center_x - MEEPLE_SPECIES_ICON_SIZE / 2),
+            round(icon_center_y - MEEPLE_SPECIES_ICON_SIZE / 2),
         ),
     )
-    initials_width = draw.textlength(initials, font=FONT_TOKEN_ROLE)
     draw.text(
-        (
-            token_x + (MEEPLE_SIZE - initials_width) / 2,
-            token_y + MEEPLE_SIZE - MEEPLE_ROLE_BOTTOM_INSET,
-        ),
+        (center_x, meeple_y(token_y, MEEPLE_ROLE_CENTER)),
         initials,
         font=FONT_TOKEN_ROLE,
         fill=ink,
+        anchor="mm",
     )
 
 
@@ -4725,6 +4881,7 @@ def render_coaching_image(
     )
     draw = ImageDraw.Draw(canvas)
     draw.text((COACHING_BOARD_LEFT, 16), title, font=FONT_HEADING, fill="#ffffff")
+    draw_coaching_clock(draw, match)
 
     bounds = zone_bounds_between(
         match, COACHING_BOARD_LEFT, COACHING_BOARD_RIGHT,
@@ -4794,6 +4951,37 @@ def render_coaching_image(
     )
 
     return png_bytes(canvas)
+
+
+def draw_coaching_clock(
+    draw: ImageDraw.ImageDraw,
+    match: MatchState,
+) -> None:
+    """
+    The clock, right-aligned in the title row: the minute in the
+    jumbotron's yellow, the period beside it in white.
+
+    **It reads the match's clock, and that is the minute the window
+    opened on**, because nothing moves the clock while a window is
+    open: a time out charges its minute in `finish_time_out`, after
+    both coaches are done, and halftime puts the clock on 15 before
+    either window opens. So every re-render of the half-field as the
+    coach works shows the same minute, and no saved field is needed
+    to remember it.
+    """
+    minute = f"{match.scoreboard.time:02d}"
+    period = (
+        "First Half"
+        if match.scoreboard.period == MatchPeriod.FIRST_HALF
+        else "Second Half"
+    )
+    minute_left = COACHING_BOARD_RIGHT - draw.textlength(
+        minute, font=FONT_HEADING,
+    )
+    draw.text((minute_left, 16), minute, font=FONT_HEADING, fill="#f5d76e")
+    # Baseline-matched to the minute: the body face is 8px shorter.
+    period_left = minute_left - 16 - draw.textlength(period, font=FONT_BODY)
+    draw.text((period_left, 24), period, font=FONT_BODY, fill="#ffffff")
 
 
 def draw_coaching_benches(

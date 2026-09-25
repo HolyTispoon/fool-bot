@@ -349,9 +349,13 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             # The sentence above the buttons prices every space it
             # offers, in the prose form -- "M2 (1 space away)". The
             # buttons carry travel_space_label's shorter version of the
-            # same distance; see travel_space_phrase.
+            # same distance; see travel_space_phrase. Case aside: the
+            # first offer opens the sentence, so it is capitalised.
             self.assertIn(
-                travel_space_phrase(zone, space_index, distance), prompt,
+                travel_space_phrase(
+                    zone, space_index, distance, match.board,
+                ).lower(),
+                prompt.lower(),
             )
             # Not a label that says nothing: they are standing on M1,
             # so every space they can be sent to is a real walk.

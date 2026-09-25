@@ -1178,9 +1178,9 @@ class RulesEngine:
         once it is up (see `D12Ball.close_maneuver_prompt`), so the
         buttons on the message and the buttons the restored view
         dispatches have to agree, and a coach's side that has *already
-        picked* must therefore keep its buttons.
-        `ManeuverActionPromptView.pick` refuses the second click rather
-        than the button being taken away.
+        picked* must therefore keep its buttons -- which is also what
+        lets that coach change the pick while the other side is still
+        choosing (`maneuver_pick_refusal`).
         """
         sides = ["offense"]
         if not match.maneuver_uncontested:
@@ -2027,10 +2027,14 @@ class RulesEngine:
         discount = 1 if handler.role == PlayerRole.PLAYMAKER else 0
         return max(0, distance - discount)
 
-    def dribble_burst_note(self, match: MatchState, distance: int) -> str:
+    def dribble_burst_note(
+        self, game: D12BallGame, match: MatchState, distance: int,
+    ) -> str:
         """
         Where a burst of `distance` lands and what it costs -- "M3,
-        2 tokens" -- for the button offering it. Naming the destination
+        2 exhaustion" -- for the button offering it. The cost is named
+        by what it is ("drain" for a Cyborg, `token_word_and_mark`),
+        never as bare "tokens": the board carries other tokens too. Naming the destination
         is what "3 spaces" does not say: which way this side attacks
         and where that lands is read off the board, and the board has
         usually scrolled away.
@@ -2038,10 +2042,10 @@ class RulesEngine:
         zone, space_index = match.relative_move_destination(
             match.active_player_id, match.ball.possession, distance,
         )
-        tokens = self.dribble_burst_cost(match, distance)
-        token_word = "token" if tokens == 1 else "tokens"
+        cost = self.dribble_burst_cost(match, distance)
+        noun, _ = self.token_word_and_mark(game, match.active_player_id)
         where = space_label(zone, space_index, match.board)
-        return f"{where}, {tokens} {token_word}"
+        return f"{where}, {cost} {noun}"
 
 
     def setup_pass_push_back_distances(self, match: MatchState) -> list[int]:
@@ -2882,7 +2886,7 @@ class RulesEngine:
             return f"{space_label(zone, space_index, match.board)}, no teammate"
         teammate = self.get_player_definition(occupants[0])
         return (
-            f"{space_label(zone, space_index, match.board)}-"
+            f"{space_label(zone, space_index, match.board)}, "
             f"{player_with_role(teammate)}"
         )
 
@@ -3165,6 +3169,7 @@ class RulesEngine:
         options = [
             travel_space_phrase(
                 zone, index, match.run_back_distance(player_id, zone, index),
+                match.board,
             )
             for index in spaces
         ]
@@ -3175,7 +3180,8 @@ class RulesEngine:
             offer = options[0]
         else:
             offer = f"{', '.join(options[:-1])} or {options[-1]}"
-        return f"{offer}."
+        # The offer is a sentence of its own, and "space 4 ..." opens it.
+        return f"{offer[:1].upper()}{offer[1:]}."
 
     def shootout_mentions(
         self,

@@ -158,7 +158,15 @@ def format_team_side_label(setup) -> str:
 def space_label(zone: Zone, space_index: int, board=None) -> str:
     """
     What a space is called in a sentence or on a button -- "H1", or
-    the flat "1" while the numbering experiment is on.
+    "space 1" while the numbering experiment is on.
+
+    The word goes with the number because a bare number sits beside
+    counts, distances, minutes and scores everywhere a space is named
+    ("Ball is now in 3 ... now at 37", "2 spaces (4-...)"), and nothing
+    else says which one is the space. It is lowercase because a space
+    is named mid-sentence far more often than at the start; a caller
+    that opens a label or a sentence with it runs it through
+    `capitalized`.
 
     `board` is the live `BoardState` (or a bare `BoardLayout` where
     there is no game, as on the printed sheets), and it is read only
@@ -168,8 +176,15 @@ def space_label(zone: Zone, space_index: int, board=None) -> str:
     experiment is reverted**; the letter form never needed it.
     """
     if FLAT_SPACE_NUMBERING:
-        return str(flat_space_number(zone, space_index, board))
+        return f"space {flat_space_number(zone, space_index, board)}"
     return f"{ZONE_LETTERS[zone]}{space_index + 1}"
+
+
+def capitalized(text: str) -> str:
+    """`text` with its first letter raised -- for a label or a sentence
+    that opens on a space's name ("space 4 - free"). A no-op on the
+    letter form, which is already a capital."""
+    return text[:1].upper() + text[1:]
 
 
 def travel_space_label(
@@ -186,6 +201,10 @@ def travel_space_label(
     between prices. The number is on the button as well as in the
     sentence beside it, because the button is the thing being pressed.
     """
+    if FLAT_SPACE_NUMBERING:
+        return capitalized(
+            f"{space_label(zone, space_index, board)} ({distance} away)"
+        )
     unit = "space" if distance == 1 else "spaces"
     return f"{space_label(zone, space_index, board)} ({distance} {unit})"
 
@@ -206,7 +225,14 @@ def travel_space_phrase(
     as a quantity of spaces rather than as a distance. Both are built
     from the same `distance`, so what the sentence offers and what the
     button charges cannot drift apart.
+
+    Under the flat numbering both read "space 4 (3 away)": a bare
+    number beside a count of spaces ("4 (3 spaces)") is two numbers
+    with nothing to say which is the space, so the word goes on the
+    space and the count keeps only "away". The button capitalises it.
     """
+    if FLAT_SPACE_NUMBERING:
+        return f"{space_label(zone, space_index, board)} ({distance} away)"
     unit = "space" if distance == 1 else "spaces"
     return (
         f"{space_label(zone, space_index, board)} "

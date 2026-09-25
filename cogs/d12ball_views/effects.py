@@ -863,7 +863,7 @@ class DribbleBurstChoiceView(SafeView):
             button = discord.ui.Button(
                 label=(
                     f"{distance} {space_word} "
-                    f"({cog.engine.dribble_burst_note(match, distance)})"
+                    f"({cog.engine.dribble_burst_note(game, match, distance)})"
                 ),
 
                 style=discord.ButtonStyle.primary,

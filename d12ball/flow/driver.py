@@ -1268,7 +1268,7 @@ def _answer_halftime_extra_token(
     if side is not None and TeamSide(side) != prompt.side:
         _refuse("That halftime step has already finished.")
     if player_id not in prompt.options.player_ids:
-        _refuse("That player cannot lose a token here.")
+        _refuse("That player cannot lose exhaustion here.")
     return periods.halftime_extra_token_step(
         engine, game, match, player_id=player_id,
     )

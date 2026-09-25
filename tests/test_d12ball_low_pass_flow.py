@@ -235,13 +235,55 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
 
         cog.send_field_prompt.assert_awaited_once()
         _, _, _, content, view = cog.send_field_prompt.await_args.args
-        # The lead-in opens the prompt's message as its own paragraph.
+        # The lead-in opens the prompt's message as its own paragraph,
+        # and the ask opens on a ping of the coach it is put to, since
+        # it does not name them itself.
+        mention = cog.tokens(fixture.game).mention(
+            PROMPT_ENGINE.side_player_number(
+                fixture.game, fixture.match.ball.possession,
+            ),
+        )
+        self.assertTrue(mention.startswith("<@"))
         self.assertEqual(
             content,
             "**Low Pass:** the ball moves 2 spaces forward.\n\n"
-            "Choose your Low Pass:",
+            f"{mention} Choose your Low Pass:",
         )
         self.assertIsInstance(view, LowPassChoiceView)
+
+    def test_an_ask_is_pinged_once_and_only_for_an_account(self) -> None:
+        """
+        A choice notifies the coach who has to make it: an ask that
+        does not address them gets a mention in front, one that already
+        does is left alone, and a side nobody can ping (the AI, a test
+        game's seat) gets nothing added.
+        """
+        fixture = next(
+            case.build() for case in LOW_PASS_CASES
+            if case.name == "plain_forward"
+        )
+        cog = build_cog()
+        game, match = fixture.game, fixture.match
+        player_number = PROMPT_ENGINE.side_player_number(
+            game, match.ball.possession,
+        )
+        mention = cog.tokens(game).mention(player_number)
+
+        def ask(text: str) -> str:
+            return cog.ping_asked(
+                game, match,
+                PendingPrompt(
+                    kind=PromptKind.LOW_PASS_CHOICE,
+                    ask=text,
+                    maneuver_key="low_pass",
+                ),
+            )
+
+        self.assertEqual(ask("Choose:"), f"{mention} Choose:")
+        self.assertEqual(ask(f"{mention}, choose:"), f"{mention}, choose:")
+
+        game.test_game = True
+        self.assertEqual(ask("Choose:"), "Choose:")
 
     async def test_a_step_with_nothing_next_posts_its_own_lines(
         self,

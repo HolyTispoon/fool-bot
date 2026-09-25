@@ -34,7 +34,6 @@ left off rather than guessed at.
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from math import atan2, cos, hypot, sin, sqrt
 from typing import Optional, Sequence
@@ -76,6 +75,8 @@ from d12ball.components import (
 )
 from d12ball.game import COLOR_TEAMS, Formation, Team
 from d12ball.render import (
+    MEEPLE_CODE_CENTER,
+    MEEPLE_CODE_WIDTH,
     ROLE_INITIALS,
     TEAM_COLORS,
     ZONE_COLORS,
@@ -83,6 +84,8 @@ from d12ball.render import (
     load_font,
     load_goal_zone_font,
     load_player_portrait,
+    meeple_outline,
+    meeple_size,
     wrap_text,
 )
 from d12ball.rules_doc import LOCAL_LINK_PATTERN, PROJECT_ROOT
@@ -1510,130 +1513,6 @@ def render_box_side(
 
 
 
-# The meeple, as the Screentop table draws it -- the author's own
-# path, so a piece on a printed panel and a piece on the virtual table
-# are one shape rather than two drawings of the same idea. It is an
-# SVG path with the origin at the middle of the piece; `meeple_outline`
-# flattens it once and everything else scales that.
-MEEPLE_PATH = (
-    "M 0 -29.62 C -3.98 -29.62 -6.83 -27.5 -8.5 -24.86 C -9.96 -22.51 "
-    "-10.58 -19.75 -10.7 -17.34 C -15.22 -15.13 -20.2 -12.87 -24.22 "
-    "-10.58 C -26.34 -9.4 -28.17 -8.17 -29.56 -6.87 C -30.95 -5.55 "
-    "-31.97 -4.08 -31.97 -2.35 C -31.97 -1.62 -31.61 -1.02 -31.19 -0.58 "
-    "C -30.78 -0.13 -30.32 0.2 -29.76 0.51 C -28.63 1.18 -27.24 1.69 "
-    "-25.73 2.15 C -23.44 2.84 -20.88 3.36 -18.67 3.56 C -20.88 7.36 "
-    "-23.82 10.86 -26.39 14.23 C -29.38 18.09 -31.97 21.8 -31.97 25.95 "
-    "C -31.97 26.52 -31.97 26.96 -31.93 27.44 C -31.88 27.91 -31.73 "
-    "28.5 -31.28 28.94 C -30.8 29.39 -30.25 29.52 -29.76 29.56 C -29.31 "
-    "29.64 -28.84 29.62 -28.25 29.62 L -11.82 29.62 C -10.62 29.62 "
-    "-9.76 29.69 -8.85 29.11 C -7.94 28.53 -7.63 27.74 -6.98 26.57 "
-    "L -6.96 26.55 L -6.95 26.51 S -5.51 23.58 -3.82 20.73 C -2.95 "
-    "19.28 -2.04 17.84 -1.22 16.81 C -0.81 16.3 -0.45 15.91 -0.16 15.67 "
-    "C -0.09 15.6 -0.06 15.6 0 15.56 C 0.06 15.6 0.09 15.6 0.17 15.67 "
-    "C 0.42 15.91 0.82 16.3 1.22 16.81 C 2.04 17.84 2.96 19.28 3.82 "
-    "20.73 C 5.52 23.58 6.95 26.51 6.95 26.51 L 6.97 26.55 L 6.98 26.57 "
-    "C 7.63 27.74 7.94 28.53 8.84 29.11 C 9.72 29.69 10.59 29.62 11.78 "
-    "29.62 L 28.3 29.62 C 28.88 29.62 29.34 29.64 29.79 29.56 C 30.28 "
-    "29.52 30.82 29.39 31.29 28.93 C 31.75 28.48 31.89 27.91 31.93 "
-    "27.44 C 31.98 26.96 31.98 26.52 31.98 25.95 C 31.98 21.8 29.39 "
-    "18.09 26.4 14.23 C 23.82 10.86 20.88 7.36 18.67 3.56 C 20.88 3.36 "
-    "23.45 2.84 25.73 2.15 C 27.23 1.69 28.63 1.18 29.76 0.51 C 30.32 "
-    "0.2 30.79 -0.13 31.2 -0.58 C 31.62 -1.01 31.98 -1.6 31.98 -2.35 "
-    "C 31.98 -4.08 30.95 -5.53 29.56 -6.86 C 28.18 -8.17 26.34 -9.39 "
-    "24.22 -10.57 C 20.21 -12.87 15.23 -15.13 10.71 -17.34 C 10.59 "
-    "-19.75 9.97 -22.49 8.5 -24.86 C 6.83 -27.5 3.98 -29.62 0 -29.62 Z"
-)
-# Where the role's two letters sit on the piece, in the path's own
-# units: below the arms, on the chest, which is where the Screentop
-# table puts them.
-MEEPLE_CODE_CENTER = 11.0
-MEEPLE_CODE_WIDTH = 26.0
-_PATH_TOKEN = re.compile(r"[MCSLZ]|-?\d+(?:\.\d+)?")
-_MEEPLE_OUTLINE: list[tuple[float, float]] = []
-
-
-def flatten_path(path: str, steps: int = 14) -> list[tuple[float, float]]:
-    """
-    An SVG path as a polygon, for the subset the meeple is written in
-    (absolute `M`, `L`, `C`, `S`, `Z`).
-
-    Pillow draws polygons, not curves, so every cubic is sampled --
-    fourteen segments each, which at any size these panels print at is
-    under a printed dot. It is a reader rather than a rewrite of the
-    path because the path is the author's: retyping it as a list of
-    points is how the piece on the box would come to differ from the
-    piece on the table.
-    """
-    tokens = _PATH_TOKEN.findall(path)
-    points: list[tuple[float, float]] = []
-    index = 0
-    command = ""
-    current = start = (0.0, 0.0)
-    control: Optional[tuple[float, float]] = None
-    while index < len(tokens):
-        if tokens[index] in "MCSLZ":
-            command = tokens[index]
-            index += 1
-            if command == "Z":
-                points.append(start)
-                control = None
-                continue
-        numbers = []
-        for _ in range({"M": 2, "L": 2, "C": 6, "S": 4}[command]):
-            numbers.append(float(tokens[index]))
-            index += 1
-        if command in ("M", "L"):
-            current = (numbers[0], numbers[1])
-            if command == "M":
-                start = current
-            points.append(current)
-            control = None
-            continue
-        if command == "C":
-            first = (numbers[0], numbers[1])
-            second = (numbers[2], numbers[3])
-            end = (numbers[4], numbers[5])
-        else:
-            # `S` reflects the previous curve's second control point,
-            # which is the whole of what makes it smooth.
-            first = (
-                (2 * current[0] - control[0], 2 * current[1] - control[1])
-                if control
-                else current
-            )
-            second = (numbers[0], numbers[1])
-            end = (numbers[2], numbers[3])
-        for step in range(1, steps + 1):
-            t = step / steps
-            u = 1 - t
-            points.append(
-                (
-                    u ** 3 * current[0] + 3 * u * u * t * first[0]
-                    + 3 * u * t * t * second[0] + t ** 3 * end[0],
-                    u ** 3 * current[1] + 3 * u * u * t * first[1]
-                    + 3 * u * t * t * second[1] + t ** 3 * end[1],
-                )
-            )
-        control = second
-        current = end
-    return points
-
-
-def meeple_outline() -> list[tuple[float, float]]:
-    """The path, flattened once and kept."""
-    if not _MEEPLE_OUTLINE:
-        _MEEPLE_OUTLINE.extend(flatten_path(MEEPLE_PATH))
-    return _MEEPLE_OUTLINE
-
-
-def meeple_size() -> tuple[float, float]:
-    """How wide and tall the piece is in the path's own units."""
-    outline = meeple_outline()
-    xs = [x for x, _ in outline]
-    ys = [y for _, y in outline]
-    return max(xs) - min(xs), max(ys) - min(ys)
-
-
 def draw_meeple(
     sheet: Sheet,
     center_x: float,
@@ -1647,11 +1526,10 @@ def draw_meeple(
     A meeple: the piece a coach pushes around the printed board, in
     its team's colour with the player's **role** on its chest.
 
-    The bot draws a player as a coloured disc because a screen token
-    is a label; what stands on a table is a pawn, so the picture of
-    the game shows the pawn -- and it shows the author's own outline
-    (`MEEPLE_PATH`), the one the Screentop table draws, rather than a
-    silhouette redrawn from a screenshot. The two letters are
+    What stands on a table is a pawn, so the picture of the game shows
+    the pawn -- and it shows the author's own outline (`MEEPLE_PATH`,
+    in render.py), the one the Screentop table and the bot's own board
+    draw, rather than a silhouette redrawn from a screenshot. The two letters are
     `ROLE_INITIALS`, the spelling every other drawing of a role reads
     (see `role_initials` in `d12ball/formatting.py`), and their colour
     is `high_contrast_ink`, because white disappears on slime green.

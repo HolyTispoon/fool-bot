@@ -26,6 +26,7 @@ from d12ball.game import (
     Team,
 )
 from cogs.d12ball_helpers import (
+    capitalized,
     destination_display_name,
     space_label,
 )
@@ -931,7 +932,7 @@ class CoachingPlaceSpaceView(CoachingView):
         for space in self.spaces_for(options, player_id):
             space_index, here = space.space_index, space.trade_with
             button = discord.ui.Button(
-                label=(
+                label=capitalized(
                     space_label(zone, space_index, match.board)
                     + (f" - {len(here)} of yours" if here else " - free")
                 ),

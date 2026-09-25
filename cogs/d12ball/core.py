@@ -50,6 +50,7 @@ from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
+    asked_sides,
     owed_step,
     pending_prompt,
     with_options,
@@ -1653,6 +1654,42 @@ class CoreMixin:
             ),
         )
 
+    def ping_asked(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        prompt: PendingPrompt,
+    ) -> str:
+        """
+        The prompt's ask with a mention in front of it for every coach
+        it is put to whom it does not already address -- so a choice
+        always notifies the coach who has to make it.
+
+        Most asks open with the coach (an injury test, a run back, a
+        loose-ball pick), but some name only the player -- "The ball
+        crossed Dravox, who may Mind Pull it" -- and a coach who is not
+        watching the channel never hears of it. Whose question it is is
+        the model's (`asked_sides`); that Discord says it with a ping is
+        this frontend's, so the model's sentence is left alone and the
+        mention goes in front of it here. Only an account is pinged: the
+        AI and a test game's seats have nothing to notify, and naming
+        them again would only repeat the line.
+        """
+        pings = []
+        for side in asked_sides(match, prompt):
+            player_number = self.engine.side_player_number(game, side)
+            if player_number is None:
+                continue
+            mention = self.tokens(game).mention(player_number)
+            if (
+                mention is not None
+                and mention.startswith("<@")
+                and mention not in prompt.ask
+                and mention not in pings
+            ):
+                pings.append(mention)
+        return " ".join((*pings, prompt.ask)) if pings else prompt.ask
+
     async def render_prompt(
         self,
         interaction: discord.Interaction,
@@ -1689,7 +1726,8 @@ class CoreMixin:
         of the message that write led to.
         """
         kind = prompt.kind
-        content = "\n\n".join(filter(None, (lead_in, prompt.ask)))
+        ask = self.ping_asked(game, match, prompt)
+        content = "\n\n".join(filter(None, (lead_in, ask)))
         mentions = discord.AllowedMentions(
             users=True, roles=False, everyone=False,
         )

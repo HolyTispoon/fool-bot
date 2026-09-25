@@ -3395,6 +3395,29 @@ class MatchState:
             raise RuleRefusal("The defense has already chosen a maneuver.")
         self.defense_maneuver = key
 
+    def change_maneuver(self, side: str, key: str) -> None:
+        """
+        A pick made again, by maneuver key, **while the other side is
+        still choosing**. Both cards are revealed together (Law 6), so
+        until the second is down the first is only a card held face
+        down, and a coach may swap it. Once both are in -- or where
+        there is no other side, an uncontested maneuver -- the pick is
+        the one that resolves, and this refuses.
+        """
+        mine, theirs = (
+            (self.offense_maneuver, self.defense_maneuver)
+            if side == "offense"
+            else (self.defense_maneuver, self.offense_maneuver)
+        )
+        if mine is None:
+            raise RuleRefusal("That side has not chosen a maneuver yet.")
+        if self.maneuver_uncontested or theirs is not None:
+            raise RuleRefusal("Both sides have chosen; the pick stands.")
+        if side == "offense":
+            self.offense_maneuver = key
+        else:
+            self.defense_maneuver = key
+
     def begin_loose_ball(
         self, distance_moved: int, is_high_pass: bool = False,
     ) -> None:
