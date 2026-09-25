@@ -23,7 +23,7 @@ board image, the coaching half-field image, every button and every
 sentence, the tutorial's lessons, the web app, and the print-and-play
 field strip. The zone *names* are untouched -- a space is still in
 the Home Zone, midfield or the Visitors Zone, and the zone is still
-spelled out beside the number wherever it was before ("**4**
+spelled out beside the number wherever it was before ("**space 4**
 (Midfield)").
 
 ## The switch
@@ -82,8 +82,14 @@ easiest to undo.
    rewrites them as the module loads.
 3. **`d12ball/formatting.py`** -- `space_label` goes back to its
    one-line body, and the `board` parameter comes off it,
-   `travel_space_label` and `travel_space_phrase`. `ball_space_label`
-   stops passing `match.board`.
+   `travel_space_label` and `travel_space_phrase`, whose
+   `FLAT_SPACE_NUMBERING` branches go. `ball_space_label` stops
+   passing `match.board`. `capitalized` can stay (harmless on the
+   letter form) or go with its five callers: `coaching.py`'s space
+   button, `presentation.py`'s two image captions,
+   `d12ball_helpers.space_choices` and the tutorial block. The High
+   Pass note's comma (`high_pass_destination_note`) reads as well
+   with a letter code and can stay.
 4. **`d12ball/render.py`** -- the same for `space_code`; drop the
    `board` parameter `draw_coaching_space` gained and the
    `board=match.board` its caller passes; drop the `BoardState`
@@ -131,16 +137,23 @@ easiest to undo.
 
 ## Things to look at while it is on
 
-- A **run back** names a price beside the space. Bare, that was
-  "4 (2 spaces)" -- two numbers on one button, where one of them used
-  to be a letter code -- so since 2026-09-25 it reads "Space 4
-  (2 away)" on the button and "space 4 (2 away)" in the sentence
-  above it (`travel_space_label` / `travel_space_phrase`, behind the
-  same switch; with it off both go back to "H1 (2 spaces)").
-- A **High Pass** menu reads "3 spaces (6-Zenith [WG])": a distance,
-  then a destination, both numbers.
-- The **tutorial's** first lesson describes the field as
-  "your own Zone (1-2), midfield (3-5), and the Zone you are
-  attacking (6-7)".
-- **Shooting range** is described as "5 and beyond" on the 7-space
-  board, which it reads better as than "M3 and beyond" did.
+- **In text, a space is "space 4", never a bare "4"** (the author,
+  2026-09-25). The images keep the bare number in each space's
+  corner, where nothing else is a number; everywhere a space is
+  *written* -- sentences, buttons, selects, image captions, the web
+  app -- `space_label` returns "space 4". A bare number sat beside
+  counts, distances, minutes and scores and could be read as any of
+  them: "Ball is now 3, ... Time has advanced 1, now at 37",
+  "2 spaces (4-Sizzifizik [PM])", "Advance 2 spaces (6)", "runs back
+  to 3." (which read as a distance, on a move charged by the space).
+  It is lowercase because it is mostly named mid-sentence;
+  `formatting.capitalized` raises it where it opens a label or a
+  caption, and the tutorial's `renumber_spaces` where it opens a
+  sentence. The pieces that compose it with something else changed
+  with it: a run back reads "Space 4 (2 away)" on the button and
+  "space 4 (2 away)" in the sentence (`travel_space_label` /
+  `travel_space_phrase`), a High Pass "2 spaces (space 4,
+  Sizzifizik [PM])" (a comma where the hyphen was), and the
+  tutorial's ranges "spaces 1-2" rather than "space 1-space 2".
+- **Shooting range** is described as "space 5 and beyond" on the
+  7-space board, which it reads better as than "M3 and beyond" did.

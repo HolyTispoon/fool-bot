@@ -508,8 +508,8 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
                 cog, game.game_id,
             ).children],
             [
-                f"2 spaces ({code(match.board, 'V1')}-{winger} [WG])",
-                f"3 spaces ({code(match.board, 'V2')}-{striker} [SK])",
+                f"2 spaces ({code(match.board, 'V1')}, {winger} [WG])",
+                f"3 spaces ({code(match.board, 'V2')}, {striker} [SK])",
             ],
         )
 
@@ -525,9 +525,9 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
                 # on it: a pass landing there is loose, so which
                 # space it is is half the coach's answer.
                 f"2 spaces ({code(match.board, 'M3')}, no teammate)",
-                f"3 spaces ({code(match.board, 'V1')}-{winger} [WG])",
+                f"3 spaces ({code(match.board, 'V1')}, {winger} [WG])",
                 f"4 spaces (Fullback ability) "
-                f"({code(match.board, 'V2')}-{striker} [SK])",
+                f"({code(match.board, 'V2')}, {striker} [SK])",
             ],
         )
 
@@ -538,7 +538,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             [item.label for item in HighPassChoiceView(
                 cog, game.game_id,
             ).children],
-            [f"2 spaces ({code(match.board, 'V2')}-{striker} [SK])"],
+            [f"2 spaces ({code(match.board, 'V2')}, {striker} [SK])"],
         )
 
     async def test_a_click_on_a_distance_no_longer_on_offer_is_refused(

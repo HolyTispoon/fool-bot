@@ -10,13 +10,13 @@ The board above is the whole game state: the field with both sides' meeples, eve
 === press 1: TutorialContinueView -> 'Continue'
 --- message
 ## 1. Your first turn
-Both sides are dealt the standard **2-2-2** -- two cards in your own zone, two in midfield, two in the zone you are attacking -- and the ball is yours, on **4**.
+Both sides are dealt the standard **2-2-2** -- two cards in your own zone, two in midfield, two in the zone you are attacking -- and the ball is yours, on **space 4**.
 
-The field is **seven spaces** across in three zones: your own Zone (1-2), midfield (3-5), and the Zone you are attacking (6-7). Your six cards are on the board as meeples and three more wait on your bench. The two numbers on a card are that player's **offensive** and **defensive skill**.
+The field is **seven spaces** across in three zones: your own Zone (spaces 1-2), midfield (spaces 3-5), and the Zone you are attacking (spaces 6-7). Your six cards are on the board as meeples and three more wait on your bench. The two numbers on a card are that player's **offensive** and **defensive skill**.
 
 A turn starts with whoever is standing on the ball -- the **handler**. You have one player there, your playmaker, so they are chosen for you. Then you decide what they do.
 
-A handler can do three things: shoot, maneuver, or call a time out to buy both coaches a pause. **You are not offered the shot** -- a shot may only be taken from inside your shooting range, which is 5 and beyond, and you are one space short of it.
+A handler can do three things: shoot, maneuver, or call a time out to buy both coaches a pause. **You are not offered the shot** -- a shot may only be taken from inside your shooting range, which is space 5 and beyond, and you are one space short of it.
 
 **Press Maneuver.**
 === press 2: TutorialContinueView -> 'Continue'
@@ -57,7 +57,7 @@ You chose **Dribble Advance**.
 ## **Dribble Advance** wins!
 --- message
 🟠 <@111>, choose your Dribble Advance distance (Playmaker ability):
-=== press 6: DribbleAdvanceChoiceView -> 'Advance 2 spaces (6)'
+=== press 6: DribbleAdvanceChoiceView -> 'Advance 2 spaces (space 6)'
 --- message
 Chose **2 spaces**.
 --- message
@@ -72,14 +72,14 @@ You get a choice here too: the ball's own speed, up to your player's skill. It c
 --- message
 Ball speed is now **1**.
 --- message
-Ball is now 6, Orange (Home) has possession. Time has advanced 1, now at 01.
+Ball is now space 6, Orange (Home) has possession. Time has advanced 1, now at 01.
 --- message
 ## 2. Every role has an ability
-Dribble Advance beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from 4 to **6**.
+Dribble Advance beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from space 4 to **space 6**.
 
 Moving forward two spaces is not the ordinary move. A dribble advances typically moves the playerone space. But your **Playmaker** is a skilled dribbler and can move up to two: that is the Playmaker role ability. **Every player has a role and every role has an ability**, printed on their card and worth reading before you pick a maneuver -- the Fullback throws a longer High Pass, the Midfielder gets +3 on a Low Pass or Pressure test, the Defender steals the ball off a won Pressure. Two commands list them whenever you want: **`/d12ball role_abilities`** for all six, and **`/d12ball team_roster`** gives you a list of your team with their roles.
 
-You are on 6 now, which is inside your shooting range, so the **Shoot** button has appeared. It is greyed out here, and it would be a poor shot anyway: your playmaker's offensive skill is 4, Dinky's defender is standing on the ball and their fullback is behind them -- roughly d12+4 against d12+8. We will make a much better one shortly.
+You are on space 6 now, which is inside your shooting range, so the **Shoot** button has appeared. It is greyed out here, and it would be a poor shot anyway: your playmaker's offensive skill is 4, Dinky's defender is standing on the ball and their fullback is behind them -- roughly d12+4 against d12+8. We will make a much better one shortly.
 
 **Press Maneuver.**
 === press 9: TutorialContinueView -> 'Continue'
@@ -92,9 +92,9 @@ Choose an action:
 === press 10: PlayerActionView -> 'Maneuver'
 --- message
 ### When both cards are the same rank
-Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is not a draw -- it goes to a **skill test**: both players roll a d12 and add their skill, the attacker their offensive and the defender their defensive, plus whatever their ability is worth. Highest total takes it, and both players pick up an **exhaustion token** for the effort. Tokens are the game's running cost; enough of them and a player risks getting injured.
+Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is not a draw -- it goes to a **skill test**: both players roll a d12 and add their skill, the attacker their offensive and the defender their defensive, plus whatever their ability is worth. Highest total takes it, and both players pick up an **exhaustion token** for the effort. Exhaustion is the game's running cost; enough of it and a player risks getting injured.
 
-**Pick Low Pass.** It is rank 1, just like the Deflect Dinky has played, so this one goes to the dice -- and Dinky is going to win it. Watch what a won Deflect does: it knocks the ball back a space, nothing more. It only comes **loose** -- open to both sides -- when it lands where nobody is standing. Dinky already has a midfielder right there on 5, so the ball is simply theirs: no roll, no contest, never loose.
+**Pick Low Pass.** It is rank 1, just like the Deflect Dinky has played, so this one goes to the dice -- and Dinky is going to win it. Watch what a won Deflect does: it knocks the ball back a space, nothing more. It only comes **loose** -- open to both sides -- when it lands where nobody is standing. Dinky already has a midfielder right there on space 5, so the ball is simply theirs: no roll, no contest, never loose.
 === press 11: TutorialContinueView -> 'Continue'
 --- message
 🟣 Dinky AI has picked their maneuver.
@@ -132,13 +132,13 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 Space 4 (2 away) or space 5 (1 away).
 === press 14: RunBackChoiceView -> 'Space 4 (2 away)'
 --- message
-🟠 Sizzifizik [PM] runs back to 4.
+🟠 Sizzifizik [PM] runs back to space 4.
 🟠 Sizzifizik [PM] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 3 total).
 --- message
-Ball is now 5, Purple (Visiting) has possession. Time has advanced 1, now at 02.
+Ball is now space 5, Purple (Visiting) has possession. Time has advanced 1, now at 02.
 --- message
 ## 3. Your turn to defend
-Dang it. You lost possession. Dinky won the skill test, and their Deflect knocked the ball back to **5** -- right onto one of their own midfielders, who was already standing there. Nobody of yours was, so it went straight to them: no roll, and never loose at all. Your playmaker, left standing outside her own zone at 6, has run back into midfield -- and paid an exhaustion token per space to do it.
+Dang it. You lost possession. Dinky won the skill test, and their Deflect knocked the ball back to **space 5** -- right onto one of their own midfielders, who was already standing there. Nobody of yours was, so it went straight to them: no roll, and never loose at all. Your playmaker, left standing outside her own zone at space 6, has run back into midfield -- and paid an exhaustion token per space to do it.
 
 Dinky is coming at your goal now, and this time **nobody of yours is anywhere near the ball**. Before anything else, you'll be asked to send a challenger to it -- pick either of the two offered, it costs the same either way. Sending nobody would let Dinky's maneuver straight through unchallenged, so that button is greyed out here.
 
@@ -180,10 +180,10 @@ You chose **Pressure**.
 --- message
 **Pressure:** 🟣 Glompex [MF] and the ball go back 1 space. 🟠 Sizzifizik [PM] moves forward.
 
-Ball is now 6, Purple (Visiting) has possession. Time has advanced 1, now at 03.
+Ball is now space 6, Purple (Visiting) has possession. Time has advanced 1, now at 03.
 --- message
 ## 4. Winning the ball back
-Pressure drove them backwards: their handler and the ball went back a space to **6**, and your challenger moved up onto them. Dinky still has it -- but they have lost ground, and you are standing on the ball.
+Pressure drove them backwards: their handler and the ball went back a space to **space 6**, and your challenger moved up onto them. Dinky still has it -- but they have lost ground, and you are standing on the ball.
 
 Now take it off them.
 === press 19: TutorialContinueView -> 'Continue'
@@ -222,7 +222,7 @@ You chose **Steal**.
 # Players run back!
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
 --- message
-🟣 Glompex [MF] runs back to 3.
+🟣 Glompex [MF] runs back to space 3.
 🟣 Glompex [MF] gains 3 exhaustion tokens 😮‍💨😮‍💨😮‍💨 (now 3 total).
 --- message
 <@111>, manipulate the ball's speed (up to 3):
@@ -230,16 +230,16 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now 5, Orange (Home) has possession. Time has advanced 1, now at 04.
+Ball is now space 5, Orange (Home) has possession. Time has advanced 1, now at 04.
 --- message
 ## 5. A shot at goal
-The ball is yours again, on **5**, and moving fast. This is the last lesson, and it is worth a goal.
+The ball is yours again, on **space 5**, and moving fast. This is the last lesson, and it is worth a goal.
 
-5 is inside your shooting range, so **Shoot** is offered again -- and again it is the wrong button. Your midfielder has an offensive skill of 3 and Dinky's players are between you and the goal.
+Space 5 is inside your shooting range, so **Shoot** is offered again -- and again it is the wrong button. Your midfielder has an offensive skill of 3 and Dinky's players are between you and the goal.
 
-Look at **7** instead. Your striker has been standing there all game, inside shooting range, offensive skill **6** -- the best on your team.
+Look at **space 7** instead. Your striker has been standing there all game, inside shooting range, offensive skill **6** -- the best on your team.
 
-A High Pass of exactly 2 spaces lands on 7. A pass that reaches a teammate already inside shooting range is a **scoring opportunity**: they shoot immediately, out of turn. And the Striker's ability is worth **+3** on precisely that shot.
+A High Pass of exactly 2 spaces lands on space 7. A pass that reaches a teammate already inside shooting range is a **scoring opportunity**: they shoot immediately, out of turn. And the Striker's ability is worth **+3** on precisely that shot.
 
 **Press Maneuver.**
 === press 24: TutorialContinueView -> 'Continue'
@@ -261,7 +261,7 @@ You will be asked how far to throw. **2 spaces** is the only distance offered he
 
 Then take the shot. A score attempt is your d12 plus the shooter's offensive skill and half the ball's speed, against Dinky's d12 plus every defender in the way -- one standing **on** the ball adds all of their defensive skill, one further back adds half, rounded up. Ties go to the shooter.
 
-Their fullback is standing on 7, so you get their whole defensive skill of 6 against you. Even so: your striker rolls **d12+11** against their **d12+6**. That is a real roll and it can miss -- but you should score about six times in seven.
+Their fullback is standing on space 7, so you get their whole defensive skill of 6 against you. Even so: your striker rolls **d12+11** against their **d12+6**. That is a real roll and it can miss -- but you should score about six times in seven.
 === press 26: TutorialContinueView -> 'Continue'
 --- message
 🟣 Dinky AI has picked their maneuver.
@@ -279,7 +279,7 @@ You chose **High Pass**.
 ## **High Pass** wins!
 --- message
 🟠 <@111>, choose your High Pass distance:
-=== press 28: HighPassChoiceView -> '2 spaces (7-Noxar [SK])'
+=== press 28: HighPassChoiceView -> '2 spaces (space 7, Noxar [SK])'
 --- message
 Chose **2 spaces**.
 --- message
@@ -306,7 +306,7 @@ Orange 1:0 Purple
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now 4, Purple (Visiting) has possession. Time has advanced 3, now at 07.
+Ball is now space 4, Purple (Visiting) has possession. Time has advanced 3, now at 07.
 --- message
 # That's the tutorial
 The rails are off -- every button is live from here, and Dinky is playing for real.
