@@ -43,11 +43,11 @@ What it costs, said plainly:
   prompt fixture through the same service) and no longer in play.
 - **Two populations of games**, and one report over both. The author
   wants the numbers from every web game visible on Discord, cut by
-  source or taken together (review of 2026-09-25); that is step 5, and
+  source or taken together (review of 2026-09-25); that is step 6, and
   it is the one place the bot reads the web file. The archive export
   and the hub still see the bot's games only. Anything else the web
   app wants of the slash commands it builds over the model for itself
-  (step 8).
+  (step 9).
 - **Two deployments on one machine.** The bot and the web app both
   run on the Windows checkout at `K:\` (decision 2), each with its own
   `data/` file, each restarted on its own.
@@ -135,11 +135,11 @@ so nobody re-opens them.
 2. **Where the web process runs: the same Windows machine as the bot,
    the `K:\` checkout.** One `git pull` updates both, one `data/`
    folder holds both files, and the tunnel is on a machine that
-   already runs all day. Step 4 is written for it.
+   already runs all day. Step 5 is written for it.
 3. **The wire tree stays, and the page reads it.** `_state` answers
    with `result.to_dict()` and `prompt.to_dict()` and `present.py`
    reads the dicts, so `tests/test_wire_shapes.py` is testing a
-   format with a consumer. Step 9.
+   format with a consumer. Step 10.
 
 ## The steps
 
@@ -155,12 +155,13 @@ that existed; steps 1 to 3 are one sprint.
 | 1 | Cut the cord: its own process, file, service and engine | medium |
 | 2 | Rooms, seats and observers | medium |
 | 3 | The room's table: setup, kickoff, the rematch | large |
-| 4 | Run it for real, and write down how | a day, little code |
-| 5 | The web games' numbers on Discord, cut by source | small |
-| 6 | The dice on the page | medium |
-| 7 | The prompt's pictures | medium |
-| 8 | What Discord has that the page lacks: my rooms, resume, abandon, stats, the rules | medium |
-| 9 | The page as a thing to play on; the wire tree; the tests the survey found missing | medium |
+| 4 | Chat in the room | small |
+| 5 | Run it for real, and write down how | a day, little code |
+| 6 | The web games' numbers on Discord, cut by source | small |
+| 7 | The dice on the page | medium |
+| 8 | The prompt's pictures | medium |
+| 9 | What Discord has that the page lacks: my rooms, resume, abandon, stats, the rules | medium |
+| 10 | The page as a thing to play on; the wire tree; the tests the survey found missing | medium |
 | -- | Later, and not now | -- |
 
 ### 1. Cut the cord
@@ -182,7 +183,7 @@ about *that* file. It grows a path parameter, `load_games(path=...)`
 and `save_games(games, path=...)`, defaulting to the bot's file so
 nothing the bot does changes, and the two flags become per path. The
 save *format* does not change; the migrations run on both files.
-Its own commit, reviewed as a change to the store. Step 5 reads the
+Its own commit, reviewed as a change to the store. Step 6 reads the
 web file through the same parameter.
 
 **Two fences.** `tests/test_web_purity.py` already ratchets that
@@ -373,7 +374,7 @@ Four commits.
    per room -- admin ids and observers seen -- in
    data/d12ball_web_rooms.json, written on change, read at start,
    never the save (see gotchas.md on data/ and do what the journal
-   will do in step 9). POST /api/room/{id}/admin makes the caller an
+   will do in step 10). POST /api/room/{id}/admin makes the caller an
    admin (the page confirms first: "Take the admin role for this
    room?"); POST /api/room/{id}/seat/kick {seat} is refused unless
    the caller is an admin, and calls vacate_seat for the seated id;
@@ -499,9 +500,80 @@ not create games" and gains "The room's table" with why every
 question on it is the record's. PR against the template.
 ```
 
-### 4. Run it for real, and write down how
+### 4. Chat in the room
 
-**Why here.** After step 3 a web game can be played end to end, and
+**Why here, and why at all.** On Discord the channel is the chat, and
+the game's own messages sit in it between the coaches' own. A room
+on the web has nothing of the kind: two coaches and their observers
+have no way to say "one moment" or "good goal" without another app
+open. The author asked for it (2026-09-25). It comes before the
+playtest because a playtest with three people and no way to talk in
+the room is a playtest of the wrong thing.
+
+**What it is.** A chat panel beside the journal, one message list
+per room, everyone in the room may post (coaches and observers, by
+the name on their cookie), and the messages ride on the poll the
+page already makes. It is frontend state like the room roles: kept
+in the web app's own file (`data/d12ball_web_chat.json`, or a
+section of the rooms file), bounded per room the way the journal is,
+never on the game record, never read by the model. A message is
+plain text, escaped on the way out; nothing in it is rendered as
+markdown or tokens, because it is not the model's voice.
+
+**What it must not do.** Say anything about the game. A chat line
+that reads "X scored" is the journal's, and the journal already
+says it; the chat is people talking. And it must not become a second
+transport: the poll carries it, with a `since` cursor like the
+journal's, and a websocket stays in "Later".
+
+**Prompt.**
+
+```text
+Read CLAUDE.md, docs/web-app-next.md (step 4), docs/design/web-app.md
+(as rewritten by steps 1 and 2, "What a page is handed" and "Rooms,
+seats and who holds them") and docs/design/gotchas.md ("data/ is
+untracked runtime state"). Branch off an up-to-date main. Assumes
+step 2 (rooms, seats and the cookie identity) has landed. Two
+commits.
+
+1. webapp/chat.py: a Chat per room -- a deque of Message(id, coach_id,
+   name, text, at) with a bound (CHAT_LENGTH, 200 like the journal) --
+   held by the WebApp, written on every post to
+   data/d12ball_web_chat.json (or a "chat" section of the rooms file
+   from step 2, whichever step 2 chose; one file for all room state
+   is fine), read at startup; a write failure is logged and never
+   fails the request, like save_games. A message's text is 1-500
+   characters after strip, refused otherwise with a 400. Nothing in
+   webapp/chat.py imports the model beyond the game id.
+2. Routes and page. POST /api/room/{id}/chat {text} posts as the
+   cookie's coach (403 with no cookie; anyone in the room may post,
+   observers included). GET /api/room/{id} (the state) gains
+   "chat": the messages since a `chat_since` cursor the page sends,
+   each {id, name, text, at, yours}, so the chat rides on the poll
+   the page already makes; no new endpoint for reading and no
+   websocket. The page: a panel beside the journal (below it on one
+   column) with the messages, the poster's name in the seat's colour
+   where they hold one and plain for an observer, a one-line input
+   and Send (Enter sends); it scrolls to the newest like the journal;
+   text is set with textContent, never innerHTML -- nothing in a
+   chat line is markdown or a token.
+3. Tests in tests/test_web_app.py: a coach posts and both coaches and
+   an observer see it on their next poll; an observer may post; no
+   cookie is 403; a 501-character message is 400; the cursor returns
+   only newer messages; the bound holds; the chat survives a restart
+   (reload the file); a message containing "<b>" arrives escaped on
+   the page's wire and is never in the game's save. A full test run
+   must not create data/.
+
+Docs: docs/design/web-app.md gains "Chat" under "What a page is
+handed": why it is frontend state, why it rides on the poll, why it is
+never rendered as the model's voice. PR against the template.
+```
+
+### 5. Run it for real, and write down how
+
+**Why here.** After step 4 a web game can be played end to end and
+the people in the room can talk, and
 nothing below is worth building until two people have played one
 through, because that is what says which gap actually stops play.
 
@@ -541,7 +613,7 @@ beside the bot. Little or no Python.
    comes from. Say what you could not verify from here.
 2. If keeping it running needs a script, add scripts/run_web_app.ps1
    beside update_main_bot.ps1; nothing one-off.
-3. Add a "Playtest checklist" under step 4 of docs/web-app-next.md:
+3. Add a "Playtest checklist" under step 5 of docs/web-app-next.md:
    one person opens a room and shares the link, the other arrives and
    is seated as Coach 2, a third person arrives as an observer; setup
    through kickoff, a goal, a loose ball, a coaching window; one
@@ -555,7 +627,7 @@ beside the bot. Little or no Python.
    Testing.
 ```
 
-### 5. The web games' numbers on Discord, cut by source
+### 6. The web games' numbers on Discord, cut by source
 
 **Why here, and why on Discord.** The author wants the statistics
 from every web game visible on Discord, collected with the bot's own
@@ -624,7 +696,7 @@ line; docs/design/web-app.md's table row for the files names it. PR
 against the template.
 ```
 
-### 6. The dice on the page
+### 7. The dice on the page
 
 **Why now.** The rolls are the drama of the game and the page shows a
 sentence where Discord shows a picture. Everything needed is on the
@@ -646,7 +718,7 @@ through them, per board-image.md.
 model's voice is one and so is its picture of a roll. HTML dice would
 be a second rendering to keep right, and the ignition die and the
 blaze are not trivial to redraw. If the PNGs prove slow on a phone,
-that is measured in step 9, not assumed here.
+that is measured in step 10, not assumed here.
 
 **Prompt.**
 
@@ -689,7 +761,7 @@ dice; "What it does not do yet" loses them). PR against the template;
 the board-image checklist line applies to the move.
 ```
 
-### 7. The prompt's pictures
+### 8. The prompt's pictures
 
 **What it is.** What a coach looks at while choosing: the field strip
 under the seven distance prompts, the hand of cards on the maneuver
@@ -708,7 +780,7 @@ An observer gets the field strip and the half-field and never a hand.
 ```text
 Read CLAUDE.md, docs/design/web-app.md, docs/design/maneuver-prompt.md,
 docs/design/cards.md and docs/design/model-discord-split.md ("one
-picture per kind"). Branch off an up-to-date main. Assumes step 6 of
+picture per kind"). Branch off an up-to-date main. Assumes step 7 of
 docs/web-app-next.md has landed.
 
 1. _state's prompt gains "picture": a URL or null, from a table in
@@ -738,13 +810,13 @@ docs/web-app-next.md has landed.
 Update docs/design/web-app.md. PR against the template.
 ```
 
-### 8. What Discord has that the page lacks
+### 9. What Discord has that the page lacks
 
 **What it is.** The slash commands that are not about Discord, each
 over a model function the web app may call: resume and abandon
 (`GameService.resume` is already a route; `abandon_game`'s model half
 is the record's status change), `/d12ball stats` for the web games on
-the page itself (`d12ball/stats.py`, with step 5's source axis),
+the page itself (`d12ball/stats.py`, with step 6's source axis),
 `rules_full` and `rules_search` (`d12ball/rules_doc.py` reads
 `docs/living-rules.md`), the maneuver and role references (the
 printed cards are `cards.py`'s and `role_cards.py`'s), and a finished
@@ -790,9 +862,9 @@ webapp. Docs: docs/design/web-app.md gains "Beyond the game". PR
 against the template.
 ```
 
-### 9. The page as a thing to play on, the wire tree, and the missing tests
+### 10. The page as a thing to play on, the wire tree, and the missing tests
 
-**What it is.** Three things the playtest in step 4 orders:
+**What it is.** Three things the playtest in step 5 orders:
 
 - **Layout.** Two columns on a laptop, one on a phone with the board
   scaled to the width and the prompt pinned at the bottom; a tap on
@@ -876,4 +948,4 @@ Written down so nobody starts them by accident.
   them when its steps are struck.
 - **Discord playing web coaches, or the reverse.** Decided against on
   2026-09-25; not to be re-opened by a step here. The statistics
-  (step 5) are a read across the line, not a game.
+  (step 6) are a read across the line, not a game.
