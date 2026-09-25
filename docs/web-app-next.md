@@ -1,309 +1,467 @@
 # The web app: what is next
 
 **This is a worksheet, not a specification.** The web app shipped with
-step 10 of [architecture-migration.md](architecture-migration.md) and
-its settled design is [design/web-app.md](design/web-app.md). This
-file is what comes after: where the app stands on 2026-09-25, the
-three decisions the author has to take before some of the work can
-start, the steps in the order they pay off, and one prompt per step
-written to be handed to a Claude Code session as it is. Strike a step
-when it lands and move what it settled into `docs/design/web-app.md`.
-**Nothing in it is a rule.**
+step 10 of [architecture-migration.md](architecture-migration.md) as a
+second frontend *inside the bot's process*, over the bot's own games,
+so that a game could be played from a Discord channel on one side and
+a browser on the other. **On 2026-09-25 the author reversed that**:
+the web app and the bot are two parallel systems that share the model
+of the game and nothing else. A web coach plays web coaches (or the
+AI); a Discord coach plays Discord coaches (or the AI); no game is
+ever on both. This file is the plan under that decision: what it
+changes in the shipped design, the decisions still to take, the steps
+in the order they pay off, and one prompt per step written to be
+handed to a Claude Code session as it is. Strike a step when it lands
+and move what it settled into `docs/design/web-app.md`, which is
+rewritten by step 1. **Nothing in it is a rule.**
 
-## Where it stands, 2026-09-25
+## The decision, and what it changes
 
-What exists (`webapp/`, four Python files and one page):
+**Decided, 2026-09-25 (the author).** The web app is completely
+separate from Discord. The only connection is the model of the rules:
+`d12ball/` and the service over it. Two user interfaces, two
+populations of players, two sets of games. No mixed games, ever.
 
-- A coach opens a link the bot hands them with `/d12ball web_link`,
-  sees the board, the score, the narration and the prompt, and answers
-  every kind of prompt but `GAME_OVER` through the same
-  `GameService.apply_action` a Discord click goes through.
-- A spectator with no key sees everything but answers nothing, and a
-  side's secrets (the other hand, an unrevealed shootout order) are
-  left out of what they are sent.
-- A turn taken on Discord reaches the page through
-  `GameService.listeners`.
-- Four tests hold it to the architecture: nothing under `webapp/`
-  imports `cogs` or `discord`; every control of every prompt fixture
-  is accepted by the driver; every result is JSON; answers are
-  serialised per game.
+What that changes in what shipped:
 
-What it does not do, in the order it hurts:
+| Shipped (step 10) | Under the decision |
+| --- | --- |
+| The server starts in the cog's `cog_load` when `FOOLBOT_WEB_PORT` is set, on the bot's event loop. | **Its own process**, `python3 -m webapp`, with no Discord token and no bot. |
+| One `games` dict and one save file, `data/d12ball_games.json`, shared by both frontends. | **Its own games and its own file**, `data/d12ball_web_games.json`, in the same format. The bot's file is never opened by the web app and the reverse. |
+| The cog's `GameService`, `RulesEngine` and `GameLocks`, handed in. | **Its own service, engine and locks**, built from the same model loaders the cog uses. |
+| A coach is a Discord account; `/d12ball web_link` hands them a link. | **A web identity of its own** (decision 1 below); the slash command goes. |
+| `GameService.listeners` so a page sees a turn taken on Discord. | Kept, for the same reason one step over: a page sees the turn the *other web coach* took. |
+| "One process, one service, a lock per game" (decision 5 of [web-app.md](web-app.md)), because two processes over one file would clobber each other. | **One process per file.** The reasoning stands; the file is what it was about. Two processes over two files do not touch. |
+| The web app inherits `DiscordBatching` through the cog's service. | Gone with the shared service: the web app's service takes the default `Batching()`. |
 
-1. **Discord does not see a turn taken on the web.** The page listens
-   to the service; the cog does not. A coach who answers on the web
-   leaves the channel's board and prompt stale for the coach on
-   Discord, whose next click is refused as a stale one with nothing
-   said about why. Until this is closed, a game is playable on the web
-   only when *both* coaches are on the web, or one is the AI.
-2. **It draws one picture, the board.** The dice, the ignition die,
-   the Mind Pull and injury dice, the hand of cards, the field strip
-   under the distance prompts, the shot image and the coaching
-   half-field are all `D12Ball.render_prompt`'s and the roll views'.
-   `GameResult.detail` is on the wire and nothing in `webapp/` reads it.
-3. **It cannot open a game.** No lobby, no team pick, no coin, no
-   kickoff, no rematch. The service has every method for it
-   (`create_game`, the lobby moves, `configure`, `pick_team`,
-   `flip_coin`, `choose_home_or_visiting`, `begin`); the routes and
-   the page do not.
-4. **The journal lives in memory.** A restart is a page with a board,
-   a prompt and no history.
-5. **The page is a wireframe.** One column, no layout for a phone,
-   nothing that tells a coach it is their turn while they are on
-   another tab.
-6. **Two things the migration's second read left open** (see "Read
-   again after step 10" in architecture-migration.md): the web app
-   inherits `DiscordBatching` through the cog's service, which
-   principle 8 says it should not, and the `to_dict` wire tree has one
-   consumer, the tests, because `present.py` builds its payload off
-   the dataclasses directly.
-7. **It cannot run without the bot.** `foolbot.py` calls `bot.run`
-   unconditionally and the server starts in `cog_load`. That is
-   decision 5 of [web-app.md](web-app.md) working as intended, not a
-   gap, and the last section says when it stops being one.
+What it costs, said plainly:
+
+- **The thing the split was measured by is dropped.** Cross-frontend
+  play was the proof that both frontends were over one model; a web
+  coach could not tell whether the other coach was on Discord. The
+  proof stands in the tests (`tests/test_web_app.py` presses every
+  prompt fixture through the same service) and no longer in play.
+- **Two populations of games.** `/d12ball stats`, the archive export
+  and the hub see the bot's games only. Anything the web app wants of
+  those it builds over the model for itself (step 7). Playtest data
+  lives in two files.
+- **Two deployments.** The bot runs on the Windows checkout; the web
+  app runs wherever it is put, with `data/` of its own, and each is
+  restarted on its own.
+
+What it buys:
+
+- A bot restart does not touch a web game, and the reverse.
+- The web app can be hosted on any machine with the repository
+  checked out, not only the machine the bot's token lives on.
+- No lock shared with `SafeView`, no listener cross-wiring, no
+  mirroring of web turns into a channel, no stale-prompt problem
+  between frontends. The web app's concurrency is two coaches on one
+  page, which `gamelocks.GameLocks` already handles.
 
 ## A second repository?
 
-**No.** The web app is a frontend over the model in this repository,
-and it has to run in the bot's process: `gamesaves/d12ball/storage.py`
-rewrites the whole save file on every call and reads it once at
-startup, so a second process would overwrite the first's file with a
-stale copy of every game (finding 13, decision 5). A separate
-repository would need a separate process, a published `d12ball`
-package to import, and a shared store with a row per game to make the
-two processes safe, and decision 5 defers exactly that until the web
-app has to outlive a bot restart. Nothing on this list needs it. Keep
-`webapp/` here, keep it importing nothing from `cogs/`, and keep
-`tests/test_web_purity.py` as the fence. The day a separate deployment
-is wanted is the last step below, and it is a change to the
-persistence layer before it is a change to the web app.
+**Still no.** Separate at runtime does not mean separate in source:
+the web app imports `d12ball/`, `gamesaves/d12ball/service.py`,
+`gamesaves/d12ball/storage.py` and `gamelocks.py`, and a rules change
+(one commit to `docs/living-rules.md` and the model) has to reach both
+frontends at once. A second repository means packaging the model and
+versioning it, and every rules change becomes two PRs and a release.
+One repository, two entry points (`foolbot.py`, `python3 -m webapp`),
+and two fences: `webapp/` imports nothing from `cogs/` or `discord`
+(`tests/test_web_purity.py`, already there), and `cogs/` imports
+nothing from `webapp/` (step 1 adds it). If a separate repository is
+ever wanted, the model becomes a package first and this file is not
+the place that decides it.
 
-## Three decisions to take first
+## Decisions to take first
 
-Each is the author's, and two of the steps cannot start until it is
-taken. Take them as inline comments on the PR that adds this file.
+Each is the author's. Take them as inline comments on the PR that
+adds this file.
 
-1. **Who is a web coach?** `D12BallGame.player_1_id` and
-   `player_2_id` are Discord account ids, and every authorisation
-   predicate reads them. A game opened *on the web* has no account
-   behind either seat. Three shapes, from smallest to largest:
-   - **(a) A web game is always opened in a channel.** The web app
-     plays and rematches games that exist; `/d12ball web_link` stays
-     the only way in. No identity work at all. Step 5 below does only
-     its first half under this.
-   - **(b) A web seat is a name and a derived id.** `create_game`
-     takes a negative synthetic id per seat (the record is unchanged
-     in shape; `player_1_id` is still an `int`), the key for that seat
-     is derived the same way, and the page that opens a game shows its
-     creator both links. The startup sweep and the hub ignore a game
-     with no `guild_id` already.
-   - **(c) Accounts.** A login of any kind. Nothing on this list needs
-     it; do not start here.
-   The recommendation is (a) now and (b) when the first playtester
-   asks to play without Discord, because (b) is a change to who a
-   coach is, which is a rules-adjacent question, and (a) costs
-   nothing.
-2. **Does Discord mirror a web turn, and how much of it?** Step 2
-   assumes yes: the cog listens to the service and presents a web
-   result in the game's channel the way it presents its own, one
-   message per group and one board refresh, through `D12Ball.present`
-   and the board gate. The alternative, a stale-prompt notice and a
-   board refresh only, is fewer requests but leaves the channel with
-   no transcript of half the game. The recommendation is the full
-   mirror, since the channel is the record the author reads a game
-   back out of.
+1. **Who is a web coach?** The record stores `player_1_id: int` and
+   `player_2_id`, and every rule about seats reads them; on the web
+   there is no account behind a seat. The recommendation is **a
+   signed cookie, no account store**: on first visit the page asks
+   for a name, the server issues an id (an `int` the record takes the
+   way it takes a Discord id) and sets a cookie carrying `{id, name}`
+   and an HMAC of it under `FOOLBOT_WEB_SECRET`. Nothing is stored:
+   the cookie is the identity, the way the link was the credential in
+   the shipped design (`webapp/keys.py`, derived, never stored). A
+   coach's games are the games in the web file that name their id.
+   With no secret set, identities die with the process, as the links
+   did, which is the same safe default. The alternatives are a
+   registry file of coaches (`data/d12ball_web_coaches.json`, id,
+   name, token) if names must be unique or a coach must be found by
+   name, or real accounts, which nothing here needs. **Step 2 cannot
+   start until this is taken.**
+2. **Where does the web process run?** It no longer has to be the
+   Windows checkout. The same machine is simplest (one `git pull`
+   updates both, the model is one checkout, and the tunnel is on a
+   machine that already runs all day). Anywhere else needs its own
+   checkout and its own `.env` with `FOOLBOT_WEB_SECRET`. Step 4 is
+   written for the same machine; say if not.
 3. **The wire tree.** Either `_state` answers with `result.to_dict()`
    and `present.py` reads the dicts, or the `to_dict` tree on the
-   option shapes goes and `tests/test_wire_shapes.py` with it. Step 7
-   does whichever is chosen. The recommendation is to keep the tree
-   and make the page read it: a wire format with a consumer is one
-   that gets kept right.
+   option shapes goes and `tests/test_wire_shapes.py` with it. The
+   recommendation is to keep the tree and make the page read it: a
+   wire format with a consumer is one that gets kept right. Step 8.
 
 ## The steps
 
 In the order they pay off. Each is one branch off an up-to-date
-`main`, one PR against the template, the suite green, the four web
-tests and the six safety-net tests untouched unless the step says
-why. None changes the save format. None adds a rule to `webapp/`.
+`main`, one PR against the template, the suite green, the six
+safety-net tests untouched unless the step says why. None changes the
+save format. None adds a rule to `webapp/`. Until step 3 lands there
+is nothing a web coach can play, since step 1 removes the only way in
+that existed; steps 1 to 3 are one sprint.
 
 | # | Step | Needs decision | Size |
 | --- | --- | --- | --- |
-| 1 | Run it for real, and write down how | none | a day, no code |
-| 2 | Discord sees a web turn | 2 | small |
-| 3 | The dice on the page | none | medium |
-| 4 | The prompt's pictures | none | medium |
-| 5 | Setup, kickoff and the rematch on the web | 1 | large |
-| 6 | The page as a thing to play on | none | medium |
-| 7 | The web app's own batching, and the wire tree | 3 | small |
-| 8 | The tests the survey found missing, and retiring the worksheets | none | small |
-| -- | Later: outliving a restart | its own review | not now |
+| 1 | Cut the cord: its own process, file, service and engine | none | medium |
+| 2 | Who is a web coach | 1 | small |
+| 3 | Open a game on the web: the front door, the lobby, setup, kickoff, the rematch | 1 | large |
+| 4 | Run it for real, and write down how | 2 | a day, little code |
+| 5 | The dice on the page | none | medium |
+| 6 | The prompt's pictures | none | medium |
+| 7 | What Discord has that the page lacks: my games, resume, abandon, stats, the rules | none | medium |
+| 8 | The page as a thing to play on; the wire tree; the tests the survey found missing | 3 | medium |
+| -- | Later, and not now | -- | -- |
 
-### 1. Run it for real, and write down how
+### 1. Cut the cord
 
-**Why first.** Nothing below is worth building until two people have
-played a game through the page, because that is what tells you which
-of the gaps above is the one that actually stops play. The design doc
-has the four environment variables; nobody has written down how the
-live bot on the Windows checkout is reached from a browser that is
-not on its network.
+**What it is.** `webapp/` becomes a program of its own. It builds a
+`RulesEngine` from the same four loaders the cog uses
+(`load_player_catalog`, `load_basic_ruleset`, `load_maneuver_catalog`,
+`build_ai_strategies`), loads its own games from
+`data/d12ball_web_games.json` through `storage.load_games`, hands
+`GameService` its own dict, the default `Batching()` and a `save` that
+writes that file, makes its own `GameLocks`, and runs the aiohttp app
+on its own loop from `python3 -m webapp`. The cog's `start_web_app`,
+`cog_unload`'s stop, the `web_app` attribute and `/d12ball web_link`
+are deleted.
 
-**What it is.** Set `FOOLBOT_WEB_PORT`, `FOOLBOT_WEB_SECRET` (so links
-survive a restart) and `FOOLBOT_WEB_URL` on the live checkout, put
-the port behind something that terminates TLS and gives it a public
-name, open a game in a channel, hand out both links, play it through
-with one coach on the page and one on Discord, and note where it
-broke. The key is in the query string of the link, so the link must
-only ever travel over HTTPS, which is the tunnel's job.
+**The one model-side change.** `storage.py` hard-codes `GAMES_FILE`
+and keeps two module globals (`_save_failing`, `_load_unreadable`)
+about *that* file. It grows a path parameter, `load_games(path=...)`
+and `save_games(games, path=...)`, defaulting to the bot's file so
+nothing the bot does changes, and the two flags become per path. The
+save *format* does not change; the migrations run on both files.
+Its own commit, reviewed as a change to the store.
 
-**Which tunnel.** This is hosting, not code, and I have not verified
-which fits the author's network; the candidates are a Cloudflare
-Tunnel, Tailscale Funnel or ngrok, all of which give a Windows host a
-public HTTPS name without opening a port on the router. Pick the one
-whose account the author already has.
+**Two fences.** `tests/test_web_purity.py` already ratchets that
+`webapp/` imports no `cogs` or `discord`. It grows the reverse: no
+module under `cogs/`, and not `foolbot.py`, imports `webapp`. The bot
+must start and run with the `webapp/` directory deleted.
 
-**Done when** `docs/design/collaboration.md` has a "Reaching the web
-app" section with the exact variables and the tunnel command, and the
-findings from the playtest are the top of this file.
+**What must not happen.** The web app opening the bot's file. The
+default path stays the bot's, so the web app passes its own
+explicitly and a test asserts the two constants differ and that
+`webapp` never names the bot's.
+
+**Done when** `python3 -m webapp` serves the page with no
+`DISCORD_TOKEN` in the environment, `python3 foolbot.py` runs with
+`webapp/` removed, `tests/test_web_app.py` passes unchanged in what it
+asserts about play, and `docs/design/web-app.md` is rewritten for the
+decision.
+
+**Prompt.**
+
+```text
+Read CLAUDE.md, docs/web-app-next.md (the decision at the top, and
+step 1), docs/design/web-app.md, docs/design/game-service.md and
+docs/design/gotchas.md ("the swallowed save"). Branch off an
+up-to-date main.
+
+Decision (2026-09-25): the web app is a separate system from the bot.
+They share the model and nothing at runtime: not a process, not a
+games file, not a service. No mixed games. Make it so, in four
+commits.
+
+1. storage.py takes a path. gamesaves/d12ball/storage.py hard-codes
+   GAMES_FILE and keeps _save_failing and _load_unreadable about it.
+   Add `path: Path = GAMES_FILE` to load_games and save_games, keep
+   both flags per path (a small dict keyed by path, or a GameStore
+   class with the two module functions kept as thin calls on a
+   default instance), and change nothing about the format, the
+   migrations, the temp-file rename or the never-raise contract.
+   tests/test_game_storage.py's cases run against a second path too.
+   Add WEB_GAMES_FILE = DATA_FOLDER / "d12ball_web_games.json" beside
+   GAMES_FILE. Own commit, reviewed as a change to the store.
+2. The web app stands alone. webapp/__main__.py (and a `main()` in
+   webapp/server.py) that: loads .env the way foolbot.py does; builds
+   a RulesEngine from load_player_catalog, load_basic_ruleset,
+   load_maneuver_catalog and build_ai_strategies exactly as
+   cogs/d12ball/core.py builds the cog's (read lines ~439-485 there
+   and copy nothing Discord); loads games from WEB_GAMES_FILE; builds
+   GameService(engine, games, save=lambda g: save_games(g,
+   WEB_GAMES_FILE)) with the default Batching(); builds its own
+   GameLocks; starts WebApp and runs the loop until interrupted.
+   FOOLBOT_WEB_PORT is now required (default 8080 when unset is fine;
+   say which). Logging: console only, through botlog's console setup
+   if it imports without discord, otherwise logging.basicConfig; the
+   #logs mirror is the bot's.
+3. The bot forgets the web app. Delete start_web_app, the stop in
+   cog_unload and the web_app attribute from cogs/d12ball/core.py,
+   and /d12ball web_link from cogs/d12ball/slash_commands.py, with
+   their tests. Grep cogs/, foolbot.py and tests/ for "webapp" and
+   "web_app" and leave nothing but the web app's own tests.
+4. Fences and docs. tests/test_web_purity.py grows the reverse
+   ratchet: no module under cogs/ and not foolbot.py imports webapp
+   (same AST walk). tests/test_web_app.py: its module docstring's
+   "a turn taken on Discord reaches a page" becomes "the other
+   coach's turn reaches a page", and the test that plays the other
+   side through the service stays as it is (it never imported the
+   cog). The listeners docstring in service.py loses its Discord
+   sentence. Rewrite docs/design/web-app.md: "Running it" (the
+   command, the variables, the file), "What it may not do" (both
+   fences), "One process, one service" becomes "Its own process, its
+   own file" with the reasoning from docs/web-app-next.md's table,
+   and "What a page is handed" loses the Discord sentence. Update the
+   CLAUDE.md rows for webapp/, gamelocks.py, gamesaves/d12ball/
+   storage.py and the "Running it" block at the top. Check
+   docs/design/collaboration.md and docs/design/recovery.md for
+   sentences that assume the web app is in the bot's process.
+
+Verify by hand and say so in the PR: `python3 -m webapp` with no
+DISCORD_TOKEN serves / and a 404 for a game id; `python3 foolbot.py`
+imports with the webapp/ directory moved aside (it will fail on the
+token; the import is the check). Full suite green. PR against the
+template; the "Architecture change" line applies.
+```
+
+### 2. Who is a web coach
+
+**Why now.** Step 1 deletes `/d12ball web_link`, the only way a
+person was ever named to the web app. Nothing on the web can be
+played until the page knows who is reading it.
+
+**What it is, under decision 1 as recommended.** `webapp/identity.py`:
+a `Coach(id: int, name: str)`, a cookie that carries it signed under
+the same secret `keys.py` uses, `coach_for(request)` that reads and
+verifies it, and one route, `POST /api/me`, that takes a name and
+sets the cookie (a new id the first time; a rename keeps the id).
+`Viewer` becomes "which seat of *this* game is this coach in, if
+either", worked out by comparing the coach's id with the record's two
+ids, the same comparison `SafeView.may_act_for` makes with a Discord
+id. `keys.py`'s per-seat links go, or stay as a *spectator* link if
+one is wanted (a game is otherwise visible to its two coaches only).
+
+**What must not happen.** A second gate. What a coach may *answer* is
+still `asked_sides`, read by `present.py`; the identity says which
+seat, never whether the seat may act.
+
+**Prompt.**
+
+```text
+Read CLAUDE.md, docs/web-app-next.md (decision 1 and step 2),
+docs/design/web-app.md (as rewritten by step 1, "Who is on the other
+end") and docs/design/permissions.md. Branch off an up-to-date main.
+Decision 1 has been taken as: <a signed cookie, no store | a coach
+registry file | ...>. Below assumes the signed cookie.
+
+1. webapp/identity.py: Coach(id: int, name: str); serialise it into
+   one cookie (base64 JSON + HMAC-SHA256 under keys.secret(), compared
+   with compare_digest); coach_for(request) -> Optional[Coach], None
+   for no cookie, a bad signature or a malformed payload; issue(name)
+   -> Coach with a fresh id (a random positive int that fits the
+   record's int the way a Discord id does; document why it is not a
+   sequence: nothing stores the last one). A name is 1-32 characters
+   after strip; refuse otherwise with a 400 and a sentence.
+2. Routes: POST /api/me {name} sets the cookie (Secure when the
+   request is HTTPS, HttpOnly, SameSite=Lax, a year) and answers
+   {id, name}; GET /api/me answers the coach or null. A rename keeps
+   the id. Every existing route reads coach_for; Viewer is built by
+   comparing the coach's id with game.player_1_id / player_2_id
+   (mirror SafeView.may_act_for's reading; do not add a rule). A game
+   is visible to its two coaches; anyone else gets 403 (a spectator
+   link is not this step -- if the author wants one, keys.link_for
+   stays for it, otherwise delete webapp/keys.py's link functions and
+   keep secret()).
+3. The page: on first visit with no cookie, a name form in place of
+   everything else; after, the name in the footer with a rename.
+4. Tests in tests/test_web_app.py (replace the key-based ones): a
+   cookie round-trips; a tampered cookie is nobody; a coach in seat 1
+   gets seat 1's controls and seat 2's coach gets seat 2's; a third
+   coach gets 403; the prompt fixtures still press every control
+   through apply_action.
+
+Docs: docs/design/web-app.md "Who is on the other end" rewritten for
+the cookie, with why nothing is stored. FOOLBOT_WEB_SECRET's line in
+"Running it" says identities die with the process without it. PR
+against the template.
+```
+
+### 3. Open a game on the web
+
+**What it is.** Everything between arriving with a name and the first
+prompt, and the rematch at the end, all of it over service methods
+that exist: `create_game`, `lobby_join`/`lobby_observe`/`lobby_leave`,
+`configure`, `start_lobby`, `pick_team`, `flip_coin`,
+`choose_home_or_visiting`, `begin`, and `discard_game`. Each is a thin
+door over a rule on `D12BallGame` that refuses with `RuleRefusal`;
+`tests/test_game_service_setup.py` walks the whole path with no
+channel and is the script for this step.
+
+Three pages' worth:
+
+- **The front door** (`/`): my games (the web file's games naming my
+  id, by status), open lobbies (`in_lobby` games with a seat free),
+  and two buttons: play the AI now, open a lobby. The tutorial is a
+  checkbox on either, since `create_game` takes `tutorial=`.
+- **The lobby and setup**, in the prompt's place before kickoff: the
+  settings (`GAME_SETTINGS` and their values), both seats, which
+  teams this coach may pick (asked of the record), the coin, home or
+  visiting, and Begin. Every question is the record's or the
+  service's; if one is not exposed, it grows a method both frontends
+  read.
+- **The rematch**: `present.py` gains the one builder it lacks,
+  `GAME_OVER`, whose control does what `RematchView` does through the
+  service and sends the coach to the new game.
+
+**What must not happen.** A lobby rule in `webapp/`. The record
+refuses and the page shows the sentence. A page that greys a team
+because it worked out the pairing exclusions itself is the failure
+mode; `excluded_teams` is the record's.
+
+**Prompt.**
+
+```text
+Read CLAUDE.md, docs/web-app-next.md (step 3), docs/design/web-app.md,
+docs/design/game-service.md ("setup and the lobby"),
+docs/design/hub-and-lobby.md, docs/design/coaching-choice.md and
+docs/design/tutorial.md. Read tests/test_game_service_setup.py end to
+end: it is the path this step puts on the web. Branch off an
+up-to-date main. Three commits.
+
+1. Creating and joining. Routes, each authenticated by the cookie
+   (step 2), each calling one service method under the game's lock,
+   each mapping RuleRefusal to a 409 whose body carries the sentence
+   and the state, and answering the state otherwise:
+   POST /api/games {mode?, tutorial?, lobby: bool} -> create_game
+   with this coach as player 1, in_lobby as asked, guild_id and
+   channel_id None (the AI is the service's default for a non-lobby
+   game with no second player; do not name Dinky here);
+   POST /api/game/{id}/lobby/{join|observe|leave|start} over the four
+   lobby methods; DELETE /api/game/{id} over discard_game for a
+   setup game with no match (its ValueError is the service's; map it
+   to 409). GET /api/games answers this coach's games by status and
+   the open lobbies (in_lobby, a seat free), each as
+   {id, number, name, status, coaches, tutorial}. The index page
+   becomes the front door drawn from that: my games, open lobbies,
+   "Play Dinky", "Open a lobby", a tutorial checkbox.
+2. Setup and kickoff. POST /api/game/{id}/setup/{configure|
+   pick_team|flip_coin|choose} over configure, pick_team, flip_coin
+   and choose_home_or_visiting, building Team and HomeChoice from the
+   wire in the route (d12ball/wire.py's reason for Action.from_dict),
+   and POST /api/game/{id}/begin over begin. _state before kickoff
+   gains "setup": GAME_SETTINGS with their current values and whether
+   this coach may change them; both seats (name, team or null); the
+   teams this coach may pick, asked of the record (excluded_teams and
+   the pool -- if no method answers "which may this seat pick" in one
+   call, add it to D12BallGame and make the cog's setup view read it
+   too); whether the coin may be tossed and by whom; whether
+   home/visiting is owed and by whom; whether begin is available.
+   The page draws the setup panel in the prompt's place from "setup"
+   and nothing else.
+3. The rematch. present.py gains the GAME_OVER builder: one control,
+   "Rematch", posting to POST /api/game/{id}/rematch, which does what
+   cogs/d12ball_views/setup.py's RematchView does through the service
+   (a new game with the finished game's settings and the same two
+   seats, or the AI) and answers the new game id; the page follows
+   it. Remove the GAME_OVER exemption in tests/test_web_app.py.
+
+Tests, over HTTP: two coaches open and join a lobby, start it, both
+pick, one tosses, the winner chooses, begin opens the pre-kickoff
+Coaching Choice and the first prompt; a solo game against the AI
+reaches the first prompt with the AI's pick drawn by the engine; a
+refused pick (excluded pairing) is a 409 carrying the record's
+sentence and writes nothing; a third coach cannot join a full lobby
+and cannot see a game they are not in; a finished game (use the
+GAME_OVER fixture) rematches into a new game the same two coaches
+can open. Suppress saves.
+
+Docs: docs/design/web-app.md "What it does not do yet" loses "It does
+not create games" and gains a section "Opening a game" with the
+front door and why every question on the setup panel is the
+record's. PR against the template.
+```
+
+### 4. Run it for real, and write down how
+
+**Why here.** After step 3 a web game can be played end to end, and
+nothing below is worth building until two people have played one
+through, because that is what says which gap actually stops play.
+
+**What it is.** On the machine decision 2 named: `.env` with
+`FOOLBOT_WEB_PORT`, `FOOLBOT_WEB_SECRET` (identities die with the
+process without it) and `FOOLBOT_WEB_URL`; the port behind something
+that terminates TLS and gives it a public name; `python3 -m webapp`
+kept running the way the bot is (a service, a scheduled task, or the
+same PowerShell wrapper as `update_main_bot.ps1`, whichever the
+Windows box uses); two people play a game through and note where it
+broke. The cookie is the credential, so the page must only ever be
+served over HTTPS, which is the tunnel's job.
+
+**Which tunnel.** Hosting, not code, and not verified from here. A
+Cloudflare Tunnel, Tailscale Funnel or ngrok each gives a Windows host
+a public HTTPS name without opening a port on the router; pick the
+one whose account the author already has.
 
 **Prompt.**
 
 ```text
 Read CLAUDE.md, docs/design/web-app.md ("Running it") and
 docs/design/collaboration.md. We are deploying the D12 Ball web app
-on the live bot for the first time. Do not change any Python.
+for the first time as its own process on <the Windows checkout | host>.
+Little or no Python.
 
-1. Write a "Reaching the web app" section into
-   docs/design/collaboration.md: the four FOOLBOT_WEB_* variables and
-   what each is for, why FOOLBOT_WEB_SECRET must be set on the live
-   checkout (links die with the process otherwise), why the link must
-   only travel over HTTPS (the key is in the query string), and the
-   exact steps to expose the port through <TUNNEL> on the Windows
-   host, including the command and where FOOLBOT_WEB_URL comes from.
-   Say what you could not verify from here.
-2. Add a "Playtest checklist" to docs/web-app-next.md under step 1:
-   open a game in a channel, /d12ball web_link for each coach, one
-   coach on the page and one on Discord, play to a goal, a loose ball,
-   a coaching window and the end, and for each note whether the page
-   and the channel agreed about whose turn it was and what happened.
-3. Open a PR against the template. It is docs only; say so under
+1. Write a "Running the web app" section into
+   docs/design/collaboration.md: the command (python3 -m webapp), the
+   FOOLBOT_WEB_* variables and what each is for, why
+   FOOLBOT_WEB_SECRET must be set (cookies die with the process
+   otherwise), why the page must only be served over HTTPS (the
+   cookie is the identity), how the process is kept running beside
+   the bot on that machine (read update_main_bot.ps1 and mirror it),
+   that the two processes have separate data files and separate
+   restarts, and the exact steps to expose the port through <TUNNEL>
+   including where FOOLBOT_WEB_URL comes from. Say what you could not
+   verify from here.
+2. If keeping it running needs a script, add scripts/run_web_app.ps1
+   (or .sh) beside update_main_bot.ps1; nothing one-off.
+3. Add a "Playtest checklist" under step 4 of docs/web-app-next.md:
+   two coaches open the page, name themselves, one opens a lobby and
+   the other joins, setup through kickoff, a goal, a loose ball, a
+   coaching window, the end and a rematch; for each, note whether
+   both pages agreed about whose turn it was and what happened, and
+   what each coach wished the page had shown.
+4. PR against the template; docs and one script, say so under
    Testing.
 ```
 
-### 2. Discord sees a web turn
+### 5. The dice on the page
 
-**Why second.** Gap 1 above. Until the channel shows what a web coach
-did, a mixed game is not playable, and mixed games are how the page
-gets tested at all while there is one page and one channel.
-
-**What it is.** The cog appends a listener to its service the way
-`WebApp.watch` does, and a result the cog did not produce itself is
-presented in the game's channel: one message per narration group, the
-board refreshed once through `BoardRefresher`, and the next prompt put
-up with `send_new_prompt` so its view is live for the Discord coach.
-The cog already presents a result with no interaction behind it (the
-startup sweep and `/d12ball resume` post into a channel by id); the
-listener reuses that path rather than growing a second presenter.
-
-**What it must not do.** Present a result twice: a click the cog
-itself made reaches the listener too, so the listener has to know
-which results are its own. The smallest reading is a flag the cog
-sets around its own `apply_action` calls (the lock is already held
-there), or a listener that is registered on the web app's service
-only once step 7 gives it one. Pick the first now; step 7 replaces
-it. And the rate limits hold: a web result is one message per group
-and one board refresh, never one per line.
-
-**Done when** a coach on the page takes a turn and the channel shows
-the narration, the board and the next prompt, with the request count
-per result written in the PR body; and a test in
-`tests/test_web_app.py` or a new `tests/test_web_mirror.py` drives an
-action through the web route and asserts the cog presented it once,
-with the same stubs `tests/cog_steps.py` uses.
-
-**Prompt.**
-
-```text
-Read CLAUDE.md, docs/design/web-app.md, docs/design/game-service.md,
-docs/design/rate-limits.md and docs/design/recovery.md. Branch off an
-up-to-date main.
-
-Problem: a turn taken on the web app never reaches the Discord
-channel. webapp/server.py's WebApp.watch appends a listener to
-GameService.listeners, so a page sees a Discord click; nothing in
-cogs/ listens, so a Discord coach sees nothing of a web click and
-their next press is refused as stale.
-
-Make the cog a listener. In cogs/d12ball/core.py, register one
-listener on self.service when the web app starts (start_web_app) and
-remove it in cog_unload. For a result the cog did not produce itself,
-present it in the game's channel through D12Ball.present, the one
-presenter: one message per narration group, one board refresh through
-BoardRefresher at the end, the next prompt put up with
-send_new_prompt. Find how the startup sweep and /d12ball resume
-present into a channel with no interaction and reuse that path; do
-not write a second presenter. The listener is sync (the service is),
-so schedule the async presentation on the loop under the game's lock
-(gamelocks.GameLocks), the same lock the web route holds.
-
-The cog's own clicks reach the listener too. Mark them: a set of game
-ids the cog is currently applying for, added around its own
-apply_action/run/resume calls, and the listener skips a result for a
-game in it. Say in a comment that step 7 of docs/web-app-next.md
-replaces this with a service of the web app's own.
-
-Rate limits: count the requests one web result costs in the channel
-and put the number in the PR body. It must be no more than what the
-same result costs when a Discord coach makes it.
-
-Tests: one that drives an action through the web route
-(tests/test_web_app.py has the HTTP harness) with a cog attached and
-asserts present ran once with that result; one that a Discord click
-does not present twice. Suppress saves through tests/save_patches.py.
-The three cog goldens must not change.
-
-Update docs/design/web-app.md ("What a page is handed" grows a
-paragraph on the mirror) in the same commit. PR against the template.
-```
-
-### 3. The dice on the page
-
-**Why third.** The rolls are the drama of the game and the page shows
-a sentence where Discord shows a picture. Everything needed is already
-on the wire: `GameResult.detail` and `Narration.detail` carry the five
-roll dataclasses (`ContestDice`, `ShotDice`, `OwnGoalRoll`,
-`MindPullRoll`, `InjuryRoll`, with `IgnitedRoll` inside them), and the
-renderers are `render.py`'s with no Discord in them.
-
-**What it is.** The journal keeps a result's `detail` on the entry
-that carried it; `Entry.to_dict` says an entry has a picture; a new
-route `GET /api/game/{id}/detail/{entry}.png` renders it in a worker
-thread with the same Pillow functions the roll views call
-(`render_skill_test_dice`, `render_volatile_die`,
-`render_mind_pull_die`, `render_own_goal_dice`,
-`render_injury_test_die`), cached like the boards. The page puts the
-picture between the same two lines Discord does.
-
-**Why Pillow and not HTML dice.** One picture, two frontends, and the
-design doc's own reason: the model's voice is one, and so is its
-picture of a roll. Drawing dice in CSS would be a second rendering to
-keep right, and the ignition die and the blaze are not trivial to
-redraw. HTML dice are a step 6 refinement if the PNGs prove slow on a
-phone, measured, not assumed.
+**Why now.** The rolls are the drama of the game and the page shows a
+sentence where Discord shows a picture. Everything needed is on the
+wire: `GameResult.detail` and `Narration.detail` carry the five roll
+dataclasses (`ContestDice`, `ShotDice`, `OwnGoalRoll`, `MindPullRoll`,
+`InjuryRoll`, with `IgnitedRoll` inside), and the renderers are
+`render.py`'s with no Discord in them.
 
 **The one thing in the way.** `render_contest_dice` in
-`cogs/d12ball_views/base.py` builds the tuple `render_skill_test_dice`
-takes from a `ContestDice` plus the catalog, and `challenge_side` in
+`cogs/d12ball_views/base.py` turns a `ContestDice` into the tuple list
+`render_skill_test_dice` takes, and `challenge_side` in
 `cogs/d12ball/presentation.py` builds a `ChallengeSide` for the shot
 and challenge images. Both are a rendering brief over the model's
-values, and the web app may not import them. Move each to `render.py`
-(or a new `d12ball/dice_brief.py` if `render.py` should not know
-`ContestDice`), make the cog call the moved function, and verify the
-move by SHA-256 on the dice images, per board-image.md.
+values and the web app may not import them. Move each below
+`render.py`, verified by SHA-256 on every image the cog produces
+through them, per board-image.md.
 
-**Done when** every roll kind on the page shows the picture Discord
-shows, the cog's images are byte-identical before and after the move
-(hashes in the PR body), and `tests/test_web_app.py` renders one of
-each detail through the route.
+**Why Pillow and not HTML dice.** One picture, two frontends: the
+model's voice is one and so is its picture of a roll. HTML dice would
+be a second rendering to keep right, and the ignition die and the
+blaze are not trivial to redraw. If the PNGs prove slow on a phone,
+that is measured in step 8, not assumed here.
 
 **Prompt.**
 
@@ -319,388 +477,208 @@ IgnitedRoll from engine.py inside them); nothing in webapp/ reads
 them.
 
 1. Move the rendering briefs out of cogs/. render_contest_dice in
-   cogs/d12ball_views/base.py turns a ContestDice into the tuple list
-   render.render_skill_test_dice takes; challenge_side in
-   cogs/d12ball/presentation.py builds a render.ChallengeSide. Both
-   read only the model and the catalog. Move them below render.py
-   (into render.py, or d12ball/dice_brief.py if render.py should not
-   import from flow/), leave a one-line forwarder in the cog or
-   re-point every caller, and verify by SHA-256 that every dice image
-   and the shot and challenge images the cog produces are
-   byte-identical before and after. Put the hashes in the PR body.
-   This is its own commit.
-2. In webapp/server.py, keep each result's detail on the journal
-   Entry that carried it (the answer's own detail, and each group's).
-   Entry.to_dict says whether the entry has a picture. Add
-   GET /api/game/{game_id}/detail/{entry_id}.png that renders it with
-   the same render.py function the matching roll view calls, in
-   asyncio.to_thread, cached the way the boards are (BOARD_CACHE).
-   Pick the renderer by the detail's shape (the `shape` its to_dict
-   writes), never by the prompt kind.
-3. In webapp/static/app.js, draw the picture between the lines the
-   way the cog does: find where each roll view places the image
-   relative to the narration and match it.
-4. Tests: in tests/test_web_app.py, for one fixture per detail shape,
-   apply the roll through the route and GET the detail PNG; assert a
-   PNG of the size the renderer produces. tests/test_web_purity.py
-   must still pass, so nothing under webapp/ imports cogs.
+   cogs/d12ball_views/base.py and challenge_side in
+   cogs/d12ball/presentation.py read only the model and the catalog.
+   Move them below render.py (into render.py, or d12ball/dice_brief.py
+   if render.py should not import from flow/), re-point every caller,
+   and verify by SHA-256 that every dice image and the shot and
+   challenge images the cog produces are byte-identical before and
+   after; put the hashes in the PR body. Own commit.
+2. webapp/server.py keeps each result's detail on the journal Entry
+   that carried it (the answer's own, and each group's). Entry.to_dict
+   says whether the entry has a picture. GET
+   /api/game/{game_id}/detail/{entry_id}.png renders it with the same
+   render.py function the matching roll view calls, in
+   asyncio.to_thread, cached the way the boards are. Pick the
+   renderer by the detail's shape (the `shape` its to_dict writes),
+   never by the prompt kind.
+3. app.js draws the picture between the lines the way the cog does:
+   find where each roll view places the image relative to the
+   narration and match it.
+4. Tests: for one fixture per detail shape, apply the roll through
+   the route and GET the detail PNG; assert a PNG of the renderer's
+   size. Both purity ratchets still pass.
 
-Update docs/design/web-app.md: "The pictures, and the voice" gains
-the dice, and "What it does not do yet" loses them. PR against the
-template; the board-image checklist line applies to the move.
+Update docs/design/web-app.md ("The pictures, and the voice" gains the
+dice; "What it does not do yet" loses them). PR against the template;
+the board-image checklist line applies to the move.
 ```
 
-### 4. The prompt's pictures
+### 6. The prompt's pictures
 
-**Why fourth.** After the dice, what the page lacks is what a coach
-looks at while choosing: the field strip under the seven distance
-prompts, the hand of cards on the maneuver pick, the shot image on a
-score attempt, the coach's half-field on the hub, and the challenge
-image on the walk-in. Each is keyed on the `PromptKind` in
-`D12Ball.render_prompt` (`FIELD_PROMPT_KINDS`, the coaching kinds) and
-drawn by `render_field_image`, `cards.render_maneuver_hands`,
-`render_score_attempt`, `render_coaching_image` and
-`render_maneuver_challenge`, none of which import Discord.
-
-**What it is.** `_state`'s prompt gains a `picture` URL, keyed on the
-kind the same way `render_prompt` keys it, served by
-`GET /api/game/{id}/prompt.png?v=...`, rendered read-only in a worker
-thread. The hand is this viewer's own (the page already sends only the
-viewer's row; the picture is the same rule), and the coaching
-half-field is the asked side's. The challenge image rides on the
-`AUTO_RESOLVE_CHALLENGER` group's `arguments` (`challenger_id`), the
-way the cog keys it, so it is an entry picture like the dice, not a
-prompt picture.
-
-**What it must not do.** Decide which picture from the match. The kind
-is the key, as it is in the cog; a page that looked at
-`match.challenger_id` to decide would be the second reading finding 14
-of web-app.md warned about.
-
-**Done when** each of the five pictures shows on the page for its
-kind, and a test walks the fixtures for those kinds through the route.
+**What it is.** What a coach looks at while choosing: the field strip
+under the seven distance prompts, the hand of cards on the maneuver
+pick, the shot image on a score attempt, the coach's half-field on
+the hub, and the challenge image on the walk-in. Each is keyed on the
+`PromptKind` in `D12Ball.render_prompt` (`FIELD_PROMPT_KINDS`, the
+coaching kinds) and drawn by `render_field_image`,
+`cards.render_maneuver_hands`, `render_score_attempt`,
+`render_coaching_image` and `render_maneuver_challenge`, none of which
+import Discord. The kind is the key, as it is in the cog; a page that
+looked at `match.challenger_id` to decide would be a second reading.
 
 **Prompt.**
 
 ```text
 Read CLAUDE.md, docs/design/web-app.md, docs/design/maneuver-prompt.md,
-docs/design/cards.md and docs/design/model-discord-split.md
-("one picture per kind"). Branch off an up-to-date main. This step
-assumes step 3 of docs/web-app-next.md has landed (challenge_side and
-the dice brief live below render.py).
+docs/design/cards.md and docs/design/model-discord-split.md ("one
+picture per kind"). Branch off an up-to-date main. Assumes step 5 of
+docs/web-app-next.md has landed.
 
-Goal: the page shows the picture a prompt rides on, keyed on the
-PromptKind exactly as D12Ball.render_prompt keys it
-(cogs/d12ball/core.py, FIELD_PROMPT_KINDS and the coaching kinds).
-
-1. In webapp/server.py, _state's prompt gains "picture": a URL or
-   null, decided by a table from PromptKind to a renderer in
-   webapp/present.py (the web half of render_prompt):
+1. _state's prompt gains "picture": a URL or null, from a table in
+   webapp/present.py from PromptKind to a renderer (the web half of
+   D12Ball.render_prompt in cogs/d12ball/core.py):
    - the seven FIELD_PROMPT_KINDS: render.render_field_image;
-   - MANEUVER_ACTION: cards.render_maneuver_hands with this viewer's
+   - MANEUVER_ACTION: cards.render_maneuver_hands with this coach's
      hand only, off the prompt's options (the rows the page already
      sends), never off the match;
-   - SCORE_ATTEMPT: render.render_score_attempt, sides built by the
+   - SCORE_ATTEMPT: render.render_score_attempt with sides from the
      moved challenge_side;
    - COACHING_HUB and COACHING_OFFER: render.render_coaching_image for
      the asked side, titled with engine.coaching_title.
-   Serve it at GET /api/game/{game_id}/prompt.png?key=...&v=<board
-   version>, rendered in asyncio.to_thread and cached with the boards.
-   A spectator gets the field strip and the half-field and never a
-   hand.
-2. The challenge image is an entry picture, not a prompt picture: the
-   group tagged AUTO_RESOLVE_CHALLENGER carries challenger_id in
-   Narration.arguments (see docs/web-app.md, "Small things"). Keep it
-   on the journal Entry beside the dice detail from step 3 and serve
-   it through the same detail route.
-3. app.js draws the picture above the controls, and the challenge
-   image inside its entry.
-4. Tests: for one fixture per kind above, GET the picture and assert
-   a PNG of the renderer's size; assert a spectator's MANEUVER_ACTION
-   picture is null. Nothing under webapp/ imports cogs.
+   Serve it at GET /api/game/{game_id}/prompt.png?v=<board version>,
+   rendered in asyncio.to_thread, cached with the boards. The other
+   coach on a MANEUVER_ACTION gets their own hand and never both.
+2. The challenge image is an entry picture: the group tagged
+   AUTO_RESOLVE_CHALLENGER carries challenger_id in
+   Narration.arguments. Keep it on the journal Entry beside the dice
+   detail and serve it through the detail route.
+3. app.js draws the prompt picture above the controls and the
+   challenge image inside its entry.
+4. Tests: one fixture per kind above, GET the picture, assert a PNG
+   of the renderer's size; assert seat 2's MANEUVER_ACTION picture is
+   seat 2's hand. Both purity ratchets still pass.
 
-Update docs/design/web-app.md ("What it does not do yet" loses the
-pictures; "The pictures, and the voice" says how they are keyed). PR
-against the template.
+Update docs/design/web-app.md. PR against the template.
 ```
 
-### 5. Setup, kickoff and the rematch on the web
+### 7. What Discord has that the page lacks
 
-**Why fifth, and why after decision 1.** The service has every method
-(`create_game`, `lobby_join`/`observe`/`leave`, `configure`,
-`start_lobby`, `pick_team`, `flip_coin`, `choose_home_or_visiting`,
-`begin`), each a thin door over a rule on `D12BallGame` that refuses
-with `RuleRefusal`, and `tests/test_game_service_setup.py` walks the
-whole path with no channel. What is missing is routes and a page.
-What is undecided is who sits in a seat a browser opened, which is
-decision 1.
+**What it is.** The slash commands that are not about Discord, each
+over a model function the web app may call: resume and abandon
+(`GameService.resume` is already a route; `abandon_game`'s model half
+is the record's status change), `/d12ball stats` (`d12ball/stats.py`,
+a fold over `MatchState.events`, no Discord), `rules_full` and
+`rules_search` (`d12ball/rules_doc.py` reads `docs/living-rules.md`),
+the maneuver and role references (the printed cards are
+`cards.py`'s and `role_cards.py`'s), and a finished game's board. Each
+is a read-only route and a page section, and none goes near the
+driver except resume. Reading the code says which of those are model
+functions and which have logic still in the cog; the latter move
+first, the way `cyborg_condition_ids` moved for the board.
 
-**Two halves.** The first needs no decision: a game opened in a
-channel, played on the page from the team pick onward, and the
-rematch a finished game offers (`GAME_OVER` is the one kind
-`present.py` has no builder for, because its answer opens a new
-game). The second is web-native creation under decision 1(b), and it
-is its own PR.
-
-**What it is, first half.** Routes over the setup methods,
-`POST /api/game/{id}/setup/{move}`, each: authenticate the viewer,
-call the service method, map `RuleRefusal` to a 409 with its sentence,
-answer with the state. `_state` before kickoff gains a `setup` panel:
-the settings, the seats, whose pick it is, the coin, home or visiting,
-and the Begin button that calls `begin`. The page draws the panel
-where the prompt goes. For the rematch, `present.py` gains a
-`GAME_OVER` builder whose one control calls the rematch route, which
-does what `RematchView` does through the service and returns the new
-game's id and this coach's link for it.
-
-**What it must not do.** Repeat a lobby rule. The record refuses; the
-route shows the refusal. A page that greys a team because it worked
-out the pairing exclusions itself is the failure mode; `excluded_teams`
-is the record's and the page asks for the list.
-
-**Done when** a game opened with `/d12ball create_game` can be picked, tossed, seated and begun from the page by
-either coach, a finished game can be rematched from the page, and
-`tests/test_web_app.py` walks the setup path over HTTP the way
-`test_game_service_setup.py` walks it over the service.
-
-**Prompt, first half.**
+**Prompt.**
 
 ```text
-Read CLAUDE.md, docs/design/web-app.md, docs/design/game-service.md
-("setup and the lobby"), docs/design/hub-and-lobby.md and
-docs/design/coaching-choice.md. Read tests/test_game_service_setup.py
-end to end: it is the path this step puts on the web. Branch off an
+Read CLAUDE.md, docs/design/web-app.md, docs/design/clock-and-records.md
+(stats), docs/design/rules-and-data.md (the rules commands) and
+docs/design/recovery.md (resume and abandon). Branch off an
 up-to-date main.
 
-Goal: a game opened in a Discord channel can be set up, kicked off
-and, when finished, rematched from the web page. Web-native game
-creation is NOT this step (decision 1 in docs/web-app-next.md).
-
-1. Routes in webapp/server.py, one per service setup method the page
-   needs: pick_team, flip_coin, choose_home_or_visiting, configure,
-   begin. Shape: POST /api/game/{game_id}/setup/{move} with a JSON
-   body of the method's arguments; authenticate with the key; call
-   the service method under the game's lock; catch RuleRefusal and
-   answer 409 with its sentence in "refusal"; otherwise answer the
-   state. Build Team and HomeChoice from the wire in the route the way
-   Action.from_dict builds a PromptKind (d12ball/wire.py's reason).
-2. _state before kickoff gains "setup": the settings (GAME_SETTINGS
-   and their current values), both seats (name, team or null), which
-   teams this viewer may pick (ask the record; do not compute the
-   pairing exclusions here), whether the coin is tossable and by whom,
-   whether home/visiting is owed and by whom, and whether begin is
-   available. Every one of those is a question the record or the
-   service answers; if one is not yet exposed, add the method to
-   D12BallGame or GameService and have the cog's setup views read it
-   too.
-3. present.py gains the GAME_OVER builder: one control, "Rematch",
-   posting to POST /api/game/{game_id}/rematch, which does what
-   cogs/d12ball_views/setup.py's RematchView does through the service
-   and answers with the new game id and this viewer's link for it
-   (webapp/keys.link_for). Remove the GAME_OVER exemption from
-   tests/test_web_app.py.
-4. The page: a setup panel in the prompt's place before kickoff,
-   drawn from "setup" and nothing else; a rematch button after.
-5. Tests: over HTTP, both coaches pick, one tosses, the winner
-   chooses, begin opens the pre-kickoff Coaching Choice; a refused
-   pick (excluded pairing) is a 409 carrying the record's sentence and
-   changes nothing; a spectator is 403 on every setup route; a
-   rematch produces a new game the page can open. Suppress saves.
-
-Docs: docs/design/web-app.md "What it does not do yet" loses "It does
-not create games" and gains a sentence on what it still does not do
-(open one from nothing). PR against the template.
-```
-
-**Prompt, second half (only after decision 1(b)).**
-
-```text
-Read CLAUDE.md, docs/design/web-app.md, docs/design/game-service.md,
-docs/design/permissions.md and docs/design/gotchas.md ("to_dict/
-from_dict"). Branch off an up-to-date main. Decision 1(b) of
-docs/web-app-next.md has been taken: a web seat is a name and a
-derived id.
-
-Goal: a game can be opened from the web page with no channel.
-
-1. Identity. GameService.create_game already takes guild_id and
-   channel_id as None. Add webapp/seats.py: a synthetic negative id
-   per web seat derived from the game id and the seat number (never
-   colliding with a Discord snowflake, which is positive), and the
-   key for that seat from keys.key_for as today. The save format does
-   not change: player_1_id stays an int. Check every predicate that
-   reads player ids (game_participant_ids, may_act_for, the startup
-   sweep's guild filter, the hub) and confirm a negative id and a
-   None guild_id fall through them the way a game they do not know
-   about should; write the list in the PR body.
-2. POST /api/games creates a game (mode, modules, board size, AI
-   opponent or a second seat) through create_game and answers both
-   links; the creator's page shows the second link to hand to their
-   opponent. A game with no second name gets the AI, as create_game
-   already does.
-3. The index page becomes the front door: open a game, or paste a
-   link.
-4. Tests: create over HTTP, both seats play the first turn; a
-   Discord-opened game is unaffected; test_web_purity still passes.
-
-Docs: docs/design/web-app.md gains "Who is a web coach" with the
-derivation and why the record did not change. PR against the template.
-```
-
-### 6. The page as a thing to play on
-
-**Why sixth.** Everything above makes the page *complete*; this makes
-it *usable*, and it should come after, because the layout depends on
-what is on it. Three things, and the playtest from step 1 says which
-first:
-
-- **Layout.** Two columns on a laptop (board left, prompt and journal
-  right), one on a phone with the board scaled to the width and the
-  prompt pinned at the bottom; a tap on the board opens it full size.
-- **Your turn.** The tab title carries a mark when the prompt is this
-  viewer's, and the Notifications API asks once and fires once per
-  prompt that is theirs. Nothing here is a rule; `prompt.yours` is
-  already on the wire.
-- **The journal survives a restart.** Write each game's journal to
-  `data/d12ball_web_journal.json` (frontend state, its own file, never
-  the save) on each `add`, and read it at start. Bounded by
-  `JOURNAL_LENGTH` as it is in memory. The board snapshots on entries
-  are saved with them, since that is what a scrolled-back entry draws.
-
-**Done when** a game is playable on a phone without pinching, and a
-bot restart mid-game leaves the page with its history.
-
-**Prompt.**
-
-```text
-Read CLAUDE.md, docs/design/web-app.md and docs/design/gotchas.md
-("data/ is untracked runtime state"). Branch off an up-to-date main.
-Do this as three commits, each reviewable alone.
-
-1. Layout. webapp/static/game.html and app.css: two columns from
-   900px up (board left; scoreboard, prompt and journal right), one
-   column below with the board at full width and the prompt section
-   sticky at the bottom; a click on the board opens it at full size
-   (a <dialog>, no library). The journal scrolls inside its column
-   and new entries scroll into view as they do today. Check it in a
-   real browser at 360px and 1280px wide and put screenshots in the
-   PR. No framework, no build step, no CDN: the page stays one file
-   each of HTML, CSS and JS served by aiohttp.
-2. Your turn. In app.js: when state.prompt.yours turns true, prefix
-   the document title with a mark and, if the viewer has granted
-   Notification permission (ask once, on the first control they
-   press, never on load), fire one notification per prompt naming
-   the ask. Clear the mark when the prompt changes or is answered.
-3. The journal survives a restart. In webapp/server.py, Journal
-   writes itself on every add to data/d12ball_web_journal.json (one
-   file, keyed by game id, the same JOURNAL_LENGTH bound, entries with
-   their board snapshots and details from steps 3 and 4) and reads it
-   in WebApp.__init__. A write failure is logged and never fails the
-   request, like save_games. A game the journal knows and the service
-   does not (deleted) is dropped on load. Tests: a Journal round-trips
-   through a temp path; a full test run must not create data/ (see
-   tests/save_patches.py for how saves are suppressed and do the same
-   for this file).
-
-Update docs/design/web-app.md ("What a page is handed": the journal is
-persisted, and why it is still not the save; "What it does not do
-yet" loses the in-memory line). PR against the template.
-```
-
-### 7. The web app's own batching, and the wire tree
-
-**Why seventh, and after decision 3.** Two loose ends the migration's
-second read left on purpose. The batching is a principle: the web app
-"shares the cog's service and so inherits `DiscordBatching`, which
-principle 8 says it should not". The fix is a second `GameService`
-over the same `games` dict and the same save, constructed with the
-default `Batching()`, so a run on the web stops where a page wants it
-to and not where a Discord message does. Both services announce to
-both listeners, which is what makes the step 2 flag go: the cog
-listens to the web service and the web app to the cog's, and neither
-sees its own results.
-
-**Done when** `WebApp` owns a service of its own, the step 2 flag is
-gone, and the page answers with (or `present.py` reads) `to_dict`
-per decision 3.
-
-**Prompt.**
-
-```text
-Read CLAUDE.md, docs/design/web-app.md, docs/design/game-service.md
-("batching stays the frontend's") and the "Read again after step 10"
-section of docs/architecture-migration.md. Branch off an up-to-date
-main.
-
-1. A service of the web app's own. In cogs/d12ball/core.py's
-   start_web_app, construct a second GameService over the same
-   self.games dict, the same engine and the same save callable, with
-   the default Batching(), and hand it to WebApp. Verify by reading
-   GameService.__init__ and storage.py that two services over one
-   dict and one save are safe on one event loop (apply_action is
-   synchronous; the save is whole-file), and say so in the PR body.
-   Cross-wire the listeners: the cog listens to the web service and
-   the web app to the cog's. Remove the "applying" set step 2 of
-   docs/web-app-next.md added, since a service never announces to
-   itself. The step 2 tests must still pass unchanged except for the
-   wiring.
-2. Decision 3 of docs/web-app-next.md, as taken: <either> _state
-   answers with result.to_dict() / prompt.to_dict() and present.py's
-   builders read the dicts, so tests/test_wire_shapes.py is testing a
-   format with a consumer; <or> the to_dict tree on the option shapes
-   goes with its test, and docs/design/web-app.md's "The wire" says
-   what remains and why. Its own commit.
-
-Update docs/design/web-app.md ("One process, one service" becomes
-"one process, two services, one dict") and the map row in CLAUDE.md
-for gamesaves/d12ball/service.py if its wording no longer holds. PR
+For each of these, find the model function under the slash command
+in cogs/d12ball/slash_commands.py, move to the model whatever logic
+the command still holds that is not Discord (say what moved in the
+PR), add a read-only route and a page section, and a test:
+1. My games with resume and abandon: the front door lists a coach's
+   games by status; an in-progress one opens; POST /api/game/{id}/
+   abandon does what /d12ball abandon_game does through the service
+   (if abandoning is a record method, call it; if it is cog logic,
+   move it to GameService first). /api/game/{id}/resume already
+   exists; the page offers it where "owed" is true, which it does.
+2. Stats: GET /api/game/{id}/stats over d12ball/stats.py, a page
+   section at the end of a finished game and a link during it.
+3. The rules: GET /rules and GET /api/rules?q= over
+   d12ball/rules_doc.py, rendered with webapp/present.render_text's
+   markdown pass (extend it if the rules use more of the subset than
+   it handles; the rulebooks' markdown subset in rulebooks.py is the
+   reference). No second copy of the rules text anywhere.
+4. References: the maneuver cards and the role cards as PNGs from
+   cards.py / role_cards.py, served read-only and cached, linked from
+   the maneuver prompt.
+Nothing under webapp/ imports cogs; nothing under cogs/ imports
+webapp. Docs: docs/design/web-app.md gains "Beyond the game". PR
 against the template.
 ```
 
-### 8. The tests the survey found missing, and retiring the worksheets
+### 8. The page as a thing to play on, the wire tree, and the missing tests
 
-**Why last.** None blocks play. The survey on 2026-09-25 found no test
-on `POST /resume`, on the `?entry=` board snapshot route, on a
-spectator's payload leaving a side's secrets out beyond "no controls",
-or on `configured_port`/`start_web_app` wiring; and the two
-worksheets, this file's predecessors, are kept only because about a
-hundred and thirty code comments cite them by step and finding
-number.
+**What it is.** Three things the playtest in step 4 orders:
+
+- **Layout.** Two columns on a laptop, one on a phone with the board
+  scaled to the width and the prompt pinned at the bottom; a tap on
+  the board opens it full size. No framework, no build step.
+- **Your turn.** A mark in the tab title when the prompt is this
+  coach's, and one notification per prompt that is theirs, asked for
+  once. `prompt.yours` is already on the wire.
+- **The journal survives a restart.** Each game's journal written to
+  `data/d12ball_web_journal.json` on every `add` (frontend state, its
+  own file, never the save) and read at start, bounded as in memory,
+  with the board snapshots and details its entries draw.
+
+And two loose ends: decision 3 on the wire tree, and the tests the
+2026-09-25 survey found missing (no test on `POST /resume`, on the
+`?entry=` board snapshot route, on a coach's payload leaving the
+other side's secrets out beyond "no controls", or on the entry
+point's wiring).
 
 **Prompt.**
 
 ```text
-Read CLAUDE.md and docs/design/testing.md. Branch off an up-to-date
-main. Two commits.
+Read CLAUDE.md, docs/design/web-app.md, docs/design/gotchas.md
+("data/ is untracked runtime state") and docs/design/testing.md.
+Branch off an up-to-date main. Five commits, each reviewable alone.
 
-1. tests/test_web_app.py grows: POST /resume on a fixture whose
-   position owes a step (tests/prompt_fixtures.py's owed cases)
-   answers resumed=true and the next prompt, and 403 for a spectator;
-   GET board.png?entry=<id> for an entry with a snapshot is a PNG and
-   for one without is 404; a spectator's state on the MANEUVER_ACTION
-   and shootout fixtures carries no hand and no order for either side
-   (assert on the JSON, not on the controls); configured_port reads
-   FOOLBOT_WEB_PORT and start_web_app returns None without it.
-2. Retire docs/web-app.md and docs/architecture-migration.md per
-   "Where this leaves the two worksheets": for every code comment
-   that cites either by step or finding number, re-point it at the
-   section of docs/design/web-app.md, game-service.md or
-   model-discord-split.md that holds what it cites (add the paragraph
-   there if none does); then delete the two files and their CLAUDE.md
-   rows, and re-point docs/web-app-next.md's own references. Use an
-   Explore subagent for the sweep. Nothing else changes; the suite is
-   the check. PR against the template.
+1. Layout. game.html and app.css: two columns from 900px up (board
+   left; scoreboard, prompt and journal right), one column below
+   with the board at full width and the prompt sticky at the bottom;
+   a click on the board opens it at full size in a <dialog>. Check
+   in a real browser at 360px and 1280px and put screenshots in the
+   PR. No framework, no build step, no CDN.
+2. Your turn. app.js: when state.prompt.yours turns true, prefix the
+   title with a mark and, if Notification permission was granted (ask
+   once, on the first control pressed, never on load), fire one
+   notification per prompt naming the ask; clear the mark when the
+   prompt changes.
+3. The journal survives a restart. Journal writes itself on every add
+   to data/d12ball_web_journal.json (keyed by game id, the same
+   JOURNAL_LENGTH bound, entries with their snapshots and details)
+   and reads it at startup; a write failure is logged and never fails
+   the request, like save_games; a game the journal knows and the
+   service does not is dropped on load. A full test run must not
+   create data/ (see tests/save_patches.py and do the same here).
+4. Decision 3 of docs/web-app-next.md as taken: <either> _state
+   answers with result.to_dict() / prompt.to_dict() and present.py's
+   builders read the dicts, <or> the to_dict tree on the option
+   shapes goes with tests/test_wire_shapes.py and docs/design/
+   web-app.md's "The wire" says what remains and why.
+5. Tests: POST /resume on an owed fixture answers resumed=true and
+   the next prompt, 403 for a coach not in the game; GET
+   board.png?entry=<id> is a PNG for an entry with a snapshot and 404
+   without; seat 1's state on the MANEUVER_ACTION and shootout
+   fixtures carries no hand and no order for seat 2 (assert on the
+   JSON); webapp.__main__'s wiring builds a service over
+   WEB_GAMES_FILE and never GAMES_FILE (assert on the constants).
+
+Update docs/design/web-app.md ("What a page is handed": the journal
+is persisted and why it is still not the save; "What it does not do
+yet" loses what this closes). PR against the template.
 ```
 
-### Later: outliving a restart
+### Later, and not now
 
-Not on the list, and written down so nobody starts it by accident.
-The day the web app has to run when the bot is down, or on another
-host, `storage.py`'s whole-file save has to become a store with a row
-per game that two processes can share, and the lock has to become
-one both processes honour. That is a change to persistence reviewed
-on its own, with the save format still the contract; the web app is
-a client of it, not the reason for its shape. Decision 5 of
-[web-app.md](web-app.md) stands until then. A websocket in place of
-the poll is in the same drawer: the design doc's reason (a few clicks
-a minute, and a re-read is always right) has not changed.
+Written down so nobody starts them by accident.
+
+- **A websocket in place of the poll.** The design doc's reason has
+  not changed: a few clicks a minute, and a re-read is always right.
+- **More than one web process.** The web app is one process over one
+  file, for the reason the bot is. The day it has to scale past one
+  host, `storage.py`'s whole-file save becomes a store with a row per
+  game and the lock becomes one both processes honour, reviewed as a
+  change to persistence with the save format still the contract.
+- **Retiring the two old worksheets.** `docs/web-app.md` and
+  `docs/architecture-migration.md` are kept only because about a
+  hundred and thirty code comments cite them by step and finding
+  number; re-pointing those is its own change, and this file joins
+  them when its steps are struck.
+- **Discord playing web coaches, or the reverse.** Decided against on
+  2026-09-25; not to be re-opened by a step here.
