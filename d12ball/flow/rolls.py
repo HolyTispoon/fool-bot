@@ -496,9 +496,22 @@ def skill_test_step(
         not volatile_upgrade
         and engine.overdrive_raises_tier(game, winner_id, overdriven)
     )
-    match.volatile_tier_upgrade = volatile_upgrade or overdrive_upgrade
-    # The other half: the losing side's own ignite decides whether they
-    # pay their gambit's cost, whatever the cards said.
+    # Dravox and Hexis win on the dice with the gambit they played, and
+    # it resolves as that gambit (Law 21) -- the same flag again, which
+    # keeps the winner's own card.
+    dice_gambit = (
+        not volatile_upgrade
+        and not overdrive_upgrade
+        and engine.dice_resolve_gambit(
+            game, match, winner_id, outcome, winner_key,
+        )
+    )
+    match.volatile_tier_upgrade = (
+        volatile_upgrade or overdrive_upgrade or dice_gambit
+    )
+    # An ignite decides no gambit's cost since 2026-09-25 (Law 20), so
+    # this is always None now; written so a match saved under the old
+    # rule does not keep a stale answer (`volatile_loser_cost`).
     match.volatile_loser_cost = engine.volatile_loser_cost(
         game, loser_ignite,
     )
@@ -507,33 +520,22 @@ def skill_test_step(
         raised = engine.maneuver_name(
             engine.resolving_maneuver(match, winner_key),
         )
-        volatile_lines.append(
-            f"⚡ **Overdrive** — the Overdriven win raises it to "
-            f"**{raised}**."
-            if overdrive_upgrade
-            else "🔥 **Volatile** — "
-            + ("the blaze" if winner_ignite.blaze else "the burn")
-            + f" raises it to **{raised}**."
-        )
-    # Said only where there is a gambit's cost for it to have changed:
-    # a coach told "the blaze spares them the cost" of a card that
-    # carried none is being answered a question nobody asked (see "What
-    # a message says" in docs/design/naming-and-wording.md).
-    loser_card = engine.maneuver_catalog.get(
-        match.opposing_maneuver(winner_key) or "",
-    )
-    if (
-        match.volatile_loser_cost is not None
-        and loser_card is not None
-        and loser_card.is_gambit
-    ):
-        volatile_lines.append(
-            "🔥 **Volatile** — the burn also costs them their "
-            "gambit's price."
-            if match.volatile_loser_cost
-            else "🔥 **Volatile** — the blaze spares them their "
-            "gambit's cost."
-        )
+        if dice_gambit:
+            volatile_lines.append(
+                f"The win on the dice plays it as **{raised}** "
+                "(personal ability)."
+            )
+        elif overdrive_upgrade:
+            volatile_lines.append(
+                f"⚡ **Overdrive** — the Overdriven win raises it to "
+                f"**{raised}**."
+            )
+        else:
+            volatile_lines.append(
+                "🔥 **Volatile** — "
+                + ("the blaze" if winner_ignite.blaze else "the burn")
+                + f" raises it to **{raised}**."
+            )
     volatile_note = "\n" + "\n".join(volatile_lines) if volatile_lines else ""
 
     exhausted_participants = [

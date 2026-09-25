@@ -398,6 +398,11 @@ class DistanceOptions:
     #: play, answered with no distance at all. Said outright rather
     #: than left for a frontend to infer from an empty list.
     may_pass_out: bool = False
+    #: Quantor (Law 21): the teammate who may drain 3 to run onto this
+    #: pass, and the distances they may run onto -- answered with the
+    #: distance and `runner=True`. See `RulesEngine.pass_runner`.
+    runner_id: Optional[str] = None
+    runner_distances: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -405,6 +410,8 @@ class DistanceOptions:
             "distances": list(self.distances),
             "railed": self.railed,
             "may_pass_out": self.may_pass_out,
+            "runner_id": self.runner_id,
+            "runner_distances": list(self.runner_distances),
         }
 
 
@@ -2226,7 +2233,13 @@ def _high_pass_options(
     prompt: PendingPrompt,
 ) -> DistanceOptions:
     distances = tuple(engine.high_pass_distance_options(match))
-    return DistanceOptions(distances, _railed(game, "high_pass", distances))
+    runner_id, runner_distances = engine.pass_runner(game, match, distances)
+    return DistanceOptions(
+        distances,
+        _railed(game, "high_pass", distances),
+        runner_id=runner_id,
+        runner_distances=runner_distances,
+    )
 
 
 def _setup_pass_options(
@@ -2238,7 +2251,13 @@ def _setup_pass_options(
     # Empty is the card's one way out of play: a pass with nowhere to
     # go, which the answer sends with no distance at all.
     distances = tuple(engine.setup_pass_distances(match))
-    return DistanceOptions(distances, may_pass_out=not distances)
+    runner_id, runner_distances = engine.pass_runner(game, match, distances)
+    return DistanceOptions(
+        distances,
+        may_pass_out=not distances,
+        runner_id=runner_id,
+        runner_distances=runner_distances,
+    )
 
 
 
@@ -2265,7 +2284,10 @@ def _dribble_advance_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> DistanceOptions:
-    return DistanceOptions((1, 2), _railed(game, "dribble_advance", (1, 2)))
+    distances = engine.dribble_advance_distances(game, match)
+    return DistanceOptions(
+        distances, _railed(game, "dribble_advance", distances),
+    )
 
 
 def _dribble_burst_options(

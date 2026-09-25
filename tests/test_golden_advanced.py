@@ -78,7 +78,7 @@ loose at the moment a coach calls one; and full time and the shootout,
 which are past where the step budget stops. Those are Phase 5's ground and want a
 golden of their own.
 
-**The seed has been re-picked five times.** Once when PR #243 and PR
+**The seed has been re-picked six times.** Once when PR #243 and PR
 #244 landed on main under this branch: both are rule changes in the code
 this phase moves, so the game seed 44 had played was no longer the game
 it plays. Again when the six-space board was withdrawn (2026-09-22 in
@@ -92,8 +92,10 @@ came to be asked before it (2026-09-24), which changed which offers the
 game makes. And when advanced mode took on the personal abilities and
 the advanced skill scores (Law 21, 2026-09-25): Hellguard's 8 and the
 Fire Demons' own ignites change the game from the first skill test, and
-seed 11 stopped reaching the Setup Pass choice and Clear. Each time the
-seed was swept and scored on the coverage below, not chosen.
+seed 11 stopped reaching the Setup Pass choice and Clear. And again the
+same day, when the sheet gave Dravox, Hexis and Emberdash abilities of
+their own and Spectra's changed (seed 226 to 69). Each time the seed was
+swept and scored on the coverage below, not chosen.
 
 Regenerating is the tutorial golden's rule, and for the same reason --
 see that module's docstring:
@@ -144,7 +146,7 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 #: the engine's own `rng`, where every draw the game makes comes from
 #: (the dice, the shuffle, the AI's picks), rather than the module
 #: `random`, which nothing in the model reads.
-ADVANCED_SEED = 226
+ADVANCED_SEED = 69
 
 #: The game is not played to full time: the budget stops it in the
 #: second half, which is as far as Phase 4's ground goes. Full time and

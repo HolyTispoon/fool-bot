@@ -36,7 +36,6 @@ from dataclasses import dataclass, replace
 from typing import Optional
 
 from d12ball.components import (
-    MIND_PULL_SUCCESS_FACES,
     MatchState,
     RuleRefusal,
     SPECIES_TELEKINETIC,
@@ -1420,6 +1419,16 @@ class MindPullRoll:
     roll: int
     pulled: bool
     ignite: object
+    # The lowest total that lands: 11, or Spectra's 8 (Law 21).
+    minimum: int = 11
+
+    @property
+    def target_label(self) -> Optional[str]:
+        """
+        The band the die image names where it is not the rule's own --
+        None for the ordinary 11-12, which the renderer words itself.
+        """
+        return f"pulls on {self.minimum}+" if self.minimum != 11 else None
 
     def to_dict(self) -> dict:
         return {
@@ -1428,6 +1437,7 @@ class MindPullRoll:
             "roll": self.roll,
             "pulled": self.pulled,
             "ignite": jsonable(self.ignite),
+            "minimum": self.minimum,
         }
 
 
@@ -1512,21 +1522,15 @@ def attempt_mind_pull_step(
     # nothing ignites here -- asked anyway, through the one funnel,
     # rather than assuming the two can never meet.
     ignite = engine.ignite(game, player_id, roll)
-    bonus = engine.mind_pull_bonus(game, player_id)
-    total = roll + ignite.modifier + bonus
-    # "On 11-12", which Spectra's +3 carries past 12 (Law 21): a pull
-    # lands on the band or anything above it.
-    pulled = total >= min(MIND_PULL_SUCCESS_FACES)
+    total = roll + ignite.modifier
+    # 11 or more, or Spectra's 8 (Law 21) -- `mind_pull_minimum`.
+    minimum = engine.mind_pull_minimum(game, player_id)
+    pulled = total >= minimum
 
     # The die image draws the natural face, exactly as the injury
-    # test's does, so an ignite -- or Spectra's +3 -- has to be said in
-    # words or the number a coach reads and the verdict they are given
-    # would not add up.
-    extras = ", ".join(filter(None, (
-        ignite.detail,
-        f"+{bonus} Spectra" if bonus else "",
-    )))
-    ignite_note = f" ({extras}, {total})" if extras else ""
+    # test's does, so an ignite has to be said in words or the number a
+    # coach reads and the verdict they are given would not add up.
+    ignite_note = f" ({ignite.detail}, {total})" if ignite.detail else ""
     mind_pull_emoji = tokens.species(SPECIES_TELEKINETIC)
     note = "\n".join(filter(None, (
         f"{mind_pull_emoji} **Mind Pull** — "
@@ -1534,7 +1538,7 @@ def attempt_mind_pull_step(
         f"ball{ignite_note}.",
         exhaustion_text,
     )))
-    numbers = MindPullRoll(player_id, roll, pulled, ignite)
+    numbers = MindPullRoll(player_id, roll, pulled, ignite, minimum)
 
     if not pulled:
         # The resume is left exactly as it was: the next Telekinetic in

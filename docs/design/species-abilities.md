@@ -78,7 +78,7 @@ named three modes to offer, so the opt-outs went from the screens.
 
 ### Personal abilities
 
-Law 21: thirteen players' own abilities and three players' advanced skill
+Law 21: seventeen players' own abilities and four players' advanced skill
 scores, played in advanced mode alone. Almost every one is a number in a
 species ability changed for one player, so almost every one is a branch
 at a site that already existed rather than a mechanic of its own.
@@ -127,17 +127,34 @@ at a site that already existed rather than a mechanic of its own.
     (`IgnitedRoll.upgrades_opponent`, read by `volatile_raises_tier`)
     nor passes without shedding a token -- `settle_burn`, called
     beside `ignite` at each roll site, because the ignite is read
-    before there is a match to change. Brightburn still pays their own
-    gambit's cost when a burn loses: the sheet cancels only the
-    upgrade, and that is an open reading in the rules log.
+    before there is a match to change.
   - *Lithium Powered* -- `exhaustion_threshold` (Bulwark),
     `overdrive_cost` (Voltus; the prompt carries each Overdrive's drain
     in `RollOptions.overdrive_costs` so a button label is not a second
-    reading), `charge_up_amount` and `run_back_cost` (Strider; both
-    run-back paths, the coach's pick and the forced one, charge
+    reading), `charge_up_amount` and `run_back_cost` (Strider's cap of
+    1; both run-back paths, the coach's pick and the forced one, charge
     through it). Synapse's Overdriven win sets the **same** tier flag a
     winning blaze does (`overdrive_raises_tier`), read off who
     Overdrove before the declarations are spent.
+  - *The gambits on the dice* -- Dravox's and Hexis's win in a skill
+    test with a gambit they played sets that same flag
+    (`dice_resolve_gambit`), which resolves the winner's own card as
+    played; a basic card is not upgraded, and each reads their own side
+    of the ball (defensive for Dravox, offensive for Hexis).
+  - *Dribbles* -- `dribble_advance_distances` (Emberdash's 3, which the
+    prompt's options carry, so the menu grew without a view changing)
+    and `dribble_burst_cost` (Emberdash's nothing).
+  - *Quantor* runs onto a teammate's pass. It is **an answer to the
+    pass's own distance prompt, not a prompt of its own**:
+    `RulesEngine.pass_runner` puts the runner and the distances they may
+    run onto on `DistanceOptions` (never the passer, never an overshoot,
+    which has no target space), the answer carries `runner=True`, and
+    `driver._run_onto` moves them (`effects.run_onto_pass`, which drains
+    3 and marks them as moved with the ball, so no Mind Pull or Smooth is
+    offered them) before the throw, which then takes them as its
+    receiver. A second prompt would have needed a saved field for "a
+    pass is waiting on a runner" and a branch in `pending` for it; this
+    needed neither.
   - *Boost* is Overdrive's shape at drain 1 for +3: its own list on the
     match (`pending_boost`, a saved field whose absence reads as
     nobody), its own `boost` answer on all six roll prompts beside
@@ -147,8 +164,8 @@ at a site that already existed rather than a mechanic of its own.
   - *Mind Pull* -- `mind_pull_candidates` reads the two spaces beside
     each path space for Noxar, in the order the ball reaches them, and
     `apply_mind_pull` already lands the ball on the puller's space;
-    `mind_pull_cost` (Quillon) and `mind_pull_bonus` (Spectra). A pull
-    lands on 11 *or more*, which only Spectra can reach.
+    `mind_pull_cost` (Quillon) and `mind_pull_minimum` (Spectra's 8,
+    which `MindPullRoll.minimum` carries to the die image's band).
   - *Goopkeeper* is `ShotDefender.full_block`, set by
     `intervening_defenders`; `halved` is what the dice line and the
     shot image both read.
@@ -298,29 +315,15 @@ losing side raises "the opponent's" -- and the opponent of the losing side
   and it only ever raises -- a card already resolving as a gambit gains
   nothing, which falls out of a gambit's counterpart being itself.
 
-**The rider has a second half: the losing side's own ignite decides their
-gambit's cost** (the author, 2026-09-07). `MatchState.volatile_loser_cost`
-is that, and `RulesEngine.volatile_loser_cost` is the reading.
-
-- **It is a nullable bool because there are three states.** `False` is a
-  **blaze that lost** -- they pay no cost even where the cards would have
-  charged one. `True` is a **burn that lost** -- they pay theirs even
-  where the cards alone would not, which makes a burn the one thing in
-  the game that puts a cost in force off the dice. `None` is every other
-  roll, leaving `gambit_cost_applies` the whole answer it always was.
-- **It is read off the loser's own die, not the matchup**, which is why it
-  is a separate field rather than derivable from `volatile_tier_upgrade`.
-  A blaze that loses suppresses a cost *and* raises nothing; a burn
-  that loses charges one *and* raises the opponent's card. The two halves
-  agree only by coincidence.
-- **`gambit_cost` asks it before `gambit_cost_applies`**, because that
-  is precisely what it overrides -- in both directions. The card checks
-  stay above both: the override decides *whether* an advanced cost applies,
-  not whether there is one to apply, and a basic losing card has none.
-- **The first build had the tier half and not this one.** It read "resolves
-  that side's maneuver as the gambit on its rank" as a sentence about the
-  card that resolves and nothing else, and left `gambit_cost` asking only
-  the cards.
+**An ignite decides no gambit's cost** (the author, 2026-09-25, which
+dropped the cost half of the 2026-09-07 answer). For a fortnight a losing
+blaze spared its player's gambit cost and a losing burn imposed one;
+`MatchState.volatile_loser_cost` held that answer and `gambit_cost` read it
+ahead of `gambit_cost_applies`. The field and the read stay -- a match saved
+between a skill test and its effect under the old rule still carries its
+answer (legacy fallbacks stay) -- but `RulesEngine.volatile_loser_cost` now
+always answers `None`, so the cards and the gambit rules alone decide a
+cost.
 
 ### Lithium Powered
 

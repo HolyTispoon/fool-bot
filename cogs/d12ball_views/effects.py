@@ -322,6 +322,37 @@ class LowPassReceiverView(SafeView):
         await self.cog.present(interaction, game, result)
 
 
+def _add_runner_buttons(view, cog, options, name: str) -> None:
+    """
+    Quantor's run onto a teammate's pass (Law 21): one button per
+    distance the prompt says they may run onto, beside the distance
+    buttons and answered by the same `choose` with `runner=True`.
+    Built from `DistanceOptions.runner_distances` and nothing else.
+    """
+    if options.runner_id is None:
+        return
+    runner = cog.engine.get_player_definition(options.runner_id)
+    for distance in options.runner_distances:
+        space_word = "space" if distance == 1 else "spaces"
+        button = discord.ui.Button(
+            label=(
+                f"{distance} {space_word}, {player_with_role(runner)} "
+                "runs onto it (drain 3)"
+            )[:80],
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:{name}_run:{view.game_id}:{distance}",
+        )
+
+        async def callback(
+            interaction: discord.Interaction,
+            chosen_distance: int = distance,
+        ) -> None:
+            await view.choose(interaction, chosen_distance, runner=True)
+
+        button.callback = callback
+        view.add_item(button)
+
+
 class SetupPassChoiceView(SafeView):
     """
     Where a won **Setup Pass** lands: 0, 1 or 3 spaces, and the
@@ -379,11 +410,13 @@ class SetupPassChoiceView(SafeView):
 
             button.callback = callback
             self.add_item(button)
+        _add_runner_buttons(self, cog, options, "setup_pass")
 
     async def choose(
         self,
         interaction: discord.Interaction,
         distance: int,
+        runner: bool = False,
     ) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -406,7 +439,11 @@ class SetupPassChoiceView(SafeView):
         result = await self.apply(
             interaction,
             game,
-            Action(PromptKind.SETUP_PASS_CHOICE, "", {"distance": distance}),
+            Action(
+                PromptKind.SETUP_PASS_CHOICE,
+                "",
+                {"distance": distance, **({"runner": True} if runner else {})},
+            ),
             carry_from=0,
         )
         if result is None:
@@ -566,11 +603,13 @@ class HighPassChoiceView(SafeView):
 
             button.callback = callback
             self.add_item(button)
+        _add_runner_buttons(self, cog, options, "high_pass")
 
     async def choose(
         self,
         interaction: discord.Interaction,
         distance: int,
+        runner: bool = False,
     ) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -589,7 +628,11 @@ class HighPassChoiceView(SafeView):
         result = await self.apply(
             interaction,
             game,
-            Action(PromptKind.HIGH_PASS_CHOICE, "", {"distance": distance}),
+            Action(
+                PromptKind.HIGH_PASS_CHOICE,
+                "",
+                {"distance": distance, **({"runner": True} if runner else {})},
+            ),
             carry_from=0,
         )
         if result is None:

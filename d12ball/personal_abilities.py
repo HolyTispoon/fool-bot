@@ -40,6 +40,10 @@ class PersonalAbility(str, Enum):
     STRONG_PULL = "strong_pull"                # Spectra
     FULL_BLOCK = "full_block"                  # Goopkeeper
     PRESSURE_SHOT = "pressure_shot"            # Acidel
+    FREE_BURST = "free_burst"                  # Emberdash
+    DEFENSIVE_GAMBITS = "defensive_gambits"    # Dravox
+    OFFENSIVE_GAMBITS = "offensive_gambits"    # Hexis
+    RUN_ON = "run_on"                          # Quantor
 
 
 #: Catalog id -> (the ability, the sheet's sentence it was built from).
@@ -59,19 +63,19 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "bulwark_fullback": (
         PersonalAbility.HIGH_DRAIN_THRESHOLD,
-        "Is only Drained with 10+",
+        "Is only drained at 10.",
     ),
     "voltus_defender": (
         PersonalAbility.CHEAP_OVERDRIVE,
-        "Overdrive costs 2 drain.",
+        "Overdrive drains 2.",
     ),
     "gearclaw_playmaker": (
         PersonalAbility.BOOST,
-        "Boost: gain 1 drain for +3.",
+        "*Boost*: drain 1 for +3 on a roll.",
     ),
     "strider_midfielder": (
         PersonalAbility.EFFICIENT_RUN,
-        "Recharges 2 when stays put. Cost -1 when runs back.",
+        "Recharges 2 when stays put. Max 1 drain when runs back.",
     ),
     "synapse_playmaker": (
         PersonalAbility.OVERDRIVE_UPGRADE,
@@ -87,7 +91,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "spectra_midfielder": (
         PersonalAbility.STRONG_PULL,
-        "+3 for Mind Pull.",
+        "Mind Pulls succeds on 8+.",
     ),
     "goopkeeper_fullback": (
         PersonalAbility.FULL_BLOCK,
@@ -96,18 +100,37 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "acidel_striker": (
         PersonalAbility.PRESSURE_SHOT,
-        "Gets a scoring opportunity instead of own goal when successfully "
-        "pressuring into  the goal zone.",
+        "When successfully pressuring into the goal zone: scoring "
+        "opportunity instead of own goal.",
+    ),
+    "emberdash_playmaker": (
+        PersonalAbility.FREE_BURST,
+        "Dribble Advance up to 3 or Dribble Burst with no exhaustion.",
+    ),
+    "dravox_defender": (
+        PersonalAbility.DEFENSIVE_GAMBITS,
+        "Resolves defensive gambit's bonuses when winning with skill test.",
+    ),
+    "hexis_playmaker": (
+        PersonalAbility.OFFENSIVE_GAMBITS,
+        "Resolves offensive gambit's bonuses when winning with skill test.",
+    ),
+    "quantor_winger": (
+        PersonalAbility.RUN_ON,
+        "Before resolving High Pass or Setup Pass, add 3 drain to move "
+        "Quantor to the target space of the pass. Quantor gains "
+        "possession without contest.",
     ),
 }
 
-#: The three sheet sentences that describe an advanced skill score
+#: The sheet sentences that describe an advanced skill score
 #: rather than an ability: `advanced_skills` carries the numbers, so
 #: nothing here plays them.
 ADVANCED_SKILL_SENTENCES: dict[str, str] = {
     "flux_defender": "High offensive skill.",
     "hellguard_fullback": "High defensive skill.",
     "tachyon_striker": "High defensive skill.",
+    "ozul_playmaker": "High offensive and defensive skills.",
 }
 
 # The numbers, beside the ones they replace in d12ball/components.py.
@@ -117,6 +140,8 @@ VOLTUS_OVERDRIVE_DRAIN_COST = 2
 BOOST_DRAIN_COST = 1
 BOOST_BONUS = 3
 STRIDER_CHARGE_UP = 2
-STRIDER_RUN_BACK_DISCOUNT = 1
-SPECTRA_PULL_BONUS = 3
+STRIDER_RUN_BACK_MAXIMUM = 1
+SPECTRA_PULL_MINIMUM = 8
+EMBERDASH_ADVANCE_MAX = 3
+QUANTOR_RUN_DRAIN = 3
 BRIGHTBURN_BURN_RECOVERY = 1

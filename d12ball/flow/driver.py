@@ -1482,11 +1482,12 @@ def _answer_high_pass_choice(
     choice: str,
     *,
     distance: int,
+    runner: bool = False,
 ) -> StepResult:
     """
     A won High Pass, thrown as far as the coach chose -- one of the
     distances that fit on the field, and the tutorial's where it rails
-    one.
+    one. `runner` is Quantor running onto it (`_run_onto`).
     """
     if distance not in prompt.options.distances:
         _refuse(
@@ -1494,7 +1495,36 @@ def _answer_high_pass_choice(
             "from where the ball is now."
         )
     _rail(prompt.options.railed, distance)
-    return effects.high_pass_step(engine, match, distance)
+    return _run_onto(
+        engine, game, match, prompt, distance, runner,
+        effects.high_pass_step,
+    )
+
+
+def _run_onto(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    distance: int,
+    runner: bool,
+    throw,
+) -> StepResult:
+    """
+    Throw the pass, with Quantor running onto it first where the coach
+    asked (Law 21) -- refused against the prompt's own runner and
+    distances, the list the button was built from. The run's sentence
+    opens the pass's narration, since it happened first.
+    """
+    if not runner:
+        return throw(engine, match, distance)
+    runner_id = prompt.options.runner_id
+    if runner_id is None or distance not in prompt.options.runner_distances:
+        _refuse("Nobody can run onto a pass of that distance.")
+    ran = effects.run_onto_pass(engine, game, match, runner_id, distance)
+    result = throw(engine, match, distance, runner_id)
+    result.narration.insert(0, ran)
+    return result
 
 
 def _answer_setup_pass_choice(
@@ -1505,9 +1535,11 @@ def _answer_setup_pass_choice(
     choice: str,
     *,
     distance: Optional[int] = None,
+    runner: bool = False,
 ) -> StepResult:
     """
-    Setup Pass's second half: where the ball goes.
+    Setup Pass's second half: where the ball goes -- with Quantor
+    running onto it where `runner` says so (`_run_onto`).
 
     A pass with nowhere to go at all is the card's one way out of play,
     and it is the *absence* of a distance rather than a choice a coach
@@ -1525,7 +1557,10 @@ def _answer_setup_pass_choice(
             "a teammate in your own space, and every other distance "
             "has to fit on the field."
         )
-    return effects.setup_pass_step(engine, match, distance)
+    return _run_onto(
+        engine, game, match, prompt, distance, runner,
+        effects.setup_pass_step,
+    )
 
 
 def _answer_speed_delta_choice(

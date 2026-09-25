@@ -2850,6 +2850,7 @@ def render_mind_pull_die(
     team_label: str,
     player_name: str,
     pulled: bool,
+    target_label: Optional[str] = None,
 ) -> BytesIO:
     """
     A Mind Pull attempt as one die, the Telekinetic taking it, and the
@@ -2873,7 +2874,9 @@ def render_mind_pull_die(
     verdict_color = (
         MIND_PULL_AURA_COLOR if pulled else MIND_PULL_MISSED_COLOR
     )
-    target_label = mind_pull_target_label()
+    # A personal ability's own band (Spectra, Law 21) where the roll
+    # carries one; the rule's otherwise.
+    target_label = target_label or mind_pull_target_label()
     # Measured on a throwaway canvas: the real one cannot be created
     # until these widths have decided how big it needs to be. The halo
     # is wider than the die, so it -- not the polygon -- is what the

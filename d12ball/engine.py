@@ -54,6 +54,7 @@ from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
     CYBORG_DRAINED_AT,
+    MIND_PULL_SUCCESS_FACES,
     MIND_PULL_TOKEN_COST,
     OVERDRIVE_BONUS,
     OVERDRIVE_DRAIN_COST,
@@ -105,11 +106,12 @@ from d12ball import tokens
 from d12ball.personal_abilities import (
     BRIGHTBURN_BURN_RECOVERY,
     BULWARK_DRAINED_AT,
+    EMBERDASH_ADVANCE_MAX,
     PERSONAL_ABILITIES,
     SIZZIFIZIK_IGNITE_FACES,
-    SPECTRA_PULL_BONUS,
+    SPECTRA_PULL_MINIMUM,
     STRIDER_CHARGE_UP,
-    STRIDER_RUN_BACK_DISCOUNT,
+    STRIDER_RUN_BACK_MAXIMUM,
     VOLTUS_OVERDRIVE_DRAIN_COST,
     PersonalAbility,
 )
@@ -1115,13 +1117,18 @@ class RulesEngine:
             return 0
         return MIND_PULL_TOKEN_COST
 
-    def mind_pull_bonus(self, game: D12BallGame, player_id: str) -> int:
-        """What a Mind Pull roll adds: nothing, or Spectra's 3 (Law 21)."""
+    def mind_pull_minimum(self, game: D12BallGame, player_id: str) -> int:
+        """
+        The lowest total a Mind Pull lands on: 11, or Spectra's 8
+        (Law 21). "On 11-12" is read as 11 or more, because an ignite
+        could carry a total past 12 and a higher roll is never a worse
+        one.
+        """
         if self.has_personal_ability(
             game, player_id, PersonalAbility.STRONG_PULL,
         ):
-            return SPECTRA_PULL_BONUS
-        return 0
+            return SPECTRA_PULL_MINIMUM
+        return min(MIND_PULL_SUCCESS_FACES)
 
     def merge_bonus(
         self,
@@ -1266,37 +1273,51 @@ class RulesEngine:
             game, winner_id, PersonalAbility.OVERDRIVE_UPGRADE,
         )
 
+    def dice_resolve_gambit(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        winner_id: Optional[str],
+        outcome: str,
+        winner_key: Optional[str],
+    ) -> bool:
+        """
+        **Dravox and Hexis** (Law 21): a maneuver skill test they win
+        with a gambit they played resolves it as the gambit, where a
+        card that did not win on the cards otherwise resolves as its
+        basic maneuver. Dravox's is a defensive gambit, Hexis's an
+        offensive one, so each is read from the side the win came on.
+        A basic card is not upgraded. Sets the same flag a winning
+        blaze does, which resolves the winner's own card as played.
+        """
+        if not self.gambits_apply(game) or winner_key is None:
+            return False
+        card = self.maneuver_catalog.get(winner_key)
+        if card is None or not card.is_gambit:
+            return False
+        ability = (
+            PersonalAbility.OFFENSIVE_GAMBITS
+            if outcome == "offense"
+            else PersonalAbility.DEFENSIVE_GAMBITS
+        )
+        return self.has_personal_ability(game, winner_id, ability)
+
     def volatile_loser_cost(
         self, game: D12BallGame, loser: IgnitedRoll,
     ) -> Optional[bool]:
         """
-        What the losing side's own ignite does to the gambit's cost
-        they would otherwise pay -- the other half of Volatile's rider
-        (the author, 2026-09-07).
+        What the losing side's ignite does to the gambit's cost they
+        would otherwise pay: **nothing**, since 2026-09-25 (Law 20, "an
+        ignite never decides a gambit's cost"; the author dropped the
+        cost half of the 2026-09-07 answer). Always `None`, which
+        leaves `gambit_cost_applies` the whole answer.
 
-        `False` where they **blazed and lost**: they pay no cost even
-        where the cards would have charged one. `True` where they
-        **burned and lost**: they pay theirs even where the cards
-        alone would not, which makes a burn the one thing in the
-        game that puts a cost in force off the dice. `None` otherwise,
-        leaving `gambit_cost_applies` the whole answer.
-
-        Read from the losing player's own die rather than from the
-        matchup, which is why this is separate from
-        `volatile_raises_tier` rather than derivable from it: a blaze
-        that loses suppresses a cost *and* raises nothing, and a
-        burn that loses charges one *and* raises the opponent's
-        card.
-
-        Gated on the gambits for the same reason the tier
-        is: with no gambits in play there is no cost to change.
+        Kept rather than removed because `MatchState.volatile_loser_cost`
+        is a saved field (CLAUDE.md: legacy fallbacks stay): a match
+        saved between a skill test and its effect under the old rule
+        still carries its `True` or `False`, and `gambit_cost` still
+        reads it for that one maneuver.
         """
-        if not self.gambits_apply(game):
-            return None
-        if loser.blaze:
-            return False
-        if loser.burn:
-            return True
         return None
 
     def trailing(self, match: MatchState, side: TeamSide) -> bool:
@@ -2329,17 +2350,87 @@ class RulesEngine:
         """
         return " (Fullback ability)" if distance == FULLBACK_PASS_REACH else ""
 
-    def dribble_burst_cost(self, match: MatchState, distance: int) -> int:
+    def dribble_burst_cost(
+        self,
+        match: MatchState,
+        distance: int,
+        game: Optional[D12BallGame] = None,
+    ) -> int:
         """
         What a Dribble Burst of `distance` charges the handler: a token
         a space, one fewer for a Playmaker (the author, 2026-08-26),
         floored at 0 -- a burst that moved nowhere costs nothing, and
-        the discount cannot turn a run into a token back. The step
-        charges this and the menu prices its buttons by it.
+        the discount cannot turn a run into a token back. Nothing at
+        all for Emberdash (Law 21). The step charges this and the menu
+        prices its buttons by it.
         """
+        if self.has_personal_ability(
+            game, match.active_player_id, PersonalAbility.FREE_BURST,
+        ):
+            return 0
         handler = self.get_player_definition(match.active_player_id)
         discount = 1 if handler.role == PlayerRole.PLAYMAKER else 0
         return max(0, distance - discount)
+
+    def pass_runner(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        distances: Collection[int],
+    ) -> tuple[Optional[str], tuple[int, ...]]:
+        """
+        **Quantor** (Law 21): the passing side's player who may drain 3
+        to run onto a teammate's High Pass or Setup Pass, and the
+        distances they may run onto -- or `(None, ())`.
+
+        Never the passer, never an injured player, and only a distance
+        whose space is on the field: a High Pass that overshoots is
+        clamped short of where it was aimed, so there is no target
+        space to run to. The distances are the prompt's own, so this
+        narrows what is already offered rather than offering anything
+        new. Carried on the prompt's options, so the button, the refusal
+        and the web app read one answer.
+        """
+        if game is None or not self.personal_abilities_apply(game):
+            return None, ()
+        side = match.ball.possession
+        runner = next(
+            (
+                player_id
+                for player_id in match.setup_for_side(side).field_players
+                if player_id != match.active_player_id
+                and player_id not in match.injured
+                and self.has_personal_ability(
+                    game, player_id, PersonalAbility.RUN_ON,
+                )
+            ),
+            None,
+        )
+        if runner is None:
+            return None, ()
+        # A Setup Pass only offers distances on the field already, so
+        # the test only ever removes an overshooting High Pass; it is
+        # asked of both so a Setup Pass that grew one could not slip by.
+        reachable = tuple(
+            distance
+            for distance in distances
+            if not match.high_pass_overshoots(side, distance)
+        )
+        return (runner, reachable) if reachable else (None, ())
+
+    def dribble_advance_distances(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> tuple[int, ...]:
+        """
+        How far a Playmaker's Dribble Advance may go: up to 2, or
+        Emberdash's 3 (Law 21). Everybody else advances 1 and is not
+        asked (`offer_dribble_advance`).
+        """
+        if self.has_personal_ability(
+            game, match.active_player_id, PersonalAbility.FREE_BURST,
+        ):
+            return tuple(range(1, EMBERDASH_ADVANCE_MAX + 1))
+        return (1, 2)
 
     def dribble_burst_note(
         self, game: D12BallGame, match: MatchState, distance: int,
@@ -2356,7 +2447,7 @@ class RulesEngine:
         zone, space_index = match.relative_move_destination(
             match.active_player_id, match.ball.possession, distance,
         )
-        cost = self.dribble_burst_cost(match, distance)
+        cost = self.dribble_burst_cost(match, distance, game)
         noun, _ = self.token_word_and_mark(game, match.active_player_id)
         where = space_label(zone, space_index, match.board)
         return f"{where}, {cost} {noun}"
@@ -2879,13 +2970,12 @@ class RulesEngine:
     ) -> int:
         """
         The tokens a run back of `distance` spaces charges this player:
-        one a space, or for Strider one fewer, never below none
-        (Law 21).
+        one a space, or for Strider 1 at most (Law 21).
         """
         if self.has_personal_ability(
             game, player_id, PersonalAbility.EFFICIENT_RUN,
         ):
-            return max(0, distance - STRIDER_RUN_BACK_DISCOUNT)
+            return min(distance, STRIDER_RUN_BACK_MAXIMUM)
         return distance
 
     def charge_up_players(

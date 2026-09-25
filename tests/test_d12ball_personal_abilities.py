@@ -35,7 +35,11 @@ from d12ball.components import (
     duplicate_card_id,
 )
 from d12ball.engine import IgnitedRoll
-from d12ball.flow.effects import pressure_step
+from d12ball.flow.effects import (
+    high_pass_step,
+    pressure_step,
+    run_onto_pass,
+)
 from d12ball.flow.result import FollowOnStep
 from d12ball.game import GameMode, Team
 from d12ball.personal_abilities import (
@@ -44,9 +48,10 @@ from d12ball.personal_abilities import (
     BOOST_DRAIN_COST,
     BULWARK_DRAINED_AT,
     PERSONAL_ABILITIES,
-    SPECTRA_PULL_BONUS,
+    SPECTRA_PULL_MINIMUM,
     STRIDER_CHARGE_UP,
     VOLTUS_OVERDRIVE_DRAIN_COST,
+    QUANTOR_RUN_DRAIN,
     PersonalAbility,
 )
 
@@ -383,10 +388,10 @@ class CyborgTests(unittest.TestCase):
                 STRIDER_CHARGE_UP,
             )
 
-    def test_strider_runs_back_one_token_cheaper(self) -> None:
+    def test_strider_s_run_back_drains_one_at_most(self) -> None:
         self.assertEqual(ENGINE.run_back_cost(self.game, self.cyborg, 3), 3)
         with holding(self.cyborg, PersonalAbility.EFFICIENT_RUN):
-            for distance, cost in ((3, 2), (1, 0), (0, 0)):
+            for distance, cost in ((3, 1), (1, 1), (0, 0)):
                 with self.subTest(distance=distance):
                     self.assertEqual(
                         ENGINE.run_back_cost(
@@ -425,12 +430,12 @@ class TelekineticTests(unittest.TestCase):
         with holding(self.puller, PersonalAbility.FREE_PULL):
             self.assertEqual(ENGINE.mind_pull_cost(self.game, self.puller), 0)
 
-    def test_spectra_adds_three(self) -> None:
-        self.assertEqual(ENGINE.mind_pull_bonus(self.game, self.puller), 0)
+    def test_spectra_succeeds_on_eight(self) -> None:
+        self.assertEqual(ENGINE.mind_pull_minimum(self.game, self.puller), 11)
         with holding(self.puller, PersonalAbility.STRONG_PULL):
             self.assertEqual(
-                ENGINE.mind_pull_bonus(self.game, self.puller),
-                SPECTRA_PULL_BONUS,
+                ENGINE.mind_pull_minimum(self.game, self.puller),
+                SPECTRA_PULL_MINIMUM,
             )
 
     def test_noxar_is_offered_a_ball_beside_them(self) -> None:
@@ -457,6 +462,136 @@ class TelekineticTests(unittest.TestCase):
                     build_game(mode=GameMode.BASIC), match,
                 ),
             )
+
+
+class EmberdashTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.game = advanced(player_1_team=Team.FIRE_DEMONS)
+        self.match = build_match(ENGINE, self.game)
+        self.match.active_player_id = self.match.home.field_players[0]
+        self.handler = self.match.active_player_id
+
+    def test_a_dribble_advance_goes_up_to_three(self) -> None:
+        self.assertEqual(
+            ENGINE.dribble_advance_distances(self.game, self.match), (1, 2),
+        )
+        with holding(self.handler, PersonalAbility.FREE_BURST):
+            self.assertEqual(
+                ENGINE.dribble_advance_distances(self.game, self.match),
+                (1, 2, 3),
+            )
+
+    def test_a_dribble_burst_costs_nothing(self) -> None:
+        self.assertGreater(
+            ENGINE.dribble_burst_cost(self.match, 3, self.game), 0,
+        )
+        with holding(self.handler, PersonalAbility.FREE_BURST):
+            self.assertEqual(
+                ENGINE.dribble_burst_cost(self.match, 3, self.game), 0,
+            )
+
+
+class DiceGambitTests(unittest.TestCase):
+    """Dravox and Hexis: a gambit they played resolves as one on the dice."""
+
+    def setUp(self) -> None:
+        self.game = advanced()
+        self.match = build_match(ENGINE, self.game)
+        self.player = self.match.home.field_players[0]
+        catalog = ENGINE.maneuver_catalog
+        self.gambit = next(
+            key for key in ("intercept", "double_team", "clear")
+            if catalog.get(key) is not None and catalog.get(key).is_gambit
+        )
+        self.basic = next(
+            key for key in ("steal", "pressure", "deflect")
+            if catalog.get(key) is not None
+            and not catalog.get(key).is_gambit
+        )
+
+    def asked(self, ability, outcome, key) -> bool:
+        with holding(self.player, ability):
+            return ENGINE.dice_resolve_gambit(
+                self.game, self.match, self.player, outcome, key,
+            )
+
+    def test_dravox_s_defensive_gambit_resolves(self) -> None:
+        self.assertTrue(self.asked(
+            PersonalAbility.DEFENSIVE_GAMBITS, "defense", self.gambit,
+        ))
+
+    def test_a_basic_card_is_not_upgraded(self) -> None:
+        self.assertFalse(self.asked(
+            PersonalAbility.DEFENSIVE_GAMBITS, "defense", self.basic,
+        ))
+
+    def test_each_reads_their_own_side_of_the_ball(self) -> None:
+        self.assertFalse(self.asked(
+            PersonalAbility.OFFENSIVE_GAMBITS, "defense", self.gambit,
+        ))
+        self.assertFalse(self.asked(
+            PersonalAbility.DEFENSIVE_GAMBITS, "offense", self.gambit,
+        ))
+
+    def test_nobody_else_does(self) -> None:
+        self.assertFalse(ENGINE.dice_resolve_gambit(
+            self.game, self.match, self.player, "defense", self.gambit,
+        ))
+
+
+class QuantorTests(unittest.TestCase):
+    """Quantor runs onto a teammate's pass (Law 21)."""
+
+    def setUp(self) -> None:
+        self.game = advanced()
+        self.match = build_match(ENGINE, self.game)
+        home = self.match.home.field_players
+        self.passer, self.runner = home[0], home[-1]
+        self.match.active_player_id = self.passer
+        self.match.ball.possession = TeamSide.HOME
+        self.match.set_ball_space(
+            *self.match.board.meeple_position(self.passer),
+        )
+
+    def test_only_quantor_is_offered_the_run(self) -> None:
+        self.assertEqual(
+            ENGINE.pass_runner(self.game, self.match, (2, 3)), (None, ()),
+        )
+        with holding(self.runner, PersonalAbility.RUN_ON):
+            runner, _ = ENGINE.pass_runner(self.game, self.match, (2, 3))
+        self.assertEqual(runner, self.runner)
+
+    def test_never_on_their_own_pass(self) -> None:
+        with holding(self.passer, PersonalAbility.RUN_ON):
+            runner, _ = ENGINE.pass_runner(self.game, self.match, (2, 3))
+        self.assertIsNone(runner)
+
+    def test_never_to_a_space_off_the_field(self) -> None:
+        with holding(self.runner, PersonalAbility.RUN_ON):
+            _, distances = ENGINE.pass_runner(
+                self.game, self.match, (2, 3, 40),
+            )
+        self.assertNotIn(40, distances)
+
+    def test_the_run_drains_three_and_takes_the_pass(self) -> None:
+        with holding(self.runner, PersonalAbility.RUN_ON):
+            _, distances = ENGINE.pass_runner(self.game, self.match, (3,))
+            self.assertEqual(distances, (3,))
+            before = self.match.exhaustion.get(self.runner, 0)
+            run_onto_pass(ENGINE, self.game, self.match, self.runner, 3)
+            result = high_pass_step(ENGINE, self.match, 3, self.runner)
+        self.assertEqual(
+            self.match.exhaustion.get(self.runner, 0) - before,
+            QUANTOR_RUN_DRAIN,
+        )
+        self.assertEqual(
+            self.match.board.meeple_position(self.runner),
+            (self.match.ball.zone, self.match.ball.space_index),
+        )
+        self.assertEqual(self.match.ball_carrier_id, self.runner)
+        self.assertIsNot(
+            result.next.step, FollowOnStep.BEGIN_HIGH_PASS_CONTEST,
+        )
 
 
 class GoopkeeperTests(unittest.TestCase):

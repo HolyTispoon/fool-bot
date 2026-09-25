@@ -610,7 +610,19 @@ def _distance(asked: Asked) -> list:
         # choice -- the driver reads it the same way.
         distances = [button("Put it out of play", asked.kind)]
 
-    return [section(None, distances)]
+    # Quantor running onto the pass (Law 21): the same distances, with
+    # the run declared beside them.
+    runs = [
+        button(
+            f"{_spaces(distance)}, {asked.label(options.runner_id)} "
+            "runs onto it (drain 3)",
+            asked.kind,
+            distance=distance,
+            runner=True,
+        )
+        for distance in options.runner_distances
+    ]
+    return [section(None, distances), section("Run onto the pass", runs)]
 
 
 def _spaces(distance: int) -> str:

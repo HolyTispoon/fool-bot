@@ -821,21 +821,15 @@ class VolatileTierRiderTests(unittest.TestCase):
             )
         )
 
-    def test_a_blaze_that_loses_pays_no_gambit_cost(self):
-        # "If a player loses a skill test on the blaze, they do not
-        # resolve the gambit cost." A blaze protects its
-        # player even where the cards would have charged them.
-        self.assertIs(
-            self.engine.volatile_loser_cost(self.game, self.blaze), False,
-        )
-
-    def test_a_burn_that_loses_pays_it(self):
-        # "However, if a volatile player loses on a burn, they
-        # resolve the cost of the gambit" -- the one thing
-        # in the game that puts a cost in force off the dice.
-        self.assertIs(
-            self.engine.volatile_loser_cost(self.game, self.burn), True,
-        )
+    def test_an_ignite_decides_no_gambit_cost(self):
+        # "There's nothing here about paying the gambit's cost" (the
+        # author, 2026-09-25): a losing player pays their cost "with or
+        # without ignition and in the case of blaze as well as burn".
+        # The 2026-09-07 cost rider is gone.
+        for ignite in (self.blaze, self.burn):
+            self.assertIsNone(
+                self.engine.volatile_loser_cost(self.game, ignite),
+            )
 
     def test_a_loser_who_did_not_ignite_falls_back_to_the_cards(self):
         self.assertIsNone(
