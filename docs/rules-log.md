@@ -153,6 +153,39 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-25 (later) -- author, the personal abilities are written into the Charter
+
+The sixteen `advanced_abilities` cells become Law 21, with the author's answers to the readings
+the one-line cells left open:
+
+- **Strider:** *"recharge 2 just means they remove two drain. And cost minus one when runs back
+  means that they gain a number of drain tokens equal to the number of spaces they ran minus
+  one."*
+- **Gearclaw:** Boost is *"declared blind before the roll like overdrive"*; asked whether Boost
+  and Overdrive stack on one roll: *"Either, not both."*
+- **Acidel:** *"scoring opportunity replaces the own goal."*
+- **Goopkeeper:** *"full block means they just contribute their full value of their defense
+  skill rather than just halfway, which is what would usually be the case when they are not on
+  the ball."*
+- **Synapse:** asked whether an Overdriven win upgrades the maneuver even when the coach may not
+  play a gambit, as a winning blaze does: *"Yes, always."*
+- **Brightburn:** the token removal is *"on any burn"*.
+
+The advanced skill scores (Flux, Hellguard, Tachyon) move from Law 18 into Law 21 as a table,
+with the rule the author gave on 2026-09-22.
+
+**Still the author's to settle**, each written in the Charter at its literal reading:
+
+- **Brightburn and their own gambit's cost.** A Fire Demon's burn that loses pays their own
+  gambit's cost even where the cards alone would not have charged one (Law 20). The sheet
+  cancels only the opponent's upgrade for Brightburn, so the Charter leaves the cost as Law 20
+  has it. The author asked which case this is: it is a skill test after tied cards, where
+  without the burn no cost applies.
+- **Noxar's adjacent pull lands on Noxar's space.** The cell says only "can Mind Pull adjacent
+  spaces"; a pull brings the ball to the puller everywhere else.
+- **Acidel's ability covers Double Team**, the advanced version of Pressure, as well as Pressure.
+- **Spectra pulls on 11 or more**, since +3 carries a total past 12.
+
 ### 2026-09-25 -- author, three modes: training, basic and advanced
 
 The author: *"from now on species abilities are part of basic mode and what currently basic mode
@@ -2850,9 +2883,8 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
   advanced skill scores, and the import carries both on `PlayerDefinition`. What is still
   missing is the module that plays them -- the author calls it the personal-ability skill
   module of advanced mode -- and the rules text for the sixteen abilities, which are one-line
-  sheet cells today. Since 2026-09-25 the Charter names them as advanced mode's (Law 18,
-  "Personal abilities") and says an advanced skill replaces the role's, but does not word the
-  sixteen one by one. The **back of a printed player card**, that
+  sheet cells today. Since 2026-09-25 (later) all sixteen are Law 21, with four readings still
+  the author's to confirm -- see that entry. The **back of a printed player card**, that
   player's advanced version (the author, 2026-08-12), waits on the same thing plus a layout
   decision: whether the back shows the advanced ability alone or under the basic one, and
   whether its stats row takes the advanced scores.

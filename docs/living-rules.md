@@ -27,6 +27,7 @@ This document is the final authority on the rules of D12 Ball. It states each ru
   - [Law 18. The three modes](#the-three-modes)
   - [Law 19. Gambits](#gambits)
   - [Law 20. Species abilities](#species-abilities)
+  - [Law 21. Personal abilities](#personal-abilities)
 - [Appendix A. Quick reference](#appendix-a-quick-reference)
 - [Appendix B. Glossary](#appendix-b-glossary)
 - [Appendix C. The boards](#appendix-c-the-boards)
@@ -38,7 +39,7 @@ The Charter is divided into **Laws**, each Law into **sections**, and each secti
 
 **Precedence.** Where the Charter and any other statement of the rules disagree, the Charter is right: it wins over the Learn to Play, over the text printed on a card or a board, and over the bot. Where the Learn to Play simplifies, it says so and names the Law it simplifies.
 
-**Training, basic and advanced mode.** Laws 1 to 17 are the whole of the game in training mode. Part II is what the other two modes add and change: [Law 18](#the-three-modes) says which mode plays what, [Law 19](#gambits) is the gambits and [Law 20](#species-abilities) the species abilities. A rule in Part II wins over a rule in Part I for a game playing the module it belongs to, and applies nowhere else.
+**Training, basic and advanced mode.** Laws 1 to 17 are the whole of the game in training mode. Part II is what the other two modes add and change: [Law 18](#the-three-modes) says which mode plays what, [Law 19](#gambits) is the gambits, [Law 20](#species-abilities) the species abilities and [Law 21](#personal-abilities) the personal abilities. A rule in Part II wins over a rule in Part I for a game playing the module it belongs to, and applies nowhere else.
 
 **Defined terms** are in bold where they are defined, and every one is listed in [Appendix B](#appendix-b-glossary) with the paragraph that defines it.
 
@@ -871,7 +872,7 @@ Once all six have shot, a new round begins and everybody is available again.
 
 ## Part II -- Basic and advanced mode
 
-What basic and advanced mode add to Part I and where they change it, Laws 18 to 20. In training mode, nothing in Part II exists.
+What basic and advanced mode add to Part I and where they change it, Laws 18 to 21. In training mode, nothing in Part II exists.
 
 ## The three modes
 
@@ -887,12 +888,6 @@ A game is played in one of three modes, declared before the toss. Each adds to t
 
 A rule in Part II wins over a rule in Part I for a game playing the module it belongs to. In training mode Part II does not apply.
 
-### Personal abilities
-
-**Some players carry an ability of their own**, printed on the advanced side of their card, and some carry an advanced offensive or defensive skill. Both are advanced mode's, and apply in no other mode. A player's advanced skill replaces their role's skill of the same kind; where a card gives none, the player keeps their role's. An advanced skill is not held to 1 to 6, and a player's two skills need not total 7. A player with no personal ability plays advanced mode with their role's ability alone.
-
-*Note.* The personal abilities are not yet written into this Charter one by one. Until they are, the text on the card is what a table plays.
-
 ### Where Part II changes Part I
 
 | Part I says | Part II says instead | Module |
@@ -902,7 +897,7 @@ A rule in Part II wins over a rule in Part I for a game playing the module it be
 | A Midfielder adds 3 for their own Low Pass or Pressure ([Law 6](#the-skill-test)) | For their own Skilled Pass or Double Team too ([Skilled Pass](#skilled-pass), [Double Team](#double-team)) | Gambits |
 | The skill test adds one challenger's defensive skill ([Law 6](#the-skill-test)) | Under a Double Team it adds both defenders' ([Double Team](#double-team)) | Gambits |
 | A coach chooses from three cards ([Law 6](#choosing-and-revealing)) | A coach who is behind chooses from six, against a challenge ([Law 19](#gambits)) | Gambits |
-| A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#players-and-roles)) | A player's advanced skill replaces their role's ([Personal abilities](#personal-abilities)) | Personal |
+| A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#players-and-roles)) | A player's advanced skill replaces their role's ([Advanced skills](#advanced-skills)) | Personal |
 | A player is Exhausted when tokens exceed defensive skill ([Law 15](#becoming-exhausted)) | A Cyborg is Drained at 7 or more, whatever their skill ([Lithium Powered](#lithium-powered-cyborg)) | Species |
 | A player who fails an injury check is Injured ([Law 15](#the-injury-check)) | A Cyborg's check is a damage test, and failing it makes them Damaged -- the same check and condition under their own words ([Lithium Powered](#lithium-powered-cyborg)) | Species |
 | Nothing else costs tokens ([Law 15](#gaining-tokens)) | Mind Pull costs 1 and Overdrive 3 ([Mind Pull](#mind-pull-telekinetic), [Lithium Powered](#lithium-powered-cyborg)) | Species |
@@ -1140,6 +1135,58 @@ A successful pull is a [steal](#turnovers): ball speed resets to 1, players run 
 
 The one place it reaches further is a stack: an Ooze sharing a space with a teammate assigned to the same zone is never made to break that stack up to cover another space in the zone, and neither is the teammate.
 
+## Personal abilities
+
+### Whose they are
+
+**Some players carry an ability of their own, and three carry an advanced skill.** Both are played in [advanced mode](#what-each-mode-plays) and in no other. A personal ability belongs to the player rather than their role or their species, so a player fielded on both sides of one game carries it on both cards.
+
+Most personal abilities change the player's own [species ability](#species-abilities). Where the two say different things, the personal ability wins for that player, and everything it does not mention works as the species ability says.
+
+### Advanced skills
+
+**A player's advanced skill replaces their role's skill of the same kind**, everywhere a skill is added or read, and a player with no advanced skill of that kind keeps their role's. An advanced skill is not held to 1 to 6, and a player's two skills need not total 7.
+
+| Player | Offense | Defense |
+| --- | ---: | ---: |
+| Flux (Defender, Cyborg) | 5 | 5 |
+| Hellguard (Fullback, Fire Demon) | 0 | 8 |
+| Tachyon (Striker, Cyborg) | 6 | 4 |
+
+### Fire Demons
+
+**Blazebulk always blazes.** When their die [ignites](#volatile-fire-demon), the second die is added whatever it shows; Blazebulk never burns.
+
+**Sizzifizik ignites on 5 to 8.** Their die ignites on a natural 5, 6, 7 or 8, in the rolls Volatile covers.
+
+**Brightburn's burn upgrades nothing.** A burn that loses a maneuver skill test does not resolve the opponent's maneuver as its advanced version. Every burn, in any roll, removes 1 token from Brightburn.
+
+### Cyborgs
+
+**Bulwark is Drained at 10.** Bulwark is Drained at 10 or more drain tokens rather than 7, and never below.
+
+**Voltus Overdrives for 2.** Voltus's [Overdrive](#lithium-powered-cyborg) drains 2 rather than 3, for the same +5.
+
+**Gearclaw may Boost.** Once per roll, before the die is thrown, Gearclaw may **drain 1** to add **+3** to that roll. It is declared blind, on any roll Gearclaw could Overdrive, and follows every rule of Overdrive -- except that on one roll Gearclaw may Boost or Overdrive, never both.
+
+**Strider runs on less.** When Strider [charges up](#lithium-powered-cyborg), they remove 2 drain tokens rather than 1. When they run back, they gain 1 token fewer than the spaces they run, never fewer than none.
+
+**Synapse's Overdrive decides a tier.** When Synapse wins a maneuver skill test on a roll they Overdrove, their maneuver resolves as its advanced version -- the gambit on its rank -- whether or not their coach [may play a gambit](#who-may-play-a-gambit) this turn, exactly as a [blaze that wins](#volatile-fire-demon) does. A maneuver already resolving as a gambit gains nothing more.
+
+### Telekinetics
+
+**Noxar pulls from beside them.** Noxar may [Mind Pull](#mind-pull-telekinetic) a ball that moves to or through a space next to their own, as well as their own space. A pull that lands brings the ball to Noxar's own space.
+
+**Quillon pulls for free.** Quillon takes no token for a Mind Pull.
+
+**Spectra pulls harder.** Spectra adds 3 to a Mind Pull roll, so pulls on a total of 11 or more.
+
+### Oozes
+
+**Goopkeeper blocks in full.** In a [score attempt](#score-attempt), Goopkeeper adds their full defensive skill to the defense when standing beyond the ball, rather than half.
+
+**Acidel turns a pressure into a shot.** When Acidel is the challenger whose won [Pressure](#pressure) or [Double Team](#double-team) would risk an [own goal](#own-goal), Acidel's side takes the ball and Acidel has a [scoring opportunity](#scoring-opportunities) from that space instead. Declining it leaves the own-goal roll, as the maneuver would otherwise have resolved.
+
 ## Appendix A. Quick reference
 
 | Roll | Dice | How it reads |
@@ -1167,11 +1214,12 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 
 | Term | Defined in |
 | --- | --- |
-| Advanced skill, personal ability | [Personal abilities](#personal-abilities) |
+| Advanced skill | [Advanced skills](#advanced-skills) |
 | Arrangement | [Definitions](#definitions); settled in [finishing a Coaching Choice](#finishing-a-coaching-choice) |
 | Back, forward | [Forward and back](#forward-and-back) |
 | Behind | [Who may play a gambit](#who-may-play-a-gambit) |
 | Blaze, burn | [Volatile (Fire Demon)](#volatile-fire-demon) |
+| Boost | [Cyborgs](#cyborgs) |
 | Card, meeple | [Definitions](#definitions) |
 | Carrier | [Definitions](#definitions); [choosing the handler](#choosing-the-handler) |
 | Challenger | [Determining the two players](#determining-the-two-players) |
@@ -1191,6 +1239,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 | New play, steal | [Turnovers](#turnovers) |
 | Offensive skill, defensive skill | [Players and roles](#players-and-roles) |
 | Overshoot | [High Pass](#high-pass) |
+| Personal ability | [Whose they are](#whose-they-are) |
 | Sending a player | [Sending a player](#sending-a-player) |
 | Set-up, scoring opportunity | [Scoring opportunities](#scoring-opportunities) |
 | Shooting range | [Shooting range](#shooting-range) |
