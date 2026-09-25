@@ -4725,6 +4725,7 @@ def render_coaching_image(
     )
     draw = ImageDraw.Draw(canvas)
     draw.text((COACHING_BOARD_LEFT, 16), title, font=FONT_HEADING, fill="#ffffff")
+    draw_coaching_clock(draw, match)
 
     bounds = zone_bounds_between(
         match, COACHING_BOARD_LEFT, COACHING_BOARD_RIGHT,
@@ -4794,6 +4795,37 @@ def render_coaching_image(
     )
 
     return png_bytes(canvas)
+
+
+def draw_coaching_clock(
+    draw: ImageDraw.ImageDraw,
+    match: MatchState,
+) -> None:
+    """
+    The clock, right-aligned in the title row: the minute in the
+    jumbotron's yellow, the period beside it in white.
+
+    **It reads the match's clock, and that is the minute the window
+    opened on**, because nothing moves the clock while a window is
+    open: a time out charges its minute in `finish_time_out`, after
+    both coaches are done, and halftime puts the clock on 15 before
+    either window opens. So every re-render of the half-field as the
+    coach works shows the same minute, and no saved field is needed
+    to remember it.
+    """
+    minute = f"{match.scoreboard.time:02d}"
+    period = (
+        "First Half"
+        if match.scoreboard.period == MatchPeriod.FIRST_HALF
+        else "Second Half"
+    )
+    minute_left = COACHING_BOARD_RIGHT - draw.textlength(
+        minute, font=FONT_HEADING,
+    )
+    draw.text((minute_left, 16), minute, font=FONT_HEADING, fill="#f5d76e")
+    # Baseline-matched to the minute: the body face is 8px shorter.
+    period_left = minute_left - 16 - draw.textlength(period, font=FONT_BODY)
+    draw.text((period_left, 24), period, font=FONT_BODY, fill="#ffffff")
 
 
 def draw_coaching_benches(
