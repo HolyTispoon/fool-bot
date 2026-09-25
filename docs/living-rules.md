@@ -1,6 +1,6 @@
 # The D12Ball Charter: Laws of the Game
 
-This document is the final authority on the rules of D12 Ball. It states each rule once and settled, for **basic mode** and for the **advanced mode** a game may be played in instead. History, open questions and the places upstream has not caught up yet all belong in [rules-log.md](rules-log.md), and the illustrated introduction to the game is [learn-to-play.md](learn-to-play.md).
+This document is the final authority on the rules of D12 Ball. It states each rule once and settled, for each of the three modes a game may be played in: **training**, **basic** and **advanced**. History, open questions and the places upstream has not caught up yet all belong in [rules-log.md](rules-log.md), and the illustrated introduction to the game is [learn-to-play.md](learn-to-play.md).
 
 ## Contents
 
@@ -23,8 +23,8 @@ This document is the final authority on the rules of D12 Ball. It states each ru
   - [Law 15. Exhaustion and injury](#exhaustion-and-injury)
   - [Law 16. The clock](#the-clock)
   - [Law 17. Extreme shootout](#extreme-shootout)
-- Part II -- Advanced mode
-  - [Law 18. Advanced mode](#advanced-mode)
+- Part II -- Basic and advanced mode
+  - [Law 18. The three modes](#the-three-modes)
   - [Law 19. Gambits](#gambits)
   - [Law 20. Species abilities](#species-abilities)
 - [Appendix A. Quick reference](#appendix-a-quick-reference)
@@ -38,7 +38,7 @@ The Charter is divided into **Laws**, each Law into **sections**, and each secti
 
 **Precedence.** Where the Charter and any other statement of the rules disagree, the Charter is right: it wins over the Learn to Play, over the text printed on a card or a board, and over the bot. Where the Learn to Play simplifies, it says so and names the Law it simplifies.
 
-**Basic mode and advanced mode.** Laws 1 to 17 are the whole of the game in basic mode. Part II is what advanced mode adds and changes: [Law 18](#advanced-mode) says what it switches on, [Law 19](#gambits) is the gambits and [Law 20](#species-abilities) the species abilities. A rule in Part II wins over a rule in Part I for a game playing the module it belongs to, and applies nowhere else.
+**Training, basic and advanced mode.** Laws 1 to 17 are the whole of the game in training mode. Part II is what the other two modes add and change: [Law 18](#the-three-modes) says which mode plays what, [Law 19](#gambits) is the gambits and [Law 20](#species-abilities) the species abilities. A rule in Part II wins over a rule in Part I for a game playing the module it belongs to, and applies nowhere else.
 
 **Defined terms** are in bold where they are defined, and every one is listed in [Appendix B](#appendix-b-glossary) with the paragraph that defines it.
 
@@ -48,7 +48,7 @@ The Charter is divided into **Laws**, each Law into **sections**, and each secti
 
 ## Part I -- The game
 
-The whole of D12 Ball in basic mode, Laws 1 to 17. Nothing in Part I depends on Part II.
+The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends on Part II.
 
 ## The game in brief
 
@@ -112,7 +112,7 @@ Coverage is checked one team at a time, so an opposing meeple never covers a spa
 
 ### Players and roles
 
-A team is nine players, and in basic mode the two teams are identical.
+A team is nine players, and in training mode the two teams are identical.
 
 Every player has an **offensive skill** from 1 to 6 and a **defensive skill** that is its inverse, so the two always total 7.
 
@@ -163,7 +163,7 @@ A **space minute** is the unit of game time -- see [the clock](#the-clock).
 
 A **live ball** is one in play. A **dead ball** is one being brought back into play after a goal, a missed shot, an own-goal roll, a ball out of bounds or a period's start: it is carried to where play starts again rather than travelling over the spaces between.
 
-**Exhausted** and **Injured** are the two conditions a player can be in -- see [Law 15](#exhaustion-and-injury). In advanced mode a Cyborg's own words for them are Drained and Damaged -- see [Lithium Powered](#lithium-powered-cyborg).
+**Exhausted** and **Injured** are the two conditions a player can be in -- see [Law 15](#exhaustion-and-injury). In basic and advanced mode a Cyborg's own words for them are Drained and Damaged -- see [Lithium Powered](#lithium-powered-cyborg).
 
 **Behind** is the condition under which a coach holds gambits in advanced mode -- see [who may play a gambit](#who-may-play-a-gambit).
 
@@ -869,19 +869,29 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 
 Once all six have shot, a new round begins and everybody is available again.
 
-## Part II -- Advanced mode
+## Part II -- Basic and advanced mode
 
-What advanced mode adds to Part I and where it changes it, Laws 18 to 20. In basic mode, nothing in Part II exists.
+What basic and advanced mode add to Part I and where they change it, Laws 18 to 20. In training mode, nothing in Part II exists.
 
-## Advanced mode
+## The three modes
 
-### The two modules
+### What each mode plays
 
-**Advanced mode** turns on two modules: the [gambits](#gambits) and the [species abilities](#species-abilities). Both come on with it, and a game may take just one of the two. Which are in play is declared before the toss.
+A game is played in one of three modes, declared before the toss. Each adds to the one before it:
+
+- **Training mode** is Part I and nothing else. Species is only a name on the card, and every player follows the standard rules. The tutorial is a training game.
+- **Basic mode** adds the [species abilities](#species-abilities).
+- **Advanced mode** adds the [gambits](#gambits) and the [personal abilities](#personal-abilities) to basic mode.
 
 ### Part II wins in its own mode
 
-A rule in Part II wins over a rule in Part I for a game playing the module it belongs to. In basic mode Part II does not apply, species is only a name on the card, and every player follows the standard rules.
+A rule in Part II wins over a rule in Part I for a game playing the module it belongs to. In training mode Part II does not apply.
+
+### Personal abilities
+
+**Some players carry an ability of their own**, printed on the advanced side of their card, and some carry an advanced offensive or defensive skill. Both are advanced mode's, and apply in no other mode. A player's advanced skill replaces their role's skill of the same kind; where a card gives none, the player keeps their role's. An advanced skill is not held to 1 to 6, and a player's two skills need not total 7. A player with no personal ability plays advanced mode with their role's ability alone.
+
+*Note.* The personal abilities are not yet written into this Charter one by one. Until they are, the text on the card is what a table plays.
 
 ### Where Part II changes Part I
 
@@ -892,6 +902,7 @@ A rule in Part II wins over a rule in Part I for a game playing the module it be
 | A Midfielder adds 3 for their own Low Pass or Pressure ([Law 6](#the-skill-test)) | For their own Skilled Pass or Double Team too ([Skilled Pass](#skilled-pass), [Double Team](#double-team)) | Gambits |
 | The skill test adds one challenger's defensive skill ([Law 6](#the-skill-test)) | Under a Double Team it adds both defenders' ([Double Team](#double-team)) | Gambits |
 | A coach chooses from three cards ([Law 6](#choosing-and-revealing)) | A coach who is behind chooses from six, against a challenge ([Law 19](#gambits)) | Gambits |
+| A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#players-and-roles)) | A player's advanced skill replaces their role's ([Personal abilities](#personal-abilities)) | Personal |
 | A player is Exhausted when tokens exceed defensive skill ([Law 15](#becoming-exhausted)) | A Cyborg is Drained at 7 or more, whatever their skill ([Lithium Powered](#lithium-powered-cyborg)) | Species |
 | A player who fails an injury check is Injured ([Law 15](#the-injury-check)) | A Cyborg's check is a damage test, and failing it makes them Damaged -- the same check and condition under their own words ([Lithium Powered](#lithium-powered-cyborg)) | Species |
 | Nothing else costs tokens ([Law 15](#gaining-tokens)) | Mind Pull costs 1 and Overdrive 3 ([Mind Pull](#mind-pull-telekinetic), [Lithium Powered](#lithium-powered-cyborg)) | Species |
@@ -1039,7 +1050,7 @@ Possession does not change and the ball is left with the handler. Where the hand
 
 There is one ability per species, and every player of that species has it whichever team is fielding them. A player fielded on both sides of one game -- the same person in two kits -- carries it on both cards.
 
-The species abilities are the second of the two modules advanced mode turns on, alongside the [gambits](#gambits); a game may take just one of the two.
+The species abilities are played in basic mode and in advanced mode, and never in training mode.
 
 ### Volatile (Fire Demon)
 
@@ -1061,7 +1072,7 @@ Four rolls are covered: their die in a [skill test](#the-skill-test) or a [conte
 
 *Note.* A blaze that wins is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as a gambit on its own, so even a player who *did* play the gambit gets it resolving as one for the first time. A burn that wins won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
 
-Outside a maneuver skill test -- or in a game that took the species abilities without the [gambits](#gambits) -- there is no tier to change, and the blaze or burn is only the number.
+Outside a maneuver skill test -- or in basic mode, which plays the species abilities without the [gambits](#gambits) -- there is no tier to change, and the blaze or burn is only the number.
 
 ### Lithium Powered (Cyborg)
 
@@ -1143,7 +1154,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 
 **A turnover:** reset speed to 1, then -- a steal runs players back; a new play resets both sides and offers the side with the ball a Coaching Choice. **A time out** is not a turnover: the ball stays put and both coaches get one.
 
-**Species abilities (advanced mode):**
+**Species abilities (basic and advanced mode):**
 
 | Species | Ability |
 | --- | --- |
@@ -1156,6 +1167,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 
 | Term | Defined in |
 | --- | --- |
+| Advanced skill, personal ability | [Personal abilities](#personal-abilities) |
 | Arrangement | [Definitions](#definitions); settled in [finishing a Coaching Choice](#finishing-a-coaching-choice) |
 | Back, forward | [Forward and back](#forward-and-back) |
 | Behind | [Who may play a gambit](#who-may-play-a-gambit) |
@@ -1186,6 +1198,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 | Space minute | [Space minutes](#space-minutes) |
 | Speed | [The ball, the dice and the tokens](#the-ball-the-dice-and-the-tokens) |
 | Time out | [Time out](#time-out) |
+| Training mode, basic mode, advanced mode | [What each mode plays](#what-each-mode-plays) |
 
 ## Appendix C. The boards
 

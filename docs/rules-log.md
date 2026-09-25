@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-26.
+**As of:** 2026-09-25.
 
 ## Where the rules come from
 
@@ -70,6 +70,8 @@ printed cards for now.
 review). `GameMode` is still a single BASIC/ADVANCED switch and the opt-out is two bools on the
 game record beside it (`advanced_maneuvers`, `species_abilities`), both defaulting on -- so
 turning advanced mode on brings both, and a game may drop either.
+*Superseded on 2026-09-25*: there are three modes, the species abilities are basic mode's, and
+advanced mode always plays both -- see that entry.
 
 **All four abilities are built** (2026-09-07).
 
@@ -150,6 +152,48 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-25 -- author, three modes: training, basic and advanced
+
+The author: *"from now on species abilities are part of basic mode and what currently basic mode
+will be called training mode and training mode has no species abilities at all the tutorial is
+in training mode obviously and all three options should be offered. advance mode ads gambit and
+individual special abilities that are on the spreadsheet for some but not all players."*
+
+**A game is played in one of three modes, each adding to the one before it:**
+
+- **Training mode** is what basic mode was until today: Part I of the Charter and nothing else,
+  with species only a name on the card. The tutorial is a training game.
+- **Basic mode** adds the species abilities (Law 20).
+- **Advanced mode** adds the gambits (Law 19) and the players' personal abilities -- the
+  `advanced_abilities` tab's sixteen abilities and three sets of advanced skill scores -- to
+  basic mode.
+
+**What this replaces.** Since PR #177's review, advanced mode was one switch over two modules,
+the gambits and the species abilities, and a game could take just one of them. The species
+abilities now belong to basic mode, and the author named three modes to offer rather than
+modules to toggle, so **the opt-out is gone from the rules**: advanced mode always plays the
+gambits and the species abilities. Two consequences in the Charter that follow from the ruling
+rather than being new decisions:
+
+- Volatile's tier change needs the gambits, so in basic mode a blaze or a burn is only the
+  number -- the case the Charter already described as "a game that took the species abilities
+  without the gambits", now named as basic mode.
+- "In basic mode the two teams are identical" (Law 2) is now training mode's: with species
+  abilities on, the two teams' species differ in play.
+
+**Personal abilities go into the Charter by name only** (Law 18, "Personal abilities"): which
+mode plays them, and that an advanced skill replaces the role's skill of the same kind (the
+author, 2026-09-22 entry below). The sixteen abilities themselves are still one-line sheet cells
+and are not written into the Charter one by one; that is still open, under "Blocked or deferred".
+
+In the bot: `GameMode` gains `training`, and `basic` keeps its saved value with the new meaning,
+so an unfinished basic game saved before today plays its remaining turns with the species
+abilities on. A tutorial saved as `basic` is held to training by `species_abilities_apply`,
+because its scripted beats were written without them. The setup and lobby screens offer the
+three modes and no longer offer the module toggles; the two opt-out fields stay on the record
+so an advanced game saved with one module off plays on as it was started. The personal
+abilities are not played by the bot yet.
 
 ### 2026-09-24 (2 of 2) -- author, Mind Pull is asked before Smooth
 
@@ -2806,7 +2850,9 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
   advanced skill scores, and the import carries both on `PlayerDefinition`. What is still
   missing is the module that plays them -- the author calls it the personal-ability skill
   module of advanced mode -- and the rules text for the sixteen abilities, which are one-line
-  sheet cells today and not in the living rules. The **back of a printed player card**, that
+  sheet cells today. Since 2026-09-25 the Charter names them as advanced mode's (Law 18,
+  "Personal abilities") and says an advanced skill replaces the role's, but does not word the
+  sixteen one by one. The **back of a printed player card**, that
   player's advanced version (the author, 2026-08-12), waits on the same thing plus a layout
   decision: whether the back shows the advanced ability alone or under the basic one, and
   whether its stats row takes the advanced scores.
