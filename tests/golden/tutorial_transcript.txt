@@ -285,7 +285,7 @@ Chose **2 spaces**.
 --- message
 **High Pass:** the ball moves 2 spaces forward. That reaches a teammate -- a scoring opportunity!
 
-🟠 Noxar [SK] can attempt the scoring opportunity, or let it go:
+<@111> 🟠 Noxar [SK] can attempt the scoring opportunity, or let it go:
 === press 29: SetUpAttemptChoiceView -> 'Noxar [SK] takes the shot'
 --- message
 🟠 Noxar [SK] takes the shot.

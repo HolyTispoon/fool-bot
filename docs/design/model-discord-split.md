@@ -1282,6 +1282,20 @@ round: the voice was right, and it was speaking Discord (finding 6 of
   (`build_maneuver_action_caption`, composed in the cog over the
   model's own list of who is asked and its gambit paragraph, so the
   posted text did not change); the rest were reworded once.
+- **A choice pings the coach who has to make it, and the ping is the
+  cog's** (2026-09-25, off a Mind Pull offer that named only the
+  Telekinetic and so notified nobody). Many asks open with
+  `{coach:n}`, but not all of them: the Mind Pull and Smooth offers,
+  the scoring opportunity and the pass and dribble choices name the
+  player, or nobody. `D12Ball.ping_asked` reads whose question it is
+  off `asked_sides` and puts a mention in front of the rendered ask
+  for each coach it does not already address -- only an account's
+  `<@id>`, never the AI's or a test seat's name, which would only say
+  the line twice. **The model's sentence is not reworded for it.** A
+  notification is how a question reaches a person on Discord; a web
+  page has none, and teaching the model to open every ask on a coach
+  "so Discord pings" would be the frontend's medium in the model's
+  voice. The two cog goldens changed by exactly that prefix.
 
 ## `tests/test_model_purity.py`
 

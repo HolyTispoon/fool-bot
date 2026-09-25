@@ -51,7 +51,7 @@ Chose **1 space**.
 --- message
 Ball speed is now **1**.
 --- message
-🔮 **Smooth** — the ball reaches near 🔮 Zenith [WG], who can take the ball to become the ball handler.
+<@111> 🔮 **Smooth** — the ball reaches near 🔮 Zenith [WG], who can take the ball to become the ball handler.
 === press 7: SmoothView -> 'Zenith [WG] takes it over'
 --- message
 🔮 **Smooth** — 🔮 Zenith [WG] takes the ball on **space 5** (Midfield).
@@ -95,7 +95,7 @@ Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced
 --- message
 Ball speed is now **2**.
 --- message
-The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 11: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
@@ -227,19 +227,19 @@ Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced
 
 ## **High Pass** succeeds!
 --- message
-The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 21: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
 🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 5 total).
 The ball slips past them.
 --- message
-The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 22: MindPullView -> 'Pass'
 --- message
 🔮 Zenith [WG] lets the ball go past.
 --- message
-The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 23: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Quillon [PM] reaches for the ball.
@@ -293,12 +293,12 @@ Either player can roll:
 --- message
 🔮 Quillon [PM] is exhausted and rolls an injury test: 10 beats their 4 exhaustion tokens — safe.
 --- message
-The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 28: MindPullView -> 'Pass'
 --- message
 🔮 Spectra [MF] lets the ball go past.
 --- message
-The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 29: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
@@ -325,7 +325,7 @@ You chose **Double Team**.
 
 ## **Double Team** wins!
 --- message
-🔮 **Smooth** — the ball reaches near 🔮 Quillon [PM], who can take the ball to become the ball handler.
+<@111> 🔮 **Smooth** — the ball reaches near 🔮 Quillon [PM], who can take the ball to become the ball handler.
 === press 31: SmoothView -> 'Quillon [PM] takes it over'
 --- message
 🔮 **Smooth** — 🔮 Quillon [PM] takes the ball on **space 4** (Midfield).
@@ -429,7 +429,7 @@ You chose **Intercept**.
 
 ## **High Pass** wins!
 --- message
-The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 41: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
@@ -510,7 +510,7 @@ You chose **Intercept**.
 
 ## **Intercept** wins!
 --- message
-🔮 **Smooth** — the ball reaches near 🔮 Zenith [WG], who can take the ball to become the ball handler.
+<@111> 🔮 **Smooth** — the ball reaches near 🔮 Zenith [WG], who can take the ball to become the ball handler.
 === press 47: SmoothView -> 'Zenith [WG] takes it over'
 --- message
 🔮 **Smooth** — 🔮 Zenith [WG] takes the ball on **space 5** (Midfield).
@@ -548,7 +548,7 @@ You chose **Skilled Pass**.
 
 ## **Steal** wins!
 --- message
-The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 51: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
@@ -565,12 +565,12 @@ The ball speed goes down to **1**.
 --- message
 Ball speed is now **5**.
 --- message
-The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 52: MindPullView -> 'Pass'
 --- message
 🔮 Zenith [WG] lets the ball go past.
 --- message
-The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 53: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Quillon [PM] reaches for the ball.
@@ -597,7 +597,7 @@ You chose **Double Team**.
 
 ## **Low Pass** wins!
 --- message
-The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 55: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
@@ -696,24 +696,24 @@ Dinky AI, 🔥 Flickerwing [WG] is exhausted and owes an injury test: a d12 that
 --- message
 🔥 Flickerwing [WG] is exhausted and rolls an injury test: 11 beats their 4 exhaustion tokens — safe.
 --- message
-The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 64: MindPullView -> 'Pass'
 --- message
 🔮 Spectra [MF] lets the ball go past.
 --- message
-The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 65: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
 🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 1 total).
 The ball slips past them.
 --- message
-The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 66: MindPullView -> 'Pass'
 --- message
 🔮 Quillon [PM] lets the ball go past.
 --- message
-The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 67: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
@@ -772,19 +772,19 @@ Either player can roll:
 --- message
 🔮 Noxar [SK] is exhausted and rolls an injury test: 11 beats their 8 exhaustion tokens — safe.
 --- message
-The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 73: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
 🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 2 total).
 The ball slips past them.
 --- message
-The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 74: MindPullView -> 'Pass'
 --- message
 🔮 Quillon [PM] lets the ball go past.
 --- message
-The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 75: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
@@ -878,7 +878,7 @@ Either player can roll:
 --- message
 🔮 Quillon [PM] is exhausted and rolls an injury test: 6 does not beat their 8 exhaustion tokens — injury! They are **injured** 🤕.
 --- message
-The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 85: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
@@ -923,7 +923,7 @@ You chose **Clear**.
 --- message
 Ball speed is now **8**.
 --- message
-The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 87: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
@@ -948,7 +948,7 @@ You chose **Intercept**.
 
 ## **Intercept** wins!
 --- message
-🔮 **Smooth** — the ball reaches near 🔮 Quillon [PM], who can take the ball to become the ball handler.
+<@111> 🔮 **Smooth** — the ball reaches near 🔮 Quillon [PM], who can take the ball to become the ball handler.
 === press 89: SmoothView -> 'Quillon [PM] takes it over'
 --- message
 🔮 **Smooth** — 🔮 Quillon [PM] takes the ball on **space 4** (Midfield).
