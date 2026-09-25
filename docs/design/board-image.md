@@ -243,10 +243,12 @@ panels hashed identical across the move).
   `MEEPLE_SIZE` (it is a little wider than tall) and stands on the
   square's floor, so the two rows, the ball token and the names are placed
   exactly as before -- nothing else on the board moved.
-- **Everything on it sits on the body.** The head is too small to carry
-  anything at 76px, so the species icon (24px) is on the chest and the
-  initials under it, above the notch between the legs, which would
-  otherwise cut the letters. The heights are in the path's own units
+- **The initials sit on the body, and the icon crosses the neck.** The
+  head is too small to carry anything at 76px, so the species icon (24px)
+  is on the chest and the initials under it, above the notch between the
+  legs, which would otherwise cut the letters. The icon's top crosses the
+  neck line into the head (the author, 2026-09-25): centred lower, it sat
+  close enough to the initials that the two read as one mark. The heights are in the path's own units
   (`MEEPLE_ICON_CENTER`, `MEEPLE_ROLE_CENTER`, `MEEPLE_SOLO_CENTER`, read
   by `meeple_y`), so they follow the piece rather than the square.
   `test_a_meeple_carries_its_species_over_its_role` checks the icon clears
