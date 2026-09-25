@@ -1178,9 +1178,9 @@ class RulesEngine:
         once it is up (see `D12Ball.close_maneuver_prompt`), so the
         buttons on the message and the buttons the restored view
         dispatches have to agree, and a coach's side that has *already
-        picked* must therefore keep its buttons.
-        `ManeuverActionPromptView.pick` refuses the second click rather
-        than the button being taken away.
+        picked* must therefore keep its buttons -- which is also what
+        lets that coach change the pick while the other side is still
+        choosing (`maneuver_pick_refusal`).
         """
         sides = ["offense"]
         if not match.maneuver_uncontested:

@@ -39,8 +39,24 @@ extra click bought a round trip and nothing else.
   deliberately never edited -- that is [the tightest rate-limit bucket in the
   game](rate-limits.md#discords-rate-limits) -- so the buttons a restored view dispatches have
   to match the buttons sitting on the message. Taking a picked side's row away
-  would leave those clicks answered by nothing. `pick` refuses the second click
-  instead.
+  would leave those clicks answered by nothing.
+- **A second click is a change of pick, while the other side is still
+  choosing** (the author, 2026-09-25). Both cards are revealed together
+  ([Law 6](../living-rules.md#choosing-and-revealing)), so the first one in is a
+  card held face down and may be swapped until the second is down. The rule is
+  `maneuver_pick_refusal` and `MatchState.change_maneuver`; the channel reads "X
+  has changed their maneuver." and the clicker's ephemeral reply names the card
+  it changed to. What is refused is the same card twice, and anything once both
+  are in -- which in practice is never a click at all, since the second pick
+  resolves the maneuver and the prompt goes with it.
+  - **Never against Dinky.** The AI answers its row before the prompt goes up,
+    so a solo coach's first pick is always the second one in. Nothing extra
+    checks for the AI: the window simply never opens.
+  - **Not on the web app yet.** `asked_sides` drops a picked hand -- it has to,
+    or `driver.ai_action` would ask an AI side that has picked to pick again --
+    and the page draws only asked hands, so a web coach's row goes on the first
+    pick. Offering the change there needs a reading of "may still change" beside
+    `asked_sides`, not a change to it.
   - **Not greying them either**, for the same reason and one more: an edit that
     disabled a row would tell the other coach that side had answered. The "X
     has picked their maneuver" message says that already, deliberately and in

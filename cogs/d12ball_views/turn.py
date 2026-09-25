@@ -651,8 +651,10 @@ class ManeuverActionPromptView(SafeView):
     maneuver**, picked or not. The message is deliberately never
     edited, so the buttons a restored view dispatches have to match the
     buttons sitting on the message; taking a picked side's row away
-    would leave those clicks answered by nothing. `pick` refuses the
-    second click instead. Which sides are on it at all is
+    would leave those clicks answered by nothing. A second click is a
+    change of pick while the other side is still choosing, and refused
+    once it is not (`maneuver_pick_refusal`). Which sides are on it at
+    all is
     `RulesEngine.maneuver_pick_sides`.
     """
 
@@ -834,11 +836,16 @@ class ManeuverActionPromptView(SafeView):
         One coach's pick, answered **ephemerally** -- which is the whole
         of what keeps it secret now that the buttons are public. The
         prompt itself is untouched, so the other coach sees no change of
-        any kind.
+        any kind. A second pick is a change, and the reply names the
+        card it changed to; the channel is told only that it changed.
         """
         game, match = await self.require_match(interaction)
         if game is None:
             return
+        changing = (
+            match.offense_maneuver if side == "offense"
+            else match.defense_maneuver
+        ) is not None
 
         refusal = self.pick_refusal(game, match, side, interaction)
 
@@ -864,8 +871,8 @@ class ManeuverActionPromptView(SafeView):
             return
 
         await interaction.response.send_message(
-            "You chose "
-            f"**{self.cog.engine.maneuver_name(maneuver_key)}**.",
+            ("You changed your maneuver to " if changing else "You chose ")
+            + f"**{self.cog.engine.maneuver_name(maneuver_key)}**.",
             ephemeral=True,
         )
 
