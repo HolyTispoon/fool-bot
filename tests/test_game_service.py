@@ -57,7 +57,7 @@ def build_game() -> D12BallGame:
         player_2_id=222,
         player_1_team=Team.ORANGE,
         player_2_team=Team.PURPLE,
-        mode=GameMode.BASIC,
+        mode=GameMode.TRAINING,
         status=GameStatus.IN_PROGRESS,
         home_player_number=1,
         visiting_player_number=2,

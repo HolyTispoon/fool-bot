@@ -47,7 +47,7 @@
       "role": "striker",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "Gets a scoring opportunity instead of own goal when successfully pressuring into  the goal zone.",
+      "advanced_ability": "When successfully pressuring into the goal zone: scoring opportunity instead of own goal.",
       "advanced_skills": {}
     },
     "blazebulk_defender": {
@@ -71,7 +71,7 @@
       "role": "fullback",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "Is only Drained with 10+",
+      "advanced_ability": "Is only drained at 10.",
       "advanced_skills": {}
     },
     "dravox_defender": {
@@ -79,7 +79,7 @@
       "role": "defender",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Resolves defensive gambit's bonuses when winning with skill test.",
       "advanced_skills": {}
     },
     "emberdash_playmaker": {
@@ -87,7 +87,7 @@
       "role": "playmaker",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Dribble Advance up to 3 or Dribble Burst with no exhaustion.",
       "advanced_skills": {}
     },
     "flickerwing_winger": {
@@ -113,7 +113,7 @@
       "role": "playmaker",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "Boost: gain 1 drain for +3.",
+      "advanced_ability": "*Boost*: drain 1 for +3 on a roll.",
       "advanced_skills": {}
     },
     "glompex_midfielder": {
@@ -156,7 +156,7 @@
       "role": "playmaker",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Resolves offensive gambit's bonuses when winning with skill test.",
       "advanced_skills": {}
     },
     "inferno_defender": {
@@ -188,8 +188,11 @@
       "role": "playmaker",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "",
-      "advanced_skills": {}
+      "advanced_ability": "High offensive and defensive skills.",
+      "advanced_skills": {
+        "offense": 6,
+        "defense": 5
+      }
     },
     "pulsar_striker": {
       "name": "Pulsar",
@@ -204,7 +207,7 @@
       "role": "winger",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Before resolving High Pass or Setup Pass, add 3 drain to move Quantor to the target space of the pass. Quantor gains possession without contest.",
       "advanced_skills": {}
     },
     "quillon_playmaker": {
@@ -244,7 +247,7 @@
       "role": "midfielder",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "+3 for Mind Pull.",
+      "advanced_ability": "Mind Pulls succeds on 8+.",
       "advanced_skills": {}
     },
     "spritz_winger": {
@@ -260,7 +263,7 @@
       "role": "midfielder",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "Recharges 2 when stays put. Cost -1 when runs back.",
+      "advanced_ability": "Recharges 2 when stays put. Max 1 drain when runs back.",
       "advanced_skills": {}
     },
     "synapse_playmaker": {
@@ -302,7 +305,7 @@
       "role": "defender",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "Overdrive costs 2 drain.",
+      "advanced_ability": "Overdrive drains 2.",
       "advanced_skills": {}
     },
     "vorix_defender": {

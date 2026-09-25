@@ -120,6 +120,7 @@ class PresentationMixin:
         modifiers: tuple[str, ...] = (),
         contribution: Optional[int] = None,
         halved: bool = False,
+        game: Optional[D12BallGame] = None,
     ) -> ChallengeSide:
         """
         A player as a matchup image draws them. The ability is the
@@ -141,17 +142,20 @@ class PresentationMixin:
         the engine import `d12ball/render.py` -- and Pillow with it,
         in every process that loaded the model. The numbers it reads
         are the catalog's; the colour is `TEAM_COLORS`'s, which lives
-        with the renderer that draws it.
+        with the renderer that draws it. The skill is the game's
+        (`RulesEngine.skills`), so an advanced score is drawn as the
+        dice add it.
         """
         player = self.engine.get_player_definition(player_id)
         profile = self.engine.player_catalog.effective_profile(player)
+        skills = self.engine.skills(game, player_id)
         return ChallengeSide(
             name=player.name,
             role=role_initials(player),
             team_color=TEAM_COLORS[Team(team)],
             team_label=team_display_name(team),
             skill_name="Offensive" if attacking else "Defensive",
-            skill=profile.offense if attacking else profile.defense,
+            skill=skills.offense if attacking else skills.defense,
             ability=profile.short_ability,
             modifiers=modifiers,
             contribution=contribution,
@@ -162,6 +166,7 @@ class PresentationMixin:
         self,
         match: MatchState,
         defender_id: str,
+        game: Optional[D12BallGame] = None,
     ) -> discord.File:
         """
         The matchup about to be contested, as a picture. It stands in
@@ -179,11 +184,13 @@ class PresentationMixin:
                     match.active_player_id,
                     match.team_for_player(match.active_player_id),
                     attacking=True,
+                    game=game,
                 ),
                 self.challenge_side(
                     defender_id,
                     match.team_for_player(defender_id),
                     attacking=False,
+                    game=game,
                 ),
                 location=capitalized(
                     f"{ball_space_label(match)}"
@@ -193,7 +200,11 @@ class PresentationMixin:
             filename="maneuver_challenge.png",
         )
 
-    async def build_score_attempt_file(self, match: MatchState) -> discord.File:
+    async def build_score_attempt_file(
+        self,
+        match: MatchState,
+        game: Optional[D12BallGame] = None,
+    ) -> discord.File:
         """
         What the shot is made of: the shooter with the modifiers this
         particular attempt earns them, and every defender between them
@@ -211,7 +222,7 @@ class PresentationMixin:
         """
         shooter = self.engine.get_player_definition(match.active_player_id)
         speed_modifier = match.ball_speed_modifier()
-        defenders = self.engine.intervening_defenders(match)
+        defenders = self.engine.intervening_defenders(match, game)
         defending_setup = match.setup_for_side(match.defending_side())
 
         modifiers = []
@@ -229,6 +240,7 @@ class PresentationMixin:
                     shooter.player_id,
                     match.team_for_player(shooter.player_id),
                     attacking=True,
+                    game=game,
                     modifiers=tuple(modifiers),
                 ),
                 [
@@ -237,7 +249,8 @@ class PresentationMixin:
                         match.team_for_player(defender.player.player_id),
                         attacking=False,
                         contribution=defender.value,
-                        halved=not defender.on_ball,
+                        halved=defender.halved,
+                        game=game,
                     )
                     for defender in defenders
                 ],
@@ -304,6 +317,7 @@ class PresentationMixin:
                         player.name,
                         ignite.blaze,
                         ignite.modifier,
+                        ignite.rule,
                     ),
                     filename="volatile_ignition_die.png",
                 ),
@@ -315,6 +329,7 @@ class PresentationMixin:
         match: MatchState,
         defender_id: str,
         walk_in_text: str,
+        game: Optional[D12BallGame] = None,
     ) -> None:
         """
         Post the matchup image, with the challenger's walk-in above it
@@ -332,7 +347,9 @@ class PresentationMixin:
             )
         await send_new_prompt(
             interaction,
-            file=await self.build_maneuver_challenge_file(match, defender_id),
+            file=await self.build_maneuver_challenge_file(
+                match, defender_id, game,
+            ),
         )
 
     async def drop_turn_prompt(
@@ -511,6 +528,7 @@ class PresentationMixin:
             title=title,
             species_icons=self.engine.species_abilities_apply(game),
             cyborg_ids=self.engine.cyborg_condition_ids(game, match),
+            card_skills=self.engine.card_skills(game, match),
         )
         return image.getvalue()
 

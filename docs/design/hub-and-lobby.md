@@ -71,9 +71,8 @@ does bar naming specific opponents up front). Two pieces:
   `player_2_id`/`ai_opponent` are **both None** -- and posts a
   `LobbyView` -- Join / Observe / Leave / Start Game, the Test game and Tutorial
   toggles, a **Name** button (opening `LobbyNameModal`, the one text field in
-  the flow), and the mode / board-size / opponent settings -- plus, while
-  Advanced is on, the two module toggles beside the mode buttons (see
-  [Species abilities in the bot](species-abilities.md#species-abilities-in-the-bot)).
+  the flow), and the mode (training, basic or advanced -- see
+  [Modes](species-abilities.md#modes)) / board-size / opponent settings.
   **Nothing may read
   `is_solo_game` off a lobby**: a two-human game also starts with `player_2_id`
   None, and who the opponent is (a second human, Dinky, the creator on both

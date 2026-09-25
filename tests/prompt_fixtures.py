@@ -61,7 +61,7 @@ from d12ball.formatting import (
     format_player_with_team,
     space_label,
 )
-from d12ball.game import D12BallGame, Formation, GameStatus, Team
+from d12ball.game import D12BallGame, Formation, GameMode, GameStatus, Team
 from d12ball import tokens, tutorial
 from d12ball.prompts import maneuver_action_ask, speed_choice_ask
 from roster import fielded
@@ -138,6 +138,7 @@ def build_game(**overrides) -> D12BallGame:
         home_player_number=1,
         visiting_player_number=2,
         status=GameStatus.IN_PROGRESS,
+        mode=GameMode.TRAINING,
     )
     fields.update(overrides)
     return D12BallGame(**fields)

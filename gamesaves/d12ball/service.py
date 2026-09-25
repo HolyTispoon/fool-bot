@@ -420,8 +420,6 @@ class GameService:
         test_game: bool = False,
         tutorial: bool = False,
         mode: GameMode = GameMode.BASIC,
-        advanced_maneuvers: bool = True,
-        species_abilities: bool = True,
         board_size: int = 7,
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
@@ -453,12 +451,6 @@ class GameService:
             test_game=test_game,
             game_name=game_name,
             mode=mode,
-            # Which halves of advanced mode this game plays. They mean
-            # nothing in a basic game and are carried anyway, so a
-            # rematch of a maneuvers-only game that flips to Advanced
-            # in setup comes back as the game it is a rematch of.
-            advanced_maneuvers=advanced_maneuvers,
-            species_abilities=species_abilities,
             status=GameStatus.SETUP,
             board_size=board_size,
             ai_opponent=(

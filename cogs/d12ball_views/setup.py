@@ -17,7 +17,6 @@ from typing import Optional, TYPE_CHECKING
 
 from d12ball.components import RuleRefusal
 from d12ball.game import (
-    ADVANCED_MODULES,
     AIOpponent,
     COLOR_TEAMS,
     CoinFace,
@@ -32,8 +31,8 @@ from d12ball.game import (
 )
 from cogs.d12ball_helpers import (
     AI_OPPONENT_NAMES,
+    GAME_MODE_BUTTONS,
     LOGGER,
-    advanced_module_label,
     build_full_image_button,
     build_home_choice_message,
     build_setup_message,
@@ -74,10 +73,7 @@ class GameConfigurationView(SafeView):
         )
         first_row = self.configuration_start_row(game)
 
-        for label, mode in (
-            ("Basic", GameMode.BASIC),
-            ("Advanced", GameMode.ADVANCED),
-        ):
+        for label, mode in GAME_MODE_BUTTONS:
             button = discord.ui.Button(
                 label=label,
                 style=(
@@ -98,37 +94,6 @@ class GameConfigurationView(SafeView):
 
             button.callback = mode_callback
             self.add_item(button)
-
-        # The two halves of advanced mode ride on the mode row, since
-        # they are what narrows the switch beside them -- and only when
-        # it is switched on, because a basic game plays neither and a
-        # pair of dead buttons says nothing a coach can act on. Four
-        # buttons of Discord's five, so the row still has room.
-        if selected_mode == GameMode.ADVANCED:
-            for module_key in ADVANCED_MODULES:
-                field, _ = ADVANCED_MODULES[module_key]
-                button = discord.ui.Button(
-                    label=advanced_module_label(game, module_key),
-                    style=(
-                        discord.ButtonStyle.success
-                        if getattr(game, field)
-                        else discord.ButtonStyle.secondary
-                    ),
-                    custom_id=(
-                        f"d12ball:module:{self.game_id}:{module_key}"
-                    ),
-                    disabled=configuration_closed,
-                    row=first_row,
-                )
-
-                async def module_callback(
-                    interaction: discord.Interaction,
-                    module_key: str = module_key,
-                ) -> None:
-                    await self.select_module(interaction, module_key)
-
-                button.callback = module_callback
-                self.add_item(button)
 
         for board_size in sorted(VALID_BOARD_SIZES):
             button = discord.ui.Button(
@@ -239,13 +204,6 @@ class GameConfigurationView(SafeView):
         selected_mode: GameMode,
     ) -> None:
         await self.change_setting(interaction, "mode", selected_mode)
-
-    async def select_module(
-        self,
-        interaction: discord.Interaction,
-        module_key: str,
-    ) -> None:
-        await self.change_setting(interaction, "module", module_key)
 
     async def select_ai_opponent(
         self,

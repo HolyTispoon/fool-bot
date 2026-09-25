@@ -636,7 +636,7 @@ class D12BallRunBackAnnouncementTests(
         game = SimpleNamespace(
             match_state=None,
             game_id="g",
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,
         )
@@ -923,7 +923,7 @@ class D12BallNewPlayKickoffTests(
             match_state=None, game_id="g", turn_message_id=None,
             home_player_number=1, visiting_player_number=2,
             player_1_id=1, player_2_id=2, is_solo_game=False,
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True, species_abilities=True,
         )
         # A new play's window is free and unlimited, so one opens here

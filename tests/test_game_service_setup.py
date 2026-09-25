@@ -250,8 +250,6 @@ class ConfigureTests(SetupHarness):
         with self.assertRaises(ValueError):
             self.service.configure(game.game_id, "board", "6")
         self.assertEqual(game.board_size, 7)
-        self.service.configure(game.game_id, "module", "species")
-        self.assertFalse(game.species_abilities)
         self.service.configure(game.game_id, "ai", "dinky")
         self.assertEqual(game.ai_opponent, AIOpponent.DINKY)
         self.service.configure(game.game_id, "name", "  The Cup Final ")
@@ -259,10 +257,14 @@ class ConfigureTests(SetupHarness):
         self.service.configure(game.game_id, "name", "")
         self.assertIsNone(game.game_name)
         self.service.configure(game.game_id, "mode", GameMode.BASIC)
-        # Going back to Basic leaves the modules as they were.
-        self.assertFalse(game.species_abilities)
+        self.assertEqual(game.mode, GameMode.BASIC)
+        self.service.configure(game.game_id, "mode", "training")
+        self.assertEqual(game.mode, GameMode.TRAINING)
+        # The per-module toggles went with the three modes (2026-09-25).
+        with self.assertRaises(ValueError):
+            self.service.configure(game.game_id, "module", "species")
 
-    def test_the_tutorial_pins_basic_seven_and_dinky(self) -> None:
+    def test_the_tutorial_pins_training_seven_and_dinky(self) -> None:
         game = self.open_lobby()
         self.service.configure(game.game_id, "mode", "advanced")
 
@@ -272,10 +274,10 @@ class ConfigureTests(SetupHarness):
         self.assertFalse(game.test_game)
         self.assertEqual(
             (game.mode, game.board_size, game.ai_opponent),
-            (GameMode.BASIC, 7, AIOpponent.DINKY),
+            (GameMode.TRAINING, 7, AIOpponent.DINKY),
         )
         self.assertIn(
-            "Basic-mode", self.refused(self.service.configure, game.game_id, "mode", "advanced"),
+            "Training-mode", self.refused(self.service.configure, game.game_id, "mode", "advanced"),
         )
         self.assertIn(
             "7-space", self.refused(self.service.configure, game.game_id, "board", "9"),
@@ -296,14 +298,9 @@ class ConfigureTests(SetupHarness):
         self.service.configure(game.game_id, "test")
         self.assertEqual((game.test_game, game.tutorial), (True, False))
 
-    def test_the_last_module_on_and_the_decent_ai_are_refused(self) -> None:
+    def test_the_decent_ai_is_refused(self) -> None:
         game = self.open_lobby()
-        self.service.configure(game.game_id, "mode", "advanced")
-        self.service.configure(game.game_id, "module", "maneuvers")
 
-        self.assertIn(
-            "Basic", self.refused(self.service.configure, game.game_id, "module", "species"),
-        )
         self.assertIn(
             "Dinky", self.refused(self.service.configure, game.game_id, "ai", "decent"),
         )

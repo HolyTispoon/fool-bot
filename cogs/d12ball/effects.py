@@ -71,6 +71,7 @@ class ManeuverEffectsMixin:
                 team_display_name(player_team),
                 player.name,
                 roll.pulled,
+                roll.target_label,
             ),
             filename="mind_pull_die.png",
         )

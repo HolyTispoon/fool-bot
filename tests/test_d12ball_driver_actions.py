@@ -684,6 +684,19 @@ def _wrong_overdrive(fixture: PromptFixture) -> dict:
     }
 
 
+def _wrong_boost(fixture: PromptFixture) -> dict:
+    """A player who may not Boost on this roll: Gearclaw alone may."""
+    match = fixture.match
+    if match.active_player_id is None:
+        match.active_player_id = match.home.field_players[0]
+    options = _prompt(fixture).options
+    return {
+        "player_id": _not_offered(
+            options.boost_player_ids, match.home.team_board.bench,
+        ),
+    }
+
+
 def _railed_tutorial(fixture: PromptFixture, key: str, wanted: str) -> None:
     """Put the fixture's game on the beat that rails `key` to `wanted`."""
     beat = next(
@@ -870,6 +883,7 @@ REFUSED_ACTIONS = {
     (PromptKind.SMOOTH, "decline"): _wrong_side_player,
     (PromptKind.OWN_GOAL_ROLL, "roll"): None,
     (PromptKind.OWN_GOAL_ROLL, "overdrive"): _wrong_overdrive,
+    (PromptKind.OWN_GOAL_ROLL, "boost"): _wrong_boost,
     (PromptKind.PLAYER_ACTION, "shoot"): _shot_out_of_range,
     # A maneuver is always on: the position refuses it by kind alone.
     (PromptKind.PLAYER_ACTION, "maneuver"): None,
@@ -889,18 +903,23 @@ REFUSED_ACTIONS = {
     (PromptKind.MANEUVER_ACTION, ""): _card_not_in_hand,
     (PromptKind.INJURY_TEST, "roll"): _wrong_side_player,
     (PromptKind.INJURY_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.INJURY_TEST, "boost"): _wrong_boost,
     (PromptKind.MIND_PULL, "take"): _wrong_side_player,
     (PromptKind.MIND_PULL, "decline"): _wrong_side_player,
     (PromptKind.HALFTIME_EXTRA_TOKEN, ""): _wrong_player,
     (PromptKind.SKILL_TEST, "roll"): None,
     (PromptKind.SKILL_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.SKILL_TEST, "boost"): _wrong_boost,
     (PromptKind.LOOSE_BALL_SKILL_TEST, "roll"): None,
     (PromptKind.LOOSE_BALL_SKILL_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.LOOSE_BALL_SKILL_TEST, "boost"): _wrong_boost,
     (PromptKind.SCORE_ATTEMPT, "roll"): None,
     (PromptKind.SCORE_ATTEMPT, "back"): _ai_side_s_shot,
     (PromptKind.SCORE_ATTEMPT, "overdrive"): _wrong_overdrive,
+    (PromptKind.SCORE_ATTEMPT, "boost"): _wrong_boost,
     (PromptKind.SHOOTOUT_TEST, "roll"): None,
     (PromptKind.SHOOTOUT_TEST, "overdrive"): _wrong_overdrive,
+    (PromptKind.SHOOTOUT_TEST, "boost"): _wrong_boost,
     (PromptKind.LOW_PASS_CHOICE, ""): _wrong_receiver,
     (PromptKind.HIGH_PASS_CHOICE, ""): _wrong_distance,
     (PromptKind.SETUP_PASS_CHOICE, ""): _wrong_distance,

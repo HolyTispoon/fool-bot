@@ -24,21 +24,21 @@ reaches the cards by re-running `scripts/render_player_cards.py`.
 
 **The other side of the card is the same player in advanced mode** --
 not a shared back, since these are dealt face up and nothing about
-them is hidden. `render_player_card_back` draws it: the same header,
-skills and portrait, with the keyword of the player's species ability
-set beside their role ability and the species' short form under it
-where the card has room for it.
+them is hidden. `render_player_card_back` draws it: the same header and
+portrait, **the player's advanced skills** in the stats row, and **their
+personal ability instead of the role's** where they have one (Law 21;
+the author, 2026-09-25), with the keyword of their species ability
+beside it and the species' short form under it where the card has room.
 
-What the back is still waiting on is a decision about the *advanced
-role* ability. The sheet has one for sixteen players since 2026-09-22
-and the catalog carries it (`PlayerDefinition.advanced_ability`, with
-`advanced_skills` beside it), but how the back shows it -- alone, as
-the cards sheet words it, or under the basic sentence, and whether the
-stats row takes the advanced scores -- is the author's to settle; see
-"Blocked or deferred" in docs/rules-log.md. Until then the band repeats
-the basic sentence rather than guessing, and the role half of the band
-and the stats row are the only things that change when it is settled.
+The personal ability replaces the role's *on the card only*: in play a
+player keeps both (the author, 2026-09-25), and the role's sentence is
+on the front. A player whose sheet sentence only names their higher
+skill ("High defensive skill.") prints that sentence, as the sheet words
+it; the numbers above it say how high. A player with no personal
+ability prints their role's sentence on both faces.
 """
+from dataclasses import dataclass
+
 from PIL import Image, ImageFont
 
 from d12ball.cards import (
@@ -211,10 +211,52 @@ def header_subtitle(team: Team, advanced: bool) -> str:
     return f"{name} \u00b7 ADVANCED" if advanced else name
 
 
+@dataclass(frozen=True)
+class CardSkills:
+    """
+    The two numbers a card's stats row prints. Not a `RoleProfile`,
+    because an advanced skill is not held to 1-6 (Hellguard's offence is
+    0) and a `RoleProfile` refuses one.
+    """
+
+    offense: int
+    defense: int
+
+
+def advanced_card_skills(
+    catalog: PlayerCatalog, player: PlayerDefinition,
+) -> CardSkills:
+    """
+    The skills the advanced face prints: the role's, with the player's
+    own advanced scores laid over them where they have any -- the same
+    overlay `RulesEngine.skills` plays in an advanced game (Law 21,
+    "Advanced skills").
+    """
+    profile = catalog.effective_profile(player)
+    return CardSkills(
+        offense=player.advanced_skills.get("offense", profile.offense),
+        defense=player.advanced_skills.get("defense", profile.defense),
+    )
+
+
+def advanced_card_ability(
+    catalog: PlayerCatalog, player: PlayerDefinition,
+) -> str:
+    """
+    The sentence the advanced face prints: the player's personal
+    ability as the sheet words it, or the role's where they have none.
+    Never shortened here -- see "Every ability is imported twice".
+    """
+    return (
+        player.advanced_ability
+        or catalog.effective_profile(player).ability
+    )
+
+
 def draw_stats(
     pen: Pen,
     player: PlayerDefinition,
-    profile: RoleProfile,
+    profile: "RoleProfile | CardSkills",
     top: float,
 ) -> None:
     """
@@ -460,7 +502,7 @@ def species_short_fits(
 
     **Asked of the species rather than of the card**, which is the
     whole point: how much of the band a card has left depends on how
-    long its *role* ability runs, so asked per card the answer comes
+    long the ability it prints runs (`advanced_card_ability`), so asked per card the answer comes
     out differently for a Fire Demon fullback and a Fire Demon striker
     -- and a set where two cards carrying the same species line
     disagree about whether it is on there reads as a misprint rather
@@ -483,7 +525,7 @@ def species_short_fits(
     players = list(species_players(catalog, species))
     fits = bool(short and players) and all(
         advanced_ability_lines(
-            pen, catalog.effective_profile(player).ability, short
+            pen, advanced_card_ability(catalog, player), short
         )[2]
         <= ADVANCED_BAND_HEIGHT
         for player in players
@@ -694,13 +736,11 @@ def render_player_card_back(
     above, not a shared back: these are dealt face up and there is
     nothing about a player to hide.
 
-    What makes it the advanced one is the species keyword beside the
-    role ability, since a species ability is only ever in play in an
-    advanced game (see "Species abilities in the bot" in docs/design/species-abilities.md).
-    The role sentence itself is still the basic one: the sheet's
-    advanced abilities are imported but how the back shows them is
-    not decided (see the module docstring) -- the band's role half is
-    what changes when it is.
+    What makes it the advanced one is what advanced mode plays for this
+    player: their advanced skills in the stats row, and their personal
+    ability in the band where they have one (`advanced_card_skills`,
+    `advanced_card_ability`; see the module docstring), with the
+    species keyword beside it.
 
     **The ability band starts at a fixed height on this face**, so the
     species badge on its heading row is in the same place on every card
@@ -713,12 +753,16 @@ def render_player_card_back(
     by card -- see `species_short_fits`. Which species carry the extra
     line is decided by the data rather than by a list here.
     """
-    profile = catalog.effective_profile(player)
     color = TEAM_COLORS[Team(team)]
     pen = start_card(color)
 
     draw_header(pen, player, team, color, header_subtitle(team, True))
-    draw_stats(pen, player, profile, FRAME + HEADER_HEIGHT + STATS_TOP_GAP)
+    draw_stats(
+        pen,
+        player,
+        advanced_card_skills(catalog, player),
+        FRAME + HEADER_HEIGHT + STATS_TOP_GAP,
+    )
 
     short = (
         species_ability(player.species)["ability_short"]
@@ -726,7 +770,7 @@ def render_player_card_back(
         else ""
     )
     role_lines, short_lines, _ = advanced_ability_lines(
-        pen, profile.ability, short
+        pen, advanced_card_ability(catalog, player), short
     )
 
     draw_portrait(

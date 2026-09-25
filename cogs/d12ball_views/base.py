@@ -12,7 +12,6 @@ from typing import Awaitable, Callable, Optional
 
 from d12ball.components import (
     OVERDRIVE_BONUS,
-    OVERDRIVE_DRAIN_COST,
     MatchState,
     RuleRefusal,
 )
@@ -26,6 +25,7 @@ from d12ball.render import (
     render_skill_test_dice,
 )
 from d12ball.flow.driver import STEP_OWED, Action
+from d12ball.personal_abilities import BOOST_BONUS, BOOST_DRAIN_COST
 from d12ball.formatting import contestant_detail  # noqa: F401 -- re-exported
 from d12ball.prompts import PromptKind, pending_prompt
 from gamesaves.d12ball.service import CarryFrom, GameResult
@@ -480,7 +480,7 @@ class SafeView(discord.ui.View):
         self,
         game: D12BallGame,
         match: MatchState,
-        player_ids,
+        options,
     ) -> None:
         """
         Put an Overdrive button on this roll prompt for every Cyborg
@@ -493,22 +493,36 @@ class SafeView(discord.ui.View):
         press (see "Every roll is a coach's"). So it is a second button
         on the same message rather than a step of its own: the coach
         whose Cyborg it is presses it, the message says so, and
-        whoever was going to press Roll still does. `player_ids` is
-        the prompt's `RollOptions.overdrive_player_ids`: whoever is
-        rolling here and may still declare, which the prompt knows
-        (`d12ball.prompts.OVERDRIVE_ROLLERS`).
+        whoever was going to press Roll still does. `options` is the
+        prompt's `RollOptions`: whoever is rolling here and may still
+        declare, which the prompt knows
+        (`d12ball.prompts.OVERDRIVE_ROLLERS`), what each Overdrive
+        drains, and who may Boost instead (Gearclaw, Law 21).
 
         The button is **not** built for a Cyborg who has already
         declared -- "once per roll" -- so a message that has been
         clicked comes back with one fewer button, which is also how a
         coach can see the declaration took.
         """
-        for player_id in player_ids:
+        for player_id in options.boost_player_ids:
+            player = self.cog.engine.get_player_definition(player_id)
+            button = discord.ui.Button(
+                label=(
+                    f"⚡ Boost: {player_with_role(player)} "
+                    f"(drain {BOOST_DRAIN_COST}, +{BOOST_BONUS})"
+                )[:80],
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"d12ball:boost:{self.game_id}:{player_id}",
+            )
+            button.callback = self.declare_boost
+            self.add_item(button)
+        for player_id in options.overdrive_player_ids:
             player = self.cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
                 label=(
                     f"⚡ Overdrive: {player_with_role(player)} "
-                    f"(drain {OVERDRIVE_DRAIN_COST}, +{OVERDRIVE_BONUS})"
+                    f"(drain {options.overdrive_cost(player_id)}, "
+                    f"+{OVERDRIVE_BONUS})"
                 )[:80],
                 style=discord.ButtonStyle.secondary,
                 # The player is in the custom_id as well as the match's
@@ -524,6 +538,17 @@ class SafeView(discord.ui.View):
 
     async def declare_overdrive(
         self, interaction: discord.Interaction,
+    ) -> None:
+        await self.declare_before_roll(interaction, "overdrive")
+
+    async def declare_boost(
+        self, interaction: discord.Interaction,
+    ) -> None:
+        """Gearclaw's Boost (Law 21), answered as an Overdrive is."""
+        await self.declare_before_roll(interaction, "boost")
+
+    async def declare_before_roll(
+        self, interaction: discord.Interaction, choice: str,
     ) -> None:
         """
         Answer an Overdrive button: charge the 3 drain, record the
@@ -545,7 +570,7 @@ class SafeView(discord.ui.View):
         ):
             await interaction.response.send_message(
                 "Only the coach whose player that is can declare "
-                "Overdrive for them.",
+                f"{choice.title()} for them.",
                 ephemeral=True,
             )
             return
@@ -568,7 +593,7 @@ class SafeView(discord.ui.View):
         result = await self.apply(
             interaction,
             game,
-            Action(waiting.kind, "overdrive", {"player_id": player_id}),
+            Action(waiting.kind, choice, {"player_id": player_id}),
         )
         if result is None:
             return

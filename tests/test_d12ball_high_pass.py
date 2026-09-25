@@ -39,7 +39,7 @@ from d12ball.ai import DinkyAI
 from d12ball.prompts import DistanceOptions, PendingPrompt, PromptKind
 from ai_answers import solo_game
 from d12ball.engine import RulesEngine
-from d12ball.game import D12BallGame, Team
+from d12ball.game import D12BallGame, GameMode, Team
 from roster import display_name, fielded
 from space_codes import code
 from flow_stubs import driver_reaches_cog_stubs
@@ -81,6 +81,7 @@ def build_game() -> D12BallGame:
         player_2_team=Team.PURPLE,
         home_player_number=1,
         visiting_player_number=2,
+        mode=GameMode.TRAINING,
     )
 
 

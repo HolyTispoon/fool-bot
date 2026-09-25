@@ -167,6 +167,7 @@ def build_game(**overrides) -> D12BallGame:
         home_player_number=1,
         visiting_player_number=2,
         status=GameStatus.IN_PROGRESS,
+        mode=GameMode.TRAINING,
     )
     fields.update(overrides)
     return D12BallGame(**fields)

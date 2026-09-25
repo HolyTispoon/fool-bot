@@ -36,8 +36,6 @@ from dataclasses import dataclass, replace
 from typing import Optional
 
 from d12ball.components import (
-    MIND_PULL_SUCCESS_FACES,
-    MIND_PULL_TOKEN_COST,
     MatchState,
     RuleRefusal,
     SPECIES_TELEKINETIC,
@@ -292,12 +290,20 @@ def continue_mind_pull(
 
         player = engine.get_player_definition(player_id)
         mind_pull_emoji = tokens.species(SPECIES_TELEKINETIC)
+        cost = engine.mind_pull_cost(game, player_id)
+        price = f" for {cost} exhaustion" if cost else ""
+        # Noxar is offered a ball that only passed beside them (Law 21).
+        on_path = (
+            list(match.board.meeple_position(player_id))
+            in [list(space) for space in match.last_ball_path]
+        )
+        crossed = "crossed" if on_path else "passed beside"
         return StepResult(
             next=PendingPrompt(
                 PromptKind.MIND_PULL,
-                f"The ball crossed {engine.format_player_label(match, player)}, "
-                f"who may {mind_pull_emoji} Mind Pull it for "
-                f"{MIND_PULL_TOKEN_COST} exhaustion.",
+                f"The ball {crossed} "
+                f"{engine.format_player_label(match, player)}, "
+                f"who may {mind_pull_emoji} Mind Pull it{price}.",
                 player_id=player_id,
             ),
         )
@@ -1066,12 +1072,8 @@ def begin_loose_ball_skill_test(
 
     offense_player = engine.get_player_definition(offense_player_id)
     defense_player = engine.get_player_definition(defense_player_id)
-    offense_skill = engine.player_catalog.effective_profile(
-        offense_player,
-    ).offense
-    defense_skill = engine.player_catalog.effective_profile(
-        defense_player,
-    ).defense
+    offense_skill = engine.skills(game, offense_player.player_id).offense
+    defense_skill = engine.skills(game, defense_player.player_id).defense
 
     # Who is defending what differs between the two: a High Pass's
     # receiver already has the ball and is being challenged for it,
@@ -1196,9 +1198,7 @@ def begin_own_goal_roll(
     match.pending_own_goal_distance = distance_moved
 
     offense_player = engine.get_player_definition(match.active_player_id)
-    offense_skill = engine.player_catalog.effective_profile(
-        offense_player,
-    ).offense
+    offense_skill = engine.skills(game, offense_player.player_id).offense
     mention = address_coach(
         engine.controlling_player_number(
             game, match, offense_player.player_id,
@@ -1419,6 +1419,16 @@ class MindPullRoll:
     roll: int
     pulled: bool
     ignite: object
+    # The lowest total that lands: 11, or Spectra's 8 (Law 21).
+    minimum: int = 11
+
+    @property
+    def target_label(self) -> Optional[str]:
+        """
+        The band the die image names where it is not the rule's own --
+        None for the ordinary 11-12, which the renderer words itself.
+        """
+        return f"pulls on {self.minimum}+" if self.minimum != 11 else None
 
     def to_dict(self) -> dict:
         return {
@@ -1427,6 +1437,7 @@ class MindPullRoll:
             "roll": self.roll,
             "pulled": self.pulled,
             "ignite": jsonable(self.ignite),
+            "minimum": self.minimum,
         }
 
 
@@ -1498,8 +1509,13 @@ def attempt_mind_pull_step(
     if player_id in match.injured:
         return None, continue_mind_pull(engine, game, match)
 
-    exhaustion_text = engine.apply_exhaustion(
-        game, match, player_id, MIND_PULL_TOKEN_COST,
+    cost = engine.mind_pull_cost(game, player_id)
+    # Quillon pulls for nothing (Law 21), and a move that costs nothing
+    # says nothing.
+    exhaustion_text = (
+        engine.apply_exhaustion(game, match, player_id, cost)
+        if cost
+        else ""
     )
     roll = scripted_or_random(engine, game, "mind_pull", 1)[0]
     # Volatile is a Fire Demon's and this is a Telekinetic's roll, so
@@ -1507,7 +1523,9 @@ def attempt_mind_pull_step(
     # rather than assuming the two can never meet.
     ignite = engine.ignite(game, player_id, roll)
     total = roll + ignite.modifier
-    pulled = total in MIND_PULL_SUCCESS_FACES
+    # 11 or more, or Spectra's 8 (Law 21) -- `mind_pull_minimum`.
+    minimum = engine.mind_pull_minimum(game, player_id)
+    pulled = total >= minimum
 
     # The die image draws the natural face, exactly as the injury
     # test's does, so an ignite has to be said in words or the number a
@@ -1520,7 +1538,7 @@ def attempt_mind_pull_step(
         f"ball{ignite_note}.",
         exhaustion_text,
     )))
-    numbers = MindPullRoll(player_id, roll, pulled, ignite)
+    numbers = MindPullRoll(player_id, roll, pulled, ignite, minimum)
 
     if not pulled:
         # The resume is left exactly as it was: the next Telekinetic in

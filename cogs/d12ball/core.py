@@ -1035,7 +1035,7 @@ class CoreMixin:
         """
         composition_message = await send_new_prompt(
             interaction,
-            file=await self.build_score_attempt_file(match),
+            file=await self.build_score_attempt_file(match, game),
         )
 
         # The one thing the image doesn't show is how the two rolls are
@@ -1585,6 +1585,7 @@ class CoreMixin:
                 match,
                 group.arguments["challenger_id"],
                 " ".join(lines),
+                game,
             )
             return
         if group.action is not None:

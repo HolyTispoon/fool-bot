@@ -42,7 +42,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.game import D12BallGame, GameStatus, Team
+from d12ball.game import D12BallGame, GameMode, GameStatus, Team
 from save_patches import suppressed_cog_saves
 from cog_steps import build_effect_choice_view, resolve_maneuver
 
@@ -82,6 +82,7 @@ def build_game() -> D12BallGame:
         status=GameStatus.IN_PROGRESS,
         home_player_number=1,
         visiting_player_number=2,
+        mode=GameMode.TRAINING,
     )
 
 
