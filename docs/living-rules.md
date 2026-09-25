@@ -1185,7 +1185,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Goopkeeper blocks in full.** In a [score attempt](#score-attempt), Goopkeeper adds their full defensive skill to the defense when standing beyond the ball, rather than half.
 
-**Acidel turns a pressure into a shot.** When Acidel is the challenger whose won [Pressure](#pressure) or [Double Team](#double-team) would risk an [own goal](#own-goal), Acidel's side takes the ball and Acidel has a [scoring opportunity](#scoring-opportunities) from that space instead. Declining it leaves the own-goal roll, as the maneuver would otherwise have resolved.
+**Acidel turns a pressure into a shot.** When Acidel is the challenger whose won [Pressure](#pressure) or [Double Team](#double-team) would risk an [own goal](#own-goal), there is no own-goal roll: Acidel's side takes the ball, at speed 1, and Acidel has a [scoring opportunity](#scoring-opportunities) from that space. Declining it leaves Acidel's side holding the ball where it stands.
 
 ## Appendix A. Quick reference
 

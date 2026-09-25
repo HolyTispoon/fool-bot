@@ -184,6 +184,9 @@ with the rule the author gave on 2026-09-22.
 - **Noxar's adjacent pull lands on Noxar's space.** The cell says only "can Mind Pull adjacent
   spaces"; a pull brings the ball to the puller everywhere else.
 - **Acidel's ability covers Double Team**, the advanced version of Pressure, as well as Pressure.
+- **Acidel's declined shot leaves the ball with Acidel's side.** "Replaces the own goal" is read
+  as the own-goal roll being gone entirely, so a declined set-up resolves as the Intercept
+  overshoot's does: the side that took the ball keeps it where it stands.
 - **Spectra pulls on 11 or more**, since +3 carries a total past 12.
 
 ### 2026-09-25 -- author, three modes: training, basic and advanced
