@@ -287,8 +287,10 @@ class TokenTests(unittest.TestCase):
         """
         rendered = render_text(build_game(), "## **Goal!**\nA *quiet* note.")
 
-        self.assertIn('<span class="headline"><strong>Goal!</strong></span>',
-                      rendered)
+        self.assertIn(
+            '<span class="headline h2"><strong>Goal!</strong></span>',
+            rendered,
+        )
         self.assertIn("<em>quiet</em>", rendered)
 
     def test_a_sentence_is_escaped_and_then_tokenised(self) -> None:
@@ -300,7 +302,9 @@ class TokenTests(unittest.TestCase):
         self.assertIn("A &lt;script&gt;", rendered)
         self.assertIn("&lt;b&gt;", rendered)
         self.assertNotIn("{team:", rendered)
-        self.assertIn("ring", rendered)
+        # The bot's own emoji, as a Discord message draws them.
+        self.assertIn('src="/emoji/team_orange.png"', rendered)
+        self.assertIn('src="/emoji/exhausted.png"', rendered)
 
 
 class WebAppTests(unittest.IsolatedAsyncioTestCase):

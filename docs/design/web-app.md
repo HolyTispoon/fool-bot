@@ -144,9 +144,11 @@ overridden still exists.
 ## What a page is handed
 
 A poll every two and a half seconds, and the whole state each time:
-the scoreboard, a board URL whose version changes when anything a
-board draws has moved, the prompt with its controls, and the
-narration since the entry the page last saw. There is no websocket
+the scoreboard, the board as a layout (`webapp/board.py`, below), the
+prompt with its controls, and the narration since the entry the page
+last saw -- each entry with its time and, where the run stopped to
+draw a position, that position's layout too -- and the chat since the
+message the page last saw. There is no websocket
 and no diffing -- a game of D12 Ball is a few clicks a minute, and
 the simplest thing that is always right is a re-read.
 
@@ -181,30 +183,101 @@ batching, which is the frontend's (principle 8):
   a pair of names are one control with two menus on it rather than
   two steps. The *answer* is the same one `Action`.
 
-## The pictures, and the voice
+## The page
 
-The board is the bot's own picture: `render_match_image` with
-`RulesEngine.cyborg_condition_ids`, in a worker thread, read-only, so
-it never goes near the driver (ARCHITECTURE.md, "State-changing and
-read-only operations"). A group the run stopped to draw is drawn from
-the snapshot the service took at that stop, which is what
-`Narration.board` carries -- so a page's picture of a loose ball is
-the position the ball was loose in, not the position after it was
-won. The cog's own `cyborg_condition_ids` moved onto the engine to
-make that possible: which players draw a Cyborg's condition marks is
-`has_species_ability` asked of everybody a mark would be drawn
-against, which is a rule and not a rendering brief.
+**Two columns in Discord's colours** (2026-09-25, the author, after
+seeing a page built as a Discord channel and finding it too much like
+one). On the left, the board, and under it the prompt -- the ask and
+its controls, marked when they are this coach's -- which is the page's
+original shape. On the right, three panels: the jumbotron, the game
+log and the chat.
+
+**A phone is one screen, not a long page.** The jumbotron and the
+board stay on it; under them three tabs -- Move, Log, Chat -- switch
+what fills the rest, and only the tab showing scrolls. A tab that is
+not showing is marked when something new arrives in it, gold on Move
+when the prompt is this coach's. Stacking all five panels made a page
+a coach scrolled past the board to answer and past the answer to read
+what happened, which is the opposite of a table.
+
+- **The jumbotron has its own panel.** It is the board's jumbotron --
+  both teams in their colours, the score, the minute and the half,
+  in the board's typefaces -- with the coach behind each team under
+  it, taken off the board so the field has the room.
+- **The benches open on demand.** Each team's bench and back bench
+  is behind a button under the board: shown while the pointer is on
+  it, kept open by a click. The board shows the field; a coach looks
+  at a bench when they are thinking about a substitution, and the
+  cards are the same cards either way.
+- **The log is the original one**: each entry a block with an edge,
+  a new play's in blurple, and a position the run stopped at drawn
+  small inside its entry, opening full size.
+- **The chat is people talking** (step 4 of the worksheet, in
+  memory for now): anybody reading the page may post, a coach under
+  their name off the record in their team's colour and anybody else
+  as an observer. It rides on the poll with its own cursor
+  (`chat_since`), is bounded like the journal, and goes nowhere near
+  the service. A message is plain text, handed over as written and
+  drawn as text -- never the model's markdown or tokens, because it
+  is not the model's voice. A restart empties it, as it empties the
+  journal.
+
+**The buttons are Discord's**: four colours and one shape, and each
+control carries its colour (`style`) from `webapp/present.py`, set to
+what the Discord view puts on the same button -- Maneuver blurple,
+Shoot to score red, Time out grey; a roll blurple and a shot's or an
+own goal's red; yes blurple and no grey; Done green; the offense's
+cards red and the defense's green. The colour is the frontend's
+(principle 8), so it is set in the web app's builders beside the
+labels, not read from the model. The Coaching Choice is a button per
+menu, opened in place with a Back, because that is how the hub walks a
+coach through it on Discord; the answers are the same `Action`s the
+page always sent.
+
+**The board is drawn in HTML, in the bot's layout** (the jumbotron
+and the team boards moved beside it, as above) --
+[board-image.md](board-image.md), "The web page's board". It is not
+the PNG because the cards on it have to be cards: each is the board's
+own face of that player (`render.build_player_card`), which opens as
+the printed card with its whole ability on a click
+(`player_cards.render_player_card`, its advanced face in a game with
+the species abilities on), and previews under a pointer. A maneuver
+prompt's hand is the printed maneuver cards, and pressing one plays
+it. Every one of those pictures is the model's own drawing, served by
+`webapp/pictures.py` in a worker thread and cached; the page draws no
+card of its own. The PNG is still served, and a board opened full size
+links to it, as the bot's "View full image" button does. A snapshot
+entry is drawn from the layout of the position the service stopped
+at, which is what `Narration.board` carries, so a page's picture of a
+loose ball is the position the ball was loose in, not the position
+after it was won.
+The cog's own `cyborg_condition_ids` moved onto the engine to make
+the board possible at all: which players draw a Cyborg's condition
+marks is `has_species_ability` asked of everybody a mark would be
+drawn against, which is a rule and not a rendering brief.
+
+**What the layout may carry is what the PNG reads.** `board_layout`
+reads the position the way `render_match_image` reads it and asks the
+renderer's own functions for everything the PNG works out from the
+rules -- the space codes, the zone labels, the range bands, whose
+marks are a Cyborg's, whether a meeple carries a species icon. The
+page lays out what it is handed; it decides nothing, which is
+`tests/test_web_board.py`'s check: the layout against the match it
+read.
 
 **The tokens are rendered at this frontend's door**, the way the cog
-renders them at its own: a team is the ring `render.py` draws it in,
-a role a badge, a coach their name off the record. `render_text`
-escapes first, renders the narration's own markdown second, and the
-tokens third, and the order is the whole of what makes it safe --
-rendering tokens first would put markup in front of the escape, and
-running the markdown after them would read an emitted attribute as
-emphasis. The markdown is rendered rather than stripped because the
-model's sentences are written in it (principle 5): Discord's client
-draws it for the bot, and this draws it here.
+renders them at its own, and with the same pictures: a team is its
+team emoji, a role the role badge edged in the team's colour, a
+condition its mark -- the PNGs the bot uploads as application emoji,
+served from `d12ball/images/emoji/` -- and a coach their name off the
+record. `render_text` escapes first, renders the narration's own
+markdown second, and the tokens third, and the order is the whole of
+what makes it safe -- rendering tokens first would put markup in
+front of the escape, and running the markdown after them would read
+an emitted attribute as emphasis. The markdown is rendered rather
+than stripped because the model's sentences are written in it
+(principle 5): Discord's client draws it for the bot, and this draws
+it here, headlines at all three of the levels the model writes.
 
 ## What it does not do yet
 
@@ -212,10 +285,12 @@ draws it for the bot, and this draws it here.
   finished one's rematch is the cog's; the web app plays a game that
   exists. The service has the setup methods (step 8), so the page
   that does it is work rather than a question.
-- **It does not draw the pictures a prompt rides on** -- the hand of
-  cards, the field strip, the challenge image, the dice. They are
-  `D12Ball.render_prompt`'s, keyed on the kind, and the web page
-  shows the ask and the controls instead. The numbers behind a roll
-  are on the wire (`GameResult.detail`) for the page that draws them.
+- **It does not draw most of the pictures a prompt rides on** -- the
+  field strip, the challenge image, the coach's half-field, the dice.
+  They are `D12Ball.render_prompt`'s, keyed on the kind, and the web
+  page shows the ask, the controls and the live board beside them
+  instead. The hand of cards is the one it draws, as the cards
+  themselves. The numbers behind a roll are on the wire
+  (`GameResult.detail`) for the page that draws them.
 - **It keeps its journal in memory**, so a restart is a page with a
   board, a prompt and no history.

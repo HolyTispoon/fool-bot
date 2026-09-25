@@ -510,6 +510,15 @@ open. The author asked for it (2026-09-25). It comes before the
 playtest because a playtest with three people and no way to talk in
 the room is a playtest of the wrong thing.
 
+**Partly done by the page's rebuild (2026-09-25).** The chat panel
+is on the page, under the journal, and works: `POST
+/api/game/{id}/chat`, anybody reading may post (a coach under their
+name off the record, anybody else as "Observer"), plain text, riding
+on the poll with a `chat_since` cursor, bounded at 200 messages. It is
+in memory, like the journal, and keyed by game rather than room. What
+this step still owes is the rest of what is below: the room's own
+file, and the name on a person's cookie in place of the seat's.
+
 **What it is.** A chat panel beside the journal, one message list
 per room, everyone in the room may post (coaches and observers, by
 the name on their cookie), and the messages ride on the poll the
@@ -773,6 +782,16 @@ coaching kinds) and drawn by `render_field_image`,
 `render_coaching_image` and `render_maneuver_challenge`, none of which
 import Discord. The kind is the key, as it is in the cog; a page that
 looked at `match.challenger_id` to decide would be a second reading.
+
+**Partly done by the page's rebuild (2026-09-25).** The hand is on the
+page: the maneuver prompt's buttons are the printed maneuver cards
+(`cards.render_maneuver_card`, served by `webapp/pictures.py`), red for
+the offense and green for the defense, and pressing one plays it. And
+the board beside the prompt is now drawn in the bot's layout with the
+cards on it, so the field strip matters less on the web than it does
+in a channel where the board is far up the scroll. What is left is the
+strip, the shot image, the half-field and the challenge image, and the
+first item below drops the hand.
 An observer gets the field strip and the half-field and never a hand.
 
 **Prompt.**
@@ -787,13 +806,12 @@ docs/web-app-next.md has landed.
    webapp/present.py from PromptKind to a renderer (the web half of
    D12Ball.render_prompt in cogs/d12ball/core.py):
    - the seven FIELD_PROMPT_KINDS: render.render_field_image;
-   - MANEUVER_ACTION: cards.render_maneuver_hands with this seat's
-     hand only, off the prompt's options (the rows the page already
-     sends), never off the match; null for an observer;
    - SCORE_ATTEMPT: render.render_score_attempt with sides from the
      moved challenge_side;
    - COACHING_HUB and COACHING_OFFER: render.render_coaching_image for
      the asked side, titled with engine.coaching_title.
+   (MANEUVER_ACTION is not on the list: its hand is already drawn,
+   as the cards themselves, by the page's rebuild.)
    Serve it at GET /api/room/{game_id}/prompt.png?v=<board version>,
    rendered in asyncio.to_thread, cached with the boards.
 2. The challenge image is an entry picture: the group tagged
@@ -803,8 +821,7 @@ docs/web-app-next.md has landed.
 3. app.js draws the prompt picture above the controls and the
    challenge image inside its entry.
 4. Tests: one fixture per kind above, GET the picture, assert a PNG
-   of the renderer's size; assert seat 2's MANEUVER_ACTION picture is
-   seat 2's hand and an observer's is null. Both purity ratchets
+   of the renderer's size. Both purity ratchets
    still pass.
 
 Update docs/design/web-app.md. PR against the template.
@@ -866,12 +883,17 @@ against the template.
 
 **What it is.** Three things the playtest in step 5 orders:
 
-- **Layout.** Two columns on a laptop, one on a phone with the board
-  scaled to the width and the prompt pinned at the bottom; a tap on
-  the board opens it full size. No framework, no build step.
+- ~~**Layout.**~~ Done by the page's rebuild (2026-09-25), in the
+  shape the author asked for then: Discord's colours, the board with
+  its cards and the prompt under it, and on the right the jumbotron,
+  the game log and a chat. Two columns on a laptop, one on a phone
+  with the board scaled to the width; a tap on the board opens it
+  full size. No framework, no build step. See
+  `docs/design/web-app.md`, "The page, and why it looks like Discord".
 - **Your turn.** A mark in the tab title when the prompt is this
-  seat's, and one notification per prompt that is theirs, asked for
-  once. `prompt.yours` is already on the wire.
+  seat's (done by the rebuild), and one notification per prompt that
+  is theirs, asked for once (not yet). `prompt.yours` is already on
+  the wire.
 - **The journal survives a restart.** Each room's journal written to
   `data/d12ball_web_journal.json` on every `add` (frontend state, its
   own file, never the save) and read at start, bounded as in memory,
@@ -890,19 +912,13 @@ on the entry point's wiring).
 ```text
 Read CLAUDE.md, docs/design/web-app.md, docs/design/gotchas.md
 ("data/ is untracked runtime state") and docs/design/testing.md.
-Branch off an up-to-date main. Five commits, each reviewable alone.
+Branch off an up-to-date main. Four commits, each reviewable alone.
+(The layout, once item 1, landed with the page's rebuild.)
 
-1. Layout. game.html and app.css: two columns from 900px up (board
-   left; scoreboard, seats, prompt and journal right), one column
-   below with the board at full width and the prompt sticky at the
-   bottom; a click on the board opens it at full size in a <dialog>.
-   Check in a real browser at 360px and 1280px and put screenshots in
-   the PR. No framework, no build step, no CDN.
-2. Your turn. app.js: when state.prompt.yours turns true, prefix the
-   title with a mark and, if Notification permission was granted (ask
-   once, on the first control pressed, never on load), fire one
-   notification per prompt naming the ask; clear the mark when the
-   prompt changes.
+2. Your turn. app.js already prefixes the title with a mark while
+   state.prompt.yours is true. Add: if Notification permission was
+   granted (ask once, on the first control pressed, never on load),
+   fire one notification per prompt naming the ask.
 3. The journal survives a restart. Journal writes itself on every add
    to data/d12ball_web_journal.json (keyed by game id, the same
    JOURNAL_LENGTH bound, entries with their snapshots and details)
