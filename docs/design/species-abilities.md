@@ -8,42 +8,48 @@ The four abilities as the engine plays them. The rules are
 [Species abilities](../living-rules.md#species-abilities) and are settled;
 what is here is how they are wired, and the reasoning the rules do not carry.
 
-**Advanced mode is one switch over two modules** -- the gambits
-and these (the author, PR #177 review). Turning it on brings both, and a game
-may then take just one.
+### Modes
 
-- **`GameMode` stays BASIC/ADVANCED and the opt-out is two bools on the game
-  record**, `advanced_maneuvers` and `species_abilities`, both defaulting
-  True. They are opt-*outs*, not opt-ins: a game is basic or advanced (one
-  switch, which is what a coach picks and what every existing save carries)
-  and these two say what an advanced game left behind. Defaulting True is
-  what makes every advanced game played before them read as both modules on,
-  which is what those games were. A third `GameMode` value would have made
-  "advanced" three things a coach has to tell apart.
-- **A coach picks them in setup, as two toggles beside the mode buttons**,
-  and both screens build them out of one table: `ADVANCED_MODULES` in
-  `d12ball/game.py` (re-exported by `cogs/d12ball_helpers.py`), keyed by
-  the word the button carries in its custom_id and naming the field it
-  toggles. `D12BallGame.toggle_advanced_module` is the click, reached
-  through `GameService.configure` by `GameConfigurationView.select_module`
-  (the settings block on `CoinFlipView`) and the lobby's `change_setting`
-  alike, so the two screens cannot come to offer different modules or
-  disagree about which may be turned off.
-  - **They are offered only while Advanced is on**, on the mode row itself --
-    four buttons of Discord's five -- because they are what narrows the
-    switch beside them. A basic game plays neither, and two dead buttons say
-    nothing a coach can act on.
-  - **The last module still on is refused, not silently ignored.** Both off
-    is a basic game reached the long way round, and the mode buttons are
-    right there. That refusal is the reason the two bools need no third
-    state.
-  - **Picking Basic leaves them as they are.** They mean nothing in a basic
-    game (`gambits_apply` folds the mode in), so undoing them
-    would only cost a coach their pick to a mis-click on the mode.
-  - **A rematch carries them**, alongside the mode and board size, which is
-    why `open_new_game` takes them at all -- `/d12ball create_game` settles
-    everything else in setup and settles these there too.
-- **Nothing may read either bool to decide a rule.**
+**There are three modes, each adding to the one before** (the author,
+2026-09-25): training plays no ability, basic adds the species abilities,
+advanced adds the gambits and the personal abilities. Until then advanced
+mode was one switch over two modules (the gambits and these) with an
+opt-out for each (PR #177 review); the ruling moved these into basic and
+named three modes to offer, so the opt-outs went from the screens.
+
+- **`GameMode` is TRAINING/BASIC/ADVANCED, and `basic` kept its saved
+  value.** The value is the save format (CLAUDE.md: don't rename saved
+  keys), and a new value for the old meaning would have needed a
+  migration pass to rewrite every save. So an unfinished basic game saved
+  before 2026-09-25 plays on as a basic game with the species abilities
+  on. That is the rules change reaching a game in progress, which nothing
+  in the record can tell apart from a game started today.
+  - **The tutorial is the one exception, and it is held in
+    `species_abilities_apply`** rather than by rewriting its mode: a
+    tutorial saved as `basic` has scripted beats written for a game
+    without species abilities, so the engine answers "no" for any game
+    with `tutorial` set. New tutorials are created as `training`
+    (`D12BallGame.configure` pins it with the 7-space board and Dinky).
+- **The three buttons are one table**, `GAME_MODE_BUTTONS` in
+  `cogs/d12ball_helpers.py`, which the setup settings block
+  (`GameConfigurationView.add_configuration_buttons`) and the lobby both
+  build their mode row from. Three buttons of Discord's five, on the row
+  the mode and its two module toggles used to share.
+- **The two opt-outs stay on the record and are still read**,
+  `advanced_maneuvers` and `species_abilities`, both defaulting True.
+  Nothing sets either to False any more: the `module` setting, the
+  toggles, `ADVANCED_MODULES` and `toggle_advanced_module` are gone. They
+  stay because they are saved fields (legacy fallbacks stay) and an
+  advanced game saved with a module off should play on as it was
+  started; the tests use them the same way, to isolate the gambits from
+  the species abilities in an advanced game. A rematch no longer carries
+  them, since the game it opens could never have set them.
+- **The personal abilities are advanced mode's and are not played
+  yet.** `PlayerDefinition.advanced_ability` and `advanced_skills` carry
+  the sheet's data; nothing reads them to decide a rule, and
+  `describe_game_mode` does not advertise them, because a screen that
+  advertises what the game does not play is the bug described below.
+- **Nothing may read either bool, or the mode, to decide a rule.**
   `RulesEngine.gambits_apply` and `species_abilities_apply` are
   the two answers, and each folds `mode` in so a caller cannot check the
   opt-out and forget the mode. `maneuver_tiers` reads the first -- it used to
@@ -62,7 +68,7 @@ may then take just one.
   the species check together for the reason `settled_maneuver_winner` is one
   predicate over three call sites -- the two are always asked in the same
   breath, and a site that checks the species and forgets the module plays a
-  basic game by advanced rules. **Don't read `PlayerDefinition.species` to
+  training game by species rules. **Don't read `PlayerDefinition.species` to
   decide a rule anywhere else.**
   - **A player fielded on both sides carries it on both cards**, and that is
     free rather than handled: `species_of` goes through

@@ -358,9 +358,9 @@ _MEEPLE_LABEL_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
 # initials are also in the name label a coach reads anyway.
 #
 # **The icon is drawn only when the game plays species abilities**
-# (the author, 2026-09-18): in a basic game, or an advanced one that
-# opted the module out, species is a name on the card and nothing a
-# coach acts on, so the disc carries the initials alone -- at a size
+# (the author, 2026-09-18): in a training game, or an advanced one
+# saved with the module opted out, species is a name on the card and
+# nothing a coach acts on, so the disc carries the initials alone -- at a size
 # that fills it, since it is still 76px. Whether to draw it is the
 # `species_icons` flag every render entry point takes; the cog answers
 # it from `RulesEngine.species_abilities_apply`, and this module never

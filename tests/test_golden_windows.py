@@ -189,7 +189,7 @@ def build_windows_game():
         player_2_id=None,
         player_1_team=Team.ORANGE,
         player_2_team=Team.PURPLE,
-        mode=GameMode.BASIC,
+        mode=GameMode.TRAINING,
     )
 
 

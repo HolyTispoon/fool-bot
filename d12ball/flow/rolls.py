@@ -149,7 +149,7 @@ def _with_extras(
     Add the two lines every contestant can carry beyond their own
     skill: an ignition and an Overdrive.
 
-    Both are asked of every roller in every game -- a basic game gets
+    Both are asked of every roller in every game -- a training game gets
     an ignite that is the face and nothing else, and a side with no
     Cyborg gets no Overdrive line -- because asking per side is what
     makes "if both are Fire Demons, each checks their own" fall out

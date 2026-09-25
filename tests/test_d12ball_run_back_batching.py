@@ -105,9 +105,9 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             turn_message_id=None,
             # A run back charges exhaustion, and the Exhausted
             # threshold is now a question about which modules the game
-            # is playing -- basic here, so it is every player's own
+            # is playing -- training here, so it is every player's own
             # defensive skill.
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,
         )
@@ -455,7 +455,7 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
             match_state=match.to_dict(),
             game_id="g",
             is_solo_game=True,
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,
         )
@@ -525,7 +525,7 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
             game_number=1,
             home_player_number=1,
             visiting_player_number=2,
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,
         )

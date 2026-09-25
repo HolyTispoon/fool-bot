@@ -7,7 +7,7 @@ the toggle button per role on the hub's second message, built off
 `HUB_ROLES`. `LobbyView` is the
 lobby channel's message -- Join / Observe / Leave / Start Game, the Test
 game and Tutorial toggles, a Name button (opening `LobbyNameModal`), and
-the mode (with its two module toggles), board-size and opponent
+the mode (training, basic or advanced), board-size and opponent
 settings -- and hands Join, Observe, Leave and Start back to the cog,
 where the channel-permission changes live next to `open_lobby`. A
 setting changed here goes through `GameService.configure`: the record
@@ -23,16 +23,15 @@ from typing import TYPE_CHECKING
 
 from d12ball.components import RuleRefusal
 from d12ball.game import (
-    ADVANCED_MODULES,
     AIOpponent,
     GameMode,
     VALID_BOARD_SIZES,
 )
 from cogs.d12ball_helpers import (
     AI_OPPONENT_NAMES,
+    GAME_MODE_BUTTONS,
     HUB_ROLE_CUSTOM_ID_PREFIX,
     HUB_ROLES,
-    advanced_module_label,
     build_lobby_message,
     may_act_in_game,
 )
@@ -173,7 +172,7 @@ class LobbyView(SafeView):
 
     Test game, Tutorial and a second human are mutually exclusive: each
     is a different answer to "who plays the other side", and a lobby
-    holds exactly one. Tutorial also pins Basic mode on a 7-space board,
+    holds exactly one. Tutorial also pins Training mode on a 7-space board,
     which is the only shape `d12ball/tutorial.py`'s script is written
     for.
 
@@ -253,10 +252,7 @@ class LobbyView(SafeView):
         )
 
         selected_mode = game.mode if game else GameMode.BASIC
-        for label, mode in (
-            ("Basic", GameMode.BASIC),
-            ("Advanced", GameMode.ADVANCED),
-        ):
+        for label, mode in GAME_MODE_BUTTONS:
             self._add_button(
                 label,
                 (
@@ -266,29 +262,10 @@ class LobbyView(SafeView):
                 ),
                 f"mode:{mode.value}",
                 row=2,
-                # The tutorial is a Basic-mode script -- see the class
+                # The tutorial is a Training-mode script -- see the class
                 # docstring.
                 disabled=started or tutorial or mode == selected_mode,
             )
-
-        # The two halves of advanced mode, on the mode row and only
-        # while it is on -- the same offer the setup settings block
-        # makes, out of the same table. See "Species abilities in the
-        # bot"; a coach who wants neither picks Basic.
-        if selected_mode == GameMode.ADVANCED:
-            for module_key in ADVANCED_MODULES:
-                field, _ = ADVANCED_MODULES[module_key]
-                self._add_button(
-                    advanced_module_label(game, module_key),
-                    (
-                        discord.ButtonStyle.success
-                        if getattr(game, field)
-                        else discord.ButtonStyle.secondary
-                    ),
-                    f"module:{module_key}",
-                    row=2,
-                    disabled=started,
-                )
 
         selected_board = game.board_size if game else 7
         for board_size in sorted(VALID_BOARD_SIZES):
@@ -406,9 +383,9 @@ class LobbyView(SafeView):
             return
 
         # Which setting, and what may be done with it in this lobby --
-        # the tutorial pinning Basic on a 7-space board, a joined lobby
-        # having no Test game toggle, the last module on staying on --
-        # is the record's; the view only carries the click.
+        # the tutorial pinning Training on a 7-space board, a joined
+        # lobby having no Test game toggle -- is the record's; the view
+        # only carries the click.
         try:
             self.cog.service.configure(game.game_id, setting, value)
         except RuleRefusal as error:

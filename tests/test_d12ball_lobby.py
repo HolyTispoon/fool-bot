@@ -425,7 +425,7 @@ class LobbyViewTests(unittest.TestCase):
         self.assertEqual(game.mode, GameMode.ADVANCED)
         self.assertEqual(game.board_size, 9)
 
-    def test_tutorial_toggle_pins_basic_seven_and_dinky(self) -> None:
+    def test_tutorial_toggle_pins_training_seven_and_dinky(self) -> None:
         cog = build_cog()
         game = build_lobby_game(
             mode=GameMode.ADVANCED, board_size=9, test_game=True,
@@ -441,7 +441,7 @@ class LobbyViewTests(unittest.TestCase):
 
         self.assertTrue(game.tutorial)
         self.assertFalse(game.test_game)
-        self.assertEqual(game.mode, GameMode.BASIC)
+        self.assertEqual(game.mode, GameMode.TRAINING)
         self.assertEqual(game.board_size, 7)
         self.assertEqual(game.ai_opponent, AIOpponent.DINKY)
 

@@ -530,7 +530,7 @@ class ContinueRunBackKickoffFillTests(unittest.IsolatedAsyncioTestCase):
         game = SimpleNamespace(
             match_state=match.to_dict(),
             game_id="g",
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,
         )

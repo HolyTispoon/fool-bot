@@ -80,7 +80,11 @@ def match_from_saved_game(game_id: str) -> tuple[MatchState, str, bool]:
     match = MatchState.from_dict(game.match_state, load_basic_ruleset())
     # The same reading RulesEngine.species_abilities_apply makes, so a
     # saved game is drawn exactly as the bot draws it.
-    species_icons = game.mode == GameMode.ADVANCED and game.species_abilities
+    species_icons = (
+        game.mode in (GameMode.BASIC, GameMode.ADVANCED)
+        and game.species_abilities
+        and not game.tutorial
+    )
     return match, f"PBD{game.game_number}", species_icons
 
 
@@ -141,13 +145,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--training",
+        # The flag's name before training mode existed.
         "--basic",
+        dest="training",
         action="store_true",
         help=(
-            "Draw the meeples as a game not playing species abilities "
-            "does -- role initials alone, no species icon. The default "
-            "is the advanced look, since that is the one worth checking; "
-            "a --game is drawn the way its own record says."
+            "Draw the meeples as a training game does -- role initials "
+            "alone, no species icon. The default is the species look "
+            "basic and advanced games are drawn with; a --game is drawn "
+            "the way its own record says."
         ),
     )
     parser.add_argument(
@@ -193,7 +200,7 @@ def main() -> None:
             # cannot say which, since it depends on --board-size.
             raise SystemExit(str(error)) from error
         label = "Sample"
-        species_icons = not arguments.basic
+        species_icons = not arguments.training
 
     if arguments.field:
         image = render_field_image(match, catalog, species_icons=species_icons)

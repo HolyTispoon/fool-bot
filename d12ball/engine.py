@@ -118,7 +118,7 @@ class IgnitedRoll:
 
     `second` is the ignite's own die, `blaze` says which way it went,
     and `modifier` is 0 for every roll that did not ignite -- which is
-    every roll in a basic game, and most rolls in an advanced one.
+    every roll in a training game, and most rolls in any other.
 
     **`second` is also a die a coach watches**, not only a number in
     `modifier`: it is drawn on an ignition die of its own and captioned
@@ -468,27 +468,36 @@ class RulesEngine:
 
     def gambits_apply(self, game: D12BallGame) -> bool:
         """
-        Whether this game is playing the **gambits** -- the
-        first of the two modules advanced mode turns on.
+        Whether this game is playing the **gambits**, which advanced
+        mode adds and no other mode plays.
 
-        Advanced mode is one switch and brings both modules with it; a
-        game may then take just one of the two (the author, PR #177
-        review), which is what `game.advanced_maneuvers` says. Both
-        halves are asked here so no call site can check the mode and
-        forget the opt-out, or the other way round.
+        `game.advanced_maneuvers` is the opt-out advanced mode carried
+        until 2026-09-25, when the modes became three and the toggles
+        went (see "Modes" in docs/design/species-abilities.md). Nothing
+        sets it any more; it is still read so an advanced game saved
+        with the gambits turned off plays on as it was started.
         """
         return game.mode == GameMode.ADVANCED and game.advanced_maneuvers
 
     def species_abilities_apply(self, game: D12BallGame) -> bool:
         """
-        Whether this game is playing the **species abilities** -- the
-        second module, and the twin of `gambits_apply`.
+        Whether this game is playing the **species abilities**: basic
+        and advanced mode do, training mode does not (2026-09-25; see
+        "Species abilities" in docs/living-rules.md). In training mode
+        species is only a name on the card.
 
-        In a basic game species is only a name on the card and every
-        player follows the standard rules; see "Species abilities" in
-        docs/living-rules.md.
+        **A tutorial never does**, whatever its mode says. The tutorial
+        is a training game, and one saved before training mode existed
+        carries `basic` -- which now plays the species abilities its
+        scripted beats were never written for. `game.species_abilities`
+        is the legacy opt-out, read for the reason `gambits_apply`
+        reads its twin.
         """
-        return game.mode == GameMode.ADVANCED and game.species_abilities
+        return (
+            game.mode in (GameMode.BASIC, GameMode.ADVANCED)
+            and game.species_abilities
+            and not game.tutorial
+        )
 
     def species_of(self, player_id: str) -> str:
         """
@@ -521,7 +530,7 @@ class RulesEngine:
         reason `settled_maneuver_winner` is one predicate over three
         call sites -- the two are always asked in the same breath, and
         a site that checks the species and forgets the module plays a
-        basic game by advanced rules. Nothing may read
+        training game by species rules. Nothing may read
         `PlayerDefinition.species` to decide a rule without coming
         through here.
 
