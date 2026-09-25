@@ -52,7 +52,6 @@ from d12ball.components import (
     EVENT_SKILL_TEST,
     MatchState,
     OVERDRIVE_BONUS,
-    OVERDRIVE_DRAIN_COST,
     PlayerDefinition,
     PlayerRole,
     RuleRefusal,
@@ -74,6 +73,7 @@ from d12ball.formatting import (
     player_with_role,
 )
 from d12ball.game import D12BallGame, Team, team_display_name
+from d12ball.personal_abilities import BOOST_BONUS, BOOST_DRAIN_COST
 from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
@@ -232,24 +232,23 @@ def score_skill_test(
     caller needs to know which side blazed or burned to set the tier
     rider once it knows who won. See `RulesEngine.volatile_raises_tier`.
     """
-    offense_skill = engine.player_catalog.effective_profile(
-        offense_player,
-    ).offense
-    defense_skill = engine.player_catalog.effective_profile(
-        defense_player,
-    ).defense
+    offense_skill = engine.skills(game, offense_player.player_id).offense
+    defense_skill = engine.skills(game, defense_player.player_id).defense
 
     offense_roll, defense_roll = scripted_or_random(
         engine, game, "skill_test", 2,
     )
 
     # Volatile, on each side's own die and before any skill is added --
-    # the ignite reads the natural face.
-    offense_ignite = engine.ignite(
-        game, offense_player.player_id, offense_roll,
+    # the ignite reads the natural face. `settle_burn` is Brightburn's
+    # shed token (Law 21), which needs the match the ignite does not hold.
+    offense_ignite = engine.settle_burn(
+        game, match, offense_player.player_id,
+        engine.ignite(game, offense_player.player_id, offense_roll),
     )
-    defense_ignite = engine.ignite(
-        game, defense_player.player_id, defense_roll,
+    defense_ignite = engine.settle_burn(
+        game, match, defense_player.player_id,
+        engine.ignite(game, defense_player.player_id, defense_roll),
     )
 
     # Overdrive was declared and paid before the button was pressed;
@@ -346,9 +345,7 @@ def score_skill_test(
     ]
     for player_id in partners:
         partner = engine.get_player_definition(player_id)
-        partner_skill = engine.player_catalog.effective_profile(
-            partner
-        ).defense
+        partner_skill = engine.skills(game, partner.player_id).defense
         defense_total += partner_skill
         double_team_detail = f"+{partner_skill} {partner.name} (Double Team)"
     if double_team_detail:
@@ -421,6 +418,9 @@ def skill_test_step(
             (defense_player.player_id, defense_ignite),
         ),
     )
+    # Who Overdrove this roll, read before it is spent: Synapse's win on
+    # an Overdriven roll decides a tier (Law 21), below.
+    overdriven = set(match.pending_overdrive)
     # Spent, win, lose or tie: a tie that is re-rolled is a fresh roll
     # and has to be Overdriven again.
     match.consume_overdrive()
@@ -482,9 +482,21 @@ def skill_test_step(
         if outcome == "offense"
         else (defense_ignite, offense_ignite)
     )
-    match.volatile_tier_upgrade = engine.volatile_raises_tier(
+    winner_id = (
+        offense_player.player_id
+        if outcome == "offense"
+        else defense_player.player_id
+    )
+    volatile_upgrade = engine.volatile_raises_tier(
         game, winner_ignite, loser_ignite,
     )
+    # Synapse's Overdriven win raises the winner's card the way a
+    # winning blaze does, so it is the same flag (Law 21).
+    overdrive_upgrade = (
+        not volatile_upgrade
+        and engine.overdrive_raises_tier(game, winner_id, overdriven)
+    )
+    match.volatile_tier_upgrade = volatile_upgrade or overdrive_upgrade
     # The other half: the losing side's own ignite decides whether they
     # pay their gambit's cost, whatever the cards said.
     match.volatile_loser_cost = engine.volatile_loser_cost(
@@ -496,7 +508,10 @@ def skill_test_step(
             engine.resolving_maneuver(match, winner_key),
         )
         volatile_lines.append(
-            "🔥 **Volatile** — "
+            f"⚡ **Overdrive** — the Overdriven win raises it to "
+            f"**{raised}**."
+            if overdrive_upgrade
+            else "🔥 **Volatile** — "
             + ("the blaze" if winner_ignite.blaze else "the burn")
             + f" raises it to **{raised}**."
         )
@@ -579,12 +594,12 @@ def score_loose_ball(
     offense_skill = (
         0
         if offense_injured
-        else engine.player_catalog.effective_profile(offense_player).offense
+        else engine.skills(game, offense_player.player_id).offense
     )
     defense_skill = (
         0
         if defense_injured
-        else engine.player_catalog.effective_profile(defense_player).defense
+        else engine.skills(game, defense_player.player_id).defense
     )
 
     offense_roll, defense_roll = scripted_or_random(
@@ -596,11 +611,13 @@ def score_loose_ball(
     # skill modifier and only that, and an ignite is the die rather
     # than a modifier the player brings -- the same reading that leaves
     # the ball speed modifier below alone.
-    offense_ignite = engine.ignite(
-        game, offense_player.player_id, offense_roll,
+    offense_ignite = engine.settle_burn(
+        game, match, offense_player.player_id,
+        engine.ignite(game, offense_player.player_id, offense_roll),
     )
-    defense_ignite = engine.ignite(
-        game, defense_player.player_id, defense_roll,
+    defense_ignite = engine.settle_burn(
+        game, match, defense_player.player_id,
+        engine.ignite(game, defense_player.player_id, defense_roll),
     )
 
     offense_overdrive = match.overdrive_modifier(offense_player.player_id)
@@ -923,9 +940,9 @@ def score_score_attempt(
     wants a coach to feel. See "Determinism: rails and dice" in
     docs/design/tutorial.md.
     """
-    offense_skill = engine.player_catalog.effective_profile(shooter).offense
+    offense_skill = engine.skills(game, shooter.player_id).offense
     speed_modifier = match.ball_speed_modifier()
-    defenders = engine.intervening_defenders(match)
+    defenders = engine.intervening_defenders(match, game)
     # What each defender is worth here, not what they are worth -- a
     # defender off the ball adds half their skill, rounded up. See
     # `ShotDefender`.
@@ -939,7 +956,10 @@ def score_score_attempt(
     attack_roll, defense_roll = scripted_or_random(
         engine, game, "score_attempt", 2,
     )
-    attack_ignite = engine.ignite(game, shooter.player_id, attack_roll)
+    attack_ignite = engine.settle_burn(
+        game, match, shooter.player_id,
+        engine.ignite(game, shooter.player_id, attack_roll),
+    )
     overdrive = match.overdrive_modifier(shooter.player_id)
     attack_total = (
         attack_roll + offense_skill + speed_modifier
@@ -981,7 +1001,7 @@ def score_score_attempt(
         defense_detail = [
             f"{player_with_role(defender.player)} "
             f"+{defender.value}"
-            + ("" if defender.on_ball else f" (half of {defender.defense})")
+            + (f" (half of {defender.defense})" if defender.halved else "")
             for defender in defenders
         ]
         if len(defenders) > 1:
@@ -1160,7 +1180,7 @@ def score_attempt_step(
         scored=scored,
         set_up=bool(match.pending_shot_is_set_up),
         speed_modifier=match.ball_speed_modifier(),
-        defender_count=len(engine.intervening_defenders(match)),
+        defender_count=len(engine.intervening_defenders(match, game)),
         attack_total=attack_total,
         defense_total=defense_total,
     )
@@ -1295,10 +1315,13 @@ def score_shootout_test(
         skill = (
             0
             if injured
-            else engine.player_catalog.effective_profile(player).offense
+            else engine.skills(game, player.player_id).offense
         )
         roll = scripted_or_random(engine, game, "shootout_test", 1)[0]
-        ignite = engine.ignite(game, player.player_id, roll)
+        ignite = engine.settle_burn(
+            game, match, player.player_id,
+            engine.ignite(game, player.player_id, roll),
+        )
         ignites.append((player.player_id, ignite))
         overdrive = match.overdrive_modifier(player.player_id)
         totals[side] = roll + skill + ignite.modifier + overdrive
@@ -1432,16 +1455,47 @@ def declare_overdrive_step(
     if not engine.overdrive_candidates(game, match, [player_id]):
         raise RuleRefusal("That Overdrive is no longer available.")
 
+    cost = engine.overdrive_cost(game, player_id)
     match.declare_overdrive(
-        player_id, engine.exhaustion_threshold(game, player_id),
+        player_id, engine.exhaustion_threshold(game, player_id), cost,
     )
     player = engine.get_player_definition(player_id)
     return StepResult(
         narration=[
             f"⚡ **Overdrive** — "
             f"{engine.format_player_label(match, player)} drains "
-            f"{OVERDRIVE_DRAIN_COST} for "
-            f"+{OVERDRIVE_BONUS} on this roll."
+            f"{cost} for +{OVERDRIVE_BONUS} on this roll."
+        ],
+        next=prompt,
+    )
+
+
+def declare_boost_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    player_id: str,
+) -> StepResult:
+    """
+    Gearclaw's **Boost** (Law 21): `declare_overdrive_step`'s shape at
+    drain 1 for +3, re-asked against `boost_candidates` for the same
+    reason, and answered by coming back on the same roll.
+    """
+    if player_id not in overdrive_rollers(match, prompt):
+        raise RuleRefusal("That player is not in this roll.")
+    if not engine.boost_candidates(game, match, [player_id]):
+        raise RuleRefusal("That Boost is no longer available.")
+
+    match.declare_boost(
+        player_id, engine.exhaustion_threshold(game, player_id),
+    )
+    player = engine.get_player_definition(player_id)
+    return StepResult(
+        narration=[
+            f"⚡ **Boost** — "
+            f"{engine.format_player_label(match, player)} drains "
+            f"{BOOST_DRAIN_COST} for +{BOOST_BONUS} on this roll."
         ],
         next=prompt,
     )

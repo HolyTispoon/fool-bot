@@ -189,6 +189,9 @@ with the rule the author gave on 2026-09-22.
   overshoot's does: the side that took the ball keeps it where it stands.
 - **Spectra pulls on 11 or more**, since +3 carries a total past 12.
 
+**In the bot**, all sixteen are played -- see "Personal abilities" in
+docs/design/species-abilities.md.
+
 ### 2026-09-25 -- author, three modes: training, basic and advanced
 
 The author: *"from now on species abilities are part of basic mode and what currently basic mode
@@ -2868,6 +2871,10 @@ From the author, for `foolbot.py`'s generic commands:
   injured player is downgraded to a skill test they have to win. Specified since the rules
   were first vendored on 2026-07-25 and built on 2026-08-09; the readings it rests on are in
   [Still open](#still-open).
+- **The personal abilities and the advanced skill scores** (Law 21), all sixteen, since
+  2026-09-25, with the four readings in that day's entry still the author's to confirm. The
+  printed player card's back and the player cards drawn on the board still show the role's
+  numbers.
 - **The extreme shootout**, end to end: a secret order a side at a time, the reveal, the
   skill test with its injury checks, the "cannot be caught" stop, and sudden death with a
   fresh pick each test. It is the only thing that settles a level game now that league mode
@@ -2879,18 +2886,6 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 
 ### Blocked or deferred
 
-- **The advanced player abilities**, which are the other half of advanced mode -- see
-  [Advanced mode](#advanced-mode----the-maneuvers-are-built-the-player-abilities-are-not) under
-  Still open. **They have data since 2026-09-22** (see that entry): the sheet's
-  `advanced_abilities` tab gives sixteen players an advanced role ability and three of them
-  advanced skill scores, and the import carries both on `PlayerDefinition`. What is still
-  missing is the module that plays them -- the author calls it the personal-ability skill
-  module of advanced mode -- and the rules text for the sixteen abilities, which are one-line
-  sheet cells today. Since 2026-09-25 (later) all sixteen are Law 21, with four readings still
-  the author's to confirm -- see that entry. The **back of a printed player card**, that
-  player's advanced version (the author, 2026-08-12), waits on the same thing plus a layout
-  decision: whether the back shows the advanced ability alone or under the basic one, and
-  whether its stats row takes the advanced scores.
 - **Three role abilities against their advanced card.** The sheet's `Interactions` column
   carries each advanced row's basic counterpart's abilities, and three of them contradict the
   card they sit on -- the Fullback against Clear and against Setup Pass, the Playmaker against

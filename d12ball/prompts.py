@@ -53,6 +53,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
 from d12ball.components import (
+    OVERDRIVE_DRAIN_COST,
     SPECIES_TELEKINETIC,
     MatchState,
     PlayerRole,
@@ -535,11 +536,26 @@ class RollOptions:
     overdrive_player_ids: tuple[str, ...]
     back: bool = False
     back_railed: bool = False
+    # Gearclaw's Boost (Law 21): who may declare one on this roll.
+    boost_player_ids: tuple[str, ...] = ()
+    # What each offered Overdrive drains, `(player_id, drain)` -- 3,
+    # or Voltus's 2 -- so a button's label is the prompt's number and
+    # not a second reading of the rule.
+    overdrive_costs: tuple[tuple[str, int], ...] = ()
+
+    def overdrive_cost(self, player_id: str) -> int:
+        return dict(self.overdrive_costs).get(
+            player_id, OVERDRIVE_DRAIN_COST,
+        )
 
     def to_dict(self) -> dict:
         return {
             "shape": "roll",
             "overdrive_player_ids": list(self.overdrive_player_ids),
+            "boost_player_ids": list(self.boost_player_ids),
+            "overdrive_costs": {
+                player_id: cost for player_id, cost in self.overdrive_costs
+            },
             "back": self.back,
             "back_railed": self.back_railed,
         }
@@ -1059,10 +1075,7 @@ def speed_choice_ask(
     `maneuver_action_ask`'s reason: the tutorial holds this one behind
     a note too.
     """
-    skill = engine.player_catalog.effective_profile(
-        engine.get_player_definition(player_id),
-    )
-    skill_value = skill.offense if skill_type == "offense" else skill.defense
+    skill_value = engine.skills(game, player_id).of(skill_type)
     mention = address_coach(
         engine.controlling_player_number(game, match, player_id),
     )
@@ -1897,7 +1910,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     # own third, below, because a declared shot can also be walked
     # back.
     **{
-        kind: ("roll", "overdrive")
+        kind: ("roll", "overdrive", "boost")
         for kind in ROLL_KINDS
     },
     PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
@@ -1911,7 +1924,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.COACHING_HUB: (
         "formation", "substitute", "swap", "reposition", "done",
     ),
-    PromptKind.SCORE_ATTEMPT: ("roll", "back", "overdrive"),
+    PromptKind.SCORE_ATTEMPT: ("roll", "back", "overdrive", "boost"),
 }
 
 
@@ -1942,13 +1955,31 @@ def _roll_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> RollOptions:
-    return RollOptions(
-        overdrive_player_ids=tuple(
-            engine.overdrive_candidates(
-                game, match, overdrive_rollers(match, prompt),
-            ),
+    return RollOptions(**_declarations(engine, game, match, prompt))
+
+
+def _declarations(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> dict:
+    """
+    The declarations a roll prompt offers before its die: Overdrive,
+    with what each drains, and Gearclaw's Boost.
+    """
+    rollers = overdrive_rollers(match, prompt)
+    overdrives = tuple(engine.overdrive_candidates(game, match, rollers))
+    return {
+        "overdrive_player_ids": overdrives,
+        "boost_player_ids": tuple(
+            engine.boost_candidates(game, match, rollers),
         ),
-    )
+        "overdrive_costs": tuple(
+            (player_id, engine.overdrive_cost(game, player_id))
+            for player_id in overdrives
+        ),
+    }
 
 
 def _score_attempt_options(
@@ -2218,7 +2249,9 @@ def _speed_options(
     prompt: PendingPrompt,
 ) -> SpeedOptions:
     targets = tuple(
-        engine.speed_targets(match, prompt.player_id, prompt.skill_type),
+        engine.speed_targets(
+            match, prompt.player_id, prompt.skill_type, game,
+        ),
     )
     # The tutorial's speed rail is "take the highest offered" -- the
     # cap is the stealer's own defensive skill, so the script cannot

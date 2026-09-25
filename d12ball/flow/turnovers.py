@@ -629,14 +629,16 @@ def apply_charge_up(
     for player_id in charged:
         player = engine.get_player_definition(player_id)
         removed = match.recover_exhaustion(
-            player_id, 1, engine.exhaustion_threshold(game, player_id),
+            player_id,
+            engine.charge_up_amount(game, player_id),
+            engine.exhaustion_threshold(game, player_id),
         )
         if not removed:
             continue
         remaining = match.exhaustion.get(player_id, 0)
         lines.append(
             f"{engine.format_player_label(match, player)} holds position — "
-            f"**Charge-up** removes 1 drain "
+            f"**Charge-up** removes {removed} drain "
             f"(now {remaining})."
         )
     return "\n".join(lines)
@@ -877,7 +879,10 @@ def run_back_space_step(
     # The pick is spent by the move it narrowed the question to.
     match.run_back_pick = None
     exhaustion_text = engine.apply_exhaustion(
-        game, match, player_id, distance,
+        game,
+        match,
+        player_id,
+        engine.run_back_cost(game, player_id, distance),
     )
     player = engine.get_player_definition(player_id)
     return StepResult(

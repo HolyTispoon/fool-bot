@@ -1035,7 +1035,11 @@ class DrainThresholdTests(unittest.TestCase):
         self.engine = build_engine()
         # Nine Cyborgs a side is the cleanest fixture for a threshold
         # that is about the species and not about the role.
-        self.game = build_game(player_1_team=Team.CYBORGS)
+        # Basic mode: the species rule alone, with no Cyborg's
+        # personal ability (Law 21) moving the numbers.
+        self.game = build_game(
+            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
         self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
 
@@ -1338,7 +1342,11 @@ class OverdriveTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        self.game = build_game(player_1_team=Team.CYBORGS)
+        # Basic mode: the species rule alone, with no Cyborg's
+        # personal ability (Law 21) moving the numbers.
+        self.game = build_game(
+            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
         self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
 
@@ -1479,7 +1487,11 @@ class ChargeUpTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        self.game = build_game(player_1_team=Team.CYBORGS)
+        # Basic mode: the species rule alone, with no Cyborg's
+        # personal ability (Law 21) moving the numbers.
+        self.game = build_game(
+            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
 
     def charged(self) -> list[str]:

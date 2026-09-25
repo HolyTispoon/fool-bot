@@ -44,11 +44,8 @@ named three modes to offer, so the opt-outs went from the screens.
   started; the tests use them the same way, to isolate the gambits from
   the species abilities in an advanced game. A rematch no longer carries
   them, since the game it opens could never have set them.
-- **The personal abilities are advanced mode's and are not played
-  yet.** `PlayerDefinition.advanced_ability` and `advanced_skills` carry
-  the sheet's data; nothing reads them to decide a rule, and
-  `describe_game_mode` does not advertise them, because a screen that
-  advertises what the game does not play is the bug described below.
+- **The personal abilities are advanced mode's** -- see "Personal
+  abilities" below.
 - **Nothing may read either bool, or the mode, to decide a rule.**
   `RulesEngine.gambits_apply` and `species_abilities_apply` are
   the two answers, and each folds `mode` in so a caller cannot check the
@@ -78,6 +75,84 @@ named three modes to offer, so the opt-outs went from the screens.
     `""`), because every caller is a predicate asking whether an ability
     fires -- the same tolerance `turn_handler_candidates` shows a stale
     carrier.
+
+### Personal abilities
+
+Law 21: thirteen players' own abilities and three players' advanced skill
+scores, played in advanced mode alone. Almost every one is a number in a
+species ability changed for one player, so almost every one is a branch
+at a site that already existed rather than a mechanic of its own.
+
+- **`d12ball/personal_abilities.py` is the one place a player is tied to
+  an ability.** The sheet carries a sentence, not a key, so the table
+  maps a catalog id to a `PersonalAbility` *and keeps the sentence it
+  was built from*. `TableTests` compares each sentence with
+  `players.json`: when the author rewords or moves an ability, the
+  import changes the sentence and the test fails, rather than the old
+  ability being played quietly under the new words. The same file holds
+  every number the abilities change, beside the ones in
+  `components.py` they replace. **Nothing else may key a rule on a
+  player id.**
+- **`RulesEngine.has_personal_ability` is the one question**, the twin
+  of `has_species_ability`: the mode gate (`personal_abilities_apply`:
+  advanced, never a tutorial) folded into the lookup, a second-side card
+  resolved to its person (`catalog_player_id`). It tolerates no game
+  and no player because roll sites ask it of dice that belong to nobody.
+- **`RulesEngine.skills(game, player_id)` is the one reading of a
+  skill.** An advanced score is not held to 1-6, so it cannot be a
+  `RoleProfile`; `PlayerSkills` is the pair, and every rule site that
+  read `effective_profile(...).offense` reads this instead -- the rolls,
+  Merge, the shot's wall, the speed reach, the Exhausted line, the
+  formation deal and the shootout label. `effective_profile` is left to
+  display and to Dinky's tie-breaks, which are judgement rather than a
+  rule. **Known gap:** the player cards drawn on the board and the
+  coaching image still show the role's numbers, because the renderer
+  is handed profiles and not the game; the matchup and shot images do
+  show the game's.
+- **Each ability is asked where its number already lived**, never
+  re-derived:
+  - *Volatile* -- `ignite` reads Sizzifizik's faces and Blazebulk's
+    always-blaze, and marks the roll with `IgnitedRoll.personal`, from
+    which `rule` (the ignition die's caption) and `explain` word it.
+    Brightburn's burn neither raises the opponent's tier
+    (`IgnitedRoll.upgrades_opponent`, read by `volatile_raises_tier`)
+    nor passes without shedding a token -- `settle_burn`, called
+    beside `ignite` at each roll site, because the ignite is read
+    before there is a match to change. Brightburn still pays their own
+    gambit's cost when a burn loses: the sheet cancels only the
+    upgrade, and that is an open reading in the rules log.
+  - *Lithium Powered* -- `exhaustion_threshold` (Bulwark),
+    `overdrive_cost` (Voltus; the prompt carries each Overdrive's drain
+    in `RollOptions.overdrive_costs` so a button label is not a second
+    reading), `charge_up_amount` and `run_back_cost` (Strider; both
+    run-back paths, the coach's pick and the forced one, charge
+    through it). Synapse's Overdriven win sets the **same** tier flag a
+    winning blaze does (`overdrive_raises_tier`), read off who
+    Overdrove before the declarations are spent.
+  - *Boost* is Overdrive's shape at drain 1 for +3: its own list on the
+    match (`pending_boost`, a saved field whose absence reads as
+    nobody), its own `boost` answer on all six roll prompts beside
+    `overdrive`, and one `overdrive_modifier` that answers either,
+    because every roll site already adds that one number. Declaring
+    either closes the other on that roll ("either, not both").
+  - *Mind Pull* -- `mind_pull_candidates` reads the two spaces beside
+    each path space for Noxar, in the order the ball reaches them, and
+    `apply_mind_pull` already lands the ball on the puller's space;
+    `mind_pull_cost` (Quillon) and `mind_pull_bonus` (Spectra). A pull
+    lands on 11 *or more*, which only Spectra can reach.
+  - *Goopkeeper* is `ShotDefender.full_block`, set by
+    `intervening_defenders`; `halved` is what the dice line and the
+    shot image both read.
+  - *Acidel* is a branch in `pressure_step`, the Intercept overshoot's
+    shape: possession, speed 1, straight to the shot. A shot walked
+    back and declined leaves the ball with Acidel's side, because there
+    is no own-goal roll left to fall back to.
+- **The advanced golden plays some of them.** Its game is Telekinetics
+  against Fire Demons, so Noxar, Quillon and Spectra, and the four Fire
+  Demons with personal lines, are on the field; the seed was re-swept
+  when they came in (see its docstring). The per-ability tests hand an
+  ability to a fielded player by patching the table (`holding`), so no
+  test depends on the roster.
 
 ### Volatile, and the roll funnel
 

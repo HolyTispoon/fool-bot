@@ -61,6 +61,7 @@ from d12ball.formatting import (
 )
 from d12ball import tokens
 from d12ball.game import D12BallGame, team_display_name
+from d12ball.personal_abilities import PersonalAbility
 from d12ball.prompts import PendingPrompt, PromptKind, speed_choice_ask
 
 
@@ -785,6 +786,7 @@ def pressure_step(
     engine: RulesEngine,
     match: MatchState,
     key: str,
+    game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
     Play a won Pressure -- or a Double Team, which is the same card
@@ -798,9 +800,9 @@ def pressure_step(
     where a defender was sent, so `match.challenger_id` is always the
     player who plays it.
 
-    It reads nothing off the game record -- the shove charges no
-    exhaustion, and the cost this card can collect is an engine
-    question -- so it takes no `game`.
+    It reads the game record for one thing only: whether the
+    challenger is Acidel, whose overshot pressure is a shot rather than
+    an own-goal roll (Law 21).
     """
     offense_side = match.ball.possession
     defense_side = match.defending_side()
@@ -841,6 +843,34 @@ def pressure_step(
     # nowhere to go walks the challenger onto the handler's space.
     # So `board_changed` is True throughout, which is where
     # `refresh_match_image` sat in the cog on both paths.
+    if overshot and engine.has_personal_ability(
+        game, match.challenger_id, PersonalAbility.PRESSURE_SHOT,
+    ):
+        # **Acidel's personal ability** (Law 21): "a scoring
+        # opportunity replaces the own goal" (the author, 2026-09-25).
+        # The shove walked Acidel onto the handler's space, so the ball
+        # is taken there -- the Intercept overshoot's shape in
+        # `steal_step`: possession, speed 1, straight to the shot.
+        challenger_id = match.challenger_id
+        match.ball.possession = defense_side
+        match.ball.speed = 1
+        match.set_ball_space(*match.board.meeple_position(challenger_id))
+        match.set_ball_carrier(challenger_id)
+        acidel = engine.get_player_definition(challenger_id)
+        return StepResult(
+            narration=[
+                content
+                + "\n\nThat overshoots toward their own goal -- and "
+                f"{engine.format_player_label(match, acidel)} takes the "
+                "ball for a scoring opportunity!"
+            ],
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.BEGIN_SHOOTER_CHOICE,
+                {"candidates": [challenger_id]},
+            ),
+        )
+
     if overshot:
         # An own goal takes priority over the Defender's steal
         # ability: if it's conceded, the point is already over, and
@@ -1006,9 +1036,7 @@ def own_goal_roll_step(
     match.pending_own_goal = False
 
     offense_player = engine.get_player_definition(match.active_player_id)
-    offense_skill = engine.player_catalog.effective_profile(
-        offense_player,
-    ).offense
+    offense_skill = engine.skills(game, offense_player.player_id).offense
 
     rolls = tuple(scripted_or_random(engine, game, "own_goal", 2))
     # **Volatile does not reach this roll** (the author, 2026-09-23),
@@ -2353,10 +2381,10 @@ EFFECT_OFFERS = {
         engine, match, "intercept",
     ),
     "pressure": lambda engine, game, match: pressure_step(
-        engine, match, "pressure",
+        engine, match, "pressure", game,
     ),
     "double_team": lambda engine, game, match: pressure_step(
-        engine, match, "double_team",
+        engine, match, "double_team", game,
     ),
 }
 

@@ -129,7 +129,7 @@ class ModeWordingTests(unittest.TestCase):
     def test_an_advanced_game_adds_the_gambits(self) -> None:
         self.assertEqual(
             describe_game_mode(build_game()),
-            "a gambit on every rank, species abilities",
+            "a gambit on every rank, species abilities, personal abilities",
         )
 
     def test_an_advanced_game_saved_with_a_module_off_says_so(
@@ -137,11 +137,11 @@ class ModeWordingTests(unittest.TestCase):
     ) -> None:
         self.assertEqual(
             describe_game_mode(build_game(advanced_maneuvers=False)),
-            "three maneuvers a side, species abilities",
+            "three maneuvers a side, species abilities, personal abilities",
         )
         self.assertEqual(
             describe_game_mode(build_game(species_abilities=False)),
-            "a gambit on every rank",
+            "a gambit on every rank, personal abilities",
         )
 
     def test_a_tutorial_saved_as_basic_is_described_as_training(

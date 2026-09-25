@@ -13,6 +13,7 @@ from typing import Any, Callable, Optional
 # nobody may join) and this module imports from it; it is still
 # imported from here everywhere else.
 from d12ball.game import Formation, RuleRefusal, Team, team_display_name  # noqa: F401
+from d12ball.personal_abilities import BOOST_BONUS, BOOST_DRAIN_COST
 
 
 DATA_FOLDER = Path(__file__).resolve().parent / "data"
@@ -352,15 +353,24 @@ class ShotDefender:
     contribute because the image and the dice roll both show the
     arithmetic -- a lone 2 in the way is unreadable without the 4 it
     came from.
+
+    `full_block` is Goopkeeper's personal ability (Law 21): all of it
+    from further along too. The engine answers it
+    (`RulesEngine.intervening_defenders`), so this stays a record.
     """
 
     player: PlayerDefinition
     defense: int
     on_ball: bool
+    full_block: bool = False
+
+    @property
+    def halved(self) -> bool:
+        return not (self.on_ball or self.full_block)
 
     @property
     def value(self) -> int:
-        return self.defense if self.on_ball else ceil(self.defense / 2)
+        return ceil(self.defense / 2) if self.halved else self.defense
 
 
 # A player belongs to two rosters -- their color team and their species
@@ -1593,6 +1603,12 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField(
         "pending_overdrive", factory=list, write=list, read=list,
     ),
+    # Gearclaw's Boost (Law 21). Absent from an older save, which reads
+    # as nobody having declared one -- which is what every game before
+    # the personal abilities was.
+    SavedField(
+        "pending_boost", factory=list, write=list, read=list,
+    ),
     # Mind Pull. The path is a list of [zone, index] pairs, so the
     # copies are deep enough to matter: a shallow list() would hand a
     # restored match the same inner lists the saved dict holds.
@@ -1849,6 +1865,12 @@ class MatchState:
     # clicks with a save between them -- the whole point of declaring
     # blind is that a coach commits and *then* somebody presses Roll.
     pending_overdrive: list[str] = field(default_factory=list)
+    # **Boost** -- Gearclaw's personal ability (Law 21): Overdrive's
+    # shape at drain 1 for +3, declared and spent the same way, and
+    # never on the same roll as an Overdrive. Its own list rather than
+    # a mark on `pending_overdrive` because the two add different
+    # amounts and the dice image names which it was.
+    pending_boost: list[str] = field(default_factory=list)
     # **Mind Pull.** Three fields, and all three exist because a pull
     # is a *choice with a roll* that has to happen before the ball
     # settles -- see "Mind Pull (Telekinetic)" in docs/living-rules.md.
@@ -3172,7 +3194,12 @@ class MatchState:
         self.pending_smooth = []
         self.pending_mind_pull = []
 
-    def declare_overdrive(self, player_id: str, threshold: int) -> None:
+    def declare_overdrive(
+        self,
+        player_id: str,
+        threshold: int,
+        cost: int = OVERDRIVE_DRAIN_COST,
+    ) -> None:
         """
         Take Overdrive's 3 drain tokens and record the declaration, so
         the next roll this player makes adds its +5.
@@ -3189,21 +3216,51 @@ class MatchState:
         """
         if player_id in self.pending_overdrive:
             raise RuleRefusal("Overdrive has already been declared.")
+        if player_id in self.pending_boost:
+            raise RuleRefusal(
+                "Boost has already been declared on this roll.",
+            )
         if player_id in self.injured:
             # An injured player carries no tokens and cannot gain any,
             # so there is nothing to spend. Overdrive itself is not
             # withheld by injury -- it is a flat bonus, not the skill
             # modifier -- but the price cannot be paid.
             raise RuleRefusal("An injured player cannot Overdrive.")
-        self.add_exhaustion(player_id, OVERDRIVE_DRAIN_COST)
+        # `cost` is the engine's answer (`RulesEngine.overdrive_cost`):
+        # Voltus's is 2 (Law 21).
+        self.add_exhaustion(player_id, cost)
         self.mark_exhausted_if_needed(player_id, threshold)
         self.pending_overdrive.append(player_id)
 
+    def declare_boost(self, player_id: str, threshold: int) -> None:
+        """
+        Gearclaw's Boost (Law 21): drain 1 for +3 on the next roll,
+        declared exactly as an Overdrive is -- and one or the other on
+        a roll, never both.
+        """
+        if player_id in self.pending_boost:
+            raise RuleRefusal("Boost has already been declared.")
+        if player_id in self.pending_overdrive:
+            raise RuleRefusal(
+                "Overdrive has already been declared on this roll.",
+            )
+        if player_id in self.injured:
+            raise RuleRefusal("An injured player cannot Boost.")
+        self.add_exhaustion(player_id, BOOST_DRAIN_COST)
+        self.mark_exhausted_if_needed(player_id, threshold)
+        self.pending_boost.append(player_id)
+
     def overdrive_modifier(self, player_id: str) -> int:
-        """What a declared Overdrive adds to this player's roll."""
-        return (
-            OVERDRIVE_BONUS if player_id in self.pending_overdrive else 0
-        )
+        """
+        What a declared Overdrive, or Gearclaw's Boost, adds to this
+        player's roll. One number because every roll site adds it in the
+        same place, and the two never both apply.
+        """
+        if player_id in self.pending_overdrive:
+            return OVERDRIVE_BONUS
+        if player_id in self.pending_boost:
+            return BOOST_BONUS
+        return 0
 
     def consume_overdrive(self) -> None:
         """
@@ -3214,6 +3271,7 @@ class MatchState:
         fresh roll and has to be Overdriven again.
         """
         self.pending_overdrive = []
+        self.pending_boost = []
 
     def mark_exhausted_if_needed(
         self,
@@ -3518,6 +3576,7 @@ class MatchState:
         self.volatile_loser_cost = None
         self.skill_test_winner = None
         self.pending_overdrive = []
+        self.pending_boost = []
         self.last_ball_path = []
         self.last_ball_movers = []
         self.pending_mind_pull = []

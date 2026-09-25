@@ -1007,9 +1007,6 @@ def describe_game_mode(game: D12BallGame) -> str:
     (before 2026-09-25) is not advertised as playing it -- the same
     reading `RulesEngine.gambits_apply` and `species_abilities_apply`
     make.
-
-    The players' individual abilities are part of advanced mode but not
-    yet played by the bot, so they are not advertised either.
     """
     gambits = game.mode == GameMode.ADVANCED and game.advanced_maneuvers
     species = (
@@ -1022,6 +1019,8 @@ def describe_game_mode(game: D12BallGame) -> str:
     ]
     if species:
         parts.append("species abilities")
+    if game.mode == GameMode.ADVANCED and not game.tutorial:
+        parts.append("personal abilities")
     return ", ".join(parts)
 
 

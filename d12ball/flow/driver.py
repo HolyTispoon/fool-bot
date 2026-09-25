@@ -944,7 +944,9 @@ def _answer_coaching_hub(
             _refuse("That formation is not played on this board.")
         return StepResult(
             narration=[
-                engine.apply_formation(match, side, Formation(formation))
+                engine.apply_formation(
+                    match, side, Formation(formation), game,
+                )
             ],
             board_changed=True,
         )
@@ -1218,6 +1220,10 @@ def _answer_injury_test(
     """
     if choice == "overdrive":
         return _declared_overdrive(engine, game, match, prompt, player_id)
+    if choice == "boost":
+        return rolls.declare_boost_step(
+            engine, game, match, prompt, player_id,
+        )
     if player_id is not None and player_id != prompt.player_id:
         _refuse("This injury test is no longer active.")
     return injuries.injury_test_step(engine, game, match, prompt.player_id)
@@ -1295,6 +1301,10 @@ def _answer_own_goal_roll(
     """
     if choice == "overdrive":
         return _declared_overdrive(engine, game, match, prompt, player_id)
+    if choice == "boost":
+        return rolls.declare_boost_step(
+            engine, game, match, prompt, player_id,
+        )
     return effects.own_goal_roll_step(engine, game, match)
 
 
@@ -1342,6 +1352,10 @@ def _answer_skill_test(
     """
     if choice == "overdrive":
         return _declared_overdrive(engine, game, match, prompt, player_id)
+    if choice == "boost":
+        return rolls.declare_boost_step(
+            engine, game, match, prompt, player_id,
+        )
     return rolls.skill_test_step(engine, game, match)
 
 
@@ -1357,6 +1371,10 @@ def _answer_loose_ball_skill_test(
     """The contest for the ball, which the long High Pass borrows."""
     if choice == "overdrive":
         return _declared_overdrive(engine, game, match, prompt, player_id)
+    if choice == "boost":
+        return rolls.declare_boost_step(
+            engine, game, match, prompt, player_id,
+        )
     return rolls.loose_ball_test_step(engine, game, match)
 
 
@@ -1387,6 +1405,10 @@ def _answer_score_attempt(
         return rolls.retract_shot_step(engine, game, match)
     if choice == "overdrive":
         return _declared_overdrive(engine, game, match, prompt, player_id)
+    if choice == "boost":
+        return rolls.declare_boost_step(
+            engine, game, match, prompt, player_id,
+        )
     return rolls.score_attempt_step(engine, game, match)
 
 
@@ -1402,6 +1424,10 @@ def _answer_shootout_test(
     """Both shooters' dice, and the goal one of them scores."""
     if choice == "overdrive":
         return _declared_overdrive(engine, game, match, prompt, player_id)
+    if choice == "boost":
+        return rolls.declare_boost_step(
+            engine, game, match, prompt, player_id,
+        )
     return rolls.shootout_test_step(engine, game, match)
 
 
@@ -1660,8 +1686,11 @@ REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
     PromptKind.LOOSE_BALL_PICK: {"send": ("player_id",)},
     PromptKind.MANEUVER_CHALLENGE: {"send": ("player_id",)},
     # Overdrive is declared by a player, on every roll it can be
-    # declared on.
-    **{kind: {"overdrive": ("player_id",)} for kind in ROLL_KINDS},
+    # declared on -- and so is Gearclaw's Boost (Law 21).
+    **{
+        kind: {"overdrive": ("player_id",), "boost": ("player_id",)}
+        for kind in ROLL_KINDS
+    },
 }
 
 

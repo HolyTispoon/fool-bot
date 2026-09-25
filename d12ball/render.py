@@ -2983,6 +2983,7 @@ def render_volatile_die(
     player_name: str,
     blaze: bool,
     modifier: int,
+    explainer: Optional[str] = None,
 ) -> BytesIO:
     """
     The extra die an ignite rolled, on an image of its own: the second
@@ -3003,12 +3004,16 @@ def render_volatile_die(
     The face itself stays the roller's *team* colour, because a Fire
     Demon plays for any of the eight teams (see "One player, both
     sides") and whose roll it is still has to be legible.
+
+    `explainer` is the rule the image is captioned with where a
+    personal ability changed it (`IgnitedRoll.rule`); None is the plain
+    Volatile rule.
     """
     verdict = VOLATILE_BLAZE_TEXT if blaze else VOLATILE_BURN_TEXT
     verdict = f"{verdict} {modifier:+d}"
     verdict_color = VOLATILE_AURA_COLOR if blaze else VOLATILE_BURN_COLOR
     trigger_label = f"ignited on {face}"
-    explainer = volatile_explainer_label()
+    explainer = explainer or volatile_explainer_label()
     # Measured on a throwaway canvas: the real one cannot be created
     # until these widths have decided how big it needs to be. The halo
     # is wider than the die, so it -- not the polygon -- is what the

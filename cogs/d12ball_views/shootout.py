@@ -525,7 +525,7 @@ class ShootoutTestView(ShootoutView):
         options = self.prompt_options(game, match, PromptKind.SHOOTOUT_TEST)
         if options is not None:
             self.add_overdrive_buttons(
-                game, match, options.overdrive_player_ids,
+                game, match, options,
             )
 
     async def review(self, interaction: discord.Interaction) -> None:
