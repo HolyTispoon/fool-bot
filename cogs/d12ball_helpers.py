@@ -38,6 +38,7 @@ from d12ball.formatting import (
     build_full_time_summary,
     build_goal_log,
     ball_space_label,
+    capitalized,
     ball_space_phrase,
     challenger_prompt_ask,
     coach_name,
@@ -903,7 +904,10 @@ def space_choices(match: MatchState) -> list[tuple[str, str]]:
     (value, label) pairs for every board space, e.g. ("home_goal:0", "H1").
     """
     return [
-        (f"{zone.value}:{space_index}", space_label(zone, space_index, match.board))
+        (
+            f"{zone.value}:{space_index}",
+            capitalized(space_label(zone, space_index, match.board)),
+        )
         for zone in Zone
         for space_index in range(len(match.board.spaces[zone]))
     ]

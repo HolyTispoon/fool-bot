@@ -474,7 +474,7 @@ def halftime_extra_token_step(
         f"an extra {noun} token (now {remaining})."
         if removed
         else f"{engine.format_player_label(match, player)} "
-        "had no tokens to lose.",
+        f"had no {noun} to lose.",
     )
     result.board_changed = True
     return result

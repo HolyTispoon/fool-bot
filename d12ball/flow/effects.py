@@ -442,7 +442,8 @@ def dribble_burst_step(
     # Only worth saying where a token was actually saved: a burst that
     # moved nowhere is free for everybody.
     if playmaker_bonus and actual_distance:
-        content += " That costs them a token less (Playmaker ability)."
+        noun, _ = engine.token_word_and_mark(game, match.active_player_id)
+        content += f" That costs them 1 {noun} less (Playmaker ability)."
     if exhaustion_text:
         content += f"\n{exhaustion_text}"
 

@@ -40,7 +40,7 @@ Roll again:
 ## **Dribble Advance** wins the skill test!
 --- message
 🔮 <@111>, choose your Dribble Advance distance (Playmaker ability):
-=== press 5: DribbleAdvanceChoiceView -> 'Advance 1 space (5)'
+=== press 5: DribbleAdvanceChoiceView -> 'Advance 1 space (space 5)'
 --- message
 Chose **1 space**.
 --- message
@@ -54,9 +54,9 @@ Ball speed is now **1**.
 🔮 **Smooth** — the ball reaches near 🔮 Zenith [WG], who can take the ball to become the ball handler.
 === press 7: SmoothView -> 'Zenith [WG] takes it over'
 --- message
-🔮 **Smooth** — 🔮 Zenith [WG] takes the ball on **5** (Midfield).
+🔮 **Smooth** — 🔮 Zenith [WG] takes the ball on **space 5** (Midfield).
 
-Ball is now 5, Telekinetics (Home) has possession. Time has advanced 1, now at 01.
+Ball is now in space 5, Telekinetics (Home) has possession. Time has advanced 1, now at 01.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -78,7 +78,7 @@ Fire Demons (Visiting) manages to avoid a goal! (phew)
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 02.
+Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 02.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -102,7 +102,7 @@ The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
 🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
 The ball slips past them.
 --- message
-Ball is now 6, Fire Demons (Visiting) has possession. Time has advanced 1, now at 03.
+Ball is now in space 6, Fire Demons (Visiting) has possession. Time has advanced 1, now at 03.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -120,7 +120,7 @@ You chose **Pressure**.
 --- message
 **Pressure:** 🔥 Hellguard [FB] and the ball go back 1 space. 🔮 Noxar [SK] moves forward.
 
-Ball is now 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 04.
+Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 04.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -170,7 +170,7 @@ Fire Demons (Visiting) manages to avoid a goal! (phew)
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now 7, Fire Demons (Visiting) has possession. Time has advanced 2, now at 06.
+Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 2, now at 06.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -214,7 +214,7 @@ That overshoots toward their own goal!
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 07.
+Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 07.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -258,7 +258,7 @@ Either player can roll:
 --- message
 🔥 Sizzifizik [PM] keeps possession after the high pass! 🔥 Dinky AI has possession.
 --- message
-Ball is now 4, Fire Demons (Visiting) has possession. Time has advanced 2, now at 09.
+Ball is now in space 4, Fire Demons (Visiting) has possession. Time has advanced 2, now at 09.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -307,7 +307,7 @@ The ball slips past them.
 --- message
 **Low Pass:** the ball moves 2 spaces forward. Ball speed is now 2.
 
-Ball is now 2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 10.
+Ball is now in space 2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 10.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -328,12 +328,12 @@ You chose **Double Team**.
 🔮 **Smooth** — the ball reaches near 🔮 Quillon [PM], who can take the ball to become the ball handler.
 === press 31: SmoothView -> 'Quillon [PM] takes it over'
 --- message
-🔮 **Smooth** — 🔮 Quillon [PM] takes the ball on **4** (Midfield).
+🔮 **Smooth** — 🔮 Quillon [PM] takes the ball on **space 4** (Midfield).
 
 # Players run back!
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
 --- message
-Ball is now 4, Telekinetics (Home) has possession. Time has advanced 1, now at 11.
+Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 11.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -343,11 +343,11 @@ Out of shooting range. Maneuver, or take a time out:
 === press 32: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visiting) would be allowed to do the same. Time outs take 1 minute and play will resume with the ball at 4, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visiting) would be allowed to do the same. Time outs take 1 minute and play will resume with the ball at space 4, with you in possession.
 === press 33: TimeOutConfirmView -> 'Take the time out'
 --- message
 # Telekinetics (Home) call a time out
-Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on 4.
+Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on space 4.
 --- message
 # Coaching Choice
 <@111>, **Telekinetics (Home)** -- 2 substitutions left.
@@ -361,7 +361,7 @@ No substitutions, and no change of shape.
 **Fire Demons (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now 4, Telekinetics (Home) has possession. Time has advanced 1, now at 12.
+Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 12.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -394,7 +394,7 @@ You chose **Setup Pass**.
 Ball speed is now **2**.
 --- message
 🔮 <@111>, choose where your **Setup Pass** lands:
-=== press 38: SetupPassChoiceView -> '3 spaces (7, no teammate)'
+=== press 38: SetupPassChoiceView -> '3 spaces (space 7, no teammate)'
 --- message
 **🔮 Coach** picks out a **Setup Pass** of 3.
 --- message
@@ -403,7 +403,7 @@ Ball speed is now **2**.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now 7, Fire Demons (Visiting) has possession. Time has advanced 2, now at 14.
+Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 2, now at 14.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -436,13 +436,13 @@ The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it for 1 exhaustion.
 🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 1 total).
 
 ## 🔮 Zenith [WG] grabs the ball with their telekinetic powers!
-**Turnover!** They take it on **5** (Midfield).
+**Turnover!** They take it on **space 5** (Midfield).
 
 The ball speed goes down to **1**.
 --- message
 The clock reaches 15 -- this is now **last possession**. The turnover that got here doesn't end it -- Telekinetics (Home) came out of that maneuver with the ball, so they play last possession out. The clock keeps running.
 --- message
-Ball is now 5, Telekinetics (Home) has possession. Time has advanced 2, now at 16.
+Ball is now in space 5, Telekinetics (Home) has possession. Time has advanced 2, now at 16.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -475,7 +475,7 @@ Every fielded player recovers 1 exhaustion token:
 🔥 Sizzifizik [PM] loses an extra exhaustion token (now 1).
 --- message
 <@111>, Telekinetics (Home): choose one fielded player to lose an extra exhaustion token.
-=== press 44: HalftimeExtraTokenView -> 'Dravox [DD] (2)'
+=== press 44: HalftimeExtraTokenView -> 'Dravox [DD] (2 exhaustion)'
 --- message
 🔮 Dravox [DD] loses an extra exhaustion token (now 1).
 --- message
@@ -513,7 +513,7 @@ You chose **Intercept**.
 🔮 **Smooth** — the ball reaches near 🔮 Zenith [WG], who can take the ball to become the ball handler.
 === press 47: SmoothView -> 'Zenith [WG] takes it over'
 --- message
-🔮 **Smooth** — 🔮 Zenith [WG] takes the ball on **5** (Midfield).
+🔮 **Smooth** — 🔮 Zenith [WG] takes the ball on **space 5** (Midfield).
 
 # Players run back!
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
@@ -523,7 +523,7 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 --- message
 Ball speed is now **3**.
 --- message
-Ball is now 5, Telekinetics (Home) has possession. Time has advanced 1, now at 16.
+Ball is now in space 5, Telekinetics (Home) has possession. Time has advanced 1, now at 16.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -579,7 +579,7 @@ The ball slips past them.
 --- message
 **Low Pass:** the ball moves 2 spaces forward. Ball speed is now 6.
 
-Ball is now 4, Fire Demons (Visiting) has possession. Time has advanced 0, now at 16.
+Ball is now in space 4, Fire Demons (Visiting) has possession. Time has advanced 0, now at 16.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -608,7 +608,7 @@ The ball slips past them.
 
 **Double Team** was beaten -- 🔮 Quillon [PM] and 🔮 Spectra [MF] are each shoved a space forward, away from their own goal.
 
-Ball is now 2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 17.
+Ball is now in space 2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 17.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -639,8 +639,8 @@ Either player can roll:
 --- message
 🔥 Flickerwing [WG] contests the loose ball (offense).
 --- message
-🔮 <@111>, choose who contests the loose ball on 3, or send nobody:
-=== press 58: LooseBallChoiceView -> 'Dravox [DD] (2, 1 space from the ball)'
+🔮 <@111>, choose who contests the loose ball on space 3, or send nobody:
+=== press 58: LooseBallChoiceView -> 'Dravox [DD] (space 2, 1 space from the ball)'
 --- message
 🔮 Dravox [DD] contests the loose ball (defense).
 --- message
@@ -659,7 +659,7 @@ Dinky AI, 🔥 Flickerwing [WG] is exhausted and owes an injury test: a d12 that
 --- message
 🔥 Flickerwing [WG] is exhausted and rolls an injury test: 7 beats their 3 exhaustion tokens — safe.
 --- message
-Ball is now 3, Fire Demons (Visiting) has possession. Time has advanced 1, now at 18.
+Ball is now in space 3, Fire Demons (Visiting) has possession. Time has advanced 1, now at 18.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -735,7 +735,7 @@ Either player can roll:
 --- message
 🔮 Noxar [SK] is exhausted and rolls an injury test: 8 beats their 7 exhaustion tokens — safe.
 --- message
-Ball is now 6, Fire Demons (Visiting) has possession. Time has advanced 1, now at 19.
+Ball is now in space 6, Fire Demons (Visiting) has possession. Time has advanced 1, now at 19.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -791,24 +791,24 @@ The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
 🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 1 total).
 
 ## 🔮 Spectra [MF] grabs the ball with their telekinetic powers!
-**Turnover!** They take it on **4** (Midfield).
+**Turnover!** They take it on **space 4** (Midfield).
 
 # Players run back!
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
 --- message
 <@111>, your players are doubled up while their zone still has a space with nobody on it — choose which of them runs back:
-🔮 Zenith [WG] on 5
-🔮 Quillon [PM] on 5
-=== press 76: RunBackPlayerChoiceView -> 'Quillon [PM] — 5'
+🔮 Zenith [WG] on space 5
+🔮 Quillon [PM] on space 5
+=== press 76: RunBackPlayerChoiceView -> 'Quillon [PM] — space 5'
 --- message
 <@111>, choose where 🔮 Quillon [PM] runs back to:
-3 (2 spaces away).
-=== press 77: RunBackChoiceView -> '3 (2 spaces)'
+Space 3 (2 away).
+=== press 77: RunBackChoiceView -> 'Space 3 (2 away)'
 --- message
-🔮 Quillon [PM] runs back to 3.
+🔮 Quillon [PM] runs back to space 3.
 🔮 Quillon [PM] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 7 total).
 --- message
-Ball is now 4, Telekinetics (Home) has possession. Time has advanced 1, now at 20.
+Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 20.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -818,11 +818,11 @@ Out of shooting range. Maneuver, or take a time out:
 === press 78: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visiting) would be allowed to do the same. Time outs take 1 minute and play will resume with the ball at 4, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visiting) would be allowed to do the same. Time outs take 1 minute and play will resume with the ball at space 4, with you in possession.
 === press 79: TimeOutConfirmView -> 'Take the time out'
 --- message
 # Telekinetics (Home) call a time out
-Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on 4.
+Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on space 4.
 --- message
 # Coaching Choice
 <@111>, **Telekinetics (Home)** -- 2 substitutions left.
@@ -837,7 +837,7 @@ No substitutions, and no change of shape.
 **Fire Demons (Visiting) are done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now 4, Telekinetics (Home) has possession. Time has advanced 1, now at 21.
+Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 21.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -893,12 +893,12 @@ The ball slips past them.
 # Players run back!
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
 --- message
-🔥 Scorchit [MF] runs back to 3.
+🔥 Scorchit [MF] runs back to space 3.
 🔥 Scorchit [MF] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 10 total).
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now 5, Fire Demons (Visiting) has possession. Time has advanced 1, now at 22.
+Ball is now in space 5, Fire Demons (Visiting) has possession. Time has advanced 1, now at 22.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -930,7 +930,7 @@ The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
 🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 2 total).
 The ball slips past them.
 --- message
-Ball is now 3, Fire Demons (Visiting) has possession. Time has advanced 1, now at 23.
+Ball is now in space 3, Fire Demons (Visiting) has possession. Time has advanced 1, now at 23.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -951,12 +951,12 @@ You chose **Intercept**.
 🔮 **Smooth** — the ball reaches near 🔮 Quillon [PM], who can take the ball to become the ball handler.
 === press 89: SmoothView -> 'Quillon [PM] takes it over'
 --- message
-🔮 **Smooth** — 🔮 Quillon [PM] takes the ball on **4** (Midfield).
+🔮 **Smooth** — 🔮 Quillon [PM] takes the ball on **space 4** (Midfield).
 
 # Players run back!
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
 --- message
-🔥 Sizzifizik [PM] runs back to 4.
+🔥 Sizzifizik [PM] runs back to space 4.
 🔥 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 3 total).
 --- message
 <@111>, manipulate the ball's speed (up to 3):
@@ -964,7 +964,7 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 --- message
 Ball speed is now **2**.
 --- message
-Ball is now 4, Telekinetics (Home) has possession. Time has advanced 1, now at 24.
+Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 24.
 --- message
 🔮 <@111>, it is your turn.
 
