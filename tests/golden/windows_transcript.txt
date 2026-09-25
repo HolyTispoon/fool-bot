@@ -260,8 +260,8 @@ You chose **Low Pass**.
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
 --- message
 <@111>, choose where 🟠 Spectra [MF] runs back to:
-3 (1 space away) or 5 (3 spaces away).
-=== press 23: RunBackChoiceView -> '3 (1 space)'
+Space 3 (1 away) or space 5 (3 away).
+=== press 23: RunBackChoiceView -> 'Space 3 (1 away)'
 --- message
 🟠 Spectra [MF] runs back to 3.
 🟠 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 1 total).

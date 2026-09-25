@@ -802,8 +802,8 @@ Players return to an open space in their assigned zone and gain 1 exhaustion tok
 === press 76: RunBackPlayerChoiceView -> 'Quillon [PM] — 5'
 --- message
 <@111>, choose where 🔮 Quillon [PM] runs back to:
-3 (2 spaces away).
-=== press 77: RunBackChoiceView -> '3 (2 spaces)'
+Space 3 (2 away).
+=== press 77: RunBackChoiceView -> 'Space 3 (2 away)'
 --- message
 🔮 Quillon [PM] runs back to 3.
 🔮 Quillon [PM] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 7 total).

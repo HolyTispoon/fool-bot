@@ -129,8 +129,8 @@ Either player can roll:
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
 --- message
 <@111>, choose where 🟠 Sizzifizik [PM] runs back to:
-4 (2 spaces away) or 5 (1 space away).
-=== press 14: RunBackChoiceView -> '4 (2 spaces)'
+Space 4 (2 away) or space 5 (1 away).
+=== press 14: RunBackChoiceView -> 'Space 4 (2 away)'
 --- message
 🟠 Sizzifizik [PM] runs back to 4.
 🟠 Sizzifizik [PM] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 3 total).

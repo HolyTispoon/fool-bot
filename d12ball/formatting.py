@@ -186,6 +186,11 @@ def travel_space_label(
     between prices. The number is on the button as well as in the
     sentence beside it, because the button is the thing being pressed.
     """
+    if FLAT_SPACE_NUMBERING:
+        return (
+            f"Space {space_label(zone, space_index, board)} "
+            f"({distance} away)"
+        )
     unit = "space" if distance == 1 else "spaces"
     return f"{space_label(zone, space_index, board)} ({distance} {unit})"
 
@@ -206,7 +211,17 @@ def travel_space_phrase(
     as a quantity of spaces rather than as a distance. Both are built
     from the same `distance`, so what the sentence offers and what the
     button charges cannot drift apart.
+
+    Under the flat numbering both read "space 4 (3 away)": a bare
+    number beside a count of spaces ("4 (3 spaces)") is two numbers
+    with nothing to say which is the space, so the word goes on the
+    space and the count keeps only "away". The button capitalises it.
     """
+    if FLAT_SPACE_NUMBERING:
+        return (
+            f"space {space_label(zone, space_index, board)} "
+            f"({distance} away)"
+        )
     unit = "space" if distance == 1 else "spaces"
     return (
         f"{space_label(zone, space_index, board)} "

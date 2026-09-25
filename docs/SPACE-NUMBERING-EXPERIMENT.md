@@ -131,9 +131,12 @@ easiest to undo.
 
 ## Things to look at while it is on
 
-- A **run back** names a price beside the space ("4 (2 spaces)") --
-  two numbers on one button now, where one of them used to be a
-  letter code. This is the reading most likely to be worse.
+- A **run back** names a price beside the space. Bare, that was
+  "4 (2 spaces)" -- two numbers on one button, where one of them used
+  to be a letter code -- so since 2026-09-25 it reads "Space 4
+  (2 away)" on the button and "space 4 (2 away)" in the sentence
+  above it (`travel_space_label` / `travel_space_phrase`, behind the
+  same switch; with it off both go back to "H1 (2 spaces)").
 - A **High Pass** menu reads "3 spaces (6-Zenith [WG])": a distance,
   then a destination, both numbers.
 - The **tutorial's** first lesson describes the field as

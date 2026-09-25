@@ -134,7 +134,7 @@ The ball is at **5** (Midfield). # Turnover!
 Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
 --- prompt RUN_BACK_SPACE
 {coach:1}, choose where {team:orange} Sizzifizik {role:playmaker:orange} runs back to:
-4 (2 spaces away) or 5 (1 space away).
+Space 4 (2 away) or space 5 (1 away).
 --- board changed
 === action 14: RUN_BACK_SPACE '' {"space_index": 1}
 --- answer

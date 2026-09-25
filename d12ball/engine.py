@@ -3165,6 +3165,7 @@ class RulesEngine:
         options = [
             travel_space_phrase(
                 zone, index, match.run_back_distance(player_id, zone, index),
+                match.board,
             )
             for index in spaces
         ]
@@ -3175,7 +3176,8 @@ class RulesEngine:
             offer = options[0]
         else:
             offer = f"{', '.join(options[:-1])} or {options[-1]}"
-        return f"{offer}."
+        # The offer is a sentence of its own, and "space 4 ..." opens it.
+        return f"{offer[:1].upper()}{offer[1:]}."
 
     def shootout_mentions(
         self,
