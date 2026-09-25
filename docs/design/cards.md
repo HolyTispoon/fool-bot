@@ -425,11 +425,21 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   are dealt face up and sit on the field and team boards all game, so there is
   nothing to hide -- the other side of the card is the same player in advanced
   mode.
-  - **What makes it the advanced one is the species keyword**, in a pill on
-    the right of the ability band's heading row -- literally beside the role
-    ability. A species ability is only ever in play in an advanced game (see
-    "Species abilities in the bot" in [species-abilities.md](species-abilities.md)), so the keyword is the one thing that has
-    to be on this face and cannot be on the other. The pill is *filled* with
+  - **What makes it the advanced one is what advanced mode plays for this
+    player** (the author, 2026-09-25): their advanced skills in the stats row
+    (`advanced_card_skills` -- Hellguard prints 0/8), and **their personal
+    ability instead of the role's** in the band where they have one
+    (`advanced_card_ability`). The replacement is the card's, not the game's:
+    in play a player keeps their role ability too, and its sentence is on the
+    front. A player whose sheet sentence only names a higher skill prints that
+    sentence ("High defensive skill.") as the sheet words it, and a player
+    with no personal ability prints the role's sentence on both faces.
+    `CardSkills` rather than a `RoleProfile` carries the numbers, because an
+    advanced score is not held to 1-6.
+  - **The species keyword** rides in a pill on the right of the ability
+    band's heading row. It is on this face because species abilities are
+    played in basic and advanced mode, and the front is the card for every
+    mode. The pill is *filled* with
     the species' colour rather than the keyword being set in it, for the
     reason the header band is filled: Slime green on a white face cannot be
     read, and a filled pill plus `high_contrast_ink` answers all four species
@@ -453,16 +463,19 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     Demon striker -- and a set where two cards carrying the same species line
     disagree about whether it is on there reads as a misprint, not as a layout
     that scaled. `species_short_fits` walks the species and lets the longest
-    role ability decide for all of them. **This is the one place a printed
+    ability the backs print decide for all of them. Since the personal
+    abilities went on the backs, Goopkeeper's and Acidel's sentences leave no
+    Ooze back room for Slimey's short form. **This is the one place a printed
     card carries an abbreviation**, and it is not the role's --
     `ability_short` in `species.json` exists for exactly "anywhere the
     sentence does not fit".
   - **Nothing can overflow the fixed band, so nothing has to be kept ahead of
     the data.** A species whose short form stops fitting simply stops carrying
     one and the cards go on printing. What has to fit unconditionally is the
-    role ability on its own, which is 153 units against 340 -- an import that
-    doubled one would print off the bottom of a card, so look at the backs
-    after an import that lengthens a role ability.
+    ability the back prints on its own -- three lines at most today (Acidel),
+    against a band of 340 units. An import that doubled one would print off
+    the bottom of a card, so look at the backs after an import that lengthens
+    a role or personal ability.
   - **`MIN_BACK_PORTRAIT_HEIGHT` is 360 against the front's 380, and the
     20 units are what buy the fixed band.** The front is the picture face and
     the back is the rules face -- it carries a second ability where the front
@@ -472,17 +485,6 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     a number tuned to today's data: they are the line at which a player card
     has stopped being a picture, and lowering one to fit a paragraph is the
     move to resist.
-  - **What the back is still waiting on is a decision about the advanced
-    *role* ability.** The sheet's `advanced_abilities` tab has one for sixteen
-    players since 2026-09-22, the player cards tab carries the advanced skill
-    scores (`OskillA`, `DskillA`), and the import carries both (`PlayerDefinition.advanced_ability` /
-    `.advanced_skills`), but the band still repeats the basic sentence and the
-    stats row the basic scores: what the back shows -- the advanced ability
-    alone, as the cards sheet's own `Advanced` column words it (`DD.` then the
-    ability on its own line), or beside the basic one, and whether a 0/8
-    fullback's back prints 0/8 -- is the author's call and has not been made.
-    See "Blocked or deferred" in the rules log. The role half of the band and
-    the stats row are the only things that change when it is.
   - **`duplex_order` reverses every row of the back sheet.** A duplex print
     comes out flipped about the paper's long edge, so the leftmost cell of a
     row on the front is the rightmost on the back. A maneuver deck never
