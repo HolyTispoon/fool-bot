@@ -275,7 +275,7 @@ The halving is per player rather than over the group: two defenders of 5 in the 
 
 ### The cost of a shot
 
-An ordinary shot costs its shooter nothing. A shot taken off a set-up gains its shooter 1 exhaustion token after the roll, whether it went in or not.
+An ordinary shot costs its shooter nothing. A shot taken off a set-up adds its shooter 1 exhaustion after the roll, whether it went in or not.
 
 A score attempt costs 1 space minute, and a set-up's shot costs that on top of the maneuver that created it.
 
@@ -319,7 +319,7 @@ An [injured](#playing-injured) participant changes this in both directions: a ma
 
 ### The skill test
 
-Both participants gain 1 exhaustion token, and then each rolls a d12.
+Both participants add 1 exhaustion, and then each rolls a d12.
 
 The offense adds the handler's offensive skill and the defense adds the challenger's defensive skill. On top of that:
 
@@ -328,7 +328,7 @@ The offense adds the handler's offensive skill and the defense adds the challeng
 
 The higher total wins and their maneuver is what resolves.
 
-A tie is rolled again, and each participant gains another token for it.
+A tie is rolled again, and each participant adds another token for it.
 
 When the test finally resolves, every participant who is Exhausted takes an [injury check](#the-injury-check).
 
@@ -455,7 +455,7 @@ What the set-up buys is the shot, not a shot from anywhere: it obeys the range r
 
 ### The shooter
 
-The shooter gains 1 exhaustion token after the roll either way, and a Striker adds 3 to it.
+The shooter adds 1 exhaustion after the roll either way, and a Striker adds 3 to it.
 
 ### Declining
 
@@ -487,7 +487,7 @@ A player already standing on the space is not sent anywhere -- they are there al
 
 ### What a send costs
 
-A sent player moves onto the space and gains 1 exhaustion token for every space they travelled.
+A sent player moves onto the space and adds 1 exhaustion for every space they travelled.
 
 ### Sending nobody
 
@@ -607,7 +607,7 @@ A steal sends players back to their own zones. Two groups run, on both sides:
 
 Nobody else moves. A player alone in their own zone is already where they belong and pays nothing, and **the player holding the ball never runs back**.
 
-A player running back goes to a space in their own zone that their team has not covered, and gains 1 exhaustion token for every space they travel. Where the zone is already covered, any space in it will do.
+A player running back goes to a space in their own zone that their team has not covered, and adds 1 exhaustion for every space they travel. Where the zone is already covered, any space in it will do.
 
 **Where two teammates share a space, the one holding the ball stays and the other runs back. Where neither of them is holding it, their coach chooses which of them goes.**
 
@@ -754,7 +754,7 @@ A coach who is offered a Coaching Choice and passes changes nothing, and keeps t
 
 Nothing else costs anything. An ordinary score attempt, a maneuver won outright, a reset, a Coaching Choice and a shootout test are all free.
 
-An injured player never gains tokens.
+An injured player never adds tokens.
 
 ### Becoming Exhausted
 
@@ -764,13 +764,13 @@ A player is **Exhausted** the moment their tokens exceed their defensive skill. 
 
 When a skill test resolves -- a maneuver's, a contest for the ball, or a High Pass contest's -- every Exhausted participant rolls one d12. A roll **higher** than the tokens they are currently carrying is safe, and anything else injures them.
 
-Tokens gained for that very test count, including the ones a re-roll charged.
+Tokens added for that very test count, including the ones a re-roll charged.
 
 Only a skill test causes checks: a score attempt, an own-goal roll and a shootout test never do.
 
 ### Playing injured
 
-An **Injured** player loses every token they hold and can gain no more, so they can never be checked again.
+An **Injured** player clears every token they hold and can add no more, so they can never be checked again.
 
 Until they are substituted off:
 
@@ -785,11 +785,11 @@ Nothing compels a coach to take an injured player off. They may leave them on, d
 
 ### Recovery
 
-At halftime every fielded player loses 1 exhaustion token, and each coach then chooses one of their fielded players to lose 1 more.
+At halftime every fielded player clears 1 exhaustion, and each coach then chooses one of their fielded players to clear 1 more.
 
 A player coming back on from the back bench keeps half their tokens, rounded down.
 
-Nothing else recovers a token.
+Nothing else clears a token.
 
 ## The clock
 
@@ -822,7 +822,7 @@ The clock keeps running through all of it, and every turn of a last possession i
 
 ### Halftime
 
-Every fielded player [recovers](#recovery) a token, and each coach then picks one more player to take one off.
+Every fielded player [clears](#recovery) a token, and each coach then picks one more player to clear one more.
 
 The visitors take a [Coaching Choice](#coaching-choice) and then home takes one, with two substitutions each. Those two are halftime's own: they are counted against neither half, and they leave each side's own once-a-half time out unspent.
 
@@ -844,7 +844,7 @@ A game level at full time is settled on the shootout. There is no other ending.
 
 ### Who shoots
 
-The shootout is played by the six players on the field when the shooting starts, which is **after** the full-time substitution. They carry whatever exhaustion and injuries the second half left them with, and nothing recovers.
+The shootout is played by the six players on the field when the shooting starts, which is **after** the full-time substitution. They carry whatever exhaustion and injuries the second half left them with, and nothing clears.
 
 ### Setting the order
 
@@ -973,7 +973,7 @@ Ball speed rises by **3**, to a maximum of 12. Everything else is a Low Pass's: 
 
 **Rank O2. Costs 1 space minute. Beats Deflect and Clear, loses to Pressure and Double Team.**
 
-The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler gains **1 exhaustion token per space travelled**. A handler within 4 spaces of the end of the field may run only as far as the field goes.
+The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler adds **1 exhaustion per space travelled**. A handler within 4 spaces of the end of the field may run only as far as the field goes.
 
 *Note.* It is the only maneuver that charges by distance, which is what makes the shorter runs worth taking.
 
@@ -1009,7 +1009,7 @@ It lands exactly where a Deflect's does -- [loose](#where-the-ball-comes-to-rest
 
 *Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 -- a Fullback's extra space is distance, not speed, exactly as it is on a Deflect.
 
-*Beaten:* the defender who played it gains **2 exhaustion tokens**.
+*Beaten:* the defender who played it adds **2 exhaustion**.
 
 ### Intercept
 
@@ -1072,9 +1072,9 @@ Outside a maneuver skill test -- or in basic mode, which plays the species abili
 
 ### Lithium Powered (Cyborg)
 
-**A Cyborg's tokens are drain.** They are gained and spent exactly as exhaustion tokens -- wherever a rule gives or removes an exhaustion token, a Cyborg gains or loses a drain token instead -- but a Cyborg does not become [Exhausted](#becoming-exhausted) on the ordinary threshold.
+**A Cyborg's tokens are drain.** They are added and spent exactly as exhaustion tokens -- wherever a rule adds or clears an exhaustion token, a Cyborg adds or clears a drain token instead -- but a Cyborg does not become [Exhausted](#becoming-exhausted) on the ordinary threshold.
 
-**Drain** is also the verb: a Cyborg who **drains 2** gains 2 drain tokens. Wherever a rule would give a Cyborg exhaustion tokens, they drain that many instead.
+**Drain** is also the verb: a Cyborg who **drains 2** adds 2 drain. Wherever a rule would add exhaustion tokens to a Cyborg, they drain that many instead.
 
 A Cyborg carrying **7 or more** drain is **Drained**, which counts as Exhausted everywhere the rules use that word: the [injury check](#the-injury-check) after a skill test, the halftime [recovery](#recovery) re-test, and anywhere else. Below 7 a Cyborg is never Exhausted, however low their defensive skill.
 
@@ -1084,9 +1084,9 @@ A Cyborg carrying **7 or more** drain is **Drained**, which counts as Exhausted 
 
 A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven by draining another 3. A Drained Cyborg may still Overdrive -- the drain stacks. Overdrive is a flat bonus rather than a skill modifier, so a [Damaged](#playing-injured) Cyborg keeps it.
 
-**Charge-up.** Whenever players [run back](#running-back-after-a-steal), a Cyborg who **does not move** removes **1 drain token**. Once per run back, never below zero.
+**Charge-up.** Whenever players [run back](#running-back-after-a-steal), a Cyborg who **does not move** clears **1 drain**. Once per run back, never below zero.
 
-**Any player who moves is running back**, whatever moved them and however far, so any Cyborg who moves removes nothing. A player standing outside their own zone has to return and therefore can never charge up; a player already in their own zone charges up unless something moves them anyway, and the [carrier who never runs back](#running-back-after-a-steal) charges up like anyone else standing still.
+**Any player who moves is running back**, whatever moved them and however far, so any Cyborg who moves clears nothing. A player standing outside their own zone has to return and therefore can never charge up; a player already in their own zone charges up unless something moves them anyway, and the [carrier who never runs back](#running-back-after-a-steal) charges up like anyone else standing still.
 
 Where several of a side's players share a space and one of them must go to an uncovered space in that zone, the coach chooses which -- and a Cyborg among them charges up only if they are not the one sent.
 
@@ -1163,7 +1163,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Sizzifizik ignites on 5 to 8.** Their die ignites on a natural 5, 6, 7 or 8, in the rolls Volatile covers.
 
-**Brightburn's burn upgrades nothing.** A burn that loses a maneuver skill test does not resolve the opponent's maneuver as its advanced version. Every burn, in any roll, removes 1 token from Brightburn.
+**Brightburn's burn upgrades nothing.** A burn that loses a maneuver skill test does not resolve the opponent's maneuver as its advanced version. Every burn, in any roll, clears 1 token from Brightburn.
 
 **Emberdash runs further.** Emberdash's [Dribble Advance](#dribble-advance) may go up to 3 spaces, and their [Dribble Burst](#dribble-burst) costs no exhaustion.
 
@@ -1175,7 +1175,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Gearclaw may Boost.** Once per roll, before the die is thrown, Gearclaw may **drain 1** to add **+3** to that roll. It is declared blind, on any roll Gearclaw could Overdrive, and follows every rule of Overdrive -- except that on one roll Gearclaw may Boost or Overdrive, never both.
 
-**Strider runs on less.** When Strider [charges up](#lithium-powered-cyborg), they remove 2 drain tokens rather than 1. A [run back](#running-back-after-a-steal) drains Strider 1 at most, however far they run.
+**Strider runs on less.** When Strider [charges up](#lithium-powered-cyborg), they clear 2 drain rather than 1. A [run back](#running-back-after-a-steal) drains Strider 1 at most, however far they run.
 
 **Quantor runs onto the pass.** When a teammate's won [High Pass](#high-pass) or [Setup Pass](#setup-pass) is about to resolve, Quantor may **drain 3** to move to the space the pass is aimed at and receive it there, without a contest. The pass then resolves with Quantor as its receiver: a High Pass of 2 in range and a Setup Pass set up Quantor's [scoring opportunity](#scoring-opportunities), and a longer High Pass is simply received. It is declared with the pass's distance, only for a distance whose space is on the field, and never on Quantor's own pass.
 
