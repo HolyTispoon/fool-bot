@@ -193,7 +193,10 @@ on the pull request that brought it in.
   still sets the speed; that half is still the author's to confirm.
 - **Kindlefinger:** *"Can iginite on injury test: when blazes clear 1 exhaustion and when burns
   add 1 exhaustion."* Read as an ordinary ignite on the check's die -- the number added or
-  subtracted -- with the token cleared or added once the check is read.
+  subtracted -- which the author confirmed. First built with the token cleared or added once
+  the check was read; the author: *"The token change comes before checking if they have to roll
+  for injury so it could compare the check (just like gaining tokens for skill tests)."* So the
+  token moves first and the check is compared with the count after it.
 - **Pulsar:** *"Charge-up when receives the ball."* Read the same way as Inferno's, which now
   uses the same word: being left holding the ball, however that happened, not only off a
   teammate's pass, and not being chosen as handler.
