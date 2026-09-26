@@ -65,7 +65,7 @@ from d12ball.render import TEAM_COLORS, render_match_image
 from gamelocks import GameLocks
 from gamesaves.d12ball.service import GameResult, GameService
 from gamesaves.d12ball.storage import WEB_GAMES_FILE, load_games, save_games
-from webapp import keys, pictures
+from webapp import identity, keys, pictures
 from webapp.board import board_layout, period_name
 from webapp.present import Viewer, controls_for, render_text
 
@@ -295,6 +295,8 @@ class WebApp:
         self.app.add_routes(
             [
                 web.get("/", self.index),
+                web.get("/api/me", self.who_am_i),
+                web.post("/api/me", self.call_me),
                 web.get("/game/{game_id}", self.page),
                 web.get("/api/game/{game_id}", self.state),
                 web.post("/api/game/{game_id}/action", self.act),
@@ -402,6 +404,33 @@ class WebApp:
                 "D12 Ball. A game is opened with its own link."
             ),
         )
+
+    # -- Who is reading ----------------------------------------------
+
+    async def who_am_i(self, request: web.Request) -> web.Response:
+        """The person this browser's cookie names, or null."""
+        coach = identity.coach_for(request)
+        return web.json_response(None if coach is None else coach.to_dict())
+
+    async def call_me(self, request: web.Request) -> web.Response:
+        """
+        Take a name: a new id the first time, the same id with the new
+        name after that (`webapp/identity.py`).
+        """
+        body = await _body(request)
+        try:
+            name = identity.clean_name(body.get("name"))
+        except identity.NameRefused as refusal:
+            raise web.HTTPBadRequest(text=str(refusal))
+        known = identity.coach_for(request)
+        coach = (
+            identity.issue(name)
+            if known is None
+            else identity.Coach(known.id, name)
+        )
+        response = web.json_response(coach.to_dict())
+        identity.set_cookie(response, request, coach)
+        return response
 
     async def page(self, request: web.Request) -> web.Response:
         """The page itself. Everything on it arrives from the API
