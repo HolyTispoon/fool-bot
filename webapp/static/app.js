@@ -200,6 +200,9 @@ function draw(state) {
   if (picked && JSON.stringify(state.prompt) !== shownPrompt) picked = null;
   current = state;
   latest = state.latest;
+  /* Before kickoff the table is the whole of the play area: no
+     jumbotron and no board until there is a match to draw. */
+  document.body.classList.toggle("at-table", Boolean(state.table));
   drawHeader(state);
   drawJumbotron(state);
   drawBoard(state);
@@ -284,28 +287,35 @@ function teamEmoji(key, name) {
   return h("img", { class: "emoji", src: `/emoji/team_${key}.png`, alt: name, title: name });
 }
 
+/* The top bar: the room's number and its topic on one baseline, and
+   who this reader is as one pill -- the seat before the toss (gold
+   edge), the side and its team after it (the team's colour), or
+   watching, with the free seat beside it when there is one. Which is
+   which is the server's `room.role`, read off the record. */
 function drawHeader(state) {
   el("channel").textContent = `pbw${state.game.number}`;
-  el("topic").textContent = state.game.title;
+  el("topic").textContent = state.game.topic;
   const you = el("you");
-  you.replaceChildren();
-  const mine = state.room.seats.find((seat) => seat.yours);
-  if (state.you.is_coach && mine && !state.game.coaches.some((one) => one.player_number === mine.number && one.team)) {
-    /* No team picked yet: the seat is what this reader holds. */
-    you.append("You hold ", h("strong", {}, mine.label));
-  } else if (state.you.is_coach) {
-    const coach = state.game.coaches.find((one) => one.player_number === state.you.player_number);
-    const side = coach && coach.side ? ` (${coach.side === "home" ? "Home" : "Visitors"})` : "";
-    you.append(
-      "You coach ",
-      teamEmoji(coach && coach.team_key, coach && coach.team) || "",
-      h("strong", {}, coach ? coach.team || coach.name : "a side"),
-      side,
+  const room = state.room;
+  const mine = room.seats.find((seat) => seat.yours);
+  you.style.removeProperty("--pill-edge");
+  if (room.role === "home" || room.role === "visiting") {
+    const coach = state.game.coaches.find((one) => one.player_number === mine.number);
+    you.replaceChildren(
+      "You are the ",
+      h("strong", {}, room.role === "home" ? "Home coach" : "Visitors coach"),
+      coach && coach.team ? " · " : "",
+      coach && coach.team ? teamEmoji(coach.team_key, coach.team) : "",
+      coach && coach.team ? h("strong", {}, coach.team) : "",
     );
+    if (coach && coach.colour) you.style.setProperty("--pill-edge", coach.colour);
+  } else if (mine) {
+    you.replaceChildren("You are ", h("strong", {}, mine.label));
+    you.style.setProperty("--pill-edge", GOLD);
   } else {
-    you.append("You are watching");
+    you.replaceChildren("You are an observer");
   }
-  if (state.you.coach) you.prepend(h("strong", {}, state.you.coach.name), " · ");
+  el("take-free-seat").hidden = Boolean(mine) || !room.seats.some((seat) => seat.free);
 }
 
 // -- The room -------------------------------------------------------------
@@ -316,7 +326,8 @@ function drawHeader(state) {
    back with its sentence. */
 function drawRoom(state) {
   const room = state.room;
-  el("room").hidden = false;
+  /* Before kickoff the table's seat cards and sideline are the room. */
+  el("room").hidden = Boolean(state.table);
   const seated = room.seats.some((seat) => seat.yours);
   el("seats").replaceChildren(
     ...room.seats.map((seat) => {
@@ -341,11 +352,7 @@ function drawRoom(state) {
       if (room.admin && seat.name && !seat.yours) {
         buttons.push(h("button", {
           type: "button", class: "btn",
-          onclick: () => {
-            if (confirm(`Are you sure? ${seat.name} will lose ${seat.label}.`)) {
-              roomMove("/seat/kick", { seat: seat.number });
-            }
-          },
+          onclick: () => kickSeat(seat),
         }, "Kick"));
       }
       return h("div", { class: `seat${seat.yours ? " yours" : ""}` },
@@ -2359,17 +2366,19 @@ function drawOpenChooser(control) {
 
 // -- The table ---------------------------------------------------------------
 
-/* Before kickoff, in the prompt's place: the settings, both seats and
-   their teams, the coin, home or visiting, and Start. Everything on it
-   is `state.table` -- which setting is open, which team a seat may
-   pick, who owes the toss and the choice are the game record's
-   answers, and a press the record refuses comes back with its
-   sentence. An observer is sent the same table with every control
-   off. */
+/* Before kickoff, in the prompt's place (row 1 of the design canvas):
+   the two seat cards with their teams, the settings as pills, the
+   question box -- the whistle, the coin, the goal to defend -- and the
+   sideline. Everything on it is `state.table` and `state.room`: which
+   setting is open and what the record says of the rest, which team a
+   seat is offered, who owes the toss and the choice, where the AI may
+   sit, are the game record's answers, and a press the record refuses
+   comes back with its sentence. An observer is sent the same table
+   with every control off. */
 function drawTable(state) {
   const box = el("table");
   const table = state.table;
-  const shape = JSON.stringify(table);
+  const shape = JSON.stringify([table, state.room]);
   if (shape === shownTable) return;
   shownTable = shape;
   if (!table) {
@@ -2377,124 +2386,379 @@ function drawTable(state) {
     return;
   }
   box.hidden = false;
-  const picking = table.seats.some((seat) => seat.teams.some((team) => team.open));
-  const yours = table.start.may || table.coin.may || table.sides.may || picking;
-  box.classList.toggle("yours", yours);
-  if (yours) news("move", "yours");
-  el("table-state").textContent = yours ? "Your move" : table.lobby ? "The lobby" : "Setting up";
+  if (table.yours) news("move", "yours");
+  el("seat-cards").replaceChildren(...table.seats.map((seat) => seatCard(seat, state.room)));
+  drawSettings(table);
+  drawTableBox(table);
+  drawSideline(table, state.room);
+}
 
-  const body = el("table-body");
-  body.replaceChildren(
-    h("div", { class: "group-label" }, "Settings"),
-    h("div", { class: "table-settings" }, table.settings.map(drawSetting)),
-  );
-  for (const seat of table.seats) {
-    body.append(h("div", { class: "group-label" },
-      `${seat.label}: `,
-      seat.name || "Empty",
-      seat.team ? " · " : "",
-      seat.team ? teamEmoji(seat.team_key, seat.team) : null,
-      seat.team ? ` ${seat.team}` : ""));
-    if (seat.teams.length) body.append(drawTeams(seat));
-  }
+/* What a drag carries: yourself or Dinky off the sideline, or a name
+   out of a seat. The drop is the same move the click beside it makes. */
+function seatDrag(event, what) {
+  event.dataTransfer.setData("text/plain", what);
+  event.dataTransfer.effectAllowed = "move";
+  document.body.classList.add("dragging-seat");
+}
+document.addEventListener("dragend", () => document.body.classList.remove("dragging-seat"));
 
-  const coin = table.coin;
-  if (coin.flipped) {
-    const winner = table.seats.find((seat) => seat.number === coin.winner);
-    body.append(h("p", { class: "note-line" },
-      `The coin came up ${coin.face === "fortune" ? "Fortune" : "Doom"}: `,
-      h("strong", {}, winner ? winner.name || winner.label : "nobody"),
-      " won the toss."));
-  }
-  const row = h("div", { class: "row" });
-  if (coin.owed) {
-    row.append(tableButton("Flip the coin", !coin.may, "/table/flip_coin"));
-  }
-  if (table.sides.owed_by) {
-    for (const choice of table.sides.choices) {
-      row.append(tableButton(choice.label, !(table.sides.may && choice.open),
-        "/table/choose", { choice: choice.value }));
-    }
-  }
-  if (table.may_close) {
-    row.append(h("button", {
-      type: "button",
-      class: "btn",
-      onclick: () => {
-        if (confirm("Close this room? Nothing has been played in it.")) roomMove("", {}, "DELETE");
-      },
-    }, "Close this room"));
-  }
-  if (row.childElementCount) body.append(row);
-  /* Start is the whistle: grey, with the record's own sentence under
-     it, while `start_lobby` would refuse. */
-  if (table.start.owed) {
-    body.append(whistle({
-      allowed: table.start.may && !table.start.refusal,
-      label: "Start the game",
-      note: table.start.refusal || "",
-      onclick: () => roomMove("/table/start"),
-    }));
+function seatDropTarget(node, accept) {
+  node.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    node.classList.add("drop-over");
+  });
+  node.addEventListener("dragleave", () => node.classList.remove("drop-over"));
+  node.addEventListener("drop", (event) => {
+    event.preventDefault();
+    node.classList.remove("drop-over");
+    accept(event.dataTransfer.getData("text/plain"));
+  });
+}
+
+/* A seat's holder taken out: yourself, which is leaving it, or -- an
+   admin's -- somebody else or the AI, which is a kick and is asked
+   first. Every way out of a seat (the ✕, a drag to the sideline)
+   comes through here. */
+function seatOut(seat, room) {
+  if (seat.yours) {
+    roomMove("/seat/leave");
+  } else if (room.admin && seat.name) {
+    kickSeat(seat);
   }
 }
 
-function tableButton(label, disabled, path, body) {
+function kickSeat(seat) {
+  if (confirm(`Are you sure? ${seat.name} will lose ${seat.label}.`)) {
+    roomMove("/seat/kick", { seat: seat.number });
+  }
+}
+
+function seatCard(seat, room) {
+  const seated = room.seats.some((one) => one.yours);
+  const mayOut = seat.yours || (room.admin && Boolean(seat.name));
+  const chips = [];
+  if (seat.yours) chips.push(h("span", { class: "tag-chip you" }, "YOU"));
+  if (seat.ai) chips.push(h("span", { class: "tag-chip ai" }, "AI"));
+
+  let holder;
+  if (seat.name) {
+    holder = h("div", {
+      class: `seat-holder${mayOut ? " draggable" : ""}`,
+      draggable: mayOut ? "true" : null,
+      title: mayOut ? (seat.yours ? "Drag out of the seat to leave it" : "Drag out to free the seat") : null,
+      ondragstart: mayOut ? (event) => seatDrag(event, `seat:${seat.number}`) : null,
+    }, seat.name);
+  } else if (seat.free && !seated && current.you.coach) {
+    holder = h("button", {
+      type: "button",
+      class: "seat-holder empty",
+      onclick: () => roomMove("/seat/take", { seat: seat.number }),
+    }, "Empty seat · click to sit");
+  } else {
+    holder = h("div", { class: "seat-holder empty" }, "Empty seat");
+  }
+
+  const card = h(
+    "div",
+    { class: `seat-card${seat.yours ? " yours" : ""}${seat.free ? " open" : ""}`, "data-seat": seat.number },
+    h("div", { class: "seat-card-head" },
+      h("span", { class: "field-label" }, seat.label.toUpperCase()),
+      h("span", { class: "grow" }),
+      chips,
+      mayOut
+        ? h("button", {
+          type: "button",
+          class: "seat-out",
+          title: seat.yours ? "Leave this seat" : `Take ${seat.name} out of ${seat.label}`,
+          "aria-label": seat.yours ? "Leave this seat" : `Take ${seat.name} out of ${seat.label}`,
+          onclick: () => seatOut(seat, room),
+        }, "✕")
+        : null),
+    holder,
+    seatTeamLine(seat),
+    seat.teams.length ? drawTeams(seat) : null,
+    seatHint(seat, room, seated),
+  );
+  if (seat.free) {
+    seatDropTarget(card, (what) => {
+      if (what === "me") roomMove("/seat/take", { seat: seat.number });
+      else if (what === "dinky") roomMove("/seat/ai", { seat: seat.number });
+    });
+  }
+  return card;
+}
+
+function seatTeamLine(seat) {
+  if (seat.team) {
+    return h("div", { class: "seat-team" },
+      h("span", { class: "team-dot big", style: `background: ${seat.colour}` }),
+      teamEmoji(seat.team_key, seat.team), h("b", {}, seat.team));
+  }
+  if (seat.teams.length) {
+    return h("div", { class: `seat-team${seat.yours ? " owed" : ""}` },
+      seat.yours ? "Pick a team" : "Still to pick a team");
+  }
+  return null;
+}
+
+function seatHint(seat, room, seated) {
+  let hint = null;
+  if (seat.yours) hint = "Drag your name out of the seat, or click ✕, to leave it";
+  else if (seat.name && room.admin) hint = `Drag ${seat.name} out, or click ✕, to free the seat`;
+  else if (seat.free && seated && room.ai_seats.includes(seat.number)) {
+    return h("div", { class: "seat-hint" },
+      h("span", {}, "Drag Dinky in from the sideline, or "),
+      h("button", {
+        type: "button",
+        class: "linkish",
+        onclick: () => roomMove("/seat/ai", { seat: seat.number }),
+      }, "put Dinky in"));
+  } else if (seat.free && !seated) hint = "Drag your name in from the sideline, or click the seat";
+  return hint ? h("div", { class: "seat-hint" }, hint) : null;
+}
+
+/* A seat's swatches: the colour teams and the species teams, a row
+   each. Greyed where the record's `teams_open_to` does not offer the
+   team, gold-edged on the seat's own pick, and pressable only in the
+   reader's own seat. */
+function drawTeams(seat) {
+  const row = (number, label) => [
+    h("span", { class: "swatch-label" }, label),
+    h("div", { class: "swatches" },
+      seat.teams.filter((team) => team.row === number).map((team) => h("button", {
+        type: "button",
+        class: `swatch${team.picked ? " picked" : ""}${team.offered ? "" : " greyed"}`,
+        style: `background: ${team.colour}`,
+        title: team.name,
+        "aria-label": team.picked ? `${team.name} (picked)` : team.name,
+        disabled: !team.open,
+        onclick: () => roomMove("/table/pick_team", { team: team.key, seat: seat.number }),
+      }, number === 1 ? teamEmoji(team.key, team.name) : null))),
+  ];
+  return h("div", { class: "table-teams" },
+    row(0, seat.yours ? "Colour teams · click a swatch" : "Colour teams"),
+    row(1, "Species teams (greyed where the game does not offer one)"));
+}
+
+/* The settings: a row of gold pills per setting, the current value
+   gold and the rest outlined, with the record's note -- why a value
+   is dark -- beside it; the room's name edited in place. */
+function drawSettings(table) {
+  el("table-settings").replaceChildren(
+    h("div", { class: "settings-head" },
+      h("span", { class: "field-label" }, "SETTINGS"),
+      h("span", { class: "quiet faint" },
+        "the gold pill is how it stands; click another to change it, either coach may")),
+    ...table.settings.map(drawSetting),
+  );
+}
+
+function pill(label, { current = false, disabled = false, onclick = null } = {}) {
   return h("button", {
     type: "button",
-    class: "btn",
-    disabled,
-    onclick: () => roomMove(path, body),
+    class: `pill${current ? " current" : ""}`,
+    disabled: disabled || current,
+    "aria-pressed": current ? "true" : "false",
+    onclick,
   }, label);
 }
 
-/* One setting: a row of its values as the Discord settings block draws
-   them (the current one grey), a toggle, or the room's name. */
 function drawSetting(setting) {
   const off = !setting.may_change;
   const configure = (value) => roomMove("/table/configure", { setting: setting.name, value });
   let control;
   if (setting.choices.length) {
-    control = h("div", { class: "row" }, setting.choices.map((choice) => h("button", {
-      type: "button",
-      class: `btn${choice.value === setting.value ? " current" : ""}`,
-      disabled: off || choice.value === setting.value,
+    control = h("div", { class: "pills" }, setting.choices.map((choice) => pill(choice.label, {
+      current: choice.value === setting.value,
+      disabled: off || !choice.open,
       onclick: () => configure(choice.value),
-    }, choice.label)));
+    })));
   } else if (typeof setting.value === "boolean") {
-    control = h("button", {
-      type: "button",
-      class: `btn${setting.value ? " current" : ""}`,
-      disabled: off,
+    control = h("div", { class: "pills" }, [false, true].map((value) => pill(value ? "On" : "Off", {
+      current: setting.value === value,
+      disabled: off || !setting.toggle_open,
       onclick: () => configure(null),
-    }, setting.value ? "On" : "Off");
+    })));
   } else {
     const input = h("input", {
-      class: "chat-input",
+      class: "name-field small",
       maxlength: "80",
       value: setting.value,
       disabled: off,
       "aria-label": setting.label,
+      placeholder: "Name this room",
     });
-    control = h("form", {
-      class: "row",
-      onsubmit: (event) => { event.preventDefault(); configure(input.value); },
-    }, input, h("button", { type: "submit", class: "btn", disabled: off }, "Rename"));
+    const save = () => { if (input.value !== setting.value) configure(input.value); };
+    input.addEventListener("change", save);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); input.blur(); }
+    });
+    control = input;
   }
+  const note = setting.note
+    || (setting.name === "name" && !off ? "click the name to edit it; it saves when you leave the field" : "");
   return h("div", { class: "table-setting" },
-    h("span", { class: "seat-label" }, setting.label), control);
+    h("span", { class: "setting-label" }, setting.label), control,
+    note ? h("span", { class: "setting-note" }, note) : null);
 }
 
-/* A seat's picker: the colour teams and the species teams, a row each,
-   every team the record does not offer greyed. */
-function drawTeams(seat) {
-  const rows = [0, 1].map((row) => h("div", { class: "row" },
-    seat.teams.filter((team) => team.row === row).map((team) => h("button", {
+/* The question box at the table: one question at a time, each the
+   record's -- Start while the lobby is open, then the teams, the coin,
+   and the goal the toss's winner defends. */
+function drawTableBox(table) {
+  const qbox = el("table-box");
+  qbox.dataset.state = table.yours ? "yours" : "waiting";
+  el("table-state").textContent = table.yours ? "Your move" : table.lobby ? "The lobby" : "Setting up";
+  const ask = el("table-ask");
+  const body = el("table-body");
+  const coin = table.coin;
+  const nameOf = (number) => {
+    const seat = table.seats.find((one) => one.number === number);
+    return seat ? seat.name || seat.label : "nobody";
+  };
+
+  if (table.start.owed) {
+    /* Start is the whistle: dark, with the record's own sentence
+       under it, while `start_lobby` would refuse. */
+    ask.textContent = table.start.refusal
+      ? "The whistle starts the game once both seats are held."
+      : table.start.may
+        ? "Both seats are held. Blow the whistle to start the game."
+        : "Both seats are held. Either coach blows the whistle to start the game.";
+    body.replaceChildren(h("div", { class: "row table-row" },
+      whistle({
+        allowed: table.start.may && !table.start.refusal,
+        label: "Start the game",
+        note: table.start.refusal || "",
+        onclick: () => roomMove("/table/start"),
+      }),
+      h("span", { class: "coin-later" },
+        h("img", { src: coin.faces.fortune, alt: "", class: "coin small" }),
+        "then the coin")));
+    return;
+  }
+
+  if (!coin.flipped && !coin.owed) {
+    const waiting = table.seats.filter((seat) => !seat.team);
+    ask.textContent = waiting.some((seat) => seat.yours)
+      ? "Pick your team: click a swatch in your seat."
+      : `Waiting for ${waiting.map((seat) => seat.name || seat.label).join(" and ")} to pick a team.`;
+    body.replaceChildren(h("span", { class: "coin-later" },
+      h("img", { src: coin.faces.fortune, alt: "", class: "coin small" }),
+      "then the coin"));
+    return;
+  }
+
+  if (coin.owed) {
+    ask.textContent = coin.may ? "Click the coin to flip it." : "Waiting for a coach to flip the coin.";
+    body.replaceChildren(h("button", {
       type: "button",
-      class: "btn",
-      disabled: !team.open,
-      onclick: () => roomMove("/table/pick_team", { team: team.key, seat: seat.number }),
-    }, teamEmoji(team.key, team.name), ` ${team.name}`))));
-  return h("div", { class: "table-teams" }, rows);
+      class: `coin-button${coin.may ? " lit" : ""}`,
+      disabled: !coin.may,
+      title: "Flip the coin",
+      "aria-label": "Flip the coin",
+      onclick: () => roomMove("/table/flip_coin"),
+    }, h("img", { src: coin.faces.fortune, alt: "", class: "coin big" })));
+    return;
+  }
+
+  /* The toss is in: the face it came up large, the other small and
+     dim, and -- while the winner still owes it -- the goal to defend,
+     on a miniature field whose two ends are the two answers. */
+  const face = coin.face === "fortune" ? "Fortune" : "Doom";
+  const other = coin.face === "fortune" ? "doom" : "fortune";
+  const sides = table.sides;
+  ask.replaceChildren(
+    "The coin came up ", h("b", { class: "gold" }, face), ": ",
+    h("b", {}, nameOf(coin.winner)), " won the toss.",
+    sides.owed_by
+      ? (sides.may ? " Click the goal you want to defend." : ` Waiting for ${nameOf(sides.owed_by)} to choose an end.`)
+      : "");
+  body.replaceChildren(h("div", { class: "toss" },
+    h("div", { class: "coin-faces" },
+      h("figure", { class: "coin-face" },
+        h("img", { src: coin.faces[coin.face], alt: `The coin, ${face} side up`, class: "coin big" }),
+        h("figcaption", { class: "gold" }, face.toUpperCase())),
+      h("figure", { class: "coin-face dim" },
+        h("img", { src: coin.faces[other], alt: "", class: "coin small" }),
+        h("figcaption", {}, other.toUpperCase()))),
+    sides.owed_by ? miniField(sides) : null));
+}
+
+/* The miniature field: a goal at each end -- the goal the board draws
+   there (`end`, off `webapp/board.py`) -- and the spaces between. A
+   goal is the answer: pressing it defends it. */
+function miniField(sides) {
+  const end = (where) => {
+    const choice = sides.choices.find((one) => one.end === where);
+    const may = sides.may && choice.open;
+    return h(may ? "button" : "div", {
+      type: may ? "button" : null,
+      class: `mini-goal${may ? " lit" : ""}`,
+      title: may ? `Defend this goal: ${choice.label}` : choice.label,
+      "aria-label": `Defend the ${where} goal: ${choice.label}`,
+      onclick: may ? () => roomMove("/table/choose", { choice: choice.value }) : null,
+    },
+    h("span", { class: "mini-goal-word" }, "G",
+      die("12", { size: 20, fill: "#0c141c", ink: may ? GOLD : "#6d6f78", font: 8 }), "AL"),
+    h("span", { class: "mini-goal-side" }, choice.label));
+  };
+  const spaces = Array.from({ length: sides.board_size }, (_, index) =>
+    h("span", { class: "mini-space" }, String(index + 1)));
+  return h("div", { class: "mini-field" }, end("left"), spaces, end("right"));
+}
+
+/* The sideline: who is watching, Dinky waiting to be dragged into an
+   empty seat, and the room's own neutral controls. A name dragged out
+   of a seat is dropped here. */
+function drawSideline(table, room) {
+  const strip = el("sideline-strip");
+  const seated = room.seats.some((one) => one.yours);
+  const freeSeat = room.seats.some((one) => one.free);
+  const people = room.watching.map((one) => {
+    const mine = one.yours && freeSeat && !seated;
+    return h("span", {
+      class: `sideline-chip${mine ? " draggable" : ""}`,
+      draggable: mine ? "true" : null,
+      title: mine ? "Drag into an empty seat to sit" : null,
+      ondragstart: mine ? (event) => seatDrag(event, "me") : null,
+    }, h("span", { class: "presence" }), one.name, one.yours ? " (you)" : "");
+  });
+  const dinky = room.ai_seats.length
+    ? h("span", {
+      class: "sideline-chip dinky draggable",
+      draggable: "true",
+      role: "button",
+      tabindex: "0",
+      title: "Drag Dinky into an empty seat, or click",
+      ondragstart: (event) => seatDrag(event, "dinky"),
+      onclick: () => roomMove("/seat/ai", { seat: room.ai_seats[0] }),
+      onkeydown: (event) => { if (event.key === "Enter") roomMove("/seat/ai", { seat: room.ai_seats[0] }); },
+    }, h("span", { class: "tag-chip ai" }, "AI"), " Dinky")
+    : null;
+  strip.replaceChildren(...[
+    h("span", { class: "field-label" },
+      freeSeat ? "SIDELINE · drag a name into a seat" : "SIDELINE"),
+    ...people,
+    dinky,
+    people.length || dinky ? null : h("span", { class: "quiet" }, "Nobody is watching."),
+    h("span", { class: "grow" }),
+    neutral("Copy the room's link", copyLink),
+    room.admin ? neutral("Give up admin", dropAdmin) : neutral("Become admin", becomeAdmin),
+    table.may_close
+      ? neutral("Close this room", () => {
+        if (confirm("Close this room? Nothing has been played in it.")) roomMove("", {}, "DELETE");
+      })
+      : null,
+  ].filter(Boolean));
+  if (!strip.dataset.dropping) {
+    strip.dataset.dropping = "1";
+    seatDropTarget(strip, (what) => {
+      const number = Number((what.match(/^seat:(\d)$/) || [])[1]);
+      const seat = current && current.room.seats.find((one) => one.number === number);
+      if (seat) seatOut(seat, current.room);
+    });
+  }
 }
 
 /* The rematch, followed: every page in the room when it is made goes
@@ -2526,7 +2790,7 @@ function showRefusal(text) {
     el("prompt-state").parentElement.after(strip);
     strip.removeAttribute("data-tab");
   } else if (!el("table").hidden) {
-    el("table-state").after(strip);
+    el("table-state").parentElement.after(strip);
     strip.removeAttribute("data-tab");
   } else {
     el("prompt").before(strip);
@@ -2736,21 +3000,26 @@ el("abandon").addEventListener("click", () => {
     roomMove("/abandon");
   }
 });
-el("become-admin").addEventListener("click", () => {
+function becomeAdmin() {
   if (confirm("Take the admin role for this room?")) roomMove("/admin");
-});
-el("drop-admin").addEventListener("click", () => {
+}
+function dropAdmin() {
   if (confirm("Give up the admin role for this room?")) roomMove("/admin", {}, "DELETE");
-});
-el("copy-link").addEventListener("click", async () => {
+}
+async function copyLink(event) {
   const link = `${location.origin}/room/${GAME_ID}`;
+  const button = event && event.currentTarget;
   try {
     await navigator.clipboard.writeText(link);
-    el("copy-link").textContent = "Copied";
+    if (button) button.textContent = "Copied";
   } catch (error) {
     window.prompt("The room's link:", link);
   }
-});
+}
+el("become-admin").addEventListener("click", becomeAdmin);
+el("drop-admin").addEventListener("click", dropAdmin);
+el("copy-link").addEventListener("click", copyLink);
+el("take-free-seat").addEventListener("click", () => roomMove("/seat/take"));
 el("dismiss").addEventListener("click", () => { el("refusal").hidden = true; });
 /* The reading room: what this game plays, as the state names it. */
 el("open-aids").addEventListener("click", () => {

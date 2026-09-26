@@ -113,7 +113,7 @@ kept so every cross-reference by step number still reads.
 | ~~6~~ | ~~The Coaching Choice and the bench on the board~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The sideline is under the field", "The Coaching Choice on the board") | large |
 | ~~7~~ | ~~The shootout order~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The shootout order in the box") | medium |
 | ~~8~~ | ~~The bench~~ -- folded into step 6 | -- |
-| 9 | The front door and the table | large |
+| ~~9~~ | ~~The front door and the table~~ -- landed; what it settled is in docs/design/web-app.md, "The room's table" ("The front door is row 1 of the design canvas", "The two ticks", "Its shape is row 1 of the design canvas") | large |
 | 10 | The sidebar tabs and the reading room | large |
 | 11 | The phone | medium |
 | ~~12~~ | ~~Full time~~ -- folded into step 5 | -- |
@@ -648,6 +648,17 @@ there is nothing to claim here.
 ---
 
 ### 9. The front door and the table
+
+**Landed** (2026-09-26). What it settled is in
+[design/web-app.md](design/web-app.md), "The room's table": the front
+door as cards with a gold edge off the server's `your_move`, the two
+ticks as the table's own `seat_ai` and `configure` called in sequence
+(Dinky first), the seat cards with both seats' swatches off
+`teams_open_to`, every seat move a drag with a click beside it and
+every kick behind one confirm, a setting's note as `configure`'s own
+refusal asked of a copy, the coin and the miniature field whose ends
+are `board.DEFENDED_ENDS`, the sideline's names from the rooms file,
+and the top bar's one identity pill.
 
 **Prompt.**
 

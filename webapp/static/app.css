@@ -115,15 +115,6 @@ img { display: block; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.you {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.you strong { color: var(--strong); font-weight: 600; }
 
 /* -- The two columns ---------------------------------------------------- */
 
@@ -1363,10 +1354,221 @@ button.goal { display: block; }
 
 /* -- The table, before kickoff ------------------------------------------ */
 
-.table-settings { display: flex; flex-direction: column; gap: 6px; }
-.table-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.table-setting .chat-input { flex: 1 1 12em; min-width: 0; }
+/* Row 1 of the canvas: two seat cards, the settings as pills, the
+   question box and the sideline. Nothing here says which control is
+   live -- that is `state.table`, drawn by app.js's drawTable. */
+
+body.at-table .jumbotron, body.at-table .board-panel { display: none; }
+.table-area { display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
+.seat-cards { display: flex; gap: 14px; }
+.seat-card {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.seat-card.yours { border-color: var(--gold); }
+.seat-card.open { border-style: dashed; }
+.seat-card.drop-over, .sideline-strip.drop-over { box-shadow: 0 0 0 2px var(--gold); }
+.seat-card-head { display: flex; align-items: center; gap: 8px; }
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  white-space: nowrap;
+  background: var(--grey);
+  color: #fff;
+}
+.tag-chip.you { background: var(--gold); color: var(--deep); }
+.seat-out {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 7px;
+  cursor: pointer;
+}
+.seat-out:hover, .seat-out:focus-visible { color: var(--strong); border-color: var(--muted); }
+.seat-holder {
+  font-family: "Goal", sans-serif;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.seat-holder.draggable { cursor: grab; }
+.seat-holder.empty { font-family: inherit; font-size: 15px; font-weight: 700; color: var(--faint); }
+button.seat-holder.empty {
+  background: none;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--gold);
+  cursor: pointer;
+}
+button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-color: var(--gold); }
+.seat-team { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.seat-team b { color: var(--strong); }
+.seat-team.owed { color: var(--gold); }
+.team-dot.big { width: 16px; height: 16px; }
+.seat-hint { margin-top: auto; font-size: 12px; color: var(--muted); }
+.seat-hint .linkish { font-size: 12px; }
 .table-teams { display: flex; flex-direction: column; gap: 6px; }
+.swatch-label { font-size: 11px; color: var(--muted); }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 3px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+.swatch .emoji { width: 26px; height: 26px; }
+.swatch.picked { border-color: var(--gold); }
+.swatch.greyed { opacity: 0.3; }
+.swatch:disabled { cursor: default; }
+.swatch:not(:disabled):hover, .swatch:focus-visible { border-color: var(--strong); }
+
+.settings-panel { border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.settings-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.settings-head .quiet { font-size: 11px; }
+.table-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.setting-label { width: 90px; font-size: 12px; font-weight: 800; color: var(--muted); }
+.setting-note { font-size: 11px; color: var(--muted); }
+.pills { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.pill {
+  padding: 5px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pill:not(:disabled):hover, .pill:focus-visible { color: var(--strong); border-color: var(--muted); }
+.pill.current { border-color: var(--gold); background: rgba(240, 178, 50, 0.14); color: var(--strong); cursor: default; }
+.pill:disabled:not(.current) { opacity: 0.45; cursor: not-allowed; }
+.name-field.small { padding: 6px 10px; font-size: 13px; font-weight: 400; width: 220px; }
+
+.table-box { border-radius: 14px; }
+.table-controls { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.table-row { align-items: flex-start; gap: 18px; }
+.table-row .coin-later { margin-top: 5px; }
+.gold { color: var(--gold); }
+.coin-later { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); opacity: 0.5; }
+.coin.small { width: 44px; height: 44px; }
+.coin.big { width: 120px; height: 120px; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)); }
+.coin-button {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.coin-button.lit { box-shadow: 0 0 0 3px var(--gold), 0 0 22px rgba(240, 178, 50, 0.45); }
+.coin-button:disabled { cursor: default; opacity: 0.6; }
+.toss { display: flex; flex-wrap: wrap; align-items: center; gap: 26px; }
+.coin-faces { display: flex; align-items: flex-end; gap: 10px; }
+.coin-face { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.coin-face figcaption { font-family: "Goal", sans-serif; font-size: 14px; letter-spacing: 1px; }
+.coin-face.dim { opacity: 0.45; }
+.coin-face.dim figcaption { font-family: inherit; font-size: 10px; color: var(--muted); }
+.mini-field { flex: 1 1 360px; display: flex; gap: 6px; align-items: stretch; height: 70px; min-width: 0; }
+.mini-goal {
+  width: 110px;
+  flex: 0 0 110px;
+  border-radius: 8px;
+  background: var(--b-goal);
+  border: 2px solid var(--faint);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--faint);
+  font: inherit;
+  padding: 0;
+}
+.mini-goal.lit { border-color: var(--gold); color: var(--gold); cursor: pointer; box-shadow: 0 0 14px rgba(240, 178, 50, 0.3); }
+.mini-goal.lit:hover, .mini-goal.lit:focus-visible { box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(240, 178, 50, 0.45); }
+.mini-goal-word { display: inline-flex; align-items: center; gap: 5px; font-family: "Goal", sans-serif; font-size: 16px; line-height: 1; }
+.mini-goal-side { font-size: 11px; font-weight: 700; color: var(--muted); }
+.mini-space {
+  flex: 1;
+  border-radius: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.sideline-strip { border-radius: 14px; padding: 12px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.sideline-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  background: var(--deep);
+  border-radius: 14px;
+  padding: 3px 10px 3px 6px;
+}
+.sideline-chip.draggable { cursor: grab; }
+.sideline-chip.dinky { border: 1px dashed var(--line); }
+.sideline-chip.dinky:hover, .sideline-chip.dinky:focus-visible { border-color: var(--gold); }
+.presence { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+.sideline-strip .btn { border-color: transparent; color: var(--muted); min-height: 30px; padding: 5px 12px; font-size: 13px; }
+.sideline-strip .btn:hover { color: var(--strong); }
+
+/* The top bar's identity: one pill, its edge the seat's gold before
+   the toss and the team's colour after. */
+.room-title { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; }
+.room-title .channel-name { font-family: "Goal", sans-serif; font-size: 18px; letter-spacing: 1px; font-weight: 400; }
+.room-title .hash { font-size: inherit; color: var(--muted); }
+.you-pill {
+  --pill-edge: var(--line);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 15px;
+  border: 1px solid var(--pill-edge);
+  background: var(--panel);
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text);
+  white-space: nowrap;
+}
+.you-pill strong { color: var(--strong); font-weight: 700; }
+
+@media (max-width: 960px) {
+  .seat-cards { flex-direction: column; }
+  .mini-goal { width: 70px; flex-basis: 70px; }
+}
 
 .name-dialog {
   background: var(--panel);
@@ -1381,14 +1583,124 @@ button.goal { display: block; }
 
 /* -- The front door ----------------------------------------------------- */
 
-body.front { display: grid; place-items: start center; padding: 16px; }
-.front-door { width: min(420px, 100%); margin-top: 12vh; display: flex; flex-direction: column; gap: 12px; }
-.front-door form { display: flex; flex-direction: column; gap: 10px; }
-.room-list { display: flex; flex-direction: column; gap: 6px; }
-.room-list .room-line-title { color: var(--strong); }
-.room-list .seat { justify-content: space-between; }
-.room-list .room-line { cursor: pointer; }
-.room-list .room-line:hover, .room-list .room-line:focus-visible { background: var(--field); }
+/* Row 1 of the canvas: who you are and a new room on the left, your
+   rooms and the rooms with a seat free as cards on the right. A card
+   with a gold edge is waiting on you (the server's `your_move`). */
+
+.wordmark { font-family: "Goal", sans-serif; font-size: 18px; letter-spacing: 1px; color: var(--strong); }
+.named { color: var(--strong); }
+.field-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--muted); }
+.faint { color: var(--faint); }
+.grow { flex: 1; }
+
+.front-door {
+  display: flex;
+  gap: 20px;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 20px 24px;
+}
+.front-left { flex: 0 0 400px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.front-right { flex: 1; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.front-right section { display: flex; flex-direction: column; gap: 14px; }
+.front-card { border-radius: 14px; padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
+.front-title { font-family: "Goal", sans-serif; font-size: 34px; letter-spacing: 1px; color: var(--strong); line-height: 1; }
+.front-card .quiet { line-height: 1.45; }
+.name-field {
+  background: var(--field);
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--strong);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+}
+.name-field:focus { outline: 2px solid var(--link); }
+.refusal-line { margin: 0; font-size: 13px; color: var(--gold); }
+.new-room {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 16px;
+  border-radius: 12px;
+  border: 2px dashed var(--gold);
+  background: rgba(240, 178, 50, 0.05);
+}
+.new-room-button {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.new-room-word { font-family: "Goal", sans-serif; font-size: 20px; color: var(--gold); }
+.new-room-button:hover .new-room-word, .new-room-button:focus-visible .new-room-word { text-decoration: underline; }
+.new-room-button:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
+.ticks { display: flex; flex-wrap: wrap; gap: 18px; font-size: 12px; color: var(--muted); }
+.ticks label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.ticks input { accent-color: var(--gold); }
+.reading-room { padding: 16px 22px; gap: 8px; }
+.reading-room .linkish { color: var(--text); text-align: left; }
+.leave-line { margin: 0; padding: 0 4px; font-size: 12px; color: var(--faint); }
+.linkish.faint { color: var(--faint); }
+
+.list-head { display: flex; align-items: center; gap: 10px; }
+.list-head .quiet { margin-left: auto; font-size: 12px; }
+#open { margin-top: 8px; }
+.room-list { display: flex; flex-direction: column; gap: 14px; }
+.room-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+}
+.room-card:hover, .room-card:focus-visible { border-color: var(--muted); }
+.room-card.your-move { border-color: var(--gold); }
+.card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.card-number { font-family: "Goal", sans-serif; font-size: 17px; color: var(--strong); white-space: nowrap; }
+.card-number .hash { font-size: inherit; color: var(--muted); }
+.card-topic { font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--grey);
+  color: #fff;
+}
+.status-chip.lobby { background: var(--blurple); }
+.status-chip.setup { background: var(--gold); color: var(--deep); }
+.status-chip.in_progress { background: var(--green); }
+.card-seats { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.card-seat { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.card-seat b { color: var(--strong); }
+.card-seat b.free { color: var(--gold); }
+.card-facts { font-size: 11px; color: var(--muted); }
+.team-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+.team-dot.none { border: 2px dashed var(--faint); }
+
+@media (max-width: 860px) {
+  .front-door { flex-direction: column; padding: 16px; }
+  .front-left { flex: 0 0 auto; }
+}
 
 /* The statistics: `d12ball/stats.py`'s tables, 58 characters wide, as
    the bot posts them in a code block -- a finished game's under its
@@ -1406,7 +1718,13 @@ body.front { display: grid; place-items: start center; padding: 16px; }
   color: var(--text);
 }
 .linkish.danger-link { color: var(--red); }
-body.front .stats-door { width: min(640px, 100%); }
+body.front .front-door.stats-door {
+  width: min(640px, calc(100% - 32px));
+  margin: 12vh auto 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+}
 .stats-door select { font: inherit; background: var(--field); color: var(--text); border: 0; border-radius: 4px; padding: 6px; }
 
 /* -- The reading room (webapp/static/aids.js) --------------------------------

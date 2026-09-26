@@ -22,7 +22,9 @@ that touches no file.
 
 from __future__ import annotations
 
+import re
 import unittest
+from pathlib import Path
 
 from aiohttp.test_utils import TestClient, TestServer
 
@@ -31,6 +33,7 @@ from gamelocks import GameLocks
 from gamesaves.d12ball.service import GameService
 from prompt_fixtures import ENGINE
 from test_web_app import as_coach, case
+from webapp import server
 from webapp.rooms import Rooms
 from webapp.server import WebApp
 
@@ -378,9 +381,12 @@ class FrontDoorTests(TableHarness):
         self.assertEqual(
             set(one),
             {"id", "number", "name", "status", "abandoned", "seats",
-             "observers", "tutorial", "url"},
+             "observers", "tutorial", "mode", "board_size", "clock",
+             "your_move", "url"},
         )
         self.assertEqual(one["seats"][1]["free"], True)
+        # Somebody else's room is never this reader's move.
+        self.assertFalse(one["your_move"])
 
     async def test_a_room_that_never_started_may_be_closed(self) -> None:
         room = await self.open_room()
@@ -411,6 +417,229 @@ class FrontDoorTests(TableHarness):
         )
         self.assertEqual(response.status, 409)
         self.assertIn(room, self.games)
+
+
+class RedesignedTableTests(TableHarness):
+    """
+    Step 9 of docs/web-app-redesign.md: the front door's new room with
+    its two ticks, the seat cards, the settings' notes, the coin and
+    the goal to defend -- a room driven from creation to kickoff
+    through the controls the page now draws, each still one service
+    door over the record's rule.
+    """
+
+    async def rooms(self, coach_id: int) -> dict:
+        response = await self.client.get("/api/rooms", headers=as_coach(coach_id))
+        self.assertEqual(response.status, 200)
+        return await response.json()
+
+    async def ticked_room(self, *, ai: bool, tutorial: bool) -> str:
+        """A new room and its ticks, in the order the front door makes
+        them (webapp/static/index.js): Dinky first, then the tutorial."""
+        room = await self.open_room()
+        if ai:
+            put = await self.seat_move(room, CREATOR, "ai", {"seat": 2})
+            self.assertEqual(put.status, 200, await put.text())
+        if tutorial:
+            await self.pressed(room, CREATOR, "configure", {"setting": "tutorial"})
+        return room
+
+    async def test_the_dinky_tick_seats_the_ai_in_coach_2(self) -> None:
+        room = await self.ticked_room(ai=True, tutorial=False)
+        state = await self.state(room, CREATOR)
+        game = self.games[room]
+        self.assertTrue(game.ai_holds(2))
+        self.assertFalse(game.tutorial)
+        self.assertEqual(state["room"]["seats"][1]["name"], "Dinky AI")
+        self.assertTrue(state["room"]["seats"][1]["ai"])
+        # Nothing is empty, so the AI is offered nowhere else.
+        self.assertEqual(state["room"]["ai_seats"], [])
+        self.assertIsNone(state["table"]["start"]["refusal"])
+
+    async def test_the_tutorial_tick_alone_is_the_record_s_tutorial(self) -> None:
+        room = await self.ticked_room(ai=False, tutorial=True)
+        game = self.games[room]
+        self.assertTrue(game.tutorial)
+        self.assertEqual((game.mode, game.board_size), (GameMode.TRAINING, 7))
+        await self.pressed(room, CREATOR, "start")
+        self.assertTrue(game.ai_holds(2))
+
+    async def test_both_ticks_are_a_tutorial_against_dinky(self) -> None:
+        """Dinky first, then the tutorial: the record takes both in that
+        order, since the AI's seat holds no id and so nobody has
+        joined -- and would refuse the AI after the tutorial, which
+        makes the room a game for one."""
+        room = await self.ticked_room(ai=True, tutorial=True)
+        game = self.games[room]
+        self.assertTrue(game.tutorial)
+        self.assertTrue(game.ai_holds(2))
+        await self.pressed(room, CREATOR, "start")
+        self.assertEqual(game.ai_seats, [2])
+
+        other = await self.open_room()
+        await self.pressed(other, CREATOR, "configure", {"setting": "tutorial"})
+        refused = await self.seat_move(other, CREATOR, "ai", {"seat": 2})
+        self.assertEqual(refused.status, 409)
+
+    async def test_a_room_from_creation_to_kickoff_through_the_new_controls(
+        self,
+    ) -> None:
+        room = await self.open_room()
+        await self.state(room, CREATOR)
+        second = await self.client.get(
+            f"/api/game/{room}", headers=as_coach(SECOND, "Second"),
+        )
+        self.assertEqual(second.status, 200)
+        watching = await self.client.get(
+            f"/api/game/{room}", headers=as_coach(WATCHER, "Watcher"),
+        )
+        self.assertEqual(watching.status, 200)
+        game = self.games[room]
+
+        # The sideline names who is watching -- by the name their cookie
+        # last carried -- the reader marked.
+        seen = (await watching.json())["room"]
+        self.assertEqual(seen["watching"], [{"name": "Watcher", "yours": True}])
+        self.assertEqual(seen["role"], "observer")
+        # Both seats are held, so the AI may sit nowhere -- and an
+        # observer is offered it nowhere in any case.
+        self.assertEqual(seen["ai_seats"], [])
+
+        # The lobby: the whistle is live and it is the creator's move,
+        # on the table and on the front door's card alike.
+        lobby = await self.state(room, CREATOR)
+        self.assertTrue(lobby["table"]["yours"])
+        self.assertTrue(lobby["table"]["start"]["may"])
+        self.assertEqual(lobby["game"]["topic"], "Creator vs. Second")
+        [card] = (await self.rooms(CREATOR))["mine"]["lobby"]
+        self.assertTrue(card["your_move"])
+        self.assertEqual((card["mode"], card["board_size"]), ("Basic", 7))
+        self.assertIsNone(card["clock"])
+
+        # A setting's note is the record's sentence for why a value is
+        # dark: somebody has joined, so the toggles stay off.
+        settings = {one["name"]: one for one in lobby["table"]["settings"]}
+        self.assertFalse(settings["tutorial"]["toggle_open"])
+        self.assertEqual(
+            settings["tutorial"]["note"],
+            "Someone has already joined -- they would have to leave first.",
+        )
+        self.assertTrue(all(one["open"] for one in settings["mode"]["choices"]))
+        self.assertIsNone(settings["mode"]["note"])
+
+        started = await self.pressed(room, CREATOR, "start")
+        mine, theirs = started["table"]["seats"]
+        # Both seats carry their swatches, each greyed or offered as the
+        # record says; only the reader's own may be pressed.
+        self.assertEqual(len(mine["teams"]), len(Team))
+        self.assertEqual(len(theirs["teams"]), len(Team))
+        self.assertTrue(all(team["open"] for team in mine["teams"]))
+        self.assertFalse(any(team["open"] for team in theirs["teams"]))
+        self.assertTrue(all(team["offered"] for team in theirs["teams"]))
+
+        picked = await self.pressed(
+            room, CREATOR, "pick_team", {"team": Team.ORANGE.value},
+        )
+        mine, theirs = picked["table"]["seats"]
+        [orange] = [team for team in mine["teams"] if team["picked"]]
+        self.assertEqual(orange["key"], Team.ORANGE.value)
+        greyed = {team["key"] for team in theirs["teams"] if not team["offered"]}
+        self.assertEqual(
+            greyed, {Team.ORANGE.value, paired_team(Team.ORANGE).value},
+        )
+        self.assertEqual(
+            greyed,
+            {team.value for team in Team} - {
+                team.value for team in game.teams_open_to(2)
+            },
+        )
+        # The creator has picked; it is the second coach's move now.
+        self.assertFalse(picked["table"]["yours"])
+        self.assertTrue((await self.state(room, SECOND))["table"]["yours"])
+
+        await self.pressed(room, SECOND, "pick_team", {"team": Team.PURPLE.value})
+        coin = (await self.state(room, CREATOR))["table"]["coin"]
+        self.assertTrue(coin["owed"] and coin["may"])
+        self.assertEqual(
+            coin["faces"],
+            {
+                "fortune": "/emoji/3_gold_fortune.png",
+                "doom": "/emoji/3_gold_doom.png",
+            },
+        )
+        for face in coin["faces"].values():
+            served = await self.client.get(face)
+            self.assertEqual(served.status, 200)
+
+        tossed = await self.pressed(room, CREATOR, "flip_coin")
+        winner = game.coin_winner_player_number
+        sides = tossed["table"]["sides"]
+        # The miniature field's ends are the goals the board draws
+        # there: home's goal on the left.
+        self.assertEqual(
+            {choice["value"]: choice["end"] for choice in sides["choices"]},
+            {"home": "left", "visiting": "right"},
+        )
+        self.assertEqual(sides["board_size"], 7)
+        winner_id = CREATOR if winner == 1 else SECOND
+        before = await self.state(room, winner_id)
+        self.assertEqual(before["room"]["role"], "coach")
+        self.assertTrue(before["table"]["yours"])
+
+        [right] = [one for one in sides["choices"] if one["end"] == "right"]
+        chosen = await self.pressed(
+            room, winner_id, "choose", {"choice": right["value"]},
+        )
+        self.assertIsNone(chosen["table"])
+        self.assertEqual(game.visiting_player_number, winner)
+        self.assertEqual(chosen["room"]["role"], "visiting")
+        # Once kicked off, the front door's card carries the clock.
+        [card] = (await self.rooms(winner_id))["mine"]["in_progress"]
+        self.assertEqual(card["clock"], "00' First Half")
+
+    async def test_a_kicked_coach_is_asked_about_first_and_lands_on_the_sideline(
+        self,
+    ) -> None:
+        room = await self.open_room()
+        await self.state(room, CREATOR)
+        await self.client.get(
+            f"/api/game/{room}", headers=as_coach(SECOND, "Second"),
+        )
+
+        # Only an admin kicks; anybody else is refused and nothing moves.
+        refused = await self.seat_move(room, CREATOR, "kick", {"seat": 2})
+        self.assertEqual(refused.status, 403)
+        self.assertEqual(self.games[room].player_2_id, SECOND)
+
+        admin = await self.client.post(
+            f"/api/room/{room}/admin", headers=as_coach(CREATOR),
+        )
+        self.assertEqual(admin.status, 200)
+        kicked = await self.seat_move(room, CREATOR, "kick", {"seat": 2})
+        self.assertEqual(kicked.status, 200, await kicked.text())
+        state = await kicked.json()
+        self.assertTrue(state["room"]["seats"][1]["free"])
+        self.assertEqual(
+            state["room"]["watching"], [{"name": "Second", "yours": False}],
+        )
+        # The empty seat is where Dinky may now be dragged.
+        self.assertEqual(state["room"]["ai_seats"], [2])
+        # The kicked coach watches, and the free seat is theirs to take.
+        again = await self.state(room, SECOND)
+        self.assertEqual(again["room"]["role"], "observer")
+        taken = await self.seat_move(room, SECOND, "take", {"seat": 2})
+        self.assertEqual(taken.status, 200)
+
+        # Every way the page takes somebody else out of a seat -- the ✕
+        # on the card, a drag to the sideline, the in-game Kick -- goes
+        # through the one function that asks "Are you sure?" first.
+        script = (Path(server.STATIC) / "app.js").read_text(encoding="utf-8")
+        self.assertEqual(script.count('"/seat/kick"'), 1)
+        start = script.index("function kickSeat(")
+        body = script[start:script.index("\n}\n", start)]
+        self.assertRegex(body, r"if \(confirm\(`Are you sure\?")
+        self.assertIn('"/seat/kick"', body)
+        self.assertGreaterEqual(len(re.findall(r"kickSeat\(seat\)", script)), 2)
 
 
 class RematchTests(TableHarness):

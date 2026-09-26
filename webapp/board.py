@@ -65,6 +65,14 @@ from d12ball.render import (
 #: The field left to right, which is the order the bot draws it in.
 ZONES = (Zone.HOME_GOAL, Zone.MIDFIELD, Zone.VISITORS_GOAL)
 
+#: Which end of the field each side defends, as `ZONES` draws it: the
+#: table's miniature field puts home and visiting at those ends, so
+#: "click the goal you want to defend" is the same goal the board draws.
+DEFENDED_ENDS = {
+    "home": "left" if ZONES[0] is Zone.HOME_GOAL else "right",
+    "visiting": "right" if ZONES[0] is Zone.HOME_GOAL else "left",
+}
+
 #: How wide the page draws a meeple on the field, in CSS pixels at the
 #: stage's own width. Every fan step below is measured against it.
 FAN_MEEPLE_WIDTH = 50

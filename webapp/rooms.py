@@ -16,7 +16,9 @@ click the record then judges.
 makes a seat taken *on arrival* rather than on every poll: the first
 time somebody is seen, a free seat is theirs; somebody who has been
 seen and left their seat stays an observer until they take one. The
-seen who hold no seat are the room's observers.
+seen who hold no seat are the room's observers, and the table's
+sideline names them by what their cookie last called them (`names`) --
+a name, never who somebody is, which is still the cookie's alone.
 
 A write that fails is logged and swallowed, as `save_games` swallows
 its own (docs/design/gotchas.md, "the swallowed save"): losing who is
@@ -45,15 +47,26 @@ WEB_ROOMS_FILE = DATA_FOLDER / "d12ball_web_rooms.json"
 class Room:
     admins: set[int] = field(default_factory=set)
     seen: set[int] = field(default_factory=set)
+    # What each of the seen was last called, for the table's sideline:
+    # the name their cookie carried the last time they opened the room.
+    names: dict[int, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return {"admins": sorted(self.admins), "seen": sorted(self.seen)}
+        return {
+            "admins": sorted(self.admins),
+            "seen": sorted(self.seen),
+            "names": {str(one): name for one, name in sorted(self.names.items())},
+        }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Room":
         return cls(
             admins={int(one) for one in data.get("admins", ())},
             seen={int(one) for one in data.get("seen", ())},
+            names={
+                int(one): str(name)
+                for one, name in (data.get("names") or {}).items()
+            },
         )
 
 
@@ -125,6 +138,14 @@ class Rooms:
         room.seen.add(coach_id)
         self.save()
         return True
+
+    def call(self, game_id: str, coach_id: int, name: str) -> None:
+        """Remember what `coach_id` is called in this room, for the
+        sideline's names; written only when it changed."""
+        room = self.room(game_id)
+        if room.names.get(coach_id) != name:
+            room.names[coach_id] = name
+            self.save()
 
     def save(self) -> None:
         """Write the file, through a temporary one renamed over it.
