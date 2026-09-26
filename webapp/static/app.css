@@ -106,6 +106,13 @@ img { display: block; }
   z-index: 5;
 }
 .topbar-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.back {
+  color: var(--muted);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.back:hover, .back:focus-visible { color: var(--strong); }
 .hash { color: var(--faint); font-size: 24px; font-weight: 500; }
 .channel-name { color: var(--strong); font-weight: 600; white-space: nowrap; }
 .topbar-divider { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }

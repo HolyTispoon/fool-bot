@@ -10,6 +10,10 @@
   <body data-show="move">
     <header class="topbar">
       <div class="topbar-title">
+        <!-- Back to the front door: this reader's rooms, and where the
+             name is changed or the app left (webapp/static/index.html). -->
+        <a href="/" class="back" title="Your rooms">&lsaquo; Rooms</a>
+        <span class="topbar-divider" aria-hidden="true"></span>
         <span class="hash" aria-hidden="true">#</span>
         <span id="channel" class="channel-name">d12-ball</span>
         <span class="topbar-divider" aria-hidden="true"></span>
@@ -79,8 +83,6 @@
             <button type="button" class="linkish" id="copy-link">Copy the room's link</button>
             <button type="button" class="linkish" id="become-admin">Become admin</button>
             <button type="button" class="linkish" id="drop-admin" hidden>Give up admin</button>
-            <button type="button" class="linkish" id="change-name">Change name</button>
-            <button type="button" class="linkish" id="leave-app">Leave the app</button>
           </div>
         </section>
       </main>

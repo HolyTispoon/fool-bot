@@ -182,10 +182,11 @@ over HTTPS**, and behind the tunnel that is the tunnel's
 `identity.clear_cookie`) is the reverse of the first visit: it forgets
 the cookie and nothing else, so a seat held under it stays held --
 leaving is not vacating a seat, the way closing the browser never was.
-A rename (`POST /api/me` again) already kept the id; leaving and a
-rename are both offered beyond the front door's first-visit form now,
-as "Change name" / "Leave the app" in a room and "Save name" / "Leave"
-at the front door (the author, 2026-09-25).
+A rename (`POST /api/me` again) already kept the id. Both are the
+front door's, as "Save name" / "Leave the app", and nowhere in a room:
+who you are is the app's business, not a game's, and a room's top bar
+carries a "Rooms" link back to the front door instead (the author,
+2026-09-26).
 
 **A room is a game record.** It already has everything a room needs:
 an id, a number, two seats, a status, the settings. `POST /api/rooms`
