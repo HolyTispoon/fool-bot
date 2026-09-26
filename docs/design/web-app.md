@@ -929,6 +929,60 @@ the page plays the window on the pieces themselves, as the canvas's
   making the opposite move, which the board offers like any other. A
   client-side undo would be a move the page made up.
 
+**The shootout order in the box** (2026-09-26, step 7 of
+[../web-app-redesign.md](../web-app-redesign.md)). Discord asks for the
+secret order on an ephemeral menu, one click a name; the page asks for
+it as the canvas's Shootout artboard does -- a numbered slot per
+shooter, the players still to place beside them, Start again, and the
+whistle to lock it.
+
+- **The draft is the page's and nothing of it is posted until the
+  whistle.** A meeple goes into the next empty slot on a click (or its
+  number key), into a chosen slot on a drag, swaps on a drag between
+  slots, and comes back out on a click or a drag back to the pool; Esc
+  empties the draft. The whistle is dark until every slot is filled
+  and then **sends each name in slot order as the `send` it was
+  offered** -- the same `Action` `ShootoutOrderSelectView.pick` sends a
+  click at a time, each checked by `_was_offered` against the controls
+  the page is offered *then*, and each still refused by the driver on
+  its own reading. There is no "set the whole order" answer: the model
+  has none, and a page that grew one would be proposing an action. A
+  refusal stops the run where it is, and the page shows the order as
+  the game then holds it.
+- **The slots are the order already sent, and as many empty ones as
+  the options still list.** `section["order"]["placed"]` is
+  `MatchState.shootout_order` read for the viewer's own seat only --
+  the position, as the maneuver pick's laid-down card is (above), and
+  what `restore_shootout_menus` puts back on a Discord menu through
+  `shootout_order_text` -- so an order a lock left half sent (a
+  dropped connection) comes back in the first slots and Start again
+  (the `restart` control) takes it back. The count is those two added,
+  never a six in the page. Who may still be placed is the options'
+  `send` controls and nothing else.
+- **The other side sees whether it is set, and nothing else**
+  (`present.shootout_sides`, the prompt's `shootout`): a tag per side,
+  "<team> has set its order" once its row in the options is empty and
+  "is setting its order" until then -- the same for both coaches and
+  every observer, and never a count of how far a coach has got. That
+  is public where the maneuver pick's is not, because the model says
+  it in public: "Orange (Home) has set their shooting order." is the
+  line everybody's channel reads. Sudden death's pick has the same
+  tags ("has chosen its shooter"); its answer is a lit meeple on the
+  field, as since step 4.
+- **The log keeps no coach's own block.** An answer to the order or
+  the pick opens with a block for the coach alone -- the order as it
+  stands, "You send out ..." -- which the cog puts on the coach's
+  ephemeral menu and never posts (`D12Ball.post_ai_answer` says so of
+  the AI's too). The journal kept the whole answer until this step, so
+  every page in the room read a coach's order as it was built: a
+  secret published by the log. `present.own_block_dropped` is the one
+  cut, over `OWN_FIRST_BLOCK`; the journal applies it to the answer of
+  a click on this page, whose kind `WebApp.act` names for the length
+  of the call (`_answering`, set and cleared under the game's lock --
+  the listener hears the result and not the action), and to every AI
+  answer by its group's `action`. A group left with nothing to say is
+  not kept.
+
 **The field is drawn from scratch** (2026-09-26, step 1 of
 [../web-app-redesign.md](../web-app-redesign.md), off the design the
 author reviewed; it replaces the board drawn in the bot's layout). A

@@ -49,7 +49,8 @@ from d12ball.game import D12BallGame
 from gamesaves.d12ball.service import GameResult
 from gamesaves.d12ball.storage import DATA_FOLDER
 from webapp import pictures
-from webapp.present import render_text
+from d12ball.prompts import PromptKind
+from webapp.present import own_block_dropped, render_text
 
 LOGGER = logging.getLogger(__name__)
 
@@ -170,12 +171,21 @@ class Journal:
         self,
         result: GameResult,
         challenge: Optional[Callable[[str], str]] = None,
+        answered: Optional[PromptKind] = None,
     ) -> None:
         """One result, as the page reads it: the answer's own lines,
         then every group the run closed. `challenge` words the matchup
         a walk-in names, from the challenger's id: on Discord the walk-in
         is followed by the challenge image, and the log draws no
         picture, so it says what the picture shows.
+
+        `answered` is the kind of the question a click on this page
+        answered, where the result is one: **a coach's own block is
+        not kept** -- the shootout order as it stands, "You send out
+        ..." (`present.OWN_FIRST_BLOCK`) -- and neither is the AI's
+        (its group's `action`), because everybody in the room reads
+        the log. The cog puts the same block on the coach's ephemeral
+        menu and posts the rest.
 
         **It reads the result as the wire writes it**,
         `result.to_dict()` (decision 3 of docs/web-app-next.md), which
@@ -184,7 +194,7 @@ class Journal:
         is what the file keeps."""
         written = result.to_dict()
         rolled = None
-        for lines, group, detail in self._blocks(written):
+        for lines, group, detail in self._blocks(written, answered):
             if (
                 group is not None
                 and group["step"] == FollowOnStep.AUTO_RESOLVE_CHALLENGER.name
@@ -225,7 +235,11 @@ class Journal:
         ):
             self.board_version += 1
 
-    def _blocks(self, written: Mapping[str, Any]):
+    def _blocks(
+        self,
+        written: Mapping[str, Any],
+        answered: Optional[PromptKind] = None,
+    ):
         """
         What one result is worth reading, in the order it was said:
         the answer's own lines, every group the run closed, and what
@@ -244,9 +258,23 @@ class Journal:
         dice are what happened.
         """
         if written["answer"] or written["detail"] is not None:
-            yield list(written["answer"]), None, written["detail"]
+            yield (
+                own_block_dropped(answered, written["answer"]),
+                None,
+                written["detail"],
+            )
         for group in written["groups"]:
-            yield list(group["lines"]), group, group["detail"]
+            action = group["action"]
+            kind = None if action is None else PromptKind(action["kind"])
+            lines = own_block_dropped(kind, group["lines"])
+            if (
+                not lines and group["lines"] and group["board"] is None
+                and group["detail"] is None
+            ):
+                # The AI's answer said only its own block: nothing of
+                # it is anybody else's to read.
+                continue
+            yield lines, group, group["detail"]
         if written["narration"]:
             yield list(written["narration"]), None, None
 
@@ -349,9 +377,12 @@ class Journals:
         game_id: str,
         result: GameResult,
         challenge: Optional[Callable[[str], str]] = None,
+        answered: Optional[PromptKind] = None,
     ) -> None:
         """One result into that game's journal, written through."""
-        self.journal(game_id).add(result, challenge=challenge)
+        self.journal(game_id).add(
+            result, challenge=challenge, answered=answered,
+        )
         self.save()
 
     def forget(self, game_id: str) -> None:

@@ -2123,7 +2123,7 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                         set(state["prompt"]),
                         {
                             "kind", "ask", "picture", "controls", "lit", "yours",
-                            "state", "reference", "hand",
+                            "state", "reference", "hand", "shootout",
                         },
                     )
                     self.assertNotIn("match", state)
@@ -2136,6 +2136,211 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(seen[0], seen[1])
                 self.assertEqual(hands[0], hands[1])
                 self.assertEqual(hands[1], hands[2])
+
+
+class ShootoutOrderTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The secret order as slots in the question box (step 7 of
+    docs/web-app-redesign.md): the page fills its slots in a draft of
+    its own and the whistle sends each name in slot order -- the same
+    `send` the Discord menu sends a click at a time. Nothing of an
+    order reaches anybody but its own seat: not the other coach, not
+    an observer, and not the log they all read.
+    """
+
+    async def serve(self, fixture: PromptFixture):
+        service = service_over(fixture)
+        web = WebApp(service, GameLocks())
+        web.watch()
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        self.addAsyncCleanup(web.stop)
+        return client, service
+
+    async def state(self, client, game, coach_id) -> dict:
+        response = await client.get(
+            f"/api/game/{game.game_id}", headers=as_coach(coach_id),
+        )
+        self.assertEqual(response.status, 200)
+        return await response.json()
+
+    @staticmethod
+    def order_group(state: dict):
+        groups = [
+            group for group in (state["prompt"] or {}).get("controls", [])
+            if "order" in group
+        ]
+        return groups[0] if groups else None
+
+    async def lock(self, client, game, coach_id, player_ids) -> dict:
+        """What the whistle does: each name, in slot order, as the
+        control the page was offered for it."""
+        state = None
+        for player_id in player_ids:
+            group = self.order_group(await self.state(client, game, coach_id))
+            control = next(
+                one for one in group["controls"]
+                if one["player"] == player_id
+            )
+            response = await client.post(
+                f"/api/game/{game.game_id}/action",
+                headers=as_coach(coach_id),
+                data=json.dumps({"action": control["action"]}),
+            )
+            self.assertEqual(response.status, 200)
+            state = await response.json()
+            self.assertIsNone(state["refusal"])
+        return state
+
+    async def test_the_slots_are_the_squad_and_the_pool_is_the_options(
+        self,
+    ) -> None:
+        ENGINE.rng.seed(11)
+        fixture = case("shootout order")
+        client, _ = await self.serve(fixture)
+        game, match = fixture.game, fixture.match
+
+        group = self.order_group(await self.state(client, game, game.player_1_id))
+
+        prompt = pending_prompt(ENGINE, game, match)
+        offered = prompt.options.for_side(TeamSide.HOME)
+        self.assertEqual(group["order"]["side"], "home")
+        self.assertEqual(group["order"]["placed"], [])
+        self.assertEqual(group["order"]["slots"], len(offered))
+        self.assertEqual(
+            [one["player"] for one in group["controls"] if one["player"]],
+            list(offered),
+        )
+        self.assertEqual(
+            [one["action"]["choice"] for one in group["controls"]][-1],
+            "restart",
+        )
+
+    async def test_locking_an_order_sends_what_the_menu_sends(self) -> None:
+        ENGINE.rng.seed(11)
+        fixture = case("shootout order")
+        client, service = await self.serve(fixture)
+        game = fixture.game
+        squad = list(fixture.match.shootout_squad(TeamSide.HOME))
+        order = squad[::-1]
+
+        group = self.order_group(await self.state(client, game, game.player_1_id))
+        for control in group["controls"]:
+            if control["action"]["choice"] != "send":
+                continue
+            # `ShootoutOrderSelectView.pick`'s own Action, as the wire
+            # writes it.
+            self.assertEqual(
+                control["action"],
+                Action(
+                    PromptKind.SHOOTOUT_ORDER,
+                    "send",
+                    {"side": TeamSide.HOME, "player_id": control["player"]},
+                ).to_dict(),
+            )
+        state = await self.lock(client, game, game.player_1_id, order)
+
+        self.assertEqual(
+            service.load(game).shootout_order(TeamSide.HOME), order,
+        )
+        self.assertIsNone(self.order_group(state))
+        home = next(
+            one for one in state["prompt"]["shootout"]["sides"]
+            if one["team_side"] == "home"
+        )
+        self.assertTrue(home["done"])
+
+    async def test_a_partial_order_comes_back_in_the_first_slots(self) -> None:
+        ENGINE.rng.seed(11)
+        fixture = case("shootout order")
+        client, _ = await self.serve(fixture)
+        game = fixture.game
+        squad = list(fixture.match.shootout_squad(TeamSide.HOME))
+
+        await self.lock(client, game, game.player_1_id, squad[:2])
+        group = self.order_group(await self.state(client, game, game.player_1_id))
+
+        self.assertEqual(
+            [one["id"] for one in group["order"]["placed"]], squad[:2],
+        )
+        self.assertEqual(group["order"]["slots"], len(squad))
+
+    async def test_the_other_seat_and_an_observer_are_sent_no_order(
+        self,
+    ) -> None:
+        """
+        Two different orders, part-built and then whole, read the same
+        to seat 2 and to somebody watching -- log included -- so what
+        they are sent does not carry the order.
+        """
+        for count in (3, 6):
+            with self.subTest(placed=count):
+                seen = {2: [], STRANGER: []}
+                for reverse in (False, True):
+                    ENGINE.rng.seed(11)
+                    fixture = case("shootout order")
+                    client, _ = await self.serve(fixture)
+                    game = fixture.game
+                    squad = list(fixture.match.shootout_squad(TeamSide.HOME))
+                    order = (squad[::-1] if reverse else squad)[:count]
+                    await self.lock(client, game, game.player_1_id, order)
+                    for who, coach_id in (
+                        (2, game.player_2_id), (STRANGER, STRANGER),
+                    ):
+                        state = await self.state(client, game, coach_id)
+                        self.assertNotIn(
+                            "home",
+                            {
+                                control["action"]["arguments"].get("side")
+                                for group in state["prompt"]["controls"]
+                                for control in group["controls"]
+                            },
+                        )
+                        for entry in state["entries"]:
+                            entry.pop("at")
+                        seen[who].append(json.dumps(state, sort_keys=True))
+                for who, states in seen.items():
+                    self.assertEqual(states[0], states[1], who)
+
+    async def test_the_log_keeps_no_coach_s_own_block(self) -> None:
+        """The order as it stands and "You send out" are the coach's
+        own; the line saying the order is set is everybody's. The AI's
+        answers are held to the same, from its group's action."""
+        ENGINE.rng.seed(11)
+        match = build_match()
+        match.begin_shootout()
+        fixture = PromptFixture(build_game(player_2_id=None), match, "")
+        client, service = await self.serve(fixture)
+        game = fixture.game
+        squad = list(match.shootout_squad(TeamSide.HOME))
+        # The AI sets its order where the question is put up, which a
+        # pick-up through the page does here.
+        picked_up = await client.post(
+            f"/api/game/{game.game_id}/resume",
+            headers=as_coach(game.player_1_id),
+        )
+        self.assertEqual(picked_up.status, 200)
+        self.assertTrue(
+            service.load(game).shootout_order_complete(TeamSide.VISITING),
+        )
+
+        state = await self.lock(client, game, game.player_1_id, squad)
+
+        lines = [
+            line
+            for entry in (await self.state(client, game, STRANGER))["entries"]
+            for line in entry["lines"]
+        ]
+        said = " ".join(lines)
+        self.assertIn("has set their shooting order", said)
+        self.assertEqual(said.count("has set their shooting order"), 2)
+        for private in ("Keep going", "Your shooting order is set", "1. "):
+            self.assertNotIn(private, said)
+        # Both orders are in, so the game has moved on to the shooting.
+        self.assertTrue(
+            service.load(game).shootout_orders_complete, state["prompt"],
+        )
 
 
 class HandTests(unittest.IsolatedAsyncioTestCase):

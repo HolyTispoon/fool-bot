@@ -1512,3 +1512,85 @@ body.rules-page { place-items: start center; }
 .formation-name { font-size: 11px; font-weight: 800; }
 .picked-line { align-items: center; gap: 12px; font-size: 13px; }
 .picked-line b { color: var(--gold); }
+
+/* The shootout's secret order (step 7 of docs/web-app-redesign.md): a
+   slot per shooter in the question box, the ones already sent solid
+   and the ones still to fill dashed gold, the players still to place
+   beside them lit, and under them Start again and the whistle. */
+.order-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.order-main { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+.order-column { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.order-column .group-label { margin: 0; }
+.order-slots, .order-pool { display: flex; gap: 8px; flex-wrap: wrap; }
+.order-pool { min-height: 104px; align-items: flex-start; }
+.order-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 86px;
+  height: 104px;
+  box-sizing: border-box;
+  padding-top: 4px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--deep);
+}
+.order-slot.empty { border-style: dashed; border-color: var(--gold); }
+.order-number { font-family: "Goal", sans-serif; font-size: 16px; line-height: 1; color: var(--gold); }
+.order-slot.sent .order-number { color: var(--muted); }
+.order-piece {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 78px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+button.order-piece { cursor: grab; }
+button.order-piece:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 6px; }
+.order-meeple {
+  position: relative;
+  display: block;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.55));
+}
+.order-meeple svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.order-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--strong);
+  white-space: nowrap;
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.order-piece.lit .order-name { color: var(--gold); }
+.order-empty { font-size: 13px; color: var(--muted); align-self: center; }
+.order-foot { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+
+/* Whether each side has answered the shootout's secret question: a tag
+   in the team's colour once it has, grey until then. */
+.shootout-sides { display: flex; flex-direction: column; gap: 6px; }
+.side-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  line-height: 1.1;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+.side-tag.done { color: var(--strong); background: var(--grey); border-color: var(--team); }

@@ -1549,6 +1549,87 @@ def hand_table(
     }
 
 
+#: What the question box says of each side on the shootout's two
+#: secret questions, by whether that side has answered: the model's
+#: public line says the same once it has ("<team> has set their
+#: shooting order."), and nothing is said of an answer half made.
+SHOOTOUT_SAID: Mapping[PromptKind, tuple[str, str]] = {
+    PromptKind.SHOOTOUT_ORDER: ("is setting its order", "has set its order"),
+    PromptKind.SHOOTOUT_PICK: (
+        "is choosing its shooter", "has chosen its shooter",
+    ),
+}
+
+
+def shootout_sides(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: Optional[MatchState],
+    prompt: Optional[PendingPrompt],
+    wire: Optional[Mapping[str, Any]] = None,
+) -> Optional[dict]:
+    """
+    Whether each side has answered the shootout's secret question --
+    the order, or sudden death's pick -- and nothing else about it
+    (step 7 of docs/web-app-redesign.md): what an observer and the
+    other coach are shown, and the coach setting theirs too, since it
+    says whether the other side is waiting on them. `None` for any
+    other prompt.
+
+    **Read off the options' own rows** (`ShootoutOptions.owed`, which
+    is a side with nobody left to place): a side is set or it is not,
+    and a count of who has been placed so far is not sent, since how
+    far a coach has got is theirs as much as the order is.
+    """
+    if (
+        prompt is None or match is None
+        or prompt.kind not in SHOOTOUT_SAID
+    ):
+        return None
+    wire = prompt.to_dict() if wire is None else wire
+    waiting, done = SHOOTOUT_SAID[prompt.kind]
+    sides = []
+    for entry in wire["options"]["sides"]:
+        team_side = _side(entry["side"])
+        answered = not entry["player_ids"]
+        sides.append({
+            "team_side": team_side.value,
+            "team": team_display_name(match.setup_for_side(team_side).team),
+            "done": answered,
+            "said": done if answered else waiting,
+        })
+    return {
+        "sides": sides,
+        "note": (
+            "Each order is shown a shooter at a time, as they shoot."
+            if prompt.kind is PromptKind.SHOOTOUT_ORDER
+            else "Both shooters are shown together."
+        ),
+    }
+
+
+#: The prompts whose answer opens with a block for the answering coach
+#: alone: the order as it stands (`periods.shootout_order_step`) and
+#: "You send out ..." (`periods.shootout_pick_step`), both secret until
+#: the reveal. The cog puts that block on the coach's own ephemeral
+#: menu and posts the rest (`D12Ball.post_ai_answer`, and the two
+#: `Shootout*SelectView`s); a page's log is read by everybody in the
+#: room, so the block is not kept there at all (`own_block_dropped`).
+OWN_FIRST_BLOCK = frozenset({
+    PromptKind.SHOOTOUT_ORDER,
+    PromptKind.SHOOTOUT_PICK,
+})
+
+
+def own_block_dropped(
+    kind: Optional[PromptKind], lines: Sequence[str],
+) -> list[str]:
+    """An answer's lines as everybody may read them: without the first
+    block where that is the answering coach's own (`OWN_FIRST_BLOCK`)."""
+    lines = list(lines)
+    return lines[1:] if kind in OWN_FIRST_BLOCK else lines
+
+
 def reveal(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1586,13 +1667,32 @@ def reveal(
 
 
 def _shootout_order(asked: Asked) -> list:
-    """The secret order, as neutral controls until step 7 draws it."""
+    """
+    The secret order, as six slots in the question box (step 7 of
+    docs/web-app-redesign.md): a section per side this viewer coaches
+    and still owes an order, holding a control per player still to be
+    placed and Start again, and under `order` the slots.
+
+    **The slots are the order this side has already sent** --
+    `MatchState.shootout_order`, the record, read for the viewer's own
+    seat only, the way `restore_shootout_menus` puts it back on a
+    Discord menu (`shootout_order_text`) -- and as many empty ones as
+    the options still list, so the count is the squad's and not a
+    number here. Who may still be placed is the options' and nothing
+    else. The page fills the empty slots in its own draft and sends
+    each name in slot order when the whistle locks it: the same
+    `send` a Discord menu sends one click at a time, each checked
+    against what was offered as it goes. The other side's order is
+    never in this section: its rows are skipped, not greyed.
+    """
     mine = set(asked.sides())
-    controls: list[dict] = []
+    groups: list[Optional[dict]] = []
     for entry in asked.options["sides"]:
-        if _side(entry["side"]) not in mine:
+        side = _side(entry["side"])
+        if side not in mine or not entry["player_ids"]:
             continue
-        controls.extend(
+        placed = asked.match.shootout_order(side)
+        controls = [
             button(
                 asked.label(player_id),
                 asked.kind,
@@ -1602,7 +1702,7 @@ def _shootout_order(asked: Asked) -> list:
                 player_id=player_id,
             )
             for player_id in entry["player_ids"]
-        )
+        ]
         controls.append(
             button(
                 "Start again",
@@ -1611,7 +1711,17 @@ def _shootout_order(asked: Asked) -> list:
                 side=entry["side"],
             )
         )
-    return [section("Your order", controls)]
+        group = section("Your order", controls)
+        group["order"] = {
+            "side": entry["side"],
+            "placed": [
+                {"id": player_id, "label": asked.label(player_id)}
+                for player_id in placed
+            ],
+            "slots": len(placed) + len(entry["player_ids"]),
+        }
+        groups.append(group)
+    return groups
 
 
 def _shootout_pick(asked: Asked) -> list:

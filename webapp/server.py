@@ -105,6 +105,7 @@ from webapp.present import (
     prompt_picture_key,
     render_text,
     reveal,
+    shootout_sides,
     still_to_answer,
 )
 from webapp.chat import WEB_CHAT_FILE, Chats, MessageRefused, clean_text
@@ -189,6 +190,13 @@ class WebApp:
         self.journals = journals if journals is not None else Journals()
         self.host = host
         self.port = port
+        #: The kind of question a click on this page is answering, per
+        #: game, for as long as the service is answering it -- the
+        #: listener hears the result and not the action, and the
+        #: journal keeps a coach's own block out of the log by it
+        #: (`Journal.add`'s `answered`). Set and cleared under the
+        #: game's lock, around a call with no `await` in it.
+        self._answering: dict[str, PromptKind] = {}
         self._boards: dict[tuple, bytes] = {}
         self._cards: dict[tuple, bytes] = {}
         self._dice: dict[tuple, bytes] = {}
@@ -287,6 +295,7 @@ class WebApp:
                 challenge=lambda challenger_id: self._challenge_line(
                     game, challenger_id,
                 ),
+                answered=self._answering.get(game.game_id),
             )
         except Exception:  # pragma: no cover - a frontend's own bug
             LOGGER.exception(
@@ -857,7 +866,11 @@ class WebApp:
             raise web.HTTPBadRequest(text="That is not an answer.")
 
         async with self.locks.hold(game.game_id):
-            result = self.service.apply_action(game.game_id, action)
+            self._answering[game.game_id] = action.kind
+            try:
+                result = self.service.apply_action(game.game_id, action)
+            finally:
+                self._answering.pop(game.game_id, None)
             state = self._state(game, viewer, **_cursors(request))
         state["refusal"] = result.to_dict()["refusal"]
         return web.json_response(state)
@@ -1625,6 +1638,12 @@ class WebApp:
                 # not that side has picked (`present.hand_table`).
                 "hand": hand_table(
                     self.engine, game, match, prompt, viewer, wire=wire,
+                ),
+                # The shootout's secret questions: whether each side
+                # has answered, and nothing of what it answered
+                # (`present.shootout_sides`) -- the same for everybody.
+                "shootout": shootout_sides(
+                    self.engine, game, match, prompt, wire=wire,
                 ),
                 # The maneuver pick links to the hexagon at the game's
                 # tier, as the Discord prompt's reference button posts
