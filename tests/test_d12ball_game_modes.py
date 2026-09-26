@@ -144,6 +144,18 @@ class ModeWordingTests(unittest.TestCase):
             "a gambit on every rank, personal abilities",
         )
 
+    def test_a_mode_the_game_is_not_in_is_described_off_its_record(
+        self,
+    ) -> None:
+        """What a frontend offers beside the current mode is worded by
+        the same reading, the record's opt-outs included."""
+        game = build_game(mode=GameMode.TRAINING, species_abilities=False)
+        self.assertEqual(
+            describe_game_mode(game, GameMode.ADVANCED),
+            "a gambit on every rank, personal abilities",
+        )
+        self.assertEqual(game.mode, GameMode.TRAINING)
+
     def test_a_tutorial_saved_as_basic_is_described_as_training(
         self,
     ) -> None:

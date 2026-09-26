@@ -43,6 +43,8 @@ from d12ball.formatting import (
     challenger_prompt_ask,
     coach_name,
     contest_noun,
+    GAME_MODE_NAMES,
+    describe_game_mode,
     contestant_detail,
     destination_display_name,
     format_ai_name,
@@ -993,36 +995,9 @@ async def get_or_create_category(
 # docs/design/species-abilities.md). The setup settings block and the
 # lobby both build their mode row out of this, so the two screens
 # cannot come to offer different modes or word them differently.
-GAME_MODE_BUTTONS: tuple[tuple[str, GameMode], ...] = (
-    ("Training", GameMode.TRAINING),
-    ("Basic", GameMode.BASIC),
-    ("Advanced", GameMode.ADVANCED),
+GAME_MODE_BUTTONS: tuple[tuple[str, GameMode], ...] = tuple(
+    (GAME_MODE_NAMES[mode], mode) for mode in GameMode
 )
-
-
-def describe_game_mode(game: D12BallGame) -> str:
-    """
-    What this game's mode means, in the coach's own terms: the cards it
-    deals and the abilities it plays. Read off the record's opt-outs as
-    well as the mode, so an advanced game saved with a module turned off
-    (before 2026-09-25) is not advertised as playing it -- the same
-    reading `RulesEngine.gambits_apply` and `species_abilities_apply`
-    make.
-    """
-    gambits = game.mode == GameMode.ADVANCED and game.advanced_maneuvers
-    species = (
-        game.mode != GameMode.TRAINING
-        and game.species_abilities
-        and not game.tutorial
-    )
-    parts = [
-        "a gambit on every rank" if gambits else "three maneuvers a side",
-    ]
-    if species:
-        parts.append("species abilities")
-    if game.mode == GameMode.ADVANCED and not game.tutorial:
-        parts.append("personal abilities")
-    return ", ".join(parts)
 
 
 def build_setup_message(
