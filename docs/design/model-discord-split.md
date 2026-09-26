@@ -1035,9 +1035,11 @@ contest for a loose ball (which the long High Pass comes through), a
 score attempt against the wall of defenders, and a shootout test. Each
 returns `(ContestDice, StepResult)` -- the sentences, and the same
 numbers for the picture -- because the frontend puts the image
-*between* two of the lines. `render_contest_dice` is untouched and
-still takes the tuple these functions already built, so the Pillow
-stayed in `cogs/` and only the arithmetic crossed.
+*between* two of the lines. `render_contest_dice` still takes the
+tuple these functions already built; the Pillow stayed in `cogs/` and
+only the arithmetic crossed, until step 7 of
+[../web-app-next.md](../web-app-next.md) moved the brief below the
+renderer (`d12ball/dice_brief.py`) so the web page draws the same dice.
 
 - **What differs between the four is a rule every time**, which is why
   they are four functions and not one with flags. Injury withholds a
@@ -1335,8 +1337,11 @@ code starts moving across the line.
   anything a turn needs. `challenge_side`, the matchup image's brief,
   was the one thing that made `engine.py` import `render.py` -- and
   twenty-odd fonts at import, in every process that loaded the model
-  (finding 14 of [../web-app.md](../web-app.md)) -- and it is the
-  cog's now (`PresentationMixin.challenge_side`).
+  (finding 14 of [../web-app.md](../web-app.md)) -- and it left the
+  engine for the cog, and then, in step 7 of
+  [../web-app-next.md](../web-app-next.md), the cog for
+  `d12ball/dice_brief.py`: a drawing module, beside the renderer, and
+  never under the engine.
 
 ## The four goldens
 

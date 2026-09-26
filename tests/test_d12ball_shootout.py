@@ -831,7 +831,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
         view = ShootoutTestView(cog, game.game_id)
         with suppressed_cog_saves(), mock.patch(
-            "cogs.d12ball_views.base.render_skill_test_dice",
+            "d12ball.dice_brief.render_skill_test_dice",
             return_value=b"",
         ), mock.patch(
             "discord.File", return_value=None,

@@ -28,7 +28,6 @@ from cogs.d12ball_views.base import (
     SafeView,
     contestant_detail,
     describe_coaches,
-    render_contest_dice,
 )
 from cogs.d12ball_views.setup import (
     CoinFlipView,
@@ -118,7 +117,6 @@ __all__ = [
     "SafeView",
     "contestant_detail",
     "describe_coaches",
-    "render_contest_dice",
     "CoinFlipView",
     "GameConfigurationView",
     "HomeAwaySelectionView",

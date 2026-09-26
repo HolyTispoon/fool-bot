@@ -4,6 +4,7 @@ tests. Two of these are ephemeral and so cannot be re-attached to
 their message after a restart -- see `restore_shootout_menus`.
 """
 
+import asyncio
 import discord
 from typing import Optional, TYPE_CHECKING
 
@@ -16,10 +17,8 @@ from d12ball.game import D12BallGame
 from d12ball.prompts import PromptKind
 from cogs.d12ball_helpers import send_new_prompt
 
-from cogs.d12ball_views.base import (
-    SafeView,
-    render_contest_dice,
-)
+from d12ball.dice_brief import render_contest_dice
+from cogs.d12ball_views.base import SafeView
 
 if TYPE_CHECKING:
     from cogs.d12ball import D12Ball
@@ -591,8 +590,11 @@ class ShootoutTestView(ShootoutView):
         # save before anything is posted, and that ordering is the
         # point: a restart between this roll and what follows it can
         # never re-roll a test that has already been paid for.
-        dice_file = await render_contest_dice(
-            dice.contestants, filename="shootout_dice.png",
+        dice_file = discord.File(
+            await asyncio.to_thread(
+                render_contest_dice, dice.contestants,
+            ),
+            filename="shootout_dice.png",
         )
 
         # Result under the dice, not above them, for the reason

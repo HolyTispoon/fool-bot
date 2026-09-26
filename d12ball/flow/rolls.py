@@ -20,10 +20,10 @@ picture go together is the frontend's (principle 8 in CLAUDE.md); what
 they say is not.
 
 **Nothing here draws anything.** `render_contest_dice` in
-`cogs/d12ball_views/base.py` takes `ContestDice.contestants` and is the
-whole of the Discord half, and the tuple it takes is the one these
-functions already built -- so the move is the arithmetic crossing the
-seam and the Pillow staying where it is.
+`d12ball/dice_brief.py` takes `ContestDice.contestants`, and the tuple
+it takes is the one these functions already built; it is below the
+renderer rather than in `cogs/`, so the web app draws the same dice
+the bot posts (step 7 of docs/web-app-next.md).
 
 The four differ in ways worth holding in mind, because each difference
 is a rule rather than an accident:

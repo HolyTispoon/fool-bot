@@ -4,6 +4,7 @@ contest that settles either -- which the long High Pass borrows. See
 "Where the ball comes to rest" in docs/design/loose-balls.md.
 """
 
+import asyncio
 import discord
 from typing import Optional, TYPE_CHECKING
 
@@ -23,10 +24,8 @@ from cogs.d12ball_helpers import (
     space_label,
 )
 
-from cogs.d12ball_views.base import (
-    SafeView,
-    render_contest_dice,
-)
+from d12ball.dice_brief import render_contest_dice
+from cogs.d12ball_views.base import SafeView
 
 if TYPE_CHECKING:
     from cogs.d12ball import D12Ball
@@ -356,8 +355,11 @@ class LooseBallSkillTestView(SafeView):
         if result is None:
             return
         dice = result.detail
-        dice_file = await render_contest_dice(
-            dice.contestants, filename="loose_ball_dice.png",
+        dice_file = discord.File(
+            await asyncio.to_thread(
+                render_contest_dice, dice.contestants,
+            ),
+            filename="loose_ball_dice.png",
         )
 
         following = result.prompt

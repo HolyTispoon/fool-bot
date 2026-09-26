@@ -345,6 +345,16 @@ defenders has none, and packs to its own content.
   There is no sample script for this one; render a `ChallengeSide` pair
   through `render_maneuver_challenge` and `render_score_attempt` (three
   defenders, one of them halved, is the widest case) and open the result.
+- **The brief is below the renderer, not in the cog.** A `ChallengeSide`
+  is built from a player by `d12ball.dice_brief.challenge_side`, and a
+  skill test's sides are drawn by `dice_brief.render_contest_dice`; both
+  were the cog's until step 7 of [../web-app-next.md](../web-app-next.md)
+  moved them so the web page draws the same pictures. The move was
+  verified the way this note says: 207 dice images (every contest the
+  suite rolls through the four views, plus Overdrive, Merge, all eight
+  teams and a one-sided roll) and 2,160 challenge and shot images (three
+  modes, both board sizes, two team pairs, every zone, every attacker)
+  byte-identical before and after.
 
 ## Fonts
 

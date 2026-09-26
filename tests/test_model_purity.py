@@ -94,7 +94,8 @@ print(json.dumps(failures))
 # reportlab refused, so the modules that *draw* (`render`, `cards`, the
 # boards and the rulebooks) cannot creep back under the engine -- step
 # 9 of docs/architecture-migration.md took `challenge_side`, the one
-# thing that made `engine.py` import `render.py`, onto the cog. A web
+# thing that made `engine.py` import `render.py`, out of the engine
+# (it is `d12ball/dice_brief.py`'s now, beside the renderer). A web
 # process that only plays the game pays for no font at import.
 GAME_MODULES = (
     "gamesaves.d12ball.service",
