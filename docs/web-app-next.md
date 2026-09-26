@@ -161,7 +161,7 @@ that existed; steps 1 to 3 are one sprint.
 | ~~7~~ | ~~The dice on the page~~ -- landed; what it settled is in `docs/design/web-app.md`, "The dice", and `docs/design/board-image.md`, "The matchup image" (the briefs below the renderer) | medium |
 | ~~8~~ | ~~The prompt's pictures~~ -- landed; what it settled is in `docs/design/web-app.md`, "The prompt's pictures", and `docs/design/board-image.md`, "The matchup image" (the rest of both briefs below the renderer) | medium |
 | ~~9~~ | ~~What Discord has that the page lacks: my rooms, resume, abandon, stats~~ -- landed; what it settled is in `docs/design/web-app.md`, "Beyond the game", and `docs/design/clock-and-records.md`, "What the statistics are, and what they are not" (the reports moved below the cog) | medium |
-| 10 | The page as a thing to play on; the wire tree; the tests the survey found missing | medium |
+| ~~10~~ | ~~The page as a thing to play on; the wire tree; the tests the survey found missing~~ -- landed; what it settled is in `docs/design/web-app.md`, "The page" (the notification), "What a page is handed" (the journal's own file) and "The wire" (the page as its consumer) | medium |
 | 11 | The reading room: the rulebooks and the player aids | medium |
 | -- | Later, and not now | -- |
 
@@ -1038,6 +1038,14 @@ against the template.
 ```
 
 ### 10. The page as a thing to play on, the wire tree, and the missing tests
+
+**Landed.** Items 2 to 5 of the prompt, the layout having landed
+with the page's rebuild: a notification per prompt that is a coach's
+(`docs/design/web-app.md`, "The page"), the journal in its own file,
+`data/d12ball_web_journal.json` (`webapp/journal.py`; "What a page is
+handed"), the page reading `prompt.to_dict()` and `result.to_dict()`
+("The wire"), and the survey's tests (`tests/test_web_app.py`,
+`SurveyTests` and `EntryPointTests`; `tests/test_web_journal.py`).
 
 **What it is.** Three things the playtest in step 5 orders:
 

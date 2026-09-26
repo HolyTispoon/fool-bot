@@ -1519,6 +1519,10 @@ class MindPullRoll:
             "pulled": self.pulled,
             "ignite": jsonable(self.ignite),
             "minimum": self.minimum,
+            # The band the die names where it is not the rule's own,
+            # worded once here, so a frontend drawing the die off the
+            # wire does not word it a second time.
+            "target_label": self.target_label,
         }
 
 

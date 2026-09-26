@@ -77,7 +77,8 @@ the web app names `WEB_GAMES_FILE` every time, and
 `webapp.server.build_service` takes the file with no default.
 
 The rule with teeth is the positive one: **every control comes off
-`PendingPrompt.options` and nothing else.** `webapp/present.py` has
+`PendingPrompt.options` and nothing else**, read as the wire writes
+them ("The wire", below). `webapp/present.py` has
 one builder per `PromptKind` -- the web app's half of
 `D12Ball.view_for_prompt` -- and a candidate list, a distance or a
 hand worked out there would be a second reading the driver cannot
@@ -96,6 +97,25 @@ position is the frontend's.
 `d12ball/wire.py` holds the one conversion, `jsonable`, and every
 dataclass a frontend is handed has a `to_dict`: the options shapes,
 `PendingPrompt`, `Narration`, `GameResult` and the five roll details.
+
+**The page is its consumer** (decision 3 of
+[../web-app-next.md](../web-app-next.md), taken as "keep it and read
+it", step 10). `WebApp._state` hands a page the prompt read off
+`prompt.to_dict()`, and every builder in `webapp/present.py` reads
+that dict and nothing else of the prompt -- a side is `"home"`, a
+formation its name, a zone its value. The journal reads each result
+as `result.to_dict()` writes it, which is why it can keep an entry
+in a file as it is, and the dice are drawn from a roll's own
+`to_dict`. So `tests/test_wire_shapes.py` is testing a format
+something reads: a field that goes missing from a `to_dict` is a
+control or a die that goes missing on the page. Where a value off the
+wire is asked about by a model function -- a zone for a space's
+label, a side against the sides this viewer coaches -- it becomes the
+model's own type at that call, the way the adapters build a `side` or
+a `formation` from an action. Whose question a prompt is stays
+`asked_sides` over the prompt itself: that is a reading of the model,
+not of its wire shape.
+
 Three decisions in it:
 
 - **It is one-way.** Only `Action.from_dict` reads. A `from_dict` on a
@@ -421,9 +441,34 @@ the simplest thing that is always right is a re-read.
 **The journal is the frontend's memory and nothing to do with the
 save.** `MatchState.events` is the game's record of what happened,
 and nothing in the game may read it to decide a rule; the journal is
-the run of messages a page shows, in the order a coach reads them. A
-restart empties it and the board and the prompt are still right,
-which is the difference between a transcript and a position.
+the run of messages a page shows, in the order a coach reads them.
+Losing it would leave the board and the prompt right, which is the
+difference between a transcript and a position.
+
+**It survives a restart anyway** (step 10 of
+[../web-app-next.md](../web-app-next.md)): `webapp/journal.py` writes
+every game's journal to `data/d12ball_web_journal.json`
+(`WEB_JOURNAL_FILE`) on every `add` and reads it at start, so a room's
+transcript is as good after a restart as its link already was. It is
+still not the save, and for the same reasons the rooms and the chat
+are not: a transcript is not a fact about the game and no rule reads
+it, so it is never on the record, and the save format is the contract.
+What the file keeps of an entry is the whole of it -- its words with
+the model's tokens as written (rendered at the door on the way out, as
+ever), the position the run stopped at (which `board.png?entry=`
+serves, though no page draws it), and its roll's numbers as the wire
+writes them, which the question box draws the dice from. The journal's
+`showing_roll` is kept too, so the dice a restart finds up are still
+up after it, and its `board_version`, because a browser keeps a board
+by its URL and a version that started again at 1 would hand it an old
+picture for a new position. It is bounded as in memory
+(`JOURNAL_LENGTH`), an entry's id keeps counting past the bound, a
+game the games file has lost is dropped on load, a closed room's
+journal goes with it, and a write that fails is logged and swallowed
+the way `save_games` swallows its own -- a lost transcript line is a
+nuisance, a failed click over it is worse. Like every store here the
+file is rewritten whole on each write; a snapshot is a few KB early in
+a game and some 20KB at the end, so a room is at most a few MB.
 
 It is fed by `GameService.listeners`, which hands every result the
 service produces to whoever is watching, after the save. **A game is
@@ -519,6 +564,19 @@ not showing is marked when something new arrives in it, gold on Move
 when the prompt is this coach's. Stacking all five panels made a page
 a coach scrolled past the board to answer and past the answer to read
 what happened, which is the opposite of a table.
+
+**Your turn reaches a coach who is not looking.** The tab's title
+carries a mark while the prompt is theirs (`prompt.yours`), and where
+the browser allows it one notification per prompt names the ask
+(step 10 of [../web-app-next.md](../web-app-next.md)). Permission is
+asked once, on the first control the coach presses, and never on
+load: a browser asked before anybody has done anything is how a site
+comes to be refused for good, and a click is the gesture a browser
+wants the question behind. A prompt is one notification however many
+polls see it -- it is keyed on its kind and its ask, so the Coaching
+Choice redrawing after each move in it is not a new one -- and a
+prompt that goes up while the page has the focus sends none, since
+the coach is looking at it.
 
 - **The jumbotron has its own panel.** It is the board's jumbotron --
   both teams in their colours, the score, the minute and the half,
@@ -666,9 +724,13 @@ where they are read. The log keeps the roll's words.
   to, so it is read above them and the verdict under them
   (`LINES_BEFORE_DICE`). The question box draws no lines beside the
   dice, so this now reads only for the wire's `dice_after`.
-- **The URL carries the entry's time** as well as its id. Entries are
-  numbered from 1 again after a restart, and a picture is served to be
-  kept; the time keeps a browser from showing a roll it cached before.
+- **The URL carries the entry's time** as well as its id. A picture is
+  served to be kept, and an entry id is only as lasting as the journal
+  file it is in; the time keeps a browser from showing a roll it
+  cached before under an id handed out again. The dice are drawn from
+  the roll's wire dict, the shape the journal keeps and reads back
+  after a restart, which is why the Mind Pull's `to_dict` carries its
+  `target_label`: the die's band is worded once, by the model.
 
 ### The prompt's pictures
 
@@ -782,5 +844,3 @@ same `format_scope_heading` the bot's is.
   the page they go **in the question box beside the dice they came
   with**, and down with them; never in the log (2026-09-26, the
   author: no picture in the log).
-- **It keeps its journal in memory**, so a restart is a page with a
-  board, a prompt and no history.

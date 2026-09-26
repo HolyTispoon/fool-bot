@@ -25,9 +25,13 @@ What it is watching for, beyond "the routes answer":
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import importlib
+import inspect
 import io
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,7 +39,7 @@ from unittest import mock
 
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
-from d12ball.components import TeamSide
+from d12ball.components import MatchState, TeamSide
 from d12ball.flow import FollowOnStep
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
 from gamesaves.d12ball import storage
@@ -44,8 +48,9 @@ from webapp import identity, server
 from webapp.identity import Coach
 from gamelocks import GameLocks
 from webapp.present import CONTROLS, Viewer, controls_for, render_text
-from webapp.chat import CHAT_LENGTH, Chats
-from webapp.rooms import Rooms
+from webapp.chat import CHAT_LENGTH, WEB_CHAT_FILE, Chats
+from webapp.journal import WEB_JOURNAL_FILE, Entry
+from webapp.rooms import WEB_ROOMS_FILE, Rooms
 from webapp.server import WebApp, _was_offered
 from prompt_fixtures import (
     CASES,
@@ -1527,6 +1532,165 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("message.text", body)
 
 
+class SurveyTests(unittest.IsolatedAsyncioTestCase):
+    """
+    What the 2026-09-25 survey found untested (step 10 of
+    docs/web-app-next.md): picking a game up, a journal entry's board,
+    and what a coach is sent of the other side's secret.
+    """
+
+    async def serve(self, fixture: PromptFixture) -> tuple[TestClient, WebApp]:
+        web = WebApp(service_over(fixture), GameLocks())
+        web.watch()
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        self.addAsyncCleanup(web.stop)
+        return client, web
+
+    async def test_resume_runs_the_owed_step_and_asks_the_next_question(
+        self,
+    ) -> None:
+        for entry in CASES:
+            if entry.asked or entry.ai:
+                continue
+            with self.subTest(entry.name):
+                ENGINE.rng.seed(11)
+                fixture = entry.build()
+                game = fixture.game
+                client, _ = await self.serve(fixture)
+                url = f"/api/game/{game.game_id}"
+
+                before = await (
+                    await client.get(url, headers=as_coach(game.player_1_id))
+                ).json()
+                self.assertTrue(before["owed"])
+                self.assertIsNone(before["prompt"])
+
+                watched = await client.post(
+                    f"{url}/resume", headers=as_coach(STRANGER),
+                )
+                self.assertEqual(watched.status, 403)
+                # An observer's press ran nothing.
+                self.assertTrue(
+                    (await (await client.get(url)).json())["owed"],
+                )
+
+                response = await client.post(
+                    f"{url}/resume", headers=as_coach(game.player_1_id),
+                )
+                self.assertEqual(response.status, 200)
+                state = await response.json()
+                self.assertTrue(state["resumed"])
+                self.assertFalse(state["owed"])
+                self.assertIsNotNone(state["prompt"])
+                self.assertEqual(
+                    state["prompt"]["kind"],
+                    pending_prompt(
+                        ENGINE,
+                        game,
+                        MatchState.from_dict(
+                            game.match_state, ENGINE.basic_ruleset,
+                        ),
+                    ).kind.value,
+                )
+
+    async def test_an_entry_s_board_is_served_where_it_has_one(self) -> None:
+        ENGINE.rng.seed(11)
+        fixture = case("kickoff")
+        game = fixture.game
+        client, web = await self.serve(fixture)
+        journal = web.journal(game.game_id)
+        journal.entries.append(
+            Entry(41, ("Stopped here.",), board=fixture.match.to_dict()),
+        )
+        journal.entries.append(Entry(42, ("Said only.",)))
+        url = f"/api/game/{game.game_id}/board.png"
+
+        drawn = await client.get(url, params={"entry": "41"})
+        self.assertEqual(drawn.status, 200)
+        self.assertEqual(drawn.content_type, "image/png")
+        self.assertTrue((await drawn.read()).startswith(b"\x89PNG"))
+        for missing in ("42", "43"):
+            with self.subTest(entry=missing):
+                response = await client.get(url, params={"entry": missing})
+                self.assertEqual(response.status, 404)
+
+    async def test_a_coach_is_sent_none_of_the_other_side_s_secret(
+        self,
+    ) -> None:
+        """
+        Seat 1's state is the same JSON whatever seat 2 has picked or
+        ordered, and carries no control of seat 2's -- so it holds
+        neither seat 2's hand nor its order.
+        """
+        def other_side(fixture) -> TeamSide:
+            return next(
+                side
+                for side in (TeamSide.HOME, TeamSide.VISITING)
+                if ENGINE.side_player_number(fixture.game, side) == 2
+            )
+
+        def set_pick(fixture, key) -> str:
+            prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+            hand = next(
+                hand
+                for hand in prompt.options.hands
+                if hand.team_side == other_side(fixture)
+            )
+            if key is not None:
+                setattr(fixture.match, f"{hand.side}_maneuver", key)
+            return hand.side
+
+        def set_order(fixture, reverse) -> str:
+            side = other_side(fixture)
+            squad = list(fixture.match.shootout_squad(side))
+            fixture.match.set_shootout_order(
+                side, squad[::-1] if reverse else squad,
+            )
+            return TeamSide(side).value
+
+        for name, secret, untouched, one, other in (
+            ("maneuver picks", set_pick, None, "low_pass", "double_team"),
+            ("shootout order", set_order, None, False, True),
+        ):
+            with self.subTest(name):
+                seen = []
+                # Untouched first -- seat 2 still to answer, its row
+                # open -- then two secrets that must read the same.
+                for value in (untouched, one, other):
+                    ENGINE.rng.seed(11)
+                    fixture = case(name)
+                    theirs = secret(fixture, value)
+                    client, _ = await self.serve(fixture)
+                    state = await (
+                        await client.get(
+                            f"/api/game/{fixture.game.game_id}",
+                            headers=as_coach(fixture.game.player_1_id),
+                        )
+                    ).json()
+                    self.assertEqual(state["you"]["player_number"], 1)
+                    # Seat 1 is asked too, so there is a row to leak
+                    # beside.
+                    self.assertTrue(state["prompt"]["controls"])
+                    sides = {
+                        control["action"]["arguments"].get("side")
+                        for group in state["prompt"]["controls"]
+                        for control in group["controls"]
+                    }
+                    self.assertNotIn(theirs, sides)
+                    # Nothing of the prompt's options is sent as it
+                    # stands: only this viewer's controls are.
+                    self.assertEqual(
+                        set(state["prompt"]),
+                        {"kind", "ask", "picture", "controls", "yours"},
+                    )
+                    self.assertNotIn("match", state)
+                    if value is not untouched:
+                        seen.append(json.dumps(state, sort_keys=True))
+                self.assertEqual(seen[0], seen[1])
+
+
 class EntryPointTests(unittest.TestCase):
     """
     `python3 -m webapp` builds a service of its own over its own file
@@ -1549,6 +1713,48 @@ class EntryPointTests(unittest.TestCase):
             self.assertTrue(web_file.exists())
             self.assertFalse(bot_file.exists())
             self.assertEqual(len(json.loads(web_file.read_text())), 1)
+
+    def test_python_m_webapp_is_wired_to_the_web_files(self) -> None:
+        """
+        `python3 -m webapp` runs `server.main`, which serves over the
+        web app's own files and never the bot's -- asserted on the
+        constants, since nothing here may start a server.
+        """
+        self.assertNotEqual(storage.WEB_GAMES_FILE, storage.GAMES_FILE)
+
+        served = mock.AsyncMock()
+        with mock.patch.object(server, "serve", served), \
+             mock.patch.object(server, "load_dotenv"), \
+             mock.patch.object(server, "configure_logging"):
+            sys.modules.pop("webapp.__main__", None)
+            importlib.import_module("webapp.__main__")
+        served.assert_awaited_once_with()
+
+        defaults = {
+            name: parameter.default
+            for name, parameter in inspect.signature(
+                server.serve,
+            ).parameters.items()
+        }
+        self.assertEqual(defaults["games_file"], storage.WEB_GAMES_FILE)
+        self.assertEqual(defaults["rooms_file"], WEB_ROOMS_FILE)
+        self.assertEqual(defaults["chat_file"], WEB_CHAT_FILE)
+        self.assertEqual(defaults["journal_file"], WEB_JOURNAL_FILE)
+        self.assertNotIn(storage.GAMES_FILE, defaults.values())
+
+        built = []
+
+        class Built(Exception):
+            pass
+
+        def build(path):
+            built.append(path)
+            raise Built
+
+        with mock.patch.object(server, "build_service", build):
+            with self.assertRaises(Built):
+                asyncio.run(server.serve())
+        self.assertEqual(built, [storage.WEB_GAMES_FILE])
 
     def test_it_batches_for_the_walk_in_and_nothing_else(self) -> None:
         """Discord's economy is the cog's; the web app has no rate
