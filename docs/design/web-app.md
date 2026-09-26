@@ -51,6 +51,11 @@ interrupted. Four environment variables, all of the frontend's:
 A failure to bind raises out of `main`: nothing else is running in the
 process to carry on with.
 
+How it is run on the live host -- the `.env`, why the secret must be
+set and the page served only over HTTPS, `scripts/run_web_app.ps1`
+beside the bot's updater, and the tunnel -- is
+[collaboration.md](collaboration.md), "Running the web app".
+
 ## What it may not do
 
 **Two fences, one each way**, both in `tests/test_web_purity.py` and
@@ -168,7 +173,12 @@ number into somebody else's. A cookie is per device, so another
 device is another person as far as the room knows; that is why a seat
 is left and taken again rather than shared. With no secret set,
 identities die with the process, which is the safe default the old
-per-game links had. **Leaving the app** (`DELETE /api/me`,
+per-game links had. **The cookie is `Secure` when the browser came
+over HTTPS**, and behind the tunnel that is the tunnel's
+`X-Forwarded-Proto`, believed only from this machine
+(`identity.came_over_https`; why, and why not simply "whenever
+`FOOLBOT_WEB_URL` is HTTPS", is [collaboration.md](collaboration.md),
+"Only ever over HTTPS"). **Leaving the app** (`DELETE /api/me`,
 `identity.clear_cookie`) is the reverse of the first visit: it forgets
 the cookie and nothing else, so a seat held under it stays held --
 leaving is not vacating a seat, the way closing the browser never was.

@@ -32,7 +32,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from aiohttp.test_utils import TestClient, TestServer
+from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 from d12ball.components import TeamSide
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
@@ -538,6 +538,52 @@ class IdentityTests(unittest.IsolatedAsyncioTestCase):
         left = await client.delete("/api/me")
         self.assertEqual(left.status, 200)
         self.assertIsNone(await (await client.get("/api/me")).json())
+
+    async def test_the_cookie_is_secure_when_the_tunnel_says_https(self) -> None:
+        """Behind a tunnel the last hop is plain HTTP from this machine;
+        the tunnel's `X-Forwarded-Proto` is what says the browser came
+        over HTTPS, and the cookie is `Secure` on its word."""
+        web = WebApp(GameService(ENGINE, {}, save=lambda games: None), GameLocks())
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+
+        for headers, secure in (
+            ({}, False),
+            ({"X-Forwarded-Proto": "http"}, False),
+            ({"X-Forwarded-Proto": "https"}, True),
+            ({"X-Forwarded-Proto": "HTTPS, http"}, True),
+        ):
+            with self.subTest(headers):
+                response = await client.post(
+                    "/api/me", json={"name": "Ann"}, headers=headers,
+                )
+                cookie = response.cookies[identity.COOKIE]
+                self.assertEqual(bool(cookie["secure"]), secure)
+
+    def test_the_forwarded_scheme_is_believed_only_from_this_machine(self) -> None:
+        """Anybody who reaches the port directly can write the header,
+        so it counts only from a process on this machine -- the
+        tunnel's client."""
+        for peer, believed in (
+            (("127.0.0.1", 50000), True),
+            (("::1", 50000, 0, 0), True),
+            (("::ffff:127.0.0.1", 50000, 0, 0), True),
+            (("192.168.1.20", 50000), False),
+            (("203.0.113.9", 50000), False),
+            (None, False),
+        ):
+            with self.subTest(peer):
+                transport = mock.Mock()
+                transport.get_extra_info.side_effect = (
+                    lambda name, default=None, peer=peer:
+                    peer if name == "peername" else default
+                )
+                request = make_mocked_request(
+                    "GET", "/", headers={"X-Forwarded-Proto": "https"},
+                    transport=transport,
+                )
+                self.assertIs(identity.came_over_https(request), believed)
 
 
 class RoomTests(unittest.IsolatedAsyncioTestCase):
