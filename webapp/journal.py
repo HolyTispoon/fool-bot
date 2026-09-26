@@ -65,19 +65,13 @@ JOURNAL_LENGTH = 200
 
 def roll_of(detail: object) -> Optional[dict]:
     """
-    A result's `detail` as the journal keeps it: the roll's numbers as
-    the wire writes them (`to_dict`), where it is a roll the page has a
-    picture for, and `None` for anything else. A dict is what survives
-    the file, and it is what the dice are drawn from either way.
+    A roll as the journal keeps it: its numbers as the wire writes them
+    (`to_dict`, which is what `result.to_dict()` hands over), where it
+    is a roll the page has a picture for, and `None` for anything else.
     """
-    if isinstance(detail, Mapping):
-        written = dict(detail)
-    else:
-        to_dict = getattr(detail, "to_dict", None)
-        if to_dict is None:
-            return None
-        written = to_dict()
-    return written if pictures.dice_shape(written) is not None else None
+    if not isinstance(detail, Mapping):
+        return None
+    return dict(detail) if pictures.dice_shape(detail) is not None else None
 
 
 @dataclass
@@ -139,7 +133,7 @@ class Entry:
             board=dict(board) if isinstance(board, Mapping) else None,
             new_play=bool(data.get("new_play", False)),
             at=float(data["at"]),
-            detail=roll_of(detail) if isinstance(detail, Mapping) else None,
+            detail=roll_of(detail),
         )
 
 
@@ -173,18 +167,25 @@ class Journal:
         then every group the run closed. `challenge` words the matchup
         a walk-in names, from the challenger's id: on Discord the walk-in
         is followed by the challenge image, and the log draws no
-        picture, so it says what the picture shows."""
+        picture, so it says what the picture shows.
+
+        **It reads the result as the wire writes it**,
+        `result.to_dict()` (decision 3 of docs/web-app-next.md), which
+        leaves the position out: what the journal keeps is what one
+        person is shown, and everything in it is already JSON, which
+        is what the file keeps."""
+        written = result.to_dict()
         rolled = None
-        for lines, group, detail in self._blocks(result):
+        for lines, group, detail in self._blocks(written):
             if (
                 group is not None
-                and group.step is FollowOnStep.AUTO_RESOLVE_CHALLENGER
+                and group["step"] == FollowOnStep.AUTO_RESOLVE_CHALLENGER.name
                 and challenge is not None
-                and "challenger_id" in group.arguments
+                and "challenger_id" in group["arguments"]
             ):
                 lines = [
                     *filter(None, lines),
-                    challenge(group.arguments["challenger_id"]),
+                    challenge(group["arguments"]["challenger_id"]),
                 ]
             if not lines and group is None and detail is None:
                 continue
@@ -193,8 +194,8 @@ class Journal:
                 Entry(
                     self.next_id,
                     tuple(lines),
-                    board=None if group is None else group.board,
-                    new_play=False if group is None else group.new_play,
+                    board=None if group is None else group["board"],
+                    new_play=False if group is None else group["new_play"],
                     detail=roll,
                 ),
             )
@@ -202,12 +203,12 @@ class Journal:
                 rolled = self.next_id
             self.next_id += 1
         self.showing_roll = rolled
-        if result.board_changed or any(
-            group.board is not None for group in result.groups
+        if written["board_changed"] or any(
+            group["board"] is not None for group in written["groups"]
         ):
             self.board_version += 1
 
-    def _blocks(self, result: GameResult):
+    def _blocks(self, written: Mapping[str, Any]):
         """
         What one result is worth reading, in the order it was said:
         the answer's own lines, every group the run closed, and what
@@ -225,12 +226,12 @@ class Journal:
         group's). It is kept even with no line beside it, since the
         dice are what happened.
         """
-        if result.answer or result.detail is not None:
-            yield list(result.answer), None, result.detail
-        for group in result.groups:
-            yield list(group.lines), group, group.detail
-        if result.narration:
-            yield list(result.narration), None, None
+        if written["answer"] or written["detail"] is not None:
+            yield list(written["answer"]), None, written["detail"]
+        for group in written["groups"]:
+            yield list(group["lines"]), group, group["detail"]
+        if written["narration"]:
+            yield list(written["narration"]), None, None
 
     def since(self, entry_id: int, game: D12BallGame) -> list[dict]:
         return [

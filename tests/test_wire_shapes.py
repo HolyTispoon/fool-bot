@@ -9,6 +9,12 @@ measures is the model's half of the web app, over the same fixtures
 the bot's own prompts are measured on (`tests/prompt_fixtures.py`), so
 a prompt the bot can put up is one a web page can render.
 
+**It is testing a format with a consumer** (decision 3 of
+docs/web-app-next.md, step 10): the web page reads exactly these
+shapes -- its controls are built from `PendingPrompt.to_dict()`, its
+log and its dice from `GameResult.to_dict()` -- so a field that goes
+missing here is a control or a die that goes missing there.
+
 Two things it is here to catch. A field added to a prompt, an option
 or a group and left out of its `to_dict` -- every dataclass on the
 wire is walked, not a sample. And a value that is not JSON reaching a

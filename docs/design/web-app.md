@@ -77,7 +77,8 @@ the web app names `WEB_GAMES_FILE` every time, and
 `webapp.server.build_service` takes the file with no default.
 
 The rule with teeth is the positive one: **every control comes off
-`PendingPrompt.options` and nothing else.** `webapp/present.py` has
+`PendingPrompt.options` and nothing else**, read as the wire writes
+them ("The wire", below). `webapp/present.py` has
 one builder per `PromptKind` -- the web app's half of
 `D12Ball.view_for_prompt` -- and a candidate list, a distance or a
 hand worked out there would be a second reading the driver cannot
@@ -96,6 +97,25 @@ position is the frontend's.
 `d12ball/wire.py` holds the one conversion, `jsonable`, and every
 dataclass a frontend is handed has a `to_dict`: the options shapes,
 `PendingPrompt`, `Narration`, `GameResult` and the five roll details.
+
+**The page is its consumer** (decision 3 of
+[../web-app-next.md](../web-app-next.md), taken as "keep it and read
+it", step 10). `WebApp._state` hands a page the prompt read off
+`prompt.to_dict()`, and every builder in `webapp/present.py` reads
+that dict and nothing else of the prompt -- a side is `"home"`, a
+formation its name, a zone its value. The journal reads each result
+as `result.to_dict()` writes it, which is why it can keep an entry
+in a file as it is, and the dice are drawn from a roll's own
+`to_dict`. So `tests/test_wire_shapes.py` is testing a format
+something reads: a field that goes missing from a `to_dict` is a
+control or a die that goes missing on the page. Where a value off the
+wire is asked about by a model function -- a zone for a space's
+label, a side against the sides this viewer coaches -- it becomes the
+model's own type at that call, the way the adapters build a `side` or
+a `formation` from an action. Whose question a prompt is stays
+`asked_sides` over the prompt itself: that is a reading of the model,
+not of its wire shape.
+
 Three decisions in it:
 
 - **It is one-way.** Only `Action.from_dict` reads. A `from_dict` on a

@@ -823,7 +823,7 @@ class WebApp:
         async with self.locks.hold(game.game_id):
             result = self.service.apply_action(game.game_id, action)
             state = self._state(game, viewer, **_cursors(request))
-        state["refusal"] = result.refusal
+        state["refusal"] = result.to_dict()["refusal"]
         return web.json_response(state)
 
     async def resume(self, request: web.Request) -> web.Response:
@@ -1288,6 +1288,7 @@ class WebApp:
         prompt = waiting if isinstance(waiting, PendingPrompt) else None
         owed = waiting is not None and prompt is None
         return {
+            **self._prompt_state(game, match, prompt, viewer, journal),
             "game": {
                 "id": game.game_id,
                 "number": game.game_number,
@@ -1327,26 +1328,6 @@ class WebApp:
                     None if match is None else self._layout(game, match)
                 ),
             },
-            "prompt": (
-                None if prompt is None else {
-                    "kind": prompt.kind.value,
-                    "ask": render_text(game, prompt.ask),
-                    # What the cog puts under the same kind, or null:
-                    # the same for a coach and an observer, since it is
-                    # the position's and holds nobody's hand.
-                    "picture": self._prompt_picture_url(
-                        game, match, prompt, journal.board_version,
-                    ),
-                    "controls": controls_for(
-                        self.engine, game, match, prompt, viewer,
-                    ),
-                    "yours": bool(
-                        controls_for(
-                            self.engine, game, match, prompt, viewer,
-                        ),
-                    ),
-                }
-            ),
             "owed": owed,
             # Before kickoff the prompt's place is the table's -- unless
             # the game was abandoned there, which leaves no table.
@@ -1367,6 +1348,41 @@ class WebApp:
                 for message in chat.since(chat_since)
             ],
             "chat_latest": chat.latest,
+        }
+
+    def _prompt_state(
+        self,
+        game: D12BallGame,
+        match: Optional[MatchState],
+        prompt: Optional[PendingPrompt],
+        viewer: Viewer,
+        journal: Journal,
+    ) -> dict:
+        """
+        The question, as the page is handed it -- read off
+        `prompt.to_dict()`, the wire's own shape, which the controls
+        are built from too (decision 3 of docs/web-app-next.md): the
+        page is that format's consumer, not a second serialiser's.
+        """
+        if prompt is None:
+            return {"prompt": None}
+        wire = prompt.to_dict()
+        controls = controls_for(
+            self.engine, game, match, prompt, viewer, wire=wire,
+        )
+        return {
+            "prompt": {
+                "kind": wire["kind"],
+                "ask": render_text(game, wire["ask"]),
+                # What the cog puts under the same kind, or null: the
+                # same for a coach and an observer, since it is the
+                # position's and holds nobody's hand.
+                "picture": self._prompt_picture_url(
+                    game, match, prompt, journal.board_version,
+                ),
+                "controls": controls,
+                "yours": bool(controls),
+            },
         }
 
     def _roll(self, game: D12BallGame, journal: Journal) -> Optional[dict]:

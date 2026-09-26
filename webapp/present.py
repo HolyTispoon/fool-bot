@@ -4,7 +4,10 @@ What a web page is handed: the position in words and controls.
 This is the web frontend's half of what `D12Ball.present` is on
 Discord -- ARCHITECTURE.md, part 4. It renders; it decides nothing.
 Every control it builds comes off `PendingPrompt.options` and nothing
-else, which is the rule a Discord view is held to as well (CLAUDE.md,
+else -- **read as the wire writes it**, `prompt.to_dict()`, so the one
+format a frontend is handed has a consumer and `tests/test_wire_shapes.py`
+is testing something read (decision 3 of docs/web-app-next.md) --
+which is the rule a Discord view is held to as well (CLAUDE.md,
 "A view builds its buttons from `PendingPrompt.options` and nothing
 else"): a candidate list, a distance or a hand worked out here would
 be a second reading the driver cannot see, and the moment the web app
@@ -346,33 +349,35 @@ def section(label: Optional[str], controls: Sequence[dict]) -> Optional[dict]:
 
 @dataclass(frozen=True)
 class Asked:
-    """One prompt, for the one viewer the controls are being built
-    for."""
+    """
+    One prompt, for the one viewer the controls are being built for.
+
+    `prompt` is the question **as the wire writes it**
+    (`PendingPrompt.to_dict`), and every builder reads that and nothing
+    else of it: a value is the wire's -- a side is `"home"`, a
+    formation its name, a zone its value -- and becomes the model's
+    own type only where a model function is asked about it (a space's
+    label). What may be chosen is still the prompt's; this is only the
+    one format both ends are written against.
+    """
 
     engine: RulesEngine
     game: D12BallGame
     match: MatchState
-    prompt: PendingPrompt
+    prompt: Mapping[str, Any]
     viewer: Viewer
 
     @property
-    def options(self):
-        return self.prompt.options
+    def options(self) -> Mapping[str, Any]:
+        return self.prompt["options"]
 
     @property
     def kind(self) -> PromptKind:
-        return self.prompt.kind
+        return PromptKind(self.prompt["kind"])
 
     def sides(self) -> tuple[TeamSide, ...]:
         """The sides this viewer coaches."""
-        if not self.viewer.is_coach:
-            return ()
-        return tuple(
-            side
-            for side in (TeamSide.HOME, TeamSide.VISITING)
-            if self.engine.side_player_number(self.game, side)
-            == self.viewer.player_number
-        )
+        return coached_sides(self.engine, self.game, self.viewer)
 
     def label(self, player_id: str) -> str:
         """
@@ -404,7 +409,26 @@ class Asked:
         ]
 
 
-def may_answer(asked: Asked) -> bool:
+def coached_sides(
+    engine: RulesEngine, game: D12BallGame, viewer: Viewer,
+) -> tuple[TeamSide, ...]:
+    """The sides this viewer coaches: none for somebody watching."""
+    if not viewer.is_coach:
+        return ()
+    return tuple(
+        side
+        for side in (TeamSide.HOME, TeamSide.VISITING)
+        if engine.side_player_number(game, side) == viewer.player_number
+    )
+
+
+def may_answer(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    viewer: Viewer,
+) -> bool:
     """
     Whether this viewer is one the prompt is put to -- the web app's
     half of `SafeView.may_act_for`, off the same reading the service
@@ -416,12 +440,12 @@ def may_answer(asked: Asked) -> bool:
     is there for both of them and neither is being asked a question.
     A spectator answers nothing.
     """
-    if not asked.viewer.is_coach:
+    if not viewer.is_coach:
         return False
-    sides = asked_sides(asked.match, asked.prompt)
+    sides = asked_sides(match, prompt)
     if not sides:
         return True
-    return bool(set(sides) & set(asked.sides()))
+    return bool(set(sides) & set(coached_sides(engine, game, viewer)))
 
 
 def controls_for(
@@ -430,19 +454,27 @@ def controls_for(
     match: MatchState,
     prompt: Optional[PendingPrompt],
     viewer: Viewer,
+    wire: Optional[Mapping[str, Any]] = None,
 ) -> list[dict]:
     """
     What this viewer may press, as sections of controls -- empty where
     the question is somebody else's, or where there is no question.
+
+    Whose question it is, is the model's reading of the prompt itself
+    (`asked_sides`); what is offered is built from the prompt as the
+    wire writes it (`Asked`), so `wire` may be handed in where the
+    caller has already written it.
     """
     if prompt is None:
         return []
-    asked = Asked(engine, game, match, prompt, viewer)
-    if not may_answer(asked):
+    if not may_answer(engine, game, match, prompt, viewer):
         return []
     build = CONTROLS.get(prompt.kind)
     if build is None:
         return []
+    asked = Asked(
+        engine, game, match, prompt.to_dict() if wire is None else wire, viewer,
+    )
     return [group for group in build(asked) if group is not None]
 
 
@@ -470,10 +502,10 @@ def _turn(asked: Asked) -> list:
                     asked.kind,
                     action,
                     style=TURN_STYLES.get(action, "primary"),
-                    disabled=action not in options.live,
-                    note=RAILED_NOTE if action not in options.live else "",
+                    disabled=action not in options["live"],
+                    note=RAILED_NOTE if action not in options["live"] else "",
                 )
-                for action in options.actions
+                for action in options["actions"]
             ],
         )
     ]
@@ -489,7 +521,7 @@ def _roll(asked: Asked) -> list:
             style="danger" if asked.kind in DANGEROUS_ROLLS else "primary",
         )
     ]
-    if options.back:
+    if options["back"]:
 
         controls.append(
             button(
@@ -497,21 +529,21 @@ def _roll(asked: Asked) -> list:
                 asked.kind,
                 "back",
                 style="secondary",
-                disabled=options.back_railed,
-                note=RAILED_NOTE if options.back_railed else "",
+                disabled=options["back_railed"],
+                note=RAILED_NOTE if options["back_railed"] else "",
             )
         )
     overdrive = [
         button(
             f"⚡ Overdrive: {asked.label(player_id)} "
-            f"(drain {options.overdrive_cost(player_id)})",
+            f"(drain {options['overdrive_costs'][player_id]})",
             asked.kind,
             "overdrive",
             style="secondary",
             player=player_id,
             player_id=player_id,
         )
-        for player_id in options.overdrive_player_ids
+        for player_id in options["overdrive_player_ids"]
     ] + [
         # Gearclaw's Boost (Law 21), on the same terms.
         button(
@@ -520,7 +552,7 @@ def _roll(asked: Asked) -> list:
             "boost",
             player_id=player_id,
         )
-        for player_id in options.boost_player_ids
+        for player_id in options["boost_player_ids"]
     ]
     return [section(None, controls), section("Before the die", overdrive)]
 
@@ -549,17 +581,18 @@ def _decision(
                     choice,
                     style=_decision_style(asked, choice),
                     disabled=(
-                        options.railed is not None and choice != options.railed
+                        options["railed"] is not None
+                        and choice != options["railed"]
                     ),
                     note=(
                         RAILED_NOTE
-                        if options.railed is not None
-                        and choice != options.railed
+                        if options["railed"] is not None
+                        and choice != options["railed"]
                         else ""
                     ),
                     **_decision_arguments(asked, choice),
                 )
-                for choice in options.choices
+                for choice in options["choices"]
             ],
         )
     ]
@@ -585,9 +618,9 @@ def _smooth(asked: Asked) -> list:
     (`SmoothOptions.keeper_id`). The page says what the Discord
     buttons say, off the same one list.
     """
-    keeper_id = asked.options.keeper_id
+    keeper_id = asked.options["keeper_id"]
     return _decision(asked, {
-        "take": f"{asked.label(asked.prompt.player_id)} takes it over",
+        "take": f"{asked.label(asked.prompt['player_id'])} takes it over",
         "decline": (
             f"{asked.label(keeper_id)} keeps the ball" if keeper_id else ""
         ),
@@ -597,7 +630,7 @@ def _smooth(asked: Asked) -> list:
 def _decision_arguments(asked: Asked, choice: str) -> dict:
     """The two decisions whose answer names who is answering."""
     if asked.kind is PromptKind.COACHING_OFFER:
-        return {"side": asked.prompt.side}
+        return {"side": asked.prompt["side"]}
 
     if asked.kind in (
         PromptKind.MIND_PULL,
@@ -606,12 +639,14 @@ def _decision_arguments(asked: Asked, choice: str) -> dict:
         PromptKind.FORCE_TEST,
         PromptKind.FLY,
     ):
-        return {"player_id": asked.prompt.player_id}
+        return {"player_id": asked.prompt["player_id"]}
     return {}
 
 
 def _players(asked: Asked) -> list:
-    return [section(None, asked.players(asked.options.player_ids, asked.kind))]
+    return [
+        section(None, asked.players(asked.options["player_ids"], asked.kind)),
+    ]
 
 
 def _shooter(asked: Asked) -> list:
@@ -626,7 +661,7 @@ def _shooter(asked: Asked) -> list:
                     player=player_id,
                     shooter_id=player_id,
                 )
-                for player_id in asked.options.player_ids
+                for player_id in asked.options["player_ids"]
             ],
         )
     ]
@@ -637,10 +672,10 @@ def _halftime_token(asked: Asked) -> list:
         section(
             None,
             asked.players(
-                asked.options.player_ids,
+                asked.options["player_ids"],
                 asked.kind,
                 style="secondary",
-                side=asked.prompt.side,
+                side=asked.prompt["side"],
             ),
         )
     ]
@@ -650,7 +685,7 @@ def _send(asked: Asked) -> list:
     """The challenger and the loose ball: somebody, or nobody."""
     options = asked.options
     extra = (
-        {"skill_type": asked.prompt.skill_type}
+        {"skill_type": asked.prompt["skill_type"]}
         if asked.kind is PromptKind.LOOSE_BALL_PICK
         else {}
     )
@@ -660,11 +695,11 @@ def _send(asked: Asked) -> list:
             asked.kind,
             "decline",
             style="secondary",
-            disabled=options.decline_railed,
-            note=RAILED_NOTE if options.decline_railed else "",
+            disabled=options["decline_railed"],
+            note=RAILED_NOTE if options["decline_railed"] else "",
             **extra,
         )
-        if options.may_decline
+        if options["may_decline"]
         else None
     )
     return [
@@ -679,7 +714,7 @@ def _send(asked: Asked) -> list:
                     player_id=player_id,
                     **extra,
                 )
-                for player_id in options.player_ids
+                for player_id in options["player_ids"]
             ],
         ),
         section(None, [decline] if decline else []),
@@ -704,22 +739,25 @@ def _fly(asked: Asked) -> list:
     with its price (`FlyOptions.spaces`), and Stay.
     """
     options = asked.options
-    player_id = asked.prompt.player_id
+    player_id = asked.prompt["player_id"]
     return [
         section(
             None,
             [
                 button(
                     travel_space_label(
-                        zone, space_index, distance, asked.match.board,
+                        Zone(space["zone"]),
+                        space["space_index"],
+                        space["distance"],
+                        asked.match.board,
                     ),
                     asked.kind,
                     "fly",
                     player_id=player_id,
-                    zone=Zone(zone).value,
-                    space_index=space_index,
+                    zone=space["zone"],
+                    space_index=space["space_index"],
                 )
-                for zone, space_index, distance in options.spaces
+                for space in options["spaces"]
             ]
             + [
                 button(
@@ -747,7 +785,7 @@ def _run_back_space(asked: Asked) -> list:
             [
                 button(
                     travel_space_label(
-                        options.zone,
+                        _zone(options["zone"]),
                         space_index,
                         distance,
                         asked.match.board,
@@ -756,7 +794,7 @@ def _run_back_space(asked: Asked) -> list:
                     space_index=space_index,
                 )
                 for space_index, distance in zip(
-                    options.space_indices, options.distances,
+                    options["space_indices"], options["distances"],
                 )
             ],
         )
@@ -773,16 +811,19 @@ def _distance(asked: Asked) -> list:
             _spaces(distance),
             asked.kind,
             distance=distance,
-            disabled=options.railed is not None and distance != options.railed,
+            disabled=(
+                options["railed"] is not None and distance != options["railed"]
+            ),
             note=(
                 RAILED_NOTE
-                if options.railed is not None and distance != options.railed
+                if options["railed"] is not None
+                and distance != options["railed"]
                 else ""
             ),
         )
-        for distance in options.distances
+        for distance in options["distances"]
     ]
-    if options.may_pass_out:
+    if options["may_pass_out"]:
         # A Setup Pass with nowhere to go is the card's one way out of
         # play, and it is the absence of a distance rather than a
         # choice -- the driver reads it the same way.
@@ -792,13 +833,13 @@ def _distance(asked: Asked) -> list:
     # the run declared beside them.
     runs = [
         button(
-            f"{_spaces(distance)}, {asked.label(options.runner_id)} "
+            f"{_spaces(distance)}, {asked.label(options['runner_id'])} "
             "runs onto it (drain 3)",
             asked.kind,
             distance=distance,
             runner=True,
         )
-        for distance in options.runner_distances
+        for distance in options["runner_distances"]
     ]
     return [section(None, distances), section("Run onto the pass", runs)]
 
@@ -819,15 +860,17 @@ def _low_pass(asked: Asked) -> list:
     """
     match = asked.match
     controls = []
-    for option in asked.options.passes:
+    for option in asked.options["passes"]:
+        distance = option["distance"]
+        receiver_ids = option["receiver_ids"]
         zone, space_index = match.ball_destination(
-            match.ball.possession, option.distance,
+            match.ball.possession, distance,
         )
         where = space_label(zone, space_index, match.board)
-        if len(option.receiver_ids) > 1:
+        if len(receiver_ids) > 1:
             controls.append(
                 chooser(
-                    f"{len(option.receiver_ids)} players -- {where}: "
+                    f"{len(receiver_ids)} players -- {where}: "
                     "who receives it?",
                     "Pass",
                     [
@@ -836,22 +879,22 @@ def _low_pass(asked: Asked) -> list:
                             "",
                             [
                                 (player_id, asked.label(player_id))
-                                for player_id in option.receiver_ids
+                                for player_id in receiver_ids
                             ],
                         )
                     ],
                     asked.kind,
-                    distance=option.distance,
+                    distance=distance,
                 )
             )
             continue
-        receiver = option.receiver_ids[0] if option.receiver_ids else None
+        receiver = receiver_ids[0] if receiver_ids else None
         controls.append(
             button(
                 f"{asked.label(receiver)} -- {where}" if receiver else where,
                 asked.kind,
                 player=receiver,
-                distance=option.distance,
+                distance=distance,
             )
         )
     return [section(None, controls)]
@@ -868,16 +911,17 @@ def _speed(asked: Asked) -> list:
                     asked.kind,
                     target_speed=target,
                     disabled=(
-                        options.railed is not None and target != options.railed
+                        options["railed"] is not None
+                        and target != options["railed"]
                     ),
                     note=(
                         RAILED_NOTE
-                        if options.railed is not None
-                        and target != options.railed
+                        if options["railed"] is not None
+                        and target != options["railed"]
                         else ""
                     ),
                 )
-                for target in options.targets
+                for target in options["targets"]
             ],
         )
     ]
@@ -891,26 +935,26 @@ def _maneuver(asked: Asked) -> list:
     """
     mine = set(asked.sides())
     controls = []
-    for hand in asked.options.hands:
-        if hand.team_side not in mine or hand.picked:
+    for hand in asked.options["hands"]:
+        if _side(hand["team_side"]) not in mine or hand["picked"]:
             continue
-
+        side, railed = hand["side"], hand["railed"]
         controls.extend(
             button(
                 asked.engine.maneuver_name(key),
                 asked.kind,
-                style="danger" if hand.side == "offense" else "success",
-                card={"key": key, "side": hand.side},
-                side=hand.side,
+                style="danger" if side == "offense" else "success",
+                card={"key": key, "side": side},
+                side=side,
                 maneuver_key=key,
-                disabled=hand.railed is not None and key != hand.railed,
+                disabled=railed is not None and key != railed,
                 note=(
                     RAILED_NOTE
-                    if hand.railed is not None and key != hand.railed
+                    if railed is not None and key != railed
                     else ""
                 ),
             )
-            for key in hand.maneuver_keys
+            for key in hand["maneuver_keys"]
         )
     return [section("Your hand", controls)]
 
@@ -918,8 +962,8 @@ def _maneuver(asked: Asked) -> list:
 def _shootout_order(asked: Asked) -> list:
     mine = set(asked.sides())
     controls: list[dict] = []
-    for entry in asked.options.sides:
-        if TeamSide(entry.side) not in mine:
+    for entry in asked.options["sides"]:
+        if _side(entry["side"]) not in mine:
             continue
         controls.extend(
             button(
@@ -927,10 +971,10 @@ def _shootout_order(asked: Asked) -> list:
                 asked.kind,
                 "send",
                 player=player_id,
-                side=entry.side,
+                side=entry["side"],
                 player_id=player_id,
             )
-            for player_id in entry.player_ids
+            for player_id in entry["player_ids"]
         )
         controls.append(
             button(
@@ -938,7 +982,7 @@ def _shootout_order(asked: Asked) -> list:
                 asked.kind,
                 "restart",
                 style="secondary",
-                side=entry.side,
+                side=entry["side"],
             )
         )
     return [section("Your order", controls)]
@@ -947,18 +991,18 @@ def _shootout_order(asked: Asked) -> list:
 def _shootout_pick(asked: Asked) -> list:
     mine = set(asked.sides())
     controls: list[dict] = []
-    for entry in asked.options.sides:
-        if TeamSide(entry.side) not in mine:
+    for entry in asked.options["sides"]:
+        if _side(entry["side"]) not in mine:
             continue
         controls.extend(
             button(
                 asked.label(player_id),
                 asked.kind,
                 player=player_id,
-                side=entry.side,
+                side=entry["side"],
                 player_id=player_id,
             )
-            for player_id in entry.player_ids
+            for player_id in entry["player_ids"]
         )
     return [section("Your shooter", controls)]
 
@@ -974,31 +1018,24 @@ def _coaching_hub(asked: Asked) -> list:
     refused (`finish_refusal`, the kickoff space a side must cover).
     """
     options = asked.options
-    side = asked.prompt.side
+    side = asked.prompt["side"]
+    current = options["current_formation"]
     return [
 
         section(
             "Formation",
             [
                 button(
-                    formation.value,
+                    formation,
                     asked.kind,
                     "formation",
-                    style=(
-                        "secondary"
-                        if formation == options.current_formation
-                        else "primary"
-                    ),
+                    style="secondary" if formation == current else "primary",
                     side=side,
                     formation=formation,
-                    disabled=formation == options.current_formation,
-                    note=(
-                        "Where they stand now"
-                        if formation == options.current_formation
-                        else ""
-                    ),
+                    disabled=formation == current,
+                    note="Where they stand now" if formation == current else "",
                 )
-                for formation in options.formations
+                for formation in options["formations"]
             ],
         ),
         section(
@@ -1013,7 +1050,7 @@ def _coaching_hub(asked: Asked) -> list:
                             "Off",
                             [
                                 (player_id, asked.label(player_id))
-                                for player_id in options.outgoing_ids
+                                for player_id in options["outgoing_ids"]
                             ],
                         ),
                         field(
@@ -1021,7 +1058,7 @@ def _coaching_hub(asked: Asked) -> list:
                             "On",
                             [
                                 (player_id, asked.label(player_id))
-                                for player_id in options.incoming_ids
+                                for player_id in options["incoming_ids"]
                             ],
                         ),
                     ],
@@ -1030,16 +1067,16 @@ def _coaching_hub(asked: Asked) -> list:
                     side=side,
                 )
             ]
-            if options.may_substitute
-            and options.outgoing_ids
-            and options.incoming_ids
+            if options["may_substitute"]
+            and options["outgoing_ids"]
+            and options["incoming_ids"]
             else [],
         ),
         section(
             "Change zones",
             [
                 chooser(
-                    f"{asked.label(swap.player_id)} changes zone with",
+                    f"{asked.label(swap['player_id'])} changes zone with",
                     "Swap",
                     [
                         field(
@@ -1047,16 +1084,16 @@ def _coaching_hub(asked: Asked) -> list:
                             "",
                             [
                                 (player_id, asked.label(player_id))
-                                for player_id in swap.partner_ids
+                                for player_id in swap["partner_ids"]
                             ],
                         )
                     ],
                     asked.kind,
                     "swap",
                     side=side,
-                    player_id=swap.player_id,
+                    player_id=swap["player_id"],
                 )
-                for swap in options.swaps
+                for swap in options["swaps"]
             ],
         ),
         section("Move within a zone", _repositions(asked)),
@@ -1070,8 +1107,8 @@ def _coaching_hub(asked: Asked) -> list:
                     "done",
                     style="success",
                     side=side,
-                    disabled=options.finish_refusal is not None,
-                    note=options.finish_refusal or "",
+                    disabled=options["finish_refusal"] is not None,
+                    note=options["finish_refusal"] or "",
                 )
             ],
         ),
@@ -1086,16 +1123,18 @@ def _repositions(asked: Asked) -> list[dict]:
     comes back to keep the zone covered. One is no choice and the
     driver takes it; several is the second question, as a chooser.
     """
-    side = asked.prompt.side
+    side = asked.prompt["side"]
     controls: list[dict] = []
-    for entry in asked.options.repositions:
-        for space in entry.spaces:
+    for entry in asked.options["repositions"]:
+        player_id, zone = entry["player_id"], _zone(entry["zone"])
+        for space in entry["spaces"]:
+            space_index, trade_with = space["space_index"], space["trade_with"]
             label = (
-                f"{asked.label(entry.player_id)} to "
-                f"{space_label(entry.zone, space.space_index, asked.match.board)}"
+                f"{asked.label(player_id)} to "
+                f"{space_label(zone, space_index, asked.match.board)}"
             )
 
-            if len(space.trade_with) > 1:
+            if len(trade_with) > 1:
                 controls.append(
                     chooser(
                         f"{label} -- who comes back?",
@@ -1105,16 +1144,16 @@ def _repositions(asked: Asked) -> list[dict]:
                                 "swap_with",
                                 "",
                                 [
-                                    (player_id, asked.label(player_id))
-                                    for player_id in space.trade_with
+                                    (one, asked.label(one))
+                                    for one in trade_with
                                 ],
                             )
                         ],
                         asked.kind,
                         "reposition",
                         side=side,
-                        player_id=entry.player_id,
-                        space_index=space.space_index,
+                        player_id=player_id,
+                        space_index=space_index,
                     )
                 )
                 continue
@@ -1123,18 +1162,30 @@ def _repositions(asked: Asked) -> list[dict]:
                     label,
                     asked.kind,
                     "reposition",
-                    player=entry.player_id,
+                    player=player_id,
                     side=side,
-                    player_id=entry.player_id,
-                    space_index=space.space_index,
+                    player_id=player_id,
+                    space_index=space_index,
                     note=(
-                        f"{asked.label(space.trade_with[0])} comes back"
-                        if space.trade_with
+                        f"{asked.label(trade_with[0])} comes back"
+                        if trade_with
                         else ""
                     ),
                 )
             )
     return controls
+
+
+def _side(value: Optional[str]) -> Optional[TeamSide]:
+    """A side off the wire, as the model's own, to compare with the
+    sides this viewer coaches."""
+    return None if value is None else TeamSide(value)
+
+
+def _zone(value: Optional[str]) -> Optional[Zone]:
+    """A zone off the wire, as the model's own, for the space's label
+    -- the formatter's question, asked of its own type."""
+    return None if value is None else Zone(value)
 
 
 def _game_over(asked: Asked) -> list:
