@@ -362,7 +362,9 @@ mirrored between a channel and a page.
 (`load_player_catalog`, `load_basic_ruleset`, `load_maneuver_catalog`,
 `build_ai_strategies`, with the tutorial script checked against the
 catalog the same way), the games `load_games(WEB_GAMES_FILE)` reads, a
-`GameService` with the default `Batching()` -- the cog's
+`GameService` with the web app's own `WEB_BATCHING` -- the default
+but for the walk-in, which it closes into a group so the challenge
+image has its challenger ("The prompt's pictures", below); the cog's
 `DiscordBatching` is Discord's economy (principle 8), and a page has
 no rate limit to batch for -- and a save that writes that file and no
 other. Then its own `GameLocks`.
@@ -641,14 +643,60 @@ be a second drawing to keep right.
   numbered from 1 again after a restart, and a picture is served to be
   kept; the time keeps a browser from showing a roll it cached before.
 
+### The prompt's pictures
+
+**What a coach looks at while choosing is the cog's picture for the
+same kind** (step 8 of [../web-app-next.md](../web-app-next.md)): the
+field strip under the eight questions answered by reading the field
+(the six distance questions, the run back's two and Fly), the shot's
+composition on a score attempt, and the asked coach's own half-field on
+a Coaching Choice. `webapp/present.py`'s `PROMPT_PICTURES` is the web
+half of `D12Ball.render_prompt`, and **the kind is its only key** -- the
+same kinds as the cog's `FIELD_PROMPT_KINDS` and
+`COACHING_PROMPT_KINDS`; a page that looked at `match.challenger_id`
+to decide would be a second reading of what is asked. Each is drawn by
+the function the cog calls, off the same arguments (`webapp/pictures.py`:
+`field_png`, `score_attempt_png`, `coaching_png`), and the shot's
+brief is `dice_brief.score_attempt_brief`, moved below the renderer
+for this so the two frontends draw one composition.
+
+- **The maneuver pick is not on the list**: its hand is the printed
+  cards, which are the page's controls already.
+- **It is the same picture for a coach and an observer.** Every one
+  is a picture of the position, and none holds a hand; an observer
+  gets the strip and the half-field, and never a hand, because no hand
+  is drawn.
+- **`GET /api/room/{id}/prompt.png` draws the prompt the match is on
+  now**, whatever the URL says, in a worker thread, and keeps it with
+  the boards. The URL's `v` is the board version and its `p` the kind
+  (and the side, for the half-field): two coaches' windows can follow
+  one another over the same board, and a browser keeps a picture by
+  its URL. It sits between the ask and the controls, as an attachment
+  sits between a Discord message's text and its buttons.
+
+**The challenge image rides on the walk-in, not on a prompt.** On
+Discord it is posted under the walk-in's lines
+(`announce_maneuver_challenge`), off the challenger the group tagged
+`AUTO_RESOLVE_CHALLENGER` names in `Narration.arguments`. The page
+does the same: the journal's entry for that group keeps the matchup's
+brief (`dice_brief.maneuver_challenge_brief`), taken when the result
+is recorded -- the same post-run position the cog draws it from --
+because by the time a page asks for the picture the match has moved
+on. It is served by the dice route, `detail/{entry}.png`, since an
+entry is a roll or a walk-in and never both; the entry's wire shape
+says `challenge`.
+
+**That takes one boundary of the web app's own**: `WEB_BATCHING` closes
+the walk-in into a group of its own (`own_message`), where the default
+`Batching()` carried its lines into whatever came next and so named no
+challenger. It is batching and so the frontend's (principle 8), and it
+is the only one: the web app stops nowhere the model does not and
+carries every answer the default way, because it has no rate limit to
+batch for. A walk-in with nothing to say (a defender already on the
+ball) is an entry with no words and the picture.
+
 ## What it does not do yet
 
-- **It does not draw most of the pictures a prompt rides on** -- the
-  field strip, the challenge image, the coach's half-field. They are
-  `D12Ball.render_prompt`'s, keyed on the kind, and the web page shows
-  the ask, the controls and the live board beside them instead. The
-  hand of cards is the one it draws, as the cards themselves, and the
-  dice are drawn in the log ("The dice", above).
 - **Two pictures around a roll are the bot's alone**: Volatile's
   ignition die, with its caption (`D12Ball.post_volatile_ignition`,
   one per side that ignited), and the scorer's portrait under a goal.

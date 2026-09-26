@@ -355,6 +355,14 @@ defenders has none, and packs to its own content.
   teams and a one-sided roll) and 2,160 challenge and shot images (three
   modes, both board sizes, two team pairs, every zone, every attacker)
   byte-identical before and after.
+  **Step 8 moved the rest of both briefs**: who stands on each side of
+  the challenge, the shot's modifiers and wall, and the caption over
+  each -- `dice_brief.maneuver_challenge_brief` and
+  `score_attempt_brief`, which the cog's `build_maneuver_challenge_file`
+  and `build_score_attempt_file` now only wrap in a file. Verified the
+  same way: every asked prompt fixture with a player on the ball, basic
+  and advanced, both images (64 renders, 29 distinct), byte-identical
+  before and after.
 
 ## Fonts
 

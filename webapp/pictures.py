@@ -8,7 +8,11 @@ card on the board is `render.draw_card`, and the printed card it
 opens as is `player_cards.render_player_card` (its advanced face,
 `render_player_card_back`, in an advanced game),
 a maneuver card is `cards.render_maneuver_card`, a roll is the die
-the matching roll view on Discord posts (`dice_png`), and the role badges,
+the matching roll view on Discord posts (`dice_png`), a prompt's
+picture is the one `D12Ball.render_prompt` puts under the same kind
+(`field_png`, `score_attempt_png`, `coaching_png`), the challenge
+image is `render_maneuver_challenge` over the brief the cog draws
+too (`challenge_png`), and the role badges,
 team marks and condition marks are the PNGs the bot uploads as its
 application emoji. A page that drew its own card would be a third
 layout to keep right beside the printed one and the board's -- see
@@ -31,12 +35,21 @@ from typing import Mapping, Optional
 from PIL import Image, ImageDraw
 
 from d12ball.cards import render_maneuver_card
-from d12ball.components import ManeuverCatalog, MatchState, PlayerCatalog
-from d12ball.dice_brief import render_contest_dice
+from d12ball.components import (
+    ManeuverCatalog,
+    MatchState,
+    PlayerCatalog,
+    TeamSide,
+)
+from d12ball.dice_brief import (
+    render_contest_dice,
+    score_attempt_brief,
+)
 from d12ball.engine import RulesEngine
 from d12ball.flow.turn import injured_word_and_emoji
 from d12ball.game import D12BallGame, Team, team_display_name
 from d12ball.player_cards import render_player_card, render_player_card_back
+from d12ball.prompts import PendingPrompt
 from d12ball.render import (
     BOARD_BOTTOM,
     BOARD_TOP,
@@ -46,9 +59,13 @@ from d12ball.render import (
     card_profile,
     draw_card,
     draw_end_zone,
+    render_coaching_image,
+    render_field_image,
     render_injury_test_die,
+    render_maneuver_challenge,
     render_mind_pull_die,
     render_own_goal_dice,
+    render_score_attempt,
 )
 
 #: The bot's emoji, as it uploads them (docs/design/teams-and-players.md,
@@ -314,3 +331,68 @@ def dice_png(
     if shape is None:
         return None
     return DICE[shape](engine, game, match, detail).getvalue()
+
+
+# -- The prompt's pictures --------------------------------------------------
+#
+# What a coach looks at while choosing, each drawn by the function
+# `D12Ball.render_prompt` reaches for the same kind, off the same
+# arguments. Which kind gets which is `webapp.present.PROMPT_PICTURES`.
+
+
+def field_png(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> bytes:
+    """The field strip, as `D12Ball.build_field_file` draws it under
+    the distance questions and the run back."""
+    return render_field_image(
+        match,
+        engine.player_catalog,
+        species_icons=engine.species_abilities_apply(game),
+    ).getvalue()
+
+
+def score_attempt_png(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> bytes:
+    """What the shot is made of, as `D12Ball.build_score_attempt_file`
+    draws it above the roll."""
+    shooter, defenders, location = score_attempt_brief(engine, match, game)
+    return render_score_attempt(shooter, defenders, location).getvalue()
+
+
+def coaching_png(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> bytes:
+    """The asked coach's own half of the field, as
+    `D12Ball.coaching_file` draws it on a Coaching Choice."""
+    side = TeamSide(prompt.side or match.pending_coaching_side)
+    return render_coaching_image(
+        match,
+        engine.player_catalog,
+        side,
+        engine.coaching_title(match, side),
+        species_icons=engine.species_abilities_apply(game),
+        cyborg_ids=engine.cyborg_condition_ids(game, match),
+        card_skills=engine.card_skills(game, match),
+    ).getvalue()
+
+
+def challenge_png(brief: tuple) -> bytes:
+    """
+    The matchup a walk-in named, off the brief the journal took when
+    the walk-in was said (`dice_brief.maneuver_challenge_brief`) --
+    the brief rather than the match, because by the time a page asks
+    for the picture the match has moved on.
+    """
+    offense, defense, location = brief
+    return render_maneuver_challenge(offense, defense, location).getvalue()

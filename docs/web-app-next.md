@@ -159,7 +159,7 @@ that existed; steps 1 to 3 are one sprint.
 | ~~5~~ | ~~Run it for real, and write down how~~ -- the how landed: `docs/design/collaboration.md`, "Running the web app", and `scripts/run_web_app.ps1`; the playtest below is the author's to run | a day, little code |
 | ~~6~~ | ~~The web games' numbers on Discord, cut by source~~ -- landed; what it settled is in `docs/design/clock-and-records.md`, "What the statistics are, and what they are not" (the source cut, and the read across the line), and `docs/design/web-app.md`, "Its own process, its own file" | small |
 | ~~7~~ | ~~The dice on the page~~ -- landed; what it settled is in `docs/design/web-app.md`, "The dice", and `docs/design/board-image.md`, "The matchup image" (the briefs below the renderer) | medium |
-| 8 | The prompt's pictures | medium |
+| ~~8~~ | ~~The prompt's pictures~~ -- landed; what it settled is in `docs/design/web-app.md`, "The prompt's pictures", and `docs/design/board-image.md`, "The matchup image" (the rest of both briefs below the renderer) | medium |
 | 9 | What Discord has that the page lacks: my rooms, resume, abandon, stats | medium |
 | 10 | The page as a thing to play on; the wire tree; the tests the survey found missing | medium |
 | 11 | The reading room: the rulebooks and the player aids | medium |
@@ -918,6 +918,14 @@ the board-image checklist line applies to the move.
 ```
 
 ### 8. The prompt's pictures
+
+**Landed.** What it settled is in `docs/design/web-app.md`, "The
+prompt's pictures": `PROMPT_PICTURES` by kind, the prompt picture
+route, the challenge image on the walk-in's entry, and the one
+boundary of the web app's own batching (`WEB_BATCHING`) that gives the
+walk-in a group to carry its challenger on. The shot's and the
+challenge's briefs moved below the renderer, byte-identical
+(`docs/design/board-image.md`, "The matchup image").
 
 **What it is.** What a coach looks at while choosing: the field strip
 under the seven distance prompts, the hand of cards on the maneuver

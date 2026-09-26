@@ -266,6 +266,13 @@ img { display: block; }
 
 .ask { margin: 0 0 10px; white-space: pre-wrap; }
 .ask:empty { display: none; }
+.prompt-picture {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 0 10px;
+  border-radius: 4px;
+}
 
 .controls { display: flex; flex-direction: column; gap: 8px; }
 .group-label {
