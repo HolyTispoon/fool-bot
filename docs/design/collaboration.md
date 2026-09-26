@@ -71,6 +71,17 @@ writer per game (see "Discord's rate limits" in [rate-limits.md](rate-limits.md)
   *other* developer's bot if they ran one on the same machine. The pid file is
   kept as a second source rather than as the answer, because `Win32_Process`
   reports no `CommandLine` for a process owned by another user.
+- **One bot is two `python.exe` processes, and it counts trees, not
+  processes.** A Windows venv's `python.exe` is a redirector, not an
+  interpreter (since Python 3.7.2): it reads `pyvenv.cfg`, starts the base
+  `python.exe` with the same command line as its child, in a job that dies
+  with it, and waits. The redirector matches on the venv path and the
+  interpreter on the full path to `foolbot.py` it was handed, so the updater
+  used to warn on every run that it had stopped two bots when it had stopped
+  one. `Get-FoolBotRoots` counts a match whose parent is not itself a match;
+  the warning and the pid file are the redirector's, and every match is still
+  stopped. The web app script never had the false count only because its
+  match is the venv path alone, which the interpreter does not carry.
 - **The web app is not a foolbot to it.** `python3 -m webapp` is its own
   process with no token, so the updater's match on `foolbot.py` neither stops
   nor counts it; it is restarted on its own.
