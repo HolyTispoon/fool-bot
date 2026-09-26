@@ -3969,9 +3969,10 @@ class RulesEngine:
             "You may take a time out once per half. If you do, play "
             "will stop and you'll be able to substitute players or "
             f"change formation/assignment. Then, {other} would be "
-            "allowed to do the same. Time outs take 1 minute and play "
-            f"will resume with the ball at {where}, with you in "
-            "possession.",
+            "allowed to do the same. A time out is a new play: it takes "
+            "1 minute, both teams go back to the positions their "
+            "coaches set, and play resumes with the ball at "
+            f"{where} at speed 1, with you in possession.",
         ])
 
     def describe_run_back_options(

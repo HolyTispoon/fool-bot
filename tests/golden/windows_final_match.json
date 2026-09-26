@@ -831,7 +831,7 @@
     {
       "details": {
         "defense_key": "steal",
-        "defense_total": 4,
+        "defense_total": 3,
         "offense_key": "dribble_advance",
         "offense_total": 10,
         "tied": false

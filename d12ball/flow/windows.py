@@ -49,7 +49,7 @@ from d12ball import tutorial
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.turnovers import begin_ball_recovery
+from d12ball.flow.turnovers import announce_new_play_reset, begin_ball_recovery
 from d12ball import tokens
 from d12ball.formatting import (
     ball_space_label,
@@ -678,15 +678,23 @@ def begin_time_out(
     docs/living-rules.md, and `MatchState.may_call_time_out` for
     when it is on offer at all.
 
-    **It is not a turnover.** The ball does not move, possession
-    does not change, ball speed is left alone and nobody runs back.
-    What it costs is the flat space minute every action costs
-    (2026-08-16), charged in `finish_time_out` once its tail (a
-    pickup may span a restart) is settled.
+    **It is a new play, and not a turnover** (the author,
+    2026-09-26: "Time out should be a new play. Everyone should go
+    back to their coach assigned position"). The ball does not move
+    and possession does not change, but the ball goes back to speed
+    1 and both sides reset to the arrangements their coaches last
+    set, through the same `announce_new_play_reset` every new play
+    runs -- which also ends a pending Double Team and is the board a
+    frontend pins. What it costs is the flat space minute every
+    action costs (2026-08-16), charged in `finish_time_out` once its
+    tail (a pickup may span a restart) is settled.
 
-    Both coaches then coach: the caller's window opens at once, and
-    `finish_substitution_window` hands the other theirs exactly as
-    a declaration's reply -- which is what it is.
+    Both coaches then coach, on the reset: the caller's window opens
+    straight after it, and `finish_substitution_window` hands the
+    other theirs exactly as a declaration's reply -- which is what
+    it is. A time out's windows are its own occasion, already paid
+    for, so the new play's own declare-or-pass offer is not put as
+    well.
 
     **There is no last-possession branch here any more, because the
     button is never built then.** Ceding was a turnover, so under
@@ -726,20 +734,24 @@ def begin_time_out(
     # whoever called it -- and the window that opens behind it is the
     # next thing. Until step 7 of docs/architecture-migration.md it
     # rode inside the caller's own menu as its heading, which an AI
-    # caller has no menu to carry it on.
-    return StepResult(
-        narration=[
+    # caller has no menu to carry it on. The new play's reset follows
+    # it in the same message, as every new play's does.
+    reset = announce_new_play_reset(
+        engine,
+        game,
+        match,
+        lead_in=(
             f"# {label} call a time out\n"
             "Both coaches get a Coaching Choice. The ball stays "
             f"with {label} on "
             f"{ball_space_label(match)}."
-        ],
-        board_changed=True,
-        next=FollowOn(
-            FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
-            {"side": side, "occasion": CoachingOccasion.TIME_OUT},
         ),
     )
+    reset.next = FollowOn(
+        FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
+        {"side": side, "occasion": CoachingOccasion.TIME_OUT},
+    )
+    return reset
 
 
 def finish_time_out(
@@ -749,8 +761,8 @@ def finish_time_out(
 ) -> StepResult:
     """
     The tail of a time out, once both coaches have closed their
-    windows. There is no run back to run and none is owed: each
-    window opened on its own coach's arrangement, so by here both
+    windows. There is no run back to run and none is owed: the new
+    play reset both sides before the windows opened, so by here both
     sides are standing where their own coach left them.
 
     What is left is whether the side that called it still has
@@ -766,11 +778,11 @@ def finish_time_out(
     pickup is not a turnover, because the side doing it is the side
     that had the ball all along.
 
-    **`turnover_occurred` is False**, unlike a cede's, and that is
-    the whole of what stopped being a turnover: nothing resets ball
-    speed, and last possession is not ended by a side keeping the
-    ball it already had. The button is not built under last
-    possession at all -- see `MatchState.may_call_time_out`.
+    **`turnover_occurred` is False**, unlike a cede's: possession did
+    not change. Ball speed was already put back to 1 when the time
+    out was called (it is a new play), and last possession cannot be
+    up -- the button is not built under it at all, see
+    `MatchState.may_call_time_out`.
 
     `pending_time_out` is cleared before either branch: from here on
     the state says what is owed on its own, and leaving it set
@@ -786,8 +798,8 @@ def finish_time_out(
         return begin_ball_recovery(engine, game, match)
 
     # A time out costs the flat space minute every action costs
-    # (2026-08-16), and nothing else: no turnover, so no speed
-    # reset and no last-possession end.
+    # (2026-08-16), and nothing else: speed was reset when it was
+    # called, and it is not a turnover.
     return StepResult(
         next=FollowOn(
             FollowOnStep.FINISH_MANEUVER_RESOLUTION,

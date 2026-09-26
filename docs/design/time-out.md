@@ -26,10 +26,20 @@ out" in the living rules. It was **ceding the ball** until 2026-09-16, and what
 changed is the price: it used to be bought with possession and is now bought
 with a minute and the side's one time out for the half.
 
-**It is not a turnover.** The ball does not move, possession does not change,
-ball speed is left alone and nobody runs back. That is why it is no longer
-filed under [Turnovers](possession-and-turnovers.md#turnovers-steals-and-new-plays) at all -- there are
-two kinds now, not three.
+**It is a new play, and not a turnover** (the author, 2026-09-26: *"Time out
+should be a new play. Everyone should go back to their coach assigned
+position"*). The ball does not move and possession does not change, so it is
+still not filed under [Turnovers](possession-and-turnovers.md#turnovers-steals-and-new-plays); but
+`call_time_out` puts the ball back to speed 1, and `begin_time_out` runs the
+same `announce_new_play_reset` every new play runs -- both sides onto their
+arrangements, a pending Double Team ended, the board a frontend pins --
+before the caller's window opens. The two windows are the time out's own
+occasion, so the new play's own declare-or-pass offer is not put too. Until
+then nothing reset: each side went back to its arrangement only as its own
+window opened, speed stayed where it was, and a Double Team survived the
+pause. Speed 1 is read from "new play" -- every other new play restarts at 1,
+the avoided own goal included -- rather than something the author said in as
+many words.
 
 - **`MatchState.may_call_time_out` is the whole of when it is offered**, and it
   is three reads: `can_attempt_score` from the other end, the half's own count

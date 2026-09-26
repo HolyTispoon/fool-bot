@@ -236,8 +236,9 @@ class TimeOutStateTests(unittest.TestCase):
         self.assertEqual(match.ball.possession, TeamSide.HOME)
         self.assertEqual((match.ball.zone, match.ball.space_index),
                          (Zone.MIDFIELD, 0))
-        # Not a turnover, so nothing resets the speed either.
-        self.assertEqual(match.ball.speed, 3)
+        # A new play, so the speed goes back to 1 (the author,
+        # 2026-09-26) -- though still not a turnover.
+        self.assertEqual(match.ball.speed, 1)
         # The turn being taken is over, carrier included: a Coaching
         # Choice can re-deal the side, so who is on the ball is settled
         # again afterwards rather than held over.
@@ -1004,3 +1005,144 @@ class TimeOutRecoveryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TimeOutIsANewPlayTests(unittest.TestCase):
+    """
+    A time out is a new play (the author, 2026-09-26): both sides go
+    back to their arrangements and the ball to speed 1 before anyone
+    coaches, and a player is sent to the ball if and only if nobody of
+    the calling side is standing on it once both windows close.
+    Played through the driver, as either frontend plays it.
+    """
+
+    def setUp(self) -> None:
+        from prompt_fixtures import CASES, ENGINE
+
+        ENGINE.rng.seed(11)
+        self.engine = ENGINE
+        fixture = next(c for c in CASES if c.name == "plain turn").build()
+        self.game, self.match = fixture.game, fixture.match
+
+    def prompt(self):
+        from d12ball.prompts import pending_prompt
+
+        return pending_prompt(self.engine, self.game, self.match)
+
+    def apply(self, kind, choice="", **arguments):
+        from d12ball.flow import driver
+        from d12ball.prompts import Action
+
+        run = driver.apply(
+            self.engine, self.game, self.match, Action(kind, choice, arguments),
+        )
+        self.assertNotIsInstance(run, driver.Refusal, run)
+        return run
+
+    def positions(self, side):
+        return {
+            player_id: self.match.board.meeple_position(player_id)
+            for player_id in self.match.setup_for_side(side).field_players
+        }
+
+    def call_and_close(self):
+        """Call the time out, then close both coaches' windows unchanged."""
+        from d12ball.prompts import PromptKind
+
+        self.apply(PromptKind.PLAYER_ACTION, "time_out")
+        for _ in range(2):
+            prompt = self.prompt()
+            self.assertIs(prompt.kind, PromptKind.COACHING_HUB)
+            self.apply(PromptKind.COACHING_HUB, "done", side=prompt.side.value)
+
+    def test_both_sides_reset_and_the_speed_goes_back_to_one(self) -> None:
+        from d12ball.prompts import PromptKind
+
+        match = self.match
+        arranged = {
+            side: self.positions(side)
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+        }
+        # Scatter one player of each side off their arrangement, away
+        # from the ball, and give the ball some speed and a Double Team.
+        ball = (match.ball.zone, match.ball.space_index)
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            player_id = next(
+                one for one, where in arranged[side].items()
+                if where != ball and one != match.active_player_id
+            )
+            flat = match.board.flat_index(*arranged[side][player_id])
+            elsewhere = match.board.position_at_flat_index(
+                flat + 1 if flat + 1 < match.board.layout.board_size else flat - 1,
+            )
+            match.board.place_meeple(player_id, *elsewhere)
+        match.ball.speed = 3
+        match.pending_double_team = list(match.visiting.field_players[:2])
+
+        self.apply(PromptKind.PLAYER_ACTION, "time_out")
+
+        # The caller's window is open, and the reset came before it.
+        self.assertIs(self.prompt().kind, PromptKind.COACHING_HUB)
+        self.assertEqual(match.ball.speed, 1)
+        self.assertEqual(match.pending_double_team, [])
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            self.assertEqual(self.positions(side), arranged[side], side)
+        # Possession stays: it is a new play, not a turnover.
+        self.assertIs(TeamSide(match.ball.possession), TeamSide.HOME)
+
+    def test_nobody_is_sent_when_the_arrangement_covers_the_ball(self) -> None:
+        from d12ball.prompts import PromptKind
+
+        self.assertTrue(self.match.eligible_ball_handlers())
+        self.call_and_close()
+        self.assertIsNot(self.prompt().kind, PromptKind.BALL_RECOVERY)
+        self.assertFalse(self.match.pending_ball_recovery)
+
+    def test_a_player_is_sent_when_the_arrangement_leaves_the_ball_bare(
+        self,
+    ) -> None:
+        from d12ball.prompts import PromptKind
+
+        match = self.match
+        board = match.board
+        kickoff = match.kickoff_space_for(TeamSide.HOME)
+        home = self.positions(TeamSide.HOME)
+
+        def out_of_range_at(where) -> bool:
+            before = (match.ball.zone, match.ball.space_index)
+            match.ball.zone, match.ball.space_index = where
+            out = not match.can_attempt_score()
+            match.ball.zone, match.ball.space_index = before
+            return out
+
+        # A space home is arranged on, not the kickoff space (every
+        # arrangement covers that), from which home may not shoot.
+        ball = next(
+            where for where in home.values()
+            if where[1] != kickoff or where[0] is not Zone.MIDFIELD
+            if len(board.spaces[where[0]]) > 1 and out_of_range_at(where)
+        )
+        match.ball.zone, match.ball.space_index = ball
+        on_ball = [one for one, where in home.items() if where == ball]
+        # The coach's arrangement leaves that space bare: everybody of
+        # theirs arranged there is arranged on another space of the
+        # same zone instead...
+        other = next(
+            index for index in range(len(board.spaces[ball[0]]))
+            if index != ball[1]
+        )
+        for player_id in on_ball:
+            board.place_meeple(player_id, ball[0], other)
+        match.set_assigned_positions(TeamSide.HOME)
+        # ...and open play has carried one of them back onto the ball.
+        board.place_meeple(on_ball[0], *ball)
+        match.active_player_id = on_ball[0]
+        self.assertTrue(match.may_call_time_out())
+
+        self.call_and_close()
+
+        prompt = self.prompt()
+        self.assertIs(prompt.kind, PromptKind.BALL_RECOVERY)
+        options = prompt.options
+        self.assertEqual(options.costs, options.distances)
+        self.assertTrue(all(cost > 0 for cost in options.costs))

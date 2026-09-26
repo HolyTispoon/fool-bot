@@ -2515,8 +2515,12 @@ class MatchState:
         is the whole of what this stopped being when ceding became a
         time out on 2026-09-16: it used to hand the other team the ball
         on the space it was given up on, and now it hands them nothing.
-        Ball speed is left alone for the same reason -- a turnover
-        resets it to 1, and this is not one.
+
+        **It is a new play** (the author, 2026-09-26), so ball speed
+        goes back to 1 as it does on every new play -- the avoided own
+        goal's too, the other new play that keeps possession -- and the
+        step that calls this resets both sides to their arrangements
+        (`announce_new_play_reset`) before either coach coaches.
 
         The turn being taken *is* cleared, carrier included. The side
         that called the time out still has the ball, but a Coaching
@@ -2540,6 +2544,7 @@ class MatchState:
         side = self.ball.possession
         self.reset_maneuver()
         self.clear_ball_carrier()
+        self.ball.speed = 1
         self.pending_run_back_distance = 1
         self.pending_time_out = True
         return side

@@ -1017,8 +1017,8 @@ def recover_ball_step(
     **Every pickup charges a token a space**, a time out's included
     (the author, 2026-09-26: the time-out pickup was free until then).
     A time out's pickup is still not a turnover: the side fetching the
-    ball is the side that has had it all along, so nothing resets and
-    nothing ends. Read before the pickup clears it. See
+    ball is the side that has had it all along. (The time out is a new
+    play, so both sides were reset when it was called.) Read before the pickup clears it. See
     `finish_time_out`.
     """
     player = engine.get_player_definition(player_id)

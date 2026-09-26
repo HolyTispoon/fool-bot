@@ -7,11 +7,14 @@ Out of shooting range. Maneuver, or take a time out:
 === press 1: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Purple (Visiting) would be allowed to do the same. Time outs take 1 minute and play will resume with the ball at space 4, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Purple (Visiting) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 4 at speed 1, with you in possession.
 === press 2: TimeOutConfirmView -> 'Take the time out'
 --- message
 # Orange (Home) call a time out
 Both coaches get a Coaching Choice. The ball stays with Orange (Home) on space 4.
+
+# New play
+Players return to positions assigned by their coach.
 --- message
 # Coaching Choice
 <@111>, **Orange (Home)** -- 2 substitutions left.
@@ -710,15 +713,20 @@ Out of shooting range. Maneuver, or take a time out:
 === press 58: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Purple (Visiting) would be allowed to do the same. Time outs take 1 minute and play will resume with the ball at space 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Purple (Visiting) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 1 at speed 1, with you in possession.
 === press 59: TimeOutConfirmView -> 'Take the time out'
 --- message
 # Orange (Home) call a time out
 Both coaches get a Coaching Choice. The ball stays with Orange (Home) on space 1.
+
+# New play
+Both teams reset to the positions their coaches last set:
+🟠 Goopkeeper [FB] to space 1
+🟠 Blazebulk [DD] to space 2
+🟣 Emberdash [PM] to space 4
 --- message
 # Coaching Choice
 <@111>, **Orange (Home)** -- 2 substitutions left.
-Your side is back on the arrangement you last set.
 === press 60: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
@@ -766,7 +774,7 @@ Either player can roll:
 **Dribble Advance:** 🟠 Goopkeeper [FB] and the ball move forward 1 space.
 
 <@111>, manipulate the ball's speed (up to 1):
-=== press 64: SpeedDeltaChoiceView -> '2 (-1)'
+=== press 64: SpeedDeltaChoiceView -> '2 (+1)'
 --- message
 Ball speed is now **2**.
 --- message
