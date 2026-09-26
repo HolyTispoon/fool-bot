@@ -1,14 +1,17 @@
 """
-The web frontend's door: an asyncio server over the same
-`GameService` the bot plays through.
+The web frontend's door: an asyncio server over a `GameService` of
+its own.
 
-**It runs inside the bot's process, on the bot's event loop**
-(decision 5 of docs/web-app.md). `gamesaves/d12ball/storage.py`
-rewrites the whole save file on every call and reads it once at
-startup, so a second process would overwrite the first's file with a
-stale copy of every game; one process over one `games` dict is what
-makes two frontends possible at all, and `gamelocks.GameLocks` is
-what keeps their answers in order.
+**It is its own process, over its own games** (`python3 -m webapp`;
+decided 2026-09-25, docs/web-app-next.md). The web app and the bot
+share the model of the game and nothing at runtime: not a process, not
+a games file, not a service. `main` below builds an engine from the
+same loaders the cog uses, loads `WEB_GAMES_FILE`, and hands the
+service a save that writes that file and never the bot's.
+`gamesaves/d12ball/storage.py` rewrites the whole file on every save
+and reads it once at startup, so two processes over one file would
+clobber each other; one process per file is what keeps them apart, and
+`gamelocks.GameLocks` is what keeps two coaches' answers in order.
 
 What a request does is the shape ARCHITECTURE.md draws: authenticate
 the person (`webapp/keys.py`), turn what they pressed into an
@@ -26,10 +29,9 @@ refuses again on its own reading. It is how a hand-made request
 cannot reach an adapter with an argument no prompt ever offered.
 
 **What was said reaches a page that did not ask for it.** A game is
-played from two sides, and one of them may be on Discord: the journal
-below is fed by every result the service produces, through
-`GameService.listeners`, so a coach watching a web page sees the
-other coach's turn as it happens.
+played from two pages: the journal below is fed by every result the
+service produces, through `GameService.listeners`, so a coach watching
+a web page sees the other coach's turn as it happens.
 """
 
 from __future__ import annotations
@@ -45,7 +47,16 @@ from typing import Any, Mapping, Optional
 
 from aiohttp import web
 
-from d12ball.components import MatchState
+from dotenv import load_dotenv
+
+from d12ball import tutorial
+from d12ball.ai import build_ai_strategies
+from d12ball.components import (
+    MatchState,
+    load_basic_ruleset,
+    load_maneuver_catalog,
+    load_player_catalog,
+)
 from d12ball.engine import RulesEngine
 from d12ball.formatting import coach_name, format_player_with_team_name
 from d12ball.game import D12BallGame, GameStatus, Team, team_display_name
@@ -53,6 +64,7 @@ from d12ball.prompts import Action, PendingPrompt, pending
 from d12ball.render import TEAM_COLORS, render_match_image
 from gamelocks import GameLocks
 from gamesaves.d12ball.service import GameResult, GameService
+from gamesaves.d12ball.storage import WEB_GAMES_FILE, load_games, save_games
 from webapp import keys, pictures
 from webapp.board import board_layout, period_name
 from webapp.present import Viewer, controls_for, render_text
@@ -89,10 +101,11 @@ CARD_CACHE = 400
 #: which is why this is a day rather than a year.
 CARD_MAX_AGE = 86400
 
-#: The environment this reads. `FOOLBOT_WEB_PORT` is the switch: with
-#: none set, no server is started and the bot is exactly what it was.
+#: The environment this reads: the port to listen on (8080 when unset)
+#: and the address to bind (every interface when unset).
 PORT_VARIABLE = "FOOLBOT_WEB_PORT"
 HOST_VARIABLE = "FOOLBOT_WEB_HOST"
+DEFAULT_PORT = 8080
 
 
 @dataclass
@@ -256,9 +269,9 @@ class WebApp:
     The aiohttp application, and the state one process keeps for it.
 
     It owns nothing about the game: the engine, the games and the
-    service are the bot's own, handed in. What is its own is what a
-    frontend's is -- who is reading a page, what has been said, and
-    the pictures it has drawn.
+    service are handed in -- by `main`, which builds them over the web
+    app's own file. What is its own is what a frontend's is -- who is
+    reading a page, what has been said, and the pictures it has drawn.
     """
 
     def __init__(
@@ -303,7 +316,7 @@ class WebApp:
             ],
         )
 
-    # -- The bot's side ----------------------------------------------
+    # -- The service's side ------------------------------------------
 
     @property
     def engine(self) -> RulesEngine:
@@ -311,9 +324,9 @@ class WebApp:
 
     def watch(self) -> None:
         """
-        Listen to every result the service produces, from either
-        frontend. Without this a web page would see its own turns and
-        none of the ones taken on Discord.
+        Listen to every result the service produces, from every page.
+        Without this a web page would see its own turns and none of
+        the other coach's.
         """
         self.service.listeners.append(self.record)
 
@@ -386,8 +399,7 @@ class WebApp:
     async def index(self, request: web.Request) -> web.Response:
         return web.Response(
             text=(
-                "D12 Ball. A game is opened with its own link -- ask the "
-                "bot for yours with /d12ball web_link in its channel."
+                "D12 Ball. A game is opened with its own link."
             ),
         )
 
@@ -907,10 +919,10 @@ async def _body(request: web.Request) -> Mapping[str, Any]:
     return body
 
 
-def configured_port() -> Optional[int]:
-    """The port the environment asks for, or `None` -- which is the
-    switch: with none set, no server is started."""
-    return _int(os.environ.get(PORT_VARIABLE, "").strip() or None)
+def configured_port() -> int:
+    """The port the environment asks for, or `DEFAULT_PORT`."""
+    port = _int(os.environ.get(PORT_VARIABLE, "").strip() or None)
+    return DEFAULT_PORT if port is None else port
 
 
 async def start_web_app(
@@ -919,24 +931,82 @@ async def start_web_app(
     *,
     port: Optional[int] = None,
     host: Optional[str] = None,
-) -> Optional[WebApp]:
-    """
-    Start the server on this process's event loop, or answer `None`
-    where the environment has not asked for one.
-
-    The service and the locks are the bot's own: one `GameService`
-    over one `games` dict, and one lock per game shared by both
-    frontends (decision 5 of docs/web-app.md).
-    """
-    port = port if port is not None else configured_port()
-    if port is None:
-        return None
+) -> WebApp:
+    """Start the server over `service` on this process's event loop."""
     app = WebApp(
         service,
         locks,
         host=host or os.environ.get(HOST_VARIABLE, "0.0.0.0"),
-        port=port,
+        port=port if port is not None else configured_port(),
     )
     app.watch()
     await app.start()
     return app
+
+
+def build_service(games_file: Path) -> GameService:
+    """
+    The web app's own service: an engine from the same four loaders
+    the cog builds its own from, the games saved in `games_file`, the
+    default `Batching()` (Discord's economy is not the web's), and a
+    save that writes `games_file` and nothing else.
+
+    **The file is always named.** `storage`'s default is the bot's
+    file, so a call here that forgot the path would write over the
+    bot's games; `games_file` has no default for that reason.
+    """
+    player_catalog = load_player_catalog()
+    maneuver_catalog = load_maneuver_catalog()
+    # The cog's own check at startup, for the same reason: a tutorial
+    # beat railed onto a card the sheet has renamed is three disabled
+    # buttons rather than an error. See d12ball/tutorial.py.
+    tutorial.validate_script(maneuver_catalog)
+    engine = RulesEngine(
+        player_catalog,
+        load_basic_ruleset(),
+        maneuver_catalog,
+        build_ai_strategies(player_catalog, maneuver_catalog),
+    )
+    games = load_games(games_file)
+    return GameService(
+        engine,
+        games,
+        save=lambda games: save_games(games, games_file),
+    )
+
+
+def configure_logging() -> None:
+    """
+    Console logging for the web process, at `FOOLBOT_LOG_LEVEL` like
+    the bot's (default INFO). Not `botlog`'s: it imports discord, and
+    the #logs mirror is the bot's.
+    """
+    raw = os.environ.get("FOOLBOT_LOG_LEVEL", "").strip().upper()
+    level = logging.getLevelName(raw) if raw else logging.INFO
+    logging.basicConfig(
+        level=level if isinstance(level, int) else logging.INFO,
+        format="%(asctime)s %(levelname)-8s %(name)s %(message)s",
+    )
+
+
+async def serve(games_file: Path = WEB_GAMES_FILE) -> None:
+    """Run the web app over `games_file` until cancelled."""
+    service = build_service(games_file)
+    LOGGER.info(
+        "Loaded %d web game(s) from %s.", len(service.games), games_file,
+    )
+    app = await start_web_app(service, GameLocks())
+    try:
+        await asyncio.Event().wait()
+    finally:
+        await app.stop()
+
+
+def main() -> None:
+    """`python3 -m webapp`: no Discord token, no bot, its own file."""
+    load_dotenv()
+    configure_logging()
+    try:
+        asyncio.run(serve())
+    except KeyboardInterrupt:
+        LOGGER.info("The D12 Ball web app has stopped.")
