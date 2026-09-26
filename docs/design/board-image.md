@@ -275,43 +275,46 @@ rather than the pixels.
 
 ## The web page's board
 
-The web app draws the same board in HTML rather than showing this PNG
-(2026-09-25, the author: "the board shows the player cards and so
-should the webapp"). **Its field is this one**: the
-visitors' cards over each zone and the home side's under it, the
-spaces with the visitors' meeples in the upper row and the home
-side's in the lower and the ball beside whoever has it, and the two
-range bands, in `render.py`'s colours and the bundled fonts. The
-jumbotron is its own panel beside the board and the two team boards
-open from buttons under it (docs/design/web-app.md, "The page"), with
-the same content the PNG draws. So **a change to where
-`render_match_image` puts something is a change to
-`webapp/static/app.js` too** -- the page has no way of noticing. What
-the page may not do is work anything out, and **what it may not do
-either is draw something this module already draws**:
+The web app draws the position in HTML rather than showing this PNG
+(2026-09-25, the author). Until the redesign it drew **this** board's
+layout -- cards over and under each zone, the PNG's bands and end
+zones. **Since step 1 of [../web-app-redesign.md](../web-app-redesign.md)
+(2026-09-26) its field is drawn from scratch** to the design the author
+reviewed: a dark stage, a row of rounded spaces between two goal slabs,
+the zone names over them and the shooting ranges under them, the
+meeples fanned on each space, and no cards on the field -- a card is
+the hover card, the model's own picture (docs/design/web-app.md, "The
+field"). So a change to where `render_match_image` puts something no
+longer moves the page, and a change to the page no longer has to be
+checked against this module's grid. **What still binds the two is every
+value**, and the page may not work one out:
 
 - Every value the PNG asks the rules for comes from `webapp/board.py`
   (`space_code`, `shooting_range_bands`, `zone_labels`,
-  `cyborg_condition_ids`, `species_abilities_apply`).
-- **Each card is `draw_card`'s picture**, frame and marks included,
-  served as a PNG: the exhaustion token sits in the gap between that
-  card's offense and its role letters, measured off the card's fonts,
-  and a second copy of that measuring in the page is how the marks
-  first landed in the wrong place (2026-09-25).
-- **Each goal is `draw_end_zone`'s picture**, the d12 and its "12"
-  included -- a page that set the word itself drew the 12 in the
-  wrong face, spaced and off centre.
+  `cyborg_condition_ids`, `species_abilities_apply`), and so does what
+  the page adds: the kickoff space (`kickoff_space_for`), whether the
+  side on the ball stands in range (`can_attempt_score`), the colour
+  of the side defending each end zone, and which mark each piece
+  carries -- the same choice `draw_card` makes (Injured wins the slot;
+  a Cyborg's marks under its own names).
 - **A meeple is drawn from this module's numbers**
   (`meeple_geometry`): the path, where the icon and the letters sit on
   it in the path's own units (`MEEPLE_ICON_CENTER`,
   `MEEPLE_ROLE_CENTER`, `MEEPLE_SOLO_CENTER`), and the icon, the
-  letters, the outline and the ball as shares of `MEEPLE_SIZE`. Change
-  one of those constants and the page follows.
+  letters and the outline as shares of `MEEPLE_SIZE`. Change one of
+  those constants and the page follows.
+- **The goal is the one thing the page now draws that this module
+  also draws**: the step's prompt asks for a slab with GOAL set in
+  Racing Sans One and a d12 for its O, which `draw_end_zone`'s picture
+  cannot be at the page's size and colours. The note that a page
+  setting the word itself once drew the 12 wrongly is why its sizes
+  are the design's own numbers rather than eyeballed. `goal_png` and
+  its route are still served.
 
-What is left to the page is the grid the pieces stand in, and that is
-the part to check by eye: render the PNG and the page for the same
-position and put them side by side, at a laptop's width and a
-phone's.
+Check by eye: render the PNG (`scripts/render_sample.py --game <id>`,
+or the web app's own `board.png`) and the page for the same position,
+and compare every value both show -- the space codes, who stands
+where, the ball and its speed, each mark.
 
 ## The matchup image
 

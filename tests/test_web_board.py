@@ -26,11 +26,11 @@ import unittest
 
 from aiohttp.test_utils import TestClient, TestServer
 
-from d12ball.components import Zone
+from d12ball.components import TeamSide, Zone
 from d12ball.prompts import pending_prompt
 from d12ball.render import shooting_range_bands, space_code
 from gamelocks import GameLocks
-from webapp.board import ZONES, board_layout
+from webapp.board import FAN_MEEPLE_WIDTH, FAN_STEPS, ZONES, board_layout
 from webapp.present import STYLES, Viewer, controls_for
 from webapp.server import WebApp
 from prompt_fixtures import CASES, ENGINE
@@ -163,6 +163,205 @@ class LayoutTests(unittest.TestCase):
         self.assertTrue(
             card["image"].startswith(f"/card/{card_id}.png?x=2&e=0&i=1&c=0&s="),
         )
+
+
+class FanTests(unittest.TestCase):
+    """
+    A crowded space, as `board.py` lays it out for the page: who is in
+    front, which way the fan leans, how far each piece steps, and the
+    order the names are listed in -- read off the layout, never off
+    the HTML, so the page can only place what it is handed.
+    """
+
+    def setUp(self) -> None:
+        ENGINE.rng.seed(11)
+        self.fixture = case("kickoff")
+        self.match = self.fixture.match
+
+    def crowd(self, side: TeamSide, count: int, *, ball: bool) -> dict:
+        """`count` of `side`'s fielded players on the first midfield
+        space, the ball there with them when `ball` is set, and the
+        space as the page is handed it."""
+        board = self.match.board
+        players = list(self.match.setup_for_side(side).field_players)[:count]
+        for zone in Zone:
+            for occupants in board.spaces[zone]:
+                for player in players:
+                    if player in occupants:
+                        occupants.remove(player)
+        # Whoever else stood there steps off, so the space holds
+        # exactly the fan asked for.
+        target = board.spaces[Zone.MIDFIELD][0]
+        board.spaces[Zone.MIDFIELD][-1].extend(target)
+        target[:] = players
+        if ball:
+            self.match.ball.zone = Zone.MIDFIELD
+            self.match.ball.space_index = 0
+            self.match.ball.possession = side
+        layout = board_layout(
+            ENGINE,
+            self.fixture.game,
+            self.match,
+            card_url=CARD_URL,
+            goal_url=GOAL_URL,
+        )
+        first = sum(
+            len(self.match.board.spaces[zone]) for zone in ZONES[:1]
+        )
+        return layout["spaces"][first]
+
+    def test_each_count_steps_by_the_design_s_numbers(self) -> None:
+        for count in (2, 3, 4):
+            for side in TeamSide:
+                with self.subTest(count=count, side=side.value):
+                    self.setUp()
+                    drawn = self.crowd(side, count, ball=False)["fans"][side.value]
+                    across, down = FAN_STEPS[count]
+                    self.assertEqual(drawn["step"], [across, down])
+                    xs = [piece["x"] for piece in drawn["pieces"]]
+                    ys = [piece["y"] for piece in drawn["pieces"]]
+                    self.assertEqual(
+                        sorted({abs(b - a) for a, b in zip(xs, xs[1:])}),
+                        [across],
+                    )
+                    self.assertEqual(
+                        sorted({abs(b - a) for a, b in zip(ys, ys[1:])}),
+                        [down],
+                    )
+                    self.assertEqual(
+                        drawn["width"], (count - 1) * across + FAN_MEEPLE_WIDTH,
+                    )
+
+    def test_home_leans_up_and_right_and_the_visitors_down_and_left(self) -> None:
+        for side, rightward, downward in (
+            (TeamSide.HOME, True, False),
+            (TeamSide.VISITING, False, True),
+        ):
+            with self.subTest(side.value):
+                self.setUp()
+                pieces = self.crowd(side, 3, ball=False)["fans"][side.value]["pieces"]
+                back, front = pieces[0], pieces[-1]
+                self.assertEqual(front["x"] > back["x"], rightward)
+                self.assertEqual(front["y"] > back["y"], downward)
+                self.assertTrue(front["front"])
+                self.assertEqual(
+                    [piece["front"] for piece in pieces].count(True), 1,
+                )
+
+    def test_the_ball_s_holder_is_the_front_piece(self) -> None:
+        for side in TeamSide:
+            with self.subTest(side.value):
+                self.setUp()
+                players = list(self.match.setup_for_side(side).field_players)[:4]
+                # The first of them on the board, which is the back of
+                # the fan unless the ball says otherwise.
+                self.match.ball_carrier_id = players[0]
+                space = self.crowd(side, 4, ball=True)
+                pieces = space["fans"][side.value]["pieces"]
+                self.assertEqual(space["ball"]["holder"], players[0])
+                self.assertEqual(pieces[-1]["id"], players[0])
+                self.assertTrue(pieces[-1]["front"])
+                self.assertEqual(
+                    [piece["id"] for piece in pieces[:-1]], players[1:],
+                )
+
+    def test_the_names_run_front_first(self) -> None:
+        drawn = self.crowd(TeamSide.HOME, 4, ball=False)["fans"]["home"]
+        self.assertEqual(
+            drawn["names"],
+            [piece["id"] for piece in reversed(drawn["pieces"])],
+        )
+
+    def test_a_fan_of_more_than_four_is_no_wider_than_four(self) -> None:
+        home = self.crowd(TeamSide.HOME, 4, ball=False)["fans"]["home"]
+        self.setUp()
+        more = self.crowd(TeamSide.HOME, 5, ball=False)["fans"]["home"]
+        if len(more["pieces"]) < 5:
+            self.skipTest("the fixture fields fewer than five")
+        self.assertAlmostEqual(more["width"], home["width"])
+
+    def test_a_loose_ball_names_no_holder(self) -> None:
+        midfield = self.match.board.spaces[Zone.MIDFIELD]
+        index = len(midfield) - 1
+        midfield[0].extend(midfield[index])
+        midfield[index].clear()
+        self.match.ball.zone = Zone.MIDFIELD
+        self.match.ball.space_index = index
+        layout = board_layout(
+            ENGINE, self.fixture.game, self.match,
+            card_url=CARD_URL, goal_url=GOAL_URL,
+        )
+        ball = next(space["ball"] for space in layout["spaces"] if space["ball"])
+        self.assertIsNone(ball["holder"])
+
+
+class FieldTests(unittest.TestCase):
+    """What the field around the meeples is handed."""
+
+    def setUp(self) -> None:
+        ENGINE.rng.seed(11)
+        self.fixture, self.layout = layout_for("kickoff")
+        self.match = self.fixture.match
+
+    def test_the_kickoff_space_is_the_model_s(self) -> None:
+        marked = [
+            (space["zone"], index)
+            for index, space in enumerate(self.layout["spaces"])
+            if space["kickoff"]
+        ]
+        flat = self.match.board.flat_index(
+            Zone.MIDFIELD, self.match.kickoff_space_for(TeamSide.HOME),
+        )
+        self.assertEqual(marked, [(Zone.MIDFIELD.value, flat)])
+
+    def test_the_end_zones_are_tinted_for_the_side_defending_them(self) -> None:
+        colours = {
+            space["zone"]: space["tint"] for space in self.layout["spaces"]
+        }
+        self.assertIsNone(colours[Zone.MIDFIELD.value])
+        self.assertEqual(
+            colours[Zone.HOME_GOAL.value],
+            self.layout["jumbotron"]["home"]["colour"],
+        )
+        self.assertEqual(
+            colours[Zone.VISITORS_GOAL.value],
+            self.layout["jumbotron"]["visiting"]["colour"],
+        )
+
+    def test_a_band_is_lit_only_where_the_model_says_the_ball_may_shoot(
+        self,
+    ) -> None:
+        for index in range(self.match.board.layout.board_size):
+            zone, space_index = self.match.board.position_at_flat_index(index)
+            self.match.ball.zone = zone
+            self.match.ball.space_index = space_index
+            layout = board_layout(
+                ENGINE, self.fixture.game, self.match,
+                card_url=CARD_URL, goal_url=GOAL_URL,
+            )
+            with self.subTest(space=index):
+                lit = [band["side"] for band in layout["bands"] if band["lit"]]
+                if self.match.can_attempt_score():
+                    self.assertEqual(lit, [self.match.ball.possession.value])
+                else:
+                    self.assertEqual(lit, [])
+
+    def test_a_piece_carries_its_marks_as_the_emoji(self) -> None:
+        card_id = self.match.home.zones[Zone.MIDFIELD][0]
+        self.match.exhaustion[card_id] = 2
+        self.match.injured.add(card_id)
+        layout = board_layout(
+            ENGINE, self.fixture.game, self.match,
+            card_url=CARD_URL, goal_url=GOAL_URL,
+        )
+        piece = next(
+            one
+            for space in layout["spaces"]
+            for one in space["home"]
+            if one["id"] == card_id
+        )
+        self.assertEqual(piece["exhaustion"], {"count": 2, "emoji": "exhaust"})
+        self.assertEqual(piece["condition"], "injured")
 
 
 class StyleTests(unittest.TestCase):

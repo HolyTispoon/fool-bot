@@ -50,19 +50,13 @@ position.
   --red-hover: #a12828;
   --yours: rgba(250, 168, 26, 0.08);
   --yours-edge: #f0b232;
+  --gold: #f0b232;
 
   /* The bot's board (render.py). */
-  --b-canvas: #111820;
   --b-jumbo: #161d26;
   --b-jumbo-edge: #c7d0da;
-  --b-frame: #14202b;
-  --b-edge: #d7dde5;
-  --b-space: #9aabbc;
   --b-code: #c8d1dc;
   --b-goal: #0c141c;
-  --b-band: #1a2836;
-  --b-band-text: #e7edf3;
-  --b-neutral: #5d6b78;
   --b-team: #202a35;
   --b-clock: #f5d76e;
   --b-quiet: #9eabb8;
@@ -515,25 +509,12 @@ strong { font-weight: 700; color: var(--strong); }
   left: 0;
   width: 1200px;
   transform-origin: 0 0;
-  background: var(--b-canvas);
-  border-radius: 12px;
+  background: var(--deep);
+  border-radius: 14px;
   padding: 12px 14px 14px;
-  font-family: "Board", "DejaVu Sans", sans-serif;
-  color: #fff;
+  color: var(--text);
   user-select: none;
 }
-
-.pitch { display: grid; column-gap: 0; row-gap: 6px; align-items: stretch; }
-
-.cards-row {
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  gap: 7px;
-  padding: 0 6px;
-  min-height: 108px;
-}
-.cards-row.home { align-items: flex-start; }
 
 /* A card is `render.draw_card`'s picture, frame and marks included. */
 .card {
@@ -550,104 +531,203 @@ strong { font-weight: 700; color: var(--strong); }
 .card:hover { box-shadow: 0 0 0 2px #fff; }
 .card:focus-visible { outline: 2px solid var(--link); }
 
-.field-frame {
-  grid-row: 2;
-  background: var(--b-frame);
-  border: 2px solid var(--b-edge);
-  border-radius: 10px;
-}
+.pitch { display: flex; flex-direction: column; gap: 8px; }
 
-/* An end zone is `render.draw_end_zone`'s picture. */
-.goal { grid-row: 2; margin: 0 4px; position: relative; }
-.goal img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-
-.zone {
-  grid-row: 2;
-  margin: 5px 4px;
-  border: 2px solid var(--b-edge);
-  border-radius: 4px;
+/* The zone names over the spaces and the ranges under them, each as
+   wide as the spaces it names -- set in from the goals by a goal's
+   width and its gap. */
+.field-row { display: flex; gap: 8px; padding: 0 78px; }
+.zone-name {
   display: flex;
-  flex-direction: column;
-  min-width: 0;
-  position: relative;
-  z-index: 1;
-}
-.zone-label { text-align: center; font-weight: 700; font-size: 22px; padding: 4px 0 2px; }
-.spaces { flex: 1; display: grid; padding: 0 3px 4px; }
-
-.space {
-  margin: 0 3px;
-  border: 1px solid var(--b-space);
-  border-radius: 3px;
-  position: relative;
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  min-height: 190px;
-  min-width: 0;
-}
-.space-code { position: absolute; top: 3px; left: 6px; font-size: 11px; color: var(--b-code); }
-/* The two rows of a space, as `draw_meeple_group` lays them: the
-   visitors' against the right edge and the home side's against the
-   left, the ball tucked against whoever holds it, or centred when
-   none of that side is on the space. Gaps and margins are the
-   board's (3px and 12px at a 76px meeple). */
-.half {
-  display: flex;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 0;
-  padding: 14px 6px 0;
-}
-.half.visiting { justify-content: flex-end; }
-.half.home { justify-content: flex-start; padding-top: 10px; }
-.half.ball-only { justify-content: center; }
-
-.piece { position: relative; flex: none; }
-.piece-name {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(calc(-50% + var(--nudge, 0px)));
-  padding-top: 4px;
-  /* The board's names: bold, at the size `fit_meeple_labels` starts
-     from on a 2200px board. */
-  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  font-family: "Goal", "Board", sans-serif;
   font-size: 14px;
-  line-height: 1.15;
+  letter-spacing: 3px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.field-spaces { display: flex; gap: 8px; align-items: stretch; }
+
+/* A goal: `#0c141c` edged in the defending side's colour, GOAL upright
+   in Racing Sans One with the d12 for its O, turned to read along it. */
+.goal {
+  flex: 0 0 70px;
+  position: relative;
+  background: var(--b-goal);
+  border: 2px solid var(--team);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.goal.lit { box-shadow: 0 0 0 3px var(--gold), 0 0 24px rgba(240, 178, 50, 0.5); cursor: pointer; }
+.goal-word {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  font-family: "Goal", sans-serif;
+  font-size: 62px;
+  line-height: 1;
+  color: var(--team);
   white-space: nowrap;
 }
+.goal.home .goal-word { transform: translate(-50%, -50%) rotate(-90deg); }
+.goal.visiting .goal-word { transform: translate(-50%, -50%) rotate(90deg); }
+.goal-word .die { flex: none; }
 
-.meeple { position: relative; cursor: zoom-in; }
+/* A space: two lanes, the visitors' in the top half against the right
+   edge and home's in the bottom half against the left. An end zone's
+   spaces carry the defending side's colour faintly; midfield is the
+   panel grey. It clips: nothing leaves the space it stands on. */
+.space {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px 6px 22px;
+  background: var(--panel);
+  border: 2px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.space.tinted { background: color-mix(in srgb, var(--tint) 12%, var(--panel)); }
+.space-code {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.kickoff-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 54px;
+  height: 54px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.lane { display: flex; min-height: 140px; min-width: 0; }
+.lane.visiting { justify-content: flex-end; align-items: flex-start; padding-top: 12px; }
+.lane.home { justify-content: flex-start; align-items: flex-end; }
+
+/* A fan: each piece where `board.py` put it, the badges and the ball
+   over the lot, and the names one to a line underneath. */
+.fan { position: relative; display: block; flex: none; }
+.fan-piece { position: absolute; }
+.fan-name, .fan-chip-line {
+  position: absolute;
+  transform: translateX(calc(-50% + var(--nudge, 0px)));
+  white-space: nowrap;
+  line-height: 1;
+  z-index: 40;
+}
+.fan-name { font-size: 12px; font-weight: 700; color: var(--strong); }
+.fan-name.lit { color: var(--gold); }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--gold);
+  color: var(--deep);
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+.chip-cost { display: inline-flex; align-items: center; gap: 3px; }
+.chip-cost img { width: 14px; height: 14px; }
+
+.badge {
+  position: absolute;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  background: var(--deep);
+  border: 1px solid var(--line);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6);
+}
+.badge img { width: 16px; height: 16px; }
+.badge.tokens {
+  gap: 1px;
+  border-radius: 10px;
+  padding: 1px 5px 1px 2px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--gold);
+}
+.badge.condition { border-radius: 50%; padding: 2px; }
+
+/* The ball: the d12 showing its speed on a dark ring, on its holder,
+   or larger at the centre of the empty space it is loose on. */
+.held-ball, .loose-ball { position: absolute; z-index: 60; display: inline-flex; }
+.loose-ball { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.die.ringed {
+  padding: 2px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3), 0 4px 8px rgba(0, 0, 0, 0.7);
+  box-sizing: content-box;
+}
+.die text { font-family: "Board", sans-serif; }
+
+/* The meeple: `render.MEEPLE_PATH` in the team's colour, edged in its
+   ink (gold when lit), the species icon over the role letters. */
+.meeple {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.55));
+}
+.meeple.lit { cursor: pointer; }
+.meeple:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 .meeple svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .meeple-role, .species-icon {
   position: absolute;
   left: 50%;
   transform: translate(-50%, -50%);
 }
-.meeple-role { font-weight: 700; line-height: 1; }
+.meeple-role { font-family: "Board", sans-serif; font-weight: 700; line-height: 1; }
 .species-icon {
   background: currentColor;
   -webkit-mask: var(--icon) center / contain no-repeat;
   mask: var(--icon) center / contain no-repeat;
 }
 
-.ball { flex: none; margin-top: 3px; }
-
+/* The ranges: where each side may shoot from, in its colour, and the
+   kickoff space between them. The side on the ball's is lit gold
+   while it stands in range. */
 .band {
-  grid-row: 3;
-  margin: 0 5px;
-  height: 20px;
-  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  border-radius: 6px;
   font-size: 10px;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
+  font-weight: 800;
+  letter-spacing: 1px;
   white-space: nowrap;
   overflow: hidden;
-  color: var(--b-band-text);
+  color: var(--team, var(--muted));
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.band.side { background: var(--b-band); border: 1px solid var(--b-space); }
-.band.neutral { border: 1px dashed var(--b-neutral); }
+.band.lit { color: var(--gold); background: rgba(240, 178, 50, 0.18); border-color: var(--gold); }
 
 /* -- The card and board viewer ------------------------------------------------ */
 
@@ -696,10 +776,11 @@ strong { font-weight: 700; color: var(--strong); }
 .peek {
   position: fixed;
   z-index: 20;
-  pointer-events: none;
+  cursor: pointer;
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.6));
 }
-.peek img { width: 260px; height: auto; border-radius: 12px; }
+.peek img { width: min(260px, calc(100vw - 16px)); height: auto; border-radius: 12px; }
+.peek.pinned img { box-shadow: 0 0 0 2px var(--gold); cursor: zoom-in; }
 
 .tabs { display: none; }
 
@@ -777,7 +858,6 @@ strong { font-weight: 700; color: var(--strong); }
   body:not([data-show="chat"]) [data-tab="chat"] { display: none !important; }
 
   .topic { display: none; }
-  .peek { display: none; }
   .hand { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 

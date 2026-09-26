@@ -615,34 +615,74 @@ menu, opened in place with a Back, because that is how the hub walks a
 coach through it on Discord; the answers are the same `Action`s the
 page always sent.
 
-**The board is drawn in HTML, in the bot's layout** (the jumbotron
-and the team boards moved beside it, as above) --
-[board-image.md](board-image.md), "The web page's board". It is not
-the PNG because the cards on it have to be cards: each is the board's
-own card for that player (`render.draw_card`, with its marks and, in
-an advanced game, its advanced skills), which opens as the printed
-card with its whole ability on a click
-(`player_cards.render_player_card`, its advanced face in an advanced
-game), and previews under a pointer. A maneuver
-prompt's hand is the printed maneuver cards, and pressing one plays
-it. Every one of those pictures is the model's own drawing, served by
-`webapp/pictures.py` in a worker thread and cached; the page draws no
-card of its own. The PNG is still served, and a board opened full size
-links to it, as the bot's "View full image" button does. The log
-draws no snapshot (above); `board.png?entry=` draws the position the
-service stopped at, which is what `Narration.board` carries, so its
-picture of a loose ball is the position the ball was loose in, not
-the position after it was won.
+**The field is drawn from scratch** (2026-09-26, step 1 of
+[../web-app-redesign.md](../web-app-redesign.md), off the design the
+author reviewed; it replaces the board drawn in the bot's layout). A
+dark stage: the zone names over a row of rounded spaces, a goal slab
+at each end, and under them the two shooting ranges with a KICKOFF bar
+between -- the side on the ball's range lit gold while it stands where
+it may shoot from. An end zone's spaces carry the defending side's
+colour faintly; the kickoff space a faint ring. Each space has two
+lanes, the visitors' above and home's below.
+
+- **The meeple is `render.MEEPLE_PATH`**, drawn from `meeple_geometry`
+  at 50px on the stage (scaled with it), in the team's colour with its
+  ink outline, the role letters on the body and, where
+  `species_abilities_apply` says so, the species icon over them -- the
+  icon tinted in the ink by the page, which is what `species_icon`'s
+  tint does (keep the alpha, replace the colour).
+- **The fan is `board.py`'s, not the page's.** Two or more of one team
+  on a space overlap diagonally, leaning toward the goal they attack,
+  the ball's holder in front and the rest in the board's order; the
+  steps are the design's (a pair 30 across and 22 down, three 22/16,
+  four 17/12, more no wider than four), so a four-fan stays in its
+  space. `board.fan` hands back each piece's place and the names
+  front first, and `FanTests` hold the layout to that -- the page
+  only places what it is handed, so the rule is tested where it is
+  decided and not in the HTML. The holder is whoever the match names
+  (`ball_carrier_id`, else `active_player_id`); a space where nobody
+  is named keeps the board's order and draws the ball on its front
+  piece, which is a picture and decides nothing.
+- **The badges are the bot's emoji**: the exhaustion token with its
+  count (the drain token on a Cyborg) off the bottom right of a piece,
+  the condition off the bottom left, all drawn over the whole fan.
+  `board.py` names the emoji, making `draw_card`'s choice, so the page
+  reads no flag to pick one. The ball is the d12 showing its speed:
+  off a home holder's top right, a visiting holder's bottom left, or
+  larger at the centre of an empty space.
+- **A space clips**: nothing on it -- a name, a badge, a fan -- leaves
+  it, and a name is nudged to stay inside before the clip has to cut it.
+- **No cards on the field.** Hovering a meeple (or a bench card) shows
+  its printed card beside it, `player_card_png` in the face the mode
+  plays; a press and hold does it on a touch screen. Clicking the card
+  pins it, clicking a pinned card or the meeple opens it full size,
+  and Esc or a click elsewhere puts it away. The benches still open
+  from their buttons (step 8 redraws them).
+- **What a lit piece or goal looks like is built but not yet fed**: a
+  gold outline, a gold name and a chip saying what clicking means,
+  with any cost as the token image and a count; a goal's gold ring.
+  Step 4 lights them from `PendingPrompt.options`.
+
+Every picture beside the field is still the model's own drawing,
+served by `webapp/pictures.py` in a worker thread and cached. The PNG
+is still served, and a board opened full size links to it, as the
+bot's "View full image" button does. The log draws no snapshot
+(above); `board.png?entry=` draws the position the service stopped
+at, which is what `Narration.board` carries, so its picture of a
+loose ball is the position the ball was loose in, not the position
+after it was won.
 The cog's own `cyborg_condition_ids` moved onto the engine to make
 the board possible at all: which players draw a Cyborg's condition
 marks is `has_species_ability` asked of everybody a mark would be
 drawn against, which is a rule and not a rendering brief.
 
-**What the layout may carry is what the PNG reads.** `board_layout`
+**What the layout may carry is what the rules answer.** `board_layout`
 reads the position the way `render_match_image` reads it and asks the
-renderer's own functions for everything the PNG works out from the
-rules -- the space codes, the zone labels, the range bands, whose
-marks are a Cyborg's, whether a meeple carries a species icon. The
+renderer's own functions, or the match's, for everything worked out
+from the rules -- the space codes, the zone labels, the range bands,
+whose marks are a Cyborg's, whether a meeple carries a species icon,
+the kickoff space, whether the side on the ball may shoot from where
+it stands. The
 page lays out what it is handed; it decides nothing, which is
 `tests/test_web_board.py`'s check: the layout against the match it
 read.

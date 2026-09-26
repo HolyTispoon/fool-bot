@@ -97,7 +97,7 @@ for this plan is `trig_01FzyzX3xSLWMPKYy2if5uuK`.
 
 | # | Step | Size |
 | --- | --- | --- |
-| 1 | The field, drawn from scratch | large |
+| ~~1~~ | ~~The field, drawn from scratch~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The field is drawn from scratch") | large |
 | 2 | The jumbotron bar and the time-out tiles | medium |
 | 3 | The question box and the outcome banner | medium |
 | 4 | Answering on the board: the objects, no coloured buttons | large |
@@ -199,6 +199,14 @@ Hard rules for every step of this redesign:
 ---
 
 ### 1. The field, drawn from scratch
+
+**Landed** (2026-09-26). What it settled is in
+[design/web-app.md](design/web-app.md), "The page" ("The field is drawn
+from scratch"), and [design/board-image.md](design/board-image.md),
+"The web page's board": the fan is `board.py`'s and tested there
+(`FanTests`), the marks and the lit range are the model's answers, the
+field carries no cards, and the lit look of a piece or a goal is built
+for step 4 to feed.
 
 **Prompt.**
 
