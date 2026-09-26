@@ -165,15 +165,14 @@ score even if there are other teammates in the spot."*
   several -- the standard deal parks the defending striker on that goal line, so the choice
   was routinely offered. Now the player who played the Deflect is the one shooter, and nobody
   is asked who shoots.
-- **The challenger has to be on the landing space**, read from "even if there are other
-  teammates in the spot": the challenger is one of the players in it. A Deflect played by
-  anybody but a Fullback can only overshoot from the end space, where the ball stays on the
-  challenger, so for it this is the whole rule. A Fullback's Deflect from one space out, and a
-  Clear from one or two out, drive the ball past the challenger; those now set up nothing and
-  land by the ordinary three-way rule. That half is a reading, not the author's words, and is
-  asked on the PR.
+- **The challenger has to be on the landing space.** A Deflect played by anybody but a
+  Fullback can only overshoot from the end space, where the ball stays on the challenger, so
+  for it this is the whole rule. A Fullback's Deflect from one space out, and a Clear from one
+  or two out, drive the ball past the challenger; those set up nothing and land by the
+  ordinary three-way rule. Read from "even if there are other teammates in the spot" and
+  confirmed by the author on PR #341: *"these are correct so update the rules"*.
 - **Clear follows**, since the Charter has always had it land "exactly as a Deflect's does".
-  Also asked on the PR.
+  Confirmed in the same answer.
 
 ### 2026-09-26 (final) -- author, the time out's reset comes after the Coaching Choices
 
