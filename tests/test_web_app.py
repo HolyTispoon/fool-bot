@@ -19,21 +19,25 @@ What it is watching for, beyond "the routes answer":
   both are in, so the other side's hand is not in what this viewer is
   sent -- a frontend that sends it and hides it in the page has
   published it.
-- **A turn taken on Discord reaches a page that did not ask for it**,
+- **The other coach's turn reaches a page that did not ask for it**,
   through `GameService.listeners`.
 """
 
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from aiohttp.test_utils import TestClient, TestServer
 
 from d12ball.components import TeamSide
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
+from gamesaves.d12ball import storage
 from gamesaves.d12ball.service import GameService
-from webapp import keys
+from webapp import keys, server
 from webapp.present import CONTROLS, Viewer, controls_for, render_text
 from webapp.server import WebApp, _was_offered
 from prompt_fixtures import (
@@ -409,8 +413,8 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_turn_taken_elsewhere_reaches_the_page(self) -> None:
         """
-        The other coach is on Discord: their click goes through the
-        service, and the journal is fed by the service
+        The other coach is on another page: their click goes through
+        the service, and the journal is fed by the service
         (`GameService.listeners`), so the page sees what was said
         without having asked for it.
         """
@@ -441,6 +445,38 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.get("/api/game/nope")
 
         self.assertEqual(response.status, 404)
+
+
+class EntryPointTests(unittest.TestCase):
+    """
+    `python3 -m webapp` builds a service of its own over its own file
+    (docs/web-app-next.md, step 1): the bot's games are never loaded
+    and never written.
+    """
+
+    def test_the_service_saves_the_file_it_was_given_and_no_other(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            bot_file = folder / "d12ball_games.json"
+            web_file = folder / "d12ball_web_games.json"
+            with mock.patch.object(storage, "GAMES_FILE", bot_file), \
+                 mock.patch.object(storage, "DATA_FOLDER", folder):
+                service = server.build_service(web_file)
+                service.create_game(player_1_id=1, player_1_name="One")
+
+            self.assertTrue(web_file.exists())
+            self.assertFalse(bot_file.exists())
+            self.assertEqual(len(json.loads(web_file.read_text())), 1)
+
+    def test_it_takes_the_default_batching(self) -> None:
+        """Discord's economy is the cog's; the web app has no rate
+        limit to batch for."""
+        with tempfile.TemporaryDirectory() as directory:
+            service = server.build_service(Path(directory) / "web.json")
+
+        self.assertEqual(service.batching, GameService(None, {}).batching)
 
 
 class KeyTests(unittest.TestCase):

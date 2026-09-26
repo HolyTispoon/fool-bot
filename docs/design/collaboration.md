@@ -37,7 +37,9 @@ person's development checkout. So:
   loading for why a restart is not optional.
 - **They are two checkouts, so everything that is per checkout is separate**:
   `.env` (which is what decides whether a bot posts to `#logs` at all),
-  `data/d12ball_games.json`, and `data/bot_state.json`. The Mac's saved games
+  `data/d12ball_games.json`, `data/d12ball_web_games.json` (the web app's,
+  which is its own process -- see [web-app.md](web-app.md), "Its own process,
+  its own file") and `data/bot_state.json`. The Mac's saved games
   are not the live bot's, so `scripts/render_sample.py --game` cannot reproduce
   a board from a game played on the server.
 - **The `K:\` drive is a mounted Google Drive letter**, which is the checkout
@@ -67,6 +69,9 @@ writer per game (see "Discord's rate limits" in [rate-limits.md](rate-limits.md)
   *other* developer's bot if they ran one on the same machine. The pid file is
   kept as a second source rather than as the answer, because `Win32_Process`
   reports no `CommandLine` for a process owned by another user.
+- **The web app is not a foolbot to it.** `python3 -m webapp` is its own
+  process with no token, so the updater's match on `foolbot.py` neither stops
+  nor counts it; it is restarted on its own.
 - **Read a 10062 as this first.** It is raised out of a command's first line,
   before anything of ours has run, so it can never be a bug in that command --
   see `defer_or_report` in `cogs/debug.py`, which says so in #logs rather than

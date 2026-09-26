@@ -1,8 +1,10 @@
 """
 The web frontend -- ARCHITECTURE.md, part 4.
 
-A second frontend over the same `GameService` the Discord cog uses:
-it authenticates a person, turns a request into an `Action`, calls
+A frontend of its own over the same model the Discord cog plays, run
+as its own process (`python3 -m webapp`) over its own games file: it
+shares the rules with the bot and nothing at runtime. It
+authenticates a person, turns a request into an `Action`, calls
 `apply_action`, and renders the `GameResult` as JSON for a page. It
 decides nothing about the game. The reasoning, and what it may not
 do, is in docs/design/web-app.md.

@@ -152,7 +152,7 @@ that existed; steps 1 to 3 are one sprint.
 
 | # | Step | Size |
 | --- | --- | --- |
-| 1 | Cut the cord: its own process, file, service and engine | medium |
+| ~~1~~ | ~~Cut the cord: its own process, file, service and engine~~ -- landed; what it settled is in `docs/design/web-app.md` | medium |
 | 2 | Rooms, seats and observers | medium |
 | 3 | The room's table: setup, kickoff, the rematch | large |
 | 4 | Chat in the room | small |
@@ -164,7 +164,44 @@ that existed; steps 1 to 3 are one sprint.
 | 10 | The page as a thing to play on; the wire tree; the tests the survey found missing | medium |
 | -- | Later, and not now | -- |
 
+### Claiming a step
+
+**Claim a step before starting it**, whoever you are: either developer,
+a Claude Code session, or the cloud routine that starts the next step
+when the last one merges (`trig_01TfqdFJ3jQjC4XTFh7qqwZe`). Two people
+building the same step is a whole step thrown away.
+
+```bash
+python3 scripts/claim_web_step.py <n>
+```
+
+A claim is the branch `web-step-<n>` on origin: one empty commit on
+top of main naming who claimed it. It is pushed with
+`--force-with-lease=refs/heads/web-step-<n>:`, which git reads as
+"this branch must not exist yet", so of two claims made at once
+exactly one lands and the other is rejected. It is the branch you work
+on, too. The script refuses a step that is struck below, or already
+claimed.
+
+**What counts as a claim**, and what the routine checks before it
+starts anything:
+
+- a branch on origin named `web-step-<n>` or `web-step-<n>-<anything>`;
+- an open PR, draft or not, titled `Web app step <n>: ...`.
+
+Work done on a branch named anything else is invisible, so claim
+first. A step whose last PR was closed without merging is treated as
+rejected: the routine does not pick it up again until somebody claims
+it by hand. If you stop working on a step, release it with
+`python3 scripts/claim_web_step.py <n> --release` (your own claim
+only). A step lands when its PR strikes its number in the table
+below, and the next unstruck number is the next step.
+
 ### 1. Cut the cord
+
+**Landed** (branch `web-step-1-cut-the-cord`). What it settled is in
+`docs/design/web-app.md`, "Running it", "What it may not do" and "Its
+own process, its own file"; the prompt below is kept for the record.
 
 **What it is.** `webapp/` becomes a program of its own. It builds a
 `RulesEngine` from the same four loaders the cog uses

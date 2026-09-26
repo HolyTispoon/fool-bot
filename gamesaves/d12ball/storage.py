@@ -239,26 +239,42 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_FOLDER = PROJECT_ROOT / "data"
 GAMES_FILE = DATA_FOLDER / "d12ball_games.json"
 
-# Whether the last save failed to reach the disk, refused or rejected.
-# A run of failures is one thing wrong repeated once or twice a click,
-# so only the first of them is worth waking anyone for; see
-# `save_games`.
-_save_failing = False
+# The web app's games: the same format, its own file, written only by
+# `python3 -m webapp`. The web app and the bot share the model and
+# nothing at runtime, so neither process writes the other's file; the
+# default of every function here stays the bot's, and the web app names
+# this one explicitly. See docs/design/web-app.md, "Its own process,
+# its own file".
+WEB_GAMES_FILE = DATA_FOLDER / "d12ball_web_games.json"
 
-# Whether the file was there but could not be read. The games in
-# memory are then not the games on disk, and `save_games` refuses to
-# write over it -- see "A file we could not read is never written
+# The files whose last save failed to reach the disk, refused or
+# rejected. A run of failures is one thing wrong repeated once or twice
+# a click, so only the first of them is worth waking anyone for; see
+# `save_games`. Per file, because one process may read a second file
+# (the web games, for the statistics) without that saying anything
+# about its own.
+_save_failing: set[Path] = set()
+
+# The files that were there but could not be read. The games in memory
+# are then not the games on disk, and `save_games` refuses to write
+# over that file -- see "A file we could not read is never written
 # over" in that function.
-_load_unreadable = False
+_load_unreadable: set[Path] = set()
 
-def load_games() -> dict[str, D12BallGame]:
-    global _load_unreadable
 
-    _load_unreadable = False
+def load_games(path: Optional[Path] = None) -> dict[str, D12BallGame]:
+    """
+    Read the games saved at `path`, the bot's file unless another is
+    named. Resolved at call time rather than as a default argument, so
+    a test that points `GAMES_FILE` at a tempdir moves the default too.
+    """
+    path = GAMES_FILE if path is None else path
+
+    _load_unreadable.discard(path)
 
     try:
-        DATA_FOLDER.mkdir(parents=True, exist_ok=True)
-        file_exists = GAMES_FILE.exists()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        file_exists = path.exists()
     except OSError as error:
         # The folder is not reachable at all -- an unmounted drive, the
         # case in `save_games`. Whether there is a file behind it is
@@ -266,7 +282,7 @@ def load_games() -> dict[str, D12BallGame]:
         # over it when the mount returns is the one outcome that loses
         # games for good.
         LOGGER.error("Could not reach the D12 Ball save folder: %s", error)
-        _load_unreadable = True
+        _load_unreadable.add(path)
 
         return {}
 
@@ -274,14 +290,14 @@ def load_games() -> dict[str, D12BallGame]:
         return {}
 
     try:
-        with GAMES_FILE.open("r", encoding="utf-8") as file:
+        with path.open("r", encoding="utf-8") as file:
             raw_data = json.load(file)
     except (json.JSONDecodeError, OSError) as error:
         # Errors, not warnings: every game the bot knows about has just
         # vanished from its view, and the players will see that as the
         # bot forgetting their match.
-        LOGGER.error("Could not load D12 Ball games: %s", error)
-        _load_unreadable = True
+        LOGGER.error("Could not load D12 Ball games from %s: %s", path, error)
+        _load_unreadable.add(path)
 
         return {}
 
@@ -336,9 +352,13 @@ def load_games() -> dict[str, D12BallGame]:
     return games
 
 
-def save_games(games: dict[str, D12BallGame]) -> None:
+def save_games(
+    games: dict[str, D12BallGame],
+    path: Optional[Path] = None,
+) -> None:
     """
-    Write the games out, and **never raise doing it.**
+    Write the games out to `path` (the bot's file unless another is
+    named), and **never raise doing it.**
 
     This is called from about a hundred and fifty places, most of them
     part-way through resolving a turn, and a raise there takes the turn
@@ -367,18 +387,18 @@ def save_games(games: dict[str, D12BallGame]) -> None:
     file yet" blocks writing until the process is restarted, which is
     the thing to do anyway -- the games it needs are in the file.
     """
-    global _save_failing
+    path = GAMES_FILE if path is None else path
 
-    if _load_unreadable and GAMES_FILE.exists():
-        if not _save_failing:
+    if path in _load_unreadable and path.exists():
+        if path not in _save_failing:
             LOGGER.error(
                 "Not saving D12 Ball games over %s, which this run could "
-                "not read: restart the bot now that it is readable, or "
-                "these games are lost.",
-                GAMES_FILE,
+                "not read: restart the process now that it is readable, "
+                "or these games are lost.",
+                path,
             )
 
-        _save_failing = True
+        _save_failing.add(path)
 
         return
 
@@ -387,36 +407,38 @@ def save_games(games: dict[str, D12BallGame]) -> None:
         for game_id, game in games.items()
     }
 
-    temporary_file = GAMES_FILE.with_suffix(".tmp")
+    temporary_file = path.with_suffix(".tmp")
 
     try:
-        DATA_FOLDER.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
 
         with temporary_file.open("w", encoding="utf-8") as file:
             json.dump(serialized_games, file, indent=2)
 
-        temporary_file.replace(GAMES_FILE)
+        temporary_file.replace(path)
     except OSError as error:
         # The first failure of a run reaches the server, because
         # somebody has to go and remount the drive (or free the disk).
         # The ones behind it are the same fact repeated once or twice a
         # click, so they stay on the console -- see "The level you log
         # at decides who sees it" in docs/design/logging.md.
-        if _save_failing:
+        if path in _save_failing:
             LOGGER.info("Still could not save D12 Ball games: %s", error)
         else:
             LOGGER.error(
-                "Could not save D12 Ball games, so a restart would lose "
-                "everything played since the last successful save: %s",
+                "Could not save D12 Ball games to %s, so a restart would "
+                "lose everything played since the last successful save: "
+                "%s",
+                path,
                 error,
                 exc_info=error,
             )
 
-        _save_failing = True
+        _save_failing.add(path)
 
         return
 
-    if _save_failing:
-        LOGGER.info("Saving D12 Ball games again.")
+    if path in _save_failing:
+        LOGGER.info("Saving D12 Ball games to %s again.", path)
 
-    _save_failing = False
+    _save_failing.discard(path)

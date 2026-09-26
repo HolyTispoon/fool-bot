@@ -336,11 +336,11 @@ class GameService:
         save and before the caller renders anything.
 
         **It is not a second presenter and it formats nothing.** It
-        exists because a game is played from two sides and they need
-        not be on the same frontend: a coach reading a web page has no
-        interaction to be replied to when the other coach clicks a
-        button in Discord, so the page's only way to see that turn is
-        the result the service produced for it. A listener that raises
+        exists because a game is played from two sides and each has a
+        page of its own: a coach reading a web page has no request to
+        be answered when the other coach clicks, so the page's only
+        way to see that turn is the result the service produced for
+        it. A listener that raises
         would take somebody's click down with it, so each is called
         inside its own guard and a failure is the watcher's to log --
         see `webapp/server.py`, the one listener today.
