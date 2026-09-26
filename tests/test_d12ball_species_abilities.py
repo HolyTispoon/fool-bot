@@ -50,9 +50,12 @@ which one it was.
 
 import ast
 import unittest
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
+
+from PIL import Image
 
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
@@ -87,6 +90,7 @@ from d12ball.engine import (
     IgnitedRoll,
     RulesEngine,
 )
+from d12ball.render import render_skill_test_dice
 from d12ball.game import (
     AIOpponent,
     D12BallGame,
@@ -448,7 +452,7 @@ class IgniteTests(unittest.TestCase):
 
     def test_a_roll_that_did_not_ignite_explains_nothing(self):
         # The same silence `detail` keeps, and what lets a caller hand
-        # both sides of a contest to post_volatile_ignition without
+        # both sides of a contest to dice_file_with_ignitions without
         # asking which of them ignited.
         ordinary = self.engine.ignite(self.game, self.demon, 4)
         self.assertIsNone(ordinary.explain("X"))
@@ -574,10 +578,11 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
     An ignite used to be a line in the totals column of the roll's own
     dice image and nothing else, which left the face a coach could see
     and the total they were given disagreeing with nothing to explain
-    the gap. It is a die of its own now -- see
-    `D12Ball.post_volatile_ignition` -- and what is asserted here is
-    that it is posted, once per ignited roll, in the order the roll
-    happened.
+    the gap. Its die is drawn on the roll's own image now, under the
+    dice, and its sentence is that message's text -- see
+    `D12Ball.dice_file_with_ignitions` -- and what is asserted here is
+    that it is drawn and said once per ignited roll, and never for a
+    roll that did not ignite.
     """
 
     def setUp(self) -> None:
@@ -586,66 +591,75 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
         self.cog.games[self.game.game_id] = self.game
         self.match = build_match(self.cog.engine, self.game)
         self.demon = fielded_of_species(self.match, SPECIES_FIRE_DEMON)
+        self.dice = render_skill_test_dice([
+            (6, "#ff8800", "Orange", ["A [PM]", "Offensive skill +3"], 9,
+             False, []),
+        ])
 
     def ignite(self, face: int, second: int) -> IgnitedRoll:
         with mock.patch("random.Random.randint", return_value=second):
             return self.cog.engine.ignite(self.game, self.demon, face)
 
-    async def test_an_ignited_roll_is_posted_with_its_own_die(self) -> None:
-        interaction = build_ignition_interaction()
+    def height(self, file) -> int:
+        file.fp.seek(0)
+        return Image.open(file.fp).height
 
-        await self.cog.post_volatile_ignition(
-            interaction, self.match, (self.demon, self.ignite(6, 9)),
+    async def test_an_ignited_roll_draws_its_die_under_the_dice(self) -> None:
+        plain = self.height(SimpleNamespace(fp=self.dice))
+        file, sentence = await self.cog.dice_file_with_ignitions(
+            self.match, self.dice, "dice.png", (self.demon, self.ignite(6, 9)),
         )
 
-        interaction.followup.send.assert_awaited_once()
-        call = interaction.followup.send.await_args
-        self.assertIn("Volatile", call.args[0])
-        self.assertIsNotNone(call.kwargs.get("file"))
+        self.assertIn("Volatile", sentence)
+        self.assertEqual(file.filename, "dice.png")
+        self.assertGreater(self.height(file), plain)
 
-    async def test_a_roll_that_did_not_ignite_is_not_posted(self) -> None:
-        # Most rolls in a species game and every roll in a training one.
-        interaction = build_ignition_interaction()
-
-        await self.cog.post_volatile_ignition(
-            interaction, self.match, (self.demon, self.ignite(4, 9)),
+    async def test_a_roll_that_did_not_ignite_is_left_alone(self) -> None:
+        # Most rolls in a species game and every roll in a training
+        # one: the dice go out exactly as they were drawn.
+        original = self.dice.getvalue()
+        file, sentence = await self.cog.dice_file_with_ignitions(
+            self.match, self.dice, "dice.png", (self.demon, self.ignite(4, 9)),
         )
 
-        interaction.followup.send.assert_not_awaited()
+        self.assertIsNone(sentence)
+        file.fp.seek(0)
+        self.assertEqual(file.fp.read(), original)
 
     async def test_each_side_of_a_contest_gets_its_own(self) -> None:
         # Two Fire Demons rolling means two ignites, each read off its
-        # own die -- so two dice, not one image about both.
+        # own die -- so two dice under the roll, and two sentences.
         other = self.match.home.field_players[1]
-        interaction = build_ignition_interaction()
-
-        await self.cog.post_volatile_ignition(
-            interaction,
-            self.match,
+        one, _ = await self.cog.dice_file_with_ignitions(
+            self.match, BytesIO(self.dice.getvalue()), "dice.png",
+            (self.demon, self.ignite(6, 9)),
+        )
+        both, sentence = await self.cog.dice_file_with_ignitions(
+            self.match, BytesIO(self.dice.getvalue()), "dice.png",
             (self.demon, self.ignite(6, 9)),
             (other, self.ignite(7, 2)),
         )
 
-        self.assertEqual(interaction.followup.send.await_count, 2)
+        self.assertGreater(self.height(both), self.height(one))
+        self.assertEqual(sentence.count("Volatile"), 2)
 
     async def test_a_die_belonging_to_nobody_is_skipped(self) -> None:
         # A score attempt's defensive die has no card behind it, so a
         # caller may pass None rather than branching on it.
-        interaction = build_ignition_interaction()
-
-        await self.cog.post_volatile_ignition(
-            interaction, self.match, (None, IgnitedRoll(face=6)),
+        _, sentence = await self.cog.dice_file_with_ignitions(
+            self.match, self.dice, "dice.png", (None, IgnitedRoll(face=6)),
         )
 
-        interaction.followup.send.assert_not_awaited()
+        self.assertIsNone(sentence)
 
-    async def test_a_real_skill_test_posts_it_between_roll_and_result(
+    async def test_a_real_skill_test_says_it_on_the_dice_before_the_result(
         self,
     ) -> None:
         # The claim the unit tests above cannot make: a roll site
-        # actually hands its ignites over, and does it after the dice
-        # image and before the verdict. Every other order reads as the
-        # result of a roll the coach has not been shown yet.
+        # actually hands its ignites over, onto the dice message, and
+        # the verdict still follows in a message of its own. Every
+        # other order reads as the result of a roll the coach has not
+        # been shown yet.
         offense = self.match.home.field_players[0]
         zone, space_index = self.match.board.meeple_position(offense)
         self.match.ball.possession = TeamSide.HOME
@@ -666,26 +680,22 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
             self.cog,
         ), suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=[6, 1, 9],
-        ), mock.patch(
-            "d12ball.dice_brief.render_skill_test_dice",
         ), mock.patch("discord.File"):
             await view.roll(interaction)
 
+        dice_message = interaction.edit_original_response.await_args
+        self.assertIn("ignites", dice_message.kwargs["content"])
+        self.assertEqual(len(dice_message.kwargs["attachments"]), 1)
         messages = followup_messages(interaction)
-        ignition = [
-            index for index, text in enumerate(messages)
-            if "Volatile" in text and "ignites" in text
-        ]
-        result = [
-            index for index, text in enumerate(messages)
-            if "wins the skill test" in text
-        ]
-        self.assertEqual(len(ignition), 1, messages)
-        self.assertEqual(len(result), 1, messages)
-        self.assertLess(ignition[0], result[0], messages)
-        # The dice image is on the message the prompt became, which is
-        # above both of them.
-        interaction.edit_original_response.assert_awaited()
+        # The verdict may name Volatile -- a blaze can raise the card
+        # it resolves at -- but the ignite itself is said once, above.
+        self.assertFalse(
+            any("ignites" in text for text in messages), messages,
+        )
+        self.assertEqual(
+            sum("wins the skill test" in text for text in messages), 1,
+            messages,
+        )
 
 
 class IgnitionIsShownEverywhereTests(unittest.TestCase):
@@ -753,7 +763,7 @@ class IgnitionIsShownEverywhereTests(unittest.TestCase):
                 )
                 continue
             self.assertIn(
-                "post_volatile_ignition",
+                "dice_file_with_ignitions",
                 source,
                 f"{path.name} rolls an ignite and never shows it",
             )

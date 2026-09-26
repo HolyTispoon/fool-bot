@@ -3178,8 +3178,10 @@ def render_volatile_die(
     explainer: Optional[str] = None,
 ) -> BytesIO:
     """
-    The extra die an ignite rolled, on an image of its own: the second
+    The extra die an ignite rolled, as a panel of its own: the second
     d12, the Fire Demon who set it off, and which way it went.
+    `render_dice_with_ignitions` stacks it under the roll it came out
+    of, which is where a coach sees it.
 
     **It is a separate die because it is a separate roll.** Every other
     modifier in the game is arithmetic a coach can check against the
@@ -3284,6 +3286,68 @@ def render_volatile_die(
     )
     draw_verdict_portrait(canvas, draw, row, player_name)
     draw_verdict_text(draw, row, verdict_color)
+    return png_bytes(canvas)
+
+
+# The space between a roll's own dice and the ignition die under them,
+# with a rule drawn across its middle, so the two halves read as one
+# picture in two parts rather than as two images butted together.
+IGNITION_STACK_GAP = 18
+IGNITION_STACK_RULE_COLOR = "#2c3642"
+IGNITION_STACK_RULE_WIDTH = 2
+IGNITION_STACK_RULE_INSET = 22
+
+
+def render_dice_with_ignitions(
+    dice: BytesIO,
+    ignitions: list[
+        tuple[int, int, str, str, str, bool, int, Optional[str]]
+    ],
+) -> BytesIO:
+    """
+    A roll's own dice image with the ignition die of every roll in it
+    that ignited drawn underneath, as one picture -- each ignition is
+    `render_volatile_die`'s arguments, in order.
+
+    **An ignite is part of the roll it happened to** (the author,
+    2026-09-26), so it goes on that roll's image rather than on one of
+    its own in a message of its own: the face, the second die it set
+    off and the total they came to are then read together, and the
+    channel carries one picture a roll however it went.
+
+    The ignition die is `render_volatile_die`'s, unchanged; this only
+    stacks. A roll with nothing ignited hands `dice` back as it came,
+    byte for byte, so the ordinary roll -- almost all of them -- draws
+    exactly what it did.
+    """
+    if not ignitions:
+        return dice
+    panels = [Image.open(dice).convert("RGBA")] + [
+        Image.open(render_volatile_die(*ignition)).convert("RGBA")
+        for ignition in ignitions
+    ]
+    width = max(panel.width for panel in panels)
+    height = (
+        sum(panel.height for panel in panels)
+        + IGNITION_STACK_GAP * (len(panels) - 1)
+    )
+    canvas = Image.new("RGBA", (width, height), "#111820")
+    draw = ImageDraw.Draw(canvas)
+    y = 0
+    for index, panel in enumerate(panels):
+        if index:
+            rule_y = y + IGNITION_STACK_GAP // 2
+            draw.line(
+                [
+                    (IGNITION_STACK_RULE_INSET, rule_y),
+                    (width - IGNITION_STACK_RULE_INSET, rule_y),
+                ],
+                fill=IGNITION_STACK_RULE_COLOR,
+                width=IGNITION_STACK_RULE_WIDTH,
+            )
+            y += IGNITION_STACK_GAP
+        canvas.alpha_composite(panel, ((width - panel.width) // 2, y))
+        y += panel.height
     return png_bytes(canvas)
 
 

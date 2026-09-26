@@ -993,8 +993,9 @@ before and after the move.
 - **The dice are not animated** ("The dice", above).
 
 - **Two pictures around a roll are the bot's alone**: Volatile's
-  ignition die, with its caption (`D12Ball.post_volatile_ignition`,
-  one per side that ignited), and the scorer's portrait under a goal.
+  ignition die, with its caption (`D12Ball.dice_file_with_ignitions`,
+  one per side that ignited, drawn under the roll's own dice), and the
+  scorer's portrait under a goal.
   Both ride on the same `detail` the page already keeps -- the
   ignites on a contest's, the scorer on a shot's -- so if they come to
   the page they go **in the question box beside the dice they came

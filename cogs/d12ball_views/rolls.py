@@ -85,11 +85,15 @@ class SkillTestView(SafeView):
         if result is None:
             return
         dice = result.detail
-        dice_file = discord.File(
+        # The second die of any side that ignited is drawn on these
+        # dice, and said above them -- see `dice_file_with_ignitions`.
+        dice_file, ignition = await self.cog.dice_file_with_ignitions(
+            match,
             await asyncio.to_thread(
                 render_contest_dice, dice.contestants,
             ),
-            filename="skill_test_dice.png",
+            "skill_test_dice.png",
+            *dice.ignites,
         )
 
         following = result.prompt
@@ -108,19 +112,15 @@ class SkillTestView(SafeView):
             # It keeps its text on *this* message rather than posting
             # it below the dice, because this message also carries the
             # roll-again button. The service saved the two tokens
-            # charged before anything here was drawn.
+            # charged before anything here was drawn. An ignite is
+            # still shown on a tie -- it is what made these two totals
+            # equal -- and its sentence goes ahead of the question.
             await interaction.edit_original_response(
-                content=following.ask,
+                content="\n\n".join(filter(None, (ignition, following.ask))),
                 attachments=[dice_file],
                 view=self.cog.view_for_prompt(
                     self.game_id, result.match, following,
                 ),
-            )
-            # A tie is re-rolled, so the ignition dice go up here too:
-            # they are what made these two totals equal, and the next
-            # roll is a fresh one that may ignite again.
-            await self.cog.post_volatile_ignition(
-                interaction, match, *dice.ignites,
             )
             await self.cog.refresh_match_image(interaction, game)
             return
@@ -129,18 +129,12 @@ class SkillTestView(SafeView):
         # attachments render below its content, so the winner announced
         # in this message would be read before the roll that decided
         # it. The tie above keeps its text here instead, because that
-        # message also carries the roll-again button.
+        # message also carries the roll-again button. What an ignite
+        # added is not a verdict, so it may stand above the dice.
         await interaction.edit_original_response(
-            content=None,
+            content=ignition,
             attachments=[dice_file],
             view=None,
-        )
-        # Between the dice and the verdict, which is where the ignite
-        # itself happened: the second die is what took one of those two
-        # totals past the other, and the tier rider announced below is
-        # read off the same two dice.
-        await self.cog.post_volatile_ignition(
-            interaction, match, *dice.ignites,
         )
         await send_new_prompt(interaction, result.answer[0])
         await self.cog.refresh_match_image(interaction, game)
@@ -379,26 +373,25 @@ class ScoreAttemptView(SafeView):
         # The service saved before anything here is posted: the goal is
         # credited and the restart written, and the portrait upload
         # below is a render and a request that can fail.
-        dice_file = discord.File(
+        # The shooter's own die, if it ignited, is drawn on these dice
+        # and said above them, so a goal that a blaze bought is read in
+        # the order it happened.
+        dice_file, ignition = await self.cog.dice_file_with_ignitions(
+            match,
             await asyncio.to_thread(
                 render_contest_dice, dice.contestants,
             ),
-            filename="score_attempt_dice.png",
+            "score_attempt_dice.png",
+            *dice.ignites,
         )
         # The dice image carries the maths that produced it, and the
         # verdict follows in its own message. A message's attachments
         # always render *below* its content, so a verdict written into
         # this one would be read before the roll it is announcing.
         await interaction.response.edit_message(
-            content=None,
+            content=ignition,
             attachments=[dice_file],
             view=None,
-        )
-        # The shooter's own die, if it ignited -- between the dice and
-        # the verdict, so a goal that a blaze bought is read in the
-        # order it happened.
-        await self.cog.post_volatile_ignition(
-            interaction, match, *dice.ignites,
         )
         await send_new_prompt(interaction, result.answer[0])
         if dice.scored:
