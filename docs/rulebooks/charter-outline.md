@@ -252,7 +252,7 @@ lists only the four basic changes.
 - 13.3 A side with nobody to bring on may still call one.
 - 13.4 The cost: 1 space minute, no tokens.
 - 13.5 Both coaches take a Coaching Choice, the caller first.
-- 13.6 The free pickup.
+- 13.6 The pickup: one of the two nearest, at a token a space.
 
 ### Law 14. The Coaching Choice
 

@@ -154,6 +154,35 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-26 (latest) -- author, every pickup is the same, and none is free
+
+Asked on PR #337 when a pickup costs exhaustion, the author answered that it should be one
+rule for every case: *"the coach whose team should have possession, should be offered a choice
+to send the closest player in front of the ball, the closest player behind the ball. In the
+case where the ball is already at the edge of the field there would be just one option - the
+player closest in front of the ball. In the case that two or more players tie, they should all
+be offered. A player chosen to go get the ball adds 1 Exhaustion per space traveled. This
+should be the case after a time out as well ... the coach cannot refuse to send a player."*
+
+- **The time-out pickup is no longer free.** It was the one walk to the ball in the game that
+  charged nothing (2026-09-07, "The ball is the team's, and a rearrangement cannot lose it");
+  it now charges a token a space like the pickup after an out-of-bounds ball, a missed shot or
+  an avoided own goal. "The free pickup" (Law 13) is "The pickup".
+- **A pickup cannot be declined**, which the rules implied (only "sending nobody is legal
+  wherever the rule offers the choice") and now say outright: the maneuver challenge and a
+  loose ball offer sending nobody, a pickup never does. The bot already offered no decline.
+- **The two nearest are spelled out**: only the nearest in front where the ball is at the end
+  of the field, and every player tied for nearest offered. `contest_candidates` already read it
+  this way; the Charter now says so.
+- **The prompt says what the pickup costs**, per player (the author: *"the prompt should say
+  how many exhaustion tokens would be added"*) -- a presentation change, recorded here because
+  it came with the rule.
+
+*Open:* the author framed all four as a new play. The out-of-bounds ball, the missed shot and
+the avoided own goal are new plays in the Charter already; **a time out is not** (Law 13: "Nobody
+runs back and nothing resets", and it is not a turnover). This entry changes only the pickup,
+not what a time out is -- whether a time out should become a new play is asked on PR #337.
+
 ### 2026-09-26 -- sheet, thirteen more personal abilities, and the readings they left open
 
 Re-imported from the sheet. The `advanced_abilities` tab gives thirteen more players a personal

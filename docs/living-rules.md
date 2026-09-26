@@ -479,7 +479,9 @@ All three ask it in the same way, and a player's zone has nothing to do with it.
 
 A coach may send either of their two nearest players to the space: the nearest one in front of it and the nearest one behind it, counted in spaces along the field.
 
-Where two or more are tied for nearest on one side, the coach chooses between them.
+Where the ball is on the space at the end of the field, there is nobody beyond it, and the nearest in front is the only one offered.
+
+Where two or more are tied for nearest on one side, all of them are offered and the coach chooses between them.
 
 ### A player already there
 
@@ -491,7 +493,7 @@ A sent player moves onto the space and adds 1 exhaustion for every space they tr
 
 ### Sending nobody
 
-Sending nobody is legal wherever the rule offers the choice.
+The maneuver challenge and a loose ball offer the choice to send nobody. **A pickup never does**: the ball is that side's, and one of theirs has to go and get it.
 
 ### Staying put
 
@@ -551,9 +553,7 @@ It is a [new play](#resetting-after-a-new-play) rather than a steal -- nobody to
 
 An out-of-bounds ball, a [missed shot](#score-attempt), an [avoided own goal](#own-goal) and a [time out](#time-out) can all leave the ball on a space nobody of the gaining or keeping side is standing on. Once everything else has settled, that side [sends a player](#sending-a-player) to the ball's space -- unless one of theirs is already standing there, which settles it for nothing.
 
-It costs the usual token a space, **except after a time out, which is free**.
-
-*Note.* That is the one walk to the ball in the game that charges nothing: a time out costs a minute and nothing else, and a coach who rearranges their side is not billed for putting somebody back on a ball their team never lost.
+**Every pickup is the same**, whichever of the four left it owed. The coach of the side with the ball is offered the [two nearest](#the-two-nearest) -- the nearest in front of the ball and the nearest behind it, only the one in front where the ball is at the end of the field, and every player tied for nearest -- and **must send one of them**: a pickup cannot be declined. The player sent adds 1 exhaustion for every space they travel, **after a time out as after anything else**.
 
 A pickup is a placement rather than a contest: nobody rolls for it, nobody may contest it, and the ball is left with nobody in particular afterwards.
 
@@ -645,15 +645,15 @@ A side with nobody left to bring on may still call one: what a time out buys is 
 
 ### What a time out costs
 
-A time out costs **1 space minute** and no exhaustion.
+A time out costs **1 space minute** and no exhaustion. A [pickup](#picking-the-ball-up) it leaves owed is charged like any other.
 
 ### The two Coaching Choices
 
 **Both coaches then take a Coaching Choice** -- the side that called it first, the other in reply -- each opening on its own coach's arrangement. Nobody runs back and nothing resets.
 
-### The free pickup
+### The pickup
 
-A Coaching Choice can move the players who called it off the ball. Possession is the team's and stays with them either way; if none of them is standing on the ball once both windows have closed, they [send a player](#sending-a-player) to it **free of exhaustion**.
+A Coaching Choice can move the players who called it off the ball. Possession is the team's and stays with them either way; if none of them is standing on the ball once both windows have closed, they [pick it up](#picking-the-ball-up): one of their two nearest must go, at 1 exhaustion a space.
 
 ## Coaching Choice
 
