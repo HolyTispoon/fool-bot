@@ -12,7 +12,7 @@ import aiohttp
 import asyncio
 import discord
 import io
-from typing import Optional
+from typing import Callable, Optional
 
 from d12ball.components import (
     MatchState,
@@ -28,11 +28,11 @@ from d12ball.dice_brief import (
 from d12ball.game import D12BallGame, Team, team_display_name
 from d12ball.player_cards import render_player_card, render_player_card_back
 from d12ball.render import (
+    IgnitionDie,
     TEAM_COLORS,
     render_field_image,
     render_maneuver_challenge,
     render_match_image,
-    render_dice_with_ignitions,
     render_score_attempt,
 )
 from d12ball.role_cards import render_role_reference
@@ -171,16 +171,25 @@ class PresentationMixin:
     async def dice_file_with_ignitions(
         self,
         match: MatchState,
-        dice: io.BytesIO,
+        render: Callable[[list[tuple[int, IgnitionDie]]], io.BytesIO],
         filename: str,
         *rolls: tuple[Optional[str], IgnitedRoll],
     ) -> tuple[discord.File, Optional[str]]:
         """
         A roll's dice image with the second die of every roll in it
-        that ignited drawn underneath (`render_dice_with_ignitions`),
-        and the sentence that explains them -- or the dice alone and no
-        sentence, for the rolls that did not ignite, which is almost
-        all of them.
+        that ignited drawn on it, and the sentence that explains them
+        -- or the dice alone and no sentence, for the rolls that did
+        not ignite, which is almost all of them.
+
+        `render` draws the roll's image given its ignites, each keyed
+        on the index of the roll it came from in `rolls` -- which is
+        that side's index in `ContestDice.contestants`, since every
+        contest hands its ignites over in its contestants' order. A
+        contest passes `render_contest_dice` over its contestants,
+        which draws each ignite small and beside its own die; the Mind
+        Pull die passes `render_dice_with_ignitions` over its own
+        image, which stacks the full panel under it. It is called once,
+        in a worker thread, so a roll is rendered once however it went.
 
         **One helper for every caller of `RulesEngine.ignite`** -- the
         six roll sites the rules name, plus the Mind Pull roll that
@@ -208,13 +217,13 @@ class PresentationMixin:
         """
         sentences = []
         ignitions = []
-        for player_id, ignite in rolls:
+        for index, (player_id, ignite) in enumerate(rolls):
             if player_id is None or not ignite.ignited:
                 continue
             player = self.engine.get_player_definition(player_id)
             team = match.team_for_player(player_id)
             sentences.append(ignite.explain(self.player_label(match, player)))
-            ignitions.append((
+            ignitions.append((index, (
                 ignite.second,
                 ignite.face,
                 TEAM_COLORS[team],
@@ -223,11 +232,8 @@ class PresentationMixin:
                 ignite.blaze,
                 ignite.modifier,
                 ignite.rule,
-            ))
-        if ignitions:
-            dice = await asyncio.to_thread(
-                render_dice_with_ignitions, dice, ignitions,
-            )
+            )))
+        dice = await asyncio.to_thread(render, ignitions)
         return (
             discord.File(dice, filename=filename),
             "\n".join(sentences) or None,
