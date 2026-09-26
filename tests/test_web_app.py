@@ -92,10 +92,6 @@ class ControlTests(unittest.TestCase):
         `PromptKind`.
         """
         for kind in PromptKind:
-            if kind is PromptKind.GAME_OVER:
-                # A finished game asks nothing: the rematch under it
-                # opens a new game, which is not an action on this one.
-                continue
             with self.subTest(kind.name):
                 self.assertIn(kind, CONTROLS)
 

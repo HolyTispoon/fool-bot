@@ -59,10 +59,20 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from d12ball.formatting import coach_name, format_player_with_team_name
+from d12ball.formatting import (
+    AI_OPPONENT_NAMES,
+    coach_name,
+    format_player_with_team_name,
+)
 from d12ball.game import (
+    COLOR_TEAMS,
+    SPECIES_TEAMS,
+    VALID_BOARD_SIZES,
+    AIOpponent,
     D12BallGame,
+    GameMode,
     GameStatus,
+    HomeChoice,
     RuleRefusal,
     Team,
     team_display_name,
@@ -311,11 +321,17 @@ class WebApp:
                 web.get("/", self.index),
                 web.get("/api/me", self.who_am_i),
                 web.post("/api/me", self.call_me),
+                web.get("/api/rooms", self.list_rooms),
                 web.post("/api/rooms", self.open_room),
                 web.get("/room/{game_id}", self.page),
+                web.delete("/api/room/{game_id}", self.close_room),
                 web.post(
                     "/api/room/{game_id}/seat/{move}", self.seat,
                 ),
+                web.post(
+                    "/api/room/{game_id}/table/{move}", self.table,
+                ),
+                web.post("/api/room/{game_id}/rematch", self.rematch),
                 web.post("/api/room/{game_id}/admin", self.take_admin),
                 web.delete("/api/room/{game_id}/admin", self.drop_admin),
                 web.get("/api/game/{game_id}", self.state),
@@ -495,25 +511,253 @@ class WebApp:
 
     # -- Rooms and seats ---------------------------------------------
 
+    async def list_rooms(self, request: web.Request) -> web.Response:
+        """
+        The front door's two lists: this reader's rooms, by where each
+        stands, and the rooms with a seat free that they are not in.
+        Every room here is a game in the web app's own file -- the
+        bot's games are never in this service.
+        """
+        coach = identity.coach_for(request)
+        mine: dict[str, list] = {
+            "lobby": [], "setup": [], "in_progress": [], "finished": [],
+        }
+        free: list = []
+        for game in sorted(
+            self.service.games.values(),
+            key=lambda one: one.game_number,
+            reverse=True,
+        ):
+            held = coach is not None and seat_of(game, coach.id) is not None
+            if held:
+                mine[room_status(game)].append(self._listing(game))
+            elif not game.is_finished and any(
+                game.seat_is_free(number) for number in (1, 2)
+            ):
+                free.append(self._listing(game))
+        return web.json_response({"mine": mine, "open": free})
+
+    def _listing(self, game: D12BallGame) -> dict:
+        """One room as the front door lists it."""
+        return {
+            "id": game.game_id,
+            "number": game.game_number,
+            "name": game.game_name,
+            "status": room_status(game),
+            "seats": [
+                {
+                    key: value
+                    for key, value in self._seat(game, number, None).items()
+                    if key != "yours"
+                }
+                for number in (1, 2)
+            ],
+            "observers": self._observers(game),
+            "tutorial": game.tutorial,
+            "url": f"/room/{game.game_id}",
+        }
+
     async def open_room(self, request: web.Request) -> web.Response:
         """
-        A new room: a game record in its lobby, the creator in seat 1
-        (`GameService.create_game`, as the Discord hub opens one). The
-        page goes to the link this answers.
+        A new room, the creator in seat 1 (`GameService.create_game`,
+        as the Discord hub opens one). The page goes to the link this
+        answers.
+
+        `{"ai": true}` is "Play against the AI": no lobby and nobody
+        in the other seat, which the service fills with its default AI
+        -- the AI is the service's to name, not this frontend's.
+        `{"tutorial": true}` is the scripted opening, turned on the
+        record's way (`configure`), so the record's pins -- Training,
+        the 7-space board, one player -- are what it gets; against the
+        AI it then leaves the lobby at once (`start_lobby`), which is
+        what seats the AI in a tutorial.
         """
         coach = self._required_coach(request)
-        # `ai_seats=[]`: a room says outright that no seat is the AI's,
-        # so a seat nobody holds is empty rather than Dinky's.
-        game = self.service.create_game(
-            player_1_id=coach.id,
-            player_1_name=coach.name,
-            in_lobby=True,
-            ai_seats=[],
-        )
+        body = await _body(request) if request.can_read_body else {}
+        against_ai = body.get("ai") is True
+        tutorial = body.get("tutorial") is True
+        if against_ai and not tutorial:
+            # `ai_seats=[2]`: the room says outright which seat the
+            # AI holds, as every room's record does.
+            game = self.service.create_game(
+                player_1_id=coach.id,
+                player_1_name=coach.name,
+                ai_seats=[2],
+            )
+        else:
+            # `ai_seats=[]`: a room says outright that no seat is
+            # the AI's, so a seat nobody holds is empty rather than
+            # the AI's.
+            game = self.service.create_game(
+                player_1_id=coach.id,
+                player_1_name=coach.name,
+                in_lobby=True,
+                ai_seats=[],
+            )
+            if tutorial:
+                self.service.configure(game.game_id, "tutorial")
+                if against_ai:
+                    self.service.start_lobby(game.game_id)
         self.rooms.first_sight(game.game_id, coach.id)
         return web.json_response(
             {"id": game.game_id, "url": f"/room/{game.game_id}"},
         )
+
+    async def close_room(self, request: web.Request) -> web.Response:
+        """
+        Close a room whose game never started -- `discard_game`, whose
+        refusal (anything played is abandoned, never erased) is the
+        service's and answers 409. Asked by somebody seated, or an
+        admin.
+        """
+        game = self._game(request)
+        coach = self._required_coach(request)
+        if seat_of(game, coach.id) is None and not self.rooms.is_admin(
+            game.game_id, coach.id,
+        ):
+            raise web.HTTPForbidden(
+                text="Only a coach in this room, or its admin, may close it.",
+            )
+        async with self.locks.hold(game.game_id):
+            try:
+                self.service.discard_game(game.game_id)
+            except ValueError as refusal:
+                raise web.HTTPConflict(text=str(refusal))
+            self.journals.pop(game.game_id, None)
+            self.chats.pop(game.game_id, None)
+        return web.json_response({"url": "/"})
+
+    async def table(self, request: web.Request) -> web.Response:
+        """
+        The table before kickoff: `start`, `configure` (`{"setting",
+        "value"}`), `pick_team` (`{"team", "seat"?}`), `flip_coin` and
+        `choose` (`{"choice": "home" | "visiting"}`) -- each one service
+        door over the record's rule, answered with the room's state,
+        or with the record's sentence and a 409 when it refuses.
+
+        Only somebody seated sets the table, which is the one thing
+        decided here -- the Discord setup views' "either player" gate,
+        made with the cookie. Which seat a move is for is the seat the
+        reader holds; a test game's one coach holds both, and says
+        which. A value off the wire is built into the model's type
+        here, where a wire value becomes one (d12ball/wire.py's reason
+        for `Action.from_dict`), and one the record cannot read is a
+        400: a bug in the page, not a rule.
+
+        **The match is dealt by the toss or by the choice, and `begin`
+        runs in the same request**, as the cog runs it straight after
+        either: nothing in the match says "dealt, and not yet begun",
+        so a separate Begin could only be offered off a reading the
+        model does not have.
+        """
+        game = self._game(request)
+        coach = self._required_coach(request)
+        move = request.match_info["move"]
+        body = await _body(request) if request.can_read_body else {}
+        held = seats_held(game, coach.id)
+        if not held:
+            raise web.HTTPForbidden(
+                text="Only a coach in this room may set the table.",
+            )
+
+        async with self.locks.hold(game.game_id):
+            try:
+                if move == "start":
+                    self.service.start_lobby(game.game_id)
+                elif move == "configure":
+                    self._configure(game, body)
+                elif move == "pick_team":
+                    team = _wire(Team, body.get("team"), "That is not a team.")
+                    seat = body.get("seat", held[0])
+                    if isinstance(seat, bool) or seat not in (1, 2):
+                        raise web.HTTPBadRequest(text="A seat is 1 or 2.")
+                    if seat not in held:
+                        raise web.HTTPForbidden(text="That is not your seat.")
+                    self.service.pick_team(game.game_id, seat, team)
+                elif move == "flip_coin":
+                    self.service.flip_coin(game.game_id, held[0])
+                    self._begin_if_dealt(game)
+                elif move == "choose":
+                    choice = _wire(
+                        HomeChoice, body.get("choice"), "That is not a side.",
+                    )
+                    # The seat the toss asks, where the reader holds it;
+                    # otherwise theirs, and the record says why not.
+                    owed = game.home_choice_owed_by
+                    seat = owed if owed in held else held[0]
+                    self.service.choose_home_or_visiting(
+                        game.game_id, seat, choice,
+                    )
+                    self._begin_if_dealt(game)
+                else:
+                    raise web.HTTPNotFound()
+            except RuleRefusal as refusal:
+                return web.json_response(
+                    {
+                        **self._state(
+                            game,
+                            self._viewer(request, game),
+                            since=_since(request),
+                            coach=coach,
+                        ),
+                        "refusal": str(refusal),
+                    },
+                    status=409,
+                )
+            state = self._state(
+                game,
+                self._viewer(request, game),
+                since=_since(request),
+                coach=coach,
+            )
+        return web.json_response(state)
+
+    def _configure(self, game: D12BallGame, body: Mapping[str, Any]) -> None:
+        setting = body.get("setting")
+        if not isinstance(setting, str):
+            raise web.HTTPBadRequest(text="Name the setting.")
+        try:
+            self.service.configure(game.game_id, setting, body.get("value"))
+        except RuleRefusal:
+            raise
+        except (TypeError, ValueError):
+            raise web.HTTPBadRequest(text="That is not a setting this game has.")
+
+    def _begin_if_dealt(self, game: D12BallGame) -> None:
+        """The pre-kickoff window, opened once the toss or the choice
+        has dealt the match; what it says reaches the journal through
+        the service's listeners."""
+        if game.match_state is not None:
+            self.service.begin(game.game_id)
+
+    async def rematch(self, request: web.Request) -> web.Response:
+        """
+        The rematch under a finished game (`GameService.rematch`): a new
+        room with its settings and the same two seats -- or the AI
+        where it sat -- opening at its Start. Asked by a coach of the
+        finished game; a second ask finds the first. Everybody in the
+        old room is sent on by its state's `rematch`.
+        """
+        game = self._game(request)
+        coach = self._required_coach(request)
+        if seat_of(game, coach.id) is None:
+            raise web.HTTPForbidden(
+                text="Only a coach of this game may start its rematch.",
+            )
+        async with self.locks.hold(game.game_id):
+            try:
+                rematch = self.service.rematch(game.game_id, in_lobby=True)
+            except RuleRefusal as refusal:
+                raise web.HTTPConflict(text=str(refusal))
+            for seated in seats_held_by(rematch):
+                self.rooms.first_sight(rematch.game_id, seated)
+            state = self._state(
+                game,
+                self._viewer(request, game),
+                since=_since(request),
+                coach=coach,
+            )
+        return web.json_response(state)
 
     async def seat(self, request: web.Request) -> web.Response:
         """
@@ -925,11 +1169,18 @@ class WebApp:
     def _title(self, game: D12BallGame, match: Optional[MatchState]) -> str:
         """The title the bot's board carries: the game's number, both
         coaches with their teams, and the half."""
+        # Home first once the coin has settled it; before that, at the
+        # table, the two seats in order -- no seat is Home yet.
+        first, second = (
+            (game.home_player_number, game.visiting_player_number)
+            if game.home_and_visiting_selected
+            else (1, 2)
+        )
         title = (
             f"PBD{game.game_number} - "
-            f"{format_player_with_team_name(game, game.home_player_number)}"
+            f"{format_player_with_team_name(game, first)}"
             f" vs. "
-            f"{format_player_with_team_name(game, game.visiting_player_number)}"
+            f"{format_player_with_team_name(game, second)}"
         )
         return title if match is None else f"{title}, {_period(match)}"
 
@@ -1018,6 +1269,11 @@ class WebApp:
                 }
             ),
             "owed": owed,
+            # Before kickoff the prompt's place is the table's.
+            "table": (
+                self._table(game, coach) if game.match_state is None else None
+            ),
+            "rematch": self._rematch_of(game),
             "entries": journal.since(
                 since, game, self._snapshot_layout(game),
             ),
@@ -1041,8 +1297,6 @@ class WebApp:
         out here: until the coin has settled them the seats are Coach
         1 and Coach 2, because no seat is Home before the toss.
         """
-        seated = {game.player_1_id, game.player_2_id} - {None}
-        seen = self.rooms.room(game.game_id).seen
         number = viewer.player_number
         if number is None:
             role = "observer"
@@ -1054,12 +1308,158 @@ class WebApp:
             role = "coach"
         return {
             "seats": [self._seat(game, one, number) for one in (1, 2)],
-            "observers": len(seen - seated),
+            "observers": self._observers(game),
             "admin": self.rooms.is_admin(
                 game.game_id, None if coach is None else coach.id,
             ),
             "role": role,
         }
+
+    def _observers(self, game: D12BallGame) -> int:
+        """How many have been in the room without holding a seat."""
+        seated = {game.player_1_id, game.player_2_id} - {None}
+        return len(self.rooms.room(game.game_id).seen - seated)
+
+    def _rematch_of(self, game: D12BallGame) -> Optional[dict]:
+        """Where a finished game's rematch is, once somebody opened it
+        -- which every page in the room follows."""
+        rematch = (
+            self.service.games.get(game.rematch_game_id)
+            if game.rematch_game_id is not None
+            else None
+        )
+        if rematch is None:
+            return None
+        return {"id": rematch.game_id, "url": f"/room/{rematch.game_id}"}
+
+    def _table(self, game: D12BallGame, coach: Optional[Coach]) -> dict:
+        """
+        Everything between two seats claimed and the first prompt, as
+        the page draws it in the prompt's place: the settings, both
+        seats and the teams this reader may pick for theirs, the coin,
+        home or visiting, and Start.
+
+        **Every question on it is the record's.** Which settings are
+        open is `open_settings`, which teams a seat may pick is
+        `teams_open_to`, whether the coin is owed is `coin_is_owed`,
+        who owes the choice is `home_choice_owed_by` and which side
+        they may take is `home_choice_rail` -- the same readings the
+        Discord setup views draw from and the service's doors refuse
+        against. What is decided here is only who may press: somebody
+        seated. An observer is sent the same table with every control
+        off.
+        """
+        held = seats_held(game, None if coach is None else coach.id)
+        seated = bool(held)
+        open_settings = set(game.open_settings())
+
+        def setting(name: str, label: str, value, choices) -> dict:
+            return {
+                "name": name,
+                "label": label,
+                "value": value,
+                "choices": [
+                    {"value": one, "label": text} for one, text in choices
+                ],
+                "may_change": seated and name in open_settings,
+            }
+
+        settings = [
+            setting(
+                "mode", "Mode", GameMode(game.mode).value,
+                [(mode.value, mode.value.title()) for mode in GameMode],
+            ),
+            setting(
+                "board", "Board", str(game.board_size),
+                [
+                    (str(size), f"{size} spaces")
+                    for size in sorted(VALID_BOARD_SIZES)
+                ],
+            ),
+        ]
+        if game.is_solo_game:
+            # The AI's row where the AI holds a seat, as the Discord
+            # settings block draws it only for a solo game.
+            settings.append(
+                setting(
+                    "ai", "AI",
+                    AIOpponent(game.ai_opponent or AIOpponent.DINKY).value,
+                    [(ai.value, name) for ai, name in AI_OPPONENT_NAMES.items()],
+                ),
+            )
+        settings += [
+            setting("test", "Test game", game.test_game, ()),
+            setting("tutorial", "Tutorial", game.tutorial, ()),
+            setting("name", "Name", game.game_name or "", ()),
+        ]
+
+        owed_by = game.home_choice_owed_by
+        rail = None if owed_by is None else game.home_choice_rail(owed_by)
+        return {
+            "lobby": game.in_lobby,
+            "settings": settings,
+            "seats": [
+                self._table_seat(game, number, number in held)
+                for number in (1, 2)
+            ],
+            "start": {
+                "owed": game.in_lobby,
+                "may": seated and game.in_lobby,
+            },
+            "coin": {
+                "owed": game.coin_is_owed,
+                "may": seated and game.coin_is_owed,
+                "flipped": game.coin_flipped,
+                "face": (
+                    None if game.coin_face is None
+                    else game.coin_face.value
+                ),
+                "winner": game.coin_winner_player_number,
+            },
+            "sides": {
+                "owed_by": owed_by,
+                "may": owed_by is not None and owed_by in held,
+                "choices": [
+                    {
+                        "value": choice.value,
+                        "label": choice.value.title(),
+                        "open": rail is None or choice == rail,
+                    }
+                    for choice in HomeChoice
+                ],
+            },
+            "may_close": (
+                seated
+                or self.rooms.is_admin(
+                    game.game_id, None if coach is None else coach.id,
+                )
+            ) and game.status == GameStatus.SETUP,
+        }
+
+    def _table_seat(self, game: D12BallGame, number: int, yours: bool) -> dict:
+        """One seat at the table: who holds it, its team, and -- where
+        it is this reader's -- the picker's two rows, each team offered
+        or greyed as the record says."""
+        seat = self._seat(game, number, number if yours else None)
+        coach = self._coach(game, number)
+        offered = set(game.teams_open_to(number)) if yours else set()
+        seat.update(
+            team=coach["team"],
+            team_key=coach["team_key"],
+            colour=coach["colour"],
+            teams=[
+                {
+                    "key": team.value,
+                    "name": team_display_name(team),
+                    "colour": TEAM_COLORS[team],
+                    "row": row,
+                    "open": team in offered,
+                }
+                for row, teams in enumerate((COLOR_TEAMS, SPECIES_TEAMS))
+                for team in teams
+            ] if offered else [],
+        )
+        return seat
 
     def _seat(
         self, game: D12BallGame, number: int, yours: Optional[int],
@@ -1121,6 +1521,34 @@ def seat_of(game: D12BallGame, coach_id: Optional[int]) -> Optional[int]:
     return None
 
 
+def seats_held(game: D12BallGame, coach_id: Optional[int]) -> list[int]:
+    """
+    Every seat `coach_id` holds, in order: one, or both for a test
+    game's one coach (who plays both sides), or none. `seat_of` is the
+    one a page acts as; this is what the table asks "is it theirs" of.
+    """
+    if coach_id is None:
+        return []
+    return [
+        number
+        for number, held_by in ((1, game.player_1_id), (2, game.player_2_id))
+        if held_by == coach_id
+    ]
+
+
+def seats_held_by(game: D12BallGame) -> set[int]:
+    """The people seated in a game."""
+    return {game.player_1_id, game.player_2_id} - {None}
+
+
+def room_status(game: D12BallGame) -> str:
+    """Where a room stands, as the front door sorts it: the lobby, the
+    rest of setup, the game, or finished."""
+    if game.in_lobby:
+        return "lobby"
+    return GameStatus(game.status).value
+
+
 def seat_label(game: D12BallGame, number: int) -> str:
     """What a seat is called: Coach 1 and Coach 2 until the coin has
     settled home and visiting, then the side the record says."""
@@ -1151,6 +1579,10 @@ def _was_offered(sections: list, posted: Mapping[str, Any]) -> bool:
     arguments = dict(posted.get("arguments") or {})
     for section in sections:
         for control in section["controls"]:
+            if control.get("post"):
+                # Not an answer to the match (the rematch): it has a
+                # route of its own and is never one here.
+                continue
             offer = control["action"]
             if offer["kind"] != kind or offer["choice"] != choice:
                 continue
@@ -1179,6 +1611,15 @@ def _was_offered(sections: list, posted: Mapping[str, Any]) -> bool:
             ):
                 return True
     return False
+
+
+def _wire(kind, value, refusal: str):
+    """A value off the wire, as the model's type -- or a 400, since a
+    value the page was never offered is a bug in the page."""
+    try:
+        return kind(value)
+    except (TypeError, ValueError):
+        raise web.HTTPBadRequest(text=refusal)
 
 
 def _since(request: web.Request) -> int:
