@@ -367,11 +367,20 @@ catalog the same way), the games `load_games(WEB_GAMES_FILE)` reads, a
 no rate limit to batch for -- and a save that writes that file and no
 other. Then its own `GameLocks`.
 
+**The one read across the line is the bot's, of this file, for the
+statistics.** `/d12ball stats` with `source` set to the web app or
+both calls `load_games(WEB_GAMES_FILE)` at the moment a coach asks,
+reads it and lets it go: never at startup, never cached, never written
+-- the bot writes `data/d12ball_games.json` and nothing else, as the
+web app writes its own and nothing else. A web game is told from a
+bot game by the record alone (`stats.game_source`: no guild is the
+web). See [clock-and-records.md](clock-and-records.md), "What the
+statistics are, and what they are not".
+
 The store's two failure flags (a save failing, a file it could not
-read) are per file for the same reason: the bot will read the web
-file for the statistics (step 6 of the next worksheet) without owning
-it, and that file being unreadable must not stop the bot saving its
-own. See [gotchas.md](gotchas.md), "the swallowed save".
+read) are per file for the same reason: the bot reads the web file
+for the statistics without owning it, and that file being unreadable
+must not stop the bot saving its own. See [gotchas.md](gotchas.md), "the swallowed save".
 
 Both run on the one Windows checkout at `K:\` (decision 2 of the next
 worksheet), sharing the checkout and the `data/` folder, each restarted
