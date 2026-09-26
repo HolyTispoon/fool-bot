@@ -117,6 +117,15 @@ from d12ball.personal_abilities import (
 )
 
 
+#: Under every Coaching Choice a side fielding Spreadable Oozes takes --
+#: see `RulesEngine.spreadable_note`. Italic by asterisks, which both
+#: frontends render (Discord's client, and `webapp.present`'s subset).
+SPREADABLE_NOTE = (
+    "*Note: Your Spreadable Oozes may be positioned in the same space "
+    "as a teammate.*"
+)
+
+
 @dataclass(frozen=True)
 class PlayerSkills:
     """
@@ -3435,9 +3444,40 @@ class RulesEngine:
         )
         return "\n".join(
             part
-            for part in (lead_in, "# Coaching Choice", header, note)
+            for part in (
+                lead_in,
+                "# Coaching Choice",
+                header,
+                note,
+                self.spreadable_note(game, match, side),
+            )
             if part
         )
+
+    def spreadable_note(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+    ) -> str:
+        """
+        The reminder every Coaching Choice carries for a side fielding
+        **Spreadable** Oozes (the author, 2026-09-25): an Ooze counts as
+        0 toward occupancy, so it may share a teammate's space -- see
+        `spread_exempt_ids`.
+
+        It rides on the window's text itself rather than on the note of
+        the step that opened it, because that note is written over by
+        the next action and this one holds for the whole window. A
+        window that positions nobody (before the shootout) says
+        nothing: where anybody stands is not a question there.
+        """
+        occasion = match.coaching_occasion
+        if occasion is not None and not occasion.offers_positioning:
+            return ""
+        if not self.spread_exempt_ids(game, match, side):
+            return ""
+        return SPREADABLE_NOTE
 
     def coaching_finish_refusal(
         self,
