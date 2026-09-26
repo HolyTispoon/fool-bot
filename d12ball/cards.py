@@ -38,6 +38,8 @@ from d12ball.components import (
     PlayerCatalog,
 )
 from d12ball.render import (
+    CARD_DEFENSE_COLOR,
+    CARD_OFFENSE_COLOR,
     MANEUVER_DEFENSE_COLOR as DEFENSE_COLOR,
     MANEUVER_DEFENSE_COLOR_GAMBIT as DEFENSE_COLOR_GAMBIT,
     MANEUVER_OFFENSE_COLOR as OFFENSE_COLOR,
@@ -95,6 +97,74 @@ BACK_EDGE = "#8c9aa6"
 # The tie lines on the back. Lighter than the arrows they cross, so
 # the cycle still reads as the first thing on the card.
 TIE_COLOR = "#7e8d9a"
+
+
+class ReferencePalette(NamedTuple):
+    """
+    The colours a reference card -- the role card, the species set --
+    is drawn in. The layout does not change between palettes, so a
+    change to one card is a change to both of its versions.
+    """
+
+    face: str
+    edge: str
+    ink: str
+    muted: str
+    panel: str
+    panel_edge: str
+    offense: str
+    defense: str
+
+
+# What the reference cards print in: white, dark ink, the player
+# card's own red and green for the skills.
+PRINT_REFERENCE = ReferencePalette(
+    face=CARD_FACE,
+    edge=INK,
+    ink=INK,
+    muted=MUTED,
+    panel=PANEL_COLOR,
+    panel_edge=PANEL_EDGE,
+    offense=CARD_OFFENSE_COLOR,
+    defense=CARD_DEFENSE_COLOR,
+)
+# What the bot posts them in. A white card is the brightest thing in a
+# dark channel by far, and ink costs nothing on a screen -- the reason
+# `box_art.py` has a night cover. The face is the ground every one of
+# the bot's own images is drawn on (`#111820` in render.py), and the
+# skills are the maneuver reference image's red and green, the pair
+# the bot already draws on that ground; the print pair is too dark to
+# read on it, the green especially.
+DARK_REFERENCE = ReferencePalette(
+    face="#111820",
+    edge="#5d6b78",
+    ink="#e8edf2",
+    muted="#9aa5b1",
+    panel="#1f2a36",
+    panel_edge="#3a4a5b",
+    offense=OFFENSE_COLOR,
+    defense=DEFENSE_COLOR,
+)
+
+
+def screen_cutout(card: Image.Image) -> Image.Image:
+    """
+    A trimmed card with everything outside its rounded outline made
+    transparent. On paper the corners are cut off; on a screen a dark
+    card would otherwise sit in a square of its own face, which shows
+    against whatever the channel is drawn in.
+    """
+    mask = Image.new("L", (round(px(CARD_WIDTH)), round(px(CARD_HEIGHT))), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (px(FRAME), px(FRAME), px(CARD_WIDTH - FRAME), px(CARD_HEIGHT - FRAME)),
+        radius=px(CORNER),
+        fill=255,
+    )
+    out = card.convert("RGBA")
+    out.putalpha(
+        mask.resize((CARD_WIDTH, CARD_HEIGHT), Image.Resampling.LANCZOS)
+    )
+    return out
 
 # Which board a tier's strip diagram is drawn on lives in
 # STRIP_GEOMETRY, below the moves it has to hold. The offense always

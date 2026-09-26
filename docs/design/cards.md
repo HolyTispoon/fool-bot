@@ -680,13 +680,15 @@ them, because a coach playing by Discord and a coach at the table should be
 reading the same card:
 
 - **`/d12ball role_abilities_reference`** posts the role card
-  (`render_role_card`), one image with the full-image link, the way
+  (`render_role_reference`, the printed face in the dark palette -- see
+  below), one image with the full-image link, the way
   `maneuver_reference` posts the hexagon. It replaced `/d12ball
   role_abilities`, a text list of the same six sentences (the author,
   2026-09-26).
 - **`/d12ball species_abilities_reference`** posts the two faces of the
   set's first card, which between them carry all four abilities once each,
-  **side by side on one image** (`render_species_reference`), with the
+  **side by side on one image** (`render_species_reference`, in the dark
+  palette), with the
   full-image link. The set is three cards only so that every species pairing
   is one face on a table; a channel has no table, so the other two cards
   would only repeat the text. It was two attachments at first, and Discord
@@ -712,6 +714,33 @@ separate attachments rather than one composite: nine cards on one image
 would be too small to read inline, and Discord opens any one attachment
 full-size. The two species faces are few enough to read side by side, and
 two attachments were cropped, so they are one image.
+
+**The two reference cards are posted dark** (asked for on 2026-09-26).
+A white card is the brightest thing in a dark channel by a long way, and
+the reason the printed cards are white -- a full page of ink per sheet --
+does not apply to a screen, the same split `box_art.py` makes between the
+page cover and the night one. The layout is the printed card's, drawn in
+another `ReferencePalette` (`cards.py`): `PRINT_REFERENCE` is what the
+print scripts use and is byte-identical to the card before the palette
+existed, and `DARK_REFERENCE` is what the two commands post.
+
+- **The face is `#111820`**, the ground every image the bot draws in a
+  game sits on, so the reference reads as the bot's own and not as a
+  scan of a printed card.
+- **The skills change colour, not only the ink.** The print pair
+  (`CARD_OFFENSE_COLOR` / `CARD_DEFENSE_COLOR`) is chosen for white paper;
+  the green all but disappears on the dark face. The dark palette uses
+  the maneuver reference image's red and green, which the bot already
+  draws on that ground -- still red for offense, green for defense.
+- **The species bands keep their team colours.** They are fills with
+  `high_contrast_ink` on them, so they read on either face unchanged.
+- **The corners are cut out** (`screen_cutout`): transparent outside the
+  rounded outline, and the gap between the two species faces is
+  transparent too. On paper the corners are trimmed off; on a screen a
+  dark card would otherwise sit in a square of its own face, visible
+  against whatever colour the Discord client is drawn in.
+- The team cards are not posted dark: `team_reference` posts the player
+  cards as printed; this change leaves them alone.
 
 ## The species icons
 
