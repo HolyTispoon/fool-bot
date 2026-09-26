@@ -50,8 +50,14 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional, Sequence
 
-from d12ball import tokens
-from d12ball.components import MatchState, PlayerRole, TeamSide, Zone
+from d12ball import stats, tokens
+from d12ball.components import (
+    MANEUVER_TIER_GAMBIT,
+    MatchState,
+    PlayerRole,
+    TeamSide,
+    Zone,
+)
 from d12ball.engine import RulesEngine
 from d12ball.formatting import (
     capitalized,
@@ -1295,24 +1301,36 @@ def _speed(asked: Asked) -> list:
 
 def _maneuver(asked: Asked) -> list:
     """
-    **One row, and it is this coach's own.** The pick is secret until
+    **The hand, and it is this coach's own.** The pick is secret until
     both are in, so the other side's hand is not in what this viewer
-    is sent -- see the module docstring. Each card is the answer; how
-    the hand is drawn is step 5's.
+    is sent -- see the module docstring; the page draws it face down
+    (`hand_table`). Each card is the answer, the printed card itself;
+    a side that has picked is no longer asked (`asked_sides`), so its
+    hand is not offered again, and the card it laid down is
+    `hand_table`'s to show.
+
+    **The gambits the side does not hold are shown dimmed** --
+    `ManeuverHand.withheld`, the model's answer, never worked out here
+    -- as dead controls with the note, so a coach reads what being
+    behind would put in their hand (step 5 of
+    docs/web-app-redesign.md). A side that holds its gambits has them
+    in `maneuver_keys` like any card; either way the page lays the
+    gambits out as a second row (`card.gambit`), since a card's tier is
+    printed on it.
     """
     mine = set(asked.sides())
-    controls = []
+    groups = []
     for hand in asked.options["hands"]:
         if _side(hand["team_side"]) not in mine or hand["picked"]:
             continue
         side, railed = hand["side"], hand["railed"]
-        controls.extend(
+        controls = [
             button(
                 asked.engine.maneuver_name(key),
                 asked.kind,
                 place=on_card(key, side),
                 chip="play",
-                card={"key": key, "side": side},
+                card=_card(asked.engine, key, side),
                 side=side,
                 maneuver_key=key,
                 disabled=railed is not None and key != railed,
@@ -1323,8 +1341,150 @@ def _maneuver(asked: Asked) -> list:
                 ),
             )
             for key in hand["maneuver_keys"]
+        ]
+        controls.extend(
+            button(
+                asked.engine.maneuver_name(key),
+                asked.kind,
+                place=on_card(key, side),
+                card=_card(asked.engine, key, side, withheld=True),
+                side=side,
+                maneuver_key=key,
+                disabled=True,
+                note=WITHHELD_NOTE,
+            )
+            for key in hand["withheld"]
         )
-    return [section("Your hand", controls)]
+        groups.append(controls)
+    # One viewer holds both hands only in a test game; each is named.
+    labelled = len(groups) > 1
+    return [
+        section(
+            f"Your hand · {controls[0]['card']['side']}" if labelled
+            else "Your hand",
+            controls,
+        )
+        for controls in groups
+    ]
+
+
+#: What a dimmed gambit says: the reason it is not in the hand, which
+#: is the rule `may_play_gambits` answers.
+WITHHELD_NOTE = "Held only by the side behind."
+
+
+def _card(
+    engine: RulesEngine, key: str, side: str, **more: Any,
+) -> dict:
+    """A maneuver card as a control or the table shows it: its key, the
+    side holding it (which colours it) and whether it is a gambit --
+    printed on the card, so laid out as the second row."""
+    maneuver = engine.maneuver_catalog.get(key)
+    return {
+        "key": key,
+        "side": side,
+        "gambit": maneuver is not None
+        and maneuver.tier == MANEUVER_TIER_GAMBIT,
+        **more,
+    }
+
+
+def hand_table(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: Optional[MatchState],
+    prompt: Optional[PendingPrompt],
+    viewer: Viewer,
+    wire: Optional[Mapping[str, Any]] = None,
+) -> Optional[dict]:
+    """
+    What lies on the table during the maneuver pick besides the hand
+    being chosen from (step 5 of docs/web-app-redesign.md): the card
+    this viewer's side has laid down, ringed, and the hands this viewer
+    does not hold, face down -- every hand for an observer -- with the
+    line that says they are turned over together. `None` for any
+    other prompt, or where there is nothing to show.
+
+    - **The laid card is the position** (`offense_maneuver` /
+      `defense_maneuver`), read for a side this viewer coaches and
+      never for the other.
+    - **A back is drawn whether or not that side has picked.** Whether
+      the other coach has chosen is not said on Discord either (the
+      refusal that would say it is answered after authorization,
+      `maneuver_pick_refusal`), so a back that turned up with a pick
+      would publish it.
+    """
+    if (
+        prompt is None or match is None
+        or prompt.kind is not PromptKind.MANEUVER_ACTION
+    ):
+        return None
+    wire = prompt.to_dict() if wire is None else wire
+    mine = set(coached_sides(engine, game, viewer))
+    laid, backs = [], []
+    for hand in wire["options"]["hands"]:
+        team_side = _side(hand["team_side"])
+        if team_side is None:
+            continue
+        if team_side in mine:
+            key = (
+                match.offense_maneuver if hand["side"] == "offense"
+                else match.defense_maneuver
+            )
+            if hand["picked"] and key is not None:
+                laid.append(_card(engine, key, hand["side"]))
+            continue
+        backs.append({
+            "side": hand["side"],
+            "team": team_display_name(match.setup_for_side(team_side).team),
+            "team_side": team_side.value,
+        })
+    if not laid and not backs:
+        return None
+    return {
+        "laid": laid,
+        "backs": backs,
+        "note": (
+            "Both cards are turned over together."
+            if mine else "The hands are turned over together."
+        ),
+    }
+
+
+def reveal(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: Optional[MatchState],
+) -> Optional[dict]:
+    """
+    Both cards face up, with what the cards said between them, from
+    the moment both are in until the maneuver is over
+    (`reset_maneuver`): once turned over they are public, as the reveal
+    line says them. Between them is `cards_outcome` -- the engine's
+    reading of the two cards, before any die: `TIE`, or which way the
+    one that beats the other points. What the maneuver came to (an
+    injury's forfeit, a forced test, the roll) is the outcome banner's,
+    which is the model's own headline. An unchallenged card is shown
+    alone. `None` while there is nothing turned over.
+    """
+    if match is None or not match.maneuver_selections_complete:
+        return None
+    cards = [{"key": match.offense_maneuver, "side": "offense"}]
+    if not match.maneuver_uncontested:
+        cards.append({"key": match.defense_maneuver, "side": "defense"})
+    for one, team_side in zip(
+        cards, (TeamSide(match.ball.possession), match.defending_side()),
+    ):
+        one["name"] = engine.maneuver_name(one["key"])
+        one["team_side"] = TeamSide(team_side).value
+    outcome = engine.cards_outcome(match)
+    between = {
+        None: "unchallenged",
+        "tie": "TIE",
+        "offense": "BEATS",
+        "defense": "BEATS",
+    }[outcome]
+    return {"cards": cards, "between": between, "winner": outcome}
 
 
 def _shootout_order(asked: Asked) -> list:
@@ -1576,6 +1736,70 @@ def _game_over(asked: Asked) -> list:
             [button("Rematch", asked.kind, place=ON_REMATCH, post="/rematch")],
         )
     ]
+
+
+#: The rows of the full-time block, in the canvas's order: what each
+#: is called, and how it is read off a side's `stats.SideReport`.
+FULL_TIME_ROWS: tuple[tuple[str, Callable[[Any], str]], ...] = (
+    ("goals", lambda one: str(one.goals)),
+    ("shots", lambda one: str(one.shots)),
+    ("maneuvers won", lambda one: str(one.maneuvers_won)),
+    (
+        "skill tests",
+        lambda one: f"{one.skill_tests} / {one.skill_tests_taken}",
+    ),
+    ("exhaustion taken", lambda one: str(one.exhaustion)),
+    ("time outs", lambda one: str(one.time_outs)),
+)
+
+
+def full_time(game: D12BallGame, match: Optional[MatchState]) -> Optional[dict]:
+    """
+    The numbers beside the result once the game is over (step 5 of
+    docs/web-app-redesign.md, the "Full time" artboard): a row per
+    statistic, home against visitors, each read by
+    `stats.collect_sides` over the match's events -- the fold the bot's
+    `/d12ball stats` tables are made of, split by side. The page draws
+    each side's number in its team's colour; it counts nothing.
+    `None` before the game is over.
+    """
+    if match is None or not game.is_finished:
+        return None
+    sides = stats.collect_sides(match)
+    home, visiting = sides[TeamSide.HOME], sides[TeamSide.VISITING]
+    return {
+        "rows": [
+            {"label": label, "home": read(home), "visiting": read(visiting)}
+            for label, read in FULL_TIME_ROWS
+        ],
+        "home": team_display_name(match.home.team),
+        "visiting": team_display_name(match.visiting.team),
+    }
+
+
+def plain_text(game: D12BallGame, text: str) -> str:
+    """
+    One of the model's sentences as plain text, for the log as a file:
+    the markdown as the model wrote it, and each token as the words a
+    copy of the page reads -- a team its name, a role its brackets, a
+    condition its word, a coach their name. The alt text `render_text`
+    gives each picture, so the two say the same sentence.
+    """
+
+    def resolve(kind: str, arguments: tuple[str, ...]) -> Optional[str]:
+        if kind == "team":
+            return team_display_name(Team(arguments[0]))
+        if kind == "role":
+            return role_brackets(PlayerRole(arguments[0]))
+        if kind == "condition":
+            return arguments[0].replace("_", " ")
+        if kind == "species":
+            return arguments[0].replace("_", " ").title()
+        if kind == "coach":
+            return coach_name(game, int(arguments[0]))
+        return None
+
+    return tokens.render(text, resolve)
 
 
 #: One builder per `PromptKind`, the way `PLAIN_PROMPT_VIEWS` and
