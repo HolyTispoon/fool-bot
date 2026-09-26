@@ -108,7 +108,7 @@ once -- one trailing while the other is the more hurt.
   a maneuver to its rank's gambit off an ignite whether or not that
   coach may play one: the ability is about the dice, and gating it would
   make a Fire Demon's ignite quietly worthless to the side in front.
-  The reference hexagon is not gated either (`D12Ball.reference_tier`)
+  The reference hexagon is not gated either (`RulesEngine.maneuver_reference_tier`)
   -- a coach who holds nothing still has to read what is coming at them.
 - **Dinky needed no policy.** It rolls a rank and picks at random among
   the cards on it that are in the hand the prompt offers it

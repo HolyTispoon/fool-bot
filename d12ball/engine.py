@@ -569,6 +569,31 @@ class RulesEngine:
         """
         return game.mode == GameMode.ADVANCED and game.advanced_maneuvers
 
+    def maneuver_reference_tier(
+        self, game: Optional[D12BallGame],
+    ) -> str:
+        """
+        Which hexagon a coach is handed: the one with the gambits on it
+        for a game actually playing them, the basic one everywhere else
+        -- including where there is no game to ask (a channel with none,
+        the web app's front door). Through `gambits_apply` rather than
+        off `game.mode`, or an advanced game that opted the maneuvers
+        out would be handed a reference to six cards it will never hold.
+
+        **The game's, deliberately, rather than the asking coach's.**
+        A coach the 2026-09-20 gate has closed this turn still needs to
+        read what the *other* side may be about to play, and the
+        hexagon is the twelve relations rather than a hand -- so it
+        asks the module and not `may_play_gambits`.
+
+        It was the cog's `reference_tier` until the web app needed the
+        same answer (step 11 of docs/web-app-next.md); a choice two
+        frontends make is the model's.
+        """
+        if game is not None and self.gambits_apply(game):
+            return MANEUVER_TIER_GAMBIT
+        return MANEUVER_TIER_BASIC
+
     def species_abilities_apply(self, game: D12BallGame) -> bool:
         """
         Whether this game is playing the **species abilities**: basic

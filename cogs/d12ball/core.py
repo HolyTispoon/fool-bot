@@ -930,25 +930,6 @@ class CoreMixin:
             match, self.engine.get_player_definition(player_id),
         )
 
-    def reference_tier(self, game: Optional[D12BallGame]) -> str:
-        """
-        Which hexagon to post: the one with the gambits on it for a
-        game actually playing them, the basic one everywhere else
-        -- including outside a game's channel, where there is nothing
-        to ask. Through `gambits_apply` rather than off
-        `game.mode`, or an advanced game that opted the maneuvers out
-        would be handed a reference to six cards it will never hold.
-
-        **The game's, deliberately, rather than the asking coach's.**
-        A coach the 2026-09-20 gate has closed this turn still needs to
-        read what the *other* side may be about to play, and the
-        hexagon is the twelve relations rather than a hand -- so it
-        asks the module and not `may_play_gambits`.
-        """
-        if game is not None and self.engine.gambits_apply(game):
-            return MANEUVER_TIER_GAMBIT
-        return MANEUVER_TIER_BASIC
-
     def build_maneuver_reference_file(
         self, tier: str = MANEUVER_TIER_BASIC,
     ) -> discord.File:

@@ -407,10 +407,10 @@ class PresentationMixin:
     async def build_species_reference_file(self) -> discord.File:
         """
         The species-ability reference, for
-        `/d12ball species_abilities_reference`: the two faces of the
-        printed set's first card on one image, in the dark palette a
-        screen gets (`render_species_reference`), which between them
-        carry all four abilities once each.
+        `/d12ball species_abilities_reference`: the two faces
+        `species_cards.REFERENCE_FACES` names on one image, in the dark
+        palette a screen gets (`render_species_reference`), which
+        between them carry all four abilities once each.
         """
         png = await asyncio.to_thread(
             card_png, render_species_reference, load_species_abilities(),

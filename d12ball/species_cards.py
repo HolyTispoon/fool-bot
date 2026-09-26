@@ -80,6 +80,13 @@ CARD_FACES: tuple[tuple[tuple[str, str], tuple[str, str]], ...] = (
     (("fire_demon", "ooze"), ("cyborg", "telekinetic")),
 )
 
+# The faces a screen shows: the first card's two, which between them
+# carry every ability once. The other two cards only pair the same four
+# differently, which matters on a table and not on a screen -- a Discord
+# channel or a web page alike, so the choice is here rather than in
+# either frontend (step 11 of docs/web-app-next.md).
+REFERENCE_FACES: tuple[tuple[str, str], tuple[str, str]] = CARD_FACES[0]
+
 HEADER_HEIGHT = 44
 BAND_HEIGHT = 96
 PANEL_GAP = 22
@@ -273,10 +280,9 @@ def render_species_reference(
     abilities: dict[str, dict[str, str]],
 ) -> Image.Image:
     """
-    All four abilities as one image, for a screen: the two faces of
-    the set's first card side by side. Between them they carry every
-    ability once; the other two cards only pair the same four
-    differently, which matters on a table and not on a screen.
+    All four abilities as one image, for a screen: the two
+    `REFERENCE_FACES` side by side, which between them carry every
+    ability once.
 
     One image rather than two because Discord crops two attachments on
     one message to a pair of tiles, cutting off each card's text; one
@@ -289,7 +295,7 @@ def render_species_reference(
         screen_cutout(
             render_species_card(abilities, pair, palette=DARK_REFERENCE)
         )
-        for pair in CARD_FACES[0]
+        for pair in REFERENCE_FACES
     ]
     sheet = Image.new(
         "RGBA",
