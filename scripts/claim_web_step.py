@@ -1,9 +1,16 @@
 """
-Claim a step of docs/web-app-next.md before starting work on it.
+Claim a step of a web app worksheet before starting work on it.
 
     python3 scripts/claim_web_step.py 3
     python3 scripts/claim_web_step.py 3 --who "Tomer"
     python3 scripts/claim_web_step.py 3 --release
+    python3 scripts/claim_web_step.py --series redesign 3
+
+Two series share the one script: `web` (the default) claims a step of
+docs/web-app-next.md as the branch `web-step-<n>` for a PR titled
+`Web app step <n>: ...`; `redesign` claims a step of
+docs/web-app-redesign.md as `redesign-step-<n>` for a PR titled
+`Redesign step <n>: ...`. Everything below reads the same for both.
 
 A claim is the branch `web-step-<n>` on origin, holding one empty commit
 on top of origin/main that names who claimed it. It is created with
@@ -29,7 +36,12 @@ import subprocess
 import sys
 
 REMOTE = "origin"
-WORKSHEET = "docs/web-app-next.md"
+SERIES = {
+    # name: (worksheet, branch prefix, PR title prefix)
+    "web": ("docs/web-app-next.md", "web-step", "Web app step"),
+    "redesign": ("docs/web-app-redesign.md", "redesign-step", "Redesign step"),
+}
+WORKSHEET, BRANCH, TITLE = SERIES["web"]
 
 
 def git(*args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -42,7 +54,7 @@ def claims_on_remote(step: int) -> list[str]:
     """Every branch on origin that claims this step: `web-step-<n>` and
     `web-step-<n>-<anything>`."""
     listing = git("ls-remote", "--heads", REMOTE).stdout
-    pattern = re.compile(rf"refs/heads/(web-step-{step}(?:-[^\s]*)?)$")
+    pattern = re.compile(rf"refs/heads/({BRANCH}-{step}(?:-[^\s]*)?)$")
     return [
         match.group(1)
         for line in listing.splitlines()
@@ -65,7 +77,7 @@ def open_pull_requests(step: int) -> list[str]:
         listing = subprocess.run(
             [
                 "gh", "pr", "list", "--state", "open",
-                "--search", f'"Web app step {step}:" in:title',
+                "--search", f'"{TITLE} {step}:" in:title',
                 "--json", "number,title,author",
                 "--template",
                 "{{range .}}#{{.number}} {{.title}} ({{.author.login}})\n{{end}}",
@@ -97,11 +109,11 @@ def claim(step: int, who: str) -> int:
             print(f"  {claim_by}")
         return 1
 
-    branch = f"web-step-{step}"
+    branch = f"{BRANCH}-{step}"
     tree = git("rev-parse", f"{REMOTE}/main^{{tree}}").stdout.strip()
     commit = git(
         "commit-tree", tree, "-p", f"{REMOTE}/main",
-        "-m", f"Claim web app step {step} ({who})",
+        "-m", f"Claim {TITLE.lower()} {step} ({who})",
     ).stdout.strip()
     pushed = git(
         "push", f"--force-with-lease=refs/heads/{branch}:",
@@ -123,7 +135,7 @@ def claim(step: int, who: str) -> int:
 
 
 def release(step: int) -> int:
-    branch = f"web-step-{step}"
+    branch = f"{BRANCH}-{step}"
     deleted = git("push", REMOTE, "--delete", branch, check=False)
     if deleted.returncode != 0:
         print(deleted.stderr.strip())
@@ -137,7 +149,13 @@ def main() -> int:
     parser.add_argument("step", type=int)
     parser.add_argument("--who", help="who is claiming (git user.name)")
     parser.add_argument("--release", action="store_true")
+    parser.add_argument(
+        "--series", choices=sorted(SERIES), default="web",
+        help="which worksheet's steps: web (docs/web-app-next.md, the default) or redesign (docs/web-app-redesign.md)",
+    )
     options = parser.parse_args()
+    global WORKSHEET, BRANCH, TITLE
+    WORKSHEET, BRANCH, TITLE = SERIES[options.series]
 
     if options.release:
         return release(options.step)
