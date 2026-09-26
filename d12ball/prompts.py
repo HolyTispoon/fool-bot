@@ -535,6 +535,12 @@ class ManeuverHand:
     #: has the ball, and that is read once, here, rather than by each
     #: frontend and `asked_sides` separately.
     team_side: Optional[TeamSide] = None
+    #: The side's gambits it does not hold this maneuver because its
+    #: team is not behind (`RulesEngine.withheld_gambits`) -- never an
+    #: answer, for a frontend that shows them dimmed beside the hand
+    #: (step 5 of docs/web-app-redesign.md). Empty wherever the
+    #: gambits are not in the game or the maneuver is unchallenged.
+    withheld: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -546,6 +552,7 @@ class ManeuverHand:
                 None if self.team_side is None
                 else TeamSide(self.team_side).value
             ),
+            "withheld": list(self.withheld),
         }
 
 
@@ -2217,6 +2224,10 @@ def _maneuver_options(
             team_side=(
                 match.ball.possession if side == "offense"
                 else match.defending_side()
+            ),
+            withheld=tuple(
+                card.key
+                for card in engine.withheld_gambits(game, match, side)
             ),
         ))
 

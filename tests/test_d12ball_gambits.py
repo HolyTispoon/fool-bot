@@ -311,6 +311,47 @@ class ManeuverHandTests(GambitHarness, unittest.TestCase):
             ],
         )
 
+    def test_the_gambits_withheld_are_the_rest_of_the_sides_cards(
+        self,
+    ) -> None:
+        """
+        `withheld_gambits` is the complement of the hand within the
+        side's cards, and only where being behind would have made the
+        difference: empty in a basic game, empty for a side holding
+        them, and the three in rank order for a side that is not
+        behind (step 5 of docs/web-app-redesign.md dims them).
+        """
+        cog, game, match = self.build("low_pass", "pressure")
+        engine = cog.engine
+
+        # Level and unhurt: nobody holds a gambit.
+        for side in ("offense", "defense"):
+            with self.subTest(side=side, position="level"):
+                held = {m.key for m in engine.maneuver_hand(game, match, side)}
+                withheld = [
+                    m.key for m in engine.withheld_gambits(game, match, side)
+                ]
+                self.assertEqual(len(withheld), 3)
+                self.assertFalse(held & set(withheld))
+                self.assertEqual(
+                    held | set(withheld),
+                    {m.key for m in cog.maneuver_catalog.side(side)},
+                )
+        self.assertEqual(
+            [m.key for m in engine.withheld_gambits(game, match, "offense")],
+            ["skilled_pass", "dribble_burst", "setup_pass"],
+        )
+
+        open_gambits(match)
+        for side in ("offense", "defense"):
+            with self.subTest(side=side, position="behind"):
+                self.assertEqual(
+                    engine.withheld_gambits(game, match, side), (),
+                )
+
+        game.mode = GameMode.BASIC
+        self.assertEqual(engine.withheld_gambits(game, match, "offense"), ())
+
     def test_an_unchallenged_maneuver_is_basic_even_with_gambits_on(
         self,
     ) -> None:
