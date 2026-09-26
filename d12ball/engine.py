@@ -2075,7 +2075,12 @@ class RulesEngine:
             if outcome == "offense"
             else (match.challenger_id, match.active_player_id)
         )
-        if winner_id in match.injured:
+        # **The handler can change after the cards resolve** -- the
+        # stealer takes the free Low Pass a beaten Skilled Pass owes, a
+        # shooter takes a set-up -- so the two ids can come to name one
+        # player. That is a maneuver already settled, and nothing here
+        # is owed.
+        if winner_id == loser_id or winner_id in match.injured:
             return None
         if not self.has_personal_ability(
             game, loser_id, PersonalAbility.FORCES_THE_TEST,
@@ -2132,6 +2137,68 @@ class RulesEngine:
             )
         ]
         return holders[0] if len(holders) == 1 else None
+
+    def join_candidates(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        **Glompex** (Law 21): who may step onto the ball's space before
+        this maneuver's cards are chosen -- a player with the ability,
+        of either side, standing a space from the ball and not one of
+        the two players. Only against a challenge: Merge adds to a
+        roll, and an unchallenged maneuver rolls nothing. Offense first.
+        """
+        if match.maneuver_uncontested or match.challenger_id is None:
+            return []
+        if not self.personal_abilities_apply(game):
+            return []
+        rolling = {match.active_player_id, match.challenger_id}
+        return [
+            player_id
+            for side in (match.ball.possession, match.defending_side())
+            for player_id in match.setup_for_side(side).field_players
+            if player_id not in rolling
+            and match.distance_to_ball(player_id) == 1
+            and self.has_personal_ability(
+                game, player_id, PersonalAbility.JOINS_THE_BALL,
+            )
+        ]
+
+    def fly_candidates(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        **Zenith** (Law 21): who may fly before this run back -- a
+        fielded player with the ability, of either side, who is not
+        holding the ball. Home first.
+        """
+        if not self.personal_abilities_apply(game):
+            return []
+        return [
+            player_id
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+            for player_id in match.setup_for_side(side).field_players
+            if player_id != match.ball_carrier_id
+            and self.has_personal_ability(
+                game, player_id, PersonalAbility.FLY,
+            )
+        ]
+
+    def fly_spaces(
+        self, match: MatchState, player_id: str,
+    ) -> list[tuple[Zone, int, int]]:
+        """
+        Where Zenith may fly to, and what each costs: every space on
+        the field but their own, at a token a space travelled.
+        """
+        here = match.board.flat_index(*match.board.meeple_position(player_id))
+        spaces = []
+        for flat in range(len(match.board.spaces_in_order())):
+            if flat == here:
+                continue
+            zone, index = match.board.position_at_flat_index(flat)
+            spaces.append((zone, index, abs(flat - here)))
+        return spaces
 
     def ball_holder(self, match: MatchState) -> Optional[str]:
         """
@@ -3172,6 +3239,8 @@ class RulesEngine:
             player_id
             for player_id in match.displaced_players(side)
             if player_id != stays_player_id
+            # Zenith flew, and does not run back (Law 21).
+            and player_id not in match.run_back_flown
         ]
 
     def run_back_crowded(

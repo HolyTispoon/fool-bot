@@ -3097,8 +3097,12 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         # `build_mind_pull_cog` mocks out for the tests above.
         del self.cog.begin_run_back
         self.cog.announce_run_back = mock.AsyncMock()
+        # Basic mode: the species abilities without the personal ones,
+        # since a Telekinetics side fields Zenith, whose Fly (Law 21)
+        # would stop the run back before the gate these assert.
         self.game = build_game(
             player_1_team=Team.PURPLE, player_2_team=Team.TELEKINETICS,
+            mode=GameMode.BASIC,
         )
         self.cog.games[self.game.game_id] = self.game
         self.match = self.cog.engine.initialize_standard_match(self.game)

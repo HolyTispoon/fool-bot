@@ -1306,6 +1306,73 @@ class SmoothView(SafeView):
         await self.cog.present(interaction, game, result)
 
 
+class JoinTheBallView(SafeView):
+    """
+    Whether Glompex steps onto the ball's space before the cards, for a
+    token (Law 21). Shaped like `MindPullView`: only that player's own
+    coach may answer, and the player is in the custom_ids so an older
+    offer cannot answer a newer one. The rule is
+    `d12ball.flow.turn.join_the_ball_step`.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, player_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.player_id = player_id
+
+        join = discord.ui.Button(
+            label="Join the ball",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:join_the_ball:{game_id}:{player_id}",
+        )
+        join.callback = self.join
+        self.add_item(join)
+
+        stay = discord.ui.Button(
+            label="Stay",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:join_the_ball_decline:{game_id}:{player_id}",
+        )
+        stay.callback = self.decline
+        self.add_item(stay)
+
+    async def answer(self, interaction: discord.Interaction, choice: str):
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        if not self.may_act_for(
+            interaction,
+            self.cog.engine.controlling_user_id(game, match, self.player_id),
+        ):
+            await interaction.response.send_message(
+                "Only the coach whose player that is can answer this.",
+                ephemeral=True,
+            )
+            return
+        result = await self.apply(
+            interaction,
+            game,
+            Action(
+                PromptKind.JOIN_THE_BALL, choice,
+                {"player_id": self.player_id},
+            ),
+            carry_from=1,
+        )
+        if result is None:
+            return
+        await interaction.response.edit_message(
+            content=result.answer[0], view=None,
+        )
+        await self.cog.present(interaction, game, result)
+
+    async def join(self, interaction: discord.Interaction) -> None:
+        await self.answer(interaction, "join")
+
+    async def decline(self, interaction: discord.Interaction) -> None:
+        await self.answer(interaction, "decline")
+
+
 class MindPullView(SafeView):
     """
     Whether a Telekinetic the ball has just crossed reaches out for it

@@ -52,6 +52,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
+from d12ball.personal_abilities import GLOMPEX_JOIN_COST
 from d12ball.components import (
     OVERDRIVE_DRAIN_COST,
     SPECIES_TELEKINETIC,
@@ -103,6 +104,8 @@ class PromptKind(Enum):
     # Interrupts, which outrank the turn they interrupt
     MIND_PULL = "mind_pull"
     SMOOTH = "smooth"
+    # Zenith's Fly, before a run back (Law 21).
+    FLY = "fly"
     INJURY_TEST = "injury_test"
     OWN_GOAL_ROLL = "own_goal_roll"
 
@@ -126,6 +129,8 @@ class PromptKind(Enum):
     SET_UP_ATTEMPT = "set_up_attempt"
     SHOOTER_CHOICE = "shooter_choice"
     MANEUVER_CHALLENGE = "maneuver_challenge"
+    # Glompex steps onto the ball before the cards (Law 21).
+    JOIN_THE_BALL = "join_the_ball"
     MANEUVER_ACTION = "maneuver_action"
     SKILL_TEST = "skill_test"
 
@@ -157,7 +162,8 @@ class PendingPrompt:
     ask: str
     #: RUN_BACK_PLAYER: which of a stack may be the one to run back.
     player_ids: list[str] = field(default_factory=list)
-    #: MIND_PULL, INJURY_TEST, RUN_BACK_SPACE, SPEED_DELTA_CHOICE.
+    #: MIND_PULL, INJURY_TEST, RUN_BACK_SPACE, SPEED_DELTA_CHOICE,
+    #: JOIN_THE_BALL, FLY.
     player_id: Optional[str] = None
     #: HALFTIME_EXTRA_TOKEN, LOOSE_BALL_PICK: the board side asked.
     side: Optional[TeamSide] = None
@@ -621,6 +627,35 @@ class SmoothOptions:
 
 
 @dataclass(frozen=True)
+class FlyOptions:
+    """
+    FLY: Zenith's yes and no, and every space the yes may land on
+    with what reaching it costs -- `(zone, space_index, distance)`, a
+    token a space (`RulesEngine.fly_spaces`), on the prompt so no
+    frontend measures it itself.
+    """
+
+    choices: tuple[str, ...]
+    spaces: tuple[tuple[Zone, int, int], ...] = ()
+    railed: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "shape": "fly",
+            "choices": list(self.choices),
+            "railed": self.railed,
+            "spaces": [
+                {
+                    "zone": Zone(zone).value,
+                    "space_index": space_index,
+                    "distance": distance,
+                }
+                for zone, space_index, distance in self.spaces
+            ],
+        }
+
+
+@dataclass(frozen=True)
 class SwapOptions:
     """One fielded player and who they may change zones with."""
 
@@ -770,9 +805,50 @@ PromptOptions = Union[
     RollOptions,
     DecisionOptions,
     SmoothOptions,
+    FlyOptions,
     CoachingHubOptions,
     ShootoutOptions,
 ]
+
+
+def join_the_ball_prompt(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+) -> PendingPrompt:
+    """
+    Glompex's offer (Law 21), one ask for the live question and the
+    restored one: `turn.offer_join_the_ball` puts it up and the chain
+    re-reads it.
+    """
+    player = engine.get_player_definition(player_id)
+    noun, _ = engine.token_word_and_mark(game, player_id)
+    return PendingPrompt(
+        PromptKind.JOIN_THE_BALL,
+        f"{engine.format_player_label(match, player)} is next to the "
+        f"ball, and may take {GLOMPEX_JOIN_COST} {noun} to step onto its "
+        "space and Merge before the cards are chosen:",
+        player_id=player_id,
+    )
+
+
+def fly_prompt(
+    engine: "RulesEngine", match: MatchState, player_id: str,
+) -> PendingPrompt:
+    """
+    Zenith's offer (Law 21), one ask for the live question and the
+    restored one: `turnovers.offer_fly` puts it up and the chain
+    re-reads it.
+    """
+    player = engine.get_player_definition(player_id)
+    return PendingPrompt(
+        PromptKind.FLY,
+        f"{engine.format_player_label(match, player)} may **Fly** before "
+        "the run back: to any space on the field, at a token a space, "
+        "and then they do not run back.",
+        player_id=player_id,
+    )
 
 
 def shootout_order_prompt(
@@ -1396,6 +1472,8 @@ NOBODYS_QUESTIONS = frozenset({
 PLAYERS_OWN_QUESTIONS = frozenset({
     PromptKind.MIND_PULL,
     PromptKind.SMOOTH,
+    PromptKind.FLY,
+    PromptKind.JOIN_THE_BALL,
     PromptKind.SPEED_DELTA_CHOICE,
     PromptKind.RUN_BACK_PLAYER,
     PromptKind.RUN_BACK_SPACE,
@@ -1614,6 +1692,12 @@ def _pending(
             player_id=player.player_id,
         )
 
+    if match.pending_fly:
+        # Zenith's Fly (Law 21), asked at the head of a steal's run
+        # back before anyone runs -- an interrupt of the run back as a
+        # pull is of an arrival, so it is read with them.
+        return fly_prompt(engine, match, match.pending_fly[0])
+
     if match.pending_injury_tests:
         # Ahead of everything a contest leaves set, because that is
         # all still set: a maneuver's skill test comes back here
@@ -1798,6 +1882,11 @@ def _pending(
         # from here on. maneuver_uncontested says the same thing
         # for a maneuver that never had a challenger, and is
         # cleared by the same reset.
+        if match.pending_join:
+            # Glompex, before either coach chooses a card (Law 21).
+            return join_the_ball_prompt(
+                engine, game, match, match.pending_join[0],
+            )
         if not match.maneuver_selections_complete:
             return PendingPrompt(
                 PromptKind.MANEUVER_ACTION,
@@ -1933,6 +2022,8 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
     PromptKind.SMOOTH: ("take", "decline"),
     PromptKind.MIND_PULL: ("take", "decline"),
+    PromptKind.FLY: ("fly", "decline"),
+    PromptKind.JOIN_THE_BALL: ("join", "decline"),
     PromptKind.MANEUVER_CHALLENGE: ("send", "decline"),
     PromptKind.PLAYER_ACTION: ("shoot", "maneuver", "time_out"),
     PromptKind.SHOOTOUT_ORDER: ("send", "restart"),
@@ -2219,6 +2310,20 @@ def _smooth_options(
     )
 
 
+def _fly_options(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> FlyOptions:
+    """Zenith's yes and no, and where the yes may go
+    (`RulesEngine.fly_spaces`)."""
+    return FlyOptions(
+        CHOICES[prompt.kind],
+        spaces=tuple(engine.fly_spaces(match, prompt.player_id)),
+    )
+
+
 def _low_pass_options(
     engine: "RulesEngine",
     game: D12BallGame,
@@ -2416,6 +2521,8 @@ OPTIONS = {
     PromptKind.HALFTIME_EXTRA_TOKEN: _halftime_token_options,
     PromptKind.MIND_PULL: _decision_options,
     PromptKind.SMOOTH: _smooth_options,
+    PromptKind.FLY: _fly_options,
+    PromptKind.JOIN_THE_BALL: _decision_options,
     PromptKind.INJURY_TEST: _roll_options,
     PromptKind.OWN_GOAL_ROLL: _roll_options,
     PromptKind.SHOOTOUT_ORDER: _shootout_order_options,

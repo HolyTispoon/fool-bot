@@ -142,6 +142,93 @@ class RunBackPlayerChoiceView(SafeView):
         )
 
 
+class FlyView(SafeView):
+    """
+    Where Zenith flies before the run back, or whether they stay (Law
+    21): a button per space the prompt offers, each with its price, and
+    "Stay". Shaped like `RunBackChoiceView`, whose spaces carry their
+    distance for the same reason. The rule is
+    `d12ball.flow.turnovers.fly_step`.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, player_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.player_id = player_id
+
+        game, match = self.load_match()
+        options = self.prompt_options(game, match, PromptKind.FLY)
+        if options is None:
+            return
+
+        for zone, space_index, distance in options.spaces:
+            button = discord.ui.Button(
+                label=travel_space_label(
+                    zone, space_index, distance, match.board,
+                ),
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:fly:{game_id}:{player_id}:"
+                    f"{zone.value}:{space_index}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen: tuple = (zone, space_index),
+            ) -> None:
+                await self.answer(
+                    interaction, "fly",
+                    zone=chosen[0].value, space_index=chosen[1],
+                )
+
+            button.callback = callback
+            self.add_item(button)
+
+        stay = discord.ui.Button(
+            label="Stay",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:fly_decline:{game_id}:{player_id}",
+        )
+
+        async def decline(interaction: discord.Interaction) -> None:
+            await self.answer(interaction, "decline")
+
+        stay.callback = decline
+        self.add_item(stay)
+
+    async def answer(
+        self, interaction: discord.Interaction, choice: str, **arguments,
+    ) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        if not self.may_act_for(
+            interaction,
+            self.cog.engine.controlling_user_id(game, match, self.player_id),
+        ):
+            await interaction.response.send_message(
+                "Only that team's coach can choose this.",
+                ephemeral=True,
+            )
+            return
+        result = await self.apply(
+            interaction,
+            game,
+            Action(
+                PromptKind.FLY, choice,
+                {"player_id": self.player_id, **arguments},
+            ),
+        )
+        if result is None:
+            return
+        await interaction.response.edit_message(
+            content=" ".join(result.answer), view=None, attachments=[],
+        )
+        await self.cog.present(interaction, game, result)
+
+
 class RunBackChoiceView(SafeView):
     def __init__(
         self,

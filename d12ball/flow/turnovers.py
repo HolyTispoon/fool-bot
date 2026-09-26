@@ -44,7 +44,7 @@ import logging
 from dataclasses import replace
 from typing import Iterator, Optional
 
-from d12ball.components import MatchState, RuleRefusal, TeamSide
+from d12ball.components import MatchState, RuleRefusal, TeamSide, Zone
 from d12ball.engine import RulesEngine
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.formatting import (
@@ -54,7 +54,12 @@ from d12ball.formatting import (
     space_label,
 )
 from d12ball.game import D12BallGame
-from d12ball.prompts import PendingPrompt, PromptKind, run_back_prompt
+from d12ball.prompts import (
+    PendingPrompt,
+    PromptKind,
+    fly_prompt,
+    run_back_prompt,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -169,6 +174,25 @@ def begin_run_back(
     if taken is not None:
         return taken
 
+    # **Zenith flies, before anyone runs** (Law 21): a steal's run back
+    # only, asked once, with this run back's own arguments kept to
+    # resume it.
+    if not new_play:
+        flying = offer_fly(
+            engine,
+            game,
+            match,
+            {
+                "distance_moved": distance_moved,
+                "turnover_occurred": turnover_occurred,
+                "speed_choice_after": speed_choice_after,
+                "speed_reset": speed_reset,
+            },
+            narration,
+        )
+        if flying is not None:
+            return flying
+
     if new_play:
         # The ball is dead. Clearing here as well as in
         # `announce_new_play_reset` is what keeps the exemption below
@@ -188,7 +212,8 @@ def begin_run_back(
     # run back and triggers none, and this flag is what remembers that:
     # `new_play` is not persisted, and by the time the reset leaves
     # nobody displaced the cascade can no longer tell the two apart.
-    match.run_back_moved = []
+    # A player who flew has moved, and charges nothing up (Law 21).
+    match.run_back_moved = list(match.run_back_flown)
     match.pending_run_back_charge_up = not new_play
 
     # A new play resets both sides to the shape their coaches set, free
@@ -231,6 +256,80 @@ def begin_run_back(
         next=FollowOn(
             FollowOnStep.ANNOUNCE_RUN_BACK, {"speed_reset": speed_reset},
         ),
+    )
+
+
+def offer_fly(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    resume: dict,
+    narration: list[str],
+) -> Optional[StepResult]:
+    """
+    Zenith's offer, or None where nobody is owed one: the queue is
+    filled once per run back and drained by `fly_step`, which resumes
+    the run back with `resume` once it is empty.
+    """
+    if match.pending_fly is None:
+        match.pending_fly = engine.fly_candidates(game, match)
+        match.pending_fly_resume = resume if match.pending_fly else None
+    if not match.pending_fly:
+        return None
+    return StepResult(
+        narration=narration,
+        next=fly_prompt(engine, match, match.pending_fly[0]),
+    )
+
+
+def fly_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    target: Optional[tuple[Zone, int]],
+) -> StepResult:
+    """
+    Zenith's answer (Law 21): fly to `target` at a token a space, and
+    be left out of the run back -- or, `target` None, stay. Either way
+    the next flier, or the run back itself.
+    """
+    if not match.pending_fly or match.pending_fly[0] != player_id:
+        raise RuleRefusal("That offer has already been answered.")
+    player = engine.get_player_definition(player_id)
+    label = engine.format_player_label(match, player)
+    if target is not None:
+        costs = {
+            (Zone(zone), index): distance
+            for zone, index, distance in engine.fly_spaces(match, player_id)
+        }
+        key = (Zone(target[0]), target[1])
+        if key not in costs:
+            raise RuleRefusal("That is not a space they can fly to.")
+        match.pending_fly.pop(0)
+        match.move_meeple(player_id, *key)
+        match.run_back_flown.append(player_id)
+        line = "\n".join(filter(None, [
+            f"{label} **flies** to {space_label(key[0], key[1], match.board)}"
+            " and will not run back.",
+            engine.apply_exhaustion(game, match, player_id, costs[key]),
+        ]))
+    else:
+        match.pending_fly.pop(0)
+        line = f"{label} does not fly."
+
+    if match.pending_fly:
+        return StepResult(
+            narration=[line],
+            board_changed=target is not None,
+            next=fly_prompt(engine, match, match.pending_fly[0]),
+        )
+    resume = match.pending_fly_resume or {}
+    match.pending_fly_resume = None
+    return StepResult(
+        narration=[line],
+        board_changed=target is not None,
+        next=FollowOn(FollowOnStep.BEGIN_RUN_BACK, resume),
     )
 
 
@@ -656,6 +755,8 @@ def finish_run_back(
     """
     match.pending_run_back = False
     match.run_back_pick = None
+    match.pending_fly = None
+    match.run_back_flown = []
     distance_moved = match.pending_run_back_distance
     turnover_occurred = match.pending_run_back_turnover
     speed_choice_after = match.pending_run_back_speed_choice

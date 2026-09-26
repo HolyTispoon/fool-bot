@@ -617,6 +617,8 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.LOOSE_BALL_PICK: "That side has already answered.",
     PromptKind.SMOOTH: "That Smooth has already been answered.",
     PromptKind.MIND_PULL: "That Mind Pull has already been answered.",
+    PromptKind.JOIN_THE_BALL: "That offer has already been answered.",
+    PromptKind.FLY: "That offer has already been answered.",
     PromptKind.RUN_BACK_PLAYER: "They no longer have to run back.",
     PromptKind.RUN_BACK_SPACE: "They no longer have to run back.",
     PromptKind.BALL_RECOVERY: "The ball has already been picked up.",
@@ -1278,6 +1280,51 @@ def _answer_mind_pull(
     )
 
 
+def _answer_join_the_ball(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    player_id: Optional[str] = None,
+) -> StepResult:
+    """
+    Glompex steps onto the ball before the cards, or stays (Law 21).
+    The player asked is the prompt's, as for a Mind Pull.
+    """
+    if player_id is not None and player_id != prompt.player_id:
+        _refuse("That offer has already been answered.")
+    return turn.join_the_ball_step(
+        engine, game, match, prompt.player_id, choice == "join",
+    )
+
+
+def _answer_fly(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    player_id: Optional[str] = None,
+    zone: Optional[str] = None,
+    space_index: Optional[int] = None,
+) -> StepResult:
+    """
+    Zenith flies to a space before the run back, or stays (Law 21).
+    Where is refused against the prompt's own spaces
+    (`FlyOptions.spaces`), which `fly_step` reads again.
+    """
+    if player_id is not None and player_id != prompt.player_id:
+        _refuse("That offer has already been answered.")
+    if choice == "decline":
+        return turnovers.fly_step(engine, game, match, prompt.player_id, None)
+    return turnovers.fly_step(
+        engine, game, match, prompt.player_id, (zone, space_index),
+    )
+
+
 def _answer_halftime_extra_token(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1704,6 +1751,8 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.MANEUVER_ACTION: _answer_maneuver_action,
     PromptKind.INJURY_TEST: _answer_injury_test,
     PromptKind.MIND_PULL: _answer_mind_pull,
+    PromptKind.JOIN_THE_BALL: _answer_join_the_ball,
+    PromptKind.FLY: _answer_fly,
     PromptKind.HALFTIME_EXTRA_TOKEN: _answer_halftime_extra_token,
     PromptKind.SKILL_TEST: _answer_skill_test,
     PromptKind.LOOSE_BALL_SKILL_TEST: _answer_loose_ball_skill_test,
@@ -1743,6 +1792,7 @@ REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
     PromptKind.SHOOTOUT_ORDER: {"send": ("player_id",)},
     PromptKind.LOOSE_BALL_PICK: {"send": ("player_id",)},
     PromptKind.MANEUVER_CHALLENGE: {"send": ("player_id",)},
+    PromptKind.FLY: {"fly": ("zone", "space_index")},
     # Overdrive is declared by a player, on every roll it can be
     # declared on -- and so is Gearclaw's Boost (Law 21).
     **{

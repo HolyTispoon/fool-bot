@@ -59,7 +59,7 @@ that quietly stops reaching the own-goal roll fails here rather than
 going unnoticed.
 
 **What it reaches**: all twelve maneuvers, the Mind Pull offer and the
-Smooth offer, a loose-ball skill test, an injury test, an own-goal roll,
+Smooth offer, Zenith's Fly, a loose-ball skill test, an injury test, an own-goal roll,
 a run back that stops to ask **both** of its questions (which space, and
 which of a stack goes), a score attempt, a set-up, a time-out, the
 halftime extra token and a coaching window.
@@ -78,7 +78,7 @@ loose at the moment a coach calls one; and full time and the shootout,
 which are past where the step budget stops. Those are Phase 5's ground and want a
 golden of their own.
 
-**The seed has been re-picked six times.** Once when PR #243 and PR
+**The seed has been re-picked seven times.** Once when PR #243 and PR
 #244 landed on main under this branch: both are rule changes in the code
 this phase moves, so the game seed 44 had played was no longer the game
 it plays. Again when the six-space board was withdrawn (2026-09-22 in
@@ -94,7 +94,12 @@ the advanced skill scores (Law 21, 2026-09-25): Hellguard's 8 and the
 Fire Demons' own ignites change the game from the first skill test, and
 seed 11 stopped reaching the Setup Pass choice and Clear. And again the
 same day, when the sheet gave Dravox, Hexis and Emberdash abilities of
-their own and Spectra's changed (seed 226 to 69). Each time the seed was
+their own and Spectra's changed (seed 226 to 69). And when the sheet gave
+thirteen more players abilities of their own (2026-09-26): Zenith's Fly
+is offered at a steal's run back in this Telekinetics game, which moves
+every draw after it, and seed 69 stopped reaching the whole spine. Seed
+226 was the one seed of 0-249 that reached all of it, and it flies
+Zenith, which the coverage below now asserts too. Each time the seed was
 swept and scored on the coverage below, not chosen.
 
 Regenerating is the tutorial golden's rule, and for the same reason --
@@ -146,7 +151,7 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 #: the engine's own `rng`, where every draw the game makes comes from
 #: (the dice, the shuffle, the AI's picks), rather than the module
 #: `random`, which nothing in the model reads.
-ADVANCED_SEED = 69
+ADVANCED_SEED = 226
 
 #: The game is not played to full time: the budget stops it in the
 #: second half, which is as far as Phase 4's ground goes. Full time and
@@ -384,6 +389,7 @@ class AdvancedGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
             "ScoreAttemptView",
             "SetupPassChoiceView",
             "ManeuverChallengeView",
+            "FlyView",
         ):
             self.assertIn(
                 view_name,

@@ -62,6 +62,11 @@ def _run_back_space(fixture: PromptFixture) -> tuple[str, dict]:
     return "", {"space_index": _prompt(fixture).options.space_indices[0]}
 
 
+def _fly(fixture: PromptFixture) -> tuple[str, dict]:
+    zone, space_index, _ = _prompt(fixture).options.spaces[0]
+    return "fly", {"zone": zone.value, "space_index": space_index}
+
+
 def _loose_ball_pick(fixture: PromptFixture) -> tuple[str, dict]:
     return "send", {"player_id": _prompt(fixture).options.player_ids[0]}
 
@@ -209,6 +214,8 @@ LEGAL_ACTIONS = {
     PromptKind.MANEUVER_CHALLENGE: _loose_ball_pick,
     PromptKind.MANEUVER_ACTION: _maneuver_action,
     PromptKind.MIND_PULL: lambda fixture: ("take", {}),
+    PromptKind.JOIN_THE_BALL: lambda fixture: ("join", {}),
+    PromptKind.FLY: _fly,
     PromptKind.HALFTIME_EXTRA_TOKEN: _first_player,
     PromptKind.LOW_PASS_CHOICE: _low_pass,
     PromptKind.HIGH_PASS_CHOICE: _first_distance,
@@ -906,6 +913,12 @@ REFUSED_ACTIONS = {
     (PromptKind.INJURY_TEST, "boost"): _wrong_boost,
     (PromptKind.MIND_PULL, "take"): _wrong_side_player,
     (PromptKind.MIND_PULL, "decline"): _wrong_side_player,
+    (PromptKind.JOIN_THE_BALL, "join"): _wrong_side_player,
+    (PromptKind.JOIN_THE_BALL, "decline"): _wrong_side_player,
+    (PromptKind.FLY, "fly"): lambda fixture: {
+        "zone": "home_goal", "space_index": 99,
+    },
+    (PromptKind.FLY, "decline"): _wrong_side_player,
     (PromptKind.HALFTIME_EXTRA_TOKEN, ""): _wrong_player,
     (PromptKind.SKILL_TEST, "roll"): None,
     (PromptKind.SKILL_TEST, "overdrive"): _wrong_overdrive,

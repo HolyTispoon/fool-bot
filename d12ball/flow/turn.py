@@ -46,10 +46,12 @@ from d12ball.formatting import (
     format_team_side_label,
 )
 from d12ball.game import D12BallGame, team_display_name
+from d12ball.personal_abilities import GLOMPEX_JOIN_COST
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
+    join_the_ball_prompt,
     maneuver_action_ask,
 )
 
@@ -795,9 +797,53 @@ def begin_maneuver_action_selection(
     if match.maneuver_selections_complete:
         return StepResult(next=FollowOn(FollowOnStep.RESOLVE_MANEUVER))
 
+    # **Glompex, before the cards** (Law 21): asked once a maneuver,
+    # here, where the challenger is in place and nobody has chosen.
+    if match.pending_join is None:
+        match.pending_join = engine.join_candidates(game, match)
+    if match.pending_join:
+        return StepResult(
+            next=join_the_ball_prompt(
+                engine, game, match, match.pending_join[0],
+            ),
+        )
+
     return StepResult(
         next=FollowOn(FollowOnStep.SEND_MANEUVER_ACTION_PROMPT),
     )
+
+
+def join_the_ball_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    join: bool,
+) -> StepResult:
+    """
+    Glompex's answer (Law 21): step onto the ball's space for a token,
+    where Merge counts them in the test to come, or stay put. Either
+    way the next offer, or the cards.
+    """
+    if not match.pending_join or match.pending_join[0] != player_id:
+        raise RuleRefusal("That offer has already been answered.")
+    match.pending_join.pop(0)
+    player = engine.get_player_definition(player_id)
+    label = engine.format_player_label(match, player)
+    if join:
+        match.move_meeple(player_id, match.ball.zone, match.ball.space_index)
+        line = "\n".join(filter(None, [
+            f"{label} steps onto the ball's space to Merge.",
+            engine.apply_exhaustion(
+                game, match, player_id, GLOMPEX_JOIN_COST,
+            ),
+        ]))
+    else:
+        line = f"{label} stays where they are."
+    result = begin_maneuver_action_selection(engine, game, match)
+    result.narration.insert(0, line)
+    result.board_changed = result.board_changed or join
+    return result
 
 
 def offer_maneuver_action(

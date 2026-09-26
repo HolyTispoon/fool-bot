@@ -684,6 +684,10 @@ class DinkyAI(AIStrategy):
         PromptKind.SHOOTER_CHOICE: _shooter,
         PromptKind.SMOOTH: _let_it_pass,
         PromptKind.MIND_PULL: _let_it_pass,
+        # Dinky never rearranges (the Coaching Choice's reading), so
+        # it neither steps Glompex in nor flies Zenith (Law 21).
+        PromptKind.JOIN_THE_BALL: _let_it_pass,
+        PromptKind.FLY: _let_it_pass,
         PromptKind.LOOSE_BALL_PICK: _loose_ball,
         PromptKind.RUN_BACK_PLAYER: _run_back_player,
         PromptKind.RUN_BACK_SPACE: _run_back_space,

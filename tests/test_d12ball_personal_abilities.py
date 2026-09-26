@@ -46,6 +46,12 @@ from d12ball.flow.effects import (
 from d12ball.flow.arrivals import resolve_loose_ball
 from d12ball.flow.injuries import injury_test_step
 from d12ball.flow.result import FollowOnStep
+from d12ball.flow.turn import (
+    begin_maneuver_action_selection,
+    join_the_ball_step,
+)
+from d12ball.flow.turnovers import begin_run_back, fly_step
+from d12ball.prompts import PendingPrompt, PromptKind
 from d12ball.game import GameMode, Team
 from d12ball.personal_abilities import (
     ADVANCED_SKILL_SENTENCES,
@@ -727,6 +733,20 @@ class ScorchitTests(unittest.TestCase):
                 ENGINE.settled_maneuver_winner(self.match, self.game),
             )
 
+    def test_nothing_once_the_stealer_has_the_ball(self) -> None:
+        # A beaten Skilled Pass owes the stealer a free Low Pass, which
+        # makes them the handler: the cards now name one player twice,
+        # and the settled maneuver must stay settled.
+        self.match.offense_maneuver = "skilled_pass"
+        self.match.defense_maneuver = "steal"
+        self.match.active_player_id = self.defense
+        with holding(self.defense, PersonalAbility.FORCES_THE_TEST):
+            self.assertIsNone(ENGINE.forced_test_by(self.game, self.match))
+            self.assertEqual(
+                ENGINE.settled_maneuver_winner(self.match, self.game),
+                "steal",
+            )
+
     def test_the_gambits_follow_the_cards(self) -> None:
         # Scorchit wins the forced test: their card lost on the cards,
         # so it is no gambit's benefit and the winner on the cards
@@ -1111,6 +1131,134 @@ class BallComesToTests(unittest.TestCase):
         with holding(self.player, PersonalAbility.CHARGES_ON_THE_BALL):
             self.assertTrue(self.comes())
         self.assertEqual(self.match.exhaustion[self.player], 1)
+
+
+class GlompexTests(unittest.TestCase):
+    """Glompex steps onto the ball before the cards (Law 21)."""
+
+    def setUp(self) -> None:
+        # Only the player a test hands the ability to holds it: the
+        # deal fields the real Glompex, who would be asked as well.
+        cleared = mock.patch.dict(PERSONAL_ABILITIES, {}, clear=True)
+        cleared.start()
+        self.addCleanup(cleared.stop)
+        self.game = advanced()
+        match = self.match = build_match(ENGINE, self.game)
+        match.ball.possession = TeamSide.HOME
+        home = match.home.field_players
+        self.handler, self.joiner = home[0], home[1]
+        self.challenger = match.visiting.field_players[0]
+        for player_id, flat in (
+            (self.handler, 3), (self.challenger, 3), (self.joiner, 2),
+        ):
+            match.move_meeple(
+                player_id, *match.board.position_at_flat_index(flat),
+            )
+        match.set_ball_space(*match.board.position_at_flat_index(3))
+        match.active_player_id = self.handler
+        match.challenger_id = self.challenger
+
+    def test_only_glompex_beside_the_ball_against_a_challenge(self) -> None:
+        self.assertEqual(ENGINE.join_candidates(self.game, self.match), [])
+        with holding(self.joiner, PersonalAbility.JOINS_THE_BALL):
+            self.assertEqual(
+                ENGINE.join_candidates(self.game, self.match),
+                [self.joiner],
+            )
+            self.match.move_meeple(
+                self.joiner, *self.match.board.position_at_flat_index(1),
+            )
+            self.assertEqual(
+                ENGINE.join_candidates(self.game, self.match), [],
+            )
+
+    def test_asked_before_the_cards_once(self) -> None:
+        with holding(self.joiner, PersonalAbility.JOINS_THE_BALL):
+            asked = begin_maneuver_action_selection(
+                ENGINE, self.game, self.match,
+            )
+            self.assertIsInstance(asked.next, PendingPrompt)
+            self.assertIs(asked.next.kind, PromptKind.JOIN_THE_BALL)
+            result = join_the_ball_step(
+                ENGINE, self.game, self.match, self.joiner, True,
+            )
+            self.assertIs(
+                result.next.step, FollowOnStep.SEND_MANEUVER_ACTION_PROMPT,
+            )
+            # Answered: the cards come next, not the offer again.
+            again = begin_maneuver_action_selection(
+                ENGINE, self.game, self.match,
+            )
+        self.assertIs(
+            again.next.step, FollowOnStep.SEND_MANEUVER_ACTION_PROMPT,
+        )
+        self.assertEqual(
+            self.match.board.meeple_position(self.joiner),
+            (self.match.ball.zone, self.match.ball.space_index),
+        )
+        self.assertEqual(self.match.exhaustion[self.joiner], 1)
+
+    def test_staying_moves_nobody(self) -> None:
+        where = self.match.board.meeple_position(self.joiner)
+        self.match.pending_join = [self.joiner]
+        join_the_ball_step(ENGINE, self.game, self.match, self.joiner, False)
+        self.assertEqual(self.match.board.meeple_position(self.joiner), where)
+        self.assertEqual(self.match.exhaustion.get(self.joiner, 0), 0)
+
+
+class ZenithTests(unittest.TestCase):
+    """Zenith flies before a steal's run back (Law 21)."""
+
+    def setUp(self) -> None:
+        cleared = mock.patch.dict(PERSONAL_ABILITIES, {}, clear=True)
+        cleared.start()
+        self.addCleanup(cleared.stop)
+        self.game = advanced()
+        match = self.match = build_match(ENGINE, self.game)
+        self.flier = match.visiting.field_players[0]
+        match.set_ball_carrier(match.home.field_players[0])
+        match.last_ball_path = []
+
+    def test_asked_first_then_left_out_of_the_run_back(self) -> None:
+        match = self.match
+        here = match.board.flat_index(*match.board.meeple_position(self.flier))
+        target = 0 if here > 2 else 6
+        zone, index = match.board.position_at_flat_index(target)
+        with holding(self.flier, PersonalAbility.FLY):
+            asked = begin_run_back(ENGINE, self.game, match)
+            self.assertIs(asked.next.kind, PromptKind.FLY)
+            flown = fly_step(
+                ENGINE, self.game, match, self.flier, (zone, index),
+            )
+            self.assertIs(flown.next.step, FollowOnStep.BEGIN_RUN_BACK)
+            self.assertEqual(
+                match.exhaustion[self.flier], abs(target - here),
+            )
+            self.assertIn(self.flier, match.run_back_flown)
+            self.assertNotIn(
+                self.flier,
+                ENGINE.run_back_displaced(match, match.visiting.side),
+            )
+            resumed = begin_run_back(
+                ENGINE, self.game, match, **flown.next.kwargs,
+            )
+        self.assertIs(resumed.next.step, FollowOnStep.ANNOUNCE_RUN_BACK)
+
+    def test_nobody_else_and_never_the_ball_s_holder(self) -> None:
+        self.assertEqual(ENGINE.fly_candidates(self.game, self.match), [])
+        holder = self.flier
+        self.match.set_ball_carrier(holder)
+        with holding(holder, PersonalAbility.FLY):
+            self.assertEqual(
+                ENGINE.fly_candidates(self.game, self.match), [],
+            )
+
+    def test_not_a_new_play(self) -> None:
+        with holding(self.flier, PersonalAbility.FLY):
+            result = begin_run_back(
+                ENGINE, self.game, self.match, new_play=True,
+            )
+        self.assertNotIsInstance(result.next, PendingPrompt)
 
 
 if __name__ == "__main__":

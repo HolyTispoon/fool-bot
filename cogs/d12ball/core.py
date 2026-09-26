@@ -108,6 +108,8 @@ from cogs.d12ball_views import (
     HighPassChoiceView,
     HomeAwaySelectionView,
     InjuryTestView,
+    FlyView,
+    JoinTheBallView,
     MindPullView,
     SmoothView,
     LobbyView,
@@ -153,6 +155,8 @@ FIELD_PROMPT_KINDS = frozenset({
     PromptKind.DRIBBLE_BURST_CHOICE,
     PromptKind.RUN_BACK_SPACE,
     PromptKind.RUN_BACK_PLAYER,
+    # Zenith's Fly picks a space anywhere on the field (Law 21).
+    PromptKind.FLY,
 })
 
 
@@ -397,6 +401,8 @@ PARAMETERISED_PROMPT_KINDS = frozenset({
     PromptKind.HALFTIME_EXTRA_TOKEN,
     PromptKind.MIND_PULL,
     PromptKind.SMOOTH,
+    PromptKind.JOIN_THE_BALL,
+    PromptKind.FLY,
     PromptKind.INJURY_TEST,
     PromptKind.RUN_BACK_SPACE,
     PromptKind.RUN_BACK_PLAYER,
@@ -1291,6 +1297,10 @@ class CoreMixin:
             return HalftimeExtraTokenView(self, game_id, prompt.side)
         if kind is PromptKind.MIND_PULL:
             return MindPullView(self, game_id, prompt.player_id)
+        if kind is PromptKind.JOIN_THE_BALL:
+            return JoinTheBallView(self, game_id, prompt.player_id)
+        if kind is PromptKind.FLY:
+            return FlyView(self, game_id, prompt.player_id)
         if kind is PromptKind.SMOOTH:
             return SmoothView(
                 self, game_id, prompt.player_id, prompt.options.keeper_id,

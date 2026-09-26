@@ -41,7 +41,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 from d12ball import tokens
-from d12ball.components import MatchState, PlayerRole, TeamSide
+from d12ball.components import MatchState, PlayerRole, TeamSide, Zone
 from d12ball.engine import RulesEngine
 from d12ball.formatting import (
     coach_name,
@@ -595,7 +595,12 @@ def _decision_arguments(asked: Asked, choice: str) -> dict:
     if asked.kind is PromptKind.COACHING_OFFER:
         return {"side": asked.prompt.side}
 
-    if asked.kind in (PromptKind.MIND_PULL, PromptKind.SMOOTH):
+    if asked.kind in (
+        PromptKind.MIND_PULL,
+        PromptKind.SMOOTH,
+        PromptKind.JOIN_THE_BALL,
+        PromptKind.FLY,
+    ):
         return {"player_id": asked.prompt.player_id}
     return {}
 
@@ -673,6 +678,47 @@ def _send(asked: Asked) -> list:
             ],
         ),
         section(None, [decline] if decline else []),
+    ]
+
+
+def _join_the_ball(asked: Asked) -> list:
+    """Glompex's yes and no (Law 21), in the Discord view's words."""
+    return _decision(asked, {"join": "Join the ball", "decline": "Stay"})
+
+
+def _fly(asked: Asked) -> list:
+    """
+    Zenith's Fly (Law 21): a button per space the prompt offers, each
+    with its price (`FlyOptions.spaces`), and Stay.
+    """
+    options = asked.options
+    player_id = asked.prompt.player_id
+    return [
+        section(
+            None,
+            [
+                button(
+                    travel_space_label(
+                        zone, space_index, distance, asked.match.board,
+                    ),
+                    asked.kind,
+                    "fly",
+                    player_id=player_id,
+                    zone=Zone(zone).value,
+                    space_index=space_index,
+                )
+                for zone, space_index, distance in options.spaces
+            ]
+            + [
+                button(
+                    "Stay",
+                    asked.kind,
+                    "decline",
+                    style="secondary",
+                    player_id=player_id,
+                ),
+            ],
+        )
     ]
 
 
@@ -1111,6 +1157,8 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.OWN_GOAL_ROLL: _roll,
     PromptKind.MIND_PULL: _decision,
     PromptKind.SMOOTH: _smooth,
+    PromptKind.JOIN_THE_BALL: _join_the_ball,
+    PromptKind.FLY: _fly,
     PromptKind.SET_UP_ATTEMPT: _decision,
     PromptKind.COACHING_OFFER: _decision,
     PromptKind.BALL_HANDLER_SELECTION: _players,

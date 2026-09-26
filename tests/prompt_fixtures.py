@@ -288,6 +288,50 @@ def mind_pull() -> PromptFixture:
     )
 
 
+def fly() -> PromptFixture:
+    # Zenith's Fly (Law 21), at the head of a steal's run back: the
+    # queue and the run back's own arguments, which the answer resumes.
+    match = build_match()
+    take_the_ball(match)
+    flier = fielded(match, PlayerRole.WINGER)
+    match.pending_fly = [flier]
+    match.pending_fly_resume = {
+        "distance_moved": 1,
+        "turnover_occurred": True,
+        "speed_choice_after": False,
+        "speed_reset": True,
+    }
+    return PromptFixture(
+        build_game(),
+        match,
+        f"{label(match, flier)} may **Fly** before the run back: to any "
+        "space on the field, at a token a space, and then they do not "
+        "run back.",
+        {"player_id": flier},
+    )
+
+
+def join_the_ball() -> PromptFixture:
+    # Glompex (Law 21): a challenger in place, nobody's cards chosen.
+    match = build_match()
+    challenge(match)
+    joiner = next(
+        player_id for player_id in match.home.field_players
+        if player_id != match.active_player_id
+    )
+    match.pending_join = [joiner]
+    game = build_game()
+    noun, _ = ENGINE.token_word_and_mark(game, joiner)
+    return PromptFixture(
+        game,
+        match,
+        f"{label(match, joiner)} is next to the ball, and may take 1 "
+        f"{noun} to step onto its space and Merge before the cards are "
+        "chosen:",
+        {"player_id": joiner},
+    )
+
+
 def injury_test() -> PromptFixture:
     match = build_match()
     hurt = fielded(match, PlayerRole.FULLBACK)
@@ -912,6 +956,9 @@ CASES: tuple[PromptCase, ...] = (
               halftime_stage_with_no_window),
     PromptCase("smooth", "SMOOTH", "SmoothView", smooth),
     PromptCase("mind pull", "MIND_PULL", "MindPullView", mind_pull),
+    PromptCase("fly", "FLY", "FlyView", fly),
+    PromptCase("join the ball", "JOIN_THE_BALL", "JoinTheBallView",
+               join_the_ball),
     PromptCase("injury test", "INJURY_TEST", "InjuryTestView", injury_test),
     PromptCase("own goal", "OWN_GOAL_ROLL", "OwnGoalRollView", own_goal),
     PromptCase("shootout order", "SHOOTOUT_ORDER", "ShootoutOrderPromptView",

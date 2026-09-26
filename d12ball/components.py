@@ -1570,6 +1570,11 @@ class SavedField:
         return self.read(value) if self.read is not None else value
 
 
+def _copy_optional_list(value: Optional[list]) -> Optional[list]:
+    """A list's copy, or `None` kept as `None` -- see `pending_join`."""
+    return None if value is None else list(value)
+
+
 def copy_lists(mapping: dict) -> dict:
     """`{key: list(value)}` -- one level deeper than `dict()` copies."""
     return {key: list(value) for key, value in mapping.items()}
@@ -1629,6 +1634,13 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
         "pending_smooth", factory=list, write=list, read=list,
     ),
     SavedField("pending_smooth_resume"),
+    # Glompex's and Zenith's offers (Law 21). Absent from an older save,
+    # which reads as not asked -- a game saved mid-maneuver before this
+    # is offered nothing it was not already being offered.
+    SavedField("pending_join", write=_copy_optional_list, read=_copy_optional_list),
+    SavedField("pending_fly", write=_copy_optional_list, read=_copy_optional_list),
+    SavedField("pending_fly_resume"),
+    SavedField("run_back_flown", factory=list, write=list, read=list),
     SavedField("pending_run_back", default=False),
     SavedField("pending_run_back_distance", default=1),
     SavedField("pending_run_back_turnover", default=True),
@@ -1912,6 +1924,18 @@ class MatchState:
     # ball to be the opponents', and a Smooth needs it to be yours.
     pending_smooth: list[str] = field(default_factory=list)
     pending_smooth_resume: Optional[dict] = None
+    # **Glompex joins the ball** (Law 21): who is still to be asked,
+    # before this maneuver's cards, whether they step onto the ball's
+    # space. `None` is "not asked yet this maneuver" and `[]` "asked
+    # and answered", which is why it is not a plain list: the offer is
+    # made once, when the cards are about to be chosen.
+    pending_join: Optional[list[str]] = None
+    # **Zenith flies** (Law 21): the same shape, asked at a steal's run
+    # back before anyone runs, with the run back's own arguments kept
+    # to resume it; and who flew, whom the run back then leaves alone.
+    pending_fly: Optional[list[str]] = None
+    pending_fly_resume: Optional[dict] = None
+    run_back_flown: list[str] = field(default_factory=list)
     exhaustion: dict[str, int] = field(default_factory=dict)
     exhausted: set[str] = field(default_factory=set)
     injured: set[str] = field(default_factory=set)
@@ -3591,6 +3615,10 @@ class MatchState:
         self.run_back_moved = []
         self.pending_run_back_charge_up = False
         self.run_back_pick = None
+        self.pending_join = None
+        self.pending_fly = None
+        self.pending_fly_resume = None
+        self.run_back_flown = []
         self.pending_effect_continuation = None
         self.pending_kickoff_fill = False
         self.pending_scoring_opportunity = None
@@ -4011,6 +4039,8 @@ class MatchState:
                     player_id
                     for player_id in zone_native
                     if player_id != stays_player_id
+                    # Zenith flew, and does not run back (Law 21).
+                    and player_id not in self.run_back_flown
                 )
         return candidates
 
