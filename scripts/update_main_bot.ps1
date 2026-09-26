@@ -142,6 +142,24 @@ function Get-RepositoryFoolBots {
     )
 }
 
+# One bot is two of those processes. A Windows venv's python.exe is a
+# redirector, not an interpreter (Python 3.7.2, bpo-34977): it reads
+# pyvenv.cfg, starts the base python.exe with the same command line as
+# its child, in a job that dies with it, and waits. The redirector
+# matches above on the venv python, the interpreter on the full path to
+# foolbot.py it was handed -- so every run of this script warned that
+# it had stopped two bots when it had stopped one. A bot is counted as
+# a process tree: a match whose parent is not itself a match. Every
+# match is still stopped, since the interpreter is the one signed in.
+function Get-FoolBotRoots {
+    param(
+        [object[]]$Processes = @()
+    )
+
+    $matchedIds = @($Processes | ForEach-Object { $_.ProcessId })
+    @($Processes | Where-Object { $matchedIds -notcontains $_.ParentProcessId })
+}
+
 $normalizedPythonPath = [System.IO.Path]::GetFullPath($venvPython)
 $normalizedBotScript = [System.IO.Path]::GetFullPath($botScript)
 
@@ -162,17 +180,21 @@ $runningFoolBots = Get-RepositoryFoolBots `
     -ScriptPath $normalizedBotScript `
     -AlsoIncludePid $savedPid
 
-foreach ($foolBot in $runningFoolBots) {
+$runningBots = Get-FoolBotRoots -Processes $runningFoolBots
+
+foreach ($foolBot in $runningBots) {
     Write-Host "Stopping Fool bot process $($foolBot.ProcessId)..."
+}
+foreach ($foolBot in $runningFoolBots) {
     Stop-Process -Id $foolBot.ProcessId -Force -ErrorAction SilentlyContinue
     Wait-Process -Id $foolBot.ProcessId -Timeout 15 -ErrorAction SilentlyContinue
 }
 
-if ($runningFoolBots.Count -gt 1) {
+if ($runningBots.Count -gt 1) {
     # Interpolated, not -f: the format operator binds tighter than +,
     # so a placeholder in the first line of a concatenation is never
     # the string -f is applied to, and prints as "{0}".
-    $stoppedCount = $runningFoolBots.Count
+    $stoppedCount = $runningBots.Count
     Write-Warning (
         "Stopped $stoppedCount Fool bot processes -- there should only " +
         "ever be one. A second bot signed in on the same token answers " +

@@ -57,7 +57,10 @@ $stderrLog = Join-Path $runtimeFolder 'webapp.stderr.log'
 # since `-m webapp` carries none; a web app run out of a different
 # checkout, or by a different python, is left alone. The foolbot filter
 # in update_main_bot.ps1 matches `foolbot\.py`, so neither script ever
-# stops the other's process.
+# stops the other's process. The venv python is a redirector that runs
+# the base interpreter as a child (see Get-FoolBotRoots there); this
+# match catches the redirector alone, which is one per web app, and the
+# interpreter dies with it.
 function Get-RepositoryWebApps {
     param(
         [Parameter(Mandatory = $true)]
