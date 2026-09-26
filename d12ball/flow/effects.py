@@ -52,7 +52,13 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import (
+    TURNOVER_HEADING,
+    FollowOn,
+    FollowOnStep,
+    Headline,
+    StepResult,
+)
 from d12ball.flow.turn import record_maneuver, scripted_or_random, tutorial_beat
 from d12ball.formatting import (
     ball_space_phrase,
@@ -627,8 +633,9 @@ def steal_result_text(
     name: str,
     challenger_id: str,
     actual_distance: int,
-) -> str:
-    """The turnover, and which way the thief carried it."""
+) -> tuple[str, Headline]:
+    """The turnover, and which way the thief carried it -- and its
+    `Headline`, for the side that took the ball."""
     space_word = "space" if actual_distance == 1 else "spaces"
     challenger = engine.get_player_definition(challenger_id)
     challenger_label = engine.format_player_label(match, challenger)
@@ -640,13 +647,13 @@ def steal_result_text(
         else f"then falls back {actual_distance} {space_word} toward "
         "their own goal with the ball"
     )
-    return (
-        f"**{name}:**\n"
-        "# Turnover!\n"
+    under = (
         f"{challenger_label} steals the ball. "
         f"{format_team_side_label(new_possession)} now has possession, "
         f"{travel}."
     )
+    headline = Headline(TURNOVER_HEADING, match.ball.possession, under)
+    return f"**{name}:**\n# {headline.text}\n{under}", headline
 
 
 def steal_step(
@@ -680,7 +687,7 @@ def steal_step(
     overshot, actual_distance = take_ball_by_steal(
         match, challenger_id, new_possession_side, direction,
     )
-    content = steal_result_text(
+    content, headline = steal_result_text(
         engine, match, key, name, challenger_id, actual_distance,
     )
 
@@ -712,6 +719,7 @@ def steal_step(
                 + "\n\nThere is no field left ahead of them -- "
                 "a scoring opportunity!"
             ],
+            headlines=(headline,),
             board_changed=True,
             next=FollowOn(
                 FollowOnStep.BEGIN_SHOOTER_CHOICE,
@@ -740,6 +748,7 @@ def steal_step(
     # which take_ball_by_steal has already made the interceptor.
     return StepResult(
         narration=[content],
+        headlines=(headline,),
         board_changed=True,
         next=FollowOn(
             FollowOnStep.BEGIN_RUN_BACK, {"speed_choice_after": True},
@@ -1067,7 +1076,7 @@ def apply_own_goal_outcome(
         # eligible_ball_handlers() first and asks nobody when the
         # reset already covers it.
         match.pending_ball_recovery = True
-        return f"## Own goal avoided!\n\n{exhaustion_text}"
+        return f"## {OWN_GOAL_AVOIDED}\n\n{exhaustion_text}"
 
     conceding_side = match.ball.possession
     # The goal is the other side's; the kick is this player's,
@@ -1078,7 +1087,7 @@ def apply_own_goal_outcome(
     match.pending_run_back_distance = distance_moved
     match.pending_run_back_turnover = True
     return (
-        f"# Own goal!\n"
+        f"# {OWN_GOAL}\n"
         f"{engine.format_player_label(match, offense_player)} "
         "puts it in their own net on "
         f"**{format_goal_time(match.goals[-1])}**.\n"
@@ -1120,6 +1129,12 @@ class OwnGoalRoll:
             "overdrive": self.overdrive,
             "player_id": self.player_id,
         }
+
+
+#: The two headings an own-goal roll is announced under, in its line
+#: and its `Headline` alike.
+OWN_GOAL_AVOIDED = "Own goal avoided!"
+OWN_GOAL = "Own goal!"
 
 
 def own_goal_roll_step(
@@ -1184,15 +1199,29 @@ def own_goal_roll_step(
     )
 
     taken = max(rolls)
-    breakdown = (
-        f"**Own goal risk!** "
+    arithmetic = (
         f"{engine.format_player_label(match, offense_player)} "
         f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
         f"is {taken}, + {offense_skill} (offensive skill)"
     )
     if overdrive:
-        breakdown += f", +{overdrive} Overdrive"
-    breakdown += f" = {taken + offense_skill + overdrive}"
+        arithmetic += f", +{overdrive} Overdrive"
+    total = taken + offense_skill + overdrive
+    arithmetic += f" = {total}"
+    breakdown = f"**Own goal risk!** {arithmetic}"
+    # Whose outcome it is: the roller's side keeps it out, the other
+    # side is given the goal -- read before the outcome moves the ball.
+    headline = Headline(
+        OWN_GOAL_AVOIDED if safe else OWN_GOAL,
+        match.ball.possession if safe else match.defending_side(),
+        working=(
+            f"{arithmetic}. "
+            + (
+                f"**{total}** is 7 or more: safe."
+                if safe else f"**{total}** is under 7: an own goal."
+            )
+        ),
+    )
 
     verdict = apply_own_goal_outcome(
         engine, match, offense_player, distance_moved, safe,
@@ -1206,6 +1235,7 @@ def own_goal_roll_step(
         ),
         StepResult(
             narration=[breakdown, verdict],
+            headlines=(headline,),
             board_changed=True,
             # **Both outcomes are new plays.** A conceded own goal
             # restarts from the kickoff space as any other goal does;

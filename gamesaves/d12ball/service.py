@@ -65,7 +65,7 @@ from typing import Any, Callable, Mapping, Optional, Sequence, Union
 from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.engine import RulesEngine
 from d12ball.flow import driver, periods
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.formatting import format_player
 from d12ball.game import (
     AIOpponent,
@@ -179,6 +179,10 @@ class Narration:
     prompt: Optional[PromptKind] = None
     action: Optional[driver.Action] = None
     detail: Optional[object] = None
+    #: The outcomes these lines announce, in the order said
+    #: (`d12ball.flow.result.Headline`) -- the lines themselves are
+    #: unchanged by them.
+    headlines: tuple[Headline, ...] = ()
 
     @property
     def drawn(self) -> bool:
@@ -205,6 +209,7 @@ class Narration:
             "prompt": None if self.prompt is None else self.prompt.value,
             "action": None if self.action is None else self.action.to_dict(),
             "detail": jsonable(self.detail),
+            "headlines": [one.to_dict() for one in self.headlines],
         }
 
 
@@ -240,6 +245,11 @@ class GameResult:
     refusal: Optional[str] = None
     waiting_on: Optional[PendingPrompt] = None
     match: Optional[MatchState] = None
+    #: The outcomes the answer's own lines announce, and the ones the
+    #: carried `narration` does (`d12ball.flow.result.Headline`); a
+    #: group's are on the group.
+    answer_headlines: tuple[Headline, ...] = ()
+    headlines: tuple[Headline, ...] = ()
 
     @property
     def refused(self) -> bool:
@@ -267,6 +277,10 @@ class GameResult:
             "board_changed": self.board_changed,
             "detail": jsonable(self.detail),
             "refusal": self.refusal,
+            "answer_headlines": [
+                one.to_dict() for one in self.answer_headlines
+            ],
+            "headlines": [one.to_dict() for one in self.headlines],
             "waiting_on": (
                 None if self.waiting_on is None else self.waiting_on.to_dict()
             ),
@@ -823,6 +837,8 @@ class GameService:
             kept, carried = own.narration, []
         else:
             kept, carried = own.narration[:split], own.narration[split:]
+        # The headlines go with the lines kept as the answer where any
+        # are, and are carried with the rest where none are.
         return self.run(
             game,
             match,
@@ -830,9 +846,11 @@ class GameService:
                 narration=list(carried),
                 board_changed=own.board_changed,
                 next=own.next,
+                headlines=() if kept else own.headlines,
             ),
             answer=kept,
             detail=answered.detail,
+            answer_headlines=own.headlines if kept else (),
         )
 
     def run_step(
@@ -967,6 +985,7 @@ class GameService:
         answer: Sequence[str] = (),
         detail: Optional[object] = None,
         carry: bool = True,
+        answer_headlines: tuple[Headline, ...] = (),
     ) -> GameResult:
         """
         Run the chain `result` starts until only a frontend can carry
@@ -988,7 +1007,9 @@ class GameService:
             isinstance(result.next, FollowOn)
             and result.next.step in batching.speaks_lines
         ):
-            groups.append(Narration(tuple(result.narration)))
+            groups.append(
+                Narration(tuple(result.narration), headlines=result.headlines),
+            )
             result = StepResult(
                 board_changed=result.board_changed,
                 next=result.next,
@@ -996,6 +1017,7 @@ class GameService:
             )
 
         narration: tuple[str, ...] = ()
+        headlines: tuple[Headline, ...] = ()
         prompt: Optional[PendingPrompt] = None
         ai_answers = 0
         while True:
@@ -1009,7 +1031,12 @@ class GameService:
                 speaks_lines=batching.speaks_lines,
             )
             groups.extend(
-                Narration(group.narration, group.step, arguments=group.arguments)
+                Narration(
+                    group.narration,
+                    group.step,
+                    arguments=group.arguments,
+                    headlines=group.headlines,
+                )
                 for group in run.groups
             )
             board_changed = board_changed or run.board_changed
@@ -1036,6 +1063,7 @@ class GameService:
                         )
                         continue
                 narration = tuple(run.result.narration)
+                headlines = run.result.headlines
                 if isinstance(following, PendingPrompt):
                     prompt = following
                 break
@@ -1043,7 +1071,9 @@ class GameService:
             handling = batching.at_stop(stopped, run.result, following)
             if handling is StopHandling.CARRY:
                 result = StepResult(
-                    narration=list(run.result.narration), next=following,
+                    narration=list(run.result.narration),
+                    next=following,
+                    headlines=run.result.headlines,
                 )
             else:
                 drawn = handling is StopHandling.DRAW
@@ -1055,6 +1085,7 @@ class GameService:
                         new_play=run.result.new_play,
                         board_changed=run.result.board_changed,
                         arguments=stopped.kwargs,
+                        headlines=run.result.headlines,
                     ),
                 )
                 if drawn:
@@ -1074,6 +1105,8 @@ class GameService:
             board_changed=board_changed,
             detail=detail,
             match=match,
+            answer_headlines=answer_headlines,
+            headlines=headlines,
         )
         self.announce(game, result)
         return result
@@ -1132,6 +1165,7 @@ class GameService:
             split = split(answered)
 
         lead: list[str] = []
+        lead_headlines: tuple[Headline, ...] = ()
         asked_by = run.steps[-1] if run.steps else None
         if (
             split == 0
@@ -1141,10 +1175,16 @@ class GameService:
             and groups[-1].step is asked_by
             and not groups[-1].drawn
         ):
-            lead.extend(groups.pop().lines)
+            taken_back = groups.pop()
+            lead.extend(taken_back.lines)
+            lead_headlines = taken_back.headlines
         if reached.narration:
             groups.append(
-                Narration(tuple(reached.narration), prompt=prompt.kind),
+                Narration(
+                    tuple(reached.narration),
+                    prompt=prompt.kind,
+                    headlines=reached.headlines,
+                ),
             )
 
         if split is None:
@@ -1154,7 +1194,10 @@ class GameService:
         if kept:
             groups.append(
                 Narration(
-                    tuple(kept), action=action, detail=answered.detail,
+                    tuple(kept),
+                    action=action,
+                    detail=answered.detail,
+                    headlines=own.headlines,
                 ),
             )
         following = own.next
@@ -1165,4 +1208,5 @@ class GameService:
             board_changed=own.board_changed,
             next=following,
             new_play=own.new_play,
+            headlines=(*lead_headlines, *(() if kept else own.headlines)),
         )

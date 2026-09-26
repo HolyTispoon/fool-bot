@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     # A type only: `d12ball.prompts` imports `FollowOn` from here, so
     # that `owed_step` can name a step, and the two modules cannot
     # both import the other at run time.
+    from d12ball.components import TeamSide
     from d12ball.prompts import PendingPrompt
 
 
@@ -275,6 +276,59 @@ class FollowOn:
         return cls(FollowOnStep[data["step"]], dict(data.get("kwargs", {})))
 
 
+@dataclass(frozen=True)
+class Headline:
+    """
+    The outcome a step's lines announce, said once more on its own
+    (step 3 of docs/web-app-redesign.md, accepted by the author), so a
+    frontend that puts an outcome up large -- the web app's
+    question box -- takes it from the model rather than going looking
+    for a heading in the narration.
+
+    `text` is the heading line the step wrote, without its markdown
+    heading marks (`**Pressure** wins!` of `## **Pressure** wins!`) --
+    or, where the step announces its outcome in a sentence rather than
+    under a heading (who won a loose ball), that sentence --
+    and `under` the line the step wrote beneath it, where there is
+    one -- both built once and used in the narration and here, so the
+    two cannot word it differently. `side` is whose outcome it is --
+    the side whose card won, the side that scored, the side that kept
+    the ball out, the side that took it -- for a frontend to colour it
+    by; it is not a second reading of who won, since the step that
+    decided it says so.
+
+    `working` is a roll's arithmetic written out -- who rolled what,
+    and everything added to it, in the words the dice picture is
+    drawn from -- for a frontend that shows the outcome without that
+    picture large enough to read (the author, on step 3's PR: "the
+    arithmetic needs explanation, it's not enough to just show the
+    math"). It is said here and not in the narration, where the bot
+    already posts the dice picture that says it.
+
+    It changes no line: the narration is exactly what it was, which is
+    why the goldens do not move.
+    """
+
+    text: str
+    side: Optional["TeamSide"] = None
+    under: str = ""
+    working: str = ""
+
+    def to_dict(self) -> dict:
+        """The headline as JSON -- `d12ball.wire`."""
+        return {
+            "text": self.text,
+            "side": None if self.side is None else self.side.value,
+            "under": self.under,
+            "working": self.working,
+        }
+
+
+#: The heading a turnover is announced under, in its line and its
+#: `Headline` alike, wherever one is announced.
+TURNOVER_HEADING = "Turnover!"
+
+
 @dataclass
 class StepResult:
     """
@@ -309,3 +363,9 @@ class StepResult:
     board_changed: bool = False
     next: Optional[Union[PendingPrompt, FollowOn]] = None
     new_play: bool = False
+    #: The outcomes these lines announce, in the order said
+    #: (`Headline`) -- a step says one at most; a run the loop carried
+    #: through several steps says each of theirs, which is how a
+    #: steal reads "Steal wins! · Turnover!". Carried with the lines:
+    #: the loop hands them on wherever it hands the lines on.
+    headlines: tuple[Headline, ...] = ()

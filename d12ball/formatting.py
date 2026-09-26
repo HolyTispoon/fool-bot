@@ -26,6 +26,7 @@ from d12ball.components import (
     PlayerCatalog,
     PlayerDefinition,
     PlayerRole,
+    TeamSide,
     Zone,
 )
 from d12ball import tokens
@@ -649,24 +650,12 @@ def build_full_time_summary(
     """
     home_score = match.scoreboard.home_score
     visiting_score = match.scoreboard.visiting_score
-    score_line = (
-        f"**Final score:** {team_display_name(match.home.team)} "
-        f"{home_score}:{visiting_score} "
-        f"{team_display_name(match.visiting.team)}"
-    )
-
-    shootout = match.shootout_score_line()
-    if shootout:
-        score_line = f"{score_line}\n{shootout}"
+    score_line = final_score_line(match)
 
     if home_score == visiting_score:
-        return (
-            f"{score_line}\n\n"
-            "# It's a tie! The game goes to the extreme shootout."
-        )
+        return f"{score_line}\n\n# {full_time_heading(match)[0]}"
 
     home_won = home_score > visiting_score
-    winning_setup = match.home if home_won else match.visiting
     winning_player_number = (
         game.home_player_number if home_won else game.visiting_player_number
     )
@@ -674,9 +663,37 @@ def build_full_time_summary(
 
     return (
         f"{score_line}\n\n"
-        f"# {team_display_name(winning_setup.team)} wins!\n"
+        f"# {full_time_heading(match)[0]}\n"
         f"Congratulations, {winner}!"
     )
+
+
+def final_score_line(match: MatchState) -> str:
+    """The final score, and the shootout's under it where there was
+    one -- the line the full-time summary opens with."""
+    score_line = (
+        f"**Final score:** {team_display_name(match.home.team)} "
+        f"{match.scoreboard.home_score}:{match.scoreboard.visiting_score} "
+        f"{team_display_name(match.visiting.team)}"
+    )
+    shootout = match.shootout_score_line()
+    if shootout:
+        score_line = f"{score_line}\n{shootout}"
+    return score_line
+
+
+def full_time_heading(match: MatchState) -> tuple[str, Optional[TeamSide]]:
+    """
+    The heading `build_full_time_summary` announces the result under,
+    and whose it is -- the winner, or nobody while the score is level.
+    One wording, for the summary and the `Headline` beside it.
+    """
+    home_score = match.scoreboard.home_score
+    visiting_score = match.scoreboard.visiting_score
+    if home_score == visiting_score:
+        return "It's a tie! The game goes to the extreme shootout.", None
+    side = TeamSide.HOME if home_score > visiting_score else TeamSide.VISITING
+    return f"{team_display_name(match.setup_for_side(side).team)} wins!", side
 
 
 def contestant_detail(

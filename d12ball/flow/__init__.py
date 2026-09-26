@@ -12,6 +12,6 @@ and what has not yet.
 grouped the way `cogs/d12ball/` groups the code they came from.
 """
 
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 
-__all__ = ["FollowOn", "FollowOnStep", "StepResult"]
+__all__ = ["FollowOn", "FollowOnStep", "Headline", "StepResult"]

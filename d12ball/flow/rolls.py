@@ -44,7 +44,7 @@ is a rule rather than an accident:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 from d12ball.components import (
@@ -61,7 +61,13 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.wire import jsonable
 from d12ball.flow import injuries
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import (
+    TURNOVER_HEADING,
+    FollowOn,
+    FollowOnStep,
+    Headline,
+    StepResult,
+)
 from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
     contest_noun,
@@ -140,6 +146,49 @@ class ContestDice:
                 for player_id, ignite in self.ignites
             ],
         }
+
+
+def roll_working(
+    sides: list[tuple[str, int, list[str], int]],
+    verdict: str,
+) -> str:
+    """
+    A roll's arithmetic written out, for a `Headline`: each side as
+    who rolled, the face, everything added to it and the total, then
+    how the two totals are read against each other.
+
+    `sides` is `(who, roll, added, total)`, and `added` is the lines
+    the dice picture is drawn with -- "Offensive skill +4", "+3
+    Midfielder ability", "+1 ball speed modifier" -- so the words and
+    the picture cannot say different things.
+    """
+    written = " ".join(
+        f"{who} rolled **{roll}**"
+        + "".join(f", {line}" for line in added)
+        + f" = **{total}**."
+        for who, roll, added, total in sides
+    )
+    return f"{written} {verdict}"
+
+
+def contest_working(
+    engine: RulesEngine,
+    match: MatchState,
+    players: tuple[PlayerDefinition, ...],
+    contestants: list[Contestant],
+    verdict: str,
+) -> str:
+    """`roll_working` over a contest whose sides are each one player,
+    named on the first of their detail lines (`contestant_detail`)."""
+    return roll_working(
+        [
+            (engine.format_player_label(match, player), roll, detail[1:], total)
+            for player, (roll, _, detail, total, _, _) in zip(
+                players, contestants,
+            )
+        ],
+        verdict,
+    )
 
 
 def _with_extras(
@@ -569,9 +618,18 @@ def skill_test_step(
         exhausted_participants,
         {"kind": "maneuver_effect", "winner_key": winner_key},
     )
-    result.narration.insert(
-        0, f"## **{winner_name}** wins the skill test!{volatile_note}",
-    )
+    wins = f"**{winner_name}** wins the skill test!"
+    result.narration.insert(0, f"## {wins}{volatile_note}")
+    high, low = sorted((offense_total, defense_total), reverse=True)
+    result.headlines = (Headline(
+        wins,
+        match.ball.possession if outcome == "offense"
+        else match.defending_side(),
+        working=contest_working(
+            engine, match, (offense_player, defense_player), contestants,
+            f"**{high}** beats **{low}**.",
+        ),
+    ), *result.headlines)
     result.board_changed = True
     return dice, result
 
@@ -737,12 +795,13 @@ def settle_loose_ball_winner(
     defense_player: PlayerDefinition,
     offense_total: int,
     defense_total: int,
-) -> tuple[str, list[PlayerDefinition], int, bool]:
+) -> tuple[str, list[PlayerDefinition], int, bool, tuple[Headline, ...]]:
     """
     Give the ball to whoever won the contest and word the result: the
-    announcement, who owes an injury test, and the two things the run
-    back behind it needs -- both read off the match before this clears
-    them.
+    announcement, who owes an injury test, the two things the run back
+    behind it needs -- both read off the match before this clears
+    them -- and the announcement's `Headline`s: the turnover where
+    there was one, and who won, each worded once for both.
     """
     outcome = "offense" if offense_total > defense_total else "defense"
     winner_side = (
@@ -788,27 +847,32 @@ def settle_loose_ball_winner(
     match.loose_ball_offense_player = None
     match.loose_ball_defense_player = None
 
-    turnover_line = "# Turnover!\n\n" if turnover_occurred else ""
+    turnover_line = (
+        f"# {TURNOVER_HEADING}\n\n" if turnover_occurred else ""
+    )
     winner_bracket = engine.format_player_label(match, winner_player)
     if is_high_pass:
-        outcome_line = (
-            f"{winner_bracket} wins possession off the high pass! "
-            f"{winner_mention} has possession."
+        wins = (
+            f"{winner_bracket} wins possession off the high pass!"
             if turnover_occurred
             else f"{winner_bracket} keeps possession after the high "
-            f"pass! {winner_mention} has possession."
+            "pass!"
         )
     else:
-        outcome_line = (
-            f"{winner_bracket} wins the {noun}! {winner_mention} "
-            "has possession."
-        )
+        wins = f"{winner_bracket} wins the {noun}!"
+    has_it = f"{winner_mention} has possession."
+    headlines = (
+        *((Headline(TURNOVER_HEADING, winner_side),) if turnover_occurred
+          else ()),
+        Headline(wins, winner_side, has_it),
+    )
 
     return (
-        f"{turnover_line}{outcome_line}",
+        f"{turnover_line}{wins} {has_it}",
         exhausted_participants,
         distance_moved,
         turnover_occurred,
+        headlines,
     )
 
 
@@ -916,9 +980,19 @@ def loose_ball_test_step(
         exhausted_participants,
         distance_moved,
         turnover_occurred,
+        headlines,
     ) = settle_loose_ball_winner(
         engine, game, match, offense_player, defense_player,
         offense_total, defense_total,
+    )
+    high, low = sorted((offense_total, defense_total), reverse=True)
+    working = contest_working(
+        engine, match, (offense_player, defense_player), contestants,
+        f"**{high}** beats **{low}**.",
+    )
+    headlines = tuple(
+        replace(one, working=working) if one.under else one
+        for one in headlines
     )
     result = injuries.begin_injury_tests(
         engine,
@@ -931,6 +1005,7 @@ def loose_ball_test_step(
         ),
     )
     result.narration.insert(0, announcement)
+    result.headlines = (*headlines, *result.headlines)
     result.board_changed = True
     return dice, result
 
@@ -1098,10 +1173,12 @@ def settle_score_attempt(
     attacking_setup,
     defending_setup,
     scored: bool,
-) -> tuple[str, int]:
+) -> tuple[str, int, Headline]:
     """
     Credit the goal or the miss, restart play from it, and word the
-    verdict -- with the clock cost the run back behind it is owed.
+    verdict -- with the clock cost the run back behind it is owed, and
+    the verdict's `Headline`: the side that scored, or the side that
+    kept it out.
     """
     if scored:
         # Logged as it is credited, and stamped with the clock as it
@@ -1109,21 +1186,26 @@ def settle_score_attempt(
         # the minute the ball crossed the line rather than the minute
         # play restarted.
         match.award_goal(shooter.player_id)
-        verdict = (
-            "# GOAL!\n"
+        under = (
             f"{engine.format_player_label(match, shooter)} scores "
             f"for {format_team_side_label(attacking_setup)} on "
-            f"**{format_goal_time(match.goals[-1])}**!\n"
+            f"**{format_goal_time(match.goals[-1])}**!"
+        )
+        headline = Headline("GOAL!", attacking_setup.side, under)
+        verdict = (
+            f"# {headline.text}\n{under}\n"
             f"{team_display_name(match.home.team)} "
             f"{match.scoreboard.home_score}:"
             f"{match.scoreboard.visiting_score} "
             f"{team_display_name(match.visiting.team)}"
         )
     else:
-        verdict = (
-            "# Missed attempt!\n"
-            f"{format_team_side_label(defending_setup)} manages to avoid a goal! (phew)"
+        under = (
+            f"{format_team_side_label(defending_setup)} manages to "
+            "avoid a goal! (phew)"
         )
+        headline = Headline("Missed attempt!", defending_setup.side, under)
+        verdict = f"# {headline.text}\n{under}"
 
     # A plain score attempt costs no exhaustion and owes no injury
     # check -- only a shot taken off a set-up gains a token, taken
@@ -1173,7 +1255,7 @@ def settle_score_attempt(
     match.pending_run_back_distance = space_minutes
     match.pending_run_back_turnover = True
 
-    return verdict, space_minutes
+    return verdict, space_minutes, headline
 
 
 def score_attempt_step(
@@ -1238,13 +1320,49 @@ def score_attempt_step(
         attack_total=attack_total,
         defense_total=defense_total,
     )
-    verdict, space_minutes = settle_score_attempt(
+    verdict, space_minutes, headline = settle_score_attempt(
         engine, game, match, shooter, attacking_setup, defending_setup,
         scored,
+    )
+    (attack_roll, _, attack_detail, _, _, _), (
+        defense_roll, _, defense_detail, _, _, _,
+    ) = contestants
+    headline = replace(
+        headline,
+        working=roll_working(
+            [
+                (
+                    engine.format_player_label(match, shooter),
+                    attack_roll,
+                    attack_detail[1:],
+                    attack_total,
+                ),
+                (
+                    format_team_side_label(defending_setup),
+                    defense_roll,
+                    # The picture's running total of the defenders is
+                    # not an addend; written out, it would read as one.
+                    [
+                        line for line in defense_detail
+                        if line != "Total defensive skill "
+                        f"+{defense_total - defense_roll}"
+                    ],
+                    defense_total,
+                ),
+            ],
+            (
+                f"**{attack_total}** is equal to or higher than "
+                f"**{defense_total}**: the attack scores."
+                if scored else
+                f"**{attack_total}** is lower than **{defense_total}**: "
+                "the attack does not score."
+            ),
+        ),
     )
 
     return dice, StepResult(
         narration=[verdict],
+        headlines=(headline,),
         board_changed=True,
         next=FollowOn(
             FollowOnStep.BEGIN_RUN_BACK,
@@ -1405,9 +1523,10 @@ def settle_shootout_test(
     match: MatchState,
     totals: dict,
     players: dict,
-) -> tuple[Optional[TeamSide], str]:
+) -> tuple[Optional[TeamSide], str, str]:
     """
-    Award the goal, if there is one, and word the result.
+    Award the goal, if there is one, and word the result -- with the
+    heading it is announced under, for its `Headline`.
 
     **A shootout skill test is not re-rolled.** A tie scores for nobody
     and the shootout moves on, which is the one place the game settles
@@ -1417,19 +1536,18 @@ def settle_shootout_test(
     visiting_total = totals[TeamSide.VISITING]
 
     if home_total == visiting_total:
-        return None, (
-            f"# A tie, {home_total}-{visiting_total}! Neither "
-            "side scores."
+        heading = (
+            f"A tie, {home_total}-{visiting_total}! Neither side scores."
         )
+        return None, f"# {heading}", heading
 
     winner = (
         TeamSide.HOME if home_total > visiting_total else TeamSide.VISITING
     )
     scorer = players[winner]
     match.award_shootout_goal(winner, scorer.player_id)
-    return winner, (
-        "# " f"{engine.format_player_label(match, scorer)} " "scores!"
-    )
+    heading = f"{engine.format_player_label(match, scorer)} scores!"
+    return winner, f"# {heading}", heading
 
 
 def shootout_test_step(
@@ -1452,7 +1570,13 @@ def shootout_test_step(
     """
     dice, totals, players, ignites = score_shootout_test(engine, game, match)
     match.consume_overdrive()
-    winner, outcome = settle_shootout_test(engine, match, totals, players)
+    winner, outcome, heading = settle_shootout_test(
+        engine, match, totals, players,
+    )
+    home_total, visiting_total = (
+        totals[TeamSide.HOME], totals[TeamSide.VISITING],
+    )
+    high, low = sorted((home_total, visiting_total), reverse=True)
 
     # The goal and the retirement go out in one save, so a restart
     # between this roll and what follows it can never re-roll a test
@@ -1460,11 +1584,24 @@ def shootout_test_step(
     # `MatchState.finish_shootout_test`.
     match.finish_shootout_test()
 
+    running = f"Extreme shootout: {engine.shootout_running_score(match)}"
     return ContestDice(dice, tuple(ignites)), StepResult(
-        narration=[
-            f"{outcome}\n"
-            f"Extreme shootout: {engine.shootout_running_score(match)}",
-        ],
+        narration=[f"{outcome}\n{running}"],
+        headlines=(
+            Headline(
+                heading,
+                winner,
+                running,
+                contest_working(
+                    engine,
+                    match,
+                    (players[TeamSide.HOME], players[TeamSide.VISITING]),
+                    dice,
+                    f"**{high}** beats **{low}**." if high != low
+                    else f"**{high}** and **{low}** are level.",
+                ),
+            ),
+        ),
         board_changed=winner is not None,
         next=FollowOn(FollowOnStep.CONTINUE_SHOOTOUT),
     )

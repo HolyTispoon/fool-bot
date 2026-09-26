@@ -16,8 +16,9 @@ fact about the game.
 **An entry is kept whole**: its words, the position the run stopped at
 where it stopped (which `board.png?entry=` serves, though no page
 draws it), and its roll's numbers as the wire writes them, which the
-question box draws the dice from. So is the journal's `showing_roll`,
-so the dice a restart finds up are still up after it, and its
+question box draws the dice from. So are the journal's `showing_roll`
+and `showing_outcomes`, so the dice and the headlines a restart finds up
+are still up after it, and its
 `board_version`, so a browser that kept a board under its URL is not
 handed that picture for a different position after a restart.
 
@@ -157,6 +158,13 @@ class Journal:
     #: dice stay up until the next thing happens in the game, by either
     #: coach or the AI (`WebApp._state`'s `roll`).
     showing_roll: Optional[int] = None
+    #: The outcome the question box puts up large: every `Headline`
+    #: of the latest result, in the order said, as the wire writes
+    #: them -- empty once a result has come with none, so they stay up
+    #: until the next thing happens, like the dice. All of them, since
+    #: the author's review of redesign step 3: a steal is "STEAL ·
+    #: TURNOVER", as the canvas has it.
+    showing_outcomes: list = field(default_factory=list)
 
     def add(
         self,
@@ -203,6 +211,15 @@ class Journal:
                 rolled = self.next_id
             self.next_id += 1
         self.showing_roll = rolled
+        self.showing_outcomes = [
+            *written["answer_headlines"],
+            *(
+                headline
+                for group in written["groups"]
+                for headline in group["headlines"]
+            ),
+            *written["headlines"],
+        ]
         if written["board_changed"] or any(
             group["board"] is not None for group in written["groups"]
         ):
@@ -255,6 +272,7 @@ class Journal:
             "next_id": self.next_id,
             "board_version": self.board_version,
             "showing_roll": self.showing_roll,
+            "showing_outcomes": self.showing_outcomes,
             "entries": [entry.saved() for entry in self.entries],
         }
 
@@ -274,6 +292,11 @@ class Journal:
             entry.id if entry is not None and entry.detail is not None
             else None
         )
+        outcomes = data.get("showing_outcomes") or ()
+        journal.showing_outcomes = [
+            outcome for outcome in outcomes
+            if isinstance(outcome, dict) and outcome.get("text")
+        ]
         return journal
 
 

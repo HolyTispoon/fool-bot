@@ -60,7 +60,18 @@ coach reads. So `GameResult` carries:
 - `narration`, what the run was still carrying, which opens the
   prompt;
 - `prompt`, `board_changed` (since the last drawn group), `detail`
-  (a roll's numbers), and `match`, the position after the call.
+  (a roll's numbers), and `match`, the position after the call;
+- since step 3 of docs/web-app-redesign.md (proposed there and
+  accepted by the author): the `Headline`s beside the lines that
+  announce an outcome, every one in the order said --
+  `answer_headlines` for the answer's, `headlines` for the carried
+  narration's, and a group's on `Narration.headlines` -- the heading a
+  step wrote, without its marks, the line under it and whose outcome
+  it is, and for a roll the arithmetic written out (`working`). It
+  changes no line; it is how a frontend that puts an outcome
+  up large takes it from the model instead of hunting the narration
+  for a heading ([web-app.md](web-app.md), "The outcome banner"). The
+  bot does not read it.
 
 The prompt carries its `options` -- what may be chosen, a dataclass
 per kind, attached by `driver.advance` to the step's own `next` and

@@ -59,10 +59,12 @@ from d12ball.engine import (
     SETUP_STAGES,
 )
 from d12ball.flow import gates
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.formatting import (
     build_full_time_summary,
     build_goal_log,
+    final_score_line,
+    full_time_heading,
     format_player,
     format_team_side_label,
 )
@@ -168,14 +170,28 @@ def end_period(
         # substitution a side comes first.
         result = begin_full_time_coaching(engine, game, match)
         result.narration.insert(0, whistle)
+        result.headlines = (*result.headlines, full_time_headline(match))
         result.board_changed = True
         return result
 
     game.finish_game()
     return StepResult(
         narration=[f"{whistle}\n\n{goal_log(engine, match)}"],
+        headlines=(full_time_headline(match),),
         next=FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
     )
+
+
+def full_time_headline(match: MatchState) -> Headline:
+    """The result's `Headline`: `build_full_time_summary`'s heading,
+    whose it is, and the final score it opens with."""
+    text, side = full_time_heading(match)
+    return Headline(text, side, final_score_line(match))
+
+
+#: The heading halftime is announced under, in its line and its
+#: `Headline` alike.
+HALFTIME_HEADING = "Halftime"
 
 
 def goal_log(engine: RulesEngine, match: MatchState) -> str:
@@ -366,9 +382,10 @@ def begin_halftime(
     result = advance_halftime_stage(engine, game, match)
     result.narration.insert(
         0,
-        f"# Halftime\nEvery fielded player clears 1 "
+        f"# {HALFTIME_HEADING}\nEvery fielded player clears 1 "
         f"exhaustion:\n{body}",
     )
+    result.headlines = (Headline(HALFTIME_HEADING), *result.headlines)
     result.board_changed = True
     return result
 
@@ -957,5 +974,6 @@ def continue_shootout(
             f"\n\n{build_full_time_summary(game, match)}"
             f"\n\n{goal_log(engine, match)}"
         ],
+        headlines=(full_time_headline(match),),
         next=FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
     )

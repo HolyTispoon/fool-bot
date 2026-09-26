@@ -85,7 +85,7 @@ from d12ball.flow import (
     turnovers,
     windows,
 )
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.game import D12BallGame, Formation
 from d12ball.prompts import (
     CHOICES,
@@ -336,6 +336,9 @@ class NarrationGroup:
     #: off the group rather than off the match, because the match has
     #: moved on by the time the group is rendered.
     arguments: Mapping[str, Any] = field(default_factory=dict)
+    #: The outcomes these lines announce, in the order said
+    #: (`StepResult.headlines`).
+    headlines: tuple[Headline, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -458,6 +461,10 @@ def advance(
 
     groups: list[NarrationGroup] = []
     narration = list(result.narration)
+    # The headlines travel with the lines: a step's lines carried into
+    # the next step's lead-in carry its headlines too, in the order
+    # they were said.
+    headlines = result.headlines
     board_changed = result.board_changed
     last = result
     following = result.next
@@ -476,6 +483,7 @@ def advance(
         )
         steps.append(step.step)
         narration = list(ran.narration)
+        headlines = (*headlines, *ran.headlines)
         board_changed = board_changed or ran.board_changed
         last = ran
         following = ran.next
@@ -494,9 +502,12 @@ def advance(
             # rides on `AUTO_RESOLVE_CHALLENGER`'s -- and an empty
             # group is how it learns the step ran.
             groups.append(
-                NarrationGroup(tuple(narration), step.step, step.kwargs),
+                NarrationGroup(
+                    tuple(narration), step.step, step.kwargs, headlines,
+                ),
             )
             narration = []
+            headlines = ()
 
     if isinstance(following, PendingPrompt):
         # The step's own prompt, with what it offers built off the
@@ -513,6 +524,7 @@ def advance(
             ),
             next=following,
             new_play=last.new_play if stopped_on is not None else False,
+            headlines=headlines,
         ),
         steps=tuple(steps),
         groups=tuple(groups),

@@ -32,7 +32,7 @@ import unittest
 
 from d12ball.components import TeamSide
 from d12ball.engine import IgnitedRoll
-from d12ball.flow import driver
+from d12ball.flow import Headline, driver
 from d12ball.flow.arrivals import MindPullRoll
 from d12ball.flow.effects import OwnGoalRoll
 from d12ball.flow.injuries import InjuryRoll
@@ -271,6 +271,22 @@ class ResultWireTests(unittest.TestCase):
         self.assertEqual(written["arguments"], {"side": "home"})
         self.assertEqual(written["prompt"], "player_action")
         self.assertEqual(written["action"]["choice"], "maneuver")
+
+    def test_a_headline_says_its_words_and_whose_it_is(self) -> None:
+        headline = Headline("GOAL!", TeamSide.HOME, "{team:orange} scores.")
+        group = Narration(
+            ("# GOAL!\n{team:orange} scores.",), headlines=(headline,),
+        )
+
+        self.assertEqual(
+            group.to_dict()["headlines"],
+            [{
+                "text": "GOAL!", "side": "home",
+                "under": "{team:orange} scores.", "working": "",
+            }],
+        )
+        self.assertEqual(Narration(("Said.",)).to_dict()["headlines"], [])
+        json.dumps(GameResult(headlines=(headline,)).to_dict())
 
     def test_every_field_of_a_group_is_on_the_wire(self) -> None:
         written = Narration(()).to_dict()
