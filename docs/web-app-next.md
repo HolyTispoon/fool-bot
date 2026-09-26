@@ -156,7 +156,7 @@ that existed; steps 1 to 3 are one sprint.
 | ~~2~~ | ~~Rooms, seats and observers~~ -- landed; what it settled is in `docs/design/web-app.md`, "Rooms, seats and who holds them" (and the AI in either seat, `ai_seats`) | medium |
 | ~~3~~ | ~~The room's table: setup, kickoff, the rematch~~ -- landed; what it settled is in `docs/design/web-app.md`, "The room's table" | large |
 | ~~4~~ | ~~Chat in the room~~ -- landed; what it settled is in `docs/design/web-app.md`, "Chat" | small |
-| 5 | Run it for real, and write down how | a day, little code |
+| ~~5~~ | ~~Run it for real, and write down how~~ -- the how landed: `docs/design/collaboration.md`, "Running the web app", and `scripts/run_web_app.ps1`; the playtest below is the author's to run | a day, little code |
 | 6 | The web games' numbers on Discord, cut by source | small |
 | 7 | The dice on the page | medium |
 | 8 | The prompt's pictures | medium |
@@ -659,6 +659,15 @@ never rendered as the model's voice. PR against the template.
 
 ### 5. Run it for real, and write down how
 
+**Landed** (the written half): how the web app is run on the `K:\`
+host -- the `.env`, why the secret and HTTPS, the restart script beside
+the updater, and each tunnel in outline -- is in
+[design/collaboration.md](design/collaboration.md), "Running the web
+app", with `scripts/run_web_app.ps1`. None of it has been run on that
+host or through a tunnel yet, and which tunnel is still the author's
+choice; the playtest checklist at the end of this section is the part
+only people can do.
+
 **Why here.** After step 4 a web game can be played end to end and
 the people in the room can talk, and
 nothing below is worth building until two people have played one
@@ -713,6 +722,48 @@ beside the bot. Little or no Python.
 4. PR against the template; docs and one script, say so under
    Testing.
 ```
+
+#### Playtest checklist
+
+Three people, three devices, one room, on the public HTTPS name. For
+each line note two things: **whether all three pages agreed** -- whose
+turn it was, what had just happened, the score and the clock -- and
+**what each coach wished the page had shown** at that moment. Where a
+page disagreed, note which one and reload it before going on: a page
+that is right after a reload is a push that went missing, one that is
+still wrong is a reading that differs.
+
+1. **The room.** Coach 1 opens a room from the front door and shares
+   its link (check it starts with `FOOLBOT_WEB_URL`).
+2. **The second arrival.** Coach 2 opens the link on their own device
+   and is seated as Coach 2 without asking for it.
+3. **The observer.** A third person opens the same link and arrives
+   as an observer: sees the table and the board, is offered no
+   control that answers the match.
+4. **Setup through kickoff.** Settings, teams, the coin, home or
+   visiting, the deal -- every question asked of the right coach, and
+   the observer seeing each answer land.
+5. **A goal.** Both coaches' and the observer's scores and logs agree
+   on who scored and the kickoff that follows.
+6. **A loose ball.** Where it landed, who is asked, and the contest,
+   on all three pages.
+7. **A coaching window** (a time out, or halftime): the window offered
+   to the coach it belongs to, and the other page showing it waiting.
+8. **Changing devices mid-game.** One coach leaves the seat on a
+   laptop and takes it again on a phone, mid-turn if possible; the
+   prompt they were owed is waiting for them on the phone.
+9. **A kick.** That coach closes the phone without leaving the seat.
+   The observer is made admin and kicks the seat; the kicked coach
+   comes back and takes it again. Nobody else's page lost its place.
+10. **A restart.** Once, mid-game, run `run_web_app.ps1` again: every
+    page comes back to the same position and nobody is signed out
+    (this is what `FOOLBOT_WEB_SECRET` is for).
+11. **The end and a rematch.** Full time (or the shootout), the final
+    board, and the rematch opening a room of its own -- note who lands
+    in it and in which seat.
+
+Line 10 is not in the step's prompt; it is the one check of the
+secret, and it costs a minute.
 
 ### 6. The web games' numbers on Discord, cut by source
 

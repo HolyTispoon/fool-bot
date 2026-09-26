@@ -51,6 +51,11 @@ interrupted. Four environment variables, all of the frontend's:
 A failure to bind raises out of `main`: nothing else is running in the
 process to carry on with.
 
+How it is run on the live host -- the `.env`, why the secret must be
+set and the page served only over HTTPS, `scripts/run_web_app.ps1`
+beside the bot's updater, and the tunnel -- is
+[collaboration.md](collaboration.md), "Running the web app".
+
 ## What it may not do
 
 **Two fences, one each way**, both in `tests/test_web_purity.py` and
