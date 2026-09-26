@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
-from typing import Mapping, Optional
+from typing import Any, Mapping, Optional
 
 from PIL import Image, ImageDraw
 
@@ -234,29 +234,45 @@ def _png(image: Image.Image, size: str) -> bytes:
 
 def _contest(engine, game, match, dice) -> BytesIO:
     """A skill test, a loose ball, a score attempt, a shootout test:
-    what `SkillTestView.roll` and its three siblings post."""
-    return render_contest_dice(dice.contestants)
+    what `SkillTestView.roll` and its three siblings post. A side off
+    the wire is the renderer's tuple again, its team the model's own."""
+    return render_contest_dice(
+        [
+            (
+                side["roll"],
+                Team(side["team"]),
+                list(side["detail"]),
+                side["total"],
+                side["overdriven"],
+                [tuple(one) for one in side["merge"]],
+            )
+            for side in dice["contestants"]
+        ],
+    )
 
 
 def _own_goal(engine, game, match, roll) -> BytesIO:
     """What `D12Ball.own_goal_roll_file` posts: the two dice in the
     colour of the side that rolled them."""
-    team = match.team_for_player(roll.player_id)
+    team = match.team_for_player(roll["player_id"])
     return render_own_goal_dice(
-        list(roll.rolls), TEAM_COLORS[team], roll.safe, bool(roll.overdrive),
+        list(roll["rolls"]),
+        TEAM_COLORS[team],
+        roll["safe"],
+        bool(roll["overdrive"]),
     )
 
 
 def _mind_pull(engine, game, match, roll) -> BytesIO:
     """What `D12Ball.post_mind_pull_die` posts."""
-    team = match.team_for_player(roll.player_id)
+    team = match.team_for_player(roll["player_id"])
     return render_mind_pull_die(
-        roll.roll,
+        roll["roll"],
         TEAM_COLORS[team],
         team_display_name(team),
-        engine.get_player_definition(roll.player_id).name,
-        roll.pulled,
-        roll.target_label,
+        engine.get_player_definition(roll["player_id"]).name,
+        roll["pulled"],
+        roll["target_label"],
     )
 
 
@@ -264,17 +280,18 @@ def _injury(engine, game, match, roll) -> BytesIO:
     """What `D12Ball.post_injury_die` posts, a Cyborg's "damaged" and
     all -- the word is the model's, the mark it comes with is not
     drawn on the die."""
-    team = match.team_for_player(roll.player_id)
-    injured_word, _ = injured_word_and_emoji(engine, game, roll.player_id)
+    player_id = roll["player_id"]
+    team = match.team_for_player(player_id)
+    injured_word, _ = injured_word_and_emoji(engine, game, player_id)
     return render_injury_test_die(
-        roll.roll,
+        roll["roll"],
         TEAM_COLORS[team],
         team_display_name(team),
-        engine.get_player_definition(roll.player_id).name,
-        roll.safe,
-        bool(roll.overdrive),
+        engine.get_player_definition(player_id).name,
+        roll["safe"],
+        bool(roll["overdrive"]),
         injured_word,
-        engine.injury_test_name(game, roll.player_id).upper(),
+        engine.injury_test_name(game, player_id).upper(),
     )
 
 
@@ -300,15 +317,16 @@ DICE = {
 LINES_BEFORE_DICE = {"own_goal": 1}
 
 
-def dice_shape(detail: object) -> Optional[str]:
+def dice_shape(detail: Optional[Mapping[str, Any]]) -> Optional[str]:
     """
     The shape of a roll the page has a picture for, or `None` -- for no
     roll at all, and for anything else a result's `detail` carries.
+    `detail` is the roll as the wire writes it (`to_dict`), which is
+    what the journal keeps and so what every picture is drawn from.
     """
-    to_dict = getattr(detail, "to_dict", None)
-    if to_dict is None:
+    if not isinstance(detail, Mapping):
         return None
-    shape = to_dict().get("shape")
+    shape = detail.get("shape")
     return shape if shape in DICE else None
 
 
@@ -316,11 +334,11 @@ def dice_png(
     engine: RulesEngine,
     game: D12BallGame,
     match: MatchState,
-    detail: object,
+    detail: Optional[Mapping[str, Any]],
 ) -> Optional[bytes]:
     """
     One roll, drawn by the same `render.py` function the Discord view
-    for that roll calls, off the same numbers. `match` is only asked
+    for that roll calls, off the same numbers -- its wire dict. `match` is only asked
     which side a player is on, which does not change during a game.
     """
     shape = dice_shape(detail)

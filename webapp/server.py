@@ -30,7 +30,7 @@ refuses again on its own reading. It is how a hand-made request
 cannot reach an adapter with an argument no prompt ever offered.
 
 **What was said reaches a page that did not ask for it.** A game is
-played from two pages: the journal below is fed by every result the
+played from two pages: the journal (`webapp/journal.py`) is fed by every result the
 service produces, through `GameService.listeners`, so a coach watching
 a web page sees the other coach's turn as it happens.
 """
@@ -40,11 +40,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import time
-from collections import deque
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Mapping, Optional
 
 from aiohttp import web
 
@@ -95,17 +92,12 @@ from webapp.present import (
     render_text,
 )
 from webapp.chat import WEB_CHAT_FILE, Chats, MessageRefused, clean_text
+from webapp.journal import WEB_JOURNAL_FILE, Journal, Journals
 from webapp.rooms import WEB_ROOMS_FILE, Rooms
 
 LOGGER = logging.getLogger(__name__)
 
 STATIC = Path(__file__).resolve().parent / "static"
-
-#: How much of a game's narration a page can scroll back through. A
-#: browser that has been open all game holds the rest; this is what a
-#: page that has just been opened is given, and what a coach coming
-#: back to one catches up on.
-JOURNAL_LENGTH = 200
 
 #: How many rendered boards are kept in hand. A board is ~200KB and a
 #: page asks for one per entry it draws, so a few are worth keeping
@@ -146,155 +138,6 @@ HOST_VARIABLE = "FOOLBOT_WEB_HOST"
 DEFAULT_PORT = 8080
 
 
-@dataclass
-class Entry:
-    """One thing that was said, as the journal keeps it."""
-
-    id: int
-    lines: tuple[str, ...]
-    #: The position the frontend stopped to draw, where it did.
-    board: Optional[dict] = None
-    new_play: bool = False
-    #: When it was said, as a Discord message carries its time.
-    at: float = field(default_factory=time.time)
-    #: The roll these lines are the answer to, where there was one --
-    #: the result's `detail` (the answer's own) or the group's (an AI's
-    #: answer) -- for `detail/{entry}.png`.
-    detail: Optional[object] = None
-
-    def to_dict(self, game: D12BallGame) -> dict:
-        """The entry as the page's log reads it: its words, and the
-        dice where it was a roll. The log draws no board -- the live
-        board is beside it -- so the position an entry stopped at is
-        kept for `board.png?entry=` and not sent. The dice are drawn:
-        they are the roll, where the board is only where it happened.
-        `dice` is the roll's shape where the page has a picture for
-        it, and `dice_after` how many of the lines are read above
-        it."""
-        shape = pictures.dice_shape(self.detail)
-        return {
-            "id": self.id,
-            "lines": [render_text(game, line) for line in self.lines],
-            "board": self.board is not None,
-            "new_play": self.new_play,
-            "at": self.at,
-            "dice": shape,
-            "dice_after": pictures.LINES_BEFORE_DICE.get(shape, 0),
-        }
-
-
-@dataclass
-class Journal:
-    """
-    What has been said in one game since this process started.
-
-    It is the web frontend's own memory and nothing to do with the
-    save: `MatchState.events` is the game's record of what happened
-    (and nothing may read it to decide a rule), where this is the run
-    of messages a page shows, in the order a coach reads them. A
-    restart empties it, and the board and the prompt are still right,
-    which is the difference between a transcript and a position.
-    """
-
-    entries: deque = field(
-        default_factory=lambda: deque(maxlen=JOURNAL_LENGTH),
-    )
-    next_id: int = 1
-    #: Bumped whenever anything a board draws has moved, so a page's
-    #: `<img>` asks for the new one rather than the browser's copy.
-    board_version: int = 1
-    #: The entry whose dice the question box shows: the last roll of
-    #: the latest result, or `None` once a result has come after it
-    #: with no roll in it, whether or not it said anything -- a roll's
-    #: dice stay up until the next thing happens in the game, by either
-    #: coach or the AI (`WebApp._state`'s `roll`).
-    showing_roll: Optional[int] = None
-
-    def add(
-        self,
-        result: GameResult,
-        challenge: Optional[Callable[[str], str]] = None,
-    ) -> None:
-        """One result, as the page reads it: the answer's own lines,
-        then every group the run closed. `challenge` words the matchup
-        a walk-in names, from the challenger's id: on Discord the walk-in
-        is followed by the challenge image, and the log draws no
-        picture, so it says what the picture shows."""
-        rolled = None
-        for lines, group, detail in self._blocks(result):
-            if (
-                group is not None
-                and group.step is FollowOnStep.AUTO_RESOLVE_CHALLENGER
-                and challenge is not None
-                and "challenger_id" in group.arguments
-            ):
-                lines = [
-                    *filter(None, lines),
-                    challenge(group.arguments["challenger_id"]),
-                ]
-            if not lines and group is None and detail is None:
-                continue
-            self.entries.append(
-                Entry(
-                    self.next_id,
-                    tuple(lines),
-                    board=None if group is None else group.board,
-                    new_play=False if group is None else group.new_play,
-                    detail=detail,
-                ),
-            )
-            if pictures.dice_shape(detail) is not None:
-                rolled = self.next_id
-            self.next_id += 1
-        self.showing_roll = rolled
-        if result.board_changed or any(
-            group.board is not None for group in result.groups
-        ):
-            self.board_version += 1
-
-    def _blocks(self, result: GameResult):
-        """
-        What one result is worth reading, in the order it was said:
-        the answer's own lines, every group the run closed, and what
-        it was still carrying when it stopped.
-
-        **The last of those opens the prompt**, and the Discord cog
-        posts it *with* the prompt as one message (`render_prompt`'s
-        `lead_in`). A page has no reason to: the ask is a panel of its
-        own under the board, so the lines go where every other line
-        goes and the panel says what is being asked. Batching is the
-        frontend's (principle 8), and this is the frontend.
-
-        **A roll rides on the lines that answer it**: the answer's own
-        (the result's `detail`), or an AI's answer inside the run (its
-        group's). It is kept even with no line beside it, since the
-        dice are what happened.
-        """
-        if result.answer or result.detail is not None:
-            yield list(result.answer), None, result.detail
-        for group in result.groups:
-            yield list(group.lines), group, group.detail
-        if result.narration:
-            yield list(result.narration), None, None
-
-    def since(self, entry_id: int, game: D12BallGame) -> list[dict]:
-        return [
-            entry.to_dict(game)
-            for entry in self.entries
-            if entry.id > entry_id
-        ]
-
-    def board_for(self, entry_id: int) -> Optional[dict]:
-        entry = self.entry(entry_id)
-        return None if entry is None else entry.board
-
-    def entry(self, entry_id: int) -> Optional[Entry]:
-        for entry in self.entries:
-            if entry.id == entry_id:
-                return entry
-        return None
-
-
 class WebApp:
     """
     The aiohttp application, and the state one process keeps for it.
@@ -312,6 +155,7 @@ class WebApp:
         *,
         rooms: Optional[Rooms] = None,
         chats: Optional[Chats] = None,
+        journals: Optional[Journals] = None,
         host: str = "0.0.0.0",
         port: int = 8080,
     ) -> None:
@@ -324,9 +168,11 @@ class WebApp:
         #: What the people in each room have said -- the web app's own
         #: file too (`webapp/chat.py`), in memory for a test.
         self.chats = chats if chats is not None else Chats()
+        #: What has been said in each game -- the web app's own file
+        #: too (`webapp/journal.py`), in memory for a test.
+        self.journals = journals if journals is not None else Journals()
         self.host = host
         self.port = port
-        self.journals: dict[str, Journal] = {}
         self._boards: dict[tuple, bytes] = {}
         self._cards: dict[tuple, bytes] = {}
         self._dice: dict[tuple, bytes] = {}
@@ -399,8 +245,10 @@ class WebApp:
         """One result, into that game's journal. It must not raise:
         this runs inside somebody's click."""
         try:
-            self.journal(game.game_id).add(
-                result, challenge=lambda challenger_id: self._challenge_line(
+            self.journals.add(
+                game.game_id,
+                result,
+                challenge=lambda challenger_id: self._challenge_line(
                     game, challenger_id,
                 ),
             )
@@ -436,11 +284,7 @@ class WebApp:
         )
 
     def journal(self, game_id: str) -> Journal:
-        journal = self.journals.get(game_id)
-        if journal is None:
-            journal = Journal()
-            self.journals[game_id] = journal
-        return journal
+        return self.journals.journal(game_id)
 
     async def start(self) -> None:
         self._runner = web.AppRunner(self.app)
@@ -663,7 +507,7 @@ class WebApp:
                 self.service.discard_game(game.game_id)
             except ValueError as refusal:
                 raise web.HTTPConflict(text=str(refusal))
-            self.journals.pop(game.game_id, None)
+            self.journals.forget(game.game_id)
             self.chats.forget(game.game_id)
         return web.json_response({"url": "/"})
 
@@ -1968,6 +1812,7 @@ async def start_web_app(
     host: Optional[str] = None,
     rooms: Optional[Rooms] = None,
     chats: Optional[Chats] = None,
+    journals: Optional[Journals] = None,
 ) -> WebApp:
     """Start the server over `service` on this process's event loop."""
     app = WebApp(
@@ -1975,6 +1820,7 @@ async def start_web_app(
         locks,
         rooms=rooms,
         chats=chats,
+        journals=journals,
         host=host or os.environ.get(HOST_VARIABLE, "0.0.0.0"),
         port=port if port is not None else configured_port(),
     )
@@ -2034,16 +1880,21 @@ async def serve(
     games_file: Path = WEB_GAMES_FILE,
     rooms_file: Path = WEB_ROOMS_FILE,
     chat_file: Path = WEB_CHAT_FILE,
+    journal_file: Path = WEB_JOURNAL_FILE,
 ) -> None:
-    """Run the web app over `games_file` (its rooms over `rooms_file`
-    and its chat over `chat_file`) until cancelled."""
+    """Run the web app over `games_file` (its rooms over `rooms_file`,
+    its chat over `chat_file` and its journal over `journal_file`)
+    until cancelled."""
     service = build_service(games_file)
     LOGGER.info(
         "Loaded %d web game(s) from %s.", len(service.games), games_file,
     )
     rooms = Rooms.load(rooms_file, service.games)
     chats = Chats.load(chat_file, service.games)
-    app = await start_web_app(service, GameLocks(), rooms=rooms, chats=chats)
+    journals = Journals.load(journal_file, service.games)
+    app = await start_web_app(
+        service, GameLocks(), rooms=rooms, chats=chats, journals=journals,
+    )
     try:
         await asyncio.Event().wait()
     finally:

@@ -113,8 +113,8 @@ worksheet is what checks it; correct this section from what that finds.
   moves both; one `pip install` serves both.
 - **Separate: every file in `data/` it writes** --
   `d12ball_web_games.json`, `d12ball_web_rooms.json`,
-  `d12ball_web_chat.json`, and its own `webapp.pid` and
-  `webapp.*.log` -- against the bot's `d12ball_games.json`,
+  `d12ball_web_chat.json`, `d12ball_web_journal.json`, and its own
+  `webapp.pid` and `webapp.*.log` -- against the bot's `d12ball_games.json`,
   `d12ball_hubs.json`, `bot_state.json` and `foolbot-main.*`. Neither
   process opens the other's files, which is what lets two processes
   share one folder safely (each store rewrites its whole file on every

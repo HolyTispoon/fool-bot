@@ -189,6 +189,19 @@ class DetailWireTests(unittest.TestCase):
             with self.subTest(type(detail).__name__):
                 json.dumps(detail.to_dict())
 
+    def test_a_mind_pull_carries_the_band_its_die_names(self) -> None:
+        # The web app draws the die off the wire, so the band is worded
+        # once, by the model, rather than again at the other end.
+        self.assertIsNone(
+            MindPullRoll("p1", 8, True, None).to_dict()["target_label"],
+        )
+        self.assertEqual(
+            MindPullRoll("p1", 8, True, None, minimum=8).to_dict()[
+                "target_label"
+            ],
+            "pulls on 8+",
+        )
+
 
 class ResultWireTests(unittest.TestCase):
     """What one call to the service looks like over a wire."""

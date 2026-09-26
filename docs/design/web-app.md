@@ -421,9 +421,34 @@ the simplest thing that is always right is a re-read.
 **The journal is the frontend's memory and nothing to do with the
 save.** `MatchState.events` is the game's record of what happened,
 and nothing in the game may read it to decide a rule; the journal is
-the run of messages a page shows, in the order a coach reads them. A
-restart empties it and the board and the prompt are still right,
-which is the difference between a transcript and a position.
+the run of messages a page shows, in the order a coach reads them.
+Losing it would leave the board and the prompt right, which is the
+difference between a transcript and a position.
+
+**It survives a restart anyway** (step 10 of
+[../web-app-next.md](../web-app-next.md)): `webapp/journal.py` writes
+every game's journal to `data/d12ball_web_journal.json`
+(`WEB_JOURNAL_FILE`) on every `add` and reads it at start, so a room's
+transcript is as good after a restart as its link already was. It is
+still not the save, and for the same reasons the rooms and the chat
+are not: a transcript is not a fact about the game and no rule reads
+it, so it is never on the record, and the save format is the contract.
+What the file keeps of an entry is the whole of it -- its words with
+the model's tokens as written (rendered at the door on the way out, as
+ever), the position the run stopped at (which `board.png?entry=`
+serves, though no page draws it), and its roll's numbers as the wire
+writes them, which the question box draws the dice from. The journal's
+`showing_roll` is kept too, so the dice a restart finds up are still
+up after it, and its `board_version`, because a browser keeps a board
+by its URL and a version that started again at 1 would hand it an old
+picture for a new position. It is bounded as in memory
+(`JOURNAL_LENGTH`), an entry's id keeps counting past the bound, a
+game the games file has lost is dropped on load, a closed room's
+journal goes with it, and a write that fails is logged and swallowed
+the way `save_games` swallows its own -- a lost transcript line is a
+nuisance, a failed click over it is worse. Like every store here the
+file is rewritten whole on each write; a snapshot is a few KB early in
+a game and some 20KB at the end, so a room is at most a few MB.
 
 It is fed by `GameService.listeners`, which hands every result the
 service produces to whoever is watching, after the save. **A game is
@@ -679,9 +704,13 @@ where they are read. The log keeps the roll's words.
   to, so it is read above them and the verdict under them
   (`LINES_BEFORE_DICE`). The question box draws no lines beside the
   dice, so this now reads only for the wire's `dice_after`.
-- **The URL carries the entry's time** as well as its id. Entries are
-  numbered from 1 again after a restart, and a picture is served to be
-  kept; the time keeps a browser from showing a roll it cached before.
+- **The URL carries the entry's time** as well as its id. A picture is
+  served to be kept, and an entry id is only as lasting as the journal
+  file it is in; the time keeps a browser from showing a roll it
+  cached before under an id handed out again. The dice are drawn from
+  the roll's wire dict, the shape the journal keeps and reads back
+  after a restart, which is why the Mind Pull's `to_dict` carries its
+  `target_label`: the die's band is worded once, by the model.
 
 ### The prompt's pictures
 
@@ -795,5 +824,3 @@ same `format_scope_heading` the bot's is.
   the page they go **in the question box beside the dice they came
   with**, and down with them; never in the log (2026-09-26, the
   author: no picture in the log).
-- **It keeps its journal in memory**, so a restart is a page with a
-  board, a prompt and no history.
