@@ -24,6 +24,7 @@ async, like everything under `d12ball/`.
 
 from __future__ import annotations
 
+import io
 import re
 from dataclasses import dataclass, field
 from datetime import date
@@ -553,7 +554,7 @@ def styles() -> dict[str, ParagraphStyle]:
 class BookTemplate(BaseDocTemplate):
     """One frame a page, a running footer, and the contents entries."""
 
-    def __init__(self, path: str, book_title: str, pagesize, **kwargs) -> None:
+    def __init__(self, path, book_title: str, pagesize, **kwargs) -> None:
         super().__init__(path, pagesize=pagesize, leftMargin=MARGIN, rightMargin=MARGIN,
                          topMargin=MARGIN, bottomMargin=MARGIN, title=book_title, **kwargs)
         self.book_title = book_title
@@ -766,8 +767,12 @@ def quote_flowable(markup: str, style: dict, available_width: float) -> Table:
     return table
 
 
-def build_book(book: Book, out_path: Path, paper: str = DEFAULT_PAPER) -> Path:
-    """Set the book and write the PDF. Returns the path written."""
+def book_bytes(book: Book, paper: str = DEFAULT_PAPER) -> bytes:
+    """
+    Set the book into memory and return the PDF's bytes. `build_book`
+    writes these; the web app serves them without a file in `print/`
+    (docs/design/rulebooks.md).
+    """
     source = book.source
     if source is None:
         raise FileNotFoundError(
@@ -777,10 +782,18 @@ def build_book(book: Book, out_path: Path, paper: str = DEFAULT_PAPER) -> Path:
     pagesize = PAPERS[paper]
     available_width = pagesize[0] - 2 * MARGIN
     story = build_story(book, blocks, available_width)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    document = BookTemplate(str(out_path), book.title, pagesize)
+    buffer = io.BytesIO()
+    document = BookTemplate(buffer, book.title, pagesize)
     if book.contents:
         document.multiBuild(story)
     else:
         document.build(story)
+    return buffer.getvalue()
+
+
+def build_book(book: Book, out_path: Path, paper: str = DEFAULT_PAPER) -> Path:
+    """Set the book and write the PDF. Returns the path written."""
+    data = book_bytes(book, paper)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(data)
     return out_path

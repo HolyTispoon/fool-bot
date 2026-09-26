@@ -276,6 +276,21 @@ def render_species_card_set(
 REFERENCE_GAP = 24
 
 
+def render_species_reference_face(
+    abilities: dict[str, dict[str, str]],
+    pair: tuple[str, str],
+) -> Image.Image:
+    """
+    One of the `REFERENCE_FACES` as a screen shows it: the printed face
+    in `DARK_REFERENCE`, its corners cut out. The web page shows the
+    two apart, since it has no attachment tiles to crop them; Discord
+    posts them side by side (`render_species_reference`).
+    """
+    return screen_cutout(
+        render_species_card(abilities, pair, palette=DARK_REFERENCE)
+    )
+
+
 def render_species_reference(
     abilities: dict[str, dict[str, str]],
 ) -> Image.Image:
@@ -292,9 +307,7 @@ def render_species_reference(
     only ever posted, never printed.
     """
     faces = [
-        screen_cutout(
-            render_species_card(abilities, pair, palette=DARK_REFERENCE)
-        )
+        render_species_reference_face(abilities, pair)
         for pair in REFERENCE_FACES
     ]
     sheet = Image.new(

@@ -952,6 +952,7 @@ function drawPrompt(state) {
     : state.you.is_coach ? "Waiting on the other side" : "Now";
   el("ask").innerHTML = state.prompt.ask;
   drawPicture(state.prompt);
+  drawReference(state.prompt);
   drawControls(state.prompt);
 }
 
@@ -986,6 +987,16 @@ function drawPicture(prompt) {
   if (image.getAttribute("src") !== prompt.picture) image.src = prompt.picture;
   image.alt = prompt.kind === "score_attempt" ? "The shot" : "The challenge";
   image.hidden = false;
+}
+
+/* The maneuver pick's link to the hexagon, at the tier the server
+   named (`maneuver_reference_tier`): never a picture inline, since the
+   question box already carries the challenge over the hand. */
+function drawReference(prompt) {
+  const link = el("reference-link");
+  el("reference").hidden = !prompt.reference;
+  if (prompt.reference) link.href = prompt.reference;
+  else link.removeAttribute("href");
 }
 
 function drawControls(prompt) {
@@ -1375,6 +1386,10 @@ el("copy-link").addEventListener("click", async () => {
   }
 });
 el("dismiss").addEventListener("click", () => { el("refusal").hidden = true; });
+/* The reading room: what this game plays, as the state names it. */
+el("open-aids").addEventListener("click", () => {
+  if (current) window.D12Aids.open(current.aids);
+});
 el("viewer-close").addEventListener("click", () => el("viewer").close());
 el("viewer").addEventListener("click", (event) => {
   if (event.target === el("viewer") || event.target === el("viewer-body")) el("viewer").close();

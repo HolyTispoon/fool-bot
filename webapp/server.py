@@ -76,12 +76,13 @@ from d12ball.game import (
 )
 from d12ball.dice_brief import maneuver_challenge_brief
 from d12ball.flow import FollowOnStep
-from d12ball.prompts import Action, PendingPrompt, pending
+from d12ball.prompts import Action, PendingPrompt, PromptKind, pending
+from d12ball.rules_doc import LIVING_RULES_PATH, RulesDocument, load_rules_document
 from d12ball.render import TEAM_COLORS, render_match_image
 from gamelocks import GameLocks
 from gamesaves.d12ball.service import Batching, GameResult, GameService
 from gamesaves.d12ball.storage import WEB_GAMES_FILE, load_games, save_games
-from webapp import identity, keys, pictures
+from webapp import aids, identity, keys, pictures
 from webapp.identity import Coach
 from webapp.board import board_layout, period_name
 from webapp.present import (
@@ -176,6 +177,10 @@ class WebApp:
         self._boards: dict[tuple, bytes] = {}
         self._cards: dict[tuple, bytes] = {}
         self._dice: dict[tuple, bytes] = {}
+        #: Each book as last set, against its source's mtime, and one
+        #: lock a book so two pages asking at once set it once.
+        self._books: dict[str, tuple[int, bytes]] = {}
+        self._book_locks: dict[str, asyncio.Lock] = {}
         self._runner: Optional[web.AppRunner] = None
         self.app = web.Application()
         self.app.add_routes(
@@ -220,6 +225,17 @@ class WebApp:
                     self.maneuver_card,
                 ),
                 web.get("/api/game/{game_id}/goal/{side}.png", self.goal),
+                # The reading room (step 11): the rules, the books and
+                # the player aids, read-only and open to anybody.
+                web.get("/rules", self.rules_page),
+                web.get("/api/rules", self.rules_search),
+                web.get("/rules/figures/{name}", self.rules_figure),
+                web.get("/books/{name}.pdf", self.book),
+                web.get("/api/aids", self.all_aids),
+                web.get("/aids/maneuvers/{tier}.png", self.maneuver_aid),
+                web.get("/aids/roles.png", self.roles_aid),
+                web.get("/aids/species/{number}.png", self.species_aid),
+                web.get("/aids/team/{team}/{card_id}.png", self.team_aid),
                 web.get("/emoji/{name}", self.emoji),
                 web.get("/species/{name}", self.species),
                 web.get("/fonts/{name}", self.font),
@@ -1200,6 +1216,138 @@ class WebApp:
             headers={"Cache-Control": f"public, max-age={CARD_MAX_AGE}"},
         )
 
+    # -- The reading room ----------------------------------------------
+
+    async def _rules(self) -> RulesDocument:
+        """
+        The living rules, as `rules_doc` reads them for the bot's two
+        commands. The file ships with the checkout, so a deployment
+        without it is broken and worth an ERROR, as `load_rules` says
+        on Discord; the page is answered 503.
+        """
+        try:
+            return await asyncio.to_thread(load_rules_document)
+        except OSError as error:
+            LOGGER.error(
+                "Could not read the living rules at %s: %s",
+                LIVING_RULES_PATH,
+                error,
+            )
+            raise web.HTTPServiceUnavailable(
+                text="The rules document is missing from this checkout.",
+            )
+
+    async def rules_page(self, request: web.Request) -> web.Response:
+        """The Charter's text, one section per `RulesSection`, each
+        headed with its Charter number (`webapp/aids.py`)."""
+        document = await self._rules()
+        page = await asyncio.to_thread(aids.cached_rules_page, document)
+        return web.Response(text=aids.rules_html(page), content_type="text/html")
+
+    async def rules_search(self, request: web.Request) -> web.Response:
+        """`RulesDocument.search`, the answer `/d12ball rules_search`
+        offers, for the reading room's search box."""
+        document = await self._rules()
+        query = request.query.get("q", "")[:200]
+        found = await asyncio.to_thread(aids.search, document, query)
+        return web.json_response({"query": query, "sections": found})
+
+    async def rules_figure(self, request: web.Request) -> web.Response:
+        """A figure the rules show, from the books' own folder."""
+        path = aids.figure_path(request.match_info["name"])
+        if path is None:
+            raise web.HTTPNotFound()
+        return web.FileResponse(
+            path, headers={"Cache-Control": f"public, max-age={CARD_MAX_AGE}"},
+        )
+
+    async def book(self, request: web.Request) -> web.Response:
+        """
+        One rulebook as a PDF, set in this process and held in memory
+        against its source's mtime -- never written to `print/`. Served
+        inline, so a browser opens it in a tab.
+        """
+        name = request.match_info["name"]
+        if name not in aids.BOOK_NAMES:
+            raise web.HTTPNotFound()
+        stamp = aids.book_stamp(name)
+        if stamp is None:
+            LOGGER.error("The %s has no source in this checkout.", name)
+            raise web.HTTPServiceUnavailable(
+                text="That book's source is missing from this checkout.",
+            )
+        lock = self._book_locks.setdefault(name, asyncio.Lock())
+        async with lock:
+            held = self._books.get(name)
+            if held is None or held[0] != stamp:
+                pdf = await asyncio.to_thread(aids.book_pdf, name)
+                held = (stamp, pdf)
+                self._books[name] = held
+        return web.Response(
+            body=held[1],
+            content_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{name}.pdf"',
+                "Cache-Control": "no-cache",
+            },
+        )
+
+    async def all_aids(self, request: web.Request) -> web.Response:
+        """The front door's reading room: every aid, with no game to
+        ask which."""
+        return web.json_response(aids.everything(self.engine))
+
+    async def maneuver_aid(self, request: web.Request) -> web.Response:
+        tier = request.match_info["tier"]
+        if not aids.valid_tier(tier):
+            raise web.HTTPNotFound()
+        return await self._card(
+            ("aid", "maneuvers", tier),
+            lambda: aids.maneuver_reference_png(
+                self.engine.maneuver_catalog, tier,
+            ),
+        )
+
+    async def roles_aid(self, request: web.Request) -> web.Response:
+        return await self._card(
+            ("aid", "roles"),
+            lambda: aids.role_reference_png(self.engine.player_catalog),
+        )
+
+    async def species_aid(self, request: web.Request) -> web.Response:
+        number = _int(request.match_info["number"])
+        if number is None or not 1 <= number <= aids.SPECIES_FACE_COUNT:
+            raise web.HTTPNotFound()
+        return await self._card(
+            ("aid", "species", number),
+            lambda: aids.species_face_png(number),
+        )
+
+    async def team_aid(self, request: web.Request) -> web.Response:
+        """One of a team's printed cards, in the face asked for: the
+        front, or the advanced face (`player_cards.render_player_card_back`)."""
+        try:
+            team = Team(request.match_info["team"])
+        except ValueError:
+            raise web.HTTPNotFound()
+        catalog = self.engine.player_catalog
+        card_id = request.match_info["card_id"]
+        roster = catalog.teams.get(team)
+        if roster is None or card_id not in {
+            player.player_id for player in roster.players
+        }:
+            raise web.HTTPNotFound()
+        face = request.query.get("face", aids.FACE_FRONT)
+        if face not in aids.FACE_WORDS:
+            raise web.HTTPBadRequest(text="A face is front or advanced.")
+        advanced = face == aids.FACE_ADVANCED
+        return await self._card(
+            ("aid", "team", team, card_id, advanced),
+            lambda: pictures.player_card_png(
+                catalog, card_id, team, advanced=advanced, size="full",
+            ),
+        )
+
     async def emoji(self, request: web.Request) -> web.Response:
         """The bot's emoji, as it uploads them."""
         path = pictures.emoji_path(request.match_info["name"])
@@ -1337,6 +1485,10 @@ class WebApp:
                 else None
             ),
             "rematch": self._rematch_of(game),
+            # The reading room's aids for this game, each chosen by the
+            # model (`webapp/aids.py`), with the three answers beside
+            # them so the page decides none.
+            "aids": aids.for_game(self.engine, game, viewer.player_number),
             # The dice just rolled, drawn in the question box until the
             # next thing happens ("The dice", docs/design/web-app.md);
             # the log keeps the words.
@@ -1382,6 +1534,14 @@ class WebApp:
                 ),
                 "controls": controls,
                 "yours": bool(controls),
+                # The maneuver pick links to the hexagon at the game's
+                # tier, as the Discord prompt's reference button posts
+                # it: a link, never a picture inline.
+                "reference": (
+                    f"/aids/maneuvers/"
+                    f"{self.engine.maneuver_reference_tier(game)}.png"
+                    if prompt.kind is PromptKind.MANEUVER_ACTION else None
+                ),
             },
         }
 

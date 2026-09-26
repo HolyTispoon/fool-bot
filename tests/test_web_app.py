@@ -1680,10 +1680,14 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                     }
                     self.assertNotIn(theirs, sides)
                     # Nothing of the prompt's options is sent as it
-                    # stands: only this viewer's controls are.
+                    # stands: only this viewer's controls are, and
+                    # the hexagon's link, which is the game's tier.
                     self.assertEqual(
                         set(state["prompt"]),
-                        {"kind", "ask", "picture", "controls", "yours"},
+                        {
+                            "kind", "ask", "picture", "controls", "yours",
+                            "reference",
+                        },
                     )
                     self.assertNotIn("match", state)
                     if value is not untouched:
