@@ -28,6 +28,7 @@ import base64
 import binascii
 import hashlib
 import hmac
+import ipaddress
 import json
 import secrets
 from dataclasses import dataclass
@@ -151,14 +152,47 @@ def coach_for(request: web.Request) -> Optional[Coach]:
     return decode(request.cookies.get(COOKIE))
 
 
+def _from_this_machine(request: web.Request) -> bool:
+    """Whether the request came from a process on this machine -- the
+    tunnel's own client, when there is one."""
+    try:
+        address = ipaddress.ip_address(request.remote or "")
+    except ValueError:
+        return False
+    mapped = getattr(address, "ipv4_mapped", None)
+    return (mapped or address).is_loopback
+
+
+def came_over_https(request: web.Request) -> bool:
+    """
+    Whether the browser reached us over HTTPS.
+
+    Behind a tunnel it did, but the last hop -- the tunnel's client on
+    this machine to this process -- is plain HTTP, so `request.secure`
+    says no. The tunnel says what the browser used in
+    `X-Forwarded-Proto`, and that header is believed **only from this
+    machine**: anybody who can reach the port directly can write it,
+    and with `FOOLBOT_WEB_HOST=127.0.0.1` nobody but the tunnel can.
+    It only ever upgrades; a request that is HTTPS already stays so.
+    See docs/design/collaboration.md, "Only ever over HTTPS".
+    """
+    if request.secure:
+        return True
+    if not _from_this_machine(request):
+        return False
+    forwarded = request.headers.get("X-Forwarded-Proto", "")
+    # A chain of proxies writes a list; the first is the browser's.
+    return forwarded.split(",")[0].strip().lower() == "https"
+
+
 def set_cookie(
     response: web.StreamResponse, request: web.Request, coach: Coach,
 ) -> None:
     """
-    Hand `coach` to the browser. `Secure` when the request came over
-    HTTPS -- behind a tunnel that is the forwarded scheme, which
-    aiohttp reads only when told to, so a plain `http://` checkout on
-    a laptop still gets a cookie it can send back.
+    Hand `coach` to the browser. `Secure` when the browser came over
+    HTTPS (`came_over_https`, which reads the tunnel's forwarded
+    scheme), so a plain `http://` checkout on a laptop still gets a
+    cookie it can send back.
     """
     response.set_cookie(
         COOKIE,
@@ -166,7 +200,7 @@ def set_cookie(
         max_age=COOKIE_MAX_AGE,
         httponly=True,
         samesite="Lax",
-        secure=request.secure,
+        secure=came_over_https(request),
         path="/",
     )
 

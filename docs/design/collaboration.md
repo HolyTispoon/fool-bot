@@ -90,7 +90,7 @@ its own file"; this is how it is run on the live host.
 **Nothing in this section has been run on the `K:\` host or through a
 tunnel.** It was written from the code and `update_main_bot.ps1` in a
 Linux sandbox with no PowerShell; `scripts/run_web_app.ps1` has not
-been executed anywhere, and the tunnel steps are each provider's
+been executed anywhere, and the Cloudflare steps are Cloudflare's
 documented shape rather than something tried. Step 5's playtest in the
 worksheet is what checks it; correct this section from what that finds.
 
@@ -123,7 +123,7 @@ the reference for each.
 ```ini
 FOOLBOT_WEB_PORT=8080
 FOOLBOT_WEB_HOST=127.0.0.1
-FOOLBOT_WEB_URL=https://<the tunnel's public name>
+FOOLBOT_WEB_URL=https://play.d12ball.com
 FOOLBOT_WEB_SECRET=<64 random hex characters>
 ```
 
@@ -145,8 +145,8 @@ FOOLBOT_WEB_SECRET=<64 random hex characters>
 - **`FOOLBOT_WEB_URL` is the tunnel's public HTTPS name**, with no
   trailing slash. The server cannot learn its own public address from
   behind a tunnel, so every link it hands out (a room's, the rematch's)
-  is built from this. It comes from the tunnel: the hostname chosen or
-  assigned in its setup below. Left at the default, links point at
+  is built from this. It is the public hostname given the tunnel in
+  "Exposing the port" below: `https://play.d12ball.com`. Left at the default, links point at
   `http://localhost:8080`, which works only on the host itself.
 
 ### Only ever over HTTPS
@@ -157,16 +157,22 @@ it, so the page is served only through the tunnel's HTTPS name, never
 by opening the port on the router, and a link is only ever shared
 with the `https://` address.
 
-**A gap the code has today:** the cookie is marked `Secure` only when
-`request.secure` is true (`webapp/identity.py`, `set_cookie`), and
-behind a tunnel the process sees plain HTTP from the tunnel on
-localhost -- aiohttp reads a forwarded scheme only when told to, and
-nothing tells it. So behind a tunnel the cookie goes out without
-`Secure`, and a browser would send it on a plain `http://` request to
-the same name. Until that is settled, turn on the tunnel's own
-HTTP-to-HTTPS redirect where it has one (Cloudflare: "Always Use
-HTTPS"; Funnel and ngrok serve HTTPS only), and never share an
-`http://` link.
+**The cookie is `Secure`, and that rests on the tunnel's word.** A
+`Secure` cookie is one a browser never sends over plain HTTP, so even
+a mistyped `http://` address cannot leak it. But behind the tunnel the
+process sees only the last hop -- `cloudflared` on this machine to the
+web app, plain HTTP -- so `request.secure` is false for every visitor.
+The tunnel says what the browser really used in `X-Forwarded-Proto`,
+and `identity.came_over_https` believes it **only from this machine**
+(a loopback address): anybody who can reach the port directly could
+write that header, and with `FOOLBOT_WEB_HOST=127.0.0.1` nothing but
+the tunnel can. That is why the host line in the `.env` matters twice.
+Chosen over marking the cookie `Secure` whenever `FOOLBOT_WEB_URL`
+starts with `https://` (the author, 2026-09-26), because it answers
+per request what the browser actually did. Cloudflare's "Always Use
+HTTPS" is still worth turning on (below): it sends a person who typed
+`http://` to the page they meant, where before it was also the only
+thing between that request and the cookie.
 
 ### Keeping it running
 
@@ -203,33 +209,52 @@ for the web app, and nothing else:
   Google Drive letter is mounted per user and is not there before
   somebody logs in.
 
-### Exposing the port
+### Exposing the port: Cloudflare Tunnel on `d12ball.com`
 
-The port is never forwarded on the router. A tunnel client on the
-same machine dials out to a provider, which gives it a public HTTPS
-name and forwards to `http://127.0.0.1:<FOOLBOT_WEB_PORT>`. Which
-provider is the author's choice (worksheet step 5, "Which tunnel");
-the three the worksheet names, in outline -- each provider's own docs
-are the reference, and none of this has been tried:
+The tunnel is Cloudflare's, on the author's own `d12ball.com` (the
+author, 2026-09-26). The port is never forwarded on the router:
+`cloudflared` on the PC dials out to Cloudflare, Cloudflare answers
+`https://play.d12ball.com` with its own certificate, and passes each
+visit down that connection to `http://127.0.0.1:8080`. A subdomain
+rather than `d12ball.com` itself, so the bare domain stays free for
+whatever the game's public face turns out to be.
 
-- **Cloudflare Tunnel** needs a domain on a Cloudflare account.
-  `cloudflared tunnel login`, `cloudflared tunnel create d12ball`,
-  `cloudflared tunnel route dns d12ball <play.example.com>`, a config
-  whose ingress sends `<play.example.com>` to
-  `http://localhost:8080`, then `cloudflared service install` so it
-  runs as a Windows service. `FOOLBOT_WEB_URL=https://<play.example.com>`.
-- **Tailscale Funnel** needs the machine on a tailnet with Funnel
-  allowed in its policy. `tailscale funnel --bg 8080` serves
-  `https://<machine>.<tailnet>.ts.net` to the world and persists
-  across restarts of the Tailscale service.
-  `FOOLBOT_WEB_URL=https://<machine>.<tailnet>.ts.net`.
-- **ngrok** needs an account and its (free) static domain, since a
-  name that changes every run would break every shared room link.
-  `ngrok http --url=<name>.ngrok-free.app 8080`, kept running the way
-  the web app is (ngrok can install itself as a Windows service).
-  `FOOLBOT_WEB_URL=https://<name>.ngrok-free.app`.
+Cloudflare's dashboard moves its menus around; the names below are
+the shape, not a promise.
 
-Whichever it is: set `FOOLBOT_WEB_URL` to the name it gives, restart
-the web app (the variable is read per link, but the `.env` only at
-startup), open that address from a phone off the home Wi-Fi, and
-check the room link the page hands out starts with it.
+1. **Check the domain is on Cloudflare.** In the dashboard,
+   `d12ball.com` is listed as a site and shows *Active* (bought
+   through Cloudflare, it is; bought elsewhere, its nameservers have
+   to be pointed at Cloudflare's first).
+2. **Install `cloudflared`** on the PC, from an administrator
+   PowerShell: `winget install --id Cloudflare.cloudflared`.
+3. **Create the tunnel in the dashboard:** Zero Trust -> Networks ->
+   Tunnels -> *Create a tunnel* -> *Cloudflared*, named `d12ball`.
+   Pick Windows; it shows a `cloudflared.exe service install <token>`
+   command. Run that in an administrator PowerShell: it installs the
+   tunnel as a Windows service, which starts with the machine (it
+   needs nothing from `K:\`, so unlike the web app it can start before
+   anybody logs in). **The token is a credential** -- whoever has it
+   can run your tunnel -- so it goes nowhere else, and never in the
+   repository.
+4. **Give it the public hostname:** on the same tunnel, *Public
+   Hostname* -> subdomain `play`, domain `d12ball.com`, service type
+   `HTTP`, URL `127.0.0.1:8080`. Written as `127.0.0.1`, not
+   `localhost`: Windows can answer `localhost` with the IPv6 `::1`,
+   and the web app bound to `127.0.0.1` would refuse it. Cloudflare
+   creates the DNS record itself.
+5. **Turn on "Always Use HTTPS"** for `d12ball.com` (SSL/TLS -> Edge
+   Certificates).
+6. **Set `FOOLBOT_WEB_URL=https://play.d12ball.com`** in `.env` and
+   restart the web app with `run_web_app.ps1` (the variable is read per
+   link, but the `.env` only at startup).
+7. **Check it from outside**: open `https://play.d12ball.com` on a
+   phone off the home Wi-Fi, give a name, open a room, and check the
+   room link the page hands out starts with `https://play.d12ball.com`.
+8. **Check the cookie is `Secure`**, which is the one thing that
+   proves Cloudflare sends `X-Forwarded-Proto` the way
+   `came_over_https` expects: in Chrome on a computer, F12 ->
+   Application -> Cookies -> `https://play.d12ball.com` ->
+   `d12ball_coach` has a tick under *Secure*. No tick means the header
+   did not arrive and the cookie is back to riding on the redirect
+   alone -- say so on the worksheet rather than working around it.

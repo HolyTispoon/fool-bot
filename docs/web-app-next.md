@@ -661,12 +661,13 @@ never rendered as the model's voice. PR against the template.
 
 **Landed** (the written half): how the web app is run on the `K:\`
 host -- the `.env`, why the secret and HTTPS, the restart script beside
-the updater, and each tunnel in outline -- is in
+the updater, and the Cloudflare Tunnel on `play.d12ball.com` -- is in
 [design/collaboration.md](design/collaboration.md), "Running the web
-app", with `scripts/run_web_app.ps1`. None of it has been run on that
-host or through a tunnel yet, and which tunnel is still the author's
-choice; the playtest checklist at the end of this section is the part
-only people can do.
+app", with `scripts/run_web_app.ps1`; the cookie is `Secure` behind
+the tunnel on its forwarded scheme (`identity.came_over_https`). None
+of it has been run on that host or through the tunnel yet; the
+playtest checklist at the end of this section is the part only people
+can do.
 
 **Why here.** After step 4 a web game can be played end to end and
 the people in the room can talk, and
@@ -686,7 +687,9 @@ the tunnel's job.
 **Which tunnel.** Hosting, not code, and not verified from here. A
 Cloudflare Tunnel, Tailscale Funnel or ngrok each gives a Windows host
 a public HTTPS name without opening a port on the router; pick the
-one whose account the author already has.
+one whose account the author already has. **Taken, 2026-09-26: a
+Cloudflare Tunnel, on the author's `d12ball.com`**, at
+`play.d12ball.com`.
 
 **Prompt.**
 
