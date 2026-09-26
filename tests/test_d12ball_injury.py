@@ -367,7 +367,7 @@ class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
         class Stop(Exception):
             pass
 
-        def capture(rows):
+        def capture(rows, ignitions=()):
             entries.append(rows)
             raise Stop
 
@@ -438,7 +438,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
         class Stop(Exception):
             pass
 
-        def capture(rows):
+        def capture(rows, ignitions=()):
             entries.append(rows)
             raise Stop
 

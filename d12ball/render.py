@@ -4,7 +4,7 @@ from io import BytesIO
 import re
 from math import cos, hypot, pi, radians, sin
 from pathlib import Path
-from typing import Mapping, NamedTuple, Optional
+from typing import Mapping, NamedTuple, Optional, Sequence
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -2619,6 +2619,7 @@ def draw_skill_test_die(
 
 def render_skill_test_dice(
     dice: list[tuple[int, str, str, list[str], int, bool, list[tuple[str, int]]]],
+    ignitions: Sequence[tuple[int, "IgnitionDie"]] = (),
 ) -> BytesIO:
     """
     Render one or more d12 results side by side, each annotated with the
@@ -2635,6 +2636,11 @@ def render_skill_test_dice(
     total is the final modified result, drawn large underneath so the
     number that actually decided the roll doesn't require reading the
     accompanying message.
+
+    `ignitions` is `(index of the die, render_volatile_die's
+    arguments)` for every side that ignited, each drawn as a panel
+    beside that die (`beside_ignitions`). With none -- almost every
+    roll -- the image is exactly what it always was.
     """
     layout = SkillTestRowLayout.measure(dice)
     canvas = Image.new("RGBA", (layout.width, layout.height), "#111820")
@@ -2648,6 +2654,8 @@ def render_skill_test_dice(
             value, color, label, detail_lines, total, overdriven, merge,
         )
 
+    if ignitions:
+        canvas = beside_ignitions(canvas, layout, list(ignitions))
     return png_bytes(canvas)
 
 
@@ -3180,8 +3188,9 @@ def render_volatile_die(
     """
     The extra die an ignite rolled, as a panel of its own: the second
     d12, the Fire Demon who set it off, and which way it went.
-    `render_dice_with_ignitions` stacks it under the roll it came out
-    of, which is where a coach sees it.
+    A contest draws it smaller, beside the die it came out of
+    (`draw_ignition_panel`); this full panel is what
+    `render_dice_with_ignitions` stacks under any other roll.
 
     **It is a separate die because it is a separate roll.** Every other
     modifier in the game is arithmetic a coach can check against the
@@ -3289,42 +3298,199 @@ def render_volatile_die(
     return png_bytes(canvas)
 
 
-# The space between a roll's own dice and the ignition die under them,
-# with a rule drawn across its middle, so the two halves read as one
-# picture in two parts rather than as two images butted together.
+# One ignite, as `render_volatile_die`'s arguments in order.
+IgnitionDie = tuple[int, int, str, str, str, bool, int, Optional[str]]
+
+# The rule between a roll's own dice and an ignition drawn with them,
+# so the two read as one picture in two parts rather than as two
+# images butted together.
+IGNITION_RULE_COLOR = "#2c3642"
+IGNITION_RULE_WIDTH = 2
+IGNITION_RULE_INSET = 22
+# The gap `render_dice_with_ignitions` stacks a full panel under a roll
+# with, for an image that is not a row of contest dice.
 IGNITION_STACK_GAP = 18
-IGNITION_STACK_RULE_COLOR = "#2c3642"
-IGNITION_STACK_RULE_WIDTH = 2
-IGNITION_STACK_RULE_INSET = 22
+
+# The ignition panel beside a contest's dice: the second die, a small
+# portrait beside it, and the words at the size of the dice's own
+# lines or under it -- about 40% of the area the full panel stacked
+# under the roll cost (the author, 2026-09-26).
+IGNITION_PANEL_WIDTH = 290
+IGNITION_PANEL_PADDING = 16
+# Smaller than the roll's own dice, since it is the second die of one
+# of them, and the flame scaled to the rows above the label line rather
+# than grown past them: the panel is the roll's height, not its own.
+IGNITION_DIE_RADIUS = 30
+IGNITION_HALO_SCALE = 1.8
+IGNITION_RING_GAP = 6
+IGNITION_PORTRAIT_SIZE = 84
+FONT_IGNITION_TITLE = load_font(17, bold=True)
+FONT_IGNITION_RULE = load_font(14)
+IGNITION_RULE_LINE_HEIGHT = 17
+
+
+def ignition_rule_lines(
+    draw: ImageDraw.ImageDraw, explainer: Optional[str],
+) -> list[str]:
+    """
+    The rule an ignition panel is captioned with, wrapped to it **at
+    its clauses** -- after the dash and the comma -- so it breaks where
+    it is read in parts rather than leaving "on 1-4" alone on a line.
+    A clause too wide for the panel is word-wrapped inside itself.
+    """
+    width = IGNITION_PANEL_WIDTH - 2 * IGNITION_PANEL_PADDING
+    text = explainer or volatile_explainer_label()
+    clauses = re.split(r"(?<=[—,]) ", text)
+    lines: list[str] = []
+    for clause in clauses:
+        candidate = f"{lines[-1]} {clause}" if lines else clause
+        if lines and draw.textlength(candidate, font=FONT_IGNITION_RULE) <= width:
+            lines[-1] = candidate
+        else:
+            lines.extend(wrap_text(draw, clause, FONT_IGNITION_RULE, width))
+    return lines
+
+
+def draw_ignition_panel(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    left: int,
+    layout: "SkillTestRowLayout",
+    verdict_y: float,
+    ignition: IgnitionDie,
+) -> None:
+    """
+    One ignite, drawn on the rows of the contest it came out of: the
+    second die level with the roll's own dice and a small portrait
+    beside it, "VOLATILE · ignited on 6" on the team-name line, the
+    rule where the modifiers are listed, and BLAZE or BURN on the
+    totals line -- so the ignite and the total it went into read
+    across. The same die, flame and verdict `render_volatile_die`
+    draws, at the roll's scale rather than its own.
+    """
+    (
+        second, face, color, _team_label, player_name,
+        blaze, modifier, explainer,
+    ) = ignition
+    right = left + IGNITION_PANEL_WIDTH
+    center_y = layout.center_y
+    die_x = left + IGNITION_PANEL_PADDING + IGNITION_DIE_RADIUS * IGNITION_HALO_SCALE
+    draw_species_die_aura(
+        canvas, draw, die_x, center_y, IGNITION_DIE_RADIUS,
+        SPECIES_FIRE_DEMON, VOLATILE_AURA_COLOR,
+        IGNITION_HALO_SCALE, VOLATILE_HALO_ALPHA,
+        IGNITION_RING_GAP, VOLATILE_RING_WIDTH,
+    )
+    draw_d12_polygon(
+        draw, round(die_x), round(center_y), IGNITION_DIE_RADIUS,
+        color, str(second),
+        font=FONT_DICE_VALUE,
+        text_color=high_contrast_ink(color),
+    )
+    portrait, _, _ = thumbnail_portrait(player_name, IGNITION_PORTRAIT_SIZE)
+    if portrait is not None:
+        portrait_x = (
+            right - IGNITION_PANEL_PADDING - IGNITION_PORTRAIT_SIZE
+            + (IGNITION_PORTRAIT_SIZE - portrait.width) // 2
+        )
+        canvas.alpha_composite(
+            portrait, (portrait_x, round(center_y - portrait.height / 2)),
+        )
+    center_x = left + IGNITION_PANEL_WIDTH / 2
+    draw_centered_text(
+        draw, center_x,
+        center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_LABEL_GAP,
+        f"VOLATILE · ignited on {face}",
+        FONT_IGNITION_TITLE, VOLATILE_AURA_COLOR,
+    )
+    y = center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
+    for line in ignition_rule_lines(draw, explainer):
+        draw_centered_text(draw, center_x, y, line, FONT_IGNITION_RULE, "#98a3af")
+        y += IGNITION_RULE_LINE_HEIGHT
+    verdict = f"{VOLATILE_BLAZE_TEXT if blaze else VOLATILE_BURN_TEXT} {modifier:+d}"
+    draw_centered_text(
+        draw, center_x, verdict_y, verdict, FONT_DICE_TOTAL,
+        VOLATILE_AURA_COLOR if blaze else VOLATILE_BURN_COLOR,
+    )
+
+
+def beside_ignitions(
+    dice: Image.Image,
+    layout: "SkillTestRowLayout",
+    ignitions: list[tuple[int, IgnitionDie]],
+) -> Image.Image:
+    """
+    A contest's dice with a panel beside the die of every side that
+    ignited -- `(index of that side's die, render_volatile_die's
+    arguments)` each: the first die's on the left edge, any other's on
+    the right, so the two contest dice stay side by side in the middle
+    and a second ignite widens the picture rather than stacking.
+
+    The totals line is the row's own, so each verdict sits level with
+    the total it went into. The rule under the label line is the one
+    thing the row does not measure; a longer one than the ignited
+    side's detail lines leave room for moves the verdicts down and
+    grows the canvas rather than running into them.
+    """
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    rule_end = (
+        layout.center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
+        + max(
+            len(ignition_rule_lines(measure, ignition[7]))
+            for _, ignition in ignitions
+        ) * IGNITION_RULE_LINE_HEIGHT
+    )
+    verdict_y = max(layout.total_y, rule_end + SKILL_TEST_TOTAL_GAP)
+    height = max(
+        dice.height,
+        round(verdict_y + SKILL_TEST_TOTAL_LINE_HEIGHT + SKILL_TEST_BOTTOM_PADDING),
+    )
+    left = [ignition for index, ignition in ignitions if index == 0]
+    right = [ignition for index, ignition in ignitions if index != 0]
+    dice_left = IGNITION_PANEL_WIDTH * len(left)
+    width = dice.width + IGNITION_PANEL_WIDTH * (len(left) + len(right))
+    canvas = Image.new("RGBA", (width, height), "#111820")
+    canvas.alpha_composite(dice, (dice_left, 0))
+    draw = ImageDraw.Draw(canvas)
+    panels = [(0, ignition) for ignition in left] + [
+        (dice_left + dice.width + IGNITION_PANEL_WIDTH * offset, ignition)
+        for offset, ignition in enumerate(right)
+    ]
+    for panel_left, ignition in panels:
+        draw_ignition_panel(canvas, draw, panel_left, layout, verdict_y, ignition)
+    for rule_x in {dice_left, dice_left + dice.width} - {0, width}:
+        draw.line(
+            [
+                (rule_x, IGNITION_RULE_INSET),
+                (rule_x, height - IGNITION_RULE_INSET),
+            ],
+            fill=IGNITION_RULE_COLOR,
+            width=IGNITION_RULE_WIDTH,
+        )
+    return canvas
 
 
 def render_dice_with_ignitions(
     dice: BytesIO,
-    ignitions: list[
-        tuple[int, int, str, str, str, bool, int, Optional[str]]
-    ],
+    ignitions: list[tuple[int, IgnitionDie]],
 ) -> BytesIO:
     """
-    A roll's own dice image with the ignition die of every roll in it
-    that ignited drawn underneath, as one picture -- each ignition is
-    `render_volatile_die`'s arguments, in order.
+    A roll's own image with the full ignition panel of every ignite
+    stacked under it, for a roll whose picture is not a row of contest
+    dice -- the Mind Pull die, which cannot ignite today (see
+    `D12Ball.dice_file_with_ignitions`). A contest draws its ignites
+    beside its dice instead (`render_skill_test_dice`'s `ignitions`).
 
-    **An ignite is part of the roll it happened to** (the author,
-    2026-09-26), so it goes on that roll's image rather than on one of
-    its own in a message of its own: the face, the second die it set
-    off and the total they came to are then read together, and the
-    channel carries one picture a roll however it went.
-
-    The ignition die is `render_volatile_die`'s, unchanged; this only
-    stacks. A roll with nothing ignited hands `dice` back as it came,
-    byte for byte, so the ordinary roll -- almost all of them -- draws
-    exactly what it did.
+    Takes the same `(index, arguments)` pairs a contest does, so one
+    helper hands either the same list; the index is not read, since
+    there is only the one roll. With nothing ignited `dice` comes back
+    as it came, byte for byte.
     """
     if not ignitions:
         return dice
     panels = [Image.open(dice).convert("RGBA")] + [
         Image.open(render_volatile_die(*ignition)).convert("RGBA")
-        for ignition in ignitions
+        for _, ignition in ignitions
     ]
     width = max(panel.width for panel in panels)
     height = (
@@ -3339,11 +3505,11 @@ def render_dice_with_ignitions(
             rule_y = y + IGNITION_STACK_GAP // 2
             draw.line(
                 [
-                    (IGNITION_STACK_RULE_INSET, rule_y),
-                    (width - IGNITION_STACK_RULE_INSET, rule_y),
+                    (IGNITION_RULE_INSET, rule_y),
+                    (width - IGNITION_RULE_INSET, rule_y),
                 ],
-                fill=IGNITION_STACK_RULE_COLOR,
-                width=IGNITION_STACK_RULE_WIDTH,
+                fill=IGNITION_RULE_COLOR,
+                width=IGNITION_RULE_WIDTH,
             )
             y += IGNITION_STACK_GAP
         canvas.alpha_composite(panel, ((width - panel.width) // 2, y))

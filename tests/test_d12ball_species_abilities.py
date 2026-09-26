@@ -50,7 +50,7 @@ which one it was.
 
 import ast
 import unittest
-from io import BytesIO
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -578,8 +578,8 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
     An ignite used to be a line in the totals column of the roll's own
     dice image and nothing else, which left the face a coach could see
     and the total they were given disagreeing with nothing to explain
-    the gap. Its die is drawn on the roll's own image now, under the
-    dice, and its sentence is that message's text -- see
+    the gap. Its die is drawn on the roll's own image now, beside the
+    die it came out of, and its sentence is that message's text -- see
     `D12Ball.dice_file_with_ignitions` -- and what is asserted here is
     that it is drawn and said once per ignited roll, and never for a
     roll that did not ignite.
@@ -591,63 +591,91 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
         self.cog.games[self.game.game_id] = self.game
         self.match = build_match(self.cog.engine, self.game)
         self.demon = fielded_of_species(self.match, SPECIES_FIRE_DEMON)
-        self.dice = render_skill_test_dice([
-            (6, "#ff8800", "Orange", ["A [PM]", "Offensive skill +3"], 9,
+        # A side that ignited always lists the ignite among its
+        # modifiers, which is the room the panel's rule is drawn in.
+        self.render = partial(render_skill_test_dice, [
+            (6, "#ff8800", "Orange",
+             ["A [PM]", "Offensive skill +3", "+9 Volatile blaze (9)"], 18,
+             False, []),
+            (7, "#8844ff", "Purple",
+             ["B [FB]", "Defensive skill +2", "-7 Volatile burn (2)"], 2,
              False, []),
         ])
+        self.plain = Image.open(self.render())
 
     def ignite(self, face: int, second: int) -> IgnitedRoll:
         with mock.patch("random.Random.randint", return_value=second):
             return self.cog.engine.ignite(self.game, self.demon, face)
 
-    def height(self, file) -> int:
+    def size(self, file) -> tuple[int, int]:
         file.fp.seek(0)
-        return Image.open(file.fp).height
+        return Image.open(file.fp).size
 
-    async def test_an_ignited_roll_draws_its_die_under_the_dice(self) -> None:
-        plain = self.height(SimpleNamespace(fp=self.dice))
+    async def test_an_ignited_roll_draws_its_die_beside_the_dice(self) -> None:
+        # Beside rather than under: the picture widens and keeps the
+        # roll's own height, which is what the panel was made small for.
         file, sentence = await self.cog.dice_file_with_ignitions(
-            self.match, self.dice, "dice.png", (self.demon, self.ignite(6, 9)),
+            self.match, self.render, "dice.png",
+            (self.demon, self.ignite(6, 9)),
         )
 
         self.assertIn("Volatile", sentence)
         self.assertEqual(file.filename, "dice.png")
-        self.assertGreater(self.height(file), plain)
+        width, height = self.size(file)
+        self.assertGreater(width, self.plain.width)
+        self.assertEqual(height, self.plain.height)
 
     async def test_a_roll_that_did_not_ignite_is_left_alone(self) -> None:
         # Most rolls in a species game and every roll in a training
-        # one: the dice go out exactly as they were drawn.
-        original = self.dice.getvalue()
+        # one: the dice go out exactly as they were always drawn.
         file, sentence = await self.cog.dice_file_with_ignitions(
-            self.match, self.dice, "dice.png", (self.demon, self.ignite(4, 9)),
+            self.match, self.render, "dice.png",
+            (self.demon, self.ignite(4, 9)),
         )
 
         self.assertIsNone(sentence)
         file.fp.seek(0)
-        self.assertEqual(file.fp.read(), original)
+        self.assertEqual(file.fp.read(), self.render().getvalue())
 
     async def test_each_side_of_a_contest_gets_its_own(self) -> None:
         # Two Fire Demons rolling means two ignites, each read off its
-        # own die -- so two dice under the roll, and two sentences.
+        # own die -- so a panel beside each, and two sentences.
         other = self.match.home.field_players[1]
         one, _ = await self.cog.dice_file_with_ignitions(
-            self.match, BytesIO(self.dice.getvalue()), "dice.png",
+            self.match, self.render, "dice.png",
             (self.demon, self.ignite(6, 9)),
         )
         both, sentence = await self.cog.dice_file_with_ignitions(
-            self.match, BytesIO(self.dice.getvalue()), "dice.png",
+            self.match, self.render, "dice.png",
             (self.demon, self.ignite(6, 9)),
             (other, self.ignite(7, 2)),
         )
 
-        self.assertGreater(self.height(both), self.height(one))
+        self.assertGreater(self.size(both)[0], self.size(one)[0])
+        self.assertEqual(self.size(both)[1], self.plain.height)
         self.assertEqual(sentence.count("Volatile"), 2)
+
+    async def test_the_right_hand_side_s_ignite_is_keyed_on_its_die(
+        self,
+    ) -> None:
+        # The index is the side's place in the row, so the defender's
+        # ignite goes on the defender's edge -- the attacker's die is
+        # drawn where it always was, and the panel after the defender's.
+        render = mock.Mock(side_effect=self.render)
+        await self.cog.dice_file_with_ignitions(
+            self.match, render, "dice.png",
+            (self.demon, self.ignite(4, 9)),
+            (self.demon, self.ignite(6, 9)),
+        )
+
+        (ignitions,), _ = render.call_args
+        self.assertEqual([index for index, _ in ignitions], [1])
 
     async def test_a_die_belonging_to_nobody_is_skipped(self) -> None:
         # A score attempt's defensive die has no card behind it, so a
         # caller may pass None rather than branching on it.
         _, sentence = await self.cog.dice_file_with_ignitions(
-            self.match, self.dice, "dice.png", (None, IgnitedRoll(face=6)),
+            self.match, self.render, "dice.png", (None, IgnitedRoll(face=6)),
         )
 
         self.assertIsNone(sentence)

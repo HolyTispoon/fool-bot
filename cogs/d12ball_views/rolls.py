@@ -6,6 +6,7 @@ in docs/design/maneuvers.md -- nothing in the game rolls on its own.
 
 import asyncio
 import discord
+from functools import partial
 from typing import TYPE_CHECKING, Optional
 
 from d12ball.flow.driver import Action
@@ -89,9 +90,7 @@ class SkillTestView(SafeView):
         # dice, and said above them -- see `dice_file_with_ignitions`.
         dice_file, ignition = await self.cog.dice_file_with_ignitions(
             match,
-            await asyncio.to_thread(
-                render_contest_dice, dice.contestants,
-            ),
+            partial(render_contest_dice, dice.contestants),
             "skill_test_dice.png",
             *dice.ignites,
         )
@@ -378,9 +377,7 @@ class ScoreAttemptView(SafeView):
         # the order it happened.
         dice_file, ignition = await self.cog.dice_file_with_ignitions(
             match,
-            await asyncio.to_thread(
-                render_contest_dice, dice.contestants,
-            ),
+            partial(render_contest_dice, dice.contestants),
             "score_attempt_dice.png",
             *dice.ignites,
         )

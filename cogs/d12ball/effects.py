@@ -19,6 +19,7 @@ from d12ball.components import MatchState
 from d12ball.game import D12BallGame, team_display_name
 from d12ball.render import (
     TEAM_COLORS,
+    render_dice_with_ignitions,
     render_mind_pull_die,
     render_own_goal_dice,
 )
@@ -70,14 +71,16 @@ class ManeuverEffectsMixin:
         # roll in the game that swallows it.
         dice_file, ignition = await self.dice_file_with_ignitions(
             match,
-            await asyncio.to_thread(
-                render_mind_pull_die,
-                roll.roll,
-                TEAM_COLORS[player_team],
-                team_display_name(player_team),
-                player.name,
-                roll.pulled,
-                roll.target_label,
+            lambda ignitions: render_dice_with_ignitions(
+                render_mind_pull_die(
+                    roll.roll,
+                    TEAM_COLORS[player_team],
+                    team_display_name(player_team),
+                    player.name,
+                    roll.pulled,
+                    roll.target_label,
+                ),
+                ignitions,
             ),
             "mind_pull_die.png",
             (roll.player_id, roll.ignite),

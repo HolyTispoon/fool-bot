@@ -1130,7 +1130,7 @@ before and after the move.
 
 - **Two pictures around a roll are the bot's alone**: Volatile's
   ignition die, with its caption (`D12Ball.dice_file_with_ignitions`,
-  one per side that ignited, drawn under the roll's own dice), and the
+  one per side that ignited, drawn beside the roll's own dice), and the
   scorer's portrait under a goal.
   Both ride on the same `detail` the page already keeps -- the
   ignites on a contest's, the scorer on a shot's -- so if they come to

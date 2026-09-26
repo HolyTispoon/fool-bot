@@ -326,11 +326,16 @@ shows.
 ### The ignition die
 
 **The second die is a die a coach watches, not a number in a total.**
-`render_volatile_die` draws it, `render_dice_with_ignitions` stacks it
-under the roll's own dice -- one panel per ignited roll, below a rule --
-and `D12Ball.dice_file_with_ignitions` hands the roll site that one
-picture and the sentence that goes above it, as the dice message's text.
-The result follows in its own message, as it always did.
+On a contest's dice -- the skill test, the loose ball, the score
+attempt, the shootout test -- `draw_ignition_panel` draws it in a
+narrow panel beside the die it came out of (`render_skill_test_dice`'s
+`ignitions`, through `render_contest_dice`), and
+`D12Ball.dice_file_with_ignitions` hands the roll site that one picture
+and the sentence that goes above it, as the dice message's text. The
+result follows in its own message, as it always did. The full panel,
+`render_volatile_die`, is now only what `render_dice_with_ignitions`
+stacks under a roll whose picture is not a row of contest dice -- the
+Mind Pull die, which cannot ignite today.
 
 - **An ignite is part of the roll it happened to** (the author,
   2026-09-26). It was a message of its own between the dice and the
@@ -339,6 +344,32 @@ The result follows in its own message, as it always did.
   the die it set off a scroll apart. On the roll's own image the face,
   the second die and the total they came to are read together, and a
   roll costs one message however it went.
+- **Beside the die, at the roll's own height** (the author, 2026-09-26,
+  off a rendered mockup). Stacked under the dice the full panel more than
+  doubled the picture's height for one die -- 738x584 against 460x246
+  for the roll alone -- and a second ignite made it 922 tall. Beside, one
+  ignite is 750x246 and two are 1040x246 with the same dice: about 40% of
+  the area. The panel sits on the dice's own rows: the second die level
+  with the roll's (radius 30 to their 36, the flame at 1.8 so it fills the
+  rows above the label line and does not grow the canvas), an 84px
+  portrait beside it, "VOLATILE · ignited on 6" on the team-name line, the
+  rule in small type where the modifiers are listed, and BLAZE or BURN on
+  the totals line -- so the ignite and the total it went into read
+  across.
+- **The first die's panel goes on the left edge, any other's on the
+  right**, so the two contest dice stay side by side in the middle and a
+  second ignite widens the picture rather than stacking. Which die is
+  which is the ignite's index in `ContestDice.ignites`, which every
+  contest hands over in its contestants' order; the cog enumerates it and
+  asks nothing else.
+- **The rule is the one thing the row does not measure.** It is wrapped
+  at its clauses, and it fits in the room the ignited side's own detail
+  lines leave, since that side always lists the ignite among them. A
+  longer one moves the verdicts down and grows the canvas rather than
+  running into them.
+- **A roll that did not ignite is drawn exactly as it always was**, byte
+  for byte: the panel is composed around a finished row, never into its
+  layout.
 
 - **It was a line in the totals column and nothing else**, which is what
   the modifier shape above bought and where it fell short: the face on the
@@ -368,8 +399,9 @@ The result follows in its own message, as it always did.
   It is not a verdict the picture is about to reveal -- it says what the
   second die added, never who won -- so it may stand where a result may
   not. Two sides igniting are two sentences, one line each, in the order
-  their dice are stacked.
-- **The image is the Mind Pull die's layout with the Fire Demons' flame**
+  their dice are drawn.
+- **The full panel** (below, and what the Mind Pull die would stack) **is
+  the Mind Pull die's layout with the Fire Demons' flame**
   (die, portrait, verdict, with a halo and a ring), for the reason that one
   follows the injury test's: a coach should not have to learn a layout per
   ability. The face keeps the *roller's team* colour, since a Fire Demon
