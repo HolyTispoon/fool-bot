@@ -32,8 +32,8 @@ from d12ball.render import (
     render_field_image,
     render_maneuver_challenge,
     render_match_image,
+    render_dice_with_ignitions,
     render_score_attempt,
-    render_volatile_die,
 )
 from d12ball.role_cards import render_role_reference
 from d12ball.species_cards import render_species_reference
@@ -168,16 +168,19 @@ class PresentationMixin:
             filename="score_attempt.png",
         )
 
-    async def post_volatile_ignition(
+    async def dice_file_with_ignitions(
         self,
-        interaction: discord.Interaction,
         match: MatchState,
+        dice: io.BytesIO,
+        filename: str,
         *rolls: tuple[Optional[str], IgnitedRoll],
-    ) -> None:
+    ) -> tuple[discord.File, Optional[str]]:
         """
-        The second die an ignite rolled, shown on its own and explained
-        -- one message per ignited roll, and nothing at all for the
-        rolls that did not ignite, which is almost all of them.
+        A roll's dice image with the second die of every roll in it
+        that ignited drawn underneath (`render_dice_with_ignitions`),
+        and the sentence that explains them -- or the dice alone and no
+        sentence, for the rolls that did not ignite, which is almost
+        all of them.
 
         **One helper for every caller of `RulesEngine.ignite`** -- the
         six roll sites the rules name, plus the Mind Pull roll that
@@ -189,45 +192,46 @@ class PresentationMixin:
         the shooter, whose die is the only one of its two that can
         ignite at all.
 
-        **It goes between the roll's own dice image and the result.**
-        The ignite happened to the die a coach has just watched and
-        before the verdict they are about to read, and a message's
-        attachments render below its content, so posting it here is the
-        only order in which the three read as what happened -- see
-        `SkillTestView.roll` for the same reasoning about a result.
+        **The ignite is part of the roll's own message** (the author,
+        2026-09-26): its die on the roll's image, and its sentence as
+        that message's text, above the picture. The sentence is not a
+        verdict the picture is about to reveal -- it says why there is
+        a second die, and what it added, never who won -- so it may
+        stand above the dice where a result may not, and the verdict
+        still follows in its own message. It used to be a message of
+        its own between the two, which was a request and an image an
+        ignite for a die that belongs to the roll.
 
-        The sentence is above its own die rather than under it, unlike
-        every result in the game: it is not a verdict the picture is
-        about to reveal, it is the caption explaining why a second die
-        exists at all, and the alternative is two messages an ignite.
-
-        A roll that did not ignite carries no image and no line, which
-        is "a move that costs nothing says nothing" -- and is what lets
-        a caller hand over both sides of a contest without asking.
+        A roll that did not ignite adds no die and no line, which is
+        "a move that costs nothing says nothing" -- and is what lets a
+        caller hand over both sides of a contest without asking.
         """
+        sentences = []
+        ignitions = []
         for player_id, ignite in rolls:
             if player_id is None or not ignite.ignited:
                 continue
             player = self.engine.get_player_definition(player_id)
             team = match.team_for_player(player_id)
-            await send_new_prompt(
-                interaction,
-                ignite.explain(self.player_label(match, player)),
-                file=discord.File(
-                    await asyncio.to_thread(
-                        render_volatile_die,
-                        ignite.second,
-                        ignite.face,
-                        TEAM_COLORS[team],
-                        team_display_name(team),
-                        player.name,
-                        ignite.blaze,
-                        ignite.modifier,
-                        ignite.rule,
-                    ),
-                    filename="volatile_ignition_die.png",
-                ),
+            sentences.append(ignite.explain(self.player_label(match, player)))
+            ignitions.append((
+                ignite.second,
+                ignite.face,
+                TEAM_COLORS[team],
+                team_display_name(team),
+                player.name,
+                ignite.blaze,
+                ignite.modifier,
+                ignite.rule,
+            ))
+        if ignitions:
+            dice = await asyncio.to_thread(
+                render_dice_with_ignitions, dice, ignitions,
             )
+        return (
+            discord.File(dice, filename=filename),
+            "\n".join(sentences) or None,
+        )
 
     async def announce_maneuver_challenge(
         self,

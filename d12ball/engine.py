@@ -166,8 +166,9 @@ class IgnitedRoll:
     every roll in a training game, and most rolls in any other.
 
     **`second` is also a die a coach watches**, not only a number in
-    `modifier`: it is drawn on an ignition die of its own and captioned
-    with `explain` -- see `D12Ball.post_volatile_ignition`. That is why
+    `modifier`: it is drawn as an ignition die under the roll's own dice
+    and captioned with `explain` -- see `D12Ball.dice_file_with_ignitions`.
+    That is why
     the face and which way it went are carried apart from the
     arithmetic rather than folded into it.
     """

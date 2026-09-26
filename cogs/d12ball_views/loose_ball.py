@@ -355,11 +355,15 @@ class LooseBallSkillTestView(SafeView):
         if result is None:
             return
         dice = result.detail
-        dice_file = discord.File(
+        # The ignition dice are drawn on the roll they settled, and
+        # said above it -- see `dice_file_with_ignitions`.
+        dice_file, ignition = await self.cog.dice_file_with_ignitions(
+            match,
             await asyncio.to_thread(
                 render_contest_dice, dice.contestants,
             ),
-            filename="loose_ball_dice.png",
+            "loose_ball_dice.png",
+            *dice.ignites,
         )
 
         following = result.prompt
@@ -373,18 +377,14 @@ class LooseBallSkillTestView(SafeView):
             and following.kind is PromptKind.LOOSE_BALL_SKILL_TEST
         ):
             # The service saved the two tokens the tie charged before
-            # anything here was drawn.
+            # anything here was drawn. The ignites that produced the tie
+            # are still shown -- see SkillTestView.roll's own tie.
             await interaction.response.edit_message(
-                content=following.ask,
+                content="\n\n".join(filter(None, (ignition, following.ask))),
                 attachments=[dice_file],
                 view=self.cog.view_for_prompt(
                     self.game_id, result.match, following,
                 ),
-            )
-            # A tie is re-rolled, and the ignites that produced it are
-            # still worth showing -- see SkillTestView.roll's own tie.
-            await self.cog.post_volatile_ignition(
-                interaction, match, *dice.ignites,
             )
             await self.cog.refresh_match_image(interaction, game)
             return
@@ -401,14 +401,9 @@ class LooseBallSkillTestView(SafeView):
         # above is the exception, since that message carries the
         # roll-again button. See SkillTestView.roll.
         await interaction.response.edit_message(
-            content=None,
+            content=ignition,
             attachments=[dice_file],
             view=None,
-        )
-        # The ignition dice sit between the roll and the result, which
-        # is where they belong: they are what settled it.
-        await self.cog.post_volatile_ignition(
-            interaction, match, *dice.ignites,
         )
         await send_new_prompt(
             interaction,
