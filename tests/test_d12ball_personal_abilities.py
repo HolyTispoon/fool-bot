@@ -967,19 +967,19 @@ class ShotDefenseTests(unittest.TestCase):
         with holding(self.behind, PersonalAbility.FULL_BLOCK):
             self.assertNotIn(self.behind, self.defending())
 
-    def test_flickerwing_s_set_up_is_shot_past_the_wall(self) -> None:
-        self.match.pending_shot_is_set_up = True
-        with holding(self.shooter, PersonalAbility.CLEAR_SHOT):
-            self.assertEqual(set(self.defending()), {self.on_ball})
-            with holding(self.beyond, PersonalAbility.FULL_BLOCK):
-                self.assertEqual(
-                    set(self.defending()), {self.on_ball, self.beyond},
-                )
-            # An ordinary shot is unchanged.
-            self.match.pending_shot_is_set_up = False
-            self.assertEqual(
-                set(self.defending()), {self.on_ball, self.beyond},
-            )
+    def test_flickerwing_shoots_past_the_wall_every_time(self) -> None:
+        # "Every time Flickerwing makes a scoring attempt, off a setup
+        # or without it" (the author, 2026-09-26).
+        for set_up in (False, True):
+            with self.subTest(set_up=set_up):
+                self.match.pending_shot_is_set_up = set_up
+                with holding(self.shooter, PersonalAbility.CLEAR_SHOT):
+                    self.assertEqual(set(self.defending()), {self.on_ball})
+                    with holding(self.beyond, PersonalAbility.FULL_BLOCK):
+                        self.assertEqual(
+                            set(self.defending()),
+                            {self.on_ball, self.beyond},
+                        )
 
 
 class SpritzTests(unittest.TestCase):

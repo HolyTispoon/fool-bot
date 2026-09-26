@@ -1938,15 +1938,15 @@ class RulesEngine:
         Two personal abilities reach this (Law 21). **Goopkeeper counts
         as on the ball** anywhere between the ball and the goal, at
         their full skill (`full_block`); behind the ball they are not
-        in the list, like anyone else. **Flickerwing's set-up shot** is
-        defended by the ball's space alone, so the players beyond it
-        drop out, except a Goopkeeper, who counts as on it.
+        in the list, like anyone else. **Flickerwing's shot** -- every
+        one, off a set-up or not -- is defended by the ball's space
+        alone, so the players beyond it drop out, except a Goopkeeper,
+        who counts as on it. The shooter is the handler, which is also
+        who the preview before the shot is drawn for.
         """
         in_the_way = match.defenders_between_ball_and_goal()
-        clear_shot = match.pending_shot_is_set_up and (
-            self.has_personal_ability(
-                game, match.active_player_id, PersonalAbility.CLEAR_SHOT,
-            )
+        clear_shot = self.has_personal_ability(
+            game, match.active_player_id, PersonalAbility.CLEAR_SHOT,
         )
         defenders = []
         for player_id, on_ball in in_the_way:

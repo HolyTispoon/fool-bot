@@ -181,8 +181,10 @@ their own (below).
     counts as on the ball between the ball and the goal (`full_block`;
     the sheet said "always" for a few hours on 2026-09-26, which would
     have reached behind the ball, and the author reverted it), and
-    Flickerwing's set-up shot (`pending_shot_is_set_up`) drops
-    everybody beyond the ball but a Goopkeeper.
+    Flickerwing's shot -- every one, set-up or not (the author,
+    2026-09-26) -- drops everybody beyond the ball but a Goopkeeper.
+    The shooter is `active_player_id`, so the picture drawn before the
+    shot and the roll read the same wall.
   - *What a test costs* -- `skill_test_tokens` and `re_roll_tokens`:
     Zorch pays nothing, and a test Scorchit forced is 2 to Scorchit and
     0 to their opponent. **Scorchit's test is `forced_test_by`, asked
