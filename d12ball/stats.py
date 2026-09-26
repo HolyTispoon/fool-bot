@@ -592,6 +592,86 @@ def collect_conditions(matches: Iterable[MatchState]) -> ConditionReport:
 
 
 @dataclass
+class SideReport:
+    """
+    One side's numbers in one game, for a page that lays the two sides
+    of a finished game against each other (the web app's full time,
+    step 5 of docs/web-app-redesign.md).
+
+    Each is read the way the tables above read it, split by the side
+    it belongs to: a goal is the goal log's side (so an own goal
+    counts for the side it was listed under, and the shootout's are
+    in, as they are on the scoreboard), a shot the attacking side's, a
+    time out the side that called it. **A maneuver is won only in a
+    contest** (`CONTESTED_DECISIONS`), for the reason
+    `ManeuverRecord.contested` gives: an unchallenged card always
+    wins. `skill_tests` is how many a side won of `skill_tests_taken`,
+    which is every one settled in the game -- both sides take each,
+    and a tie rolled again is the one test. Exhaustion
+    is the turns' charges by the side of the player charged.
+    """
+
+    goals: int = 0
+    shots: int = 0
+    maneuvers_won: int = 0
+    skill_tests: int = 0
+    skill_tests_taken: int = 0
+    exhaustion: int = 0
+    time_outs: int = 0
+
+
+def collect_sides(match: MatchState) -> dict[TeamSide, SideReport]:
+    """Each side's `SideReport` for one match."""
+    report = {side: SideReport() for side in (TeamSide.HOME, TeamSide.VISITING)}
+
+    def other(side: TeamSide) -> TeamSide:
+        return (
+            TeamSide.VISITING if side == TeamSide.HOME else TeamSide.HOME
+        )
+
+    for goal in match.goals:
+        report[TeamSide(goal.side)].goals += 1
+
+    tests = 0
+    for turn in match_turns(match):
+        for player_id, tokens in turn.exhaustion.items():
+            try:
+                side = match.side_for_player(player_id)
+            except ValueError:
+                continue
+            report[side].exhaustion += tokens
+        for event in turn.events:
+            if event.side is None:
+                continue
+            if event.kind == EVENT_SHOT:
+                report[event.side].shots += 1
+            elif event.kind == EVENT_TIME_OUT:
+                report[event.side].time_outs += 1
+            elif event.kind == EVENT_SKILL_TEST:
+                # A tie is rolled again, and the test is the roll
+                # that settles it.
+                offense = event.details.get("offense_total", 0)
+                defense = event.details.get("defense_total", 0)
+                if offense == defense:
+                    continue
+                tests += 1
+                winner = event.side if offense > defense else other(event.side)
+                report[winner].skill_tests += 1
+            elif event.kind == EVENT_MANEUVER:
+                details = event.details
+                if details.get("decision") not in CONTESTED_DECISIONS:
+                    continue
+                winner = details.get("winner_key")
+                if winner and winner == details.get("offense_key"):
+                    report[event.side].maneuvers_won += 1
+                elif winner and winner == details.get("defense_key"):
+                    report[other(event.side)].maneuvers_won += 1
+    for one in report.values():
+        one.skill_tests_taken = tests
+    return report
+
+
+@dataclass
 class GameResult:
     """One finished game's result, as the overview counts it."""
 

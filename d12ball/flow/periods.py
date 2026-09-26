@@ -67,6 +67,7 @@ from d12ball.formatting import (
     full_time_heading,
     format_player,
     format_team_side_label,
+    winning_goal_line,
 )
 from d12ball.game import D12BallGame
 from d12ball.prompts import (
@@ -155,11 +156,12 @@ def end_period(
 
     match.reset_maneuver()
 
+    summary = build_full_time_summary(game, match, engine.player_catalog)
     whistle = (
         f"{prefix}**Full time!** The ball turns over at "
         f"{match.scoreboard.time:02d} under last possession -- the "
         "game ends.\n\n"
-        f"{build_full_time_summary(game, match)}"
+        f"{summary}"
     )
 
     if match.scoreboard.home_score == match.scoreboard.visiting_score:
@@ -170,23 +172,28 @@ def end_period(
         # substitution a side comes first.
         result = begin_full_time_coaching(engine, game, match)
         result.narration.insert(0, whistle)
-        result.headlines = (*result.headlines, full_time_headline(match))
+        result.headlines = (
+            *result.headlines, full_time_headline(engine, match),
+        )
         result.board_changed = True
         return result
 
     game.finish_game()
     return StepResult(
         narration=[f"{whistle}\n\n{goal_log(engine, match)}"],
-        headlines=(full_time_headline(match),),
+        headlines=(full_time_headline(engine, match),),
         next=FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
     )
 
 
-def full_time_headline(match: MatchState) -> Headline:
+def full_time_headline(engine: RulesEngine, match: MatchState) -> Headline:
     """The result's `Headline`: `build_full_time_summary`'s heading,
-    whose it is, and the final score it opens with."""
+    whose it is, and the final score it opens with -- with who scored
+    the winner under it, the line the summary says there too."""
     text, side = full_time_heading(match)
-    return Headline(text, side, final_score_line(match))
+    winning = winning_goal_line(match, engine.player_catalog)
+    under = final_score_line(match)
+    return Headline(text, side, f"{under}\n{winning}" if winning else under)
 
 
 #: The heading halftime is announced under, in its line and its
@@ -971,9 +978,10 @@ def continue_shootout(
     return StepResult(
         narration=[
             f"**The extreme shootout is settled, {home}-{visiting}.**"
-            f"\n\n{build_full_time_summary(game, match)}"
+            "\n\n"
+            f"{build_full_time_summary(game, match, engine.player_catalog)}"
             f"\n\n{goal_log(engine, match)}"
         ],
-        headlines=(full_time_headline(match),),
+        headlines=(full_time_headline(engine, match),),
         next=FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
     )

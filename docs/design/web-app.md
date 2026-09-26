@@ -736,7 +736,7 @@ changed for it.
 | `mind_pull`, `smooth`, `join_the_ball`, `force_test` | the meeple the prompt names, for the yes | the no is neutral, worded from the option ("Stay", "Let it stand", "X keeps the ball") |
 | `set_up_attempt` | the goal and the player who may take the shot (the prompt's `player_id`), both for the shot (the author, 2026-09-26) | the decline is neutral |
 | `coaching_offer` | the bench of the side it is put to, for Coach (the author, 2026-09-26) -- its cards still show while the pointer is on it | Pass is neutral |
-| `maneuver_action` (`ManeuverOptions`) | the cards of this coach's own hand | how the hand is drawn is step 5's |
+| `maneuver_action` (`ManeuverOptions`) | the printed cards of this coach's own hand, 150px, the gambits a row under the basic three | a gambit the side does not hold is dimmed and never offered; the other hand is a back ("The hand, the reveal and full time", below) |
 | `coaching_hub` | the whistle for Done, grey with `finish_refusal` under it | the menus are neutral until step 6 |
 | `shootout_order` | -- | neutral until step 7 |
 | `tutorial_continue` | the note: anywhere on it | -- |
@@ -775,6 +775,85 @@ layout carries its `index` so a control can name it.
 until it has the focus, are the controls in the order the options
 give: a number key presses that one, Enter the only one there is, and
 Esc backs out of an open menu or chooser (or puts a refusal away).
+
+**The hand, the reveal and full time** (2026-09-26, step 5 of
+[../web-app-redesign.md](../web-app-redesign.md), with step 12 folded in).
+
+- **The hand is the printed cards**, `pictures.maneuver_card_png` at
+  150px in the question box, each the answer as it was in step 4; hovered,
+  a card lifts and its full-size face opens beside it. The cards offered
+  are exactly the side's `maneuver_keys`. The basic three are a row and
+  the gambits a row under them -- a card's tier is printed on it, so
+  `card.gambit` is read off the catalog to lay it out and decides
+  nothing.
+- **A gambit the side does not hold is shown dimmed**, with "held only
+  by the side behind", as a dead control the page cannot send (and the
+  offer check refuses if it is sent anyway). Which gambits those are is
+  a reading of the rules, so it is the model's:
+  `ManeuverHand.withheld`, over `RulesEngine.withheld_gambits`, proposed
+  as its own commit on step 5's PR and accepted by the author there
+  (2026-09-26). Empty wherever being behind would
+  not change the hand -- a game without the gambits, an unchallenged
+  maneuver, a side that holds them -- so a basic game draws three cards
+  and nothing else.
+- **A side that has picked keeps its hand** (the author, 2026-09-26, on
+  step 5's PR): it may change its card until the other side has picked
+  too. That was already the rule the driver took
+  (`maneuver_pick_refusal`) and the Discord row offered; what changed is
+  `asked_sides`, which no longer narrows the pick to the sides still to
+  choose (a model commit on the same PR) -- the prompt stands only
+  while one side is still to pick, so every hand on it is asked. The
+  card laid down is ringed in gold and dead, since the same card twice
+  is refused, and the rest read "play this instead"; which card that is
+  is the position (`offense_maneuver` / `defense_maneuver`), read for
+  the viewer's own side only. **The box then says it is waiting on the
+  other side** and the tab carries no mark: `present.still_to_answer`
+  reads the hands' own `picked`, so a coach who may still change their
+  card is not told it is their move.
+- **The other hand is a back, `present.hand_table`**: every hand this
+  viewer does not hold, as the cards' shared back
+  (`pictures.maneuver_back_png`, at `maneuver_reference_tier`, served by
+  `GET /api/game/{id}/maneuver-back.png`), with "turned over together"
+  under them. **A back is drawn whether or not that side has picked**:
+  on Discord whether the other coach has chosen is not said either, so
+  a back that came up with the pick would publish it; the secret test
+  holds the table the same before the other side picks and after. An
+  observer is handed two backs and no face.
+- **The reveal** (`present.reveal`, the state's `reveal`): once both
+  cards are in and until the maneuver is over (`reset_maneuver`), both
+  face up in the question box -- public once turned over, for a coach
+  and an observer alike -- with what the cards said between them,
+  `RulesEngine.cards_outcome`: TIE, or BEATS pointing at the card beaten,
+  its winner ringed. What the maneuver came to -- an injury's forfeit,
+  a forced test, the roll -- is the outcome banner's, the model's own
+  headline, and the die under it is step 4's. An unchallenged card is
+  shown alone. The challenge picture stays where step 8 of
+  [../web-app-next.md](../web-app-next.md) put it, beside the hand.
+- **Full time** is the outcome banner with the model's result
+  (`full_time_headline`: the winner, the final score and the
+  shootout's, and who scored the winner), and beside it each side's numbers
+  (`present.full_time`, the state's `full_time`): goals, shots,
+  maneuvers won, skill tests won of those taken, exhaustion taken and
+  time outs, read by `stats.collect_sides` over the match's events --
+  the bot's statistics split by side
+  ([clock-and-records.md](clock-and-records.md)) -- in each team's
+  colour. Under them, "Back to the rooms" and **the whole log as text**,
+  `GET /api/room/{id}/log.txt`: every entry the journal holds, its lines
+  with each token as the words a copy of the page reads
+  (`present.plain_text`, the alt text `render_text` gives each
+  picture), and the time it was said -- the model's narration as it was
+  shown, bounded as the journal is (`JOURNAL_LENGTH`). The REMATCH mark
+  posts `/rematch` and, once the rematch is made, is a link to the
+  room the service made. The jumbotron's note already read "Final ·
+  <score>, shootout <score>" (step 2). The bot's own tables
+  (`stats.game_tables`) are still under the box, as every table of the
+  game.
+- **Who scored the winner is the model's line** (the author,
+  2026-09-26: "the model should say it"): `formatting.winning_goal_line`
+  under the final score, in the full-time summary and in its
+  `Headline` alike, so the banner's line under the result names the
+  scorer in the model's words ([clock-and-records.md](clock-and-records.md),
+  "The goal log").
 
 **A lit meeple that is not on the field is answered from the box**, as
 a neutral control with its card on hover. No fixture lights a benched
@@ -1120,7 +1199,9 @@ before kickoff is sent no table.
 **The statistics are the bot's tables.** `GET /api/room/{id}/stats`
 is `/d12ball stats game` over `stats.game_tables`, open to anybody who
 can open the room, and the page shows it under the prompt once the
-game is over. `GET /api/stats?kind=` is every web game's numbers cut
+game is over -- beside each side's numbers at full time (step 5 of
+[../web-app-redesign.md](../web-app-redesign.md), "The hand, the
+reveal and full time", above). `GET /api/stats?kind=` is every web game's numbers cut
 by kind, `stats.report_tables` for each of the four scoped reports,
 on a page of its own (`/stats`) linked from the front door. What the
 cog held that was not Discord moved into `d12ball/stats.py` for it

@@ -23,6 +23,7 @@ let latest = 0;
 let chatLatest = 0;
 let busy = false;
 let shownPrompt = null;
+let shownRematch = null;
 let shownTable = null;
 /* Whether this page has seen its game with no rematch yet: a page that
    was open when the rematch was made follows it there, and one opened
@@ -202,6 +203,8 @@ function draw(state) {
   drawPrompt(state);
   drawRoll(state);
   drawHeadline(state);
+  drawReveal(state);
+  drawFullTime(state);
   drawTable(state);
   drawRoom(state);
   drawStats(state);
@@ -1327,7 +1330,11 @@ function drawPrompt(state) {
    * choosing from.
    */
   const shape = JSON.stringify(state.prompt);
-  if (shape === shownPrompt) return;
+  /* The REMATCH mark turns into a link once the rematch is made, which
+     is the room's news and not the prompt's. */
+  const rematch = state.rematch ? state.rematch.url : null;
+  if (shape === shownPrompt && rematch === shownRematch) return;
+  shownRematch = rematch;
   const previous = shownPrompt ? JSON.parse(shownPrompt) : null;
   shownPrompt = shape;
   if (!previous || !state.prompt || previous.kind !== state.prompt.kind) openMenu = null;
@@ -1498,6 +1505,8 @@ function drawControls(prompt) {
     controls.append(drawGroup(group));
   }
   appendNotes(controls, groups);
+  const table = handTable(prompt);
+  if (table) controls.append(table);
 }
 
 /* What is lit on the board and why, and -- muted -- what is dark:
@@ -1549,7 +1558,7 @@ function appendNotes(controls, groups) {
 
 function drawGroup(group) {
   if (group.controls.length && group.controls.every((one) => one.card)) {
-    return h("div", { class: "hand" }, group.controls.map(handCard));
+    return handRows(group.controls);
   }
   if (group.controls.length && group.controls.every((one) => one.place && one.place.at === "face")) {
     return h("div", { class: "faces" }, group.controls.map(face));
@@ -1661,32 +1670,159 @@ function whistle({ allowed, label, note = "", onclick }) {
   );
 }
 
-/* The REMATCH mark: a new room with this one's settings and seats. */
+/* The REMATCH mark: a new room with this one's settings and seats --
+   and once somebody has made it, a link to that room. */
 function rematchMark(control) {
-  return h("button", {
-    type: "button",
-    class: "rematch-mark",
-    title: "A new room with this game's settings and seats",
-    onclick: () => press(control),
-  }, "REMATCH");
+  const made = current && current.rematch;
+  const mark = made
+    ? h("a", { class: "rematch-mark", href: made.url, title: "This game's rematch" }, "REMATCH")
+    : h("button", {
+      type: "button",
+      class: "rematch-mark",
+      title: "A new room with this game's settings and seats",
+      onclick: () => press(control),
+    }, "REMATCH");
+  return h("div", { class: "rematch-wrap" }, mark,
+    h("p", { class: "note-line" },
+      "A rematch is a room of its own with the same seats, and this room keeps pointing at it."));
+}
+
+/* The hand as the printed cards (docs/web-app-redesign.md, step 5): the
+   basic three in a row and the gambits in a row under them, a gambit
+   the side does not hold dimmed with the reason -- which cards are which
+   is the server's (`card.gambit`, `card.withheld`); the page counts
+   nothing. */
+function handRows(controls) {
+  const basic = controls.filter((one) => !one.card.gambit);
+  const gambits = controls.filter((one) => one.card.gambit);
+  const rows = h("div", { class: "hand-rows" });
+  if (basic.length) rows.append(h("div", { class: "hand" }, basic.map(handCard)));
+  if (gambits.length) {
+    const withheld = gambits.find((one) => one.card.withheld);
+    rows.append(
+      h("div", { class: "hand-label" },
+        "Gambits",
+        withheld ? h("span", { class: "quiet" }, ` · ${withheld.note.replace(/\.$/, "").toLowerCase()}`) : null),
+      h("div", { class: "hand" }, gambits.map(handCard)),
+    );
+  }
+  return rows;
+}
+
+function maneuverUrl(key, side, size = "small") {
+  const url = `/api/game/${GAME_ID}/maneuver/${encodeURIComponent(key)}.png?side=${side}`;
+  return size === "full" ? `${url}&size=full` : url;
 }
 
 function handCard(control) {
   const { key, side } = control.card;
-  const url = `/api/game/${GAME_ID}/maneuver/${encodeURIComponent(key)}.png?side=${side}`;
+  const url = maneuverUrl(key, side);
   const button = h(
     "button",
     {
       type: "button",
-      class: "hand-card",
+      class: `hand-card${control.card.withheld ? " withheld" : ""}${control.card.picked ? " picked" : ""}`,
       disabled: control.disabled,
       title: control.note || control.label,
+      "aria-label": control.note ? `${control.label}: ${control.note}` : control.label,
       onclick: () => press(control),
     },
     h("img", { src: url, alt: control.label }),
+    control.card.picked ? h("span", { class: "hand-card-chip" }, control.chip) : null,
   );
-  hoverCard(button, `${url}&size=full`);
+  hoverCard(button, maneuverUrl(key, side, "full"));
   return button;
+}
+
+/* The hands this viewer does not hold, face down (`present.hand_table`)
+   -- whether or not they have been picked, so a back says nothing. The
+   card this coach laid down is in their own hand, ringed. */
+function handTable(prompt) {
+  const table = prompt.hand;
+  if (!table) return null;
+  return h(
+    "div",
+    { class: "hand-table" },
+    h("div", { class: "hand" }, table.backs.map((back) => h(
+      "figure",
+      { class: "table-card" },
+      h("img", { src: `/api/game/${GAME_ID}/maneuver-back.png`, alt: `${back.team}'s card, face down` }),
+      h("figcaption", {}, `${back.team} · face down`),
+    ))),
+    h("p", { class: "note-line" }, table.note),
+  );
+}
+
+/* Both cards face up, once both are in, until the maneuver is over:
+   what the cards said between them -- TIE, or BEATS pointing at the
+   card beaten, the engine's reading (`present.reveal`). What the
+   maneuver came to is the outcome's headline, above it. */
+let shownReveal = null;
+function drawReveal(state) {
+  const box = el("reveal");
+  const shape = JSON.stringify(state.reveal);
+  if (shape === shownReveal) return;
+  shownReveal = shape;
+  const reveal = state.reveal;
+  box.hidden = !reveal;
+  if (!reveal) {
+    box.replaceChildren();
+    return;
+  }
+  const card = (one) => {
+    const node = h(
+      "figure",
+      { class: `reveal-card${reveal.winner === one.side ? " won" : ""}` },
+      h("img", { src: maneuverUrl(one.key, one.side), alt: one.name }),
+    );
+    hoverCard(node, maneuverUrl(one.key, one.side, "full"));
+    return node;
+  };
+  const word = reveal.winner === "offense" ? `${reveal.between} ▶`
+    : reveal.winner === "defense" ? `◀ ${reveal.between}` : reveal.between;
+  box.replaceChildren(
+    card(reveal.cards[0]),
+    h("div", { class: `reveal-between${reveal.winner === "tie" ? " tie" : ""}` }, word),
+    ...reveal.cards.slice(1).map(card),
+  );
+}
+
+/* Full time, beside the result: each side's numbers, read by
+   `d12ball/stats.py` (`present.full_time`) and drawn in the team's
+   colour, then the ways on -- the rooms, and the whole log as text.
+   The REMATCH mark is the prompt's own control. */
+let shownFullTime = null;
+function drawFullTime(state) {
+  const box = el("full-time");
+  const shape = JSON.stringify(state.full_time);
+  if (shape === shownFullTime) return;
+  shownFullTime = shape;
+  const block = state.full_time;
+  box.hidden = !block;
+  if (!block) {
+    box.replaceChildren();
+    return;
+  }
+  const side = (colour, text) => h("td", { class: "ft-number", style: `color: ${colour}` }, text);
+  box.replaceChildren(
+    h(
+      "table",
+      { class: "ft-stats" },
+      h("thead", {}, h("tr", {},
+        h("th", { style: `color: ${block.home_colour}` }, block.home),
+        h("th", {}, ""),
+        h("th", { style: `color: ${block.visiting_colour}` }, block.visiting))),
+      h("tbody", {}, ...block.rows.map((row) => h("tr", {},
+        side(block.home_colour, row.home),
+        h("td", { class: "ft-label" }, row.label),
+        side(block.visiting_colour, row.visiting)))),
+    ),
+    h("p", { class: "note-line" },
+      "The numbers are the statistics the bot's /d12ball stats reports, read the same way."),
+    h("div", { class: "row ft-links" },
+      h("a", { class: "btn", href: "/" }, "Back to the rooms"),
+      h("a", { class: "linkish", href: block.log, target: "_blank", rel: "noopener" }, "the whole log as text")),
+  );
 }
 
 /* A chooser in the box: its sentence, a menu per field, and a neutral

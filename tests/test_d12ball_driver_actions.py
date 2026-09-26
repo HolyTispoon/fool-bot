@@ -36,7 +36,13 @@ from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.game import Formation, GameMode, Team
 from d12ball.flow import driver
 from d12ball.flow.windows import open_substitution_window
-from d12ball.prompts import NOBODYS_QUESTIONS, PromptKind, pending_prompt
+from d12ball.prompts import (
+    NOBODYS_QUESTIONS,
+    Action,
+    PromptKind,
+    asked_sides,
+    pending_prompt,
+)
 
 from prompt_fixtures import (
     CASES,
@@ -1146,6 +1152,60 @@ class SeamTests(unittest.TestCase):
                     positional[:5],
                     ["engine", "game", "match", "prompt", "choice"],
                 )
+
+
+class ChangeOfPickTests(ApplyFixture):
+    """
+    A side that has laid its maneuver card down may change it until
+    the other side has too (the author, 2026-09-26): the pick is still
+    that side's question (`asked_sides`), and the driver takes the new
+    card over the old one.
+    """
+
+    def _picks(self):
+        for case in CASES:
+            if case.name == "maneuver picks":
+                return case.build()
+        raise AssertionError("no maneuver picks fixture")
+
+    def test_a_side_that_has_picked_is_still_asked_and_may_change(
+        self,
+    ) -> None:
+        fixture = self._picks()
+        game, match = fixture.game, fixture.match
+        offense = match.ball.possession
+
+        first = driver.answer(
+            ENGINE, game, match,
+            Action(
+                PromptKind.MANEUVER_ACTION,
+                arguments={"side": "offense", "maneuver_key": "low_pass"},
+            ),
+        )
+        self.assertNotIsInstance(first, driver.Refusal)
+        prompt = _prompt(fixture)
+        self.assertIs(prompt.kind, PromptKind.MANEUVER_ACTION)
+        self.assertIn(offense, asked_sides(match, prompt))
+        self.assertEqual(len(asked_sides(match, prompt)), 2)
+
+        # The same card again is refused; another is taken.
+        again = driver.answer(
+            ENGINE, game, match,
+            Action(
+                PromptKind.MANEUVER_ACTION,
+                arguments={"side": "offense", "maneuver_key": "low_pass"},
+            ),
+        )
+        self.assertIsInstance(again, driver.Refusal)
+        changed = driver.answer(
+            ENGINE, game, match,
+            Action(
+                PromptKind.MANEUVER_ACTION,
+                arguments={"side": "offense", "maneuver_key": "high_pass"},
+            ),
+        )
+        self.assertNotIsInstance(changed, driver.Refusal)
+        self.assertEqual(match.offense_maneuver, "high_pass")
 
 
 class AIAnswerTests(ApplyFixture):

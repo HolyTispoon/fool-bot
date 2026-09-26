@@ -109,7 +109,7 @@ kept so every cross-reference by step number still reads.
 | ~~2~~ | ~~The jumbotron bar and the time-out tiles~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The jumbotron is one bar", "The time out is a tile") | medium |
 | ~~3~~ | ~~The question box and the outcome banner~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The question box") and "The outcome banner" | medium |
 | ~~4~~ | ~~Answering on the board: the objects, no coloured buttons~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The answer is the thing on the board", "The lit line", "The whistle") | large |
-| 5 | The hand, the reveal, the challenge and full time | large |
+| ~~5~~ | ~~The hand, the reveal, the challenge and full time~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The hand, the reveal and full time") | large |
 | 6 | The Coaching Choice and the bench on the board | large |
 | 7 | The shootout order | medium |
 | ~~8~~ | ~~The bench~~ -- folded into step 6 | -- |
@@ -485,6 +485,18 @@ Record the mapping table above in docs/design/web-app.md.
 ---
 
 ### 5. The hand, the reveal, the challenge and full time
+
+**Landed** (2026-09-26). What it settled is in
+[design/web-app.md](design/web-app.md), "The page" ("The hand, the
+reveal and full time"): the hand as the printed cards with the gambits
+a row under them, a gambit the side does not hold dimmed off
+`ManeuverHand.withheld`, a change of pick until the other side has
+picked (`asked_sides`), backs drawn whether or not the other side has
+picked, the reveal off `cards_outcome`, full time's numbers off
+`stats.collect_sides` with the log as text, and who scored the winner
+in the model's full-time line ([design/clock-and-records.md](design/clock-and-records.md)).
+The three model changes were each their own commit, accepted by the
+author on the PR.
 
 Step 12, full time, was folded into this step (2026-09-26): it needs
 only the outcome banner (step 3) and the REMATCH mark (step 4), and

@@ -104,6 +104,17 @@ once -- one trailing while the other is the more hurt.
   a restart mid-maneuver draws the same hand, and a gambit already
   played keeps its benefit and pays its cost however the score moves
   afterwards -- those are read off the two stored keys.
+- **What the gate holds back is asked too, not worked out.** The web
+  page shows a side's gambits dimmed beside a hand that does not hold
+  them ("held only by the side behind", step 5 of
+  [../web-app-redesign.md](../web-app-redesign.md)), so which cards those
+  are is `RulesEngine.withheld_gambits` -- the complement of
+  `maneuver_hand` within the side's cards, asked of `maneuver_tiers`, and
+  empty in a game without the gambits, for an unchallenged maneuver
+  (nobody holds them there, so there is nothing to be behind for) and
+  for a side that holds them. It rides on the prompt as
+  `ManeuverHand.withheld` and is never an answer; the Discord hand image
+  does not draw it.
 - **The gate is on the hand and nothing else.** Volatile still upgrades
   a maneuver to its rank's gambit off an ignite whether or not that
   coach may play one: the ability is about the dice, and gating it would

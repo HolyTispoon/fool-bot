@@ -1627,6 +1627,41 @@ class RulesEngine:
             )
         )
 
+    def withheld_gambits(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: str,
+    ) -> tuple[ManeuverDefinition, ...]:
+        """
+        The gambits this side would hold if its team were behind, and
+        does not this maneuver -- empty wherever the question does not
+        arise: a game not playing the gambits, an unchallenged maneuver
+        (always basic, for everybody), or a side that holds them.
+
+        **For a frontend that shows the hand whole** (step 5 of
+        docs/web-app-redesign.md): the web page draws these dimmed
+        beside the cards that may be played, so a coach reads what
+        being behind would put in their hand. They are never an answer
+        -- `maneuver_hand` is the hand, and this is its complement
+        within the side's cards, asked of `maneuver_tiers` so the two
+        cannot disagree.
+        """
+        if not self.gambits_apply(game) or match.maneuver_uncontested:
+            return ()
+        if MANEUVER_TIER_GAMBIT in self.maneuver_tiers(game, match, side):
+            return ()
+        return tuple(
+            sorted(
+                (
+                    maneuver
+                    for maneuver in self.maneuver_catalog.side(side)
+                    if maneuver.tier == MANEUVER_TIER_GAMBIT
+                ),
+                key=lambda item: item.rank,
+            )
+        )
+
     def cards_outcome(self, match: MatchState) -> Optional[str]:
         """
         What the **cards** said, before any die was thrown:

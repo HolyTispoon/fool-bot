@@ -42,10 +42,12 @@ from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 from d12ball.components import MatchState, TeamSide
 from d12ball.render import TEAM_COLORS
 from d12ball.flow import FollowOnStep
+from d12ball.game import GameMode
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
 from gamesaves.d12ball import storage
 from gamesaves.d12ball.service import GameService
 from webapp import identity, server
+from webapp.board import side_colour
 from webapp.identity import Coach
 from gamelocks import GameLocks
 from webapp.present import CONTROLS, Viewer, controls_for, lit_line, render_text
@@ -2079,6 +2081,7 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.subTest(name):
                 seen = []
+                hands = []
                 # Untouched first -- seat 2 still to answer, its row
                 # open -- then two secrets that must read the same.
                 for value in (untouched, one, other):
@@ -2109,13 +2112,392 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                         set(state["prompt"]),
                         {
                             "kind", "ask", "picture", "controls", "lit", "yours",
-                            "state", "reference",
+                            "state", "reference", "hand",
                         },
                     )
                     self.assertNotIn("match", state)
+                    # The other side's hand face down is the same
+                    # before they pick as after: a back that came up
+                    # with the pick would say they had.
+                    hands.append(state["prompt"]["hand"])
                     if value is not untouched:
                         seen.append(json.dumps(state, sort_keys=True))
                 self.assertEqual(seen[0], seen[1])
+                self.assertEqual(hands[0], hands[1])
+                self.assertEqual(hands[1], hands[2])
+
+
+class HandTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The maneuver pick as the printed cards, and what follows it (step 5
+    of docs/web-app-redesign.md): the hand is exactly the side's
+    `maneuver_keys`, a gambit it does not hold is shown dimmed and
+    never offered, the other side's hand is a back, an observer sees
+    only backs, and a card clicked is the same `Action` through
+    `driver.answer`.
+    """
+
+    async def serve(self, fixture: PromptFixture) -> tuple[TestClient, WebApp]:
+        web = WebApp(service_over(fixture), GameLocks())
+        web.watch()
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        self.addAsyncCleanup(web.stop)
+        return client, web
+
+    async def state_of(self, client, fixture, headers) -> dict:
+        response = await client.get(
+            f"/api/game/{fixture.game.game_id}", headers=headers,
+        )
+        self.assertEqual(response.status, 200)
+        return await response.json()
+
+    @staticmethod
+    def cards(state: dict) -> list[dict]:
+        return [
+            control
+            for group in state["prompt"]["controls"]
+            for control in group["controls"]
+            if control.get("card")
+        ]
+
+    def behind(self) -> PromptFixture:
+        """An advanced game with the home side (seat 1, on the ball) a
+        goal down: its coach holds six cards, the visitors three."""
+        ENGINE.rng.seed(11)
+        fixture = case("maneuver picks")
+        fixture.game.mode = GameMode.ADVANCED
+        fixture.match.scoreboard.visiting_score = 1
+        return fixture
+
+    async def test_a_side_holding_three_cards_is_offered_exactly_those(
+        self,
+    ) -> None:
+        ENGINE.rng.seed(11)
+        fixture = case("maneuver picks")
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        client, _ = await self.serve(fixture)
+
+        state = await self.state_of(
+            client, fixture, as_coach(fixture.game.player_1_id),
+        )
+
+        cards = self.cards(state)
+        self.assertEqual(
+            [control["card"]["key"] for control in cards],
+            list(prompt.options.hands[0].maneuver_keys),
+        )
+        self.assertEqual(len(cards), 3)
+        self.assertFalse(any(control["disabled"] for control in cards))
+        self.assertFalse(any(control["card"]["gambit"] for control in cards))
+        # The visitors' hand is face down beside it.
+        self.assertEqual(
+            [back["side"] for back in state["prompt"]["hand"]["backs"]],
+            ["defense"],
+        )
+
+    async def test_a_side_holding_six_is_offered_six_and_the_other_sees_its_gambits_dimmed(
+        self,
+    ) -> None:
+        fixture = self.behind()
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        offense, defense = prompt.options.hands
+        client, _ = await self.serve(fixture)
+
+        home = await self.state_of(
+            client, fixture, as_coach(fixture.game.player_1_id),
+        )
+        away = await self.state_of(
+            client, fixture, as_coach(fixture.game.player_2_id),
+        )
+
+        six = self.cards(home)
+        self.assertEqual(
+            [control["card"]["key"] for control in six],
+            list(offense.maneuver_keys),
+        )
+        self.assertEqual(len(six), 6)
+        self.assertFalse(any(control["disabled"] for control in six))
+        self.assertEqual(
+            sum(control["card"]["gambit"] for control in six), 3,
+        )
+
+        three = self.cards(away)
+        live = [control for control in three if not control["disabled"]]
+        dimmed = [control for control in three if control["disabled"]]
+        self.assertEqual(
+            [control["card"]["key"] for control in live],
+            list(defense.maneuver_keys),
+        )
+        self.assertEqual(
+            [control["card"]["key"] for control in dimmed],
+            list(defense.withheld),
+        )
+        self.assertEqual(len(dimmed), 3)
+        for control in dimmed:
+            self.assertTrue(control["card"]["withheld"])
+            self.assertEqual(control["note"], "Held only by the side behind.")
+            # Never an answer: pressed anyway, the page's own check
+            # refuses it before the model sees it.
+            response = await client.post(
+                f"/api/game/{fixture.game.game_id}/action",
+                headers=as_coach(fixture.game.player_2_id),
+                data=json.dumps({"action": control["action"]}),
+            )
+            self.assertEqual(response.status, 409)
+
+    async def test_an_observer_sees_two_backs_and_no_face(self) -> None:
+        fixture = self.behind()
+        client, _ = await self.serve(fixture)
+
+        state = await self.state_of(client, fixture, as_coach(STRANGER))
+
+        self.assertEqual(state["prompt"]["controls"], [])
+        hand = state["prompt"]["hand"]
+        self.assertEqual(
+            [back["side"] for back in hand["backs"]], ["offense", "defense"],
+        )
+        self.assertEqual(hand["note"], "The hands are turned over together.")
+        said = json.dumps(state["prompt"])
+        for key in (
+            card.key
+            for side in ("offense", "defense")
+            for card in ENGINE.maneuver_catalog.side(side)
+        ):
+            self.assertNotIn(f'"{key}"', said)
+
+    async def test_a_card_clicked_reaches_the_driver_with_its_key(
+        self,
+    ) -> None:
+        from d12ball.flow import driver
+
+        fixture = self.behind()
+        client, web = await self.serve(fixture)
+        state = await self.state_of(
+            client, fixture, as_coach(fixture.game.player_1_id),
+        )
+        card = next(
+            control for control in self.cards(state)
+            if control["card"]["key"] == "setup_pass"
+        )
+
+        with mock.patch.object(
+            driver, "answer", wraps=driver.answer,
+        ) as answer:
+            response = await client.post(
+                f"/api/game/{fixture.game.game_id}/action",
+                headers=as_coach(fixture.game.player_1_id),
+                data=json.dumps({"action": card["action"]}),
+            )
+        self.assertEqual(response.status, 200)
+        action = answer.call_args.args[3]
+        self.assertEqual(action.kind, PromptKind.MANEUVER_ACTION)
+        self.assertEqual(action.arguments["maneuver_key"], "setup_pass")
+
+        # Laid face down, it stays in its coach's hand ringed and dead,
+        # and the rest may replace it while the visitors are still to
+        # pick (the author, 2026-09-26); the box is waiting on them.
+        picked = await response.json()
+        cards = self.cards(picked)
+        ringed = [one for one in cards if one["card"].get("picked")]
+        self.assertEqual(
+            [one["card"]["key"] for one in ringed], ["setup_pass"],
+        )
+        self.assertTrue(ringed[0]["disabled"])
+        live = [one for one in cards if not one["disabled"]]
+        self.assertEqual(len(live), 5)
+        self.assertEqual(picked["prompt"]["state"], "waiting")
+        self.assertFalse(picked["prompt"]["yours"])
+        self.assertEqual(
+            [back["side"] for back in picked["prompt"]["hand"]["backs"]],
+            ["defense"],
+        )
+        # The other coach is not shown it, and their question is theirs.
+        theirs = await self.state_of(
+            client, fixture, as_coach(fixture.game.player_2_id),
+        )
+        self.assertNotIn('"setup_pass"', json.dumps(theirs["prompt"]))
+        self.assertEqual(theirs["prompt"]["state"], "yours")
+
+        # A change of card is taken over the old one.
+        instead = next(one for one in live if one["card"]["key"] == "high_pass")
+        response = await client.post(
+            f"/api/game/{fixture.game.game_id}/action",
+            headers=as_coach(fixture.game.player_1_id),
+            data=json.dumps({"action": instead["action"]}),
+        )
+        self.assertEqual(response.status, 200)
+        changed = await response.json()
+        self.assertIsNone(changed["refusal"])
+        self.assertEqual(
+            web.service.games[fixture.game.game_id].match_state[
+                "offense_maneuver"
+            ],
+            "high_pass",
+        )
+        self.assertEqual(
+            [one["card"]["key"] for one in self.cards(changed)
+             if one["card"].get("picked")],
+            ["high_pass"],
+        )
+
+    async def test_both_cards_turn_over_together(self) -> None:
+        """The skill test's tie: both cards face up with TIE between
+        them, for a coach and an observer alike."""
+        ENGINE.rng.seed(11)
+        fixture = case("skill test")
+        client, _ = await self.serve(fixture)
+        for headers in (as_coach(fixture.game.player_1_id), as_coach(STRANGER)):
+            state = await self.state_of(client, fixture, headers)
+            shown = state["reveal"]
+            self.assertEqual(
+                [(one["key"], one["side"]) for one in shown["cards"]],
+                [
+                    (fixture.match.offense_maneuver, "offense"),
+                    (fixture.match.defense_maneuver, "defense"),
+                ],
+            )
+            self.assertEqual(shown["between"], "TIE")
+        self.assertEqual(ENGINE.cards_outcome(fixture.match), "tie")
+
+
+class FullTimeTests(unittest.IsolatedAsyncioTestCase):
+    """The full-time block (step 5 of docs/web-app-redesign.md, with
+    step 12 folded in): `stats.py`'s numbers per side, the rematch
+    and the log as text."""
+
+    async def asyncSetUp(self) -> None:
+        from d12ball import stats
+        from d12ball.components import (
+            DECISION_CARDS,
+            EVENT_MANEUVER,
+            EVENT_SHOT,
+            EVENT_TIME_OUT,
+            EVENT_TURN_ACTION,
+        )
+
+        ENGINE.rng.seed(11)
+        self.fixture = case("game over")
+        match = self.fixture.match
+        scorer = match.home.field_players[0]
+        match.record_event(
+            EVENT_TURN_ACTION, side=TeamSide.HOME, action="maneuver",
+            exhaustion={scorer: 2},
+        )
+        match.record_event(
+            EVENT_MANEUVER, side=TeamSide.HOME, offense_key="low_pass",
+            defense_key="pressure", winner_key="low_pass",
+            decision=DECISION_CARDS,
+        )
+        match.record_event(EVENT_SHOT, side=TeamSide.HOME, scored=True)
+        match.record_goal(TeamSide.HOME, scorer)
+        match.record_event(EVENT_TIME_OUT, side=TeamSide.VISITING)
+        self.sides = stats.collect_sides(match)
+        self.service = service_over(self.fixture)
+        self.web = WebApp(self.service, GameLocks())
+        self.web.watch()
+        self.client = TestClient(TestServer(self.web.app))
+        await self.client.start_server()
+        self.addAsyncCleanup(self.client.close)
+        self.addAsyncCleanup(self.web.stop)
+        self.game = self.fixture.game
+
+    async def state(self, headers=None) -> dict:
+        response = await self.client.get(
+            f"/api/game/{self.game.game_id}",
+            headers=headers or as_coach(self.game.player_1_id),
+        )
+        return await response.json()
+
+    async def test_the_block_is_stats_numbers_in_each_side_s_colour(
+        self,
+    ) -> None:
+        state = await self.state()
+        block = state["full_time"]
+        home, visiting = self.sides[TeamSide.HOME], self.sides[TeamSide.VISITING]
+
+        rows = {row["label"]: (row["home"], row["visiting"]) for row in block["rows"]}
+        self.assertEqual(
+            list(rows),
+            [
+                "goals", "shots", "maneuvers won", "skill tests",
+                "exhaustion taken", "time outs",
+            ],
+        )
+        self.assertEqual(rows["goals"], (str(home.goals), str(visiting.goals)))
+        self.assertEqual(rows["goals"][0], "1")
+        self.assertEqual(rows["shots"], ("1", "0"))
+        self.assertEqual(rows["maneuvers won"], ("1", "0"))
+        self.assertEqual(rows["exhaustion taken"], ("2", "0"))
+        self.assertEqual(rows["time outs"], ("0", "1"))
+        self.assertEqual(
+            (block["home_colour"], block["visiting_colour"]),
+            (
+                side_colour(self.fixture.match, TeamSide.HOME),
+                side_colour(self.fixture.match, TeamSide.VISITING),
+            ),
+        )
+        self.assertEqual(block["log"], f"/api/room/{self.game.game_id}/log.txt")
+        # An observer is shown the same numbers.
+        self.assertEqual((await self.state(as_coach(STRANGER)))["full_time"], block)
+
+    async def test_a_game_under_way_has_no_block(self) -> None:
+        ENGINE.rng.seed(11)
+        fixture = case("plain turn")
+        web = WebApp(service_over(fixture), GameLocks())
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        state = await (
+            await client.get(
+                f"/api/game/{fixture.game.game_id}",
+                headers=as_coach(fixture.game.player_1_id),
+            )
+        ).json()
+        self.assertIsNone(state["full_time"])
+
+    async def test_the_rematch_links_to_the_room_the_service_made(
+        self,
+    ) -> None:
+        state = await self.state()
+        mark = next(
+            control
+            for group in state["prompt"]["controls"]
+            for control in group["controls"]
+            if (control.get("place") or {}).get("at") == "rematch"
+        )
+        self.assertEqual(mark["post"], "/rematch")
+
+        response = await self.client.post(
+            f"/api/room/{self.game.game_id}/rematch",
+            headers=as_coach(self.game.player_1_id),
+        )
+        self.assertEqual(response.status, 200)
+        after = await response.json()
+
+        made = self.service.games[self.game.game_id].rematch_game_id
+        self.assertIn(made, self.service.games)
+        self.assertEqual(after["rematch"]["url"], f"/room/{made}")
+
+    async def test_the_log_is_its_words_as_text(self) -> None:
+        journal = self.web.journals.journal(self.game.game_id)
+        journal.entries.append(Entry(
+            id=1,
+            lines=("**{team:orange}** scores, and {coach:1} says so.",),
+            at=0.0,
+        ))
+
+        response = await self.client.get(
+            f"/api/room/{self.game.game_id}/log.txt",
+        )
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.content_type, "text/plain")
+        text = await response.text()
+        self.assertIn("**Orange** scores, and", text)
+        self.assertNotIn("{team:", text)
+        self.assertNotIn("<img", text)
 
 
 class EntryPointTests(unittest.TestCase):

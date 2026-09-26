@@ -633,12 +633,58 @@ def build_goal_log(
     return "\n\n".join(sections)
 
 
+def winning_goal(match: MatchState) -> Optional[GoalRecord]:
+    """
+    The goal that won the game: the winner's goal that put them one
+    ahead of the loser's final total, after which they were never
+    caught -- in a shootout, the shootout goal that did it, since its
+    goals are on the scoreboard like any other. `None` while the score
+    is level, and for a game whose goal log does not account for its
+    scoreboard (one under way before the log was kept, see
+    `build_goal_log`): counting into a short log would name the wrong
+    goal.
+    """
+    home = match.scoreboard.home_score
+    visiting = match.scoreboard.visiting_score
+    if home == visiting:
+        return None
+    winner, loser = (
+        (TeamSide.HOME, TeamSide.VISITING) if home > visiting
+        else (TeamSide.VISITING, TeamSide.HOME)
+    )
+    won = match.goals_for(winner)
+    lost = match.goals_for(loser)
+    if len(won) != max(home, visiting) or len(lost) != min(home, visiting):
+        return None
+    return won[len(lost)]
+
+
+def winning_goal_line(match: MatchState, catalog: PlayerCatalog) -> str:
+    """
+    Who scored the winner, and when, for the full-time announcement
+    (the author, 2026-09-26, on step 5 of docs/web-app-redesign.md:
+    "the model should say it") -- `""` where `winning_goal` has none.
+    The scorer is named as the goal log names them, (OG) and all.
+    """
+    goal = winning_goal(match)
+    if goal is None:
+        return ""
+    when = (
+        "in the extreme shootout" if goal.shootout
+        else f"minute {format_goal_time(goal)}"
+    )
+    return f"**Winning goal:** {format_goal_scorer(goal, catalog)}, {when}."
+
+
 def build_full_time_summary(
     game: D12BallGame,
     match: MatchState,
+    catalog: Optional[PlayerCatalog] = None,
 ) -> str:
     """
-    The final score and who won it, for the full-time announcement.
+    The final score and who won it, for the full-time announcement --
+    with who scored the winner under the score where `catalog` is
+    given to name them (`winning_goal_line`).
 
     Called twice for a game that goes to the
     [extreme shootout](docs/living-rules.md): once at the whistle,
@@ -651,6 +697,9 @@ def build_full_time_summary(
     home_score = match.scoreboard.home_score
     visiting_score = match.scoreboard.visiting_score
     score_line = final_score_line(match)
+    winning = "" if catalog is None else winning_goal_line(match, catalog)
+    if winning:
+        score_line = f"{score_line}\n{winning}"
 
     if home_score == visiting_score:
         return f"{score_line}\n\n# {full_time_heading(match)[0]}"

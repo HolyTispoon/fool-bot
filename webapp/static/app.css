@@ -353,6 +353,53 @@ img { display: block; }
 /* The roll's arithmetic, written out by the model (`Headline.working`). */
 .outcome-working { font-size: 15px; line-height: 1.4; color: var(--text); }
 
+/* The outcome and, at full time, the numbers beside it. */
+.outcome-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 14px; }
+.outcome-row > .outcome { flex: 1 1 420px; }
+.outcome-row > [hidden] { display: none; }
+
+/* Full time: each side's numbers in its colour, the statistic between
+   them, and the ways on (step 5 of docs/web-app-redesign.md). */
+.full-time {
+  flex: 0 1 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--deep);
+  border: 1px solid var(--line);
+}
+.ft-stats { border-collapse: collapse; width: 100%; }
+.ft-stats th {
+  font-family: "Goal", "Board", sans-serif;
+  font-weight: 400;
+  font-size: 18px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding-bottom: 4px;
+}
+.ft-stats th:first-child, .ft-number:first-child { text-align: right; }
+.ft-stats th:last-child, .ft-number:last-child { text-align: left; }
+.ft-number { font-size: 20px; font-weight: 700; padding: 2px 10px; font-variant-numeric: tabular-nums; }
+.ft-label { text-align: center; font-size: 13px; color: var(--muted); padding: 2px 6px; white-space: nowrap; }
+.ft-links { align-items: center; gap: 12px; }
+.ft-links .btn { text-decoration: none; }
+.rematch-wrap { display: flex; flex-direction: column; gap: 6px; }
+
+/* The reveal: both cards face up, what the cards said between them. */
+.reveal { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.reveal-card { margin: 0; width: 120px; border-radius: 10px; overflow: hidden; border: 2px solid transparent; }
+.reveal-card.won { border-color: var(--gold); box-shadow: 0 0 16px rgba(240, 178, 50, 0.35); }
+.reveal-card img { display: block; width: 100%; height: auto; }
+.reveal-between {
+  font-family: "Goal", "Board", sans-serif;
+  font-size: 30px;
+  letter-spacing: 2px;
+  color: var(--strong);
+}
+.reveal-between.tie { color: var(--gold); }
+
 /* The owed step: its own strip above the box. */
 .owed-strip {
   flex-shrink: 0;
@@ -526,10 +573,14 @@ select {
   max-width: 100%;
 }
 
-/* A hand of maneuver cards: the cards are the buttons. */
+/* A hand of maneuver cards: the printed cards are the buttons, 150px
+   wide, the gambits in a row of their own under the basic three. */
+.hand-rows { display: flex; flex-direction: column; gap: 8px; }
+.hand-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.hand-label .quiet { text-transform: none; letter-spacing: 0; font-weight: 400; }
 .hand {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 128px));
+  grid-template-columns: repeat(auto-fill, 150px);
   gap: 10px;
 }
 .hand-card {
@@ -542,8 +593,42 @@ select {
   transition: transform 0.12s ease, border-color 0.12s ease;
 }
 .hand-card img { width: 100%; height: auto; }
-.hand-card:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-3px); }
+.hand-card:not(:disabled) { border-color: rgba(240, 178, 50, 0.55); }
+.hand-card:hover:not(:disabled) {
+  border-color: var(--gold);
+  transform: translateY(-4px) scale(1.06);
+  box-shadow: 0 0 18px rgba(240, 178, 50, 0.35);
+}
 .hand-card:disabled { opacity: 0.35; cursor: not-allowed; }
+.hand-card.withheld { filter: grayscale(0.6); }
+/* The card laid face down: ringed in gold, and dead, since the same
+   card twice is refused; the others may still replace it. */
+.hand-card.picked:disabled {
+  opacity: 1;
+  cursor: default;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(240, 178, 50, 0.45);
+  position: relative;
+}
+.hand-card-chip {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(30, 31, 34, 0.9);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* The hands held face down beside the hand. */
+.hand-table { display: flex; flex-direction: column; gap: 6px; }
+.table-card { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.table-card img { display: block; width: 100%; height: auto; border-radius: 10px; }
+.table-card figcaption { font-size: 12px; color: var(--muted); text-align: center; }
 
 /* A refusal: a red-edged strip inside the box it refused. */
 .refusal {

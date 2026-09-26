@@ -32,7 +32,7 @@ from typing import Any, Mapping, Optional
 
 from PIL import Image, ImageDraw
 
-from d12ball.cards import render_maneuver_card
+from d12ball.cards import render_maneuver_card, render_maneuver_card_back
 from d12ball.components import (
     ManeuverCatalog,
     MatchState,
@@ -217,6 +217,16 @@ def maneuver_card_png(
         render_maneuver_card(maneuvers, catalog, maneuver, offense, False),
         size,
     )
+
+
+def maneuver_back_png(maneuvers: ManeuverCatalog, tier: str, size: str) -> bytes:
+    """
+    The maneuver cards' shared back, at the game's tier
+    (`maneuver_reference_tier`): what a hand held face down shows on
+    the page (step 5 of docs/web-app-redesign.md). One back for every
+    card of the tier, which is why a card laid face down says nothing.
+    """
+    return _png(render_maneuver_card_back(maneuvers, False, tier), size)
 
 
 def _png(image: Image.Image, size: str) -> bytes:

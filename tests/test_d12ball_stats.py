@@ -546,6 +546,55 @@ class ConditionTests(unittest.TestCase):
         self.assertEqual(report.skill_test_ties, 1)
 
 
+class SideTests(unittest.TestCase):
+    """`collect_sides`: one game's numbers split by side, as the web
+    app's full time lays them against each other."""
+
+    def test_each_number_goes_to_the_side_it_belongs_to(self) -> None:
+        match = build_match()
+        home_player = match.home.field_players[0]
+        away_player = match.visiting.field_players[0]
+        turn(match, exhaustion={home_player: 2, away_player: 1})
+        # Won on the cards by the defense, then a contested one the
+        # offense won through a test; an unchallenged one is no win.
+        maneuver(match, "low_pass", "pressure", "pressure")
+        maneuver(
+            match, "high_pass", "steal", "high_pass",
+            decision=DECISION_SKILL_TEST,
+        )
+        maneuver(
+            match, "low_pass", None, "low_pass",
+            decision=DECISION_UNCONTESTED,
+        )
+        # A tie rolled again is one test, won by the defense.
+        match.record_event(
+            EVENT_SKILL_TEST, side=TeamSide.HOME,
+            offense_total=9, defense_total=9, tied=True,
+        )
+        match.record_event(
+            EVENT_SKILL_TEST, side=TeamSide.HOME,
+            offense_total=8, defense_total=11, tied=False,
+        )
+        match.record_event(EVENT_SHOT, side=TeamSide.HOME, scored=True)
+        match.record_goal(TeamSide.HOME, home_player)
+        turn(match, side=TeamSide.VISITING, exhaustion={away_player: 3})
+        match.record_event(EVENT_TIME_OUT, side=TeamSide.VISITING)
+        match.record_event(EVENT_SHOT, side=TeamSide.VISITING, scored=False)
+
+        sides = stats.collect_sides(match)
+        home, visiting = sides[TeamSide.HOME], sides[TeamSide.VISITING]
+
+        self.assertEqual((home.goals, visiting.goals), (1, 0))
+        self.assertEqual((home.shots, visiting.shots), (1, 1))
+        self.assertEqual((home.maneuvers_won, visiting.maneuvers_won), (1, 1))
+        self.assertEqual((home.skill_tests, visiting.skill_tests), (0, 1))
+        self.assertEqual(
+            (home.skill_tests_taken, visiting.skill_tests_taken), (1, 1),
+        )
+        self.assertEqual((home.exhaustion, visiting.exhaustion), (2, 4))
+        self.assertEqual((home.time_outs, visiting.time_outs), (0, 1))
+
+
 class SerializationTests(unittest.TestCase):
     def test_the_log_survives_a_save_and_a_load(self) -> None:
         match = build_match()

@@ -41,6 +41,7 @@ import asyncio
 import copy
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
@@ -97,9 +98,14 @@ from webapp.present import (
     PROMPT_PICTURES,
     Viewer,
     controls_for,
+    full_time,
+    hand_table,
     lit_line,
+    plain_text,
     prompt_picture_key,
     render_text,
+    reveal,
+    still_to_answer,
 )
 from webapp.chat import WEB_CHAT_FILE, Chats, MessageRefused, clean_text
 from webapp.journal import WEB_JOURNAL_FILE, Journal, Journals
@@ -233,7 +239,12 @@ class WebApp:
                     "/api/game/{game_id}/maneuver/{key}.png",
                     self.maneuver_card,
                 ),
+                web.get(
+                    "/api/game/{game_id}/maneuver-back.png",
+                    self.maneuver_back,
+                ),
                 web.get("/api/game/{game_id}/goal/{side}.png", self.goal),
+                web.get("/api/room/{game_id}/log.txt", self.log_text),
                 # The reading room (step 11): the rules, the books and
                 # the player aids, read-only and open to anybody.
                 web.get("/rules", self.rules_page),
@@ -1212,6 +1223,49 @@ class WebApp:
             ),
         )
 
+    async def maneuver_back(self, request: web.Request) -> web.Response:
+        """The maneuver cards' back at this game's tier: a hand held
+        face down (`present.hand_backs`)."""
+        game = self._game(request)
+        tier = self.engine.maneuver_reference_tier(game)
+        size = request.query.get("size", "small")
+        if size not in pictures.CARD_WIDTHS:
+            raise web.HTTPBadRequest(text="A size is small or full.")
+        return await self._card(
+            ("maneuver_back", tier, size),
+            lambda: pictures.maneuver_back_png(
+                self.engine.maneuver_catalog, tier, size,
+            ),
+        )
+
+    async def log_text(self, request: web.Request) -> web.Response:
+        """
+        The room's log as a plain-text file ("the whole log as text" at
+        full time, step 5 of docs/web-app-redesign.md): every entry the
+        journal holds, oldest first, its lines as the page showed them
+        with each token in words (`present.plain_text`) -- the model's
+        narration, nothing added but the time each was said. Open to
+        anybody who can open the room, as the log is.
+        """
+        game = self._game(request)
+        journal = self.journals.journal(game.game_id)
+        blocks = [
+            "\n".join([
+                time.strftime("%H:%M:%S", time.gmtime(entry.at)) + " UTC",
+                *(plain_text(game, line) for line in entry.lines),
+            ])
+            for entry in journal.entries
+        ]
+        return web.Response(
+            text="\n\n".join(blocks) + ("\n" if blocks else ""),
+            content_type="text/plain",
+            charset="utf-8",
+            headers={
+                "Content-Disposition":
+                f'inline; filename="d12ball-game-{game.game_number}.txt"',
+            },
+        )
+
     async def _card(self, key: tuple, draw) -> web.Response:
         png = self._cards.get(key)
         if png is None:
@@ -1505,6 +1559,12 @@ class WebApp:
             # The outcome beside them, large and first: the model's own
             # headline ("The outcome banner", docs/design/web-app.md).
             "outcome": self._outcome(game, match, journal),
+            # Both cards face up once both are in, until the maneuver
+            # is over (`present.reveal`): public once turned over.
+            "reveal": reveal(self.engine, game, match),
+            # The numbers beside the result once the game is over, and
+            # the log as a file (`present.full_time`).
+            "full_time": self._full_time(game, match),
             "entries": journal.since(since, game),
             "latest": journal.next_id - 1,
             "chat": [
@@ -1534,6 +1594,9 @@ class WebApp:
         controls = controls_for(
             self.engine, game, match, prompt, viewer, wire=wire,
         )
+        owed = bool(controls) and still_to_answer(
+            self.engine, game, match, prompt, viewer, wire=wire,
+        )
         return {
             "prompt": {
                 "kind": wire["kind"],
@@ -1552,8 +1615,17 @@ class WebApp:
                     self.engine, game, match, prompt, viewer, controls,
                     wire=wire,
                 ),
-                "yours": bool(controls),
-                "state": _box_state(match, prompt, bool(controls)),
+                # This viewer's to answer: offered controls, and not
+                # only waiting on the other side with a card already
+                # down (`present.still_to_answer`).
+                "yours": owed,
+                "state": _box_state(match, prompt, owed),
+                # The maneuver pick's hands this viewer does not hold,
+                # face down -- every one for an observer -- whether or
+                # not that side has picked (`present.hand_table`).
+                "hand": hand_table(
+                    self.engine, game, match, prompt, viewer, wire=wire,
+                ),
                 # The maneuver pick links to the hexagon at the game's
                 # tier, as the Discord prompt's reference button posts
                 # it: a link, never a picture inline.
@@ -1601,6 +1673,19 @@ class WebApp:
                 None if side is None
                 else side_colour(match, TeamSide(side))
             ),
+        }
+
+    def _full_time(
+        self, game: D12BallGame, match: Optional[MatchState],
+    ) -> Optional[dict]:
+        block = full_time(game, match)
+        if block is None:
+            return None
+        return {
+            **block,
+            "home_colour": side_colour(match, TeamSide.HOME),
+            "visiting_colour": side_colour(match, TeamSide.VISITING),
+            "log": f"/api/room/{game.game_id}/log.txt",
         }
 
     def _roll(self, game: D12BallGame, journal: Journal) -> Optional[dict]:
