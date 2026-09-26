@@ -81,6 +81,40 @@ SCOPE_LABELS = {
 }
 
 
+# The second axis, beside the kinds and across them: which system a
+# game was played on. The bot and the web app are two systems sharing
+# the model and nothing at runtime (docs/design/web-app.md), each over
+# its own games file, and the author asked for the web games' numbers
+# on Discord with the bot's, so both can be read together or either
+# alone. A source is not a kind: a game against Dinky is one on either.
+SOURCE_DISCORD = "discord"
+SOURCE_WEB = "web"
+SOURCE_BOTH = "both"
+
+SOURCE_LABELS = {
+    SOURCE_DISCORD: "played on this server",
+    SOURCE_WEB: "played on the web app",
+    SOURCE_BOTH: "played on this server and the web app",
+}
+
+
+def game_source(game: D12BallGame) -> str:
+    """
+    Which system a game was played on.
+
+    **The one reading of it**, and a fact already on the record rather
+    than a field of its own: a Discord game is always opened in a
+    server, and a web game never is -- the web app creates its games
+    with no Discord ids at all (`D12BallGame`'s three are optional for
+    that reason). A saved `source` field would be a second thing that
+    could disagree with `guild_id`, and a change to the save format for
+    a fact the save already carries.
+    """
+    if game.guild_id is None:
+        return SOURCE_WEB
+    return SOURCE_DISCORD
+
+
 def game_category(game: D12BallGame) -> str:
     """
     Which of the three a game belongs to.
@@ -101,18 +135,23 @@ def game_category(game: D12BallGame) -> str:
 def games_in_scope(
     games: Iterable[D12BallGame],
     scope: str,
+    source: str = SOURCE_BOTH,
 ) -> list[D12BallGame]:
     """
-    Every game the scope covers, still in setup or not.
+    Every game the scope covers, of the kind `scope` names and played
+    where `source` says, still in setup or not.
 
     Games in setup are kept rather than filtered: they have no events,
     so they contribute nothing to any total, and dropping them here
     would make `games_without_events` under-report by exactly the
     games nobody has played yet.
     """
-    if scope == SCOPE_ALL:
-        return list(games)
-    return [game for game in games if game_category(game) == scope]
+    return [
+        game
+        for game in games
+        if (scope == SCOPE_ALL or game_category(game) == scope)
+        and (source == SOURCE_BOTH or game_source(game) == source)
+    ]
 
 
 @dataclass
@@ -688,16 +727,32 @@ def _short_name(name: str, width: int) -> str:
     return name if len(name) <= width else name[: width - 1] + "."
 
 
-def format_scope_heading(scope: str, report_games: int, empty: int) -> list[str]:
+def format_scope_heading(
+    scope: str,
+    report_games: int,
+    empty: int,
+    source: str = SOURCE_DISCORD,
+    no_web_games: bool = False,
+) -> list[str]:
     """
-    The line every report opens with: what was counted, and what was
-    not. The second half is the point -- see the module docstring.
+    The lines every report opens with: what was counted -- the kind
+    and where it was played -- and what was not. The last is the point
+    -- see the module docstring.
+
+    `no_web_games` is a cut that asked for the web app's games and
+    found none at all: a web app that has not been run yet, or a file
+    that could not be read, which reads to a coach as the same thing.
+    Said rather than left as a zero, so "both" with nothing from the
+    web is not mistaken for the web app's games being in the count.
     """
     label = SCOPE_LABELS.get(scope, scope)
     line = f"{report_games} {label}"
     if empty:
         line += f"  ({empty} with nothing recorded)"
-    return _ruled([line, _rule("=")])
+    lines = [line, SOURCE_LABELS.get(source, source)]
+    if no_web_games:
+        lines.append("no web games yet")
+    return _ruled([*lines, _rule("=")])
 
 
 def format_maneuver_usage(

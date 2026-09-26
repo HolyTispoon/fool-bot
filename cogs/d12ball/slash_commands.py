@@ -32,7 +32,7 @@ from d12ball.rules_doc import (
     chunk_for_discord,
     load_rules_document,
 )
-from gamesaves.d12ball.storage import save_games
+from gamesaves.d12ball.storage import WEB_GAMES_FILE, load_games, save_games
 from gamesaves.d12ball.hub import get_hub, set_hub
 from cogs.d12ball_helpers import (
     BENCH_DESTINATIONS,
@@ -113,20 +113,44 @@ class CommandsMixin:
         app_commands.Choice(name="Every game", value=stats.SCOPE_ALL),
     ]
 
+    # Where the games were played, the second cut beside the kind. This
+    # server's games first and the default, because that is what the
+    # command always reported; the web app's are read off its own file
+    # at the moment somebody asks -- see `stats_matches`.
+    STATS_SOURCE_CHOICES = [
+        app_commands.Choice(name="This server", value=stats.SOURCE_DISCORD),
+        app_commands.Choice(name="The web app", value=stats.SOURCE_WEB),
+        app_commands.Choice(name="Both", value=stats.SOURCE_BOTH),
+    ]
+
     def stats_matches(
         self,
         interaction: discord.Interaction,
         scope: str,
+        source: str = stats.SOURCE_DISCORD,
     ) -> Optional[tuple[list[tuple[D12BallGame, MatchState]], int, str]]:
         """
-        Every game the scope covers in **this server**, with its match
-        -- plus how many of them had nothing recorded, and a heading.
+        Every game the scope covers in **this server**, the web app's
+        or both, as `source` says, with its match -- plus how many of
+        them had nothing recorded, and a heading.
 
-        **Scoped to the guild, always.** `self.games` is every game the
-        bot knows about on every server it is in, and one server's
-        players have no business reading another's. There is no option
-        to widen it: a cross-server total is not a statistic anybody
-        asked for and is a disclosure nobody consented to.
+        **The bot's games are scoped to the guild, always.**
+        `self.games` is every game the bot knows about on every server
+        it is in, and one server's players have no business reading
+        another's. There is no option to widen it: a cross-server total
+        is not a statistic anybody asked for and is a disclosure nobody
+        consented to. The web app's games belong to no server, so the
+        web and both cuts show them in whichever server asks.
+
+        **The web games are read, never held.** They are the web app's
+        process's, in its own file, and change under the bot; so they
+        are loaded here, at the moment a coach asks, and dropped when
+        the report is built -- never at startup, never cached on the
+        cog, never written. The web app's save is a temp file renamed
+        over the real one, so a read never sees half a file. A missing
+        or unreadable file is no web games: `load_games` has already
+        logged what it could not read and returns nothing, and the
+        heading says so rather than a second log line.
 
         A game whose match fails to load is skipped rather than
         raising. A saved game older than a rename can refuse to build
@@ -140,11 +164,22 @@ class CommandsMixin:
                 return None
             return [(game, match)], 0, self.stats_game_heading(game, match)
 
-        in_scope = [
-            game
-            for game in stats.games_in_scope(self.games.values(), scope)
-            if game.guild_id == interaction.guild_id
-        ]
+        in_scope: list[D12BallGame] = []
+        if source in (stats.SOURCE_DISCORD, stats.SOURCE_BOTH):
+            in_scope += [
+                game
+                for game in stats.games_in_scope(
+                    self.games.values(), scope, stats.SOURCE_DISCORD,
+                )
+                if game.guild_id == interaction.guild_id
+            ]
+        no_web_games = False
+        if source in (stats.SOURCE_WEB, stats.SOURCE_BOTH):
+            web_games = load_games(WEB_GAMES_FILE)
+            no_web_games = not web_games
+            in_scope += stats.games_in_scope(
+                web_games.values(), scope, stats.SOURCE_WEB,
+            )
         pairs: list[tuple[D12BallGame, MatchState]] = []
         unreadable = 0
         for game in in_scope:
@@ -164,7 +199,9 @@ class CommandsMixin:
             len(in_scope) - len(pairs)
         )
         heading = "\n".join(
-            stats.format_scope_heading(scope, len(in_scope), empty)
+            stats.format_scope_heading(
+                scope, len(in_scope), empty, source, no_web_games,
+            )
         )
         return pairs, empty, heading
 
@@ -335,20 +372,25 @@ class CommandsMixin:
     )
     @app_commands.describe(
         scope="Which games to count.",
+        source="Where they were played: this server's games, the web app's, or both.",
         share="Post it straight into the channel instead of a thread of its own.",
     )
-    @app_commands.choices(scope=STATS_SCOPE_CHOICES)
+    @app_commands.choices(
+        scope=STATS_SCOPE_CHOICES, source=STATS_SOURCE_CHOICES,
+    )
     @app_commands.guild_only()
     async def stats_maneuvers(
         self,
         interaction: discord.Interaction,
         scope: Optional[app_commands.Choice[str]] = None,
+        source: Optional[app_commands.Choice[str]] = None,
         share: bool = False,
     ) -> None:
         await interaction.response.defer(ephemeral=not share)
         await self.post_scoped_stats(
             interaction,
             scope,
+            source,
             share,
             lambda maneuvers, matches, pairs: [
                 stats.format_turn_actions(maneuvers),
@@ -363,20 +405,25 @@ class CommandsMixin:
     )
     @app_commands.describe(
         scope="Which games to count.",
+        source="Where they were played: this server's games, the web app's, or both.",
         share="Post it straight into the channel instead of a thread of its own.",
     )
-    @app_commands.choices(scope=STATS_SCOPE_CHOICES)
+    @app_commands.choices(
+        scope=STATS_SCOPE_CHOICES, source=STATS_SOURCE_CHOICES,
+    )
     @app_commands.guild_only()
     async def stats_matchups(
         self,
         interaction: discord.Interaction,
         scope: Optional[app_commands.Choice[str]] = None,
+        source: Optional[app_commands.Choice[str]] = None,
         share: bool = False,
     ) -> None:
         await interaction.response.defer(ephemeral=not share)
         await self.post_scoped_stats(
             interaction,
             scope,
+            source,
             share,
             lambda maneuvers, matches, pairs: [
                 stats.format_matchups(maneuvers, self.maneuver_catalog),
@@ -389,20 +436,25 @@ class CommandsMixin:
     )
     @app_commands.describe(
         scope="Which games to count.",
+        source="Where they were played: this server's games, the web app's, or both.",
         share="Post it straight into the channel instead of a thread of its own.",
     )
-    @app_commands.choices(scope=STATS_SCOPE_CHOICES)
+    @app_commands.choices(
+        scope=STATS_SCOPE_CHOICES, source=STATS_SOURCE_CHOICES,
+    )
     @app_commands.guild_only()
     async def stats_overview(
         self,
         interaction: discord.Interaction,
         scope: Optional[app_commands.Choice[str]] = None,
+        source: Optional[app_commands.Choice[str]] = None,
         share: bool = False,
     ) -> None:
         await interaction.response.defer(ephemeral=not share)
         await self.post_scoped_stats(
             interaction,
             scope,
+            source,
             share,
             lambda maneuvers, matches, pairs: [
                 stats.format_overview(stats.collect_overview(pairs)),
@@ -416,14 +468,18 @@ class CommandsMixin:
     )
     @app_commands.describe(
         scope="Which games to count.",
+        source="Where they were played: this server's games, the web app's, or both.",
         share="Post it straight into the channel instead of a thread of its own.",
     )
-    @app_commands.choices(scope=STATS_SCOPE_CHOICES)
+    @app_commands.choices(
+        scope=STATS_SCOPE_CHOICES, source=STATS_SOURCE_CHOICES,
+    )
     @app_commands.guild_only()
     async def stats_players(
         self,
         interaction: discord.Interaction,
         scope: Optional[app_commands.Choice[str]] = None,
+        source: Optional[app_commands.Choice[str]] = None,
         share: bool = False,
     ) -> None:
         await interaction.response.defer(ephemeral=not share)
@@ -438,7 +494,9 @@ class CommandsMixin:
                 stats.format_conditions(conditions),
             ]
 
-        await self.post_scoped_stats(interaction, scope, share, blocks)
+        await self.post_scoped_stats(
+            interaction, scope, source, share, blocks,
+        )
 
     def stats_player_name(self, player_id: str) -> str:
         """
@@ -464,6 +522,7 @@ class CommandsMixin:
         self,
         interaction: discord.Interaction,
         scope: Optional[app_commands.Choice[str]],
+        source: Optional[app_commands.Choice[str]],
         share: bool,
         blocks,
     ) -> None:
@@ -479,7 +538,8 @@ class CommandsMixin:
         asked for.
         """
         chosen = scope.value if scope is not None else stats.SCOPE_ALL
-        found = self.stats_matches(interaction, chosen)
+        where = source.value if source is not None else stats.SOURCE_DISCORD
+        found = self.stats_matches(interaction, chosen, where)
         if found is None:
             await interaction.followup.send(
                 "There is no D12 Ball game in this channel to report on.",

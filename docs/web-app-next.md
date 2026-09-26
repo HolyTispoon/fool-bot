@@ -157,7 +157,7 @@ that existed; steps 1 to 3 are one sprint.
 | ~~3~~ | ~~The room's table: setup, kickoff, the rematch~~ -- landed; what it settled is in `docs/design/web-app.md`, "The room's table" | large |
 | ~~4~~ | ~~Chat in the room~~ -- landed; what it settled is in `docs/design/web-app.md`, "Chat" | small |
 | ~~5~~ | ~~Run it for real, and write down how~~ -- the how landed: `docs/design/collaboration.md`, "Running the web app", and `scripts/run_web_app.ps1`; the playtest below is the author's to run | a day, little code |
-| 6 | The web games' numbers on Discord, cut by source | small |
+| ~~6~~ | ~~The web games' numbers on Discord, cut by source~~ -- landed; what it settled is in `docs/design/clock-and-records.md`, "What the statistics are, and what they are not" (the source cut, and the read across the line), and `docs/design/web-app.md`, "Its own process, its own file" | small |
 | 7 | The dice on the page | medium |
 | 8 | The prompt's pictures | medium |
 | 9 | What Discord has that the page lacks: my rooms, resume, abandon, stats | medium |
@@ -769,6 +769,14 @@ Line 10 is not in the step's prompt; it is the one check of the
 secret, and it costs a minute.
 
 ### 6. The web games' numbers on Discord, cut by source
+
+**Landed.** `stats.game_source` and the `SOURCE_*` cut, and a `source`
+option on the four scoped `/d12ball stats` commands that reads
+`WEB_GAMES_FILE` at call time and never writes it: see
+`docs/design/clock-and-records.md`, "What the statistics are, and what
+they are not", and `docs/design/web-app.md`, "Its own process, its own
+file". Whether the web cuts are gated to a role is still the author's
+call.
 
 **Why here, and why on Discord.** The author wants the statistics
 from every web game visible on Discord, collected with the bot's own

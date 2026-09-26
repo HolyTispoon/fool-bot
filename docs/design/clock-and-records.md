@@ -226,7 +226,33 @@ fact.
 - **Scoped to the guild, always, with no option to widen it.** `self.games` is
   every game on every server the bot is in; one server's players have no
   business reading another's, and a cross-server total is a disclosure nobody
-  consented to.
+  consented to. The source cut below does not loosen it: it adds the web app's
+  games, and never another server's.
+- **A second cut, by source: this server, the web app, or both** (the author,
+  2026-09-25: the web games' numbers on Discord, readable with the bot's or
+  apart). It runs across the kinds rather than beside them -- a game against
+  Dinky is one on either system -- so every scoped command takes a `source`
+  as well as a `scope`, defaulting to this server's games, which is what the
+  command always reported. `stats.game_source` is the one reading of which
+  system a game was played on, and it is `guild_id is None`: a web game is
+  created with no Discord ids at all, and a Discord game is always opened in a
+  server, so a saved field would be a second thing to disagree with the record
+  and a save-format change for a fact the save already carries. The heading
+  names the source beside the kind.
+- **The web games are read across the line, read-only, at the moment somebody
+  asks.** They are the web app's process's, in `WEB_GAMES_FILE`, and change
+  under the bot -- so `stats_matches` calls `load_games(WEB_GAMES_FILE)` for
+  the web and both cuts and drops the result with the report: never at
+  startup, never cached on the cog, never written (the bot writes only its own
+  file; see [web-app.md](web-app.md), "Its own process, its own file"). The
+  web app saves through a temp file renamed over the real one, so a read never
+  sees half a file; a file missing or unreadable is "no web games yet" in the
+  heading, not an error, because `load_games` has already logged what it could
+  not read and a second line would be the same fault twice. Both
+  processes run from the one checkout on the `K:\` host, so the file is local.
+  Web games belong to no server, so the web and both cuts show them in
+  whichever server asks; if that is a disclosure the author does not want, the
+  option is gated to a role, and that is the author's call.
 - **A report goes in a thread of its own, not an ephemeral message.**
   `CommandsMixin.open_stats_thread` starts a parent-message-less public thread
   off the game channel and posts the heading and every table there, then points

@@ -27,13 +27,17 @@ walks the five scripted beats through the real cog, and
 those two check the writing.
 """
 
+import json
+import tempfile
 import unittest
+from dataclasses import asdict
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
 import discord
 
-from cogs.d12ball import D12Ball
+from cogs.d12ball import D12Ball, slash_commands
 from d12ball import stats
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
@@ -58,6 +62,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import D12BallGame, Team
+from gamesaves.d12ball import storage
 
 from roster import fielded
 from save_patches import suppressed_cog_saves
@@ -367,6 +372,59 @@ class ScopeTests(unittest.TestCase):
                 stats.games_in_scope([game], category), [game]
             )
             self.assertEqual(stats.games_in_scope([game], stats.SCOPE_ALL), [game])
+
+
+class SourceTests(unittest.TestCase):
+    """
+    Which system a game was played on: the second cut, across the
+    kinds. Read off `guild_id`, which a Discord game always has and a
+    web game never does.
+    """
+
+    def test_a_game_in_a_server_is_discords(self) -> None:
+        self.assertEqual(
+            stats.game_source(build_game(guild_id=1)), stats.SOURCE_DISCORD,
+        )
+
+    def test_a_game_in_no_server_is_the_web_apps(self) -> None:
+        game = build_game(guild_id=None, channel_id=None)
+        self.assertEqual(stats.game_source(game), stats.SOURCE_WEB)
+
+    def test_a_source_cuts_across_the_kinds(self) -> None:
+        bot = build_game(game_id="bot", player_2_id=None)
+        web = build_game(
+            game_id="web", guild_id=None, channel_id=None, player_2_id=None,
+        )
+        games = [bot, web]
+        for source, expected in (
+            (stats.SOURCE_DISCORD, [bot]),
+            (stats.SOURCE_WEB, [web]),
+            (stats.SOURCE_BOTH, [bot, web]),
+        ):
+            self.assertEqual(
+                stats.games_in_scope(games, stats.SCOPE_DINKY, source),
+                expected,
+            )
+            self.assertEqual(
+                stats.games_in_scope(games, stats.SCOPE_HUMAN, source), [],
+            )
+
+    def test_every_source_has_a_label(self) -> None:
+        for source in (
+            stats.SOURCE_DISCORD, stats.SOURCE_WEB, stats.SOURCE_BOTH,
+        ):
+            heading = "\n".join(
+                stats.format_scope_heading(stats.SCOPE_ALL, 1, 0, source)
+            )
+            self.assertIn(stats.SOURCE_LABELS[source], heading)
+
+    def test_the_heading_says_when_there_are_no_web_games(self) -> None:
+        heading = "\n".join(
+            stats.format_scope_heading(
+                stats.SCOPE_ALL, 0, 0, stats.SOURCE_WEB, no_web_games=True,
+            )
+        )
+        self.assertIn("no web games yet", heading)
 
 
 class OverviewTests(unittest.TestCase):
@@ -811,6 +869,162 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([game.game_id for game, _ in pairs], ["good"])
         self.assertEqual(empty, 1)
         self.assertIn("nothing recorded", heading)
+
+    def web_games_file(self, *games: D12BallGame) -> Path:
+        """
+        The web app's games, in a file of their own in a tempdir, the
+        way `python3 -m webapp` saves them. Pointing the cog at it is
+        what keeps a run from reading, or creating, the real `data/`.
+        """
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = Path(folder.name) / "d12ball_web_games.json"
+        path.write_text(
+            json.dumps({game.game_id: asdict(game) for game in games}),
+            encoding="utf-8",
+        )
+        patcher = mock.patch.object(slash_commands, "WEB_GAMES_FILE", path)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return path
+
+    @staticmethod
+    def web_game(game_id: str = "web", **overrides) -> D12BallGame:
+        """A game with one turn in it, as the web app records one: no
+        server, no channel, no message."""
+        game = build_game(
+            game_id=game_id, guild_id=None, channel_id=None, **overrides,
+        )
+        match = build_match()
+        turn(match)
+        maneuver(match, "low_pass", "deflect", "deflect")
+        game.match_state = match.to_dict()
+        return game
+
+    async def test_each_source_counts_its_own_games_and_both_sums_them(
+        self,
+    ) -> None:
+        """
+        The second cut: this server's games (as it always was), the
+        web app's read off its own file, or the two together.
+        """
+        cog = build_cog()
+        played_game(cog, game_id="ours", guild_id=1, channel_id=2)
+        played_game(cog, game_id="theirs", guild_id=99, channel_id=3)
+        self.web_games_file(self.web_game("web1"), self.web_game("web2"))
+
+        for source, expected, label in (
+            (stats.SOURCE_DISCORD, ["ours"], "played on this server"),
+            (stats.SOURCE_WEB, ["web1", "web2"], "played on the web app"),
+            (
+                stats.SOURCE_BOTH,
+                ["ours", "web1", "web2"],
+                "played on this server and the web app",
+            ),
+        ):
+            pairs, _, heading = cog.stats_matches(
+                build_interaction(guild_id=1), stats.SCOPE_ALL, source,
+            )
+            self.assertEqual(
+                sorted(game.game_id for game, _ in pairs), expected, source,
+            )
+            self.assertIn(f"{len(expected)} all games", heading)
+            self.assertIn(label, heading)
+            self.assertNotIn("no web games yet", heading)
+
+    async def test_the_default_is_this_servers_games_and_reads_no_file(
+        self,
+    ) -> None:
+        cog = build_cog()
+        played_game(cog, game_id="ours")
+        with mock.patch.object(slash_commands, "load_games") as load:
+            pairs, _, heading = cog.stats_matches(
+                build_interaction(), stats.SCOPE_ALL,
+            )
+        load.assert_not_called()
+        self.assertEqual([game.game_id for game, _ in pairs], ["ours"])
+        self.assertIn("played on this server", heading)
+
+    async def test_the_web_cut_keeps_the_kinds_apart(self) -> None:
+        cog = build_cog()
+        self.web_games_file(
+            self.web_game("human"),
+            self.web_game("solo", player_2_id=None),
+        )
+        pairs, _, _ = cog.stats_matches(
+            build_interaction(), stats.SCOPE_DINKY, stats.SOURCE_WEB,
+        )
+        self.assertEqual([game.game_id for game, _ in pairs], ["solo"])
+
+    async def test_no_web_file_is_no_web_games_not_an_error(self) -> None:
+        cog = build_cog()
+        played_game(cog, game_id="ours")
+        path = self.web_games_file()
+        path.unlink()
+
+        with self.assertNoLogs("gamesaves.d12ball.storage", "ERROR"):
+            pairs, _, heading = cog.stats_matches(
+                build_interaction(), stats.SCOPE_ALL, stats.SOURCE_BOTH,
+            )
+        self.assertEqual([game.game_id for game, _ in pairs], ["ours"])
+        self.assertIn("no web games yet", heading)
+        self.assertFalse(path.exists())
+
+    async def test_an_unreadable_web_file_is_no_web_games_in_the_reply(
+        self,
+    ) -> None:
+        cog = build_cog()
+        path = self.web_games_file()
+        path.write_text("{ not json", encoding="utf-8")
+
+        with self.assertLogs("gamesaves.d12ball.storage", "ERROR") as logs:
+            sent = await self.run_command(
+                cog,
+                "stats_overview",
+                build_interaction(),
+                scope=None,
+                source=SimpleNamespace(value=stats.SOURCE_WEB),
+            )
+        # `load_games` says what it could not read, once; the cog does
+        # not say it again.
+        self.assertEqual(len(logs.records), 1)
+        self.assertEqual(len(sent), 1)
+        self.assertIn("no web games yet", sent[0][0])
+        self.assertEqual(path.read_text(encoding="utf-8"), "{ not json")
+
+    async def test_the_command_never_writes_the_web_file(self) -> None:
+        """
+        The file is the web app's process's. The bot reads it at the
+        moment a coach asks and never writes it -- not even the save a
+        rename or a migration on load might tempt.
+        """
+        cog = build_cog()
+        played_game(cog, game_id="ours")
+        path = self.web_games_file(self.web_game("web1"))
+        before = path.read_bytes()
+
+        for name in (
+            "stats_maneuvers",
+            "stats_matchups",
+            "stats_overview",
+            "stats_players",
+        ):
+            with mock.patch.object(
+                slash_commands, "save_games",
+            ) as cog_save, mock.patch.object(
+                storage, "save_games",
+            ) as store_save:
+                await self.run_command(
+                    cog,
+                    name,
+                    build_interaction(),
+                    scope=None,
+                    source=SimpleNamespace(value=stats.SOURCE_BOTH),
+                )
+            cog_save.assert_not_called()
+            store_save.assert_not_called()
+        self.assertEqual(path.read_bytes(), before)
+        self.assertFalse(path.with_suffix(".tmp").exists())
 
     async def test_this_game_reads_the_channels_own_game(self) -> None:
         cog = build_cog()
