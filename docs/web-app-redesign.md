@@ -99,7 +99,7 @@ for this plan is `trig_01FzyzX3xSLWMPKYy2if5uuK`.
 | --- | --- | --- |
 | ~~1~~ | ~~The field, drawn from scratch~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The field is drawn from scratch") | large |
 | ~~2~~ | ~~The jumbotron bar and the time-out tiles~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The jumbotron is one bar", "The time out is a tile") | medium |
-| 3 | The question box and the outcome banner | medium |
+| ~~3~~ | ~~The question box and the outcome banner~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The question box") and "The outcome banner" | medium |
 | 4 | Answering on the board: the objects, no coloured buttons | large |
 | 5 | The hand, the reveal and the challenge | medium |
 | 6 | The Coaching Choice on the board | large |
@@ -336,6 +336,14 @@ button.
 ---
 
 ### 3. The question box and the outcome banner
+
+**Landed** (2026-09-26): the box, its four tags off `asked_sides`, the
+refusal strip, the owed strip and the picture slot are in
+docs/design/web-app.md, "The page" ("The question box"). The narration
+did not split into a headline and a detail, so the banner's words ride
+on a proposed model change, `d12ball.flow.result.Headline`, in its own
+commit on the step's PR for the author to accept or refuse -- see "The
+outcome banner" there.
 
 **Prompt.**
 

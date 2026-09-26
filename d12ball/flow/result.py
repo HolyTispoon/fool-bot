@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     # A type only: `d12ball.prompts` imports `FollowOn` from here, so
     # that `owed_step` can name a step, and the two modules cannot
     # both import the other at run time.
+    from d12ball.components import TeamSide
     from d12ball.prompts import PendingPrompt
 
 
@@ -275,6 +276,42 @@ class FollowOn:
         return cls(FollowOnStep[data["step"]], dict(data.get("kwargs", {})))
 
 
+@dataclass(frozen=True)
+class Headline:
+    """
+    The outcome a step's lines announce, said once more on its own:
+    **a proposal for the author** (step 3 of docs/web-app-redesign.md),
+    so a frontend that puts an outcome up large -- the web app's
+    question box -- takes it from the model rather than going looking
+    for a heading in the narration.
+
+    `text` is the heading line the step wrote, without its markdown
+    heading marks (`**Pressure** wins!` of `## **Pressure** wins!`),
+    and `under` the line the step wrote beneath it, where there is
+    one -- both built once and used in the narration and here, so the
+    two cannot word it differently. `side` is whose outcome it is --
+    the side whose card won, the side that scored, the side that kept
+    the ball out, the side that took it -- for a frontend to colour it
+    by; it is not a second reading of who won, since the step that
+    decided it says so.
+
+    It changes no line: the narration is exactly what it was, which is
+    why the goldens do not move.
+    """
+
+    text: str
+    side: Optional["TeamSide"] = None
+    under: str = ""
+
+    def to_dict(self) -> dict:
+        """The headline as JSON -- `d12ball.wire`."""
+        return {
+            "text": self.text,
+            "side": None if self.side is None else self.side.value,
+            "under": self.under,
+        }
+
+
 @dataclass
 class StepResult:
     """
@@ -309,3 +346,8 @@ class StepResult:
     board_changed: bool = False
     next: Optional[Union[PendingPrompt, FollowOn]] = None
     new_play: bool = False
+    #: The outcome these lines announce, where they announce one
+    #: (`Headline`). Carried with the lines: the loop hands it on
+    #: wherever it hands them on, and the first one said is the
+    #: group's.
+    headline: Optional[Headline] = None

@@ -638,6 +638,48 @@ the coach is looking at it.
   cookie, a seated coach's name in their team's colour and an
   observer's plain, with a one-line input and Send.
 
+**The question box** (2026-09-26, step 3 of
+[../web-app-redesign.md](../web-app-redesign.md)) is the panel under the
+field, in the canvas's shape: a state tag, the outcome, the ask at
+17px, a muted line for what is lit on the board, the controls, and on
+the right the picture the question is asked over.
+
+- **The tag is the server's reading, never the page's.** Four:
+  YOUR MOVE (gold, and the box's left edge gold), WAITING ON THE OTHER
+  SIDE (grey), NOW (blurple) and FULL TIME (green). The prompt's
+  `state` is `_box_state` in `webapp/server.py`: `full_time` for
+  `GAME_OVER`, `now` where `asked_sides` is empty -- a note or a roll
+  either coach may take, which is the reading "nothing rolls dice on
+  its own" gives -- and otherwise `yours` where `controls_for` offered
+  this viewer the controls and `waiting` where it did not, an observer
+  included. The page used to work it out from `yours` and `is_coach`,
+  which called a roll "your move" and an observer's view of a turn
+  "now"; `QuestionBoxTests` hold every prompt fixture to the reading.
+  `yours` stays beside it, for the tab title and the notification,
+  which are about whether *this* coach has something to press -- a
+  roll is NOW and still theirs to press.
+- **The outcome comes first and stays until the next thing happens**:
+  the dice at 84px ("The dice", below) beside the headline. The
+  headline and the line under it are the model's narration, not the
+  page's wording; where they come from is in "The outcome banner",
+  below.
+- **The lit line is the step 4 slot.** Nothing on the board is lit
+  yet, so the controls are still the buttons and the line is empty;
+  step 4 fills it as it takes the buttons away.
+- **The picture slot is on the right**, behind a rule: the shot or the
+  challenge, `PROMPT_PICTURES` as before ("The prompt's pictures").
+  On a narrow screen it goes under the question.
+- **A refusal rides on the question it refused**: a red-edged strip
+  under the tag with the model's sentence and an outlined Dismiss. The
+  page moves the one strip into whichever box is asking -- the question
+  box, or the table before kickoff -- and above the box where neither
+  is up (a dropped connection with nothing asked). Its Law is step
+  10's.
+- **The owed step is a strip of its own above the box**, not a
+  question in it: a restart caught the game mid-turn and nobody is
+  asked anything, so there is no tag to give it. Its control is the
+  one neutral outlined button until step 4 makes it the whistle.
+
 **The buttons are Discord's**: four colours and one shape, and each
 control carries its colour (`style`) from `webapp/present.py`, set to
 what the Discord view puts on the same button -- Maneuver blurple,
@@ -744,7 +786,9 @@ frontends, because the model's voice is one and so is its picture of a
 roll; HTML dice would be a second drawing to keep right. Step 7 drew
 it in the log. **Since step 8 it is drawn in the question box**
 (2026-09-26, the author: no picture in the log, and the dice in the
-question box), at the top, above whatever is asked next -- on Discord
+question box), at the top, above whatever is asked next -- since step 3
+of the redesign in the outcome block, 84px high beside the headline --
+on Discord
 the prompt a coach pressed *becomes* the dice, so the question area is
 where they are read. The log keeps the roll's words.
 
@@ -859,6 +903,59 @@ challenger. It is batching and so the frontend's (principle 8), and it
 is the only one: the web app stops nowhere the model does not and
 carries every answer the default way, because it has no rate limit to
 batch for.
+
+### The outcome banner
+
+**The canvas puts an outcome large and first** -- HIGH PASS WINS,
+SAVED, STEAL · TURNOVER, HALFTIME · 1 : 1 -- in the winner's colour,
+the arithmetic under it and the dice beside it, and the redesign's rule
+is that the headline and the arithmetic are the model's narration and
+never the page's wording.
+
+**The narration does not split into a headline and a detail**, which
+is what step 3 found. The model does write headlines -- `## **Deflect**
+wins!`, `# GOAL!`, `# Missed attempt!`, `# Turnover!` -- but as a
+markdown line somewhere inside a block, not as the first line of a
+group: a reveal is "X chose ... / Y chose ... / ## **X** wins!", and
+the lines the loop carries are joined on a space, so under the
+default batching a turnover's heading lands mid-line ("... (Midfield).
+# Turnover!"). A page that went looking for the heading would be
+reading the model's wording for a fact, and several headings share a
+group (a turnover and "Players run back!"). Nothing says whose win it
+is either, so the page has no winner's colour to draw. And the
+arithmetic the canvas shows under a skill test is not a line the
+model says at all: the numbers are in the roll's `detail`.
+
+**The proposal, for the author: the model says its headline once
+more, on its own** (`d12ball.flow.result.Headline`, its own commit on
+step 3's PR). A step that announces an outcome hands back, beside its
+lines, the heading it wrote without its marks (`**Pressure** wins!`),
+the line it wrote under it where there is one, and whose outcome it is
+(the side whose card won, that scored, that kept the ball out, that
+took it). The step builds the words once and uses them in both, so the
+two cannot differ, and **no line changes** -- which is why the goldens
+do not move. The driver carries a headline wherever it carries the
+lines (the first said is a group's), `Narration.headline` and
+`GameResult.headline` / `answer_headline` put it on the wire, and it
+goes with the answer's kept lines where the frontend keeps any. Four
+sites set one today -- the maneuver settled on the cards (and "lets
+it stand", and the uncontested "succeeds"), the skill test's verdict,
+the shot's GOAL! or Missed attempt!, and a steal's Turnover! -- the
+three the step's test names and the skill test between them.
+Halftime, full time, an own goal and a loose ball do not yet.
+
+**On the page** the journal keeps the first headline of the latest
+result as `showing_outcome` (in its file, as `showing_roll` is), up
+until a result comes with none; the state's `outcome` is its words
+through `render_text` and its side's colour (`board.side_colour`).
+The page sets them in the outcome block, 46px in the display face and
+17px under it, and words nothing. What the canvas shows that this does
+not: the arithmetic under a skill test ("9 + 4 + 2 = 15 beats ...") is
+not a line the model says, and HALFTIME · 1 : 1 or PURPLE WINS 3 : 2
+are not headlines it sets yet; both are the author's to decide.
+`OutcomeBannerTests` hold the headline to a heading the narration
+itself says, word for word, for a resolved maneuver, a saved shot and
+a steal.
 
 ## Beyond the game
 

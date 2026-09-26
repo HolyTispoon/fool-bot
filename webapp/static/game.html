@@ -51,36 +51,54 @@
           <div id="benches" class="benches"></div>
         </section>
 
-        <section id="refusal" class="panel refusal" data-tab="move" hidden>
-          <p id="refusal-text"></p>
-          <button type="button" class="linkish" id="dismiss">Dismiss</button>
+        <!-- The owed step: a restart caught the game mid-turn and
+             nobody is asked anything. Its own strip above the question
+             box, not a question in it (step 4 makes the control the
+             whistle). -->
+        <section id="owed" class="owed-strip" data-tab="move" hidden>
+          <p>This game has a step of its own to run: a restart caught it mid-turn.</p>
+          <button type="button" class="btn outline" id="pick-up">Pick it up</button>
         </section>
 
-        <section id="owed" class="panel prompt" data-tab="move" hidden>
-          <p class="ask">
-            This game has a step of its own to run -- a restart caught it
-            mid-turn.
-          </p>
-          <div class="row">
-            <button type="button" class="btn primary" id="pick-up">Pick it up</button>
+        <!-- The question box (docs/design/web-app.md, "The question
+             box"): the state tag, the outcome, the ask, what is lit on
+             the board, and the picture the question is asked over on
+             the right. -->
+        <section id="prompt" class="panel prompt qbox" data-tab="move" hidden>
+          <div class="qbox-main">
+            <div><span id="prompt-state" class="state-tag"></span></div>
+            <!-- A refusal rides on the question it refused; it is
+                 moved into whichever box is up (app.js, showRefusal). -->
+            <div id="refusal" class="refusal" role="alert" hidden>
+              <p id="refusal-text"></p>
+              <button type="button" class="btn outline small" id="dismiss">Dismiss</button>
+            </div>
+            <!-- The outcome, large and first: the dice just rolled, and
+                 the model's own headline beside them. Up until the
+                 next thing happens. -->
+            <div id="outcome" class="outcome" hidden>
+              <img id="roll-picture" class="outcome-dice" alt="The dice" hidden>
+              <div class="outcome-words">
+                <div id="outcome-headline" class="outcome-headline" hidden></div>
+                <div id="outcome-detail" class="outcome-detail" hidden></div>
+              </div>
+            </div>
+            <div id="ask" class="ask"></div>
+            <!-- What is lit on the board and why (step 4 lights it). -->
+            <p id="lit" class="lit-line" hidden></p>
+            <!-- The maneuver pick's hexagon, at the game's tier: a link,
+                 as the Discord prompt's reference button is. -->
+            <p id="reference" class="note-line" hidden>
+              <a id="reference-link" class="linkish" target="_blank" rel="noopener">The maneuver hexagon</a>
+            </p>
+            <div id="controls" class="controls"></div>
+            <p id="rematch-note" class="note-line" hidden></p>
           </div>
-        </section>
-
-        <section id="prompt" class="panel prompt" data-tab="move" hidden>
-          <div id="prompt-state" class="panel-label"></div>
-          <!-- The dice just rolled, until the next thing happens. -->
-          <img id="roll-picture" class="prompt-picture" alt="The dice" hidden>
-          <div id="ask" class="ask"></div>
           <!-- The matchup the cog posts with the same question: the
                shot, or the challenge over the maneuver pick. -->
-          <img id="prompt-picture" class="prompt-picture" alt="" hidden>
-          <!-- The maneuver pick's hexagon, at the game's tier: a link,
-               as the Discord prompt's reference button is. -->
-          <p id="reference" class="note-line" hidden>
-            <a id="reference-link" class="linkish" target="_blank" rel="noopener">The maneuver hexagon</a>
-          </p>
-          <div id="controls" class="controls"></div>
-          <p id="rematch-note" class="note-line" hidden></p>
+          <aside id="prompt-aside" class="qbox-aside" hidden>
+            <img id="prompt-picture" class="prompt-picture" alt="">
+          </aside>
         </section>
 
         <!-- A finished game's numbers: /d12ball stats game, over the

@@ -195,6 +195,7 @@ function draw(state) {
   drawChat(state);
   drawPrompt(state);
   drawRoll(state);
+  drawHeadline(state);
   drawTable(state);
   drawRoom(state);
   drawStats(state);
@@ -1146,18 +1147,26 @@ function drawPrompt(state) {
   }
   box.hidden = false;
   const yours = state.prompt.yours;
-  box.classList.toggle("yours", yours);
   if (yours) news("move", "yours");
-  el("prompt-state").textContent = yours
-    ? "Your move"
-    : state.you.is_coach ? "Waiting on the other side" : "Now";
+  /* The tag is the server's reading of whose question this is
+     (`_box_state`, off `asked_sides`); the page only names it. */
+  box.dataset.state = state.prompt.state;
+  el("prompt-state").textContent = BOX_STATES[state.prompt.state] || "";
   el("ask").innerHTML = state.prompt.ask;
   drawPicture(state.prompt);
   drawReference(state.prompt);
   drawControls(state.prompt);
 }
 
-/* The dice just rolled, at the top of the question box: on Discord the
+/* The question box's four tags, by the state the server read. */
+const BOX_STATES = {
+  yours: "Your move",
+  waiting: "Waiting on the other side",
+  now: "Now",
+  full_time: "Full time",
+};
+
+/* The dice just rolled, in the outcome at the top of the question box: on Discord the
    prompt a coach pressed becomes the dice, so this is where they are
    read. They stay until the next thing happens in the game -- the
    server says which roll, if any, is still showing -- and the log
@@ -1168,10 +1177,36 @@ function drawRoll(state) {
   if (!state.roll) {
     image.hidden = true;
     image.removeAttribute("src");
+    drawOutcome();
     return;
   }
   if (image.getAttribute("src") !== state.roll.url) image.src = state.roll.url;
   image.hidden = false;
+  drawOutcome();
+}
+
+/* The outcome's words, large and first: the model's own headline and
+   the line it wrote under it, in the colour of the side whose outcome
+   it is -- up until the next thing happens, as the dice are. The page
+   words none of it ("The outcome banner", docs/design/web-app.md). */
+function drawHeadline(state) {
+  const headline = el("outcome-headline");
+  const under = el("outcome-detail");
+  const outcome = state.outcome;
+  headline.hidden = !outcome;
+  under.hidden = !(outcome && outcome.under);
+  if (outcome) {
+    headline.innerHTML = outcome.headline;
+    under.innerHTML = outcome.under || "";
+    el("outcome").style.setProperty("--outcome", outcome.colour || "var(--gold)");
+  }
+  drawOutcome();
+}
+
+/* The outcome block is up while anything in it is. */
+function drawOutcome() {
+  el("outcome").hidden = el("roll-picture").hidden
+    && el("outcome-headline").hidden;
 }
 
 /* The picture the prompt is asked over, where the cog posts one with
@@ -1180,14 +1215,15 @@ function drawRoll(state) {
    so an unchanged one is left alone rather than reloaded. */
 function drawPicture(prompt) {
   const image = el("prompt-picture");
+  const aside = el("prompt-aside");
   if (!prompt.picture) {
-    image.hidden = true;
+    aside.hidden = true;
     image.removeAttribute("src");
     return;
   }
   if (image.getAttribute("src") !== prompt.picture) image.src = prompt.picture;
   image.alt = prompt.kind === "score_attempt" ? "The shot" : "The challenge";
-  image.hidden = false;
+  aside.hidden = false;
 }
 
 /* The maneuver pick's link to the hexagon, at the tier the server
@@ -1489,9 +1525,23 @@ function followRematch(state) {
   note.hidden = false;
 }
 
+/* A refusal rides on the question it refused: a strip inside whichever
+   box is asking -- the question box, or the table before kickoff --
+   under its tag, and above the question box where neither is up. */
 function showRefusal(text) {
+  const strip = el("refusal");
   el("refusal-text").textContent = text;
-  el("refusal").hidden = false;
+  if (!el("prompt").hidden) {
+    el("prompt-state").parentElement.after(strip);
+    strip.removeAttribute("data-tab");
+  } else if (!el("table").hidden) {
+    el("table-state").after(strip);
+    strip.removeAttribute("data-tab");
+  } else {
+    el("prompt").before(strip);
+    strip.dataset.tab = "move";
+  }
+  strip.hidden = false;
 }
 
 // -- Cards and boards, big -------------------------------------------------

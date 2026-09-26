@@ -61,7 +61,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.wire import jsonable
 from d12ball.flow import injuries
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
     contest_noun,
@@ -569,8 +569,12 @@ def skill_test_step(
         exhausted_participants,
         {"kind": "maneuver_effect", "winner_key": winner_key},
     )
-    result.narration.insert(
-        0, f"## **{winner_name}** wins the skill test!{volatile_note}",
+    wins = f"**{winner_name}** wins the skill test!"
+    result.narration.insert(0, f"## {wins}{volatile_note}")
+    result.headline = Headline(
+        wins,
+        match.ball.possession if outcome == "offense"
+        else match.defending_side(),
     )
     result.board_changed = True
     return dice, result
@@ -1098,10 +1102,12 @@ def settle_score_attempt(
     attacking_setup,
     defending_setup,
     scored: bool,
-) -> tuple[str, int]:
+) -> tuple[str, int, Headline]:
     """
     Credit the goal or the miss, restart play from it, and word the
-    verdict -- with the clock cost the run back behind it is owed.
+    verdict -- with the clock cost the run back behind it is owed, and
+    the verdict's `Headline`: the side that scored, or the side that
+    kept it out.
     """
     if scored:
         # Logged as it is credited, and stamped with the clock as it
@@ -1109,21 +1115,26 @@ def settle_score_attempt(
         # the minute the ball crossed the line rather than the minute
         # play restarted.
         match.award_goal(shooter.player_id)
-        verdict = (
-            "# GOAL!\n"
+        under = (
             f"{engine.format_player_label(match, shooter)} scores "
             f"for {format_team_side_label(attacking_setup)} on "
-            f"**{format_goal_time(match.goals[-1])}**!\n"
+            f"**{format_goal_time(match.goals[-1])}**!"
+        )
+        headline = Headline("GOAL!", attacking_setup.side, under)
+        verdict = (
+            f"# {headline.text}\n{under}\n"
             f"{team_display_name(match.home.team)} "
             f"{match.scoreboard.home_score}:"
             f"{match.scoreboard.visiting_score} "
             f"{team_display_name(match.visiting.team)}"
         )
     else:
-        verdict = (
-            "# Missed attempt!\n"
-            f"{format_team_side_label(defending_setup)} manages to avoid a goal! (phew)"
+        under = (
+            f"{format_team_side_label(defending_setup)} manages to "
+            "avoid a goal! (phew)"
         )
+        headline = Headline("Missed attempt!", defending_setup.side, under)
+        verdict = f"# {headline.text}\n{under}"
 
     # A plain score attempt costs no exhaustion and owes no injury
     # check -- only a shot taken off a set-up gains a token, taken
@@ -1173,7 +1184,7 @@ def settle_score_attempt(
     match.pending_run_back_distance = space_minutes
     match.pending_run_back_turnover = True
 
-    return verdict, space_minutes
+    return verdict, space_minutes, headline
 
 
 def score_attempt_step(
@@ -1238,13 +1249,14 @@ def score_attempt_step(
         attack_total=attack_total,
         defense_total=defense_total,
     )
-    verdict, space_minutes = settle_score_attempt(
+    verdict, space_minutes, headline = settle_score_attempt(
         engine, game, match, shooter, attacking_setup, defending_setup,
         scored,
     )
 
     return dice, StepResult(
         narration=[verdict],
+        headline=headline,
         board_changed=True,
         next=FollowOn(
             FollowOnStep.BEGIN_RUN_BACK,

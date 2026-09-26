@@ -51,6 +51,7 @@ from d12ball import stats, tutorial
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MatchState,
+    TeamSide,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -76,7 +77,13 @@ from d12ball.game import (
 )
 from d12ball.dice_brief import maneuver_challenge_brief
 from d12ball.flow import FollowOnStep
-from d12ball.prompts import Action, PendingPrompt, PromptKind, pending
+from d12ball.prompts import (
+    Action,
+    PendingPrompt,
+    PromptKind,
+    asked_sides,
+    pending,
+)
 from d12ball.rules_doc import LIVING_RULES_PATH, RulesDocument, load_rules_document
 from d12ball.render import TEAM_COLORS, render_match_image
 from gamelocks import GameLocks
@@ -84,7 +91,7 @@ from gamesaves.d12ball.service import Batching, GameResult, GameService
 from gamesaves.d12ball.storage import WEB_GAMES_FILE, load_games, save_games
 from webapp import aids, identity, keys, pictures
 from webapp.identity import Coach
-from webapp.board import board_layout, period_name
+from webapp.board import board_layout, period_name, side_colour
 from webapp.present import (
     PROMPT_PICTURES,
     Viewer,
@@ -1493,6 +1500,9 @@ class WebApp:
             # next thing happens ("The dice", docs/design/web-app.md);
             # the log keeps the words.
             "roll": self._roll(game, journal),
+            # The outcome beside them, large and first: the model's own
+            # headline ("The outcome banner", docs/design/web-app.md).
+            "outcome": self._outcome(game, match, journal),
             "entries": journal.since(since, game),
             "latest": journal.next_id - 1,
             "chat": [
@@ -1534,6 +1544,7 @@ class WebApp:
                 ),
                 "controls": controls,
                 "yours": bool(controls),
+                "state": _box_state(match, prompt, bool(controls)),
                 # The maneuver pick links to the hexagon at the game's
                 # tier, as the Discord prompt's reference button posts
                 # it: a link, never a picture inline.
@@ -1543,6 +1554,30 @@ class WebApp:
                     if prompt.kind is PromptKind.MANEUVER_ACTION else None
                 ),
             },
+        }
+
+    def _outcome(
+        self,
+        game: D12BallGame,
+        match: Optional[MatchState],
+        journal: Journal,
+    ) -> Optional[dict]:
+        """
+        The latest result's `Headline`, as the question box puts it up:
+        the model's own words rendered at this door, and its side's
+        colour. The page words nothing of it.
+        """
+        headline = journal.showing_outcome
+        if headline is None or match is None:
+            return None
+        side = headline.get("side")
+        return {
+            "headline": render_text(game, headline["text"]),
+            "under": render_text(game, headline.get("under") or ""),
+            "colour": (
+                None if side is None
+                else side_colour(match, TeamSide(side))
+            ),
         }
 
     def _roll(self, game: D12BallGame, journal: Journal) -> Optional[dict]:
@@ -1926,6 +1961,28 @@ def _was_offered(sections: list, posted: Mapping[str, Any]) -> bool:
             ):
                 return True
     return False
+
+
+def _box_state(
+    match: MatchState, prompt: PendingPrompt, yours: bool,
+) -> str:
+    """
+    Which of the question box's four tags this viewer is shown
+    ("The question box", docs/design/web-app.md): `full_time` for the
+    finished game, `now` for a question nobody in particular is asked
+    -- a note, or a roll either coach may take -- and otherwise
+    `yours` where this viewer was offered the controls or `waiting`
+    where they were not.
+
+    **It reads whose question it is and decides nothing**:
+    `asked_sides` is the one reading, the one the service answers an
+    AI side by, and `yours` is `controls_for`'s own answer over it.
+    """
+    if prompt.kind is PromptKind.GAME_OVER:
+        return "full_time"
+    if not asked_sides(match, prompt):
+        return "now"
+    return "yours" if yours else "waiting"
 
 
 def _wire(kind, value, refusal: str):

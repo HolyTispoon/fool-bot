@@ -442,6 +442,11 @@ def board_layout(
     }
 
 
+def side_colour(match: MatchState, side: TeamSide) -> str:
+    """The colour a side is drawn in: its team's, off `TEAM_COLORS`."""
+    return TEAM_COLORS[match.setup_for_side(side).team]
+
+
 def _defender_colour(match: MatchState, zone: Zone) -> Optional[str]:
     """The colour of the side whose goal an end zone is in front of."""
     if zone == Zone.HOME_GOAL:
