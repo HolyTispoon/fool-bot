@@ -656,6 +656,16 @@ python3 scripts/render_role_cards.py --out cards/roles --sheet
   unclipped rather than flattened against an arbitrary cap every short
   sentence would otherwise hit as well, which would leave nothing for
   the ceiling to actually hold back.
+- **The title is the card's heading, not a caption.** "ROLE ABILITIES"
+  was a small muted line (17px, `MUTED`) sitting above the grid like a
+  label; the author asked for it larger, clearer and bold (2026-09-26),
+  so it is 40px bold in `INK`, in a `HEADER_HEIGHT` of 76 rather than
+  44. The taller header moves the whole grid down 32px, and
+  `BOTTOM_PAD` under the grid shrinks from 40 to 20 to give most of
+  that back: the rows lose only four pixels, which leaves Defender's
+  fitted ceiling -- and so every panel's ability text -- at the size it
+  was before. A heading that grew by shrinking the rules under it
+  would have traded the thing the card is for.
 - **Nothing here is written in the module.** The ability text and the
   offense/defense numbers come from `players.json`'s `role_profiles`
   through `load_player_catalog` -- so a card cannot claim a stat the

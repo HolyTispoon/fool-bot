@@ -37,7 +37,6 @@ from d12ball.cards import (
     FRAME,
     INK,
     MARGIN,
-    MUTED,
     PANEL_COLOR,
     PANEL_EDGE,
     Pen,
@@ -48,8 +47,15 @@ from d12ball.cards import (
 from d12ball.components import PlayerRole, RoleProfile
 from d12ball.render import CARD_DEFENSE_COLOR, CARD_OFFENSE_COLOR
 
-HEADER_HEIGHT = 44
+# The title is the card's heading, not a caption: bold, in ink, and
+# large enough to read across a table. The header is tall enough to
+# hold it with room under it, which is what moves the grid down; the
+# room under the grid gives back what the header took, so the rows --
+# and the ability text fitted to them -- stay the size they were.
+HEADER_HEIGHT = 76
 HEADER_TITLE = "ROLE ABILITIES"
+HEADER_TITLE_SIZE = 40
+BOTTOM_PAD = 20
 
 # Two columns of three, not six strips: six abilities are too many for
 # one full-width row apiece on a poker card, and splitting every row in
@@ -265,17 +271,17 @@ def render_role_card(
         width=EDGE_WIDTH,
     )
     pen.text(
-        (CARD_WIDTH / 2, FRAME + 30),
+        (CARD_WIDTH / 2, FRAME + HEADER_HEIGHT / 2 + 6),
         HEADER_TITLE,
-        font(17),
-        MUTED,
+        font(HEADER_TITLE_SIZE, bold=True),
+        INK,
         anchor="mm",
     )
 
     top = FRAME + HEADER_HEIGHT + 14
     left = MARGIN
     right = CARD_WIDTH - MARGIN
-    usable_height = CARD_HEIGHT - FRAME - 40 - top
+    usable_height = CARD_HEIGHT - FRAME - BOTTOM_PAD - top
     usable_width = right - left
 
     row_height = (usable_height - ROW_GAP * (GRID_ROWS - 1)) / GRID_ROWS
