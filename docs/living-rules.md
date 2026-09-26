@@ -1216,7 +1216,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Goopkeeper blocks in full.** In a [score attempt](#score-attempt), Goopkeeper standing anywhere between the ball and the goal counts as on the ball, and adds their full defensive skill rather than half. Behind the ball they add nothing, like anyone else.
 
-**Slitheron wins in the air and on the loose.** In a [High Pass contest](#the-high-pass-contest), and in the contest for a [loose ball](#a-loose-ball) both sides sent somebody after, Slitheron takes the ball without a roll. Nothing is rolled, so nobody owes an injury check for it. Against another player with the same ability, the contest is rolled as usual.
+**Slitheron wins every contest.** In any [contest for the ball](#the-contest) -- a [High Pass contest](#the-high-pass-contest), a [loose ball](#a-loose-ball) both sides sent somebody after, or a ball that comes to rest where Slitheron and an opponent are both standing, such as a [Deflect](#deflect) landing on them -- Slitheron takes the ball without a roll. Nothing is rolled, so nobody owes an injury check for it. Against another player with the same ability, the contest is rolled as usual.
 
 **Viscor merges harder.** Whenever Viscor [Merges](#slimey-ooze) -- adds their skill to their side as an Ooze on the ball who is not rolling -- they add 3 more.
 

@@ -177,7 +177,9 @@ on the pull request that brought it in.
   *"attempting"* for *"making"*.
 - **Glompex:** *"Before selecting a maneuver, if Glomplex is in a space adjacent to the move they
   may gain 1 exhaustion to move to the ball's space and Merge."* "The move" is read as the ball's
-  space, which the cell now says: *"adjacent to the ball"*. Offered after the challenger is in place and before the cards, and only against a
+  space, and offered only against a challenge; the author confirmed both, and the cell now reads
+  *"After a maneuver is challenged but before selecting a maneuver, if Glomplex is in a space
+  adjacent to the ball..."*. Offered after the challenger is in place and before the cards, and only against a
   challenge, since Merge adds to a roll and an unchallenged maneuver rolls nothing.
 - **Goopkeeper:** briefly *"Always counts as 'on the ball' when defending against score
   attempts."*, read as reaching a Goopkeeper standing *behind* the ball too. The author reverted
@@ -190,7 +192,7 @@ on the pull request that brought it in.
   to *"When receives the ball, ball speed to 12."* -- Pulsar's word -- so it is read as
   receiving: being left holding the ball, however that happened, and not being chosen to handle
   a ball they already stood on. Anything later in the same resolution (a Steal's speed step)
-  still sets the speed; that half is still the author's to confirm.
+  still sets the speed, which the author confirmed.
 - **Kindlefinger:** *"Can iginite on injury test: when blazes clear 1 exhaustion and when burns
   add 1 exhaustion."* Read as an ordinary ignite on the check's die -- the number added or
   subtracted -- which the author confirmed. First built with the token cleared or added once
@@ -206,9 +208,11 @@ on the pull request that brought it in.
   author: *"Yes it should be 'may force'."*, and the cell now reads *"May force a skill test..."*.
   So it is Scorchit's coach's choice, asked at the reveal. Read as following the cards for a
   gambit exactly as the test an injury forces does.
-- **Slitheron:** *"Auto wins contests for high pass and loose ball."* Read as the High Pass contest
-  and the contest for a ball on an empty space; a ball that comes down between both sides is a
-  contest, not a loose ball, and is rolled as usual.
+- **Slitheron:** *"Auto wins contests for high pass and loose ball."* First read as the High Pass
+  contest and the contest for a ball on an empty space only. The author: *"auto-wins all contests
+  including high pass, loose ball, or a deflect bouncing the ball to a space with Slitheron and
+  another player"*; the cell now reads *"Auto wins contests for ball including high pass and
+  loose ball."*
 - **Spritz:** *"Smooth (eammate sharing space may handover ball handling.)"* Read as the
   Telekinetics' Smooth, without Mind Pull.
 - **Umbrik:** *"Uses dSkill for own goal attempts and high pass skill tests."* First read as the
