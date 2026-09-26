@@ -439,6 +439,46 @@ class GameService:
         says outright that no seat is the AI's, so an empty seat reads
         as empty (`D12BallGame.ai_seats`).
         """
+        game = self._new_game(
+            player_1_id=player_1_id,
+            player_1_name=player_1_name,
+            player_2_id=player_2_id,
+            player_2_name=player_2_name,
+            guild_id=guild_id,
+            channel_id=channel_id,
+            game_number=game_number,
+            in_lobby=in_lobby,
+            test_game=test_game,
+            tutorial=tutorial,
+            mode=mode,
+            board_size=board_size,
+            ai_opponent=ai_opponent,
+            game_name=game_name,
+            ai_seats=ai_seats,
+        )
+        self.save()
+        return game
+
+    def _new_game(
+        self,
+        *,
+        player_1_id: Optional[int],
+        player_1_name: Optional[str],
+        player_2_id: Optional[int] = None,
+        player_2_name: Optional[str] = None,
+        guild_id: Optional[int] = None,
+        channel_id: Optional[int] = None,
+        game_number: Optional[int] = None,
+        in_lobby: bool = False,
+        test_game: bool = False,
+        tutorial: bool = False,
+        mode: GameMode = GameMode.BASIC,
+        board_size: int = 7,
+        ai_opponent: Optional[AIOpponent] = None,
+        game_name: Optional[str] = None,
+        ai_seats: Optional[list[int]] = None,
+    ) -> D12BallGame:
+        """`create_game`'s record, in the games and not yet saved."""
         if game_number is None:
             game_number = self.next_game_number(guild_id)
         game = D12BallGame(
@@ -472,7 +512,6 @@ class GameService:
             ai_seats=ai_seats,
         )
         self.games[game.game_id] = game
-        self.save()
         return game
 
     def discard_game(self, game_id: str) -> None:
@@ -673,6 +712,50 @@ class GameService:
         self.engine.initialize_standard_match(game)
         self.save()
         return game
+
+    def rematch(self, game_id: str, *, in_lobby: bool = False) -> D12BallGame:
+        """
+        A finished game played again: a new record with the same two
+        seats -- the same people, the AI where it sat -- and the same
+        settings, remembered on the finished game so a second ask
+        finds it rather than opening another. What the Discord
+        `RematchView` opens, as a record; the channel is that
+        frontend's. A tutorial's rematch is an ordinary game, since
+        the script is an opening a coach has already had.
+
+        `in_lobby` is a web room's: it opens at the room's Start, so
+        an empty seat is filled -- or the AI put in it -- before the
+        game settles its sides, as any room's is (`start_lobby`).
+        """
+        game = self.game(game_id)
+        existing = (
+            self.games.get(game.rematch_game_id)
+            if game.rematch_game_id is not None
+            else None
+        )
+        if existing is not None:
+            return existing
+        if not game.is_finished:
+            raise RuleRefusal("Only a finished game can be played again.")
+        # A test game's one coach sits in seat 2 only once it has
+        # started; its lobby holds them in seat 1 alone.
+        second = None if game.test_game and in_lobby else game.player_2_id
+        rematch = self._new_game(
+            player_1_id=game.player_1_id,
+            player_1_name=game.player_1_name,
+            player_2_id=second,
+            player_2_name=None if second is None else game.player_2_name,
+            in_lobby=in_lobby,
+            test_game=game.test_game,
+            mode=game.mode,
+            board_size=game.board_size,
+            ai_opponent=game.ai_opponent,
+            game_name=game.game_name,
+            ai_seats=None if game.ai_seats is None else list(game.ai_seats),
+        )
+        game.rematch_game_id = rematch.game_id
+        self.save()
+        return rematch
 
     # -- The entry points -----------------------------------------------
 

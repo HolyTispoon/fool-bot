@@ -189,6 +189,9 @@ VALID_BOARD_SIZES = {7, 9}
 #: never by which screen asked.
 GAME_SETTINGS = ("mode", "board", "ai", "test", "tutorial", "name")
 
+#: The settings only a lobby offers, each settled by Start Game.
+LOBBY_SETTINGS = ("test", "tutorial", "name")
+
 #: What a lobby refuses once Start Game has been pressed.
 LOBBY_CLOSED = "This lobby is no longer open."
 
@@ -753,6 +756,23 @@ class D12BallGame:
             )
         self.ai_seats = sorted(ai - {seat})
 
+    def open_settings(self) -> tuple[str, ...]:
+        """
+        The settings `configure` will consider now, by the game's
+        state: none once setup is over, and the lobby's own three only
+        in the lobby -- the same two refusals `configure` opens with,
+        so a frontend greys a setting off the reading the click is
+        judged by. Whether a *value* is allowed (the tutorial's pins,
+        Decent AI, a joined lobby's toggles) is still `configure`'s to
+        say, with its sentence.
+        """
+        if self.status != GameStatus.SETUP:
+            return ()
+        return tuple(
+            setting for setting in GAME_SETTINGS
+            if self.in_lobby or setting not in LOBBY_SETTINGS
+        )
+
     def configure(self, setting: str, value: object = None) -> None:
         """
         Change one setting, by the key a button carries (`GAME_SETTINGS`).
@@ -777,9 +797,10 @@ class D12BallGame:
             raise RuleRefusal(
                 "Game settings can only be changed during setup."
             )
+        if setting in LOBBY_SETTINGS:
+            self.require_lobby()
 
         if setting in ("test", "tutorial"):
-            self.require_lobby()
             if self.player_2_id is not None:
                 raise RuleRefusal(
                     "Someone has already joined -- they would have to "
@@ -800,7 +821,6 @@ class D12BallGame:
                     self.mode = GameMode.TRAINING
                     self.board_size = 7
         elif setting == "name":
-            self.require_lobby()
             self.game_name = str(value or "").strip() or None
         elif setting == "mode":
             if self.tutorial:
@@ -971,6 +991,33 @@ class D12BallGame:
             if team not in self.excluded_teams(None)
         ]
 
+    def teams_open_to(self, player_number: Optional[int]) -> list[Team]:
+        """
+        The teams a picker for `player_number` offers now, in `Team`'s
+        order -- the one question a team picker asks, so the Discord
+        row and the web table grey the same buttons. `None` is a
+        normal game's shared row, as in `excluded_teams`.
+
+        Empty once team selection is not open: in the lobby, past
+        setup, and once both sides have picked (the screen moves on to
+        the coin). A test game's screens go one side at a time
+        (`picking_player_number`), so only that side is offered.
+        Otherwise every team but what `pick_team` refuses.
+        """
+        if (
+            self.in_lobby
+            or self.status != GameStatus.SETUP
+            or self.teams_selected
+        ):
+            return []
+        if self.test_game:
+            if player_number != self.picking_player_number():
+                return []
+            excluded = self.excluded_teams(player_number)
+        else:
+            excluded = self.excluded_teams(None)
+        return [team for team in Team if team not in excluded]
+
     def pick_team(self, player_number: int, team: Team) -> None:
         """
         Record one side's team. Refused once selection has closed and
@@ -994,6 +1041,27 @@ class D12BallGame:
             self.player_2_team = team
 
     # -- The coin toss and the sides ---------------------------------
+
+    @property
+    def coin_is_owed(self) -> bool:
+        """Whether the coin is the next thing in setup: out of the
+        lobby, both teams picked, and not yet thrown -- what
+        `GameService.flip_coin` and `resolve_coin_toss` refuse short
+        of."""
+        return (
+            not self.in_lobby
+            and self.status == GameStatus.SETUP
+            and self.teams_selected
+            and not self.coin_flipped
+        )
+
+    @property
+    def home_choice_owed_by(self) -> Optional[int]:
+        """The seat that owes the home-or-visiting choice -- the toss's
+        winner, between the toss and the choice -- or `None`."""
+        if not self.coin_flipped or self.home_and_visiting_selected:
+            return None
+        return self.coin_winner_player_number
 
     def resolve_coin_toss(
         self,

@@ -240,8 +240,9 @@ class TeamSelectionView(GameConfigurationView):
     now prompts them one after another instead, each with the full
     two-row budget to itself. Which screen a test game is on, and
     which teams a screen greys out, are the record's
-    (`D12BallGame.picking_player_number`, `excluded_teams`): the same
-    reading `GameService.pick_team` refuses a stale click against.
+    (`D12BallGame.picking_player_number`, `teams_open_to` over
+    `excluded_teams`): the same reading `GameService.pick_team` refuses
+    a stale click against, and the one the web table offers from.
     """
 
     def __init__(
@@ -259,13 +260,17 @@ class TeamSelectionView(GameConfigurationView):
         player_number = (
             game.picking_player_number() if game is not None else None
         )
-        excluded = (
-            game.excluded_teams(player_number) if game is not None else set()
+        # The record's one answer to "which may this picker press"
+        # (`D12BallGame.teams_open_to`), which the web table reads too.
+        offered = (
+            set(game.teams_open_to(player_number))
+            if game is not None
+            else set(Team)
         )
 
         for row, row_teams in enumerate((COLOR_TEAMS, SPECIES_TEAMS)):
             for team in row_teams:
-                unavailable = team in excluded
+                unavailable = team not in offered
                 label = team_display_name(team)
                 button = discord.ui.Button(
                     label=(

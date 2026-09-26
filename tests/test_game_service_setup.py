@@ -19,6 +19,7 @@ from d12ball.game import (
     AIOpponent,
     CoinFace,
     D12BallGame,
+    GAME_SETTINGS,
     GameMode,
     GameStatus,
     HomeChoice,
@@ -555,6 +556,132 @@ class CoinAndSidesTests(SetupHarness):
         self.assertEqual(self.saves, saves + 1)
         self.refused(self.service.flip_coin, game.game_id, 1)
         self.assertEqual(self.saves, saves + 1)
+
+
+class TableReadingTests(SetupHarness):
+    """The questions a table asks the record (step 3 of
+    docs/web-app-next.md), each the reading the doors refuse by."""
+
+    def test_the_teams_a_picker_offers(self) -> None:
+        game = self.open_lobby()
+        self.assertEqual(game.teams_open_to(None), [])
+        self.service.lobby_join(game.game_id, JOINER, "Two")
+        self.service.start_lobby(game.game_id)
+
+        self.assertEqual(game.teams_open_to(None), list(Team))
+        self.service.pick_team(game.game_id, 1, Team.TEAL)
+        offered = game.teams_open_to(None)
+        self.assertNotIn(Team.TEAL, offered)
+        self.assertNotIn(paired_team(Team.TEAL), offered)
+        for team in offered:
+            with self.subTest(team=team.value):
+                self.assertNotIn(team, game.excluded_teams(None))
+        self.service.pick_team(game.game_id, 2, Team.OOZES)
+        # Both picked: the picker gives way to the coin.
+        self.assertEqual(game.teams_open_to(None), [])
+        self.assertTrue(game.coin_is_owed)
+
+    def test_a_test_games_picker_offers_one_side_at_a_time(self) -> None:
+        game = self.open_lobby()
+        self.service.configure(game.game_id, "test")
+        self.service.start_lobby(game.game_id)
+
+        self.assertEqual(game.teams_open_to(2), [])
+        self.assertEqual(game.teams_open_to(1), list(Team))
+        self.service.pick_team(game.game_id, 1, Team.SLIME)
+        self.assertEqual(game.teams_open_to(1), [])
+        self.assertEqual(
+            set(game.teams_open_to(2)), set(Team) - {Team.SLIME, Team.OOZES},
+        )
+
+    def test_the_settings_open_by_state(self) -> None:
+        game = self.open_lobby()
+        self.assertEqual(game.open_settings(), GAME_SETTINGS)
+        self.service.start_lobby(game.game_id)
+        self.assertEqual(game.open_settings(), ("mode", "board", "ai"))
+        for setting in ("test", "tutorial", "name"):
+            with self.subTest(setting=setting):
+                self.assertIn(
+                    "no longer open",
+                    self.refused(self.service.configure, game.game_id, setting),
+                )
+
+    def test_who_owes_the_coin_and_the_choice(self) -> None:
+        game = self.open_lobby()
+        self.service.lobby_join(game.game_id, JOINER, "Two")
+        self.service.start_lobby(game.game_id)
+        self.assertFalse(game.coin_is_owed)
+        self.service.pick_team(game.game_id, 1, Team.ORANGE)
+        self.service.pick_team(game.game_id, 2, Team.PURPLE)
+        self.assertTrue(game.coin_is_owed)
+        self.assertIsNone(game.home_choice_owed_by)
+
+        self.service.flip_coin(game.game_id, 1)
+        self.assertFalse(game.coin_is_owed)
+        winner = game.coin_winner_player_number
+        self.assertEqual(game.home_choice_owed_by, winner)
+        self.service.choose_home_or_visiting(game.game_id, winner, "home")
+        self.assertIsNone(game.home_choice_owed_by)
+
+
+class RematchTests(SetupHarness):
+    def finished(self) -> D12BallGame:
+        game = self.service.create_game(
+            player_1_id=CREATOR,
+            player_1_name="One",
+            player_2_id=JOINER,
+            player_2_name="Two",
+            mode=GameMode.ADVANCED,
+            board_size=9,
+            game_name="The Cup Final",
+        )
+        game.status = GameStatus.IN_PROGRESS
+        game.finish_game()
+        return game
+
+    def test_a_finished_game_is_played_again_by_the_same_two(self) -> None:
+        game = self.finished()
+        saves = self.saves
+
+        rematch = self.service.rematch(game.game_id)
+
+        self.assertEqual(self.saves, saves + 1)
+        self.assertEqual(game.rematch_game_id, rematch.game_id)
+        self.assertEqual(
+            (rematch.player_1_id, rematch.player_2_id), (CREATOR, JOINER),
+        )
+        self.assertEqual(
+            (rematch.mode, rematch.board_size, rematch.game_name),
+            (GameMode.ADVANCED, 9, "The Cup Final"),
+        )
+        self.assertEqual(rematch.status, GameStatus.SETUP)
+        self.assertFalse(rematch.in_lobby)
+        # A second ask finds it, and writes nothing.
+        self.assertIs(self.service.rematch(game.game_id), rematch)
+        self.assertEqual(self.saves, saves + 1)
+
+    def test_a_rooms_rematch_opens_at_its_start_with_the_ai_where_it_sat(
+        self,
+    ) -> None:
+        game = self.service.create_game(
+            player_1_id=CREATOR, player_1_name="One", ai_seats=[2],
+        )
+        game.status = GameStatus.IN_PROGRESS
+        game.finish_game()
+
+        rematch = self.service.rematch(game.game_id, in_lobby=True)
+
+        self.assertTrue(rematch.in_lobby)
+        self.assertEqual(rematch.ai_seats, [2])
+        self.service.start_lobby(rematch.game_id)
+        self.assertTrue(rematch.ai_holds(2))
+
+    def test_a_game_still_being_played_is_not(self) -> None:
+        game = self.open_lobby()
+
+        self.assertIn(
+            "finished", self.refused(self.service.rematch, game.game_id),
+        )
 
 
 if __name__ == "__main__":
