@@ -32,6 +32,15 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
     in it exists because a half-finished game outlives the commit that
     added the field — see the rest of this section — so adding an
     entry is free and changing a key is not.
+- **`D12BallGame.ai_seats` is saved only when it says something.**
+  The game record is `asdict` on the way out and `cls(**data)` on the
+  way in, so a new record field is a key an older checkout cannot load.
+  `ai_seats` is `None` on every game no web room touched -- which means
+  the old reading, the AI in seat 2 where nobody is -- and `to_dict`
+  leaves it out while it is, so every Discord save is written exactly
+  as before and still loads on a checkout older than the field. Only a
+  web room's record carries it. See
+  [web-app.md](web-app.md), "Rooms, seats and who holds them".
 - **The three Discord ids on `D12BallGame` are optional, and keyword-only.**
   `guild_id`, `channel_id` and `message_id` default to `None` since step 8
   of docs/architecture-migration.md (decision 3 of docs/web-app.md): a game
@@ -92,7 +101,7 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
     diagnosis and somebody has to add the entry. It reads the match
     state alone, since that is the only part of a save holding player
     ids and a game's own name could carry anything.
-- **`data/d12ball_games.json` is runtime state and is deliberately untracked.**
+- **`data/d12ball_games.json` is runtime state and is deliberately untracked**, and so are the web app's `data/d12ball_web_games.json` and `data/d12ball_web_rooms.json` beside it (the rooms file is the web app's own -- admins and who has been in -- and never a save; see [web-app.md](web-app.md), "Rooms, seats and who holds them").
   The bot rewrites it on every game action. It used to be committed, which
   meant it showed as modified more or less permanently and was a standing
   source of merge conflicts. Don't re-add it. Each developer's saved games are
@@ -136,6 +145,14 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
     Saving is blocked until the process is restarted, which is what wants
     doing anyway. "There is no file yet" is not that case, so a fresh clone
     saves normally.
+  - **Both flags are per file.** `load_games` and `save_games` take a
+    `path`, the bot's `GAMES_FILE` when none is named, and the web app
+    names its own `WEB_GAMES_FILE` (see [web-app.md](web-app.md), "Its
+    own process, its own file"). One process may read a file it does not
+    own -- the bot reads the web games for the statistics -- and that
+    file being unreadable must not block the bot saving its own. The
+    default is resolved at call time rather than as a default argument,
+    so a test that points `GAMES_FILE` at a tempdir moves it.
 - **Startup drops finished games whose channel was deleted.** The archiving
   sweep in `on_ready` prunes a finished game when Discord answers its channel
   lookup with a 404, because there is nothing left to archive and the record

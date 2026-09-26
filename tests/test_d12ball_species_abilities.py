@@ -80,7 +80,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.flow.effects import shove_pressured_handler
+from d12ball.flow.effects import own_goal_roll_step, shove_pressured_handler
 from d12ball.engine import (
     VOLATILE_IGNITE_FACES,
     VOLATILE_BLAZE_MINIMUM,
@@ -110,8 +110,9 @@ from flow_stubs import (
     injury_queue_stops_the_chain,
 )
 from save_patches import suppressed_cog_saves
-from d12ball.flow.injuries import injury_test_step
-from d12ball.flow.windows import coaching_window_note
+from d12ball.flow.injuries import injury_test_ask, injury_test_step
+from d12ball.flow.windows import coaching_window_note, open_substitution_window
+from d12ball.engine import SPREADABLE_NOTE
 from d12ball.flow.periods import begin_halftime, halftime_extra_token_step
 from d12ball.components import CoachingOccasion
 from d12ball.render import render_injury_test_die
@@ -162,8 +163,10 @@ def build_match(engine: RulesEngine, game: D12BallGame) -> MatchState:
 
 class ModuleSwitchTests(unittest.TestCase):
     """
-    "Advanced mode turns on two modules ... Both come on with it, and a
-    game may take just one of the two."
+    The three modes (2026-09-25): training plays no ability, basic adds
+    the species abilities, advanced adds the gambits on top. The two
+    opt-outs on the record are what an advanced game saved before then
+    could have turned off, and are still honoured.
     """
 
     def setUp(self) -> None:
@@ -174,21 +177,33 @@ class ModuleSwitchTests(unittest.TestCase):
         self.assertTrue(self.engine.gambits_apply(game))
         self.assertTrue(self.engine.species_abilities_apply(game))
 
-    def test_a_basic_game_has_neither(self):
+    def test_a_basic_game_plays_the_species_abilities_alone(self):
         game = build_game(mode=GameMode.BASIC)
+        self.assertFalse(self.engine.gambits_apply(game))
+        self.assertTrue(self.engine.species_abilities_apply(game))
+
+    def test_a_training_game_has_neither(self):
+        game = build_game(mode=GameMode.TRAINING)
         self.assertFalse(self.engine.gambits_apply(game))
         self.assertFalse(self.engine.species_abilities_apply(game))
 
-    def test_a_basic_game_ignores_the_opt_outs_entirely(self):
-        # The two fields mean nothing outside advanced mode: `mode` is
-        # the whole answer there, which is what stops a basic game
-        # played by somebody's stale settings turning an ability on.
+    def test_a_training_game_ignores_the_opt_outs_entirely(self):
+        # `mode` is the whole answer there, which is what stops a
+        # training game played by somebody's stale settings turning an
+        # ability on.
         game = build_game(
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,
         )
         self.assertFalse(self.engine.gambits_apply(game))
+        self.assertFalse(self.engine.species_abilities_apply(game))
+
+    def test_a_tutorial_saved_as_basic_plays_no_species_ability(self):
+        # A tutorial saved before training mode existed carries
+        # `basic`, which now means the species abilities -- but its
+        # script was written for a game without them.
+        game = build_game(mode=GameMode.BASIC, tutorial=True)
         self.assertFalse(self.engine.species_abilities_apply(game))
 
     def test_a_game_may_take_the_abilities_without_the_maneuvers(self):
@@ -260,12 +275,12 @@ class SpeciesGateTests(unittest.TestCase):
                 other,
             )
 
-    def test_no_ability_in_a_basic_game(self):
-        basic = build_game(mode=GameMode.BASIC)
+    def test_no_ability_in_a_training_game(self):
+        training = build_game(mode=GameMode.TRAINING)
         demon = fielded_of_species(self.match, SPECIES_FIRE_DEMON)
         self.assertFalse(
             self.engine.has_species_ability(
-                basic, demon, SPECIES_FIRE_DEMON,
+                training, demon, SPECIES_FIRE_DEMON,
             )
         )
 
@@ -379,11 +394,11 @@ class IgniteTests(unittest.TestCase):
             self.assertFalse(result.ignited)
             self.assertEqual(result.modifier, 0)
 
-    def test_nothing_ignites_in_a_basic_game(self):
-        basic = build_game(mode=GameMode.BASIC)
+    def test_nothing_ignites_in_a_training_game(self):
+        training = build_game(mode=GameMode.TRAINING)
         for face in VOLATILE_IGNITE_FACES:
             self.assertFalse(
-                self.engine.ignite(basic, self.demon, face).ignited
+                self.engine.ignite(training, self.demon, face).ignited
             )
 
     def test_the_second_die_does_not_ignite_in_turn(self):
@@ -500,6 +515,58 @@ def followup_messages(interaction) -> list[str]:
     ]
 
 
+class VolatileDoesNotReachTests(unittest.TestCase):
+    """
+    "An injury check and an own-goal roll never ignite: a natural 6 or 7
+    there is only a 6 or 7" (the author, 2026-09-23).
+
+    Each die is scripted so that an ignite, had one been rolled, would
+    have changed the verdict -- and the draw count says no second die
+    was thrown at all.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game()
+        self.match = build_match(self.engine, self.game)
+        self.demon = fielded_of_species(self.match, SPECIES_FIRE_DEMON)
+
+    def test_a_fire_demons_injury_check_does_not_ignite(self):
+        # A 6 against 6 tokens fails; a blaze of 12 would have saved it.
+        self.match.exhaustion[self.demon] = 6
+        self.match.exhausted.add(self.demon)
+        self.match.pending_injury_tests.append(self.demon)
+        with mock.patch(
+            "random.Random.randint", side_effect=[6, 12],
+        ) as randint:
+            roll, result = injury_test_step(
+                self.engine, self.game, self.match, self.demon,
+            )
+        self.assertEqual(randint.call_count, 1)
+        self.assertFalse(roll.safe)
+        self.assertIn(self.demon, self.match.injured)
+        self.assertNotIn("Volatile", result.narration[0])
+        self.assertNotIn("ignite", roll.to_dict())
+
+    def test_a_fire_demons_own_goal_roll_does_not_ignite(self):
+        # The kept 7 is safe for anyone; a burn of 3 would have taken it
+        # back under for a handler of skill 2 or less.
+        self.match.active_player_id = self.demon
+        self.match.ball.possession = self.match.side_for_player(self.demon)
+        self.match.pending_own_goal = True
+        self.match.pending_own_goal_distance = 1
+        with mock.patch(
+            "random.Random.randint", side_effect=[7, 1, 3],
+        ) as randint:
+            roll, result = own_goal_roll_step(
+                self.engine, self.game, self.match,
+            )
+        self.assertEqual(randint.call_count, 2)
+        self.assertTrue(roll.safe)
+        self.assertNotIn("Volatile", result.narration[0])
+        self.assertNotIn("ignite", roll.to_dict())
+
+
 class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
     """
     The second die a coach watches.
@@ -537,7 +604,7 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(call.kwargs.get("file"))
 
     async def test_a_roll_that_did_not_ignite_is_not_posted(self) -> None:
-        # Most rolls in an advanced game and every roll in a basic one.
+        # Most rolls in a species game and every roll in a training one.
         interaction = build_ignition_interaction()
 
         await self.cog.post_volatile_ignition(
@@ -640,7 +707,7 @@ class IgnitionIsShownEverywhereTests(unittest.TestCase):
         Read off the AST rather than grepped, for
         `tests/test_model_purity.py`'s reason: the claim is that a
         *field* on what the step returns is the ignite, and a mention
-        in a comment or a local name is not that. `OwnGoalRoll.ignite`
+        in a comment or a local name is not that. `MindPullRoll.ignite`
         and `ContestDice.ignites` are the two today.
         """
         for node in ast.walk(ast.parse(source)):
@@ -669,7 +736,7 @@ class IgnitionIsShownEverywhereTests(unittest.TestCase):
         has to *post* the die. A module in `d12ball/flow/` cannot post
         anything, so what it owes instead is handing the ignites back
         for a frontend to post -- which is what `ContestDice.ignites`
-        and `OwnGoalRoll.ignite` are. Either way the coach sees the
+        and `MindPullRoll.ignite` are. Either way the coach sees the
         second die; what changed is which side of the line writes it
         down.
         """
@@ -755,21 +822,15 @@ class VolatileTierRiderTests(unittest.TestCase):
             )
         )
 
-    def test_a_blaze_that_loses_pays_no_gambit_cost(self):
-        # "If a player loses a skill test on the blaze, they do not
-        # resolve the gambit cost." A blaze protects its
-        # player even where the cards would have charged them.
-        self.assertIs(
-            self.engine.volatile_loser_cost(self.game, self.blaze), False,
-        )
-
-    def test_a_burn_that_loses_pays_it(self):
-        # "However, if a volatile player loses on a burn, they
-        # resolve the cost of the gambit" -- the one thing
-        # in the game that puts a cost in force off the dice.
-        self.assertIs(
-            self.engine.volatile_loser_cost(self.game, self.burn), True,
-        )
+    def test_an_ignite_decides_no_gambit_cost(self):
+        # "There's nothing here about paying the gambit's cost" (the
+        # author, 2026-09-25): a losing player pays their cost "with or
+        # without ignition and in the case of blaze as well as burn".
+        # The 2026-09-07 cost rider is gone.
+        for ignite in (self.blaze, self.burn):
+            self.assertIsNone(
+                self.engine.volatile_loser_cost(self.game, ignite),
+            )
 
     def test_a_loser_who_did_not_ignite_falls_back_to_the_cards(self):
         self.assertIsNone(
@@ -969,7 +1030,11 @@ class DrainThresholdTests(unittest.TestCase):
         self.engine = build_engine()
         # Nine Cyborgs a side is the cleanest fixture for a threshold
         # that is about the species and not about the role.
-        self.game = build_game(player_1_team=Team.CYBORGS)
+        # Basic mode: the species rule alone, with no Cyborg's
+        # personal ability (Law 21) moving the numbers.
+        self.game = build_game(
+            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
         self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
 
@@ -1012,10 +1077,10 @@ class DrainThresholdTests(unittest.TestCase):
         )
         self.assertNotIn(weakest, self.match.exhausted)
 
-    def test_a_basic_game_gives_a_cyborg_no_such_thing(self):
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+    def test_a_training_game_gives_a_cyborg_no_such_thing(self):
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
         self.assertEqual(
-            self.engine.exhaustion_threshold(basic, self.cyborg),
+            self.engine.exhaustion_threshold(training, self.cyborg),
             self.defense_of(self.cyborg),
         )
 
@@ -1058,9 +1123,9 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertEqual(word, "injured")
         self.assertEqual(emoji, get_injured_emoji(self.cog.condition_emojis))
 
-    def test_a_basic_game_gives_a_cyborg_no_such_thing(self) -> None:
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
-        word, _ = self.cog.injured_word_and_emoji(basic, self.cyborg)
+    def test_a_training_game_gives_a_cyborg_no_such_thing(self) -> None:
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
+        word, _ = self.cog.injured_word_and_emoji(training, self.cyborg)
         self.assertEqual(word, "injured")
 
     def test_the_underlying_condition_is_untouched(self) -> None:
@@ -1077,8 +1142,9 @@ class DamagedWordingTests(unittest.TestCase):
             self.game, self.match, self.cyborg, 1,
         )
         self.assertIn("damaged", text)
-        self.assertIn("drain tokens", text)
+        self.assertIn("does not drain", text)
         self.assertNotIn("injured", text)
+        self.assertNotIn("tokens", text)
 
     def test_a_cyborgs_tokens_are_counted_in_their_own_mark(self) -> None:
         # The card draws a Cyborg's tally in the Cyborgs' teal
@@ -1090,6 +1156,46 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertIn(tokens.condition(tokens.CONDITION_DRAIN) * 2, text)
         self.assertNotIn(tokens.condition(tokens.CONDITION_EXHAUST), text)
 
+    def test_a_cyborg_drains_rather_than_gains(self) -> None:
+        # "Drain 2" is two drain tokens gained (the author, 2026-09-23).
+        text = describe_exhaustion_gain(
+            self.cog, self.game, self.match, self.cyborg, 2,
+        )
+        self.assertIn(" drains 2 ", text)
+        self.assertNotIn("gains", text)
+
+    def test_everybody_else_still_gains_exhaustion_tokens(self) -> None:
+        text = describe_exhaustion_gain(
+            self.cog, self.game, self.match, self.other, 2,
+        )
+        self.assertIn(" gains 2 exhaustion tokens ", text)
+
+    def test_a_cyborgs_injury_check_is_a_damage_test(self) -> None:
+        engine = self.cog.engine
+        self.assertEqual(
+            engine.injury_test_name(self.game, self.cyborg), "damage test",
+        )
+        self.assertEqual(
+            engine.injury_test_name(self.game, self.other), "injury test",
+        )
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
+        self.assertEqual(
+            engine.injury_test_name(training, self.cyborg), "injury test",
+        )
+
+    def test_a_cyborg_is_asked_for_a_damage_test(self) -> None:
+        self.match.exhaustion[self.cyborg] = 8
+        self.match.exhausted.add(self.cyborg)
+        ask = injury_test_ask(
+            self.cog.engine, self.game, self.match, self.cyborg,
+        )
+        self.assertIn("is drained and owes a damage test", ask)
+        self.assertIn("their 8 drain tokens", ask)
+        self.match.pending_injury_tests.append(self.cyborg)
+        prompt = pending_prompt(self.cog.engine, self.game, self.match)
+        self.assertEqual(prompt.kind, PromptKind.INJURY_TEST)
+        self.assertIn("still owes a damage test:", prompt.ask)
+
     def test_everybody_elses_tokens_stay_the_exhaustion_mark(self) -> None:
         text = describe_exhaustion_gain(
             self.cog, self.game, self.match, self.other, 2,
@@ -1097,11 +1203,11 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertIn(tokens.condition(tokens.CONDITION_EXHAUST) * 2, text)
         self.assertNotIn(tokens.condition(tokens.CONDITION_DRAIN), text)
 
-    def test_a_basic_game_counts_a_cyborgs_tokens_in_amber(self) -> None:
+    def test_a_training_game_counts_a_cyborgs_tokens_in_amber(self) -> None:
         # Drain is the ability's word, and the ability is off.
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
         text = describe_exhaustion_gain(
-            self.cog, basic, self.match, self.cyborg, 1,
+            self.cog, training, self.match, self.cyborg, 1,
         )
         self.assertIn(tokens.condition(tokens.CONDITION_EXHAUST), text)
         self.assertNotIn(tokens.condition(tokens.CONDITION_DRAIN), text)
@@ -1146,6 +1252,8 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertIn("**damaged**", line)
         self.assertNotIn("injury!", line)
         self.assertNotIn("injured", line)
+        self.assertIn("rolls a damage test", line)
+        self.assertNotIn("injury test", line)
 
     def test_the_injury_test_die_says_damaged(self) -> None:
         # Pixels, not words: DAMAGED and INJURED are different widths,
@@ -1229,7 +1337,11 @@ class OverdriveTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        self.game = build_game(player_1_team=Team.CYBORGS)
+        # Basic mode: the species rule alone, with no Cyborg's
+        # personal ability (Law 21) moving the numbers.
+        self.game = build_game(
+            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
         self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
 
@@ -1307,11 +1419,11 @@ class OverdriveTests(unittest.TestCase):
         )
         self.assertEqual(offered, [self.cyborg])
 
-    def test_nobody_is_offered_it_in_a_basic_game(self):
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+    def test_nobody_is_offered_it_in_a_training_game(self):
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
         self.assertEqual(
             self.engine.overdrive_candidates(
-                basic, self.match, [self.cyborg],
+                training, self.match, [self.cyborg],
             ),
             [],
         )
@@ -1370,7 +1482,11 @@ class ChargeUpTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        self.game = build_game(player_1_team=Team.CYBORGS)
+        # Basic mode: the species rule alone, with no Cyborg's
+        # personal ability (Law 21) moving the numbers.
+        self.game = build_game(
+            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
 
     def charged(self) -> list[str]:
@@ -1449,12 +1565,12 @@ class ChargeUpTests(unittest.TestCase):
         self.assertEqual(self.match.exhaustion.get(cyborg, 0), 0)
         self.assertNotIn(cyborg, self.charged())
 
-    def test_a_basic_game_charges_nobody_up(self):
-        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+    def test_a_training_game_charges_nobody_up(self):
+        training = build_game(player_1_team=Team.CYBORGS, mode=GameMode.TRAINING)
         cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
         self.match.add_exhaustion(cyborg, 4)
         self.assertEqual(
-            self.engine.charge_up_players(basic, self.match), [],
+            self.engine.charge_up_players(training, self.match), [],
         )
 
     def test_a_non_cyborg_never_charges_up(self):
@@ -1500,14 +1616,14 @@ class ChargeUpTests(unittest.TestCase):
 
 class SmoothCandidateTests(unittest.TestCase):
     """
-    **Smooth**: "When your team has possession and the ball moves to
-    or through your space, you may take it over instead."
+    **Smooth**: when your team has possession and the ball comes to
+    rest on your space, you may take it over instead.
 
-    It replaced Slip in on 2026-09-20 and is a different shape: Slip
-    in narrowed *who may take the turn* after a resolution had already
-    left the ball somewhere, where Smooth reads the ball's own path and
-    stops it. So these are `mind_pull_candidates`' tests with the side
-    flipped, not `turn_handler_candidates`' tests.
+    It replaced Slip in on 2026-09-20 and reads the arrival gate, so
+    these are `mind_pull_candidates`' tests with the side flipped, not
+    `turn_handler_candidates`' tests. Since 2026-09-24 it reads only
+    the space the ball arrives at -- Slip in's case -- where the pull
+    reads every space the ball crosses.
     """
 
     def setUp(self) -> None:
@@ -1532,6 +1648,33 @@ class SmoothCandidateTests(unittest.TestCase):
         self.assertEqual(
             self.engine.smooth_candidates(self.game, self.match),
             [self.taker],
+        )
+
+    def test_a_telekinetic_the_ball_only_passes_through_may_not(self):
+        # "Smooth only works when the ball gets to the space, not
+        # through" (the author, 2026-09-24) -- where a pull is offered
+        # on every space the ball crosses.
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        crossed = self.match.board.position_at_flat_index(origin + 1)
+        landing = self.match.board.position_at_flat_index(origin + 2)
+        self.match.board.place_meeple(self.taker, *crossed)
+        self.match.set_ball_space(*landing)
+        self.assertNotIn(
+            self.taker,
+            self.engine.smooth_candidates(self.game, self.match),
+        )
+
+        # The same movement, with the Telekinetic where it lands.
+        self.match.set_ball_space(*self.match.board.position_at_flat_index(
+            origin,
+        ))
+        self.match.board.place_meeple(self.taker, *landing)
+        self.match.set_ball_space(*landing)
+        self.assertIn(
+            self.taker,
+            self.engine.smooth_candidates(self.game, self.match),
         )
 
     def test_the_ball_s_own_starting_space_is_not_moved_to(self):
@@ -1619,11 +1762,11 @@ class SmoothCandidateTests(unittest.TestCase):
 
     def test_without_the_module_nobody_may(self):
         self.cross(self.taker)
-        basic = build_game(
-            player_1_team=Team.TELEKINETICS, mode=GameMode.BASIC,
+        training = build_game(
+            player_1_team=Team.TELEKINETICS, mode=GameMode.TRAINING,
         )
         self.assertEqual(
-            self.engine.smooth_candidates(basic, self.match), [],
+            self.engine.smooth_candidates(training, self.match), [],
         )
 
     def test_an_injured_telekinetic_may_still_take_it(self):
@@ -1943,13 +2086,13 @@ class MergeTests(unittest.TestCase):
         )
         self.assertEqual(bonus, 0)
 
-    def test_a_basic_game_merges_nobody(self):
+    def test_a_training_game_merges_nobody(self):
         roller, bystander = field_players(self.match)[:2]
         self.stand_on_the_ball(roller)
         self.stand_on_the_ball(bystander)
-        basic = build_game(player_1_team=Team.OOZES, mode=GameMode.BASIC)
+        training = build_game(player_1_team=Team.OOZES, mode=GameMode.TRAINING)
         bonus, lines, contributors = self.engine.merge_bonus(
-            basic, self.match, self.side, (roller,), "offense",
+            training, self.match, self.side, (roller,), "offense",
         )
         self.assertEqual((bonus, lines, contributors), (0, [], []))
 
@@ -2016,9 +2159,9 @@ class SpreadableTests(unittest.TestCase):
         )
 
     def test_without_the_module_nobody_is_exempt(self):
-        basic = build_game(player_1_team=Team.OOZES, mode=GameMode.BASIC)
+        training = build_game(player_1_team=Team.OOZES, mode=GameMode.TRAINING)
         self.assertEqual(
-            self.engine.spread_exempt_ids(basic, self.match, TeamSide.HOME),
+            self.engine.spread_exempt_ids(training, self.match, TeamSide.HOME),
             set(),
         )
 
@@ -2148,6 +2291,72 @@ class SpreadableTests(unittest.TestCase):
         self.assertEqual(
             self.match.board.meeple_position(mover), (zone, own_index),
         )
+
+
+class SpreadableNoteTests(unittest.TestCase):
+    """
+    Every Coaching Choice a side fielding Spreadable Oozes is offered or
+    given reminds its coach they may share a teammate's space (the
+    author, 2026-09-25) -- on the window's opening prompt, and on the
+    ask `pending_prompt` reads back for as long as the window is open.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+
+    def opened(self, game: D12BallGame, side: TeamSide, occasion):
+        match = build_match(self.engine, game)
+        result = open_substitution_window(
+            self.engine, game, match, side, occasion,
+        )
+        return match, result.next.ask
+
+    def test_the_offer_and_the_hub_both_carry_it(self) -> None:
+        game = build_game(player_1_team=Team.OOZES)
+        match, ask = self.opened(
+            game, TeamSide.HOME, CoachingOccasion.NEW_PLAY,
+        )
+        self.assertIn(SPREADABLE_NOTE, ask)
+        offer = pending_prompt(self.engine, game, match)
+        self.assertIs(offer.kind, PromptKind.COACHING_OFFER)
+        self.assertIn(SPREADABLE_NOTE, offer.ask)
+
+        match.declare_coaching()
+        hub = pending_prompt(self.engine, game, match)
+        self.assertIs(hub.kind, PromptKind.COACHING_HUB)
+        self.assertIn(SPREADABLE_NOTE, hub.ask)
+
+    def test_setup_carries_it(self) -> None:
+        game = build_game(player_1_team=Team.OOZES)
+        _, ask = self.opened(game, TeamSide.HOME, CoachingOccasion.SETUP)
+        self.assertIn(SPREADABLE_NOTE, ask)
+
+    def test_a_mixed_side_fielding_an_ooze_is_told(self) -> None:
+        game = build_game(player_1_team=Team.PURPLE)
+        match, ask = self.opened(
+            game, TeamSide.HOME, CoachingOccasion.NEW_PLAY,
+        )
+        self.assertTrue(fielded_of_species(match, SPECIES_OOZE))
+        self.assertIn(SPREADABLE_NOTE, ask)
+
+    def test_a_side_without_oozes_is_not_told(self) -> None:
+        game = build_game(
+            player_1_team=Team.OOZES, player_2_team=Team.FIRE_DEMONS,
+        )
+        _, ask = self.opened(
+            game, TeamSide.VISITING, CoachingOccasion.NEW_PLAY,
+        )
+        self.assertNotIn(SPREADABLE_NOTE, ask)
+
+    def test_training_mode_says_nothing(self) -> None:
+        game = build_game(player_1_team=Team.OOZES, mode=GameMode.TRAINING)
+        _, ask = self.opened(game, TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        self.assertNotIn(SPREADABLE_NOTE, ask)
+
+    def test_the_window_before_the_shootout_says_nothing(self) -> None:
+        game = build_game(player_1_team=Team.OOZES)
+        _, ask = self.opened(game, TeamSide.HOME, CoachingOccasion.FULL_TIME)
+        self.assertNotIn(SPREADABLE_NOTE, ask)
 
 
 class BallPathTests(unittest.TestCase):
@@ -2427,16 +2636,16 @@ class MindPullCandidateTests(unittest.TestCase):
         match.set_ball_space(zone, index)
         self.assertEqual(self.engine.mind_pull_candidates(game, match), [])
 
-    def test_a_basic_game_offers_nobody_a_pull(self):
+    def test_a_training_game_offers_nobody_a_pull(self):
         defender = self.defenders()[0]
         self.line_up_on_the_path(defender)
-        basic = build_game(
+        training = build_game(
             player_1_team=Team.PURPLE,
             player_2_team=Team.TELEKINETICS,
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
         )
         self.assertEqual(
-            self.engine.mind_pull_candidates(basic, self.match), [],
+            self.engine.mind_pull_candidates(training, self.match), [],
         )
 
     def test_nobody_is_offered_twice_for_one_movement(self):
@@ -2678,9 +2887,16 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         # `finish_maneuver_resolution` gates and then calls
         # `check_for_loose_ball`, which reaches the second gate; the
         # spent path is what stops that asking again.
+        # The path outlives the pull, for the Smooth behind it, and is
+        # spent once the last offer on the movement has been answered.
         with suppressed_cog_saves():
             await finish_maneuver_resolution(self.cog, 
                 self.interaction, self.game, self.match, distance_moved=1,
+            )
+            self.assertNotEqual(self.match.last_ball_path, [])
+            self.match.pending_mind_pull = []
+            await continue_mind_pull(self.cog,
+                self.interaction, self.game, self.match,
             )
         self.assertEqual(self.match.last_ball_path, [])
         self.assertFalse(
@@ -2697,16 +2913,16 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(interrupted)
         self.assertEqual(self.match.pending_mind_pull, [])
 
-    async def test_a_basic_game_never_interrupts(self):
-        basic = build_game(
+    async def test_a_training_game_never_interrupts(self):
+        training = build_game(
             player_1_team=Team.PURPLE,
             player_2_team=Team.TELEKINETICS,
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
         )
-        self.cog.games[basic.game_id] = basic
+        self.cog.games[training.game_id] = training
         with suppressed_cog_saves():
             interrupted = check_for_mind_pull(
-                self.cog.engine, basic, self.match, {"kind": "x"},
+                self.cog.engine, training, self.match, {"kind": "x"},
             )
         self.assertIsNone(interrupted)
 
@@ -3078,8 +3294,9 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(
             any(isinstance(v, OwnGoalRollView) for v in self.sent_views()),
         )
-        # Spent on the way through, like every other gate.
-        self.assertEqual(self.match.last_ball_path, [])
+        # Left for the Smooth, which is asked after every pull and is
+        # the stage that spends it.
+        self.assertNotEqual(self.match.last_ball_path, [])
 
     async def test_the_shove_really_moved_the_ball_a_space(self):
         # The fixture's own claim, asserted rather than assumed: a
@@ -3152,8 +3369,9 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
 
 class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
     """
-    **The Smooth gate, through the real cog.** Smooth is asked first at
-    every arrival, and a Smooth that is taken pre-empts what the
+    **The Smooth gate, through the real cog.** Smooth is asked where the
+    ball lands, after every pull on its path, and a Smooth that is taken
+    pre-empts what the
     movement was going to lead to -- including, and this is the case
     the author settled on 2026-09-20, the own-goal roll an overshot
     Double Team was about to ask for.
@@ -3228,22 +3446,25 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
             self.match.pending_smooth_resume["kind"], "finish_maneuver",
         )
 
-    async def test_the_smooth_gate_leaves_the_path_for_the_pull(self):
-        # The one mechanical difference between the two gates: the
-        # pull spends the path, Smooth must not, or a movement that
-        # crossed both sides' Telekinetics would offer only the first.
-        self.cross(self.taker)
+    async def test_the_pull_gate_leaves_the_path_for_the_smooth(self):
+        # The pull is asked first and the Smooth where the ball lands
+        # after it, so the pull must not spend the path -- a pull
+        # nobody wanted has to leave the Smooth its movement.
+        opponent = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, self.match.defending_side(),
+        )
+        self.cross(opponent)
         with suppressed_cog_saves():
-            check_for_smooth(
+            check_for_mind_pull(
                 self.cog.engine, self.game, self.match,
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
         self.assertNotEqual(self.match.last_ball_path, [])
 
-    async def test_declining_hands_the_movement_to_the_pull(self):
-        # A Telekinetic of each side on the same crossed space: the
-        # teammate is asked first, and letting it run must still leave
-        # the opponent their roll.
+    async def test_on_the_landing_space_the_pull_goes_first(self):
+        # A Telekinetic of each side where the ball lands: the opponent
+        # is asked first (the author, 2026-09-24), and letting it go
+        # must still leave the teammate their Smooth.
         opponent = fielded_of_species(
             self.match, SPECIES_TELEKINETIC, self.match.defending_side(),
         )
@@ -3254,14 +3475,52 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
             await self.arrive(
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )
-            self.match.pending_smooth.remove(self.taker)
-            await continue_smooth(self.cog, 
+            self.assertIn(opponent, self.match.pending_mind_pull)
+            self.assertEqual(self.match.pending_smooth, [])
+
+            self.match.pending_mind_pull = []
+            await continue_mind_pull(self.cog,
                 self.interaction, self.game, self.match,
             )
 
-        self.assertEqual(self.match.pending_mind_pull, [opponent])
+        self.assertEqual(self.match.pending_smooth, [self.taker])
         self.assertTrue(
-            any(isinstance(v, MindPullView) for v in self.sent_views()),
+            any(isinstance(v, SmoothView) for v in self.sent_views()),
+        )
+        self.cog.finish_maneuver_resolution.assert_not_awaited()
+
+    async def test_a_pull_the_ball_passes_first_goes_before_the_smooth(self):
+        # The author, 2026-09-24: an opponent the ball passes on its way
+        # is asked before the teammate where it lands. Only once every
+        # pull is let go is the Smooth offered.
+        opponent = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, self.match.defending_side(),
+        )
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        landing = self.match.board.position_at_flat_index(origin + 2)
+        self.match.board.place_meeple(opponent, *self.crossed)
+        self.match.board.place_meeple(self.taker, *landing)
+        self.match.set_ball_space(*landing)
+
+        with suppressed_cog_saves():
+            await self.arrive(
+                {"kind": "finish_maneuver", "distance_moved": 2},
+            )
+            self.assertIn(opponent, self.match.pending_mind_pull)
+            self.assertEqual(self.match.pending_smooth, [])
+            # The pull stage leaves the path for the Smooth.
+            self.assertNotEqual(self.match.last_ball_path, [])
+
+            self.match.pending_mind_pull = []
+            await continue_mind_pull(self.cog,
+                self.interaction, self.game, self.match,
+            )
+
+        self.assertIn(self.taker, self.match.pending_smooth)
+        self.assertTrue(
+            any(isinstance(v, SmoothView) for v in self.sent_views()),
         )
         self.cog.finish_maneuver_resolution.assert_not_awaited()
 
@@ -3508,10 +3767,15 @@ class MovedWithTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.match.last_ball_movers, [])
 
     async def test_the_gate_clears_them_with_the_path(self):
+        # A movement that offers nobody anything, so the gate runs to
+        # its end: both sides here are Telekinetics, and anyone standing
+        # on the space would be asked first and keep the path alive.
+        for player_id in list(self.match.board.spaces[Zone.MIDFIELD][1]):
+            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
         self.match.last_ball_movers = [self.handler]
         self.match.last_ball_path = [[Zone.MIDFIELD.value, 1]]
         with suppressed_cog_saves():
-            check_for_mind_pull(
+            check_for_ball_arrival(
                 self.cog.engine, self.game, self.match,
                 {"kind": "finish_maneuver", "distance_moved": 1},
             )

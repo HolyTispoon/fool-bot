@@ -27,17 +27,18 @@ and re-running `scripts/render_species_cards.py`.
 from PIL import Image, ImageFont
 
 from d12ball.cards import (
-    CARD_FACE,
     CARD_HEIGHT,
     CARD_WIDTH,
     CORNER,
+    DARK_REFERENCE,
     EDGE_WIDTH,
     FRAME,
-    INK,
     MARGIN,
-    MUTED,
+    PRINT_REFERENCE,
     Pen,
+    ReferencePalette,
     font,
+    screen_cutout,
 )
 from d12ball.components import SPECIES_ORDER, load_species_abilities
 from d12ball.game import Team
@@ -151,6 +152,7 @@ def _draw_panel(
     ability: dict[str, str],
     top: float,
     bottom: float,
+    palette: ReferencePalette,
 ) -> None:
     color = TEAM_COLORS[SPECIES_TEAM[species]]
     band_ink = high_contrast_ink(color)
@@ -205,7 +207,7 @@ def _draw_panel(
         if index:
             y += para_gap
         for line in lines:
-            pen.text((left, y), line, body_face, INK, anchor="la")
+            pen.text((left, y), line, body_face, palette.ink, anchor="la")
             y += body_step
 
 
@@ -213,21 +215,22 @@ def render_species_card(
     abilities: dict[str, dict[str, str]],
     pair: tuple[str, str],
     bleed: bool = False,
+    palette: ReferencePalette = PRINT_REFERENCE,
 ) -> Image.Image:
     """One face: the two species abilities in `pair`, stacked."""
-    pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
+    pen = Pen((CARD_WIDTH, CARD_HEIGHT), palette.face)
     pen.rect(
         (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
         radius=CORNER,
-        fill=CARD_FACE,
-        outline=INK,
+        fill=palette.face,
+        outline=palette.edge,
         width=EDGE_WIDTH,
     )
     pen.text(
         (CARD_WIDTH / 2, FRAME + 30),
         "SPECIES ABILITIES",
         font(17),
-        MUTED,
+        palette.muted,
         anchor="mm",
     )
 
@@ -238,10 +241,10 @@ def render_species_card(
         panel_top = top + index * (panel_height + PANEL_GAP)
         _draw_panel(
             pen, species, abilities[species], panel_top,
-            panel_top + panel_height,
+            panel_top + panel_height, palette,
         )
 
-    return pen.finish(bleed, CARD_FACE)
+    return pen.finish(bleed, palette.face)
 
 
 def render_species_card_set(
@@ -258,3 +261,42 @@ def render_species_card_set(
             (f"{number}-back", render_species_card(abilities, back, bleed))
         )
     return out
+
+
+# The gap between the two faces on the on-screen reference. It is
+# transparent, like the cut-out corners, so the two faces read as two
+# cards side by side on whatever the channel is drawn in.
+REFERENCE_GAP = 24
+
+
+def render_species_reference(
+    abilities: dict[str, dict[str, str]],
+) -> Image.Image:
+    """
+    All four abilities as one image, for a screen: the two faces of
+    the set's first card side by side. Between them they carry every
+    ability once; the other two cards only pair the same four
+    differently, which matters on a table and not on a screen.
+
+    One image rather than two because Discord crops two attachments on
+    one message to a pair of tiles, cutting off each card's text; one
+    image is shown whole and opens full-size.
+
+    Drawn in `DARK_REFERENCE` with the corners cut out, because it is
+    only ever posted, never printed.
+    """
+    faces = [
+        screen_cutout(
+            render_species_card(abilities, pair, palette=DARK_REFERENCE)
+        )
+        for pair in CARD_FACES[0]
+    ]
+    sheet = Image.new(
+        "RGBA",
+        (CARD_WIDTH * len(faces) + REFERENCE_GAP * (len(faces) - 1),
+         CARD_HEIGHT),
+        (0, 0, 0, 0),
+    )
+    for index, face in enumerate(faces):
+        sheet.paste(face, (index * (CARD_WIDTH + REFERENCE_GAP), 0))
+    return sheet

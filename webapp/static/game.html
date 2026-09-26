@@ -3,42 +3,124 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
     <title>D12 Ball</title>
     <link rel="stylesheet" href="/static/app.css" />
   </head>
-  <body>
-    <header id="scoreboard">
-      <div class="side" id="home"></div>
-      <div class="score" id="score">- -</div>
-      <div class="side" id="visiting"></div>
-      <div class="clock" id="clock"></div>
+  <body data-show="move">
+    <header class="topbar">
+      <div class="topbar-title">
+        <span class="hash" aria-hidden="true">#</span>
+        <span id="channel" class="channel-name">d12-ball</span>
+        <span class="topbar-divider" aria-hidden="true"></span>
+        <span id="topic" class="topic"></span>
+      </div>
+      <div id="you" class="you"></div>
     </header>
 
-    <main>
-      <section id="board">
-        <img id="board-image" alt="The board" />
-      </section>
+    <div class="app">
+      <!-- A phone's one screen: the score and the board stay put, and
+           these switch what fills the rest. Hidden on a wider screen,
+           which shows all three at once. -->
+      <nav id="tabs" class="tabs" role="tablist" aria-label="Show">
+        <button type="button" class="tab" role="tab" data-show="move">Move</button>
+        <button type="button" class="tab" role="tab" data-show="log">Log</button>
+        <button type="button" class="tab" role="tab" data-show="chat">Chat</button>
+      </nav>
 
-      <section id="prompt" hidden>
-        <p class="ask" id="ask"></p>
-        <div id="controls"></div>
-        <p class="waiting" id="waiting" hidden></p>
-      </section>
+      <main class="main">
+        <section class="panel board-panel" aria-label="The board">
+          <div id="board" class="board-fit"></div>
+          <p id="no-board" class="board-empty" hidden>
+            This game has not kicked off yet.
+          </p>
+          <div id="benches" class="benches"></div>
+        </section>
 
-      <section id="owed" hidden>
-        <p>
-          This game has a step of its own to run here -- a restart
-          caught it mid-turn.
-        </p>
-        <button id="pick-up">Pick it up</button>
-      </section>
+        <section id="refusal" class="panel refusal" data-tab="move" hidden>
+          <p id="refusal-text"></p>
+          <button type="button" class="linkish" id="dismiss">Dismiss</button>
+        </section>
 
-      <p class="refusal" id="refusal" hidden></p>
+        <section id="owed" class="panel prompt" data-tab="move" hidden>
+          <p class="ask">
+            This game has a step of its own to run -- a restart caught it
+            mid-turn.
+          </p>
+          <div class="row">
+            <button type="button" class="btn primary" id="pick-up">Pick it up</button>
+          </div>
+        </section>
 
-      <section id="journal"></section>
-    </main>
+        <section id="prompt" class="panel prompt" data-tab="move" hidden>
+          <div id="prompt-state" class="panel-label"></div>
+          <div id="ask" class="ask"></div>
+          <div id="controls" class="controls"></div>
+        </section>
 
-    <footer id="who"></footer>
+        <!-- Who holds the two seats, and who is watching. The seats
+             are the game record's; the admin role is the web app's own
+             (webapp/rooms.py). -->
+        <section id="room" class="panel room-panel" data-tab="move" aria-label="The room" hidden>
+          <div class="panel-label">Room</div>
+          <div id="seats" class="seats"></div>
+          <div class="room-foot">
+            <span id="watching" class="quiet"></span>
+            <button type="button" class="linkish" id="copy-link">Copy the room's link</button>
+            <button type="button" class="linkish" id="become-admin">Become admin</button>
+            <button type="button" class="linkish" id="drop-admin" hidden>Give up admin</button>
+          </div>
+        </section>
+      </main>
+
+      <aside class="sidebar">
+        <section id="jumbotron" class="jumbotron" aria-label="Score and clock"></section>
+
+        <section class="panel log-panel" data-tab="log" aria-label="Game log">
+          <div class="panel-label">Game log</div>
+          <div id="journal" class="journal" role="log" aria-live="polite">
+            <p class="quiet" id="journal-empty">
+              What is said in the game shows up here from the moment this
+              page opened.
+            </p>
+          </div>
+        </section>
+
+        <section class="panel chat-panel" data-tab="chat" aria-label="Chat">
+          <div class="panel-label">Chat</div>
+          <div id="chat" class="chat" role="log" aria-live="polite">
+            <p class="quiet" id="chat-empty">Nobody has said anything yet.</p>
+          </div>
+          <form id="chat-form" class="chat-form" autocomplete="off">
+            <input
+              id="chat-input"
+              class="chat-input"
+              maxlength="500"
+              placeholder="Message the table"
+              aria-label="Message the table"
+            />
+          </form>
+        </section>
+      </aside>
+    </div>
+
+    <dialog id="viewer" class="viewer">
+      <button type="button" class="viewer-close" id="viewer-close" aria-label="Close">×</button>
+      <div id="viewer-body" class="viewer-body"></div>
+    </dialog>
+
+    <!-- Shown to somebody the page does not know yet: a name, and a
+         cookie with it (webapp/identity.py). -->
+    <dialog id="name-dialog" class="name-dialog">
+      <form id="name-form" method="dialog" autocomplete="off">
+        <label for="name-input" class="panel-label">What should the table call you?</label>
+        <input id="name-input" class="chat-input" maxlength="32" required />
+        <p id="name-error" class="quiet" hidden></p>
+        <div class="row"><button type="submit" class="btn primary">Take a seat</button></div>
+      </form>
+    </dialog>
+
+    <div id="peek" class="peek" hidden><img alt="" /></div>
 
     <script src="/static/app.js"></script>
   </body>

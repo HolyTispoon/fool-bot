@@ -303,8 +303,6 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   piece. The old `contact_sheet` put a gutter between the cards *and* around
   the outside, which made a quarter of its width a card plus a quarter of a
   gutter -- every cut but the first came out off-centre.
-  `D12BallManeuverTests` divides a rendered sheet and checks the pieces,
-  since nothing else would notice.
   - **The two margins are different numbers because only one of them is
     under pressure.** Four poker cards across is 10in of card before any
     gutter at all, and a letter page turned landscape has about 10.5in of
@@ -314,10 +312,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     rounded outline rather than on the space around it, so the gutter can go
     narrow without costing anything. Height is under no such pressure: a
     thirteen-card sheet is 14.6in whatever the gutter, and is tiled or
-    printed a page at a time either way.
-    `test_a_print_sheet_fits_a_letter_page_across` is the guard -- nothing
-    about the image says how wide it is meant to be, so the arithmetic is
-    asserted rather than looked at.
+    printed a page at a time either way. Nothing about the image says how
+    wide it is meant to be, so check the arithmetic -- width over 300dpi,
+    against 10.5in -- after changing either margin.
 - **The header's corner names the tier, not the die faces.** It printed
   "die 1-2" while the cards and the selection die had to coexist, then "BASIC
   MANEUVER" while there was only one set; it now reads the card's own tier,
@@ -351,7 +348,10 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 
 `d12ball/player_cards.py` draws the roster as cards -- one a player, poker
 size at 300dpi, the same as a maneuver's and out of the same `Pen`, palette
-and `print_sheet`.
+and `print_sheet`. The player, species and role cards are drawn for print and
+carry no tests -- nothing printed does (the author, 2026-09-23) -- so a change
+to one is checked by rendering the cards and looking. The bot posts the same
+images; see "The cards on Discord" below.
 
 ```bash
 python3 scripts/render_player_cards.py --out cards/players --sheet
@@ -369,15 +369,14 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
 - **What the print adds is the ability, and it is the full sentence.** The
   bot has the roster and the rules commands a click away; a card on a table is
   the whole of what its coach has, so the sentence goes under the portrait.
-  Never `ability_short` -- see "Every ability is imported twice" --
-  and `D12BallPlayerCardTests` greps the module to keep it that way.
+  Never `ability_short` -- see "Every ability is imported twice".
 - **The ability is measured before anything is drawn, and the portrait takes
   what is left.** Its length is the one thing on the card the layout does not
   choose, so the header and stats are pinned to the top, the ability band to
   the bottom, and the picture gets the middle. That is silent when it goes
   wrong -- a longer ability squeezes the portrait rather than overflowing --
-  which is why the suite asserts a floor on the slot rather than only that a
-  card renders.
+  which is why the slot has a floor, and why a render that merely completes
+  proves nothing.
 - **A portrait prints at about 190dpi and that is deliberate.** The art is the
   bot's own, around 400px, and there is no larger source, so `PORTRAIT_MAX_SCALE`
   lets it up to 1.6x and no further: kept to its native size it would print
@@ -427,11 +426,21 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   are dealt face up and sit on the field and team boards all game, so there is
   nothing to hide -- the other side of the card is the same player in advanced
   mode.
-  - **What makes it the advanced one is the species keyword**, in a pill on
-    the right of the ability band's heading row -- literally beside the role
-    ability. A species ability is only ever in play in an advanced game (see
-    "Species abilities in the bot" in [species-abilities.md](species-abilities.md)), so the keyword is the one thing that has
-    to be on this face and cannot be on the other. The pill is *filled* with
+  - **What makes it the advanced one is what advanced mode plays for this
+    player** (the author, 2026-09-25): their advanced skills in the stats row
+    (`advanced_card_skills` -- Hellguard prints 0/8), and **their personal
+    ability instead of the role's** in the band where they have one
+    (`advanced_card_ability`). The replacement is the card's, not the game's:
+    in play a player keeps their role ability too, and its sentence is on the
+    front. A player whose sheet sentence only names a higher skill prints that
+    sentence ("High defensive skill.") as the sheet words it, and a player
+    with no personal ability prints the role's sentence on both faces.
+    `CardSkills` rather than a `RoleProfile` carries the numbers, because an
+    advanced score is not held to 1-6.
+  - **The species keyword** rides in a pill on the right of the ability
+    band's heading row. It is on this face because species abilities are
+    played in basic and advanced mode, and the front is the card for every
+    mode. The pill is *filled* with
     the species' colour rather than the keyword being set in it, for the
     reason the header band is filled: Slime green on a white face cannot be
     read, and a filled pill plus `high_contrast_ink` answers all four species
@@ -446,9 +455,8 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     bigger picture, and here it cannot, because the picture's bottom edge *is*
     the badge's position. Every back gets the same portrait slot and the same
     band, and a card whose text does not fill the band leaves white under it.
-    `test_the_advanced_badge_sits_in_one_place_on_every_card` is the guard,
-    and the way it breaks is somebody laying the band out from the bottom edge
-    up again, the way the front still does.
+    The way it breaks is somebody laying the band out from the bottom edge up
+    again, the way the front still does.
   - **The species' short form goes under it where the band has room, and the
     question is asked of the species rather than of the card.** How much of
     the band a card has left depends on how long its *role* ability runs, so
@@ -456,17 +464,19 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     Demon striker -- and a set where two cards carrying the same species line
     disagree about whether it is on there reads as a misprint, not as a layout
     that scaled. `species_short_fits` walks the species and lets the longest
-    role ability decide for all of them. **This is the one place a printed
+    ability the backs print decide for all of them. Since the personal
+    abilities went on the backs, Goopkeeper's and Acidel's sentences leave no
+    Ooze back room for Slimey's short form. **This is the one place a printed
     card carries an abbreviation**, and it is not the role's --
     `ability_short` in `species.json` exists for exactly "anywhere the
     sentence does not fit".
   - **Nothing can overflow the fixed band, so nothing has to be kept ahead of
     the data.** A species whose short form stops fitting simply stops carrying
     one and the cards go on printing. What has to fit unconditionally is the
-    role ability on its own, which is 153 units against 340 -- an import that
-    doubled one fails
-    `test_a_role_ability_alone_always_fits_the_advanced_band` rather than
-    printing off the bottom of a card.
+    ability the back prints on its own -- three lines at most today (Acidel),
+    against a band of 340 units. An import that doubled one would print off
+    the bottom of a card, so look at the backs after an import that lengthens
+    a role or personal ability.
   - **`MIN_BACK_PORTRAIT_HEIGHT` is 360 against the front's 380, and the
     20 units are what buy the fixed band.** The front is the picture face and
     the back is the rules face -- it carries a second ability where the front
@@ -476,17 +486,6 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     a number tuned to today's data: they are the line at which a player card
     has stopped being a picture, and lowering one to fit a paragraph is the
     move to resist.
-  - **What the back is still waiting on is a decision about the advanced
-    *role* ability.** The sheet's `advanced_abilities` tab has one for sixteen
-    players and advanced skill scores for three since 2026-09-22, and the
-    import carries them (`PlayerDefinition.advanced_ability` /
-    `.advanced_skills`), but the band still repeats the basic sentence and the
-    stats row the basic scores: what the back shows -- the advanced ability
-    alone, as the cards sheet's own `Advanced` column words it (`DD.` then the
-    ability on its own line), or beside the basic one, and whether a 0/8
-    fullback's back prints 0/8 -- is the author's call and has not been made.
-    See "Blocked or deferred" in the rules log. The role half of the band and
-    the stats row are the only things that change when it is.
   - **`duplex_order` reverses every row of the back sheet.** A duplex print
     comes out flipped about the paper's long edge, so the leftmost cell of a
     row on the front is the rightmost on the back. A maneuver deck never
@@ -512,8 +511,8 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
   carries that species' ability, so a species-vs-species game only needs the
   two abilities in play. `CARD_FACES` is the three ways to split the four
   abilities into two disjoint pairs -- the perfect matchings of K4 -- so the
-  three double-sided cards carry all six pairings, **each face exactly one**
-  (`test_every_pairing_appears_on_exactly_one_face`). Lay the card whose face
+  three double-sided cards carry all six pairings, **each face exactly one**.
+  Lay the card whose face
   matches the two teams between the coaches; its back holds the other two,
   which is harmless. A mixed colour team fields all four species, so that
   coach gets the whole set.
@@ -544,7 +543,7 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
   `spec_abilities` (`gid=123199571`) is these four. The `player cards` tab
   also has a `SpecAbility` column naming each player's species ability, which
   nothing imports -- the species is enough to look it up.
-- **The cards are print-only; the abilities themselves are the engine's** --
+- **The cards draw the text; the abilities themselves are the engine's** --
   see [species-abilities.md](species-abilities.md). This module still only draws the
   three reference cards, and `species.json` still only feeds them; what the
   bot plays is read through `RulesEngine`, which cannot import a Pillow
@@ -657,13 +656,91 @@ python3 scripts/render_role_cards.py --out cards/roles --sheet
   unclipped rather than flattened against an arbitrary cap every short
   sentence would otherwise hit as well, which would leave nothing for
   the ceiling to actually hold back.
+- **The title is the card's heading, not a caption.** "ROLE ABILITIES"
+  was a small muted line (17px, `MUTED`) sitting above the grid like a
+  label; the author asked for it larger, clearer and bold (2026-09-26),
+  so it is 40px bold in `INK`, in a `HEADER_HEIGHT` of 76 rather than
+  44. The taller header moves the whole grid down 32px, and
+  `BOTTOM_PAD` under the grid shrinks from 40 to 20 to give most of
+  that back: the rows lose only four pixels, which leaves Defender's
+  fitted ceiling -- and so every panel's ability text -- at the size it
+  was before. A heading that grew by shrinking the rules under it
+  would have traded the thing the card is for.
 - **Nothing here is written in the module.** The ability text and the
   offense/defense numbers come from `players.json`'s `role_profiles`
-  through `load_player_catalog`, the same table `/d12ball
-  role_abilities` (`cogs/d12ball/slash_commands.py`) already reads --
-  so a card cannot claim a stat the bot does not play, and a sheet
-  revision reaches it by re-importing and re-running the render script,
-  same as every other card in this file.
+  through `load_player_catalog` -- so a card cannot claim a stat the
+  bot does not play, and a sheet revision reaches it by re-importing
+  and re-running the render script, same as every other card in this
+  file.
+
+## The cards on Discord
+
+Three commands post the printed cards themselves, not a Discord layout of
+them, because a coach playing by Discord and a coach at the table should be
+reading the same card:
+
+- **`/d12ball role_abilities_reference`** posts the role card
+  (`render_role_reference`, the printed face in the dark palette -- see
+  below), one image with the full-image link, the way
+  `maneuver_reference` posts the hexagon. It replaced `/d12ball
+  role_abilities`, a text list of the same six sentences (the author,
+  2026-09-26).
+- **`/d12ball species_abilities_reference`** posts the two faces of the
+  set's first card, which between them carry all four abilities once each,
+  **side by side on one image** (`render_species_reference`, in the dark
+  palette), with the
+  full-image link. The set is three cards only so that every species pairing
+  is one face on a table; a channel has no table, so the other two cards
+  would only repeat the text. It was two attachments at first, and Discord
+  cropped the pair to two tiles that cut off each card's text (the author,
+  2026-09-26); one image is shown whole. Posted whatever the game's mode,
+  like the role card: it is a reference to the rules, not a statement about
+  this game.
+- **`/d12ball team_reference`** posts the asking coach's team (both with
+  `all_teams`), one message a team, nine cards inside Discord's ten
+  attachments a message. **Which face is the game's mode**:
+  `render_player_card_back`, the advanced face, where
+  `RulesEngine.personal_abilities_apply` says the game plays the personal
+  abilities and advanced skills, and the front everywhere else. The cards are
+  in catalog order rather than the roster's by-place order, so a card is in
+  the same place every time it is asked for.
+
+All three render in a worker thread per request (`card_png` in
+`cogs/d12ball/presentation.py`, which encodes the PNG in the same thread)
+rather than at startup the way the maneuver images are: they are asked for
+rarely, a card is about a tenth of a second, and the maneuver images are
+prerendered because they go out every maneuver. `team_reference` sends
+separate attachments rather than one composite: nine cards on one image
+would be too small to read inline, and Discord opens any one attachment
+full-size. The two species faces are few enough to read side by side, and
+two attachments were cropped, so they are one image.
+
+**The two reference cards are posted dark** (asked for on 2026-09-26).
+A white card is the brightest thing in a dark channel by a long way, and
+the reason the printed cards are white -- a full page of ink per sheet --
+does not apply to a screen, the same split `box_art.py` makes between the
+page cover and the night one. The layout is the printed card's, drawn in
+another `ReferencePalette` (`cards.py`): `PRINT_REFERENCE` is what the
+print scripts use and is byte-identical to the card before the palette
+existed, and `DARK_REFERENCE` is what the two commands post.
+
+- **The face is `#111820`**, the ground every image the bot draws in a
+  game sits on, so the reference reads as the bot's own and not as a
+  scan of a printed card.
+- **The skills change colour, not only the ink.** The print pair
+  (`CARD_OFFENSE_COLOR` / `CARD_DEFENSE_COLOR`) is chosen for white paper;
+  the green all but disappears on the dark face. The dark palette uses
+  the maneuver reference image's red and green, which the bot already
+  draws on that ground -- still red for offense, green for defense.
+- **The species bands keep their team colours.** They are fills with
+  `high_contrast_ink` on them, so they read on either face unchanged.
+- **The corners are cut out** (`screen_cutout`): transparent outside the
+  rounded outline, and the gap between the two species faces is
+  transparent too. On paper the corners are trimmed off; on a screen a
+  dark card would otherwise sit in a square of its own face, visible
+  against whatever colour the Discord client is drawn in.
+- The team cards are not posted dark: `team_reference` posts the player
+  cards as printed; this change leaves them alone.
 
 ## The species icons
 

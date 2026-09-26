@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>D12 Ball</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body class="front">
+    <main class="front-door panel">
+      <div class="panel-label">D12 Ball</div>
+      <p class="quiet">
+        Open a room and send its link: the first two people in are its
+        coaches, and anybody after them watches.
+      </p>
+      <form id="open-form" autocomplete="off">
+        <label for="name-input" class="panel-label">Your name</label>
+        <input id="name-input" class="chat-input" maxlength="32" required />
+        <p id="name-error" class="quiet" hidden></p>
+        <div class="row"><button type="submit" class="btn primary">Open a room</button></div>
+      </form>
+    </main>
+    <script src="/static/index.js"></script>
+  </body>
+</html>

@@ -71,9 +71,8 @@ does bar naming specific opponents up front). Two pieces:
   `player_2_id`/`ai_opponent` are **both None** -- and posts a
   `LobbyView` -- Join / Observe / Leave / Start Game, the Test game and Tutorial
   toggles, a **Name** button (opening `LobbyNameModal`, the one text field in
-  the flow), and the mode / board-size / opponent settings -- plus, while
-  Advanced is on, the two module toggles beside the mode buttons (see
-  [Species abilities in the bot](species-abilities.md#species-abilities-in-the-bot)).
+  the flow), and the mode (training, basic or advanced -- see
+  [Modes](species-abilities.md#modes)) / board-size / opponent settings.
   **Nothing may read
   `is_solo_game` off a lobby**: a two-human game also starts with `player_2_id`
   None, and who the opponent is (a second human, Dinky, the creator on both
@@ -96,6 +95,11 @@ does bar naming specific opponents up front). Two pieces:
     save comes *before* the message edit, as it does for every click past
     the lobby; the old order (acknowledge, then save, against a slow disk
     on the live host) is gone with the rest of the views' own saves.
+  - **The lobby's moves are the Discord lobby's.** A web room has two of its
+    own beside them, `take_seat` and `vacate_seat`, which never shift the
+    other seat and stay open after Start Game; they are not a replacement
+    for these, which the lobby message depends on as they are (see
+    [web-app.md](web-app.md), "Rooms, seats and who holds them").
   - **Join** fills `player_2_id` (and clears any AI pick, and drops the user
     from `observer_ids`). **Observe** appends to `game.observer_ids` -- a list
     field, `field(default_factory=list)`, persisted; a player may not observe.

@@ -42,7 +42,7 @@ def build_game(**overrides) -> D12BallGame:
         player_2_name="Player Two",
         player_1_team=Team.PURPLE,
         player_2_team=Team.TEAL,
-        mode=GameMode.BASIC,
+        mode=GameMode.TRAINING,
     )
     fields.update(overrides)
     return D12BallGame(**fields)

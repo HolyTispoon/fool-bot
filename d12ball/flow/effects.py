@@ -50,7 +50,6 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.engine import RulesEngine
-from d12ball.wire import jsonable
 from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turn import record_maneuver, scripted_or_random, tutorial_beat
@@ -59,9 +58,11 @@ from d12ball.formatting import (
     format_goal_time,
     format_player_with_team,
     format_team_side_label,
+    space_label,
 )
 from d12ball import tokens
 from d12ball.game import D12BallGame, team_display_name
+from d12ball.personal_abilities import QUANTOR_RUN_DRAIN, PersonalAbility
 from d12ball.prompts import PendingPrompt, PromptKind, speed_choice_ask
 
 
@@ -348,8 +349,12 @@ def dribble_advance_step(
 
     handler = engine.get_player_definition(match.active_player_id)
     space_word = "space" if actual_distance == 1 else "spaces"
+    # Emberdash's third space is theirs alone (Law 21); the second is
+    # every Playmaker's.
     ability_note = (
-        " (Playmaker ability)"
+        " (personal ability)"
+        if distance > 2
+        else " (Playmaker ability)"
         if handler.role == PlayerRole.PLAYMAKER and distance > 1
         else ""
     )
@@ -417,7 +422,12 @@ def dribble_burst_step(
     )
     match.set_ball_carrier(match.active_player_id)
     playmaker_bonus = handler.role == PlayerRole.PLAYMAKER
-    tokens = engine.dribble_burst_cost(match, actual_distance)
+    # Emberdash bursts for nothing (Law 21), which the cost already
+    # says; the note below says why.
+    free_burst = engine.has_personal_ability(
+        game, match.active_player_id, PersonalAbility.FREE_BURST,
+    )
+    tokens = engine.dribble_burst_cost(match, actual_distance, game)
     exhaustion_text = engine.apply_exhaustion(
 
         game, match, match.active_player_id, tokens,
@@ -442,8 +452,11 @@ def dribble_burst_step(
         )
     # Only worth saying where a token was actually saved: a burst that
     # moved nowhere is free for everybody.
-    if playmaker_bonus and actual_distance:
-        content += " That costs them a token less (Playmaker ability)."
+    if free_burst and actual_distance:
+        content += " That costs them nothing (personal ability)."
+    elif playmaker_bonus and actual_distance:
+        noun, _ = engine.token_word_and_mark(game, match.active_player_id)
+        content += f" That costs them 1 {noun} less (Playmaker ability)."
     if exhaustion_text:
         content += f"\n{exhaustion_text}"
 
@@ -785,6 +798,7 @@ def pressure_step(
     engine: RulesEngine,
     match: MatchState,
     key: str,
+    game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
     Play a won Pressure -- or a Double Team, which is the same card
@@ -798,9 +812,9 @@ def pressure_step(
     where a defender was sent, so `match.challenger_id` is always the
     player who plays it.
 
-    It reads nothing off the game record -- the shove charges no
-    exhaustion, and the cost this card can collect is an engine
-    question -- so it takes no `game`.
+    It reads the game record for one thing only: whether the
+    challenger is Acidel, whose overshot pressure is a shot rather than
+    an own-goal roll (Law 21).
     """
     offense_side = match.ball.possession
     defense_side = match.defending_side()
@@ -841,6 +855,34 @@ def pressure_step(
     # nowhere to go walks the challenger onto the handler's space.
     # So `board_changed` is True throughout, which is where
     # `refresh_match_image` sat in the cog on both paths.
+    if overshot and engine.has_personal_ability(
+        game, match.challenger_id, PersonalAbility.PRESSURE_SHOT,
+    ):
+        # **Acidel's personal ability** (Law 21): "a scoring
+        # opportunity replaces the own goal" (the author, 2026-09-25).
+        # The shove walked Acidel onto the handler's space, so the ball
+        # is taken there -- the Intercept overshoot's shape in
+        # `steal_step`: possession, speed 1, straight to the shot.
+        challenger_id = match.challenger_id
+        match.ball.possession = defense_side
+        match.ball.speed = 1
+        match.set_ball_space(*match.board.meeple_position(challenger_id))
+        match.set_ball_carrier(challenger_id)
+        acidel = engine.get_player_definition(challenger_id)
+        return StepResult(
+            narration=[
+                content
+                + "\n\nThat overshoots toward their own goal -- and "
+                f"{engine.format_player_label(match, acidel)} takes the "
+                "ball for a scoring opportunity!"
+            ],
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.BEGIN_SHOOTER_CHOICE,
+                {"candidates": [challenger_id]},
+            ),
+        )
+
     if overshot:
         # An own goal takes priority over the Defender's steal
         # ability: if it's conceded, the point is already over, and
@@ -966,7 +1008,6 @@ class OwnGoalRoll:
     rolls: tuple[int, int]
     offense_skill: int
     safe: bool
-    ignite: Optional[object]
     overdrive: int
 
     def to_dict(self) -> dict:
@@ -975,7 +1016,6 @@ class OwnGoalRoll:
             "rolls": list(self.rolls),
             "offense_skill": self.offense_skill,
             "safe": self.safe,
-            "ignite": jsonable(self.ignite),
             "overdrive": self.overdrive,
         }
 
@@ -1008,18 +1048,15 @@ def own_goal_roll_step(
     match.pending_own_goal = False
 
     offense_player = engine.get_player_definition(match.active_player_id)
-    offense_skill = engine.player_catalog.effective_profile(
-        offense_player,
-    ).offense
+    offense_skill = engine.skills(game, offense_player.player_id).offense
 
     rolls = tuple(scripted_or_random(engine, game, "own_goal", 2))
-    # Volatile reads the die that is **kept**, not both: an own goal is
-    # rolled at an advantage, and the rules name "the die kept in an
-    # own-goal roll".
-    ignite = engine.ignite(game, offense_player.player_id, max(rolls))
+    # **Volatile does not reach this roll** (the author, 2026-09-23),
+    # so neither die is asked through `engine.ignite`: a Fire Demon's
+    # natural 6 or 7 here is only the number.
     overdrive = match.overdrive_modifier(offense_player.player_id)
     match.consume_overdrive()
-    safe = max(rolls) + offense_skill + ignite.modifier + overdrive >= 7
+    safe = max(rolls) + offense_skill + overdrive >= 7
 
     # Logged ahead of `apply_own_goal_outcome`, which is what concedes
     # the goal, so the risk sits above the goal it sometimes produced.
@@ -1043,18 +1080,15 @@ def own_goal_roll_step(
     )
 
     taken = max(rolls)
-    modifier = ignite.modifier if ignite else 0
     breakdown = (
         f"**Own goal risk!** "
         f"{engine.format_player_label(match, offense_player)} "
         f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
         f"is {taken}, + {offense_skill} (offensive skill)"
     )
-    if ignite and ignite.detail:
-        breakdown += f", {ignite.detail}"
     if overdrive:
         breakdown += f", +{overdrive} Overdrive"
-    breakdown += f" = {taken + offense_skill + modifier + overdrive}"
+    breakdown += f" = {taken + offense_skill + overdrive}"
 
     verdict = apply_own_goal_outcome(
         engine, match, offense_player, distance_moved, safe,
@@ -1062,7 +1096,7 @@ def own_goal_roll_step(
     )
 
     return (
-        OwnGoalRoll(rolls, offense_skill, safe, ignite, overdrive),
+        OwnGoalRoll(rolls, offense_skill, safe, overdrive),
         StepResult(
             narration=[breakdown, verdict],
             board_changed=True,
@@ -1339,10 +1373,49 @@ def send_ball_out_of_play(match: MatchState) -> str:
     )
 
 
+def run_onto_pass(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    runner_id: str,
+    distance: int,
+) -> str:
+    """
+    **Quantor runs onto the pass** (Law 21): drain 3 and move to the
+    space the pass is aimed at, before it is thrown, so the pass lands
+    on them. Returns the sentence saying so.
+
+    `move_meeple` records them as moved by this resolution, so neither
+    a Mind Pull nor a Smooth is offered to them on the movement that
+    carried them -- they arrive with the ball, the reading every other
+    carried player has. The target is read the way the throw reads it,
+    so the space run to is the space the ball comes down on.
+    """
+    side = match.ball.possession
+    origin_flat = match.board.flat_index(
+        match.ball.zone, match.ball.space_index,
+    )
+    zone, space_index = match.board.position_at_flat_index(
+        match.relative_flat_index(origin_flat, side, distance),
+    )
+    match.move_meeple(runner_id, zone, space_index)
+    exhaustion_text = engine.apply_exhaustion(
+        game, match, runner_id, QUANTOR_RUN_DRAIN,
+    )
+    runner = engine.get_player_definition(runner_id)
+    return "\n".join(filter(None, (
+        f"{engine.format_player_label(match, runner)} runs to "
+        f"{space_label(zone, space_index, match.board)} to take the pass "
+        "(personal ability).",
+        exhaustion_text,
+    )))
+
+
 def high_pass_step(
     engine: RulesEngine,
     match: MatchState,
     distance: int,
+    runner_id: Optional[str] = None,
 ) -> StepResult:
     """
     Play a won High Pass: put the ball in the air and settle what it
@@ -1381,6 +1454,10 @@ def high_pass_step(
     receiver_candidates = engine.high_pass_receiver_candidates(
         match, offense_side,
     )
+    # Quantor ran onto it (`run_onto_pass`), so it is theirs whoever
+    # else is standing there (Law 21).
+    if runner_id is not None:
+        receiver_candidates = [runner_id]
 
     # **The ball moved on every branch below**, or the speed came off
     # it, so `board_changed` is True throughout. That is not the same
@@ -1513,6 +1590,13 @@ def high_pass_step(
                 FollowOnStep.FINISH_MANEUVER_RESOLUTION,
                 {"distance_moved": distance_moved},
             ),
+        )
+
+    # **Quantor gains possession without contest** (Law 21): a pass
+    # of 3 or 4 they ran onto is simply received.
+    if runner_id is not None:
+        return complete_high_pass_reception(
+            match, runner_id, distance_moved, content,
         )
 
     # **Intercept's cost**: beaten by a High Pass, the reception is
@@ -1688,6 +1772,7 @@ def setup_pass_step(
     engine: RulesEngine,
     match: MatchState,
     distance: int,
+    runner_id: Optional[str] = None,
 ) -> StepResult:
     """
     Setup Pass's second half: the ball goes 0, 1 or 3 spaces, and a
@@ -1704,6 +1789,9 @@ def setup_pass_step(
     match.pending_effect_continuation = None
     actual_distance = match.move_ball_relative(offense_side, distance)
     receivers = engine.high_pass_receiver_candidates(match, offense_side)
+    # Quantor ran onto it, so it sets up their shot (Law 21).
+    if runner_id is not None:
+        receivers = [runner_id]
 
     if not receivers:
         if actual_distance == 0:
@@ -2145,13 +2233,27 @@ def offer_dribble_burst(
             dribble_burst_step(engine, game, match, 0), lead_in,
         )
 
-    noun, _ = engine.token_word_and_mark(game, match.active_player_id)
+    # "Drain 1" is a Cyborg's word for gaining a drain token.
+    cost = (
+        "drain 1"
+        if engine.drain_wording(game, match.active_player_id)
+        else "1 exhaustion token"
+    )
+    # Emberdash's burst costs nothing (Law 21), so the prompt names no
+    # price rather than one that is not charged.
+    price = (
+        ""
+        if engine.has_personal_ability(
+            game, match.active_player_id, PersonalAbility.FREE_BURST,
+        )
+        else f" ({cost} a space)"
+    )
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.DRIBBLE_BURST_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose your "
-            f"Dribble Burst distance (1 {noun} token a space):",
+            f"Dribble Burst distance{price}:",
         ),
     )
 
@@ -2354,10 +2456,10 @@ EFFECT_OFFERS = {
         engine, match, "intercept",
     ),
     "pressure": lambda engine, game, match: pressure_step(
-        engine, match, "pressure",
+        engine, match, "pressure", game,
     ),
     "double_team": lambda engine, game, match: pressure_step(
-        engine, match, "double_team",
+        engine, match, "double_team", game,
     ),
 }
 

@@ -162,7 +162,11 @@ and that is the shape: `next_game_number`, `create_game`,
 `discard_game`, `lobby_join`, `lobby_observe`, `lobby_leave`,
 `configure`, `start_lobby`, `reopen_lobby`, `pick_team`, `flip_coin`
 and `choose_home_or_visiting`, each load, one change, save once,
-return the record.
+return the record. A web room adds two, `take_seat` and `vacate_seat`,
+the same shape over the record's seat moves; they are the room's and
+not the lobby's, open before kickoff and during the game, and never
+move the other seat ([web-app.md](web-app.md), "Rooms, seats and who
+holds them").
 
 **The rules are the record's, and it refuses with `RuleRefusal`.**
 Each service method is a thin door over a method of the same name on

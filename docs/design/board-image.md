@@ -109,6 +109,16 @@ for a prompt about a live position, which is why every
 below instead -- a mistake worth naming, since the first build of those
 prompts reached for this image and grew it a `show_ball` to make it fit.
 
+**The half-field carries the clock**, right-aligned in its title row
+(`draw_coaching_clock`): the minute and the period, so a coach arranging
+their side can see how much of the half is left. It reads
+`match.scoreboard.time`, and that is the minute the window opened on,
+because nothing moves the clock while a window is open -- a time out charges
+its minute in `finish_time_out`, after both windows close, and halftime puts
+the clock on 15 before either window opens. So there is no saved "minute the
+window opened"; if something ever charges time inside a window, this is the
+image that would start showing the wrong minute.
+
 **`render_field_image` is the third, and it is a crop rather than a third
 layout.** The field alone -- both sides' meeples, the ball, the space codes and
 the shooting range edges, with no title, jumbotron, assignment cards, team
@@ -166,7 +176,9 @@ not carry.
 
 **A meeple is the species icon over the role initials, and it is 76px
 because it carries both -- in a game playing species abilities.** `draw_meeple_face` is the face; `draw_meeple_group`
-composites it onto the canvas it now takes. It was a 56px disc with the
+composites it onto the canvas it now takes. (It is the Screentop meeple
+now, not a disc -- see "A meeple is the Screentop piece" below; what follows
+is how the disc got to 76px, which is the square the meeple fills.) It was a 56px disc with the
 initials alone until 2026-09-18, when species abilities made what a card *is*
 as much a fact of the position as what it does. Thirteen drawings were tried
 and judged at the width Discord shows the field strip (~900px), not at the
@@ -215,8 +227,39 @@ and judged at the width Discord shows the field strip (~900px), not at the
   the one worth checking), `--basic` for the other, and a `--game` the way
   its own record says.
 - **A missing icon falls back the same way** -- initials alone, filling the
-  disc -- because the loader is silent (see "A bundled file's name is
+  body -- because the loader is silent (see "A bundled file's name is
   case-sensitive...").
+
+**A meeple is the Screentop piece, not a disc** (the author, 2026-09-25).
+The token is `MEEPLE_PATH` -- the Screentop table's own SVG outline, the
+one the box art and the sale sheet stand on the printed board -- read by
+`flatten_path` and fitted by `meeple_points`. It is **copied, not traced**:
+a second drawing of the piece is how the bot's meeple would come to differ
+from the table's, and the path and its reader moved from `box_art.py` into
+`render.py` so there is one of each (box art imports them; all ten box
+panels hashed identical across the move).
+
+- **It fills the square the disc did.** The piece is as wide as
+  `MEEPLE_SIZE` (it is a little wider than tall) and stands on the
+  square's floor, so the two rows, the ball token and the names are placed
+  exactly as before -- nothing else on the board moved.
+- **The initials sit on the body, and the icon crosses the neck.** The
+  head is too small to carry anything at 76px, so the species icon (24px)
+  is on the chest and the initials under it, above the notch between the
+  legs, which would otherwise cut the letters. The icon's top crosses the
+  neck line into the head (the author, 2026-09-25): centred lower, it sat
+  close enough to the initials that the two read as one mark. The heights are in the path's own units
+  (`MEEPLE_ICON_CENTER`, `MEEPLE_ROLE_CENTER`, `MEEPLE_SOLO_CENTER`, read
+  by `meeple_y`), so they follow the piece rather than the square.
+  `test_a_meeple_carries_its_species_over_its_role` checks the icon clears
+  the initials and the initials clear the notch.
+- **The solo initials are 20px, down from 26.** The body is narrower than
+  the disc was, and 20 is the size at which "WG", the widest pair, stays
+  between the arms.
+- The icon went from 38px to 24 to fit the chest. The four silhouettes
+  were drawn to survive 18px (see "The species icons" in
+  [cards.md](cards.md)), so 24 is above the floor -- but it is smaller
+  than it was, and worth a look at the width Discord shows the strip.
 
 **The ball token hangs off the possessing side's meeples, except when they have
 none there.** `ball_token_x` is the whole of the placement: normally it tucks
@@ -229,6 +272,46 @@ question is where the ball is lying, was the one thing the board did not show.
 With nobody of that side there it is centred in the space instead. The suite
 cannot see the image, so `D12BallComponentTests` asserts the placement rule
 rather than the pixels.
+
+## The web page's board
+
+The web app draws the same board in HTML rather than showing this PNG
+(2026-09-25, the author: "the board shows the player cards and so
+should the webapp"). **Its field is this one**: the
+visitors' cards over each zone and the home side's under it, the
+spaces with the visitors' meeples in the upper row and the home
+side's in the lower and the ball beside whoever has it, and the two
+range bands, in `render.py`'s colours and the bundled fonts. The
+jumbotron is its own panel beside the board and the two team boards
+open from buttons under it (docs/design/web-app.md, "The page"), with
+the same content the PNG draws. So **a change to where
+`render_match_image` puts something is a change to
+`webapp/static/app.js` too** -- the page has no way of noticing. What
+the page may not do is work anything out, and **what it may not do
+either is draw something this module already draws**:
+
+- Every value the PNG asks the rules for comes from `webapp/board.py`
+  (`space_code`, `shooting_range_bands`, `zone_labels`,
+  `cyborg_condition_ids`, `species_abilities_apply`).
+- **Each card is `draw_card`'s picture**, frame and marks included,
+  served as a PNG: the exhaustion token sits in the gap between that
+  card's offense and its role letters, measured off the card's fonts,
+  and a second copy of that measuring in the page is how the marks
+  first landed in the wrong place (2026-09-25).
+- **Each goal is `draw_end_zone`'s picture**, the d12 and its "12"
+  included -- a page that set the word itself drew the 12 in the
+  wrong face, spaced and off centre.
+- **A meeple is drawn from this module's numbers**
+  (`meeple_geometry`): the path, where the icon and the letters sit on
+  it in the path's own units (`MEEPLE_ICON_CENTER`,
+  `MEEPLE_ROLE_CENTER`, `MEEPLE_SOLO_CENTER`), and the icon, the
+  letters, the outline and the ball as shares of `MEEPLE_SIZE`. Change
+  one of those constants and the page follows.
+
+What is left to the page is the grid the pieces stand in, and that is
+the part to check by eye: render the PNG and the page for the same
+position and put them side by side, at a laptop's width and a
+phone's.
 
 ## The matchup image
 

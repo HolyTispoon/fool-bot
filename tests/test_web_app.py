@@ -19,22 +19,30 @@ What it is watching for, beyond "the routes answer":
   both are in, so the other side's hand is not in what this viewer is
   sent -- a frontend that sends it and hides it in the page has
   published it.
-- **A turn taken on Discord reaches a page that did not ask for it**,
+- **The other coach's turn reaches a page that did not ask for it**,
   through `GameService.listeners`.
 """
 
 from __future__ import annotations
 
+import base64
 import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from aiohttp.test_utils import TestClient, TestServer
 
 from d12ball.components import TeamSide
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
+from gamesaves.d12ball import storage
 from gamesaves.d12ball.service import GameService
-from webapp import keys
+from webapp import identity, server
+from webapp.identity import Coach
+from gamelocks import GameLocks
 from webapp.present import CONTROLS, Viewer, controls_for, render_text
+from webapp.rooms import Rooms
 from webapp.server import WebApp, _was_offered
 from prompt_fixtures import (
     CASES,
@@ -51,6 +59,17 @@ def service_over(fixture: PromptFixture) -> GameService:
     return GameService(
         ENGINE, {fixture.game.game_id: fixture.game}, save=lambda games: None,
     )
+
+
+def as_coach(coach_id: int, name: str = None) -> dict:
+    """The request headers of somebody whose cookie names `coach_id`
+    -- a browser that said who it is (`webapp/identity.py`)."""
+    coach = Coach(coach_id, name or f"Coach {coach_id}")
+    return {"Cookie": f"{identity.COOKIE}={identity.encode(coach)}"}
+
+
+#: Somebody with a name who holds neither seat of a fixture's game.
+STRANGER = 999
 
 
 def case(name: str) -> PromptFixture:
@@ -287,8 +306,10 @@ class TokenTests(unittest.TestCase):
         """
         rendered = render_text(build_game(), "## **Goal!**\nA *quiet* note.")
 
-        self.assertIn('<span class="headline"><strong>Goal!</strong></span>',
-                      rendered)
+        self.assertIn(
+            '<span class="headline h2"><strong>Goal!</strong></span>',
+            rendered,
+        )
         self.assertIn("<em>quiet</em>", rendered)
 
     def test_a_sentence_is_escaped_and_then_tokenised(self) -> None:
@@ -300,7 +321,9 @@ class TokenTests(unittest.TestCase):
         self.assertIn("A &lt;script&gt;", rendered)
         self.assertIn("&lt;b&gt;", rendered)
         self.assertNotIn("{team:", rendered)
-        self.assertIn("ring", rendered)
+        # The bot's own emoji, as a Discord message draws them.
+        self.assertIn('src="/emoji/team_orange.png"', rendered)
+        self.assertIn('src="/emoji/exhausted.png"', rendered)
 
 
 class WebAppTests(unittest.IsolatedAsyncioTestCase):
@@ -309,7 +332,7 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         ENGINE.rng.seed(11)
         self.client, self.game = await self.open("kickoff")
-        self.key = keys.key_for(self.game.game_id, 1)
+        self.coach = as_coach(self.game.player_1_id)
 
     async def open(self, name: str):
         """A server over one fixture, and a client on it."""
@@ -325,19 +348,21 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(self.web.stop)
         return client, fixture.game
 
-    async def state(self, key: str = None) -> dict:
+    async def state(self, headers: dict = None) -> dict:
         response = await self.client.get(
             f"/api/game/{self.game.game_id}",
-            params={"key": key if key is not None else self.key},
+            headers=headers if headers is not None else self.coach,
         )
         self.assertEqual(response.status, 200)
         return await response.json()
 
-    async def press(self, action: dict, *, key: str = None, since: int = 0):
+    async def press(
+        self, action: dict, *, headers: dict = None, since: int = 0,
+    ):
         return await self.client.post(
             f"/api/game/{self.game.game_id}/action",
-            params={"key": key if key is not None else self.key,
-                    "since": str(since)},
+            params={"since": str(since)},
+            headers=headers if headers is not None else self.coach,
             data=json.dumps({"action": action}),
         )
 
@@ -354,7 +379,7 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         mine = await self.state()
-        theirs = await self.state(key="not-a-key")
+        theirs = await self.state(headers=as_coach(STRANGER))
 
         self.assertTrue(mine["you"]["is_coach"])
         self.assertTrue(mine["prompt"]["yours"])
@@ -398,15 +423,17 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         state = await self.state()
         before = dict(self.game.match_state)
 
-        response = await self.press(self.live(state)["action"], key="not-a-key")
+        response = await self.press(
+            self.live(state)["action"], headers=as_coach(STRANGER),
+        )
 
         self.assertEqual(response.status, 409)
         self.assertEqual(self.game.match_state, before)
 
     async def test_a_turn_taken_elsewhere_reaches_the_page(self) -> None:
         """
-        The other coach is on Discord: their click goes through the
-        service, and the journal is fed by the service
+        The other coach is on another page: their click goes through
+        the service, and the journal is fed by the service
         (`GameService.listeners`), so the page sees what was said
         without having asked for it.
         """
@@ -417,7 +444,8 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         self.service.apply_action(self.game.game_id, action)
         caught_up = await self.client.get(
             f"/api/game/{self.game.game_id}",
-            params={"key": self.key, "since": str(state["latest"])},
+            params={"since": str(state["latest"])},
+            headers=self.coach,
         )
         page = await caught_up.json()
 
@@ -439,42 +467,452 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 404)
 
 
-class KeyTests(unittest.TestCase):
-    """Who is on the other end of a request."""
+class IdentityTests(unittest.IsolatedAsyncioTestCase):
+    """Who is reading: a name in a signed cookie, stored nowhere."""
 
-    def setUp(self) -> None:
-        self.game_id = "g1"
+    def test_a_cookie_round_trips(self) -> None:
+        coach = identity.issue("  Ann  ")
 
-    def test_a_key_names_the_coach_it_was_made_for(self) -> None:
-        for player_number in (1, 2):
-            with self.subTest(player_number):
-                self.assertEqual(
-                    keys.player_number_for(
-                        self.game_id, keys.key_for(self.game_id, player_number),
-                    ),
-                    player_number,
+        self.assertEqual(coach.name, "Ann")
+        self.assertTrue(0 < coach.id <= identity.MAX_ID)
+        self.assertEqual(identity.decode(identity.encode(coach)), coach)
+
+    def test_a_tampered_cookie_is_nobody(self) -> None:
+        value = identity.encode(Coach(111, "Ann"))
+        payload, signature = value.rsplit(".", 1)
+        forged = identity.encode(Coach(222, "Ann")).rsplit(".", 1)[0]
+
+        for bad in (
+            None,
+            "",
+            "no-dot",
+            f"{payload}.{'0' * len(signature)}",
+            f"{forged}.{signature}",
+            f"not base64!.{signature}",
+            "é.é",
+        ):
+            with self.subTest(bad):
+                self.assertIsNone(identity.decode(bad))
+
+    def test_a_signed_payload_that_is_not_a_coach_is_nobody(self) -> None:
+        for data in ([1, 2], {"id": "111", "name": "Ann"},
+                     {"id": 0, "name": "Ann"}, {"id": True, "name": "Ann"},
+                     {"id": 111, "name": ""}):
+            with self.subTest(data):
+                payload = base64.urlsafe_b64encode(
+                    json.dumps(data).encode("utf-8"),
+                ).decode("ascii")
+                self.assertIsNone(
+                    identity.decode(f"{payload}.{identity._sign(payload)}"),
                 )
 
-    def test_the_two_coaches_of_a_game_have_different_keys(self) -> None:
-        self.assertNotEqual(
-            keys.key_for(self.game_id, 1), keys.key_for(self.game_id, 2),
+    async def test_a_name_is_taken_and_a_rename_keeps_the_id(self) -> None:
+        web = WebApp(GameService(ENGINE, {}, save=lambda games: None), GameLocks())
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+
+        nobody = await client.get("/api/me")
+        self.assertIsNone(await nobody.json())
+        first = await (await client.post("/api/me", json={"name": "Ann"})).json()
+        again = await (await client.get("/api/me")).json()
+        renamed = await (await client.post("/api/me", json={"name": "Bea"})).json()
+
+        self.assertEqual(again, first)
+        self.assertEqual(renamed, {"id": first["id"], "name": "Bea"})
+        for name in ("", "   ", "x" * 33, 7):
+            with self.subTest(name):
+                refused = await client.post("/api/me", json={"name": name})
+                self.assertEqual(refused.status, 400)
+                self.assertTrue(await refused.text())
+
+
+class RoomTests(unittest.IsolatedAsyncioTestCase):
+    """
+    A room over the service: the first two in are its coaches and
+    everybody after watches; a seat changes hands and the record
+    judges every move; an admin kicks.
+    """
+
+    CREATOR, SECOND, THIRD, PHONE = 101, 202, 303, 404
+
+    async def asyncSetUp(self) -> None:
+        ENGINE.rng.seed(11)
+        self.saved = 0
+
+        def save(games) -> None:
+            self.saved += 1
+
+        self.games = {}
+        self.service = GameService(ENGINE, self.games, save=save)
+        self.client = await self.serve(Rooms())
+
+    async def serve(self, rooms: Rooms) -> TestClient:
+        self.web = WebApp(self.service, GameLocks(), rooms=rooms)
+        self.web.watch()
+        client = TestClient(TestServer(self.web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        self.addAsyncCleanup(self.web.stop)
+        return client
+
+    async def open_room(self) -> str:
+        response = await self.client.post(
+            "/api/rooms", headers=as_coach(self.CREATOR, "Creator"),
+        )
+        self.assertEqual(response.status, 200)
+        body = await response.json()
+        self.assertEqual(body["url"], f"/room/{body['id']}")
+        return body["id"]
+
+    async def arrive(self, room: str, coach_id: int) -> dict:
+        response = await self.client.get(
+            f"/api/game/{room}", headers=as_coach(coach_id),
+        )
+        self.assertEqual(response.status, 200)
+        return await response.json()
+
+    async def move(self, room: str, coach_id: int, path: str, body=None):
+        return await self.client.post(
+            f"/api/room/{room}{path}",
+            headers=as_coach(coach_id),
+            json=body or {},
         )
 
-    def test_a_key_is_for_one_game(self) -> None:
-        self.assertIsNone(
-            keys.player_number_for("g2", keys.key_for(self.game_id, 1)),
+    def kick_off(self, room: str) -> None:
+        """The lobby left and a match dealt, the way a fixture's game
+        stands -- step 3's table is what does this on the page."""
+        game = self.games[room]
+        fixture = case("kickoff")
+        game.in_lobby = False
+        for name in (
+            "status", "mode", "player_1_team", "player_2_team",
+            "home_player_number", "visiting_player_number",
+        ):
+            setattr(game, name, getattr(fixture.game, name))
+        game.match_state = fixture.match.to_dict()
+
+    def controls(self, room: str, player_number) -> list:
+        game = self.games[room]
+        match = self.service.load(game)
+        return controls_for(
+            ENGINE, game, match, pending_prompt(ENGINE, game, match),
+            Viewer(player_number),
         )
 
-    def test_no_key_is_nobody(self) -> None:
-        self.assertIsNone(keys.player_number_for(self.game_id, None))
-        self.assertIsNone(keys.player_number_for(self.game_id, ""))
-        self.assertIsNone(keys.player_number_for(self.game_id, "0" * 16))
+    async def test_opening_a_room_needs_a_name(self) -> None:
+        response = await self.client.post("/api/rooms")
 
-    def test_a_link_carries_the_key(self) -> None:
-        link = keys.link_for(self.game_id, 2)
+        self.assertEqual(response.status, 401)
+        self.assertEqual(self.games, {})
 
-        self.assertIn(self.game_id, link)
-        self.assertIn(keys.key_for(self.game_id, 2), link)
+    async def test_the_first_two_in_are_its_coaches(self) -> None:
+        room = await self.open_room()
+        page = await self.client.get(f"/room/{room}")
+        self.assertEqual(page.status, 200)
+
+        creator = await self.arrive(room, self.CREATOR)
+        second = await self.arrive(room, self.SECOND)
+        third = await self.arrive(room, self.THIRD)
+
+        game = self.games[room]
+        self.assertEqual((game.player_1_id, game.player_2_id),
+                         (self.CREATOR, self.SECOND))
+        self.assertEqual(creator["room"]["role"], "coach")
+        self.assertEqual(creator["you"]["player_number"], 1)
+        self.assertEqual(second["you"]["player_number"], 2)
+        self.assertEqual(third["room"]["role"], "observer")
+        self.assertFalse(third["you"]["is_coach"])
+        self.assertEqual(third["room"]["observers"], 1)
+        self.assertEqual(
+            [(seat["label"], seat["name"]) for seat in third["room"]["seats"]],
+            [("Coach 1", "Creator"), ("Coach 2", f"Coach {self.SECOND}")],
+        )
+        self.assertEqual(
+            [seat["yours"] for seat in second["room"]["seats"]],
+            [False, True],
+        )
+
+    async def test_each_coach_gets_their_own_controls_and_a_watcher_none(
+        self,
+    ) -> None:
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        await self.arrive(room, self.THIRD)
+        self.kick_off(room)
+
+        creator = await self.arrive(room, self.CREATOR)
+        second = await self.arrive(room, self.SECOND)
+        third = await self.arrive(room, self.THIRD)
+
+        self.assertEqual(creator["prompt"]["controls"], self.controls(room, 1))
+        self.assertEqual(second["prompt"]["controls"], self.controls(room, 2))
+        self.assertTrue(
+            creator["prompt"]["controls"] or second["prompt"]["controls"],
+        )
+        self.assertEqual(third["prompt"]["controls"], [])
+        # The coin has settled home and visiting: the seats say so.
+        self.assertEqual(creator["room"]["role"], "home")
+        self.assertEqual(second["room"]["role"], "visiting")
+        self.assertEqual(
+            [seat["label"] for seat in third["room"]["seats"]],
+            ["Home Team Coach", "Visitors Team Coach"],
+        )
+
+    async def test_a_seat_left_is_taken_from_another_device(self) -> None:
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+
+        left = await self.move(room, self.SECOND, "/seat/leave")
+        self.assertEqual(left.status, 200)
+        self.assertIsNone(self.games[room].player_2_id)
+        # Somebody who left is not sat back down by their next poll.
+        again = await self.arrive(room, self.SECOND)
+        self.assertEqual(again["room"]["role"], "observer")
+
+        phone = await self.arrive(room, self.PHONE)
+
+        self.assertEqual(phone["you"]["player_number"], 2)
+        self.assertEqual(self.games[room].player_2_id, self.PHONE)
+
+    async def test_a_seat_changes_hands_mid_match_with_the_same_controls(
+        self,
+    ) -> None:
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        self.kick_off(room)
+        before = (await self.arrive(room, self.CREATOR))["prompt"]
+
+        left = await self.move(room, self.CREATOR, "/seat/leave")
+        self.assertEqual(left.status, 200)
+        taken = await self.move(room, self.PHONE, "/seat/take", {"seat": 1})
+        self.assertEqual(taken.status, 200)
+        after = (await self.arrive(room, self.PHONE))["prompt"]
+
+        self.assertEqual(after, before)
+        self.assertEqual(
+            (await self.arrive(room, self.CREATOR))["prompt"]["controls"], [],
+        )
+
+    async def test_seat_two_left_mid_match_waits_for_somebody(self) -> None:
+        """An empty seat is nobody's -- not the AI's -- and its side's
+        question waits for whoever takes it."""
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        self.kick_off(room)
+        before = self.controls(room, 2)
+
+        response = await self.move(room, self.SECOND, "/seat/leave")
+        state = await response.json()
+
+        self.assertEqual(response.status, 200)
+        self.assertFalse(self.games[room].is_solo_game)
+        self.assertEqual(
+            (state["room"]["seats"][1]["name"], state["room"]["seats"][1]["ai"]),
+            (None, False),
+        )
+        phone = await self.arrive(room, self.PHONE)
+        self.assertEqual(phone["you"]["player_number"], 2)
+        self.assertEqual(phone["prompt"]["controls"], before)
+
+    async def test_anybody_seated_puts_dinky_in_and_an_admin_kicks_it(
+        self,
+    ) -> None:
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        await self.move(room, self.SECOND, "/seat/leave")
+        self.assertIsNone(self.games[room].player_2_id)
+
+        # Somebody watching may not; somebody seated may.
+        refused = await self.move(room, self.SECOND, "/seat/ai", {"seat": 2})
+        self.assertEqual(refused.status, 403)
+        put = await self.move(room, self.CREATOR, "/seat/ai", {"seat": 2})
+        seats = (await put.json())["room"]["seats"]
+
+        self.assertEqual(put.status, 200)
+        self.assertEqual((seats[1]["name"], seats[1]["ai"]), ("Dinky AI", True))
+        self.assertTrue(self.games[room].ai_holds(2))
+
+        kick = await self.move(room, self.SECOND, "/seat/kick", {"seat": 2})
+        self.assertEqual(kick.status, 403)
+        await self.move(room, self.SECOND, "/admin")
+        kicked = await self.move(room, self.SECOND, "/seat/kick", {"seat": 2})
+        self.assertEqual(kicked.status, 200)
+        self.assertFalse(self.games[room].is_solo_game)
+
+        taken = await self.move(room, self.SECOND, "/seat/take", {"seat": 2})
+        self.assertEqual((await taken.json())["you"]["player_number"], 2)
+
+    async def test_dinky_seated_mid_match_answers_its_side(self) -> None:
+        """The kickoff is the home side's question; its coach leaves,
+        the other coach puts Dinky in, and Dinky answers it -- the
+        page sees the answer through the journal."""
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        self.kick_off(room)
+        before = pending_prompt(
+            ENGINE, self.games[room], self.service.load(self.games[room]),
+        ).kind
+        await self.move(room, self.CREATOR, "/seat/leave")
+
+        put = await self.move(room, self.SECOND, "/seat/ai", {"seat": 1})
+        state = await put.json()
+
+        self.assertEqual(put.status, 200)
+        self.assertEqual(state["room"]["seats"][0]["name"], "Dinky AI")
+        self.assertNotEqual(state["prompt"]["kind"], before.value)
+        self.assertTrue(state["entries"])
+
+    async def test_an_admin_gives_the_role_up(self) -> None:
+        room = await self.open_room()
+        made = await self.move(room, self.CREATOR, "/admin")
+        self.assertTrue((await made.json())["room"]["admin"])
+
+        dropped = await self.client.delete(
+            f"/api/room/{room}/admin", headers=as_coach(self.CREATOR),
+        )
+
+        self.assertFalse((await dropped.json())["room"]["admin"])
+        self.assertFalse(self.web.rooms.is_admin(room, self.CREATOR))
+
+    async def test_a_held_seat_refuses_with_the_record_s_sentence(self) -> None:
+        room = await self.open_room()
+        saved = self.saved
+
+        response = await self.move(room, self.THIRD, "/seat/take", {"seat": 1})
+        body = await response.json()
+
+        self.assertEqual(response.status, 409)
+        self.assertEqual(body["refusal"], "That seat is held by somebody else.")
+        self.assertEqual(self.games[room].player_1_id, self.CREATOR)
+        self.assertEqual(self.saved, saved)
+
+    async def test_only_an_admin_kicks(self) -> None:
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        await self.arrive(room, self.THIRD)
+
+        refused = await self.move(room, self.THIRD, "/seat/kick", {"seat": 2})
+        self.assertEqual(refused.status, 403)
+        self.assertEqual(self.games[room].player_2_id, self.SECOND)
+
+        made = await self.move(room, self.THIRD, "/admin")
+        self.assertTrue((await made.json())["room"]["admin"])
+        kicked = await self.move(room, self.THIRD, "/seat/kick", {"seat": 2})
+
+        self.assertEqual(kicked.status, 200)
+        self.assertIsNone(self.games[room].player_2_id)
+        taken = await self.move(room, self.THIRD, "/seat/take")
+        self.assertEqual((await taken.json())["you"]["player_number"], 2)
+
+    async def test_an_observer_is_sent_neither_side_s_secret(self) -> None:
+        """What the observer is handed does not change with the secret
+        a side has set -- so it does not carry it."""
+        def set_pick(match, key):
+            match.offense_maneuver = key
+
+        def set_order(match, reverse):
+            squad = list(match.shootout_squad(TeamSide.HOME))
+            match.set_shootout_order(
+                TeamSide.HOME, squad[::-1] if reverse else squad,
+            )
+
+        for name, secret, one, other in (
+            ("maneuver picks", set_pick, "low_pass", "double_team"),
+            ("shootout order", set_order, False, True),
+        ):
+            with self.subTest(name):
+                seen = []
+                for value in (one, other):
+                    fixture = case(name)
+                    secret(fixture.match, value)
+                    service = service_over(fixture)
+                    web = WebApp(service, GameLocks())
+                    client = TestClient(TestServer(web.app))
+                    await client.start_server()
+                    response = await client.get(
+                        f"/api/game/{fixture.game.game_id}",
+                        headers=as_coach(STRANGER),
+                    )
+                    state = await response.json()
+                    await client.close()
+                    self.assertEqual(state["room"]["role"], "observer")
+                    self.assertEqual(state["prompt"]["controls"], [])
+                    seen.append(json.dumps(state, sort_keys=True))
+                self.assertEqual(seen[0], seen[1])
+
+    async def test_the_room_and_its_admin_survive_a_restart(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            games_file = folder / "web_games.json"
+            rooms_file = folder / "web_rooms.json"
+            self.service._save = lambda games: storage.save_games(
+                games, games_file,
+            )
+            self.client = await self.serve(Rooms(rooms_file))
+            room = await self.open_room()
+            await self.arrive(room, self.SECOND)
+            await self.move(room, self.SECOND, "/admin")
+
+            # A new process: both files read again.
+            self.games = storage.load_games(games_file)
+            self.service = GameService(
+                ENGINE, self.games, save=lambda games: None,
+            )
+            self.client = await self.serve(
+                Rooms.load(rooms_file, self.games),
+            )
+            page = await self.client.get(f"/room/{room}")
+            state = await self.arrive(room, self.SECOND)
+
+        self.assertEqual(page.status, 200)
+        self.assertEqual(state["you"]["player_number"], 2)
+        self.assertTrue(state["room"]["admin"])
+
+    def test_a_room_the_games_file_has_lost_is_dropped(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rooms.json"
+            path.write_text(json.dumps({
+                "kept": {"admins": [1], "seen": [1, 2]},
+                "gone": {"admins": [3], "seen": [3]},
+            }))
+
+            rooms = Rooms.load(path, ["kept"])
+
+        self.assertEqual(set(rooms.rooms), {"kept"})
+        self.assertTrue(rooms.is_admin("kept", 1))
+
+
+class EntryPointTests(unittest.TestCase):
+    """
+    `python3 -m webapp` builds a service of its own over its own file
+    (docs/web-app-next.md, step 1): the bot's games are never loaded
+    and never written.
+    """
+
+    def test_the_service_saves_the_file_it_was_given_and_no_other(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            bot_file = folder / "d12ball_games.json"
+            web_file = folder / "d12ball_web_games.json"
+            with mock.patch.object(storage, "GAMES_FILE", bot_file), \
+                 mock.patch.object(storage, "DATA_FOLDER", folder):
+                service = server.build_service(web_file)
+                service.create_game(player_1_id=1, player_1_name="One")
+
+            self.assertTrue(web_file.exists())
+            self.assertFalse(bot_file.exists())
+            self.assertEqual(len(json.loads(web_file.read_text())), 1)
+
+    def test_it_takes_the_default_batching(self) -> None:
+        """Discord's economy is the cog's; the web app has no rate
+        limit to batch for."""
+        with tempfile.TemporaryDirectory() as directory:
+            service = server.build_service(Path(directory) / "web.json")
+
+        self.assertEqual(service.batching, GameService(None, {}).batching)
 
 
 if __name__ == "__main__":

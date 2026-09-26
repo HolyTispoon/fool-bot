@@ -8,42 +8,45 @@ The four abilities as the engine plays them. The rules are
 [Species abilities](../living-rules.md#species-abilities) and are settled;
 what is here is how they are wired, and the reasoning the rules do not carry.
 
-**Advanced mode is one switch over two modules** -- the gambits
-and these (the author, PR #177 review). Turning it on brings both, and a game
-may then take just one.
+### Modes
 
-- **`GameMode` stays BASIC/ADVANCED and the opt-out is two bools on the game
-  record**, `advanced_maneuvers` and `species_abilities`, both defaulting
-  True. They are opt-*outs*, not opt-ins: a game is basic or advanced (one
-  switch, which is what a coach picks and what every existing save carries)
-  and these two say what an advanced game left behind. Defaulting True is
-  what makes every advanced game played before them read as both modules on,
-  which is what those games were. A third `GameMode` value would have made
-  "advanced" three things a coach has to tell apart.
-- **A coach picks them in setup, as two toggles beside the mode buttons**,
-  and both screens build them out of one table: `ADVANCED_MODULES` in
-  `d12ball/game.py` (re-exported by `cogs/d12ball_helpers.py`), keyed by
-  the word the button carries in its custom_id and naming the field it
-  toggles. `D12BallGame.toggle_advanced_module` is the click, reached
-  through `GameService.configure` by `GameConfigurationView.select_module`
-  (the settings block on `CoinFlipView`) and the lobby's `change_setting`
-  alike, so the two screens cannot come to offer different modules or
-  disagree about which may be turned off.
-  - **They are offered only while Advanced is on**, on the mode row itself --
-    four buttons of Discord's five -- because they are what narrows the
-    switch beside them. A basic game plays neither, and two dead buttons say
-    nothing a coach can act on.
-  - **The last module still on is refused, not silently ignored.** Both off
-    is a basic game reached the long way round, and the mode buttons are
-    right there. That refusal is the reason the two bools need no third
-    state.
-  - **Picking Basic leaves them as they are.** They mean nothing in a basic
-    game (`gambits_apply` folds the mode in), so undoing them
-    would only cost a coach their pick to a mis-click on the mode.
-  - **A rematch carries them**, alongside the mode and board size, which is
-    why `open_new_game` takes them at all -- `/d12ball create_game` settles
-    everything else in setup and settles these there too.
-- **Nothing may read either bool to decide a rule.**
+**There are three modes, each adding to the one before** (the author,
+2026-09-25): training plays no ability, basic adds the species abilities,
+advanced adds the gambits and the personal abilities. Until then advanced
+mode was one switch over two modules (the gambits and these) with an
+opt-out for each (PR #177 review); the ruling moved these into basic and
+named three modes to offer, so the opt-outs went from the screens.
+
+- **`GameMode` is TRAINING/BASIC/ADVANCED, and `basic` kept its saved
+  value.** The value is the save format (CLAUDE.md: don't rename saved
+  keys), and a new value for the old meaning would have needed a
+  migration pass to rewrite every save. So an unfinished basic game saved
+  before 2026-09-25 plays on as a basic game with the species abilities
+  on. That is the rules change reaching a game in progress, which nothing
+  in the record can tell apart from a game started today.
+  - **The tutorial is the one exception, and it is held in
+    `species_abilities_apply`** rather than by rewriting its mode: a
+    tutorial saved as `basic` has scripted beats written for a game
+    without species abilities, so the engine answers "no" for any game
+    with `tutorial` set. New tutorials are created as `training`
+    (`D12BallGame.configure` pins it with the 7-space board and Dinky).
+- **The three buttons are one table**, `GAME_MODE_BUTTONS` in
+  `cogs/d12ball_helpers.py`, which the setup settings block
+  (`GameConfigurationView.add_configuration_buttons`) and the lobby both
+  build their mode row from. Three buttons of Discord's five, on the row
+  the mode and its two module toggles used to share.
+- **The two opt-outs stay on the record and are still read**,
+  `advanced_maneuvers` and `species_abilities`, both defaulting True.
+  Nothing sets either to False any more: the `module` setting, the
+  toggles, `ADVANCED_MODULES` and `toggle_advanced_module` are gone. They
+  stay because they are saved fields (legacy fallbacks stay) and an
+  advanced game saved with a module off should play on as it was
+  started; the tests use them the same way, to isolate the gambits from
+  the species abilities in an advanced game. A rematch no longer carries
+  them, since the game it opens could never have set them.
+- **The personal abilities are advanced mode's** -- see "Personal
+  abilities" below.
+- **Nothing may read either bool, or the mode, to decide a rule.**
   `RulesEngine.gambits_apply` and `species_abilities_apply` are
   the two answers, and each folds `mode` in so a caller cannot check the
   opt-out and forget the mode. `maneuver_tiers` reads the first -- it used to
@@ -62,7 +65,7 @@ may then take just one.
   the species check together for the reason `settled_maneuver_winner` is one
   predicate over three call sites -- the two are always asked in the same
   breath, and a site that checks the species and forgets the module plays a
-  basic game by advanced rules. **Don't read `PlayerDefinition.species` to
+  training game by species rules. **Don't read `PlayerDefinition.species` to
   decide a rule anywhere else.**
   - **A player fielded on both sides carries it on both cards**, and that is
     free rather than handled: `species_of` goes through
@@ -73,11 +76,136 @@ may then take just one.
     fires -- the same tolerance `turn_handler_candidates` shows a stale
     carrier.
 
+### Personal abilities
+
+Law 21: seventeen players' own abilities and four players' advanced skill
+scores, played in advanced mode alone. Almost every one is a number in a
+species ability changed for one player, so almost every one is a branch
+at a site that already existed rather than a mechanic of its own.
+
+- **`d12ball/personal_abilities.py` is the one place a player is tied to
+  an ability.** The sheet carries a sentence, not a key, so the table
+  maps a catalog id to a `PersonalAbility` *and keeps the sentence it
+  was built from*. `TableTests` compares each sentence with
+  `players.json`: when the author rewords or moves an ability, the
+  import changes the sentence and the test fails, rather than the old
+  ability being played quietly under the new words. The same file holds
+  every number the abilities change, beside the ones in
+  `components.py` they replace. **Nothing else may key a rule on a
+  player id.**
+- **`RulesEngine.has_personal_ability` is the one question**, the twin
+  of `has_species_ability`: the mode gate (`personal_abilities_apply`:
+  advanced, never a tutorial) folded into the lookup, a second-side card
+  resolved to its person (`catalog_player_id`). It tolerates no game
+  and no player because roll sites ask it of dice that belong to nobody.
+- **`RulesEngine.skills(game, player_id)` is the one reading of a
+  skill.** An advanced score is not held to 1-6, so it cannot be a
+  `RoleProfile`; `PlayerSkills` is the pair, and every rule site that
+  read `effective_profile(...).offense` reads this instead -- the rolls,
+  Merge, the shot's wall, the speed reach, the Exhausted line, the
+  formation deal and the shootout label. `effective_profile` is left to
+  display and to Dinky's tie-breaks, which are judgement rather than a
+  rule.
+- **The board's cards print the game's skills too.** The renderer may
+  not read the game, so `RulesEngine.card_skills(game, match)` answers
+  the numbers -- every card of both sides, bench and back bench
+  included, whose advanced scores differ from the role's, and nothing
+  outside advanced mode -- and `render_match_image` and
+  `render_coaching_image` take it as `card_skills`, beside
+  `cyborg_ids` and for the same reason. `render.card_profile` is the
+  one place a card swaps its profile for them; `CardStats` carries
+  the pair because an advanced score is not held to 1-6. Empty, it
+  draws every image byte-identical to before (checked by SHA-256 on
+  both board sizes and the coaching image). The matchup and shot
+  images read `skills` directly, since the cog holds the game there.
+- **Each ability is asked where its number already lived**, never
+  re-derived:
+  - *Volatile* -- `ignite` reads Sizzifizik's faces and Blazebulk's
+    always-blaze, and marks the roll with `IgnitedRoll.personal`, from
+    which `rule` (the ignition die's caption) and `explain` word it.
+    Brightburn's burn neither raises the opponent's tier
+    (`IgnitedRoll.upgrades_opponent`, read by `volatile_raises_tier`)
+    nor passes without shedding a token -- `settle_burn`, called
+    beside `ignite` at each roll site, because the ignite is read
+    before there is a match to change.
+  - *Lithium Powered* -- `exhaustion_threshold` (Bulwark),
+    `overdrive_cost` (Voltus; the prompt carries each Overdrive's drain
+    in `RollOptions.overdrive_costs` so a button label is not a second
+    reading), `charge_up_amount` and `run_back_cost` (Strider's cap of
+    1; both run-back paths, the coach's pick and the forced one, charge
+    through it). Synapse's Overdriven win sets the **same** tier flag a
+    winning blaze does (`overdrive_raises_tier`), read off who
+    Overdrove before the declarations are spent.
+  - *The gambits on the dice* -- Dravox's and Hexis's win in a skill
+    test with a gambit they played sets that same flag
+    (`dice_resolve_gambit`), which resolves the winner's own card as
+    played; a basic card is not upgraded, and each reads their own side
+    of the ball (defensive for Dravox, offensive for Hexis).
+  - *Dribbles* -- `dribble_advance_distances` (Emberdash's 3, which the
+    prompt's options carry, so the menu grew without a view changing)
+    and `dribble_burst_cost` (Emberdash's nothing).
+  - *Quantor* runs onto a teammate's pass. It is **an answer to the
+    pass's own distance prompt, not a prompt of its own**:
+    `RulesEngine.pass_runner` puts the runner and the distances they may
+    run onto on `DistanceOptions` (never the passer, never an overshoot,
+    which has no target space), the answer carries `runner=True`, and
+    `driver._run_onto` moves them (`effects.run_onto_pass`, which drains
+    3 and marks them as moved with the ball, so no Mind Pull or Smooth is
+    offered them) before the throw, which then takes them as its
+    receiver. A second prompt would have needed a saved field for "a
+    pass is waiting on a runner" and a branch in `pending` for it; this
+    needed neither.
+  - *Boost* is Overdrive's shape at drain 1 for +3: its own list on the
+    match (`pending_boost`, a saved field whose absence reads as
+    nobody), its own `boost` answer on all six roll prompts beside
+    `overdrive`, and one `overdrive_modifier` that answers either,
+    because every roll site already adds that one number. Declaring
+    either closes the other on that roll ("either, not both").
+  - *Mind Pull* -- `mind_pull_candidates` reads the two spaces beside
+    each path space for Noxar, in the order the ball reaches them, and
+    `apply_mind_pull` already lands the ball on the puller's space;
+    `mind_pull_cost` (Quillon) and `mind_pull_minimum` (Spectra's 8,
+    which `MindPullRoll.minimum` carries to the die image's band).
+  - *Goopkeeper* is `ShotDefender.full_block`, set by
+    `intervening_defenders`; `halved` is what the dice line and the
+    shot image both read.
+  - *Acidel* is a branch in `pressure_step`, the Intercept overshoot's
+    shape: possession, speed 1, straight to the shot. A shot walked
+    back and declined leaves the ball with Acidel's side, because there
+    is no own-goal roll left to fall back to.
+- **The roster shows them, through `RulesEngine.personal_ability_text`.**
+  In a game playing the personal abilities, `/d12ball team_roster` lists
+  each player's sheet sentence under their line, on by default
+  (`advanced_abilities`), while the role's stays off unless asked for
+  (`role_abilities`): the role badge already names the role's, and a
+  personal ability is the one thing on the roster the badge does not.
+  The two are shown side by side because in play a player keeps both.
+  The mode gate is the engine's, so the cog never reads `game.mode` or
+  `advanced_ability` to decide whether to show it; the sentence is
+  wording, never a rule. It is shown without italics, which is how the
+  role's reads, and because a sheet sentence may carry markdown of its
+  own (Gearclaw's `*Boost*`).
+- **The advanced golden plays some of them.** Its game is Telekinetics
+  against Fire Demons, so Noxar, Quillon and Spectra, and the four Fire
+  Demons with personal lines, are on the field; the seed was re-swept
+  when they came in (see its docstring). The per-ability tests hand an
+  ability to a fielded player by patching the table (`holding`), so no
+  test depends on the roster.
+
 ### Volatile, and the roll funnel
 
-**`RulesEngine.ignite` is the funnel every d12 in the game comes through**,
-and it is what stops the next ability that reads a die being written at six
-call sites. Volatile is the only one that reads one today.
+**`RulesEngine.ignite` is the funnel every d12 Volatile covers comes
+through**, and it is what stops the next ability that reads a die being
+written at every roll site. Volatile is the only one that reads one today.
+
+**The injury check and the own-goal roll do not call it** (the author,
+2026-09-23: Volatile reaches neither). Both rolls have no tier to change,
+so all an ignite gave them was a swing -- a burn failing a check the face
+had passed, a blaze passing one it had failed. So neither `InjuryRoll` nor
+`OwnGoalRoll` carries an ignite and neither posts a second die. A site that
+does not ask is following the rule rather than swallowing a die:
+`IgnitionIsShownEverywhereTests` fails only a site that asks and never
+shows.
 
 - **It takes the face rather than rolling it.** Each site already knows how
   to get its own dice -- `scripted_or_random`, the tutorial's scripted
@@ -90,23 +218,17 @@ call sites. Volatile is the only one that reads one today.
   modifier -- which is why all six sites took this without changing how they
   roll, display or total anything, and why the dice image explains itself
   with no new drawing code.
-- **The six sites, and what each passes**: the maneuver skill test and the
+- **The sites, and what each passes**: the maneuver skill test and the
   loose-ball/High-Pass contest pass each side's own player (so two Fire
   Demons each check their own); the score attempt passes **only the
   shooter** -- its second die is the defensive wall's and belongs to no card,
   which is why `ignite` takes an optional player and answers "no ignite" for
-  None; the own goal passes **the die that is kept**, since it is rolled at
-  an advantage and the rules name "the die kept"; the injury check and the
-  shootout test pass their one roller.
+  None; the shootout test passes its one roller; and Mind Pull's roll
+  passes through though it cannot ignite today.
 - **Injury does not withhold it.** What an injured contestant loses is their
   own skill modifier and only that; an ignite is the die, not a modifier the
   player brings -- the same reading that leaves the ball speed modifier
   alone.
-- **A burn on an injury check injures the Fire Demon**, which falls out
-  of applying the modifier to the check rather than being special-cased. The
-  die image draws the natural face, so `run_injury_test` says the ignite in
-  words -- otherwise the number a coach reads and the verdict they are given
-  would not add up.
 - **Volatile's two numbers live in `d12ball/components.py`**, beside the
   other three species', rather than in the engine that reads them:
   `d12ball/render.py` cannot import the engine (the engine imports it) and
@@ -130,7 +252,7 @@ the result.
   has to add up; `explain` is the sentence over the second die's own image,
   which has to say why there is a second die at all. Written apart they
   come to disagree about which way a roll went.
-- **One helper for all seven call sites**, which is `ignite` read from the
+- **One helper for every call site**, which is `ignite` read from the
   other end: the funnel owns what a die means and this owns what a coach is
   shown of it. Each site hands over the pairs it has -- a contest both
   sides, a score attempt only the shooter -- and a roll that did not ignite
@@ -205,29 +327,15 @@ losing side raises "the opponent's" -- and the opponent of the losing side
   and it only ever raises -- a card already resolving as a gambit gains
   nothing, which falls out of a gambit's counterpart being itself.
 
-**The rider has a second half: the losing side's own ignite decides their
-gambit's cost** (the author, 2026-09-07). `MatchState.volatile_loser_cost`
-is that, and `RulesEngine.volatile_loser_cost` is the reading.
-
-- **It is a nullable bool because there are three states.** `False` is a
-  **blaze that lost** -- they pay no cost even where the cards would have
-  charged one. `True` is a **burn that lost** -- they pay theirs even
-  where the cards alone would not, which makes a burn the one thing in
-  the game that puts a cost in force off the dice. `None` is every other
-  roll, leaving `gambit_cost_applies` the whole answer it always was.
-- **It is read off the loser's own die, not the matchup**, which is why it
-  is a separate field rather than derivable from `volatile_tier_upgrade`.
-  A blaze that loses suppresses a cost *and* raises nothing; a burn
-  that loses charges one *and* raises the opponent's card. The two halves
-  agree only by coincidence.
-- **`gambit_cost` asks it before `gambit_cost_applies`**, because that
-  is precisely what it overrides -- in both directions. The card checks
-  stay above both: the override decides *whether* an advanced cost applies,
-  not whether there is one to apply, and a basic losing card has none.
-- **The first build had the tier half and not this one.** It read "resolves
-  that side's maneuver as the gambit on its rank" as a sentence about the
-  card that resolves and nothing else, and left `gambit_cost` asking only
-  the cards.
+**An ignite decides no gambit's cost** (the author, 2026-09-25, which
+dropped the cost half of the 2026-09-07 answer). For a fortnight a losing
+blaze spared its player's gambit cost and a losing burn imposed one;
+`MatchState.volatile_loser_cost` held that answer and `gambit_cost` read it
+ahead of `gambit_cost_applies`. The field and the read stay -- a match saved
+between a skill test and its effect under the old rule still carries its
+answer (legacy fallbacks stay) -- but `RulesEngine.volatile_loser_cost` now
+always answers `None`, so the cards and the gambit rules alone decide a
+cost.
 
 ### Lithium Powered
 
@@ -398,6 +506,25 @@ missing other half for Injured, scoped the same way.
     its bounding box, so a glyph's own diagonal stroke still can't touch
     its neighbour.
 
+**A Cyborg's injury check is a damage test, and "drain" is a verb** (the
+author, 2026-09-23). The third and fourth words of the same set: a Drained
+Cyborg takes a damage test and, failing it, is Damaged; a Cyborg *drains 2*
+where anybody else gains 2 exhaustion tokens.
+
+- **`RulesEngine.injury_test_name` is the one answer to what the check is
+  called**, beside `token_word_and_mark` and the other `drain_wording`
+  readers. The narration, the pending prompt, the button and the title drawn
+  on the die (`render_injury_test_die`'s `title`, passed by the cog, since
+  `render.py` decides no wording) all ask it. The code keeps its own name --
+  `PromptKind.INJURY_TEST`, `pending_injury_tests`, the custom_id -- because
+  those are saved or shared with the web app and name the mechanic, not what
+  a coach reads.
+- **The verb is only for gaining.** `describe_exhaustion_gain`, Overdrive's
+  line and button, and the Dribble Burst prompt say *drain N*; a line that
+  *removes* drain (Charge-up, halftime) or counts it (the check's target)
+  still says drain tokens, because "drains 1" there would read as the
+  opposite of what happened.
+
 **Overdrive is the only thing in the game declared before a roll**, which is
 what it cost to build. Every roll already sits behind a button any coach may
 press, so the declaration is a **second button on that same prompt** rather
@@ -526,6 +653,21 @@ why there is no `spread_link` on `MatchState` and no `CoachingSpreadView`.
   furthest plumbing (`position_meeple` has no `game` today) for the least
   certain payoff -- worth revisiting if the author confirms it, not
   inferred.
+- **Every Coaching Choice reminds the coach, since there is nothing to
+  click.** A side fielding any exempt Ooze gets `SPREADABLE_NOTE` ("Your
+  Spreadable Oozes may be positioned in the same space as a teammate", the
+  author, 2026-09-25) under every window it is offered or given, from
+  `RulesEngine.spreadable_note`. It rides in `coaching_prompt` and in
+  `prompts._window`'s ask rather than in `coaching_window_note`, because
+  that note belongs to the step that opened the window and the next hub
+  action writes over it; the reminder holds for the whole window, and the
+  web app reads the ask `pending` builds rather than the opening one. The
+  window before the shootout positions nobody, so it says nothing there.
+  **It is a reminder of the coverage rule, not a promise about Space
+  Positioning**: `positioning_swap_candidates` above still trades a lone
+  Ooze with the teammate on its target, so in a Coaching Choice an Ooze
+  comes to share a space by a formation's stack, or by a teammate moving
+  onto it off a shared space.
 - **Neither the formation's zone headcount nor kickoff-space coverage reads
   the exemption.** `current_formation` and `kickoff_space_occupied_by` are
   untouched: an exempt Ooze still counts once toward its zone's shape, and
@@ -781,7 +923,9 @@ gate.** "When your team has possession and the ball moves to or through your
 space, you may take it over instead" (the sheet's `spec_abilities` tab,
 2026-09-20). Free, no roll, cannot fail. It replaced **Slip in**, which had
 moved to the Telekinetics from the Oozes only days earlier -- see both
-2026-09-20 entries in [rules-log.md](../rules-log.md).
+2026-09-20 entries in [rules-log.md](../rules-log.md). **Since 2026-09-24 it
+reads only the space the ball arrives at**, not the ones it passes through --
+see "Only where the ball arrives" below.
 
 **The replacement changed the shape, not just the name, and that is the whole
 of this section.** Slip in asked *after* the fact: a resolution had already
@@ -837,30 +981,67 @@ that spends a token on a 1-in-6, or one that simply takes the ball.
     branches, the steal and the intercept), and `select_ball_handler` clears
     it at the top of the turn, so nothing stale reaches the gate.
   - **What it does not take away is the whole point of the ability**: a
-    Telekinetic the ball passes *through* on its way somewhere else, and a
     Telekinetic standing on the landing space beside the player the pass was
-    aimed at. The second is Slip in's own case, which is what Smooth
-    replaced it with.
+    aimed at. That is Slip in's own case, and since 2026-09-24 it is the
+    only one (below).
+
+**Only where the ball arrives (the author, 2026-09-24).** *"Smooth only
+works when the ball gets to the space, not through. So the gate is
+different from Mind Pull, it's just like the old ability Slip-In."* So
+`smooth_candidates` walks `last_ball_path[-1:]` where
+`mind_pull_candidates` walks the whole path. The last entry is always where
+the ball lands -- `ball_path_to` excludes the start and includes the end,
+and `set_ball_space` overwrites the path on every move, so a movement made
+of two calls still ends on the space the ball is standing on -- and an
+empty path (a clamped move, a restart) has no last entry and offers
+nobody anything.
+
+- **It stayed on the arrival gate rather than going back to
+  `turn_handler_candidates`**, although the author named Slip in. What the
+  ruling changed is *which spaces count*, and the rest of what Smooth
+  became on 2026-09-20 -- the prompt, the keeper, the two exclusions, the
+  pre-emption, the restart recovery through `pending_smooth` -- answers
+  the same on the last space as on any other. Moving it back would have
+  been a second change the ruling did not ask for.
+- **The own-goal case is gone rather than guarded.** The only own-goal
+  risk is a Pressure against a handler already on the last space, which
+  moves the ball nowhere, so the path is empty and nobody is asked.
+- **Mind Pull is asked before Smooth, everywhere** (the author,
+  2026-09-24). Once the two read different spaces, the pull on a space the
+  ball passes had to come before the Smooth where it lands; asked about
+  the landing space too, the author answered that the pull goes first
+  there as well, and did not recognise the 2026-09-20 "smooth goes first"
+  entry the earlier order had been built on. So the order follows the
+  ball, and the Smooth is last because the landing space is the last
+  space it reaches.
 
 **`check_for_ball_arrival` is the single gate the five arrival points call**,
-and it runs Smooth then Mind Pull. Two things about that order are
-load-bearing:
+and it runs two stages: every opposing pull on the path, in the order the
+ball reaches them, then the Smooth where it lands. Three things about that
+are load-bearing:
 
-- **Smooth does not spend `last_ball_path`; the pull does.** The pull is the
-  last reader, so it keeps the unconditional `last_ball_path = []` it always
-  had, and Smooth deliberately leaves the path alone -- a Smooth that nobody
-  wanted must still leave the pull its movement. This is the one mechanical
-  difference between the two gate functions and the reason they are not one
-  function with a side argument.
-- **Smooth first is a rules decision, not an ordering convenience**, because
-  either one taken stops the ball and ends the movement. It is written down
-  in three places that must agree -- `check_for_ball_arrival`,
-  `continue_smooth`'s hand-off, and `pending_prompt`'s branch order, which is
-  what a restart comes back to. The sheet does not say; the author
-  settled it on 2026-09-20 (*"smooth goes first"*), and the cost that
-  buys -- an opposing Telekinetic gets no roll at all whenever one of
-  the possessing side's is also on the path -- is recorded with the
-  ruling in [rules-log.md](../rules-log.md).
+- **The order is a rules decision, not an ordering convenience**, because
+  either interrupt taken stops the ball and ends the movement, so whichever
+  is asked first decides whether the other is asked at all. It lives in
+  `check_for_ball_arrival` and `continue_mind_pull`'s drain.
+- **The path is the stage marker, and the Smooth stage spends it.** The
+  pull no longer clears `last_ball_path`; `check_for_smooth` does
+  (`spend_path`) when nobody may take the ball, and `continue_smooth` when
+  its queue drains -- the same unconditional spend the gate always made,
+  moved to the last stage, so a movement still offers nothing twice when
+  two gates run in a row. When the pull queue drains, a path still set
+  means the Smooth is owed; an empty one means the movement is done. That
+  is why this needed **no new saved field**: `last_ball_path` is already
+  in `MATCH_SAVED_FIELDS`, so a restart mid-queue comes back to the same
+  stage. A save from before the change that is paused on a pull had its
+  path already spent and drains straight to its arrival, as it always
+  did; one paused on a **Smooth** offer was built in the old order, and
+  when that Smooth is declined the path is spent without the pulls it
+  would once have handed on to -- a pull lost on one movement of a game
+  that straddles the deploy, accepted rather than given a migration.
+- **The two queues are never full at once**, so `pending_prompt`'s branch
+  order between `pending_smooth` and `pending_mind_pull` no longer carries
+  the rule; the queue that is full, and the path, do.
 
 **A landed Smooth ends the maneuver; it does not run a turnover.** That is
 the one place it parts company with a landed pull, and it falls straight out
@@ -870,10 +1051,10 @@ line, and it clears `pending_mind_pull` along with the path -- the opposing
 side's pulls were owed on a movement that no longer ends where it was going.
 
 - **The arrival it pre-empted does not happen**, which is the pull's rule
-  reaching Smooth unchanged, and it is what makes an overshooting Double Team
-  safe: `run_smooth` has no `"own_goal"` branch to read, because "the roll
-  never happens" is just what pre-emption already means (the author,
-  2026-09-20). A rule that needs no code is usually the right rule.
+  reaching Smooth unchanged. `run_smooth` has no `"own_goal"` branch to
+  read: on 2026-09-20 that was because "the roll never happens" is just what
+  pre-emption already means (the author), and since 2026-09-24 an own-goal
+  shove moves the ball nowhere and so is never offered a Smooth at all.
 - **`"run_back"` is the one kind it cannot pre-empt**, and the one branch
   `run_smooth` does carry. `begin_run_back` is not a question about where the
   ball settles -- it is the consequence of a turnover that already happened --

@@ -147,6 +147,7 @@ def build_game(**overrides) -> D12BallGame:
         home_player_number=1,
         visiting_player_number=2,
         status=GameStatus.IN_PROGRESS,
+        mode=GameMode.TRAINING,
     )
     fields.update(overrides)
     return D12BallGame(**fields)
@@ -440,7 +441,7 @@ def burst_playmaker_discount() -> DribbleFixture:
         narration=(
             f"**Dribble Burst:** {label(match, handler)} bursts 3 "
             "spaces forward, past everyone in the way."
-            " That costs them a token less (Playmaker ability)."
+            " That costs them 1 exhaustion less (Playmaker ability)."
             f"\n{label(match, handler)} gains 2 exhaustion tokens "
             f"{EXHAUST * 2} (now 2 total)."
             f" {BURST_SPEED_LINE}"
@@ -475,7 +476,7 @@ def burst_playmaker_one_space_is_free() -> DribbleFixture:
         narration=(
             f"**Dribble Burst:** {label(match, handler)} bursts 1 "
             "space forward, past everyone in the way."
-            " That costs them a token less (Playmaker ability)."
+            " That costs them 1 exhaustion less (Playmaker ability)."
             f" {BURST_SPEED_LINE}"
         ),
         follow_on=FINISH,

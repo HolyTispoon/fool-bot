@@ -13,7 +13,6 @@ from discord.ext import commands
 from d12ball.components import (
     MatchPeriod,
     MatchState,
-    PlayerRole,
     RuleRefusal,
     TeamSide,
     Zone,
@@ -980,8 +979,6 @@ class CommandsMixin:
         test_game: bool = False,
         created_by: Optional[discord.abc.User] = None,
         mode: GameMode = GameMode.BASIC,
-        advanced_maneuvers: bool = True,
-        species_abilities: bool = True,
         board_size: int = 7,
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
@@ -1050,8 +1047,6 @@ class CommandsMixin:
             test_game=test_game,
             game_name=game_name,
             mode=mode,
-            advanced_maneuvers=advanced_maneuvers,
-            species_abilities=species_abilities,
             board_size=board_size,
             ai_opponent=resolved_ai_opponent,
             tutorial=tutorial,
@@ -1569,8 +1564,6 @@ class CommandsMixin:
             test_game=game.test_game,
             created_by=requested_by,
             mode=game.mode,
-            advanced_maneuvers=game.advanced_maneuvers,
-            species_abilities=game.species_abilities,
             board_size=game.board_size,
             ai_opponent=game.ai_opponent,
             game_name=game.game_name,
@@ -1616,14 +1609,18 @@ class CommandsMixin:
     )
     @app_commands.describe(
         all_teams="Show both teams' rosters instead of just your own.",
-        abilities="Include each player's role ability.",
+        role_abilities="Include each player's role ability.",
+        advanced_abilities=(
+            "Include each player's personal ability, in an advanced game."
+        ),
     )
     @app_commands.guild_only()
     async def team_roster(
         self,
         interaction: discord.Interaction,
         all_teams: bool = False,
-        abilities: bool = False,
+        role_abilities: bool = False,
+        advanced_abilities: bool = True,
     ) -> None:
         result = await self.defer_and_get_match(interaction)
         if result is None:
@@ -1644,8 +1641,51 @@ class CommandsMixin:
         for setup in setups:
             await interaction.followup.send(
                 self.build_team_roster_section(
-                    game, match, setup, show_abilities=abilities,
+                    game,
+                    match,
+                    setup,
+                    show_role_abilities=role_abilities,
+                    show_advanced_abilities=advanced_abilities,
                 )
+            )
+
+    @app_commands.command(
+        name="team_reference",
+        description=(
+            "Post your team's player cards, the side this game's mode plays."
+        ),
+    )
+    @app_commands.describe(
+        all_teams="Show both teams' cards instead of just your own.",
+    )
+    @app_commands.guild_only()
+    async def team_reference(
+        self,
+        interaction: discord.Interaction,
+        all_teams: bool = False,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        setups = self.engine.roster_setups_for_user(
+            game, match, interaction.user.id, all_teams=all_teams,
+        )
+        if setups is None:
+            await interaction.followup.send(
+                "You are not one of the players in this game. Use "
+                "all_teams:true to see both teams' cards.",
+                ephemeral=True,
+            )
+            return
+
+        # One message a team: a team is nine cards, inside Discord's
+        # ten attachments to a message.
+        for setup in setups:
+            await interaction.followup.send(
+                f"**{format_team_side_label(setup)}**",
+                files=await self.build_team_reference_files(game, setup.team),
             )
 
     @app_commands.command(
@@ -1667,20 +1707,36 @@ class CommandsMixin:
         await add_full_image_button_to_response(interaction)
 
     @app_commands.command(
-        name="role_abilities",
-        description="List each role's ability.",
+        name="role_abilities_reference",
+        description="Post the role abilities reference card.",
     )
     @app_commands.guild_only()
-    async def role_abilities(
+    async def role_abilities_reference(
         self,
         interaction: discord.Interaction,
     ) -> None:
-        lines = [
-            f"**{role.value.title()}** — "
-            f"{self.player_catalog.role_profiles[role].ability}"
-            for role in PlayerRole
-        ]
-        await interaction.response.send_message("\n".join(lines))
+        await interaction.response.defer()
+        message = await interaction.followup.send(
+            file=await self.build_role_reference_file(),
+            wait=True,
+        )
+        await add_full_image_button(message)
+
+    @app_commands.command(
+        name="species_abilities_reference",
+        description="Post the species abilities reference card.",
+    )
+    @app_commands.guild_only()
+    async def species_abilities_reference(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        await interaction.response.defer()
+        message = await interaction.followup.send(
+            file=await self.build_species_reference_file(),
+            wait=True,
+        )
+        await add_full_image_button(message)
 
     async def load_rules(
         self,
@@ -2761,58 +2817,3 @@ class CommandsMixin:
             f"({period_label})."
         )
         await self.refresh_match_image(interaction, game)
-
-    @app_commands.command(
-        name="web_link",
-        description="Your own link to this game's web page.",
-    )
-    @app_commands.guild_only()
-    async def web_link(
-        self,
-        interaction: discord.Interaction,
-    ) -> None:
-        """
-        The link one coach opens to play this game in a browser.
-
-        **Ephemeral, and one link per coach**: the link *is* the
-        credential on the web (`webapp/keys.py`), the way an
-        interaction is on Discord, so posting it in the channel would
-        hand the other side a page that answers as you. Nobody else's
-        link is shown, including to a helper -- there is nothing for
-        one to do with it that a click in the channel does not do
-        better.
-        """
-        from webapp import keys
-
-        game = self.game_for_channel(interaction.channel_id)
-        if game is None:
-            await interaction.response.send_message(
-                "There is no game in this channel.", ephemeral=True,
-            )
-            return
-        if self.web_app is None:
-            await interaction.response.send_message(
-                "This bot is not running a web app. It is switched on "
-                "with FOOLBOT_WEB_PORT -- see docs/design/web-app.md.",
-                ephemeral=True,
-            )
-            return
-
-        player_number = (
-            1 if interaction.user.id == game.player_1_id
-            else 2 if interaction.user.id == game.player_2_id
-            else None
-        )
-        if player_number is None:
-            await interaction.response.send_message(
-                "You are not playing in this game, so there is no link "
-                "of yours to give you.",
-                ephemeral=True,
-            )
-            return
-
-        await interaction.response.send_message(
-            "Your link to this game. It answers as you, so keep it to "
-            f"yourself:\n{keys.link_for(game.game_id, player_number)}",
-            ephemeral=True,
-        )

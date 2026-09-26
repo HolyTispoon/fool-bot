@@ -40,7 +40,7 @@ from d12ball.components import (
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.flow import FollowOnStep
-from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
+from d12ball.game import AIOpponent, D12BallGame, GameMode, GameStatus, Team
 from flow_stubs import chain_stops_at
 from save_patches import suppressed_cog_saves
 from cog_steps import apply_substitution, begin_full_time_coaching, begin_shootout, continue_shootout, end_period, finish_substitution_window, resume
@@ -100,6 +100,7 @@ def build_game(**overrides) -> D12BallGame:
         home_player_number=1,
         visiting_player_number=2,
         status=GameStatus.IN_PROGRESS,
+        mode=GameMode.TRAINING,
     )
     fields.update(overrides)
     return D12BallGame(**fields)

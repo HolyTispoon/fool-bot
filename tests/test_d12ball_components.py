@@ -18,12 +18,8 @@ from d12ball.cards import (
     HAND_HEADING_GAP,
     HAND_HEADING_SIZE,
     HAND_MARGIN,
-    SHEET_COLUMNS,
-    SHEET_MARGIN_X,
-    SHEET_MARGIN_Y,
     CARD_HEIGHT,
     CARD_WIDTH,
-    print_sheet,
     render_maneuver_card,
     render_maneuver_card_back,
     render_maneuver_hands,
@@ -95,10 +91,13 @@ from d12ball.render import (
     draw_meeple_face,
     HOME_MEEPLE_TOP,
     MEEPLE_LABEL_MIN_SIZE,
-    MEEPLE_ROLE_BOTTOM_INSET,
+    MEEPLE_ICON_CENTER,
+    MEEPLE_ROLE_CENTER,
     MEEPLE_SIZE,
     MEEPLE_SPECIES_ICON_SIZE,
-    MEEPLE_SPECIES_ICON_TOP,
+    ROLE_INITIALS,
+    meeple_points,
+    meeple_y,
     VISITING_MEEPLE_TOP,
     PORTRAIT_IMAGE_SIZE,
     ball_token_x,
@@ -1398,19 +1397,34 @@ class D12BallComponentTests(unittest.TestCase):
             )
 
     def test_a_meeple_carries_its_species_over_its_role(self) -> None:
-        # The disc holds two things now, the species icon over the role
-        # initials, and both have to fit inside it -- the icon in the
-        # top, the initials clear of the icon and of the disc's foot.
-        # The suite cannot see the image, so this checks the geometry.
+        # The token is the Screentop meeple now, and it carries two
+        # things on its body, the species icon over the role initials:
+        # the icon clear of the initials, and the initials above the
+        # notch between the legs (y 15.56 in the path's units), or the
+        # notch cuts the letters. The suite cannot see the image, so
+        # this checks the geometry.
         for species in SPECIES_ORDER:
             self.assertIsNotNone(
                 species_icon(species, "#000000", MEEPLE_SPECIES_ICON_SIZE),
                 species,
             )
-        icon_bottom = MEEPLE_SPECIES_ICON_TOP + MEEPLE_SPECIES_ICON_SIZE
-        initials_top = MEEPLE_SIZE - MEEPLE_ROLE_BOTTOM_INSET
-        self.assertLessEqual(icon_bottom, initials_top)
-        self.assertLess(initials_top + FONT_TOKEN_ROLE.size, MEEPLE_SIZE)
+        icon_bottom = (
+            meeple_y(0, MEEPLE_ICON_CENTER) + MEEPLE_SPECIES_ICON_SIZE / 2
+        )
+        role_y = meeple_y(0, MEEPLE_ROLE_CENTER)
+        legs_split = meeple_y(0, 15.56)
+        for initials in ROLE_INITIALS.values():
+            _, top, _, bottom = FONT_TOKEN_ROLE.getbbox(initials, anchor="mm")
+            self.assertLessEqual(icon_bottom, role_y + top, initials)
+            self.assertLess(role_y + bottom, legs_split, initials)
+
+        # The piece fills the square the disc did and no more, so the
+        # rows, the ball and the names are placed as they were.
+        points = meeple_points(0, 0)
+        self.assertLessEqual(max(x for x, _ in points), MEEPLE_SIZE + 0.01)
+        self.assertGreaterEqual(min(x for x, _ in points), -0.01)
+        self.assertAlmostEqual(max(y for _, y in points), MEEPLE_SIZE)
+        self.assertGreaterEqual(min(y for _, y in points), 0)
 
         # And a bigger disc must still leave each row a line of names:
         # the visiting names stop above the home tokens, the home names
@@ -1428,7 +1442,7 @@ class D12BallComponentTests(unittest.TestCase):
     def test_the_species_icon_is_drawn_only_when_asked_for(self) -> None:
         # The icon is a fact of an advanced game playing species
         # abilities; a basic game's meeple is the initials alone,
-        # sized to fill the disc (the author, 2026-09-18). The cog
+        # sized to fill the body (the author, 2026-09-18). The cog
         # answers the flag from RulesEngine.species_abilities_apply --
         # the renderer never reads the game's own bools.
         match = MatchState.standard(
@@ -2783,72 +2797,6 @@ class D12BallManeuverTests(unittest.TestCase):
         self.assertEqual(
             sorted(named), sorted(maneuver.key for maneuver in basic)
         )
-
-    def test_a_print_sheet_divides_evenly_into_its_cards(self) -> None:
-        """
-        The sheet is cut by dividing it into an even grid, by hand or
-        by a splitter, so every cell has to be the same size and every
-        card centred in one. The old sheet had a gutter round the
-        outside as well as between the cards, which put every cut but
-        the first off-centre.
-        """
-        players = load_player_catalog()
-        cards = [
-            render_maneuver_card(
-                self.catalog, players, maneuver, is_offense, bleed=False
-            )
-            for maneuvers, is_offense in (
-                (self.catalog.offense, True),
-                (self.catalog.defense, False),
-            )
-            for maneuver in maneuvers
-        ]
-        back = render_maneuver_card_back(self.catalog, bleed=False)
-        while len(cards) % SHEET_COLUMNS:
-            cards.append(back)
-
-        sheet = print_sheet(cards)
-        rows = len(cards) // SHEET_COLUMNS
-        self.assertEqual(sheet.width % SHEET_COLUMNS, 0)
-        self.assertEqual(sheet.height % rows, 0)
-
-        cell = (sheet.width // SHEET_COLUMNS, sheet.height // rows)
-        for index in range(len(cards)):
-            column, row = index % SHEET_COLUMNS, index // SHEET_COLUMNS
-            piece = sheet.crop(
-                (
-                    column * cell[0],
-                    row * cell[1],
-                    (column + 1) * cell[0],
-                    (row + 1) * cell[1],
-                )
-            )
-            with self.subTest(cell=index):
-                # The card sits dead centre: the margin is the same on
-                # both sides and on top and bottom.
-                self.assertEqual(
-                    piece.size,
-                    (
-                        cards[index].width + SHEET_MARGIN_X * 2,
-                        cards[index].height + SHEET_MARGIN_Y * 2,
-                    ),
-                )
-
-    def test_a_print_sheet_fits_a_letter_page_across(self) -> None:
-        """
-        Four poker cards across is 10in of card, and a letter page
-        turned landscape has about 10.5in of printable width -- so the
-        gutter is the whole of what decides whether a sheet printed at
-        100% keeps its outside columns or loses them. Nothing about
-        the image says how wide it is meant to be, so the arithmetic
-        is asserted rather than looked at.
-        """
-        card = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), "white")
-        sheet = print_sheet([card] * SHEET_COLUMNS)
-        # The cards are drawn at 300dpi, and a letter page turned
-        # landscape is 11in less the quarter-inch a printer cannot
-        # reach on each side.
-        self.assertLessEqual(sheet.width / 300, 11.0 - 0.25 * 2)
 
     def test_a_card_names_every_ability_that_touches_its_maneuver(
         self,

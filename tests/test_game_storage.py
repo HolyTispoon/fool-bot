@@ -10,12 +10,19 @@ announced was told the click had failed and invited to make it again.
 
 These cover the two halves of that: a save that cannot write must not
 raise, and a run that could not read the file must not write over it.
+
+Every case runs twice: once as the bot calls the store (no path, so
+`GAMES_FILE`), and once as the web app does (its own file, named).
+The two flags are per file, so the second run is also what shows one
+file's trouble says nothing about the other's.
 """
 
 import json
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Optional
 from unittest import mock
 
 from d12ball.game import D12BallGame
@@ -36,19 +43,19 @@ def build_game(game_id: str = "g1") -> D12BallGame:
 
 
 class GameStorageTests(unittest.TestCase):
+    """The bot's file, reached the way the bot reaches it: no path."""
+
     def setUp(self) -> None:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
 
         self.folder = Path(directory.name) / "data"
-        self.games_file = self.folder / "d12ball_games.json"
-
-        self.use_folder(self.folder)
+        self.point_at(self.folder)
 
         # Both flags are module state that outlives a test otherwise.
-        self.enter_patch(mock.patch.object(storage, "_save_failing", False))
+        self.enter_patch(mock.patch.object(storage, "_save_failing", set()))
         self.enter_patch(
-            mock.patch.object(storage, "_load_unreadable", False),
+            mock.patch.object(storage, "_load_unreadable", set()),
         )
 
     def enter_patch(self, patcher: object) -> object:
@@ -57,7 +64,8 @@ class GameStorageTests(unittest.TestCase):
 
         return started
 
-    def use_folder(self, folder: Path) -> None:
+    def point_at(self, folder: Path) -> None:
+        """Put this case's file in `folder` for the rest of the test."""
         self.enter_patch(mock.patch.object(storage, "DATA_FOLDER", folder))
         self.enter_patch(
             mock.patch.object(
@@ -66,11 +74,38 @@ class GameStorageTests(unittest.TestCase):
                 folder / "d12ball_games.json",
             ),
         )
+        self.games_file = self.file_in(folder)
+
+    def file_in(self, folder: Path) -> Path:
+        return folder / "d12ball_games.json"
+
+    def path_argument(self) -> Optional[Path]:
+        return None
+
+    def save(self, games: dict) -> None:
+        storage.save_games(games, self.path_argument())
+
+    def load(self) -> dict:
+        return storage.load_games(self.path_argument())
+
+    @contextmanager
+    def mount_away(self):
+        """
+        The drive under the file is gone for the block: every `mkdir`
+        walks up to a root that is not there. The same file before and
+        after, which is the point -- the flags are per file.
+        """
+        with mock.patch.object(
+            Path,
+            "mkdir",
+            side_effect=FileNotFoundError("the drive is gone"),
+        ):
+            yield
 
     def test_a_game_round_trips(self) -> None:
-        storage.save_games({"g1": build_game()})
+        self.save({"g1": build_game()})
 
-        self.assertEqual(list(storage.load_games()), ["g1"])
+        self.assertEqual(list(self.load()), ["g1"])
 
     def test_the_discord_ids_read_back_as_they_were_saved(self) -> None:
         """
@@ -81,9 +116,9 @@ class GameStorageTests(unittest.TestCase):
         """
         game = build_game()
         game.message_id = 99
-        storage.save_games({"g1": game})
+        self.save({"g1": game})
 
-        loaded = storage.load_games()["g1"]
+        loaded = self.load()["g1"]
         self.assertEqual(
             (loaded.guild_id, loaded.channel_id, loaded.message_id),
             (1, 2, 99),
@@ -103,9 +138,9 @@ class GameStorageTests(unittest.TestCase):
             game_id="web", game_number=1, player_1_id=3, player_2_id=None,
         )
         self.assertIsNone(game.guild_id)
-        storage.save_games({"web": game})
+        self.save({"web": game})
 
-        loaded = storage.load_games()["web"]
+        loaded = self.load()["web"]
         self.assertEqual(
             (loaded.guild_id, loaded.channel_id, loaded.message_id),
             (None, None, None),
@@ -115,21 +150,21 @@ class GameStorageTests(unittest.TestCase):
     def test_a_save_onto_an_unreachable_folder_does_not_raise(self) -> None:
         # What the mounted drive did: every component of the path is
         # gone, so mkdir fails rather than the write.
-        self.use_folder(Path("/nonexistent-mount/fool-bot/data"))
+        self.point_at(Path("/nonexistent-mount/fool-bot/data"))
 
         with self.assertLogs(storage.LOGGER, level="ERROR") as logs:
-            storage.save_games({"g1": build_game()})
+            self.save({"g1": build_game()})
 
         self.assertIn("Could not save", logs.output[0])
 
     def test_only_the_first_failure_of_a_run_reaches_the_server(self) -> None:
-        self.use_folder(Path("/nonexistent-mount/fool-bot/data"))
+        self.point_at(Path("/nonexistent-mount/fool-bot/data"))
         games = {"g1": build_game()}
 
         with self.assertLogs(storage.LOGGER, level="INFO") as logs:
-            storage.save_games(games)
-            storage.save_games(games)
-            storage.save_games(games)
+            self.save(games)
+            self.save(games)
+            self.save(games)
 
         levels = [line.split(":", 1)[0] for line in logs.output]
         self.assertEqual(levels, ["ERROR", "INFO", "INFO"])
@@ -137,35 +172,23 @@ class GameStorageTests(unittest.TestCase):
     def test_a_save_that_lands_arms_the_error_again(self) -> None:
         games = {"g1": build_game()}
 
-        with mock.patch.object(storage, "DATA_FOLDER", Path("/nonexistent")):
-            with mock.patch.object(
-                storage,
-                "GAMES_FILE",
-                Path("/nonexistent/d12ball_games.json"),
-            ):
-                with self.assertLogs(storage.LOGGER, level="ERROR"):
-                    storage.save_games(games)
+        with self.mount_away():
+            with self.assertLogs(storage.LOGGER, level="ERROR"):
+                self.save(games)
 
-        with self.assertLogs(storage.LOGGER, level="INFO"):
-            storage.save_games(games)
+        with self.assertLogs(storage.LOGGER, level="INFO") as logs:
+            self.save(games)
+
+        self.assertIn("again", logs.output[0])
 
         with self.assertLogs(storage.LOGGER, level="ERROR") as logs:
-            with mock.patch.object(
-                storage,
-                "DATA_FOLDER",
-                Path("/nonexistent"),
-            ):
-                with mock.patch.object(
-                    storage,
-                    "GAMES_FILE",
-                    Path("/nonexistent/d12ball_games.json"),
-                ):
-                    storage.save_games(games)
+            with self.mount_away():
+                self.save(games)
 
         self.assertIn("Could not save", logs.output[0])
 
     def test_a_failed_save_leaves_the_last_good_one_alone(self) -> None:
-        storage.save_games({"g1": build_game()})
+        self.save({"g1": build_game()})
 
         with mock.patch.object(
             storage.json,
@@ -173,12 +196,12 @@ class GameStorageTests(unittest.TestCase):
             side_effect=OSError("no space left on device"),
         ):
             with self.assertLogs(storage.LOGGER, level="ERROR"):
-                storage.save_games({"g2": build_game("g2")})
+                self.save({"g2": build_game("g2")})
 
-        self.assertEqual(list(storage.load_games()), ["g1"])
+        self.assertEqual(list(self.load()), ["g1"])
 
     def test_an_unreadable_file_is_not_written_over(self) -> None:
-        storage.save_games({"g1": build_game()})
+        self.save({"g1": build_game()})
 
         with mock.patch.object(
             Path,
@@ -186,10 +209,10 @@ class GameStorageTests(unittest.TestCase):
             side_effect=OSError("the device is not ready"),
         ):
             with self.assertLogs(storage.LOGGER, level="ERROR"):
-                self.assertEqual(storage.load_games(), {})
+                self.assertEqual(self.load(), {})
 
         with self.assertLogs(storage.LOGGER, level="ERROR") as logs:
-            storage.save_games({"g2": build_game("g2")})
+            self.save({"g2": build_game("g2")})
 
         self.assertIn("Not saving", logs.output[0])
 
@@ -199,33 +222,76 @@ class GameStorageTests(unittest.TestCase):
     def test_an_unreachable_folder_blocks_the_save_when_it_returns(
         self,
     ) -> None:
-        storage.save_games({"g1": build_game()})
-        missing = Path("/nonexistent-mount/fool-bot/data")
+        self.save({"g1": build_game()})
 
-        # The bot starts while the mount is away...
-        with mock.patch.object(storage, "DATA_FOLDER", missing):
-            with mock.patch.object(
-                storage,
-                "GAMES_FILE",
-                missing / "d12ball_games.json",
-            ):
-                with self.assertLogs(storage.LOGGER, level="ERROR"):
-                    self.assertEqual(storage.load_games(), {})
+        # The process starts while the mount is away...
+        with self.mount_away():
+            with self.assertLogs(storage.LOGGER, level="ERROR"):
+                self.assertEqual(self.load(), {})
 
         # ...and a game is played once it is back. Saving it now would
         # replace every game in the file with that one.
         with self.assertLogs(storage.LOGGER, level="ERROR"):
-            storage.save_games({"g2": build_game("g2")})
+            self.save({"g2": build_game("g2")})
 
         with self.games_file.open(encoding="utf-8") as file:
             self.assertEqual(list(json.load(file)), ["g1"])
 
     def test_a_first_run_with_no_file_yet_still_saves(self) -> None:
-        self.assertEqual(storage.load_games(), {})
+        self.assertEqual(self.load(), {})
 
-        storage.save_games({"g1": build_game()})
+        self.save({"g1": build_game()})
 
-        self.assertEqual(list(storage.load_games()), ["g1"])
+        self.assertEqual(list(self.load()), ["g1"])
+
+
+class WebGamesFileStorageTests(GameStorageTests):
+    """
+    The same cases over the web app's own file, named explicitly the
+    way `python3 -m webapp` names it -- and not one of them may touch
+    the bot's file on the way.
+    """
+
+    def file_in(self, folder: Path) -> Path:
+        return folder / storage.WEB_GAMES_FILE.name
+
+    def path_argument(self) -> Optional[Path]:
+        return self.games_file
+
+    def tearDown(self) -> None:
+        self.assertFalse(storage.GAMES_FILE.exists())
+
+
+class TwoFilesTests(unittest.TestCase):
+    def test_the_web_games_file_is_not_the_bots(self) -> None:
+        self.assertNotEqual(storage.WEB_GAMES_FILE, storage.GAMES_FILE)
+        self.assertEqual(
+            storage.WEB_GAMES_FILE.parent, storage.GAMES_FILE.parent,
+        )
+
+    def test_one_files_trouble_is_not_the_others(self) -> None:
+        """
+        The bot reading the web file for the statistics (step 6 of
+        docs/web-app-next.md) and finding it unreadable must not stop
+        the bot saving its own games.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            bot_file = folder / "d12ball_games.json"
+            web_file = folder / "d12ball_web_games.json"
+            web_file.write_text("{not json", encoding="utf-8")
+
+            with mock.patch.object(storage, "_save_failing", set()), \
+                 mock.patch.object(storage, "_load_unreadable", set()):
+                with self.assertLogs(storage.LOGGER, level="ERROR"):
+                    self.assertEqual(storage.load_games(web_file), {})
+
+                storage.save_games({"g1": build_game()}, bot_file)
+
+            self.assertEqual(
+                list(json.loads(bot_file.read_text(encoding="utf-8"))),
+                ["g1"],
+            )
 
 
 if __name__ == "__main__":

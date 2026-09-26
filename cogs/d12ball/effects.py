@@ -71,6 +71,7 @@ class ManeuverEffectsMixin:
                 team_display_name(player_team),
                 player.name,
                 roll.pulled,
+                roll.target_label,
             ),
             filename="mind_pull_die.png",
         )
@@ -149,9 +150,6 @@ class ManeuverEffectsMixin:
         attempt makes. See `SkillTestView.roll`.
         """
         roll = result.detail
-        offense_player = self.engine.get_player_definition(
-            match.active_player_id,
-        )
         dice_file = await self.own_goal_roll_file(
             match, roll.rolls, roll.safe, roll.overdrive,
         )
@@ -161,12 +159,6 @@ class ManeuverEffectsMixin:
             content=breakdown,
             attachments=[dice_file],
             view=None,
-        )
-        # The die kept is the only one of the two that can ignite, and
-        # its second die goes up between the roll and the verdict like
-        # every other -- see post_volatile_ignition.
-        await self.post_volatile_ignition(
-            interaction, match, (offense_player.player_id, roll.ignite),
         )
         await send_new_prompt(interaction, verdict)
         await self.present(interaction, game, result)

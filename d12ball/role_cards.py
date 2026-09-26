@@ -29,27 +29,32 @@ from pathlib import Path
 from PIL import Image, ImageFont
 
 from d12ball.cards import (
-    CARD_FACE,
     CARD_HEIGHT,
     CARD_WIDTH,
     CORNER,
+    DARK_REFERENCE,
     EDGE_WIDTH,
     FRAME,
-    INK,
     MARGIN,
-    MUTED,
-    PANEL_COLOR,
-    PANEL_EDGE,
+    PRINT_REFERENCE,
     Pen,
+    ReferencePalette,
     SUPERSAMPLE,
     fitted_bold_font,
     font,
+    screen_cutout,
 )
 from d12ball.components import PlayerRole, RoleProfile
-from d12ball.render import CARD_DEFENSE_COLOR, CARD_OFFENSE_COLOR
 
-HEADER_HEIGHT = 44
+# The title is the card's heading, not a caption: bold, in ink, and
+# large enough to read across a table. The header is tall enough to
+# hold it with room under it, which is what moves the grid down; the
+# room under the grid gives back what the header took, so the rows --
+# and the ability text fitted to them -- stay the size they were.
+HEADER_HEIGHT = 76
 HEADER_TITLE = "ROLE ABILITIES"
+HEADER_TITLE_SIZE = 40
+BOTTOM_PAD = 20
 
 # Two columns of three, not six strips: six abilities are too many for
 # one full-width row apiece on a poker card, and splitting every row in
@@ -61,8 +66,8 @@ COLUMN_GAP = 20
 ROW_GAP = 20
 
 # Row-major over `PlayerRole`'s own order (offense 1 through 6), read
-# off rather than re-decided here -- the same order the enum, the
-# roster listing and `/d12ball role_abilities` already use.
+# off rather than re-decided here -- the same order the enum and the
+# roster listing already use.
 GRID_ROLES: tuple[tuple[PlayerRole, PlayerRole], ...] = (
     (PlayerRole.FULLBACK, PlayerRole.DEFENDER),
     (PlayerRole.MIDFIELDER, PlayerRole.PLAYMAKER),
@@ -165,13 +170,14 @@ def _draw_panel(
     bottom: float,
     name_max_size: int,
     body_max_size: int,
+    palette: ReferencePalette,
 ) -> None:
     band_bottom = top + BAND_HEIGHT
     pen.rect(
         (left, top, right, band_bottom),
         radius=14,
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
+        fill=palette.panel,
+        outline=palette.panel_edge,
         width=2,
     )
 
@@ -194,7 +200,7 @@ def _draw_panel(
         (name_left, name_row_center),
         role.value.upper(),
         name_face,
-        INK,
+        palette.ink,
         anchor="lm",
     )
 
@@ -203,9 +209,9 @@ def _draw_panel(
     # of its own, and freeing the second row hands its height to the
     # ability text below. Right-anchored rather than left is what keeps
     # the pair reading as a column when the six panels sit side by
-    # side. Same two colours `player_cards.draw_stats` and the bot's
-    # own card draw them in, so a printed 6 and a drawn 6 are the same
-    # red or green. "basic skill values:" fills the width the row would
+    # side. On the printed card, the same two colours
+    # `player_cards.draw_stats` and the bot's own card draw them in, so
+    # a printed 6 and a drawn 6 are the same red or green. "basic skill values:" fills the width the row would
     # otherwise leave blank to the numbers' left, in the same face and
     # size as OFF/DEF but plain and in ink, so the row still reads as
     # one row of small print rather than a second heading.
@@ -222,17 +228,17 @@ def _draw_panel(
     block_left = stat_right - off_width - stat_gap - def_width
     pen.text(
         (stat_left, stat_row_center),
-        "basic skill values:", label_face, INK,
+        "basic skill values:", label_face, palette.ink,
         anchor="lm",
     )
     pen.text(
         (block_left, stat_row_center),
-        off_text, stat_face, CARD_OFFENSE_COLOR,
+        off_text, stat_face, palette.offense,
         anchor="lm",
     )
     pen.text(
         (block_left + off_width + stat_gap, stat_row_center),
-        def_text, stat_face, CARD_DEFENSE_COLOR,
+        def_text, stat_face, palette.defense,
         anchor="lm",
     )
 
@@ -247,35 +253,36 @@ def _draw_panel(
     )
     y = body_top
     for line in lines:
-        pen.text((left, y), line, body_face, INK, anchor="la")
+        pen.text((left, y), line, body_face, palette.ink, anchor="la")
         y += step
 
 
 def render_role_card(
     role_profiles: dict[PlayerRole, RoleProfile],
     bleed: bool = False,
+    palette: ReferencePalette = PRINT_REFERENCE,
 ) -> Image.Image:
     """The reference face: all six roles, two columns of three."""
-    pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
+    pen = Pen((CARD_WIDTH, CARD_HEIGHT), palette.face)
     pen.rect(
         (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
         radius=CORNER,
-        fill=CARD_FACE,
-        outline=INK,
+        fill=palette.face,
+        outline=palette.edge,
         width=EDGE_WIDTH,
     )
     pen.text(
-        (CARD_WIDTH / 2, FRAME + 30),
+        (CARD_WIDTH / 2, FRAME + HEADER_HEIGHT / 2 + 6),
         HEADER_TITLE,
-        font(17),
-        MUTED,
+        font(HEADER_TITLE_SIZE, bold=True),
+        palette.ink,
         anchor="mm",
     )
 
     top = FRAME + HEADER_HEIGHT + 14
     left = MARGIN
     right = CARD_WIDTH - MARGIN
-    usable_height = CARD_HEIGHT - FRAME - 40 - top
+    usable_height = CARD_HEIGHT - FRAME - BOTTOM_PAD - top
     usable_width = right - left
 
     row_height = (usable_height - ROW_GAP * (GRID_ROWS - 1)) / GRID_ROWS
@@ -312,10 +319,23 @@ def render_role_card(
                 pen, role, role_profiles[role],
                 col_left, row_top,
                 col_left + column_width, row_top + row_height,
-                name_ceiling, body_ceiling,
+                name_ceiling, body_ceiling, palette,
             )
 
-    return pen.finish(bleed, CARD_FACE)
+    return pen.finish(bleed, palette.face)
+
+
+def render_role_reference(
+    role_profiles: dict[PlayerRole, RoleProfile],
+) -> Image.Image:
+    """
+    The card for a screen, which is what
+    `/d12ball role_abilities_reference` posts: the same face in
+    `DARK_REFERENCE`, with its corners cut out.
+    """
+    return screen_cutout(
+        render_role_card(role_profiles, palette=DARK_REFERENCE)
+    )
 
 
 def render_role_card_set(

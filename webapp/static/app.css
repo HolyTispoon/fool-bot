@@ -1,148 +1,780 @@
 /*
 The page, in one stylesheet. Nothing here knows a rule of the game --
-what a control is, and whether it is dead, is what the server sent.
+what a control is, whether it is dead and what colour it is, is what
+the server sent.
+
+Two palettes, on purpose. The page around the board is in Discord's
+dark theme and its button colours, so a coach who has played in a
+channel reads the same colours for the same answers. The board and
+the jumbotron are the bot's own board, in `render.py`'s colours and
+the bundled typefaces, because they are the same picture of the
+position.
 */
+
+@font-face {
+  font-family: "Board";
+  src: url("/fonts/DejaVuSans.ttf") format("truetype");
+  font-weight: 400;
+}
+@font-face {
+  font-family: "Board";
+  src: url("/fonts/DejaVuSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+}
+@font-face {
+  font-family: "Goal";
+  src: url("/fonts/RacingSansOne-Regular.ttf") format("truetype");
+}
 
 :root {
   color-scheme: dark;
-  --ink: #e9e6df;
-  --quiet: #9b968c;
-  --paper: #16181c;
-  --panel: #1f2228;
-  --edge: #333842;
-  --live: #4b7bec;
+
+  /* Discord's dark theme. */
+  --page: #313338;
+  --panel: #2b2d31;
+  --deep: #1e1f22;
+  --field: #383a40;
+  --line: #3f4147;
+  --text: #dbdee1;
+  --strong: #f2f3f5;
+  --muted: #949ba4;
+  --faint: #6d6f78;
+  --link: #00a8fc;
+  --blurple: #5865f2;
+  --blurple-hover: #4752c4;
+  --grey: #4e5058;
+  --grey-hover: #6d6f78;
+  --green: #248046;
+  --green-hover: #1a6334;
+  --red: #da373c;
+  --red-hover: #a12828;
+  --yours: rgba(250, 168, 26, 0.08);
+  --yours-edge: #f0b232;
+
+  /* The bot's board (render.py). */
+  --b-canvas: #111820;
+  --b-jumbo: #161d26;
+  --b-jumbo-edge: #c7d0da;
+  --b-frame: #14202b;
+  --b-edge: #d7dde5;
+  --b-space: #9aabbc;
+  --b-code: #c8d1dc;
+  --b-goal: #0c141c;
+  --b-band: #1a2836;
+  --b-band-text: #e7edf3;
+  --b-neutral: #5d6b78;
+  --b-team: #202a35;
+  --b-clock: #f5d76e;
+  --b-quiet: #9eabb8;
+
+  --topbar: 48px;
+  --side: 380px;
 }
 
 * { box-sizing: border-box; }
 
+/* A panel's own display never wins over `hidden`. */
+[hidden] { display: none !important; }
+
+html, body { height: 100%; }
+
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
-  font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
+  background: var(--page);
+  color: var(--text);
+  font: 15px/1.4 "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-header {
+img { display: block; }
+
+/* -- The top bar ------------------------------------------------------ */
+
+.topbar {
+  height: var(--topbar);
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--panel);
-  border-bottom: 1px solid var(--edge);
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 16px;
+  background: var(--page);
+  border-bottom: 1px solid var(--deep);
+  box-shadow: 0 1px 0 rgba(4, 4, 5, 0.2);
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 5;
+}
+.topbar-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hash { color: var(--faint); font-size: 24px; font-weight: 500; }
+.channel-name { color: var(--strong); font-weight: 600; white-space: nowrap; }
+.topbar-divider { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+.topic {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.you {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.you strong { color: var(--strong); font-weight: 600; }
+
+/* -- The two columns ---------------------------------------------------- */
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--side);
+  gap: 16px;
+  padding: 16px;
+  height: calc(100vh - var(--topbar));
+  height: calc(100dvh - var(--topbar));
 }
 
-header .side { flex: 1; }
-header .side:last-of-type { text-align: right; }
-header .score { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em; }
-header .clock { color: var(--quiet); min-width: 8rem; text-align: right; }
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+}
 
-main { max-width: 56rem; margin: 0 auto; padding: 1rem; }
+.sidebar {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
 
-#board img { width: 100%; border-radius: 6px; display: block; }
-
-section {
-  margin: 1rem 0;
-  padding: 1rem;
+.panel {
   background: var(--panel);
-  border: 1px solid var(--edge);
-  border-radius: 6px;
+  border: 1px solid var(--deep);
+  border-radius: 8px;
+  padding: 12px 14px;
 }
 
-#board { padding: 0.5rem; }
-
-.ask { margin-top: 0; white-space: pre-wrap; }
-
-.group { margin: 0.75rem 0; }
-.group h3 {
-  font-size: 0.8rem;
+.panel-label {
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--quiet);
-  margin: 0 0 0.35rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  margin-bottom: 8px;
 }
 
-button {
+.quiet { color: var(--muted); font-size: 13px; margin: 0; }
+
+/* -- The board panel ---------------------------------------------------- */
+
+.board-panel { padding: 10px; }
+.board-empty { color: var(--muted); text-align: center; margin: 60px 0; }
+
+.benches {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.bench-toggle { position: relative; }
+
+.bench-button {
   font: inherit;
-  color: var(--ink);
-  background: var(--live);
-  border: 0;
-  border-radius: 4px;
-  padding: 0.45rem 0.8rem;
-  margin: 0 0.4rem 0.4rem 0;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--team);
+  background: var(--deep);
+  color: var(--text);
   cursor: pointer;
 }
+.bench-button:hover, .bench-toggle.open .bench-button { background: var(--field); }
+.bench-button .count { color: var(--muted); }
 
-button:disabled { background: #2b2f38; color: var(--quiet); cursor: default; }
-button:hover:not(:disabled) { filter: brightness(1.15); }
+.bench-pop {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 10;
+  display: none;
+  width: max-content;
+  max-width: min(640px, 90vw);
+  font-family: "Board", "DejaVu Sans", sans-serif;
+  background: var(--b-team);
+  border: 3px solid var(--team);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  color: #fff;
+}
+.bench-toggle:last-child .bench-pop { left: auto; right: 0; }
+.benches .bench-toggle:only-child .bench-pop { left: 0; right: auto; }
+@media (hover: hover) {
+  .bench-toggle:hover .bench-pop { display: block; }
+}
+.bench-toggle.open .bench-pop { display: block; }
+
+.bench-pop-name { font-weight: 700; font-size: 16px; color: var(--team); margin-bottom: 8px; }
+.bench-pop-rows { display: grid; grid-template-columns: auto auto; gap: 8px 12px; align-items: center; }
+.bench-label { font-size: 11px; font-weight: 700; color: var(--b-code); white-space: nowrap; }
+.bench { display: flex; gap: 6px; align-items: center; }
+.bench .card { flex: 0 0 72px; }
+.bench-empty { color: var(--b-quiet); font-size: 13px; }
+
+/* -- The prompt ------------------------------------------------------------ */
+
+.prompt.yours {
+  background: linear-gradient(var(--yours), var(--yours)), var(--panel);
+  box-shadow: inset 3px 0 0 var(--yours-edge);
+}
+.prompt.yours .panel-label { color: var(--yours-edge); }
+
+.ask { margin: 0 0 10px; white-space: pre-wrap; }
+.ask:empty { display: none; }
+
+.controls { display: flex; flex-direction: column; gap: 8px; }
+.group-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+.note-line { font-size: 13px; color: var(--muted); margin: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+.prompt.busy .controls { opacity: 0.6; pointer-events: none; }
+
+/* Discord's buttons: four colours, one size. */
+.btn {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 16px;
+  min-height: 32px;
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.17s ease;
+}
+.btn.primary { background: var(--blurple); }
+.btn.primary:hover:not(:disabled) { background: var(--blurple-hover); }
+.btn.secondary { background: var(--grey); }
+.btn.secondary:hover:not(:disabled) { background: var(--grey-hover); }
+.btn.success { background: var(--green); }
+.btn.success:hover:not(:disabled) { background: var(--green-hover); }
+.btn.danger { background: var(--red); }
+.btn.danger:hover:not(:disabled) { background: var(--red-hover); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 
 .chooser {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--deep);
 }
-
-.chooser label { color: var(--quiet); font-size: 0.9rem; }
+.chooser-label { font-size: 14px; }
+.chooser label { font-size: 12px; color: var(--muted); font-weight: 600; }
 select {
   font: inherit;
-  color: var(--ink);
-  background: #2b2f38;
-  border: 1px solid var(--edge);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--field);
+  border: 1px solid var(--deep);
   border-radius: 4px;
-  padding: 0.35rem;
+  padding: 6px 8px;
+  min-width: 10em;
+  max-width: 100%;
 }
 
-.note { color: var(--quiet); font-size: 0.85rem; margin: 0 0 0.5rem; }
+/* A hand of maneuver cards: the cards are the buttons. */
+.hand {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 128px));
+  gap: 10px;
+}
+.hand-card {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.hand-card img { width: 100%; height: auto; }
+.hand-card.danger:hover:not(:disabled) { border-color: var(--red); transform: translateY(-3px); }
+.hand-card.success:hover:not(:disabled) { border-color: var(--green); transform: translateY(-3px); }
+.hand-card:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .refusal {
-  background: #43232a;
-  border: 1px solid #7a3b44;
+  border-left: 3px solid var(--red);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+.refusal p { margin: 0; }
+.linkish {
+  font: inherit;
+  font-size: 13px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--link);
+  cursor: pointer;
+}
+
+/* -- The jumbotron: the board's own, in its own place ----------------------- */
+
+.jumbotron {
+  font-family: "Board", "DejaVu Sans", sans-serif;
+  background: var(--b-jumbo);
+  border: 3px solid var(--b-jumbo-edge);
+  border-radius: 12px;
+  padding: 10px 14px 12px;
+  color: #fff;
+}
+.jumbo-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.jumbo-brand { font-weight: 700; font-size: 15px; letter-spacing: 0.02em; }
+.jumbo-clock { text-align: right; line-height: 1; }
+.jumbo-minute { color: var(--b-clock); font-weight: 700; font-size: 26px; }
+.jumbo-period { font-size: 12px; color: var(--b-code); margin-left: 6px; }
+.jumbo-score {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.jumbo-side { min-width: 0; }
+.jumbo-side.visiting { text-align: right; }
+.jumbo-team { font-weight: 700; font-size: 15px; }
+.jumbo-coach {
+  font-size: 12px;
+  color: var(--b-code);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jumbo-where { font-size: 10px; color: var(--b-quiet); text-transform: uppercase; letter-spacing: 0.05em; }
+.jumbo-goals { font-weight: 700; font-size: 38px; letter-spacing: 0.06em; line-height: 1; }
+
+/* -- The game log ----------------------------------------------------------- */
+
+.log-panel, .chat-panel { display: flex; flex-direction: column; min-height: 0; }
+
+.journal {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+  font-size: 14px;
+}
+
+.entry { border-left: 3px solid var(--line); padding-left: 10px; }
+.entry.new-play { border-left-color: var(--blurple); }
+.entry p { margin: 0 0 3px; white-space: pre-wrap; word-wrap: break-word; }
+.entry .stamp { font-size: 11px; color: var(--faint); }
+
+.snapshot {
+  margin-top: 6px;
   border-radius: 6px;
-  padding: 0.75rem 1rem;
+  overflow: hidden;
+  cursor: zoom-in;
+  border: 1px solid var(--deep);
 }
+.snapshot .card, .snapshot .meeple { pointer-events: none; }
 
-#journal { display: flex; flex-direction: column; gap: 0.75rem; }
-
-/* Nothing said yet is nothing to show, rather than an empty panel. */
-#journal:empty { display: none; }
-
-.entry { border-left: 3px solid var(--edge); padding-left: 0.75rem; }
-.entry.new-play { border-left-color: var(--live); }
-.entry p { margin: 0 0 0.35rem; white-space: pre-wrap; }
-.entry img { width: 100%; border-radius: 4px; margin-top: 0.5rem; }
-
-.ring {
-  display: inline-block;
-  width: 0.8em;
-  height: 0.8em;
-  border-radius: 50%;
-  vertical-align: -0.05em;
-  margin-right: 0.15em;
-}
-
-.badge, .mark {
-  font-size: 0.85em;
-  color: var(--quiet);
-}
-
-.coach { font-weight: 600; }
-
-/* A headline -- the model's `##` -- is the result of something, so it
-   reads as a line of its own rather than as a bigger paragraph. */
+/* The model's `#`, `##` and `###`. */
 .headline {
   display: block;
-  font-size: 1.15rem;
+  font-size: 16px;
   font-weight: 700;
-  margin: 0.25rem 0;
+  color: var(--strong);
+  margin: 2px 0;
+}
+.headline.h1 { font-size: 17px; }
+.headline.h3 { font-size: 15px; }
+
+.emoji {
+  display: inline-block;
+  width: 1.3em;
+  height: 1.3em;
+  vertical-align: -0.3em;
+  object-fit: contain;
+}
+.emoji.badge { width: auto; height: 1.15em; vertical-align: -0.2em; }
+.emoji.species { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }
+
+.coach {
+  background: rgba(88, 101, 242, 0.3);
+  color: #c9cdfb;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 500;
 }
 
-footer {
-  color: var(--quiet);
-  padding: 1rem;
-  text-align: center;
-  font-size: 0.85rem;
+strong { font-weight: 700; color: var(--strong); }
+
+/* -- The chat --------------------------------------------------------------- */
+
+.chat {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  padding-right: 4px;
 }
+.chat-line { margin: 0; word-wrap: break-word; }
+.chat-who { font-weight: 600; margin-right: 6px; }
+.chat-line time { font-size: 11px; color: var(--faint); margin-right: 6px; }
+
+.chat-form { margin-top: 8px; }
+.chat-input {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--field);
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.chat-input::placeholder { color: var(--faint); }
+.chat-input:focus { outline: 2px solid var(--link); }
+
+/* -- The board --------------------------------------------------------------
+   Drawn at a fixed width and scaled to its box, so every proportion is the
+   bot's board's whatever the screen. */
+
+.board-fit { position: relative; width: 100%; }
+
+.stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1200px;
+  transform-origin: 0 0;
+  background: var(--b-canvas);
+  border-radius: 12px;
+  padding: 12px 14px 14px;
+  font-family: "Board", "DejaVu Sans", sans-serif;
+  color: #fff;
+  user-select: none;
+}
+
+.pitch { display: grid; column-gap: 0; row-gap: 6px; align-items: stretch; }
+
+.cards-row {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 7px;
+  padding: 0 6px;
+  min-height: 108px;
+}
+.cards-row.home { align-items: flex-start; }
+
+/* A card is `render.draw_card`'s picture, frame and marks included. */
+.card {
+  position: relative;
+  flex: 0 1 80px;
+  min-width: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  cursor: zoom-in;
+  padding: 0;
+}
+.card img { width: 100%; height: auto; aspect-ratio: 116 / 160; }
+.card:hover { box-shadow: 0 0 0 2px #fff; }
+.card:focus-visible { outline: 2px solid var(--link); }
+
+.field-frame {
+  grid-row: 2;
+  background: var(--b-frame);
+  border: 2px solid var(--b-edge);
+  border-radius: 10px;
+}
+
+/* An end zone is `render.draw_end_zone`'s picture. */
+.goal { grid-row: 2; margin: 0 4px; position: relative; }
+.goal img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+
+.zone {
+  grid-row: 2;
+  margin: 5px 4px;
+  border: 2px solid var(--b-edge);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+.zone-label { text-align: center; font-weight: 700; font-size: 22px; padding: 4px 0 2px; }
+.spaces { flex: 1; display: grid; padding: 0 3px 4px; }
+
+.space {
+  margin: 0 3px;
+  border: 1px solid var(--b-space);
+  border-radius: 3px;
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  min-height: 190px;
+  min-width: 0;
+}
+.space-code { position: absolute; top: 3px; left: 6px; font-size: 11px; color: var(--b-code); }
+/* The two rows of a space, as `draw_meeple_group` lays them: the
+   visitors' against the right edge and the home side's against the
+   left, the ball tucked against whoever holds it, or centred when
+   none of that side is on the space. Gaps and margins are the
+   board's (3px and 12px at a 76px meeple). */
+.half {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 14px 6px 0;
+}
+.half.visiting { justify-content: flex-end; }
+.half.home { justify-content: flex-start; padding-top: 10px; }
+.half.ball-only { justify-content: center; }
+
+.piece { position: relative; flex: none; }
+.piece-name {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(calc(-50% + var(--nudge, 0px)));
+  padding-top: 4px;
+  /* The board's names: bold, at the size `fit_meeple_labels` starts
+     from on a 2200px board. */
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.meeple { position: relative; cursor: zoom-in; }
+.meeple svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.meeple-role, .species-icon {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.meeple-role { font-weight: 700; line-height: 1; }
+.species-icon {
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+.ball { flex: none; margin-top: 3px; }
+
+.band {
+  grid-row: 3;
+  margin: 0 5px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--b-band-text);
+}
+.band.side { background: var(--b-band); border: 1px solid var(--b-space); }
+.band.neutral { border: 1px dashed var(--b-neutral); }
+
+/* -- The card and board viewer ------------------------------------------------ */
+
+.viewer {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: 96vw;
+  max-height: 94vh;
+  overflow: visible;
+}
+.viewer::backdrop { background: rgba(0, 0, 0, 0.85); }
+.viewer-body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  max-height: 90vh;
+  overflow: auto;
+}
+.viewer-body > img {
+  max-height: 86vh;
+  max-width: min(460px, 90vw);
+  width: auto;
+  height: auto;
+  border-radius: 14px;
+}
+.viewer-body.board { width: 94vw; }
+.viewer-body.board > div { width: 100%; }
+.viewer-close {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 0;
+  font-size: 24px;
+  line-height: 1;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+.viewer-caption { color: var(--muted); font-size: 14px; text-align: center; margin-top: 8px; }
+.viewer-caption a { color: var(--link); }
+
+.peek {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.6));
+}
+.peek img { width: 260px; height: auto; border-radius: 12px; }
+
+.tabs { display: none; }
+
+/* -- A phone: one screen ------------------------------------------------------
+   The score and the board stay on screen; under them, tabs switch
+   between the prompt, the log and the chat, which fill what is left.
+   Nothing scrolls but the tab that is showing. */
+
+@media (max-width: 960px) {
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--topbar));
+    height: calc(100dvh - var(--topbar));
+    padding: 8px;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .main, .sidebar { display: contents; }
+  .jumbotron { order: 1; padding: 6px 10px 8px; border-width: 2px; flex: none; }
+  .jumbo-top { margin-bottom: 2px; }
+  .jumbo-brand { font-size: 12px; }
+  .jumbo-minute { font-size: 18px; }
+  .jumbo-goals { font-size: 26px; }
+  .jumbo-team { font-size: 13px; }
+  .jumbo-where { display: none; }
+  .board-panel { order: 2; flex: none; padding: 6px; }
+  .benches { margin-top: 6px; gap: 6px; }
+  .bench-button { font-size: 12px; padding: 3px 8px; }
+  .bench-pop { position: fixed; left: 8px !important; right: 8px !important; bottom: auto; top: 30%; max-width: none; }
+  .bench-pop .bench .card { flex-basis: 64px; }
+
+  .tabs {
+    order: 3;
+    display: flex;
+    flex: none;
+    gap: 4px;
+    background: var(--deep);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .tab {
+    flex: 1;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    padding: 6px 0;
+    position: relative;
+  }
+  body[data-show="move"] .tab[data-show="move"],
+  body[data-show="log"] .tab[data-show="log"],
+  body[data-show="chat"] .tab[data-show="chat"] { background: var(--field); color: var(--strong); }
+  .tab.news::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    right: 18%;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+  }
+  .tab.yours::after { background: var(--yours-edge); }
+
+  [data-tab] { order: 4; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  #refusal[data-tab] { flex: none; }
+  body:not([data-show="move"]) [data-tab="move"],
+  body:not([data-show="log"]) [data-tab="log"],
+  body:not([data-show="chat"]) [data-tab="chat"] { display: none !important; }
+
+  .topic { display: none; }
+  .peek { display: none; }
+  .hand { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* -- The room: two seats, and who is watching --------------------------- */
+
+.seats { display: flex; flex-direction: column; gap: 6px; }
+.seat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--deep);
+}
+.seat.yours { box-shadow: inset 3px 0 0 var(--yours-edge); background: var(--yours); }
+.seat-label { color: var(--muted); font-size: 12px; font-weight: 700; min-width: 9.5em; }
+.seat-name { color: var(--strong); flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.seat-name.empty { color: var(--faint); font-style: italic; }
+.seat .btn { padding: 2px 10px; min-height: 26px; font-size: 13px; }
+.room-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
+
+.name-dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--deep);
+  border-radius: 8px;
+  padding: 16px;
+  width: min(360px, calc(100vw - 32px));
+}
+.name-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.name-dialog form { display: flex; flex-direction: column; gap: 10px; }
+
+/* -- The front door ----------------------------------------------------- */
+
+body.front { display: grid; place-items: start center; padding: 16px; }
+.front-door { width: min(420px, 100%); margin-top: 12vh; display: flex; flex-direction: column; gap: 12px; }
+.front-door form { display: flex; flex-direction: column; gap: 10px; }

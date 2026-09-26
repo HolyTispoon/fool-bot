@@ -594,19 +594,33 @@ def maneuver_pick_refusal(
     it would say whether they had. The frontend keeps that ordering,
     which is why this does not take it.
 
-    The other three are rules. A prompt can still be sitting in the
+    The rest are rules. A prompt can still be sitting in the
     channel from an earlier turn, so the tutorial's rail and the hand
     are both re-read here rather than trusted from whatever built the
     buttons -- exactly as the distances are re-read in a High Pass's
     own menu.
+
+    **A side that has picked may pick again while the other side is
+    still choosing** -- the cards are revealed together (Law 6), so
+    the first is a card held face down until the second is in. Once
+    both are in the maneuver resolves in the same step, so what is
+    left to refuse is the same card twice. Against Dinky there is
+    never a window: the AI picks before the prompt goes up, so a
+    coach's first pick is the second one in.
     """
-    already_chosen = (
-        match.offense_maneuver is not None
+    mine, theirs = (
+        (match.offense_maneuver, match.defense_maneuver)
         if side == "offense"
-        else match.defense_maneuver is not None
+        else (match.defense_maneuver, match.offense_maneuver)
     )
-    if already_chosen:
-        return "You have already chosen your maneuver."
+    if mine is not None:
+        if match.maneuver_uncontested or theirs is not None:
+            return "You have already chosen your maneuver."
+        if mine == maneuver_key:
+            return (
+                "You have already chosen "
+                f"**{engine.maneuver_name(mine)}**."
+            )
 
     allowed = tutorial.allowed_maneuvers(tutorial_beat(game), side)
     if allowed is not None and maneuver_key not in allowed:
@@ -652,11 +666,24 @@ def maneuver_pick_step(
     side's own `MANEUVER_ACTION`, which is what a frontend puts up
     next.
 
+    **A second pick by the same side is a change**
+    (`MatchState.change_maneuver`), and is said out loud as one: the
+    other coach already read that this side had picked, and a change
+    is only possible while they are still choosing, so it is news to
+    them that the card they are playing against has moved. Which card
+    it moved to is the clicker's alone.
+
     `maneuver_pick_refusal` is what says a pick cannot be taken; this
     assumes it has been asked, the way every other step assumes its
     prompt was the one outstanding.
     """
-    if side == "offense":
+    previous = (
+        match.offense_maneuver if side == "offense"
+        else match.defense_maneuver
+    )
+    if previous is not None:
+        match.change_maneuver(side, maneuver_key)
+    elif side == "offense":
         match.choose_offense_maneuver(maneuver_key)
     else:
         match.choose_defense_maneuver(maneuver_key)
@@ -670,7 +697,11 @@ def maneuver_pick_step(
         )
         narration.append(
             f"{format_player_with_team(game, side_number)}"
-            " has picked their maneuver."
+            + (
+                " has changed their maneuver."
+                if previous is not None
+                else " has picked their maneuver."
+            )
         )
 
     if not match.maneuver_selections_complete:
@@ -823,12 +854,8 @@ def begin_maneuver_skill_test(
     )
     offense_player = engine.get_player_definition(match.active_player_id)
     defense_player = engine.get_player_definition(match.challenger_id)
-    offense_skill = engine.player_catalog.effective_profile(
-        offense_player,
-    ).offense
-    defense_skill = engine.player_catalog.effective_profile(
-        defense_player,
-    ).defense
+    offense_skill = engine.skills(game, offense_player.player_id).offense
+    defense_skill = engine.skills(game, defense_player.player_id).defense
 
     prefix = f"{lead_in}\n\n" if lead_in else ""
     return StepResult(

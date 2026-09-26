@@ -18,11 +18,13 @@ from d12ball.components import (
     MatchState,
     PlayerRole,
     TeamSetup,
+    load_species_abilities,
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.flow import FollowOnStep
 from d12ball.formatting import role_initials
 from d12ball.game import D12BallGame, Team, team_display_name
+from d12ball.player_cards import render_player_card, render_player_card_back
 from d12ball.render import (
     TEAM_COLORS,
     ChallengeSide,
@@ -33,6 +35,8 @@ from d12ball.render import (
     render_volatile_die,
     zone_labels,
 )
+from d12ball.role_cards import render_role_reference
+from d12ball.species_cards import render_species_reference
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     FIELD_IMAGE_FILENAME,
@@ -40,6 +44,7 @@ from cogs.d12ball_helpers import (
     add_full_image_button,
     ball_space_label,
     board_image_filename,
+    capitalized,
     format_player_with_team_name,
     format_team_side_label,
     get_or_create_category,
@@ -47,6 +52,18 @@ from cogs.d12ball_helpers import (
     send_new_prompt,
     space_label,
 )
+
+
+def card_png(render, *args) -> bytes:
+    """
+    One printed card, drawn and encoded as PNG in the same worker
+    thread: the encode is as CPU-bound as the draw. The cards are the
+    print modules' own layout at print size, which is what makes a card
+    on Discord the card on the table (see docs/design/cards.md).
+    """
+    buffer = io.BytesIO()
+    render(*args).save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 class PresentationMixin:
@@ -119,6 +136,7 @@ class PresentationMixin:
         modifiers: tuple[str, ...] = (),
         contribution: Optional[int] = None,
         halved: bool = False,
+        game: Optional[D12BallGame] = None,
     ) -> ChallengeSide:
         """
         A player as a matchup image draws them. The ability is the
@@ -140,17 +158,20 @@ class PresentationMixin:
         the engine import `d12ball/render.py` -- and Pillow with it,
         in every process that loaded the model. The numbers it reads
         are the catalog's; the colour is `TEAM_COLORS`'s, which lives
-        with the renderer that draws it.
+        with the renderer that draws it. The skill is the game's
+        (`RulesEngine.skills`), so an advanced score is drawn as the
+        dice add it.
         """
         player = self.engine.get_player_definition(player_id)
         profile = self.engine.player_catalog.effective_profile(player)
+        skills = self.engine.skills(game, player_id)
         return ChallengeSide(
             name=player.name,
             role=role_initials(player),
             team_color=TEAM_COLORS[Team(team)],
             team_label=team_display_name(team),
             skill_name="Offensive" if attacking else "Defensive",
-            skill=profile.offense if attacking else profile.defense,
+            skill=skills.offense if attacking else skills.defense,
             ability=profile.short_ability,
             modifiers=modifiers,
             contribution=contribution,
@@ -161,6 +182,7 @@ class PresentationMixin:
         self,
         match: MatchState,
         defender_id: str,
+        game: Optional[D12BallGame] = None,
     ) -> discord.File:
         """
         The matchup about to be contested, as a picture. It stands in
@@ -178,13 +200,15 @@ class PresentationMixin:
                     match.active_player_id,
                     match.team_for_player(match.active_player_id),
                     attacking=True,
+                    game=game,
                 ),
                 self.challenge_side(
                     defender_id,
                     match.team_for_player(defender_id),
                     attacking=False,
+                    game=game,
                 ),
-                location=(
+                location=capitalized(
                     f"{ball_space_label(match)}"
                     f" — {zone_labels(match.board.layout.board_size)[match.ball.zone].title()}"
                 ),
@@ -192,7 +216,11 @@ class PresentationMixin:
             filename="maneuver_challenge.png",
         )
 
-    async def build_score_attempt_file(self, match: MatchState) -> discord.File:
+    async def build_score_attempt_file(
+        self,
+        match: MatchState,
+        game: Optional[D12BallGame] = None,
+    ) -> discord.File:
         """
         What the shot is made of: the shooter with the modifiers this
         particular attempt earns them, and every defender between them
@@ -210,7 +238,7 @@ class PresentationMixin:
         """
         shooter = self.engine.get_player_definition(match.active_player_id)
         speed_modifier = match.ball_speed_modifier()
-        defenders = self.engine.intervening_defenders(match)
+        defenders = self.engine.intervening_defenders(match, game)
         defending_setup = match.setup_for_side(match.defending_side())
 
         modifiers = []
@@ -228,6 +256,7 @@ class PresentationMixin:
                     shooter.player_id,
                     match.team_for_player(shooter.player_id),
                     attacking=True,
+                    game=game,
                     modifiers=tuple(modifiers),
                 ),
                 [
@@ -236,11 +265,12 @@ class PresentationMixin:
                         match.team_for_player(defender.player.player_id),
                         attacking=False,
                         contribution=defender.value,
-                        halved=not defender.on_ball,
+                        halved=defender.halved,
+                        game=game,
                     )
                     for defender in defenders
                 ],
-                location=(
+                location=capitalized(
                     f"{ball_space_label(match)}"
                     f" → {format_team_side_label(defending_setup)} goal"
                 ),
@@ -303,6 +333,7 @@ class PresentationMixin:
                         player.name,
                         ignite.blaze,
                         ignite.modifier,
+                        ignite.rule,
                     ),
                     filename="volatile_ignition_die.png",
                 ),
@@ -314,6 +345,7 @@ class PresentationMixin:
         match: MatchState,
         defender_id: str,
         walk_in_text: str,
+        game: Optional[D12BallGame] = None,
     ) -> None:
         """
         Post the matchup image, with the challenger's walk-in above it
@@ -331,7 +363,9 @@ class PresentationMixin:
             )
         await send_new_prompt(
             interaction,
-            file=await self.build_maneuver_challenge_file(match, defender_id),
+            file=await self.build_maneuver_challenge_file(
+                match, defender_id, game,
+            ),
         )
 
     async def drop_turn_prompt(
@@ -385,7 +419,8 @@ class PresentationMixin:
         match: MatchState,
         player_id: str,
         location: Optional[str] = None,
-        show_abilities: bool = False,
+        show_role_abilities: bool = False,
+        show_advanced_abilities: bool = True,
     ) -> str:
         """
         One roster line. `location` is the space the player stands on
@@ -417,7 +452,22 @@ class PresentationMixin:
         entry += f" — {count} {token_emoji}"
         if conditions:
             entry += f" — {', '.join(conditions)}"
-        if show_abilities:
+        # The personal ability, in a game playing them, is on unless the
+        # coach turns it off, where the role's is off unless asked for:
+        # the role's is the same on every roster and the badge already
+        # names it, and a personal ability is the one thing here a coach
+        # cannot read off the badge. It is played beside the role's
+        # (Law 21), so both may show. Not in italics, which is how the
+        # role's reads, and because the sheet's own sentence may carry
+        # markdown of its own (Gearclaw's "*Boost*").
+        personal = (
+            self.engine.personal_ability_text(game, player_id)
+            if show_advanced_abilities
+            else ""
+        )
+        if personal:
+            entry += f"\n     **Personal:** {personal}"
+        if show_role_abilities:
             ability = self.player_catalog.effective_profile(player).ability
             entry += f"\n     *{ability}*"
         return entry
@@ -428,7 +478,8 @@ class PresentationMixin:
         game: D12BallGame,
         match: MatchState,
         setup: TeamSetup,
-        show_abilities: bool = False,
+        show_role_abilities: bool = False,
+        show_advanced_abilities: bool = True,
     ) -> str:
         lines = [f"**{format_team_side_label(setup)}**"]
         for heading, members in self.engine.roster_places(match, setup):
@@ -442,11 +493,75 @@ class PresentationMixin:
                     match,
                     player_id,
                     location=location,
-                    show_abilities=show_abilities,
+                    show_role_abilities=show_role_abilities,
+                    show_advanced_abilities=show_advanced_abilities,
                 )
                 for player_id, location in members
             )
         return "\n".join(lines)
+
+    async def build_role_reference_file(self) -> discord.File:
+        """
+        The role-ability reference card, for
+        `/d12ball role_abilities_reference`: the printed card's one
+        face, since both of its faces are the same image
+        (`render_role_card_set`), in the dark palette a screen gets
+        (`render_role_reference`).
+        """
+        png = await asyncio.to_thread(
+            card_png, render_role_reference,
+            self.player_catalog.role_profiles,
+        )
+        return discord.File(io.BytesIO(png), filename="role_abilities.png")
+
+    async def build_species_reference_file(self) -> discord.File:
+        """
+        The species-ability reference, for
+        `/d12ball species_abilities_reference`: the two faces of the
+        printed set's first card on one image, in the dark palette a
+        screen gets (`render_species_reference`), which between them
+        carry all four abilities once each.
+        """
+        png = await asyncio.to_thread(
+            card_png, render_species_reference, load_species_abilities(),
+        )
+        return discord.File(
+            io.BytesIO(png), filename="species_abilities.png",
+        )
+
+    async def build_team_reference_files(
+        self, game: D12BallGame, team: Team,
+    ) -> list[discord.File]:
+        """
+        A team's printed player cards, one file each, for
+        `/d12ball team_reference`: the advanced face in a game playing
+        the personal abilities and advanced skills, and the front
+        everywhere else -- the front carries the role's ability and
+        skills, which is the whole of a player in training and basic
+        mode. Which face is `personal_abilities_apply`'s answer, not
+        the game's mode read here.
+
+        In catalog order, which is the same whatever has happened on
+        the board, so a coach finds a card in the same place each time.
+        A team is nine players, inside Discord's ten attachments to a
+        message.
+        """
+        render = (
+            render_player_card_back
+            if self.engine.personal_abilities_apply(game)
+            else render_player_card
+        )
+        files = []
+        for player in self.player_catalog.teams[team].players:
+            png = await asyncio.to_thread(
+                card_png, render, self.player_catalog, player, team, False,
+            )
+            files.append(
+                discord.File(
+                    io.BytesIO(png), filename=f"{player.player_id}.png",
+                )
+            )
+        return files
 
 
     async def send_turn_prompt(
@@ -510,6 +625,7 @@ class PresentationMixin:
             title=title,
             species_icons=self.engine.species_abilities_apply(game),
             cyborg_ids=self.engine.cyborg_condition_ids(game, match),
+            card_skills=self.engine.card_skills(game, match),
         )
         return image.getvalue()
 

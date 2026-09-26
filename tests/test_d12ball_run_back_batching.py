@@ -94,6 +94,8 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             game_id="g",
             game_number=1,
             is_solo_game=True,
+            # The record's one reading of which seat the AI plays.
+            ai_holds=lambda number: number == 2,
             ai_opponent=AIOpponent.DINKY,
             home_player_number=1,
             visiting_player_number=2,
@@ -105,9 +107,9 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             turn_message_id=None,
             # A run back charges exhaustion, and the Exhausted
             # threshold is now a question about which modules the game
-            # is playing -- basic here, so it is every player's own
+            # is playing -- training here, so it is every player's own
             # defensive skill.
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,
         )
@@ -349,9 +351,13 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             # The sentence above the buttons prices every space it
             # offers, in the prose form -- "M2 (1 space away)". The
             # buttons carry travel_space_label's shorter version of the
-            # same distance; see travel_space_phrase.
+            # same distance; see travel_space_phrase. Case aside: the
+            # first offer opens the sentence, so it is capitalised.
             self.assertIn(
-                travel_space_phrase(zone, space_index, distance), prompt,
+                travel_space_phrase(
+                    zone, space_index, distance, match.board,
+                ).lower(),
+                prompt.lower(),
             )
             # Not a label that says nothing: they are standing on M1,
             # so every space they can be sent to is a real walk.
@@ -451,7 +457,9 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
             match_state=match.to_dict(),
             game_id="g",
             is_solo_game=True,
-            mode=GameMode.BASIC,
+            # The record's one reading of which seat the AI plays.
+            ai_holds=lambda number: number == 2,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,
         )
@@ -521,7 +529,7 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
             game_number=1,
             home_player_number=1,
             visiting_player_number=2,
-            mode=GameMode.BASIC,
+            mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,
         )

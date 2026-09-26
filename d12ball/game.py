@@ -109,6 +109,20 @@ def team_display_name(team: Team) -> str:
 
 
 class GameMode(str, Enum):
+    """
+    The three modes a game is played in (2026-09-25): **training**, the
+    game with no ability of any kind (Part I of the Charter alone);
+    **basic**, which adds the species abilities; and **advanced**, which
+    adds the gambits and the players' individual abilities on top. See
+    "Modes" in docs/design/species-abilities.md.
+
+    `basic` is the value every save made before training mode existed
+    carries, and it now means the game with species abilities -- the
+    value was kept rather than renamed (CLAUDE.md: don't rename saved
+    keys), so an unfinished basic game plays on as a basic game.
+    """
+
+    TRAINING = "training"
     BASIC = "basic"
     ADVANCED = "advanced"
 
@@ -169,22 +183,11 @@ class CoinFace(str, Enum):
 #: game down with it.
 VALID_BOARD_SIZES = {7, 9}
 
-# The two halves of advanced mode, by the key a button carries:
-# the field on `D12BallGame` it toggles, and its name on the button. Both
-# the setup settings block and the lobby build their buttons out of it
-# and toggle through `D12BallGame.toggle_advanced_module`, so the two
-# screens cannot come to offer different modules or disagree about
-# which of them may be turned off.
-ADVANCED_MODULES: dict[str, tuple[str, str]] = {
-    "maneuvers": ("advanced_maneuvers", "Gambits"),
-    "species": ("species_abilities", "Species"),
-}
-
 #: What `D12BallGame.configure` may be asked to set. The lobby and the
 #: setup settings block each offer a subset; the record refuses the
 #: rest by its state (a game past its lobby has no Test game toggle),
 #: never by which screen asked.
-GAME_SETTINGS = ("mode", "module", "board", "ai", "test", "tutorial", "name")
+GAME_SETTINGS = ("mode", "board", "ai", "test", "tutorial", "name")
 
 #: What a lobby refuses once Start Game has been pressed.
 LOBBY_CLOSED = "This lobby is no longer open."
@@ -210,7 +213,10 @@ class D12BallGame:
     message_id: Optional[int] = field(default=None, kw_only=True)
 
     # Players
-    player_1_id: int
+    # `player_1_id` is None only in a web room whose first seat has been
+    # left (`vacate_seat`); nothing else writes it, so every save made
+    # before the rooms reads back with an id here.
+    player_1_id: Optional[int]
     player_2_id: Optional[int]
     # None means Player 2 is controlled by the AI.
 
@@ -270,19 +276,14 @@ class D12BallGame:
     status: GameStatus = GameStatus.SETUP
     board_size: int = 7
 
-    # The two modules advanced mode turns on -- the gambits
-    # and the species abilities. "Turning it on brings both; a game may
-    # take just one of the two" (the author, PR #177 review), so these
-    # are opt-*outs* rather than opt-ins: both default True and mean
-    # nothing at all in a basic game, where `mode` is the whole answer.
-    #
-    # That is why they are two bools rather than a third GameMode value
-    # or a set of enabled modules. A game is basic or advanced -- one
-    # switch, which is what a coach picks in the lobby and what every
-    # existing save carries -- and these two say what an advanced game
-    # left behind. Defaulting True is what makes a game saved before
-    # them (and every advanced game played so far) read as both modules
-    # on, which is what those games actually were.
+    # Two opt-outs advanced mode carried until 2026-09-25, when it was
+    # one switch over two modules (the gambits and the species
+    # abilities) and a game could drop either. The modes became three
+    # that day and species abilities moved into basic, so the toggles
+    # went; nothing sets these to False any more. They stay on the
+    # record because they are saved fields (CLAUDE.md: legacy fallbacks
+    # stay) and an advanced game started with one module off plays on
+    # as it was started.
     #
     # Nothing may read either of these directly to decide a rule:
     # `RulesEngine.gambits_apply` and
@@ -351,6 +352,18 @@ class D12BallGame:
     rematch_message_id: Optional[int] = None
     rematch_game_id: Optional[str] = None
 
+    # Which seats an AI holds, where the record says so outright -- a
+    # web room's, whose seats change hands (`seat_ai`, `take_seat`, ...;
+    # see "Seats" below). `None` is every game made before the rooms,
+    # and every Discord game: the AI holds seat 2 exactly when
+    # `player_2_id` is None, as it always has. With a list, a seat with
+    # no id is the AI's if it is listed and **empty** if it is not --
+    # the third state the old reading has no way to say, and the reason
+    # this field exists. Left out of `to_dict` while None, so a save
+    # that never had a room is written exactly as it was, and a checkout
+    # older than the field still reads every Discord save.
+    ai_seats: Optional[list[int]] = None
+
     def __post_init__(self) -> None:
         if self.player_1_team is not None:
             self.player_1_team = Team(self.player_1_team)
@@ -363,6 +376,11 @@ class D12BallGame:
 
         if self.ai_opponent is not None:
             self.ai_opponent = AIOpponent(self.ai_opponent)
+
+        if self.ai_seats is not None:
+            self.ai_seats = sorted({int(seat) for seat in self.ai_seats})
+            if not set(self.ai_seats) <= {1, 2}:
+                raise ValueError("An AI seat is 1 or 2.")
 
         if self.coin_face is not None:
             self.coin_face = CoinFace(self.coin_face)
@@ -437,9 +455,31 @@ class D12BallGame:
     @property
     def is_solo_game(self) -> bool:
         """
-        True when Player 2 is controlled by the AI.
+        True when an AI plays a side. Before the rooms that was always
+        Player 2 (`player_2_id` is None); a web room may seat Dinky in
+        either seat, which `ai_holds` answers.
         """
-        return self.player_2_id is None
+        return self.ai_holds(1) or self.ai_holds(2)
+
+    def ai_holds(self, player_number: Optional[int]) -> bool:
+        """
+        Whether the AI plays seat `player_number` -- the one reading
+        of it, which `RulesEngine.side_is_ai` asks for a side. Without
+        `ai_seats` it is the old one, the AI in seat 2 where nobody is.
+        """
+        if player_number == 1:
+            if self.ai_seats is None:
+                return False
+            return self.player_1_id is None and 1 in self.ai_seats
+        if player_number == 2:
+            if self.ai_seats is None:
+                return self.player_2_id is None
+            return self.player_2_id is None and 2 in self.ai_seats
+        return False
+
+    def ai_player_numbers(self) -> tuple[int, ...]:
+        """The seats the AI plays, in order."""
+        return tuple(number for number in (1, 2) if self.ai_holds(number))
 
     @property
     def in_tutorial(self) -> bool:
@@ -551,28 +591,167 @@ class D12BallGame:
         self.player_2_id = None
         self.player_2_name = None
 
-    def toggle_advanced_module(self, key: str) -> None:
-        """
-        Turn one half of advanced mode off or back on.
+    # -- Seats ----------------------------------------------------------
+    #
+    # A web room's moves (decision 1 of docs/web-app-next.md): a seat
+    # changes hands at any time, before kickoff or during the game, and
+    # the other seat never moves. A seat is held by a person (an id), by
+    # the AI, or by nobody -- and an empty seat is not the AI's: the
+    # side waits for whoever takes it. The lobby's own moves above stay
+    # as they are -- the Discord lobby depends on the creator's seat
+    # shifting and on the moves closing at start.
+    #
+    # Safe mid-game because everything the match keeps about a side is
+    # by player *number* (`home_player_number`,
+    # `coin_winner_player_number`), never by id: a new person, or the
+    # AI, in a seat is the same side, with the same position and the
+    # same question.
+    #
+    # Every move writes `ai_seats` out in full, so from the first move a
+    # room's record says which seats are the AI's rather than leaving it
+    # to the old reading (see the field).
 
-        Both halves off is a basic game reached the long way round, and
-        the mode buttons are right there -- so the last one still on is
-        refused rather than quietly leaving a coach in an advanced game
-        with nothing advanced in it.
-        """
-        field_name, _ = ADVANCED_MODULES[key]
-        turning_off = getattr(self, field_name)
-        others_on = any(
-            getattr(self, other)
-            for other_key, (other, _) in ADVANCED_MODULES.items()
-            if other_key != key
-        )
-        if turning_off and not others_on:
+    def _ai_seat_set(self) -> set[int]:
+        """The seats the AI holds, as a seat move reads them: the old
+        reading outside a lobby, and nobody's in one (a lobby's empty
+        seat 2 is waiting for a person, not the AI)."""
+        if self.ai_seats is not None:
+            return set(self.ai_seats)
+        if self.player_2_id is None and not self.in_lobby and not self.test_game:
+            return {2}
+        return set()
+
+    def _seat_id(self, seat: int) -> Optional[int]:
+        return self.player_1_id if seat == 1 else self.player_2_id
+
+    def _one_player(self) -> bool:
+        return self.test_game or self.tutorial
+
+    def seat_is_free(self, seat: int) -> bool:
+        """Whether nobody holds `seat`, person or AI, and somebody may
+        take it. Seat 2 is nobody's in a one-player game."""
+        if seat not in (1, 2):
+            raise ValueError(f"not a seat: {seat!r}")
+        if self._seat_id(seat) is not None or seat in self._ai_seat_set():
+            return False
+        return not (seat == 2 and self._one_player())
+
+    def _refuse_taken(self, seat: int) -> None:
+        """Why `seat` cannot be taken, as the record says it."""
+        if seat == 2 and self._one_player():
             raise RuleRefusal(
-                "An advanced game plays at least one of its two modules. "
-                "Pick Basic if you want neither."
+                "This is a one-player game, so there is no second "
+                "seat to take."
             )
-        setattr(self, field_name, not turning_off)
+        if self._seat_id(seat) is None:
+            raise RuleRefusal(
+                "The AI holds that seat -- an admin can kick it first."
+            )
+        raise RuleRefusal("That seat is held by somebody else.")
+
+    def take_seat(
+        self,
+        user_id: int,
+        user_name: Optional[str],
+        seat: Optional[int] = None,
+    ) -> None:
+        """
+        Sit `user_id` in `seat`, or in the first free one. Refused when
+        both are held, when the seat named is somebody else's (or the
+        AI's, or a one-player game's second), or when the person
+        already holds a seat. A person in the second seat settles the
+        opponent, so an AI pick left over with no AI seat is cleared,
+        as `lobby_join` clears it.
+        """
+        if seat not in (None, 1, 2):
+            raise ValueError(f"not a seat: {seat!r}")
+        if user_id in (self.player_1_id, self.player_2_id):
+            raise RuleRefusal("You already hold a seat in this game.")
+        if seat is None:
+            seat = next(
+                (one for one in (1, 2) if self.seat_is_free(one)), None,
+            )
+            if seat is None:
+                raise RuleRefusal(
+                    "Both seats are taken. You can still watch."
+                )
+        elif not self.seat_is_free(seat):
+            self._refuse_taken(seat)
+
+        ai = self._ai_seat_set()
+        if seat == 1:
+            self.player_1_id = user_id
+            self.player_1_name = user_name
+        else:
+            self.player_2_id = user_id
+            self.player_2_name = user_name
+            if not ai:
+                self.ai_opponent = None
+        self.ai_seats = sorted(ai)
+        if user_id in self.observer_ids:
+            self.observer_ids.remove(user_id)
+
+    def vacate_seat(self, user_id: int) -> None:
+        """
+        Empty whichever seat `user_id` holds, leaving the other where
+        it is -- and leaving it *empty*, not the AI's: the side waits
+        for whoever takes it next. Refused when they hold none, and
+        outside the lobby for a test game's one coach, who holds both.
+        """
+        if user_id is None or user_id not in (
+            self.player_1_id, self.player_2_id,
+        ):
+            raise RuleRefusal("You do not hold a seat in this game.")
+        if self.test_game and not self.in_lobby:
+            raise RuleRefusal(
+                "This is a test game and you play both sides, so its "
+                "seats cannot be left."
+            )
+        ai = self._ai_seat_set()
+        if user_id == self.player_1_id:
+            self.player_1_id = None
+            self.player_1_name = None
+        else:
+            self.player_2_id = None
+            self.player_2_name = None
+        self.ai_seats = sorted(ai)
+
+    def seat_ai(self, seat: int) -> None:
+        """
+        Put the AI (Dinky, unless another was picked) in an empty
+        seat. Refused for a seat somebody holds, for one the AI holds
+        already, for the AI on both sides, and in a one-player game,
+        whose sides are settled by what it is.
+        """
+        if seat not in (1, 2):
+            raise ValueError(f"not a seat: {seat!r}")
+        if self._one_player():
+            raise RuleRefusal(
+                "This is a one-player game; its sides are already settled."
+            )
+        ai = self._ai_seat_set()
+        if seat in ai:
+            raise RuleRefusal("The AI already holds that seat.")
+        if self._seat_id(seat) is not None:
+            raise RuleRefusal("That seat is held by somebody else.")
+        if ai:
+            raise RuleRefusal("The AI cannot play both sides.")
+        self.ai_seats = sorted(ai | {seat})
+        self.ai_opponent = self.ai_opponent or AIOpponent.DINKY
+
+    def unseat_ai(self, seat: int) -> None:
+        """Take the AI out of `seat` and leave it empty, for a person
+        to take -- before the game or during it."""
+        if seat not in (1, 2):
+            raise ValueError(f"not a seat: {seat!r}")
+        ai = self._ai_seat_set()
+        if seat not in ai or self._seat_id(seat) is not None:
+            raise RuleRefusal("The AI does not hold that seat.")
+        if self._one_player():
+            raise RuleRefusal(
+                "This is a one-player game; its sides are already settled."
+            )
+        self.ai_seats = sorted(ai - {seat})
 
     def configure(self, setting: str, value: object = None) -> None:
         """
@@ -581,16 +760,13 @@ class D12BallGame:
         A value arrives as the enum or as its wire string, whichever
         the frontend holds; one the record cannot read is a bug in the
         frontend and raises as one, where a rule about *this* game --
-        the tutorial pins Basic on a 7-space board, a joined lobby has
-        no Test game toggle, the last module on stays on -- is refused
-        with the sentence to show.
+        the tutorial pins Training on a 7-space board, a joined lobby
+        has no Test game toggle -- is refused with the sentence to
+        show.
 
-        `mode`, `module`, `board` and `ai` are open for the whole of
-        setup; `test`, `tutorial` and `name` only in the lobby, since
-        each is settled by Start Game. **Advanced mode is one switch
-        over two modules** and picking it brings both; the two are
-        left as they were when the mode goes back to Basic, so a
-        mis-click on the mode does not undo them. Advanced mode's
+        `mode`, `board` and `ai` are open for the whole of setup;
+        `test`, `tutorial` and `name` only in the lobby, since each is
+        settled by Start Game. Advanced mode's
         extra maneuvers want the room a nine-space board gives them,
         so picking it defaults the board to 9 -- a coach may still
         pick 6 or 7 afterwards.
@@ -617,11 +793,11 @@ class D12BallGame:
                 self.tutorial = not self.tutorial
                 if self.tutorial:
                     # One person against Dinky, and the script is
-                    # written for Basic on a 7-space board -- see
+                    # written for Training on a 7-space board -- see
                     # d12ball/tutorial.py.
                     self.test_game = False
                     self.ai_opponent = AIOpponent.DINKY
-                    self.mode = GameMode.BASIC
+                    self.mode = GameMode.TRAINING
                     self.board_size = 7
         elif setting == "name":
             self.require_lobby()
@@ -629,14 +805,12 @@ class D12BallGame:
         elif setting == "mode":
             if self.tutorial:
                 raise RuleRefusal(
-                    "The tutorial is a Basic-mode game. Turn Tutorial off "
-                    "to change the mode."
+                    "The tutorial is a Training-mode game. Turn Tutorial "
+                    "off to change the mode."
                 )
             self.mode = GameMode(value)
             if self.mode == GameMode.ADVANCED:
                 self.board_size = 9
-        elif setting == "module":
-            self.toggle_advanced_module(str(value))
         elif setting == "board":
             if self.tutorial:
                 raise RuleRefusal(
@@ -674,11 +848,30 @@ class D12BallGame:
         a solo game against Dinky.
         """
         self.require_lobby()
+        if self.ai_seats is not None:
+            # A web room says who holds each seat outright: an empty
+            # one waits for somebody rather than falling to Dinky.
+            ai = set(self.ai_seats)
+            if self.tutorial and self.player_2_id is None:
+                ai.add(2)
+            for seat in (1, 2):
+                if seat == 2 and self.test_game:
+                    continue
+                if self._seat_id(seat) is None and seat not in ai:
+                    raise RuleRefusal(
+                        f"Seat {seat} is empty -- somebody has to take "
+                        "it, or put the AI in it, to start."
+                    )
+            self.ai_seats = sorted(ai)
+            if ai:
+                self.ai_opponent = self.ai_opponent or AIOpponent.DINKY
         if self.test_game:
             self.player_2_id = self.player_1_id
             self.player_2_name = self.player_1_name
             self.ai_opponent = None
-        elif self.tutorial or self.player_2_id is None:
+        elif self.ai_seats is None and (
+            self.tutorial or self.player_2_id is None
+        ):
             self.ai_opponent = self.ai_opponent or AIOpponent.DINKY
         self.in_lobby = False
 
@@ -917,9 +1110,14 @@ class D12BallGame:
 
     def to_dict(self) -> dict:
         """
-        Convert the game into JSON-friendly data.
+        Convert the game into JSON-friendly data. `ai_seats` is left
+        out while it is None, so a game no room ever touched is saved
+        exactly as it was before the field.
         """
-        return asdict(self)
+        data = asdict(self)
+        if data.get("ai_seats") is None:
+            data.pop("ai_seats", None)
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "D12BallGame":

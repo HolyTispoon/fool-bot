@@ -50,7 +50,7 @@ class SkillTestView(SafeView):
         options = self.prompt_options(game, match, PromptKind.SKILL_TEST)
         if options is not None:
             self.add_overdrive_buttons(
-                game, match, options.overdrive_player_ids,
+                game, match, options,
             )
 
     async def roll(self, interaction: discord.Interaction) -> None:
@@ -174,8 +174,15 @@ class InjuryTestView(SafeView):
         self.game_id = game_id
         self.player_id = player_id
 
+        # A Cyborg's is a damage test; the name is the model's.
+        game, match = self.load_match()
+        test_name = (
+            cog.engine.injury_test_name(game, player_id)
+            if game is not None
+            else "injury test"
+        )
         button = discord.ui.Button(
-            label="Roll the injury test",
+            label=f"Roll the {test_name}",
             style=discord.ButtonStyle.primary,
             custom_id=f"d12ball:injury_test:{game_id}:{player_id}",
         )
@@ -186,11 +193,10 @@ class InjuryTestView(SafeView):
         # themselves rolls" -- which is the one roll where spending
         # drain to pass is also three more drain to have passed with.
         # That trade is the coach's to make.
-        game, match = self.load_match()
         options = self.prompt_options(game, match, PromptKind.INJURY_TEST)
         if options is not None:
             self.add_overdrive_buttons(
-                game, match, options.overdrive_player_ids,
+                game, match, options,
             )
 
     async def roll(self, interaction: discord.Interaction) -> None:
@@ -200,7 +206,8 @@ class InjuryTestView(SafeView):
 
         if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
-                "Only a player in this game can roll the injury test.",
+                "Only a player in this game can roll the "
+                f"{self.cog.engine.injury_test_name(game, self.player_id)}.",
                 ephemeral=True,
             )
             return
@@ -258,7 +265,7 @@ class OwnGoalRollView(SafeView):
         options = self.prompt_options(game, match, PromptKind.OWN_GOAL_ROLL)
         if options is not None:
             self.add_overdrive_buttons(
-                game, match, options.overdrive_player_ids,
+                game, match, options,
             )
 
     async def roll(self, interaction: discord.Interaction) -> None:
@@ -320,7 +327,7 @@ class ScoreAttemptView(SafeView):
         options = self.prompt_options(game, match, PromptKind.SCORE_ATTEMPT)
         if options is not None:
             self.add_overdrive_buttons(
-                game, match, options.overdrive_player_ids,
+                game, match, options,
             )
 
         # A shot not yet rolled always has somewhere to walk back to,

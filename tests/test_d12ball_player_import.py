@@ -12,10 +12,10 @@ Striker's sentence carries one and the Midfielder's, which also starts
 "+3", does not. So every ability column is stripped rather than the
 ones somebody has checked.
 
-And the player cards sheet's `Basic` and `Advanced` cells are what the
-card prints -- the role's initials, then the ability -- built by
-formula from the abilities sheets, so they are checked against those
-sheets rather than read as the ability (the author, 2026-09-22).
+The player cards sheet is the roster and the scores -- who is on which
+team, in which role, with which basic and advanced scores -- and its
+ability columns are the card's rendering of the abilities sheets, so
+they are neither read nor checked (the author, 2026-09-24).
 
 See scripts/import_d12ball_players.py, and "The rules" in docs/design/rules-and-data.md for
 where the sheets live.
@@ -122,17 +122,6 @@ class AbilitiesSheetTests(unittest.TestCase):
             "Steals the ball when resolving Pressure.",
         )
         self.assertEqual(abilities["defender"].short, "Steals when pressures")
-        self.assertEqual(abilities["defender"].initials, "DD")
-
-    def test_a_role_without_initials_is_an_error(self) -> None:
-        # The initials are what the card prints in front of the
-        # ability, and the cards sheet is checked against them.
-        blank = ABILITIES_CSV.replace("Defender,DD,", "Defender,,")
-
-        with self.assertRaises(ValueError) as caught:
-            read_abilities(blank)
-
-        self.assertIn("Initials", str(caught.exception))
 
     def test_the_formula_escape_is_not_part_of_the_ability(self) -> None:
         abilities = read_abilities()
@@ -241,11 +230,10 @@ def build_roster_rows(species_forms, card_columns=False):
     (`{slug(name)}_{role}`), rather than hand-encoded here, so this
     fixture cannot drift from the scheme it is testing.
 
-    With `card_columns`, each row carries the sheet's card wording of
-    its abilities -- `Basic` as `DD: <ability>`, `Advanced` as `DD.`
-    on a line of its own with nothing under it, `OskillA`/`DskillA` as
-    the basic score -- which is what the sheet's formulas fill in for
-    a player with no advanced data.
+    `OskillA`/`DskillA` show the basic score, the way the sheet does
+    for a player with no advanced one. With `card_columns`, each row
+    also carries the card's wording of its abilities -- `Basic` and
+    `Advanced` -- saying something else, which the importer ignores.
     """
     role_counts = (
         ("fullback", 1), ("defender", 2), ("midfielder", 1),
@@ -265,14 +253,12 @@ def build_roster_rows(species_forms, card_columns=False):
                     "Role": role,
                     "Oskill": "3",
                     "Dskill": "3",
-                    "Basic": "",
+                    "OskillA": "3",
+                    "DskillA": "3",
                 }
                 if card_columns:
-                    initials = ROLE_ABILITIES[role].initials
-                    row["Basic"] = f"{initials}: {role} ability."
-                    row["Advanced"] = f"{initials}. \n"
-                    row["OskillA"] = "3"
-                    row["DskillA"] = "3"
+                    row["Basic"] = f"XX: not the {role} ability."
+                    row["Advanced"] = "XX. \nNot the advanced ability."
                 rows.append(row)
                 index += 1
     return rows
@@ -282,13 +268,13 @@ ROLE_ABILITIES = {
     role: importer.RoleAbility(
         text=f"{role} ability.",
         short=f"{role} short",
-        initials=role[:2].upper(),
     )
     for role in importer.EXPECTED_ROLE_COUNTS
 }
 
-# The advanced sheet as it is filled today: most rows blank, an
-# ability without scores, and a fullback whose scores are 0 and 8.
+# The advanced sheet as it is filled today: most rows blank, and the
+# score columns it still carries, which the importer does not read --
+# the advanced scores are the player cards sheet's.
 ADVANCED_CSV = (
     "player_id,Name,Role,Advanced,OskillA,DskillA\r\n"
     "orange_fullback0_fullback,orange_fullback0,Fullback,High defensive "
@@ -300,6 +286,12 @@ ADVANCED_CSV = (
     "orange_striker0_striker,orange_striker0,Striker,,,4\r\n"
     "teal_defender1_defender,teal_defender1,Defender,,,\r\n"
 )
+
+
+def set_advanced_scores(rows, player_id, offense, defense):
+    row = next(row for row in rows if row["player_id"] == player_id)
+    row["OskillA"] = offense
+    row["DskillA"] = defense
 
 
 def read_advanced(text: str = ADVANCED_CSV):
@@ -427,160 +419,90 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class CardWordingTests(unittest.TestCase):
+class CardColumnsTests(unittest.TestCase):
     """
-    The player cards sheet's `Basic` is what the card prints -- the
-    role's initials, then the ability -- and is linked to the abilities
-    sheet by formula rather than being a second copy of the ability.
-    The importer reads the ability from the abilities sheet and checks
-    the card against it.
+    The player cards sheet's `Basic` and `Advanced` are what the card
+    prints. The abilities sheets are the source of truth, so the card's
+    copies are ignored -- a card that says something else is not an
+    error and does not reach the output.
     """
 
-    def test_the_initials_are_split_off_the_card_wording(self) -> None:
-        self.assertEqual(
-            importer.card_basic_parts(
-                "DD: Steals the ball when resolving Pressure."
-            ),
-            ("DD", "Steals the ball when resolving Pressure."),
-        )
-
-    def test_the_escape_after_the_initials_is_stripped(self) -> None:
-        # The sheet's escape survives the formula, so it sits after
-        # the prefix on the card cell and is still not the ability.
-        self.assertEqual(
-            importer.card_basic_parts("MF: `+3 on skill tests."),
-            ("MF", "+3 on skill tests."),
-        )
-
-    def test_an_ability_may_carry_its_own_colon(self) -> None:
-        # Only the first prefix is the initials.
-        self.assertEqual(
-            importer.card_basic_parts("FB: Deflect/High Pass: +1 distance."),
-            ("FB", "Deflect/High Pass: +1 distance."),
-        )
-
-    def test_a_cell_without_the_prefix_is_all_ability(self) -> None:
-        self.assertEqual(
-            importer.card_basic_parts("Steals the ball."),
-            ("", "Steals the ball."),
-        )
-
-    def test_the_advanced_cell_is_initials_then_the_ability(self) -> None:
-        self.assertEqual(
-            importer.card_advanced_parts("DD. \nAlways Blazes (no burn)."),
-            ("DD", "Always Blazes (no burn)."),
-        )
-        self.assertEqual(importer.card_advanced_parts("WG. \n"), ("WG", ""))
-        self.assertEqual(
-            importer.card_advanced_parts("MF. \n`+3 for Mind Pull. "),
-            ("MF", "+3 for Mind Pull."),
-        )
-
-    def test_a_card_that_matches_its_ability_imports(self) -> None:
+    def test_the_card_ability_columns_are_ignored(self) -> None:
         rows = build_roster_rows(
             ["Fire Demon", "Cyborg", "Telekinetic", "Ooze"],
             card_columns=True,
         )
 
-        output = import_roster(rows)
+        output = import_roster(rows, advanced=read_advanced())
 
         self.assertEqual(
             output["role_profiles"]["defender"]["ability"],
             "defender ability.",
         )
-
-    def test_a_card_that_says_something_else_is_rejected(self) -> None:
-        rows = build_roster_rows(
-            ["Fire Demon", "Cyborg", "Telekinetic", "Ooze"],
-            card_columns=True,
+        self.assertEqual(
+            output["players"]["orange_defender0_defender"]["advanced_ability"],
+            "Always Blazes (no burn).",
         )
-        rows[1]["Basic"] = "DE: defender ability, reworded."
-
-        with self.assertRaises(ValueError) as caught:
-            import_roster(rows)
-
-        self.assertIn("Basic ability does not match", str(caught.exception))
 
 
 class AdvancedSheetTests(unittest.TestCase):
-    def test_a_row_is_only_what_it_fills_in(self) -> None:
+    def test_a_row_is_its_ability(self) -> None:
         advanced = read_advanced()
 
         self.assertEqual(
-            advanced["orange_fullback0_fullback"],
-            importer.AdvancedProfile(
-                ability="High defensive skill.",
-                skills={"offense": 0, "defense": 8},
-            ),
+            advanced["orange_fullback0_fullback"], "High defensive skill.",
         )
         self.assertEqual(
-            advanced["orange_defender0_defender"],
-            importer.AdvancedProfile(
-                ability="Always Blazes (no burn).", skills={},
-            ),
+            advanced["orange_defender0_defender"], "Always Blazes (no burn).",
         )
-        # A score on its own, and a blank row: neither is defaulted.
-        self.assertEqual(
-            advanced["orange_striker0_striker"],
-            importer.AdvancedProfile(ability="", skills={"defense": 4}),
-        )
-        self.assertEqual(
-            advanced["teal_defender1_defender"],
-            importer.AdvancedProfile(ability="", skills={}),
-        )
+        self.assertEqual(advanced["teal_defender1_defender"], "")
 
     def test_the_escape_and_the_padding_are_not_the_ability(self) -> None:
         advanced = read_advanced()
 
         self.assertEqual(
-            advanced["orange_midfielder0_midfielder"].ability,
-            "+3 for Mind Pull.",
+            advanced["orange_midfielder0_midfielder"], "+3 for Mind Pull.",
         )
 
-    def test_a_score_must_be_a_whole_number(self) -> None:
-        bad = ADVANCED_CSV.replace("skill.,0,8", "skill.,high,8")
+    def test_the_score_columns_are_not_required(self) -> None:
+        advanced = read_advanced(
+            "player_id,Advanced\r\n"
+            "orange_fullback0_fullback,High defensive skill.\r\n"
+        )
+
+        self.assertEqual(
+            advanced, {"orange_fullback0_fullback": "High defensive skill."},
+        )
+
+    def test_an_advanced_row_for_an_unknown_player_is_rejected(self) -> None:
+        rows = build_roster_rows(["Fire Demon", "Cyborg", "Telekinetic", "Ooze"])
+        advanced = read_advanced(
+            "player_id,Advanced\r\n"
+            "nobody_striker,Scores from anywhere.\r\n"
+        )
 
         with self.assertRaises(ValueError) as caught:
-            read_advanced(bad)
+            import_roster(rows, advanced=advanced)
 
-        self.assertIn("OskillA", str(caught.exception))
+        self.assertIn("nobody_striker", str(caught.exception))
 
-    def test_a_score_may_not_be_negative(self) -> None:
-        bad = ADVANCED_CSV.replace("skill.,0,8", "skill.,-1,8")
 
-        with self.assertRaises(ValueError) as caught:
-            read_advanced(bad)
-
-        self.assertIn("OskillA", str(caught.exception))
+class AdvancedScoresTests(unittest.TestCase):
+    """
+    The advanced scores are the player cards sheet's `OskillA` and
+    `DskillA`. The sheet shows the basic score where there is no
+    advanced one, and `players.json` keeps only the scores that differ.
+    """
 
     def _rows(self):
         return build_roster_rows(
             ["Fire Demon", "Cyborg", "Telekinetic", "Ooze"],
-            card_columns=True,
         )
-
-    def _card_advanced(self, rows, player_id, ability, offense, defense):
-        row = next(row for row in rows if row["player_id"] == player_id)
-        initials = ROLE_ABILITIES[row["Role"]].initials
-        row["Advanced"] = f"{initials}. \n{ability}"
-        row["OskillA"] = offense
-        row["DskillA"] = defense
 
     def test_the_advanced_data_is_written_per_player(self) -> None:
         rows = self._rows()
-        self._card_advanced(
-            rows, "orange_fullback0_fullback", "High defensive skill.",
-            "0", "8",
-        )
-        self._card_advanced(
-            rows, "orange_defender0_defender", "Always Blazes (no burn).",
-            "3", "3",
-        )
-        self._card_advanced(
-            rows, "orange_midfielder0_midfielder", "`+3 for Mind Pull. ",
-            "3", "3",
-        )
-        self._card_advanced(rows, "orange_striker0_striker", "", "3", "4")
+        set_advanced_scores(rows, "orange_fullback0_fullback", "0", "8")
+        set_advanced_scores(rows, "orange_striker0_striker", "3", "4")
 
         output = import_roster(rows, advanced=read_advanced())
 
@@ -610,98 +532,44 @@ class AdvancedSheetTests(unittest.TestCase):
                 self.assertEqual(players[player_id]["advanced_skills"], {})
         self.assertEqual(output["advanced_source"], "advanced-test")
 
-    def test_a_stale_advanced_copy_on_the_card_is_rejected(self) -> None:
-        rows = self._rows()
-        self._card_advanced(
-            rows, "orange_fullback0_fullback", "High defensive skill.",
-            "0", "8",
-        )
-        self._card_advanced(
-            rows, "orange_defender0_defender", "Always blazes.", "3", "3",
-        )
-        self._card_advanced(
-            rows, "orange_midfielder0_midfielder", "`+3 for Mind Pull. ",
-            "3", "3",
-        )
-        self._card_advanced(rows, "orange_striker0_striker", "", "3", "4")
-
-        with self.assertRaises(ValueError) as caught:
-            import_roster(rows, advanced=read_advanced())
-
-        self.assertIn("orange_defender0_defender", str(caught.exception))
-        self.assertIn("Advanced ability", str(caught.exception))
-
-    def test_a_stale_advanced_score_on_the_card_is_rejected(self) -> None:
-        rows = self._rows()
-        self._card_advanced(
-            rows, "orange_fullback0_fullback", "High defensive skill.",
-            "1", "8",
-        )
-        self._card_advanced(
-            rows, "orange_defender0_defender", "Always Blazes (no burn).",
-            "3", "3",
-        )
-        self._card_advanced(
-            rows, "orange_midfielder0_midfielder", "`+3 for Mind Pull. ",
-            "3", "3",
-        )
-        self._card_advanced(rows, "orange_striker0_striker", "", "3", "4")
-
-        with self.assertRaises(ValueError) as caught:
-            import_roster(rows, advanced=read_advanced())
-
-        self.assertIn("orange_fullback0_fullback", str(caught.exception))
-        self.assertIn("OskillA", str(caught.exception))
-
-    def test_a_card_showing_the_basic_score_for_a_player_with_an_advanced_one_is_stale(
-        self,
-    ) -> None:
-        # The card's OskillA falls back to the basic score only where
-        # the advanced sheet gives none; showing the basic 3 for a
-        # player the sheet scores 0 is a copy that has not caught up.
-        rows = self._rows()
-        self._card_advanced(
-            rows, "orange_fullback0_fullback", "High defensive skill.",
-            "3", "8",
-        )
-        self._card_advanced(
-            rows, "orange_defender0_defender", "Always Blazes (no burn).",
-            "3", "3",
-        )
-        self._card_advanced(
-            rows, "orange_midfielder0_midfielder", "`+3 for Mind Pull. ",
-            "3", "3",
-        )
-        self._card_advanced(rows, "orange_striker0_striker", "", "3", "4")
-
-        with self.assertRaises(ValueError):
-            import_roster(rows, advanced=read_advanced())
-
-    def test_an_advanced_row_for_an_unknown_player_is_rejected(self) -> None:
-        rows = self._rows()
-        advanced = read_advanced(
-            "player_id,Advanced,OskillA,DskillA\r\n"
-            "nobody_striker,Scores from anywhere.,,\r\n"
-        )
-
-        with self.assertRaises(ValueError) as caught:
-            import_roster(rows, advanced=advanced)
-
-        self.assertIn("nobody_striker", str(caught.exception))
-
-    def test_a_card_without_the_advanced_columns_is_not_checked(self) -> None:
-        # The columns are the card's copies; a cards sheet without them
-        # has nothing to be stale.
-        rows = build_roster_rows(
-            ["Fire Demon", "Cyborg", "Telekinetic", "Ooze"]
-        )
-
-        output = import_roster(rows, advanced=read_advanced())
+    def test_the_advanced_sheet_scores_are_not_read(self) -> None:
+        # ADVANCED_CSV gives the fullback 0 and 8; the player cards
+        # sheet, which is the one read, gives the basic 3 and 3.
+        output = import_roster(self._rows(), advanced=read_advanced())
 
         self.assertEqual(
             output["players"]["orange_fullback0_fullback"]["advanced_skills"],
-            {"offense": 0, "defense": 8},
+            {},
         )
+
+    def test_a_blank_score_is_the_basic_score(self) -> None:
+        rows = self._rows()
+        set_advanced_scores(rows, "orange_fullback0_fullback", "", "8")
+
+        output = import_roster(rows)
+
+        self.assertEqual(
+            output["players"]["orange_fullback0_fullback"]["advanced_skills"],
+            {"defense": 8},
+        )
+
+    def test_a_score_must_be_a_whole_number(self) -> None:
+        rows = self._rows()
+        set_advanced_scores(rows, "orange_fullback0_fullback", "high", "8")
+
+        with self.assertRaises(ValueError) as caught:
+            import_roster(rows)
+
+        self.assertIn("OskillA", str(caught.exception))
+
+    def test_a_score_may_not_be_negative(self) -> None:
+        rows = self._rows()
+        set_advanced_scores(rows, "orange_fullback0_fullback", "-1", "8")
+
+        with self.assertRaises(ValueError) as caught:
+            import_roster(rows)
+
+        self.assertIn("OskillA", str(caught.exception))
 
 
 class AdvancedCatalogTests(unittest.TestCase):

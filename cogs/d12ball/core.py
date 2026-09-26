@@ -50,6 +50,7 @@ from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
+    asked_sides,
     owed_step,
     pending_prompt,
     with_options,
@@ -429,11 +430,6 @@ class CoreMixin:
     )
     species_ability_emojis: Mapping[str, str] = MappingProxyType({})
 
-    #: The web frontend, where the environment asked for one -- see
-    #: `start_web_app`. `None` in every test and in any checkout that
-    #: has not set `FOOLBOT_WEB_PORT`.
-    web_app = None
-
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.games = load_games()
@@ -695,8 +691,6 @@ class CoreMixin:
             )
 
     async def cog_load(self) -> None:
-        await self.start_web_app()
-
         # One fetch, three lookups. Each loader used to make its own
         # call to the same endpoint, so every startup asked Discord for
         # the identical list three times over.
@@ -728,44 +722,12 @@ class CoreMixin:
             self.bot, application_emojis,
         )
 
-    async def start_web_app(self) -> None:
-        """
-        Put the web frontend up over this cog's service, where the
-        environment has asked for one (`FOOLBOT_WEB_PORT`; see
-        docs/design/web-app.md).
-
-        **The same service and the same locks**, because there is one
-        process and one `games` dict (decision 5 of docs/web-app.md):
-        the web app is a second frontend over the bot's own game, not
-        a second copy of it. The import is here rather than at the top
-        of the module so a checkout with no web app configured pays
-        nothing for it, and a failure to bind is an ERROR -- the port
-        is somebody's to free, and the bot carries on playing on
-        Discord either way.
-        """
-        from webapp.server import configured_port, start_web_app
-
-        if configured_port() is None:
-            # Nothing is asked for, so nothing is built -- not even the
-            # service, which a cog a test assembles without `__init__`
-            # has no games to make one over.
-            return
-        try:
-            self.web_app = await start_web_app(self.service, self.locks)
-        except OSError as error:
-            self.web_app = None
-            LOGGER.error("The web app could not start: %r", error)
-
     async def cog_unload(self) -> None:
         """
         Drop any board refresh still waiting on its window -- see
-        `BoardRefresher.shutdown` for what that costs a board -- and
-        take the web frontend down with the cog it was serving.
+        `BoardRefresher.shutdown` for what that costs a board.
         """
         self.boards.shutdown()
-        if self.web_app is not None:
-            await self.web_app.stop()
-            self.web_app = None
 
     async def cog_app_command_error(
         self,
@@ -1034,7 +996,7 @@ class CoreMixin:
         """
         composition_message = await send_new_prompt(
             interaction,
-            file=await self.build_score_attempt_file(match),
+            file=await self.build_score_attempt_file(match, game),
         )
 
         # The one thing the image doesn't show is how the two rolls are
@@ -1188,6 +1150,7 @@ class CoreMixin:
                 roll.safe,
                 bool(roll.overdrive),
                 injured_word,
+                self.engine.injury_test_name(game, roll.player_id).upper(),
             ),
             filename="injury_test_die.png",
         )
@@ -1195,12 +1158,6 @@ class CoreMixin:
             content=None,
             attachments=[dice_file],
             view=None,
-        )
-        # The second die between the check and its verdict. It matters
-        # more here than anywhere: a burn is the one thing in the
-        # game that injures the player who rolled well.
-        await self.post_volatile_ignition(
-            interaction, match, (roll.player_id, roll.ignite),
         )
         await send_new_prompt(interaction, result.answer[0])
         await self.present(interaction, game, result)
@@ -1589,6 +1546,7 @@ class CoreMixin:
                 match,
                 group.arguments["challenger_id"],
                 " ".join(lines),
+                game,
             )
             return
         if group.action is not None:
@@ -1658,6 +1616,42 @@ class CoreMixin:
             ),
         )
 
+    def ping_asked(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        prompt: PendingPrompt,
+    ) -> str:
+        """
+        The prompt's ask with a mention in front of it for every coach
+        it is put to whom it does not already address -- so a choice
+        always notifies the coach who has to make it.
+
+        Most asks open with the coach (an injury test, a run back, a
+        loose-ball pick), but some name only the player -- "The ball
+        crossed Dravox, who may Mind Pull it" -- and a coach who is not
+        watching the channel never hears of it. Whose question it is is
+        the model's (`asked_sides`); that Discord says it with a ping is
+        this frontend's, so the model's sentence is left alone and the
+        mention goes in front of it here. Only an account is pinged: the
+        AI and a test game's seats have nothing to notify, and naming
+        them again would only repeat the line.
+        """
+        pings = []
+        for side in asked_sides(match, prompt):
+            player_number = self.engine.side_player_number(game, side)
+            if player_number is None:
+                continue
+            mention = self.tokens(game).mention(player_number)
+            if (
+                mention is not None
+                and mention.startswith("<@")
+                and mention not in prompt.ask
+                and mention not in pings
+            ):
+                pings.append(mention)
+        return " ".join((*pings, prompt.ask)) if pings else prompt.ask
+
     async def render_prompt(
         self,
         interaction: discord.Interaction,
@@ -1694,7 +1688,8 @@ class CoreMixin:
         of the message that write led to.
         """
         kind = prompt.kind
-        content = "\n\n".join(filter(None, (lead_in, prompt.ask)))
+        ask = self.ping_asked(game, match, prompt)
+        content = "\n\n".join(filter(None, (lead_in, ask)))
         mentions = discord.AllowedMentions(
             users=True, roles=False, everyone=False,
         )

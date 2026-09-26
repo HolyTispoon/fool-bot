@@ -607,7 +607,7 @@ def species_figure() -> Image.Image:
     """The four species icons, one line each, for the appendix."""
     entries = [
         ("fire_demon", render.TEAM_COLORS[Team.FIRE_DEMONS], "Fire Demon - Volatile", "A natural 6 or 7 on any d12 ignites: roll again and add it (5-12) or subtract it (1-4)."),
-        ("cyborg", render.TEAM_COLORS[Team.CYBORGS], "Cyborg - Lithium Powered", "Tokens are drain, Drained at 7. Overdrive: 3 drain for +5 before a roll. Charge-up: -1 drain for standing still in a run back."),
+        ("cyborg", render.TEAM_COLORS[Team.CYBORGS], "Cyborg - Lithium Powered", "Tokens are drain, Drained at 7. Overdrive: drain 3 for +5 before a roll. Charge-up: -1 drain for standing still in a run back."),
         ("telekinetic", render.TEAM_COLORS[Team.TELEKINETICS], "Telekinetic - Mind Pull", "The opponent's ball crossing your space: 1 token, roll a d12, 11-12 pulls it in. Your own ball: take it over for free (Smooth)."),
         ("ooze", render.TEAM_COLORS[Team.OOZES], "Ooze - Slimey", "Merge: an Ooze on the ball who is not rolling adds their skill to their side. Spreadable: counts as 0 toward occupancy."),
     ]
@@ -616,7 +616,7 @@ def species_figure() -> Image.Image:
     width = 1800
     canvas = Image.new("RGB", (width, TITLE_BAND + len(entries) * row_h + 40), FACE_COLOR)
     draw = ImageDraw.Draw(canvas)
-    draw_title(draw, "Figure 15 - The four species (advanced mode)", width)
+    draw_title(draw, "Figure 15 - The four species (basic and advanced mode)", width)
     name_font = render.load_font(38, bold=True)
     text_font = render.load_font(30)
     y = TITLE_BAND + 30
@@ -655,7 +655,7 @@ def walkthrough_figure(beat: int) -> FigureBuilder:
 
 
 # Every figure by the file stem it is written under. The outlines
-# reference these names, and a test holds the committed files to them.
+# reference these names, and the committed files should match them.
 FIGURES: dict[str, FigureBuilder] = {
     "fig-01-the-field": kickoff_figure,
     "fig-02-the-cycle": lambda catalog: cycle_figure(MANEUVER_TIER_BASIC),

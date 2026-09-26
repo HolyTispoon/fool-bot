@@ -82,8 +82,8 @@ from dataclasses import dataclass, field, replace
 from typing import Optional
 
 from .components import MatchState, PlayerRole, TeamSide, Zone
-from .formatting import space_label
-from .space_numbering import FLAT_SPACE_NUMBERING
+from .formatting import capitalized, space_label
+from .space_numbering import FLAT_SPACE_NUMBERING, flat_space_number
 
 
 # Maneuver **keys**, spelled once. They are the catalog's own, out of
@@ -271,8 +271,9 @@ BEATS: tuple[TutorialBeat, ...] = (
             "a longer High Pass, the Midfielder gets +3 on a Low Pass "
             "or Pressure test, the Defender steals the ball off a won "
             "Pressure. Two commands list them whenever you want: "
-            "**`/d12ball role_abilities`** for all six, and **`/d12ball "
-            "team_roster`** gives you a list of your team with their roles.\n\n"
+            "**`/d12ball role_abilities_reference`** for all six, and "
+            "**`/d12ball team_roster`** gives you a list of your team "
+            "with their roles.\n\n"
             "You are on V1 now, which is inside your shooting range, so "
             "the **Shoot** button has appeared. It is greyed out here, "
             "and it would be a poor shot anyway: your playmaker's "
@@ -289,8 +290,8 @@ BEATS: tuple[TutorialBeat, ...] = (
             "attacker their offensive and the defender their defensive, "
             "plus whatever their ability is worth. Highest total takes "
             "it, and both players pick up an **exhaustion token** for "
-            "the effort. Tokens are the game's running cost; enough of "
-            "them and a player risks getting injured.\n\n"
+            "the effort. Exhaustion is the game's running cost; enough "
+            "of it and a player risks getting injured.\n\n"
             "**Pick Low Pass.** It is rank 1, just like the "
             "Deflect Dinky has played, so this one goes to the dice -- "
             "and Dinky is going to win it. Watch what a won "
@@ -516,7 +517,7 @@ HANDOVER = (
     "too.\n\n"
     "Worth knowing:\n"
     "- `/d12ball rules_search` -- any one section of the rules.\n"
-    "- `/d12ball role_abilities` -- what each role can do.\n"
+    "- `/d12ball role_abilities_reference` -- what each role can do.\n"
     "- `/d12ball maneuver_reference` -- the defeat cycle.\n"
     "- `/d12ball resume` -- puts the current question back up if a "
     "prompt ever goes missing.\n\n"
@@ -548,6 +549,9 @@ SKIPPED = (
 # letter form they are written in. See
 # docs/SPACE-NUMBERING-EXPERIMENT.md.
 _EXPERIMENT_SPACE_CODE = re.compile(r"\b([HMV])([1-3])\b")
+# A range -- "(H1-H2)" -- is renamed as one, "(spaces 1-2)", rather
+# than code by code, which would read "space 1-space 2".
+_EXPERIMENT_SPACE_RANGE = re.compile(r"\b([HMV])([1-3])-([HMV])([1-3])\b")
 
 _EXPERIMENT_ZONES = {
     "H": Zone.HOME_GOAL,
@@ -560,12 +564,27 @@ def renumber_spaces(text: str) -> str:
     """Every space code in a note, as the bot currently names it."""
     if not FLAT_SPACE_NUMBERING:
         return text
-    return _EXPERIMENT_SPACE_CODE.sub(
-        lambda found: space_label(
-            _EXPERIMENT_ZONES[found.group(1)], int(found.group(2)) - 1,
+    text = _EXPERIMENT_SPACE_RANGE.sub(
+        lambda found: "spaces {}-{}".format(
+            flat_space_number(
+                _EXPERIMENT_ZONES[found.group(1)], int(found.group(2)) - 1,
+            ),
+            flat_space_number(
+                _EXPERIMENT_ZONES[found.group(3)], int(found.group(4)) - 1,
+            ),
         ),
         text,
     )
+    def renamed(found: re.Match) -> str:
+        label = space_label(
+            _EXPERIMENT_ZONES[found.group(1)], int(found.group(2)) - 1,
+        )
+        # "M3 is inside your shooting range" opens a paragraph, and
+        # "space 5" there needs its capital.
+        before = text[:found.start()].rstrip(" *")
+        return capitalized(label) if before[-1:] in ("", "\n", ".") else label
+
+    return _EXPERIMENT_SPACE_CODE.sub(renamed, text)
 
 
 if FLAT_SPACE_NUMBERING:
