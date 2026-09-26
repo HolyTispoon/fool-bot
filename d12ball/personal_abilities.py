@@ -57,6 +57,7 @@ class PersonalAbility(str, Enum):
     WINS_CONTESTS = "wins_contests"            # Slitheron
     SMOOTH = "smooth"                          # Spritz
     FREE_TESTS = "free_tests"                  # Zorch
+    MERGES_HARDER = "merges_harder"            # Viscor
 
 
 #: Catalog id -> (the ability, the sheet's sentence it was built from).
@@ -176,7 +177,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     "glompex_midfielder": (
         PersonalAbility.JOINS_THE_BALL,
         "Before selecting a maneuver, if Glomplex is in a space adjacent "
-        "to the move they may gain 1 exhaustion to move to the ball's "
+        "to the ball they may add 1 exhaustion to move to the ball's "
         "space and Merge.",
     ),
     "slitheron_striker": (
@@ -186,6 +187,10 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     "spritz_winger": (
         PersonalAbility.SMOOTH,
         "Smooth (eammate sharing space may handover ball handling.)",
+    ),
+    "viscor_defender": (
+        PersonalAbility.MERGES_HARDER,
+        "+3 when Merging.",
     ),
     "zorch_playmaker": (
         PersonalAbility.FREE_TESTS,
@@ -230,3 +235,4 @@ PULSAR_CHARGE_UP = 1
 VORIX_PASS_DISTANCE = 3
 VORIX_BALL_SPEED = 12
 GLOMPEX_JOIN_COST = 1
+VISCOR_MERGE_BONUS = 3

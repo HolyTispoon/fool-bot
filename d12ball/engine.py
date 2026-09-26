@@ -114,6 +114,7 @@ from d12ball.personal_abilities import (
     SPECTRA_PULL_MINIMUM,
     STRIDER_CHARGE_UP,
     STRIDER_RUN_BACK_MAXIMUM,
+    VISCOR_MERGE_BONUS,
     VOLTUS_OVERDRIVE_DRAIN_COST,
     PersonalAbility,
 )
@@ -1209,6 +1210,11 @@ class RulesEngine:
             if not self.has_species_ability(game, player_id, SPECIES_OOZE):
                 continue
             value = self.skills(game, player_id).of(skill)
+            # Viscor adds 3 more whenever they Merge (Law 21).
+            if self.has_personal_ability(
+                game, player_id, PersonalAbility.MERGES_HARDER,
+            ):
+                value += VISCOR_MERGE_BONUS
             if not value:
                 continue
             player = self.get_player_definition(player_id)

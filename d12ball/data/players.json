@@ -121,7 +121,7 @@
       "role": "midfielder",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "Before selecting a maneuver, if Glomplex is in a space adjacent to the move they may gain 1 exhaustion to move to the ball's space and Merge.",
+      "advanced_ability": "Before selecting a maneuver, if Glomplex is in a space adjacent to the ball they may add 1 exhaustion to move to the ball's space and Merge.",
       "advanced_skills": {}
     },
     "goopkeeper_fullback": {
@@ -300,7 +300,7 @@
       "role": "defender",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "+3 when Merging.",
       "advanced_skills": {}
     },
     "voltus_defender": {

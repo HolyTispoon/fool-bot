@@ -78,8 +78,9 @@ named three modes to offer, so the opt-outs went from the screens.
 
 ### Personal abilities
 
-Law 21: thirty players' own abilities and five players' advanced skill
-scores, played in advanced mode alone. Almost every one is a number in a
+Law 21: thirty-one players' own abilities and five players' advanced
+skill scores -- a line for every one of the thirty-six since 2026-09-26
+-- played in advanced mode alone. Almost every one is a number in a
 species ability, or a rule of Part I, changed for one player, so almost
 every one is a branch at a site that already existed rather than a
 mechanic of its own. Two are not -- Glompex's join and Zenith's Fly are
@@ -217,6 +218,8 @@ their own (below).
     `settle_loose_ball_winner` hands the ball over with no dice and so
     no injury check.
   - *Spritz* -- one more clause in `smooth_candidates`.
+  - *Viscor* -- 3 more in `merge_bonus`, the one sum every Merge adds
+    through, so the dice image's contributor line carries it too.
   - *Vorix and Zytheris* -- branches in `high_pass_step` and
     `low_pass_step`, which take the game for them. Zytheris's long pass
     is contested first and shot only once kept ("contest comes first",

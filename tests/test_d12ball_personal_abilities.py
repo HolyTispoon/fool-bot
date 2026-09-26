@@ -60,6 +60,7 @@ from d12ball.personal_abilities import (
     ADVANCED_SKILL_SENTENCES,
     INFERNO_BALL_SPEED,
     SCORCHIT_FORCED_TEST_TOKENS,
+    VISCOR_MERGE_BONUS,
     VORIX_BALL_SPEED,
     BOOST_BONUS,
     BOOST_DRAIN_COST,
@@ -1018,6 +1019,24 @@ class ShotDefenseTests(unittest.TestCase):
                             set(self.defending()),
                             {self.on_ball, self.beyond},
                         )
+
+
+class ViscorTests(unittest.TestCase):
+    """Viscor adds 3 more when Merging (Law 21)."""
+
+    def test_three_on_top_of_the_merge(self) -> None:
+        game = advanced(player_1_team=Team.OOZES)
+        match = build_match(ENGINE, game)
+        side = match.ball.possession
+        ooze = fielded_of_species(match, SPECIES_OOZE, side)
+        match.move_meeple(ooze, match.ball.zone, match.ball.space_index)
+        plain, _, _ = ENGINE.merge_bonus(game, match, side, (), "offense")
+        with holding(ooze, PersonalAbility.MERGES_HARDER):
+            harder, lines, _ = ENGINE.merge_bonus(
+                game, match, side, (), "offense",
+            )
+        self.assertEqual(harder, plain + VISCOR_MERGE_BONUS)
+        self.assertTrue(lines)
 
 
 class SpritzTests(unittest.TestCase):

@@ -1980,7 +1980,11 @@ class MergeTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        self.game = build_game(player_1_team=Team.OOZES)
+        # Basic mode: Merge without the personal abilities, since an
+        # Oozes side fields Viscor, who adds 3 more (Law 21).
+        self.game = build_game(
+            player_1_team=Team.OOZES, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
         self.side = self.match.ball.possession
         self.clear_the_ball_space()
