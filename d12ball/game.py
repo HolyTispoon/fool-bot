@@ -352,6 +352,18 @@ class D12BallGame:
     rematch_message_id: Optional[int] = None
     rematch_game_id: Optional[str] = None
 
+    # Which seats an AI holds, where the record says so outright -- a
+    # web room's, whose seats change hands (`seat_ai`, `take_seat`, ...;
+    # see "Seats" below). `None` is every game made before the rooms,
+    # and every Discord game: the AI holds seat 2 exactly when
+    # `player_2_id` is None, as it always has. With a list, a seat with
+    # no id is the AI's if it is listed and **empty** if it is not --
+    # the third state the old reading has no way to say, and the reason
+    # this field exists. Left out of `to_dict` while None, so a save
+    # that never had a room is written exactly as it was, and a checkout
+    # older than the field still reads every Discord save.
+    ai_seats: Optional[list[int]] = None
+
     def __post_init__(self) -> None:
         if self.player_1_team is not None:
             self.player_1_team = Team(self.player_1_team)
@@ -364,6 +376,11 @@ class D12BallGame:
 
         if self.ai_opponent is not None:
             self.ai_opponent = AIOpponent(self.ai_opponent)
+
+        if self.ai_seats is not None:
+            self.ai_seats = sorted({int(seat) for seat in self.ai_seats})
+            if not set(self.ai_seats) <= {1, 2}:
+                raise ValueError("An AI seat is 1 or 2.")
 
         if self.coin_face is not None:
             self.coin_face = CoinFace(self.coin_face)
@@ -438,9 +455,31 @@ class D12BallGame:
     @property
     def is_solo_game(self) -> bool:
         """
-        True when Player 2 is controlled by the AI.
+        True when an AI plays a side. Before the rooms that was always
+        Player 2 (`player_2_id` is None); a web room may seat Dinky in
+        either seat, which `ai_holds` answers.
         """
-        return self.player_2_id is None
+        return self.ai_holds(1) or self.ai_holds(2)
+
+    def ai_holds(self, player_number: Optional[int]) -> bool:
+        """
+        Whether the AI plays seat `player_number` -- the one reading
+        of it, which `RulesEngine.side_is_ai` asks for a side. Without
+        `ai_seats` it is the old one, the AI in seat 2 where nobody is.
+        """
+        if player_number == 1:
+            if self.ai_seats is None:
+                return False
+            return self.player_1_id is None and 1 in self.ai_seats
+        if player_number == 2:
+            if self.ai_seats is None:
+                return self.player_2_id is None
+            return self.player_2_id is None and 2 in self.ai_seats
+        return False
+
+    def ai_player_numbers(self) -> tuple[int, ...]:
+        """The seats the AI plays, in order."""
+        return tuple(number for number in (1, 2) if self.ai_holds(number))
 
     @property
     def in_tutorial(self) -> bool:
@@ -554,37 +593,61 @@ class D12BallGame:
 
     # -- Seats ----------------------------------------------------------
     #
-    # A web room's two moves (decision 1 of docs/web-app-next.md): a
-    # seat changes hands at any time, before kickoff or during the game,
-    # and the other seat never moves. The lobby's own moves above stay
+    # A web room's moves (decision 1 of docs/web-app-next.md): a seat
+    # changes hands at any time, before kickoff or during the game, and
+    # the other seat never moves. A seat is held by a person (an id), by
+    # the AI, or by nobody -- and an empty seat is not the AI's: the
+    # side waits for whoever takes it. The lobby's own moves above stay
     # as they are -- the Discord lobby depends on the creator's seat
     # shifting and on the moves closing at start.
     #
     # Safe mid-game because everything the match keeps about a side is
     # by player *number* (`home_player_number`,
-    # `coin_winner_player_number`), never by id: a new id in a seat is
-    # the same side, with the same position and the same question.
+    # `coin_winner_player_number`), never by id: a new person, or the
+    # AI, in a seat is the same side, with the same position and the
+    # same question.
     #
-    # **Seat 2 is never emptied outside the lobby.** An empty
-    # `player_2_id` is how the record says the AI plays that side
-    # (`is_solo_game`), and older saves say it with `ai_opponent`
-    # unset too, so an emptied human seat would be handed to Dinky on
-    # the next turn. Until the record can tell the two apart, seat 2
-    # holds whoever held it last once the lobby has closed.
+    # Every move writes `ai_seats` out in full, so from the first move a
+    # room's record says which seats are the AI's rather than leaving it
+    # to the old reading (see the field).
+
+    def _ai_seat_set(self) -> set[int]:
+        """The seats the AI holds, as a seat move reads them: the old
+        reading outside a lobby, and nobody's in one (a lobby's empty
+        seat 2 is waiting for a person, not the AI)."""
+        if self.ai_seats is not None:
+            return set(self.ai_seats)
+        if self.player_2_id is None and not self.in_lobby and not self.test_game:
+            return {2}
+        return set()
+
+    def _seat_id(self, seat: int) -> Optional[int]:
+        return self.player_1_id if seat == 1 else self.player_2_id
+
+    def _one_player(self) -> bool:
+        return self.test_game or self.tutorial
 
     def seat_is_free(self, seat: int) -> bool:
-        """Whether nobody holds `seat` and somebody may take it. Seat
-        2 is nobody's in a one-player game, and the AI's once a solo
-        game has left its lobby."""
-        if seat == 1:
-            return self.player_1_id is None
-        if seat == 2:
-            return (
-                self.player_2_id is None
-                and self.in_lobby
-                and not (self.test_game or self.tutorial)
+        """Whether nobody holds `seat`, person or AI, and somebody may
+        take it. Seat 2 is nobody's in a one-player game."""
+        if seat not in (1, 2):
+            raise ValueError(f"not a seat: {seat!r}")
+        if self._seat_id(seat) is not None or seat in self._ai_seat_set():
+            return False
+        return not (seat == 2 and self._one_player())
+
+    def _refuse_taken(self, seat: int) -> None:
+        """Why `seat` cannot be taken, as the record says it."""
+        if seat == 2 and self._one_player():
+            raise RuleRefusal(
+                "This is a one-player game, so there is no second "
+                "seat to take."
             )
-        raise ValueError(f"not a seat: {seat!r}")
+        if self._seat_id(seat) is None:
+            raise RuleRefusal(
+                "The AI holds that seat -- an admin can kick it first."
+            )
+        raise RuleRefusal("That seat is held by somebody else.")
 
     def take_seat(
         self,
@@ -596,9 +659,9 @@ class D12BallGame:
         Sit `user_id` in `seat`, or in the first free one. Refused when
         both are held, when the seat named is somebody else's (or the
         AI's, or a one-player game's second), or when the person
-        already holds a seat. Taking the second seat settles the
-        opponent, so an AI pick made in the lobby is cleared, as
-        `lobby_join` clears it.
+        already holds a seat. A person in the second seat settles the
+        opponent, so an AI pick left over with no AI seat is cleared,
+        as `lobby_join` clears it.
         """
         if seat not in (None, 1, 2):
             raise ValueError(f"not a seat: {seat!r}")
@@ -613,31 +676,27 @@ class D12BallGame:
                     "Both seats are taken. You can still watch."
                 )
         elif not self.seat_is_free(seat):
-            if seat == 2 and (self.test_game or self.tutorial):
-                raise RuleRefusal(
-                    "This is a one-player game, so there is no second "
-                    "seat to take."
-                )
-            if seat == 2 and self.player_2_id is None:
-                raise RuleRefusal("The other side of this game is the AI's.")
-            raise RuleRefusal("That seat is held by somebody else.")
+            self._refuse_taken(seat)
 
+        ai = self._ai_seat_set()
         if seat == 1:
             self.player_1_id = user_id
             self.player_1_name = user_name
         else:
             self.player_2_id = user_id
             self.player_2_name = user_name
-            self.ai_opponent = None
+            if not ai:
+                self.ai_opponent = None
+        self.ai_seats = sorted(ai)
         if user_id in self.observer_ids:
             self.observer_ids.remove(user_id)
 
     def vacate_seat(self, user_id: int) -> None:
         """
         Empty whichever seat `user_id` holds, leaving the other where
-        it is. Refused when they hold none -- and, outside the lobby,
-        for seat 2 and for a test game's one coach, who holds both
-        (see "Seats" above).
+        it is -- and leaving it *empty*, not the AI's: the side waits
+        for whoever takes it next. Refused when they hold none, and
+        outside the lobby for a test game's one coach, who holds both.
         """
         if user_id is None or user_id not in (
             self.player_1_id, self.player_2_id,
@@ -648,17 +707,51 @@ class D12BallGame:
                 "This is a test game and you play both sides, so its "
                 "seats cannot be left."
             )
+        ai = self._ai_seat_set()
         if user_id == self.player_1_id:
             self.player_1_id = None
             self.player_1_name = None
-            return
-        if not self.in_lobby:
+        else:
+            self.player_2_id = None
+            self.player_2_name = None
+        self.ai_seats = sorted(ai)
+
+    def seat_ai(self, seat: int) -> None:
+        """
+        Put the AI (Dinky, unless another was picked) in an empty
+        seat. Refused for a seat somebody holds, for one the AI holds
+        already, for the AI on both sides, and in a one-player game,
+        whose sides are settled by what it is.
+        """
+        if seat not in (1, 2):
+            raise ValueError(f"not a seat: {seat!r}")
+        if self._one_player():
             raise RuleRefusal(
-                "Seat 2 cannot be left once the game is out of its "
-                "lobby: an empty second seat is the AI's."
+                "This is a one-player game; its sides are already settled."
             )
-        self.player_2_id = None
-        self.player_2_name = None
+        ai = self._ai_seat_set()
+        if seat in ai:
+            raise RuleRefusal("The AI already holds that seat.")
+        if self._seat_id(seat) is not None:
+            raise RuleRefusal("That seat is held by somebody else.")
+        if ai:
+            raise RuleRefusal("The AI cannot play both sides.")
+        self.ai_seats = sorted(ai | {seat})
+        self.ai_opponent = self.ai_opponent or AIOpponent.DINKY
+
+    def unseat_ai(self, seat: int) -> None:
+        """Take the AI out of `seat` and leave it empty, for a person
+        to take -- before the game or during it."""
+        if seat not in (1, 2):
+            raise ValueError(f"not a seat: {seat!r}")
+        ai = self._ai_seat_set()
+        if seat not in ai or self._seat_id(seat) is not None:
+            raise RuleRefusal("The AI does not hold that seat.")
+        if self._one_player():
+            raise RuleRefusal(
+                "This is a one-player game; its sides are already settled."
+            )
+        self.ai_seats = sorted(ai - {seat})
 
     def configure(self, setting: str, value: object = None) -> None:
         """
@@ -755,16 +848,30 @@ class D12BallGame:
         a solo game against Dinky.
         """
         self.require_lobby()
-        if self.player_1_id is None:
-            # Only a web room can get here, by leaving its first seat.
-            raise RuleRefusal(
-                "Seat 1 is empty -- somebody has to hold it to start."
-            )
+        if self.ai_seats is not None:
+            # A web room says who holds each seat outright: an empty
+            # one waits for somebody rather than falling to Dinky.
+            ai = set(self.ai_seats)
+            if self.tutorial and self.player_2_id is None:
+                ai.add(2)
+            for seat in (1, 2):
+                if seat == 2 and self.test_game:
+                    continue
+                if self._seat_id(seat) is None and seat not in ai:
+                    raise RuleRefusal(
+                        f"Seat {seat} is empty -- somebody has to take "
+                        "it, or put the AI in it, to start."
+                    )
+            self.ai_seats = sorted(ai)
+            if ai:
+                self.ai_opponent = self.ai_opponent or AIOpponent.DINKY
         if self.test_game:
             self.player_2_id = self.player_1_id
             self.player_2_name = self.player_1_name
             self.ai_opponent = None
-        elif self.tutorial or self.player_2_id is None:
+        elif self.ai_seats is None and (
+            self.tutorial or self.player_2_id is None
+        ):
             self.ai_opponent = self.ai_opponent or AIOpponent.DINKY
         self.in_lobby = False
 
@@ -1003,9 +1110,14 @@ class D12BallGame:
 
     def to_dict(self) -> dict:
         """
-        Convert the game into JSON-friendly data.
+        Convert the game into JSON-friendly data. `ai_seats` is left
+        out while it is None, so a game no room ever touched is saved
+        exactly as it was before the field.
         """
-        return asdict(self)
+        data = asdict(self)
+        if data.get("ai_seats") is None:
+            data.pop("ai_seats", None)
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "D12BallGame":

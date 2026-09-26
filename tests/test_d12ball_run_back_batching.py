@@ -94,6 +94,8 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             game_id="g",
             game_number=1,
             is_solo_game=True,
+            # The record's one reading of which seat the AI plays.
+            ai_holds=lambda number: number == 2,
             ai_opponent=AIOpponent.DINKY,
             home_player_number=1,
             visiting_player_number=2,
@@ -455,6 +457,8 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
             match_state=match.to_dict(),
             game_id="g",
             is_solo_game=True,
+            # The record's one reading of which seat the AI plays.
+            ai_holds=lambda number: number == 2,
             mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,

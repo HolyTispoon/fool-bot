@@ -358,12 +358,14 @@ def coach_name(
     if player_number == 1:
         if game.test_game:
             return "Player 1"
+        if game.ai_holds(1):
+            return format_ai_name(game.ai_opponent)
         return game.player_1_name or "Player 1"
 
     if player_number == 2:
         if game.test_game:
             return "Player 2"
-        if game.player_2_id is None:
+        if game.ai_holds(2):
             return format_ai_name(game.ai_opponent)
         return game.player_2_name or "Player 2"
 

@@ -9,22 +9,25 @@ still holds them to the Discord lobby's rules). What this watches for:
 - **A seat changing hands changes nothing about the position.** The
   match keeps its sides by player number, so a new id in a seat
   mid-match is asked the same question the old one was.
-- **An empty seat 2 is never written outside the lobby**, since the
-  record reads it as the AI's side (`is_solo_game`).
-- **Every predicate over the seat ids copes with an empty seat 1.**
+- **An empty seat is not the AI's.** A seat is held by a person, by
+  the AI, or by nobody (`D12BallGame.ai_seats`), and a side with nobody
+  in its seat waits; the AI may be put in either seat and taken out
+  again, and a save no room ever touched reads exactly as before.
+- **Every predicate over the seat ids copes with an empty seat.**
 """
 
 from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
+from unittest import mock
 
 from cogs.d12ball_helpers import game_participant_ids, refresh_player_names
 from d12ball.components import RuleRefusal, TeamSide
 from d12ball.formatting import coach_name
-from d12ball.game import AIOpponent, D12BallGame
-from d12ball.prompts import pending_prompt
-from d12ball.stats import SCOPE_HUMAN, game_category
+from d12ball.game import AIOpponent, CoinFace, D12BallGame, Team, paired_team
+from d12ball.prompts import asked_sides, pending_prompt
+from d12ball.stats import SCOPE_DINKY, SCOPE_HUMAN, game_category
 from gamesaves.d12ball.service import GameService
 from prompt_fixtures import ENGINE, CASES
 
@@ -143,7 +146,7 @@ class TakeSeatTests(SeatHarness):
             self.service.take_seat, game.game_id, JOINER, "Two", 2,
         )
 
-        self.assertEqual(sentence, "The other side of this game is the AI's.")
+        self.assertIn("The AI holds that seat", sentence)
 
     def test_one_change_and_one_save(self) -> None:
         game = self.room()
@@ -194,18 +197,21 @@ class VacateSeatTests(SeatHarness):
 
         self.assertEqual(sentence, "You do not hold a seat in this game.")
 
-    def test_seat_two_is_never_emptied_outside_the_lobby(self) -> None:
-        """An empty `player_2_id` is the AI's side: emptying a human's
-        seat 2 mid-game would hand the side to Dinky."""
+    def test_seat_two_left_mid_game_is_empty_not_the_ai_s(self) -> None:
+        """An empty `player_2_id` used to be the AI's side; a room says
+        outright that nobody holds it, and the side waits."""
         fixture = case("kickoff")
-        self.games[fixture.game.game_id] = fixture.game
+        game = fixture.game
+        self.games[game.game_id] = game
 
-        sentence = self.refused(
-            self.service.vacate_seat, fixture.game.game_id, JOINER,
-        )
+        self.service.vacate_seat(game.game_id, JOINER)
 
-        self.assertIn("AI's", sentence)
-        self.assertFalse(fixture.game.is_solo_game)
+        self.assertIsNone(game.player_2_id)
+        self.assertFalse(game.ai_holds(2))
+        self.assertFalse(game.is_solo_game)
+        self.assertTrue(game.seat_is_free(2))
+        self.assertEqual(game.to_dict()["ai_seats"], [])
+        self.assertFalse(D12BallGame.from_dict(game.to_dict()).is_solo_game)
 
     def test_a_test_game_s_coach_holds_both_seats(self) -> None:
         game = self.room()
@@ -223,6 +229,125 @@ class VacateSeatTests(SeatHarness):
         sentence = self.refused(self.service.start_lobby, game.game_id)
 
         self.assertIn("Seat 1 is empty", sentence)
+
+
+class AISeatTests(SeatHarness):
+    """The AI in either seat of a room, put in by a move and taken out
+    by one, before the game or during it."""
+
+    def test_the_ai_takes_an_empty_seat_and_a_kick_empties_it(self) -> None:
+        game = self.room()
+
+        self.service.seat_ai(game.game_id, 2)
+
+        self.assertTrue(game.ai_holds(2))
+        self.assertTrue(game.is_solo_game)
+        self.assertEqual(game.ai_opponent, AIOpponent.DINKY)
+        self.assertEqual(coach_name(game, 2), "Dinky AI")
+        self.assertIn(
+            "The AI holds that seat",
+            self.refused(
+                self.service.take_seat, game.game_id, JOINER, "Two", 2,
+            ),
+        )
+
+        self.service.unseat_ai(game.game_id, 2)
+        self.service.take_seat(game.game_id, JOINER, "Two")
+
+        self.assertFalse(game.is_solo_game)
+        self.assertEqual(game.player_2_id, JOINER)
+
+    def test_the_ai_may_hold_seat_one(self) -> None:
+        game = self.room()
+        self.service.take_seat(game.game_id, JOINER, "Two")
+        self.service.vacate_seat(game.game_id, CREATOR)
+
+        self.service.seat_ai(game.game_id, 1)
+
+        self.assertEqual(game.ai_player_numbers(), (1,))
+        self.assertEqual(coach_name(game, 1), "Dinky AI")
+        self.assertEqual(game_category(game), SCOPE_DINKY)
+
+    def test_the_refusals(self) -> None:
+        game = self.room()
+        self.assertIn(
+            "held by somebody else",
+            self.refused(self.service.seat_ai, game.game_id, 1),
+        )
+        self.service.seat_ai(game.game_id, 2)
+        self.assertIn(
+            "already holds",
+            self.refused(self.service.seat_ai, game.game_id, 2),
+        )
+        self.service.vacate_seat(game.game_id, CREATOR)
+        self.assertIn(
+            "both sides",
+            self.refused(self.service.seat_ai, game.game_id, 1),
+        )
+        self.assertIn(
+            "does not hold",
+            self.refused(self.service.unseat_ai, game.game_id, 1),
+        )
+
+    def test_a_one_player_game_s_sides_are_settled(self) -> None:
+        for setting in ("test", "tutorial"):
+            with self.subTest(setting):
+                game = self.room()
+                self.service.configure(game.game_id, setting)
+                self.assertIn(
+                    "one-player game",
+                    self.refused(self.service.seat_ai, game.game_id, 2),
+                )
+
+    def test_a_room_starts_only_with_both_seats_held(self) -> None:
+        game = self.service.create_game(
+            player_1_id=CREATOR, player_1_name="One", in_lobby=True,
+            ai_seats=[],
+        )
+        self.assertIn(
+            "Seat 2 is empty",
+            self.refused(self.service.start_lobby, game.game_id),
+        )
+
+        self.service.seat_ai(game.game_id, 2)
+        self.service.start_lobby(game.game_id)
+
+        self.assertFalse(game.in_lobby)
+        self.assertTrue(game.ai_holds(2))
+
+    def test_the_ai_in_seat_one_picks_its_team_and_takes_the_coin(
+        self,
+    ) -> None:
+        game = self.room()
+        self.service.take_seat(game.game_id, JOINER, "Two")
+        self.service.vacate_seat(game.game_id, CREATOR)
+        self.service.seat_ai(game.game_id, 1)
+        self.service.start_lobby(game.game_id)
+
+        self.service.pick_team(game.game_id, 2, Team.ORANGE)
+
+        self.assertIsNotNone(game.player_1_team)
+        self.assertNotIn(
+            game.player_1_team, (Team.ORANGE, paired_team(Team.ORANGE)),
+        )
+        # The coach flips and loses: the AI in seat 1 won, and chooses.
+        with mock.patch.object(
+            ENGINE, "flip_coin", return_value=CoinFace.DOOM,
+        ):
+            self.service.flip_coin(game.game_id, 2)
+
+        self.assertEqual(game.coin_winner_player_number, 1)
+        self.assertIsNotNone(game.home_player_number)
+        self.assertIsNotNone(game.match_state)
+
+    def test_a_save_no_room_touched_is_written_as_it_was(self) -> None:
+        game = case("kickoff").game
+        data = game.to_dict()
+
+        self.assertNotIn("ai_seats", data)
+        self.assertEqual(D12BallGame.from_dict(data).to_dict(), data)
+        solo = D12BallGame.from_dict({**data, "player_2_id": None})
+        self.assertEqual(solo.ai_player_numbers(), (2,))
 
 
 class MidMatchTests(SeatHarness):
@@ -283,6 +408,30 @@ class MidMatchTests(SeatHarness):
 
         self.assertEqual(self.game.player_2_name, "New")
         self.assertIsNone(self.game.player_1_name)
+
+    def test_the_ai_seated_for_the_side_asked_answers_at_once(self) -> None:
+        """The kickoff asks the home side, seat 1. Its coach leaves;
+        the AI is put in, and answers the question that was up."""
+        before = pending_prompt(ENGINE, self.game, self.service.load(self.game))
+        self.assertIn(TeamSide.HOME, asked_sides(self.service.load(self.game), before))
+        self.service.vacate_seat(self.game.game_id, CREATOR)
+
+        game, result = self.service.seat_ai(self.game.game_id, 1)
+
+        self.assertIsNotNone(result)
+        self.assertTrue(ENGINE.side_is_ai(game, TeamSide.HOME))
+        after = pending_prompt(ENGINE, game, self.service.load(game))
+        self.assertNotEqual(after.kind, before.kind)
+
+    def test_a_person_takes_over_from_the_ai_mid_game(self) -> None:
+        self.service.vacate_seat(self.game.game_id, JOINER)
+        self.service.seat_ai(self.game.game_id, 2)
+
+        self.service.unseat_ai(self.game.game_id, 2)
+        self.service.take_seat(self.game.game_id, NEW_DEVICE, "Two again")
+
+        self.assertFalse(self.game.is_solo_game)
+        self.assertEqual(ENGINE.side_for_user(self.game, NEW_DEVICE), TeamSide.VISITING)
 
     def test_the_sides_stay_with_the_numbers(self) -> None:
         self.service.vacate_seat(self.game.game_id, CREATOR)

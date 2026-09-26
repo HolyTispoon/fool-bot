@@ -2032,14 +2032,12 @@ class RulesEngine:
         match: MatchState,
         side: str,
     ) -> bool:
-        if not game.is_solo_game:
-            return False
         number = (
             self.possession_player_number(game, match)
             if side == "offense"
             else self.defending_player_number(game, match)
         )
-        return number == 2
+        return game.ai_holds(number)
 
     def low_pass_candidates(
         self,
@@ -2755,9 +2753,7 @@ class RulesEngine:
         game: D12BallGame,
         side: TeamSide,
     ) -> bool:
-        if not game.is_solo_game:
-            return False
-        return self.side_player_number(game, side) == 2
+        return game.ai_holds(self.side_player_number(game, side))
 
     def side_player_number(
         self,

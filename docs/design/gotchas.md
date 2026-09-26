@@ -32,6 +32,15 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
     in it exists because a half-finished game outlives the commit that
     added the field — see the rest of this section — so adding an
     entry is free and changing a key is not.
+- **`D12BallGame.ai_seats` is saved only when it says something.**
+  The game record is `asdict` on the way out and `cls(**data)` on the
+  way in, so a new record field is a key an older checkout cannot load.
+  `ai_seats` is `None` on every game no web room touched -- which means
+  the old reading, the AI in seat 2 where nobody is -- and `to_dict`
+  leaves it out while it is, so every Discord save is written exactly
+  as before and still loads on a checkout older than the field. Only a
+  web room's record carries it. See
+  [web-app.md](web-app.md), "Rooms, seats and who holds them".
 - **The three Discord ids on `D12BallGame` are optional, and keyword-only.**
   `guild_id`, `channel_id` and `message_id` default to `None` since step 8
   of docs/architecture-migration.md (decision 3 of docs/web-app.md): a game
