@@ -547,7 +547,7 @@ class ObjectTests(unittest.TestCase):
         # Every object the prompt table names is lit by some fixture.
         self.assertTrue({
             "player", "space", "ball", "goal", "die", "face", "whistle",
-            "note", "rematch", "card", "time_out_tile",
+            "note", "rematch", "card", "time_out_tile", "bench",
         } <= places, places)
 
     def test_no_control_carries_a_colour(self) -> None:
@@ -563,36 +563,42 @@ class ObjectTests(unittest.TestCase):
         """A meeple lit is on the field or a bench, a space lit is one
         of the layout's, and a goal or a tile belongs to a side."""
         for name, fixture, control in self.controls():
-            place = control.get("place")
-            if not place or place["at"] in self.IN_THE_BOX | {"ball"}:
+            if not control.get("place"):
                 continue
-            with self.subTest(name, place=place):
-                layout = board_layout(
-                    ENGINE, fixture.game, fixture.match,
-                    card_url=CARD_URL, goal_url=GOAL_URL,
-                )
-                if place["at"] == "player":
-                    drawn = {
-                        piece["id"]
+            for place in (control["place"], *control.get("also", ())):
+                if place["at"] in self.IN_THE_BOX | {"ball"}:
+                    continue
+                self.assert_drawn(name, fixture, place)
+
+    def assert_drawn(self, name, fixture, place) -> None:
+        """One lit object, against the layout the page draws."""
+        with self.subTest(name, place=place):
+            layout = board_layout(
+                ENGINE, fixture.game, fixture.match,
+                card_url=CARD_URL, goal_url=GOAL_URL,
+            )
+            if place["at"] == "player":
+                drawn = {
+                    piece["id"]
+                    for space in layout["spaces"]
+                    for side in ("home", "visiting")
+                    for piece in space[side]
+                } | {
+                    card["id"]
+                    for board in layout["team_boards"]
+                    for card in board["bench"] + board["back_bench"]
+                }
+                self.assertIn(place["id"], drawn)
+            elif place["at"] == "space":
+                self.assertIn(
+                    (place["zone"], place["space_index"]),
+                    {
+                        (space["zone"], space["index"])
                         for space in layout["spaces"]
-                        for side in ("home", "visiting")
-                        for piece in space[side]
-                    } | {
-                        card["id"]
-                        for board in layout["team_boards"]
-                        for card in board["bench"] + board["back_bench"]
-                    }
-                    self.assertIn(place["id"], drawn)
-                elif place["at"] == "space":
-                    self.assertIn(
-                        (place["zone"], place["space_index"]),
-                        {
-                            (space["zone"], space["index"])
-                            for space in layout["spaces"]
-                        },
-                    )
-                else:
-                    self.assertIn(place["side"], ("home", "visiting"))
+                    },
+                )
+            else:
+                self.assertIn(place["side"], ("home", "visiting"))
 
     def test_a_maneuver_card_is_the_card_it_plays(self) -> None:
         fixture = case("maneuver picks")
@@ -721,6 +727,41 @@ class ObjectTests(unittest.TestCase):
         self.assertEqual(set(chips), set(costs))
         for player_id, cost in chips.items():
             self.assertEqual(cost["count"], costs[player_id])
+
+    def lit_by(self, name: str, choice: str):
+        fixture = case(name)
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        (control,) = [
+            control
+            for number in (1, 2)
+            for group in controls_for(
+                ENGINE, fixture.game, fixture.match, prompt, Viewer(number),
+            )
+            for control in group["controls"]
+            if control["action"]["choice"] == choice
+        ]
+        return fixture, prompt, control
+
+    def test_a_set_up_shot_lights_the_goal_and_the_shooter(self) -> None:
+        # The author, 2026-09-26: "Setup attempt should light up the
+        # goal and the shooter."
+        fixture, prompt, control = self.lit_by("set-up attempt", "take")
+        side = fixture.match.ball.possession
+        other = TeamSide.VISITING if side is TeamSide.HOME else TeamSide.HOME
+        self.assertEqual(control["place"], {"at": "goal", "side": other.value})
+        self.assertEqual(
+            control["also"], [{"at": "player", "id": prompt.player_id}],
+        )
+
+    def test_a_coaching_offer_lights_the_bench(self) -> None:
+        # The author, 2026-09-26: "Coaching should light up the bench."
+        fixture, prompt, control = self.lit_by("coaching offer", "declare")
+        self.assertEqual(
+            control["place"],
+            {"at": "bench", "side": TeamSide(prompt.side).value},
+        )
+        _, _, decline = self.lit_by("coaching offer", "decline")
+        self.assertEqual(decline["style"], NEUTRAL)
 
     def test_the_shot_lights_the_goal_the_side_attacks(self) -> None:
         fixture = case("plain turn")

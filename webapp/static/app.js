@@ -574,23 +574,32 @@ function drawBoard(state) {
    (webapp/present.py, off `PendingPrompt.options`); the page only
    finds the object and attaches the click. A control the prompt has
    greyed lights nothing: the question box says why it is dark. */
-const BOARD_OBJECTS = new Set(["player", "space", "ball", "goal", "out_of_play", "time_out_tile"]);
+const BOARD_OBJECTS = new Set([
+  "player", "space", "ball", "goal", "out_of_play", "time_out_tile", "bench",
+]);
 
+/* A control may light more than one thing (`also`): a Set Up's shot is
+   the goal and the shooter, and clicking either sends it. */
 function readLit(prompt) {
-  const index = { player: {}, space: {}, ball: [], goal: {}, out: {}, tile: {}, shape: [] };
+  const index = {
+    player: {}, space: {}, ball: [], goal: {}, out: {}, tile: {}, bench: {}, shape: [],
+  };
   if (!prompt) return index;
   const add = (map, key, control) => { (map[key] = map[key] || []).push(control); };
   for (const group of prompt.controls) {
     for (const control of group.controls) {
-      const place = control.place;
-      if (!place || control.disabled || !BOARD_OBJECTS.has(place.at)) continue;
-      index.shape.push([place, control.chip, control.cost]);
-      if (place.at === "player") add(index.player, place.id, control);
-      else if (place.at === "space") add(index.space, `${place.zone}:${place.space_index}`, control);
-      else if (place.at === "ball") index.ball.push(control);
-      else if (place.at === "goal") add(index.goal, place.side, control);
-      else if (place.at === "out_of_play") add(index.out, place.side, control);
-      else if (place.at === "time_out_tile") add(index.tile, place.side, control);
+      if (!control.place || control.disabled) continue;
+      for (const place of [control.place, ...(control.also || [])]) {
+        if (!BOARD_OBJECTS.has(place.at)) continue;
+        index.shape.push([place, control.chip, control.cost]);
+        if (place.at === "player") add(index.player, place.id, control);
+        else if (place.at === "space") add(index.space, `${place.zone}:${place.space_index}`, control);
+        else if (place.at === "ball") index.ball.push(control);
+        else if (place.at === "goal") add(index.goal, place.side, control);
+        else if (place.at === "out_of_play") add(index.out, place.side, control);
+        else if (place.at === "time_out_tile") add(index.tile, place.side, control);
+        else if (place.at === "bench") add(index.bench, place.side, control);
+      }
     }
   }
   return index;
@@ -1039,13 +1048,17 @@ function playerCard(card) {
 }
 
 /* A team's bench and back bench, behind a button under the board:
-   shown while the pointer is on it, and kept open by a click. */
+   shown while the pointer is on it, and kept open by a click. Lit gold
+   where a prompt names it -- the Coaching Offer -- and then a click
+   answers it; the cards still show while the pointer is on it. */
 function bench(board) {
   const count = board.bench.length + board.back_bench.length;
+  const controls = (lit && lit.bench[board.side]) || [];
+  const on = controls.length > 0;
   const toggle = h(
     "div",
     {
-      class: `bench-toggle${openBenches.has(board.side) ? " open" : ""}`,
+      class: `bench-toggle${openBenches.has(board.side) ? " open" : ""}${on ? " lit" : ""}`,
       style: `--team: ${board.colour}`,
     },
     h(
@@ -1054,8 +1067,13 @@ function bench(board) {
         type: "button",
         class: "bench-button",
         "aria-expanded": openBenches.has(board.side) ? "true" : "false",
+        title: on ? controls[0].label : null,
         onclick: (event) => {
           event.stopPropagation();
+          if (on) {
+            press(controls[0]);
+            return;
+          }
           const open = toggle.classList.toggle("open");
           event.currentTarget.setAttribute("aria-expanded", String(open));
           if (open) openBenches.add(board.side);
@@ -1065,6 +1083,7 @@ function bench(board) {
       teamEmoji(board.key, board.name),
       `${board.name} bench`,
       h("span", { class: "count" }, `(${count})`),
+      on ? chips(controls, { buttons: false }) : null,
     ),
     h(
       "div",
@@ -1426,7 +1445,7 @@ function inBox(control) {
   if (place.at === "player") {
     return !onField(current && current.board.layout, place.id);
   }
-  if (place.at === "time_out_tile" || place.at === "out_of_play") return false;
+  if (place.at === "time_out_tile" || place.at === "out_of_play" || place.at === "bench") return false;
   /* A space, a goal or the ball are always drawn while there is a
      board; a disabled one is dark there and said in the lit line. */
   return !(current && current.board.layout);

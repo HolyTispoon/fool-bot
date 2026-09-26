@@ -405,9 +405,10 @@ mapping table kind by kind, the neutral `.btn`), "The whistle is one
 control for everything that ends a phase", "A distance names its
 landing because the model says so" (`DistanceOptions.landings`, a
 model change in its own commit), the lit line, and the keyboard list.
-The Coaching Offer lights nothing and both its answers are neutral
-until step 6; the hub's menus and the shootout order stay neutral
-until steps 6 and 7.
+The author's answers on the PR: the landings accepted, a Set Up's shot
+lighting the goal and the shooter, and a Coaching Offer lighting the
+bench. The hub's menus and the shootout order stay neutral until
+steps 6 and 7.
 
 **Prompt.**
 

@@ -411,6 +411,13 @@ img { display: block; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn.current:disabled { opacity: 1; cursor: default; }
 .btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+/* A bench that is the answer (the Coaching Offer): edged in gold. */
+.bench-toggle.lit .bench-button {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(240, 178, 50, 0.45);
+  color: var(--strong);
+}
+.bench-toggle.lit .bench-button .chip { margin-left: 6px; }
 
 /* The things the question box draws to be clicked: the die, a speed's
    faces, the whistle, the REMATCH mark, and the note. */

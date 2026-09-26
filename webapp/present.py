@@ -264,6 +264,7 @@ def button(
     choice: str = "",
     *,
     place: Optional[dict] = None,
+    also: Sequence[dict] = (),
     chip: str = "",
     cost: Optional[dict] = None,
     disabled: bool = False,
@@ -276,7 +277,9 @@ def button(
     """
     One answer. `place` is the object on the page it lights (the
     `ON_*` names and `on_*` builders below), or `None` for the neutral
-    control; `chip` is what clicking the lit object means, and `cost`
+    control; `also` is any further object the same answer lights -- a
+    Set Up's shot is the goal *and* the shooter -- so clicking either
+    sends it; `chip` is what clicking the lit object means, and `cost`
     what it charges, drawn as the token image and a count
     (`{"emoji", "count"}`), never the word "token". `label` is the
     control said in full, for the keyboard list and anywhere the
@@ -295,6 +298,7 @@ def button(
         "disabled": disabled,
         "note": note,
         "place": place,
+        "also": list(also) if place else [],
         "chip": chip or None,
         "cost": cost,
         "style": None if place else NEUTRAL,
@@ -423,6 +427,11 @@ def on_face(value: int) -> dict:
 
 def on_card(key: str, side: str) -> dict:
     return {"at": "card", "key": key, "side": side}
+
+
+def on_bench(side: Any) -> dict:
+    """A side's bench, under the board: the Coaching Offer's yes."""
+    return {"at": "bench", "side": TeamSide(side).value}
 
 
 @dataclass(frozen=True)
@@ -611,7 +620,10 @@ def lit_line(
             if not place or place["at"] in IN_THE_BOX:
                 # The box draws its own objects, which say themselves.
                 continue
-            name = _object_name(asked, place)
+            name = " and ".join(
+                _object_name(asked, one)
+                for one in (place, *control.get("also", ()))
+            )
             said = control.get("chip") or control["label"]
             if said == name:
                 said = control["label"]
@@ -651,6 +663,9 @@ def _object_name(asked: Asked, place: Mapping[str, Any]) -> str:
         ))
     if at == "goal":
         return "The goal"
+    if at == "bench":
+        team = asked.match.setup_for_side(TeamSide(place["side"])).team
+        return f"The {team_display_name(team)} bench"
     if at == "time_out_tile":
         return "The time-out tile"
     if at == "out_of_play":
@@ -761,13 +776,16 @@ def _roll(asked: Asked) -> list:
 
 
 #: What the yes of each decision is about on the board, and its chip.
-#: The no is the neutral control, worded from the option.
+#: The no is the neutral control, worded from the option. A Set Up's
+#: shot lights the goal and the player who may take it; a Coaching
+#: Offer lights the side's bench (the author, 2026-09-26).
 DECISION_YES: Mapping[PromptKind, tuple[str, str]] = {
     PromptKind.MIND_PULL: ("player", "pull"),
     PromptKind.SMOOTH: ("player", "take it over"),
     PromptKind.JOIN_THE_BALL: ("player", "join the ball"),
     PromptKind.FORCE_TEST: ("player", "force a skill test"),
-    PromptKind.SET_UP_ATTEMPT: ("goal", "shoot"),
+    PromptKind.SET_UP_ATTEMPT: ("goal+player", "shoot"),
+    PromptKind.COACHING_OFFER: ("bench", "coach"),
 }
 
 
@@ -776,13 +794,12 @@ def _decision(
 ) -> list:
     """
     A prompt's yes and no. The yes lights the thing the decision is
-    about -- the meeple it names, or the goal for a Set Up's shot --
-    and the no is the neutral control. `labels` is what a kind calls
-    its two answers where the generic `CHOICE_LABELS` are not enough --
-    a Smooth names both players, since which of the two ends up with
-    the ball is the whole question. The Coaching Offer has nothing on
-    the board to light (its window is step 6's), so both of its
-    answers are neutral.
+    about -- the meeple it names; for a Set Up's shot the goal and the
+    shooter; for a Coaching Offer the side's bench -- and the no is the
+    neutral control. `labels` is what a kind calls its two answers
+    where the generic `CHOICE_LABELS` are not enough -- a Smooth names
+    both players, since which of the two ends up with the ball is the
+    whole question.
     """
     options = asked.options
     labels = labels or {}
@@ -793,19 +810,23 @@ def _decision(
         label = labels.get(choice) or CHOICE_LABELS.get(
             choice, choice.replace("_", " ").title()
         )
-        place, chip = None, ""
+        place, also, chip = None, (), ""
         if yes is not None and choice != "decline":
             what, chip = yes
-            place = (
-                on_goal(asked.attacking_goal()) if what == "goal"
-                else on_player(asked.prompt["player_id"])
-            )
+            if what == "goal+player":
+                place = on_goal(asked.attacking_goal())
+                also = (on_player(asked.prompt["player_id"]),)
+            elif what == "bench":
+                place = on_bench(asked.prompt["side"])
+            else:
+                place = on_player(asked.prompt["player_id"])
         controls.append(
             button(
                 label,
                 asked.kind,
                 choice,
                 place=place,
+                also=also,
                 chip=chip,
                 disabled=railed,
                 note=RAILED_NOTE if railed else "",

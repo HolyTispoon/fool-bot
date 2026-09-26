@@ -694,9 +694,12 @@ buttons** (2026-09-26, step 4 of
 object it lights as its `place` -- `{"at": "player", "id"}`, `{"at":
 "space", "zone", "space_index"}`, `ball`, `{"at": "goal", "side"}` (the
 goal that side defends), `{"at": "out_of_play", "side"}`, `{"at":
-"time_out_tile", "side"}`, and in the question box `die`, `{"at":
-"face", "value"}`, `whistle`, `note`, `rematch`, `{"at": "card", "key",
-"side"}` -- with a `chip` saying what clicking it means and a `cost`
+"time_out_tile", "side"}`, `{"at": "bench", "side"}`, and in the
+question box `die`, `{"at": "face", "value"}`, `whistle`, `note`,
+`rematch`, `{"at": "card", "key", "side"}` -- with `also`, any further
+object the same answer lights (a Set Up's shot is the goal and the
+shooter, and clicking either sends it), a `chip` saying what clicking
+it means and a `cost`
 drawn as the token image and a count (a Cyborg's drain under its own,
 `drain_wording`). The page lights that object gold and attaches the
 click; what it sends is still the control's `action`, checked against
@@ -731,8 +734,8 @@ changed for it.
 | `speed_delta_choice` (`SpeedOptions`) | a row of d12 faces in the box | -- |
 | the six rolls (`RollOptions`) | the large die in the box; a ⚡ chip on each meeple that may declare Overdrive (with its drain) or Boost first | a score attempt's Back is neutral |
 | `mind_pull`, `smooth`, `join_the_ball`, `force_test` | the meeple the prompt names, for the yes | the no is neutral, worded from the option ("Stay", "Let it stand", "X keeps the ball") |
-| `set_up_attempt` | the goal, for the shot | the decline is neutral |
-| `coaching_offer` | nothing: the offer is about no one thing on the board | both neutral, until step 6 |
+| `set_up_attempt` | the goal and the player who may take the shot (the prompt's `player_id`), both for the shot (the author, 2026-09-26) | the decline is neutral |
+| `coaching_offer` | the bench of the side it is put to, for Coach (the author, 2026-09-26) -- its cards still show while the pointer is on it | Pass is neutral |
 | `maneuver_action` (`ManeuverOptions`) | the cards of this coach's own hand | how the hand is drawn is step 5's |
 | `coaching_hub` | the whistle for Done, grey with `finish_refusal` under it | the menus are neutral until step 6 |
 | `shootout_order` | -- | neutral until step 7 |
@@ -765,8 +768,8 @@ would have been a third copy of it, so `DistanceOptions.landings`
 carries the space, off the measures the moves themselves take
 (`ball_destination`, `relative_move_destination`), and the two Discord
 views that measured it read it now (proposed as its own commit on step
-4's PR). A space in the layout carries its `index` so a control can
-name it.
+4's PR, and accepted by the author there, 2026-09-26). A space in the
+layout carries its `index` so a control can name it.
 
 **The keyboard reads the same list.** Under the box, out of sight
 until it has the focus, are the controls in the order the options
