@@ -131,6 +131,18 @@ which is the whole reason this exists.
   it has left and finishes with a part scoresheet -- which `build_goal_log`
   says outright, by counting itself against the scoreboard rather than trusting
   the two agree.
+- **The winner's scorer is read off the log too** (the author,
+  2026-09-26, on step 5 of [../web-app-redesign.md](../web-app-redesign.md):
+  "the model should say it"). `winning_goal` is the winner's goal that
+  took them one past the loser's final total -- the goal after which they
+  could not be caught, which in a shootout is the shootout goal that did
+  it, since those are on the scoreboard like the rest. The full-time
+  summary says it under the final score ("**Winning goal:** Hellguard
+  [FB], minute 24.", or "in the extreme shootout"), and the result's
+  `Headline` carries the same line under the score, so the web page's
+  banner names the scorer in the model's words. **It says nothing for a
+  game whose log is short of its scoreboard**, for the part-scoresheet
+  reason above: counting into a short log would name the wrong goal.
 - **The log goes out at the end, the minute goes out at the time.** Each goal's
   own announcement carries `format_goal_time`, and the full listing is added to
   `announce_game_over`'s content by its two callers -- not inside it, which is

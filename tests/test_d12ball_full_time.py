@@ -376,6 +376,81 @@ class FullTimeSummaryTests(unittest.TestCase):
         self.assertIn("# Orange wins!", summary)
 
 
+class WinningGoalTests(FullTimeSummaryTests):
+    """
+    Who scored the winner (the author, 2026-09-26): the winner's goal
+    that put them one past the loser's final total, said under the
+    final score in the summary and in the headline beside it.
+    """
+
+    def scored(self, match, *goals) -> None:
+        """Goals in the order scored, each `(side, player index)` or
+        `(side, index, "og")`, onto the log and the scoreboard both."""
+        for side, index, *own in goals:
+            setup = match.home if side == TeamSide.HOME else match.visiting
+            other = match.visiting if side == TeamSide.HOME else match.home
+            if own:
+                match.record_goal(side, other.field_players[index], own_goal=True)
+            else:
+                match.record_goal(side, setup.field_players[index])
+            if side == TeamSide.HOME:
+                match.scoreboard.home_score += 1
+            else:
+                match.scoreboard.visiting_score += 1
+
+    def test_the_goal_that_went_one_past_the_loser_is_the_winner(self) -> None:
+        from d12ball.formatting import winning_goal, winning_goal_line
+
+        match = self.build_match(0, 0)
+        home, away = TeamSide.HOME, TeamSide.VISITING
+        # 1:0, 1:1, 2:1, 3:1, 3:2: the visitors end on two, so the
+        # winner is home's third -- the goal that put them past what
+        # the visitors would ever reach -- and not the second, after
+        # which they could still have been caught.
+        self.scored(match, (home, 0), (away, 0), (home, 1), (home, 2), (away, 1))
+
+        goal = winning_goal(match)
+        self.assertEqual(goal, match.goals_for(home)[2])
+        line = winning_goal_line(match, self.catalog)
+        self.assertTrue(line.startswith("**Winning goal:** "))
+        self.assertIn(f"minute {goal.time:02d}", line)
+        summary = build_full_time_summary(build_game(), match, self.catalog)
+        self.assertIn(line, summary)
+        # Under the final score, above the heading.
+        self.assertLess(summary.index(line), summary.index("# Orange wins!"))
+
+    def test_an_own_goal_winner_is_named_as_the_log_names_it(self) -> None:
+        from d12ball.formatting import winning_goal_line
+
+        match = self.build_match(0, 0)
+        self.scored(match, (TeamSide.VISITING, 0, "og"))
+
+        self.assertIn("(OG)", winning_goal_line(match, self.catalog))
+
+    def test_a_shootout_winner_is_said_to_be_in_the_shootout(self) -> None:
+        from d12ball.formatting import winning_goal_line
+
+        match = self.build_match(0, 0)
+        self.scored(match, (TeamSide.HOME, 0), (TeamSide.VISITING, 0))
+        match.begin_shootout()
+        match.award_shootout_goal(TeamSide.HOME, match.home.field_players[1])
+
+        line = winning_goal_line(match, self.catalog)
+        self.assertTrue(line.endswith("in the extreme shootout."))
+
+    def test_nothing_is_said_level_or_where_the_log_is_short(self) -> None:
+        from d12ball.formatting import winning_goal_line
+
+        match = self.build_match(1, 1)
+        self.assertEqual(winning_goal_line(match, self.catalog), "")
+        # 3:1 on the board and nothing in the log: a game from before
+        # the log was kept, so no goal is named.
+        match = self.build_match(3, 1)
+        self.assertEqual(winning_goal_line(match, self.catalog), "")
+        summary = build_full_time_summary(build_game(), match, self.catalog)
+        self.assertNotIn("Winning goal", summary)
+
+
 class GoalLogTests(unittest.TestCase):
     """
     Who scored and when, which the scoreboard cannot be read backwards
