@@ -522,7 +522,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=dice,
         ), mock.patch(
-            "cogs.d12ball_views.base.render_skill_test_dice",
+            "d12ball.dice_brief.render_skill_test_dice",
         ), mock.patch("discord.File"):
             await view.roll(build_contest_interaction())
         return cog.engine.load_match_state(game)

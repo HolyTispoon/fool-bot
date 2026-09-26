@@ -26,6 +26,7 @@ What it is watching for, beyond "the routes answer":
 from __future__ import annotations
 
 import base64
+import io
 import json
 import tempfile
 import unittest
@@ -461,6 +462,152 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_game_nobody_knows_is_not_found(self) -> None:
         response = await self.client.get("/api/game/nope")
 
+        self.assertEqual(response.status, 404)
+
+
+class DiceTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The dice a roll is drawn with (step 7 of docs/web-app-next.md): one
+    fixture per shape a roll's `detail` comes in, pressed through the
+    route, and the picture its journal entry serves -- drawn by the
+    same `render.py` function the Discord view for that roll calls.
+    """
+
+    #: The fixture, the shape its roll writes, and the renderer the
+    #: Discord view for it calls, named here rather than read off
+    #: `pictures.DICE`, so a wrong pick in the table is caught.
+    ROLLS = (
+        ("skill test", "contest", "render_skill_test_dice"),
+        ("loose ball roll", "contest", "render_skill_test_dice"),
+        ("shootout test", "contest", "render_skill_test_dice"),
+        ("score attempt", "shot", "render_skill_test_dice"),
+        ("own goal", "own_goal", "render_own_goal_dice"),
+        ("mind pull", "mind_pull", "render_mind_pull_die"),
+        ("injury test", "injury", "render_injury_test_die"),
+    )
+
+    async def open(self, name: str):
+        fixture = case(name)
+        if name == "own goal":
+            # The fixture asks the question; rolling it needs the
+            # ball-handler whose roll it is.
+            take_the_ball(fixture.match)
+        service = service_over(fixture)
+        web = WebApp(service, GameLocks())
+        web.watch()
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        self.addAsyncCleanup(web.stop)
+        return client, fixture.game
+
+    async def roll(self, client, game) -> tuple[dict, dict]:
+        """Press the roll -- or, for a Mind Pull, take the ball --
+        as whichever coach is offered it; the entry that carries it."""
+        for coach_id in (game.player_1_id, game.player_2_id):
+            headers = as_coach(coach_id)
+            state = await (
+                await client.get(f"/api/game/{game.game_id}", headers=headers)
+            ).json()
+            pressed = [
+                control["action"]
+                for group in state["prompt"]["controls"]
+                for control in group["controls"]
+                if not control["disabled"]
+                and control["action"]["choice"] in ("roll", "take")
+            ]
+            if pressed:
+                break
+        response = await client.post(
+            f"/api/game/{game.game_id}/action",
+            params={"since": str(state["latest"])},
+            headers=headers,
+            data=json.dumps({"action": pressed[0]}),
+        )
+        played = await response.json()
+        self.assertIsNone(played["refusal"])
+        rolled = [entry for entry in played["entries"] if entry["dice"]]
+        self.assertEqual(len(rolled), 1, played["entries"])
+        return rolled[0], headers
+
+    async def test_every_roll_serves_the_picture_its_view_posts(self) -> None:
+        from PIL import Image
+
+        from d12ball import render
+
+        for name, shape, renderer in self.ROLLS:
+            with self.subTest(name):
+                ENGINE.rng.seed(11)
+                client, game = await self.open(name)
+                drawn = []
+                real = getattr(render, renderer)
+                # Where the web app calls it from: the contest dice
+                # through the brief the cog calls too, the single dice
+                # straight off the renderer.
+                caller = (
+                    "d12ball.dice_brief"
+                    if renderer == "render_skill_test_dice"
+                    else "webapp.pictures"
+                )
+
+                def spy(*args, **kwargs):
+                    image = real(*args, **kwargs)
+                    drawn.append(Image.open(image).size)
+                    image.seek(0)
+                    return image
+
+                entry, headers = await self.roll(client, game)
+                self.assertEqual(entry["dice"], shape)
+                with mock.patch(f"{caller}.{renderer}", spy):
+                    response = await client.get(
+                        f"/api/room/{game.game_id}/detail/{entry['id']}.png",
+                        headers=headers,
+                    )
+                    body = await response.read()
+
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.content_type, "image/png")
+                self.assertTrue(body.startswith(b"\x89PNG"))
+                self.assertEqual(drawn, [Image.open(io.BytesIO(body)).size])
+
+    async def test_the_own_goal_breakdown_is_read_above_its_dice(self) -> None:
+        # On Discord the breakdown is the text of the message the dice
+        # are attached to, and the verdict follows: one line, then the
+        # picture (`D12Ball.post_own_goal_dice`).
+        ENGINE.rng.seed(11)
+        client, game = await self.open("own goal")
+
+        entry, _ = await self.roll(client, game)
+
+        self.assertEqual(entry["dice_after"], 1)
+        self.assertGreater(len(entry["lines"]), 1)
+
+    async def test_an_entry_with_no_roll_has_no_dice(self) -> None:
+        ENGINE.rng.seed(11)
+        client, game = await self.open("coaching hub")
+        headers = as_coach(game.player_1_id)
+        state = await (
+            await client.get(f"/api/game/{game.game_id}", headers=headers)
+        ).json()
+        control = next(
+            control
+            for group in state["prompt"]["controls"]
+            for control in group["controls"]
+            if not control["disabled"]
+        )
+
+        played = await (
+            await client.post(
+                f"/api/game/{game.game_id}/action",
+                headers=headers,
+                data=json.dumps({"action": control["action"]}),
+            )
+        ).json()
+        response = await client.get(
+            f"/api/room/{game.game_id}/detail/{played['entries'][0]['id']}.png",
+        )
+
+        self.assertIsNone(played["entries"][0]["dice"])
         self.assertEqual(response.status, 404)
 
 

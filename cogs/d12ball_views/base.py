@@ -1,12 +1,12 @@
 """
 The pieces every other view module needs: `SafeView`, which nearly
-every view in the game subclasses, and the two helpers that render a
-contest.
+every view in the game subclasses. The dice a contest is drawn with are
+`d12ball.dice_brief.render_contest_dice`, below the renderer, so the web
+app draws the same picture.
 
 It imports from no sibling, which is what keeps the package a DAG.
 """
 
-import asyncio
 import discord
 from typing import Awaitable, Callable, Optional
 
@@ -15,15 +15,7 @@ from d12ball.components import (
     MatchState,
     RuleRefusal,
 )
-from d12ball.game import (
-    D12BallGame,
-    Team,
-    team_display_name,
-)
-from d12ball.render import (
-    TEAM_COLORS,
-    render_skill_test_dice,
-)
+from d12ball.game import D12BallGame
 from d12ball.flow.driver import STEP_OWED, Action
 from d12ball.personal_abilities import BOOST_BONUS, BOOST_DRAIN_COST
 from d12ball.formatting import contestant_detail  # noqa: F401 -- re-exported
@@ -48,43 +40,6 @@ from cogs.d12ball_helpers import (
     player_with_role,
     send_error_fallback,
 )
-
-
-async def render_contest_dice(
-    contestants: list[
-        tuple[int, Team, list[str], int, bool, list[tuple[str, int]]]
-    ],
-    filename: str,
-) -> discord.File:
-    """
-    The dice image behind every two-sided roll in the game -- a skill
-    test, a loose ball, a score attempt, a shootout test -- as
-    `(roll, team, detail lines, total, overdriven, merge contributors)`
-    a side.
-
-    The image carries the whole arithmetic, which is why no message
-    that posts one repeats it in text. Rendering is Pillow and pure
-    CPU, so it goes to a worker thread; see "Discord's rate limits" in
-    docs/design/rate-limits.md.
-    """
-    return discord.File(
-        await asyncio.to_thread(
-            render_skill_test_dice,
-            [
-                (
-                    roll,
-                    TEAM_COLORS[team],
-                    team_display_name(team),
-                    detail,
-                    total,
-                    overdriven,
-                    merge,
-                )
-                for roll, team, detail, total, overdriven, merge in contestants
-            ],
-        ),
-        filename=filename,
-    )
 
 
 class SafeView(discord.ui.View):

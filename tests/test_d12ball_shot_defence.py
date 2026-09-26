@@ -226,7 +226,7 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=rolls,
         ), mock.patch(
-            "cogs.d12ball_views.base.render_skill_test_dice",
+            "d12ball.dice_brief.render_skill_test_dice",
         ) as dice, mock.patch("discord.File"):
             await view.roll(interaction)
         return dice.call_args.args[0][1]

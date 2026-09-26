@@ -287,7 +287,7 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch(
             "random.Random.randint", return_value=7,
         ), mock.patch(
-            "cogs.d12ball_views.base.render_skill_test_dice",
+            "d12ball.dice_brief.render_skill_test_dice",
         ) as render:
             await view.roll(interaction)
         # The offense entry: (roll, colour, team, detail lines, total).
@@ -375,7 +375,7 @@ class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", return_value=7,
         ), mock.patch(
-            "cogs.d12ball_views.base.render_skill_test_dice", side_effect=capture,
+            "d12ball.dice_brief.render_skill_test_dice", side_effect=capture,
         ):
             with self.assertRaises(Stop):
                 await view.roll(interaction)
@@ -458,7 +458,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", return_value=7,
         ), mock.patch(
-            "cogs.d12ball_views.base.render_skill_test_dice", side_effect=capture,
+            "d12ball.dice_brief.render_skill_test_dice", side_effect=capture,
         ):
             with self.assertRaises(Stop):
                 await view.roll(interaction)

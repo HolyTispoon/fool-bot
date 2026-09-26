@@ -595,14 +595,64 @@ than stripped because the model's sentences are written in it
 (principle 5): Discord's client draws it for the bot, and this draws
 it here, headlines at all three of the levels the model writes.
 
+### The dice
+
+**A roll is drawn in the log, as the bot posts it** (step 7 of
+[../web-app-next.md](../web-app-next.md)). The log draws no board, but
+it draws the dice: the board is only where something happened, and
+the dice are what happened -- on Discord the prompt a coach pressed
+*becomes* the dice. One picture for both frontends, because the
+model's voice is one and so is its picture of a roll; HTML dice would
+be a second drawing to keep right.
+
+- **The journal keeps the roll on the entry it rode on.** An entry
+  made from a result's answer keeps `GameResult.detail`; one made from
+  a group keeps `Narration.detail`, which is where an AI's answer
+  carries its roll (the AI rolls no dice, but its Mind Pull is a
+  choice that rolls one -- a die the cog's `post_ai_answer` does not
+  draw today). A roll with no line beside it still makes an entry.
+  The entry's wire shape says `dice` -- the roll's shape, or `null` --
+  and `dice_after`.
+- **`GET /api/room/{id}/detail/{entry}.png` draws it** with the same
+  `render.py` function the Discord view for that roll calls, off the
+  same numbers, in a worker thread, and keeps it (`DICE_CACHE`): an
+  entry never changes. **The renderer is picked by the roll's shape**,
+  the `shape` its `to_dict` writes (`webapp/pictures.py`, `DICE`),
+  never by the prompt kind: the kind is the question and the shape is
+  what was rolled, and an AI's Mind Pull and a tie that hands back the
+  same question are where the two part. The four contests are
+  `d12ball/dice_brief.py`'s `render_contest_dice` -- the brief the
+  cog's views call too, moved below the renderer for this -- and the
+  single dice are `render_own_goal_dice`, `render_mind_pull_die` and
+  `render_injury_test_die` with the arguments the cog's `post_*`
+  methods pass. The match is asked only which side a player is on;
+  the own-goal die's colour is the roller's, which
+  `OwnGoalRoll.player_id` carries because by the time the step
+  returns the ball has changed hands (the reason `ShotDice` carries
+  its shooter).
+- **Where the picture goes among the lines is the Discord view's
+  order**, which is batching and so the frontend's (principle 8):
+  every roll's prompt becomes its dice and the verdict follows
+  (`SkillTestView.roll`), so the picture comes first; the own-goal
+  roll's breakdown is the text of the message its dice are attached
+  to, so it is read above them and the verdict under them
+  (`LINES_BEFORE_DICE`).
+- **The URL carries the entry's time** as well as its id. Entries are
+  numbered from 1 again after a restart, and a picture is served to be
+  kept; the time keeps a browser from showing a roll it cached before.
+
 ## What it does not do yet
 
 - **It does not draw most of the pictures a prompt rides on** -- the
-  field strip, the challenge image, the coach's half-field, the dice.
-  They are `D12Ball.render_prompt`'s, keyed on the kind, and the web
-  page shows the ask, the controls and the live board beside them
-  instead. The hand of cards is the one it draws, as the cards
-  themselves. The numbers behind a roll are on the wire
-  (`GameResult.detail`) for the page that draws them.
+  field strip, the challenge image, the coach's half-field. They are
+  `D12Ball.render_prompt`'s, keyed on the kind, and the web page shows
+  the ask, the controls and the live board beside them instead. The
+  hand of cards is the one it draws, as the cards themselves, and the
+  dice are drawn in the log ("The dice", above).
+- **Two pictures around a roll are the bot's alone**: Volatile's
+  ignition die, with its caption (`D12Ball.post_volatile_ignition`,
+  one per side that ignited), and the scorer's portrait under a goal.
+  Both ride on the same `detail` the page already keeps -- the
+  ignites on a contest's, the scorer on a shot's.
 - **It keeps its journal in memory**, so a restart is a page with a
   board, a prompt and no history.

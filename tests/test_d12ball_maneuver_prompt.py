@@ -35,6 +35,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.dice_brief import challenge_side
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from roster import fielded
@@ -360,8 +361,11 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             cog.engine.get_player_definition(player_id),
         )
 
-        side = cog.challenge_side(
-            player_id, match.team_for_player(player_id), attacking=True,
+        side = challenge_side(
+            cog.engine,
+            player_id,
+            match.team_for_player(player_id),
+            attacking=True,
         )
 
         self.assertEqual(side.ability, profile.ability_short)

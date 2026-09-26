@@ -1105,6 +1105,11 @@ class OwnGoalRoll:
     offense_skill: int
     safe: bool
     overdrive: int
+    #: Who rolled, for the die's colour. By the time the step returns
+    #: the run back has handed the ball over, so the position no longer
+    #: says whose roll it was -- the reason `ShotDice` carries its
+    #: shooter (step 7 of docs/web-app-next.md).
+    player_id: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -1113,6 +1118,7 @@ class OwnGoalRoll:
             "offense_skill": self.offense_skill,
             "safe": self.safe,
             "overdrive": self.overdrive,
+            "player_id": self.player_id,
         }
 
 
@@ -1194,7 +1200,10 @@ def own_goal_roll_step(
     )
 
     return (
-        OwnGoalRoll(rolls, offense_skill, safe, overdrive),
+        OwnGoalRoll(
+            rolls, offense_skill, safe, overdrive,
+            player_id=offense_player.player_id,
+        ),
         StepResult(
             narration=[breakdown, verdict],
             board_changed=True,

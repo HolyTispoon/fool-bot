@@ -150,7 +150,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         view = SkillTestView(cog, game.game_id)
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=[12, 1],
-        ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
+        ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
             await view.roll(interaction)
@@ -200,7 +200,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         view = LooseBallSkillTestView(cog, game.game_id)
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=rolls,
-        ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
+        ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
             await view.roll(interaction)
@@ -281,7 +281,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
             # faces, which is what every roll in a basic game is.
             return_value=([], 7, 7, IgnitedRoll(face=7), IgnitedRoll(face=7)),
         ), mock.patch(
-            "cogs.d12ball_views.base.render_skill_test_dice",
+            "d12ball.dice_brief.render_skill_test_dice",
         ), mock.patch("discord.File"):
             await view.roll(interaction)
 
@@ -397,7 +397,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         view = ScoreAttemptView(cog, game.game_id)
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=rolls,
-        ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
+        ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
             await view.roll(interaction)

@@ -21,9 +21,10 @@ Discord-facing half this module has no business holding.
 Some methods here build prompt text -- `build_turn_prompt` and its
 kind. That is presentation, not a rule, but it is presentation over
 nothing but the match and the catalogs: no emoji, no interaction, no
-cog, and no Pillow (the matchup image's brief, `challenge_side`, is
-the cog's since step 9 of docs/architecture-migration.md, so this
-module imports nothing from `d12ball/render.py`). `d12ball/formatting.py`
+cog, and no Pillow (the matchup image's brief, `challenge_side`, left
+here in step 9 of docs/architecture-migration.md and is in
+`d12ball/dice_brief.py`, beside the renderer, so this module imports
+nothing from `d12ball/render.py`). `d12ball/formatting.py`
 is where the plain-text half of that lives (space codes, team-side
 labels, player names), imported here the same way it is imported into
 cogs/d12ball_helpers.py -- see that module's own docstring for why

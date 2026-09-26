@@ -284,7 +284,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         view = SkillTestView(cog, game.game_id)
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=[12, 1],
-        ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
+        ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
             await view.roll(interaction)
@@ -447,7 +447,7 @@ class ContestInjuryResumeTests(unittest.IsolatedAsyncioTestCase):
         view = LooseBallSkillTestView(cog, game.game_id)
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=[12, 1],
-        ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
+        ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
             await view.roll(interaction)

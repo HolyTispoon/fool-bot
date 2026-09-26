@@ -104,6 +104,11 @@ JOURNAL_LENGTH = 200
 #: and a game's worth is not.
 BOARD_CACHE = 24
 
+#: How many rolls' dice are kept in hand. An entry never changes, so
+#: its picture is drawn once however many pages ask; a dice image is
+#: small, and a game rolls a few dozen times.
+DICE_CACHE = 64
+
 #: How many card pictures are kept in hand: every face a game can show
 #: is eighteen players and twelve maneuvers twice, and they never
 #: change, so a few games' worth is cheap and saves a Pillow render a
@@ -133,18 +138,29 @@ class Entry:
     new_play: bool = False
     #: When it was said, as a Discord message carries its time.
     at: float = field(default_factory=time.time)
+    #: The roll these lines are the answer to, where there was one --
+    #: the result's `detail` (the answer's own) or the group's (an AI's
+    #: answer) -- for `detail/{entry}.png`.
+    detail: Optional[object] = None
 
     def to_dict(self, game: D12BallGame) -> dict:
-        """The entry as the page's log reads it: words only. The log
-        draws no board -- the live board is beside it -- so the
-        position an entry stopped at is kept for `board.png?entry=`
-        and not sent."""
+        """The entry as the page's log reads it: its words, and the
+        dice where it was a roll. The log draws no board -- the live
+        board is beside it -- so the position an entry stopped at is
+        kept for `board.png?entry=` and not sent. The dice are drawn:
+        they are the roll, where the board is only where it happened.
+        `dice` is the roll's shape where the page has a picture for
+        it, and `dice_after` how many of the lines are read above
+        it."""
+        shape = pictures.dice_shape(self.detail)
         return {
             "id": self.id,
             "lines": [render_text(game, line) for line in self.lines],
             "board": self.board is not None,
             "new_play": self.new_play,
             "at": self.at,
+            "dice": shape,
+            "dice_after": pictures.LINES_BEFORE_DICE.get(shape, 0),
         }
 
 
@@ -172,8 +188,8 @@ class Journal:
     def add(self, result: GameResult) -> None:
         """One result, as the page reads it: the answer's own lines,
         then every group the run closed."""
-        for lines, group in self._blocks(result):
-            if not lines and group is None:
+        for lines, group, detail in self._blocks(result):
+            if not lines and group is None and detail is None:
                 continue
             self.entries.append(
                 Entry(
@@ -181,6 +197,7 @@ class Journal:
                     tuple(lines),
                     board=None if group is None else group.board,
                     new_play=False if group is None else group.new_play,
+                    detail=detail,
                 ),
             )
             self.next_id += 1
@@ -201,13 +218,18 @@ class Journal:
         own under the board, so the lines go where every other line
         goes and the panel says what is being asked. Batching is the
         frontend's (principle 8), and this is the frontend.
+
+        **A roll rides on the lines that answer it**: the answer's own
+        (the result's `detail`), or an AI's answer inside the run (its
+        group's). It is kept even with no line beside it, since the
+        dice are what happened.
         """
-        if result.answer:
-            yield list(result.answer), None
+        if result.answer or result.detail is not None:
+            yield list(result.answer), None, result.detail
         for group in result.groups:
-            yield list(group.lines), group
+            yield list(group.lines), group, group.detail
         if result.narration:
-            yield list(result.narration), None
+            yield list(result.narration), None, None
 
     def since(self, entry_id: int, game: D12BallGame) -> list[dict]:
         return [
@@ -217,9 +239,13 @@ class Journal:
         ]
 
     def board_for(self, entry_id: int) -> Optional[dict]:
+        entry = self.entry(entry_id)
+        return None if entry is None else entry.board
+
+    def entry(self, entry_id: int) -> Optional[Entry]:
         for entry in self.entries:
             if entry.id == entry_id:
-                return entry.board
+                return entry
         return None
 
 
@@ -257,6 +283,7 @@ class WebApp:
         self.journals: dict[str, Journal] = {}
         self._boards: dict[tuple, bytes] = {}
         self._cards: dict[tuple, bytes] = {}
+        self._dice: dict[tuple, bytes] = {}
         self._runner: Optional[web.AppRunner] = None
         self.app = web.Application()
         self.app.add_routes(
@@ -278,6 +305,9 @@ class WebApp:
                 web.post("/api/room/{game_id}/rematch", self.rematch),
                 web.post("/api/room/{game_id}/admin", self.take_admin),
                 web.post("/api/room/{game_id}/chat", self.say),
+                web.get(
+                    "/api/room/{game_id}/detail/{entry_id}.png", self.dice,
+                ),
                 web.delete("/api/room/{game_id}/admin", self.drop_admin),
                 web.get("/api/game/{game_id}", self.state),
                 web.post("/api/game/{game_id}/action", self.act),
@@ -922,6 +952,39 @@ class WebApp:
             self._boards[key] = png
             while len(self._boards) > BOARD_CACHE:
                 self._boards.pop(next(iter(self._boards)))
+        return web.Response(
+            body=png,
+            content_type="image/png",
+            headers={"Cache-Control": "public, max-age=31536000"},
+        )
+
+    async def dice(self, request: web.Request) -> web.Response:
+        """
+        The dice one journal entry rolled, as a PNG -- read-only, like
+        the board. Drawn by the same `render.py` function the Discord
+        view for that roll calls, picked by the shape of the roll
+        (`pictures.DICE`), in a worker thread, and kept: an entry never
+        changes, so its picture is the same for every page that asks.
+        """
+        game = self._game(request)
+        match = self._match(game)
+        entry_id = _int(request.match_info["entry_id"])
+        entry = (
+            None
+            if entry_id is None or match is None
+            else self.journal(game.game_id).entry(entry_id)
+        )
+        if entry is None or pictures.dice_shape(entry.detail) is None:
+            raise web.HTTPNotFound(text="Those dice are no longer in hand.")
+        key = (game.game_id, entry_id)
+        png = self._dice.get(key)
+        if png is None:
+            png = await asyncio.to_thread(
+                pictures.dice_png, self.engine, game, match, entry.detail,
+            )
+            self._dice[key] = png
+            while len(self._dice) > DICE_CACHE:
+                self._dice.pop(next(iter(self._dice)))
         return web.Response(
             body=png,
             content_type="image/png",

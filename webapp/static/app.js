@@ -694,13 +694,38 @@ function drawJournal(state) {
   const nearBottom = journal.scrollHeight - journal.scrollTop - journal.clientHeight < 80;
   for (const entry of state.entries) {
     const block = h("div", { class: entry.new_play ? "entry new-play" : "entry" });
-    for (const line of entry.lines) block.append(h("p", { html: line }));
+    entry.lines.forEach((line, index) => {
+      if (entry.dice && index === entry.dice_after) block.append(dice(entry, journal));
+      block.append(h("p", { html: line }));
+    });
+    if (entry.dice && entry.dice_after >= entry.lines.length) block.append(dice(entry, journal));
     journal.append(block);
   }
   if (nearBottom || !journal.dataset.scrolled) {
     journal.scrollTop = journal.scrollHeight;
     journal.dataset.scrolled = "1";
   }
+}
+
+/* A roll's dice, where the Discord view puts them among its lines: the
+   prompt becomes the dice and the verdict follows, or (the own-goal
+   roll) the breakdown is read above them -- `dice_after` is the
+   server's, off the roll's shape. The picture is the bot's own, drawn
+   once per entry; `at` keeps a browser from showing a roll it cached
+   before a restart numbered the entries again. A log read to its last
+   line stays on it once the picture has a height. */
+function dice(entry, journal) {
+  const image = h("img", {
+    class: "dice",
+    alt: "The dice",
+    src: `/api/room/${GAME_ID}/detail/${entry.id}.png?at=${entry.at}`,
+  });
+  image.addEventListener("load", () => {
+    const pinned = journal.scrollHeight - journal.scrollTop - journal.clientHeight
+      < image.offsetHeight + 80;
+    if (pinned) journal.scrollTop = journal.scrollHeight;
+  });
+  return image;
 }
 
 // -- The divider between the log and the chat ---------------------------------
