@@ -227,8 +227,9 @@ on the pull request that brought it in.
 - **Zorch:** *"Does not add exhaustion when rolling skill tests (including after ties)."* Read as
   a maneuver skill test's entry token and every re-roll, including a contest's.
 - **Zytheris:** *"Gets a scoring opportunity when receiving any pass."* Read as any teammate's
-  pass Zytheris receives, with a High Pass of 3 or more offering the shot in place of the contest,
-  as an overshoot does.
+  pass Zytheris receives. A High Pass of 3 or more was first built offering the shot in place
+  of the contest; the author: *"Contest comes first and shooting is possible only if Zytheris
+  wins it."*
 
 **The Playmaker's sentence is on the sheet now** -- the entry below, made the same day from the
 author directly, asked for it -- and the import carries it. The sheet's abbreviated column still

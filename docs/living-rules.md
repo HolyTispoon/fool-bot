@@ -1208,7 +1208,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Zenith flies.** When a [steal](#running-back-after-a-steal) is about to run players back, Zenith's coach may first move Zenith to any space on the field, adding 1 token for every space travelled. Zenith then does not run back. An [injured](#playing-injured) Zenith cannot fly, nor can Zenith holding the ball, and a [new-play reset](#resetting-after-a-new-play) is not a run back.
 
-**Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#scoring-opportunities) if it is in range -- after a [Low Pass](#low-pass) or a [Skilled Pass](#skilled-pass) as after a 2-space High Pass. A High Pass of 3 or more offers it in place of the [High Pass contest](#the-high-pass-contest), as an overshoot does: declining the shot means taking the contest. The ball speed modifier counts for them, not against them, unless the pass overshot.
+**Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#scoring-opportunities) if it is in range -- after a [Low Pass](#low-pass) or a [Skilled Pass](#skilled-pass) as after a 2-space High Pass. A High Pass of 3 or more is contested as usual, and only if Zytheris wins the [High Pass contest](#the-high-pass-contest) -- or keeps the pass because nobody contests it -- may they then take the scoring opportunity.
 
 ### Oozes
 
