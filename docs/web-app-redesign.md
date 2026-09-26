@@ -111,7 +111,7 @@ kept so every cross-reference by step number still reads.
 | ~~4~~ | ~~Answering on the board: the objects, no coloured buttons~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The answer is the thing on the board", "The lit line", "The whistle") | large |
 | ~~5~~ | ~~The hand, the reveal, the challenge and full time~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The hand, the reveal and full time") | large |
 | ~~6~~ | ~~The Coaching Choice and the bench on the board~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The sideline is under the field", "The Coaching Choice on the board") | large |
-| 7 | The shootout order | medium |
+| ~~7~~ | ~~The shootout order~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The shootout order in the box") | medium |
 | ~~8~~ | ~~The bench~~ -- folded into step 6 | -- |
 | 9 | The front door and the table | large |
 | 10 | The sidebar tabs and the reading room | large |
@@ -608,6 +608,16 @@ equivalent for keyboard users.
 ---
 
 ### 7. The shootout order
+
+**Landed** (2026-09-26). What it settled is in
+[design/web-app.md](design/web-app.md), "The page": "The shootout
+order in the box" -- the slots filled in the page's own draft and sent
+at the whistle as the `send` a Discord menu sends, a click a name; the
+slots already sent read off the record for the viewer's own seat; each
+side's "has set its order" and nothing else for everybody; and the
+journal's cut of a coach's own block, which had been publishing an
+order to the whole room as it was built. The sudden-death pick already
+lit the meeples (step 4), so the step gave it only the same tags.
 
 **Prompt.**
 

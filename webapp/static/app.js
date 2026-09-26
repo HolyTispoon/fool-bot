@@ -725,6 +725,10 @@ function dragPick(node, key) {
    opened in the box, or for the rematch the room's own route. */
 function press(control) {
   if (!control || control.disabled) return;
+  if (control.action && control.action.kind === "shootout_order") {
+    pressOrder(control);
+    return;
+  }
   if (control.type === "pick") {
     pick(control);
     return;
@@ -998,11 +1002,9 @@ function meeple(m, layout, { controls = null } = {}) {
 
 function litMeeple(m, layout, controls, lit, held, picks) {
   const g = layout.meeple;
-  const [left, top, width, height] = g.box;
+  const [, , width, height] = g.box;
   const W = g.width;
   const H = (W * height) / width;
-  const icon = layout.species_icons && m.species;
-  const center = icon ? g.role_center : g.solo_center;
   const node = h(
     "button",
     {
@@ -1025,15 +1027,31 @@ function litMeeple(m, layout, controls, lit, held, picks) {
         else openCard(m.id);
       },
     },
+    meepleArt(m, layout, { ring: lit || held, dashed: held }),
+  );
+  hoverCard(node, cardUrl(m.id));
+  return node;
+}
+
+/* A meeple's own drawing, for whatever holds it: the Screentop piece in
+   the team's colour, edged gold where it is lit, the species icon and
+   the role badge. */
+function meepleArt(m, layout, { ring = false, dashed = false } = {}) {
+  const g = layout.meeple;
+  const [left, top, width, height] = g.box;
+  const W = g.width;
+  const icon = layout.species_icons && m.species;
+  const center = icon ? g.role_center : g.solo_center;
+  return [
     s(
       "svg",
       { viewBox: `${left} ${top} ${width} ${height}`, "aria-hidden": "true" },
       s("path", {
         d: g.path,
         fill: m.colour,
-        stroke: lit || held ? GOLD : m.ink,
-        "stroke-width": String(lit || held ? g.stroke * 1.5 : g.stroke),
-        "stroke-dasharray": held ? String(g.stroke * 2.2) : null,
+        stroke: ring ? GOLD : m.ink,
+        "stroke-width": String(ring ? g.stroke * 1.5 : g.stroke),
+        "stroke-dasharray": dashed ? String(g.stroke * 2.2) : null,
         "stroke-linejoin": "round",
       }),
     ),
@@ -1052,9 +1070,7 @@ function litMeeple(m, layout, controls, lit, held, picks) {
       },
       m.role,
     ),
-  );
-  hoverCard(node, cardUrl(m.id));
-  return node;
+  ];
 }
 
 const GOLD = "#f0b232";
@@ -1598,7 +1614,11 @@ function drawControls(prompt) {
       neutral("Put it back", () => pick(null), { title: "Esc" })));
   }
 
+  for (const group of prompt.controls.filter((one) => one.order)) {
+    controls.append(drawOrder(group));
+  }
   const groups = prompt.controls
+    .filter((group) => !group.order)
     .map((group) => ({ ...group, controls: group.controls.filter(inBox) }))
     .filter((group) => group.controls.length);
 
@@ -1609,6 +1629,8 @@ function drawControls(prompt) {
   appendNotes(controls, groups);
   const table = handTable(prompt);
   if (table) controls.append(table);
+  const sides = shootoutSides(prompt);
+  if (sides) controls.append(sides);
 
   /* The groups answered on the board say how, once each, under a rule:
      a row of tiles where the box draws the things (the formations), a
@@ -1903,6 +1925,318 @@ function handTable(prompt) {
     ))),
     h("p", { class: "note-line" }, table.note),
   );
+}
+
+/* The shootout's secret order (docs/web-app-redesign.md, step 7): a
+   slot per shooter, the order already sent in the first of them
+   (`group.order.placed`, the record's, sent to this seat alone) and the
+   rest filled here, in the page's own draft, from the players still to
+   place -- which are the options' `send` controls and nothing else. A
+   meeple goes into a slot by a drag or a click (the next empty one), a
+   drag between slots swaps them, a drag or a click back takes it out,
+   and the whistle sends each name in slot order: the `send` a Discord
+   menu sends a click at a time, each one offered as it goes. The draft
+   is never posted until then, so nobody else can see it. */
+const orderDrafts = new Map();
+
+function orderSends(group) {
+  return group.controls.filter((one) => one.action.choice === "send");
+}
+
+/* This side's draft: as many slots as are still to fill, kept across
+   redraws while the players to place are the same ones -- the other
+   side setting its order changes the prompt, not this draft. */
+function orderDraft(group) {
+  const order = group.order;
+  const pool = orderSends(group).map((one) => one.player).sort();
+  const key = JSON.stringify([order.placed.map((one) => one.id), pool]);
+  let draft = orderDrafts.get(order.side);
+  if (!draft || draft.key !== key) {
+    draft = { key, side: order.side, slots: Array(order.slots - order.placed.length).fill(null) };
+    orderDrafts.set(order.side, draft);
+  }
+  return draft;
+}
+
+function orderGroups() {
+  return current && current.prompt
+    ? current.prompt.controls.filter((group) => group.order)
+    : [];
+}
+
+/* The order section for one side, as the page now holds it: a poll
+   replaces the state without redrawing a prompt that has not changed,
+   so a control a key or a click holds is matched by its side rather
+   than by being the same object. */
+function orderGroup(side) {
+  return orderGroups().find((group) => group.order.side === side) || null;
+}
+
+/* The order section whose draft is full, ready to lock, or null. */
+function fullOrder() {
+  return orderGroups().find((group) => orderDraft(group).slots.every(Boolean)) || null;
+}
+
+function draftedAny() {
+  return orderGroups().some((group) => orderDraft(group).slots.some(Boolean));
+}
+
+function clearDrafts() {
+  for (const group of orderGroups()) orderDraft(group).slots.fill(null);
+  redrawOrder();
+}
+
+/* The panel is drawn again after every move in it, so the card a
+   hover opened over the piece that moved is put away with it. */
+function redrawOrder() {
+  hidePeek();
+  if (current && current.prompt) drawControls(current.prompt);
+}
+
+/* A number key, or anything else that presses one of the order's
+   controls: a player goes into the next empty slot, or back out of the
+   one they are in; Start again empties the draft, and takes back what
+   was already sent where anything was. */
+function pressOrder(control) {
+  const group = orderGroup(control.action.arguments.side);
+  if (!group) return;
+  const draft = orderDraft(group);
+  if (control.action.choice === "restart") {
+    draft.slots.fill(null);
+    if (group.order.placed.length) act(control.action);
+    else redrawOrder();
+    return;
+  }
+  const at = draft.slots.indexOf(control.player);
+  if (at >= 0) draft.slots[at] = null;
+  else {
+    const empty = draft.slots.indexOf(null);
+    if (empty < 0) return;
+    draft.slots[empty] = control.player;
+  }
+  redrawOrder();
+}
+
+/* Where a drag ends: a slot (by its index in the draft), or the pool. */
+function dropOrder(draft, playerId, target) {
+  const from = draft.slots.indexOf(playerId);
+  if (target.dataset.slot !== undefined) {
+    const to = Number(target.dataset.slot);
+    if (from >= 0) draft.slots[from] = draft.slots[to];
+    draft.slots[to] = playerId;
+  } else if (target.dataset.pool !== undefined && from >= 0) {
+    draft.slots[from] = null;
+  }
+  redrawOrder();
+}
+
+function dragOrder(node, draft, playerId) {
+  node.style.touchAction = "none";
+  node.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    const start = { x: event.clientX, y: event.clientY };
+    let ghost = null;
+    const move = (moved) => {
+      if (!ghost) {
+        if (Math.hypot(moved.clientX - start.x, moved.clientY - start.y) < 8) return;
+        ghost = node.cloneNode(true);
+        ghost.classList.add("drag-ghost");
+        document.body.append(ghost);
+        hidePeek();
+      }
+      ghost.style.left = `${moved.clientX}px`;
+      ghost.style.top = `${moved.clientY}px`;
+    };
+    const up = (released) => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", up);
+      if (!ghost) return;
+      ghost.remove();
+      dragged = Date.now();
+      if (released.type !== "pointerup") return;
+      hidePeek();
+      const under = document.elementFromPoint(released.clientX, released.clientY);
+      const target = under && under.closest("[data-slot], [data-pool]");
+      if (target) dropOrder(draft, playerId, target);
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", up);
+  });
+}
+
+/* A player as the order panel draws them: the meeple the field draws,
+   found by id on the layout, and the name under it. */
+function layoutMeeple(layout, playerId) {
+  if (!layout) return null;
+  for (const one of layout.spaces) {
+    for (const m of [...one.home, ...one.visiting]) if (m.id === playerId) return m;
+  }
+  for (const board of layout.team_boards) {
+    for (const entry of [...board.bench, ...board.back_bench]) {
+      if (entry.id === playerId) return entry.meeple;
+    }
+  }
+  return null;
+}
+
+function orderPiece(playerId, label, { lit = false, onclick = null, title = null } = {}) {
+  const layout = current && current.board.layout;
+  const m = layoutMeeple(layout, playerId);
+  const g = layout && layout.meeple;
+  const art = m
+    ? h("span", {
+      class: "order-meeple",
+      style: `width: ${g.width}px; height: ${(g.width * g.box[3]) / g.box[2]}px; color: ${m.ink}`,
+    }, meepleArt(m, layout, { ring: lit }))
+    : null;
+  const piece = h(
+    onclick ? "button" : "span",
+    {
+      type: onclick ? "button" : null,
+      class: `order-piece${lit ? " lit" : ""}`,
+      title: title || label,
+      "aria-label": title || label,
+      onclick: onclick ? (event) => {
+        event.stopPropagation();
+        if (Date.now() - dragged < 300) return;
+        onclick();
+      } : null,
+    },
+    art,
+    h("span", { class: "order-name" }, m ? m.name : label),
+  );
+  hoverCard(piece, cardUrl(playerId));
+  return piece;
+}
+
+function drawOrder(group) {
+  const order = group.order;
+  const draft = orderDraft(group);
+  const sends = orderSends(group);
+  const byPlayer = new Map(sends.map((one) => [one.player, one]));
+  const restart = group.controls.find((one) => one.action.choice === "restart");
+  const full = draft.slots.every(Boolean);
+
+  const slots = [
+    ...order.placed.map((one, index) => h(
+      "div",
+      { class: "order-slot sent", title: `${index + 1}. ${one.label}: sent` },
+      h("span", { class: "order-number" }, String(index + 1)),
+      orderPiece(one.id, one.label),
+    )),
+    ...draft.slots.map((playerId, index) => {
+      const number = order.placed.length + index + 1;
+      const control = playerId && byPlayer.get(playerId);
+      const piece = control ? orderPiece(playerId, control.label, {
+        onclick: () => pressOrder(control),
+        title: `${number}. ${control.label}: click to take out, or drag to another slot`,
+      }) : null;
+      if (piece) dragOrder(piece, draft, playerId);
+      return h(
+        "div",
+        { class: `order-slot${piece ? "" : " empty"}`, "data-slot": String(index), "aria-label": `Slot ${number}` },
+        h("span", { class: "order-number" }, String(number)),
+        piece,
+      );
+    }),
+  ];
+
+  const pool = sends.filter((one) => !draft.slots.includes(one.player));
+  const poolRow = h(
+    "div",
+    { class: "order-pool", "data-pool": "" },
+    pool.length
+      ? pool.map((control) => {
+        const piece = orderPiece(control.player, control.label, {
+          lit: true,
+          onclick: () => pressOrder(control),
+          title: `${control.label}: into the next slot, or drag to a slot`,
+        });
+        dragOrder(piece, draft, control.player);
+        return piece;
+      })
+      : h("span", { class: "order-empty" }, "Everybody is placed."),
+  );
+
+  return h(
+    "div",
+    { class: "order-panel" },
+    h("div", { class: "order-main" },
+      h("div", { class: "order-column" },
+        h("span", { class: "group-label" }, "Your order"),
+        h("span", { class: "how-line" }, "drag each meeple into a slot, or click them in the order they shoot; drag between slots to reorder"),
+        h("div", { class: "order-slots" }, slots)),
+      h("div", { class: "order-column" },
+        h("span", { class: "group-label" }, "Still to place"),
+        poolRow)),
+    h("div", { class: "order-foot" },
+      restart ? neutral("Start again", () => pressOrder(restart), { title: "Esc" }) : null,
+      whistle({
+        allowed: full,
+        label: "Lock the order",
+        note: full ? "" : "The whistle lights when the last slot is filled.",
+        onclick: () => lockOrder(orderGroup(order.side)),
+      })),
+    h("p", { class: "note-line" }, "Only your seat sees this panel, and nothing of it is sent until the whistle."),
+  );
+}
+
+/* The whistle: each name in slot order, as the options offer it. A
+   refusal stops it where it is, and the page shows the order as the
+   game then holds it. */
+async function lockOrder(group) {
+  if (busy || !group) return;
+  const draft = orderDraft(group);
+  if (!draft.slots.every(Boolean)) return;
+  const byPlayer = new Map(orderSends(group).map((one) => [one.player, one]));
+  const actions = draft.slots.map((playerId) => byPlayer.get(playerId).action);
+  busy = true;
+  hidePeek();
+  el("prompt").classList.add("busy");
+  let state = null;
+  try {
+    for (const action of actions) {
+      const response = await api(`/action?${cursors()}`, {
+        method: "POST",
+        body: JSON.stringify({ action }),
+      });
+      state = await response.json();
+      /* The cursor is left where it was, so the last answer brings
+         every line the others said. */
+      if (!response.ok || state.refusal) break;
+    }
+  } catch (error) {
+    showRefusal("That did not reach the game. Try again in a moment.");
+  } finally {
+    busy = false;
+    el("prompt").classList.remove("busy");
+  }
+  if (state) draw(state);
+}
+
+/* Whether each side has answered the shootout's secret question, and
+   nothing else about it (`present.shootout_sides`): the same for both
+   coaches and every observer. */
+function shootoutSides(prompt) {
+  const said = prompt.shootout;
+  if (!said) return null;
+  return h(
+    "div",
+    { class: "shootout-sides" },
+    h("div", { class: "row" }, said.sides.map((one) => h(
+      "span",
+      { class: `side-tag${one.done ? " done" : ""}`, style: `--team: ${teamColour(one.team_side)}` },
+      `${one.team} ${one.said}`.toUpperCase(),
+    ))),
+    h("p", { class: "note-line" }, said.note),
+  );
+}
+
+function teamColour(side) {
+  const layout = current && current.board.layout;
+  return layout ? layout.jumbotron[side].colour : "var(--muted)";
 }
 
 /* Both cards face up, once both are in, until the maneuver is over:
@@ -2376,12 +2710,18 @@ document.addEventListener("keydown", (event) => {
   if (/^[1-9]$/.test(event.key)) {
     const control = keyed[Number(event.key) - 1];
     if (control) { event.preventDefault(); press(control); }
+  } else if (event.key === "Enter" && fullOrder()
+             && !event.target.closest("button, a, [role=button]")) {
+    event.preventDefault();
+    lockOrder(fullOrder());
   } else if (event.key === "Enter" && keyed.length === 1
              && !event.target.closest("button, a, [role=button]")) {
     event.preventDefault();
     press(keyed[0]);
   } else if (event.key === "Escape") {
-    if (picked) {
+    if (draftedAny()) {
+      clearDrafts();
+    } else if (picked) {
       pick(null);
     } else if (openChooser) {
       openChooser = null;
