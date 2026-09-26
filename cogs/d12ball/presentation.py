@@ -36,7 +36,7 @@ from d12ball.render import (
     zone_labels,
 )
 from d12ball.role_cards import render_role_card
-from d12ball.species_cards import CARD_FACES, render_species_card
+from d12ball.species_cards import render_species_reference
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     FIELD_IMAGE_FILENAME,
@@ -511,28 +511,20 @@ class PresentationMixin:
         )
         return discord.File(io.BytesIO(png), filename="role_abilities.png")
 
-    async def build_species_reference_files(self) -> list[discord.File]:
+    async def build_species_reference_file(self) -> discord.File:
         """
-        The printed species-ability reference, for
+        The species-ability reference, for
         `/d12ball species_abilities_reference`: the two faces of the
-        set's first card, which between them carry all four abilities
-        once each -- the set is three cards only so that every pairing
-        is one face on a table, and a channel has no table to lay a
-        card on.
+        printed set's first card on one image
+        (`render_species_reference`), which between them carry all four
+        abilities once each.
         """
-        abilities = load_species_abilities()
-        files = []
-        for pair in CARD_FACES[0]:
-            png = await asyncio.to_thread(
-                card_png, render_species_card, abilities, pair,
-            )
-            files.append(
-                discord.File(
-                    io.BytesIO(png),
-                    filename=f"species_{'_'.join(pair)}.png",
-                )
-            )
-        return files
+        png = await asyncio.to_thread(
+            card_png, render_species_reference, load_species_abilities(),
+        )
+        return discord.File(
+            io.BytesIO(png), filename="species_abilities.png",
+        )
 
     async def build_team_reference_files(
         self, game: D12BallGame, team: Team,

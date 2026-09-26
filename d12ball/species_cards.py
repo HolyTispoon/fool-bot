@@ -258,3 +258,33 @@ def render_species_card_set(
             (f"{number}-back", render_species_card(abilities, back, bleed))
         )
     return out
+
+
+# The gap between the two faces on the on-screen reference, in the
+# card's own white, so the two faces read as two cards side by side.
+REFERENCE_GAP = 24
+
+
+def render_species_reference(
+    abilities: dict[str, dict[str, str]],
+) -> Image.Image:
+    """
+    All four abilities as one image, for a screen: the two faces of
+    the set's first card side by side. Between them they carry every
+    ability once; the other two cards only pair the same four
+    differently, which matters on a table and not on a screen.
+
+    One image rather than two because Discord crops two attachments on
+    one message to a pair of tiles, cutting off each card's text; one
+    image is shown whole and opens full-size.
+    """
+    faces = [render_species_card(abilities, pair) for pair in CARD_FACES[0]]
+    sheet = Image.new(
+        "RGB",
+        (CARD_WIDTH * len(faces) + REFERENCE_GAP * (len(faces) - 1),
+         CARD_HEIGHT),
+        CARD_FACE,
+    )
+    for index, face in enumerate(faces):
+        sheet.paste(face, (index * (CARD_WIDTH + REFERENCE_GAP), 0))
+    return sheet

@@ -675,11 +675,15 @@ reading the same card:
   role_abilities`, a text list of the same six sentences (the author,
   2026-09-26).
 - **`/d12ball species_abilities_reference`** posts the two faces of the
-  set's first card, which between them carry all four abilities once each.
-  The set is three cards only so that every species pairing is one face on
-  a table; a channel has no table, so the other two cards would only repeat
-  the text. Posted whatever the game's mode, like the role card: it is a
-  reference to the rules, not a statement about this game.
+  set's first card, which between them carry all four abilities once each,
+  **side by side on one image** (`render_species_reference`), with the
+  full-image link. The set is three cards only so that every species pairing
+  is one face on a table; a channel has no table, so the other two cards
+  would only repeat the text. It was two attachments at first, and Discord
+  cropped the pair to two tiles that cut off each card's text (the author,
+  2026-09-26); one image is shown whole. Posted whatever the game's mode,
+  like the role card: it is a reference to the rules, not a statement about
+  this game.
 - **`/d12ball team_reference`** posts the asking coach's team (both with
   `all_teams`), one message a team, nine cards inside Discord's ten
   attachments a message. **Which face is the game's mode**:
@@ -693,10 +697,11 @@ All three render in a worker thread per request (`card_png` in
 `cogs/d12ball/presentation.py`, which encodes the PNG in the same thread)
 rather than at startup the way the maneuver images are: they are asked for
 rarely, a card is about a tenth of a second, and the maneuver images are
-prerendered because they go out every maneuver. Separate attachments rather
-than one composite image: Discord opens any one of them full-size, which is
-what reading a card needs, where the hand under a maneuver prompt is one
-image because both hands are read together at a glance.
+prerendered because they go out every maneuver. `team_reference` sends
+separate attachments rather than one composite: nine cards on one image
+would be too small to read inline, and Discord opens any one attachment
+full-size. The two species faces are few enough to read side by side, and
+two attachments were cropped, so they are one image.
 
 ## The species icons
 

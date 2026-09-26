@@ -1724,7 +1724,7 @@ class CommandsMixin:
 
     @app_commands.command(
         name="species_abilities_reference",
-        description="Post the species abilities reference cards.",
+        description="Post the species abilities reference card.",
     )
     @app_commands.guild_only()
     async def species_abilities_reference(
@@ -1732,9 +1732,11 @@ class CommandsMixin:
         interaction: discord.Interaction,
     ) -> None:
         await interaction.response.defer()
-        await interaction.followup.send(
-            files=await self.build_species_reference_files(),
+        message = await interaction.followup.send(
+            file=await self.build_species_reference_file(),
+            wait=True,
         )
+        await add_full_image_button(message)
 
     async def load_rules(
         self,
