@@ -152,7 +152,7 @@ that existed; steps 1 to 3 are one sprint.
 
 | # | Step | Size |
 | --- | --- | --- |
-| 1 | Cut the cord: its own process, file, service and engine | medium |
+| ~~1~~ | ~~Cut the cord: its own process, file, service and engine~~ -- landed; what it settled is in `docs/design/web-app.md` | medium |
 | 2 | Rooms, seats and observers | medium |
 | 3 | The room's table: setup, kickoff, the rematch | large |
 | 4 | Chat in the room | small |
@@ -165,6 +165,10 @@ that existed; steps 1 to 3 are one sprint.
 | -- | Later, and not now | -- |
 
 ### 1. Cut the cord
+
+**Landed** (branch `web-step-1-cut-the-cord`). What it settled is in
+`docs/design/web-app.md`, "Running it", "What it may not do" and "Its
+own process, its own file"; the prompt below is kept for the record.
 
 **What it is.** `webapp/` becomes a program of its own. It builds a
 `RulesEngine` from the same four loaders the cog uses

@@ -108,6 +108,11 @@ action is legal in the current match.
 
 ### 4. Web frontend
 
+The web frontend runs as its own process (`python3 -m webapp`) over its own
+games file, with its own instance of the service; it shares the model and the
+service's code with the bot, never a running service or a game (the author,
+2026-09-25 -- see `docs/design/web-app.md`).
+
 The web frontend owns:
 
 - web authentication;

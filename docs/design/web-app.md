@@ -1,11 +1,24 @@
 # The web frontend
 
 The fourth part of [ARCHITECTURE.md](../../ARCHITECTURE.md): `webapp/`,
-a browser frontend over the same `GameService` the Discord cog plays
-through. This note is the reasoning behind its shape; the map in
-CLAUDE.md says where the pieces are. The worksheet it was built from is
-[../web-app.md](../web-app.md), which is the review the split was held
-to and the decisions taken in it; what outlives that review is here.
+a browser frontend over the same model the Discord cog plays, **run as
+a system of its own**. This note is the reasoning behind its shape; the
+map in CLAUDE.md says where the pieces are. The worksheet it was built
+from is [../web-app.md](../web-app.md), which is the review the split
+was held to and the decisions taken in it; what outlives that review is
+here. What is being built next is
+[../web-app-next.md](../web-app-next.md).
+
+**Separate from the bot, 2026-09-25 (the author).** The web app and the
+bot share the model of the game -- `d12ball/`, the service over it and
+the store's format -- and nothing at runtime: not a process, not a
+games file, not a service. A web coach plays web coaches (or the AI); a
+Discord coach plays Discord coaches (or the AI); no game is ever on
+both. The web app shipped the other way, inside the bot's process over
+the bot's games, so that a game could be played from a channel on one
+side and a browser on the other; that was the proof the split worked,
+and it now lives in the tests (`tests/test_web_app.py` presses every
+prompt fixture through the same service) rather than in play.
 
 **The whole of what it is:** authenticate the person, turn what they
 pressed into an `Action`, call `apply_action`, render the `GameResult`.
@@ -16,28 +29,46 @@ already had.
 
 ## Running it
 
-Four environment variables, all of the frontend's:
+```bash
+python3 -m webapp
+```
+
+No Discord token and no bot: `webapp/__main__.py` calls
+`webapp.server.main`, which reads `.env` the way `foolbot.py` does,
+logs to the console at `FOOLBOT_LOG_LEVEL` (not through `botlog`,
+which imports discord -- the #logs mirror is the bot's), builds its
+own service over `data/d12ball_web_games.json` and serves until
+interrupted. Four environment variables, all of the frontend's:
 
 | Variable | What it does |
 | --- | --- |
-| `FOOLBOT_WEB_PORT` | **The switch.** With none set no server is started, nothing is built (not even the service), and the bot is exactly what it was. |
+| `FOOLBOT_WEB_PORT` | The port, **8080 when unset**. It used to be the switch that started a server inside the bot; there is nothing to switch on now, since running the command is the switch. |
 | `FOOLBOT_WEB_HOST` | What to bind, `0.0.0.0` by default. |
 | `FOOLBOT_WEB_URL` | What a link points at, `http://localhost:8080` by default -- the address a coach's browser can reach, which the server cannot know about itself behind a tunnel or a proxy. |
 | `FOOLBOT_WEB_SECRET` | What the coaches' keys are derived under. With none set one is made per process, and every link dies with it. |
 
-A failure to bind is an ERROR, so it reaches #logs: the port is
-somebody's to free, and the bot carries on playing on Discord either
-way.
+A failure to bind raises out of `main`: nothing else is running in the
+process to carry on with.
 
 ## What it may not do
 
-`webapp/` imports neither `discord` nor `cogs`, and
-`tests/test_web_purity.py` ratchets it -- an AST walk, so a lazy
-import inside a function (which is exactly where one would arrive)
-fails too. A web app that reaches into the Discord frontend is not a
-second frontend over the model, it is a second frontend over the
-first, and the first rule it borrowed is the end of the exercise
-(CLAUDE.md, principle 10).
+**Two fences, one each way**, both in `tests/test_web_purity.py` and
+both an AST walk, so a lazy import inside a function (which is exactly
+where one would arrive) fails too:
+
+- `webapp/` imports neither `discord` nor `cogs`. A web app that
+  reaches into the Discord frontend is not a second frontend over the
+  model, it is a second frontend over the first, and the first rule it
+  borrowed is the end of the exercise (CLAUDE.md, principle 10).
+- Nothing under `cogs/`, and not `foolbot.py`, imports `webapp`. The
+  bot must start and run with the `webapp/` directory deleted: what
+  the two share is below both of them, never one of them.
+
+And a third, about the file: **nothing under `webapp/` names
+`GAMES_FILE`.** `storage`'s default path is the bot's file, so a web
+save that forgot to name its own would write over the bot's games;
+the web app names `WEB_GAMES_FILE` every time, and
+`webapp.server.build_service` takes the file with no default.
 
 The rule with teeth is the positive one: **every control comes off
 `PendingPrompt.options` and nothing else.** `webapp/present.py` has
@@ -87,8 +118,11 @@ adapters, which is where a value off a wire becomes one.
 A Discord interaction carries the account that clicked. A browser
 carries nothing, so **the link is the credential**: `webapp/keys.py`
 derives one key per coach per game as an HMAC of the game id and the
-player number under `FOOLBOT_WEB_SECRET`, and `/d12ball web_link`
-hands a coach their own, ephemerally. Derived rather than stored,
+player number under `FOOLBOT_WEB_SECRET`. The bot's `/d12ball
+web_link` handed a coach their own until the two were separated; until
+the rooms of step 2 of [../web-app-next.md](../web-app-next.md) land,
+nothing hands one out, so there is no way in to a web game. Derived
+rather than stored,
 because a web session is not a fact about the game and the save
 format is a contract (principle 6); with no secret set, one is made
 per process and every link dies with it, which is the safe default
@@ -113,16 +147,39 @@ argument no prompt ever offered -- which is the case finding 4 of the
 worksheet left open, since a bad wire value is a bug rather than a
 refusal.
 
-## One process, one service, a lock per game
+## Its own process, its own file, a lock per game
 
 `gamesaves/d12ball/storage.py` rewrites the whole save file on every
-call and reads it once at startup, so a second process would
-overwrite the first's file with a stale copy of every game (finding 13
-of the worksheet). One process over one `games` dict is what makes two
-frontends possible at all; a shared store with a row per game is the
-day the web app has to outlive a bot restart, and not before. The cog
-starts the server in `cog_load` when `FOOLBOT_WEB_PORT` is set,
-handing it its own service and locks, and stops it in `cog_unload`.
+call and reads it once at startup, so two processes over one file
+would overwrite each other's games with a stale copy (finding 13 of
+the worksheet). That is why the web app first ran *inside* the bot,
+over the bot's own `games` dict. The reasoning stands; the file is
+what it was about. **One process per file**: the web app is its own
+process over `data/d12ball_web_games.json`, the bot is its own over
+`data/d12ball_games.json`, and two processes over two files do not
+touch. What it buys: a bot restart does not touch a web game and the
+reverse, there is no lock shared with `SafeView`, and no turn is ever
+mirrored between a channel and a page.
+
+`webapp.server.build_service` is the whole of the wiring: a
+`RulesEngine` from the same four loaders the cog builds its own from
+(`load_player_catalog`, `load_basic_ruleset`, `load_maneuver_catalog`,
+`build_ai_strategies`, with the tutorial script checked against the
+catalog the same way), the games `load_games(WEB_GAMES_FILE)` reads, a
+`GameService` with the default `Batching()` -- the cog's
+`DiscordBatching` is Discord's economy (principle 8), and a page has
+no rate limit to batch for -- and a save that writes that file and no
+other. Then its own `GameLocks`.
+
+The store's two failure flags (a save failing, a file it could not
+read) are per file for the same reason: the bot will read the web
+file for the statistics (step 6 of the next worksheet) without owning
+it, and that file being unreadable must not stop the bot saving its
+own. See [gotchas.md](gotchas.md), "the swallowed save".
+
+Both run on the one Windows checkout at `K:\` (decision 2 of the next
+worksheet), sharing the checkout and the `data/` folder, each restarted
+on its own.
 
 **What the lock is for is ordering, not the apply.**
 `GameService.apply_action` is synchronous, so on one event loop it
@@ -132,8 +189,9 @@ afterwards: renders, uploads, message edits, a response built from a
 board it drew. Two answers applied back to back can be *presented* in
 either order, which is a turn arriving in a channel out of sequence.
 So `gamelocks.GameLocks` is held from taking an action to having
-finished showing what came back. The Discord half takes it in
-`SafeView._scheduled_task`, which overrides discord.py's own click
+finished showing what came back. Each process has its own; the web
+app's orders two coaches and their observers in a room. The Discord
+half takes the bot's in `SafeView._scheduled_task`, which overrides discord.py's own click
 dispatch because that is the only place a callback can be wrapped
 (`interaction_check` runs before it and cannot hold anything across
 it); a view that belongs to no game -- the hub's two -- takes no lock,
@@ -161,11 +219,11 @@ which is the difference between a transcript and a position.
 
 It is fed by `GameService.listeners`, which hands every result the
 service produces to whoever is watching, after the save. **A game is
-played from two sides and they need not be on the same frontend**: a
-coach reading a page has no interaction to be replied to when the
-other coach clicks a button in Discord, so the result the service
-produced for that click is the page's only way to see the turn. The
-listener formats nothing and is not a second presenter; a listener
+played from two pages**: a coach reading a page has no request to be
+answered when the other coach clicks on theirs, so the result the
+service produced for that click is the page's only way to see the
+turn, and an observer's only way to see either. The listener formats
+nothing and is not a second presenter; a listener
 that raised would take somebody's click down with it, so each is
 called inside its own guard.
 
@@ -282,10 +340,11 @@ it here, headlines at all three of the levels the model writes.
 
 ## What it does not do yet
 
-- **It does not create games.** A game is opened in a channel, and a
-  finished one's rematch is the cog's; the web app plays a game that
-  exists. The service has the setup methods (step 8), so the page
-  that does it is work rather than a question.
+- **It does not create games, and nobody can reach one.** Its games
+  file starts empty, and no link is handed out. Rooms and seats are
+  step 2 of [../web-app-next.md](../web-app-next.md), and the table
+  that sets a game up is step 3; the service has the setup methods, so
+  both are work rather than a question.
 - **It does not draw most of the pictures a prompt rides on** -- the
   field strip, the challenge image, the coach's half-field, the dice.
   They are `D12Ball.render_prompt`'s, keyed on the kind, and the web
