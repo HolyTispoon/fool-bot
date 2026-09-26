@@ -1832,7 +1832,7 @@ class RulesEngine:
         if not game.home_and_visiting_selected:
             return None
 
-        if user_id == game.player_1_id:
+        if game.player_1_id is not None and user_id == game.player_1_id:
             player_number = 1
         elif game.player_2_id is not None and user_id == game.player_2_id:
             player_number = 2
@@ -2050,14 +2050,12 @@ class RulesEngine:
         match: MatchState,
         side: str,
     ) -> bool:
-        if not game.is_solo_game:
-            return False
         number = (
             self.possession_player_number(game, match)
             if side == "offense"
             else self.defending_player_number(game, match)
         )
-        return number == 2
+        return game.ai_holds(number)
 
     def low_pass_candidates(
         self,
@@ -2773,9 +2771,7 @@ class RulesEngine:
         game: D12BallGame,
         side: TeamSide,
     ) -> bool:
-        if not game.is_solo_game:
-            return False
-        return self.side_player_number(game, side) == 2
+        return game.ai_holds(self.side_player_number(game, side))
 
     def side_player_number(
         self,

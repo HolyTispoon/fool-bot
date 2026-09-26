@@ -57,6 +57,20 @@
           <div id="ask" class="ask"></div>
           <div id="controls" class="controls"></div>
         </section>
+
+        <!-- Who holds the two seats, and who is watching. The seats
+             are the game record's; the admin role is the web app's own
+             (webapp/rooms.py). -->
+        <section id="room" class="panel room-panel" data-tab="move" aria-label="The room" hidden>
+          <div class="panel-label">Room</div>
+          <div id="seats" class="seats"></div>
+          <div class="room-foot">
+            <span id="watching" class="quiet"></span>
+            <button type="button" class="linkish" id="copy-link">Copy the room's link</button>
+            <button type="button" class="linkish" id="become-admin">Become admin</button>
+            <button type="button" class="linkish" id="drop-admin" hidden>Give up admin</button>
+          </div>
+        </section>
       </main>
 
       <aside class="sidebar">
@@ -93,6 +107,17 @@
     <dialog id="viewer" class="viewer">
       <button type="button" class="viewer-close" id="viewer-close" aria-label="Close">×</button>
       <div id="viewer-body" class="viewer-body"></div>
+    </dialog>
+
+    <!-- Shown to somebody the page does not know yet: a name, and a
+         cookie with it (webapp/identity.py). -->
+    <dialog id="name-dialog" class="name-dialog">
+      <form id="name-form" method="dialog" autocomplete="off">
+        <label for="name-input" class="panel-label">What should the table call you?</label>
+        <input id="name-input" class="chat-input" maxlength="32" required />
+        <p id="name-error" class="quiet" hidden></p>
+        <div class="row"><button type="submit" class="btn primary">Take a seat</button></div>
+      </form>
     </dialog>
 
     <div id="peek" class="peek" hidden><img alt="" /></div>

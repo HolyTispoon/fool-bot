@@ -599,10 +599,11 @@ def game_participant_ids(game: D12BallGame) -> set[int]:
     user id to be. A test game has both sides set to the same person, so
     this is a one-element set for it.
     """
-    participant_ids = {game.player_1_id}
-    if game.player_2_id is not None:
-        participant_ids.add(game.player_2_id)
-    return participant_ids
+    return {
+        coach_id
+        for coach_id in (game.player_1_id, game.player_2_id)
+        if coach_id is not None
+    }
 
 
 def is_game_helper(user) -> bool:
@@ -1319,9 +1320,10 @@ def refresh_player_names(
     if guild is None or game.test_game:
         return
 
-    player_1 = guild.get_member(game.player_1_id)
-    if player_1 is not None:
-        game.player_1_name = player_1.display_name
+    if game.player_1_id is not None:
+        player_1 = guild.get_member(game.player_1_id)
+        if player_1 is not None:
+            game.player_1_name = player_1.display_name
 
     if game.player_2_id is not None:
         player_2 = guild.get_member(game.player_2_id)

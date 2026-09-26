@@ -423,6 +423,7 @@ class GameService:
         board_size: int = 7,
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
+        ai_seats: Optional[list[int]] = None,
     ) -> D12BallGame:
         """
         A new game record, in setup, saved.
@@ -434,7 +435,9 @@ class GameService:
         rematch, which carries the finished game's configuration over;
         a fresh game takes the defaults and settles them in setup. The
         Discord ids are the frontend's to pass or leave out: a game
-        the web app creates has none.
+        the web app creates has none. `ai_seats` is a web room's: `[]`
+        says outright that no seat is the AI's, so an empty seat reads
+        as empty (`D12BallGame.ai_seats`).
         """
         if game_number is None:
             game_number = self.next_game_number(guild_id)
@@ -466,6 +469,7 @@ class GameService:
             # in setup is on rails.
             tutorial_step=None,
             in_lobby=in_lobby,
+            ai_seats=ai_seats,
         )
         self.games[game.game_id] = game
         self.save()
@@ -504,6 +508,62 @@ class GameService:
         self.save()
         return game
 
+    def take_seat(
+        self,
+        game_id: str,
+        user_id: int,
+        user_name: Optional[str],
+        seat: Optional[int] = None,
+    ) -> D12BallGame:
+        """A web room's seat taken -- `D12BallGame.take_seat`, saved.
+        Before kickoff or during the game: the match keeps its sides
+        by number, so a new id in a seat moves nothing."""
+        game = self.game(game_id)
+        game.take_seat(user_id, user_name, seat)
+        self.save()
+        return game
+
+    def vacate_seat(self, game_id: str, user_id: int) -> D12BallGame:
+        """A web room's seat left, or kicked -- `D12BallGame.vacate_seat`,
+        saved. The seat is left empty, not the AI's: the side waits."""
+        game = self.game(game_id)
+        game.vacate_seat(user_id)
+        self.save()
+        return game
+
+    def seat_ai(
+        self, game_id: str, seat: int,
+    ) -> tuple[D12BallGame, Optional[GameResult]]:
+        """
+        The AI put in an empty seat -- `D12BallGame.seat_ai`, saved --
+        and, where that seat's side is being asked something right
+        now, answered, the way `resume` answers a question a restart
+        left the AI holding. During team selection, where the other
+        side has picked, the AI picks too. The result is `None` where
+        nothing ran.
+        """
+        game = self.game(game_id)
+        game.seat_ai(seat)
+        self._ai_picks_team(game)
+        self.save()
+        if game.match_state is None or game.is_finished:
+            return game, None
+        match = self.load(game)
+        waiting = pending(self.engine, game, match)
+        if isinstance(waiting, PendingPrompt) and driver.ai_action(
+            self.engine, game, match, waiting,
+        ) is not None:
+            return game, self.run(game, match, StepResult(next=waiting))
+        return game, None
+
+    def unseat_ai(self, game_id: str, seat: int) -> D12BallGame:
+        """The AI taken out of a seat and the seat left empty for a
+        person -- `D12BallGame.unseat_ai`, saved."""
+        game = self.game(game_id)
+        game.unseat_ai(seat)
+        self.save()
+        return game
+
     def configure(
         self, game_id: str, setting: str, value: object = None,
     ) -> D12BallGame:
@@ -539,11 +599,30 @@ class GameService:
         """
         game = self.game(game_id)
         game.pick_team(player_number, team)
-        if player_number == 1 and game.is_solo_game:
-            strategy = self.engine.get_ai_strategy(game)
-            game.player_2_team = strategy.choose_team(game.ai_team_pool())
+        self._ai_picks_team(game)
         self.save()
         return game
+
+    def _ai_picks_team(self, game: D12BallGame) -> None:
+        """
+        The AI's team, drawn by its strategy from the pool the record
+        leaves it, once the other side has picked -- whichever seat
+        the AI holds, and whenever it was seated during team
+        selection.
+        """
+        if game.in_lobby or game.status != GameStatus.SETUP:
+            return
+        for number in game.ai_player_numbers():
+            other = game.player_2_team if number == 1 else game.player_1_team
+            mine = game.player_1_team if number == 1 else game.player_2_team
+            if mine is None and other is not None:
+                team = self.engine.get_ai_strategy(game).choose_team(
+                    game.ai_team_pool(),
+                )
+                if number == 1:
+                    game.player_1_team = team
+                else:
+                    game.player_2_team = team
 
     def flip_coin(self, game_id: str, flipping_player_number: int) -> D12BallGame:
         """
@@ -573,12 +652,12 @@ class GameService:
         game.coin_winner = format_player(game, winner)
         game.start_game()
 
-        if game.is_solo_game and winner == 2:
+        if game.ai_holds(winner):
             choice = (
-                game.home_choice_rail(2)
+                game.home_choice_rail(winner)
                 or self.engine.get_ai_strategy(game).choose_home_or_visiting()
             )
-            game.choose_home_or_visiting(2, choice)
+            game.choose_home_or_visiting(winner, choice)
 
             self.engine.initialize_standard_match(game)
         self.save()

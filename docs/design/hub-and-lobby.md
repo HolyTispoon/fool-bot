@@ -95,6 +95,11 @@ does bar naming specific opponents up front). Two pieces:
     save comes *before* the message edit, as it does for every click past
     the lobby; the old order (acknowledge, then save, against a slow disk
     on the live host) is gone with the rest of the views' own saves.
+  - **The lobby's moves are the Discord lobby's.** A web room has two of its
+    own beside them, `take_seat` and `vacate_seat`, which never shift the
+    other seat and stay open after Start Game; they are not a replacement
+    for these, which the lobby message depends on as they are (see
+    [web-app.md](web-app.md), "Rooms, seats and who holds them").
   - **Join** fills `player_2_id` (and clears any AI pick, and drops the user
     from `observer_ids`). **Observe** appends to `game.observer_ids` -- a list
     field, `field(default_factory=list)`, persisted; a player may not observe.
