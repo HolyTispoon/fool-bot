@@ -737,7 +737,16 @@ abandoned in its lobby). Resume was already a route, offered where the
 state's `owed` is true. **Abandoning is `GameService.abandon`** -- the
 record's `abandon`, which refuses a game already over, saved -- and
 `POST /api/room/{id}/abandon` is it, for a seat and never an observer
-(403), behind "Are you sure?" as the command is behind "confirm". It
+(403) -- **nor an admin without a seat** (the author, 2026-09-26: an
+admin may close a room nobody played in, but only a coach ends a game
+that was) -- behind "Are you sure?" as the command is behind
+"confirm". **The page offers it only once the game has kicked off**
+(the author, 2026-09-26): before that the table's "Close this room" is
+the way out, so the two buttons are never up together. The route still
+takes an abandon in setup, as the command does; the page just never
+asks for one. **An abandoned game offers the rematch**, as one played
+to a result does (the author, 2026-09-26): it reads as finished, so
+`pending` answers `GAME_OVER` and its one control is the rematch. It
 was cog logic only in that the cog called the record and saved by
 hand; the cog now calls the same door, after clearing its own two
 message ids. The room stays: its number stays taken, its board and log

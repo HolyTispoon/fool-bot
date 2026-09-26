@@ -128,6 +128,28 @@ class AbandonTests(Harness):
         self.assertEqual(self.game.status, GameStatus.IN_PROGRESS)
         self.assertEqual(self.saves, 0)
 
+    async def test_an_admin_without_a_seat_may_not(self) -> None:
+        """An admin may close a room nobody played in, but only a
+        coach ends a game that was (the author, 2026-09-26)."""
+        self.web.rooms.make_admin(self.room, WATCHER)
+        refused = await self.abandon(WATCHER)
+        self.assertEqual(refused.status, 403)
+        self.assertEqual(self.game.status, GameStatus.IN_PROGRESS)
+        self.assertEqual(self.saves, 0)
+
+    async def test_an_abandoned_game_offers_the_rematch(self) -> None:
+        state = await (await self.abandon(self.game.player_1_id)).json()
+        [control] = state["prompt"]["controls"][0]["controls"]
+        self.assertEqual(
+            (control["label"], control["post"]), ("Rematch", "/rematch"),
+        )
+        response = await self.client.post(
+            f"/api/room/{self.room}/rematch",
+            headers=as_coach(self.game.player_2_id),
+        )
+        self.assertEqual(response.status, 200, await response.text())
+        self.assertIsNotNone((await response.json())["rematch"])
+
     async def test_a_game_already_over_is_the_record_s_refusal(self) -> None:
         await self.abandon(self.game.player_2_id)
         again = await self.abandon(self.game.player_1_id)

@@ -286,9 +286,11 @@ function drawRoom(state) {
     room.observers === 1 ? "1 watching" : `${room.observers} watching`;
   el("become-admin").hidden = room.admin;
   el("drop-admin").hidden = !room.admin;
-  /* A seat may abandon a game that is not over; the record refuses one
-     that is, and the route refuses an observer. */
-  el("abandon").hidden = !(seated && state.game.status !== "finished");
+  /* A seat may abandon a game that has kicked off and is not over (the
+     record refuses one that is, and the route refuses anybody unseated,
+     an admin included). Before kickoff the table's "Close this room" is
+     the one way out, so the two are never offered together. */
+  el("abandon").hidden = !(seated && state.scoreboard && state.game.status !== "finished");
 }
 
 // -- A finished game's numbers --------------------------------------------
