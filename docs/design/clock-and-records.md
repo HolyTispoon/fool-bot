@@ -216,6 +216,17 @@ fact.
   turn charges both sides, and the log does not say which of the two a token
   belonged to. Splitting it further would be inventing an attribution the data
   does not carry, which is why the table says so under itself.
+- **One game's numbers split by side are `collect_sides`**, for the web
+  app's full time (step 5 of [../web-app-redesign.md](../web-app-redesign.md)),
+  which lays home against the visitors. Each is the reading the tables
+  make, given the side it belongs to: a goal the goal log's side (so the
+  shootout's are in, as they are on the scoreboard, and an own goal counts
+  where it is listed), a shot the attacking side's, a time out the
+  caller's, exhaustion by the side of the player charged -- the one place a
+  turn's charge *is* split, since each token in `exhaustion` names its
+  player. A maneuver is won only in a contest, as above, and a skill test
+  is counted once it is settled: a tie rolled again is the one test, both
+  sides take each, so the page shows won of taken.
 - **A rate with no denominator is `None`, drawn as a dash.** "0%" for a card
   played once unchallenged would say it always loses, which is the opposite of
   what happened.
