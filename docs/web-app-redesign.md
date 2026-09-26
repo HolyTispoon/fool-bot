@@ -490,11 +490,13 @@ Record the mapping table above in docs/design/web-app.md.
 [design/web-app.md](design/web-app.md), "The page" ("The hand, the
 reveal and full time"): the hand as the printed cards with the gambits
 a row under them, a gambit the side does not hold dimmed off
-`ManeuverHand.withheld` (a model change in its own commit), the table
-of a laid card and backs drawn whether or not the other side has
-picked, the reveal off `cards_outcome`, and full time's numbers off
-`stats.collect_sides` ([design/clock-and-records.md](design/clock-and-records.md))
-with the log as text.
+`ManeuverHand.withheld`, a change of pick until the other side has
+picked (`asked_sides`), backs drawn whether or not the other side has
+picked, the reveal off `cards_outcome`, full time's numbers off
+`stats.collect_sides` with the log as text, and who scored the winner
+in the model's full-time line ([design/clock-and-records.md](design/clock-and-records.md)).
+The three model changes were each their own commit, accepted by the
+author on the PR.
 
 Step 12, full time, was folded into this step (2026-09-26): it needs
 only the outcome banner (step 3) and the REMATCH mark (step 4), and

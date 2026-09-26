@@ -791,25 +791,34 @@ Esc backs out of an open menu or chooser (or puts a refusal away).
   offer check refuses if it is sent anyway). Which gambits those are is
   a reading of the rules, so it is the model's:
   `ManeuverHand.withheld`, over `RulesEngine.withheld_gambits`, proposed
-  as its own commit on step 5's PR. Empty wherever being behind would
+  as its own commit on step 5's PR and accepted by the author there
+  (2026-09-26). Empty wherever being behind would
   not change the hand -- a game without the gambits, an unchallenged
   maneuver, a side that holds them -- so a basic game draws three cards
   and nothing else.
-- **What lies on the table beside it is `present.hand_table`**: the
-  card this viewer's side has laid down, ringed in gold, and every hand
-  this viewer does not hold as the cards' shared back
+- **A side that has picked keeps its hand** (the author, 2026-09-26, on
+  step 5's PR): it may change its card until the other side has picked
+  too. That was already the rule the driver took
+  (`maneuver_pick_refusal`) and the Discord row offered; what changed is
+  `asked_sides`, which no longer narrows the pick to the sides still to
+  choose (a model commit on the same PR) -- the prompt stands only
+  while one side is still to pick, so every hand on it is asked. The
+  card laid down is ringed in gold and dead, since the same card twice
+  is refused, and the rest read "play this instead"; which card that is
+  is the position (`offense_maneuver` / `defense_maneuver`), read for
+  the viewer's own side only. **The box then says it is waiting on the
+  other side** and the tab carries no mark: `present.still_to_answer`
+  reads the hands' own `picked`, so a coach who may still change their
+  card is not told it is their move.
+- **The other hand is a back, `present.hand_table`**: every hand this
+  viewer does not hold, as the cards' shared back
   (`pictures.maneuver_back_png`, at `maneuver_reference_tier`, served by
   `GET /api/game/{id}/maneuver-back.png`), with "turned over together"
   under them. **A back is drawn whether or not that side has picked**:
   on Discord whether the other coach has chosen is not said either, so
   a back that came up with the pick would publish it; the secret test
   holds the table the same before the other side picks and after. An
-  observer is handed two backs and no face. A side that has picked is
-  not asked again (`asked_sides`), so the web offers no change of pick
-  -- the Discord row still takes one, which is the Discord view's; the
-  page's laid card is shown, not pressed. The laid card is the
-  position (`offense_maneuver` / `defense_maneuver`), read for the
-  viewer's own side only.
+  observer is handed two backs and no face.
 - **The reveal** (`present.reveal`, the state's `reveal`): once both
   cards are in and until the maneuver is over (`reset_maneuver`), both
   face up in the question box -- public once turned over, for a coach
@@ -822,7 +831,7 @@ Esc backs out of an open menu or chooser (or puts a refusal away).
   [../web-app-next.md](../web-app-next.md) put it, beside the hand.
 - **Full time** is the outcome banner with the model's result
   (`full_time_headline`: the winner, the final score and the
-  shootout's), and beside it each side's numbers
+  shootout's, and who scored the winner), and beside it each side's numbers
   (`present.full_time`, the state's `full_time`): goals, shots,
   maneuvers won, skill tests won of those taken, exhaustion taken and
   time outs, read by `stats.collect_sides` over the match's events --
@@ -839,11 +848,12 @@ Esc backs out of an open menu or chooser (or puts a refusal away).
   <score>, shootout <score>" (step 2). The bot's own tables
   (`stats.game_tables`) are still under the box, as every table of the
   game.
-- **Who scored the winner is not said yet.** The canvas's line under
-  the result names the scorer; the model's full-time headline carries
-  the final score and not the scorer, and a page that went looking for
-  them in the goal log would be wording the result itself, so the
-  banner says what the model says (a question on step 5's PR).
+- **Who scored the winner is the model's line** (the author,
+  2026-09-26: "the model should say it"): `formatting.winning_goal_line`
+  under the final score, in the full-time summary and in its
+  `Headline` alike, so the banner's line under the result names the
+  scorer in the model's words ([clock-and-records.md](clock-and-records.md),
+  "The goal log").
 
 **A lit meeple that is not on the field is answered from the box**, as
 a neutral control with its card on hover. No fixture lights a benched

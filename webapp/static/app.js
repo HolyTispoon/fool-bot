@@ -1721,44 +1721,34 @@ function handCard(control) {
     "button",
     {
       type: "button",
-      class: `hand-card${control.card.withheld ? " withheld" : ""}`,
+      class: `hand-card${control.card.withheld ? " withheld" : ""}${control.card.picked ? " picked" : ""}`,
       disabled: control.disabled,
       title: control.note || control.label,
       "aria-label": control.note ? `${control.label}: ${control.note}` : control.label,
       onclick: () => press(control),
     },
     h("img", { src: url, alt: control.label }),
+    control.card.picked ? h("span", { class: "hand-card-chip" }, control.chip) : null,
   );
   hoverCard(button, maneuverUrl(key, side, "full"));
   return button;
 }
 
-/* What else lies on the table during the pick (`present.hand_table`):
-   the card this coach's side laid down, ringed, and every hand this
-   viewer does not hold, face down -- whether or not it has been picked,
-   so a back says nothing. */
+/* The hands this viewer does not hold, face down (`present.hand_table`)
+   -- whether or not they have been picked, so a back says nothing. The
+   card this coach laid down is in their own hand, ringed. */
 function handTable(prompt) {
   const table = prompt.hand;
   if (!table) return null;
-  const cards = [
-    ...table.laid.map((card) => h(
-      "figure",
-      { class: "table-card laid" },
-      h("img", { src: maneuverUrl(card.key, card.side), alt: "Your card" }),
-      h("figcaption", {}, "Your card, face down"),
-    )),
-    ...table.backs.map((back) => h(
+  return h(
+    "div",
+    { class: "hand-table" },
+    h("div", { class: "hand" }, table.backs.map((back) => h(
       "figure",
       { class: "table-card" },
       h("img", { src: `/api/game/${GAME_ID}/maneuver-back.png`, alt: `${back.team}'s card, face down` }),
       h("figcaption", {}, `${back.team} · face down`),
-    )),
-  ];
-  for (const card of table.laid) hoverCard(cards[table.laid.indexOf(card)], maneuverUrl(card.key, card.side, "full"));
-  return h(
-    "div",
-    { class: "hand-table" },
-    h("div", { class: "hand" }, cards),
+    ))),
     h("p", { class: "note-line" }, table.note),
   );
 }

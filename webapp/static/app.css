@@ -601,13 +601,33 @@ select {
 }
 .hand-card:disabled { opacity: 0.35; cursor: not-allowed; }
 .hand-card.withheld { filter: grayscale(0.6); }
+/* The card laid face down: ringed in gold, and dead, since the same
+   card twice is refused; the others may still replace it. */
+.hand-card.picked:disabled {
+  opacity: 1;
+  cursor: default;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(240, 178, 50, 0.45);
+  position: relative;
+}
+.hand-card-chip {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(30, 31, 34, 0.9);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
 
-/* The table beside the hand: the card laid down, ringed in gold, and
-   the hands held face down. */
+/* The hands held face down beside the hand. */
 .hand-table { display: flex; flex-direction: column; gap: 6px; }
 .table-card { margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .table-card img { display: block; width: 100%; height: auto; border-radius: 10px; }
-.table-card.laid img { box-shadow: 0 0 0 3px var(--gold), 0 0 18px rgba(240, 178, 50, 0.4); }
 .table-card figcaption { font-size: 12px; color: var(--muted); text-align: center; }
 
 /* A refusal: a red-edged strip inside the box it refused. */

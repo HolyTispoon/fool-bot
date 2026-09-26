@@ -2295,25 +2295,52 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(action.kind, PromptKind.MANEUVER_ACTION)
         self.assertEqual(action.arguments["maneuver_key"], "setup_pass")
 
-        # Laid face down, it is on the table for its own coach, and the
-        # side is not asked again; the visitors' hand is still a back.
+        # Laid face down, it stays in its coach's hand ringed and dead,
+        # and the rest may replace it while the visitors are still to
+        # pick (the author, 2026-09-26); the box is waiting on them.
         picked = await response.json()
-        self.assertEqual(self.cards(picked), [])
+        cards = self.cards(picked)
+        ringed = [one for one in cards if one["card"].get("picked")]
         self.assertEqual(
-            [card["key"] for card in picked["prompt"]["hand"]["laid"]],
-            ["setup_pass"],
+            [one["card"]["key"] for one in ringed], ["setup_pass"],
         )
+        self.assertTrue(ringed[0]["disabled"])
+        live = [one for one in cards if not one["disabled"]]
+        self.assertEqual(len(live), 5)
+        self.assertEqual(picked["prompt"]["state"], "waiting")
+        self.assertFalse(picked["prompt"]["yours"])
         self.assertEqual(
             [back["side"] for back in picked["prompt"]["hand"]["backs"]],
             ["defense"],
         )
-        # The other coach is not shown it: only their own hand, and a
-        # back for the offense.
+        # The other coach is not shown it, and their question is theirs.
         theirs = await self.state_of(
             client, fixture, as_coach(fixture.game.player_2_id),
         )
-        self.assertEqual(theirs["prompt"]["hand"]["laid"], [])
         self.assertNotIn('"setup_pass"', json.dumps(theirs["prompt"]))
+        self.assertEqual(theirs["prompt"]["state"], "yours")
+
+        # A change of card is taken over the old one.
+        instead = next(one for one in live if one["card"]["key"] == "high_pass")
+        response = await client.post(
+            f"/api/game/{fixture.game.game_id}/action",
+            headers=as_coach(fixture.game.player_1_id),
+            data=json.dumps({"action": instead["action"]}),
+        )
+        self.assertEqual(response.status, 200)
+        changed = await response.json()
+        self.assertIsNone(changed["refusal"])
+        self.assertEqual(
+            web.service.games[fixture.game.game_id].match_state[
+                "offense_maneuver"
+            ],
+            "high_pass",
+        )
+        self.assertEqual(
+            [one["card"]["key"] for one in self.cards(changed)
+             if one["card"].get("picked")],
+            ["high_pass"],
+        )
 
     async def test_both_cards_turn_over_together(self) -> None:
         """The skill test's tie: both cards face up with TIE between

@@ -105,6 +105,7 @@ from webapp.present import (
     prompt_picture_key,
     render_text,
     reveal,
+    still_to_answer,
 )
 from webapp.chat import WEB_CHAT_FILE, Chats, MessageRefused, clean_text
 from webapp.journal import WEB_JOURNAL_FILE, Journal, Journals
@@ -1593,6 +1594,9 @@ class WebApp:
         controls = controls_for(
             self.engine, game, match, prompt, viewer, wire=wire,
         )
+        owed = bool(controls) and still_to_answer(
+            self.engine, game, match, prompt, viewer, wire=wire,
+        )
         return {
             "prompt": {
                 "kind": wire["kind"],
@@ -1611,12 +1615,14 @@ class WebApp:
                     self.engine, game, match, prompt, viewer, controls,
                     wire=wire,
                 ),
-                "yours": bool(controls),
-                "state": _box_state(match, prompt, bool(controls)),
-                # The maneuver pick's table: the card this viewer's
-                # side laid down, and the hands it does not hold face
-                # down -- every one for an observer -- whether or not
-                # that side has picked (`present.hand_table`).
+                # This viewer's to answer: offered controls, and not
+                # only waiting on the other side with a card already
+                # down (`present.still_to_answer`).
+                "yours": owed,
+                "state": _box_state(match, prompt, owed),
+                # The maneuver pick's hands this viewer does not hold,
+                # face down -- every one for an observer -- whether or
+                # not that side has picked (`present.hand_table`).
                 "hand": hand_table(
                     self.engine, game, match, prompt, viewer, wire=wire,
                 ),

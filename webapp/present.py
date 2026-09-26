@@ -1304,10 +1304,15 @@ def _maneuver(asked: Asked) -> list:
     **The hand, and it is this coach's own.** The pick is secret until
     both are in, so the other side's hand is not in what this viewer
     is sent -- see the module docstring; the page draws it face down
-    (`hand_table`). Each card is the answer, the printed card itself;
-    a side that has picked is no longer asked (`asked_sides`), so its
-    hand is not offered again, and the card it laid down is
-    `hand_table`'s to show.
+    (`hand_table`). Each card is the answer, the printed card itself.
+
+    **A side that has picked keeps its hand** (the author, 2026-09-26):
+    it may change its card until the other side has picked too, which
+    `asked_sides` says by still asking it and `maneuver_pick_refusal`
+    takes. The card laid down is ringed and dead -- the same card
+    twice is refused -- and the rest read "play this instead". Which
+    card was laid is the position (`offense_maneuver` /
+    `defense_maneuver`), read for this viewer's own side only.
 
     **The gambits the side does not hold are shown dimmed** --
     `ManeuverHand.withheld`, the model's answer, never worked out here
@@ -1321,27 +1326,27 @@ def _maneuver(asked: Asked) -> list:
     mine = set(asked.sides())
     groups = []
     for hand in asked.options["hands"]:
-        if _side(hand["team_side"]) not in mine or hand["picked"]:
+        if _side(hand["team_side"]) not in mine:
             continue
         side, railed = hand["side"], hand["railed"]
-        controls = [
-            button(
+        laid = _laid_down(asked.match, side) if hand["picked"] else None
+        controls = []
+        for key in hand["maneuver_keys"]:
+            railed_off = railed is not None and key != railed
+            controls.append(button(
                 asked.engine.maneuver_name(key),
                 asked.kind,
                 place=on_card(key, side),
-                chip="play",
-                card=_card(asked.engine, key, side),
+                chip=(
+                    "your card, face down" if key == laid
+                    else "play this instead" if laid else "play"
+                ),
+                card=_card(asked.engine, key, side, picked=key == laid),
                 side=side,
                 maneuver_key=key,
-                disabled=railed is not None and key != railed,
-                note=(
-                    RAILED_NOTE
-                    if railed is not None and key != railed
-                    else ""
-                ),
-            )
-            for key in hand["maneuver_keys"]
-        ]
+                disabled=railed_off or key == laid,
+                note=RAILED_NOTE if railed_off else "",
+            ))
         controls.extend(
             button(
                 asked.engine.maneuver_name(key),
@@ -1366,6 +1371,42 @@ def _maneuver(asked: Asked) -> list:
         )
         for controls in groups
     ]
+
+
+def _laid_down(match: MatchState, side: str) -> Optional[str]:
+    """The card this side has laid face down, for its own coach."""
+    return (
+        match.offense_maneuver if side == "offense"
+        else match.defense_maneuver
+    )
+
+
+def still_to_answer(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: Optional[PendingPrompt],
+    viewer: Viewer,
+    wire: Optional[Mapping[str, Any]] = None,
+) -> bool:
+    """
+    Whether this viewer still owes the prompt an answer, beside being
+    offered controls: on the maneuver pick a coach whose card is down
+    may change it, but the question is waiting on the other side, so
+    the box says so and the tab carries no mark. Read off the hands'
+    own `picked`; every other prompt is owed wherever it is offered.
+    """
+    asked = _asked(engine, game, match, prompt, viewer, wire)
+    if asked is None:
+        return False
+    if asked.kind is not PromptKind.MANEUVER_ACTION:
+        return True
+    mine = set(asked.sides())
+    return any(
+        not hand["picked"]
+        for hand in asked.options["hands"]
+        if _side(hand["team_side"]) in mine
+    )
 
 
 #: What a dimmed gambit says: the reason it is not in the hand, which
@@ -1398,21 +1439,17 @@ def hand_table(
     wire: Optional[Mapping[str, Any]] = None,
 ) -> Optional[dict]:
     """
-    What lies on the table during the maneuver pick besides the hand
-    being chosen from (step 5 of docs/web-app-redesign.md): the card
-    this viewer's side has laid down, ringed, and the hands this viewer
-    does not hold, face down -- every hand for an observer -- with the
-    line that says they are turned over together. `None` for any
-    other prompt, or where there is nothing to show.
+    The hands on the maneuver pick this viewer does not hold, face
+    down -- every hand for an observer -- with the line that says they
+    are turned over together (step 5 of docs/web-app-redesign.md).
+    `None` for any other prompt, or where every hand is this viewer's.
 
-    - **The laid card is the position** (`offense_maneuver` /
-      `defense_maneuver`), read for a side this viewer coaches and
-      never for the other.
-    - **A back is drawn whether or not that side has picked.** Whether
-      the other coach has chosen is not said on Discord either (the
-      refusal that would say it is answered after authorization,
-      `maneuver_pick_refusal`), so a back that turned up with a pick
-      would publish it.
+    **A back is drawn whether or not that side has picked.** Whether
+    the other coach has chosen is not said on Discord either (the
+    refusal that would say it is answered after authorization,
+    `maneuver_pick_refusal`), so a back that turned up with a pick
+    would publish it. The card this viewer's own side laid down is in
+    its hand, ringed (`_maneuver`).
     """
     if (
         prompt is None or match is None
@@ -1421,28 +1458,19 @@ def hand_table(
         return None
     wire = prompt.to_dict() if wire is None else wire
     mine = set(coached_sides(engine, game, viewer))
-    laid, backs = [], []
+    backs = []
     for hand in wire["options"]["hands"]:
         team_side = _side(hand["team_side"])
-        if team_side is None:
-            continue
-        if team_side in mine:
-            key = (
-                match.offense_maneuver if hand["side"] == "offense"
-                else match.defense_maneuver
-            )
-            if hand["picked"] and key is not None:
-                laid.append(_card(engine, key, hand["side"]))
+        if team_side is None or team_side in mine:
             continue
         backs.append({
             "side": hand["side"],
             "team": team_display_name(match.setup_for_side(team_side).team),
             "team_side": team_side.value,
         })
-    if not laid and not backs:
+    if not backs:
         return None
     return {
-        "laid": laid,
         "backs": backs,
         "note": (
             "Both cards are turned over together."
