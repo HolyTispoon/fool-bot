@@ -13,7 +13,9 @@ with the candidates, and that it is the same measure the flow charges.
 import unittest
 
 from d12ball.components import TeamSide
+from d12ball.flow import driver
 from d12ball.prompts import (
+    Action,
     ManeuverOptions,
     PlayerOptions,
     PromptKind,
@@ -130,6 +132,80 @@ class OptionsCarryTheirMeasureTests(unittest.TestCase):
                     self.assertEqual(options.may_pass_out, not options.distances)
                 else:
                     self.assertFalse(options.may_pass_out)
+
+    def test_a_distance_names_the_space_it_lands_on(self) -> None:
+        """
+        A coach choosing a distance is choosing a space, and which way
+        a kind moves is the prompt's to say -- a pass forward, the push
+        back the other way, a dribble the handler rather than the
+        ball -- so a button's label and a web page's lit space read
+        one measure and no frontend decides the direction.
+        """
+        seen = set()
+        for name, match, prompt in asked_prompts():
+            options = prompt.options
+            if not isinstance(options, DistanceOptions) or not options.distances:
+                continue
+            seen.add(prompt.kind)
+            with self.subTest(name):
+                self.assertEqual(len(options.landings), len(options.distances))
+                for distance, landing in zip(options.distances, options.landings):
+                    self.assertEqual(options.landing(distance), landing)
+                    if prompt.kind in (
+                        PromptKind.DRIBBLE_ADVANCE_CHOICE,
+                        PromptKind.DRIBBLE_BURST_CHOICE,
+                    ):
+                        expected = match.relative_move_destination(
+                            match.active_player_id, match.ball.possession,
+                            distance,
+                        )
+                    else:
+                        sign = (
+                            -1 if prompt.kind is PromptKind.SETUP_PASS_PUSH_BACK
+                            else 1
+                        )
+                        expected = match.ball_destination(
+                            match.ball.possession, sign * distance,
+                        )
+                    self.assertEqual(landing, expected)
+        self.assertIn(PromptKind.HIGH_PASS_CHOICE, seen)
+        self.assertIn(PromptKind.DRIBBLE_ADVANCE_CHOICE, seen)
+        self.assertIn(PromptKind.SETUP_PASS_PUSH_BACK, seen)
+
+    def test_the_move_ends_where_the_landing_said(self) -> None:
+        """The dribble and the push back, played: the handler, and the
+        ball, end on the space the prompt named."""
+        played = set()
+        for case in CASES:
+            if case.name not in ("dribble advance", "setup pass push back"):
+                continue
+            played.add(case.name)
+            prompt = pending_prompt(ENGINE, *_built(case))
+            for distance, landing in zip(
+                prompt.options.distances, prompt.options.landings,
+            ):
+                with self.subTest(case.name, distance=distance):
+                    game, match = _built(case)
+                    mover = match.active_player_id
+                    run = driver.apply(
+                        ENGINE, game, match,
+                        Action(prompt.kind, "", {"distance": distance}),
+                    )
+                    self.assertNotIsInstance(run, driver.Refusal)
+                    if prompt.kind is PromptKind.DRIBBLE_ADVANCE_CHOICE:
+                        self.assertEqual(
+                            match.board.meeple_position(mover), landing,
+                        )
+                    else:
+                        self.assertEqual(
+                            (match.ball.zone, match.ball.space_index), landing,
+                        )
+        self.assertEqual(len(played), 2)
+
+
+def _built(case):
+    fixture = case.build()
+    return fixture.game, fixture.match
 
 
 if __name__ == "__main__":

@@ -491,11 +491,11 @@ class SetupPassPushBackView(SafeView):
         if options is None:
             return
 
-        offense_side = match.ball.possession
         # The prompt's distances: 1, 2 or 3, less any that run off
-        # the end of the field (`RulesEngine.setup_pass_push_back_distances`).
+        # the end of the field (`RulesEngine.setup_pass_push_back_distances`),
+        # each with the space it pushes the ball back to.
         for distance in options.distances:
-            zone, space_index = match.ball_destination(offense_side, -distance)
+            zone, space_index = options.landing(distance)
             where = space_label(zone, space_index, match.board)
             button = discord.ui.Button(
 
@@ -797,12 +797,10 @@ class DribbleAdvanceChoiceView(SafeView):
 
         for distance in distances:
             space_word = "space" if distance == 1 else "spaces"
+            # Where the handler ends up is the prompt's
+            # (`DistanceOptions.landings`), the space a web page lights.
             destination = (
-                match.relative_move_destination(
-                    match.active_player_id, match.ball.possession, distance,
-                )
-                if match is not None and match.active_player_id is not None
-                else None
+                options.landing(distance) if options is not None else None
             )
             destination_note = (
                 f" ({space_label(*destination, match.board)})"
