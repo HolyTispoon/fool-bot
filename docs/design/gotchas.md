@@ -92,7 +92,7 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
     diagnosis and somebody has to add the entry. It reads the match
     state alone, since that is the only part of a save holding player
     ids and a game's own name could carry anything.
-- **`data/d12ball_games.json` is runtime state and is deliberately untracked.**
+- **`data/d12ball_games.json` is runtime state and is deliberately untracked**, and so is the web app's `data/d12ball_web_games.json` beside it.
   The bot rewrites it on every game action. It used to be committed, which
   meant it showed as modified more or less permanently and was a standing
   source of merge conflicts. Don't re-add it. Each developer's saved games are
@@ -136,6 +136,14 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
     Saving is blocked until the process is restarted, which is what wants
     doing anyway. "There is no file yet" is not that case, so a fresh clone
     saves normally.
+  - **Both flags are per file.** `load_games` and `save_games` take a
+    `path`, the bot's `GAMES_FILE` when none is named, and the web app
+    names its own `WEB_GAMES_FILE` (see [web-app.md](web-app.md), "Its
+    own process, its own file"). One process may read a file it does not
+    own -- the bot reads the web games for the statistics -- and that
+    file being unreadable must not block the bot saving its own. The
+    default is resolved at call time rather than as a default argument,
+    so a test that points `GAMES_FILE` at a tempdir moves it.
 - **Startup drops finished games whose channel was deleted.** The archiving
   sweep in `on_ready` prunes a finished game when Discord answers its channel
   lookup with a 404, because there is nothing left to archive and the record
