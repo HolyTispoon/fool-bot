@@ -211,15 +211,19 @@ on the pull request that brought it in.
   contest, not a loose ball, and is rolled as usual.
 - **Spritz:** *"Smooth (eammate sharing space may handover ball handling.)"* Read as the
   Telekinetics' Smooth, without Mind Pull.
-- **Umbrik:** *"Uses dSkill for own goal attempts and high pass skill tests."* Read as the
-  own-goal roll, a maneuver skill test over Umbrik's own High Pass, and a High Pass contest for a
-  pass Umbrik's side threw -- the sheet calls the contest the receiver's "skill test".
+- **Umbrik:** *"Uses dSkill for own goal attempts and high pass skill tests."* First read as the
+  own-goal roll, a maneuver skill test over Umbrik's own High Pass, and a High Pass contest. Asked
+  on the pull request, the author reworded the cell: *"Uses dSkill for attempting to avoid an
+  own goal and for skill tests when attempting to high pass."* So the own-goal roll and the
+  maneuver skill test over Umbrik's High Pass, and not the contest.
 - **Vorix:** *"When successfully high passes for 3: speed ball to 12 and set up a scoring
   opportunity without contest."* Read as a won High Pass of exactly 3 onto a teammate; out of
-  range the pass is still received, uncontested, at 12.
+  range the pass is still received, uncontested, at 12. Confirmed by the author.
 - **Zenith:** *"Fly: before runback, can be moved anywhere on the board gaining exhaustion as
   normal. Does not run back if moved by Fly."* Read as a choice at a steal's run back, 1 token a
-  space, never for the player holding the ball.
+  space, never for the player holding the ball and never before a new play, which the author
+  confirmed. An injured Zenith would have flown free; the author: *"Zenith cannot fly when
+  injured"*, and the cell now reads *"if not injured or in possession"*.
 - **Zorch:** *"Does not add exhaustion when rolling skill tests (including after ties)."* Read as
   a maneuver skill test's entry token and every re-roll, including a contest's.
 - **Zytheris:** *"Gets a scoring opportunity when receiving any pass."* Read as any teammate's

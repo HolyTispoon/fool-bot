@@ -1202,11 +1202,11 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Dravox and Hexis play their gambits on the dice.** When Dravox wins a maneuver skill test with a defensive gambit they played, or Hexis with an offensive one, it resolves as the gambit -- where a card that did not win on the cards [would otherwise resolve as its basic maneuver](#when-a-gambits-effect-fires). A basic card they played is not upgraded.
 
-**Umbrik plays the long ball on defense.** Umbrik adds their defensive skill rather than their offensive skill to an [own-goal roll](#own-goal), to a maneuver skill test over their own [High Pass](#high-pass), and to a [High Pass contest](#the-high-pass-contest) for a pass their side threw.
+**Umbrik plays the long ball on defense.** Umbrik adds their defensive skill rather than their offensive skill to an [own-goal roll](#own-goal) and to a maneuver skill test over their own [High Pass](#high-pass). A [High Pass contest](#the-high-pass-contest) they receive in is played on their offensive skill as usual.
 
 **Vorix's long pass is a set-up.** When Vorix's won High Pass of 3 spaces reaches a teammate, there is no High Pass contest: the ball's speed goes to 12, the teammate receives it, and they may take a [scoring opportunity](#scoring-opportunities) if it is in range, exactly as off a 2-space pass.
 
-**Zenith flies.** When a [steal](#running-back-after-a-steal) is about to run players back, Zenith's coach may first move Zenith to any space on the field, adding 1 token for every space travelled. Zenith then does not run back. The player holding the ball cannot fly, and a [new-play reset](#resetting-after-a-new-play) is not a run back.
+**Zenith flies.** When a [steal](#running-back-after-a-steal) is about to run players back, Zenith's coach may first move Zenith to any space on the field, adding 1 token for every space travelled. Zenith then does not run back. An [injured](#playing-injured) Zenith cannot fly, nor can Zenith holding the ball, and a [new-play reset](#resetting-after-a-new-play) is not a run back.
 
 **Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#scoring-opportunities) if it is in range -- after a [Low Pass](#low-pass) or a [Skilled Pass](#skilled-pass) as after a 2-space High Pass. A High Pass of 3 or more offers it in place of the [High Pass contest](#the-high-pass-contest), as an overshoot does: declining the shot means taking the contest. The ball speed modifier counts for them, not against them, unless the pass overshot.
 
