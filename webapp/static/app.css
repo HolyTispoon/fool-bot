@@ -749,13 +749,12 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px 4px 7px;
+  padding: 4px 10px;
   border-radius: 8px;
   font: inherit;
   text-align: left;
   min-width: 0;
 }
-.timeout-tile .ref-t { flex: none; width: 14px; height: 14px; fill: currentColor; }
 .timeout-tile .tile-words { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
 .tile-title { font-family: "Goal", "Board", sans-serif; font-size: 11px; letter-spacing: 1px; }
 .timeout-tile small {
@@ -774,7 +773,7 @@ select {
 .timeout-tile.spent small { color: var(--faint); }
 .timeout-tile.lit {
   gap: 8px;
-  padding: 6px 12px 6px 8px;
+  padding: 6px 12px;
   border: 0;
   border-radius: 10px;
   background: var(--gold);
@@ -782,7 +781,6 @@ select {
   box-shadow: 0 0 0 3px rgba(240, 178, 50, 0.35), 0 0 18px rgba(240, 178, 50, 0.6);
   cursor: pointer;
 }
-.timeout-tile.lit .ref-t { width: 22px; height: 22px; }
 .timeout-tile.lit .tile-words { flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.05; }
 .timeout-tile.lit .tile-title { font-size: 15px; }
 .timeout-tile.lit small { font-weight: 800; color: #1e1f22; }
