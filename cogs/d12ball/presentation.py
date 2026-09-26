@@ -35,7 +35,7 @@ from d12ball.render import (
     render_volatile_die,
     zone_labels,
 )
-from d12ball.role_cards import render_role_card
+from d12ball.role_cards import render_role_reference
 from d12ball.species_cards import render_species_reference
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
@@ -502,12 +502,15 @@ class PresentationMixin:
 
     async def build_role_reference_file(self) -> discord.File:
         """
-        The printed role-ability reference card, for
-        `/d12ball role_abilities_reference`: the one card, since both
-        of its faces are the same image (`render_role_card_set`).
+        The role-ability reference card, for
+        `/d12ball role_abilities_reference`: the printed card's one
+        face, since both of its faces are the same image
+        (`render_role_card_set`), in the dark palette a screen gets
+        (`render_role_reference`).
         """
         png = await asyncio.to_thread(
-            card_png, render_role_card, self.player_catalog.role_profiles,
+            card_png, render_role_reference,
+            self.player_catalog.role_profiles,
         )
         return discord.File(io.BytesIO(png), filename="role_abilities.png")
 
@@ -515,9 +518,9 @@ class PresentationMixin:
         """
         The species-ability reference, for
         `/d12ball species_abilities_reference`: the two faces of the
-        printed set's first card on one image
-        (`render_species_reference`), which between them carry all four
-        abilities once each.
+        printed set's first card on one image, in the dark palette a
+        screen gets (`render_species_reference`), which between them
+        carry all four abilities once each.
         """
         png = await asyncio.to_thread(
             card_png, render_species_reference, load_species_abilities(),
