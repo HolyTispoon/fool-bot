@@ -633,7 +633,7 @@ An out-of-bounds ball is [picked up](#picking-the-ball-up) after the reset, at t
 
 A side out of [shooting range](#shooting-range) may call a **time out** instead of playing the ball. **Possession does not change and the ball does not move.** What a time out buys is the pause, not the ball.
 
-**A time out is a [new play](#resetting-after-a-new-play).** Ball speed goes back to 1, and every fielded meeple on both sides goes back to the space its coach's arrangement puts it on, before either coach coaches. It is not a turnover: the side that called it keeps the ball.
+**A time out is a [new play](#resetting-after-a-new-play).** Ball speed goes back to 1, and once both coaches have taken their Coaching Choice, every fielded meeple on both sides goes back to the space its coach's arrangement puts it on -- the arrangement as it stands after those Choices, changed or not. It is not a turnover: the side that called it keeps the ball.
 
 ### The three conditions
 
@@ -653,11 +653,11 @@ A time out costs **1 space minute** and no exhaustion. A [pickup](#picking-the-b
 
 ### The two Coaching Choices
 
-**Both coaches then take a Coaching Choice** -- the side that called it first, the other in reply -- on the reset. These are the time out's own two, so the new play offers no further one. Nobody runs back.
+**Both coaches then take a Coaching Choice** -- the side that called it first, the other in reply. These are the time out's own two, so the new play offers no further one. Then both sides reset. Nobody runs back.
 
 ### The pickup
 
-Possession is the team's and stays with them either way. A player has to be sent to the ball **if and only if** none of theirs is standing on its space once both windows have closed -- the reset or their own Coaching Choice may have moved them off it. Then they [pick it up](#picking-the-ball-up): one of their two nearest must go, at 1 exhaustion a space.
+Possession is the team's and stays with them either way. Only after the reset is it asked whether anybody has to go and get it: a player is sent to the ball **if and only if** none of theirs is standing on its space then -- which is to say, their coach's arrangement does not put anybody there. Then they [pick it up](#picking-the-ball-up): one of their two nearest must go, at 1 exhaustion a space.
 
 ## Coaching Choice
 

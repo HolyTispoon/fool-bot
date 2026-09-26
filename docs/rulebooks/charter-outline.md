@@ -247,11 +247,11 @@ lists only the four basic changes.
 
 *From:* Time out.
 
-- 13.1 What it is: possession stays, the ball stays; a new play, so speed 1 and both sides reset.
+- 13.1 What it is: possession stays, the ball stays; a new play, so speed 1, and both sides reset after the Coaching Choices.
 - 13.2 The three conditions.
 - 13.3 A side with nobody to bring on may still call one.
 - 13.4 The cost: 1 space minute, no tokens.
-- 13.5 Both coaches take a Coaching Choice, the caller first, on the reset.
+- 13.5 Both coaches take a Coaching Choice, the caller first; then both sides reset.
 - 13.6 The pickup: one of the two nearest, at a token a space.
 
 ### Law 14. The Coaching Choice

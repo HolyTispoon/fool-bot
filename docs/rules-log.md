@@ -154,6 +154,24 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-26 (final) -- author, the time out's reset comes after the Coaching Choices
+
+Correcting the entry below, on PR #337: *"Yes ball speed to 1. There is no need to send players
+back to their position before the coaching window because that position may change. Send them
+back to their position after the coaching window - if no position was changed it would be the
+same but if it did, they would go to their new position. Only then check to see if there's a
+need to send someone."*
+
+- **Speed back to 1 is confirmed.**
+- **The reset is after both Coaching Choices**, onto the arrangements as they stand then, and
+  the pickup is asked only after it: a player is sent if and only if the calling side's
+  arrangement puts nobody on the ball's space. The entry below had the reset before the
+  Choices.
+- A Coaching Choice still opens with its own side on that side's arrangement, as at halftime:
+  the Choice changes the arrangement by moving the meeples, so the side being coached is
+  shown standing on the arrangement it is changing. That is part of the Choice, not the new
+  play's reset.
+
 ### 2026-09-26 (last) -- author, a time out is a new play
 
 Answering the question the entry below left open, on PR #337: *"Time out should be a new play.
@@ -163,8 +181,8 @@ time out."*
 
 - **A time out is a new play, and still not a turnover.** Possession does not change and the
   ball does not move, but ball speed goes back to 1 and both sides reset to the arrangements
-  their coaches last set before either coach coaches -- the same reset every new play runs,
-  which also ends a pending Double Team. Until now nothing reset: each side only went back
+  their coaches last set -- the same reset every new play runs, which also ends a pending
+  Double Team. *(Corrected in the entry above: the reset comes after the Coaching Choices.)* Until now nothing reset: each side only went back
   to its own arrangement as its Coaching Choice opened, speed stayed where it was, and a
   Double Team survived. Speed back to 1 is read from "new play" (every other new play restarts
   at 1, the avoided own goal included); the author did not say it in as many words.
