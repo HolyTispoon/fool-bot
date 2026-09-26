@@ -1470,8 +1470,15 @@ def asked_sides(
     owns: the six rolls, which either coach may press (CLAUDE.md,
     "Nothing rolls dice on its own"), the tutorial's Continue and the
     finished game. Two sides for the questions put to both at once --
-    the maneuver pick and the shootout's two menus -- narrowed to the
-    sides still to answer, which the options already say.
+    the maneuver pick and the shootout's two menus. The shootout's are
+    narrowed to the sides still to answer, which the options already
+    say; **the maneuver pick is not** (the author, 2026-09-26): a side
+    that has laid its card down may change it until the other side has
+    too (`maneuver_pick_refusal`, Law 6's cards turned over together),
+    and the prompt stands only while one side is still to pick -- the
+    second pick resolves it -- so every hand on it is asked. An AI side
+    is on it only until it has picked (`maneuver_pick_sides`), so the
+    AI is never asked twice.
 
     Read off the prompt's own parameters and the position, in that
     order: the side or the player the prompt names where it names
@@ -1485,11 +1492,7 @@ def asked_sides(
     if kind in NOBODYS_QUESTIONS:
         return ()
     if kind is PromptKind.MANEUVER_ACTION:
-        return tuple(
-            hand.team_side
-            for hand in prompt.options.hands
-            if not hand.picked
-        )
+        return tuple(hand.team_side for hand in prompt.options.hands)
     if kind in (PromptKind.SHOOTOUT_ORDER, PromptKind.SHOOTOUT_PICK):
         return tuple(prompt.options.owed())
     if kind in (
