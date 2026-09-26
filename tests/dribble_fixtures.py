@@ -421,11 +421,12 @@ def burst_plain() -> DribbleFixture:
     )
 
 
-def burst_playmaker_discount() -> DribbleFixture:
+def burst_playmaker_pays_every_space() -> DribbleFixture:
     """
-    Role ability -- a Playmaker pays one token fewer for the run (the
-    author, 2026-08-26). The saving is named once beside the run
-    rather than subtracted from each button's price.
+    A Playmaker pays a token a space like everybody else: their token
+    off the run went on 2026-09-26, for a fifth space onto it
+    (`RulesEngine.dribble_burst_distances`), so a run of 3 says
+    nothing about the role.
     """
     match = build_match()
     handler = put_on_the_ball(match, fielded(match, PlayerRole.PLAYMAKER))
@@ -441,9 +442,8 @@ def burst_playmaker_discount() -> DribbleFixture:
         narration=(
             f"**Dribble Burst:** {label(match, handler)} bursts 3 "
             "spaces forward, past everyone in the way."
-            " That costs them 1 exhaustion less (Playmaker ability)."
-            f"\n{label(match, handler)} adds 2 exhaustion "
-            f"{EXHAUST * 2} (now 2 total)."
+            f"\n{label(match, handler)} adds 3 exhaustion "
+            f"{EXHAUST * 3} (now 3 total)."
             f" {BURST_SPEED_LINE}"
         ),
         follow_on=FINISH,
@@ -451,16 +451,15 @@ def burst_playmaker_discount() -> DribbleFixture:
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
-        exhaustion={handler: 2},
+        exhaustion={handler: 3},
         ball_speed=12,
     )
 
 
-def burst_playmaker_one_space_is_free() -> DribbleFixture:
+def burst_playmaker_one_space_costs_one() -> DribbleFixture:
     """
-    A Playmaker's single space costs nothing -- the discount floors
-    the charge at 0 rather than handing a token back -- so the saving
-    is still named and there is no exhaustion line under it.
+    A Playmaker's single space costs its token -- it used to be free,
+    under the discount that went on 2026-09-26.
     """
     match = build_match()
     handler = put_on_the_ball(match, fielded(match, PlayerRole.PLAYMAKER))
@@ -476,7 +475,8 @@ def burst_playmaker_one_space_is_free() -> DribbleFixture:
         narration=(
             f"**Dribble Burst:** {label(match, handler)} bursts 1 "
             "space forward, past everyone in the way."
-            " That costs them 1 exhaustion less (Playmaker ability)."
+            f"\n{label(match, handler)} adds 1 exhaustion "
+            f"{EXHAUST} (now 1 total)."
             f" {BURST_SPEED_LINE}"
         ),
         follow_on=FINISH,
@@ -484,7 +484,7 @@ def burst_playmaker_one_space_is_free() -> DribbleFixture:
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
-        exhaustion={handler: 0},
+        exhaustion={handler: 1},
         ball_speed=12,
     )
 
@@ -605,10 +605,13 @@ DRIBBLE_CASES: tuple[DribbleCase, ...] = (
     ),
     DribbleCase("advance_beats_a_clear", advance_beats_a_clear),
     DribbleCase("burst_plain", burst_plain),
-    DribbleCase("burst_playmaker_discount", burst_playmaker_discount),
     DribbleCase(
-        "burst_playmaker_one_space_is_free",
-        burst_playmaker_one_space_is_free,
+        "burst_playmaker_pays_every_space",
+        burst_playmaker_pays_every_space,
+    ),
+    DribbleCase(
+        "burst_playmaker_one_space_costs_one",
+        burst_playmaker_one_space_costs_one,
     ),
     DribbleCase("burst_with_nowhere_to_go", burst_with_nowhere_to_go),
     DribbleCase("burst_beats_a_clear", burst_beats_a_clear),

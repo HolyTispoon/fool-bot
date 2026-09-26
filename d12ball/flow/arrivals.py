@@ -44,6 +44,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.wire import jsonable
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.rolls import settle_loose_ball_winner
 from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
     ball_space_label,
@@ -897,8 +898,102 @@ def resolve_loose_ball(
             turnover=True, distance_moved=distance_moved,
         )
 
+    auto_winner = engine.contest_auto_winner(
+        game, match, offense_player_id, defense_player_id,
+    )
+    if auto_winner is not None:
+        return resolve_contest_without_a_roll(
+            engine, game, match, offense_player_id, defense_player_id,
+            auto_winner,
+        )
+
     return begin_loose_ball_skill_test(
         engine, game, match, offense_player_id, defense_player_id,
+    )
+
+
+def resolve_contest_without_a_roll(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    offense_player_id: str,
+    defense_player_id: str,
+    winner_id: str,
+) -> StepResult:
+    """
+    **Slitheron's contest** (Law 21): both contestants were sent and
+    walk in as for any contest, and the ball is Slitheron's without a
+    roll. Nothing was rolled, so nobody owes an injury check, and the
+    run back follows straight on.
+    """
+    exhaustion_text = walk_in_contestants(
+        engine, game, match, offense_player_id, defense_player_id,
+    )
+    offense_player = engine.get_player_definition(offense_player_id)
+    defense_player = engine.get_player_definition(defense_player_id)
+    winner = engine.get_player_definition(winner_id)
+    offense_wins = winner_id == offense_player_id
+    announcement, _, distance_moved, turnover_occurred = (
+        settle_loose_ball_winner(
+            engine, game, match, offense_player, defense_player,
+            1 if offense_wins else 0,
+            0 if offense_wins else 1,
+        )
+    )
+    return StepResult(
+        narration=["\n".join(filter(None, [
+            exhaustion_text,
+            f"{engine.format_player_label(match, winner)} takes it "
+            "without a roll.",
+            announcement,
+        ]))],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.BEGIN_RUN_BACK,
+            {
+                "distance_moved": distance_moved,
+                "turnover_occurred": turnover_occurred,
+            },
+        ),
+    )
+
+
+def walk_in_contestants(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    offense_player_id: str,
+    defense_player_id: str,
+) -> str:
+    """
+    Move both contestants onto the ball and charge each their own
+    recovery distance, returning what to say about the tokens.
+    """
+    offense_recovery_distance = match.distance_to_ball(offense_player_id)
+    defense_recovery_distance = match.distance_to_ball(defense_player_id)
+    match.move_meeple(
+        offense_player_id, match.ball.zone, match.ball.space_index,
+    )
+    match.move_meeple(
+        defense_player_id, match.ball.zone, match.ball.space_index,
+    )
+    # Filtered: a contestant already standing on the ball is charged
+    # nothing and says nothing, and an unfiltered join would leave
+    # their blank line in the message.
+    return "\n".join(
+        filter(
+            None,
+            [
+                engine.apply_exhaustion(
+                    game, match, offense_player_id,
+                    offense_recovery_distance,
+                ),
+                engine.apply_exhaustion(
+                    game, match, defense_player_id,
+                    defense_recovery_distance,
+                ),
+            ],
+        )
     )
 
 
@@ -1043,36 +1138,15 @@ def begin_loose_ball_skill_test(
     Both sides have a candidate: move them both in, charge each their
     own recovery distance in exhaustion, and put the skill test up.
     """
-    offense_recovery_distance = match.distance_to_ball(offense_player_id)
-    defense_recovery_distance = match.distance_to_ball(defense_player_id)
-    match.move_meeple(
-        offense_player_id, match.ball.zone, match.ball.space_index,
-    )
-    match.move_meeple(
-        defense_player_id, match.ball.zone, match.ball.space_index,
-    )
-    # Filtered: a contestant already standing on the ball is charged
-    # nothing and says nothing, and an unfiltered join would leave
-    # their blank line in the message.
-    exhaustion_text = "\n".join(
-        filter(
-            None,
-            [
-                engine.apply_exhaustion(
-                    game, match, offense_player_id,
-                    offense_recovery_distance,
-                ),
-                engine.apply_exhaustion(
-                    game, match, defense_player_id,
-                    defense_recovery_distance,
-                ),
-            ],
-        )
+    exhaustion_text = walk_in_contestants(
+        engine, game, match, offense_player_id, defense_player_id,
     )
 
     offense_player = engine.get_player_definition(offense_player_id)
     defense_player = engine.get_player_definition(defense_player_id)
-    offense_skill = engine.skills(game, offense_player.player_id).offense
+    offense_skill = engine.attacking_skill(
+        game, match, offense_player.player_id, "contest",
+    )
     defense_skill = engine.skills(game, defense_player.player_id).defense
 
     # Who is defending what differs between the two: a High Pass's
@@ -1198,7 +1272,9 @@ def begin_own_goal_roll(
     match.pending_own_goal_distance = distance_moved
 
     offense_player = engine.get_player_definition(match.active_player_id)
-    offense_skill = engine.skills(game, offense_player.player_id).offense
+    offense_skill = engine.attacking_skill(
+        game, match, offense_player.player_id, "own_goal",
+    )
     mention = address_coach(
         engine.controlling_player_number(
             game, match, offense_player.player_id,

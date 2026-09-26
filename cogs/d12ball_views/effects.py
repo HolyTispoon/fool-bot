@@ -867,18 +867,15 @@ class DribbleAdvanceChoiceView(SafeView):
 class DribbleBurstChoiceView(SafeView):
     """
     How far a won Dribble Burst runs: 1 up to
-    `DRIBBLE_BURST_MAX_DISTANCE`, less anything the end of the field
-    takes away. Shaped like DribbleAdvanceChoiceView, which is the
+    `DRIBBLE_BURST_MAX_DISTANCE` (one more for a Playmaker), less
+    anything the end of the field takes away. Shaped like DribbleAdvanceChoiceView, which is the
     other dribble that asks a distance, and reconstructible on restart
     from match state alone (see D12Ball.build_effect_choice_view).
 
     **Every button carries its price**, because the exhaustion is a
     token a space and that is the whole of what makes the shorter runs
     worth offering -- the same reasoning as RunBackChoiceView's
-    `M2 (4 spaces)` labels, where the distance *is* the cost. The
-    Playmaker's token off comes out of the total rather than off each
-    space, so it is named once beside the run it discounts rather than
-    subtracted from every label.
+    `M2 (4 spaces)` labels, where the distance *is* the cost.
 
     A handler already on the last space of the field never sees this:
     resolve_dribble_burst applies a run of 0 without a prompt.

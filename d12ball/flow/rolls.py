@@ -185,11 +185,18 @@ def pay_contest_tie(
     step does not (principle 9): the two callers here are steps
     themselves, and their frontend writes the match once after them.
     """
+    # Filtered: Zorch's re-roll is free and says nothing (Law 21).
     exhaustion_text = "\n".join(
-        [
-            engine.apply_exhaustion(game, match, first_player_id, 1),
-            engine.apply_exhaustion(game, match, second_player_id, 1),
-        ]
+        filter(None, [
+            engine.apply_exhaustion(
+                game, match, first_player_id,
+                engine.re_roll_tokens(game, first_player_id),
+            ),
+            engine.apply_exhaustion(
+                game, match, second_player_id,
+                engine.re_roll_tokens(game, second_player_id),
+            ),
+        ])
     )
     # Headed like the outcome it is: a tie is one of the four ways a
     # skill test lands, and every other one is announced at `##`. Left
@@ -232,7 +239,9 @@ def score_skill_test(
     caller needs to know which side blazed or burned to set the tier
     rider once it knows who won. See `RulesEngine.volatile_raises_tier`.
     """
-    offense_skill = engine.skills(game, offense_player.player_id).offense
+    offense_skill = engine.attacking_skill(
+        game, match, offense_player.player_id, "skill_test",
+    )
     defense_skill = engine.skills(game, defense_player.player_id).defense
 
     offense_roll, defense_roll = scripted_or_random(
@@ -596,7 +605,9 @@ def score_loose_ball(
     offense_skill = (
         0
         if offense_injured
-        else engine.skills(game, offense_player.player_id).offense
+        else engine.attacking_skill(
+            game, match, offense_player.player_id, "contest",
+        )
     )
     defense_skill = (
         0

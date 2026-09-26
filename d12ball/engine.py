@@ -107,7 +107,9 @@ from d12ball.personal_abilities import (
     BRIGHTBURN_BURN_RECOVERY,
     BULWARK_DRAINED_AT,
     EMBERDASH_ADVANCE_MAX,
+    KINDLEFINGER_TOKEN,
     PERSONAL_ABILITIES,
+    SCORCHIT_FORCED_TEST_TOKENS,
     SIZZIFIZIK_IGNITE_FACES,
     SPECTRA_PULL_MINIMUM,
     STRIDER_CHARGE_UP,
@@ -1008,8 +1010,16 @@ class RulesEngine:
                     continue
                 if player_id in moved or player_id == carrier_id:
                     continue
-                if not self.has_species_ability(
-                    game, player_id, SPECIES_TELEKINETIC,
+                # Spritz has the Telekinetics' Smooth (Law 21); the
+                # early return above already covers them, since every
+                # mode playing personal abilities plays species ones.
+                if not (
+                    self.has_species_ability(
+                        game, player_id, SPECIES_TELEKINETIC,
+                    )
+                    or self.has_personal_ability(
+                        game, player_id, PersonalAbility.SMOOTH,
+                    )
                 ):
                     continue
                 candidates.append(player_id)
@@ -1924,25 +1934,59 @@ class RulesEngine:
         space, half of it further along. `ShotDefender.value` is the
         rule; the roll and the image both read it rather than the raw
         skill, and neither may go back to summing `defense`.
+
+        Two personal abilities reach this (Law 21). **Goopkeeper always
+        counts as on the ball**, so they are in the list wherever they
+        stand -- behind the ball too, last -- at their full skill
+        (`full_block`). **Flickerwing's set-up shot** is defended by
+        the ball's space alone, so the players beyond it drop out,
+        except a Goopkeeper, who counts as on it.
         """
+        in_the_way = match.defenders_between_ball_and_goal()
+        counted = {player_id for player_id, _ in in_the_way}
+        behind = [
+            (player_id, False)
+            for player_id in match.setup_for_side(
+                match.defending_side(),
+            ).field_players
+            if player_id not in counted
+            and self.has_personal_ability(
+                game, player_id, PersonalAbility.FULL_BLOCK,
+            )
+        ]
+        clear_shot = match.pending_shot_is_set_up and (
+            self.has_personal_ability(
+                game, match.active_player_id, PersonalAbility.CLEAR_SHOT,
+            )
+        )
         defenders = []
-        for player_id, on_ball in match.defenders_between_ball_and_goal():
+        for player_id, on_ball in in_the_way + behind:
+            full_block = self.has_personal_ability(
+                game, player_id, PersonalAbility.FULL_BLOCK,
+            )
+            if clear_shot and not (on_ball or full_block):
+                continue
             player = self.get_player_definition(player_id)
             defense = self.skills(game, player_id).defense
             defenders.append(ShotDefender(
-                player,
-                defense,
-                on_ball,
-                full_block=self.has_personal_ability(
-                    game, player_id, PersonalAbility.FULL_BLOCK,
-                ),
+                player, defense, on_ball, full_block=full_block,
             ))
         return defenders
 
-    def settled_maneuver_winner(self, match: MatchState) -> Optional[str]:
+    def settled_maneuver_winner(
+        self,
+        match: MatchState,
+        game: Optional[D12BallGame] = None,
+    ) -> Optional[str]:
         """
         Which maneuver wins outright, or None when a skill test still
         has to decide it.
+
+        **Scorchit forces a test off a lost card** (Law 21), which is
+        the one way a healthy card-loser takes a win away, and why this
+        takes the game: `forced_test_by` is asked beside the injury.
+        Every model caller passes it; a caller without a game reads
+        the cards and the injuries alone.
 
         This is the whole of who wins a maneuver, and the only place
         that ranking and the injured player's disadvantage are put
@@ -1989,6 +2033,8 @@ class RulesEngine:
             )
             if winner_injured:
                 return None
+            if self.forced_test_by(game, match) is not None:
+                return None
             return (
                 match.offense_maneuver
                 if outcome == "offense"
@@ -2004,6 +2050,195 @@ class RulesEngine:
             if defense_injured
             else match.defense_maneuver
         )
+
+    def forced_test_by(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> Optional[str]:
+        """
+        **Scorchit** (Law 21): the participant whose card lost on the
+        cards and who forces the skill test anyway -- or None.
+
+        A test an injury already forces is that test, not Scorchit's:
+        where the card-winner is injured this answers None, and the
+        test costs its ordinary token each. The gambits need nothing
+        of their own here -- `gambit_cost_applies` and
+        `gambit_benefit_applies` read the cards, so a forced test lands
+        exactly as an injury-forced one does.
+        """
+        if game is None or match.maneuver_uncontested:
+            return None
+        outcome = self.cards_outcome(match)
+        if outcome not in ("offense", "defense"):
+            return None
+        winner_id, loser_id = (
+            (match.active_player_id, match.challenger_id)
+            if outcome == "offense"
+            else (match.challenger_id, match.active_player_id)
+        )
+        if winner_id in match.injured:
+            return None
+        if not self.has_personal_ability(
+            game, loser_id, PersonalAbility.FORCES_THE_TEST,
+        ):
+            return None
+        return loser_id
+
+    def skill_test_tokens(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: Optional[str],
+        forced_by: Optional[str] = None,
+    ) -> int:
+        """
+        What entering a maneuver skill test costs `player_id`: 1, or
+        under a test Scorchit forced (`forced_by`) 2 to Scorchit and
+        nothing to their opponent. **Zorch** pays nothing for any test
+        (Law 21), which `re_roll_tokens` says for the re-rolls.
+        """
+        if forced_by is not None:
+            base = (
+                SCORCHIT_FORCED_TEST_TOKENS if player_id == forced_by else 0
+            )
+        else:
+            base = 1
+        # Zorch's free tests (Law 21) zero whatever the test would cost.
+        return base if self.re_roll_tokens(game, player_id) else 0
+
+    def contest_auto_winner(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_player_id: str,
+        defense_player_id: str,
+    ) -> Optional[str]:
+        """
+        **Slitheron** (Law 21): the contestant who takes the ball
+        without a roll, or None. Only a High Pass contest and the
+        contest for a ball on an empty space -- a ball that came down
+        between both sides is a contest, not a loose ball -- and only
+        where exactly one of the two holds the ability.
+        """
+        if not (
+            match.pending_loose_ball_is_high_pass
+            or match.pending_loose_ball_on_empty_space
+        ):
+            return None
+        holders = [
+            player_id
+            for player_id in (offense_player_id, defense_player_id)
+            if self.has_personal_ability(
+                game, player_id, PersonalAbility.WINS_CONTESTS,
+            )
+        ]
+        return holders[0] if len(holders) == 1 else None
+
+    def ball_holder(self, match: MatchState) -> Optional[str]:
+        """
+        Who the ball is with right now: the carrier a resolution left
+        it with, or else the handler the turn chose. What "the ball
+        comes to" a player means in Law 21 (Inferno, Pulsar) is this
+        changing to them.
+
+        Read with `getattr` because the driver asks it around every
+        step, and the suite's stubbed steps run over a bare namespace
+        standing in for a match.
+        """
+        return (
+            getattr(match, "ball_carrier_id", None)
+            or getattr(match, "active_player_id", None)
+        )
+
+    def injury_ignite(
+        self, game: D12BallGame, player_id: str, face: int,
+    ) -> IgnitedRoll:
+        """
+        What Volatile does to an injury check's die: nothing, except
+        for **Kindlefinger** (Law 21), whose check ignites exactly as
+        a Volatile roll does. What the ignite then does to their tokens
+        is `settle_injury_ignite`'s, once the check is read.
+        """
+        if not self.has_personal_ability(
+            game, player_id, PersonalAbility.INJURY_IGNITION,
+        ):
+            return IgnitedRoll(face=face)
+        return self.ignite(game, player_id, face)
+
+    def settle_injury_ignite(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+        ignite: IgnitedRoll,
+    ) -> str:
+        """
+        Kindlefinger's tokens after a check that ignited and did not
+        injure them: a blaze clears 1 and a burn adds 1 (Law 21). An
+        injured player carries none and adds none, so the caller asks
+        only after a safe check. Returns what to say, or "".
+        """
+        if not ignite.ignited or player_id in match.injured:
+            return ""
+        if ignite.burn:
+            return self.apply_exhaustion(
+                game, match, player_id, KINDLEFINGER_TOKEN,
+            )
+        removed = match.recover_exhaustion(
+            player_id,
+            KINDLEFINGER_TOKEN,
+            self.exhaustion_threshold(game, player_id),
+        )
+        if not removed:
+            return ""
+        player = self.get_player_definition(player_id)
+        return (
+            f"{self.format_player_label(match, player)}'s blaze clears "
+            f"{removed} token."
+        )
+
+    def attacking_skill(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        player_id: str,
+        roll: str,
+    ) -> int:
+        """
+        The skill `player_id` adds on the attacking side of `roll`:
+        their offensive skill, except **Umbrik's** defensive one
+        (Law 21) in an own-goal roll, a maneuver skill test over
+        Umbrik's own High Pass, and a High Pass contest for a pass
+        their side threw.
+
+        `roll` is `"own_goal"`, `"skill_test"` (the handler's side of a
+        maneuver's test) or `"contest"` (the side in possession, in a
+        contest for the ball).
+        """
+        skills = self.skills(game, player_id)
+        if not self.has_personal_ability(
+            game, player_id, PersonalAbility.DEFENSIVE_THROW,
+        ):
+            return skills.offense
+        defensive = (
+            roll == "own_goal"
+            or (roll == "skill_test" and match.offense_maneuver == "high_pass")
+            or (roll == "contest" and match.pending_loose_ball_is_high_pass)
+        )
+        return skills.defense if defensive else skills.offense
+
+    def re_roll_tokens(
+        self, game: D12BallGame, player_id: Optional[str],
+    ) -> int:
+        """
+        The token a tie's re-roll costs `player_id`, in a maneuver
+        skill test or a contest for the ball: 1, and nothing for
+        **Zorch** (Law 21).
+        """
+        if self.has_personal_ability(
+            game, player_id, PersonalAbility.FREE_TESTS,
+        ):
+            return 0
+        return 1
 
     def controlling_player_number(
         self,
@@ -2276,13 +2511,17 @@ class RulesEngine:
         Empty from the last space of the field itself, which is the
         one position with nothing to ask -- `resolve_dribble_burst`
         applies a run of 0 rather than putting up a menu with no
-        buttons on it. The Playmaker's ability is deliberately not
-        here: it is a token off the cost, not a space onto the run
-        (the author, 2026-08-19), so it does not change what is
-        offered.
+        buttons on it.
+
+        **A Playmaker runs 1 space further** (the sheet and the author,
+        2026-09-26), which superseded their token off the cost: the role
+        ability is "an additional space when resolving Dribble
+        maneuvers", both of them.
         """
+        handler = self.get_player_definition(match.active_player_id)
+        bonus = 1 if handler.role == PlayerRole.PLAYMAKER else 0
         reach = min(
-            DRIBBLE_BURST_MAX_DISTANCE,
+            DRIBBLE_BURST_MAX_DISTANCE + bonus,
             match.spaces_to_attacking_end(
                 match.active_player_id, match.ball.possession,
             ),
@@ -2382,19 +2621,16 @@ class RulesEngine:
     ) -> int:
         """
         What a Dribble Burst of `distance` charges the handler: a token
-        a space, one fewer for a Playmaker (the author, 2026-08-26),
-        floored at 0 -- a burst that moved nowhere costs nothing, and
-        the discount cannot turn a run into a token back. Nothing at
-        all for Emberdash (Law 21). The step charges this and the menu
-        prices its buttons by it.
+        a space, whoever runs it -- the Playmaker's token off went on
+        2026-09-26, for a space onto the run (`dribble_burst_distances`).
+        Nothing at all for Emberdash (Law 21). The step charges this
+        and the menu prices its buttons by it.
         """
         if self.has_personal_ability(
             game, match.active_player_id, PersonalAbility.FREE_BURST,
         ):
             return 0
-        handler = self.get_player_definition(match.active_player_id)
-        discount = 1 if handler.role == PlayerRole.PLAYMAKER else 0
-        return max(0, distance - discount)
+        return max(0, distance)
 
     def pass_runner(
         self,

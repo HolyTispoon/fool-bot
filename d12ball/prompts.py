@@ -1152,7 +1152,7 @@ def effect_choice_prompt(
             free=True,
         )
 
-    winner_key = engine.settled_maneuver_winner(match)
+    winner_key = engine.settled_maneuver_winner(match, game)
     if winner_key is None:
         # Still owed a skill test, so no effect is pending yet.
         return None
@@ -1803,7 +1803,7 @@ def _pending(
                 PromptKind.MANEUVER_ACTION,
                 maneuver_action_ask(engine, game, match),
             )
-        winner_key = engine.settled_maneuver_winner(match)
+        winner_key = engine.settled_maneuver_winner(match, game)
         if winner_key is None:
             # No winner yet means a skill test is owed -- a tie, or
             # a decisive maneuver an injured player still has to

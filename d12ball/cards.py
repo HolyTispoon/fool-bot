@@ -420,12 +420,13 @@ def fitted_title(
 # here.
 #
 # The Playmaker's sentence says "Dribble maneuvers" since the sheet of
-# 2026-09-26, which names neither card, so it is placed on Dribble
-# Advance by hand. Dribble Burst keeps its own note below: what the
-# ability does on a Burst is still the author's ruling of 2026-08-19.
+# 2026-09-26, which names neither card, so it is placed on both by
+# hand -- and it is the rule on both: an additional space on a Dribble
+# Burst too (the author, 2026-09-26), where it used to be a token off.
 EXTRA_ROLES: dict[str, tuple[str, ...]] = {
     "high_pass": ("striker",),
     "dribble_advance": ("playmaker",),
+    "dribble_burst": ("playmaker",),
 }
 
 # What a maneuver's own rules add to it, where no role ability names it
@@ -437,13 +438,13 @@ BALL_SPEED_NOTE = (
     "BALL SPEED",
     "The defender adds the ball speed modifier to this skill test.",
 )
-# **Three abilities that reach a gambit their sentence does not
-# name** (the author, 2026-08-19). Each role's sentence is written
-# against its basic counterpart and states a *number*; what carries to
-# the gambit is the rule behind the number, which for the
-# Fullback is +1 distance and for the Playmaker is one less token. So
-# the sentence cannot be matched or reused, and the card says what the
-# ability does *there* instead.
+# **Two abilities that reach a gambit their sentence does not
+# name** (the author, 2026-08-19). The Fullback's sentence is written
+# against its basic counterparts and states a *number*; what carries to
+# the gambit is the rule behind the number, +1 distance. So the
+# sentence cannot be matched or reused, and the card says what the
+# ability does *there* instead. The Playmaker's was the third until
+# its sentence came to name both dribbles (2026-09-26).
 EXTRA_NOTES: dict[str, tuple[tuple[str, str], ...]] = {
     "steal": (BALL_SPEED_NOTE,),
     # Intercept is the Steal gambit and settles the same way, so it
@@ -455,9 +456,6 @@ EXTRA_NOTES: dict[str, tuple[tuple[str, str], ...]] = {
     ),
     "setup_pass": (
         ("FULLBACK", "May also set up at 4 spaces."),
-    ),
-    "dribble_burst": (
-        ("PLAYMAKER", "Pays one exhaustion token fewer for the run."),
     ),
 }
 

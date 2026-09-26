@@ -140,9 +140,20 @@ def skill_test_headline(
             "test!\n\n"
         )
 
+    would_be_winner = offense_name if outcome == "offense" else defense_name
+    forced_by = engine.forced_test_by(game, match)
+    if forced_by is not None:
+        # Scorchit's lost card goes to a test anyway (Law 21).
+        forcer = engine.get_player_definition(forced_by)
+        return (
+            f"{reveal}\n\n"
+            f"**{would_be_winner}** would win, but "
+            f"{engine.format_player_label(match, forcer)} forces a skill "
+            "test!\n\n"
+        )
+
     # An injured player's maneuver never wins outright -- they still
     # have to win a skill test to make it stick.
-    would_be_winner = offense_name if outcome == "offense" else defense_name
     injured_player_id = (
         match.active_player_id
         if outcome == "offense"
@@ -217,7 +228,7 @@ def resolve_maneuver(
     # win on the cards from a win handed over by the other player's
     # injury.
     outcome = engine.maneuver_catalog.resolve(offense_key, defense_key)
-    winner_key = engine.settled_maneuver_winner(match)
+    winner_key = engine.settled_maneuver_winner(match, game)
 
     if winner_key is not None:
         return StepResult(
@@ -847,14 +858,23 @@ def begin_maneuver_skill_test(
     `lead_in` is always "" for this step and is kept in front of the
     reveal rather than dropped, because every step is called with one.
     """
-    exhaustion_text = (
-        engine.apply_exhaustion(game, match, match.active_player_id, 1)
-        + "\n"
-        + engine.apply_exhaustion(game, match, match.challenger_id, 1)
-    )
+    # Scorchit's forced test is 2 to Scorchit and nothing to their
+    # opponent, and Zorch pays nothing (Law 21); `skill_test_tokens`
+    # is the one reading. A free entry says nothing, so the lines are
+    # filtered rather than joined blind.
+    forced_by = engine.forced_test_by(game, match)
+    exhaustion_text = "\n".join(filter(None, [
+        engine.apply_exhaustion(
+            game, match, player_id,
+            engine.skill_test_tokens(game, match, player_id, forced_by),
+        )
+        for player_id in (match.active_player_id, match.challenger_id)
+    ]))
     offense_player = engine.get_player_definition(match.active_player_id)
     defense_player = engine.get_player_definition(match.challenger_id)
-    offense_skill = engine.skills(game, offense_player.player_id).offense
+    offense_skill = engine.attacking_skill(
+        game, match, offense_player.player_id, "skill_test",
+    )
     defense_skill = engine.skills(game, defense_player.player_id).defense
 
     prefix = f"{lead_in}\n\n" if lead_in else ""

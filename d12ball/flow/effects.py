@@ -39,6 +39,7 @@ from typing import Optional
 
 from d12ball import tutorial
 from d12ball.components import (
+    DRIBBLE_BURST_MAX_DISTANCE,
     BALL_SPEED_MAX,
     EVENT_OWN_GOAL_ROLL,
     MIN_HIGH_PASS_DISTANCE,
@@ -62,7 +63,14 @@ from d12ball.formatting import (
 )
 from d12ball import tokens
 from d12ball.game import D12BallGame, team_display_name
-from d12ball.personal_abilities import QUANTOR_RUN_DRAIN, PersonalAbility
+from d12ball.personal_abilities import (
+    INFERNO_BALL_SPEED,
+    PULSAR_CHARGE_UP,
+    QUANTOR_RUN_DRAIN,
+    VORIX_BALL_SPEED,
+    VORIX_PASS_DISTANCE,
+    PersonalAbility,
+)
 from d12ball.prompts import PendingPrompt, PromptKind, speed_choice_ask
 
 
@@ -172,6 +180,53 @@ def pay_double_team_cost(
     )
 
 
+def ball_comes_to(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    before: Optional[str],
+) -> list[str]:
+    """
+    **Inferno lights the ball and Pulsar charges up on it** (Law 21):
+    whenever the ball comes to either -- `RulesEngine.ball_holder`
+    changed to them across one step or one answer -- Inferno's ball
+    goes to speed 12 and Pulsar clears 1 drain. Returns what to say.
+
+    Asked by the driver around every step and every answer
+    (`driver._touch`), because the ball comes to a player in a dozen
+    places -- a pass, a steal, a contest, a pull, a pickup, a
+    handler chosen -- and this is the one rule about all of them.
+    """
+    holder = engine.ball_holder(match)
+    if holder is None or holder == before:
+        return []
+    lines = []
+    if engine.has_personal_ability(
+        game, holder, PersonalAbility.LIGHTS_THE_BALL,
+    ) and match.ball.speed != INFERNO_BALL_SPEED:
+        match.ball.speed = INFERNO_BALL_SPEED
+        player = engine.get_player_definition(holder)
+        lines.append(
+            f"The ball comes to {engine.format_player_label(match, player)}"
+            f" -- ball speed **{INFERNO_BALL_SPEED}**."
+        )
+    if engine.has_personal_ability(
+        game, holder, PersonalAbility.CHARGES_ON_THE_BALL,
+    ):
+        removed = match.recover_exhaustion(
+            holder,
+            PULSAR_CHARGE_UP,
+            engine.exhaustion_threshold(game, holder),
+        )
+        if removed:
+            player = engine.get_player_definition(holder)
+            lines.append(
+                f"{engine.format_player_label(match, player)} takes the "
+                f"ball -- **Charge-up** clears {removed} drain."
+            )
+    return lines
+
+
 def low_pass_step(
     engine: RulesEngine,
     match: MatchState,
@@ -179,6 +234,7 @@ def low_pass_step(
     receiver_id: Optional[str] = None,
     key: str = "low_pass",
     free: bool = False,
+    game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
     Play a won Low Pass -- or a Skilled Pass, which is the same card
@@ -252,9 +308,18 @@ def low_pass_step(
     # reaching the space nearest the goal. It does require shooting
     # range, like any other shot: the ability frees the set-up from
     # a distance, not from where a goal can be scored from.
-    if handler.role != PlayerRole.WINGER or not match.can_attempt_score(
-        offense_side,
-    ):
+    # **Zytheris shoots off any pass** (Law 21): received, they are
+    # offered the Winger's set-up whoever threw it.
+    zytheris = (
+        receiver_id is not None
+        and match.ball_carrier_id == receiver_id
+        and engine.has_personal_ability(
+            game, receiver_id, PersonalAbility.SHOOTS_OFF_ANY_PASS,
+        )
+    )
+    if not (
+        handler.role == PlayerRole.WINGER or zytheris
+    ) or not match.can_attempt_score(offense_side):
         return StepResult(
             narration=[content],
             board_changed=True,
@@ -268,12 +333,16 @@ def low_pass_step(
         # Only reachable if the board changed under a stale
         # choice; fall back to whoever is on the ball's space.
         receiver_id = match.eligible_ball_handlers()[0]
+    receiver = engine.get_player_definition(receiver_id)
     return StepResult(
         narration=[
             content,
             (
                 f"{engine.format_player_label(match, handler)}'s Winger "
                 "ability can turn this into a scoring opportunity!"
+                if handler.role == PlayerRole.WINGER
+                else f"{engine.format_player_label(match, receiver)} "
+                "can turn this into a scoring opportunity!"
             ),
         ],
         board_changed=True,
@@ -399,12 +468,9 @@ def dribble_burst_step(
     speed is said in the narration the way `apply_speed_choice` says
     it, and said only where it changed.
 
-    Role ability -- Playmaker: one token fewer for the run (the
-    author, 2026-08-26) rather than the extra space their sentence
-    names, which is the only ability that reads differently on the two
-    cards of a rank. Floored at 0 rather than allowed to go negative:
-    a burst that moved nowhere costs nothing, and the discount cannot
-    turn a run into a token back.
+    Role ability -- Playmaker: 1 space further, up to 5, which the
+    distances offered already carry (`dribble_burst_distances`; the
+    author, 2026-09-26, superseding a token off the run).
 
     `distance` is what the coach picked (or what the field left);
     `actual_distance` is what the move came to. The exhaustion and the
@@ -421,7 +487,11 @@ def dribble_burst_step(
         *match.board.meeple_position(match.active_player_id)
     )
     match.set_ball_carrier(match.active_player_id)
-    playmaker_bonus = handler.role == PlayerRole.PLAYMAKER
+    # The fifth space is every Playmaker's (2026-09-26).
+    playmaker_bonus = (
+        handler.role == PlayerRole.PLAYMAKER
+        and actual_distance > DRIBBLE_BURST_MAX_DISTANCE
+    )
     # Emberdash bursts for nothing (Law 21), which the cost already
     # says; the note below says why.
     free_burst = engine.has_personal_ability(
@@ -438,8 +508,9 @@ def dribble_burst_step(
     if actual_distance:
         content = (
             f"**Dribble Burst:** {handler_label} bursts "
-            f"{actual_distance} {space_word} forward, past everyone in "
-            "the way."
+            f"{actual_distance} {space_word} forward"
+            f"{' (Playmaker ability)' if playmaker_bonus else ''}, past "
+            "everyone in the way."
         )
     else:
         # The handler was already on the last space of the field, so
@@ -454,9 +525,6 @@ def dribble_burst_step(
     # moved nowhere is free for everybody.
     if free_burst and actual_distance:
         content += " That costs them nothing (personal ability)."
-    elif playmaker_bonus and actual_distance:
-        noun, _ = engine.token_word_and_mark(game, match.active_player_id)
-        content += f" That costs them 1 {noun} less (Playmaker ability)."
     if exhaustion_text:
         content += f"\n{exhaustion_text}"
 
@@ -1048,7 +1116,9 @@ def own_goal_roll_step(
     match.pending_own_goal = False
 
     offense_player = engine.get_player_definition(match.active_player_id)
-    offense_skill = engine.skills(game, offense_player.player_id).offense
+    offense_skill = engine.attacking_skill(
+        game, match, offense_player.player_id, "own_goal",
+    )
 
     rolls = tuple(scripted_or_random(engine, game, "own_goal", 2))
     # **Volatile does not reach this roll** (the author, 2026-09-23),
@@ -1416,6 +1486,7 @@ def high_pass_step(
     match: MatchState,
     distance: int,
     runner_id: Optional[str] = None,
+    game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
     Play a won High Pass: put the ball in the air and settle what it
@@ -1431,9 +1502,11 @@ def high_pass_step(
     2 is never made to win a contest, and a throw the field clamped to
     nothing goes out rather than staying with the passer.
 
-    It reads nothing off the game record -- the gambit's cost is an
-    engine question and nothing here charges exhaustion -- so it takes
-    no `game`.
+    It reads nothing off the game record but the personal abilities
+    -- the gambit's cost is an engine question and nothing here
+    charges exhaustion -- so `game` is optional, and without it none
+    of Law 21 applies: Vorix's long set-up and Zytheris's shot off a
+    long pass are asked of it below.
     """
     offense_side = match.ball.possession
     handler = engine.get_player_definition(match.active_player_id)
@@ -1508,6 +1581,32 @@ def high_pass_step(
     setup_candidates = []
     if distance == 2 and match.can_attempt_score(offense_side):
         setup_candidates = receiver_candidates
+
+    # **Vorix's pass of 3 is a set-up** (Law 21): no contest, the
+    # ball at 12, and the shot where it is in range -- the 2-space
+    # branch's shape, which is why it is asked here, before the
+    # contest a pass of 3 otherwise owes.
+    vorix = (
+        distance == VORIX_PASS_DISTANCE
+        and not overshot
+        and receiver_candidates
+        and engine.has_personal_ability(
+            game, match.active_player_id, PersonalAbility.LONG_SET_UP,
+        )
+    )
+    if vorix:
+        match.ball.speed = VORIX_BALL_SPEED
+        content = (
+            f"{content}\n\n{engine.format_player_label(match, handler)}'s "
+            f"long pass needs no contest -- ball speed "
+            f"**{VORIX_BALL_SPEED}**."
+        )
+        if match.can_attempt_score(offense_side):
+            setup_candidates = receiver_candidates
+        else:
+            return complete_high_pass_reception(
+                match, receiver_candidates[0], distance_moved, content,
+            )
 
     if setup_candidates:
         # Received, so the receiver carries it -- set before the
@@ -1619,6 +1718,27 @@ def high_pass_step(
             "reception is not contested, and "
             f"{engine.format_player_label(match, receiver)} "
             "keeps the ball.",
+        )
+
+    # **Zytheris shoots off any pass** (Law 21): a pass of 3 or more
+    # offers them the shot in place of the contest, the overshoot's
+    # shape -- declining the shot is taking the contest -- with the
+    # modifier the right way round, since this pass did not overshoot.
+    if match.can_attempt_score(offense_side) and engine.has_personal_ability(
+        game, receiver_candidates[0], PersonalAbility.SHOOTS_OFF_ANY_PASS,
+    ):
+        match.set_ball_carrier(receiver_candidates[0])
+        return StepResult(
+            narration=[content, "That reaches a teammate -- a scoring opportunity!"],
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
+                {
+                    "shooter_id": receiver_candidates[0],
+                    "distance_moved": distance_moved,
+                    "contest_on_decline": True,
+                },
+            ),
         )
 
     # A teammate is standing right where the pass landed, and the
@@ -1773,6 +1893,7 @@ def setup_pass_step(
     match: MatchState,
     distance: int,
     runner_id: Optional[str] = None,
+    game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
     Setup Pass's second half: the ball goes 0, 1 or 3 spaces, and a
@@ -2016,7 +2137,7 @@ def speed_choice_step(
     line = f"Ball speed is now **{target_speed}**."
 
     if match.pending_effect_continuation is None:
-        winner_key = engine.settled_maneuver_winner(match)
+        winner_key = engine.settled_maneuver_winner(match, game)
         if winner_key is not None:
             resolving = engine.resolving_maneuver(match, winner_key)
             if resolving == "setup_pass":
@@ -2278,7 +2399,10 @@ def offer_high_pass(
     distances = engine.high_pass_distance_options(match)
     if not distances:
         return _with_lead_in(
-            high_pass_step(engine, match, MIN_HIGH_PASS_DISTANCE), lead_in,
+            high_pass_step(
+                engine, match, MIN_HIGH_PASS_DISTANCE, game=game,
+            ),
+            lead_in,
         )
 
     return StepResult(

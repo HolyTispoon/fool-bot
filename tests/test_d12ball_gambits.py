@@ -1114,7 +1114,10 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         to mean.
         """
         cog, game, match = self.build("dribble_burst", "clear", board_size=9)
-        handler = match.active_player_id
+        # Not the Playmaker, who runs one further (2026-09-26) -- see
+        # `test_a_playmaker_runs_one_space_further`.
+        handler = fielded(match, PlayerRole.MIDFIELDER)
+        match.active_player_id = handler
         # Back in their own goal zone, which on board 9 is eight
         # spaces from the end of the field -- twice what the card now
         # runs. From the kickoff space it is exactly four, so the
@@ -1173,28 +1176,29 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
 
-    async def test_a_playmaker_pays_one_token_fewer(self) -> None:
+    async def test_a_playmaker_runs_one_space_further(self) -> None:
         """
-        The one role ability that reads differently on the two cards of
-        its rank (the author, 2026-08-19), and it stayed that way when
-        the run was bounded on 2026-08-26: the discount is on what the
-        run costs, not on how far it goes -- so the distances offered
-        are the same ones everybody else gets.
+        "May advance an additional space when resolving Dribble
+        maneuvers" -- both of them (the sheet and the author,
+        2026-09-26), which superseded a token off the run: a
+        Playmaker's burst may go 5, at the ordinary token a space.
         """
-        cog, game, match = self.build("dribble_burst", "clear")
+        cog, game, match = self.build("dribble_burst", "clear", board_size=9)
         playmaker = fielded(match, PlayerRole.PLAYMAKER)
         match.active_player_id = playmaker
-        match.move_meeple(playmaker, match.ball.zone, match.ball.space_index)
+        match.move_meeple(playmaker, *match.board.position_at_flat_index(0))
+        match.set_ball_space(*match.board.meeple_position(playmaker))
         offered = cog.engine.dribble_burst_distances(match)
         cog.offer_speed_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
             await apply_dribble_burst(cog, 
-                build_interaction(), game, match, 3,
+                build_interaction(), game, match, 5,
             )
 
-        self.assertIn(3, offered)
-        self.assertEqual(match.exhaustion[playmaker], 2)
+        self.assertEqual(offered, [1, 2, 3, 4, 5])
+        self.assertEqual(self.flat_of(match, playmaker), 5)
+        self.assertEqual(match.exhaustion[playmaker], 5)
 
     async def test_defenders_are_no_obstacle(self) -> None:
         """

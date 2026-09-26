@@ -277,9 +277,31 @@ def _call(
     a parameter that used to be positional arrives named. Keeping that
     exactly is what makes the move invisible to the steps themselves.
     """
-    return MODEL_STEPS[step](
+    before = engine.ball_holder(match)
+    result = MODEL_STEPS[step](
         engine, game, match, lead_in=lead_in, **dict(kwargs),
     )
+    _touch(engine, game, match, before, result)
+    return result
+
+
+def _touch(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    before: Optional[str],
+    result: StepResult,
+) -> None:
+    """
+    Whatever Law 21 does when the ball comes to a player
+    (`effects.ball_comes_to`), said at the end of the step or answer
+    that brought it there. Every step and every answer is asked, so
+    none of them has to remember to.
+    """
+    lines = effects.ball_comes_to(engine, game, match, before)
+    if lines:
+        result.narration.append("\n".join(lines))
+        result.board_changed = True
 
 
 @dataclass(frozen=True)
@@ -1471,6 +1493,7 @@ def _answer_low_pass_choice(
         receiver_id=receiver_id,
         key=prompt.maneuver_key or "low_pass",
         free=prompt.free,
+        game=game,
     )
 
 
@@ -1517,12 +1540,12 @@ def _run_onto(
     opens the pass's narration, since it happened first.
     """
     if not runner:
-        return throw(engine, match, distance)
+        return throw(engine, match, distance, None, game)
     runner_id = prompt.options.runner_id
     if runner_id is None or distance not in prompt.options.runner_distances:
         _refuse("Nobody can run onto a pass of that distance.")
     ran = effects.run_onto_pass(engine, game, match, runner_id, distance)
-    result = throw(engine, match, distance, runner_id)
+    result = throw(engine, match, distance, runner_id, game)
     result.narration.insert(0, ran)
     return result
 
@@ -1869,6 +1892,7 @@ def answer(
     if unexpected is not None:
         return Refusal(unexpected, waiting_on=waiting)
 
+    before = engine.ball_holder(match)
     try:
         answered = ANSWERS[action.kind](
             engine,
@@ -1888,7 +1912,9 @@ def answer(
 
     if isinstance(answered, tuple):
         detail, result = answered
+        _touch(engine, game, match, before, result)
         return Answered(result=result, detail=detail)
+    _touch(engine, game, match, before, answered)
     return Answered(result=answered)
 
 

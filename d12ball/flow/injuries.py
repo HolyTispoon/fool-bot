@@ -244,7 +244,8 @@ class InjuryRoll:
     safe, and whether Overdrive was on it -- which is what
     `render_injury_test_die` draws and what a frontend with no dice
     image ignores. There is no `ignite`: Volatile does not reach an
-    injury check (the author, 2026-09-23).
+    injury check (the author, 2026-09-23), and Kindlefinger's (Law 21)
+    is said in the sentence beside the die rather than drawn.
     """
 
     player_id: str
@@ -296,19 +297,27 @@ def injury_test_step(
     # watches it.
     roll = scripted_or_random(engine, game, "injury", 1)[0]
     # **Volatile does not reach this roll** (the author, 2026-09-23):
-    # a Fire Demon's natural 6 or 7 here is only the number, so the
-    # check is not asked through `engine.ignite` at all. Overdrive
-    # still is -- it is the Cyborg's to spend on any roll.
+    # a Fire Demon's natural 6 or 7 here is only the number -- except
+    # Kindlefinger's (Law 21), which `injury_ignite` alone answers.
+    # Overdrive still is -- it is the Cyborg's to spend on any roll.
+    ignite = engine.injury_ignite(game, player_id, roll)
     overdrive = match.overdrive_modifier(player_id)
     match.consume_overdrive()
-    check = roll + overdrive
+    check = roll + overdrive + ignite.modifier
     current_tokens = match.exhaustion.get(player_id, 0)
     safe = check > current_tokens
     # The die image draws the natural face, so a modifier has to be
     # said in words or the number a coach reads and the verdict they
     # are given would not add up.
+    modifiers = [
+        part for part in (
+            f"+{overdrive} Overdrive" if overdrive else None,
+            ignite.detail,
+        )
+        if part
+    ]
     overdrive_note = (
-        f" (+{overdrive} Overdrive, {check})" if overdrive else ""
+        f" ({', '.join(modifiers)}, {check})" if modifiers else ""
     )
 
     if player_id in match.pending_injury_tests:
@@ -358,9 +367,18 @@ def injury_test_step(
             f"{token_noun} tokens — {harm_noun}! They are **{word}** {emoji}."
         )
 
+    if ignite.ignited:
+        content = "\n".join(filter(None, [
+            ignite.explain(engine.format_player_label(match, player)),
+            content,
+            engine.settle_injury_ignite(game, match, player_id, ignite),
+        ]))
+
     result = continue_injury_tests(engine, game, match)
     result.narration.insert(0, content)
-    result.board_changed = result.board_changed or not safe
+    result.board_changed = (
+        result.board_changed or not safe or ignite.ignited
+    )
     return (
         InjuryRoll(player_id, roll, safe, overdrive),
         result,
