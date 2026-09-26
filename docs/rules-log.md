@@ -175,9 +175,12 @@ on the pull request that brought it in.
   may gain 1 exhaustion to move to the ball's space and Merge."* "The move" is read as the ball's
   space. Offered after the challenger is in place and before the cards, and only against a
   challenge, since Merge adds to a roll and an unchallenged maneuver rolls nothing.
-- **Goopkeeper:** now *"Always counts as 'on the ball' when defending against score attempts."*
-  Read as reaching a Goopkeeper standing *behind* the ball too, who added nothing under the
-  2026-09-25 wording.
+- **Goopkeeper:** briefly *"Always counts as 'on the ball' when defending against score
+  attempts."*, read as reaching a Goopkeeper standing *behind* the ball too. The author reverted
+  it the same day, and the sheet now reads *"Counts as 'on the ball' when standing between the
+  ball and the goal during score attempts."* -- the 2026-09-25 rule: full defensive skill beyond
+  the ball, nothing behind it. It also counts as on the ball for Flickerwing's shot, which
+  drops only the players beyond the ball who are *not* on it.
 - **Inferno:** *"Ball speed to 12 when touches the ball."* Read as whenever the ball comes to
   Inferno -- left holding it, or chosen to handle it -- with anything later in the same
   resolution (a Steal's speed step) still setting it.

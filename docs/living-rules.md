@@ -1214,7 +1214,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Glompex joins the ball.** Once a maneuver's challenger is in place and before either coach chooses a card, Glompex -- standing on a space next to the ball's, and not one of the two players -- may take 1 token to move onto the ball's space, where [Merge](#slimey-ooze) counts them. It is offered only against a challenge, since an unchallenged maneuver rolls nothing.
 
-**Goopkeeper always counts as on the ball.** In a [score attempt](#score-attempt), Goopkeeper defends as a player standing on the ball's space wherever they stand -- beyond the ball or behind it -- and adds their full defensive skill.
+**Goopkeeper blocks in full.** In a [score attempt](#score-attempt), Goopkeeper standing anywhere between the ball and the goal counts as on the ball, and adds their full defensive skill rather than half. Behind the ball they add nothing, like anyone else.
 
 **Slitheron wins in the air and on the loose.** In a [High Pass contest](#the-high-pass-contest), and in the contest for a [loose ball](#a-loose-ball) both sides sent somebody after, Slitheron takes the ball without a roll. Nothing is rolled, so nobody owes an injury check for it. Against another player with the same ability, the contest is rolled as usual.
 
