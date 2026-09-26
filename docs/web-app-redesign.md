@@ -108,7 +108,7 @@ kept so every cross-reference by step number still reads.
 | ~~1~~ | ~~The field, drawn from scratch~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The field is drawn from scratch") | large |
 | ~~2~~ | ~~The jumbotron bar and the time-out tiles~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The jumbotron is one bar", "The time out is a tile") | medium |
 | ~~3~~ | ~~The question box and the outcome banner~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The question box") and "The outcome banner" | medium |
-| 4 | Answering on the board: the objects, no coloured buttons | large |
+| ~~4~~ | ~~Answering on the board: the objects, no coloured buttons~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The answer is the thing on the board", "The lit line", "The whistle") | large |
 | 5 | The hand, the reveal, the challenge and full time | large |
 | 6 | The Coaching Choice and the bench on the board | large |
 | 7 | The shootout order | medium |
@@ -397,6 +397,18 @@ saved shot and a steal.
 ---
 
 ### 4. Answering on the board: the objects, no coloured buttons
+
+**Landed** (2026-09-26). What it settled is in
+[design/web-app.md](design/web-app.md), "The page": "The answer is the
+thing on the board" (a control's `place`, `chip` and `cost`, the
+mapping table kind by kind, the neutral `.btn`), "The whistle is one
+control for everything that ends a phase", "A distance names its
+landing because the model says so" (`DistanceOptions.landings`, a
+model change in its own commit), the lit line, and the keyboard list.
+The author's answers on the PR: the landings accepted, a Set Up's shot
+lighting the goal and the shooter, and a Coaching Offer lighting the
+bench. The hub's menus and the shootout order stay neutral until
+steps 6 and 7.
 
 **Prompt.**
 

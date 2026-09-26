@@ -11,8 +11,9 @@ docs/living-rules.md.
 It was **ceding the ball** until 2026-09-16, and the tests that changed
 rather than being renamed are the ones that fact was load-bearing for:
 possession no longer crosses, last possession refuses a time out
-instead of ending the period, the tail is not a turnover, and the
-pickup afterwards is free.
+instead of ending the period, and the tail is not a turnover. The
+pickup afterwards was free until 2026-09-26; it charges a token a space
+now, like every other pickup.
 """
 
 import unittest
@@ -59,6 +60,10 @@ def build_cog() -> D12Ball:
     cog.finish_maneuver_resolution = mock.AsyncMock()
     cog.announce_run_back = mock.AsyncMock()
     cog.end_period = mock.AsyncMock()
+    # The time out's tail is a new play since 2026-09-26, and a new
+    # play's reset is the board the cog pins -- a Discord message this
+    # harness has no channel for.
+    cog.post_new_play_board = mock.AsyncMock()
     return cog
 
 
@@ -235,8 +240,9 @@ class TimeOutStateTests(unittest.TestCase):
         self.assertEqual(match.ball.possession, TeamSide.HOME)
         self.assertEqual((match.ball.zone, match.ball.space_index),
                          (Zone.MIDFIELD, 0))
-        # Not a turnover, so nothing resets the speed either.
-        self.assertEqual(match.ball.speed, 3)
+        # A new play, so the speed goes back to 1 (the author,
+        # 2026-09-26) -- though still not a turnover.
+        self.assertEqual(match.ball.speed, 1)
         # The turn being taken is over, carrier included: a Coaching
         # Choice can re-deal the side, so who is on the ball is settled
         # again afterwards rather than held over.
@@ -432,9 +438,10 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         cog.announce_run_back.assert_not_awaited()
 
     async def test_the_reply_closing_runs_no_run_back(self) -> None:
-        # Both windows opened on their own coach's arrangement, so
-        # there is nothing displaced to run back -- but the time out
-        # still costs its own flat space minute (2026-08-16).
+        # The new play's reset puts everybody back on their arrangement
+        # once the reply closes, so there is nothing displaced to run
+        # back -- but the time out still costs its own flat space
+        # minute (2026-08-16).
         cog, game, match = self.build()
         match.call_time_out()
         match.move_meeple(
@@ -453,18 +460,23 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         _, kwargs = cog.finish_maneuver_resolution.call_args
         self.assertEqual(kwargs["distance_moved"], 1)
         # **Not** a turnover: the side that called it still has the
-        # ball, so nothing resets speed and nothing ends the period.
+        # ball, so nothing ends the period (the speed was reset when it
+        # was called).
         self.assertFalse(kwargs["turnover_occurred"])
         self.assertFalse(match.pending_time_out)
+        # The reset is a new play's, and its board is the one pinned.
+        cog.post_new_play_board.assert_awaited()
 
     async def test_a_ball_nobody_is_standing_on_is_picked_up(self) -> None:
         # A Coaching Choice can re-deal the whole side, so the coach
-        # who called the time out can rearrange their own handler off
-        # their own ball. Possession stays theirs and they fetch it.
+        # who called the time out can arrange their own handler off
+        # their own ball. Possession stays theirs and, once the reset
+        # has put everybody on the new arrangement, they fetch it.
         cog, game, match = self.build()
         match.call_time_out()
         for player_id in list(match.board.spaces[Zone.MIDFIELD][0]):
             match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+        match.set_assigned_positions(TeamSide.HOME)
         interaction = build_interaction()
 
         with suppressed_cog_saves():
@@ -482,11 +494,12 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         # it free and keeps it from reading as a turnover.
         self.assertTrue(match.pending_recovery_from_time_out)
 
-    async def test_the_pickup_after_a_time_out_charges_nothing(self) -> None:
-        # The one walk to the ball in the game that costs no
-        # exhaustion (the author, 2026-09-16): a time out costs a
-        # minute, and a coach is not billed for putting somebody back
-        # on a ball their side never lost.
+    async def test_the_pickup_after_a_time_out_charges_a_token_a_space(
+        self,
+    ) -> None:
+        # Every pickup is the same (the author, 2026-09-26): the one a
+        # time out leaves owed charges a token a space like the rest --
+        # it was free from 2026-09-16 until then.
         cog, game, match = self.build()
         match.call_time_out()
         for player_id in list(match.board.spaces[Zone.MIDFIELD][0]):
@@ -494,6 +507,9 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         match.pending_ball_recovery = True
         match.pending_recovery_from_time_out = True
         fetcher = match.contest_candidates(TeamSide.HOME)[0]
+        before = match.exhaustion.get(fetcher, 0)
+        distance = match.distance_to_ball(fetcher)
+        self.assertGreater(distance, 0)
         interaction = build_interaction()
 
         with suppressed_cog_saves():
@@ -501,16 +517,18 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
                 interaction, game, match, fetcher,
             )
 
-        self.assertEqual(match.exhaustion.get(fetcher, 0), 0)
+        self.assertEqual(match.exhaustion.get(fetcher, 0), before + distance)
         self.assertFalse(match.pending_recovery_from_time_out)
         # Not a turnover either: the side fetching it has had the ball
         # all along, so nothing resets and nothing ends.
         _, kwargs = cog.finish_maneuver_resolution.call_args
         self.assertFalse(kwargs["turnover_occurred"])
 
-    async def test_an_out_of_bounds_pickup_still_charges(self) -> None:
-        # The other half of the same branch: without the flag it is the
-        # ordinary token a space, and it is a turnover.
+    async def test_an_out_of_bounds_pickup_charges_and_is_a_turnover(
+        self,
+    ) -> None:
+        # Without the flag it is the same token a space, and it is a
+        # turnover.
         cog, game, match = self.build()
         for player_id in list(match.board.spaces[Zone.MIDFIELD][0]):
             match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
@@ -700,9 +718,9 @@ class LegacyCedeSaveTests(unittest.TestCase):
         self.assertEqual(again.time_outs_used, {"home"})
         self.assertTrue(again.pending_time_out)
 
-    def test_a_save_that_predates_the_pickup_flag_is_not_free(self) -> None:
+    def test_a_save_that_predates_the_pickup_flag_is_a_turnover(self) -> None:
         # Every pickup owed by a game older than the time out is an
-        # out-of-bounds ball's, and those charge.
+        # out-of-bounds ball's, and those are turnovers.
         back = MatchState.from_dict(self.legacy_save(), self.rules)
 
         self.assertFalse(back.pending_recovery_from_time_out)
@@ -997,3 +1015,159 @@ class TimeOutRecoveryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TimeOutIsANewPlayTests(unittest.TestCase):
+    """
+    A time out is a new play (the author, 2026-09-26): both sides go
+    back to their arrangements and the ball to speed 1 before anyone
+    coaches, and a player is sent to the ball if and only if nobody of
+    the calling side is standing on it once both windows close.
+    Played through the driver, as either frontend plays it.
+    """
+
+    def setUp(self) -> None:
+        from prompt_fixtures import CASES, ENGINE
+
+        ENGINE.rng.seed(11)
+        self.engine = ENGINE
+        fixture = next(c for c in CASES if c.name == "plain turn").build()
+        self.game, self.match = fixture.game, fixture.match
+
+    def prompt(self):
+        from d12ball.prompts import pending_prompt
+
+        return pending_prompt(self.engine, self.game, self.match)
+
+    def apply(self, kind, choice="", **arguments):
+        from d12ball.flow import driver
+        from d12ball.prompts import Action
+
+        run = driver.apply(
+            self.engine, self.game, self.match, Action(kind, choice, arguments),
+        )
+        self.assertNotIsInstance(run, driver.Refusal, run)
+        return run
+
+    def positions(self, side):
+        return {
+            player_id: self.match.board.meeple_position(player_id)
+            for player_id in self.match.setup_for_side(side).field_players
+        }
+
+    def call_and_close(self):
+        """Call the time out, then close both coaches' windows unchanged."""
+        from d12ball.prompts import PromptKind
+
+        self.apply(PromptKind.PLAYER_ACTION, "time_out")
+        for _ in range(2):
+            prompt = self.prompt()
+            self.assertIs(prompt.kind, PromptKind.COACHING_HUB)
+            self.apply(PromptKind.COACHING_HUB, "done", side=prompt.side.value)
+
+    def test_the_speed_goes_back_to_one_when_it_is_called(self) -> None:
+        from d12ball.prompts import PromptKind
+
+        self.match.ball.speed = 3
+        self.apply(PromptKind.PLAYER_ACTION, "time_out")
+
+        self.assertIs(self.prompt().kind, PromptKind.COACHING_HUB)
+        self.assertEqual(self.match.ball.speed, 1)
+        # Possession stays: it is a new play, not a turnover.
+        self.assertIs(TeamSide(self.match.ball.possession), TeamSide.HOME)
+
+    def test_both_sides_reset_after_the_windows_to_what_they_left(
+        self,
+    ) -> None:
+        """
+        The reset comes after both Coaching Choices, onto the
+        arrangements as the coaches left them (the author, 2026-09-26):
+        a player of the other side scattered off their arrangement is
+        still where open play left them while the caller coaches, and
+        back on it once both windows close; a Double Team ends there.
+        """
+        from d12ball.prompts import PromptKind
+
+        match = self.match
+        arranged = self.positions(TeamSide.VISITING)
+        ball = (match.ball.zone, match.ball.space_index)
+        player_id = next(
+            one for one, where in arranged.items() if where != ball
+        )
+        flat = match.board.flat_index(*arranged[player_id])
+        size = match.board.layout.board_size
+        elsewhere = match.board.position_at_flat_index(
+            flat + 1 if flat + 1 < size else flat - 1,
+        )
+        match.board.place_meeple(player_id, *elsewhere)
+        match.pending_double_team = list(match.visiting.field_players[:2])
+
+        self.apply(PromptKind.PLAYER_ACTION, "time_out")
+        # The caller coaches; the other side has not been reset yet.
+        self.assertIs(self.prompt().side, TeamSide.HOME)
+        self.assertEqual(match.board.meeple_position(player_id), elsewhere)
+
+        for _ in range(2):
+            prompt = self.prompt()
+            self.assertIs(prompt.kind, PromptKind.COACHING_HUB)
+            self.apply(PromptKind.COACHING_HUB, "done", side=prompt.side.value)
+
+        self.assertEqual(self.positions(TeamSide.VISITING), arranged)
+        self.assertEqual(match.pending_double_team, [])
+
+    def test_nobody_is_sent_when_the_arrangement_covers_the_ball(self) -> None:
+        from d12ball.prompts import PromptKind
+
+        self.assertTrue(self.match.eligible_ball_handlers())
+        self.call_and_close()
+        self.assertIsNot(self.prompt().kind, PromptKind.BALL_RECOVERY)
+        self.assertFalse(self.match.pending_ball_recovery)
+
+    def test_a_player_is_sent_when_the_arrangement_leaves_the_ball_bare(
+        self,
+    ) -> None:
+        from d12ball.prompts import PromptKind
+
+        match = self.match
+        board = match.board
+        kickoff = match.kickoff_space_for(TeamSide.HOME)
+        home = self.positions(TeamSide.HOME)
+
+        def out_of_range_at(where) -> bool:
+            before = (match.ball.zone, match.ball.space_index)
+            match.ball.zone, match.ball.space_index = where
+            out = not match.can_attempt_score()
+            match.ball.zone, match.ball.space_index = before
+            return out
+
+        # A space home is arranged on, not the kickoff space (every
+        # arrangement covers that), from which home may not shoot.
+        ball = next(
+            where for where in home.values()
+            if where[1] != kickoff or where[0] is not Zone.MIDFIELD
+            if len(board.spaces[where[0]]) > 1 and out_of_range_at(where)
+        )
+        match.ball.zone, match.ball.space_index = ball
+        on_ball = [one for one, where in home.items() if where == ball]
+        # The coach's arrangement leaves that space bare: everybody of
+        # theirs arranged there is arranged on another space of the
+        # same zone instead...
+        other = next(
+            index for index in range(len(board.spaces[ball[0]]))
+            if index != ball[1]
+        )
+        for player_id in on_ball:
+            board.place_meeple(player_id, ball[0], other)
+        match.set_assigned_positions(TeamSide.HOME)
+        # ...and open play has carried one of them back onto the ball.
+        board.place_meeple(on_ball[0], *ball)
+        match.active_player_id = on_ball[0]
+        self.assertTrue(match.may_call_time_out())
+
+        self.call_and_close()
+
+        prompt = self.prompt()
+        self.assertIs(prompt.kind, PromptKind.BALL_RECOVERY)
+        options = prompt.options
+        self.assertEqual(options.costs, options.distances)
+        self.assertTrue(all(cost > 0 for cost in options.costs))

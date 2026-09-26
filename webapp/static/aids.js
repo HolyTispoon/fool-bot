@@ -171,7 +171,7 @@
           h("button", {
             type: "button",
             role: "tab",
-            class: `btn ${index === team ? "primary" : "secondary"}`,
+            class: `btn${index === team ? " current" : ""}`,
             "aria-selected": index === team ? "true" : "false",
             onclick: () => { team = index; section.replaceWith(teamSection(teams)); },
           }, one.name, one.yours ? " (yours)" : ""))),

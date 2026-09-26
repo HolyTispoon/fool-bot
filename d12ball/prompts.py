@@ -330,12 +330,19 @@ class PlayerOptions:
     #: order of `player_ids` -- the price on the button. Empty for the
     #: kinds where nothing is charged.
     distances: tuple[int, ...] = ()
+    #: BALL_RECOVERY: the exhaustion each candidate adds if sent, in
+    #: the order of `player_ids` -- a token a space, after a time out as
+    #: after anything else (`RulesEngine.pickup_cost`). On the prompt so
+    #: that a button says what the pickup charges and no frontend works
+    #: the price out from the distance itself.
+    costs: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
         return {
             "shape": "player",
             "player_ids": list(self.player_ids),
             "distances": list(self.distances),
+            "costs": list(self.costs),
         }
 
 
@@ -414,6 +421,21 @@ class DistanceOptions:
     #: distance and `runner=True`. See `RulesEngine.pass_runner`.
     runner_id: Optional[str] = None
     runner_distances: tuple[int, ...] = ()
+    #: Where each distance lands, `(zone, space_index)` in the order of
+    #: `distances` -- the ball's space moved that far for a pass (back
+    #: the other way for the push back), the handler's for a dribble.
+    #: A coach choosing a distance is choosing a space; on the prompt
+    #: so that a button's label and a lit space on a page read one
+    #: measure, and no frontend decides which way a kind moves. Empty
+    #: where there is nobody to move (a dribble with no handler).
+    landings: tuple[tuple[Zone, int], ...] = ()
+
+    def landing(self, distance: int) -> Optional[tuple[Zone, int]]:
+        """The space `distance` lands on, or `None` where the prompt
+        names none."""
+        if len(self.landings) != len(self.distances):
+            return None
+        return dict(zip(self.distances, self.landings)).get(distance)
 
     def to_dict(self) -> dict:
         return {
@@ -423,6 +445,10 @@ class DistanceOptions:
             "may_pass_out": self.may_pass_out,
             "runner_id": self.runner_id,
             "runner_distances": list(self.runner_distances),
+            "landings": [
+                {"zone": Zone(zone).value, "space_index": space_index}
+                for zone, space_index in self.landings
+            ],
         }
 
 
@@ -2288,7 +2314,11 @@ def _ball_recovery_options(
     prompt: PendingPrompt,
 ) -> PlayerOptions:
     candidates = tuple(match.contest_candidates(match.ball.possession))
-    return PlayerOptions(candidates, _distances_to_ball(match, candidates))
+    return PlayerOptions(
+        candidates,
+        _distances_to_ball(match, candidates),
+        costs=tuple(engine.pickup_cost(match, one) for one in candidates),
+    )
 
 
 
@@ -2387,6 +2417,7 @@ def _high_pass_options(
         _railed(game, "high_pass", distances),
         runner_id=runner_id,
         runner_distances=runner_distances,
+        landings=_ball_landings(match, distances),
     )
 
 
@@ -2405,7 +2436,37 @@ def _setup_pass_options(
         may_pass_out=not distances,
         runner_id=runner_id,
         runner_distances=runner_distances,
+        landings=_ball_landings(match, distances),
     )
+
+
+def _ball_landings(
+    match: MatchState, distances: tuple[int, ...], direction: int = 1,
+) -> tuple[tuple[Zone, int], ...]:
+    """Where the ball lands moved each distance -- forward for a pass,
+    back (`direction=-1`) for the push back -- by the one measure the
+    move itself takes (`MatchState.ball_destination`)."""
+    return tuple(
+        match.ball_destination(match.ball.possession, direction * distance)
+        for distance in distances
+    )
+
+
+def _dribble_landings(
+    match: MatchState, distances: tuple[int, ...],
+) -> tuple[tuple[Zone, int], ...]:
+    """Where the handler ends up dribbling each distance
+    (`MatchState.relative_move_destination`), or nothing where there
+    is no handler on the field to move."""
+    if match.active_player_id is None:
+        return ()
+    landings = tuple(
+        match.relative_move_destination(
+            match.active_player_id, match.ball.possession, distance,
+        )
+        for distance in distances
+    )
+    return () if None in landings else landings
 
 
 
@@ -2432,9 +2493,11 @@ def _dribble_advance_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> DistanceOptions:
-    distances = engine.dribble_advance_distances(game, match)
+    distances = tuple(engine.dribble_advance_distances(game, match))
     return DistanceOptions(
-        distances, _railed(game, "dribble_advance", distances),
+        distances,
+        _railed(game, "dribble_advance", distances),
+        landings=_dribble_landings(match, distances),
     )
 
 
@@ -2444,7 +2507,10 @@ def _dribble_burst_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> DistanceOptions:
-    return DistanceOptions(tuple(engine.dribble_burst_distances(match)))
+    distances = tuple(engine.dribble_burst_distances(match))
+    return DistanceOptions(
+        distances, landings=_dribble_landings(match, distances),
+    )
 
 
 def _push_back_options(
@@ -2453,7 +2519,10 @@ def _push_back_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> DistanceOptions:
-    return DistanceOptions(tuple(engine.setup_pass_push_back_distances(match)))
+    distances = tuple(engine.setup_pass_push_back_distances(match))
+    return DistanceOptions(
+        distances, landings=_ball_landings(match, distances, direction=-1),
+    )
 
 
 def _shootout_order_options(

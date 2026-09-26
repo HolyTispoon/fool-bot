@@ -363,6 +363,9 @@ def board_layout(
                 {
                     "code": space_code(zone, index, board),
                     "zone": zone.value,
+                    # Which space it is, as a control names one it
+                    # lights (`webapp/present.py`, `on_space`).
+                    "index": index,
                     # The end zones in the colour of the side defending
                     # them, as the goal beyond them is.
                     "tint": _defender_colour(match, zone),

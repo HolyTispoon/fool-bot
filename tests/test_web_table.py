@@ -181,6 +181,25 @@ class TwoCoachTableTests(TableHarness):
         self.assertTrue(home["prompt"]["yours"])
         self.assertEqual(home["room"]["role"], "home")
 
+    async def test_start_is_grey_with_the_record_s_sentence_while_a_seat_is_empty(
+        self,
+    ) -> None:
+        """The whistle's note is `start_lobby`'s own refusal, read of a
+        copy -- and reading it changes nothing on the record."""
+        room = await self.open_room()
+        alone = await self.state(room, CREATOR)
+        refusal = alone["table"]["start"]["refusal"]
+        self.assertIn("Seat 2 is empty", refusal)
+        self.assertTrue(self.games[room].in_lobby)
+        refused = await self.press(room, CREATOR, "start")
+        self.assertEqual(refused.status, 409)
+        self.assertIn(refusal, await refused.text())
+
+        await self.state(room, SECOND)
+        both = await self.state(room, CREATOR)
+        self.assertIsNone(both["table"]["start"]["refusal"])
+        self.assertTrue(both["table"]["start"]["may"])
+
     async def test_a_refused_pick_is_the_record_s_sentence_and_writes_nothing(
         self,
     ) -> None:

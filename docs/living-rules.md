@@ -479,7 +479,9 @@ All three ask it in the same way, and a player's zone has nothing to do with it.
 
 A coach may send either of their two nearest players to the space: the nearest one in front of it and the nearest one behind it, counted in spaces along the field.
 
-Where two or more are tied for nearest on one side, the coach chooses between them.
+Where the ball is on the space at the end of the field, there is nobody beyond it, and the nearest in front is the only one offered.
+
+Where two or more are tied for nearest on one side, all of them are offered and the coach chooses between them.
 
 ### A player already there
 
@@ -491,7 +493,7 @@ A sent player moves onto the space and adds 1 exhaustion for every space they tr
 
 ### Sending nobody
 
-Sending nobody is legal wherever the rule offers the choice.
+The maneuver challenge and a loose ball offer the choice to send nobody. **A pickup never does**: the ball is that side's, and one of theirs has to go and get it.
 
 ### Staying put
 
@@ -551,9 +553,7 @@ It is a [new play](#resetting-after-a-new-play) rather than a steal -- nobody to
 
 An out-of-bounds ball, a [missed shot](#score-attempt), an [avoided own goal](#own-goal) and a [time out](#time-out) can all leave the ball on a space nobody of the gaining or keeping side is standing on. Once everything else has settled, that side [sends a player](#sending-a-player) to the ball's space -- unless one of theirs is already standing there, which settles it for nothing.
 
-It costs the usual token a space, **except after a time out, which is free**.
-
-*Note.* That is the one walk to the ball in the game that charges nothing: a time out costs a minute and nothing else, and a coach who rearranges their side is not billed for putting somebody back on a ball their team never lost.
+**Every pickup is the same**, whichever of the four left it owed. The coach of the side with the ball is offered the [two nearest](#the-two-nearest) -- the nearest in front of the ball and the nearest behind it, only the one in front where the ball is at the end of the field, and every player tied for nearest -- and **must send one of them**: a pickup cannot be declined. The player sent adds 1 exhaustion for every space they travel, **after a time out as after anything else**.
 
 A pickup is a placement rather than a contest: nobody rolls for it, nobody may contest it, and the ball is left with nobody in particular afterwards.
 
@@ -577,7 +577,7 @@ Either result is a [new play](#resetting-after-a-new-play).
 
 ### Avoided
 
-The ball stays where the Pressure left it and the same side keeps it. This is the one new play that does not change possession -- but it resets both sides, and it ends last possession, exactly like any other.
+The ball stays where the Pressure left it and the same side keeps it. Like a [time out](#time-out), it is a new play that does not change possession -- but it resets both sides, and it ends last possession, exactly like any other.
 
 That reset carries no guarantee the ball's own space is covered -- unlike a kickoff space, it is wherever the play happened to reach -- so if nobody of that side ends up standing there, they [pick it up](#picking-the-ball-up) exactly as after an out-of-bounds ball.
 
@@ -595,6 +595,8 @@ Every change of possession resets ball speed to 1. There are two kinds, and what
 | --- | --- | --- |
 | Steal, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins -- and in advanced mode Intercept and a beaten Dribble Burst | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
 | A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds -- and in advanced mode a Setup Pass that found nobody | New play | Both sides reset, and the side with the ball may call a Coaching Choice. |
+
+A [time out](#time-out) is a new play too, though not a turnover: possession does not change, but both sides reset and the ball goes back to speed 1.
 
 **Only a turnover moves anybody.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them -- a receiver who won their High Pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is out of position stays there, and pays nothing for it, until a turnover comes.
 
@@ -631,6 +633,8 @@ An out-of-bounds ball is [picked up](#picking-the-ball-up) after the reset, at t
 
 A side out of [shooting range](#shooting-range) may call a **time out** instead of playing the ball. **Possession does not change and the ball does not move.** What a time out buys is the pause, not the ball.
 
+**A time out is a [new play](#resetting-after-a-new-play).** Ball speed goes back to 1, and once both coaches have taken their Coaching Choice, every fielded meeple on both sides goes back to the space its coach's arrangement puts it on -- the arrangement as it stands after those Choices, changed or not. It is not a turnover: the side that called it keeps the ball.
+
 ### The three conditions
 
 A time out may be called under three conditions, and no others:
@@ -645,15 +649,15 @@ A side with nobody left to bring on may still call one: what a time out buys is 
 
 ### What a time out costs
 
-A time out costs **1 space minute** and no exhaustion.
+A time out costs **1 space minute** and no exhaustion. A [pickup](#picking-the-ball-up) it leaves owed is charged like any other.
 
 ### The two Coaching Choices
 
-**Both coaches then take a Coaching Choice** -- the side that called it first, the other in reply -- each opening on its own coach's arrangement. Nobody runs back and nothing resets.
+**Both coaches then take a Coaching Choice** -- the side that called it first, the other in reply. These are the time out's own two, so the new play offers no further one. Then both sides reset. Nobody runs back.
 
-### The free pickup
+### The pickup
 
-A Coaching Choice can move the players who called it off the ball. Possession is the team's and stays with them either way; if none of them is standing on the ball once both windows have closed, they [send a player](#sending-a-player) to it **free of exhaustion**.
+Possession is the team's and stays with them either way. Only after the reset is it asked whether anybody has to go and get it: a player is sent to the ball **if and only if** none of theirs is standing on its space then -- which is to say, their coach's arrangement does not put anybody there. Then they [pick it up](#picking-the-ball-up): one of their two nearest must go, at 1 exhaustion a space.
 
 ## Coaching Choice
 

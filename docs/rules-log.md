@@ -154,6 +154,73 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-26 (final) -- author, the time out's reset comes after the Coaching Choices
+
+Correcting the entry below, on PR #337: *"Yes ball speed to 1. There is no need to send players
+back to their position before the coaching window because that position may change. Send them
+back to their position after the coaching window - if no position was changed it would be the
+same but if it did, they would go to their new position. Only then check to see if there's a
+need to send someone."*
+
+- **Speed back to 1 is confirmed.**
+- **The reset is after both Coaching Choices**, onto the arrangements as they stand then, and
+  the pickup is asked only after it: a player is sent if and only if the calling side's
+  arrangement puts nobody on the ball's space. The entry below had the reset before the
+  Choices.
+- A Coaching Choice still opens with its own side on that side's arrangement, as at halftime:
+  the Choice changes the arrangement by moving the meeples, so the side being coached is
+  shown standing on the arrangement it is changing. That is part of the Choice, not the new
+  play's reset.
+
+### 2026-09-26 (last) -- author, a time out is a new play
+
+Answering the question the entry below left open, on PR #337: *"Time out should be a new play.
+Everyone should go back to their coach assigned position. There's a need to send someone to
+the ball if and only if the coach didn't position a player on the space where they took the
+time out."*
+
+- **A time out is a new play, and still not a turnover.** Possession does not change and the
+  ball does not move, but ball speed goes back to 1 and both sides reset to the arrangements
+  their coaches last set -- the same reset every new play runs, which also ends a pending
+  Double Team. *(Corrected in the entry above: the reset comes after the Coaching Choices.)* Until now nothing reset: each side only went back
+  to its own arrangement as its Coaching Choice opened, speed stayed where it was, and a
+  Double Team survived. Speed back to 1 is read from "new play" (every other new play restarts
+  at 1, the avoided own goal included); the author did not say it in as many words.
+- **The two Coaching Choices are the time out's own**; the new play does not add a
+  declare-or-pass offer on top of them.
+- **The pickup is owed if and only if nobody of the calling side stands on the ball's space**
+  once both windows close -- after the reset and the coaches' own changes. It is the pickup of
+  the entry below: the two nearest, no decline, a token a space.
+- The avoided own goal is no longer "the one new play that does not change possession".
+
+### 2026-09-26 (latest) -- author, every pickup is the same, and none is free
+
+Asked on PR #337 when a pickup costs exhaustion, the author answered that it should be one
+rule for every case: *"the coach whose team should have possession, should be offered a choice
+to send the closest player in front of the ball, the closest player behind the ball. In the
+case where the ball is already at the edge of the field there would be just one option - the
+player closest in front of the ball. In the case that two or more players tie, they should all
+be offered. A player chosen to go get the ball adds 1 Exhaustion per space traveled. This
+should be the case after a time out as well ... the coach cannot refuse to send a player."*
+
+- **The time-out pickup is no longer free.** It was the one walk to the ball in the game that
+  charged nothing (2026-09-07, "The ball is the team's, and a rearrangement cannot lose it");
+  it now charges a token a space like the pickup after an out-of-bounds ball, a missed shot or
+  an avoided own goal. "The free pickup" (Law 13) is "The pickup".
+- **A pickup cannot be declined**, which the rules implied (only "sending nobody is legal
+  wherever the rule offers the choice") and now say outright: the maneuver challenge and a
+  loose ball offer sending nobody, a pickup never does. The bot already offered no decline.
+- **The two nearest are spelled out**: only the nearest in front where the ball is at the end
+  of the field, and every player tied for nearest offered. `contest_candidates` already read it
+  this way; the Charter now says so.
+- **The prompt says what the pickup costs**, per player (the author: *"the prompt should say
+  how many exhaustion tokens would be added"*) -- a presentation change, recorded here because
+  it came with the rule.
+
+The author framed all four as a new play. The out-of-bounds ball, the missed shot and the
+avoided own goal were new plays in the Charter already; a time out was not, and was made one
+in the entry above.
+
 ### 2026-09-26 -- sheet, thirteen more personal abilities, and the readings they left open
 
 Re-imported from the sheet. The `advanced_abilities` tab gives thirteen more players a personal

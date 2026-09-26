@@ -1434,7 +1434,7 @@ merged two messages into one, which the tutorial golden does not reach.
   the cards the run has to keep reaching, the way the tutorial golden
   asserts that its run scores, so a change that quietly stops reaching the
   own-goal roll fails here rather than going unnoticed.
-- **What it still does not reach**: the free pickup after a time-out, the
+- **What it still does not reach**: the pickup after a time-out, the
   stacked run back's *player* prompt, and full time and the shootout, which
   are past where the step budget stops. Those are Phase 5's ground.
 

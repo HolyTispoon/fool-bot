@@ -1198,6 +1198,45 @@ class D12BallComponentTests(unittest.TestCase):
                 f"{player_id} at {offset:+d}",
             )
 
+    def _placed(self, ball_flat: int, flats: list[int]):
+        """A 7-space match with the ball on `ball_flat` and home's
+        fielded players, in deal order, on `flats` (the rest of them
+        kept off the ball's space and out of the way)."""
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
+        )
+        board = match.board
+        match.ball.zone, match.ball.space_index = board.position_at_flat_index(
+            ball_flat,
+        )
+        players = list(match.home.field_players)
+        far = 6 if ball_flat < 3 else 0
+        for index, player_id in enumerate(players):
+            flat = flats[index] if index < len(flats) else far
+            board.place_meeple(player_id, *board.position_at_flat_index(flat))
+        return match, players
+
+    def test_contest_candidates_offer_every_player_tied_for_nearest(
+        self,
+    ) -> None:
+        # The author, 2026-09-26: two or more tied are all offered.
+        match, players = self._placed(3, [5, 5, 1, 0])
+        candidates = match.contest_candidates(TeamSide.HOME)
+        self.assertEqual(set(candidates), {players[0], players[1], players[2]})
+
+    def test_contest_candidates_at_the_end_of_the_field_are_one_way(
+        self,
+    ) -> None:
+        # The author, 2026-09-26: with the ball at the edge of the
+        # field there is only the nearest in front of it.
+        match, players = self._placed(0, [2, 3, 4])
+        candidates = match.contest_candidates(TeamSide.HOME)
+        self.assertEqual(candidates, [players[0]])
+
     def test_contest_candidates_include_anyone_on_the_space(self) -> None:
         # They are never *sent* anywhere -- automatic_challengers and
         # the eligible-handler checks pick them off first -- but they

@@ -26,10 +26,33 @@ out" in the living rules. It was **ceding the ball** until 2026-09-16, and what
 changed is the price: it used to be bought with possession and is now bought
 with a minute and the side's one time out for the half.
 
-**It is not a turnover.** The ball does not move, possession does not change,
-ball speed is left alone and nobody runs back. That is why it is no longer
-filed under [Turnovers](possession-and-turnovers.md#turnovers-steals-and-new-plays) at all -- there are
-two kinds now, not three.
+**It is a new play, and not a turnover** (the author, 2026-09-26: *"Time out
+should be a new play. Everyone should go back to their coach assigned
+position"*). The ball does not move and possession does not change, so it is
+still not filed under [Turnovers](possession-and-turnovers.md#turnovers-steals-and-new-plays); but
+`call_time_out` puts the ball back to speed 1 (confirmed by the author the
+same day), and once both windows have closed `finish_time_out` runs the same
+`announce_new_play_reset` every new play runs -- both sides onto their
+arrangements, a pending Double Team ended, the board a frontend pins -- and
+only then asks whether a pickup is owed. The two windows are the time out's
+own occasion, so the new play's own declare-or-pass offer is not put too.
+
+**The reset is after the windows, not before** (the author: *"that position
+may change ... if it did, they would go to their new position. Only then
+check to see if there's a need to send someone"*). A first cut reset before
+the caller's window; it was the wrong way round, since a window can change
+the arrangement the reset reads. Each window still opens with its own side
+on its arrangement (`begin_substitution_window`, as at halftime), because a
+Coaching Choice changes the arrangement by moving the meeples and then
+records where they stand -- a window opened on a scrambled side would record
+the scramble. That is the Choice's own mechanics, not the new play's reset,
+and it is why the other side stays where open play left it while the caller
+coaches.
+
+So a pickup is owed **if and only if the calling side's arrangement puts
+nobody on the ball's space** once the Choices are done: a handler merely
+moved off the ball is put back on it by the reset, and a coach who arranged
+their side away from it sends one of the two nearest.
 
 - **`MatchState.may_call_time_out` is the whole of when it is offered**, and it
   is three reads: `can_attempt_score` from the other end, the half's own count
@@ -79,15 +102,19 @@ two kinds now, not three.
   can re-deal a whole side, so a coach can rearrange their own handler off
   their own ball. **Possession stays theirs** (the author, 2026-09-16) and
   `finish_time_out` sends the nearest player either side of it to fetch it.
-  - **That pickup is free**, and it is the one walk to the ball in the game
-    that charges nothing. A time out costs a minute and no exhaustion, and a
-    coach should not be billed for putting somebody back on a ball their side
-    never lost.
-  - **`pending_recovery_from_time_out` is one fact read at both ends**, which
-    is why it is not called `..._is_free`: the same flag says the pickup costs
-    nothing *and* that it is not a turnover, and both follow from the side
-    fetching the ball being the side that had it all along.
-    `apply_ball_recovery` reads it before the pickup clears it.
+  - **That pickup charges a token a space, like every other** (the author,
+    2026-09-26: *"A player chosen to go get the ball adds 1 Exhaustion per
+    space traveled. This should be the case after a time out as well"*). It
+    was free from 2026-09-16 until then, as the one walk to the ball in the
+    game that charged nothing; every pickup is now one rule -- the two
+    nearest, every tie offered, no decline, a token a space
+    ([sending-a-player.md](sending-a-player.md)).
+  - **`pending_recovery_from_time_out` now says one thing**: that the pickup
+    is not a turnover, because the side fetching the ball is the side that
+    had it all along. It said the pickup was free as well, and that half is
+    gone; the saved key stays as it is (it is a saved field, and the
+    turnover half still reads it). `apply_ball_recovery` reads it before the
+    pickup clears it.
 - **The clock cost rides on `pending_run_back_distance`, left at 1.** That
   field is what every tail step reads back for the clock, and the pickup spans
   a restart, so a time out has to say so there rather than pass it down a call

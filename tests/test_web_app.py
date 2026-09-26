@@ -48,7 +48,7 @@ from gamesaves.d12ball.service import GameService
 from webapp import identity, server
 from webapp.identity import Coach
 from gamelocks import GameLocks
-from webapp.present import CONTROLS, Viewer, controls_for, render_text
+from webapp.present import CONTROLS, Viewer, controls_for, lit_line, render_text
 from webapp.chat import CHAT_LENGTH, WEB_CHAT_FILE, Chats
 from webapp.journal import WEB_JOURNAL_FILE, Entry
 from webapp.rooms import WEB_ROOMS_FILE, Rooms
@@ -173,7 +173,11 @@ class ControlTests(unittest.TestCase):
     def test_every_control_is_an_answer_the_driver_takes(self) -> None:
         """
         The measure of principle 10: a page presses what it was
-        offered and the model accepts it, with nothing added.
+        offered and the model accepts it, with nothing added -- whether
+        the control is an object lit on the board (step 4 of
+        docs/web-app-redesign.md) or the neutral one, it sends the
+        `Action` the button always sent, and the server lets it
+        through as offered.
         """
         for entry in CASES:
             if not entry.asked or entry.ai:
@@ -184,24 +188,40 @@ class ControlTests(unittest.TestCase):
                 if prompt.kind is PromptKind.GAME_OVER:
                     continue
                 for player_number in (1, 2):
-                    for group in controls_for(
+                    offered = controls_for(
                         ENGINE,
                         fixture.game,
                         fixture.match,
                         prompt,
                         Viewer(player_number),
-                    ):
+                    )
+                    for group in offered:
                         for control in group["controls"]:
-                            self._accepted(entry, control)
+                            self._accepted(entry, control, offered)
 
-    def _accepted(self, entry, control) -> None:
-        """One control, pressed on a fresh copy of its own fixture."""
+    def _accepted(self, entry, control, offered) -> None:
+        """One control, pressed on a fresh copy of its own fixture: as
+        the page sends it, every answer of a chooser opened from its
+        object on the board, the first of one in the box."""
         if control.get("disabled"):
             return
-        arguments = dict(control["action"]["arguments"])
+        if control["type"] == "chooser" and control.get("place"):
+            one = control["fields"][0]
+            for choice in one["choices"]:
+                self._pressed(entry, control, offered, {one["name"]: choice["value"]})
+            return
+        chosen = {}
         if control["type"] == "chooser":
             for one in control["fields"]:
-                arguments[one["name"]] = one["choices"][0]["value"]
+                chosen[one["name"]] = one["choices"][0]["value"]
+        self._pressed(entry, control, offered, chosen)
+
+    def _pressed(self, entry, control, offered, chosen) -> None:
+        arguments = {**control["action"]["arguments"], **chosen}
+        self.assertTrue(
+            _was_offered(offered, {**control["action"], "arguments": arguments}),
+            f"{control['label']!r} as the page sends it is not an offer",
+        )
         fixture = entry.build()
         if control["action"]["kind"] == PromptKind.OWN_GOAL_ROLL.value:
             # `pending_own_goal` is the whole of what the chain reads,
@@ -513,6 +533,58 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.get("/api/game/nope")
 
         self.assertEqual(response.status, 404)
+
+
+class LitLineTests(unittest.TestCase):
+    """What the question box says is lit on the board, and what is
+    dark (`present.lit_line`), off the controls it was built from."""
+
+    def setUp(self) -> None:
+        ENGINE.rng.seed(11)
+
+    def lines(self, fixture, player_number):
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        viewer = Viewer(player_number)
+        controls = controls_for(
+            ENGINE, fixture.game, fixture.match, prompt, viewer,
+        )
+        return lit_line(
+            ENGINE, fixture.game, fixture.match, prompt, viewer, controls,
+        )
+
+    def test_the_turn_says_what_is_lit_and_what_is_dark(self) -> None:
+        fixture = case("plain turn")
+        fixture.match.scoreboard.last_possession = True
+        mine = ENGINE.side_player_number(
+            fixture.game, fixture.match.ball.possession,
+        )
+        lines = self.lines(fixture, mine)
+        lit = [line["text"] for line in lines if not line["dark"]]
+        dark = [line["text"] for line in lines if line["dark"]]
+        self.assertTrue(any(text.startswith("The ball") for text in lit))
+        self.assertTrue(any("time-out tile is dark" in text for text in dark))
+
+    def test_nobody_but_the_coach_asked_is_told_what_is_lit(self) -> None:
+        fixture = case("plain turn")
+        mine = ENGINE.side_player_number(
+            fixture.game, fixture.match.ball.possession,
+        )
+        self.assertEqual(self.lines(fixture, 2 if mine == 1 else 1), [])
+
+    def test_a_lit_meeple_is_named_with_what_clicking_it_means(self) -> None:
+        fixture = case("maneuver challenge")
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        side = asked_sides(fixture.match, prompt)[0]
+        number = ENGINE.side_player_number(fixture.game, side)
+        lines = self.lines(fixture, number)
+        names = {
+            ENGINE.format_roster_player(one)
+            for one in prompt.options.player_ids
+        }
+        for name in names:
+            self.assertTrue(
+                any(line["text"].startswith(name) for line in lines), name,
+            )
 
 
 class QuestionBoxTests(unittest.TestCase):
@@ -2036,7 +2108,7 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(
                         set(state["prompt"]),
                         {
-                            "kind", "ask", "picture", "controls", "yours",
+                            "kind", "ask", "picture", "controls", "lit", "yours",
                             "state", "reference",
                         },
                     )

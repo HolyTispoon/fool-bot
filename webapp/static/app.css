@@ -4,11 +4,11 @@ what a control is, whether it is dead and what colour it is, is what
 the server sent.
 
 Two palettes, on purpose. The page around the board is in Discord's
-dark theme and its button colours, so a coach who has played in a
-channel reads the same colours for the same answers. The board and
-the jumbotron bar are drawn from scratch over the same values, in the
-teams' `render.py` colours and the bundled typefaces
-(docs/web-app-redesign.md).
+dark theme. The board and the jumbotron bar are drawn from scratch
+over the same values, in the teams' `render.py` colours and the
+bundled typefaces (docs/web-app-redesign.md). There are no coloured
+buttons: the answer to a question is the thing on the board lit in
+gold, and anything else is the one neutral outlined control.
 */
 
 @font-face {
@@ -366,16 +366,6 @@ img { display: block; }
 }
 .owed-strip p { margin: 0; flex: 1; }
 
-/* The one neutral control, where nothing on the board can be the
-   answer: outlined, no colour. */
-.btn.outline {
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--text);
-  font-weight: 700;
-}
-.btn.outline:hover:not(:disabled) { background: rgba(255, 255, 255, 0.04); border-color: var(--muted); }
-.btn.outline.small { min-height: 30px; padding: 5px 12px; font-size: 13px; }
 
 @media (max-width: 960px) {
   .qbox { flex-direction: column; }
@@ -397,30 +387,121 @@ img { display: block; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; }
 .prompt.busy .controls { opacity: 0.6; pointer-events: none; }
 
-/* Discord's buttons: four colours, one size. */
+/* The one neutral control, where nothing on the board can be the
+   answer: outlined, no fill, no colour (step 4 of
+   docs/web-app-redesign.md). A setting's value as it stands is edged
+   in gold. */
 .btn {
   font: inherit;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 700;
   line-height: 16px;
-  min-height: 32px;
-  padding: 7px 16px;
-  border: 0;
+  min-height: 36px;
+  padding: 8px 16px;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: #fff;
+  background: transparent;
+  color: var(--text);
   cursor: pointer;
-  transition: background-color 0.17s ease;
+  transition: background-color 0.17s ease, border-color 0.17s ease;
 }
-.btn.primary { background: var(--blurple); }
-.btn.primary:hover:not(:disabled) { background: var(--blurple-hover); }
-.btn.secondary { background: var(--grey); }
-.btn.secondary:hover:not(:disabled) { background: var(--grey-hover); }
-.btn.success { background: var(--green); }
-.btn.success:hover:not(:disabled) { background: var(--green-hover); }
-.btn.danger { background: var(--red); }
-.btn.danger:hover:not(:disabled) { background: var(--red-hover); }
+.btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.04); border-color: var(--muted); }
+.btn.current { border-color: var(--gold); background: rgba(240, 178, 50, 0.14); color: var(--strong); }
+.btn.small { min-height: 30px; padding: 5px 12px; font-size: 13px; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.current:disabled { opacity: 1; cursor: default; }
 .btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+/* A bench that is the answer (the Coaching Offer): edged in gold. */
+.bench-toggle.lit .bench-button {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(240, 178, 50, 0.45);
+  color: var(--strong);
+}
+.bench-toggle.lit .bench-button .chip { margin-left: 6px; }
+
+/* The things the question box draws to be clicked: the die, a speed's
+   faces, the whistle, the REMATCH mark, and the note. */
+.big-die, .face, .whistle, .rematch-mark {
+  font: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.big-die { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; }
+.big-die-ring {
+  display: inline-flex;
+  padding: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--gold), 0 0 22px rgba(240, 178, 50, 0.45);
+}
+.big-die-word { font-size: 12px; font-weight: 700; color: var(--gold); }
+.big-die:hover .big-die-ring { box-shadow: 0 0 0 3px var(--gold), 0 0 30px rgba(240, 178, 50, 0.7); }
+.faces { display: flex; flex-wrap: wrap; gap: 14px; }
+.face {
+  display: inline-flex;
+  padding: 5px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(240, 178, 50, 0.4);
+}
+.face:disabled { box-shadow: 0 0 0 1px var(--line); opacity: 0.4; cursor: not-allowed; }
+.whistle-wrap { display: flex; flex-direction: column; gap: 6px; }
+.whistle { display: inline-flex; align-items: center; gap: 10px; }
+.whistle-disc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--deep);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.whistle.lit .whistle-disc { box-shadow: 0 0 0 3px var(--gold), 0 0 18px rgba(240, 178, 50, 0.4); }
+.whistle-label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.whistle.lit .whistle-label { color: var(--gold); }
+.whistle:disabled { cursor: not-allowed; }
+.rematch-mark {
+  align-self: flex-start;
+  font-family: "Goal", "Board", sans-serif;
+  font-size: 34px;
+  letter-spacing: 2px;
+  color: var(--gold);
+  padding: 6px 18px;
+  border-radius: 10px;
+  box-shadow: 0 0 0 3px var(--gold), 0 0 22px rgba(240, 178, 50, 0.4);
+}
+.qbox.note-lit { cursor: pointer; box-shadow: inset 0 0 0 2px var(--gold); }
+.note-chip { display: inline-flex; }
+
+/* The lit line: what is lit on the board and why, and what is dark. */
+.lit-line { display: flex; flex-direction: column; gap: 2px; }
+.lit-item { color: var(--text); }
+.lit-item.dark { color: var(--muted); }
+
+/* The keyboard's list of the same controls, out of sight until one of
+   them has the focus. */
+.keys {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  margin: 0;
+  padding: 0;
+}
+.keys:focus-within {
+  position: static;
+  width: auto;
+  height: auto;
+  clip: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+}
+.keys button { font: inherit; font-size: 13px; background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 
 .chooser {
   display: flex;
@@ -461,8 +542,7 @@ select {
   transition: transform 0.12s ease, border-color 0.12s ease;
 }
 .hand-card img { width: 100%; height: auto; }
-.hand-card.danger:hover:not(:disabled) { border-color: var(--red); transform: translateY(-3px); }
-.hand-card.success:hover:not(:disabled) { border-color: var(--green); transform: translateY(-3px); }
+.hand-card:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-3px); }
 .hand-card:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* A refusal: a red-edged strip inside the box it refused. */
@@ -776,7 +856,49 @@ strong { font-weight: 700; color: var(--strong); }
   border-radius: 10px;
   overflow: hidden;
 }
-.goal.lit { box-shadow: 0 0 0 3px var(--gold), 0 0 24px rgba(240, 178, 50, 0.5); cursor: pointer; }
+.goal.lit { box-shadow: 0 0 0 3px var(--gold), 0 0 24px rgba(240, 178, 50, 0.5); cursor: pointer; padding: 0; font: inherit; }
+button.goal { display: block; }
+.goal-chips {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+/* The ✕ a pass is put out of play at, past the end: clicked, or the
+   ball dropped on it. */
+.goal.out-lit { overflow: visible; }
+.out-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--gold);
+  text-shadow: 0 0 12px rgba(240, 178, 50, 0.6);
+  cursor: pointer;
+}
+.out-mark::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 46px;
+  height: 46px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: var(--deep);
+  box-shadow: 0 0 0 3px var(--gold), 0 0 18px rgba(240, 178, 50, 0.5);
+  z-index: -1;
+}
+.out-chip .chip { white-space: nowrap; }
 .goal-word {
   position: absolute;
   left: 50%;
@@ -814,6 +936,27 @@ strong { font-weight: 700; color: var(--strong); }
   overflow: hidden;
 }
 .space.tinted { background: color-mix(in srgb, var(--tint) 12%, var(--panel)); }
+/* A space that is the answer: dashed gold, faintly lit, its chip at
+   the foot. */
+.space.lit {
+  border: 2px dashed var(--gold);
+  box-shadow: inset 0 0 0 999px rgba(240, 178, 50, 0.10);
+  cursor: pointer;
+  /* Room at the foot for the chip, under the names. */
+  padding-bottom: 48px;
+}
+.space-chips {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 6px;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.space-chips .chip { max-width: 100%; white-space: normal; text-align: center; line-height: 1.15; }
 .space-code {
   position: absolute;
   top: 6px;
@@ -863,6 +1006,9 @@ strong { font-weight: 700; color: var(--strong); }
   letter-spacing: 0.2px;
 }
 .chip-cost { display: inline-flex; align-items: center; gap: 3px; }
+.chip-button { font: inherit; padding: 0; border: 0; background: none; cursor: pointer; }
+.chip-button:hover .chip { filter: brightness(1.1); }
+.fan-chip-line { display: inline-flex; gap: 3px; }
 .chip-cost img { width: 14px; height: 14px; }
 
 .badge {
@@ -890,6 +1036,27 @@ strong { font-weight: 700; color: var(--strong); }
    or larger at the centre of the empty space it is loose on. */
 .held-ball, .loose-ball { position: absolute; z-index: 60; display: inline-flex; }
 .loose-ball { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+/* The ball as an answer: the maneuver, or sending nobody. */
+.ball-button {
+  position: relative;
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  touch-action: none;
+}
+.ball-button.lit { box-shadow: 0 0 0 3px var(--gold), 0 0 18px rgba(240, 178, 50, 0.55); }
+.ball-button.draggable { cursor: grab; }
+.ball-button.dragging { cursor: grabbing; z-index: 200; }
+.ball-chips {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
 .die.ringed {
   padding: 2px;
   border-radius: 50%;

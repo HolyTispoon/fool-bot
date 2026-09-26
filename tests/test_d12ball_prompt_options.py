@@ -13,7 +13,9 @@ with the candidates, and that it is the same measure the flow charges.
 import unittest
 
 from d12ball.components import TeamSide
+from d12ball.flow import driver
 from d12ball.prompts import (
+    Action,
     ManeuverOptions,
     PlayerOptions,
     PromptKind,
@@ -130,6 +132,135 @@ class OptionsCarryTheirMeasureTests(unittest.TestCase):
                     self.assertEqual(options.may_pass_out, not options.distances)
                 else:
                     self.assertFalse(options.may_pass_out)
+
+    def test_a_pickup_carries_what_each_candidate_would_be_charged(
+        self,
+    ) -> None:
+        """Every pickup charges a token a space, a time out's included
+        (the author, 2026-09-26), and the prompt says so per player --
+        the same amount the pickup then charges."""
+        played = 0
+        for case in CASES:
+            fixture = case.build()
+            prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+            if prompt is None or prompt.kind is not PromptKind.BALL_RECOVERY:
+                continue
+            options = prompt.options
+            self.assertEqual(options.costs, options.distances)
+            for player_id, cost in zip(options.player_ids, options.costs):
+                for from_time_out in (False, True):
+                    with self.subTest(case.name, player_id=player_id,
+                                      from_time_out=from_time_out):
+                        game, match = _built(case)
+                        match.pending_recovery_from_time_out = from_time_out
+                        before = match.exhaustion.get(player_id, 0)
+                        run = driver.apply(
+                            ENGINE, game, match,
+                            Action(prompt.kind, "", {"player_id": player_id}),
+                        )
+                        self.assertNotIsInstance(run, driver.Refusal)
+                        self.assertEqual(
+                            match.exhaustion.get(player_id, 0), before + cost,
+                        )
+                        played += 1
+        self.assertTrue(played)
+
+    def test_a_pickup_cannot_be_declined(self) -> None:
+        """A pickup offers nobody the choice to send nobody: its options
+        are a pick among players with no decline, and the driver
+        refuses one (the Charter's "Sending nobody")."""
+        seen = False
+        for case in CASES:
+            game, match = _built(case)
+            prompt = pending_prompt(ENGINE, game, match)
+            if prompt is None or prompt.kind is not PromptKind.BALL_RECOVERY:
+                continue
+            seen = True
+            with self.subTest(case.name):
+                self.assertIsInstance(prompt.options, PlayerOptions)
+                for action in (
+                    Action(prompt.kind, "decline", {}),
+                    Action(prompt.kind, "", {}),
+                ):
+                    self.assertIsInstance(
+                        driver.apply(ENGINE, game, match, action),
+                        driver.Refusal,
+                    )
+        self.assertTrue(seen)
+
+    def test_a_distance_names_the_space_it_lands_on(self) -> None:
+        """
+        A coach choosing a distance is choosing a space, and which way
+        a kind moves is the prompt's to say -- a pass forward, the push
+        back the other way, a dribble the handler rather than the
+        ball -- so a button's label and a web page's lit space read
+        one measure and no frontend decides the direction.
+        """
+        seen = set()
+        for name, match, prompt in asked_prompts():
+            options = prompt.options
+            if not isinstance(options, DistanceOptions) or not options.distances:
+                continue
+            seen.add(prompt.kind)
+            with self.subTest(name):
+                self.assertEqual(len(options.landings), len(options.distances))
+                for distance, landing in zip(options.distances, options.landings):
+                    self.assertEqual(options.landing(distance), landing)
+                    if prompt.kind in (
+                        PromptKind.DRIBBLE_ADVANCE_CHOICE,
+                        PromptKind.DRIBBLE_BURST_CHOICE,
+                    ):
+                        expected = match.relative_move_destination(
+                            match.active_player_id, match.ball.possession,
+                            distance,
+                        )
+                    else:
+                        sign = (
+                            -1 if prompt.kind is PromptKind.SETUP_PASS_PUSH_BACK
+                            else 1
+                        )
+                        expected = match.ball_destination(
+                            match.ball.possession, sign * distance,
+                        )
+                    self.assertEqual(landing, expected)
+        self.assertIn(PromptKind.HIGH_PASS_CHOICE, seen)
+        self.assertIn(PromptKind.DRIBBLE_ADVANCE_CHOICE, seen)
+        self.assertIn(PromptKind.SETUP_PASS_PUSH_BACK, seen)
+
+    def test_the_move_ends_where_the_landing_said(self) -> None:
+        """The dribble and the push back, played: the handler, and the
+        ball, end on the space the prompt named."""
+        played = set()
+        for case in CASES:
+            if case.name not in ("dribble advance", "setup pass push back"):
+                continue
+            played.add(case.name)
+            prompt = pending_prompt(ENGINE, *_built(case))
+            for distance, landing in zip(
+                prompt.options.distances, prompt.options.landings,
+            ):
+                with self.subTest(case.name, distance=distance):
+                    game, match = _built(case)
+                    mover = match.active_player_id
+                    run = driver.apply(
+                        ENGINE, game, match,
+                        Action(prompt.kind, "", {"distance": distance}),
+                    )
+                    self.assertNotIsInstance(run, driver.Refusal)
+                    if prompt.kind is PromptKind.DRIBBLE_ADVANCE_CHOICE:
+                        self.assertEqual(
+                            match.board.meeple_position(mover), landing,
+                        )
+                    else:
+                        self.assertEqual(
+                            (match.ball.zone, match.ball.space_index), landing,
+                        )
+        self.assertEqual(len(played), 2)
+
+
+def _built(case):
+    fixture = case.build()
+    return fixture.game, fixture.match
 
 
 if __name__ == "__main__":

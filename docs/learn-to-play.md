@@ -149,7 +149,7 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 
 **The Coaching Choice.** A pause, in which you may do any of four things, in any order: change **formation**, **substitute** a player from the bench, **swap two players' zones**, or **move a player** to another space in their zone. You have **two substitutions a half**. You must finish with a player on your kickoff space, and the positions you finish on are your **arrangement** -- where every later new play puts you back. If the restarting side takes a Coaching Choice, the other coach gets one in reply. *(Law 14.2, 14.5, 14.8)*
 
-**Time out.** Out of range, once a half, and not in the last minute, a side may call a time out instead of playing the ball. It costs a minute on the clock, the ball stays where it is, and both coaches take a Coaching Choice, the caller first. *(Law 13)*
+**Time out.** Out of range, once a half, and not in the last minute, a side may call a time out instead of playing the ball. It is a new play: it costs a minute on the clock, the ball stays where it is at speed 1, both coaches take a Coaching Choice, the caller first, and then both sides reset to their coaches' positions. If nobody of the calling side is then on the ball, one of their two nearest goes and gets it, at a token a space. *(Law 13)*
 
 **Exhaustion and injury.** Tokens come from skill tests, from walking to the ball, from running back, and from taking a set-up shot. A player carrying **more tokens than their defensive skill is Exhausted**, and rolls an **injury check** after every skill test they are in: a d12, safe if it is higher than their tokens. An **Injured** player loses their tokens, loses ties outright, and adds no skill in a contest for the ball -- until a substitution takes them off, which nothing forces. Halftime takes one token off every player on the field, and one more off a player of each coach's choice. *(Law 15)*
 
@@ -198,6 +198,6 @@ Basic mode adds the species abilities to everything in this book. Advanced mode 
 
 **A turn:** choose the handler, choose the action, resolve it, settle the ball, turnover, clock. Whoever has the ball takes the next turn.
 
-**A turnover:** speed to 1, then -- a steal runs players back; a new play resets both sides and offers a Coaching Choice. A time out is not a turnover.
+**A turnover:** speed to 1, then -- a steal runs players back; a new play resets both sides and offers a Coaching Choice. A time out is a new play but not a turnover.
 
 **The clock:** a maneuver 1, a High Pass 2, a shot 1, a time out 1, everything else 0.
