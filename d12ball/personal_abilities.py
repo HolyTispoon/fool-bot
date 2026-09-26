@@ -135,7 +135,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "inferno_defender": (
         PersonalAbility.LIGHTS_THE_BALL,
-        "Ball speed to 12 when touches the ball.",
+        "When receives the ball, ball speed to 12.",
     ),
     "kindlefinger_striker": (
         PersonalAbility.INJURY_IGNITION,

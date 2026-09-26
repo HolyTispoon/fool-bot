@@ -188,17 +188,25 @@ def ball_comes_to(
 ) -> list[str]:
     """
     **Inferno lights the ball and Pulsar charges up on it** (Law 21):
-    whenever the ball comes to either -- `RulesEngine.ball_holder`
-    changed to them across one step or one answer -- Inferno's ball
-    goes to speed 12 and Pulsar clears 1 drain. Returns what to say.
+    whenever either *receives* the ball -- `RulesEngine.ball_holder`
+    changed to them across one step or one answer, and they are its
+    carrier -- Inferno's ball goes to speed 12 and Pulsar clears 1
+    drain. Returns what to say.
+
+    **Receiving is being left holding it** (the author, 2026-09-26):
+    the carrier a pass, a steal, a contest, a pull or a Smooth leaves.
+    A handler chosen off the ball's space is not the carrier -- the
+    choice consumes the carry -- so choosing Inferno to handle a ball
+    they already stood on lights nothing.
 
     Asked by the driver around every step and every answer
-    (`driver._touch`), because the ball comes to a player in a dozen
-    places -- a pass, a steal, a contest, a pull, a pickup, a
-    handler chosen -- and this is the one rule about all of them.
+    (`driver._touch`), because the ball is received in a dozen places,
+    and this is the one rule about all of them.
     """
     holder = engine.ball_holder(match)
     if holder is None or holder == before:
+        return []
+    if getattr(match, "ball_carrier_id", None) != holder:
         return []
     lines = []
     if engine.has_personal_ability(

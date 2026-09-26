@@ -1129,6 +1129,18 @@ class BallComesToTests(unittest.TestCase):
             )
         self.assertEqual(self.match.ball.speed, 3)
 
+    def test_being_chosen_to_handle_it_is_not_receiving_it(self) -> None:
+        # The choice consumes the carry: the handler is who the turn
+        # chose, not who the ball was left with.
+        before = ENGINE.ball_holder(self.match)
+        self.match.clear_ball_carrier()
+        self.match.active_player_id = self.player
+        with holding(self.player, PersonalAbility.LIGHTS_THE_BALL):
+            self.assertEqual(
+                ball_comes_to(ENGINE, self.game, self.match, before), [],
+            )
+        self.assertEqual(self.match.ball.speed, 3)
+
     def test_pulsar_charges_up(self) -> None:
         self.match.exhaustion[self.player] = 2
         with holding(self.player, PersonalAbility.CHARGES_ON_THE_BALL):

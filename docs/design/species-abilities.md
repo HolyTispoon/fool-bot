@@ -214,12 +214,14 @@ their own (below).
     `low_pass_step`, which take the game for them. Zytheris's catch of
     a long pass offers the shot with `contest_on_decline`, the
     overshoot's shape, so declining it is the contest it replaced.
-  - *Inferno and Pulsar* -- **the ball comes to a player in a dozen
-    places** (a pass, a steal, a contest, a pull, a Smooth, a pickup, a
-    handler chosen), so rather than a branch at each, the driver asks
-    `effects.ball_comes_to` around every step and every answer
-    (`driver._touch`), comparing `RulesEngine.ball_holder` before and
-    after. A step that forgets is impossible, and the cost is one
+  - *Inferno and Pulsar* -- **a player receives the ball in a dozen
+    places** (a pass, a steal, a contest, a pull, a Smooth), so rather
+    than a branch at each, the driver asks `effects.ball_comes_to`
+    around every step and every answer (`driver._touch`), comparing
+    `RulesEngine.ball_holder` before and after. Receiving is being left
+    holding it -- the new holder is the carrier -- so a handler chosen
+    off the ball's space, which consumes the carry, receives nothing
+    (the author changed Inferno's "touches" to "receives", 2026-09-26). A step that forgets is impossible, and the cost is one
     comparison a step. It reads with `getattr` because the suite's
     stubbed steps run over a bare namespace.
 - **Glompex's join and Zenith's Fly are prompts** --

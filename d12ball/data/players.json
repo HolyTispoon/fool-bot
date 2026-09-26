@@ -167,7 +167,7 @@
       "role": "defender",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "Ball speed to 12 when touches the ball.",
+      "advanced_ability": "When receives the ball, ball speed to 12.",
       "advanced_skills": {}
     },
     "kindlefinger_striker": {
