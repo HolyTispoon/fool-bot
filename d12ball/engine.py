@@ -1814,7 +1814,7 @@ class RulesEngine:
         if not game.home_and_visiting_selected:
             return None
 
-        if user_id == game.player_1_id:
+        if game.player_1_id is not None and user_id == game.player_1_id:
             player_number = 1
         elif game.player_2_id is not None and user_id == game.player_2_id:
             player_number = 2

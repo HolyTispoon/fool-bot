@@ -504,6 +504,29 @@ class GameService:
         self.save()
         return game
 
+    def take_seat(
+        self,
+        game_id: str,
+        user_id: int,
+        user_name: Optional[str],
+        seat: Optional[int] = None,
+    ) -> D12BallGame:
+        """A web room's seat taken -- `D12BallGame.take_seat`, saved.
+        Before kickoff or during the game: the match keeps its sides
+        by number, so a new id in a seat moves nothing."""
+        game = self.game(game_id)
+        game.take_seat(user_id, user_name, seat)
+        self.save()
+        return game
+
+    def vacate_seat(self, game_id: str, user_id: int) -> D12BallGame:
+        """A web room's seat left, or kicked -- `D12BallGame.vacate_seat`,
+        saved."""
+        game = self.game(game_id)
+        game.vacate_seat(user_id)
+        self.save()
+        return game
+
     def configure(
         self, game_id: str, setting: str, value: object = None,
     ) -> D12BallGame:
