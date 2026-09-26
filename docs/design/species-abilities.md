@@ -202,7 +202,10 @@ their own (below).
     an injury already forces is the injury's, at a token each.
   - *Umbrik* -- `attacking_skill`, the one reading of what the side
     attacking a roll adds, at the six sites that read `.offense` for
-    an own-goal roll, a maneuver skill test and a contest.
+    an own-goal roll, a maneuver skill test and a contest. Umbrik is
+    defensive on the first two only; the High Pass contest stays
+    offensive (the author, 2026-09-26), and the contest sites still ask
+    here so every attacking roll reads one place.
   - *Kindlefinger* -- `injury_ignite` and `settle_injury_ignite`, the
     token moved before the check is compared (the author, 2026-09-26). The
     ignite is `ignite`'s own, so its die and sentence are Volatile's;

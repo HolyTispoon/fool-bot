@@ -155,7 +155,8 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "umbrik_fullback": (
         PersonalAbility.DEFENSIVE_THROW,
-        "Uses dSkill for own goal attempts and high pass skill tests.",
+        "Uses dSkill for attempting to avoid an own goal and for skill "
+        "tests when attempting to high pass.",
     ),
     "vorix_defender": (
         PersonalAbility.LONG_SET_UP,
@@ -164,8 +165,9 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "zenith_winger": (
         PersonalAbility.FLY,
-        "Fly: before runback,  can be moved anywhere on the board gaining "
-        "exhaustion as normal. Does not run back if moved by Fly.",
+        "Fly: before runback, if not injured or in possession can be "
+        "moved anywhere on the board gaining exhaustion as normal. Does "
+        "not run back if moved by Fly.",
     ),
     "zytheris_striker": (
         PersonalAbility.SHOOTS_OFF_ANY_PASS,

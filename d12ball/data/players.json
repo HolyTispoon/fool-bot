@@ -292,7 +292,7 @@
       "role": "fullback",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "Uses dSkill for own goal attempts and high pass skill tests.",
+      "advanced_ability": "Uses dSkill for attempting to avoid an own goal and for skill tests when attempting to high pass.",
       "advanced_skills": {}
     },
     "viscor_defender": {
@@ -324,7 +324,7 @@
       "role": "winger",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "Fly: before runback,  can be moved anywhere on the board gaining exhaustion as normal. Does not run back if moved by Fly.",
+      "advanced_ability": "Fly: before runback, if not injured or in possession can be moved anywhere on the board gaining exhaustion as normal. Does not run back if moved by Fly.",
       "advanced_skills": {}
     },
     "zorch_playmaker": {

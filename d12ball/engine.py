@@ -2166,8 +2166,8 @@ class RulesEngine:
     ) -> list[str]:
         """
         **Zenith** (Law 21): who may fly before this run back -- a
-        fielded player with the ability, of either side, who is not
-        holding the ball. Home first.
+        fielded player with the ability, of either side, who is neither
+        holding the ball nor injured. Home first.
         """
         if not self.personal_abilities_apply(game):
             return []
@@ -2176,6 +2176,7 @@ class RulesEngine:
             for side in (TeamSide.HOME, TeamSide.VISITING)
             for player_id in match.setup_for_side(side).field_players
             if player_id != match.ball_carrier_id
+            and player_id not in match.injured
             and self.has_personal_ability(
                 game, player_id, PersonalAbility.FLY,
             )
@@ -2270,9 +2271,10 @@ class RulesEngine:
         """
         The skill `player_id` adds on the attacking side of `roll`:
         their offensive skill, except **Umbrik's** defensive one
-        (Law 21) in an own-goal roll, a maneuver skill test over
-        Umbrik's own High Pass, and a High Pass contest for a pass
-        their side threw.
+        (Law 21) in an own-goal roll and a maneuver skill test over
+        Umbrik's own High Pass. A contest is always offensive -- the
+        High Pass contest too, which the author ruled out (2026-09-26)
+        -- and is asked here so every attacking roll reads one place.
 
         `roll` is `"own_goal"`, `"skill_test"` (the handler's side of a
         maneuver's test) or `"contest"` (the side in possession, in a
@@ -2286,7 +2288,6 @@ class RulesEngine:
         defensive = (
             roll == "own_goal"
             or (roll == "skill_test" and match.offense_maneuver == "high_pass")
-            or (roll == "contest" and match.pending_loose_ball_is_high_pass)
         )
         return skills.defense if defensive else skills.offense
 

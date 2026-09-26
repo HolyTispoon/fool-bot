@@ -806,8 +806,9 @@ class UmbrikTests(unittest.TestCase):
             self.match.offense_maneuver = "high_pass"
             self.assertEqual(self.asked("skill_test"), self.skills.defense)
             self.assertEqual(self.asked("contest"), self.skills.offense)
+            # Not the High Pass contest (the author, 2026-09-26).
             self.match.pending_loose_ball_is_high_pass = True
-            self.assertEqual(self.asked("contest"), self.skills.defense)
+            self.assertEqual(self.asked("contest"), self.skills.offense)
 
 
 class KindlefingerTests(unittest.TestCase):
@@ -1315,6 +1316,13 @@ class ZenithTests(unittest.TestCase):
         holder = self.flier
         self.match.set_ball_carrier(holder)
         with holding(holder, PersonalAbility.FLY):
+            self.assertEqual(
+                ENGINE.fly_candidates(self.game, self.match), [],
+            )
+
+    def test_never_injured(self) -> None:
+        self.match.mark_injured(self.flier)
+        with holding(self.flier, PersonalAbility.FLY):
             self.assertEqual(
                 ENGINE.fly_candidates(self.game, self.match), [],
             )
