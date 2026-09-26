@@ -179,11 +179,21 @@ thing between that request and the cookie.
 `scripts/run_web_app.ps1` is `update_main_bot.ps1`'s process handling
 for the web app, and nothing else:
 
+From the checkout's root folder:
+
 ```powershell
-.\scripts\update_main_bot.ps1 -RepoPath 'K:\...\fool-bot'   # pull, install, restart the bot
-.\scripts\run_web_app.ps1     -RepoPath 'K:\...\fool-bot'   # restart the web app on the same tree
-.\scripts\run_web_app.ps1     -RepoPath 'K:\...\fool-bot' -StopOnly
+powershell -ExecutionPolicy Bypass -File .\scripts\update_main_bot.ps1 -RepoPath .   # pull, install, restart the bot
+powershell -ExecutionPolicy Bypass -File .\scripts\run_web_app.ps1 -RepoPath .       # restart the web app on the same tree
+powershell -ExecutionPolicy Bypass -File .\scripts\run_web_app.ps1 -RepoPath . -StopOnly
 ```
+
+- **`-ExecutionPolicy Bypass` is not optional on that host.** Windows
+  refuses a script that is not digitally signed (`... is not digitally
+  signed. You cannot run this script on the current system`), and
+  neither script is signed; `scripts/update-main-bot.sh` launches the
+  updater the same way. It lifts the policy for that one run only and
+  changes no setting on the machine, which is why it is preferred over
+  `Set-ExecutionPolicy`.
 
 - **It does not pull or install.** The checkout and the `.venv` are the
   bot's too, and moving them is the updater's; a web script that pulled
@@ -238,8 +248,12 @@ the shape, not a promise.
    can run your tunnel -- so it goes nowhere else, and never in the
    repository.
 4. **Give it the public hostname:** on the same tunnel, *Public
-   Hostname* -> subdomain `play`, domain `d12ball.com`, service type
-   `HTTP`, URL `127.0.0.1:8080`. Written as `127.0.0.1`, not
+   Hostname* (a *published application*, in newer dashboards) ->
+   subdomain `play`, domain `d12ball.com`, service URL
+   `http://127.0.0.1:8080` -- **`http`, not `https`**: the web app
+   speaks plain HTTP, the HTTPS is Cloudflare's, and an `https://`
+   service URL gets a 502 from a process that has no certificate.
+   Written as `127.0.0.1`, not
    `localhost`: Windows can answer `localhost` with the IPv6 `::1`,
    and the web app bound to `127.0.0.1` would refuse it. Cloudflare
    creates the DNS record itself.
