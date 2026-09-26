@@ -16,8 +16,8 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          # 3.13 or newer: requirements.txt pins audioop-lts, which does
-          # not build on earlier versions (audioop is stdlib there).
+          # 3.13, so the audioop-lts pin is exercised: requirements.txt installs
+          # audioop-lts there and skips it below 3.13 (audioop is stdlib).
           python-version: "3.13"
           cache: pip
 

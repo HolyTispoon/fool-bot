@@ -1512,12 +1512,14 @@ says so.
 
 ## Two things about running the suite that cost time to rediscover
 
-- **`requirements.txt` will not install below Python 3.13.** It pins
-  `audioop-lts`, a backport that exists only because `audioop` left the
-  standard library in 3.13 and has no distribution for earlier versions. On
-  3.11 or 3.12, where `audioop` is still stdlib, the pin is both unnecessary
-  and unsatisfiable -- `pip install discord.py Pillow python-dotenv` is
-  enough to run the suite there. CI pins 3.13 and is unaffected.
+- **`audioop-lts` is pinned for Python 3.13 and later only.** It is a
+  backport that exists because `audioop` left the standard library in 3.13,
+  and it has no distribution for earlier versions. On 3.11 or 3.12, where
+  `audioop` is still stdlib, the pin was unsatisfiable and `pip install -r
+  requirements.txt` failed outright; the environment marker
+  (`python_version >= "3.13"`) makes pip skip it there, so the file installs
+  on either side of the line. Don't drop the marker: discord.py needs the
+  backport on 3.13, and CI runs 3.13.
 - **Five tests fail when the suite runs as root, and none of them is a
   regression.** `test_an_unwritable_folder_reads_as_no_record` and the four
   `GameStorageTests` about unreachable folders all simulate a directory that
