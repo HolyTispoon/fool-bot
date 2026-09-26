@@ -154,7 +154,7 @@ that existed; steps 1 to 3 are one sprint.
 | --- | --- | --- |
 | ~~1~~ | ~~Cut the cord: its own process, file, service and engine~~ -- landed; what it settled is in `docs/design/web-app.md` | medium |
 | ~~2~~ | ~~Rooms, seats and observers~~ -- landed; what it settled is in `docs/design/web-app.md`, "Rooms, seats and who holds them" (and the AI in either seat, `ai_seats`) | medium |
-| 3 | The room's table: setup, kickoff, the rematch | large |
+| ~~3~~ | ~~The room's table: setup, kickoff, the rematch~~ -- landed; what it settled is in `docs/design/web-app.md`, "The room's table" | large |
 | 4 | Chat in the room | small |
 | 5 | Run it for real, and write down how | a day, little code |
 | 6 | The web games' numbers on Discord, cut by source | small |
@@ -457,6 +457,15 @@ never carries it; say so).
 ```
 
 ### 3. The room's table: setup, kickoff, the rematch
+
+**Landed** (branch `web-step-3`). What it settled is in
+[design/web-app.md](design/web-app.md), "The room's table": the front
+door's two lists and its two ways in, the table drawn off readings on
+the record (`open_settings`, `teams_open_to`, `coin_is_owed`,
+`home_choice_owed_by`, `home_choice_rail`), the rematch as
+`GameService.rematch`, and why there is no separate Begin -- the
+match has no reading of "dealt, not begun", so `begin` runs in the
+request that deals it.
 
 **What it is.** Everything between two seats claimed and the first
 prompt, and the rematch at the end, all of it over service methods

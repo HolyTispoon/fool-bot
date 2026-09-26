@@ -197,6 +197,26 @@ whose script is written for a coach with the ball at kickoff;
 coach's next question is `begin`'s window and not one the AI has
 already answered.
 
+**A table asks the record, never works it out.** A frontend that
+draws setup -- the Discord views, the web app's table (step 3 of
+[../web-app-next.md](../web-app-next.md)) -- reads what it may offer
+off the record, each reading the one its door refuses by:
+`open_settings` (the settings `configure` will consider in this state),
+`teams_open_to(n)` (the teams a picker offers, `excluded_teams`
+behind it), `coin_is_owed` and `home_choice_owed_by`. The Discord team
+picker and the web table both grey by `teams_open_to`, so a pairing
+greyed on one is greyed on the other.
+
+**The rematch is a service method too**: `rematch(game_id)` is a
+finished game's next record -- the same two seats (the AI where it
+sat), the same settings, remembered on the finished game as
+`rematch_game_id` so a second ask returns it -- saved once. A web
+room's opens in its lobby (`in_lobby=True`), so an empty seat is
+filled before the sides settle. The Discord rematch still opens its
+channel first and its record through `open_new_game`, which is where
+the channel id comes from; moving it onto `rematch` is a change to the
+cog for another day, not a rule either side decides differently.
+
 **What stays the frontend's** is what it always was: the channel and
 its permissions, the message and its id, whose account clicked.
 `open_new_game` and `open_lobby` make the channel, then the record

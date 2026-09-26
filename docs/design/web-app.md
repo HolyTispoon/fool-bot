@@ -254,6 +254,71 @@ or the AI's, and which is yours), how many are watching, whether the
 reader is an admin, and their role: `observer`, `coach`, or `home` /
 `visiting` once the coin has settled it.
 
+## The room's table
+
+Step 3 of [../web-app-next.md](../web-app-next.md): everything between
+two seats claimed and the first prompt, and the rematch at the end.
+
+**The front door** (`/`) lists the reader's rooms by where each
+stands -- the lobby, the rest of setup, playing, finished -- and the
+rooms with a seat free (`GET /api/rooms`), and opens a room two ways:
+a room for two, in its lobby, or one against the AI (`POST /api/rooms`
+with `{"ai": true}`), which is `create_game` with nobody in the other
+seat and no lobby -- the service fills the seat with its default AI,
+so nothing in `webapp/` names one. Either may be the tutorial. A
+tutorial is turned on the record's way, `configure("tutorial")` in
+the lobby, rather than `create_game(tutorial=True)`, because the
+toggle is what pins Training and the 7-space board; against the AI it
+then leaves the lobby at once, since `start_lobby` is what seats the
+AI in a tutorial. A room that never started may be closed
+(`DELETE /api/room/{id}`, `discard_game`, whose refusal answers 409)
+by somebody seated or its admin.
+
+**The table is in the prompt's place until kickoff**, drawn from the
+state's `table` and nothing else: the settings, both seats and the
+teams this reader may pick for theirs, the coin, home or visiting, and
+Start. **Every question on it is the record's**, and each is the same
+reading the door behind the button refuses against: which settings
+are open is `D12BallGame.open_settings` (which `configure` opens with),
+which teams a seat is offered is `teams_open_to` (which the Discord
+team picker greys by too, so the two cannot drift), whether the coin
+is owed is `coin_is_owed`, who owes the choice is
+`home_choice_owed_by`, and which side they may take is
+`home_choice_rail`. A page that worked out a pairing exclusion or a
+tutorial's pin for itself would be a second copy of a rule, which is
+the failure the whole split exists to prevent; a press the record
+refuses comes back as a 409 with its own sentence and nothing
+written. What the web app decides is who may press: somebody seated,
+as the Discord setup views let either player. An observer is sent the
+same table with every control off, and a press from one is a 403.
+
+Each move is `POST /api/room/{id}/table/{start|configure|pick_team|
+flip_coin|choose}`, one service door each, with a value off the wire
+built into the model's type in the route (`Team`, `HomeChoice`) -- a
+value the record cannot read is a 400, a bug in the page and not a
+rule. A test game's one coach holds both seats and names which one a
+pick is for.
+
+**There is no Begin button.** The match is dealt by the choice, or by
+the toss where the AI won it and chose, and the route runs `begin` in
+the same request -- which is what the cog does straight after either.
+A separate Begin would need a reading of "dealt, and its pre-kickoff
+window never opened", and the match has none: before `begin` it
+already answers the kickoff's ball-handler prompt, so a Begin offered
+off anything else could reopen the pre-kickoff window mid-game. The
+choice's response is therefore the first prompt.
+
+**The rematch** is the one control `GAME_OVER` has (`webapp/present.py`),
+and the only control that is not an answer to the match: it carries a
+`post` naming the room's own route, `_was_offered` never matches it,
+and `POST /api/room/{id}/rematch` is `GameService.rematch` -- a new room
+with the finished game's settings and the same two seats, or the AI
+where it sat, opened at its Start so a seat left empty is filled
+before the sides are settled. Either coach may press it; a second
+press finds the first rematch. The old room's state carries
+`rematch`, so every page open in it follows to the new one, and a page
+opened on the finished game later is offered the link instead.
+
 ## Its own process, its own file, a lock per game
 
 `gamesaves/d12ball/storage.py` rewrites the whole save file on every
@@ -447,11 +512,6 @@ it here, headlines at all three of the levels the model writes.
 
 ## What it does not do yet
 
-- **A room cannot be set up or kicked off from the page.** A room
-  opens in its lobby with its seats, and nothing past that yet: the
-  table that sets a game up is step 3 of
-  [../web-app-next.md](../web-app-next.md), and the service has the
-  setup methods, so it is work rather than a question.
 - **It does not draw most of the pictures a prompt rides on** -- the
   field strip, the challenge image, the coach's half-field, the dice.
   They are `D12Ball.render_prompt`'s, keyed on the kind, and the web
