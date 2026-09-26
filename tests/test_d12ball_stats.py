@@ -369,6 +369,59 @@ class ScopeTests(unittest.TestCase):
             self.assertEqual(stats.games_in_scope([game], stats.SCOPE_ALL), [game])
 
 
+class SourceTests(unittest.TestCase):
+    """
+    Which system a game was played on: the second cut, across the
+    kinds. Read off `guild_id`, which a Discord game always has and a
+    web game never does.
+    """
+
+    def test_a_game_in_a_server_is_discords(self) -> None:
+        self.assertEqual(
+            stats.game_source(build_game(guild_id=1)), stats.SOURCE_DISCORD,
+        )
+
+    def test_a_game_in_no_server_is_the_web_apps(self) -> None:
+        game = build_game(guild_id=None, channel_id=None)
+        self.assertEqual(stats.game_source(game), stats.SOURCE_WEB)
+
+    def test_a_source_cuts_across_the_kinds(self) -> None:
+        bot = build_game(game_id="bot", player_2_id=None)
+        web = build_game(
+            game_id="web", guild_id=None, channel_id=None, player_2_id=None,
+        )
+        games = [bot, web]
+        for source, expected in (
+            (stats.SOURCE_DISCORD, [bot]),
+            (stats.SOURCE_WEB, [web]),
+            (stats.SOURCE_BOTH, [bot, web]),
+        ):
+            self.assertEqual(
+                stats.games_in_scope(games, stats.SCOPE_DINKY, source),
+                expected,
+            )
+            self.assertEqual(
+                stats.games_in_scope(games, stats.SCOPE_HUMAN, source), [],
+            )
+
+    def test_every_source_has_a_label(self) -> None:
+        for source in (
+            stats.SOURCE_DISCORD, stats.SOURCE_WEB, stats.SOURCE_BOTH,
+        ):
+            heading = "\n".join(
+                stats.format_scope_heading(stats.SCOPE_ALL, 1, 0, source)
+            )
+            self.assertIn(stats.SOURCE_LABELS[source], heading)
+
+    def test_the_heading_says_when_there_are_no_web_games(self) -> None:
+        heading = "\n".join(
+            stats.format_scope_heading(
+                stats.SCOPE_ALL, 0, 0, stats.SOURCE_WEB, no_web_games=True,
+            )
+        )
+        self.assertIn("no web games yet", heading)
+
+
 class OverviewTests(unittest.TestCase):
     def test_an_abandoned_game_is_counted_but_its_score_is_not_a_result(
         self,
