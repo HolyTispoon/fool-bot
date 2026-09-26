@@ -274,17 +274,19 @@ class ResultWireTests(unittest.TestCase):
 
     def test_a_headline_says_its_words_and_whose_it_is(self) -> None:
         headline = Headline("GOAL!", TeamSide.HOME, "{team:orange} scores.")
-        group = Narration(("# GOAL!\n{team:orange} scores.",), headline=headline)
+        group = Narration(
+            ("# GOAL!\n{team:orange} scores.",), headlines=(headline,),
+        )
 
         self.assertEqual(
-            group.to_dict()["headline"],
-            {
+            group.to_dict()["headlines"],
+            [{
                 "text": "GOAL!", "side": "home",
                 "under": "{team:orange} scores.", "working": "",
-            },
+            }],
         )
-        self.assertIsNone(Narration(("Said.",)).to_dict()["headline"])
-        json.dumps(GameResult(headline=headline).to_dict())
+        self.assertEqual(Narration(("Said.",)).to_dict()["headlines"], [])
+        json.dumps(GameResult(headlines=(headline,)).to_dict())
 
     def test_every_field_of_a_group_is_on_the_wire(self) -> None:
         written = Narration(()).to_dict()

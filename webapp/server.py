@@ -1563,18 +1563,31 @@ class WebApp:
         journal: Journal,
     ) -> Optional[dict]:
         """
-        The latest result's `Headline`, as the question box puts it up:
-        the model's own words rendered at this door, and its side's
-        colour. The page words nothing of it.
+        The latest result's headlines, as the question box puts them
+        up: the model's own words rendered at this door, one after the
+        other with a dot between them as the canvas joins them ("STEAL
+        · TURNOVER"), in the colour of the first that is a side's, with
+        the first line under one and the first arithmetic. Joining is
+        presentation; the page words none of it.
         """
-        headline = journal.showing_outcome
-        if headline is None or match is None:
+        headlines = journal.showing_outcomes
+        if not headlines or match is None:
             return None
-        side = headline.get("side")
+        side = next(
+            (one["side"] for one in headlines if one.get("side")), None,
+        )
+
+        def first(key: str) -> str:
+            return next(
+                (one[key] for one in headlines if one.get(key)), "",
+            )
+
         return {
-            "headline": render_text(game, headline["text"]),
-            "under": render_text(game, headline.get("under") or ""),
-            "working": render_text(game, headline.get("working") or ""),
+            "headline": " · ".join(
+                render_text(game, one["text"]) for one in headlines
+            ),
+            "under": render_text(game, first("under")),
+            "working": render_text(game, first("working")),
             "colour": (
                 None if side is None
                 else side_colour(match, TeamSide(side))

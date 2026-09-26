@@ -170,14 +170,14 @@ def end_period(
         # substitution a side comes first.
         result = begin_full_time_coaching(engine, game, match)
         result.narration.insert(0, whistle)
-        result.headline = full_time_headline(match)
+        result.headlines = (*result.headlines, full_time_headline(match))
         result.board_changed = True
         return result
 
     game.finish_game()
     return StepResult(
         narration=[f"{whistle}\n\n{goal_log(engine, match)}"],
-        headline=full_time_headline(match),
+        headlines=(full_time_headline(match),),
         next=FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
     )
 
@@ -385,7 +385,7 @@ def begin_halftime(
         f"# {HALFTIME_HEADING}\nEvery fielded player clears 1 "
         f"exhaustion:\n{body}",
     )
-    result.headline = Headline(HALFTIME_HEADING)
+    result.headlines = (Headline(HALFTIME_HEADING), *result.headlines)
     result.board_changed = True
     return result
 
@@ -974,6 +974,6 @@ def continue_shootout(
             f"\n\n{build_full_time_summary(game, match)}"
             f"\n\n{goal_log(engine, match)}"
         ],
-        headline=full_time_headline(match),
+        headlines=(full_time_headline(match),),
         next=FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
     )

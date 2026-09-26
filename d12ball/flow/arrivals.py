@@ -935,7 +935,7 @@ def resolve_contest_without_a_roll(
     winner = engine.get_player_definition(winner_id)
     offense_wins = winner_id == offense_player_id
     was_high_pass = match.pending_loose_ball_is_high_pass
-    announcement, _, distance_moved, turnover_occurred = (
+    announcement, _, distance_moved, turnover_occurred, headlines = (
         settle_loose_ball_winner(
             engine, game, match, offense_player, defense_player,
             1 if offense_wins else 0,
@@ -943,6 +943,7 @@ def resolve_contest_without_a_roll(
         )
     )
     return StepResult(
+        headlines=headlines,
         narration=["\n".join(filter(None, [
             exhaustion_text,
             f"{engine.format_player_label(match, winner)} takes it "

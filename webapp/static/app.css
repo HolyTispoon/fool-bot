@@ -285,6 +285,9 @@ img { display: block; }
   display: flex;
   gap: 18px;
   min-height: 150px;
+  /* In the play area's column it holds its content's height rather
+     than being squeezed under the panels after it. */
+  flex-shrink: 0;
   border-radius: 14px;
   border-left: 5px solid var(--edge);
   padding: 14px 18px 16px;
@@ -335,7 +338,7 @@ img { display: block; }
   border: 1px solid var(--line);
   box-shadow: inset 4px 0 0 var(--outcome, var(--gold));
 }
-.outcome-dice { display: block; height: 84px; width: auto; max-width: 100%; }
+.outcome-dice { display: block; height: 180px; width: auto; max-width: 45%; object-fit: contain; }
 .outcome-words { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .outcome-headline {
   font-family: "Goal", "Board", sans-serif;
@@ -352,6 +355,7 @@ img { display: block; }
 
 /* The owed step: its own strip above the box. */
 .owed-strip {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -659,7 +663,12 @@ select {
   vertical-align: -0.3em;
   object-fit: contain;
 }
-.emoji.badge { width: auto; height: 1.15em; vertical-align: -0.2em; }
+/* A role badge in a sentence: not the board's absolutely placed
+   `.badge`, whose class it shares -- in text it sits in the line. */
+.emoji.badge {
+  width: auto; height: 1.15em; vertical-align: -0.2em;
+  position: static; z-index: auto; background: none; border: 0; box-shadow: none;
+}
 .emoji.species { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }
 
 .coach {

@@ -659,7 +659,7 @@ the right the picture the question is asked over.
   which are about whether *this* coach has something to press -- a
   roll is NOW and still theirs to press.
 - **The outcome comes first and stays until the next thing happens**:
-  the dice at 84px ("The dice", below) beside the headline. The
+  the dice at 180px ("The dice", below) beside the headline. The
   headline and the line under it are the model's narration, not the
   page's wording; where they come from is in "The outcome banner",
   below.
@@ -787,7 +787,7 @@ roll; HTML dice would be a second drawing to keep right. Step 7 drew
 it in the log. **Since step 8 it is drawn in the question box**
 (2026-09-26, the author: no picture in the log, and the dice in the
 question box), at the top, above whatever is asked next -- since step 3
-of the redesign in the outcome block, 84px high beside the headline --
+of the redesign in the outcome block, 180px high beside the headline --
 on Discord
 the prompt a coach pressed *becomes* the dice, so the question area is
 where they are read. The log keeps the roll's words.
@@ -928,50 +928,73 @@ model says at all: the numbers are in the roll's `detail`.
 
 **So the model says its headline once more, on its own**
 (`d12ball.flow.result.Headline`: proposed in its own commit on step 3's
-PR, and accepted by the author there, 2026-09-26: "sounds fine"). A step that announces an outcome hands back, beside its
-lines, the heading it wrote without its marks (`**Pressure** wins!`),
-the line it wrote under it where there is one, and whose outcome it is
-(the side whose card won, that scored, that kept the ball out, that
-took it). The step builds the words once and uses them in both, so the
-two cannot differ, and **no line changes** -- which is why the goldens
-do not move. The driver carries a headline wherever it carries the
-lines (the first said is a group's), `Narration.headline` and
-`GameResult.headline` / `answer_headline` put it on the wire, and it
-goes with the answer's kept lines where the frontend keeps any. Four
-sites set one -- the maneuver settled on the cards (and "lets it
+PR, and accepted by the author there, 2026-09-26: "sounds fine"). A
+step that announces an outcome hands back, beside its lines, the
+heading it wrote without its marks (`**Pressure** wins!`) -- or, where
+it announces the outcome in a sentence rather than under a heading
+(who won a loose ball), that sentence -- the line under it where there
+is one, and whose outcome it is (the side whose card won, that scored,
+that kept the ball out, that took it). The step builds the words once
+and uses them in both, so the two cannot differ, and **no line
+changes** -- which is why the goldens do not move.
+
+**Every outcome a run says is kept, in order.** `StepResult.headlines`
+is a tuple, a step saying one at most; the driver carries them wherever
+it carries the lines, adding each step's to those carried into it, so a
+Steal won on the cards arrives as "Steal wins!" and then "Turnover!".
+`Narration.headlines` and `GameResult.headlines` / `answer_headlines`
+put them on the wire, the answer's going with the lines the frontend
+keeps. The first cut kept only the first said; the author asked for
+both, as the canvas's "STEAL · TURNOVER" has them.
+
+**Where they are set**: the maneuver settled on the cards (and "lets it
 stand", and the uncontested "succeeds"), the skill test's verdict, the
-shot's GOAL! or Missed attempt!, and a steal's Turnover! -- and, at
-the author's word on the same PR ("these should be headlines"), two
-more: Halftime, and the result at full time or after the shootout
-(`full_time_heading`, the heading `build_full_time_summary` writes,
-with the final score under it). An own goal and a loose ball do not
-yet.
+shot's GOAL! or Missed attempt!, a steal's Turnover!, and -- at the
+author's word on the same PR ("these should be headlines", then "these
+should all get a headline and arithmetic") -- Halftime, the result at
+full time or after the shootout (`full_time_heading`, the heading
+`build_full_time_summary` writes, with the final score under it), the
+loose ball or the long pass's contest (Turnover! where the ball changed
+hands, and who won it, with who has possession under it), the own-goal
+roll (Own goal avoided! or Own goal!) and each shootout test (who
+scores, or the tie, with the running shootout score under it). Each
+heading is one constant or one variable, used in the line and the
+headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
+`OWN_GOAL_AVOIDED` / `OWN_GOAL`).
 
-**A roll's arithmetic is written out, not only shown** (the author, on
-the same PR: "the arithmetic needs explanation, it's not enough to just
-show the math ... the model should write this with greater detail").
-`Headline.working`, set by the skill test and the shot, is each side
-as who rolled, the face, every addend and the total, then how the two
-totals are read ("**16** beats **10**."; "**13** is lower than
-**15**: the attack does not score."), built by `rolls.roll_working`
-from the same detail lines the dice picture is drawn with, so the words
-and the picture cannot disagree. It is on the headline and not in the
-narration: the bot posts the dice picture that already says it, so no
-line moves and neither does a golden. The shot's defenders are listed
-without the picture's running total, which written out would read as
-one more addend.
+**Every roll's arithmetic is written out, not only shown** (the author:
+"the arithmetic needs explanation, it's not enough to just show the
+math ... the model should write this with greater detail").
+`Headline.working`, set by the skill test, the loose ball, the shot,
+the own-goal roll and the shootout test, is each side as who rolled,
+the face, every addend and the total, then how the two totals are read
+("**16** beats **10**."; "**13** is lower than **15**: the attack does
+not score."; "**13** is 7 or more: safe."). `rolls.roll_working` and
+`contest_working` build it from the same detail lines the dice picture
+is drawn with, so the words and the picture cannot disagree; the
+own-goal roll's is its own breakdown line, which the narration already
+said. It is on the headline and not in the narration: the bot posts the
+dice picture that already says it, so no line moves and neither does a
+golden. The shot's defenders are listed without the picture's running
+total, which written out would read as one more addend.
 
-**On the page** the journal keeps the first headline of the latest
-result as `showing_outcome` (in its file, as `showing_roll` is), up
-until a result comes with none; the state's `outcome` is its words
-through `render_text` and its side's colour (`board.side_colour`).
-The page sets them in the outcome block -- the headline 46px in the
-display face, the line under it 17px, the working under that at 15px
--- and words nothing. The canvas's "HALFTIME · 1 : 1" is the model's
-"Halftime": the score is the jumbotron's.
-`OutcomeBannerTests` hold the headline to a heading the narration
-itself says, word for word, for a resolved maneuver, a saved shot and
-a steal.
+**On the page** the journal keeps every headline of the latest result
+as `showing_outcomes` (in its file, as `showing_roll` is), up until a
+result comes with none. The state's `outcome` is their words through
+`render_text`, one after the other with a dot between them as the
+canvas joins them -- joining is presentation, the words are the
+model's -- in the colour of the first that is a side's, with the first
+line under one and the first working. The page sets them in the
+outcome block -- the headline 46px in the display face, the line under
+it 17px, the working under that at 15px -- beside the dice at 180px,
+large enough to read the picture's own breakdown (the author: "make the
+die larger"; the canvas's 84px dice were bare dice, where this is the
+bot's picture with its words on it). The canvas's "HALFTIME · 1 : 1" is
+the model's "Halftime": the score is the jumbotron's.
+`OutcomeBannerTests` hold every headline to words the narration itself
+says, word for word, and the working to the faces rolled, for a
+resolved maneuver, a saved shot, a steal (both of its headlines), a
+skill test, a loose ball, an own goal and a shootout test.
 
 ## Beyond the game
 

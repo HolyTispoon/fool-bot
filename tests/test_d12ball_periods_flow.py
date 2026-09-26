@@ -268,9 +268,9 @@ class PeriodHeadlineTests(PeriodFixture):
     def test_halftime_is_headed_by_its_own_line(self) -> None:
         result = begin_halftime(self.engine, self.game, self.match)
 
-        self.assertEqual(result.headline.text, "Halftime")
-        self.assertIsNone(result.headline.side)
-        self.assertIn(f"# {result.headline.text}", self.said(result))
+        self.assertEqual(result.headlines[0].text, "Halftime")
+        self.assertIsNone(result.headlines[0].side)
+        self.assertIn(f"# {result.headlines[0].text}", self.said(result))
 
     def test_a_win_at_full_time_is_the_winner_s_headline(self) -> None:
         self.match.scoreboard.period = MatchPeriod.SECOND_HALF
@@ -280,11 +280,11 @@ class PeriodHeadlineTests(PeriodFixture):
 
         result = end_period(self.engine, self.game, self.match)
 
-        self.assertEqual(result.headline.side, TeamSide.VISITING)
-        self.assertTrue(result.headline.text.endswith(" wins!"))
-        self.assertIn(f"# {result.headline.text}", self.said(result))
+        self.assertEqual(result.headlines[0].side, TeamSide.VISITING)
+        self.assertTrue(result.headlines[0].text.endswith(" wins!"))
+        self.assertIn(f"# {result.headlines[0].text}", self.said(result))
         # The final score it opens with is the line under it.
-        self.assertIn(result.headline.under, result.narration[0])
+        self.assertIn(result.headlines[0].under, result.narration[0])
 
     def test_a_level_full_time_is_headed_by_the_tie(self) -> None:
         self.match.scoreboard.period = MatchPeriod.SECOND_HALF
@@ -293,8 +293,8 @@ class PeriodHeadlineTests(PeriodFixture):
 
         result = end_period(self.engine, self.game, self.match)
 
-        self.assertIsNone(result.headline.side)
-        self.assertIn(f"# {result.headline.text}", self.said(result))
+        self.assertIsNone(result.headlines[0].side)
+        self.assertIn(f"# {result.headlines[0].text}", self.said(result))
 
 
 class HalftimeFlowTests(PeriodFixture):

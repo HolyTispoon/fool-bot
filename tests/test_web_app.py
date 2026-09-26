@@ -595,6 +595,10 @@ class OutcomeBannerTests(unittest.TestCase):
 
     def open(self, name: str):
         fixture = case(name)
+        if name == "own goal":
+            # The fixture asks the question; rolling it needs the
+            # ball-handler whose roll it is.
+            take_the_ball(fixture.match)
         web = WebApp(service_over(fixture), GameLocks())
         web.watch()
         return web, fixture.game
@@ -625,29 +629,32 @@ class OutcomeBannerTests(unittest.TestCase):
         ]
 
     def assert_the_narration_s_own(self, web, game) -> dict:
-        written = web.journal(game.game_id).showing_outcome
-        self.assertIsNotNone(written, "no outcome up")
+        """Every headline up is a heading the narration says, and the
+        banner is them one after the other, as the canvas joins them;
+        the first is handed back."""
+        headlines = web.journal(game.game_id).showing_outcomes
+        self.assertTrue(headlines, "no outcome up")
         said = self.said(web, game)
-        # The headline is a heading the narration says, as it says it.
-        self.assertTrue(
-            any(
-                line.lstrip("#").strip() == written["text"]
-                or line.lstrip("#").strip().startswith(written["text"])
-                and line.startswith("#")
-                for line in said
-            ),
-            (written, said),
-        )
-        if written["under"]:
-            self.assertIn(written["under"], said)
+        for written in headlines:
+            # Words the narration says, as it says them: a heading, or
+            # the sentence a loose ball's winner is announced in.
+            self.assertTrue(
+                any(written["text"] in line for line in said),
+                (written, said),
+            )
+            if written["under"]:
+                self.assertTrue(
+                    any(written["under"] in line for line in said),
+                    (written, said),
+                )
         state = web._state(game, Viewer(None))
         self.assertEqual(
-            state["outcome"]["headline"], render_text(game, written["text"]),
+            state["outcome"]["headline"],
+            " · ".join(render_text(game, one["text"]) for one in headlines),
         )
-        self.assertEqual(
-            state["outcome"]["under"], render_text(game, written["under"]),
-        )
-        return written
+        under = next((one["under"] for one in headlines if one["under"]), "")
+        self.assertEqual(state["outcome"]["under"], render_text(game, under))
+        return headlines[0]
 
     def pick(self, web, game, offense_key: str, defense_key: str) -> None:
         self.press(
@@ -742,11 +749,67 @@ class OutcomeBannerTests(unittest.TestCase):
         self.pick(web, game, offense, "steal")
 
         written = self.assert_the_narration_s_own(web, game)
-        self.assertEqual(written["text"], "**Steal** wins!")
         self.assertEqual(written["side"], defending.value)
-        # The turnover it caused carries its own headline, in the lines
-        # the same result said.
-        self.assertIn("# Turnover!", self.said(web, game))
+        # The card and the turnover it caused, one after the other --
+        # "STEAL · TURNOVER", as the canvas has it (the author, on
+        # redesign step 3's PR).
+        self.assertEqual(
+            [one["text"] for one in web.journal(game.game_id).showing_outcomes],
+            ["**Steal** wins!", "Turnover!"],
+        )
+
+    def roll_with(self, name: str, faces: list[int]):
+        """Open `name`, press its roll as whichever coach is offered
+        it, with these faces off the dice; the web app and the game."""
+        web, game = self.open(name)
+        faces = iter(faces)
+        rolled = lambda engine, game, kind, count: [
+            next(faces) for _ in range(count)
+        ]
+        with mock.patch("d12ball.flow.rolls.scripted_or_random", rolled), \
+                mock.patch("d12ball.flow.effects.scripted_or_random", rolled):
+            for number in (1, 2):
+                match = web.service.load(game)
+                prompt = pending_prompt(ENGINE, game, match)
+                if any(
+                    control["action"]["choice"] == "roll"
+                    for group in controls_for(
+                        ENGINE, game, match, prompt, Viewer(number),
+                    )
+                    for control in group["controls"]
+                ):
+                    self.press(
+                        web, game, number,
+                        lambda action: action["choice"] == "roll",
+                    )
+                    break
+        return web, game
+
+    def test_every_roll_writes_its_arithmetic_out(self) -> None:
+        """The loose ball, the own goal and the shootout test are
+        headed and worked like the skill test and the shot (the author,
+        on redesign step 3's PR: "these should all get a headline and
+        arithmetic")."""
+        for name, faces, rolled in (
+            ("loose ball roll", [9, 2], ("rolled **9**", "rolled **2**")),
+            ("own goal", [3, 9], ("higher of 3/9",)),
+            ("shootout test", [9, 2], ("rolled **9**", "rolled **2**")),
+        ):
+            with self.subTest(name):
+                ENGINE.rng.seed(11)
+                web, game = self.roll_with(name, faces)
+                self.assert_the_narration_s_own(web, game)
+                working = next(
+                    one["working"]
+                    for one in web.journal(game.game_id).showing_outcomes
+                    if one["working"]
+                )
+                for said in rolled:
+                    self.assertIn(said, working)
+                self.assertEqual(
+                    web._state(game, Viewer(None))["outcome"]["working"],
+                    render_text(game, working),
+                )
 
     def test_a_result_with_no_outcome_takes_the_banner_down(self) -> None:
         web, game = self.open("maneuver picks")
@@ -755,7 +818,7 @@ class OutcomeBannerTests(unittest.TestCase):
             lambda action: action["arguments"].get("maneuver_key")
             == "low_pass",
         )
-        self.assertIsNone(web.journal(game.game_id).showing_outcome)
+        self.assertEqual(web.journal(game.game_id).showing_outcomes, [])
         self.assertIsNone(web._state(game, Viewer(1))["outcome"])
 
 

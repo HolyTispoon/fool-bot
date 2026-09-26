@@ -221,7 +221,7 @@ def resolve_maneuver(
                 f"{offense_display} chose **{offense_name}**, "
                 f"unchallenged.\n\n## {succeeds}"
             ],
-            headline=Headline(succeeds, match.ball.possession),
+            headlines=(Headline(succeeds, match.ball.possession),),
             next=FollowOn(
                 FollowOnStep.BEGIN_EFFECT_RESOLUTION,
                 {"winner_key": offense_key},
@@ -272,9 +272,11 @@ def resolve_maneuver(
                     defense_name,
                 )
             ],
-            headline=Headline(
-                maneuver_wins(engine.maneuver_name(winner_key)),
-                winning_side(match, winner_key),
+            headlines=(
+                Headline(
+                    maneuver_wins(engine.maneuver_name(winner_key)),
+                    winning_side(match, winner_key),
+                ),
             ),
             next=FollowOn(
                 FollowOnStep.BEGIN_EFFECT_RESOLUTION,
@@ -872,7 +874,7 @@ def force_test_step(
     wins = maneuver_wins(engine.maneuver_name(winner_key))
     return StepResult(
         narration=[f"{label} lets it stand.\n\n## {wins}"],
-        headline=Headline(wins, winning_side(match, winner_key)),
+        headlines=(Headline(wins, winning_side(match, winner_key)),),
         next=FollowOn(
             FollowOnStep.BEGIN_EFFECT_RESOLUTION,
             {"winner_key": winner_key},

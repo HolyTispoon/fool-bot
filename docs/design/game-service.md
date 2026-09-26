@@ -62,9 +62,10 @@ coach reads. So `GameResult` carries:
 - `prompt`, `board_changed` (since the last drawn group), `detail`
   (a roll's numbers), and `match`, the position after the call;
 - since step 3 of docs/web-app-redesign.md (proposed there and
-  accepted by the author): a `Headline` beside the lines that announce an outcome --
-  `answer_headline` for the answer's, `headline` for the carried
-  narration's, and a group's on `Narration.headline` -- the heading a
+  accepted by the author): the `Headline`s beside the lines that
+  announce an outcome, every one in the order said --
+  `answer_headlines` for the answer's, `headlines` for the carried
+  narration's, and a group's on `Narration.headlines` -- the heading a
   step wrote, without its marks, the line under it and whose outcome
   it is, and for a roll the arithmetic written out (`working`). It
   changes no line; it is how a frontend that puts an outcome

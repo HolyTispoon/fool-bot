@@ -286,7 +286,9 @@ class Headline:
     for a heading in the narration.
 
     `text` is the heading line the step wrote, without its markdown
-    heading marks (`**Pressure** wins!` of `## **Pressure** wins!`),
+    heading marks (`**Pressure** wins!` of `## **Pressure** wins!`) --
+    or, where the step announces its outcome in a sentence rather than
+    under a heading (who won a loose ball), that sentence --
     and `under` the line the step wrote beneath it, where there is
     one -- both built once and used in the narration and here, so the
     two cannot word it differently. `side` is whose outcome it is --
@@ -320,6 +322,11 @@ class Headline:
             "under": self.under,
             "working": self.working,
         }
+
+
+#: The heading a turnover is announced under, in its line and its
+#: `Headline` alike, wherever one is announced.
+TURNOVER_HEADING = "Turnover!"
 
 
 @dataclass
@@ -356,8 +363,9 @@ class StepResult:
     board_changed: bool = False
     next: Optional[Union[PendingPrompt, FollowOn]] = None
     new_play: bool = False
-    #: The outcome these lines announce, where they announce one
-    #: (`Headline`). Carried with the lines: the loop hands it on
-    #: wherever it hands them on, and the first one said is the
-    #: group's.
-    headline: Optional[Headline] = None
+    #: The outcomes these lines announce, in the order said
+    #: (`Headline`) -- a step says one at most; a run the loop carried
+    #: through several steps says each of theirs, which is how a
+    #: steal reads "Steal wins! · Turnover!". Carried with the lines:
+    #: the loop hands them on wherever it hands the lines on.
+    headlines: tuple[Headline, ...] = ()
