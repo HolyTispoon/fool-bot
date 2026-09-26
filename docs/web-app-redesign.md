@@ -87,6 +87,14 @@ step 3; a Law on a refusal, step 10): each is proposed inside its
 step as its own commit for the author to accept or refuse, never
 slipped in.
 
+**Answered by the author, 2026-09-26**, on the plan's PR: the two
+proposed model changes are decided when each step's PR arrives, not in
+advance, so a step that carries one opens as a draft with the change
+in its own commit and the question under `## Questions for the author`.
+The routine that ran `docs/web-app-next.md`
+(`trig_01TfqdFJ3jQjC4XTFh7qqwZe`) is disabled for good; the routine
+for this plan is `trig_01FzyzX3xSLWMPKYy2if5uuK`.
+
 | # | Step | Size |
 | --- | --- | --- |
 | 1 | The field, drawn from scratch | large |
