@@ -9,9 +9,9 @@ steps in the order they build on each other, and one prompt per step
 written to be handed to a Claude Code session as it is. Strike a step
 when it lands and move what it settled into `docs/design/web-app.md`.
 It supersedes steps 9 to 11 of [web-app-next.md](web-app-next.md):
-"my rooms" and the statistics are steps 9 and 12 here, the reading
-room is step 10, and the tests the survey found missing come with the
-step that touches each area. **Nothing in it is a rule.**
+"my rooms" is step 9 here, the statistics step 5 (where step 12 was
+folded), the reading room is step 10, and the tests the survey found
+missing come with the step that touches each area. **Nothing in it is a rule.**
 
 ## What the prototype settled
 
@@ -95,20 +95,28 @@ The routine that ran `docs/web-app-next.md`
 (`trig_01TfqdFJ3jQjC4XTFh7qqwZe`) is disabled for good; the routine
 for this plan is `trig_01FzyzX3xSLWMPKYy2if5uuK`.
 
+**Folded, 2026-09-26** (the author): step 8, the bench, into step 6,
+which lights the bench meeples anyway; and step 12, full time, into
+step 5, the first step after the outcome banner exists and the
+rematch mark is built. Two fewer build-review-merge rounds. Both
+numbers are struck in the table below as "folded", not "landed", so
+the routine and the claim script skip them; the numbers themselves are
+kept so every cross-reference by step number still reads.
+
 | # | Step | Size |
 | --- | --- | --- |
 | ~~1~~ | ~~The field, drawn from scratch~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The field is drawn from scratch") | large |
 | ~~2~~ | ~~The jumbotron bar and the time-out tiles~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The jumbotron is one bar", "The time out is a tile") | medium |
 | 3 | The question box and the outcome banner | medium |
 | 4 | Answering on the board: the objects, no coloured buttons | large |
-| 5 | The hand, the reveal and the challenge | medium |
-| 6 | The Coaching Choice on the board | large |
+| 5 | The hand, the reveal, the challenge and full time | large |
+| 6 | The Coaching Choice and the bench on the board | large |
 | 7 | The shootout order | medium |
-| 8 | The bench | small |
+| ~~8~~ | ~~The bench~~ -- folded into step 6 | -- |
 | 9 | The front door and the table | large |
 | 10 | The sidebar tabs and the reading room | large |
 | 11 | The phone | medium |
-| 12 | Full time | small |
+| ~~12~~ | ~~Full time~~ -- folded into step 5 | -- |
 | -- | Later, and not now | -- |
 
 ### Claiming a step
@@ -134,7 +142,8 @@ merging is treated as rejected: the routine does not pick it up again
 until somebody claims it by hand. Release your own claim with
 `python3 scripts/claim_web_step.py --series redesign <n> --release`.
 A step lands when its PR strikes its number in the table above, and
-the next unstruck number is the next step.
+the next unstruck number is the next step. A row struck as "folded"
+was merged into the step it names and is never claimed on its own.
 
 **Every PR carries a `## Questions for the author` section**, reading
 `None.` when empty, so the author can see at a glance whether anything
@@ -454,13 +463,20 @@ Record the mapping table above in docs/design/web-app.md.
 
 ---
 
-### 5. The hand, the reveal and the challenge
+### 5. The hand, the reveal, the challenge and full time
+
+Step 12, full time, was folded into this step (2026-09-26): it needs
+only the outcome banner (step 3) and the REMATCH mark (step 4), and
+alone it was a round of its own for a small change.
 
 **Prompt.**
 
 ```text
-The maneuver pick (maneuver_action) and what follows, as on the Hand
-and Reveal boards of the canvas.
+Two parts, one PR: the maneuver pick and what follows it, and the
+final board.
+
+Part 1. The maneuver pick (maneuver_action) and what follows, as on the
+Hand and Reveal boards of the canvas.
 
 - The hand is the printed maneuver cards (pictures.maneuver_card_png)
   as clickable images, 150px wide, in the question box; hover enlarges
@@ -477,19 +493,47 @@ and Reveal boards of the canvas.
 - An observer sees two card backs and the note that hands are turned
   over together.
 
+Part 2. Full time, as the "Full time" artboard: the outcome banner with
+the result and who scored the winner (narration), a statistics block
+beside it read from d12ball/stats.py over the match's events (goals,
+shots, maneuvers won, skill tests, exhaustion taken, time outs, per
+side, in each team's colour), the REMATCH mark that posts /rematch and
+links to the new room, "Back to the rooms", and "the whole log as
+text" (a plain-text export of the room's log lines, the model's
+narration as it was shown). The jumbotron's note reads "Final · <score>,
+shootout <score>" when there was one.
+
 Done when: the hand renders for a side holding three cards and a side
 holding six, the observer view shows no faces, and the click reaches
-driver.answer with the card's key.
+driver.answer with the card's key; and a finished game fixture renders
+the full-time block with stats.py's numbers and the rematch link points
+at the room the service created.
 ```
 
 ---
 
-### 6. The Coaching Choice on the board
+### 6. The Coaching Choice and the bench on the board
+
+Step 8, the bench, was folded into this step (2026-09-26): the
+Coaching Choice lights the bench meeples that may come on, so the
+bench is built here first rather than in a round of its own.
 
 **Prompt.**
 
 ```text
-Replace the coaching_hub menus with the board itself, as on the
+Two parts, one PR: the sideline the bench sits on, then the Coaching
+Choice played on the board and that sideline.
+
+Part 1. Replace the bench popover with the sideline under the field, as
+on every play screen: two rounded boxes per team, bordered in the
+team's colour at low alpha, BENCH ("may come on") and BACK BENCH ("off
+for the game"), holding the meeples as step 1 draws them, with the same
+badges, and the hover card. Which players are on which bench is the
+record's reading (the two rows the popover already had); the page
+groups nothing itself. In a Coaching Choice the bench meeples that may
+come on light up (part 2).
+
+Part 2. Replace the coaching_hub menus with the board itself, as on the
 "Coaching Choice (setup), on the board" artboard. Everything offered is
 CoachingHubOptions; the page adds no move of its own.
 
@@ -508,8 +552,10 @@ CoachingHubOptions; the page adds no move of its own.
 - Done: the whistle, dark with finish_refusal's text under it until
   the kickoff space is covered.
 
-Done when: the tutorial and the setup fixtures reach kickoff through
-the new controls in tests/test_web_app.py, and every drag has a click
+Done when: the sideline renders for a game with an injured player on
+the back bench and the Teams tab's rows say "bench" / "back bench" to
+match; the tutorial and the setup fixtures reach kickoff through the
+new controls in tests/test_web_app.py; and every drag has a click
 equivalent for keyboard users.
 ```
 
@@ -538,24 +584,10 @@ not contain the order.
 
 ---
 
-### 8. The bench
+### ~~8. The bench~~
 
-**Prompt.**
-
-```text
-Replace the bench popover with the sideline under the field, as on
-every play screen: two rounded boxes per team, bordered in the team's
-colour at low alpha, BENCH ("may come on") and BACK BENCH ("off for
-the game"), holding the meeples as step 1 draws them, with the same
-badges, and the hover card. Which players are on which bench is the
-record's reading (the two rows the popover already had); the page
-groups nothing itself. In a Coaching Choice the bench meeples that may
-come on light up (step 6).
-
-Done when: the sideline renders for a game with an injured player on
-the back bench and the Teams tab's rows say "bench" / "back bench" to
-match.
-```
+**Folded into step 6** (2026-09-26). Its prompt is part 1 of step 6's;
+there is nothing to claim here.
 
 ---
 
@@ -677,24 +709,10 @@ the sheet, and no meeple leaves its space.
 
 ---
 
-### 12. Full time
+### ~~12. Full time~~
 
-**Prompt.**
-
-```text
-The final board, as the "Full time" artboard: the outcome banner with
-the result and who scored the winner (narration), a statistics block
-beside it read from d12ball/stats.py over the match's events (goals,
-shots, maneuvers won, skill tests, exhaustion taken, time outs, per
-side, in each team's colour), the REMATCH mark that posts /rematch and
-links to the new room, "Back to the rooms", and "the whole log as
-text" (a plain-text export of the room's log lines, the model's
-narration as it was shown). The jumbotron's note reads "Final · <score>,
-shootout <score>" when there was one.
-
-Done when: a finished game fixture renders the block with stats.py's
-numbers and the rematch link points at the room the service created.
-```
+**Folded into step 5** (2026-09-26). Its prompt is part 2 of step 5's;
+there is nothing to claim here.
 
 ---
 

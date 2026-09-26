@@ -98,7 +98,10 @@ def step_has_landed(step: int) -> bool:
 def claim(step: int, who: str) -> int:
     git("fetch", "-q", REMOTE, "main")
     if step_has_landed(step):
-        print(f"Step {step} is struck in {WORKSHEET}: it has landed.")
+        print(
+            f"Step {step} is struck in {WORKSHEET}: it has landed, "
+            "or was folded into another step."
+        )
         return 1
 
     taken = [describe(branch) for branch in claims_on_remote(step)]
