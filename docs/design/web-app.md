@@ -520,6 +520,19 @@ when the prompt is this coach's. Stacking all five panels made a page
 a coach scrolled past the board to answer and past the answer to read
 what happened, which is the opposite of a table.
 
+**Your turn reaches a coach who is not looking.** The tab's title
+carries a mark while the prompt is theirs (`prompt.yours`), and where
+the browser allows it one notification per prompt names the ask
+(step 10 of [../web-app-next.md](../web-app-next.md)). Permission is
+asked once, on the first control the coach presses, and never on
+load: a browser asked before anybody has done anything is how a site
+comes to be refused for good, and a click is the gesture a browser
+wants the question behind. A prompt is one notification however many
+polls see it -- it is keyed on its kind and its ask, so the Coaching
+Choice redrawing after each move in it is not a new one -- and a
+prompt that goes up while the page has the focus sends none, since
+the coach is looking at it.
+
 - **The jumbotron has its own panel.** It is the board's jumbotron --
   both teams in their colours, the score, the minute and the half,
   in the board's typefaces -- with the coach behind each team under

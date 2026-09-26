@@ -203,6 +203,65 @@ function draw(state) {
   el("owed").hidden = !(state.owed && state.you.is_coach);
   const yours = Boolean(state.prompt && state.prompt.yours);
   document.title = `${yours ? "● " : ""}PBW${state.game.number} · D12 Ball`;
+  notifyTurn(state);
+}
+
+// -- Your turn, in a notification ---------------------------------------
+
+/* The prompt this page last considered notifying about, by its kind and
+   its ask: one notification per prompt, however many polls see it and
+   however its controls change while it is up (the Coaching Choice
+   redraws after every move in it). */
+let consideredPrompt = null;
+
+/* A notification when a question is this coach's -- the mark in the
+   title, for a coach who is not looking at the tab. Permission is asked
+   once, on the first control pressed (`askToNotify`), never on load: a
+   browser asked before anybody has done anything refuses for good. A
+   prompt that goes up while the page has the focus says nothing, since
+   the coach is looking at it. */
+function notifyTurn(state) {
+  const prompt = state.prompt;
+  if (!prompt || !prompt.yours) {
+    consideredPrompt = null;
+    return;
+  }
+  const key = `${prompt.kind}\n${prompt.ask}`;
+  if (key === consideredPrompt) return;
+  consideredPrompt = key;
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (document.hasFocus()) return;
+  const ask = document.createElement("div");
+  ask.innerHTML = prompt.ask;
+  try {
+    const notice = new Notification(`PBW${state.game.number}: your move`, {
+      body: ask.textContent.trim(),
+      tag: `d12ball-${GAME_ID}`,
+    });
+    notice.onclick = () => { window.focus(); notice.close(); };
+  } catch (error) {
+    /* A browser that only notifies through a service worker (Chrome on
+       Android) throws here; the title's mark still says it. */
+  }
+}
+
+let askedToNotify = false;
+
+function askToNotify() {
+  if (askedToNotify) return;
+  askedToNotify = true;
+  if (!("Notification" in window) || Notification.permission !== "default") return;
+  try {
+    Notification.requestPermission();
+  } catch (error) {
+    /* An older browser's callback-only form; not worth a second path. */
+  }
+}
+
+for (const box of ["prompt", "table"]) {
+  el(box).addEventListener("click", (event) => {
+    if (event.target.closest("button")) askToNotify();
+  }, true);
 }
 
 function teamEmoji(key, name) {
