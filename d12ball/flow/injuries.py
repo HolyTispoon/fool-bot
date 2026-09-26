@@ -207,6 +207,19 @@ def dispatch_injury_resume(
                 },
             ),
         )
+    if kind == "scoring_attempt":
+        # Zytheris won a long pass's contest (Law 21): the shot comes
+        # once the contest's own checks are rolled.
+        return StepResult(
+            narration=[lead_in] if lead_in else [],
+            next=FollowOn(
+                FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
+                {
+                    "shooter_id": resume["shooter_id"],
+                    "distance_moved": resume.get("distance_moved", 1),
+                },
+            ),
+        )
     if kind == "run_back":
         # **Named rather than called**, unlike the shootout above, and
         # for the reason the member exists: `d12ball.flow.turnovers.begin_run_back` is

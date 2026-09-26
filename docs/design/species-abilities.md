@@ -218,9 +218,13 @@ their own (below).
     no injury check.
   - *Spritz* -- one more clause in `smooth_candidates`.
   - *Vorix and Zytheris* -- branches in `high_pass_step` and
-    `low_pass_step`, which take the game for them. Zytheris's catch of
-    a long pass offers the shot with `contest_on_decline`, the
-    overshoot's shape, so declining it is the contest it replaced.
+    `low_pass_step`, which take the game for them. Zytheris's long pass
+    is contested first and shot only once kept ("contest comes first",
+    the author, 2026-09-26): `rolls.after_the_contest` is where every
+    way a contest ends -- rolled, walked in uncontested, Slitheron's --
+    goes next, the run back or a `scoring_attempt` resume that
+    `dispatch_injury_resume` turns into the offer once the contest's
+    checks are rolled.
   - *Inferno and Pulsar* -- **a player receives the ball in a dozen
     places** (a pass, a steal, a contest, a pull, a Smooth), so rather
     than a branch at each, the driver asks `effects.ball_comes_to`

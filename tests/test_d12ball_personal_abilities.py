@@ -45,6 +45,7 @@ from d12ball.flow.effects import (
 )
 from d12ball.flow.arrivals import resolve_loose_ball
 from d12ball.flow.injuries import injury_test_step
+from d12ball.flow.rolls import after_the_contest
 from d12ball.flow.result import FollowOnStep
 from d12ball.flow.turn import (
     begin_maneuver_action_selection,
@@ -1107,14 +1108,48 @@ class LongPassTests(unittest.TestCase):
         self.assertEqual(self.match.ball_carrier_id, receiver)
         self.assertEqual(self.match.ball.speed, VORIX_BALL_SPEED)
 
-    def test_zytheris_shoots_in_place_of_the_contest(self) -> None:
+    def test_zytheris_s_long_pass_is_contested_first(self) -> None:
+        # "Contest comes first and shooting is possible only if
+        # Zytheris wins it" (the author, 2026-09-26).
         _, receiver = self.pass_from(2, 5)
         with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
             result = high_pass_step(ENGINE, self.match, 3, game=self.game)
         self.assertIs(
+            result.next.step, FollowOnStep.BEGIN_HIGH_PASS_CONTEST,
+        )
+
+    def test_zytheris_shoots_once_they_keep_it(self) -> None:
+        _, receiver = self.pass_from(2, 5)
+        match = self.match
+        match.set_ball_space(*match.board.meeple_position(receiver))
+        with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
+            kept = after_the_contest(
+                ENGINE, self.game, match, receiver, True, False, 2,
+            )
+            lost = after_the_contest(
+                ENGINE, self.game, match, receiver, True, True, 2,
+            )
+            loose = after_the_contest(
+                ENGINE, self.game, match, receiver, False, False, 2,
+            )
+        self.assertEqual(kept["kind"], "scoring_attempt")
+        self.assertEqual(kept["shooter_id"], receiver)
+        self.assertEqual(lost["kind"], "run_back")
+        self.assertEqual(loose["kind"], "run_back")
+
+    def test_an_uncontested_long_pass_is_kept_and_shot(self) -> None:
+        _, receiver = self.pass_from(2, 5)
+        match = self.match
+        match.set_ball_space(*match.board.meeple_position(receiver))
+        match.pending_loose_ball = True
+        match.pending_loose_ball_is_high_pass = True
+        match.pending_loose_ball_distance = 2
+        match.loose_ball_offense_player = receiver
+        with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
+            result = resolve_loose_ball(ENGINE, self.game, match)
+        self.assertIs(
             result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
         )
-        self.assertTrue(result.next.kwargs["contest_on_decline"])
         self.assertEqual(result.next.kwargs["shooter_id"], receiver)
 
     def test_zytheris_shoots_off_a_low_pass(self) -> None:

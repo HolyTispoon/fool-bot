@@ -1533,8 +1533,9 @@ def high_pass_step(
     It reads nothing off the game record but the personal abilities
     -- the gambit's cost is an engine question and nothing here
     charges exhaustion -- so `game` is optional, and without it none
-    of Law 21 applies: Vorix's long set-up and Zytheris's shot off a
-    long pass are asked of it below.
+    of Law 21 applies: Vorix's long set-up is asked of it below.
+    Zytheris's shot off a long pass comes after its contest, and is
+    `rolls.after_the_contest`'s.
     """
     offense_side = match.ball.possession
     handler = engine.get_player_definition(match.active_player_id)
@@ -1746,27 +1747,6 @@ def high_pass_step(
             "reception is not contested, and "
             f"{engine.format_player_label(match, receiver)} "
             "keeps the ball.",
-        )
-
-    # **Zytheris shoots off any pass** (Law 21): a pass of 3 or more
-    # offers them the shot in place of the contest, the overshoot's
-    # shape -- declining the shot is taking the contest -- with the
-    # modifier the right way round, since this pass did not overshoot.
-    if match.can_attempt_score(offense_side) and engine.has_personal_ability(
-        game, receiver_candidates[0], PersonalAbility.SHOOTS_OFF_ANY_PASS,
-    ):
-        match.set_ball_carrier(receiver_candidates[0])
-        return StepResult(
-            narration=[content, "That reaches a teammate -- a scoring opportunity!"],
-            board_changed=True,
-            next=FollowOn(
-                FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
-                {
-                    "shooter_id": receiver_candidates[0],
-                    "distance_moved": distance_moved,
-                    "contest_on_decline": True,
-                },
-            ),
         )
 
     # A teammate is standing right where the pass landed, and the

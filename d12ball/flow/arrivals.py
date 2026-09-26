@@ -44,7 +44,8 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.wire import jsonable
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.rolls import settle_loose_ball_winner
+from d12ball.flow import injuries
+from d12ball.flow.rolls import after_the_contest, settle_loose_ball_winner
 from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
     ball_space_label,
@@ -933,6 +934,7 @@ def resolve_contest_without_a_roll(
     defense_player = engine.get_player_definition(defense_player_id)
     winner = engine.get_player_definition(winner_id)
     offense_wins = winner_id == offense_player_id
+    was_high_pass = match.pending_loose_ball_is_high_pass
     announcement, _, distance_moved, turnover_occurred = (
         settle_loose_ball_winner(
             engine, game, match, offense_player, defense_player,
@@ -948,13 +950,13 @@ def resolve_contest_without_a_roll(
             announcement,
         ]))],
         board_changed=True,
-        next=FollowOn(
-            FollowOnStep.BEGIN_RUN_BACK,
-            {
-                "distance_moved": distance_moved,
-                "turnover_occurred": turnover_occurred,
-            },
-        ),
+        next=injuries.dispatch_injury_resume(
+            engine, game, match,
+            after_the_contest(
+                engine, game, match, winner_id,
+                was_high_pass, turnover_occurred, distance_moved,
+            ),
+        ).next,
     )
 
 
@@ -1117,13 +1119,16 @@ def resolve_unopposed_loose_ball(
     return StepResult(
         narration=[content],
         board_changed=True,
-        next=FollowOn(
-            FollowOnStep.BEGIN_RUN_BACK,
-            {
-                "distance_moved": distance_moved,
-                "turnover_occurred": turnover,
-            },
-        ),
+        # A long pass nobody contested is kept, and Zytheris shoots off
+        # it (Law 21) -- `after_the_contest` is every contest's ending.
+        next=injuries.dispatch_injury_resume(
+            engine, game, match,
+            after_the_contest(
+                engine, game, match, player_id,
+                match.pending_loose_ball_is_high_pass, turnover,
+                distance_moved,
+            ),
+        ).next,
     )
 
 
