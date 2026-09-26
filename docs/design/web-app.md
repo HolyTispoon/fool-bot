@@ -601,10 +601,12 @@ the coach is looking at it.
   `JumbotronTests` hold each against the match. The coach's name is the
   game's coaches, as it always was.
 - **The time out is a tile, not a button.** The tile is outlined in the
-  team's colour with a referee's T while the side holds its time out,
-  dashed and struck through once spent, and lit gold -- "TIME OUT ·
-  <team> · click to call it" -- when, and only when, the turn put to
-  this viewer offers it. **Whether it is lit is the prompt's, not the
+  team's colour while the side holds its time out, dashed and struck
+  through once spent, and lit gold -- "TIME OUT · <team> · click to
+  call it" -- when, and only when, the turn put to this viewer offers
+  it. The words are the whole of it: the prototype led them with a
+  referee's T, and the author had it taken off on 2026-09-26 because
+  "TIME OUT" says it. **Whether it is lit is the prompt's, not the
   bar's**: `present._turn` builds the time out as it always did, off
   `TurnOptions.actions`, and marks the control with a `place` (the tile,
   and the side the turn is put to, `asked_sides`); the page draws a

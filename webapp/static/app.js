@@ -510,16 +510,11 @@ function timeOutControl(prompt) {
   return null;
 }
 
-/* A side's time-out tile: held (outlined in the team's colour, a
-   referee's T), spent (dashed grey, struck through), or -- only with
-   the control in hand -- lit gold, and pressing it answers the turn. */
+/* A side's time-out tile: held (outlined in the team's colour), spent
+   (dashed grey, struck through), or -- only with the control in hand --
+   lit gold, and pressing it answers the turn. The words are the whole
+   of it; the referee's T that used to lead them went on 2026-09-26. */
 function timeOutTile(team, control) {
-  const t = s(
-    "svg",
-    { class: "ref-t", viewBox: "0 0 24 24", width: 22, height: 22, "aria-hidden": "true" },
-    s("rect", { x: "2", y: "3", width: "20", height: "5", rx: "2" }),
-    s("rect", { x: "9.5", y: "3", width: "5", height: "19", rx: "2" }),
-  );
   if (control) {
     return h(
       "button",
@@ -529,7 +524,6 @@ function timeOutTile(team, control) {
         style: `--team: ${team.colour}`,
         onclick: () => act(control.action),
       },
-      t,
       h("span", { class: "tile-words" },
         h("span", { class: "tile-title" }, "TIME OUT"),
         h("small", {}, `${team.name} · click to call it`)),
@@ -544,7 +538,6 @@ function timeOutTile(team, control) {
       title: spent ? `${team.name} has had its time out this half`
         : `${team.name} still holds its time out this half`,
     },
-    t,
     h("span", { class: "tile-words" },
       h("span", { class: "tile-title" }, "TIME OUT"), h("small", {}, team.name)),
   );
