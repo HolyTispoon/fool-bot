@@ -193,15 +193,25 @@ thing between that request and the cookie.
 for the web app, and nothing else:
 
 From the checkout's root folder, through the two launchers beside the
-scripts:
+scripts, or the one that runs both in order:
 
 ```powershell
 .\scripts\update_main_bot.cmd          # pull, install, restart the bot
 .\scripts\run_web_app.cmd              # restart the web app on the same tree
 .\scripts\run_web_app.cmd -StopOnly
+
+.\scripts\deploy.cmd                   # both of the above, in that order
 ```
 
 (The same lines work in `cmd.exe`, without the comments.)
+
+`deploy.ps1`/`deploy.cmd` call the two scripts above in order and add no
+logic of their own -- no new process matching, no new pid file. It takes
+`update_main_bot`'s options (`-Branch`, `-SkipPull`) and passes them
+through; `run_web_app` never needs one here, since `-StopOnly` has no
+place in a deploy. `$ErrorActionPreference = 'Stop'` means a failed pull,
+install or bot start stops it before the web app is touched, so the web
+app is never restarted onto a tree the first half failed to update.
 
 - **Run them through the `.cmd` launchers, never as `.\x.ps1`.** The
   checkout is on the Google Drive letter, and on that host the shell's
