@@ -52,7 +52,10 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
-from d12ball.personal_abilities import GLOMPEX_JOIN_COST
+from d12ball.personal_abilities import (
+    GLOMPEX_JOIN_COST,
+    SCORCHIT_FORCED_TEST_TOKENS,
+)
 from d12ball.components import (
     OVERDRIVE_DRAIN_COST,
     SPECIES_TELEKINETIC,
@@ -131,6 +134,8 @@ class PromptKind(Enum):
     MANEUVER_CHALLENGE = "maneuver_challenge"
     # Glompex steps onto the ball before the cards (Law 21).
     JOIN_THE_BALL = "join_the_ball"
+    # Scorchit may force a test off a lost card, at the reveal (Law 21).
+    FORCE_TEST = "force_test"
     MANEUVER_ACTION = "maneuver_action"
     SKILL_TEST = "skill_test"
 
@@ -163,7 +168,7 @@ class PendingPrompt:
     #: RUN_BACK_PLAYER: which of a stack may be the one to run back.
     player_ids: list[str] = field(default_factory=list)
     #: MIND_PULL, INJURY_TEST, RUN_BACK_SPACE, SPEED_DELTA_CHOICE,
-    #: JOIN_THE_BALL, FLY.
+    #: JOIN_THE_BALL, FLY, FORCE_TEST.
     player_id: Optional[str] = None
     #: HALFTIME_EXTRA_TOKEN, LOOSE_BALL_PICK: the board side asked.
     side: Optional[TeamSide] = None
@@ -833,6 +838,28 @@ def join_the_ball_prompt(
     )
 
 
+def force_test_prompt(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+) -> PendingPrompt:
+    """
+    Scorchit's offer (Law 21), one ask for the live question and the
+    restored one: `turn.resolve_maneuver` puts it up and the chain
+    re-reads it.
+    """
+    player = engine.get_player_definition(player_id)
+    noun, _ = engine.token_word_and_mark(game, player_id)
+    return PendingPrompt(
+        PromptKind.FORCE_TEST,
+        f"{engine.format_player_label(match, player)}'s card lost, but "
+        f"they may force a skill test: {SCORCHIT_FORCED_TEST_TOKENS} "
+        f"{noun} to them and none to their opponent.",
+        player_id=player_id,
+    )
+
+
 def fly_prompt(
     engine: "RulesEngine", match: MatchState, player_id: str,
 ) -> PendingPrompt:
@@ -1474,6 +1501,7 @@ PLAYERS_OWN_QUESTIONS = frozenset({
     PromptKind.SMOOTH,
     PromptKind.FLY,
     PromptKind.JOIN_THE_BALL,
+    PromptKind.FORCE_TEST,
     PromptKind.SPEED_DELTA_CHOICE,
     PromptKind.RUN_BACK_PLAYER,
     PromptKind.RUN_BACK_SPACE,
@@ -1892,6 +1920,11 @@ def _pending(
                 PromptKind.MANEUVER_ACTION,
                 maneuver_action_ask(engine, game, match),
             )
+        if match.pending_force_test:
+            # Scorchit, after a reveal their card lost (Law 21).
+            return force_test_prompt(
+                engine, game, match, match.pending_force_test,
+            )
         winner_key = engine.settled_maneuver_winner(match, game)
         if winner_key is None:
             # No winner yet means a skill test is owed -- a tie, or
@@ -2024,6 +2057,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.MIND_PULL: ("take", "decline"),
     PromptKind.FLY: ("fly", "decline"),
     PromptKind.JOIN_THE_BALL: ("join", "decline"),
+    PromptKind.FORCE_TEST: ("force", "decline"),
     PromptKind.MANEUVER_CHALLENGE: ("send", "decline"),
     PromptKind.PLAYER_ACTION: ("shoot", "maneuver", "time_out"),
     PromptKind.SHOOTOUT_ORDER: ("send", "restart"),
@@ -2523,6 +2557,7 @@ OPTIONS = {
     PromptKind.SMOOTH: _smooth_options,
     PromptKind.FLY: _fly_options,
     PromptKind.JOIN_THE_BALL: _decision_options,
+    PromptKind.FORCE_TEST: _decision_options,
     PromptKind.INJURY_TEST: _roll_options,
     PromptKind.OWN_GOAL_ROLL: _roll_options,
     PromptKind.SHOOTOUT_ORDER: _shootout_order_options,

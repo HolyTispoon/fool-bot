@@ -297,6 +297,7 @@
     "glompex_midfielder": 3,
     "sizzifizik_playmaker": 4
   },
+  "forced_test_player": null,
   "goals": [
     {
       "own_goal": false,
@@ -360,6 +361,7 @@
   "pending_effect_continuation": null,
   "pending_fly": null,
   "pending_fly_resume": null,
+  "pending_force_test": null,
   "pending_full_time_stage": null,
   "pending_halftime_stage": null,
   "pending_high_pass_overshoot": false,

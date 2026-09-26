@@ -332,6 +332,25 @@ def join_the_ball() -> PromptFixture:
     )
 
 
+def force_test() -> PromptFixture:
+    # Scorchit (Law 21): the cards revealed and gone against the
+    # challenger, who is asked whether to force the test.
+    match = build_match()
+    challenger = challenge(match)
+    match.offense_maneuver = "low_pass"
+    match.defense_maneuver = "pressure"
+    match.pending_force_test = challenger
+    game = build_game()
+    noun, _ = ENGINE.token_word_and_mark(game, challenger)
+    return PromptFixture(
+        game,
+        match,
+        f"{label(match, challenger)}'s card lost, but they may force a "
+        f"skill test: 2 {noun} to them and none to their opponent.",
+        {"player_id": challenger},
+    )
+
+
 def injury_test() -> PromptFixture:
     match = build_match()
     hurt = fielded(match, PlayerRole.FULLBACK)
@@ -957,6 +976,7 @@ CASES: tuple[PromptCase, ...] = (
     PromptCase("smooth", "SMOOTH", "SmoothView", smooth),
     PromptCase("mind pull", "MIND_PULL", "MindPullView", mind_pull),
     PromptCase("fly", "FLY", "FlyView", fly),
+    PromptCase("force test", "FORCE_TEST", "ForceTestView", force_test),
     PromptCase("join the ball", "JOIN_THE_BALL", "JoinTheBallView",
                join_the_ball),
     PromptCase("injury test", "INJURY_TEST", "InjuryTestView", injury_test),

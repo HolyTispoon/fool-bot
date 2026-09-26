@@ -144,7 +144,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "scorchit_midfielder": (
         PersonalAbility.FORCES_THE_TEST,
-        "Forces a skill test even when their maneuver is on the losing "
+        "May force a skill test even when their maneuver is on the losing "
         "side but gains 2 exhaustion while opponent gains none "
         "(additional tests due to ties add 1 exhaustion per player as "
         "normal).",

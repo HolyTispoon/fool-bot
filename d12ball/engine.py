@@ -1971,11 +1971,11 @@ class RulesEngine:
         Which maneuver wins outright, or None when a skill test still
         has to decide it.
 
-        **Scorchit forces a test off a lost card** (Law 21), which is
-        the one way a healthy card-loser takes a win away, and why this
-        takes the game: `forced_test_by` is asked beside the injury.
-        Every model caller passes it; a caller without a game reads
-        the cards and the injuries alone.
+        **Scorchit may force a test off a lost card** (Law 21), the one
+        way a healthy card-loser takes a win away: once they have said
+        so, `match.forced_test_player` is read beside the injury. It is
+        the answer, saved, so this needs no game; the parameter stays
+        for the callers that pass one.
 
         This is the whole of who wins a maneuver, and the only place
         that ranking and the injured player's disadvantage are put
@@ -2022,7 +2022,7 @@ class RulesEngine:
             )
             if winner_injured:
                 return None
-            if self.forced_test_by(game, match) is not None:
+            if match.forced_test_player is not None:
                 return None
             return (
                 match.offense_maneuver
@@ -2043,9 +2043,17 @@ class RulesEngine:
     def forced_test_by(
         self, game: Optional[D12BallGame], match: MatchState,
     ) -> Optional[str]:
+        """The Scorchit who forced this maneuver's test, or None."""
+        return match.forced_test_player
+
+    def force_test_offer(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> Optional[str]:
         """
         **Scorchit** (Law 21): the participant whose card lost on the
-        cards and who forces the skill test anyway -- or None.
+        cards and who may force the skill test anyway -- or None.
+        Asked once, at the reveal (`turn.resolve_maneuver`); the answer
+        is `match.forced_test_player`.
 
         A test an injury already forces is that test, not Scorchit's:
         where the card-winner is injured this answers None, and the

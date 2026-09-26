@@ -1306,36 +1306,43 @@ class SmoothView(SafeView):
         await self.cog.present(interaction, game, result)
 
 
-class JoinTheBallView(SafeView):
+class PlayerDecisionView(SafeView):
     """
-    Whether Glompex steps onto the ball's space before the cards, for a
-    token (Law 21). Shaped like `MindPullView`: only that player's own
-    coach may answer, and the player is in the custom_ids so an older
-    offer cannot answer a newer one. The rule is
-    `d12ball.flow.turn.join_the_ball_step`.
+    A yes or a no a personal ability puts to one player's coach (Law 21)
+    -- Glompex's join, Scorchit's forced test. Shaped like
+    `MindPullView`: only that player's own coach may answer, and the
+    player is in the custom_ids so an older offer cannot answer a newer
+    one. Each subclass names its kind and its two labels; what the
+    answer says is the model's.
     """
+
+    KIND: PromptKind
+    YES = ""
+    YES_LABEL = ""
+    NO_LABEL = ""
 
     def __init__(self, cog: "D12Ball", game_id: str, player_id: str):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
         self.player_id = player_id
+        slug = self.KIND.value
 
-        join = discord.ui.Button(
-            label="Join the ball",
+        yes = discord.ui.Button(
+            label=self.YES_LABEL,
             style=discord.ButtonStyle.primary,
-            custom_id=f"d12ball:join_the_ball:{game_id}:{player_id}",
+            custom_id=f"d12ball:{slug}:{game_id}:{player_id}",
         )
-        join.callback = self.join
-        self.add_item(join)
+        yes.callback = self.accept
+        self.add_item(yes)
 
-        stay = discord.ui.Button(
-            label="Stay",
+        no = discord.ui.Button(
+            label=self.NO_LABEL,
             style=discord.ButtonStyle.secondary,
-            custom_id=f"d12ball:join_the_ball_decline:{game_id}:{player_id}",
+            custom_id=f"d12ball:{slug}_decline:{game_id}:{player_id}",
         )
-        stay.callback = self.decline
-        self.add_item(stay)
+        no.callback = self.decline
+        self.add_item(no)
 
     async def answer(self, interaction: discord.Interaction, choice: str):
         game, match = await self.require_match(interaction)
@@ -1353,24 +1360,42 @@ class JoinTheBallView(SafeView):
         result = await self.apply(
             interaction,
             game,
-            Action(
-                PromptKind.JOIN_THE_BALL, choice,
-                {"player_id": self.player_id},
-            ),
+            Action(self.KIND, choice, {"player_id": self.player_id}),
             carry_from=1,
         )
         if result is None:
             return
         await interaction.response.edit_message(
-            content=result.answer[0], view=None,
+            content=result.answer[0],
+            view=None,
         )
         await self.cog.present(interaction, game, result)
 
-    async def join(self, interaction: discord.Interaction) -> None:
-        await self.answer(interaction, "join")
+    async def accept(self, interaction: discord.Interaction) -> None:
+        await self.answer(interaction, self.YES)
 
     async def decline(self, interaction: discord.Interaction) -> None:
         await self.answer(interaction, "decline")
+
+
+class JoinTheBallView(PlayerDecisionView):
+    """Glompex steps onto the ball's space before the cards, for a
+    token -- `d12ball.flow.turn.join_the_ball_step`."""
+
+    KIND = PromptKind.JOIN_THE_BALL
+    YES = "join"
+    YES_LABEL = "Join the ball"
+    NO_LABEL = "Stay"
+
+
+class ForceTestView(PlayerDecisionView):
+    """Scorchit forces the skill test off a lost card, or lets the cards
+    stand -- `d12ball.flow.turn.force_test_step`."""
+
+    KIND = PromptKind.FORCE_TEST
+    YES = "force"
+    YES_LABEL = "Force a skill test"
+    NO_LABEL = "Let it stand"
 
 
 class MindPullView(SafeView):

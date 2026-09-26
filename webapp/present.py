@@ -599,6 +599,7 @@ def _decision_arguments(asked: Asked, choice: str) -> dict:
         PromptKind.MIND_PULL,
         PromptKind.SMOOTH,
         PromptKind.JOIN_THE_BALL,
+        PromptKind.FORCE_TEST,
         PromptKind.FLY,
     ):
         return {"player_id": asked.prompt.player_id}
@@ -684,6 +685,13 @@ def _send(asked: Asked) -> list:
 def _join_the_ball(asked: Asked) -> list:
     """Glompex's yes and no (Law 21), in the Discord view's words."""
     return _decision(asked, {"join": "Join the ball", "decline": "Stay"})
+
+
+def _force_test(asked: Asked) -> list:
+    """Scorchit's yes and no (Law 21), in the Discord view's words."""
+    return _decision(
+        asked, {"force": "Force a skill test", "decline": "Let it stand"},
+    )
 
 
 def _fly(asked: Asked) -> list:
@@ -1158,6 +1166,7 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.MIND_PULL: _decision,
     PromptKind.SMOOTH: _smooth,
     PromptKind.JOIN_THE_BALL: _join_the_ball,
+    PromptKind.FORCE_TEST: _force_test,
     PromptKind.FLY: _fly,
     PromptKind.SET_UP_ATTEMPT: _decision,
     PromptKind.COACHING_OFFER: _decision,

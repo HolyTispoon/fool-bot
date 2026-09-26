@@ -48,7 +48,9 @@ from d12ball.flow.injuries import injury_test_step
 from d12ball.flow.result import FollowOnStep
 from d12ball.flow.turn import (
     begin_maneuver_action_selection,
+    force_test_step,
     join_the_ball_step,
+    resolve_maneuver,
 )
 from d12ball.flow.turnovers import begin_run_back, fly_step
 from d12ball.prompts import PendingPrompt, PromptKind
@@ -678,7 +680,7 @@ class ZorchTests(unittest.TestCase):
 
 
 class ScorchitTests(unittest.TestCase):
-    """A card Scorchit lost goes to a skill test anyway (Law 21)."""
+    """A card Scorchit lost may go to a skill test anyway (Law 21)."""
 
     def setUp(self) -> None:
         self.game = advanced()
@@ -691,47 +693,67 @@ class ScorchitTests(unittest.TestCase):
         self.match.offense_maneuver = "low_pass"
         self.match.defense_maneuver = "steal"
 
-    def test_anybody_else_loses_on_the_cards(self) -> None:
-        self.assertEqual(
-            ENGINE.settled_maneuver_winner(self.match, self.game), "steal",
-        )
-        self.assertIsNone(ENGINE.forced_test_by(self.game, self.match))
+    def reveal(self):
+        return resolve_maneuver(ENGINE, self.game, self.match)
 
-    def test_scorchit_forces_the_test_and_pays_for_it(self) -> None:
+    def test_anybody_else_loses_on_the_cards(self) -> None:
+        self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
+        result = self.reveal()
+        self.assertIs(result.next.step, FollowOnStep.BEGIN_EFFECT_RESOLUTION)
+
+    def test_scorchit_is_asked_at_the_reveal(self) -> None:
         with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
-            self.assertIsNone(
-                ENGINE.settled_maneuver_winner(self.match, self.game),
+            result = self.reveal()
+        self.assertIsInstance(result.next, PendingPrompt)
+        self.assertIs(result.next.kind, PromptKind.FORCE_TEST)
+        self.assertEqual(result.next.player_id, self.offense)
+        self.assertEqual(self.match.pending_force_test, self.offense)
+
+    def test_forcing_it_owes_the_test_at_two_tokens_to_none(self) -> None:
+        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
+            self.reveal()
+            result = force_test_step(
+                ENGINE, self.game, self.match, self.offense, True,
             )
-            forced_by = ENGINE.forced_test_by(self.game, self.match)
-            self.assertEqual(forced_by, self.offense)
-            self.assertEqual(
-                ENGINE.skill_test_tokens(
-                    self.game, self.match, self.offense, forced_by,
-                ),
-                SCORCHIT_FORCED_TEST_TOKENS,
+        self.assertIs(
+            result.next.step, FollowOnStep.BEGIN_MANEUVER_SKILL_TEST,
+        )
+        self.assertIsNone(
+            ENGINE.settled_maneuver_winner(self.match, self.game),
+        )
+        forced_by = ENGINE.forced_test_by(self.game, self.match)
+        self.assertEqual(forced_by, self.offense)
+        self.assertEqual(
+            ENGINE.skill_test_tokens(
+                self.game, self.match, self.offense, forced_by,
+            ),
+            SCORCHIT_FORCED_TEST_TOKENS,
+        )
+        self.assertEqual(
+            ENGINE.skill_test_tokens(
+                self.game, self.match, self.defense, forced_by,
+            ),
+            0,
+        )
+
+    def test_letting_it_stand_resolves_the_winner(self) -> None:
+        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
+            self.reveal()
+            result = force_test_step(
+                ENGINE, self.game, self.match, self.offense, False,
             )
-            self.assertEqual(
-                ENGINE.skill_test_tokens(
-                    self.game, self.match, self.defense, forced_by,
-                ),
-                0,
-            )
+        self.assertIs(result.next.step, FollowOnStep.BEGIN_EFFECT_RESOLUTION)
+        self.assertEqual(result.next.kwargs["winner_key"], "steal")
+        self.assertIsNone(self.match.pending_force_test)
 
     def test_not_off_a_card_they_won(self) -> None:
         with holding(self.defense, PersonalAbility.FORCES_THE_TEST):
-            self.assertIsNone(ENGINE.forced_test_by(self.game, self.match))
-            self.assertEqual(
-                ENGINE.settled_maneuver_winner(self.match, self.game),
-                "steal",
-            )
+            self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
 
     def test_an_injured_winner_s_test_is_the_injury_s(self) -> None:
         self.match.mark_injured(self.defense)
         with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
-            self.assertIsNone(ENGINE.forced_test_by(self.game, self.match))
-            self.assertIsNone(
-                ENGINE.settled_maneuver_winner(self.match, self.game),
-            )
+            self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
 
     def test_nothing_once_the_stealer_has_the_ball(self) -> None:
         # A beaten Skilled Pass owes the stealer a free Low Pass, which
@@ -741,7 +763,7 @@ class ScorchitTests(unittest.TestCase):
         self.match.defense_maneuver = "steal"
         self.match.active_player_id = self.defense
         with holding(self.defense, PersonalAbility.FORCES_THE_TEST):
-            self.assertIsNone(ENGINE.forced_test_by(self.game, self.match))
+            self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
             self.assertEqual(
                 ENGINE.settled_maneuver_winner(self.match, self.game),
                 "steal",
@@ -752,9 +774,9 @@ class ScorchitTests(unittest.TestCase):
         # so it is no gambit's benefit and the winner on the cards
         # pays no cost.
         self.match.defense_maneuver = "intercept"
-        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
-            self.match.skill_test_winner = "low_pass"
-            self.assertIsNone(ENGINE.gambit_cost(self.match, "low_pass"))
+        self.match.forced_test_player = self.offense
+        self.match.skill_test_winner = "low_pass"
+        self.assertIsNone(ENGINE.gambit_cost(self.match, "low_pass"))
 
 
 class UmbrikTests(unittest.TestCase):
@@ -1154,6 +1176,21 @@ class BallComesToTests(unittest.TestCase):
                 ball_comes_to(ENGINE, self.game, self.match, before), [],
             )
         self.assertEqual(self.match.ball.speed, 3)
+
+    def test_a_pickup_is_receiving_it(self) -> None:
+        # "A steal, a pickup, or a pass" (the author, 2026-09-26). A
+        # pickup leaves nobody holding the ball, so it asks itself.
+        from d12ball.flow.turnovers import recover_ball_step
+
+        self.match.clear_ball_carrier()
+        self.match.pending_ball_recovery = True
+        picker = self.match.contest_candidates(self.match.ball.possession)[0]
+        with holding(picker, PersonalAbility.LIGHTS_THE_BALL):
+            result = recover_ball_step(
+                ENGINE, self.game, self.match, player_id=picker,
+            )
+        self.assertEqual(self.match.ball.speed, INFERNO_BALL_SPEED)
+        self.assertIn("ball speed", result.narration[0])
 
     def test_pulsar_charges_up(self) -> None:
         self.match.exhaustion[self.player] = 2

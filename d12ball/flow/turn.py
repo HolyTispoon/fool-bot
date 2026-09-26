@@ -51,6 +51,7 @@ from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
+    force_test_prompt,
     join_the_ball_prompt,
     maneuver_action_ask,
 )
@@ -143,16 +144,6 @@ def skill_test_headline(
         )
 
     would_be_winner = offense_name if outcome == "offense" else defense_name
-    forced_by = engine.forced_test_by(game, match)
-    if forced_by is not None:
-        # Scorchit's lost card goes to a test anyway (Law 21).
-        forcer = engine.get_player_definition(forced_by)
-        return (
-            f"{reveal}\n\n"
-            f"**{would_be_winner}** would win, but "
-            f"{engine.format_player_label(match, forcer)} forces a skill "
-            "test!\n\n"
-        )
 
     # An injured player's maneuver never wins outright -- they still
     # have to win a skill test to make it stick.
@@ -230,6 +221,23 @@ def resolve_maneuver(
     # win on the cards from a win handed over by the other player's
     # injury.
     outcome = engine.maneuver_catalog.resolve(offense_key, defense_key)
+
+    # **Scorchit may force the test** (Law 21): asked here, once, where
+    # the cards have gone against them and nothing has resolved yet.
+    offer = engine.force_test_offer(game, match)
+    if offer is not None and match.forced_test_player is None:
+        match.pending_force_test = offer
+        would_be_winner = (
+            offense_name if outcome == "offense" else defense_name
+        )
+        return StepResult(
+            narration=[
+                f"{reveal}\n\n**{would_be_winner}** would win on the "
+                "cards."
+            ],
+            next=force_test_prompt(engine, game, match, offer),
+        )
+
     winner_key = engine.settled_maneuver_winner(match, game)
 
     if winner_key is not None:
@@ -810,6 +818,44 @@ def begin_maneuver_action_selection(
 
     return StepResult(
         next=FollowOn(FollowOnStep.SEND_MANEUVER_ACTION_PROMPT),
+    )
+
+
+def force_test_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    force: bool,
+) -> StepResult:
+    """
+    Scorchit's answer (Law 21): force the skill test -- 2 tokens to
+    them and none to their opponent, charged as it begins -- or let the
+    cards stand and the winner's maneuver resolve.
+    """
+    if match.pending_force_test != player_id:
+        raise RuleRefusal("That offer has already been answered.")
+    match.pending_force_test = None
+    player = engine.get_player_definition(player_id)
+    label = engine.format_player_label(match, player)
+    if force:
+        match.forced_test_player = player_id
+        return StepResult(
+            narration=[f"{label} forces a skill test!"],
+            next=FollowOn(
+                FollowOnStep.BEGIN_MANEUVER_SKILL_TEST, {"headline": ""},
+            ),
+        )
+    winner_key = engine.settled_maneuver_winner(match, game)
+    return StepResult(
+        narration=[
+            f"{label} lets it stand.\n\n"
+            f"## **{engine.maneuver_name(winner_key)}** wins!"
+        ],
+        next=FollowOn(
+            FollowOnStep.BEGIN_EFFECT_RESOLUTION,
+            {"winner_key": winner_key},
+        ),
     )
 
 

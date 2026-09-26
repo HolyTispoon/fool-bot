@@ -1638,6 +1638,8 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     # which reads as not asked -- a game saved mid-maneuver before this
     # is offered nothing it was not already being offered.
     SavedField("pending_join", write=_copy_optional_list, read=_copy_optional_list),
+    SavedField("pending_force_test"),
+    SavedField("forced_test_player"),
     SavedField("pending_fly", write=_copy_optional_list, read=_copy_optional_list),
     SavedField("pending_fly_resume"),
     SavedField("run_back_flown", factory=list, write=list, read=list),
@@ -1930,6 +1932,13 @@ class MatchState:
     # and answered", which is why it is not a plain list: the offer is
     # made once, when the cards are about to be chosen.
     pending_join: Optional[list[str]] = None
+    # **Scorchit may force the test** (Law 21): who is being asked,
+    # after a reveal their card lost, and who said yes. The yes is kept
+    # rather than re-read off the cards because the handler can change
+    # after the cards resolve (a stealer's free Low Pass), and a
+    # re-reading then names one player as winner and loser at once.
+    pending_force_test: Optional[str] = None
+    forced_test_player: Optional[str] = None
     # **Zenith flies** (Law 21): the same shape, asked at a steal's run
     # back before anyone runs, with the run back's own arguments kept
     # to resume it; and who flew, whom the run back then leaves alone.
@@ -3616,6 +3625,8 @@ class MatchState:
         self.pending_run_back_charge_up = False
         self.run_back_pick = None
         self.pending_join = None
+        self.pending_force_test = None
+        self.forced_test_player = None
         self.pending_fly = None
         self.pending_fly_resume = None
         self.run_back_flown = []

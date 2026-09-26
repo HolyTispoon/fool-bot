@@ -1029,6 +1029,11 @@ def recover_ball_step(
         else engine.apply_exhaustion(game, match, player_id, distance)
     )
 
+    # A pickup is a way of receiving the ball (the author, 2026-09-26),
+    # and leaves no carrier for the driver's hook to see.
+    from d12ball.flow.effects import receives_the_ball
+
+    received = receives_the_ball(engine, game, match, player_id)
     prefix = f"{lead_in}\n\n" if lead_in else ""
     # Joined rather than interpolated: a free pickup has no exhaustion
     # line at all, and interpolating one would leave a blank line under
@@ -1042,6 +1047,7 @@ def recover_ball_step(
                     "the ball up at "
                     f"{ball_space_label(match)}.",
                     exhaustion_text,
+                    *received,
                 ) if part
             ),
         ],

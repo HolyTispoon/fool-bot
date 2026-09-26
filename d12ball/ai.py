@@ -687,6 +687,8 @@ class DinkyAI(AIStrategy):
         # Dinky never rearranges (the Coaching Choice's reading), so
         # it neither steps Glompex in nor flies Zenith (Law 21).
         PromptKind.JOIN_THE_BALL: _let_it_pass,
+        # Nor does it spend Scorchit's two tokens on a lost card.
+        PromptKind.FORCE_TEST: _let_it_pass,
         PromptKind.FLY: _let_it_pass,
         PromptKind.LOOSE_BALL_PICK: _loose_ball,
         PromptKind.RUN_BACK_PLAYER: _run_back_player,

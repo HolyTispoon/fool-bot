@@ -618,6 +618,7 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.SMOOTH: "That Smooth has already been answered.",
     PromptKind.MIND_PULL: "That Mind Pull has already been answered.",
     PromptKind.JOIN_THE_BALL: "That offer has already been answered.",
+    PromptKind.FORCE_TEST: "That offer has already been answered.",
     PromptKind.FLY: "That offer has already been answered.",
     PromptKind.RUN_BACK_PLAYER: "They no longer have to run back.",
     PromptKind.RUN_BACK_SPACE: "They no longer have to run back.",
@@ -1300,6 +1301,23 @@ def _answer_join_the_ball(
     )
 
 
+def _answer_force_test(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    player_id: Optional[str] = None,
+) -> StepResult:
+    """Scorchit forces the skill test, or lets the cards stand (Law 21)."""
+    if player_id is not None and player_id != prompt.player_id:
+        _refuse("That offer has already been answered.")
+    return turn.force_test_step(
+        engine, game, match, prompt.player_id, choice == "force",
+    )
+
+
 def _answer_fly(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1752,6 +1770,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.INJURY_TEST: _answer_injury_test,
     PromptKind.MIND_PULL: _answer_mind_pull,
     PromptKind.JOIN_THE_BALL: _answer_join_the_ball,
+    PromptKind.FORCE_TEST: _answer_force_test,
     PromptKind.FLY: _answer_fly,
     PromptKind.HALFTIME_EXTRA_TOKEN: _answer_halftime_extra_token,
     PromptKind.SKILL_TEST: _answer_skill_test,

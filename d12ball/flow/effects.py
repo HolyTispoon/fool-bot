@@ -197,7 +197,9 @@ def ball_comes_to(
     the carrier a pass, a steal, a contest, a pull or a Smooth leaves.
     A handler chosen off the ball's space is not the carrier -- the
     choice consumes the carry -- so choosing Inferno to handle a ball
-    they already stood on lights nothing.
+    they already stood on lights nothing. A pickup receives the ball
+    too ("a steal, a pickup, or a pass") but leaves no carrier, so
+    `turnovers.recover_ball_step` asks `receives_the_ball` itself.
 
     Asked by the driver around every step and every answer
     (`driver._touch`), because the ball is received in a dozen places,
@@ -208,6 +210,19 @@ def ball_comes_to(
         return []
     if getattr(match, "ball_carrier_id", None) != holder:
         return []
+    return receives_the_ball(engine, game, match, holder)
+
+
+def receives_the_ball(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    holder: str,
+) -> list[str]:
+    """
+    What Law 21 does to a player who has just received the ball --
+    Inferno's speed and Pulsar's Charge-up -- and what to say about it.
+    """
     lines = []
     if engine.has_personal_ability(
         game, holder, PersonalAbility.LIGHTS_THE_BALL,

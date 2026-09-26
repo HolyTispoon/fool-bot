@@ -215,6 +215,7 @@ LEGAL_ACTIONS = {
     PromptKind.MANEUVER_ACTION: _maneuver_action,
     PromptKind.MIND_PULL: lambda fixture: ("take", {}),
     PromptKind.JOIN_THE_BALL: lambda fixture: ("join", {}),
+    PromptKind.FORCE_TEST: lambda fixture: ("force", {}),
     PromptKind.FLY: _fly,
     PromptKind.HALFTIME_EXTRA_TOKEN: _first_player,
     PromptKind.LOW_PASS_CHOICE: _low_pass,
@@ -915,6 +916,8 @@ REFUSED_ACTIONS = {
     (PromptKind.MIND_PULL, "decline"): _wrong_side_player,
     (PromptKind.JOIN_THE_BALL, "join"): _wrong_side_player,
     (PromptKind.JOIN_THE_BALL, "decline"): _wrong_side_player,
+    (PromptKind.FORCE_TEST, "force"): _wrong_side_player,
+    (PromptKind.FORCE_TEST, "decline"): _wrong_side_player,
     (PromptKind.FLY, "fly"): lambda fixture: {
         "zone": "home_goal", "space_index": 99,
     },

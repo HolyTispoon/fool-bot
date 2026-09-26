@@ -226,7 +226,7 @@
       "role": "midfielder",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "Forces a skill test even when their maneuver is on the losing side but gains 2 exhaustion while opponent gains none (additional tests due to ties add 1 exhaustion per player as normal).",
+      "advanced_ability": "May force a skill test even when their maneuver is on the losing side but gains 2 exhaustion while opponent gains none (additional tests due to ties add 1 exhaustion per player as normal).",
       "advanced_skills": {}
     },
     "sizzifizik_playmaker": {

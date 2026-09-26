@@ -110,6 +110,7 @@ from cogs.d12ball_views import (
     InjuryTestView,
     FlyView,
     JoinTheBallView,
+    ForceTestView,
     MindPullView,
     SmoothView,
     LobbyView,
@@ -402,6 +403,7 @@ PARAMETERISED_PROMPT_KINDS = frozenset({
     PromptKind.MIND_PULL,
     PromptKind.SMOOTH,
     PromptKind.JOIN_THE_BALL,
+    PromptKind.FORCE_TEST,
     PromptKind.FLY,
     PromptKind.INJURY_TEST,
     PromptKind.RUN_BACK_SPACE,
@@ -1299,6 +1301,8 @@ class CoreMixin:
             return MindPullView(self, game_id, prompt.player_id)
         if kind is PromptKind.JOIN_THE_BALL:
             return JoinTheBallView(self, game_id, prompt.player_id)
+        if kind is PromptKind.FORCE_TEST:
+            return ForceTestView(self, game_id, prompt.player_id)
         if kind is PromptKind.FLY:
             return FlyView(self, game_id, prompt.player_id)
         if kind is PromptKind.SMOOTH:

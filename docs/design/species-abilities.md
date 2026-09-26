@@ -187,16 +187,19 @@ their own (below).
     shot and the roll read the same wall.
   - *What a test costs* -- `skill_test_tokens` and `re_roll_tokens`:
     Zorch pays nothing, and a test Scorchit forced is 2 to Scorchit and
-    0 to their opponent. **Scorchit's test is `forced_test_by`, asked
-    by `settled_maneuver_winner` beside the injury**, which is why that
-    method takes the game now: the injury-forced test is the model, and
+    0 to their opponent. **Scorchit's test is their coach's choice** --
+    "may force" (the author, 2026-09-26) -- so it is a prompt,
+    `FORCE_TEST`, put up by `resolve_maneuver` at the reveal where
+    `force_test_offer` names them, and the yes is **saved**
+    (`forced_test_player`), which `settled_maneuver_winner` reads
+    beside the injury. Saved rather than re-read off the cards because
+    the handler can change after they resolve -- the stealer taking the
+    free Low Pass a beaten Skilled Pass owes -- and a re-reading then
+    named Scorchit as winner and loser at once, which the advanced
+    golden's seed sweep found. The injury-forced test is the model, and
     the gambits need nothing of their own because `gambit_cost_applies`
     and `gambit_benefit_applies` read the cards, not the test. A test
-    an injury already forces is the injury's, at a token each. The
-    reading guards against the handler changing after the cards
-    resolve -- the stealer taking the free Low Pass a beaten Skilled
-    Pass owes names Scorchit as winner and loser at once -- which the
-    advanced golden's seed sweep found.
+    an injury already forces is the injury's, at a token each.
   - *Umbrik* -- `attacking_skill`, the one reading of what the side
     attacking a roll adds, at the six sites that read `.offense` for
     an own-goal roll, a maneuver skill test and a contest.
@@ -222,12 +225,15 @@ their own (below).
     `RulesEngine.ball_holder` before and after. Receiving is being left
     holding it -- the new holder is the carrier -- so a handler chosen
     off the ball's space, which consumes the carry, receives nothing
-    (the author changed Inferno's "touches" to "receives", 2026-09-26). A step that forgets is impossible, and the cost is one
+    (the author changed Inferno's "touches" to "receives", 2026-09-26).
+    A pickup is receiving too, and leaves no carrier, so
+    `recover_ball_step` asks `effects.receives_the_ball` itself. A step that forgets is impossible, and the cost is one
     comparison a step. It reads with `getattr` because the suite's
     stubbed steps run over a bare namespace.
-- **Glompex's join and Zenith's Fly are prompts** --
-  `PromptKind.JOIN_THE_BALL` and `PromptKind.FLY`, wired the way Mind
-  Pull is: an options row (`DecisionOptions`, and `FlyOptions`, which
+- **Glompex's join, Scorchit's forced test and Zenith's Fly are
+  prompts** -- `PromptKind.JOIN_THE_BALL`, `FORCE_TEST` and `FLY`,
+  wired the way Mind Pull is (the first two share a Discord view,
+  `PlayerDecisionView`): an options row (`DecisionOptions`, and `FlyOptions`, which
   carries every space and its price so no frontend measures a
   distance), a branch in `pending`, an answer in the driver, a view,
   a web control, and Dinky declining both, as it declines every
