@@ -272,6 +272,112 @@ img { display: block; }
   border-radius: 4px;
 }
 
+/* -- The question box --------------------------------------------------
+   The canvas's: a state tag, the outcome large and first, the ask at
+   17px, a muted line for what is lit on the board, and the picture
+   the question is asked over on the right. The edge is the tag's
+   colour; which tag is the server's reading (`_box_state`). */
+
+.qbox {
+  --edge: var(--line);
+  --tag: var(--grey);
+  --tag-ink: #fff;
+  display: flex;
+  gap: 18px;
+  min-height: 150px;
+  border-radius: 14px;
+  border-left: 5px solid var(--edge);
+  padding: 14px 18px 16px;
+}
+.qbox[data-state="yours"] { --edge: var(--gold); --tag: var(--gold); --tag-ink: var(--deep); }
+.qbox[data-state="waiting"] { --edge: var(--line); --tag: var(--grey); }
+.qbox[data-state="now"] { --edge: var(--blurple); --tag: var(--blurple); }
+.qbox[data-state="full_time"] { --edge: var(--green); --tag: var(--green); }
+.qbox-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.qbox .ask { margin: 0; font-size: 17px; line-height: 1.35; color: var(--strong); }
+.qbox-aside {
+  flex: 0 0 auto;
+  max-width: 45%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 18px;
+  border-left: 1px solid var(--line);
+}
+.qbox-aside .prompt-picture { margin: 0; }
+
+.state-tag {
+  display: inline-flex;
+  align-items: center;
+  background: var(--tag);
+  color: var(--tag-ink);
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lit-line { margin: 0; font-size: 13px; color: var(--muted); }
+
+/* The outcome: the dice at 84px beside the model's own headline, in
+   the display face, and the line under it. */
+.outcome {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 14px 20px 16px;
+  border-radius: 12px;
+  background: var(--deep);
+  border: 1px solid var(--line);
+  box-shadow: inset 4px 0 0 var(--outcome, var(--gold));
+}
+.outcome-dice { display: block; height: 84px; width: auto; max-width: 100%; }
+.outcome-words { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.outcome-headline {
+  font-family: "Goal", "Board", sans-serif;
+  font-size: 46px;
+  line-height: 1;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--outcome, var(--gold));
+}
+.outcome-headline strong, .outcome-headline em { font-weight: inherit; font-style: inherit; }
+.outcome-detail { font-size: 17px; font-weight: 700; color: var(--strong); }
+
+/* The owed step: its own strip above the box. */
+.owed-strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--panel);
+  border-radius: 14px;
+  border-left: 5px solid var(--blurple);
+  padding: 12px 18px;
+}
+.owed-strip p { margin: 0; flex: 1; }
+
+/* The one neutral control, where nothing on the board can be the
+   answer: outlined, no colour. */
+.btn.outline {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 700;
+}
+.btn.outline:hover:not(:disabled) { background: rgba(255, 255, 255, 0.04); border-color: var(--muted); }
+.btn.outline.small { min-height: 30px; padding: 5px 12px; font-size: 13px; }
+
+@media (max-width: 960px) {
+  .qbox { flex-direction: column; }
+  .qbox-aside { max-width: 100%; padding-left: 0; border-left: 0; }
+  .outcome { flex-wrap: wrap; gap: 14px; }
+  .outcome-headline { font-size: 34px; }
+}
+
 .controls { display: flex; flex-direction: column; gap: 8px; }
 .group-label {
   font-size: 12px;
@@ -353,12 +459,17 @@ select {
 .hand-card.success:hover:not(:disabled) { border-color: var(--green); transform: translateY(-3px); }
 .hand-card:disabled { opacity: 0.35; cursor: not-allowed; }
 
+/* A refusal: a red-edged strip inside the box it refused. */
 .refusal {
   border-left: 3px solid var(--red);
+  background: rgba(218, 55, 60, 0.08);
+  border-radius: 0 8px 8px 0;
+  padding: 8px 12px;
+  font-size: 13px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  align-items: baseline;
+  align-items: center;
 }
 .refusal p { margin: 0; }
 .linkish {

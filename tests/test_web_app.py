@@ -514,6 +514,71 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 404)
 
 
+class QuestionBoxTests(unittest.TestCase):
+    """
+    The question box (step 3 of docs/web-app-redesign.md): every
+    prompt is put up in it under one of four tags, and which tag is
+    read off whose question it is -- `asked_sides` -- never decided by
+    the page.
+    """
+
+    TAGS = {"yours", "waiting", "now", "full_time"}
+
+    def setUp(self) -> None:
+        ENGINE.rng.seed(11)
+
+    def box(self, fixture: PromptFixture, viewer: Viewer) -> dict:
+        web = WebApp(service_over(fixture), GameLocks())
+        return web._state(fixture.game, viewer)["prompt"]
+
+    def test_every_prompt_fixture_renders_in_the_box(self) -> None:
+        for entry in CASES:
+            if not entry.asked or entry.ai:
+                continue
+            with self.subTest(entry.name):
+                fixture = entry.build()
+                prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+                sides = asked_sides(fixture.match, prompt)
+                for number in (1, 2, None):
+                    box = self.box(fixture, Viewer(number))
+                    self.assertIn(box["state"], self.TAGS)
+                    if prompt.kind is PromptKind.GAME_OVER:
+                        expected = "full_time"
+                    elif not sides:
+                        expected = "now"
+                    elif box["controls"]:
+                        expected = "yours"
+                    else:
+                        expected = "waiting"
+                    self.assertEqual(box["state"], expected, number)
+                    if box["state"] in ("yours", "waiting"):
+                        self.assertEqual(box["yours"], box["state"] == "yours")
+
+    def test_a_roll_is_now_for_both_coaches_and_an_observer(self) -> None:
+        fixture = case("skill test")
+        for number in (1, 2, None):
+            self.assertEqual(self.box(fixture, Viewer(number))["state"], "now")
+
+    def test_a_turn_is_yours_to_one_coach_and_waited_on_by_the_rest(
+        self,
+    ) -> None:
+        fixture = case("plain turn")
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        (side,) = asked_sides(fixture.match, prompt)
+        asked = ENGINE.side_player_number(fixture.game, side)
+        other = 3 - asked
+        self.assertEqual(self.box(fixture, Viewer(asked))["state"], "yours")
+        self.assertEqual(self.box(fixture, Viewer(other))["state"], "waiting")
+        self.assertEqual(self.box(fixture, Viewer(None))["state"], "waiting")
+
+    def test_the_finished_game_is_full_time(self) -> None:
+        fixture = case("game over")
+        for number in (1, 2, None):
+            self.assertEqual(
+                self.box(fixture, Viewer(number))["state"], "full_time",
+            )
+
+
 class DiceTests(unittest.IsolatedAsyncioTestCase):
     """
     The dice a roll is drawn with (step 7 of docs/web-app-next.md): one
@@ -1729,7 +1794,7 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                         set(state["prompt"]),
                         {
                             "kind", "ask", "picture", "controls", "yours",
-                            "reference",
+                            "state", "reference",
                         },
                     )
                     self.assertNotIn("match", state)

@@ -76,7 +76,13 @@ from d12ball.game import (
 )
 from d12ball.dice_brief import maneuver_challenge_brief
 from d12ball.flow import FollowOnStep
-from d12ball.prompts import Action, PendingPrompt, PromptKind, pending
+from d12ball.prompts import (
+    Action,
+    PendingPrompt,
+    PromptKind,
+    asked_sides,
+    pending,
+)
 from d12ball.rules_doc import LIVING_RULES_PATH, RulesDocument, load_rules_document
 from d12ball.render import TEAM_COLORS, render_match_image
 from gamelocks import GameLocks
@@ -1534,6 +1540,7 @@ class WebApp:
                 ),
                 "controls": controls,
                 "yours": bool(controls),
+                "state": _box_state(match, prompt, bool(controls)),
                 # The maneuver pick links to the hexagon at the game's
                 # tier, as the Discord prompt's reference button posts
                 # it: a link, never a picture inline.
@@ -1926,6 +1933,28 @@ def _was_offered(sections: list, posted: Mapping[str, Any]) -> bool:
             ):
                 return True
     return False
+
+
+def _box_state(
+    match: MatchState, prompt: PendingPrompt, yours: bool,
+) -> str:
+    """
+    Which of the question box's four tags this viewer is shown
+    ("The question box", docs/design/web-app.md): `full_time` for the
+    finished game, `now` for a question nobody in particular is asked
+    -- a note, or a roll either coach may take -- and otherwise
+    `yours` where this viewer was offered the controls or `waiting`
+    where they were not.
+
+    **It reads whose question it is and decides nothing**:
+    `asked_sides` is the one reading, the one the service answers an
+    AI side by, and `yours` is `controls_for`'s own answer over it.
+    """
+    if prompt.kind is PromptKind.GAME_OVER:
+        return "full_time"
+    if not asked_sides(match, prompt):
+        return "now"
+    return "yours" if yours else "waiting"
 
 
 def _wire(kind, value, refusal: str):
