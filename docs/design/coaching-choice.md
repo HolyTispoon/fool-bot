@@ -107,7 +107,10 @@ with a minute rather than handed out by the play.
   did, and a third new-play substitution sent through the driver went
   through with "No substitutions left." in its own narration. The
   button is built from the prompt's `CoachingHubOptions.may_substitute`,
-  which is the same reading plus whether there is anybody to bring on. Open play's -- a new play's or a
+  which is the same reading plus whether there is anybody to bring on;
+  what is left is `CoachingHubOptions.allowance`, the label's own
+  words, for a frontend that says it beside the bench (the web page,
+  [web-app.md](web-app.md), "The Coaching Choice on the board"). Open play's -- a new play's or a
   time out's, which draw on the same pot -- come out of
   `half_substitutions_used`, per side, cleared at halftime; halftime's two and
   full time's one are counted inside the window and charged to neither half.

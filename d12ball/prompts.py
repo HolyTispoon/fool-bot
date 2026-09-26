@@ -767,6 +767,13 @@ class CoachingHubOptions:
     #: AI reads it to cover the space before it says it is done; a
     #: frontend may grey the button with it.
     finish_refusal: Optional[str] = None
+    #: What the open window has left to substitute with, in the words
+    #: the Discord caption heads the hub with
+    #: (`RulesEngine.substitution_allowance_label`: "No substitution
+    #: limit", "2 substitutions left") -- the allowance is the
+    #: occasion's and the half's count, so a frontend that says it
+    #: reads it here rather than working it out.
+    allowance: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -787,6 +794,7 @@ class CoachingHubOptions:
                 reposition.to_dict() for reposition in self.repositions
             ],
             "finish_refusal": self.finish_refusal,
+            "allowance": self.allowance,
         }
 
 
@@ -2625,6 +2633,7 @@ def _coaching_hub_options(
         swaps=tuple(swaps),
         repositions=tuple(repositions),
         finish_refusal=engine.coaching_finish_refusal(match, side),
+        allowance=engine.substitution_allowance_label(match),
     )
 
 

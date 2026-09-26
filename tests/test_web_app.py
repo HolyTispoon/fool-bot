@@ -46,8 +46,8 @@ from d12ball.game import GameMode
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
 from gamesaves.d12ball import storage
 from gamesaves.d12ball.service import GameService
-from webapp import identity, server
-from webapp.board import side_colour
+from webapp import identity, present, server
+from webapp.board import board_layout, side_colour
 from webapp.identity import Coach
 from gamelocks import GameLocks
 from webapp.present import CONTROLS, Viewer, controls_for, lit_line, render_text
@@ -58,6 +58,8 @@ from webapp.server import WebApp, _was_offered
 from prompt_fixtures import (
     CASES,
     ENGINE,
+    GAME_ID,
+    build_match,
     PromptFixture,
     build_game,
     take_the_ball,
@@ -290,12 +292,21 @@ class OfferedTests(unittest.TestCase):
         self.assertFalse(_was_offered(self.offered, action))
 
     def test_a_chooser_takes_only_the_values_it_listed(self) -> None:
-        chooser = next(
-            control
-            for group in self.offered
-            for control in group["controls"]
-            if control["type"] == "chooser"
+        """The hub answers on the board now (step 6), and a chooser is
+        left only where a move needs a second question -- which of two
+        teammates sharing a space comes back -- so the chooser is built
+        here, the way `_repositions` builds it."""
+        chooser = present.chooser(
+            "Hellguard [FB] to space 2 -- who comes back?",
+            "Move",
+            [present.field("swap_with", "", [("a", "A [DD]"), ("b", "B [MF]")])],
+            PromptKind.COACHING_HUB,
+            "reposition",
+            side="home",
+            player_id="p",
+            space_index=1,
         )
+        offered = [present.section(None, [chooser])]
         good = {
             **chooser["action"]["arguments"],
             **{
@@ -306,10 +317,10 @@ class OfferedTests(unittest.TestCase):
         bad = {**good, chooser["fields"][0]["name"]: "somebody-else"}
 
         self.assertTrue(
-            _was_offered(self.offered, {**chooser["action"], "arguments": good}),
+            _was_offered(offered, {**chooser["action"], "arguments": good}),
         )
         self.assertFalse(
-            _was_offered(self.offered, {**chooser["action"], "arguments": bad}),
+            _was_offered(offered, {**chooser["action"], "arguments": bad}),
         )
 
     def test_a_question_this_viewer_is_not_asked_offers_nothing(self) -> None:
@@ -2583,6 +2594,146 @@ class EntryPointTests(unittest.TestCase):
         self.assertEqual(service.batching.stop_after, default.stop_after)
         self.assertEqual(service.batching.speaks_lines, default.speaks_lines)
         self.assertIs(type(service.batching), type(default))
+
+
+class CoachingOnTheBoardTests(unittest.TestCase):
+    """
+    The Coaching Choice played on the board (step 6 of
+    docs/web-app-redesign.md): a substitute is a bench meeple put on
+    the player it replaces, a zone change one player on another, a move
+    a player on a space, a formation a tile, Done the whistle -- each
+    sent as the page sends it, checked against what was offered, and
+    through the service to kickoff.
+    """
+
+    def setUp(self) -> None:
+        ENGINE.rng.seed(11)
+
+    def begun(self, game, match):
+        game.match_state = match.to_dict()
+        service = GameService(
+            ENGINE, {game.game_id: game}, save=lambda games: None,
+        )
+        service.begin(game.game_id)
+        return service
+
+    def offered(self, service, game, number):
+        match = service.load(game)
+        prompt = pending_prompt(ENGINE, game, match)
+        return match, prompt, controls_for(
+            ENGINE, game, match, prompt, Viewer(number),
+        )
+
+    def press(self, service, game, offered, control) -> None:
+        """One control, as the page sends it: its own action, which must
+        be one this viewer was handed."""
+        self.assertFalse(control["disabled"], control["label"])
+        self.assertTrue(_was_offered(offered, control["action"]), control["label"])
+        result = service.apply_action(
+            game.game_id, Action.from_dict(control["action"]),
+        )
+        self.assertFalse(result.refused, result.refusal)
+
+    def first(self, offered, choice, test=lambda control: True):
+        return next(
+            control
+            for group in offered
+            for control in group["controls"]
+            if control["action"]["choice"] == choice
+            and not control["disabled"]
+            and test(control)
+        )
+
+    def test_the_lit_line_names_what_may_be_picked_up_once_each(self) -> None:
+        """Every bench player once with "comes on", every fielded player
+        once, and the window's allowance -- the options', not the page's
+        -- never a line per pair."""
+        fixture = case("setup coaching")
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        offered = controls_for(
+            ENGINE, fixture.game, fixture.match, prompt, Viewer(1),
+        )
+        lines = [
+            line["text"]
+            for line in lit_line(
+                ENGINE, fixture.game, fixture.match, prompt, Viewer(1), offered,
+            )
+        ]
+        options = prompt.options
+        bench = ", ".join(ENGINE.format_roster_player(one) for one in options.incoming_ids)
+        self.assertIn(f"{bench} \u00b7 comes on", lines)
+        self.assertIn(f"{options.allowance}.", lines)
+        self.assertEqual(len(lines), 3, lines)
+
+    def test_the_setup_reaches_kickoff_through_the_board(self) -> None:
+        service = self.begun(build_game(), build_match())
+        game = service.game(GAME_ID)
+        pressed = []
+        for number, moves in ((1, ("substitute", "formation")),
+                              (2, ("swap", "reposition"))):
+            for choice in moves:
+                match, prompt, offered = self.offered(service, game, number)
+                self.assertIs(prompt.kind, PromptKind.COACHING_HUB)
+                side = TeamSide(prompt.side)
+                layout = board_layout(
+                    ENGINE, game, match, card_url="/c/{card}", goal_url="/g/{side}",
+                )
+                control = self.first(offered, choice)
+                if control.get("first"):
+                    # Picked up first: the bench for a substitute, a
+                    # fielded player otherwise -- both drawn by the page.
+                    board = next(
+                        one for one in layout["team_boards"]
+                        if one["side"] == side.value
+                    )
+                    first = control["first"]["id"]
+                    if choice == "substitute":
+                        self.assertIn(first, [one["id"] for one in board["bench"]])
+                    else:
+                        self.assertIn(first, match.setup_for_side(side).field_players)
+                else:
+                    self.assertEqual(control["place"]["at"], "formation")
+                self.press(service, game, offered, control)
+                pressed.append(choice)
+            match, prompt, offered = self.offered(service, game, number)
+            self.press(service, game, offered, self.first(offered, "done"))
+        match, prompt, _ = self.offered(service, game, 1)
+        self.assertEqual(
+            pressed, ["substitute", "formation", "swap", "reposition"],
+        )
+        self.assertIsNot(prompt.kind, PromptKind.COACHING_HUB)
+        self.assertIsNone(match.pending_setup_stage)
+        self.assertIsNone(match.pending_coaching_side)
+
+    def test_the_tutorial_reaches_its_first_turn_through_the_page(self) -> None:
+        """The tutorial opens no setup window -- the script deals the
+        standard shape -- so what stands before its first turn is the
+        welcome, answered on the note."""
+        from test_driver_full_game import (
+            build_tutorial_game,
+            build_tutorial_match,
+        )
+
+        game, match = build_tutorial_game(), build_tutorial_match()
+        service = self.begun(game, match)
+        for _ in range(10):
+            match, prompt, offered = self.offered(service, game, 1)
+            if prompt.kind not in (
+                PromptKind.TUTORIAL_CONTINUE, PromptKind.COACHING_HUB,
+            ):
+                break
+            control = next(
+                control
+                for group in offered
+                for control in group["controls"]
+                if not control["disabled"]
+            )
+            self.assertIn(control["place"]["at"], ("note", "whistle"))
+            self.press(service, game, offered, control)
+        self.assertNotIn(
+            prompt.kind,
+            (PromptKind.TUTORIAL_CONTINUE, PromptKind.COACHING_HUB),
+        )
 
 
 if __name__ == "__main__":

@@ -122,6 +122,27 @@ class OptionsCarryTheirMeasureTests(unittest.TestCase):
                     )
         self.assertTrue(seen)
 
+    def test_a_coaching_window_says_what_it_has_left(self) -> None:
+        """The allowance is the window's own count, in the words the
+        Discord caption heads the hub with: setup's unlimited, the
+        shootout's one, a half's two."""
+        said = {}
+        for name, match, prompt in asked_prompts():
+            if not isinstance(prompt.options, CoachingHubOptions):
+                continue
+            with self.subTest(name):
+                self.assertEqual(
+                    prompt.options.allowance,
+                    ENGINE.substitution_allowance_label(match),
+                )
+                self.assertEqual(
+                    prompt.options.to_dict()["allowance"],
+                    prompt.options.allowance,
+                )
+                said[name] = prompt.options.allowance
+        self.assertEqual(said["setup coaching"], "No substitution limit")
+        self.assertEqual(said["full-time coaching"], "1 substitution left")
+
     def test_a_pass_out_is_said_rather_than_inferred(self) -> None:
         for name, match, prompt in asked_prompts():
             options = prompt.options

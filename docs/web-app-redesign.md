@@ -110,7 +110,7 @@ kept so every cross-reference by step number still reads.
 | ~~3~~ | ~~The question box and the outcome banner~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The question box") and "The outcome banner" | medium |
 | ~~4~~ | ~~Answering on the board: the objects, no coloured buttons~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The answer is the thing on the board", "The lit line", "The whistle") | large |
 | ~~5~~ | ~~The hand, the reveal, the challenge and full time~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The hand, the reveal and full time") | large |
-| 6 | The Coaching Choice and the bench on the board | large |
+| ~~6~~ | ~~The Coaching Choice and the bench on the board~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The sideline is under the field", "The Coaching Choice on the board") | large |
 | 7 | The shootout order | medium |
 | ~~8~~ | ~~The bench~~ -- folded into step 6 | -- |
 | 9 | The front door and the table | large |
@@ -546,6 +546,19 @@ at the room the service created.
 ---
 
 ### 6. The Coaching Choice and the bench on the board
+
+**Landed** (2026-09-26). What it settled is in
+[design/web-app.md](design/web-app.md), "The page": "The sideline is
+under the field" (each side's bench and back bench as boxes of
+meeples, the record's two rows, `board.py` handing each entry's piece)
+and "The Coaching Choice on the board" (a move as two things and one
+control -- `first`, then `place` -- the drag as the same answer, the
+formation tiles off `formation_shape`, the lit line naming what may be
+picked up, and no undo, since the service offers none). The budget
+note needed the window's allowance on the prompt, so
+`CoachingHubOptions.allowance` was proposed as its own commit on the
+step's PR and accepted by the author there. The Teams tab is step 10's, so there were no rows to match
+yet.
 
 Step 8, the bench, was folded into this step (2026-09-26): the
 Coaching Choice lights the bench meeples that may come on, so the

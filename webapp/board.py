@@ -429,13 +429,23 @@ def board_layout(
             }
             for side, first, last in shooting_range_bands(match)
         ],
+        # The sideline under the field: each side's bench ("may come
+        # on") and back bench ("off for the game"), the record's own
+        # two rows -- the page groups nobody. Each entry is the card
+        # (its printed numbers and picture) and the meeple the field
+        # draws, badges and all, so a benched player is the same piece
+        # on the sideline as on a space.
         "team_boards": [
             {
                 "side": setup.side.value,
                 **_team(setup.team),
-                "bench": [card(one) for one in setup.team_board.bench],
+                "bench": [
+                    {**card(one), "meeple": meeple(one)}
+                    for one in setup.team_board.bench
+                ],
                 "back_bench": [
-                    card(one) for one in setup.team_board.back_bench
+                    {**card(one), "meeple": meeple(one)}
+                    for one in setup.team_board.back_bench
                 ],
             }
             for setup in (match.home, match.visiting)
