@@ -61,8 +61,8 @@ COLUMN_GAP = 20
 ROW_GAP = 20
 
 # Row-major over `PlayerRole`'s own order (offense 1 through 6), read
-# off rather than re-decided here -- the same order the enum, the
-# roster listing and `/d12ball role_abilities` already use.
+# off rather than re-decided here -- the same order the enum and the
+# roster listing already use.
 GRID_ROLES: tuple[tuple[PlayerRole, PlayerRole], ...] = (
     (PlayerRole.FULLBACK, PlayerRole.DEFENDER),
     (PlayerRole.MIDFIELDER, PlayerRole.PLAYMAKER),

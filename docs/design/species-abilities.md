@@ -173,6 +173,18 @@ at a site that already existed rather than a mechanic of its own.
     shape: possession, speed 1, straight to the shot. A shot walked
     back and declined leaves the ball with Acidel's side, because there
     is no own-goal roll left to fall back to.
+- **The roster shows them, through `RulesEngine.personal_ability_text`.**
+  In a game playing the personal abilities, `/d12ball team_roster` lists
+  each player's sheet sentence under their line, on by default
+  (`advanced_abilities`), while the role's stays off unless asked for
+  (`role_abilities`): the role badge already names the role's, and a
+  personal ability is the one thing on the roster the badge does not.
+  The two are shown side by side because in play a player keeps both.
+  The mode gate is the engine's, so the cog never reads `game.mode` or
+  `advanced_ability` to decide whether to show it; the sentence is
+  wording, never a rule. It is shown without italics, which is how the
+  role's reads, and because a sheet sentence may carry markdown of its
+  own (Gearclaw's `*Boost*`).
 - **The advanced golden plays some of them.** Its game is Telekinetics
   against Fire Demons, so Noxar, Quillon and Spectra, and the four Fire
   Demons with personal lines, are on the field; the seed was re-swept
