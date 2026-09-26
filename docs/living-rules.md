@@ -577,7 +577,7 @@ Either result is a [new play](#resetting-after-a-new-play).
 
 ### Avoided
 
-The ball stays where the Pressure left it and the same side keeps it. This is the one new play that does not change possession -- but it resets both sides, and it ends last possession, exactly like any other.
+The ball stays where the Pressure left it and the same side keeps it. Like a [time out](#time-out), it is a new play that does not change possession -- but it resets both sides, and it ends last possession, exactly like any other.
 
 That reset carries no guarantee the ball's own space is covered -- unlike a kickoff space, it is wherever the play happened to reach -- so if nobody of that side ends up standing there, they [pick it up](#picking-the-ball-up) exactly as after an out-of-bounds ball.
 
@@ -595,6 +595,8 @@ Every change of possession resets ball speed to 1. There are two kinds, and what
 | --- | --- | --- |
 | Steal, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins -- and in advanced mode Intercept and a beaten Dribble Burst | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
 | A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds -- and in advanced mode a Setup Pass that found nobody | New play | Both sides reset, and the side with the ball may call a Coaching Choice. |
+
+A [time out](#time-out) is a new play too, though not a turnover: possession does not change, but both sides reset and the ball goes back to speed 1.
 
 **Only a turnover moves anybody.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them -- a receiver who won their High Pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is out of position stays there, and pays nothing for it, until a turnover comes.
 
@@ -631,6 +633,8 @@ An out-of-bounds ball is [picked up](#picking-the-ball-up) after the reset, at t
 
 A side out of [shooting range](#shooting-range) may call a **time out** instead of playing the ball. **Possession does not change and the ball does not move.** What a time out buys is the pause, not the ball.
 
+**A time out is a [new play](#resetting-after-a-new-play).** Ball speed goes back to 1, and every fielded meeple on both sides goes back to the space its coach's arrangement puts it on, before either coach coaches. It is not a turnover: the side that called it keeps the ball.
+
 ### The three conditions
 
 A time out may be called under three conditions, and no others:
@@ -649,11 +653,11 @@ A time out costs **1 space minute** and no exhaustion. A [pickup](#picking-the-b
 
 ### The two Coaching Choices
 
-**Both coaches then take a Coaching Choice** -- the side that called it first, the other in reply -- each opening on its own coach's arrangement. Nobody runs back and nothing resets.
+**Both coaches then take a Coaching Choice** -- the side that called it first, the other in reply -- on the reset. These are the time out's own two, so the new play offers no further one. Nobody runs back.
 
 ### The pickup
 
-A Coaching Choice can move the players who called it off the ball. Possession is the team's and stays with them either way; if none of them is standing on the ball once both windows have closed, they [pick it up](#picking-the-ball-up): one of their two nearest must go, at 1 exhaustion a space.
+Possession is the team's and stays with them either way. A player has to be sent to the ball **if and only if** none of theirs is standing on its space once both windows have closed -- the reset or their own Coaching Choice may have moved them off it. Then they [pick it up](#picking-the-ball-up): one of their two nearest must go, at 1 exhaustion a space.
 
 ## Coaching Choice
 
