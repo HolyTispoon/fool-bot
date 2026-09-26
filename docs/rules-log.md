@@ -166,7 +166,7 @@ than Noxar and Teal Pulsar rather than Kindlefinger, and every other starter is 
 for "add 3 drain") and Strider ("Charge-up 2" for "Recharges 2") are reworded with no change of
 meaning.
 
-**Written into Law 21 from one-line cells, with the readings the build made.** None of these has
+**Every player now has a personal ability or advanced skills.** **Written into Law 21 from one-line cells, with the readings the build made.** None of these has
 been put to the author yet; each is the reading the Charter now states, and each is a question
 on the pull request that brought it in.
 
@@ -177,7 +177,7 @@ on the pull request that brought it in.
   *"attempting"* for *"making"*.
 - **Glompex:** *"Before selecting a maneuver, if Glomplex is in a space adjacent to the move they
   may gain 1 exhaustion to move to the ball's space and Merge."* "The move" is read as the ball's
-  space. Offered after the challenger is in place and before the cards, and only against a
+  space, which the cell now says: *"adjacent to the ball"*. Offered after the challenger is in place and before the cards, and only against a
   challenge, since Merge adds to a roll and an unchallenged maneuver rolls nothing.
 - **Goopkeeper:** briefly *"Always counts as 'on the ball' when defending against score
   attempts."*, read as reaching a Goopkeeper standing *behind* the ball too. The author reverted
@@ -224,6 +224,8 @@ on the pull request that brought it in.
   space, never for the player holding the ball and never before a new play, which the author
   confirmed. An injured Zenith would have flown free; the author: *"Zenith cannot fly when
   injured"*, and the cell now reads *"if not injured or in possession"*.
+- **Viscor:** *"+3 when Merging."* -- the last of the thirty-six, added the same day. Read as 3
+  on top of whatever Viscor adds by Merge, wherever Merge adds.
 - **Zorch:** *"Does not add exhaustion when rolling skill tests (including after ties)."* Read as
   a maneuver skill test's entry token and every re-roll, including a contest's.
 - **Zytheris:** *"Gets a scoring opportunity when receiving any pass."* Read as any teammate's

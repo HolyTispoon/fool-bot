@@ -1218,6 +1218,8 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Slitheron wins in the air and on the loose.** In a [High Pass contest](#the-high-pass-contest), and in the contest for a [loose ball](#a-loose-ball) both sides sent somebody after, Slitheron takes the ball without a roll. Nothing is rolled, so nobody owes an injury check for it. Against another player with the same ability, the contest is rolled as usual.
 
+**Viscor merges harder.** Whenever Viscor [Merges](#slimey-ooze) -- adds their skill to their side as an Ooze on the ball who is not rolling -- they add 3 more.
+
 **Spritz may Smooth.** Spritz has the Telekinetics' [Smooth](#mind-pull-telekinetic), and takes their own side's ball over exactly as a Telekinetic does. Spritz has no Mind Pull.
 
 **Zorch tests for free.** Zorch adds no token for entering a maneuver [skill test](#the-skill-test), or for any re-roll of one or of a contest for the ball.
