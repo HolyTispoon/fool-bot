@@ -392,7 +392,7 @@ the scoreboard, the board as a layout (`webapp/board.py`, below), the
 prompt with its controls, and the narration since the entry the page
 last saw -- each entry with its time and, where the run stopped to
 draw a position, that position's layout too -- and the chat since the
-message the page last saw. There is no websocket
+message the page last saw ("Chat", below). There is no websocket
 and no diffing -- a game of D12 Ball is a few clicks a minute, and
 the simplest thing that is always right is a re-read.
 
@@ -427,6 +427,53 @@ batching, which is the frontend's (principle 8):
   a pair of names are one control with two menus on it rather than
   two steps. The *answer* is the same one `Action`.
 
+### Chat
+
+**People in a room talking** (step 4 of docs/web-app-next.md, which
+the author asked for on 2026-09-25): on Discord the channel is the
+chat, and a room on the web had nothing of the kind. `webapp/chat.py`
+keeps one message list per room -- a message is an id, the poster's
+cookie id, the name on their cookie when they posted, the text and
+the time -- bounded at `CHAT_LENGTH` (200, the journal's bound), the
+oldest dropped. Anybody in the room with a name may post, coaches and
+observers alike: `POST /api/room/{id}/chat {text}`, 403 without a
+cookie, 400 for a message empty or over 500 characters after
+stripping. It is a room route, beside the seats and the table,
+because talking is something a person does in the room and not an
+answer to the match.
+
+**It is frontend state, like the room roles.** Who said what beside
+a game is not a fact about the game, so it is never on the game
+record, never handed to the service and never read by the model --
+the save format is the contract, and a chat line would be the first
+thing on it no rule reads. It is the web app's own file,
+`data/d12ball_web_chat.json` (`WEB_CHAT_FILE`), beside the web games
+and the rooms, written through on every post and read at start, so
+unlike the journal it survives a restart. A separate file rather
+than a section of the rooms file, so a room's roles and its talk are
+written independently and a chat that fails to load costs no admins.
+A write that fails is logged and swallowed, as `save_games` and the
+rooms file swallow theirs; a room the games file has lost is dropped
+on load, and a closed room's chat goes with it.
+
+**It rides on the poll.** The room's state carries `chat` -- the
+messages after the page's `chat_since` cursor, each `{id, name, text,
+at, yours, colour}` -- and `chat_latest`; there is no endpoint for
+reading and no websocket. Every answer that hands a page its state
+reads the cursor (`_cursors` in `webapp/server.py`), a post's and an
+action's included, so the poster sees their line at once and a page
+that acts is not handed the whole chat again; the page also skips an
+id it has drawn, since a post's answer and a poll can cross. `colour`
+is read when the state is built, off the seat the poster holds now,
+so a coach who leaves their seat is drawn plain from then on.
+
+**It is never the model's voice.** A message is handed over exactly
+as it was typed and the page sets it as text -- `<b>`, `**`, and a
+`{team:orange}` are shown as those characters -- where the journal's
+sentences are the model's, escaped and tokenised by `render_text`. A
+chat line that reads "X scored" is the journal's to say; the chat
+says nothing about the game.
+
 ## The page
 
 **Two columns in Discord's colours** (2026-09-25, the author, after
@@ -456,15 +503,10 @@ what happened, which is the opposite of a table.
 - **The log is the original one**: each entry a block with an edge,
   a new play's in blurple, and a position the run stopped at drawn
   small inside its entry, opening full size.
-- **The chat is people talking** (step 4 of the worksheet, in
-  memory for now): anybody reading the page may post, a coach under
-  their name off the record in their team's colour and anybody else
-  as an observer. It rides on the poll with its own cursor
-  (`chat_since`), is bounded like the journal, and goes nowhere near
-  the service. A message is plain text, handed over as written and
-  drawn as text -- never the model's markdown or tokens, because it
-  is not the model's voice. A restart empties it, as it empties the
-  journal.
+- **The chat is people talking** ("Chat", under "What a page is
+  handed"): everybody in the room may post under the name on their
+  cookie, a seated coach's name in their team's colour and an
+  observer's plain, with a one-line input and Send.
 
 **The buttons are Discord's**: four colours and one shape, and each
 control carries its colour (`style`) from `webapp/present.py`, set to

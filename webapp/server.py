@@ -86,6 +86,7 @@ from webapp import identity, keys, pictures
 from webapp.identity import Coach
 from webapp.board import board_layout, period_name
 from webapp.present import Viewer, controls_for, render_text
+from webapp.chat import WEB_CHAT_FILE, Chats, MessageRefused, clean_text
 from webapp.rooms import WEB_ROOMS_FILE, Rooms
 
 LOGGER = logging.getLogger(__name__)
@@ -102,12 +103,6 @@ JOURNAL_LENGTH = 200
 #: page asks for one per entry it draws, so a few are worth keeping
 #: and a game's worth is not.
 BOARD_CACHE = 24
-
-#: How much of a game's chat a page is handed on opening, and the
-#: longest message it takes. Chat is people talking beside the game,
-#: so it is bounded the way the journal is and kept nowhere else.
-CHAT_LENGTH = 200
-CHAT_MESSAGE_LIMIT = 500
 
 #: How many card pictures are kept in hand: every face a game can show
 #: is eighteen players and twelve maneuvers twice, and they never
@@ -233,56 +228,6 @@ class Journal:
         return None
 
 
-@dataclass
-class ChatMessage:
-    """One thing a person said at the table."""
-
-    id: int
-    who: str
-    text: str
-    #: The team colour of the coach who said it, or `None` for an
-    #: observer -- the page's to draw their name in.
-    colour: Optional[str] = None
-    at: float = field(default_factory=time.time)
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "who": self.who,
-            "text": self.text,
-            "colour": self.colour,
-            "at": self.at,
-        }
-
-
-@dataclass
-class Chat:
-    """
-    What the people at one game have said to each other since this
-    process started -- step 4 of docs/web-app-next.md, in memory.
-
-    **It is not the game's**: never on the record, never read by the
-    model, and nothing in it is rendered as the model's markdown or
-    tokens, because it is not the model's voice. A message is plain
-    text and the page draws it as text. A restart empties it, as it
-    empties the journal; the file step 4 keeps it in comes with the
-    rooms (step 2), which is when a person has a name of their own
-    rather than a seat's.
-    """
-
-    messages: deque = field(default_factory=lambda: deque(maxlen=CHAT_LENGTH))
-    next_id: int = 1
-
-    def add(self, who: str, text: str, colour: Optional[str]) -> ChatMessage:
-        message = ChatMessage(self.next_id, who, text, colour)
-        self.messages.append(message)
-        self.next_id += 1
-        return message
-
-    def since(self, message_id: int) -> list[dict]:
-        return [one.to_dict() for one in self.messages if one.id > message_id]
-
-
 class WebApp:
     """
     The aiohttp application, and the state one process keeps for it.
@@ -299,6 +244,7 @@ class WebApp:
         locks: GameLocks,
         *,
         rooms: Optional[Rooms] = None,
+        chats: Optional[Chats] = None,
         host: str = "0.0.0.0",
         port: int = 8080,
     ) -> None:
@@ -308,10 +254,12 @@ class WebApp:
         #: app's own file (`webapp/rooms.py`); in memory when none is
         #: handed in, which is what a test wants.
         self.rooms = rooms if rooms is not None else Rooms()
+        #: What the people in each room have said -- the web app's own
+        #: file too (`webapp/chat.py`), in memory for a test.
+        self.chats = chats if chats is not None else Chats()
         self.host = host
         self.port = port
         self.journals: dict[str, Journal] = {}
-        self.chats: dict[str, Chat] = {}
         self._boards: dict[tuple, bytes] = {}
         self._cards: dict[tuple, bytes] = {}
         self._runner: Optional[web.AppRunner] = None
@@ -334,11 +282,11 @@ class WebApp:
                 ),
                 web.post("/api/room/{game_id}/rematch", self.rematch),
                 web.post("/api/room/{game_id}/admin", self.take_admin),
+                web.post("/api/room/{game_id}/chat", self.say),
                 web.delete("/api/room/{game_id}/admin", self.drop_admin),
                 web.get("/api/game/{game_id}", self.state),
                 web.post("/api/game/{game_id}/action", self.act),
                 web.post("/api/game/{game_id}/resume", self.resume),
-                web.post("/api/game/{game_id}/chat", self.say),
                 web.get("/api/game/{game_id}/board.png", self.board),
                 web.get(
                     "/api/game/{game_id}/card/{card_id}.png", self.player_card,
@@ -386,13 +334,6 @@ class WebApp:
             journal = Journal()
             self.journals[game_id] = journal
         return journal
-
-    def chat(self, game_id: str) -> Chat:
-        chat = self.chats.get(game_id)
-        if chat is None:
-            chat = Chat()
-            self.chats[game_id] = chat
-        return chat
 
     async def start(self) -> None:
         self._runner = web.AppRunner(self.app)
@@ -515,8 +456,7 @@ class WebApp:
             state = self._state(
                 game,
                 self._viewer(request, game),
-                since=_since(request),
-                chat_since=_int(request.query.get("chat_since")) or 0,
+                **_cursors(request),
                 coach=coach,
             )
         return web.json_response(state)
@@ -616,7 +556,7 @@ class WebApp:
             except ValueError as refusal:
                 raise web.HTTPConflict(text=str(refusal))
             self.journals.pop(game.game_id, None)
-            self.chats.pop(game.game_id, None)
+            self.chats.forget(game.game_id)
         return web.json_response({"url": "/"})
 
     async def table(self, request: web.Request) -> web.Response:
@@ -689,7 +629,7 @@ class WebApp:
                         **self._state(
                             game,
                             self._viewer(request, game),
-                            since=_since(request),
+                            **_cursors(request),
                             coach=coach,
                         ),
                         "refusal": str(refusal),
@@ -699,7 +639,7 @@ class WebApp:
             state = self._state(
                 game,
                 self._viewer(request, game),
-                since=_since(request),
+                **_cursors(request),
                 coach=coach,
             )
         return web.json_response(state)
@@ -746,7 +686,7 @@ class WebApp:
             state = self._state(
                 game,
                 self._viewer(request, game),
-                since=_since(request),
+                **_cursors(request),
                 coach=coach,
             )
         return web.json_response(state)
@@ -809,7 +749,7 @@ class WebApp:
                         **self._state(
                             game,
                             self._viewer(request, game),
-                            since=_since(request),
+                            **_cursors(request),
                             coach=coach,
                         ),
                         "refusal": str(refusal),
@@ -819,7 +759,7 @@ class WebApp:
             state = self._state(
                 game,
                 self._viewer(request, game),
-                since=_since(request),
+                **_cursors(request),
                 coach=coach,
             )
         return web.json_response(state)
@@ -835,7 +775,7 @@ class WebApp:
             self._state(
                 game,
                 self._viewer(request, game),
-                since=_since(request),
+                **_cursors(request),
                 coach=coach,
             ),
         )
@@ -850,7 +790,7 @@ class WebApp:
             self._state(
                 game,
                 self._viewer(request, game),
-                since=_since(request),
+                **_cursors(request),
                 coach=coach,
             ),
         )
@@ -881,7 +821,7 @@ class WebApp:
             # it. See the module docstring.
             return web.json_response(
                 {
-                    **self._state(game, viewer, since=_since(request)),
+                    **self._state(game, viewer, **_cursors(request)),
                     "refusal": (
                         "That is not one of the controls this page is "
                         "offering. It may have been answered already -- "
@@ -898,7 +838,7 @@ class WebApp:
 
         async with self.locks.hold(game.game_id):
             result = self.service.apply_action(game.game_id, action)
-            state = self._state(game, viewer, since=_since(request))
+            state = self._state(game, viewer, **_cursors(request))
         state["refusal"] = result.refusal
         return web.json_response(state)
 
@@ -918,38 +858,37 @@ class WebApp:
 
         async with self.locks.hold(game.game_id):
             found, _ = self.service.resume(game.game_id)
-            state = self._state(game, viewer, since=_since(request))
+            state = self._state(game, viewer, **_cursors(request))
         state["resumed"] = found
         return web.json_response(state)
 
     async def say(self, request: web.Request) -> web.Response:
         """
-        One chat message. Anybody reading the page may talk -- a coach
-        under their name off the record, anybody else as an observer
+        One chat message, under the name on the poster's cookie.
+        Anybody in the room may talk -- both coaches and every observer
         -- and it goes nowhere near the service: talking is not an
-        action on the game.
+        action on the game, and a message is never on the record
+        (`webapp/chat.py`). Answered with the room's state, so the
+        poster sees their line at once.
         """
         game = self._game(request)
-        viewer = self._viewer(request, game)
+        coach = identity.coach_for(request)
+        if coach is None:
+            raise web.HTTPForbidden(text="Say who you are first.")
         body = await _body(request)
-        text = str(body.get("text") or "").strip()
-        if not text:
-            raise web.HTTPBadRequest(text="Say something.")
-        text = text[:CHAT_MESSAGE_LIMIT]
-        if viewer.is_coach:
-            coach = self._coach(game, viewer.player_number)
-            who, colour = coach["name"], coach["colour"]
-        else:
-            who, colour = "Observer", None
-        self.chat(game.game_id).add(who, text, colour)
-        return web.json_response(
-            self._state(
+        try:
+            text = clean_text(body.get("text"))
+        except MessageRefused as refusal:
+            raise web.HTTPBadRequest(text=str(refusal))
+        async with self.locks.hold(game.game_id):
+            self.chats.post(game.game_id, coach.id, coach.name, text)
+            state = self._state(
                 game,
-                viewer,
-                since=_since(request),
-                chat_since=_int(request.query.get("chat_since")) or 0,
-            ),
-        )
+                self._viewer(request, game),
+                **_cursors(request),
+                coach=coach,
+            )
+        return web.json_response(state)
 
     async def board(self, request: web.Request) -> web.Response:
         """
@@ -1197,10 +1136,11 @@ class WebApp:
         *,
         since: int = 0,
         chat_since: int = 0,
+        reader: Optional[int] = None,
         coach: Optional[Coach] = None,
     ) -> dict:
         journal = self.journal(game.game_id)
-        chat = self.chat(game.game_id)
+        chat = self.chats.chat(game.game_id)
         match = self._match(game)
         # The one reading of what the match waits on: a question for
         # somebody, or a step the bot owes (`d12ball.prompts.pending`).
@@ -1270,8 +1210,11 @@ class WebApp:
                 since, game, self._snapshot_layout(game),
             ),
             "latest": journal.next_id - 1,
-            "chat": chat.since(chat_since),
-            "chat_latest": chat.next_id - 1,
+            "chat": [
+                self._chat_line(game, message, reader)
+                for message in chat.since(chat_since)
+            ],
+            "chat_latest": chat.latest,
         }
 
     def _room(
@@ -1473,6 +1416,27 @@ class WebApp:
             "yours": number == yours,
         }
 
+    def _chat_line(
+        self, game: D12BallGame, message, reader: Optional[int],
+    ) -> dict:
+        """
+        One chat message as a page draws it: the name it was posted
+        under, and the colour of the team the poster's seat holds now
+        -- `None` for somebody seated in no seat, or before a team is
+        picked, which the page draws plain. `yours` is whether the
+        reader posted it. The text is exactly what was typed; the page
+        sets it as text, never as markup or tokens.
+        """
+        seat = seat_of(game, message.coach_id)
+        return {
+            "id": message.id,
+            "name": message.name,
+            "text": message.text,
+            "at": message.at,
+            "yours": reader is not None and message.coach_id == reader,
+            "colour": None if seat is None else self._coach(game, seat)["colour"],
+        }
+
     def _coach(self, game: D12BallGame, player_number: int) -> dict:
         team = (
             game.player_1_team if player_number == 1 else game.player_2_team
@@ -1618,6 +1582,22 @@ def _since(request: web.Request) -> int:
     return _int(request.query.get("since")) or 0
 
 
+def _cursors(request: web.Request) -> dict:
+    """
+    What a page has already drawn, and who is reading it: the
+    journal's `since`, the chat's `chat_since`, and the cookie's id
+    that marks a chat line as the reader's own. Every answer that
+    hands a page its state reads all three, or a page that acted would
+    be handed the whole chat again.
+    """
+    reader = identity.coach_for(request)
+    return {
+        "since": _since(request),
+        "chat_since": _int(request.query.get("chat_since")) or 0,
+        "reader": None if reader is None else reader.id,
+    }
+
+
 def _int(value: Optional[str]) -> Optional[int]:
     try:
         return int(value)
@@ -1648,12 +1628,14 @@ async def start_web_app(
     port: Optional[int] = None,
     host: Optional[str] = None,
     rooms: Optional[Rooms] = None,
+    chats: Optional[Chats] = None,
 ) -> WebApp:
     """Start the server over `service` on this process's event loop."""
     app = WebApp(
         service,
         locks,
         rooms=rooms,
+        chats=chats,
         host=host or os.environ.get(HOST_VARIABLE, "0.0.0.0"),
         port=port if port is not None else configured_port(),
     )
@@ -1710,15 +1692,17 @@ def configure_logging() -> None:
 async def serve(
     games_file: Path = WEB_GAMES_FILE,
     rooms_file: Path = WEB_ROOMS_FILE,
+    chat_file: Path = WEB_CHAT_FILE,
 ) -> None:
-    """Run the web app over `games_file` (and its rooms over
-    `rooms_file`) until cancelled."""
+    """Run the web app over `games_file` (its rooms over `rooms_file`
+    and its chat over `chat_file`) until cancelled."""
     service = build_service(games_file)
     LOGGER.info(
         "Loaded %d web game(s) from %s.", len(service.games), games_file,
     )
     rooms = Rooms.load(rooms_file, service.games)
-    app = await start_web_app(service, GameLocks(), rooms=rooms)
+    chats = Chats.load(chat_file, service.games)
+    app = await start_web_app(service, GameLocks(), rooms=rooms, chats=chats)
     try:
         await asyncio.Event().wait()
     finally:

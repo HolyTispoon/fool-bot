@@ -454,7 +454,10 @@ strong { font-weight: 700; color: var(--strong); }
 .chat-who { font-weight: 600; margin-right: 6px; }
 .chat-line time { font-size: 11px; color: var(--faint); margin-right: 6px; }
 
-.chat-form { margin-top: 8px; }
+.chat-form { margin-top: 8px; display: flex; gap: 8px; }
+.chat-form .chat-input { flex: 1 1 auto; min-width: 0; }
+.chat-send { flex: 0 0 auto; }
+.chat-line.yours .chat-who::after { content: " (you)"; font-weight: 400; color: var(--faint); }
 .chat-input {
   width: 100%;
   font: inherit;

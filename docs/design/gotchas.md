@@ -101,7 +101,7 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
     diagnosis and somebody has to add the entry. It reads the match
     state alone, since that is the only part of a save holding player
     ids and a game's own name could carry anything.
-- **`data/d12ball_games.json` is runtime state and is deliberately untracked**, and so are the web app's `data/d12ball_web_games.json` and `data/d12ball_web_rooms.json` beside it (the rooms file is the web app's own -- admins and who has been in -- and never a save; see [web-app.md](web-app.md), "Rooms, seats and who holds them").
+- **`data/d12ball_games.json` is runtime state and is deliberately untracked**, and so are the web app's `data/d12ball_web_games.json`, `data/d12ball_web_rooms.json` and `data/d12ball_web_chat.json` beside it (the rooms and chat files are the web app's own -- admins, who has been in, what people said -- and never a save; see [web-app.md](web-app.md), "Rooms, seats and who holds them" and "Chat").
   The bot rewrites it on every game action. It used to be committed, which
   meant it showed as modified more or less permanently and was a standing
   source of merge conflicts. Don't re-add it. Each developer's saved games are
