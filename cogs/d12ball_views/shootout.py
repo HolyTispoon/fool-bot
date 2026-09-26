@@ -590,23 +590,23 @@ class ShootoutTestView(ShootoutView):
         # save before anything is posted, and that ordering is the
         # point: a restart between this roll and what follows it can
         # never re-roll a test that has already been paid for.
-        dice_file = discord.File(
+        # An ignite is drawn on the roll and said above it, as at every
+        # other roll site.
+        dice_file, ignition = await self.cog.dice_file_with_ignitions(
+            match,
             await asyncio.to_thread(
                 render_contest_dice, dice.contestants,
             ),
-            filename="shootout_dice.png",
+            "shootout_dice.png",
+            *dice.ignites,
         )
 
         # Result under the dice, not above them, for the reason
         # SkillTestView.roll gives: attachments render below content.
         await interaction.edit_original_response(
-            content=None,
+            content=ignition,
             attachments=[dice_file],
             view=None,
-        )
-        # Between the dice and the result, as at every other roll site.
-        await self.cog.post_volatile_ignition(
-            interaction, match, *dice.ignites,
         )
         await send_new_prompt(interaction, result.answer[0])
 

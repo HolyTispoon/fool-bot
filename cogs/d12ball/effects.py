@@ -63,7 +63,13 @@ class ManeuverEffectsMixin:
 
         player = self.engine.get_player_definition(roll.player_id)
         player_team = match.team_for_player(roll.player_id)
-        dice_file = discord.File(
+        # The ignite is asked for the reason it is asked at all:
+        # Volatile is a Fire Demon's and this is a Telekinetic's roll,
+        # so this adds nothing today -- and the day a card carries both,
+        # the second die is shown here rather than this being the one
+        # roll in the game that swallows it.
+        dice_file, ignition = await self.dice_file_with_ignitions(
+            match,
             await asyncio.to_thread(
                 render_mind_pull_die,
                 roll.roll,
@@ -73,20 +79,13 @@ class ManeuverEffectsMixin:
                 roll.pulled,
                 roll.target_label,
             ),
-            filename="mind_pull_die.png",
+            "mind_pull_die.png",
+            (roll.player_id, roll.ignite),
         )
         await interaction.edit_original_response(
-            content=None,
+            content=ignition,
             attachments=[dice_file],
             view=None,
-        )
-        # Asked for the reason the ignite is asked at all: Volatile is
-        # a Fire Demon's and this is a Telekinetic's roll, so this
-        # posts nothing today -- and the day a card carries both, the
-        # second die is shown here rather than being the one roll in
-        # the game that swallows it.
-        await self.post_volatile_ignition(
-            interaction, match, (roll.player_id, roll.ignite),
         )
 
         if not roll.pulled:
