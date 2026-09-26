@@ -1170,7 +1170,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Flickerwing shoots past the wall.** In every [score attempt](#score-attempt) Flickerwing makes -- off a [set-up](#scoring-opportunities) or not -- only the defending players standing on the ball's space add their skill to the defense; a defending player between the ball and the goal adds nothing.
 
-**Inferno lights the ball.** Whenever the ball comes to Inferno -- they are left holding it, however that happened, or chosen to handle it -- its speed goes to 12. Anything that sets the speed later in the same resolution, such as the speed step after a [Steal](#steal), still does.
+**Inferno lights the ball.** Whenever Inferno receives the ball -- is left holding it, however that happened: a pass, a steal, a won contest, a pull or a Smooth -- its speed goes to 12. Being chosen to handle a ball they were already standing on is not receiving it. Anything that sets the speed later in the same resolution, such as the speed step after a [Steal](#steal), still does.
 
 **Kindlefinger's injury check can ignite.** Kindlefinger's die in an [injury check](#the-injury-check) ignites on a natural 6 or 7 exactly as a [Volatile](#volatile-fire-demon) roll does, and the blaze or burn is added to or subtracted from the check. Once the check is read, a blaze clears 1 token from Kindlefinger and a burn adds 1 -- unless the check injured them, since an Injured player clears every token and adds none.
 
@@ -1188,7 +1188,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Quantor runs onto the pass.** When a teammate's won [High Pass](#high-pass) or [Setup Pass](#setup-pass) is about to resolve, Quantor may **drain 3** to move to the space the pass is aimed at and receive it there, without a contest. The pass then resolves with Quantor as its receiver: a High Pass of 2 in range and a Setup Pass set up Quantor's [scoring opportunity](#scoring-opportunities), and a longer High Pass is simply received. It is declared with the pass's distance, only for a distance whose space is on the field, and never on Quantor's own pass.
 
-**Pulsar charges up on the ball.** Whenever the ball comes to Pulsar -- they are left holding it, however that happened, or chosen to handle it -- they clear 1 drain, never below zero.
+**Pulsar charges up on the ball.** Whenever Pulsar receives the ball, as Inferno does, they clear 1 drain, never below zero.
 
 **Synapse's Overdrive decides a tier.** When Synapse wins a maneuver skill test on a roll they Overdrove, their maneuver resolves as its advanced version -- the gambit on its rank -- whether or not their coach [may play a gambit](#who-may-play-a-gambit) this turn, exactly as a [blaze that wins](#volatile-fire-demon) does. A maneuver already resolving as a gambit gains nothing more.
 

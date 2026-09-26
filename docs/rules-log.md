@@ -185,14 +185,18 @@ on the pull request that brought it in.
   ball and the goal during score attempts."* -- the 2026-09-25 rule: full defensive skill beyond
   the ball, nothing behind it. It also counts as on the ball for Flickerwing's shot, which
   drops only the players beyond the ball who are *not* on it.
-- **Inferno:** *"Ball speed to 12 when touches the ball."* Read as whenever the ball comes to
-  Inferno -- left holding it, or chosen to handle it -- with anything later in the same
-  resolution (a Steal's speed step) still setting it.
+- **Inferno:** first *"Ball speed to 12 when touches the ball."*, read as whenever the ball comes
+  to Inferno, a chosen handler included. Asked on the pull request, the author changed the cell
+  to *"When receives the ball, ball speed to 12."* -- Pulsar's word -- so it is read as
+  receiving: being left holding the ball, however that happened, and not being chosen to handle
+  a ball they already stood on. Anything later in the same resolution (a Steal's speed step)
+  still sets the speed; that half is still the author's to confirm.
 - **Kindlefinger:** *"Can iginite on injury test: when blazes clear 1 exhaustion and when burns
   add 1 exhaustion."* Read as an ordinary ignite on the check's die -- the number added or
   subtracted -- with the token cleared or added once the check is read.
-- **Pulsar:** *"Charge-up when receives the ball."* Read the same way as Inferno's touch: whenever
-  the ball comes to Pulsar, not only off a teammate's pass.
+- **Pulsar:** *"Charge-up when receives the ball."* Read the same way as Inferno's, which now
+  uses the same word: being left holding the ball, however that happened, not only off a
+  teammate's pass, and not being chosen as handler.
 - **Scorchit:** *"Forces a skill test even when their maneuver is on the losing side but gains 2
   exhaustion while opponent gains none."* Read as automatic rather than a choice, and as following
   the cards for a gambit exactly as the test an injury forces does.
