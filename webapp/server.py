@@ -134,18 +134,15 @@ class Entry:
     #: When it was said, as a Discord message carries its time.
     at: float = field(default_factory=time.time)
 
-    def to_dict(self, game: D12BallGame, layout=None) -> dict:
-        """`layout` draws the snapshot, where there is one -- the
-        server's, since it needs the engine."""
+    def to_dict(self, game: D12BallGame) -> dict:
+        """The entry as the page's log reads it: words only. The log
+        draws no board -- the live board is beside it -- so the
+        position an entry stopped at is kept for `board.png?entry=`
+        and not sent."""
         return {
             "id": self.id,
             "lines": [render_text(game, line) for line in self.lines],
             "board": self.board is not None,
-            "layout": (
-                layout(self.board)
-                if layout is not None and self.board is not None
-                else None
-            ),
             "new_play": self.new_play,
             "at": self.at,
         }
@@ -212,11 +209,9 @@ class Journal:
         if result.narration:
             yield list(result.narration), None
 
-    def since(
-        self, entry_id: int, game: D12BallGame, layout=None,
-    ) -> list[dict]:
+    def since(self, entry_id: int, game: D12BallGame) -> list[dict]:
         return [
-            entry.to_dict(game, layout)
+            entry.to_dict(game)
             for entry in self.entries
             if entry.id > entry_id
         ]
@@ -1078,25 +1073,6 @@ class WebApp:
             goal_url=f"/api/game/{game.game_id}/goal/{{side}}.png",
         )
 
-    def _snapshot_layout(self, game: D12BallGame):
-        """How an entry's snapshot is drawn: the same layout, over the
-        position the frontend stopped at."""
-
-        def draw(snapshot: dict) -> Optional[dict]:
-            try:
-                match = MatchState.from_dict(
-                    snapshot, self.engine.basic_ruleset,
-                )
-                return self._layout(game, match)
-            except Exception:  # pragma: no cover - a frontend's own bug
-                LOGGER.exception(
-                    "The web app could not draw a snapshot for game %s",
-                    game.game_id,
-                )
-                return None
-
-        return draw
-
     def _title(self, game: D12BallGame, match: Optional[MatchState]) -> str:
         """The title the bot's board carries: the game's number, both
         coaches with their teams, and the half."""
@@ -1206,9 +1182,7 @@ class WebApp:
                 self._table(game, coach) if game.match_state is None else None
             ),
             "rematch": self._rematch_of(game),
-            "entries": journal.since(
-                since, game, self._snapshot_layout(game),
-            ),
+            "entries": journal.since(since, game),
             "latest": journal.next_id - 1,
             "chat": [
                 self._chat_line(game, message, reader)
