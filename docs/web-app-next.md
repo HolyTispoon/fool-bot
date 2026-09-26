@@ -991,8 +991,11 @@ Update docs/design/web-app.md. PR against the template.
 over a model function the web app may call: resume and abandon
 (`GameService.resume` is already a route; `abandon_game`'s model half
 is the record's status change), `/d12ball stats` for the web games on
-the page itself (`d12ball/stats.py`, with step 6's source axis), and a
-finished game's board. Each is a read-only route and a page section,
+the page itself (`d12ball/stats.py`, with step 6's source axis). A
+finished game's board is not on the list, though Discord posts one
+with the game-over prompt: the page's own board already shows the
+final position, and coaches can see the field (the author,
+2026-09-26, at step 8). Each is a read-only route and a page section,
 and none goes near the driver except resume. The rules commands and
 the reference cards were on this list; they are step 11, with the
 rulebooks beside them. Reading the code says which of
@@ -1045,10 +1048,13 @@ against the template.
   the wire.
 - **The journal survives a restart.** Each room's journal written to
   `data/d12ball_web_journal.json` on every `add` (frontend state, its
-  own file, never the save) and read at start, bounded as in memory,
-  with the board snapshots and details its entries draw. A room's
-  link is good after a restart (step 2); this makes its transcript
-  good too.
+  own file, never the save) and read at start, bounded as in memory.
+  An entry is kept with its words, its roll's `detail` -- which the
+  question box draws the dice from, since the log draws no picture
+  (step 8) -- and its board snapshot, which `board.png?entry=` serves
+  though no page draws it; and the journal's `showing_roll`, so the
+  dice a restart finds up are still up after it. A room's link is
+  good after a restart (step 2); this makes its transcript good too.
 
 And two loose ends: decision 3 on the wire tree, taken as "keep it and
 read it", and the tests the 2026-09-25 survey found missing (no test
@@ -1070,8 +1076,10 @@ Branch off an up-to-date main. Four commits, each reviewable alone.
    fire one notification per prompt naming the ask.
 3. The journal survives a restart. Journal writes itself on every add
    to data/d12ball_web_journal.json (keyed by game id, the same
-   JOURNAL_LENGTH bound, entries with their snapshots and details)
-   and reads it at startup; a write failure is logged and never fails
+   JOURNAL_LENGTH bound, entries with their words, snapshots and
+   roll details, and showing_roll -- the roll the question box
+   shows) and reads it at startup; the log still draws no picture
+   (docs/design/web-app.md, "The page"); a write failure is logged and never fails
    the request, like save_games; a room the journal knows and the
    service does not is dropped on load. A full test run must not
    create data/ (see tests/save_patches.py and do the same here).
@@ -1220,7 +1228,10 @@ drawing or text.
    seat's own team's cards first and the other team's a tab away
    (both for an observer). At the front door: both hexagons named by
    tier, the species card, and a team picker. The maneuver prompt
-   links to the hexagon. Nothing in it takes a lock or touches the
+   links to the hexagon -- a link, never a picture inline, since the
+   question box already carries the challenge over the hand (step 8).
+   Nothing in the panel goes in the log. Nothing in it takes a lock or
+   touches the
    service beyond reading the game.
 5. Tests, on the routes and never on the pictures or the books
    (CLAUDE.md: nothing printed is tested): each route answers 200

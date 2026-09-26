@@ -726,6 +726,9 @@ batch for.
   ignition die, with its caption (`D12Ball.post_volatile_ignition`,
   one per side that ignited), and the scorer's portrait under a goal.
   Both ride on the same `detail` the page already keeps -- the
-  ignites on a contest's, the scorer on a shot's.
+  ignites on a contest's, the scorer on a shot's -- so if they come to
+  the page they go **in the question box beside the dice they came
+  with**, and down with them; never in the log (2026-09-26, the
+  author: no picture in the log).
 - **It keeps its journal in memory**, so a restart is a page with a
   board, a prompt and no history.
