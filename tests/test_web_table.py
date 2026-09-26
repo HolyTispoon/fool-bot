@@ -28,6 +28,7 @@ from pathlib import Path
 
 from aiohttp.test_utils import TestClient, TestServer
 
+from d12ball.formatting import GAME_MODE_NAMES, describe_game_mode
 from d12ball.game import GameMode, GameStatus, Team, paired_team
 from gamelocks import GameLocks
 from gamesaves.d12ball.service import GameService
@@ -525,7 +526,18 @@ class RedesignedTableTests(TableHarness):
             "Someone has already joined -- they would have to leave first.",
         )
         self.assertTrue(all(one["open"] for one in settings["mode"]["choices"]))
-        self.assertIsNone(settings["mode"]["note"])
+        # The mode's own note is the model's definition of it, and each
+        # pill carries the definition of the mode it would pick.
+        self.assertEqual(
+            settings["mode"]["note"], describe_game_mode(game),
+        )
+        self.assertEqual(
+            {one["label"]: one["definition"] for one in settings["mode"]["choices"]},
+            {
+                GAME_MODE_NAMES[mode]: describe_game_mode(game, mode)
+                for mode in GameMode
+            },
+        )
 
         started = await self.pressed(room, CREATOR, "start")
         mine, theirs = started["table"]["seats"]

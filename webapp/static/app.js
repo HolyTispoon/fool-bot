@@ -2553,12 +2553,13 @@ function drawSettings(table) {
   );
 }
 
-function pill(label, { current = false, disabled = false, onclick = null } = {}) {
+function pill(label, { current = false, disabled = false, onclick = null, title = null } = {}) {
   return h("button", {
     type: "button",
     class: `pill${current ? " current" : ""}`,
     disabled: disabled || current,
     "aria-pressed": current ? "true" : "false",
+    title,
     onclick,
   }, label);
 }
@@ -2571,6 +2572,7 @@ function drawSetting(setting) {
     control = h("div", { class: "pills" }, setting.choices.map((choice) => pill(choice.label, {
       current: choice.value === setting.value,
       disabled: off || !choice.open,
+      title: choice.definition || null,
       onclick: () => configure(choice.value),
     })));
   } else if (typeof setting.value === "boolean") {

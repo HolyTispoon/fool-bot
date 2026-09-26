@@ -61,7 +61,9 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.formatting import (
     AI_OPPONENT_NAMES,
+    GAME_MODE_NAMES,
     coach_name,
+    describe_game_mode,
     format_player_with_team_name,
 )
 from d12ball.game import (
@@ -1923,11 +1925,21 @@ class WebApp:
                 "note": notes[0] if notes else None,
             }
 
+        mode = setting(
+            "mode", "Mode", GameMode(game.mode).value,
+            [(one.value, GAME_MODE_NAMES[one]) for one in GameMode],
+        )
+        # What each mode plays, in the model's words (`describe_game_mode`,
+        # the same sentence the Discord setup screens use): on each pill,
+        # and under the row for the mode the game is in, unless the
+        # record has a refusal to say there instead.
+        for choice in mode["choices"]:
+            choice["definition"] = describe_game_mode(
+                game, GameMode(choice["value"]),
+            )
+        mode["note"] = mode["note"] or describe_game_mode(game)
         settings = [
-            setting(
-                "mode", "Mode", GameMode(game.mode).value,
-                [(mode.value, mode.value.title()) for mode in GameMode],
-            ),
+            mode,
             setting(
                 "board", "Board", str(game.board_size),
                 [

@@ -374,7 +374,8 @@ its sideline.
   used to send only the reader's, so each coach sees what the other is
   choosing from; the route still refuses a pick for a seat that is not
   the reader's, so Dinky's seat is never picked for -- the service
-  picks the AI's team once the other side has.
+  picks the AI's team once the other side has, and a seated coach
+  picking for Dinky is out on purpose (the author, 2026-09-26).
 - **The seat moves are drags, each with a click beside it**: the
   reader's own name dragged off the sideline into an empty seat (or
   the seat clicked) takes it; the Dinky chip dragged in (or "put Dinky
@@ -393,9 +394,14 @@ its sideline.
   record, the way the whistle's note is `start_lobby` asked of one
   (`_configure_refusal`, `_start_refusal`), so a dark pill says why --
   "Someone has already joined -- they would have to leave first." --
-  in the words the press would be refused with. The canvas's notes
-  that described what a mode *is* were not carried: that would be the
-  web app wording a rule, and the Charter is in the reading room.
+  in the words the press would be refused with. **What a mode plays is
+  the model's definition too** (`describe_game_mode`, moved out of the
+  cog for it, at the author's word on 2026-09-26): each mode pill
+  carries the definition of the mode it would pick, and the row's note
+  is the current mode's, unless the record has a refusal to say there.
+  The canvas's other descriptive notes ("kept out of the statistics")
+  were not carried, since nothing in the model words them and the web
+  app wording a rule is what the split forbids.
 - **The question box** asks one thing at a time: the whistle for
   Start, dark with `start_lobby`'s refusal until both seats are held;
   the teams; the coin -- the bot's own gold coin (the `3_gold_fortune`
