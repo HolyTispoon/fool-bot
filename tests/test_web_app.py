@@ -34,7 +34,6 @@ from pathlib import Path
 from unittest import mock
 
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
-from PIL import Image
 
 from d12ball.components import TeamSide
 from d12ball.flow import FollowOnStep
@@ -615,29 +614,20 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
 
 class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
     """
-    What a coach looks at while choosing (step 8 of
-    docs/web-app-next.md): the picture `D12Ball.render_prompt` puts
-    under each kind, served for the prompt the match is on, and the
-    challenge image a walk-in rides on, served for its entry. Each is
-    drawn by the renderer the cog calls, off the same brief.
+    The picture a question is asked over (step 8 of
+    docs/web-app-next.md): the two matchups the cog posts with the same
+    question -- the shot over its roll, the challenge over the maneuver
+    pick -- served for the prompt the match is on, and drawn by the
+    renderer the cog calls, off the same brief. The field strip and the
+    coach's half-field are not drawn: the board is beside the prompt.
     """
 
-    #: One fixture per kind that carries a picture, and the renderer
-    #: the cog calls for it -- named here rather than read off
-    #: `present.PROMPT_PICTURES`, so a wrong pick in the table is
-    #: caught.
+    #: The fixture, and the renderer the cog calls for its picture --
+    #: named here rather than read off `present.PROMPT_PICTURES`, so a
+    #: wrong pick in the table is caught.
     PICTURES = (
-        ("low pass", "render_field_image"),
-        ("high pass", "render_field_image"),
-        ("setup pass shot", "render_field_image"),
-        ("dribble advance", "render_field_image"),
-        ("dribble burst", "render_field_image"),
-        ("run back, where", "render_field_image"),
-        ("run back, who", "render_field_image"),
-        ("fly", "render_field_image"),
         ("score attempt", "render_score_attempt"),
-        ("coaching hub", "render_coaching_image"),
-        ("coaching offer", "render_coaching_image"),
+        ("maneuver picks", "render_maneuver_challenge"),
     )
 
     async def open(self, name: str):
@@ -677,7 +667,9 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
 
         return mock.patch(f"webapp.pictures.{renderer}", spy)
 
-    async def test_every_kind_with_a_picture_serves_the_cog_s(self) -> None:
+    async def test_each_matchup_is_served_as_the_cog_draws_it(self) -> None:
+        from PIL import Image
+
         for name, renderer in self.PICTURES:
             with self.subTest(name):
                 ENGINE.rng.seed(11)
@@ -708,26 +700,35 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
                     [Image.open(io.BytesIO(body)).size],
                 )
 
-    async def test_the_half_field_is_the_asked_side_s(self) -> None:
+    async def test_the_challenge_is_the_ball_against_the_challenger(
+        self,
+    ) -> None:
         ENGINE.rng.seed(11)
-        client, fixture = await self.open("coaching offer")
-        game, match = fixture.game, fixture.match
-        prompt = pending_prompt(ENGINE, game, match)
+        client, fixture = await self.open("maneuver picks")
+        match = fixture.match
+        state = await self.get_state(client, fixture.game, as_coach(STRANGER))
         drawn = []
-        state = await self.get_state(client, game, as_coach(STRANGER))
 
-        with self.spy("render_coaching_image", drawn):
+        with self.spy("render_maneuver_challenge", drawn):
             await client.get(state["prompt"]["picture"])
 
-        side = TeamSide(prompt.side or match.pending_coaching_side)
-        _, args = drawn[0]
-        self.assertEqual(args[2], side)
-        self.assertEqual(args[3], ENGINE.coaching_title(match, side))
+        (_, (offense, defense, _)), = drawn
+        self.assertEqual(
+            offense.name,
+            ENGINE.get_player_definition(match.active_player_id).name,
+        )
+        self.assertEqual(
+            defense.name,
+            ENGINE.get_player_definition(match.challenger_id).name,
+        )
 
-    async def test_a_kind_with_no_picture_has_none(self) -> None:
-        # The maneuver pick's hand is the cards themselves, and a turn
-        # is asked over the live board.
-        for name in ("maneuver picks", "kickoff", "skill test"):
+    async def test_every_other_question_has_no_picture(self) -> None:
+        # The distance questions and the Coaching Choice among them:
+        # the board beside the prompt is the field.
+        for name in (
+            "low pass", "run back, where", "coaching hub", "coaching offer",
+            "kickoff", "skill test",
+        ):
             with self.subTest(name):
                 ENGINE.rng.seed(11)
                 client, fixture = await self.open(name)
@@ -741,7 +742,10 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIsNone(state["prompt"]["picture"])
                 self.assertEqual(response.status, 404)
 
-    async def test_a_walk_in_serves_the_challenge_it_named(self) -> None:
+    async def test_the_log_says_the_challenge_in_words(self) -> None:
+        # Sending a challenger walks one in. On Discord the challenge
+        # image follows the walk-in; the log draws no picture, so it
+        # says who is on the ball, who challenges and where.
         ENGINE.rng.seed(11)
         client, fixture = await self.open("maneuver challenge")
         game = fixture.game
@@ -757,41 +761,30 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
             if sent:
                 break
         attacker = fixture.match.active_player_id
+        challenger = sent[0]["arguments"]["player_id"]
 
         played = await (
             await client.post(
                 f"/api/game/{game.game_id}/action",
-                params={"since": str(state["latest"])},
                 headers=headers,
                 data=json.dumps({"action": sent[0]}),
             )
         ).json()
+
         self.assertIsNone(played["refusal"])
-        walk_ins = [entry for entry in played["entries"] if entry["challenge"]]
-        self.assertEqual(len(walk_ins), 1, played["entries"])
-        self.assertIsNone(walk_ins[0]["dice"])
-
-        drawn = []
-        with self.spy("render_maneuver_challenge", drawn):
-            response = await client.get(
-                f"/api/room/{game.game_id}/detail/{walk_ins[0]['id']}.png",
+        self.assertEqual(played["prompt"]["kind"], "maneuver_action")
+        self.assertIsNotNone(played["prompt"]["picture"])
+        said = [
+            line
+            for entry in played["entries"]
+            for line in entry["lines"]
+            if "Maneuver challenge" in line
+        ]
+        self.assertEqual(len(said), 1, played["entries"])
+        for player_id in (attacker, challenger):
+            self.assertIn(
+                ENGINE.get_player_definition(player_id).name, said[0],
             )
-            body = await response.read()
-
-        self.assertEqual(response.status, 200)
-        self.assertEqual(response.content_type, "image/png")
-        (size, (offense, defense, _)), = drawn
-        self.assertEqual(size, Image.open(io.BytesIO(body)).size)
-        # Whoever was on the ball, against whoever the walk-in named.
-        self.assertEqual(
-            offense.name, ENGINE.get_player_definition(attacker).name,
-        )
-        self.assertEqual(
-            defense.name,
-            ENGINE.get_player_definition(
-                sent[0]["arguments"]["player_id"],
-            ).name,
-        )
 
 
 class IdentityTests(unittest.IsolatedAsyncioTestCase):
@@ -1505,10 +1498,10 @@ class EntryPointTests(unittest.TestCase):
             self.assertFalse(bot_file.exists())
             self.assertEqual(len(json.loads(web_file.read_text())), 1)
 
-    def test_it_batches_for_its_pictures_and_nothing_else(self) -> None:
+    def test_it_batches_for_the_walk_in_and_nothing_else(self) -> None:
         """Discord's economy is the cog's; the web app has no rate
         limit to batch for. The one boundary it draws is the walk-in,
-        which the challenge image rides on (step 8 of
+        which the log words the challenge on (step 8 of
         docs/web-app-next.md); it stops nowhere and carries every
         answer the default way."""
         with tempfile.TemporaryDirectory() as directory:

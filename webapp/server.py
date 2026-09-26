@@ -131,8 +131,8 @@ CARD_MAX_AGE = 86400
 #: The environment this reads: the port to listen on (8080 when unset)
 #: and the address to bind (every interface when unset).
 #: The web app's batching (principle 8): the one step whose lines it
-#: closes into a group of their own is the walk-in, because the
-#: challenge image rides on it -- the group tagged
+#: closes into a group of their own is the walk-in, so the log can
+#: say what the challenge is -- the group tagged
 #: `AUTO_RESOLVE_CHALLENGER` names the challenger (`Narration.arguments`),
 #: and a walk-in carried into the next step's lead-in would name
 #: nobody. Every other line goes where it goes by default; Discord's
@@ -161,12 +161,6 @@ class Entry:
     #: the result's `detail` (the answer's own) or the group's (an AI's
     #: answer) -- for `detail/{entry}.png`.
     detail: Optional[object] = None
-    #: The matchup a walk-in named, as the brief the challenge image is
-    #: drawn from (`dice_brief.maneuver_challenge_brief`), taken when
-    #: it was said -- the group tagged `AUTO_RESOLVE_CHALLENGER` names
-    #: the challenger, and the match has moved on by the time a page
-    #: asks for the picture. Also for `detail/{entry}.png`.
-    challenge: Optional[tuple] = None
 
     def to_dict(self, game: D12BallGame) -> dict:
         """The entry as the page's log reads it: its words, and the
@@ -176,9 +170,7 @@ class Entry:
         they are the roll, where the board is only where it happened.
         `dice` is the roll's shape where the page has a picture for
         it, and `dice_after` how many of the lines are read above
-        it. `challenge` says the entry is a walk-in with the challenge
-        image under its lines, which is where the cog posts it
-        (`D12Ball.announce_maneuver_challenge`)."""
+        it."""
         shape = pictures.dice_shape(self.detail)
         return {
             "id": self.id,
@@ -188,7 +180,6 @@ class Entry:
             "at": self.at,
             "dice": shape,
             "dice_after": pictures.LINES_BEFORE_DICE.get(shape, 0),
-            "challenge": shape is None and self.challenge is not None,
         }
 
 
@@ -216,21 +207,26 @@ class Journal:
     def add(
         self,
         result: GameResult,
-        challenge: Optional[Callable[[str], tuple]] = None,
+        challenge: Optional[Callable[[str], str]] = None,
     ) -> None:
         """One result, as the page reads it: the answer's own lines,
-        then every group the run closed. `challenge` draws up the
-        brief of the matchup a walk-in names, from the challenger's
-        id; the walk-in's entry keeps it."""
+        then every group the run closed. `challenge` words the matchup
+        a walk-in names, from the challenger's id: on Discord the walk-in
+        is followed by the challenge image, and the log draws no
+        picture, so it says what the picture shows."""
         for lines, group, detail in self._blocks(result):
-            if not lines and group is None and detail is None:
-                continue
-            walk_in = (
+            if (
                 group is not None
                 and group.step is FollowOnStep.AUTO_RESOLVE_CHALLENGER
                 and challenge is not None
                 and "challenger_id" in group.arguments
-            )
+            ):
+                lines = [
+                    *filter(None, lines),
+                    challenge(group.arguments["challenger_id"]),
+                ]
+            if not lines and group is None and detail is None:
+                continue
             self.entries.append(
                 Entry(
                     self.next_id,
@@ -238,10 +234,6 @@ class Journal:
                     board=None if group is None else group.board,
                     new_play=False if group is None else group.new_play,
                     detail=detail,
-                    challenge=(
-                        challenge(group.arguments["challenger_id"])
-                        if walk_in else None
-                    ),
                 ),
             )
             self.next_id += 1
@@ -393,13 +385,9 @@ class WebApp:
         """One result, into that game's journal. It must not raise:
         this runs inside somebody's click."""
         try:
-            match = self._match(game)
             self.journal(game.game_id).add(
-                result,
-                challenge=None if match is None else (
-                    lambda challenger_id: maneuver_challenge_brief(
-                        self.engine, match, challenger_id, game,
-                    )
+                result, challenge=lambda challenger_id: self._challenge_line(
+                    game, challenger_id,
                 ),
             )
         except Exception:  # pragma: no cover - a frontend's own bug
@@ -407,6 +395,31 @@ class WebApp:
                 "The web journal could not record a result for game %s",
                 game.game_id,
             )
+
+    def _challenge_line(self, game: D12BallGame, challenger_id: str) -> str:
+        """
+        The challenge image in words, for the log: the same brief the
+        cog draws it from (`dice_brief.maneuver_challenge_brief`) -- who
+        is on the ball, who challenges them, where, and the skill each
+        brings. Read off the match as it stands after the run, which is
+        the position the cog draws the picture from too.
+        """
+        match = self._match(game)
+        offense, defense, location = maneuver_challenge_brief(
+            self.engine, match, challenger_id, game,
+        )
+        attacker = self.engine.format_player_label(
+            match, self.engine.get_player_definition(match.active_player_id),
+        )
+        challenger = self.engine.format_player_label(
+            match, self.engine.get_player_definition(challenger_id),
+        )
+        return (
+            f"**Maneuver challenge**, {location}: {attacker}"
+            f" ({offense.skill_name.lower()} skill {offense.skill:+d})"
+            f" against {challenger}"
+            f" ({defense.skill_name.lower()} skill {defense.skill:+d})."
+        )
 
     def journal(self, game_id: str) -> Journal:
         journal = self.journals.get(game_id)
@@ -1020,11 +1033,6 @@ class WebApp:
         view for that roll calls, picked by the shape of the roll
         (`pictures.DICE`), in a worker thread, and kept: an entry never
         changes, so its picture is the same for every page that asks.
-
-        **A walk-in's entry serves its challenge image here too**, off
-        the brief the entry took when it was said: it is the one other
-        picture that rides on what was said rather than on a question.
-        An entry is one or the other -- a walk-in rolls nothing.
         """
         game = self._game(request)
         match = self._match(game)
@@ -1034,18 +1042,13 @@ class WebApp:
             if entry_id is None or match is None
             else self.journal(game.game_id).entry(entry_id)
         )
-        rolled = entry is not None and pictures.dice_shape(entry.detail)
-        if entry is None or not (rolled or entry.challenge is not None):
+        if entry is None or pictures.dice_shape(entry.detail) is None:
             raise web.HTTPNotFound(text="Those dice are no longer in hand.")
         key = (game.game_id, entry_id)
         png = self._dice.get(key)
         if png is None:
-            png = await (
-                asyncio.to_thread(
-                    pictures.dice_png, self.engine, game, match, entry.detail,
-                )
-                if rolled
-                else asyncio.to_thread(pictures.challenge_png, entry.challenge)
+            png = await asyncio.to_thread(
+                pictures.dice_png, self.engine, game, match, entry.detail,
             )
             self._dice[key] = png
             while len(self._dice) > DICE_CACHE:
@@ -1059,10 +1062,10 @@ class WebApp:
     async def prompt_picture(self, request: web.Request) -> web.Response:
         """
         The picture the prompt the match is waiting on is asked over,
-        as a PNG -- read-only, like the board: the field strip, the
-        shot, or the asked coach's half-field, by the prompt's kind
+        as a PNG -- read-only, like the board: the shot over its roll or
+        the challenge over the maneuver pick, by the prompt's kind
         (`present.PROMPT_PICTURES`), drawn in a worker thread by the
-        function the cog calls for the same kind.
+        function the cog calls for the same picture.
 
         What is drawn is the prompt the match is on *now*, whatever the
         URL says: its `v` and `p` are there so a browser asks again
@@ -1073,7 +1076,7 @@ class WebApp:
         match = self._match(game)
         waiting = None if match is None else pending(self.engine, game, match)
         prompt = waiting if isinstance(waiting, PendingPrompt) else None
-        picture = prompt_picture_key(prompt)
+        picture = prompt_picture_key(prompt, match)
         if picture is None:
             raise web.HTTPNotFound(text="This prompt has no picture.")
         key = (
@@ -1338,7 +1341,7 @@ class WebApp:
                     # the same for a coach and an observer, since it is
                     # the position's and holds nobody's hand.
                     "picture": self._prompt_picture_url(
-                        game, prompt, journal.board_version,
+                        game, match, prompt, journal.board_version,
                     ),
                     "controls": controls_for(
                         self.engine, game, match, prompt, viewer,
@@ -1366,9 +1369,13 @@ class WebApp:
         }
 
     def _prompt_picture_url(
-        self, game: D12BallGame, prompt: PendingPrompt, version: int,
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        prompt: PendingPrompt,
+        version: int,
     ) -> Optional[str]:
-        picture = prompt_picture_key(prompt)
+        picture = prompt_picture_key(prompt, match)
         if picture is None:
             return None
         return (
@@ -1806,9 +1813,10 @@ async def start_web_app(
 def build_service(games_file: Path) -> GameService:
     """
     The web app's own service: an engine from the same four loaders
-    the cog builds its own from, the games saved in `games_file`, its
-    own batching (`WEB_BATCHING` -- Discord's economy is not the
-    web's), and a save that writes `games_file` and nothing else.
+    the cog builds its own from, the games saved in `games_file`, the
+    own batching (`WEB_BATCHING` -- the default but for the walk-in;
+    Discord's economy is not the web's), and a save that writes
+    `games_file` and nothing else.
 
     **The file is always named.** `storage`'s default is the bot's
     file, so a call here that forgot the path would write over the

@@ -432,7 +432,6 @@ select {
 .entry .stamp { font-size: 11px; color: var(--faint); }
 /* A roll's dice, as the bot posts them: at their own size up to the
    log's width, never stretched past it. */
-.entry img.dice { display: block; max-width: 100%; height: auto; margin: 4px 0 6px; border-radius: 4px; }
 
 /* The model's `#`, `##` and `###`. */
 .headline {

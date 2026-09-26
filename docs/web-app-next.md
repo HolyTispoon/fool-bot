@@ -919,13 +919,17 @@ the board-image checklist line applies to the move.
 
 ### 8. The prompt's pictures
 
-**Landed.** What it settled is in `docs/design/web-app.md`, "The
-prompt's pictures": `PROMPT_PICTURES` by kind, the prompt picture
-route, the challenge image on the walk-in's entry, and the one
-boundary of the web app's own batching (`WEB_BATCHING`) that gives the
-walk-in a group to carry its challenger on. The shot's and the
-challenge's briefs moved below the renderer, byte-identical
-(`docs/design/board-image.md`, "The matchup image").
+**Landed, narrowed by the author on 2026-09-26.** What it settled is
+in `docs/design/web-app.md`, "The prompt's pictures": the shot and the
+challenge in the question area, keyed on the kind, and gone with the
+question; **no field strip and no half-field**, since the board is
+beside the prompt; **no picture in the log**, which says the
+challenge in words instead (`WEB_BATCHING` gives the walk-in a group
+to carry its challenger on) and stopped drawing step 7's dice. Both
+briefs moved below the renderer, byte-identical
+(`docs/design/board-image.md`, "The matchup image"). Still open: the
+injury test's, the own goal's and the score attempt's dice in the
+question area.
 
 **What it is.** What a coach looks at while choosing: the field strip
 under the seven distance prompts, the hand of cards on the maneuver

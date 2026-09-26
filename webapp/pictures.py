@@ -9,10 +9,8 @@ opens as is `player_cards.render_player_card` (its advanced face,
 `render_player_card_back`, in an advanced game),
 a maneuver card is `cards.render_maneuver_card`, a roll is the die
 the matching roll view on Discord posts (`dice_png`), a prompt's
-picture is the one `D12Ball.render_prompt` puts under the same kind
-(`field_png`, `score_attempt_png`, `coaching_png`), the challenge
-image is `render_maneuver_challenge` over the brief the cog draws
-too (`challenge_png`), and the role badges,
+picture is the matchup the cog posts with the same question
+(`score_attempt_png`, `challenge_png`), and the role badges,
 team marks and condition marks are the PNGs the bot uploads as its
 application emoji. A page that drew its own card would be a third
 layout to keep right beside the printed one and the board's -- see
@@ -39,9 +37,9 @@ from d12ball.components import (
     ManeuverCatalog,
     MatchState,
     PlayerCatalog,
-    TeamSide,
 )
 from d12ball.dice_brief import (
+    maneuver_challenge_brief,
     render_contest_dice,
     score_attempt_brief,
 )
@@ -59,8 +57,6 @@ from d12ball.render import (
     card_profile,
     draw_card,
     draw_end_zone,
-    render_coaching_image,
-    render_field_image,
     render_injury_test_die,
     render_maneuver_challenge,
     render_mind_pull_die,
@@ -335,24 +331,10 @@ def dice_png(
 
 # -- The prompt's pictures --------------------------------------------------
 #
-# What a coach looks at while choosing, each drawn by the function
-# `D12Ball.render_prompt` reaches for the same kind, off the same
-# arguments. Which kind gets which is `webapp.present.PROMPT_PICTURES`.
-
-
-def field_png(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    prompt: PendingPrompt,
-) -> bytes:
-    """The field strip, as `D12Ball.build_field_file` draws it under
-    the distance questions and the run back."""
-    return render_field_image(
-        match,
-        engine.player_catalog,
-        species_icons=engine.species_abilities_apply(game),
-    ).getvalue()
+# The two matchups a coach looks at while choosing -- the shot over
+# its roll, the challenge over the maneuver pick -- each drawn by the
+# function the cog calls, off the same brief. Which kind gets which is
+# `webapp.present.PROMPT_PICTURES`.
 
 
 def score_attempt_png(
@@ -367,32 +349,18 @@ def score_attempt_png(
     return render_score_attempt(shooter, defenders, location).getvalue()
 
 
-def coaching_png(
+
+def challenge_png(
     engine: RulesEngine,
     game: D12BallGame,
     match: MatchState,
     prompt: PendingPrompt,
 ) -> bytes:
-    """The asked coach's own half of the field, as
-    `D12Ball.coaching_file` draws it on a Coaching Choice."""
-    side = TeamSide(prompt.side or match.pending_coaching_side)
-    return render_coaching_image(
-        match,
-        engine.player_catalog,
-        side,
-        engine.coaching_title(match, side),
-        species_icons=engine.species_abilities_apply(game),
-        cyborg_ids=engine.cyborg_condition_ids(game, match),
-        card_skills=engine.card_skills(game, match),
-    ).getvalue()
-
-
-def challenge_png(brief: tuple) -> bytes:
-    """
-    The matchup a walk-in named, off the brief the journal took when
-    the walk-in was said (`dice_brief.maneuver_challenge_brief`) --
-    the brief rather than the match, because by the time a page asks
-    for the picture the match has moved on.
-    """
-    offense, defense, location = brief
+    """The matchup the maneuver pick is made over, as
+    `D12Ball.build_maneuver_challenge_file` draws it under the walk-in:
+    the player on the ball against the challenger the position holds.
+    Only asked where there is one (`present.prompt_picture_key`)."""
+    offense, defense, location = maneuver_challenge_brief(
+        engine, match, match.challenger_id, game,
+    )
     return render_maneuver_challenge(offense, defense, location).getvalue()

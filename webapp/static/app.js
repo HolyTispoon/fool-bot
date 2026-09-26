@@ -694,41 +694,15 @@ function drawJournal(state) {
   const nearBottom = journal.scrollHeight - journal.scrollTop - journal.clientHeight < 80;
   for (const entry of state.entries) {
     const block = h("div", { class: entry.new_play ? "entry new-play" : "entry" });
-    entry.lines.forEach((line, index) => {
-      if (entry.dice && index === entry.dice_after) block.append(dice(entry, journal));
-      if (line) block.append(h("p", { html: line }));
-    });
-    if (entry.dice && entry.dice_after >= entry.lines.length) block.append(dice(entry, journal));
-    /* A walk-in's challenge image goes under its lines, as the cog
-       posts it under the walk-in (`announce_maneuver_challenge`). */
-    if (entry.challenge) block.append(dice(entry, journal, "The challenge"));
+    /* Words only: the log draws no picture (2026-09-26, the author).
+       A question's picture is in the question area, and goes with it. */
+    for (const line of entry.lines) block.append(h("p", { html: line }));
     journal.append(block);
   }
   if (nearBottom || !journal.dataset.scrolled) {
     journal.scrollTop = journal.scrollHeight;
     journal.dataset.scrolled = "1";
   }
-}
-
-/* A roll's dice, where the Discord view puts them among its lines: the
-   prompt becomes the dice and the verdict follows, or (the own-goal
-   roll) the breakdown is read above them -- `dice_after` is the
-   server's, off the roll's shape. The picture is the bot's own, drawn
-   once per entry; `at` keeps a browser from showing a roll it cached
-   before a restart numbered the entries again. A log read to its last
-   line stays on it once the picture has a height. */
-function dice(entry, journal, alt = "The dice") {
-  const image = h("img", {
-    class: "dice",
-    alt,
-    src: `/api/room/${GAME_ID}/detail/${entry.id}.png?at=${entry.at}`,
-  });
-  image.addEventListener("load", () => {
-    const pinned = journal.scrollHeight - journal.scrollTop - journal.clientHeight
-      < image.offsetHeight + 80;
-    if (pinned) journal.scrollTop = journal.scrollHeight;
-  });
-  return image;
 }
 
 // -- The divider between the log and the chat ---------------------------------
@@ -888,9 +862,9 @@ function drawPrompt(state) {
   drawControls(state.prompt);
 }
 
-/* The picture the prompt is asked over, where the cog puts one under
-   the same kind -- the field strip, the shot, the coach's half-field
-   -- or none. Its URL changes when the position or the question does,
+/* The picture the prompt is asked over, where the cog posts one with
+   the same question -- the shot, or the challenge over the maneuver
+   pick -- or none. Its URL changes when the position or the question does,
    so an unchanged one is left alone rather than reloaded. */
 function drawPicture(prompt) {
   const image = el("prompt-picture");
@@ -900,9 +874,7 @@ function drawPicture(prompt) {
     return;
   }
   if (image.getAttribute("src") !== prompt.picture) image.src = prompt.picture;
-  image.alt = prompt.kind === "score_attempt" ? "The shot"
-    : prompt.kind.startsWith("coaching") ? "The coach's half of the field"
-    : "The field";
+  image.alt = prompt.kind === "score_attempt" ? "The shot" : "The challenge";
   image.hidden = false;
 }
 

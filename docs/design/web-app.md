@@ -533,7 +533,11 @@ what happened, which is the opposite of a table.
   live board is beside it, and a snapshot in every stopped entry
   pushed the lines a coach reads off the panel. An entry's wire shape
   carries no `layout`; the journal still keeps the position the run
-  stopped at, and `board.png?entry=` still serves it.
+  stopped at, and `board.png?entry=` still serves it. **It draws no
+  picture of any kind** (2026-09-26, the author, at step 8): not the
+  dice, not the challenge. A picture belongs to a question and goes
+  with it ("The prompt's pictures", below); what the challenge image
+  shows, the log says in words.
 - **The chat is people talking** ("Chat", under "What a page is
   handed"): everybody in the room may post under the name on their
   cookie, a seated coach's name in their team's colour and an
@@ -599,13 +603,16 @@ it here, headlines at all three of the levels the model writes.
 
 ### The dice
 
-**A roll is drawn in the log, as the bot posts it** (step 7 of
-[../web-app-next.md](../web-app-next.md)). The log draws no board, but
-it draws the dice: the board is only where something happened, and
-the dice are what happened -- on Discord the prompt a coach pressed
-*becomes* the dice. One picture for both frontends, because the
-model's voice is one and so is its picture of a roll; HTML dice would
-be a second drawing to keep right.
+**A roll's picture is the bot's own** (step 7 of
+[../web-app-next.md](../web-app-next.md)): one picture for both
+frontends, because the model's voice is one and so is its picture of a
+roll; HTML dice would be a second drawing to keep right. Step 7 drew
+it in the log. **Since step 8 the page draws it nowhere** (2026-09-26,
+the author: no picture in the log); the journal still keeps each roll
+and the route below still serves it, for the question area the author
+has asked for the injury test's, the own goal's and the score
+attempt's dice to go to -- which is not built yet ("What it does not
+do yet", below).
 
 - **The journal keeps the roll on the entry it rode on.** An entry
   made from a result's answer keeps `GameResult.detail`; one made from
@@ -645,46 +652,48 @@ be a second drawing to keep right.
 
 ### The prompt's pictures
 
-**What a coach looks at while choosing is the cog's picture for the
-same kind** (step 8 of [../web-app-next.md](../web-app-next.md)): the
-field strip under the eight questions answered by reading the field
-(the six distance questions, the run back's two and Fly), the shot's
-composition on a score attempt, and the asked coach's own half-field on
-a Coaching Choice. `webapp/present.py`'s `PROMPT_PICTURES` is the web
-half of `D12Ball.render_prompt`, and **the kind is its only key** -- the
-same kinds as the cog's `FIELD_PROMPT_KINDS` and
-`COACHING_PROMPT_KINDS`; a page that looked at `match.challenger_id`
-to decide would be a second reading of what is asked. Each is drawn by
-the function the cog calls, off the same arguments (`webapp/pictures.py`:
-`field_png`, `score_attempt_png`, `coaching_png`), and the shot's
-brief is `dice_brief.score_attempt_brief`, moved below the renderer
-for this so the two frontends draw one composition.
+**A question is asked over the matchup it is about, where the cog
+posts one with it** (step 8 of [../web-app-next.md](../web-app-next.md)):
+the shot's composition over a score attempt's roll
+(`D12Ball.begin_score_attempt`), and the challenge image over the
+maneuver pick, which on Discord sits directly on top of it
+(`announce_maneuver_challenge`). `webapp/present.py`'s
+`PROMPT_PICTURES` is the table, **keyed on the kind**, and each is
+drawn by the function the cog calls off the same brief --
+`dice_brief.score_attempt_brief` and `maneuver_challenge_brief`, moved
+below the renderer for this so the two frontends draw one picture
+(`webapp/pictures.py`: `score_attempt_png`, `challenge_png`).
 
-- **The maneuver pick is not on the list**: its hand is the printed
-  cards, which are the page's controls already.
-- **It is the same picture for a coach and an observer.** Every one
-  is a picture of the position, and none holds a hand; an observer
-  gets the strip and the half-field, and never a hand, because no hand
-  is drawn.
+- **Deliberately not the field strip or the coach's half-field**
+  (2026-09-26, the author): coaches can see the field, since the
+  page's board is beside the prompt. The cog draws both because a
+  channel's board has scrolled away by then; the page's has not.
+- **It is in the question area and goes with the question.** It sits
+  between the ask and the controls, as an attachment sits between a
+  Discord message's text and its buttons, and the next question
+  replaces it. Nothing of it goes in the log.
+- **The challenge is the position's challenger.** The kind says there
+  is a picture; who is in it is `match.challenger_id`, set when a
+  challenger is sent and cleared by `reset_maneuver`, so an
+  uncontested maneuver has none. That reads who is standing where, as
+  the board does -- not what is asked, which is still the prompt's.
+- **It is the same picture for a coach and an observer.** Both are
+  pictures of the position and neither holds a hand.
 - **`GET /api/room/{id}/prompt.png` draws the prompt the match is on
   now**, whatever the URL says, in a worker thread, and keeps it with
   the boards. The URL's `v` is the board version and its `p` the kind
-  (and the side, for the half-field): two coaches' windows can follow
-  one another over the same board, and a browser keeps a picture by
-  its URL. It sits between the ask and the controls, as an attachment
-  sits between a Discord message's text and its buttons.
+  (and the challenger, for the maneuver pick): a browser keeps a
+  picture by its URL.
 
-**The challenge image rides on the walk-in, not on a prompt.** On
-Discord it is posted under the walk-in's lines
-(`announce_maneuver_challenge`), off the challenger the group tagged
-`AUTO_RESOLVE_CHALLENGER` names in `Narration.arguments`. The page
-does the same: the journal's entry for that group keeps the matchup's
-brief (`dice_brief.maneuver_challenge_brief`), taken when the result
-is recorded -- the same post-run position the cog draws it from --
-because by the time a page asks for the picture the match has moved
-on. It is served by the dice route, `detail/{entry}.png`, since an
-entry is a roll or a walk-in and never both; the entry's wire shape
-says `challenge`.
+**The log says the challenge in words.** On Discord the walk-in is
+followed by the challenge image; the log draws none, so the entry for
+the group tagged `AUTO_RESOLVE_CHALLENGER` ends on a line saying what
+the picture shows -- who is on the ball, who challenges them, where,
+and each one's skill -- worded from the same brief the picture is
+drawn from, when the result is recorded (the same post-run position
+the cog draws it from). It is the picture as a caption, which is the
+frontend's (the tokens in it are the model's own, rendered at this
+door); the walk-in's own lines, where there are any, come first.
 
 **That takes one boundary of the web app's own**: `WEB_BATCHING` closes
 the walk-in into a group of its own (`own_message`), where the default
@@ -692,10 +701,15 @@ the walk-in into a group of its own (`own_message`), where the default
 challenger. It is batching and so the frontend's (principle 8), and it
 is the only one: the web app stops nowhere the model does not and
 carries every answer the default way, because it has no rate limit to
-batch for. A walk-in with nothing to say (a defender already on the
-ball) is an entry with no words and the picture.
+batch for.
 
 ## What it does not do yet
+
+- **The dice are drawn nowhere on the page.** The author has asked
+  for the injury test's, the own goal's and the score attempt's to
+  be in the question area and gone afterwards (2026-09-26); when a
+  roll's picture goes up and when it comes down is still to be
+  settled ("The dice", above).
 
 - **Two pictures around a roll are the bot's alone**: Volatile's
   ignition die, with its caption (`D12Ball.post_volatile_ignition`,
