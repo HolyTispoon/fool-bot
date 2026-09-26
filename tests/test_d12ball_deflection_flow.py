@@ -47,6 +47,7 @@ from d12ball.prompts import pending
 from deflection_fixtures import (
     DEFLECTION_CASES,
     ENGINE,
+    defenders_waiting_at,
     LOOSE_BALL,
     SETUP_PASS_PUSH_BACK,
     SHOOTER_CHOICE,
@@ -135,6 +136,51 @@ class DeflectionStepTests(unittest.TestCase):
             with self.subTest(case=name):
                 result = run_step(case_named(name))
                 self.assertEqual(len(result.narration), 2)
+
+    def test_only_the_challenger_is_offered_the_overshoot_shot(
+        self,
+    ) -> None:
+        """
+        An overshot deflection is the challenger's shot and nobody
+        else's, even with a teammate standing on the same space -- the
+        author, 2026-09-26. The standard deal parks the deflecting
+        side's striker on that goal line, so each of these has a second
+        defender there to be passed over; asserted here rather than
+        assumed, or the case would stop testing the rule the moment the
+        deal changed.
+        """
+        for name, distance in (
+            ("deflect_that_overshoots_into_a_shot", 1),
+            ("clear_that_overshoots_into_a_shot", 3),
+        ):
+            with self.subTest(case=name):
+                fixture = case_named(name)
+                waiting = defenders_waiting_at(fixture.match, distance)
+                self.assertIn(fixture.challenger_id, waiting)
+                self.assertGreater(len(waiting), 1)
+
+                result = run_step(fixture)
+                self.assertEqual(
+                    result.next.kwargs["candidates"],
+                    [fixture.challenger_id],
+                )
+
+    def test_a_clear_that_runs_past_its_challenger_sets_up_no_shot(
+        self,
+    ) -> None:
+        """
+        The other half of the same rule: a Clear can overshoot from
+        spaces its challenger is not driven with, and the defender
+        waiting where the ball stops is not the challenger -- so there
+        is no shot, and the ball lands as any deflection's does.
+        """
+        fixture = case_named("clear_that_overshoots_past_its_challenger")
+        waiting = defenders_waiting_at(fixture.match, 3)
+        self.assertTrue(waiting)
+        self.assertNotIn(fixture.challenger_id, waiting)
+
+        result = run_step(fixture)
+        self.assertEqual(result.next.step, FollowOnStep[LOOSE_BALL])
 
     def test_the_distance_and_the_speed_drop_are_two_numbers(self) -> None:
         """

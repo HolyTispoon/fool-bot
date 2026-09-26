@@ -386,7 +386,7 @@ The ball moves 1 space back -- toward the goal the offense is defending. Ball sp
 
 A Deflect turns nothing over by itself, and settles nothing either: it knocks the ball out of anybody's possession, so what happens next depends on who, if anyone, is standing where it lands. That is [the ordinary three-way rule](#where-the-ball-comes-to-rest): nobody there and it is loose, one side there and it is theirs, both there and they contest it on the spot.
 
-The one exception is a deflection that runs out of field **and** finds a defending player standing on the landing space: rather than being contested, that player gets a [scoring opportunity](#scoring-opportunities). Possession flips for it and speed resets, and it is the shot that follows -- goal or miss -- that makes the new play.
+The one exception is a deflection that runs out of field **and** comes to rest on the space of the player who played the Deflect: rather than being contested, that player gets a [scoring opportunity](#scoring-opportunities). **Only the player who played the Deflect may take it**, even with teammates standing on the same space. Possession flips for it and speed resets, and it is the shot that follows -- goal or miss -- that makes the new play. A deflection that runs out of field and comes to rest anywhere else sets up nothing, and lands by the ordinary rule above.
 
 ### Steal
 
@@ -451,7 +451,7 @@ What the set-up buys is the shot, not a shot from anywhere: it obeys the range r
 | A received 2-space High Pass | The receiver |
 | An overshot High Pass onto a teammate | The receiver |
 | A Winger's completed Low Pass | The receiver |
-| An overshot Deflect | The defending player on the landing space |
+| An overshot Deflect | The player who played the Deflect, and only if the ball comes to rest on their space |
 
 ### The shooter
 
@@ -1009,7 +1009,7 @@ Two steps, in this order. The passer first changes the ball's speed by up to the
 
 A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves.
 
-It lands exactly where a Deflect's does -- [loose](#where-the-ball-comes-to-rest) if the space is empty, uncontested if only one side is there, a forced contest if both are -- including the deflection that runs out of field onto a defending player, which offers that player a [scoring opportunity](#scoring-opportunities) exactly as a Deflect's does.
+It lands exactly where a Deflect's does -- [loose](#where-the-ball-comes-to-rest) if the space is empty, uncontested if only one side is there, a forced contest if both are -- including the deflection that runs out of field onto the player who played it, which offers that player -- and only that player -- a [scoring opportunity](#scoring-opportunities) exactly as a Deflect's does. A Clear can run out of field from further out than a Deflect can, and one that leaves the player who played it behind sets up nothing.
 
 *Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 -- a Fullback's extra space is distance, not speed, exactly as it is on a Deflect.
 

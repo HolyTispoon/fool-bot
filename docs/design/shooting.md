@@ -35,6 +35,15 @@ whole rule, over `BoardState.is_in_shooting_range`.
   as deep into the shooting team's range as the field goes. So neither puts a
   range check over its candidates -- a branch that can never be taken reads as
   if it could.
+- **An overshot deflection is its challenger's shot, and nobody else's** (the
+  author, 2026-09-26). `deflection_step` asks `scoring_opportunity_candidates`
+  only whether the challenger is standing where the ball stopped, and hands
+  `begin_shooter_choice` that one name, so the shot goes straight to the
+  attempt and `pending_scoring_opportunity` is never armed with `"shooter"` by
+  a deflection -- which matters because that kind is re-read off the space on a
+  restart, and the space would offer the teammates the rule passes over. A
+  Clear (or a Fullback's Deflect) that drives the ball past its challenger sets
+  up nothing and lands as any deflection does.
 - **Nothing gates `begin_score_attempt` itself.** The rule is enforced where the
   shot is *chosen*: `PlayerActionView` omits the button (and `build_turn_prompt`
   says why), `choose_action` refuses a stale click, `DinkyAI` only ever shoots

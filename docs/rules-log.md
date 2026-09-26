@@ -154,6 +154,26 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-26 (newest) -- author, an overshot Deflect is its challenger's shot alone
+
+A correction from the author: *"When a player wins with deflect and it overshoots to set up a
+scoring opportunity, only the player who challenged the handler with deflect can attempt to
+score even if there are other teammates in the spot."*
+
+- **Only the challenger shoots.** Until now an overshot deflection offered the shot to every
+  defending player on the landing space, and the coach chose between them when there were
+  several -- the standard deal parks the defending striker on that goal line, so the choice
+  was routinely offered. Now the player who played the Deflect is the one shooter, and nobody
+  is asked who shoots.
+- **The challenger has to be on the landing space.** A Deflect played by anybody but a
+  Fullback can only overshoot from the end space, where the ball stays on the challenger, so
+  for it this is the whole rule. A Fullback's Deflect from one space out, and a Clear from one
+  or two out, drive the ball past the challenger; those set up nothing and land by the
+  ordinary three-way rule. Read from "even if there are other teammates in the spot" and
+  confirmed by the author on PR #341: *"these are correct so update the rules"*.
+- **Clear follows**, since the Charter has always had it land "exactly as a Deflect's does".
+  Confirmed in the same answer.
+
 ### 2026-09-26 (final) -- author, the time out's reset comes after the Coaching Choices
 
 Correcting the entry below, on PR #337: *"Yes ball speed to 1. There is no need to send players

@@ -1375,15 +1375,23 @@ def deflection_step(
     # scoring_opportunity_candidates with no range check over it -- the
     # check could never fail here, and a branch that cannot be taken
     # reads as if it could.
+    #
+    # **Only the challenger shoots** -- the player who played the card,
+    # and only if the ball came to rest on their own space. A teammate
+    # who happens to be standing there as well is not offered it (the
+    # author, 2026-09-26), so an overshot deflection never asks who
+    # shoots. A Clear that runs past its challenger onto a space they
+    # are not standing on sets up nothing, and lands like any other
+    # deflection below.
     candidates = []
-    if overshot:
-        candidates = engine.scoring_opportunity_candidates(
-            match, defense_side,
-        )
+    if overshot and match.challenger_id in (
+        engine.scoring_opportunity_candidates(match, defense_side)
+    ):
+        candidates = [match.challenger_id]
 
     if candidates:
-        # A defender standing right where the ball ends up gets a shot
-        # at the goal it's now next to -- that's a turnover before the
+        # The challenger, standing right where the ball ends up, gets a
+        # shot at the goal it's now next to -- that's a turnover before the
         # shot, same as any other change of possession, so the score
         # attempt reads the correct attacking and defending sides.
         match.ball.possession = defense_side
