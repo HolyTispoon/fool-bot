@@ -99,8 +99,10 @@ GAME_ID = "g1"
 LOOSE_BALL = "BEGIN_LOOSE_BALL"
 
 #: The overshoot's ending instead: the ball reached the space closest
-#: to the offense's own goal with a defender standing on it, so the
-#: deflecting side takes it and shoots.
+#: to the offense's own goal with the challenger standing on it, so the
+#: deflecting side takes it and the challenger shoots. Named with the
+#: one candidate it always carries, which `begin_shooter_choice` hands
+#: straight to the shot without asking anybody.
 SHOOTER_CHOICE = "BEGIN_SHOOTER_CHOICE"
 
 #: **Setup Pass's cost**, asked inside the deflection that beat it
@@ -258,9 +260,10 @@ def stand_a_deflection(
 def defenders_waiting_at(match: MatchState, distance: int) -> list[str]:
     """
     The deflecting side's players already standing where this
-    deflection will drive the ball -- the rule
+    deflection will drive the ball -- what
     `scoring_opportunity_candidates` reads, restated off the board so
     the fixture does not ask the engine for its own expected answer.
+    Only the challenger among them is offered the shot.
 
     **In board order**, which is the order the shot's prompt offers
     them in, and not the order anything was placed in.
@@ -325,7 +328,7 @@ def deflection_text(
     )
 
 
-#: What an overshoot that lands on a defender adds, and the whole of
+#: What an overshoot that lands on its challenger adds, and the whole of
 #: what sends the turn to a shot instead of to a loose ball. It reads
 #: as one sentence after the deflection's own, joined by the single
 #: space `dispatch_step_result` joins narration blocks with.
@@ -400,17 +403,21 @@ def deflect_that_overshoots_into_a_shot() -> DeflectionFixture:
     4, not the 1 the turnover then sets -- pre-existing wording, left
     exactly as it was (see the PR).
 
-    A Deflect can only overshoot from here, which is why this is the
-    only fixture that stands on the end space.
+    **Only the challenger shoots.** The striker the standard deal has
+    camped on that goal line is standing on the same space, and is not
+    offered it -- the author, 2026-09-26. So there is one candidate and
+    nobody is asked who shoots.
+
+    An ordinary Deflect can only overshoot from here, which is why
+    this stands on the end space.
     """
     match, handler, challenger = stand_a_deflection(
         BEATEN_BASIC, "deflect", back_from_own_goal=0,
     )
     # The challenger is standing on the ball, and a 0-space deflection
-    # leaves the ball standing on them -- so they are a candidate for
-    # the shot they just created, beside the striker the standard deal
-    # already has camped on that goal line.
-    candidates = defenders_waiting_at(match, 1)
+    # leaves the ball standing on them -- so the shot they just created
+    # is theirs, and theirs alone.
+    candidates = [challenger]
     return DeflectionFixture(
         game=build_game(),
         match=match,
@@ -473,7 +480,7 @@ def an_overshooting_deflection_skips_the_setup_pass_cost() -> (
     match, handler, challenger = stand_a_deflection(
         BEATEN_ADVANCED, "deflect", back_from_own_goal=0,
     )
-    candidates = defenders_waiting_at(match, 1)
+    candidates = [challenger]
     return DeflectionFixture(
         game=advanced_game(),
         match=match,
@@ -551,22 +558,14 @@ def clear_by_a_fullback() -> DeflectionFixture:
 
 def clear_that_overshoots_into_a_shot() -> DeflectionFixture:
     """
-    A Clear overshoots from further out than a Deflect can, and **it
-    drives the ball a real space first**: the 3 clamps to 1, so the
-    sentence reads the distance actually travelled and the ball has
-    moved by the time the shot is offered.
-
-    Here the defender who takes the shot is **not** the one who played
-    the card: the challenger is still standing where the ball started,
-    and the candidate is the striker the standard deal already has
-    camped on that goal line. Which is the ordinary way round, and the
-    reason `scoring_opportunity_candidates` reads the space rather than
-    the challenger.
+    A Clear played from the end space overshoots the way a Deflect
+    does: the ball goes nowhere, stays on the challenger, and the
+    challenger -- alone, with the striker on the same space passed
+    over -- takes the shot.
     """
     match, handler, challenger = stand_a_deflection(
-        BEATEN_BASIC, "clear", back_from_own_goal=1,
+        BEATEN_BASIC, "clear", back_from_own_goal=0,
     )
-    candidates = defenders_waiting_at(match, 3)
     return DeflectionFixture(
         game=advanced_game(),
         match=match,
@@ -574,14 +573,41 @@ def clear_that_overshoots_into_a_shot() -> DeflectionFixture:
         challenger_id=challenger,
         handler_id=handler,
         narration=(
-            f"{deflection_text('clear', travelled(match, 3), 2)} "
-            f"{OVERSHOOT_NOTE}"
+            f"{deflection_text('clear', 0, 2)} {OVERSHOOT_NOTE}"
         ),
         follow_on=SHOOTER_CHOICE,
-        follow_on_kwargs={"candidates": candidates},
+        follow_on_kwargs={"candidates": [challenger]},
         possession=TeamSide.VISITING,
         ball_space=deflected_to(match, 3),
         ball_speed=1,
+    )
+
+
+def clear_that_overshoots_past_its_challenger() -> DeflectionFixture:
+    """
+    A Clear overshoots from further out than a Deflect can, and **it
+    drives the ball a real space first**: the 3 clamps to 1, so the
+    ball leaves the challenger behind where it started.
+
+    **That sets up nothing.** The shot is the challenger's alone, and
+    the challenger is not on the space the ball reached -- the striker
+    the standard deal has camped on that goal line is, and is not
+    offered it (the author, 2026-09-26). So the ball lands like any
+    other deflection: nothing turned over, the speed the clearance left
+    it, and occupancy decides it from there.
+    """
+    match, handler, challenger = stand_a_deflection(
+        BEATEN_BASIC, "clear", back_from_own_goal=1,
+    )
+    return DeflectionFixture(
+        game=advanced_game(),
+        match=match,
+        key="clear",
+        challenger_id=challenger,
+        handler_id=handler,
+        narration=deflection_text("clear", travelled(match, 3), 2),
+        ball_space=deflected_to(match, 3),
+        ball_speed=2,
     )
 
 
@@ -677,6 +703,10 @@ DEFLECTION_CASES: tuple[DeflectionCase, ...] = (
     DeflectionCase(
         "clear_that_overshoots_into_a_shot",
         clear_that_overshoots_into_a_shot,
+    ),
+    DeflectionCase(
+        "clear_that_overshoots_past_its_challenger",
+        clear_that_overshoots_past_its_challenger,
     ),
     DeflectionCase(
         "clear_that_overshoots_onto_an_empty_space",
