@@ -178,10 +178,11 @@ their own (below).
     is no own-goal roll left to fall back to.
   - *The score attempt's wall* -- `intervening_defenders` is the one
     reading, so both frontends' pictures and the roll agree. Goopkeeper
-    "always counts as on the ball" since 2026-09-26, so they are in the
-    list wherever they stand, behind the ball too; Flickerwing's set-up
-    shot (`pending_shot_is_set_up`) drops everybody beyond the ball but
-    a Goopkeeper.
+    counts as on the ball between the ball and the goal (`full_block`;
+    the sheet said "always" for a few hours on 2026-09-26, which would
+    have reached behind the ball, and the author reverted it), and
+    Flickerwing's set-up shot (`pending_shot_is_set_up`) drops
+    everybody beyond the ball but a Goopkeeper.
   - *What a test costs* -- `skill_test_tokens` and `re_roll_tokens`:
     Zorch pays nothing, and a test Scorchit forced is 2 to Scorchit and
     0 to their opponent. **Scorchit's test is `forced_test_by`, asked

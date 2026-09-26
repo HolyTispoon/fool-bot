@@ -129,7 +129,7 @@
       "role": "fullback",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "Always counts as 'on the ball' when defending against score attempts.",
+      "advanced_ability": "Counts as 'on the ball' when standing between the ball and the goal during score attempts.",
       "advanced_skills": {}
     },
     "gurgoth_defender": {

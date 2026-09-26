@@ -44,7 +44,9 @@ deal.** `default_formation_deal` takes the first player of each role a team list
 colour team's two Defenders, Playmakers or Strikers, the one higher on the sheet starts and the
 other is benched. The importer keeps the sheet's order rather than sorting, because the sheet
 is the roster's authority -- so re-sorting the tab changes who starts, and moves every golden
-that deals a colour team (it did on 2026-09-26, for names only).
+that deals a colour team (it did on 2026-09-26, for names only). **No other tab's order means
+anything** (the author, 2026-09-26): `import_advanced` keys the `advanced_abilities` tab by
+`player_id`, so a re-sort there changes nothing and is not worth a second look.
 
 **Where `docs.google.com` cannot be reached** -- a cloud session whose network policy does not
 allow it -- the importer can still be run on the sheet: the Drive connector exports the

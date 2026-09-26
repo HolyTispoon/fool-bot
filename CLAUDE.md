@@ -88,6 +88,7 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 **Rules and data**
 - **Read [docs/living-rules.md](docs/living-rules.md) before changing anything that models the game.** Several mechanics exist only in the code, so a bug and a deliberate decision look identical there; take rules questions to the author (inline comments on a docs PR have worked far better than chat) rather than inferring them. A rules change is the living rules plus a dated `docs/rules-log.md` entry, as its own commit. -- [rules-and-data.md](docs/design/rules-and-data.md)
 - **Don't guess a sheet gid; run the import scripts.** `gid=0` is a stale tab that still answers. Every ability comes in twice (`ability`, `ability_short`) from the sheet's own columns -- **never shorten an ability in code**, and `strip_formula_escape` runs on every ability column.
+- **The only row order that matters is the `player cards` tab's**: it is each team's roster order, and the standard deal starts the first of each role, so re-sorting that tab changes who starts. Every other tab's order means nothing -- the `advanced_abilities` tab is read by `player_id` -- so ignore a re-sort there, and never sort the roster in the importer. -- [rules-and-data.md](docs/design/rules-and-data.md)
 - The rules commands read `docs/living-rules.md` itself; there is no second copy of the rules text anywhere in the bot.
 
 **State and saves** -- [gotchas.md](docs/design/gotchas.md)

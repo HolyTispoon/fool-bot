@@ -954,15 +954,18 @@ class ShotDefenseTests(unittest.TestCase):
         self.assertEqual(set(wall), {self.on_ball, self.beyond})
         self.assertTrue(wall[self.beyond].halved)
 
-    def test_goopkeeper_counts_from_behind_the_ball(self) -> None:
-        with holding(self.behind, PersonalAbility.FULL_BLOCK):
+    def test_goopkeeper_blocks_in_full_beyond_the_ball(self) -> None:
+        with holding(self.beyond, PersonalAbility.FULL_BLOCK):
             wall = self.defending()
-        self.assertIn(self.behind, wall)
-        self.assertFalse(wall[self.behind].halved)
+        self.assertFalse(wall[self.beyond].halved)
         self.assertEqual(
-            wall[self.behind].value,
-            ENGINE.skills(self.game, self.behind).defense,
+            wall[self.beyond].value,
+            ENGINE.skills(self.game, self.beyond).defense,
         )
+
+    def test_goopkeeper_behind_the_ball_adds_nothing(self) -> None:
+        with holding(self.behind, PersonalAbility.FULL_BLOCK):
+            self.assertNotIn(self.behind, self.defending())
 
     def test_flickerwing_s_set_up_is_shot_past_the_wall(self) -> None:
         self.match.pending_shot_is_set_up = True

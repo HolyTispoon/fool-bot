@@ -108,8 +108,8 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "goopkeeper_fullback": (
         PersonalAbility.FULL_BLOCK,
-        "Always counts as 'on the ball' when defending against score "
-        "attempts.",
+        "Counts as 'on the ball' when standing between the ball and the "
+        "goal during score attempts.",
     ),
     "acidel_striker": (
         PersonalAbility.PRESSURE_SHOT,

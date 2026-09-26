@@ -1935,32 +1935,21 @@ class RulesEngine:
         rule; the roll and the image both read it rather than the raw
         skill, and neither may go back to summing `defense`.
 
-        Two personal abilities reach this (Law 21). **Goopkeeper always
-        counts as on the ball**, so they are in the list wherever they
-        stand -- behind the ball too, last -- at their full skill
-        (`full_block`). **Flickerwing's set-up shot** is defended by
-        the ball's space alone, so the players beyond it drop out,
-        except a Goopkeeper, who counts as on it.
+        Two personal abilities reach this (Law 21). **Goopkeeper counts
+        as on the ball** anywhere between the ball and the goal, at
+        their full skill (`full_block`); behind the ball they are not
+        in the list, like anyone else. **Flickerwing's set-up shot** is
+        defended by the ball's space alone, so the players beyond it
+        drop out, except a Goopkeeper, who counts as on it.
         """
         in_the_way = match.defenders_between_ball_and_goal()
-        counted = {player_id for player_id, _ in in_the_way}
-        behind = [
-            (player_id, False)
-            for player_id in match.setup_for_side(
-                match.defending_side(),
-            ).field_players
-            if player_id not in counted
-            and self.has_personal_ability(
-                game, player_id, PersonalAbility.FULL_BLOCK,
-            )
-        ]
         clear_shot = match.pending_shot_is_set_up and (
             self.has_personal_ability(
                 game, match.active_player_id, PersonalAbility.CLEAR_SHOT,
             )
         )
         defenders = []
-        for player_id, on_ball in in_the_way + behind:
+        for player_id, on_ball in in_the_way:
             full_block = self.has_personal_ability(
                 game, player_id, PersonalAbility.FULL_BLOCK,
             )
