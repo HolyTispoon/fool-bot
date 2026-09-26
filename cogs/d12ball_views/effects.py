@@ -867,18 +867,15 @@ class DribbleAdvanceChoiceView(SafeView):
 class DribbleBurstChoiceView(SafeView):
     """
     How far a won Dribble Burst runs: 1 up to
-    `DRIBBLE_BURST_MAX_DISTANCE`, less anything the end of the field
-    takes away. Shaped like DribbleAdvanceChoiceView, which is the
+    `DRIBBLE_BURST_MAX_DISTANCE` (one more for a Playmaker), less
+    anything the end of the field takes away. Shaped like DribbleAdvanceChoiceView, which is the
     other dribble that asks a distance, and reconstructible on restart
     from match state alone (see D12Ball.build_effect_choice_view).
 
     **Every button carries its price**, because the exhaustion is a
     token a space and that is the whole of what makes the shorter runs
     worth offering -- the same reasoning as RunBackChoiceView's
-    `M2 (4 spaces)` labels, where the distance *is* the cost. The
-    Playmaker's token off comes out of the total rather than off each
-    space, so it is named once beside the run it discounts rather than
-    subtracted from every label.
+    `M2 (4 spaces)` labels, where the distance *is* the cost.
 
     A handler already on the last space of the field never sees this:
     resolve_dribble_burst applies a run of 0 without a prompt.
@@ -1307,6 +1304,98 @@ class SmoothView(SafeView):
             content=result.answer[0], view=None,
         )
         await self.cog.present(interaction, game, result)
+
+
+class PlayerDecisionView(SafeView):
+    """
+    A yes or a no a personal ability puts to one player's coach (Law 21)
+    -- Glompex's join, Scorchit's forced test. Shaped like
+    `MindPullView`: only that player's own coach may answer, and the
+    player is in the custom_ids so an older offer cannot answer a newer
+    one. Each subclass names its kind and its two labels; what the
+    answer says is the model's.
+    """
+
+    KIND: PromptKind
+    YES = ""
+    YES_LABEL = ""
+    NO_LABEL = ""
+
+    def __init__(self, cog: "D12Ball", game_id: str, player_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.player_id = player_id
+        slug = self.KIND.value
+
+        yes = discord.ui.Button(
+            label=self.YES_LABEL,
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:{slug}:{game_id}:{player_id}",
+        )
+        yes.callback = self.accept
+        self.add_item(yes)
+
+        no = discord.ui.Button(
+            label=self.NO_LABEL,
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:{slug}_decline:{game_id}:{player_id}",
+        )
+        no.callback = self.decline
+        self.add_item(no)
+
+    async def answer(self, interaction: discord.Interaction, choice: str):
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        if not self.may_act_for(
+            interaction,
+            self.cog.engine.controlling_user_id(game, match, self.player_id),
+        ):
+            await interaction.response.send_message(
+                "Only the coach whose player that is can answer this.",
+                ephemeral=True,
+            )
+            return
+        result = await self.apply(
+            interaction,
+            game,
+            Action(self.KIND, choice, {"player_id": self.player_id}),
+            carry_from=1,
+        )
+        if result is None:
+            return
+        await interaction.response.edit_message(
+            content=result.answer[0],
+            view=None,
+        )
+        await self.cog.present(interaction, game, result)
+
+    async def accept(self, interaction: discord.Interaction) -> None:
+        await self.answer(interaction, self.YES)
+
+    async def decline(self, interaction: discord.Interaction) -> None:
+        await self.answer(interaction, "decline")
+
+
+class JoinTheBallView(PlayerDecisionView):
+    """Glompex steps onto the ball's space before the cards, for a
+    token -- `d12ball.flow.turn.join_the_ball_step`."""
+
+    KIND = PromptKind.JOIN_THE_BALL
+    YES = "join"
+    YES_LABEL = "Join the ball"
+    NO_LABEL = "Stay"
+
+
+class ForceTestView(PlayerDecisionView):
+    """Scorchit forces the skill test off a lost card, or lets the cards
+    stand -- `d12ball.flow.turn.force_test_step`."""
+
+    KIND = PromptKind.FORCE_TEST
+    YES = "force"
+    YES_LABEL = "Force a skill test"
+    NO_LABEL = "Let it stand"
 
 
 class MindPullView(SafeView):

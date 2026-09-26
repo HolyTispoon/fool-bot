@@ -107,11 +107,14 @@ from d12ball.personal_abilities import (
     BRIGHTBURN_BURN_RECOVERY,
     BULWARK_DRAINED_AT,
     EMBERDASH_ADVANCE_MAX,
+    KINDLEFINGER_TOKEN,
     PERSONAL_ABILITIES,
+    SCORCHIT_FORCED_TEST_TOKENS,
     SIZZIFIZIK_IGNITE_FACES,
     SPECTRA_PULL_MINIMUM,
     STRIDER_CHARGE_UP,
     STRIDER_RUN_BACK_MAXIMUM,
+    VISCOR_MERGE_BONUS,
     VOLTUS_OVERDRIVE_DRAIN_COST,
     PersonalAbility,
 )
@@ -1008,8 +1011,16 @@ class RulesEngine:
                     continue
                 if player_id in moved or player_id == carrier_id:
                     continue
-                if not self.has_species_ability(
-                    game, player_id, SPECIES_TELEKINETIC,
+                # Spritz has the Telekinetics' Smooth (Law 21); the
+                # early return above already covers them, since every
+                # mode playing personal abilities plays species ones.
+                if not (
+                    self.has_species_ability(
+                        game, player_id, SPECIES_TELEKINETIC,
+                    )
+                    or self.has_personal_ability(
+                        game, player_id, PersonalAbility.SMOOTH,
+                    )
                 ):
                     continue
                 candidates.append(player_id)
@@ -1199,6 +1210,11 @@ class RulesEngine:
             if not self.has_species_ability(game, player_id, SPECIES_OOZE):
                 continue
             value = self.skills(game, player_id).of(skill)
+            # Viscor adds 3 more whenever they Merge (Law 21).
+            if self.has_personal_ability(
+                game, player_id, PersonalAbility.MERGES_HARDER,
+            ):
+                value += VISCOR_MERGE_BONUS
             if not value:
                 continue
             player = self.get_player_definition(player_id)
@@ -1924,25 +1940,48 @@ class RulesEngine:
         space, half of it further along. `ShotDefender.value` is the
         rule; the roll and the image both read it rather than the raw
         skill, and neither may go back to summing `defense`.
+
+        Two personal abilities reach this (Law 21). **Goopkeeper counts
+        as on the ball** anywhere between the ball and the goal, at
+        their full skill (`full_block`); behind the ball they are not
+        in the list, like anyone else. **Flickerwing's shot** -- every
+        one, off a set-up or not -- is defended by the ball's space
+        alone, so the players beyond it drop out, except a Goopkeeper,
+        who counts as on it. The shooter is the handler, which is also
+        who the preview before the shot is drawn for.
         """
+        in_the_way = match.defenders_between_ball_and_goal()
+        clear_shot = self.has_personal_ability(
+            game, match.active_player_id, PersonalAbility.CLEAR_SHOT,
+        )
         defenders = []
-        for player_id, on_ball in match.defenders_between_ball_and_goal():
+        for player_id, on_ball in in_the_way:
+            full_block = self.has_personal_ability(
+                game, player_id, PersonalAbility.FULL_BLOCK,
+            )
+            if clear_shot and not (on_ball or full_block):
+                continue
             player = self.get_player_definition(player_id)
             defense = self.skills(game, player_id).defense
             defenders.append(ShotDefender(
-                player,
-                defense,
-                on_ball,
-                full_block=self.has_personal_ability(
-                    game, player_id, PersonalAbility.FULL_BLOCK,
-                ),
+                player, defense, on_ball, full_block=full_block,
             ))
         return defenders
 
-    def settled_maneuver_winner(self, match: MatchState) -> Optional[str]:
+    def settled_maneuver_winner(
+        self,
+        match: MatchState,
+        game: Optional[D12BallGame] = None,
+    ) -> Optional[str]:
         """
         Which maneuver wins outright, or None when a skill test still
         has to decide it.
+
+        **Scorchit may force a test off a lost card** (Law 21), the one
+        way a healthy card-loser takes a win away: once they have said
+        so, `match.forced_test_player` is read beside the injury. It is
+        the answer, saved, so this needs no game; the parameter stays
+        for the callers that pass one.
 
         This is the whole of who wins a maneuver, and the only place
         that ranking and the injured player's disadvantage are put
@@ -1989,6 +2028,8 @@ class RulesEngine:
             )
             if winner_injured:
                 return None
+            if match.forced_test_player is not None:
+                return None
             return (
                 match.offense_maneuver
                 if outcome == "offense"
@@ -2004,6 +2045,266 @@ class RulesEngine:
             if defense_injured
             else match.defense_maneuver
         )
+
+    def forced_test_by(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> Optional[str]:
+        """The Scorchit who forced this maneuver's test, or None."""
+        return match.forced_test_player
+
+    def force_test_offer(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> Optional[str]:
+        """
+        **Scorchit** (Law 21): the participant whose card lost on the
+        cards and who may force the skill test anyway -- or None.
+        Asked once, at the reveal (`turn.resolve_maneuver`); the answer
+        is `match.forced_test_player`.
+
+        A test an injury already forces is that test, not Scorchit's:
+        where the card-winner is injured this answers None, and the
+        test costs its ordinary token each. The gambits need nothing
+        of their own here -- `gambit_cost_applies` and
+        `gambit_benefit_applies` read the cards, so a forced test lands
+        exactly as an injury-forced one does.
+        """
+        if game is None or match.maneuver_uncontested:
+            return None
+        outcome = self.cards_outcome(match)
+        if outcome not in ("offense", "defense"):
+            return None
+        winner_id, loser_id = (
+            (match.active_player_id, match.challenger_id)
+            if outcome == "offense"
+            else (match.challenger_id, match.active_player_id)
+        )
+        # **The handler can change after the cards resolve** -- the
+        # stealer takes the free Low Pass a beaten Skilled Pass owes, a
+        # shooter takes a set-up -- so the two ids can come to name one
+        # player. That is a maneuver already settled, and nothing here
+        # is owed.
+        if winner_id == loser_id or winner_id in match.injured:
+            return None
+        if not self.has_personal_ability(
+            game, loser_id, PersonalAbility.FORCES_THE_TEST,
+        ):
+            return None
+        return loser_id
+
+    def skill_test_tokens(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: Optional[str],
+        forced_by: Optional[str] = None,
+    ) -> int:
+        """
+        What entering a maneuver skill test costs `player_id`: 1, or
+        under a test Scorchit forced (`forced_by`) 2 to Scorchit and
+        nothing to their opponent. **Zorch** pays nothing for any test
+        (Law 21), which `re_roll_tokens` says for the re-rolls.
+        """
+        if forced_by is not None:
+            base = (
+                SCORCHIT_FORCED_TEST_TOKENS if player_id == forced_by else 0
+            )
+        else:
+            base = 1
+        # Zorch's free tests (Law 21) zero whatever the test would cost.
+        return base if self.re_roll_tokens(game, player_id) else 0
+
+    def contest_auto_winner(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_player_id: str,
+        defense_player_id: str,
+    ) -> Optional[str]:
+        """
+        **Slitheron** (Law 21): the contestant who takes the ball
+        without a roll, or None. Every contest for the ball -- a High
+        Pass's, a loose ball's, a ball come to rest between both sides
+        (the author, 2026-09-26) -- where exactly one of the two holds
+        the ability.
+        """
+        holders = [
+            player_id
+            for player_id in (offense_player_id, defense_player_id)
+            if self.has_personal_ability(
+                game, player_id, PersonalAbility.WINS_CONTESTS,
+            )
+        ]
+        return holders[0] if len(holders) == 1 else None
+
+    def join_candidates(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        **Glompex** (Law 21): who may step onto the ball's space before
+        this maneuver's cards are chosen -- a player with the ability,
+        of either side, standing a space from the ball and not one of
+        the two players. Only against a challenge: Merge adds to a
+        roll, and an unchallenged maneuver rolls nothing. Offense first.
+        """
+        if match.maneuver_uncontested or match.challenger_id is None:
+            return []
+        if not self.personal_abilities_apply(game):
+            return []
+        rolling = {match.active_player_id, match.challenger_id}
+        return [
+            player_id
+            for side in (match.ball.possession, match.defending_side())
+            for player_id in match.setup_for_side(side).field_players
+            if player_id not in rolling
+            and match.distance_to_ball(player_id) == 1
+            and self.has_personal_ability(
+                game, player_id, PersonalAbility.JOINS_THE_BALL,
+            )
+        ]
+
+    def fly_candidates(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        **Zenith** (Law 21): who may fly before this run back -- a
+        fielded player with the ability, of either side, who is neither
+        holding the ball nor injured. Home first.
+        """
+        if not self.personal_abilities_apply(game):
+            return []
+        return [
+            player_id
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+            for player_id in match.setup_for_side(side).field_players
+            if player_id != match.ball_carrier_id
+            and player_id not in match.injured
+            and self.has_personal_ability(
+                game, player_id, PersonalAbility.FLY,
+            )
+        ]
+
+    def fly_spaces(
+        self, match: MatchState, player_id: str,
+    ) -> list[tuple[Zone, int, int]]:
+        """
+        Where Zenith may fly to, and what each costs: every space on
+        the field but their own, at a token a space travelled.
+        """
+        here = match.board.flat_index(*match.board.meeple_position(player_id))
+        spaces = []
+        for flat in range(len(match.board.spaces_in_order())):
+            if flat == here:
+                continue
+            zone, index = match.board.position_at_flat_index(flat)
+            spaces.append((zone, index, abs(flat - here)))
+        return spaces
+
+    def ball_holder(self, match: MatchState) -> Optional[str]:
+        """
+        Who the ball is with right now: the carrier a resolution left
+        it with, or else the handler the turn chose. What "the ball
+        comes to" a player means in Law 21 (Inferno, Pulsar) is this
+        changing to them.
+
+        Read with `getattr` because the driver asks it around every
+        step, and the suite's stubbed steps run over a bare namespace
+        standing in for a match.
+        """
+        return (
+            getattr(match, "ball_carrier_id", None)
+            or getattr(match, "active_player_id", None)
+        )
+
+    def injury_ignite(
+        self, game: D12BallGame, player_id: str, face: int,
+    ) -> IgnitedRoll:
+        """
+        What Volatile does to an injury check's die: nothing, except
+        for **Kindlefinger** (Law 21), whose check ignites exactly as
+        a Volatile roll does. What the ignite then does to their tokens
+        is `settle_injury_ignite`'s, once the check is read.
+        """
+        if not self.has_personal_ability(
+            game, player_id, PersonalAbility.INJURY_IGNITION,
+        ):
+            return IgnitedRoll(face=face)
+        return self.ignite(game, player_id, face)
+
+    def settle_injury_ignite(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+        ignite: IgnitedRoll,
+    ) -> str:
+        """
+        Kindlefinger's tokens after their check's die ignited: a blaze
+        clears 1 and a burn adds 1 (Law 21), before the check is
+        compared with the count (the author, 2026-09-26). An injured
+        player carries none and adds none. Returns what to say, or "".
+        """
+        if not ignite.ignited or player_id in match.injured:
+            return ""
+        if ignite.burn:
+            return self.apply_exhaustion(
+                game, match, player_id, KINDLEFINGER_TOKEN,
+            )
+        removed = match.recover_exhaustion(
+            player_id,
+            KINDLEFINGER_TOKEN,
+            self.exhaustion_threshold(game, player_id),
+        )
+        if not removed:
+            return ""
+        player = self.get_player_definition(player_id)
+        return (
+            f"{self.format_player_label(match, player)}'s blaze clears "
+            f"{removed} token."
+        )
+
+    def attacking_skill(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        player_id: str,
+        roll: str,
+    ) -> int:
+        """
+        The skill `player_id` adds on the attacking side of `roll`:
+        their offensive skill, except **Umbrik's** defensive one
+        (Law 21) in an own-goal roll and a maneuver skill test over
+        Umbrik's own High Pass. A contest is always offensive -- the
+        High Pass contest too, which the author ruled out (2026-09-26)
+        -- and is asked here so every attacking roll reads one place.
+
+        `roll` is `"own_goal"`, `"skill_test"` (the handler's side of a
+        maneuver's test) or `"contest"` (the side in possession, in a
+        contest for the ball).
+        """
+        skills = self.skills(game, player_id)
+        if not self.has_personal_ability(
+            game, player_id, PersonalAbility.DEFENSIVE_THROW,
+        ):
+            return skills.offense
+        defensive = (
+            roll == "own_goal"
+            or (roll == "skill_test" and match.offense_maneuver == "high_pass")
+        )
+        return skills.defense if defensive else skills.offense
+
+    def re_roll_tokens(
+        self, game: D12BallGame, player_id: Optional[str],
+    ) -> int:
+        """
+        The token a tie's re-roll costs `player_id`, in a maneuver
+        skill test or a contest for the ball: 1, and nothing for
+        **Zorch** (Law 21).
+        """
+        if self.has_personal_ability(
+            game, player_id, PersonalAbility.FREE_TESTS,
+        ):
+            return 0
+        return 1
 
     def controlling_player_number(
         self,
@@ -2941,6 +3242,8 @@ class RulesEngine:
             player_id
             for player_id in match.displaced_players(side)
             if player_id != stays_player_id
+            # Zenith flew, and does not run back (Law 21).
+            and player_id not in match.run_back_flown
         ]
 
     def run_back_crowded(

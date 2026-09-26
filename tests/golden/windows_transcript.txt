@@ -418,22 +418,22 @@ Orange (Home) set up for the second half.
 # Coaching Choice
 <@111>, **Orange (Home)** -- 2 substitutions left.
 Who comes off?
-=== press 36: CoachingSubstitutionOutView -> 'Noxar [SK] - Visitors Zone'
+=== press 36: CoachingSubstitutionOutView -> 'Acidel [SK] - Visitors Zone'
 --- message
 # Coaching Choice
 <@111>, **Orange (Home)** -- 2 substitutions left.
-Who comes on for 🟠 Noxar [SK]? They take their zone and their space exactly.
+Who comes on for 🟠 Acidel [SK]? They take their zone and their space exactly.
 === press 37: CoachingSubstitutionInView -> 'Voltus [DD]'
 --- message
 # Coaching Choice
 <@111>, **Orange (Home)** -- 1 substitution left.
-🟠 Voltus [DD] comes on for 🟠 Noxar [SK].
+🟠 Voltus [DD] comes on for 🟠 Acidel [SK].
 1 substitution left.
 === press 38: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
 **Orange (Home) are done.**
-🟠 Voltus [DD] came on for 🟠 Noxar [SK].
+🟠 Voltus [DD] came on for 🟠 Acidel [SK].
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message

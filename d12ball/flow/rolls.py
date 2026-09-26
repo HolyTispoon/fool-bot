@@ -73,7 +73,11 @@ from d12ball.formatting import (
     player_with_role,
 )
 from d12ball.game import D12BallGame, Team, team_display_name
-from d12ball.personal_abilities import BOOST_BONUS, BOOST_DRAIN_COST
+from d12ball.personal_abilities import (
+    BOOST_BONUS,
+    BOOST_DRAIN_COST,
+    PersonalAbility,
+)
 from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
@@ -185,11 +189,18 @@ def pay_contest_tie(
     step does not (principle 9): the two callers here are steps
     themselves, and their frontend writes the match once after them.
     """
+    # Filtered: Zorch's re-roll is free and says nothing (Law 21).
     exhaustion_text = "\n".join(
-        [
-            engine.apply_exhaustion(game, match, first_player_id, 1),
-            engine.apply_exhaustion(game, match, second_player_id, 1),
-        ]
+        filter(None, [
+            engine.apply_exhaustion(
+                game, match, first_player_id,
+                engine.re_roll_tokens(game, first_player_id),
+            ),
+            engine.apply_exhaustion(
+                game, match, second_player_id,
+                engine.re_roll_tokens(game, second_player_id),
+            ),
+        ])
     )
     # Headed like the outcome it is: a tie is one of the four ways a
     # skill test lands, and every other one is announced at `##`. Left
@@ -232,7 +243,9 @@ def score_skill_test(
     caller needs to know which side blazed or burned to set the tier
     rider once it knows who won. See `RulesEngine.volatile_raises_tier`.
     """
-    offense_skill = engine.skills(game, offense_player.player_id).offense
+    offense_skill = engine.attacking_skill(
+        game, match, offense_player.player_id, "skill_test",
+    )
     defense_skill = engine.skills(game, defense_player.player_id).defense
 
     offense_roll, defense_roll = scripted_or_random(
@@ -596,7 +609,9 @@ def score_loose_ball(
     offense_skill = (
         0
         if offense_injured
-        else engine.skills(game, offense_player.player_id).offense
+        else engine.attacking_skill(
+            game, match, offense_player.player_id, "contest",
+        )
     )
     defense_skill = (
         0
@@ -797,6 +812,43 @@ def settle_loose_ball_winner(
     )
 
 
+def after_the_contest(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    winner_id: str,
+    was_high_pass: bool,
+    turnover_occurred: bool,
+    distance_moved: int,
+) -> dict:
+    """
+    Where a contest for the ball goes once it is settled, as the
+    injury queue's resume: the run back, as always -- or **Zytheris's
+    shot**, where they kept a long pass by winning its contest or by
+    nobody contesting it and the ball is in range (Law 21: "Contest
+    comes first and shooting is possible only if Zytheris wins it").
+    Asked by every way a contest ends, so none of them words it alone.
+    """
+    if (
+        was_high_pass
+        and not turnover_occurred
+        and match.can_attempt_score(match.ball.possession)
+        and engine.has_personal_ability(
+            game, winner_id, PersonalAbility.SHOOTS_OFF_ANY_PASS,
+        )
+    ):
+        return {
+            "kind": "scoring_attempt",
+            "shooter_id": winner_id,
+            "distance_moved": distance_moved,
+        }
+    return {
+        "kind": "run_back",
+        "distance_moved": distance_moved,
+        "turnover_occurred": turnover_occurred,
+    }
+
+
 def loose_ball_test_step(
     engine: RulesEngine,
     game: D12BallGame,
@@ -858,6 +910,7 @@ def loose_ball_test_step(
             ),
         )
 
+    was_high_pass = match.pending_loose_ball_is_high_pass
     (
         announcement,
         exhausted_participants,
@@ -872,11 +925,10 @@ def loose_ball_test_step(
         game,
         match,
         exhausted_participants,
-        {
-            "kind": "run_back",
-            "distance_moved": distance_moved,
-            "turnover_occurred": turnover_occurred,
-        },
+        after_the_contest(
+            engine, game, match, match.ball_carrier_id,
+            was_high_pass, turnover_occurred, distance_moved,
+        ),
     )
     result.narration.insert(0, announcement)
     result.board_changed = True

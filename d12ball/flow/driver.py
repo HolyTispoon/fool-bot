@@ -277,9 +277,31 @@ def _call(
     a parameter that used to be positional arrives named. Keeping that
     exactly is what makes the move invisible to the steps themselves.
     """
-    return MODEL_STEPS[step](
+    before = engine.ball_holder(match)
+    result = MODEL_STEPS[step](
         engine, game, match, lead_in=lead_in, **dict(kwargs),
     )
+    _touch(engine, game, match, before, result)
+    return result
+
+
+def _touch(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    before: Optional[str],
+    result: StepResult,
+) -> None:
+    """
+    Whatever Law 21 does when the ball comes to a player
+    (`effects.ball_comes_to`), said at the end of the step or answer
+    that brought it there. Every step and every answer is asked, so
+    none of them has to remember to.
+    """
+    lines = effects.ball_comes_to(engine, game, match, before)
+    if lines:
+        result.narration.append("\n".join(lines))
+        result.board_changed = True
 
 
 @dataclass(frozen=True)
@@ -595,6 +617,9 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.LOOSE_BALL_PICK: "That side has already answered.",
     PromptKind.SMOOTH: "That Smooth has already been answered.",
     PromptKind.MIND_PULL: "That Mind Pull has already been answered.",
+    PromptKind.JOIN_THE_BALL: "That offer has already been answered.",
+    PromptKind.FORCE_TEST: "That offer has already been answered.",
+    PromptKind.FLY: "That offer has already been answered.",
     PromptKind.RUN_BACK_PLAYER: "They no longer have to run back.",
     PromptKind.RUN_BACK_SPACE: "They no longer have to run back.",
     PromptKind.BALL_RECOVERY: "The ball has already been picked up.",
@@ -1256,6 +1281,68 @@ def _answer_mind_pull(
     )
 
 
+def _answer_join_the_ball(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    player_id: Optional[str] = None,
+) -> StepResult:
+    """
+    Glompex steps onto the ball before the cards, or stays (Law 21).
+    The player asked is the prompt's, as for a Mind Pull.
+    """
+    if player_id is not None and player_id != prompt.player_id:
+        _refuse("That offer has already been answered.")
+    return turn.join_the_ball_step(
+        engine, game, match, prompt.player_id, choice == "join",
+    )
+
+
+def _answer_force_test(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    player_id: Optional[str] = None,
+) -> StepResult:
+    """Scorchit forces the skill test, or lets the cards stand (Law 21)."""
+    if player_id is not None and player_id != prompt.player_id:
+        _refuse("That offer has already been answered.")
+    return turn.force_test_step(
+        engine, game, match, prompt.player_id, choice == "force",
+    )
+
+
+def _answer_fly(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+    *,
+    player_id: Optional[str] = None,
+    zone: Optional[str] = None,
+    space_index: Optional[int] = None,
+) -> StepResult:
+    """
+    Zenith flies to a space before the run back, or stays (Law 21).
+    Where is refused against the prompt's own spaces
+    (`FlyOptions.spaces`), which `fly_step` reads again.
+    """
+    if player_id is not None and player_id != prompt.player_id:
+        _refuse("That offer has already been answered.")
+    if choice == "decline":
+        return turnovers.fly_step(engine, game, match, prompt.player_id, None)
+    return turnovers.fly_step(
+        engine, game, match, prompt.player_id, (zone, space_index),
+    )
+
+
 def _answer_halftime_extra_token(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1471,6 +1558,7 @@ def _answer_low_pass_choice(
         receiver_id=receiver_id,
         key=prompt.maneuver_key or "low_pass",
         free=prompt.free,
+        game=game,
     )
 
 
@@ -1517,12 +1605,12 @@ def _run_onto(
     opens the pass's narration, since it happened first.
     """
     if not runner:
-        return throw(engine, match, distance)
+        return throw(engine, match, distance, None, game)
     runner_id = prompt.options.runner_id
     if runner_id is None or distance not in prompt.options.runner_distances:
         _refuse("Nobody can run onto a pass of that distance.")
     ran = effects.run_onto_pass(engine, game, match, runner_id, distance)
-    result = throw(engine, match, distance, runner_id)
+    result = throw(engine, match, distance, runner_id, game)
     result.narration.insert(0, ran)
     return result
 
@@ -1681,6 +1769,9 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.MANEUVER_ACTION: _answer_maneuver_action,
     PromptKind.INJURY_TEST: _answer_injury_test,
     PromptKind.MIND_PULL: _answer_mind_pull,
+    PromptKind.JOIN_THE_BALL: _answer_join_the_ball,
+    PromptKind.FORCE_TEST: _answer_force_test,
+    PromptKind.FLY: _answer_fly,
     PromptKind.HALFTIME_EXTRA_TOKEN: _answer_halftime_extra_token,
     PromptKind.SKILL_TEST: _answer_skill_test,
     PromptKind.LOOSE_BALL_SKILL_TEST: _answer_loose_ball_skill_test,
@@ -1720,6 +1811,7 @@ REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
     PromptKind.SHOOTOUT_ORDER: {"send": ("player_id",)},
     PromptKind.LOOSE_BALL_PICK: {"send": ("player_id",)},
     PromptKind.MANEUVER_CHALLENGE: {"send": ("player_id",)},
+    PromptKind.FLY: {"fly": ("zone", "space_index")},
     # Overdrive is declared by a player, on every roll it can be
     # declared on -- and so is Gearclaw's Boost (Law 21).
     **{
@@ -1869,6 +1961,7 @@ def answer(
     if unexpected is not None:
         return Refusal(unexpected, waiting_on=waiting)
 
+    before = engine.ball_holder(match)
     try:
         answered = ANSWERS[action.kind](
             engine,
@@ -1888,7 +1981,9 @@ def answer(
 
     if isinstance(answered, tuple):
         detail, result = answered
+        _touch(engine, game, match, before, result)
         return Answered(result=result, detail=detail)
+    _touch(engine, game, match, before, answered)
     return Answered(result=answered)
 
 

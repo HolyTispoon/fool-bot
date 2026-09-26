@@ -1980,7 +1980,11 @@ class MergeTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        self.game = build_game(player_1_team=Team.OOZES)
+        # Basic mode: Merge without the personal abilities, since an
+        # Oozes side fields Viscor, who adds 3 more (Law 21).
+        self.game = build_game(
+            player_1_team=Team.OOZES, mode=GameMode.BASIC,
+        )
         self.match = build_match(self.engine, self.game)
         self.side = self.match.ball.possession
         self.clear_the_ball_space()
@@ -3097,8 +3101,12 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         # `build_mind_pull_cog` mocks out for the tests above.
         del self.cog.begin_run_back
         self.cog.announce_run_back = mock.AsyncMock()
+        # Basic mode: the species abilities without the personal ones,
+        # since a Telekinetics side fields Zenith, whose Fly (Law 21)
+        # would stop the run back before the gate these assert.
         self.game = build_game(
             player_1_team=Team.PURPLE, player_2_team=Team.TELEKINETICS,
+            mode=GameMode.BASIC,
         )
         self.cog.games[self.game.game_id] = self.game
         self.match = self.cog.engine.initialize_standard_match(self.game)

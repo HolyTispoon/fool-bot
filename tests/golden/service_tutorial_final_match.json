@@ -1,6 +1,10 @@
 {
   "active_player_id": "emberdash_playmaker",
   "assigned_positions": {
+    "acidel_striker": [
+      "visitors_goal",
+      1
+    ],
     "blazebulk_defender": [
       "home_goal",
       1
@@ -26,10 +30,6 @@
       0
     ],
     "hellguard_fullback": [
-      "visitors_goal",
-      1
-    ],
-    "noxar_striker": [
       "visitors_goal",
       1
     ],
@@ -88,7 +88,7 @@
           "dravox_defender"
         ],
         [
-          "noxar_striker",
+          "acidel_striker",
           "hellguard_fullback"
         ]
       ]
@@ -226,8 +226,8 @@
         "action": "maneuver",
         "by_ai": false,
         "exhaustion": {
-          "dravox_defender": 1,
-          "noxar_striker": 1
+          "acidel_striker": 1,
+          "dravox_defender": 1
         }
       },
       "kind": "turn_action",
@@ -261,7 +261,7 @@
       },
       "kind": "shot",
       "period": "first_half",
-      "player_id": "noxar_striker",
+      "player_id": "acidel_striker",
       "side": "home",
       "time": 4
     },
@@ -272,7 +272,7 @@
       },
       "kind": "goal",
       "period": "first_half",
-      "player_id": "noxar_striker",
+      "player_id": "acidel_striker",
       "side": "home",
       "time": 4
     },
@@ -292,16 +292,17 @@
     "sizzifizik_playmaker"
   ],
   "exhaustion": {
+    "acidel_striker": 1,
     "dravox_defender": 2,
     "glompex_midfielder": 3,
-    "noxar_striker": 1,
     "sizzifizik_playmaker": 4
   },
+  "forced_test_player": null,
   "goals": [
     {
       "own_goal": false,
       "period": "first_half",
-      "player_id": "noxar_striker",
+      "player_id": "acidel_striker",
       "shootout": false,
       "side": "home",
       "time": 4
@@ -316,7 +317,7 @@
       "bench": [
         "voltus_defender",
         "synapse_playmaker",
-        "acidel_striker"
+        "noxar_striker"
       ],
       "defense_die_value": null,
       "offense_die_value": null,
@@ -333,7 +334,7 @@
       ],
       "visitors_goal": [
         "flickerwing_winger",
-        "noxar_striker"
+        "acidel_striker"
       ]
     }
   },
@@ -358,11 +359,15 @@
   "pending_coaching_swaps": [],
   "pending_double_team": [],
   "pending_effect_continuation": null,
+  "pending_fly": null,
+  "pending_fly_resume": null,
+  "pending_force_test": null,
   "pending_full_time_stage": null,
   "pending_halftime_stage": null,
   "pending_high_pass_overshoot": false,
   "pending_injury_resume": null,
   "pending_injury_tests": [],
+  "pending_join": [],
   "pending_kickoff_fill": false,
   "pending_loose_ball": false,
   "pending_loose_ball_distance": 1,
@@ -390,6 +395,7 @@
   "pending_time_out": false,
   "player_data_version": 1,
   "ruleset_id": "basic-v1",
+  "run_back_flown": [],
   "run_back_moved": [],
   "run_back_pick": null,
   "scoreboard": {
@@ -412,9 +418,9 @@
     "team_board": {
       "back_bench": [],
       "bench": [
+        "viscor_defender",
         "quillon_playmaker",
-        "zytheris_striker",
-        "viscor_defender"
+        "zytheris_striker"
       ],
       "defense_die_value": null,
       "offense_die_value": null,

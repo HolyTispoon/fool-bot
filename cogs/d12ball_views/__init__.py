@@ -61,6 +61,7 @@ from cogs.d12ball_views.rolls import (
     SkillTestView,
 )
 from cogs.d12ball_views.runback import (
+    FlyView,
     RunBackChoiceView,
     RunBackPlayerChoiceView,
 )
@@ -70,6 +71,9 @@ from cogs.d12ball_views.effects import (
     HighPassChoiceView,
     LowPassChoiceView,
     LowPassReceiverView,
+    JoinTheBallView,
+    ForceTestView,
+    PlayerDecisionView,
     MindPullView,
     SmoothView,
     SetUpAttemptChoiceView,
@@ -145,6 +149,10 @@ __all__ = [
     "LowPassChoiceView",
     "LowPassReceiverView",
     "MindPullView",
+    "JoinTheBallView",
+    "ForceTestView",
+    "PlayerDecisionView",
+    "FlyView",
     "SmoothView",
     "SetUpAttemptChoiceView",
     "SetupPassChoiceView",

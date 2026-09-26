@@ -279,27 +279,27 @@ You chose **High Pass**.
 ## **High Pass** wins!
 --- message
 🟠 <@111>, choose your High Pass distance:
-=== press 28: HighPassChoiceView -> '2 spaces (space 7, Noxar [SK])'
+=== press 28: HighPassChoiceView -> '2 spaces (space 7, Acidel [SK])'
 --- message
 Chose **2 spaces**.
 --- message
 **High Pass:** the ball moves 2 spaces forward. That reaches a teammate -- a scoring opportunity!
 
-<@111> 🟠 Noxar [SK] can attempt the scoring opportunity, or let it go:
-=== press 29: SetUpAttemptChoiceView -> 'Noxar [SK] takes the shot'
+<@111> 🟠 Acidel [SK] can attempt the scoring opportunity, or let it go:
+=== press 29: SetUpAttemptChoiceView -> 'Acidel [SK] takes the shot'
 --- message
-🟠 Noxar [SK] takes the shot.
+🟠 Acidel [SK] takes the shot.
 --- message
-🟠 Noxar [SK] takes the shot off the set-up.
+🟠 Acidel [SK] takes the shot off the set-up.
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 30: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🟠 Noxar [SK] scores for Orange (Home) on **04**!
+🟠 Acidel [SK] scores for Orange (Home) on **04**!
 Orange 1:0 Purple
 
-🟠 Noxar [SK] adds 1 exhaustion 😮‍💨 (now 1 total).
+🟠 Acidel [SK] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 # Coaching Choice
 **🟣 Dinky AI passed.**

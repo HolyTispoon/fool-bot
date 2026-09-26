@@ -27,6 +27,7 @@ from d12ball.components import (
     OVERDRIVE_DRAIN_COST,
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
+    SPECIES_OOZE,
     SPECIES_TELEKINETIC,
     RuleRefusal,
     ShotDefender,
@@ -36,14 +37,31 @@ from d12ball.components import (
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.flow.effects import (
+    ball_comes_to,
     high_pass_step,
+    low_pass_step,
     pressure_step,
     run_onto_pass,
 )
+from d12ball.flow.arrivals import resolve_loose_ball
+from d12ball.flow.injuries import injury_test_step
+from d12ball.flow.rolls import after_the_contest
 from d12ball.flow.result import FollowOnStep
+from d12ball.flow.turn import (
+    begin_maneuver_action_selection,
+    force_test_step,
+    join_the_ball_step,
+    resolve_maneuver,
+)
+from d12ball.flow.turnovers import begin_run_back, fly_step
+from d12ball.prompts import PendingPrompt, PromptKind
 from d12ball.game import GameMode, Team
 from d12ball.personal_abilities import (
     ADVANCED_SKILL_SENTENCES,
+    INFERNO_BALL_SPEED,
+    SCORCHIT_FORCED_TEST_TOKENS,
+    VISCOR_MERGE_BONUS,
+    VORIX_BALL_SPEED,
     BOOST_BONUS,
     BOOST_DRAIN_COST,
     BULWARK_DRAINED_AT,
@@ -638,6 +656,740 @@ class AcidelTests(unittest.TestCase):
                 build_game(mode=GameMode.BASIC),
             )
         self.assertIs(result.next.step, FollowOnStep.BEGIN_OWN_GOAL_ROLL)
+
+
+class ZorchTests(unittest.TestCase):
+    """Zorch pays no token for a skill test or any re-roll (Law 21)."""
+
+    def setUp(self) -> None:
+        self.game = advanced()
+        self.match = build_match(ENGINE, self.game)
+        self.player = self.match.home.field_players[0]
+
+    def test_every_test_is_free(self) -> None:
+        self.assertEqual(ENGINE.re_roll_tokens(self.game, self.player), 1)
+        self.assertEqual(
+            ENGINE.skill_test_tokens(self.game, self.match, self.player), 1,
+        )
+        with holding(self.player, PersonalAbility.FREE_TESTS):
+            self.assertEqual(
+                ENGINE.re_roll_tokens(self.game, self.player), 0,
+            )
+            self.assertEqual(
+                ENGINE.skill_test_tokens(self.game, self.match, self.player),
+                0,
+            )
+
+
+class ScorchitTests(unittest.TestCase):
+    """A card Scorchit lost may go to a skill test anyway (Law 21)."""
+
+    def setUp(self) -> None:
+        self.game = advanced()
+        self.match = build_match(ENGINE, self.game)
+        self.offense = self.match.home.field_players[0]
+        self.defense = self.match.visiting.field_players[0]
+        self.match.active_player_id = self.offense
+        self.match.challenger_id = self.defense
+        # Steal beats Low Pass on the cards: the offense lost.
+        self.match.offense_maneuver = "low_pass"
+        self.match.defense_maneuver = "steal"
+
+    def reveal(self):
+        return resolve_maneuver(ENGINE, self.game, self.match)
+
+    def test_anybody_else_loses_on_the_cards(self) -> None:
+        self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
+        result = self.reveal()
+        self.assertIs(result.next.step, FollowOnStep.BEGIN_EFFECT_RESOLUTION)
+
+    def test_scorchit_is_asked_at_the_reveal(self) -> None:
+        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
+            result = self.reveal()
+        self.assertIsInstance(result.next, PendingPrompt)
+        self.assertIs(result.next.kind, PromptKind.FORCE_TEST)
+        self.assertEqual(result.next.player_id, self.offense)
+        self.assertEqual(self.match.pending_force_test, self.offense)
+
+    def test_forcing_it_owes_the_test_at_two_tokens_to_none(self) -> None:
+        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
+            self.reveal()
+            result = force_test_step(
+                ENGINE, self.game, self.match, self.offense, True,
+            )
+        self.assertIs(
+            result.next.step, FollowOnStep.BEGIN_MANEUVER_SKILL_TEST,
+        )
+        self.assertIsNone(
+            ENGINE.settled_maneuver_winner(self.match, self.game),
+        )
+        forced_by = ENGINE.forced_test_by(self.game, self.match)
+        self.assertEqual(forced_by, self.offense)
+        self.assertEqual(
+            ENGINE.skill_test_tokens(
+                self.game, self.match, self.offense, forced_by,
+            ),
+            SCORCHIT_FORCED_TEST_TOKENS,
+        )
+        self.assertEqual(
+            ENGINE.skill_test_tokens(
+                self.game, self.match, self.defense, forced_by,
+            ),
+            0,
+        )
+
+    def test_letting_it_stand_resolves_the_winner(self) -> None:
+        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
+            self.reveal()
+            result = force_test_step(
+                ENGINE, self.game, self.match, self.offense, False,
+            )
+        self.assertIs(result.next.step, FollowOnStep.BEGIN_EFFECT_RESOLUTION)
+        self.assertEqual(result.next.kwargs["winner_key"], "steal")
+        self.assertIsNone(self.match.pending_force_test)
+
+    def test_not_off_a_card_they_won(self) -> None:
+        with holding(self.defense, PersonalAbility.FORCES_THE_TEST):
+            self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
+
+    def test_an_injured_winner_s_test_is_the_injury_s(self) -> None:
+        self.match.mark_injured(self.defense)
+        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
+            self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
+
+    def test_nothing_once_the_stealer_has_the_ball(self) -> None:
+        # A beaten Skilled Pass owes the stealer a free Low Pass, which
+        # makes them the handler: the cards now name one player twice,
+        # and the settled maneuver must stay settled.
+        self.match.offense_maneuver = "skilled_pass"
+        self.match.defense_maneuver = "steal"
+        self.match.active_player_id = self.defense
+        with holding(self.defense, PersonalAbility.FORCES_THE_TEST):
+            self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
+            self.assertEqual(
+                ENGINE.settled_maneuver_winner(self.match, self.game),
+                "steal",
+            )
+
+    def test_the_gambits_follow_the_cards(self) -> None:
+        # Scorchit wins the forced test: their card lost on the cards,
+        # so it is no gambit's benefit and the winner on the cards
+        # pays no cost.
+        self.match.defense_maneuver = "intercept"
+        self.match.forced_test_player = self.offense
+        self.match.skill_test_winner = "low_pass"
+        self.assertIsNone(ENGINE.gambit_cost(self.match, "low_pass"))
+
+
+class UmbrikTests(unittest.TestCase):
+    """Umbrik adds defensive skill where the sheet says (Law 21)."""
+
+    def setUp(self) -> None:
+        self.game = advanced()
+        self.match = build_match(ENGINE, self.game)
+        self.player = self.match.home.field_players[0]
+        self.skills = ENGINE.skills(self.game, self.player)
+
+    def asked(self, roll: str) -> int:
+        return ENGINE.attacking_skill(
+            self.game, self.match, self.player, roll,
+        )
+
+    def test_everybody_else_attacks_with_offense(self) -> None:
+        self.match.offense_maneuver = "high_pass"
+        self.assertEqual(self.asked("own_goal"), self.skills.offense)
+        self.assertEqual(self.asked("skill_test"), self.skills.offense)
+
+    def test_umbrik_uses_defense_on_the_three_rolls(self) -> None:
+        with holding(self.player, PersonalAbility.DEFENSIVE_THROW):
+            self.assertEqual(self.asked("own_goal"), self.skills.defense)
+            self.match.offense_maneuver = "low_pass"
+            self.assertEqual(self.asked("skill_test"), self.skills.offense)
+            self.match.offense_maneuver = "high_pass"
+            self.assertEqual(self.asked("skill_test"), self.skills.defense)
+            self.assertEqual(self.asked("contest"), self.skills.offense)
+            # Not the High Pass contest (the author, 2026-09-26).
+            self.match.pending_loose_ball_is_high_pass = True
+            self.assertEqual(self.asked("contest"), self.skills.offense)
+
+
+class KindlefingerTests(unittest.TestCase):
+    """Kindlefinger's injury check ignites (Law 21)."""
+
+    def setUp(self) -> None:
+        self.game = advanced(player_1_team=Team.FIRE_DEMONS)
+        self.match = build_match(ENGINE, self.game)
+        self.demon = fielded_of_species(self.match, SPECIES_FIRE_DEMON)
+
+    def ignite(self, face: int, second: int) -> IgnitedRoll:
+        with mock.patch.object(ENGINE.rng, "randint", return_value=second):
+            return ENGINE.injury_ignite(self.game, self.demon, face)
+
+    def test_nobody_else_s_check_ignites(self) -> None:
+        self.assertFalse(self.ignite(6, 9).ignited)
+
+    def test_a_blaze_clears_a_token_and_a_burn_adds_one(self) -> None:
+        with holding(self.demon, PersonalAbility.INJURY_IGNITION):
+            blaze = self.ignite(6, 9)
+            burn = self.ignite(7, 2)
+            self.assertFalse(self.ignite(5, 9).ignited)
+            self.assertEqual(blaze.modifier, 9)
+            self.assertEqual(burn.modifier, -2)
+            self.match.exhaustion[self.demon] = 3
+            ENGINE.settle_injury_ignite(
+                self.game, self.match, self.demon, blaze,
+            )
+            self.assertEqual(self.match.exhaustion[self.demon], 2)
+            ENGINE.settle_injury_ignite(
+                self.game, self.match, self.demon, burn,
+            )
+            self.assertEqual(self.match.exhaustion[self.demon], 3)
+
+    def test_an_injured_player_s_tokens_are_left_alone(self) -> None:
+        with holding(self.demon, PersonalAbility.INJURY_IGNITION):
+            burn = self.ignite(7, 2)
+        self.match.mark_injured(self.demon)
+        self.assertEqual(
+            ENGINE.settle_injury_ignite(
+                self.game, self.match, self.demon, burn,
+            ),
+            "",
+        )
+        self.assertEqual(self.match.exhaustion.get(self.demon, 0), 0)
+
+
+class SlitheronTests(unittest.TestCase):
+    """Slitheron takes a High Pass or loose ball without a roll."""
+
+    def setUp(self) -> None:
+        self.game = advanced()
+        self.match = build_match(ENGINE, self.game)
+        self.offense = self.match.home.field_players[0]
+        self.defense = self.match.visiting.field_players[0]
+
+    def winner(self):
+        return ENGINE.contest_auto_winner(
+            self.game, self.match, self.offense, self.defense,
+        )
+
+    def test_every_contest_for_the_ball(self) -> None:
+        # A ball come down between both sides too -- "a deflect
+        # bouncing the ball to a space with Slitheron and another
+        # player" (the author, 2026-09-26).
+        with holding(self.defense, PersonalAbility.WINS_CONTESTS):
+            self.match.pending_loose_ball_on_empty_space = False
+            self.match.pending_loose_ball_is_high_pass = False
+            self.assertEqual(self.winner(), self.defense)
+            self.match.pending_loose_ball_on_empty_space = True
+            self.assertEqual(self.winner(), self.defense)
+            self.match.pending_loose_ball_on_empty_space = False
+            self.match.pending_loose_ball_is_high_pass = True
+            self.assertEqual(self.winner(), self.defense)
+
+    def test_nobody_else_and_not_against_each_other(self) -> None:
+        self.match.pending_loose_ball_on_empty_space = True
+        self.assertIsNone(self.winner())
+        with mock.patch.dict(PERSONAL_ABILITIES, {
+            catalog_player_id(self.offense): (
+                PersonalAbility.WINS_CONTESTS, "test",
+            ),
+            catalog_player_id(self.defense): (
+                PersonalAbility.WINS_CONTESTS, "test",
+            ),
+        }):
+            self.assertIsNone(self.winner())
+
+
+class SlitheronFlowTests(unittest.TestCase):
+    """The contest itself, through `resolve_loose_ball`."""
+
+    def test_the_ball_is_slitheron_s_and_nobody_rolls(self) -> None:
+        game = advanced()
+        match = build_match(ENGINE, game)
+        offense = match.home.field_players[0]
+        defense = match.visiting.field_players[0]
+        match.pending_loose_ball = True
+        match.pending_loose_ball_on_empty_space = True
+        match.pending_loose_ball_distance = 1
+        match.loose_ball_offense_player = offense
+        match.loose_ball_defense_player = defense
+        with holding(defense, PersonalAbility.WINS_CONTESTS):
+            result = resolve_loose_ball(ENGINE, game, match)
+        self.assertIs(result.next.step, FollowOnStep.BEGIN_RUN_BACK)
+        self.assertTrue(result.next.kwargs["turnover_occurred"])
+        self.assertEqual(match.ball_carrier_id, defense)
+        self.assertEqual(match.ball.possession, TeamSide.VISITING)
+        self.assertFalse(match.pending_loose_ball)
+        self.assertIn("without a roll", result.narration[0])
+
+
+class KindlefingerFlowTests(unittest.TestCase):
+    """The injury check itself, through `injury_test_step`."""
+
+    def test_a_blaze_saves_them_and_clears_a_token(self) -> None:
+        game = advanced(player_1_team=Team.FIRE_DEMONS)
+        match = build_match(ENGINE, game)
+        demon = fielded_of_species(match, SPECIES_FIRE_DEMON)
+        match.exhaustion[demon] = 8
+        match.pending_injury_tests = [demon]
+        with holding(demon, PersonalAbility.INJURY_IGNITION), \
+                mock.patch.object(ENGINE.rng, "randint", side_effect=[6, 9]):
+            roll, result = injury_test_step(ENGINE, game, match, demon)
+        # 6 + 9 = 15 beats 8 tokens, where a plain 6 would not have.
+        self.assertTrue(roll.safe)
+        self.assertNotIn(demon, match.injured)
+        self.assertEqual(match.exhaustion[demon], 7)
+        self.assertIn("ignites", result.narration[0])
+
+    def test_the_token_moves_before_the_check_is_read(self) -> None:
+        # 6 + 5 = 11 against 11 tokens is not higher, so the check would
+        # fail -- but the blaze clears one first, and 11 beats 10.
+        game = advanced(player_1_team=Team.FIRE_DEMONS)
+        match = build_match(ENGINE, game)
+        demon = fielded_of_species(match, SPECIES_FIRE_DEMON)
+        match.exhaustion[demon] = 11
+        match.pending_injury_tests = [demon]
+        with holding(demon, PersonalAbility.INJURY_IGNITION), \
+                mock.patch.object(ENGINE.rng, "randint", side_effect=[6, 5]):
+            roll, _ = injury_test_step(ENGINE, game, match, demon)
+        self.assertTrue(roll.safe)
+        self.assertEqual(match.exhaustion[demon], 10)
+
+
+class ShotDefenseTests(unittest.TestCase):
+    """Goopkeeper and Flickerwing, in the score attempt (Law 21)."""
+
+    def setUp(self) -> None:
+        self.game = advanced()
+        self.match = build_match(ENGINE, self.game)
+        match = self.match
+        match.ball.possession = TeamSide.HOME
+        # The ball on flat 4, a home shooter on it; home attacks toward
+        # flat 6.
+        self.shooter = match.home.field_players[0]
+        self.at(self.shooter, 4)
+        match.set_ball_space(*match.board.position_at_flat_index(4))
+        match.active_player_id = self.shooter
+        visitors = match.visiting.field_players
+        for player_id in visitors:
+            self.at(player_id, 0)
+        self.on_ball, self.beyond, self.behind = visitors[:3]
+        self.at(self.on_ball, 4)
+        self.at(self.beyond, 6)
+        self.at(self.behind, 2)
+
+    def at(self, player_id: str, flat: int) -> None:
+        self.match.move_meeple(
+            player_id, *self.match.board.position_at_flat_index(flat),
+        )
+
+    def defending(self) -> dict:
+        return {
+            defender.player.player_id: defender
+            for defender in ENGINE.intervening_defenders(
+                self.match, self.game,
+            )
+        }
+
+    def test_the_ordinary_wall(self) -> None:
+        wall = self.defending()
+        self.assertEqual(set(wall), {self.on_ball, self.beyond})
+        self.assertTrue(wall[self.beyond].halved)
+
+    def test_goopkeeper_blocks_in_full_beyond_the_ball(self) -> None:
+        with holding(self.beyond, PersonalAbility.FULL_BLOCK):
+            wall = self.defending()
+        self.assertFalse(wall[self.beyond].halved)
+        self.assertEqual(
+            wall[self.beyond].value,
+            ENGINE.skills(self.game, self.beyond).defense,
+        )
+
+    def test_goopkeeper_behind_the_ball_adds_nothing(self) -> None:
+        with holding(self.behind, PersonalAbility.FULL_BLOCK):
+            self.assertNotIn(self.behind, self.defending())
+
+    def test_flickerwing_shoots_past_the_wall_every_time(self) -> None:
+        # "Every time Flickerwing makes a scoring attempt, off a setup
+        # or without it" (the author, 2026-09-26).
+        for set_up in (False, True):
+            with self.subTest(set_up=set_up):
+                self.match.pending_shot_is_set_up = set_up
+                with holding(self.shooter, PersonalAbility.CLEAR_SHOT):
+                    self.assertEqual(set(self.defending()), {self.on_ball})
+                    with holding(self.beyond, PersonalAbility.FULL_BLOCK):
+                        self.assertEqual(
+                            set(self.defending()),
+                            {self.on_ball, self.beyond},
+                        )
+
+
+class ViscorTests(unittest.TestCase):
+    """Viscor adds 3 more when Merging (Law 21)."""
+
+    def test_three_on_top_of_the_merge(self) -> None:
+        game = advanced(player_1_team=Team.OOZES)
+        match = build_match(ENGINE, game)
+        side = match.ball.possession
+        ooze = fielded_of_species(match, SPECIES_OOZE, side)
+        match.move_meeple(ooze, match.ball.zone, match.ball.space_index)
+        plain, _, _ = ENGINE.merge_bonus(game, match, side, (), "offense")
+        with holding(ooze, PersonalAbility.MERGES_HARDER):
+            harder, lines, _ = ENGINE.merge_bonus(
+                game, match, side, (), "offense",
+            )
+        self.assertEqual(harder, plain + VISCOR_MERGE_BONUS)
+        self.assertTrue(lines)
+
+
+class SpritzTests(unittest.TestCase):
+    """Spritz has the Telekinetics' Smooth (Law 21)."""
+
+    def setUp(self) -> None:
+        self.game = advanced(player_1_team=Team.OOZES)
+        self.match = build_match(ENGINE, self.game)
+        self.taker = fielded_of_species(
+            self.match, SPECIES_OOZE, self.match.ball.possession,
+        )
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        zone, index = self.match.board.position_at_flat_index(origin + 1)
+        self.match.board.place_meeple(self.taker, zone, index)
+        self.match.set_ball_space(zone, index)
+
+    def test_only_spritz_may_take_it_over(self) -> None:
+        self.assertEqual(ENGINE.smooth_candidates(self.game, self.match), [])
+        with holding(self.taker, PersonalAbility.SMOOTH):
+            self.assertEqual(
+                ENGINE.smooth_candidates(self.game, self.match),
+                [self.taker],
+            )
+            self.assertEqual(
+                ENGINE.smooth_candidates(
+                    build_game(
+                        mode=GameMode.BASIC, player_1_team=Team.OOZES,
+                    ),
+                    self.match,
+                ),
+                [],
+            )
+
+
+class LongPassTests(unittest.TestCase):
+    """Vorix's pass of 3 and Zytheris's catch (Law 21)."""
+
+    def setUp(self) -> None:
+        self.game = advanced()
+        self.match = build_match(ENGINE, self.game)
+        self.match.ball.possession = TeamSide.HOME
+
+    def pass_from(self, passer_flat: int, receiver_flat: int):
+        match = self.match
+        home = match.home.field_players
+        passer, receiver = home[0], home[1]
+        for player_id in home:
+            match.move_meeple(
+                player_id, *match.board.position_at_flat_index(0),
+            )
+        match.move_meeple(
+            passer, *match.board.position_at_flat_index(passer_flat),
+        )
+        match.move_meeple(
+            receiver, *match.board.position_at_flat_index(receiver_flat),
+        )
+        match.set_ball_space(*match.board.meeple_position(passer))
+        match.active_player_id = passer
+        match.ball.speed = 1
+        return passer, receiver
+
+    def test_anybody_else_s_pass_of_three_is_contested(self) -> None:
+        self.pass_from(2, 5)
+        result = high_pass_step(ENGINE, self.match, 3, game=self.game)
+        self.assertIs(
+            result.next.step, FollowOnStep.BEGIN_HIGH_PASS_CONTEST,
+        )
+
+    def test_vorix_sets_up_at_twelve(self) -> None:
+        passer, receiver = self.pass_from(2, 5)
+        with holding(passer, PersonalAbility.LONG_SET_UP):
+            result = high_pass_step(ENGINE, self.match, 3, game=self.game)
+        self.assertIs(
+            result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
+        )
+        self.assertEqual(result.next.kwargs["shooter_id"], receiver)
+        self.assertEqual(self.match.ball.speed, VORIX_BALL_SPEED)
+
+    def test_vorix_out_of_range_is_simply_received(self) -> None:
+        passer, receiver = self.pass_from(0, 3)
+        with holding(passer, PersonalAbility.LONG_SET_UP):
+            result = high_pass_step(ENGINE, self.match, 3, game=self.game)
+        self.assertIs(
+            result.next.step, FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+        )
+        self.assertEqual(self.match.ball_carrier_id, receiver)
+        self.assertEqual(self.match.ball.speed, VORIX_BALL_SPEED)
+
+    def test_zytheris_s_long_pass_is_contested_first(self) -> None:
+        # "Contest comes first and shooting is possible only if
+        # Zytheris wins it" (the author, 2026-09-26).
+        _, receiver = self.pass_from(2, 5)
+        with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
+            result = high_pass_step(ENGINE, self.match, 3, game=self.game)
+        self.assertIs(
+            result.next.step, FollowOnStep.BEGIN_HIGH_PASS_CONTEST,
+        )
+
+    def test_zytheris_shoots_once_they_keep_it(self) -> None:
+        _, receiver = self.pass_from(2, 5)
+        match = self.match
+        match.set_ball_space(*match.board.meeple_position(receiver))
+        with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
+            kept = after_the_contest(
+                ENGINE, self.game, match, receiver, True, False, 2,
+            )
+            lost = after_the_contest(
+                ENGINE, self.game, match, receiver, True, True, 2,
+            )
+            loose = after_the_contest(
+                ENGINE, self.game, match, receiver, False, False, 2,
+            )
+        self.assertEqual(kept["kind"], "scoring_attempt")
+        self.assertEqual(kept["shooter_id"], receiver)
+        self.assertEqual(lost["kind"], "run_back")
+        self.assertEqual(loose["kind"], "run_back")
+
+    def test_an_uncontested_long_pass_is_kept_and_shot(self) -> None:
+        _, receiver = self.pass_from(2, 5)
+        match = self.match
+        match.set_ball_space(*match.board.meeple_position(receiver))
+        match.pending_loose_ball = True
+        match.pending_loose_ball_is_high_pass = True
+        match.pending_loose_ball_distance = 2
+        match.loose_ball_offense_player = receiver
+        with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
+            result = resolve_loose_ball(ENGINE, self.game, match)
+        self.assertIs(
+            result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
+        )
+        self.assertEqual(result.next.kwargs["shooter_id"], receiver)
+
+    def test_zytheris_shoots_off_a_low_pass(self) -> None:
+        _, receiver = self.pass_from(3, 4)
+        plain = low_pass_step(ENGINE, self.match, 1, game=self.game)
+        self.assertIs(
+            plain.next.step, FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+        )
+        self.pass_from(3, 4)
+        with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
+            result = low_pass_step(ENGINE, self.match, 1, game=self.game)
+        self.assertIs(
+            result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
+        )
+        self.assertEqual(result.next.kwargs["shooter_id"], receiver)
+
+
+class BallComesToTests(unittest.TestCase):
+    """Inferno lights the ball and Pulsar charges up on it (Law 21)."""
+
+    def setUp(self) -> None:
+        self.game = advanced()
+        self.match = build_match(ENGINE, self.game)
+        self.player = self.match.home.field_players[0]
+        self.other = self.match.home.field_players[1]
+        self.match.set_ball_carrier(self.other)
+        self.match.ball.speed = 3
+
+    def comes(self) -> list[str]:
+        before = ENGINE.ball_holder(self.match)
+        self.match.set_ball_carrier(self.player)
+        return ball_comes_to(ENGINE, self.game, self.match, before)
+
+    def test_nothing_for_anybody_else(self) -> None:
+        self.assertEqual(self.comes(), [])
+        self.assertEqual(self.match.ball.speed, 3)
+
+    def test_inferno_lights_the_ball(self) -> None:
+        with holding(self.player, PersonalAbility.LIGHTS_THE_BALL):
+            self.assertTrue(self.comes())
+        self.assertEqual(self.match.ball.speed, INFERNO_BALL_SPEED)
+
+    def test_only_when_it_comes_to_them(self) -> None:
+        self.match.set_ball_carrier(self.player)
+        with holding(self.player, PersonalAbility.LIGHTS_THE_BALL):
+            self.assertEqual(
+                ball_comes_to(ENGINE, self.game, self.match, self.player),
+                [],
+            )
+        self.assertEqual(self.match.ball.speed, 3)
+
+    def test_being_chosen_to_handle_it_is_not_receiving_it(self) -> None:
+        # The choice consumes the carry: the handler is who the turn
+        # chose, not who the ball was left with.
+        before = ENGINE.ball_holder(self.match)
+        self.match.clear_ball_carrier()
+        self.match.active_player_id = self.player
+        with holding(self.player, PersonalAbility.LIGHTS_THE_BALL):
+            self.assertEqual(
+                ball_comes_to(ENGINE, self.game, self.match, before), [],
+            )
+        self.assertEqual(self.match.ball.speed, 3)
+
+    def test_a_pickup_is_receiving_it(self) -> None:
+        # "A steal, a pickup, or a pass" (the author, 2026-09-26). A
+        # pickup leaves nobody holding the ball, so it asks itself.
+        from d12ball.flow.turnovers import recover_ball_step
+
+        self.match.clear_ball_carrier()
+        self.match.pending_ball_recovery = True
+        picker = self.match.contest_candidates(self.match.ball.possession)[0]
+        with holding(picker, PersonalAbility.LIGHTS_THE_BALL):
+            result = recover_ball_step(
+                ENGINE, self.game, self.match, player_id=picker,
+            )
+        self.assertEqual(self.match.ball.speed, INFERNO_BALL_SPEED)
+        self.assertIn("ball speed", result.narration[0])
+
+    def test_pulsar_charges_up(self) -> None:
+        self.match.exhaustion[self.player] = 2
+        with holding(self.player, PersonalAbility.CHARGES_ON_THE_BALL):
+            self.assertTrue(self.comes())
+        self.assertEqual(self.match.exhaustion[self.player], 1)
+
+
+class GlompexTests(unittest.TestCase):
+    """Glompex steps onto the ball before the cards (Law 21)."""
+
+    def setUp(self) -> None:
+        # Only the player a test hands the ability to holds it: the
+        # deal fields the real Glompex, who would be asked as well.
+        cleared = mock.patch.dict(PERSONAL_ABILITIES, {}, clear=True)
+        cleared.start()
+        self.addCleanup(cleared.stop)
+        self.game = advanced()
+        match = self.match = build_match(ENGINE, self.game)
+        match.ball.possession = TeamSide.HOME
+        home = match.home.field_players
+        self.handler, self.joiner = home[0], home[1]
+        self.challenger = match.visiting.field_players[0]
+        for player_id, flat in (
+            (self.handler, 3), (self.challenger, 3), (self.joiner, 2),
+        ):
+            match.move_meeple(
+                player_id, *match.board.position_at_flat_index(flat),
+            )
+        match.set_ball_space(*match.board.position_at_flat_index(3))
+        match.active_player_id = self.handler
+        match.challenger_id = self.challenger
+
+    def test_only_glompex_beside_the_ball_against_a_challenge(self) -> None:
+        self.assertEqual(ENGINE.join_candidates(self.game, self.match), [])
+        with holding(self.joiner, PersonalAbility.JOINS_THE_BALL):
+            self.assertEqual(
+                ENGINE.join_candidates(self.game, self.match),
+                [self.joiner],
+            )
+            self.match.move_meeple(
+                self.joiner, *self.match.board.position_at_flat_index(1),
+            )
+            self.assertEqual(
+                ENGINE.join_candidates(self.game, self.match), [],
+            )
+
+    def test_asked_before_the_cards_once(self) -> None:
+        with holding(self.joiner, PersonalAbility.JOINS_THE_BALL):
+            asked = begin_maneuver_action_selection(
+                ENGINE, self.game, self.match,
+            )
+            self.assertIsInstance(asked.next, PendingPrompt)
+            self.assertIs(asked.next.kind, PromptKind.JOIN_THE_BALL)
+            result = join_the_ball_step(
+                ENGINE, self.game, self.match, self.joiner, True,
+            )
+            self.assertIs(
+                result.next.step, FollowOnStep.SEND_MANEUVER_ACTION_PROMPT,
+            )
+            # Answered: the cards come next, not the offer again.
+            again = begin_maneuver_action_selection(
+                ENGINE, self.game, self.match,
+            )
+        self.assertIs(
+            again.next.step, FollowOnStep.SEND_MANEUVER_ACTION_PROMPT,
+        )
+        self.assertEqual(
+            self.match.board.meeple_position(self.joiner),
+            (self.match.ball.zone, self.match.ball.space_index),
+        )
+        self.assertEqual(self.match.exhaustion[self.joiner], 1)
+
+    def test_staying_moves_nobody(self) -> None:
+        where = self.match.board.meeple_position(self.joiner)
+        self.match.pending_join = [self.joiner]
+        join_the_ball_step(ENGINE, self.game, self.match, self.joiner, False)
+        self.assertEqual(self.match.board.meeple_position(self.joiner), where)
+        self.assertEqual(self.match.exhaustion.get(self.joiner, 0), 0)
+
+
+class ZenithTests(unittest.TestCase):
+    """Zenith flies before a steal's run back (Law 21)."""
+
+    def setUp(self) -> None:
+        cleared = mock.patch.dict(PERSONAL_ABILITIES, {}, clear=True)
+        cleared.start()
+        self.addCleanup(cleared.stop)
+        self.game = advanced()
+        match = self.match = build_match(ENGINE, self.game)
+        self.flier = match.visiting.field_players[0]
+        match.set_ball_carrier(match.home.field_players[0])
+        match.last_ball_path = []
+
+    def test_asked_first_then_left_out_of_the_run_back(self) -> None:
+        match = self.match
+        here = match.board.flat_index(*match.board.meeple_position(self.flier))
+        target = 0 if here > 2 else 6
+        zone, index = match.board.position_at_flat_index(target)
+        with holding(self.flier, PersonalAbility.FLY):
+            asked = begin_run_back(ENGINE, self.game, match)
+            self.assertIs(asked.next.kind, PromptKind.FLY)
+            flown = fly_step(
+                ENGINE, self.game, match, self.flier, (zone, index),
+            )
+            self.assertIs(flown.next.step, FollowOnStep.BEGIN_RUN_BACK)
+            self.assertEqual(
+                match.exhaustion[self.flier], abs(target - here),
+            )
+            self.assertIn(self.flier, match.run_back_flown)
+            self.assertNotIn(
+                self.flier,
+                ENGINE.run_back_displaced(match, match.visiting.side),
+            )
+            resumed = begin_run_back(
+                ENGINE, self.game, match, **flown.next.kwargs,
+            )
+        self.assertIs(resumed.next.step, FollowOnStep.ANNOUNCE_RUN_BACK)
+
+    def test_nobody_else_and_never_the_ball_s_holder(self) -> None:
+        self.assertEqual(ENGINE.fly_candidates(self.game, self.match), [])
+        holder = self.flier
+        self.match.set_ball_carrier(holder)
+        with holding(holder, PersonalAbility.FLY):
+            self.assertEqual(
+                ENGINE.fly_candidates(self.game, self.match), [],
+            )
+
+    def test_never_injured(self) -> None:
+        self.match.mark_injured(self.flier)
+        with holding(self.flier, PersonalAbility.FLY):
+            self.assertEqual(
+                ENGINE.fly_candidates(self.game, self.match), [],
+            )
+
+    def test_not_a_new_play(self) -> None:
+        with holding(self.flier, PersonalAbility.FLY):
+            result = begin_run_back(
+                ENGINE, self.game, self.match, new_play=True,
+            )
+        self.assertNotIsInstance(result.next, PendingPrompt)
 
 
 if __name__ == "__main__":

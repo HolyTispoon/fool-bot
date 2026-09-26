@@ -46,10 +46,13 @@ from d12ball.formatting import (
     format_team_side_label,
 )
 from d12ball.game import D12BallGame, team_display_name
+from d12ball.personal_abilities import GLOMPEX_JOIN_COST
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
+    force_test_prompt,
+    join_the_ball_prompt,
     maneuver_action_ask,
 )
 
@@ -140,9 +143,10 @@ def skill_test_headline(
             "test!\n\n"
         )
 
+    would_be_winner = offense_name if outcome == "offense" else defense_name
+
     # An injured player's maneuver never wins outright -- they still
     # have to win a skill test to make it stick.
-    would_be_winner = offense_name if outcome == "offense" else defense_name
     injured_player_id = (
         match.active_player_id
         if outcome == "offense"
@@ -217,7 +221,24 @@ def resolve_maneuver(
     # win on the cards from a win handed over by the other player's
     # injury.
     outcome = engine.maneuver_catalog.resolve(offense_key, defense_key)
-    winner_key = engine.settled_maneuver_winner(match)
+
+    # **Scorchit may force the test** (Law 21): asked here, once, where
+    # the cards have gone against them and nothing has resolved yet.
+    offer = engine.force_test_offer(game, match)
+    if offer is not None and match.forced_test_player is None:
+        match.pending_force_test = offer
+        would_be_winner = (
+            offense_name if outcome == "offense" else defense_name
+        )
+        return StepResult(
+            narration=[
+                f"{reveal}\n\n**{would_be_winner}** would win on the "
+                "cards."
+            ],
+            next=force_test_prompt(engine, game, match, offer),
+        )
+
+    winner_key = engine.settled_maneuver_winner(match, game)
 
     if winner_key is not None:
         return StepResult(
@@ -784,9 +805,91 @@ def begin_maneuver_action_selection(
     if match.maneuver_selections_complete:
         return StepResult(next=FollowOn(FollowOnStep.RESOLVE_MANEUVER))
 
+    # **Glompex, before the cards** (Law 21): asked once a maneuver,
+    # here, where the challenger is in place and nobody has chosen.
+    if match.pending_join is None:
+        match.pending_join = engine.join_candidates(game, match)
+    if match.pending_join:
+        return StepResult(
+            next=join_the_ball_prompt(
+                engine, game, match, match.pending_join[0],
+            ),
+        )
+
     return StepResult(
         next=FollowOn(FollowOnStep.SEND_MANEUVER_ACTION_PROMPT),
     )
+
+
+def force_test_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    force: bool,
+) -> StepResult:
+    """
+    Scorchit's answer (Law 21): force the skill test -- 2 tokens to
+    them and none to their opponent, charged as it begins -- or let the
+    cards stand and the winner's maneuver resolve.
+    """
+    if match.pending_force_test != player_id:
+        raise RuleRefusal("That offer has already been answered.")
+    match.pending_force_test = None
+    player = engine.get_player_definition(player_id)
+    label = engine.format_player_label(match, player)
+    if force:
+        match.forced_test_player = player_id
+        return StepResult(
+            narration=[f"{label} forces a skill test!"],
+            next=FollowOn(
+                FollowOnStep.BEGIN_MANEUVER_SKILL_TEST, {"headline": ""},
+            ),
+        )
+    winner_key = engine.settled_maneuver_winner(match, game)
+    return StepResult(
+        narration=[
+            f"{label} lets it stand.\n\n"
+            f"## **{engine.maneuver_name(winner_key)}** wins!"
+        ],
+        next=FollowOn(
+            FollowOnStep.BEGIN_EFFECT_RESOLUTION,
+            {"winner_key": winner_key},
+        ),
+    )
+
+
+def join_the_ball_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    join: bool,
+) -> StepResult:
+    """
+    Glompex's answer (Law 21): step onto the ball's space for a token,
+    where Merge counts them in the test to come, or stay put. Either
+    way the next offer, or the cards.
+    """
+    if not match.pending_join or match.pending_join[0] != player_id:
+        raise RuleRefusal("That offer has already been answered.")
+    match.pending_join.pop(0)
+    player = engine.get_player_definition(player_id)
+    label = engine.format_player_label(match, player)
+    if join:
+        match.move_meeple(player_id, match.ball.zone, match.ball.space_index)
+        line = "\n".join(filter(None, [
+            f"{label} steps onto the ball's space to Merge.",
+            engine.apply_exhaustion(
+                game, match, player_id, GLOMPEX_JOIN_COST,
+            ),
+        ]))
+    else:
+        line = f"{label} stays where they are."
+    result = begin_maneuver_action_selection(engine, game, match)
+    result.narration.insert(0, line)
+    result.board_changed = result.board_changed or join
+    return result
 
 
 def offer_maneuver_action(
@@ -847,14 +950,23 @@ def begin_maneuver_skill_test(
     `lead_in` is always "" for this step and is kept in front of the
     reveal rather than dropped, because every step is called with one.
     """
-    exhaustion_text = (
-        engine.apply_exhaustion(game, match, match.active_player_id, 1)
-        + "\n"
-        + engine.apply_exhaustion(game, match, match.challenger_id, 1)
-    )
+    # Scorchit's forced test is 2 to Scorchit and nothing to their
+    # opponent, and Zorch pays nothing (Law 21); `skill_test_tokens`
+    # is the one reading. A free entry says nothing, so the lines are
+    # filtered rather than joined blind.
+    forced_by = engine.forced_test_by(game, match)
+    exhaustion_text = "\n".join(filter(None, [
+        engine.apply_exhaustion(
+            game, match, player_id,
+            engine.skill_test_tokens(game, match, player_id, forced_by),
+        )
+        for player_id in (match.active_player_id, match.challenger_id)
+    ]))
     offense_player = engine.get_player_definition(match.active_player_id)
     defense_player = engine.get_player_definition(match.challenger_id)
-    offense_skill = engine.skills(game, offense_player.player_id).offense
+    offense_skill = engine.attacking_skill(
+        game, match, offense_player.player_id, "skill_test",
+    )
     defense_skill = engine.skills(game, defense_player.player_id).defense
 
     prefix = f"{lead_in}\n\n" if lead_in else ""

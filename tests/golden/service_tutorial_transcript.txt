@@ -287,20 +287,20 @@ Their fullback is standing on space 7, so you get their whole defensive skill of
 **High Pass:** the ball moves 2 spaces forward.
 That reaches a teammate -- a scoring opportunity!
 --- prompt SET_UP_ATTEMPT
-{team:orange} Noxar {role:striker:orange} can attempt the scoring opportunity, or let it go:
+{team:orange} Acidel {role:striker:orange} can attempt the scoring opportunity, or let it go:
 --- board changed
 === action 29: SET_UP_ATTEMPT 'take' {}
 --- answer
-{team:orange} Noxar {role:striker:orange} takes the shot off the set-up.
+{team:orange} Acidel {role:striker:orange} takes the shot off the set-up.
 --- prompt SCORE_ATTEMPT
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === action 30: SCORE_ATTEMPT 'roll' {}
 --- answer
 # GOAL!
-{team:orange} Noxar {role:striker:orange} scores for Orange (Home) on **04**!
+{team:orange} Acidel {role:striker:orange} scores for Orange (Home) on **04**!
 Orange 1:0 Purple
 
-{team:orange} Noxar {role:striker:orange} adds 1 exhaustion {condition:exhaust} (now 1 total).
+{team:orange} Acidel {role:striker:orange} adds 1 exhaustion {condition:exhaust} (now 1 total).
 --- group BEGIN_RUN_BACK drawn new-play
 # New play
 Both teams reset to the positions their coaches last set:
