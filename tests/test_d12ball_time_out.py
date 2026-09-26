@@ -60,6 +60,10 @@ def build_cog() -> D12Ball:
     cog.finish_maneuver_resolution = mock.AsyncMock()
     cog.announce_run_back = mock.AsyncMock()
     cog.end_period = mock.AsyncMock()
+    # The time out's tail is a new play since 2026-09-26, and a new
+    # play's reset is the board the cog pins -- a Discord message this
+    # harness has no channel for.
+    cog.post_new_play_board = mock.AsyncMock()
     return cog
 
 
@@ -434,9 +438,10 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         cog.announce_run_back.assert_not_awaited()
 
     async def test_the_reply_closing_runs_no_run_back(self) -> None:
-        # Both windows opened on their own coach's arrangement, so
-        # there is nothing displaced to run back -- but the time out
-        # still costs its own flat space minute (2026-08-16).
+        # The new play's reset puts everybody back on their arrangement
+        # once the reply closes, so there is nothing displaced to run
+        # back -- but the time out still costs its own flat space
+        # minute (2026-08-16).
         cog, game, match = self.build()
         match.call_time_out()
         match.move_meeple(
@@ -455,18 +460,23 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         _, kwargs = cog.finish_maneuver_resolution.call_args
         self.assertEqual(kwargs["distance_moved"], 1)
         # **Not** a turnover: the side that called it still has the
-        # ball, so nothing resets speed and nothing ends the period.
+        # ball, so nothing ends the period (the speed was reset when it
+        # was called).
         self.assertFalse(kwargs["turnover_occurred"])
         self.assertFalse(match.pending_time_out)
+        # The reset is a new play's, and its board is the one pinned.
+        cog.post_new_play_board.assert_awaited()
 
     async def test_a_ball_nobody_is_standing_on_is_picked_up(self) -> None:
         # A Coaching Choice can re-deal the whole side, so the coach
-        # who called the time out can rearrange their own handler off
-        # their own ball. Possession stays theirs and they fetch it.
+        # who called the time out can arrange their own handler off
+        # their own ball. Possession stays theirs and, once the reset
+        # has put everybody on the new arrangement, they fetch it.
         cog, game, match = self.build()
         match.call_time_out()
         for player_id in list(match.board.spaces[Zone.MIDFIELD][0]):
             match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+        match.set_assigned_positions(TeamSide.HOME)
         interaction = build_interaction()
 
         with suppressed_cog_saves():
@@ -1055,40 +1065,55 @@ class TimeOutIsANewPlayTests(unittest.TestCase):
             self.assertIs(prompt.kind, PromptKind.COACHING_HUB)
             self.apply(PromptKind.COACHING_HUB, "done", side=prompt.side.value)
 
-    def test_both_sides_reset_and_the_speed_goes_back_to_one(self) -> None:
+    def test_the_speed_goes_back_to_one_when_it_is_called(self) -> None:
+        from d12ball.prompts import PromptKind
+
+        self.match.ball.speed = 3
+        self.apply(PromptKind.PLAYER_ACTION, "time_out")
+
+        self.assertIs(self.prompt().kind, PromptKind.COACHING_HUB)
+        self.assertEqual(self.match.ball.speed, 1)
+        # Possession stays: it is a new play, not a turnover.
+        self.assertIs(TeamSide(self.match.ball.possession), TeamSide.HOME)
+
+    def test_both_sides_reset_after_the_windows_to_what_they_left(
+        self,
+    ) -> None:
+        """
+        The reset comes after both Coaching Choices, onto the
+        arrangements as the coaches left them (the author, 2026-09-26):
+        a player of the other side scattered off their arrangement is
+        still where open play left them while the caller coaches, and
+        back on it once both windows close; a Double Team ends there.
+        """
         from d12ball.prompts import PromptKind
 
         match = self.match
-        arranged = {
-            side: self.positions(side)
-            for side in (TeamSide.HOME, TeamSide.VISITING)
-        }
-        # Scatter one player of each side off their arrangement, away
-        # from the ball, and give the ball some speed and a Double Team.
+        arranged = self.positions(TeamSide.VISITING)
         ball = (match.ball.zone, match.ball.space_index)
-        for side in (TeamSide.HOME, TeamSide.VISITING):
-            player_id = next(
-                one for one, where in arranged[side].items()
-                if where != ball and one != match.active_player_id
-            )
-            flat = match.board.flat_index(*arranged[side][player_id])
-            elsewhere = match.board.position_at_flat_index(
-                flat + 1 if flat + 1 < match.board.layout.board_size else flat - 1,
-            )
-            match.board.place_meeple(player_id, *elsewhere)
-        match.ball.speed = 3
+        player_id = next(
+            one for one, where in arranged.items() if where != ball
+        )
+        flat = match.board.flat_index(*arranged[player_id])
+        size = match.board.layout.board_size
+        elsewhere = match.board.position_at_flat_index(
+            flat + 1 if flat + 1 < size else flat - 1,
+        )
+        match.board.place_meeple(player_id, *elsewhere)
         match.pending_double_team = list(match.visiting.field_players[:2])
 
         self.apply(PromptKind.PLAYER_ACTION, "time_out")
+        # The caller coaches; the other side has not been reset yet.
+        self.assertIs(self.prompt().side, TeamSide.HOME)
+        self.assertEqual(match.board.meeple_position(player_id), elsewhere)
 
-        # The caller's window is open, and the reset came before it.
-        self.assertIs(self.prompt().kind, PromptKind.COACHING_HUB)
-        self.assertEqual(match.ball.speed, 1)
+        for _ in range(2):
+            prompt = self.prompt()
+            self.assertIs(prompt.kind, PromptKind.COACHING_HUB)
+            self.apply(PromptKind.COACHING_HUB, "done", side=prompt.side.value)
+
+        self.assertEqual(self.positions(TeamSide.VISITING), arranged)
         self.assertEqual(match.pending_double_team, [])
-        for side in (TeamSide.HOME, TeamSide.VISITING):
-            self.assertEqual(self.positions(side), arranged[side], side)
-        # Possession stays: it is a new play, not a turnover.
-        self.assertIs(TeamSide(match.ball.possession), TeamSide.HOME)
 
     def test_nobody_is_sent_when_the_arrangement_covers_the_ball(self) -> None:
         from d12ball.prompts import PromptKind

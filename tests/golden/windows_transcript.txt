@@ -12,9 +12,6 @@ You may take a time out once per half. If you do, play will stop and you'll be a
 --- message
 # Orange (Home) call a time out
 Both coaches get a Coaching Choice. The ball stays with Orange (Home) on space 4.
-
-# New play
-Players return to positions assigned by their coach.
 --- message
 # Coaching Choice
 <@111>, **Orange (Home)** -- 2 substitutions left.
@@ -718,15 +715,10 @@ You may take a time out once per half. If you do, play will stop and you'll be a
 --- message
 # Orange (Home) call a time out
 Both coaches get a Coaching Choice. The ball stays with Orange (Home) on space 1.
-
-# New play
-Both teams reset to the positions their coaches last set:
-🟠 Goopkeeper [FB] to space 1
-🟠 Blazebulk [DD] to space 2
-🟣 Emberdash [PM] to space 4
 --- message
 # Coaching Choice
 <@111>, **Orange (Home)** -- 2 substitutions left.
+Your side is back on the arrangement you last set.
 === press 60: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice

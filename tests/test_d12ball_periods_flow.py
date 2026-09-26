@@ -773,7 +773,32 @@ class TimeOutFlowTests(PeriodFixture):
         self.assertEqual(result.next.kwargs["distance_moved"], 1)
         self.assertFalse(result.next.kwargs["turnover_occurred"])
 
-    def test_a_handler_coached_off_the_ball_fetches_it_free(self) -> None:
+    def test_a_handler_coached_off_the_ball_fetches_it(self) -> None:
+        # A coach who arranges their side off the ball's space has it
+        # fetched once the new play's reset has put everybody on the
+        # new arrangement (the author, 2026-09-26).
+        self.match.call_time_out()
+        for player_id in list(
+            self.match.board.spaces[self.match.ball.zone][
+                self.match.ball.space_index
+            ]
+        ):
+            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+        self.match.set_assigned_positions(TeamSide.HOME)
+
+        result = finish_time_out(self.engine, self.game, self.match)
+
+        self.assertTrue(result.new_play)
+        self.assertTrue(self.match.pending_ball_recovery)
+        # The flag says the pickup is not a turnover; it is charged
+        # like every other since 2026-09-26.
+        self.assertTrue(self.match.pending_recovery_from_time_out)
+
+    def test_a_handler_moved_off_but_still_arranged_there_is_not_sent(
+        self,
+    ) -> None:
+        # Moved off the ball without the arrangement changing: the
+        # reset puts them back on it, so nobody is sent.
         self.match.call_time_out()
         for player_id in list(
             self.match.board.spaces[self.match.ball.zone][
@@ -784,10 +809,7 @@ class TimeOutFlowTests(PeriodFixture):
 
         finish_time_out(self.engine, self.game, self.match)
 
-        self.assertTrue(self.match.pending_ball_recovery)
-        # One flag, read at both ends: the pickup costs nothing *and*
-        # it is not a turnover.
-        self.assertTrue(self.match.pending_recovery_from_time_out)
+        self.assertFalse(self.match.pending_ball_recovery)
 
 
 class WindowStateSurvivesASaveTests(PeriodFixture):

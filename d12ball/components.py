@@ -2518,9 +2518,10 @@ class MatchState:
 
         **It is a new play** (the author, 2026-09-26), so ball speed
         goes back to 1 as it does on every new play -- the avoided own
-        goal's too, the other new play that keeps possession -- and the
-        step that calls this resets both sides to their arrangements
-        (`announce_new_play_reset`) before either coach coaches.
+        goal's too, the other new play that keeps possession. Both
+        sides are reset to their arrangements once both coaches have
+        coached (`finish_time_out`), so they go to the arrangements
+        those windows left.
 
         The turn being taken *is* cleared, carrier included. The side
         that called the time out still has the ball, but a Coaching

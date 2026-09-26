@@ -30,16 +30,29 @@ with a minute and the side's one time out for the half.
 should be a new play. Everyone should go back to their coach assigned
 position"*). The ball does not move and possession does not change, so it is
 still not filed under [Turnovers](possession-and-turnovers.md#turnovers-steals-and-new-plays); but
-`call_time_out` puts the ball back to speed 1, and `begin_time_out` runs the
-same `announce_new_play_reset` every new play runs -- both sides onto their
-arrangements, a pending Double Team ended, the board a frontend pins --
-before the caller's window opens. The two windows are the time out's own
-occasion, so the new play's own declare-or-pass offer is not put too. Until
-then nothing reset: each side went back to its arrangement only as its own
-window opened, speed stayed where it was, and a Double Team survived the
-pause. Speed 1 is read from "new play" -- every other new play restarts at 1,
-the avoided own goal included -- rather than something the author said in as
-many words.
+`call_time_out` puts the ball back to speed 1 (confirmed by the author the
+same day), and once both windows have closed `finish_time_out` runs the same
+`announce_new_play_reset` every new play runs -- both sides onto their
+arrangements, a pending Double Team ended, the board a frontend pins -- and
+only then asks whether a pickup is owed. The two windows are the time out's
+own occasion, so the new play's own declare-or-pass offer is not put too.
+
+**The reset is after the windows, not before** (the author: *"that position
+may change ... if it did, they would go to their new position. Only then
+check to see if there's a need to send someone"*). A first cut reset before
+the caller's window; it was the wrong way round, since a window can change
+the arrangement the reset reads. Each window still opens with its own side
+on its arrangement (`begin_substitution_window`, as at halftime), because a
+Coaching Choice changes the arrangement by moving the meeples and then
+records where they stand -- a window opened on a scrambled side would record
+the scramble. That is the Choice's own mechanics, not the new play's reset,
+and it is why the other side stays where open play left it while the caller
+coaches.
+
+So a pickup is owed **if and only if the calling side's arrangement puts
+nobody on the ball's space** once the Choices are done: a handler merely
+moved off the ball is put back on it by the reset, and a coach who arranged
+their side away from it sends one of the two nearest.
 
 - **`MatchState.may_call_time_out` is the whole of when it is offered**, and it
   is three reads: `can_attempt_score` from the other end, the half's own count

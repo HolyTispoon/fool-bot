@@ -49,7 +49,7 @@ from d12ball import tutorial
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.turnovers import announce_new_play_reset, begin_ball_recovery
+from d12ball.flow.turnovers import announce_new_play_reset
 from d12ball import tokens
 from d12ball.formatting import (
     ball_space_label,
@@ -681,20 +681,24 @@ def begin_time_out(
     **It is a new play, and not a turnover** (the author,
     2026-09-26: "Time out should be a new play. Everyone should go
     back to their coach assigned position"). The ball does not move
-    and possession does not change, but the ball goes back to speed
-    1 and both sides reset to the arrangements their coaches last
-    set, through the same `announce_new_play_reset` every new play
-    runs -- which also ends a pending Double Team and is the board a
-    frontend pins. What it costs is the flat space minute every
-    action costs (2026-08-16), charged in `finish_time_out` once its
-    tail (a pickup may span a restart) is settled.
+    and possession does not change; it goes back to speed 1 here, and
+    both sides are reset **after** the two windows, in
+    `finish_time_out` -- "Send them back to their position after the
+    coaching window ... if it did [change], they would go to their new
+    position. Only then check to see if there's a need to send
+    someone." What it costs is the flat space minute every action
+    costs (2026-08-16), charged in `finish_time_out` once its tail (a
+    pickup may span a restart) is settled.
 
-    Both coaches then coach, on the reset: the caller's window opens
-    straight after it, and `finish_substitution_window` hands the
-    other theirs exactly as a declaration's reply -- which is what
-    it is. A time out's windows are its own occasion, already paid
-    for, so the new play's own declare-or-pass offer is not put as
-    well.
+    Both coaches then coach: the caller's window opens at once, and
+    `finish_substitution_window` hands the other theirs exactly as a
+    declaration's reply -- which is what it is. A time out's windows
+    are its own occasion, already paid for, so the new play's own
+    declare-or-pass offer is not put as well. Each window still opens
+    with its own side on its arrangement
+    (`begin_substitution_window`), because a Coaching Choice edits the
+    arrangement by moving the meeples: that is the arrangement being
+    worked on, not the new play's reset.
 
     **There is no last-possession branch here any more, because the
     button is never built then.** Ceding was a turnover, so under
@@ -734,24 +738,20 @@ def begin_time_out(
     # whoever called it -- and the window that opens behind it is the
     # next thing. Until step 7 of docs/architecture-migration.md it
     # rode inside the caller's own menu as its heading, which an AI
-    # caller has no menu to carry it on. The new play's reset follows
-    # it in the same message, as every new play's does.
-    reset = announce_new_play_reset(
-        engine,
-        game,
-        match,
-        lead_in=(
+    # caller has no menu to carry it on.
+    return StepResult(
+        narration=[
             f"# {label} call a time out\n"
             "Both coaches get a Coaching Choice. The ball stays "
             f"with {label} on "
             f"{ball_space_label(match)}."
+        ],
+        board_changed=True,
+        next=FollowOn(
+            FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
+            {"side": side, "occasion": CoachingOccasion.TIME_OUT},
         ),
     )
-    reset.next = FollowOn(
-        FollowOnStep.BEGIN_SUBSTITUTION_WINDOW,
-        {"side": side, "occasion": CoachingOccasion.TIME_OUT},
-    )
-    return reset
 
 
 def finish_time_out(
@@ -761,16 +761,20 @@ def finish_time_out(
 ) -> StepResult:
     """
     The tail of a time out, once both coaches have closed their
-    windows. There is no run back to run and none is owed: the new
-    play reset both sides before the windows opened, so by here both
-    sides are standing where their own coach left them.
+    windows: **the new play's reset, and then the pickup if one is
+    owed** (the author, 2026-09-26). Both sides go back to the
+    arrangements their coaches have now set -- the one they had, or
+    the one they just made -- through the same
+    `announce_new_play_reset` every new play runs, which also ends a
+    pending Double Team and is the board a frontend pins. There is no
+    run back to run and none is owed.
 
-    What is left is whether the side that called it still has
-    anybody on their own ball. A Coaching Choice can re-deal a
-    whole side, so a coach can rearrange their handler off the
-    space the ball is lying on. Possession is the team's and stays
-    with them either way (the author, 2026-09-16); they send the
-    nearest player either side of it to pick it back up.
+    Only then is it asked whether the side that called it has
+    anybody on their own ball. A Coaching Choice can re-deal a whole
+    side, so a coach can arrange their handler off the space the
+    ball is lying on. Possession is the team's and stays with them
+    either way (the author, 2026-09-16); they send one of the two
+    nearest to pick it back up.
 
     **That pickup charges a token a space**, like every other pickup
     (the author, 2026-09-26; it was free until then). What
@@ -790,19 +794,20 @@ def finish_time_out(
     closed.
     """
     match.pending_time_out = False
+    reset = announce_new_play_reset(engine, game, match)
     needs_recovery = not match.eligible_ball_handlers()
     match.pending_ball_recovery = needs_recovery
     match.pending_recovery_from_time_out = needs_recovery
 
     if needs_recovery:
-        return begin_ball_recovery(engine, game, match)
+        reset.next = FollowOn(FollowOnStep.BEGIN_BALL_RECOVERY)
+        return reset
 
     # A time out costs the flat space minute every action costs
     # (2026-08-16), and nothing else: speed was reset when it was
     # called, and it is not a turnover.
-    return StepResult(
-        next=FollowOn(
-            FollowOnStep.FINISH_MANEUVER_RESOLUTION,
-            {"distance_moved": 1, "turnover_occurred": False},
-        ),
+    reset.next = FollowOn(
+        FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+        {"distance_moved": 1, "turnover_occurred": False},
     )
+    return reset
