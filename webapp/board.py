@@ -29,10 +29,17 @@ from __future__ import annotations
 
 from typing import Optional
 
-from d12ball.components import MatchPeriod, MatchState, TeamSide, Zone
+from d12ball.components import (
+    FIRST_HALF_LAST_MINUTE,
+    SECOND_HALF_LAST_MINUTE,
+    MatchPeriod,
+    MatchState,
+    TeamSide,
+    Zone,
+)
 from d12ball.engine import RulesEngine
 from d12ball.formatting import role_initials
-from d12ball.game import D12BallGame, team_display_name
+from d12ball.game import D12BallGame, GameStatus, team_display_name
 from d12ball.render import (
     BALL_RADIUS,
     FONT_SMALL,
@@ -119,6 +126,86 @@ def period_name(match: MatchState) -> str:
         if match.scoreboard.period == MatchPeriod.FIRST_HALF
         else "Second Half"
     )
+
+
+#: The halves as the jumbotron bar words them beside the minute.
+HALF_NAMES = {
+    MatchPeriod.FIRST_HALF: "1st half",
+    MatchPeriod.SECOND_HALF: "2nd half",
+}
+
+
+def jumbotron(game: D12BallGame, match: MatchState) -> dict:
+    """
+    The bar across the top of the play area (step 2 of
+    docs/web-app-redesign.md): both teams, the score, the clock and
+    what the half has left of each side's time out -- read off the
+    match, never worked out. Possession is `ball.possession`; a time
+    out still held is `may_take_time_out`, the half's own count (which
+    halftime clears); the track runs to the second half's last minute,
+    with the first half's marked, both the clock's own constants; last
+    possession is the scoreboard's flag. Whether a tile is *lit* is not
+    here: that is the turn prompt's to say (`webapp/present.py`), and
+    only to the coach it is put to.
+    """
+    board = match.scoreboard
+    possession = match.ball.possession
+
+    def side(setup) -> dict:
+        return {
+            **_team(setup.team),
+            "possession": possession is not None
+            and TeamSide(possession) == setup.side,
+            "time_out": "held" if match.may_take_time_out(setup.side) else "spent",
+        }
+
+    return {
+        "home": side(match.home),
+        "visiting": side(match.visiting),
+        "score": {"home": board.home_score, "visiting": board.visiting_score},
+        "minute": f"{board.time:02d}",
+        "period": period_name(match),
+        "half": HALF_NAMES[MatchPeriod(board.period)],
+        "track": {
+            "length": SECOND_HALF_LAST_MINUTE,
+            "halftime": FIRST_HALF_LAST_MINUTE,
+            "filled": min(board.time, SECOND_HALF_LAST_MINUTE),
+        },
+        "last_possession": board.last_possession,
+        # The d12 on the BALL mark shows what the ball on the field shows.
+        "speed": match.ball.speed,
+        "note": clock_note(game, match),
+    }
+
+
+def clock_note(game: D12BallGame, match: MatchState) -> str:
+    """
+    What goes under the clock between the halves and after them: the
+    stage the match is in, and at the end the result -- the score at
+    the whistle and the shootout's apart, as `shootout_score_line`
+    reports them, since the scoreboard carries the shootout's goals
+    too. An abandoned game says so rather than reading as a result.
+    """
+    if GameStatus(game.status) == GameStatus.FINISHED:
+        # An abandoned game is finished with no result (`abandon`).
+        if game.abandoned:
+            return "Abandoned"
+        board = match.scoreboard
+        if not match.shootout_goals:
+            return f"Final \u00b7 {board.home_score} : {board.visiting_score}"
+        home = match.shootout_goals_for(TeamSide.HOME)
+        visiting = match.shootout_goals_for(TeamSide.VISITING)
+        return (
+            f"Final \u00b7 {board.home_score - home} : "
+            f"{board.visiting_score - visiting}, shootout {home} : {visiting}"
+        )
+    if match.pending_shootout:
+        return "Shootout"
+    if match.pending_full_time_stage:
+        return "Full time"
+    if match.pending_halftime_stage:
+        return "Halftime"
+    return ""
 
 
 def meeple_geometry() -> dict:
@@ -300,16 +387,7 @@ def board_layout(
     in_range = match.can_attempt_score()
 
     return {
-        "jumbotron": {
-            "home": _team(match.home.team),
-            "visiting": _team(match.visiting.team),
-            "score": {
-                "home": match.scoreboard.home_score,
-                "visiting": match.scoreboard.visiting_score,
-            },
-            "minute": f"{match.scoreboard.time:02d}",
-            "period": period_name(match),
-        },
+        "jumbotron": jumbotron(game, match),
         "zones": [
             {
                 "zone": zone.value,

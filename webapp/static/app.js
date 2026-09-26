@@ -379,48 +379,164 @@ async function drawStats(state) {
   }
 }
 
-// -- The jumbotron -------------------------------------------------------
+// -- The jumbotron bar ---------------------------------------------------
 
-/* The board's jumbotron, in its own place: both teams, the score, the
-   clock and the half, with the coach behind each team under it. */
+/* One bar across the top of the play area (docs/web-app-redesign.md,
+   step 2): each team with its direction, its coach and the ball when
+   it has it; the score; the clock with its track, last possession and
+   the note between and after the halves; and a time-out tile per team.
+   Every value is `layout.jumbotron`'s (webapp/board.py) or the game's
+   coaches; a tile is lit only where the prompt this viewer is asked
+   carries the time out for that side (`place` on its control, from
+   webapp/present.py), and pressing it sends that control's answer. */
+let shownJumbotron = null;
+
 function drawJumbotron(state) {
   const layout = state.board.layout;
+  const j = layout ? layout.jumbotron : null;
+  const tile = timeOutControl(state.prompt);
+  const shape = JSON.stringify([j, state.game.coaches, tile]);
+  if (shape === shownJumbotron) return;
+  shownJumbotron = shape;
+
   const coachOn = (side) => state.game.coaches.find((one) => one.side === side);
   const side = (where) => {
-    const team = layout ? layout.jumbotron[where] : null;
+    const team = j ? j[where] : null;
     const coach = coachOn(where);
+    const name = team ? team.name : coach && coach.team ? coach.team : "--";
+    const arrow = where === "home" ? "▶" : "◀";
     return h(
       "div",
       { class: `jumbo-side ${where}` },
-      h("div", { class: "jumbo-where" }, where === "home" ? "Home" : "Visitors"),
       h(
         "div",
         { class: "jumbo-team", style: team ? `color: ${team.colour}` : null },
-        team ? team.name : coach && coach.team ? coach.team : "--",
+        name, " ", h("span", { class: "jumbo-arrow" }, arrow),
       ),
-      h("div", { class: "jumbo-coach" }, coach ? coach.name : ""),
+      h(
+        "div",
+        { class: "jumbo-coach" },
+        where === "home" ? "Home" : "Visitors",
+        coach ? [" · coached by ", h("b", {}, coach.name)] : "",
+      ),
+      team && team.possession
+        ? h("div", { class: "jumbo-ball" },
+          die(String(j.speed), { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL")
+        : null,
     );
   };
-  const j = layout ? layout.jumbotron : null;
-  el("jumbotron").replaceChildren(
+
+  const parts = [
     h(
       "div",
-      { class: "jumbo-top" },
-      h("span", { class: "jumbo-brand" }, "D12 BALL!"),
-      h(
-        "span",
-        { class: "jumbo-clock" },
-        h("span", { class: "jumbo-minute" }, j ? j.minute : "--"),
-        h("span", { class: "jumbo-period" }, j ? j.period : ""),
-      ),
-    ),
-    h(
-      "div",
-      { class: "jumbo-score" },
+      { class: "jumbo-teams" },
       side("home"),
-      h("div", { class: "jumbo-goals" }, j ? `${j.score.home} : ${j.score.visiting}` : "- : -"),
+      h(
+        "div",
+        { class: "jumbo-score" },
+        h("div", { class: "jumbo-goals" }, j ? `${j.score.home} : ${j.score.visiting}` : "- : -"),
+        h("div", { class: "jumbo-brand" }, "D12 BALL"),
+      ),
       side("visiting"),
     ),
+  ];
+  if (j) {
+    const tiles = h("div", { class: "jumbo-tiles" },
+      ["home", "visiting"].map((where) => timeOutTile(j[where], tile && tile.place.side === where ? tile : null)));
+    parts.push(h("div", { class: "jumbo-rule", "aria-hidden": "true" }), jumboClock(j, tiles));
+  }
+  el("jumbotron").replaceChildren(...parts);
+}
+
+/* The minute and the half, the track to the second half's last minute
+   with the first half's marked, last possession, the note, and the
+   time-out tiles under them. */
+function jumboClock(j, tiles) {
+  const { length, halftime, filled } = j.track;
+  const segments = [];
+  for (let i = 0; i < length; i += 1) {
+    segments.push(h("span", {
+      class: `seg${i < filled ? " filled" : ""}`,
+    }));
+  }
+  return h(
+    "div",
+    { class: "jumbo-clock" },
+    h(
+      "div",
+      { class: "jumbo-time" },
+      h("span", { class: "jumbo-minute" }, `${j.minute}'`),
+      h("span", { class: "jumbo-half" }, j.half),
+      j.last_possession ? h("span", { class: "jumbo-last" }, "LAST POSSESSION") : null,
+    ),
+    h("div", {
+      class: "jumbo-track",
+      role: "img",
+      "aria-label": `Minute ${j.minute} of ${length}`,
+    }, segments),
+    h(
+      "div",
+      { class: "jumbo-marks" },
+      h("span", {}, "0"),
+      h("span", {}, `${halftime} · halftime`),
+      h("span", {}, String(length)),
+    ),
+    j.note ? h("div", { class: "jumbo-note" }, j.note) : null,
+    tiles,
+  );
+}
+
+/* The turn's time out, where the prompt put to this viewer carries it
+   live: the control the question box would have drawn as a button. */
+function timeOutControl(prompt) {
+  if (!prompt) return null;
+  for (const group of prompt.controls) {
+    for (const control of group.controls) {
+      if (control.place && control.place.at === "time_out_tile" && !control.disabled) {
+        return control;
+      }
+    }
+  }
+  return null;
+}
+
+/* A side's time-out tile: held (outlined in the team's colour, a
+   referee's T), spent (dashed grey, struck through), or -- only with
+   the control in hand -- lit gold, and pressing it answers the turn. */
+function timeOutTile(team, control) {
+  const t = s(
+    "svg",
+    { class: "ref-t", viewBox: "0 0 24 24", width: 22, height: 22, "aria-hidden": "true" },
+    s("rect", { x: "2", y: "3", width: "20", height: "5", rx: "2" }),
+    s("rect", { x: "9.5", y: "3", width: "5", height: "19", rx: "2" }),
+  );
+  if (control) {
+    return h(
+      "button",
+      {
+        type: "button",
+        class: "timeout-tile lit",
+        style: `--team: ${team.colour}`,
+        onclick: () => act(control.action),
+      },
+      t,
+      h("span", { class: "tile-words" },
+        h("span", { class: "tile-title" }, "TIME OUT"),
+        h("small", {}, `${team.name} · click to call it`)),
+    );
+  }
+  const spent = team.time_out === "spent";
+  return h(
+    "div",
+    {
+      class: `timeout-tile ${spent ? "spent" : "held"}`,
+      style: `--team: ${team.colour}`,
+      title: spent ? `${team.name} has had its time out this half`
+        : `${team.name} still holds its time out this half`,
+    },
+    t,
+    h("span", { class: "tile-words" },
+      h("span", { class: "tile-title" }, "TIME OUT"), h("small", {}, team.name)),
   );
 }
 
@@ -900,7 +1016,7 @@ function applySplit(share) {
     .filter((box) => box.scrollHeight - box.scrollTop - box.clientHeight < 8);
   splitShare = share;
   el("split").parentElement.style.gridTemplateRows =
-    `auto minmax(0, ${share}fr) auto minmax(0, ${1 - share}fr)`;
+    `minmax(0, ${share}fr) auto minmax(0, ${1 - share}fr)`;
   el("split").setAttribute("aria-valuenow", String(Math.round(share * 100)));
   for (const box of pinned) box.scrollTop = box.scrollHeight;
 }
@@ -1087,7 +1203,11 @@ function drawReference(prompt) {
 function drawControls(prompt) {
   const controls = el("controls");
   controls.replaceChildren();
-  const groups = prompt.controls;
+  /* A control with a `place` is drawn there instead (the time out, on
+     the jumbotron bar's tile), not in the question box. */
+  const groups = prompt.controls
+    .map((group) => ({ ...group, controls: group.controls.filter((one) => !one.place) }))
+    .filter((group) => group.controls.length);
   const menus = groups.filter((group) => group.label);
 
   /* Several named groups is the Coaching Choice: a button per menu,

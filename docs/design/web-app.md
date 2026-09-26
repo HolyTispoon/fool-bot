@@ -547,8 +547,8 @@ says nothing about the game.
 seeing a page built as a Discord channel and finding it too much like
 one). On the left, the board, and under it the prompt -- the ask and
 its controls, marked when they are this coach's -- which is the page's
-original shape. On the right, three panels: the jumbotron, the game
-log and the chat. **A divider between the log and the chat** is
+original shape, under the jumbotron bar across the top of it. On the
+right, two panels: the game log and the chat. **A divider between the log and the chat** is
 dragged (or moved with the arrow keys, and reset by a double-click) to
 share the column between them (2026-09-26, the author): which of the
 two a coach wants the room for changes over a game. Each keeps at
@@ -578,10 +578,45 @@ Choice redrawing after each move in it is not a new one -- and a
 prompt that goes up while the page has the focus sends none, since
 the coach is looking at it.
 
-- **The jumbotron has its own panel.** It is the board's jumbotron --
-  both teams in their colours, the score, the minute and the half,
-  in the board's typefaces -- with the coach behind each team under
-  it, taken off the board so the field has the room.
+- **The jumbotron is one bar across the top of the play area**
+  (2026-09-26, step 2 of [../web-app-redesign.md](../web-app-redesign.md),
+  replacing the panel at the head of the sidebar). Each team in its
+  colour with an arrow for the way it attacks, "Home · coached by ..."
+  under it and a gold BALL mark while it has possession, its d12
+  showing the ball's speed as the field's does; the score with D12 BALL
+  under it; then the clock -- the minute in the board's yellow
+  beside the half, a thirty-segment track to the second half's last
+  minute with the first half's marked, a red LAST POSSESSION chip, and
+  the note between and after the halves (Halftime, Full time, Shootout,
+  Abandoned, and the result, with the shootout's goals apart as
+  `shootout_score_line` reports them, since the scoreboard carries them
+  too) -- and under it a time-out tile per team. Where the step's
+  prompt and the design canvas differed in the small things (the
+  canvas's upper-case names, its arrow after the visitors' name too,
+  its tiles in a row under the clock), the canvas was followed. **Every value is the match's,
+  read by `board.jumbotron`**: possession is `ball.possession`, a tile's
+  held or spent is `may_take_time_out` (the half's own count, which
+  halftime clears), the track's length and its halftime mark are the
+  clock's constants, last possession the scoreboard's flag;
+  `JumbotronTests` hold each against the match. The coach's name is the
+  game's coaches, as it always was.
+- **The time out is a tile, not a button.** The tile is outlined in the
+  team's colour with a referee's T while the side holds its time out,
+  dashed and struck through once spent, and lit gold -- "TIME OUT ·
+  <team> · click to call it" -- when, and only when, the turn put to
+  this viewer offers it. **Whether it is lit is the prompt's, not the
+  bar's**: `present._turn` builds the time out as it always did, off
+  `TurnOptions.actions`, and marks the control with a `place` (the tile,
+  and the side the turn is put to, `asked_sides`); the page draws a
+  placed control there instead of in the question box, and pressing the
+  tile sends that control's `action`, which is checked against what was
+  offered like any other. So a coach who is not asked, an observer, a
+  railed time out or a position with none to call gets an unlit tile
+  from the same reading that used to give them no button, and
+  `test_the_lit_time_out_tile_is_the_time_out_button` holds that the
+  tile plays exactly what the button did. `place` says where on the
+  page, never what is answered; it is the shape step 4 can extend to
+  the pieces on the board.
 - **The benches open on demand.** Each team's bench and back bench
   is behind a button under the board: shown while the pointer is on
   it, kept open by a click. The board shows the field; a coach looks
@@ -606,7 +641,7 @@ the coach is looking at it.
 **The buttons are Discord's**: four colours and one shape, and each
 control carries its colour (`style`) from `webapp/present.py`, set to
 what the Discord view puts on the same button -- Maneuver blurple,
-Shoot to score red, Time out grey; a roll blurple and a shot's or an
+Shoot to score red (the time out is the jumbotron's tile, above); a roll blurple and a shot's or an
 own goal's red; yes blurple and no grey; Done green; the offense's
 cards red and the defense's green. The colour is the frontend's
 (principle 8), so it is set in the web app's builders beside the

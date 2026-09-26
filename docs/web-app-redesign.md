@@ -98,7 +98,7 @@ for this plan is `trig_01FzyzX3xSLWMPKYy2if5uuK`.
 | # | Step | Size |
 | --- | --- | --- |
 | ~~1~~ | ~~The field, drawn from scratch~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The field is drawn from scratch") | large |
-| 2 | The jumbotron bar and the time-out tiles | medium |
+| ~~2~~ | ~~The jumbotron bar and the time-out tiles~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The jumbotron is one bar", "The time out is a tile") | medium |
 | 3 | The question box and the outcome banner | medium |
 | 4 | Answering on the board: the objects, no coloured buttons | large |
 | 5 | The hand, the reveal and the challenge | medium |
@@ -290,6 +290,14 @@ they both show. Look at it in a browser at three board states
 ---
 
 ### 2. The jumbotron bar and the time-out tiles
+
+**Landed** (2026-09-26). What it settled is in
+[design/web-app.md](design/web-app.md), "The page" ("The jumbotron is
+one bar across the top of the play area", "The time out is a tile, not
+a button"): every value on the bar is `board.jumbotron`'s reading of
+the match (`JumbotronTests`), and the tile is lit by the turn's own
+time-out control carrying a `place`, so pressing it is the old button's
+answer (`test_the_lit_time_out_tile_is_the_time_out_button`).
 
 **Prompt.**
 
