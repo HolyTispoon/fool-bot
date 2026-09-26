@@ -345,7 +345,7 @@ img { display: block; }
   text-transform: uppercase;
   color: var(--outcome, var(--gold));
 }
-.outcome-headline strong, .outcome-headline em { font-weight: inherit; font-style: inherit; }
+.outcome-headline strong, .outcome-headline em { color: inherit; font-weight: inherit; font-style: inherit; }
 .outcome-detail { font-size: 17px; font-weight: 700; color: var(--strong); }
 
 /* The owed step: its own strip above the box. */
