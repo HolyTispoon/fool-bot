@@ -98,6 +98,18 @@
           </div>
         </section>
 
+        <!-- Dragged to share the column between the log and the chat.
+             Not on a phone, where a tab shows one of them at a time. -->
+        <div
+          id="split"
+          class="split"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-controls="journal chat"
+          aria-label="Resize the game log and the chat"
+          tabindex="0"
+        ></div>
+
         <section class="panel chat-panel" data-tab="chat" aria-label="Chat">
           <div class="panel-label">Chat</div>
           <div id="chat" class="chat" role="log" aria-live="polite">

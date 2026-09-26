@@ -390,8 +390,8 @@ overridden still exists.
 A poll every two and a half seconds, and the whole state each time:
 the scoreboard, the board as a layout (`webapp/board.py`, below), the
 prompt with its controls, and the narration since the entry the page
-last saw -- each entry with its time and, where the run stopped to
-draw a position, that position's layout too -- and the chat since the
+last saw -- each entry with its time, and words only (the log draws
+no board, "The page", below) -- and the chat since the
 message the page last saw ("Chat", below). There is no websocket
 and no diffing -- a game of D12 Ball is a few clicks a minute, and
 the simplest thing that is always right is a re-read.
@@ -481,7 +481,14 @@ seeing a page built as a Discord channel and finding it too much like
 one). On the left, the board, and under it the prompt -- the ask and
 its controls, marked when they are this coach's -- which is the page's
 original shape. On the right, three panels: the jumbotron, the game
-log and the chat.
+log and the chat. **A divider between the log and the chat** is
+dragged (or moved with the arrow keys, and reset by a double-click) to
+share the column between them (2026-09-26, the author): which of the
+two a coach wants the room for changes over a game. Each keeps at
+least 80px, a panel read to its newest line stays on it as it
+resizes, and the share is remembered in that browser's
+`localStorage` -- a convenience per viewer, never the room's state,
+so a browser that refuses storage opens at the default.
 
 **A phone is one screen, not a long page.** The jumbotron and the
 board stay on it; under them three tabs -- Move, Log, Chat -- switch
@@ -500,9 +507,12 @@ what happened, which is the opposite of a table.
   it, kept open by a click. The board shows the field; a coach looks
   at a bench when they are thinking about a substitution, and the
   cards are the same cards either way.
-- **The log is the original one**: each entry a block with an edge,
-  a new play's in blurple, and a position the run stopped at drawn
-  small inside its entry, opening full size.
+- **The log is words only**: each entry a block with an edge, a new
+  play's in blurple. It draws no board (2026-09-26, the author): the
+  live board is beside it, and a snapshot in every stopped entry
+  pushed the lines a coach reads off the panel. An entry's wire shape
+  carries no `layout`; the journal still keeps the position the run
+  stopped at, and `board.png?entry=` still serves it.
 - **The chat is people talking** ("Chat", under "What a page is
   handed"): everybody in the room may post under the name on their
   cookie, a seated coach's name in their team's colour and an
@@ -533,11 +543,11 @@ prompt's hand is the printed maneuver cards, and pressing one plays
 it. Every one of those pictures is the model's own drawing, served by
 `webapp/pictures.py` in a worker thread and cached; the page draws no
 card of its own. The PNG is still served, and a board opened full size
-links to it, as the bot's "View full image" button does. A snapshot
-entry is drawn from the layout of the position the service stopped
-at, which is what `Narration.board` carries, so a page's picture of a
-loose ball is the position the ball was loose in, not the position
-after it was won.
+links to it, as the bot's "View full image" button does. The log
+draws no snapshot (above); `board.png?entry=` draws the position the
+service stopped at, which is what `Narration.board` carries, so its
+picture of a loose ball is the position the ball was loose in, not
+the position after it was won.
 The cog's own `cyborg_condition_ids` moved onto the engine to make
 the board possible at all: which players draw a Cyborg's condition
 marks is `has_species_ability` asked of everybody a mark would be
