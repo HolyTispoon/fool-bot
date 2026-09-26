@@ -2228,10 +2228,10 @@ class RulesEngine:
         ignite: IgnitedRoll,
     ) -> str:
         """
-        Kindlefinger's tokens after a check that ignited and did not
-        injure them: a blaze clears 1 and a burn adds 1 (Law 21). An
-        injured player carries none and adds none, so the caller asks
-        only after a safe check. Returns what to say, or "".
+        Kindlefinger's tokens after their check's die ignited: a blaze
+        clears 1 and a burn adds 1 (Law 21), before the check is
+        compared with the count (the author, 2026-09-26). An injured
+        player carries none and adds none. Returns what to say, or "".
         """
         if not ignite.ignited or player_id in match.injured:
             return ""

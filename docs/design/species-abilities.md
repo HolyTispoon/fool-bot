@@ -200,7 +200,8 @@ their own (below).
   - *Umbrik* -- `attacking_skill`, the one reading of what the side
     attacking a roll adds, at the six sites that read `.offense` for
     an own-goal roll, a maneuver skill test and a contest.
-  - *Kindlefinger* -- `injury_ignite` and `settle_injury_ignite`. The
+  - *Kindlefinger* -- `injury_ignite` and `settle_injury_ignite`, the
+    token moved before the check is compared (the author, 2026-09-26). The
     ignite is `ignite`'s own, so its die and sentence are Volatile's;
     it is said beside the injury die rather than drawn on it, which is
     what `InjuryRoll` already did for Overdrive.

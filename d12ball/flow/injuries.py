@@ -304,6 +304,10 @@ def injury_test_step(
     overdrive = match.overdrive_modifier(player_id)
     match.consume_overdrive()
     check = roll + overdrive + ignite.modifier
+    # Kindlefinger's token moves **before** the check is compared (the
+    # author, 2026-09-26), as a skill test's own tokens count toward the
+    # check behind it.
+    ignite_tokens = engine.settle_injury_ignite(game, match, player_id, ignite)
     current_tokens = match.exhaustion.get(player_id, 0)
     safe = check > current_tokens
     # The die image draws the natural face, so a modifier has to be
@@ -370,8 +374,8 @@ def injury_test_step(
     if ignite.ignited:
         content = "\n".join(filter(None, [
             ignite.explain(engine.format_player_label(match, player)),
+            ignite_tokens,
             content,
-            engine.settle_injury_ignite(game, match, player_id, ignite),
         ]))
 
     result = continue_injury_tests(engine, game, match)

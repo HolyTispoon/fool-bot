@@ -913,6 +913,20 @@ class KindlefingerFlowTests(unittest.TestCase):
         self.assertEqual(match.exhaustion[demon], 7)
         self.assertIn("ignites", result.narration[0])
 
+    def test_the_token_moves_before_the_check_is_read(self) -> None:
+        # 6 + 5 = 11 against 11 tokens is not higher, so the check would
+        # fail -- but the blaze clears one first, and 11 beats 10.
+        game = advanced(player_1_team=Team.FIRE_DEMONS)
+        match = build_match(ENGINE, game)
+        demon = fielded_of_species(match, SPECIES_FIRE_DEMON)
+        match.exhaustion[demon] = 11
+        match.pending_injury_tests = [demon]
+        with holding(demon, PersonalAbility.INJURY_IGNITION), \
+                mock.patch.object(ENGINE.rng, "randint", side_effect=[6, 5]):
+            roll, _ = injury_test_step(ENGINE, game, match, demon)
+        self.assertTrue(roll.safe)
+        self.assertEqual(match.exhaustion[demon], 10)
+
 
 class ShotDefenseTests(unittest.TestCase):
     """Goopkeeper and Flickerwing, in the score attempt (Law 21)."""
