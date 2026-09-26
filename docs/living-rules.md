@@ -1168,7 +1168,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Emberdash runs further.** Emberdash's [Dribble Advance](#dribble-advance) may go up to 3 spaces, and their [Dribble Burst](#dribble-burst) costs no exhaustion.
 
-**Flickerwing shoots past the wall.** When Flickerwing takes a [scoring opportunity](#scoring-opportunities), only the defending players standing on the ball's space add their skill to the defense; a defending player between the ball and the goal adds nothing. An ordinary score attempt is unchanged.
+**Flickerwing shoots past the wall.** In every [score attempt](#score-attempt) Flickerwing makes -- off a [set-up](#scoring-opportunities) or not -- only the defending players standing on the ball's space add their skill to the defense; a defending player between the ball and the goal adds nothing.
 
 **Inferno lights the ball.** Whenever the ball comes to Inferno -- they are left holding it, however that happened, or chosen to handle it -- its speed goes to 12. Anything that sets the speed later in the same resolution, such as the speed step after a [Steal](#steal), still does.
 

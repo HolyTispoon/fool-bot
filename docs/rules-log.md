@@ -168,9 +168,9 @@ been put to the author yet; each is the reading the Charter now states, and each
 on the pull request that brought it in.
 
 - **Flickerwing:** *"When making a scoring opportunity, only defender on the ball contribute
-  their skill scores."* Read as Flickerwing *taking* the set-up's shot, where the defenders
-  beyond the ball add nothing. The other reading is a set-up Flickerwing's pass *makes* for a
-  teammate.
+  their skill scores."* First read as Flickerwing taking a set-up's shot. Asked on the pull
+  request, the author: *"it's every time Flickerwing makes a scoring attempt, off a setup or
+  without it."* So it is every score attempt Flickerwing shoots.
 - **Glompex:** *"Before selecting a maneuver, if Glomplex is in a space adjacent to the move they
   may gain 1 exhaustion to move to the ball's space and Merge."* "The move" is read as the ball's
   space. Offered after the challenger is in place and before the cards, and only against a
