@@ -694,19 +694,86 @@ class RoomTests(unittest.IsolatedAsyncioTestCase):
             (await self.arrive(room, self.CREATOR))["prompt"]["controls"], [],
         )
 
-    async def test_seat_two_is_not_left_mid_match(self) -> None:
-        """The record's interim rule: an empty seat 2 is the AI's, so
-        it is refused rather than handed to Dinky."""
+    async def test_seat_two_left_mid_match_waits_for_somebody(self) -> None:
+        """An empty seat is nobody's -- not the AI's -- and its side's
+        question waits for whoever takes it."""
         room = await self.open_room()
         await self.arrive(room, self.SECOND)
         self.kick_off(room)
+        before = self.controls(room, 2)
 
         response = await self.move(room, self.SECOND, "/seat/leave")
-        body = await response.json()
+        state = await response.json()
 
-        self.assertEqual(response.status, 409)
-        self.assertIn("AI's", body["refusal"])
-        self.assertEqual(self.games[room].player_2_id, self.SECOND)
+        self.assertEqual(response.status, 200)
+        self.assertFalse(self.games[room].is_solo_game)
+        self.assertEqual(
+            (state["room"]["seats"][1]["name"], state["room"]["seats"][1]["ai"]),
+            (None, False),
+        )
+        phone = await self.arrive(room, self.PHONE)
+        self.assertEqual(phone["you"]["player_number"], 2)
+        self.assertEqual(phone["prompt"]["controls"], before)
+
+    async def test_anybody_seated_puts_dinky_in_and_an_admin_kicks_it(
+        self,
+    ) -> None:
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        await self.move(room, self.SECOND, "/seat/leave")
+        self.assertIsNone(self.games[room].player_2_id)
+
+        # Somebody watching may not; somebody seated may.
+        refused = await self.move(room, self.SECOND, "/seat/ai", {"seat": 2})
+        self.assertEqual(refused.status, 403)
+        put = await self.move(room, self.CREATOR, "/seat/ai", {"seat": 2})
+        seats = (await put.json())["room"]["seats"]
+
+        self.assertEqual(put.status, 200)
+        self.assertEqual((seats[1]["name"], seats[1]["ai"]), ("Dinky AI", True))
+        self.assertTrue(self.games[room].ai_holds(2))
+
+        kick = await self.move(room, self.SECOND, "/seat/kick", {"seat": 2})
+        self.assertEqual(kick.status, 403)
+        await self.move(room, self.SECOND, "/admin")
+        kicked = await self.move(room, self.SECOND, "/seat/kick", {"seat": 2})
+        self.assertEqual(kicked.status, 200)
+        self.assertFalse(self.games[room].is_solo_game)
+
+        taken = await self.move(room, self.SECOND, "/seat/take", {"seat": 2})
+        self.assertEqual((await taken.json())["you"]["player_number"], 2)
+
+    async def test_dinky_seated_mid_match_answers_its_side(self) -> None:
+        """The kickoff is the home side's question; its coach leaves,
+        the other coach puts Dinky in, and Dinky answers it -- the
+        page sees the answer through the journal."""
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        self.kick_off(room)
+        before = pending_prompt(
+            ENGINE, self.games[room], self.service.load(self.games[room]),
+        ).kind
+        await self.move(room, self.CREATOR, "/seat/leave")
+
+        put = await self.move(room, self.SECOND, "/seat/ai", {"seat": 1})
+        state = await put.json()
+
+        self.assertEqual(put.status, 200)
+        self.assertEqual(state["room"]["seats"][0]["name"], "Dinky AI")
+        self.assertNotEqual(state["prompt"]["kind"], before.value)
+        self.assertTrue(state["entries"])
+
+    async def test_an_admin_gives_the_role_up(self) -> None:
+        room = await self.open_room()
+        made = await self.move(room, self.CREATOR, "/admin")
+        self.assertTrue((await made.json())["room"]["admin"])
+
+        dropped = await self.client.delete(
+            f"/api/room/{room}/admin", headers=as_coach(self.CREATOR),
+        )
+
+        self.assertFalse((await dropped.json())["room"]["admin"])
+        self.assertFalse(self.web.rooms.is_admin(room, self.CREATOR))
 
     async def test_a_held_seat_refuses_with_the_record_s_sentence(self) -> None:
         room = await self.open_room()

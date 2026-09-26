@@ -110,6 +110,12 @@ class Rooms:
             room.admins.add(coach_id)
             self.save()
 
+    def drop_admin(self, game_id: str, coach_id: int) -> None:
+        room = self.room(game_id)
+        if coach_id in room.admins:
+            room.admins.discard(coach_id)
+            self.save()
+
     def first_sight(self, game_id: str, coach_id: int) -> bool:
         """Mark `coach_id` as having been in the room; True the first
         time."""

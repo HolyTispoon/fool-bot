@@ -77,12 +77,12 @@ function api(path, options) {
 
 /* A move on the room rather than the game: a seat taken, left or
    kicked, or the admin role. The record refuses with its sentence. */
-async function roomMove(path, body) {
+async function roomMove(path, body, method = "POST") {
   if (busy) return;
   busy = true;
   try {
     const response = await fetch(`/api/room/${GAME_ID}${path}?${cursors()}`, {
-      method: "POST",
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body || {}),
     });
@@ -244,8 +244,14 @@ function drawRoom(state) {
           type: "button", class: "btn primary",
           onclick: () => roomMove("/seat/take", { seat: seat.number }),
         }, "Take"));
+      } else if (seat.free && seated) {
+        /* Anybody seated may hand the other side to the AI. */
+        buttons.push(h("button", {
+          type: "button", class: "btn secondary",
+          onclick: () => roomMove("/seat/ai", { seat: seat.number }),
+        }, "Put Dinky in"));
       }
-      if (room.admin && seat.name && !seat.yours && !seat.ai) {
+      if (room.admin && seat.name && !seat.yours) {
         buttons.push(h("button", {
           type: "button", class: "btn danger",
           onclick: () => {
@@ -266,6 +272,7 @@ function drawRoom(state) {
   el("watching").textContent =
     room.observers === 1 ? "1 watching" : `${room.observers} watching`;
   el("become-admin").hidden = room.admin;
+  el("drop-admin").hidden = !room.admin;
 }
 
 // -- The jumbotron -------------------------------------------------------
@@ -974,6 +981,9 @@ function hidePeek() {
 el("pick-up").addEventListener("click", pickUp);
 el("become-admin").addEventListener("click", () => {
   if (confirm("Take the admin role for this room?")) roomMove("/admin");
+});
+el("drop-admin").addEventListener("click", () => {
+  if (confirm("Give up the admin role for this room?")) roomMove("/admin", {}, "DELETE");
 });
 el("copy-link").addEventListener("click", async () => {
   const link = `${location.origin}/room/${GAME_ID}`;

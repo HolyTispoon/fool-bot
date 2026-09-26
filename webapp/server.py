@@ -317,6 +317,7 @@ class WebApp:
                     "/api/room/{game_id}/seat/{move}", self.seat,
                 ),
                 web.post("/api/room/{game_id}/admin", self.take_admin),
+                web.delete("/api/room/{game_id}/admin", self.drop_admin),
                 web.get("/api/game/{game_id}", self.state),
                 web.post("/api/game/{game_id}/action", self.act),
                 web.post("/api/game/{game_id}/resume", self.resume),
@@ -501,8 +502,13 @@ class WebApp:
         page goes to the link this answers.
         """
         coach = self._required_coach(request)
+        # `ai_seats=[]`: a room says outright that no seat is the AI's,
+        # so a seat nobody holds is empty rather than Dinky's.
         game = self.service.create_game(
-            player_1_id=coach.id, player_1_name=coach.name, in_lobby=True,
+            player_1_id=coach.id,
+            player_1_name=coach.name,
+            in_lobby=True,
+            ai_seats=[],
         )
         self.rooms.first_sight(game.game_id, coach.id)
         return web.json_response(
@@ -511,13 +517,15 @@ class WebApp:
 
     async def seat(self, request: web.Request) -> web.Response:
         """
-        `take` (the free seat, or `{"seat": n}`), `leave`, or `kick`
-        (`{"seat": n}`, an admin's) -- each one service door over the
-        record's rule, and the record's sentence when it refuses.
+        `take` (the free seat, or `{"seat": n}`), `leave`, `ai`
+        (`{"seat": n}`: the AI put in an empty seat, by anybody seated)
+        or `kick` (`{"seat": n}`, an admin's: a person or the AI taken
+        out) -- each one service door over the record's rule, and the
+        record's sentence when it refuses.
 
-        The admin check is the one thing decided here, and it is
-        whether *this person* may ask; whether the seat may be emptied
-        is still `vacate_seat`'s.
+        Who may *ask* -- somebody seated, an admin -- is the one thing
+        decided here; whether the seat may change is still the
+        record's.
         """
         game = self._game(request)
         coach = self._required_coach(request)
@@ -535,6 +543,14 @@ class WebApp:
                     )
                 elif move == "leave":
                     self.service.vacate_seat(game.game_id, coach.id)
+                elif move == "ai":
+                    if seat_of(game, coach.id) is None:
+                        raise web.HTTPForbidden(
+                            text="Take a seat to put the AI in the other.",
+                        )
+                    if seat is None:
+                        raise web.HTTPBadRequest(text="Name the seat.")
+                    self.service.seat_ai(game.game_id, seat)
                 elif move == "kick":
                     if not self.rooms.is_admin(game.game_id, coach.id):
                         raise web.HTTPForbidden(
@@ -543,9 +559,12 @@ class WebApp:
                     if seat is None:
                         raise web.HTTPBadRequest(text="Name the seat.")
                     held_by = game.player_1_id if seat == 1 else game.player_2_id
-                    if held_by is None:
+                    if game.ai_holds(seat):
+                        self.service.unseat_ai(game.game_id, seat)
+                    elif held_by is None:
                         raise RuleRefusal("Nobody holds that seat.")
-                    self.service.vacate_seat(game.game_id, held_by)
+                    else:
+                        self.service.vacate_seat(game.game_id, held_by)
                 else:
                     raise web.HTTPNotFound()
             except RuleRefusal as refusal:
@@ -568,6 +587,22 @@ class WebApp:
                 coach=coach,
             )
         return web.json_response(state)
+
+    async def drop_admin(self, request: web.Request) -> web.Response:
+        """Give the admin role up. Nobody else's role changes, and the
+        room may be left with no admin at all -- anybody can take it
+        again."""
+        game = self._game(request)
+        coach = self._required_coach(request)
+        self.rooms.drop_admin(game.game_id, coach.id)
+        return web.json_response(
+            self._state(
+                game,
+                self._viewer(request, game),
+                since=_since(request),
+                coach=coach,
+            ),
+        )
 
     async def take_admin(self, request: web.Request) -> web.Response:
         """Anybody in the room may become its admin, by asking -- the
@@ -1030,9 +1065,9 @@ class WebApp:
         self, game: D12BallGame, number: int, yours: Optional[int],
     ) -> dict:
         held_by = game.player_1_id if number == 1 else game.player_2_id
-        # An empty seat 2 outside the lobby is the AI's: the record's
-        # `is_solo_game`, named the way the model names the AI.
-        ai = number == 2 and held_by is None and not game.in_lobby
+        # Whether the AI plays this seat is the record's one reading
+        # (`ai_holds`), and the AI is named the way the model names it.
+        ai = game.ai_holds(number)
         return {
             "number": number,
             "label": seat_label(game, number),

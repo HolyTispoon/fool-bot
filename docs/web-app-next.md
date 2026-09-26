@@ -153,7 +153,7 @@ that existed; steps 1 to 3 are one sprint.
 | # | Step | Size |
 | --- | --- | --- |
 | ~~1~~ | ~~Cut the cord: its own process, file, service and engine~~ -- landed; what it settled is in `docs/design/web-app.md` | medium |
-| ~~2~~ | ~~Rooms, seats and observers~~ -- landed; what it settled is in `docs/design/web-app.md`, "Rooms, seats and who holds them" (seat 2 is not yet left mid-game: an open question to the author) | medium |
+| ~~2~~ | ~~Rooms, seats and observers~~ -- landed; what it settled is in `docs/design/web-app.md`, "Rooms, seats and who holds them" (and the AI in either seat, `ai_seats`) | medium |
 | 3 | The room's table: setup, kickoff, the rematch | large |
 | 4 | Chat in the room | small |
 | 5 | Run it for real, and write down how | a day, little code |
@@ -308,11 +308,11 @@ template; the "Architecture change" line applies.
 
 **Landed** (branch `web-step-2`). What it settled is in
 `docs/design/web-app.md`, "Who is on the other end" and "Rooms, seats
-and who holds them"; the prompt below is kept for the record. **One
-part is interim:** `vacate_seat` refuses seat 2 once the lobby has
-closed, because an empty `player_2_id` is how the record says the AI
-plays that side -- how to tell the two apart is the author's question
-on the step's PR. Seat 1 changes hands at any time.
+and who holds them"; the prompt below is kept for the record. **The
+author's review added to it** (2026-09-26): an empty seat is not the
+AI's (`D12BallGame.ai_seats`), the AI may hold either seat, anybody
+seated may put it in an empty one, an admin may kick it out for a
+person to take over, and an admin may give the role up.
 
 **Why now.** Step 1 deletes `/d12ball web_link`, the only way a
 person was ever named to the web app. Nothing on the web can be

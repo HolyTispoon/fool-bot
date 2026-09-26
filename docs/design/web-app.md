@@ -148,6 +148,10 @@ Step 2 of [../web-app-next.md](../web-app-next.md), under its decision
 1: a room is created and has a link of its own; the first two people
 in are its coaches and everybody after watches; a seat may be left and
 taken again, before the game or during it; an admin may kick a seat.
+And, from the author's review of the step (2026-09-26): the AI may
+hold either seat, anybody seated may put it in an empty one, an admin
+may kick it out for a person to take over, and an admin may give the
+role up.
 
 **Who somebody is, is a cookie and nothing else.** On a first visit
 the page asks for a name; `POST /api/me` answers with a `Coach(id,
@@ -191,14 +195,35 @@ prompt). `player_1_id` became `Optional[int]` for it; `None` is
 written only by `vacate_seat`, so a save made before the rooms never
 carries it.
 
-**Seat 2 is never emptied outside the lobby.** An empty `player_2_id`
-is how the record says the AI plays that side (`is_solo_game`, which
-`side_controlled_by_ai` reads), and older saves say so with
-`ai_opponent` unset too, so an emptied human seat 2 would be handed to
-Dinky on the next turn. Until the record can tell the two apart,
-`vacate_seat` refuses seat 2 once the lobby has closed, and a test
-game's one coach, who holds both seats. This is open with the author
-(the PR for step 2); seat 1 changes hands at any time.
+**A seat is held by a person, by the AI, or by nobody, and an empty
+seat is not the AI's.** Before the rooms the record had two ways to
+say seat 2 and three things to say: an id was a person, and no id was
+the AI (`is_solo_game`, which `side_is_ai` read) -- so a person
+leaving seat 2 would have handed that side to Dinky on the next turn.
+A room says it outright with `D12BallGame.ai_seats`, the seats the AI
+holds: a seat with no id is the AI's if it is listed and empty if it
+is not, and a side whose seat is empty waits for whoever takes it.
+`ai_holds(n)` is the one reading, per seat, and `is_solo_game`,
+`side_is_ai`, `side_controlled_by_ai`, `coach_name`, the AI's team
+pick and the AI's coin choice all ask it -- which is also what lets
+Dinky hold seat 1, where everything used to say "the AI is player 2".
+**The field is `None` on every game no room touched** -- every Discord
+game and every save made before it -- and `None` is the old reading
+exactly (the AI in seat 2 where nobody is), so nothing on Discord
+changed. `to_dict` leaves it out while it is `None`, so those games
+are saved byte for byte as they were, and a checkout older than the
+field still reads every save the bot writes; only a web room's record
+carries it (`POST /api/rooms` creates one with `ai_seats=[]`), and an
+older checkout cannot read one that does, which is the web file's
+cost to pay rather than the bot's. The record's AI moves are
+`seat_ai` (an empty seat, never both sides, never a one-player game)
+and `unseat_ai`, before the game or during it; `GameService.seat_ai`
+also answers the question the seat's side is being asked right then,
+the way `resume` answers one a restart left the AI holding, and picks
+the AI's team if the other side already has. `start_lobby` refuses a
+room with an empty seat rather than seating Dinky in it. A test
+game's one coach holds both seats and may not leave them once it has
+started.
 
 **Roles are the frontend's, in its own file.** Who is admin in a room,
 and who has been in, is `webapp/rooms.py`, in
@@ -208,8 +233,12 @@ and a failed write logged and swallowed the way `save_games` swallows
 its own. Never on the game record, because the save format is the
 contract and a room role is not a fact about the game -- no rule reads
 it. Anybody may become admin, by a button of its own behind "Take the
-admin role for this room?"; a kick is refused unless the caller is an
-admin, and is `vacate_seat` for the seated id behind "Are you sure?".
+admin role for this room?", and an admin may give it up again
+(`DELETE /api/room/{id}/admin`), which may leave a room with none; a
+kick is refused unless the caller is an admin, and is `vacate_seat`
+for the seated id, or `unseat_ai` for the AI, behind "Are you sure?".
+Putting the AI in an empty seat is open to anybody seated -- the
+coach whose opponent has gone -- and to nobody watching.
 That is the frontend's authorisation over the record's rule, the way a
 Discord helper's `manage_channels` gates a click the record then
 judges. **What is not here is a second gate**: the identity says which
