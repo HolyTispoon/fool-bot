@@ -1168,7 +1168,7 @@ class DamagedWordingTests(unittest.TestCase):
         text = describe_exhaustion_gain(
             self.cog, self.game, self.match, self.other, 2,
         )
-        self.assertIn(" gains 2 exhaustion tokens ", text)
+        self.assertIn(" adds 2 exhaustion ", text)
 
     def test_a_cyborgs_injury_check_is_a_damage_test(self) -> None:
         engine = self.cog.engine
@@ -1275,8 +1275,8 @@ class DamagedWordingTests(unittest.TestCase):
         )
 
         # One line each: the Cyborg's in drain, everybody else's not.
-        self.assertIn("recovers 1 drain token", text)
-        self.assertIn("recovers 1 exhaustion token", text)
+        self.assertIn("clears 1 drain", text)
+        self.assertIn("clears 1 exhaustion", text)
 
     def test_the_halftime_extra_token_calls_a_cyborgs_tokens_drain(
         self,

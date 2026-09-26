@@ -266,13 +266,13 @@ class HalftimeFlowTests(PeriodFixture):
 
         self.assertEqual(self.match.exhaustion[home], 2)
         self.assertEqual(self.match.exhaustion[visiting], 1)
-        self.assertIn("recovers 1 exhaustion token", result.narration[0])
+        self.assertIn("clears 1 exhaustion", result.narration[0])
         self.assertTrue(result.board_changed)
 
     def test_a_side_with_nothing_to_recover_says_so(self) -> None:
         result = begin_halftime(self.engine, self.game, self.match)
         self.assertIn(
-            "No fielded player had any exhaustion tokens to recover.",
+            "No fielded player had any exhaustion to clear.",
             result.narration[0],
         )
 

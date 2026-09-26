@@ -327,7 +327,7 @@ def announce_run_back(
         narration.append(
             f"{prefix}# Players run back!\n"
             "Players return to an open space in their assigned zone and "
-            "gain 1 exhaustion token for every space traveled. "
+            "add 1 exhaustion for every space traveled. "
             f"{speed_note}".rstrip()
         )
     elif prefix or speed_note:
@@ -638,7 +638,7 @@ def apply_charge_up(
         remaining = match.exhaustion.get(player_id, 0)
         lines.append(
             f"{engine.format_player_label(match, player)} holds position — "
-            f"**Charge-up** removes {removed} drain "
+            f"**Charge-up** clears {removed} drain "
             f"(now {remaining})."
         )
     return "\n".join(lines)

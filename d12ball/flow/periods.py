@@ -353,21 +353,21 @@ def begin_halftime(
                 noun, _ = engine.token_word_and_mark(game, player_id)
                 recovery_lines.append(
                     f"{engine.format_player_label(match, player)} "
-                    f"recovers 1 {noun} token (now {remaining})."
+                    f"clears 1 {noun} (now {remaining})."
                 )
 
     body = (
         "\n".join(recovery_lines)
         if recovery_lines
-        else "No fielded player had any exhaustion tokens to recover."
+        else "No fielded player had any exhaustion to clear."
     )
 
     match.pending_halftime_stage = HALFTIME_STAGES[0]
     result = advance_halftime_stage(engine, game, match)
     result.narration.insert(
         0,
-        f"# Halftime\nEvery fielded player recovers 1 exhaustion "
-        f"token:\n{body}",
+        f"# Halftime\nEvery fielded player clears 1 "
+        f"exhaustion:\n{body}",
     )
     result.board_changed = True
     return result
@@ -404,7 +404,7 @@ def begin_halftime_extra_token(
     side: TeamSide,
 ) -> StepResult:
     """
-    The coach's choice of one fielded player to lose an extra
+    The coach's choice of one fielded player to clear an extra
     exhaustion token, on top of the automatic recovery every
     fielded player already got in `begin_halftime`.
 
@@ -430,7 +430,7 @@ def begin_halftime_extra_token(
         next=PendingPrompt(
             PromptKind.HALFTIME_EXTRA_TOKEN,
             f"{mention}, {format_team_side_label(setup)}: choose one "
-            "fielded player to lose an extra exhaustion token.",
+            "fielded player to clear an extra exhaustion token.",
             side=side,
         ),
     )
@@ -444,7 +444,7 @@ def halftime_extra_token_step(
     player_id: str,
 ) -> StepResult:
     """
-    The coach's pick of one fielded player to lose an extra exhaustion
+    The coach's pick of one fielded player to clear an extra exhaustion
     token, applied.
 
     The answer to `begin_halftime_extra_token`'s own prompt, for a
@@ -470,11 +470,11 @@ def halftime_extra_token_step(
     result = advance_halftime_stage(engine, game, match)
     result.narration.insert(
         0,
-        f"{engine.format_player_label(match, player)} loses "
+        f"{engine.format_player_label(match, player)} clears "
         f"an extra {noun} token (now {remaining})."
         if removed
         else f"{engine.format_player_label(match, player)} "
-        f"had no {noun} to lose.",
+        f"had no {noun} to clear.",
     )
     result.board_changed = True
     return result
