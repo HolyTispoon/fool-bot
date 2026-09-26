@@ -456,6 +456,49 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(page["entries"])
         self.assertTrue(page["entries"][0]["lines"])
 
+    async def test_the_lit_time_out_tile_is_the_time_out_button(self) -> None:
+        """
+        The time out left the question box for the jumbotron bar's tile
+        (step 2 of docs/web-app-redesign.md): pressing the lit tile
+        sends the turn's own answer, and plays exactly what the Time
+        out button did -- the same `Action` through the same door.
+        """
+        ENGINE.rng.seed(11)
+        self.client, self.game = await self.open("plain turn")
+        state = await self.state()
+        tile = next(
+            control
+            for group in state["prompt"]["controls"]
+            for control in group["controls"]
+            if control.get("place", {}).get("at") == "time_out_tile"
+        )
+        self.assertFalse(tile["disabled"])
+
+        response = await self.press(tile["action"])
+        pressed = await response.json()
+        self.assertEqual(response.status, 200)
+        self.assertIsNone(pressed["refusal"])
+
+        ENGINE.rng.seed(11)
+        fixture = case("plain turn")
+        button = service_over(fixture)
+        result = button.apply_action(
+            fixture.game.game_id,
+            Action(PromptKind.PLAYER_ACTION, "time_out"),
+        )
+
+        self.assertIsNone(result.refusal)
+        self.assertEqual(
+            self.game.match_state, fixture.game.match_state,
+        )
+        self.assertEqual(pressed["prompt"]["kind"], result.prompt.kind.value)
+        # The bar now shows the time out spent for the side that
+        # called it.
+        side = tile["place"]["side"]
+        self.assertEqual(
+            pressed["board"]["layout"]["jumbotron"][side]["time_out"], "spent",
+        )
+
     async def test_the_board_is_drawn_without_the_driver(self) -> None:
         response = await self.client.get(
             f"/api/game/{self.game.game_id}/board.png",

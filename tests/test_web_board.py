@@ -26,7 +26,7 @@ import unittest
 
 from aiohttp.test_utils import TestClient, TestServer
 
-from d12ball.components import TeamSide, Zone
+from d12ball.components import MatchPeriod, TeamSide, Zone
 from d12ball.prompts import pending_prompt
 from d12ball.render import shooting_range_bands, space_code
 from gamelocks import GameLocks
@@ -362,6 +362,150 @@ class FieldTests(unittest.TestCase):
         )
         self.assertEqual(piece["exhaustion"], {"count": 2, "emoji": "exhaust"})
         self.assertEqual(piece["condition"], "injured")
+
+
+class JumbotronTests(unittest.TestCase):
+    """
+    The bar across the top of the play area (step 2 of
+    docs/web-app-redesign.md): every value it shows is the match's,
+    and a time-out tile is lit only where the turn put to this viewer
+    carries the time out.
+    """
+
+    def setUp(self) -> None:
+        ENGINE.rng.seed(11)
+
+    def bar(self, fixture) -> dict:
+        return board_layout(
+            ENGINE, fixture.game, fixture.match,
+            card_url=CARD_URL, goal_url=GOAL_URL,
+        )["jumbotron"]
+
+    def test_at_kickoff_the_clock_is_empty_and_the_kicking_side_has_the_ball(
+        self,
+    ) -> None:
+        fixture = case("kickoff")
+        bar = self.bar(fixture)
+
+        self.assertEqual((bar["minute"], bar["half"]), ("00", "1st half"))
+        self.assertEqual(
+            bar["track"], {"length": 30, "halftime": 15, "filled": 0},
+        )
+        self.assertFalse(bar["last_possession"])
+        self.assertEqual(bar["note"], "")
+        for side in ("home", "visiting"):
+            with self.subTest(side):
+                self.assertEqual(
+                    bar[side]["possession"],
+                    fixture.match.ball.possession == TeamSide(side),
+                )
+        self.assertEqual(bar["home"]["time_out"], "held")
+        self.assertEqual(bar["visiting"]["time_out"], "held")
+
+    def test_mid_half_the_track_fills_to_the_minute_and_the_ball_is_marked(
+        self,
+    ) -> None:
+        fixture = case("plain turn")
+        fixture.match.scoreboard.time = 7
+
+        bar = self.bar(fixture)
+
+        self.assertEqual(bar["minute"], "07")
+        self.assertEqual(bar["track"]["filled"], 7)
+        side = fixture.match.ball.possession.value
+        other = "visiting" if side == "home" else "home"
+        self.assertTrue(bar[side]["possession"])
+        self.assertFalse(bar[other]["possession"])
+
+    def test_last_possession_is_the_scoreboard_s_flag(self) -> None:
+        fixture = case("plain turn")
+        board = fixture.match.scoreboard
+        board.time, board.last_possession = 16, True
+
+        bar = self.bar(fixture)
+
+        self.assertTrue(bar["last_possession"])
+        self.assertEqual(bar["track"]["filled"], 16)
+
+    def test_a_spent_time_out_is_the_half_s_own_count(self) -> None:
+        # Home called it: its window opened declared, which charged the
+        # half's time out; the visitors still hold theirs.
+        bar = self.bar(case("time-out window"))
+
+        self.assertEqual(bar["home"]["time_out"], "spent")
+        self.assertEqual(bar["visiting"]["time_out"], "held")
+
+    def test_the_note_names_halftime_the_shootout_and_the_result(self) -> None:
+        self.assertEqual(self.bar(case("halftime coaching"))["note"], "Halftime")
+        self.assertEqual(self.bar(case("shootout order"))["note"], "Shootout")
+        self.assertEqual(
+            self.bar(case("full-time coaching"))["note"], "Full time",
+        )
+
+        over = case("game over")
+        board = over.match.scoreboard
+        board.home_score, board.visiting_score = 2, 1
+        self.assertEqual(self.bar(over)["note"], "Final \u00b7 2 : 1")
+
+        # A shootout's goals are on the scoreboard as well; the note
+        # reports the whistle and the shootout apart, as the full-time
+        # summary does.
+        board.home_score, board.visiting_score = 3, 2
+        over.match.shootout_goals = {"home": 1, "visiting": 0}
+        self.assertEqual(
+            self.bar(over)["note"], "Final \u00b7 2 : 2, shootout 1 : 0",
+        )
+
+        over.game.abandoned = True
+        self.assertEqual(self.bar(over)["note"], "Abandoned")
+
+    def test_the_second_half_is_named_and_the_track_stops_at_its_end(self) -> None:
+        fixture = case("plain turn")
+        board = fixture.match.scoreboard
+        board.period, board.time = MatchPeriod.SECOND_HALF, 33
+
+        bar = self.bar(fixture)
+
+        self.assertEqual(bar["half"], "2nd half")
+        self.assertEqual(bar["track"]["filled"], 30)
+
+    def tile(self, fixture, player_number):
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        return [
+            control
+            for group in controls_for(
+                ENGINE, fixture.game, fixture.match, prompt,
+                Viewer(player_number),
+            )
+            for control in group["controls"]
+            if control.get("place")
+        ]
+
+    def test_the_tile_is_lit_for_the_coach_the_turn_is_put_to_only(
+        self,
+    ) -> None:
+        fixture = case("plain turn")
+        side = fixture.match.ball.possession
+        mine = ENGINE.side_player_number(fixture.game, side)
+        theirs = 2 if mine == 1 else 1
+
+        placed = self.tile(fixture, mine)
+
+        self.assertEqual(len(placed), 1)
+        self.assertEqual(
+            placed[0]["place"], {"at": "time_out_tile", "side": side.value},
+        )
+        self.assertEqual(placed[0]["action"]["choice"], "time_out")
+        self.assertEqual(self.tile(fixture, theirs), [])
+
+    def test_no_tile_is_lit_where_the_turn_offers_no_time_out(self) -> None:
+        fixture = case("plain turn")
+        fixture.match.scoreboard.last_possession = True
+        mine = ENGINE.side_player_number(
+            fixture.game, fixture.match.ball.possession,
+        )
+
+        self.assertEqual(self.tile(fixture, mine), [])
 
 
 class StyleTests(unittest.TestCase):

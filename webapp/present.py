@@ -366,6 +366,9 @@ class Asked:
     match: MatchState
     prompt: Mapping[str, Any]
     viewer: Viewer
+    #: The sides the prompt is put to (`asked_sides`), for a control
+    #: the page draws on one side's own part of it -- the time-out tile.
+    asked: tuple[TeamSide, ...] = ()
 
     @property
     def options(self) -> Mapping[str, Any]:
@@ -473,7 +476,12 @@ def controls_for(
     if build is None:
         return []
     asked = Asked(
-        engine, game, match, prompt.to_dict() if wire is None else wire, viewer,
+        engine,
+        game,
+        match,
+        prompt.to_dict() if wire is None else wire,
+        viewer,
+        asked_sides(match, prompt),
     )
     return [group for group in build(asked) if group is not None]
 
@@ -491,24 +499,34 @@ TURN_STYLES = {"maneuver": "primary", "shoot": "danger", "time_out": "secondary"
 DANGEROUS_ROLLS = (PromptKind.SCORE_ATTEMPT, PromptKind.OWN_GOAL_ROLL)
 
 
+#: The turn's answers the page draws somewhere other than the question
+#: box, by where: the time out is the lit tile on the jumbotron bar
+#: (docs/design/web-app.md, "The jumbotron bar").
+TURN_PLACES = {"time_out": "time_out_tile"}
+
+
 def _turn(asked: Asked) -> list:
     options = asked.options
-    return [
-        section(
-            None,
-            [
-                button(
-                    CHOICE_LABELS[action],
-                    asked.kind,
-                    action,
-                    style=TURN_STYLES.get(action, "primary"),
-                    disabled=action not in options["live"],
-                    note=RAILED_NOTE if action not in options["live"] else "",
-                )
-                for action in options["actions"]
-            ],
+    controls = []
+    for action in options["actions"]:
+        control = button(
+            CHOICE_LABELS[action],
+            asked.kind,
+            action,
+            style=TURN_STYLES.get(action, "primary"),
+            disabled=action not in options["live"],
+            note=RAILED_NOTE if action not in options["live"] else "",
         )
-    ]
+        if action in TURN_PLACES and asked.asked:
+            # Which side's tile: the side the turn is put to. Where on
+            # the page is all this says; the answer is `action`, the
+            # same one the button always sent.
+            control["place"] = {
+                "at": TURN_PLACES[action],
+                "side": asked.asked[0].value,
+            }
+        controls.append(control)
+    return [section(None, controls)]
 
 
 def _roll(asked: Asked) -> list:

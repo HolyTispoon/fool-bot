@@ -38,6 +38,11 @@
       </nav>
 
       <main class="main">
+        <!-- One bar across the play area: the teams, the score, the
+             clock and the two time-out tiles (webapp/static/app.js,
+             drawJumbotron). -->
+        <section id="jumbotron" class="jumbotron" aria-label="Score and clock"></section>
+
         <section class="panel board-panel" aria-label="The board">
           <div id="board" class="board-fit"></div>
           <p id="no-board" class="board-empty" hidden>
@@ -113,8 +118,6 @@
       </main>
 
       <aside class="sidebar">
-        <section id="jumbotron" class="jumbotron" aria-label="Score and clock"></section>
-
         <section class="panel log-panel" data-tab="log" aria-label="Game log">
           <div class="panel-label">Game log</div>
           <div id="journal" class="journal" role="log" aria-live="polite">
