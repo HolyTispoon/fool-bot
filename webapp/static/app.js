@@ -172,12 +172,15 @@ async function pickUp() {
   if (response.ok) draw(await response.json());
 }
 
+/* A chat line is the room's, not the game's: it posts to the room. */
 async function say(text) {
-  const response = await api(`/chat?${cursors()}`, {
+  const response = await fetch(`/api/room/${GAME_ID}/chat?${cursors()}`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
   });
   if (response.ok) draw(await response.json());
+  return response.ok;
 }
 
 // -- The whole page, from one state ------------------------------------
@@ -720,21 +723,27 @@ function clock(seconds) {
 }
 
 function drawChat(state) {
-  chatLatest = state.chat_latest;
-  if (!state.chat.length) return;
+  /* A post's answer and a poll can cross: a line already drawn is not
+     drawn twice. */
+  const drawn = chatLatest;
+  chatLatest = Math.max(chatLatest, state.chat_latest);
+  const fresh = state.chat.filter((message) => message.id > drawn);
+  if (!fresh.length) return;
   news("chat");
   const chat = el("chat");
   const empty = el("chat-empty");
   if (empty) empty.remove();
   const nearBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 60;
-  for (const message of state.chat) {
+  for (const message of fresh) {
+    /* Everything here goes in as text (`h` appends a string as a text
+       node): a chat line is never markdown, a token or markup. */
     chat.append(
       h(
         "p",
-        { class: "chat-line" },
+        { class: message.yours ? "chat-line yours" : "chat-line" },
         h("time", {}, clock(message.at)),
         h("span", { class: "chat-who", style: message.colour ? `color: ${message.colour}` : null },
-          message.who),
+          message.name),
         message.text,
       ),
     );
@@ -1167,7 +1176,9 @@ el("chat-form").addEventListener("submit", (event) => {
   const text = input.value.trim();
   if (!text) return;
   input.value = "";
-  say(text);
+  say(text).then((ok) => {
+    if (!ok && !input.value) input.value = text;
+  });
 });
 /* A bench kept open by a click closes on a click anywhere else. */
 document.addEventListener("click", (event) => {

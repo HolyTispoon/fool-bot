@@ -42,6 +42,7 @@ from webapp import identity, server
 from webapp.identity import Coach
 from gamelocks import GameLocks
 from webapp.present import CONTROLS, Viewer, controls_for, render_text
+from webapp.chat import CHAT_LENGTH, Chats
 from webapp.rooms import Rooms
 from webapp.server import WebApp, _was_offered
 from prompt_fixtures import (
@@ -877,6 +878,216 @@ class RoomTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(set(rooms.rooms), {"kept"})
         self.assertTrue(rooms.is_admin("kept", 1))
+
+
+class ChatTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The room's chat (step 4 of docs/web-app-next.md): people talking,
+    under the name on their cookie, riding on the poll, kept in the web
+    app's own file and never on the game.
+    """
+
+    CREATOR, SECOND, THIRD = 101, 202, 303
+
+    async def asyncSetUp(self) -> None:
+        ENGINE.rng.seed(11)
+        self.games = {}
+        self.service = GameService(ENGINE, self.games, save=lambda games: None)
+        self.client = await self.serve(Rooms(), Chats())
+        self.room = await self.open_room()
+        for coach_id in (self.SECOND, self.THIRD):
+            await self.poll(coach_id)
+
+    async def serve(self, rooms: Rooms, chats: Chats) -> TestClient:
+        self.web = WebApp(self.service, GameLocks(), rooms=rooms, chats=chats)
+        self.web.watch()
+        client = TestClient(TestServer(self.web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        self.addAsyncCleanup(self.web.stop)
+        return client
+
+    async def open_room(self) -> str:
+        response = await self.client.post(
+            "/api/rooms", headers=as_coach(self.CREATOR, "Creator"),
+        )
+        return (await response.json())["id"]
+
+    async def say(self, coach_id, text, since: int = 0):
+        headers = {} if coach_id is None else as_coach(
+            coach_id, f"Person {coach_id}",
+        )
+        return await self.client.post(
+            f"/api/room/{self.room}/chat",
+            params={"chat_since": str(since)},
+            headers=headers,
+            json={"text": text},
+        )
+
+    async def poll(self, coach_id, since: int = 0) -> dict:
+        response = await self.client.get(
+            f"/api/game/{self.room}",
+            params={"chat_since": str(since)},
+            headers=as_coach(coach_id, f"Person {coach_id}"),
+        )
+        self.assertEqual(response.status, 200)
+        return await response.json()
+
+    async def test_a_coach_posts_and_everybody_in_the_room_sees_it(
+        self,
+    ) -> None:
+        response = await self.say(self.CREATOR, "good luck")
+        self.assertEqual(response.status, 200)
+
+        for coach_id in (self.CREATOR, self.SECOND, self.THIRD):
+            with self.subTest(coach_id):
+                chat = (await self.poll(coach_id))["chat"]
+                self.assertEqual(
+                    [(one["name"], one["text"]) for one in chat],
+                    [(f"Person {self.CREATOR}", "good luck")],
+                )
+                self.assertEqual(chat[0]["yours"], coach_id == self.CREATOR)
+        # The poster's own answer carries the line, so it shows at once.
+        self.assertEqual(
+            [one["text"] for one in (await response.json())["chat"]],
+            ["good luck"],
+        )
+
+    async def test_an_observer_may_post_and_is_drawn_plain(self) -> None:
+        self.kick_off()
+        await self.say(self.CREATOR, "ready")
+        response = await self.say(self.THIRD, "watching")
+
+        self.assertEqual(response.status, 200)
+        chat = (await self.poll(self.SECOND))["chat"]
+        self.assertEqual(
+            [(one["name"], one["text"]) for one in chat],
+            [(f"Person {self.CREATOR}", "ready"),
+             (f"Person {self.THIRD}", "watching")],
+        )
+        # A coach's name in their team's colour; an observer's plain.
+        self.assertEqual(
+            chat[0]["colour"], self.web._coach(self.games[self.room], 1)["colour"],
+        )
+        self.assertIsNotNone(chat[0]["colour"])
+        self.assertIsNone(chat[1]["colour"])
+
+    def kick_off(self) -> None:
+        game = self.games[self.room]
+        fixture = case("kickoff")
+        game.in_lobby = False
+        for name in (
+            "status", "mode", "player_1_team", "player_2_team",
+            "home_player_number", "visiting_player_number",
+        ):
+            setattr(game, name, getattr(fixture.game, name))
+        game.match_state = fixture.match.to_dict()
+
+    async def test_nobody_named_may_not_post(self) -> None:
+        response = await self.say(None, "hello")
+
+        self.assertEqual(response.status, 403)
+        self.assertEqual(self.web.chats.chat(self.room).since(0), [])
+
+    async def test_a_message_too_long_or_empty_is_refused(self) -> None:
+        for text in ("x" * 501, "   ", "", None):
+            with self.subTest(repr(text)[:20]):
+                response = await self.say(self.CREATOR, text)
+                self.assertEqual(response.status, 400)
+        # 500 after stripping is taken whole.
+        response = await self.say(self.CREATOR, "  " + "x" * 500 + "  ")
+        self.assertEqual(response.status, 200)
+        self.assertEqual(
+            [len(one.text) for one in self.web.chats.chat(self.room).since(0)],
+            [500],
+        )
+
+    async def test_the_cursor_hands_over_only_what_is_newer(self) -> None:
+        await self.say(self.CREATOR, "one")
+        await self.say(self.SECOND, "two")
+        state = await self.poll(self.THIRD, since=1)
+
+        self.assertEqual([one["text"] for one in state["chat"]], ["two"])
+        self.assertEqual(state["chat_latest"], 2)
+        # An answer to an action reads the cursor too, so a page that
+        # acts is not handed the whole chat again.
+        response = await self.client.post(
+            f"/api/room/{self.room}/admin",
+            params={"chat_since": "2"},
+            headers=as_coach(self.THIRD),
+        )
+        self.assertEqual((await response.json())["chat"], [])
+
+    async def test_the_bound_holds_and_the_ids_keep_counting(self) -> None:
+        chats = self.web.chats
+        for number in range(CHAT_LENGTH + 5):
+            chats.post(self.room, self.CREATOR, "Creator", str(number))
+
+        state = await self.poll(self.SECOND)
+
+        self.assertEqual(len(state["chat"]), CHAT_LENGTH)
+        self.assertEqual(state["chat"][0]["text"], "5")
+        self.assertEqual(state["chat_latest"], CHAT_LENGTH + 5)
+
+    async def test_the_chat_survives_a_restart(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            chat_file = Path(directory) / "web_chat.json"
+            self.client = await self.serve(Rooms(), Chats(chat_file))
+            await self.say(self.CREATOR, "before")
+            await self.say(self.THIRD, "the restart")
+
+            # A new process: the file read again.
+            self.client = await self.serve(
+                Rooms(), Chats.load(chat_file, self.games),
+            )
+            await self.say(self.SECOND, "after")
+            state = await self.poll(self.THIRD)
+
+            # A room the games file has lost is dropped on load.
+            self.assertEqual(Chats.load(chat_file, []).chats, {})
+
+        self.assertEqual(
+            [(one["id"], one["text"]) for one in state["chat"]],
+            [(1, "before"), (2, "the restart"), (3, "after")],
+        )
+        self.assertEqual(
+            [one["yours"] for one in state["chat"]], [False, True, False],
+        )
+
+    async def test_markup_is_handed_over_as_the_text_it_was_and_never_saved(
+        self,
+    ) -> None:
+        """
+        A chat line is not the model's voice: `<b>`, a token and
+        markdown arrive exactly as typed -- plain text for the page to
+        set with `textContent` -- where the journal's sentences are
+        escaped and tokenised (`render_text`). And the game's save
+        never holds it.
+        """
+        written = "<b>{team:orange}</b> **not bold**"
+        with tempfile.TemporaryDirectory() as directory:
+            games_file = Path(directory) / "web_games.json"
+            self.service._save = lambda games: storage.save_games(
+                games, games_file,
+            )
+            self.kick_off()
+            self.service._save(self.games)
+            response = await self.say(self.CREATOR, written)
+            said = (await response.json())["chat"][0]["text"]
+            saved = games_file.read_text(encoding="utf-8")
+
+        self.assertEqual(said, written)
+        self.assertNotIn("not bold", saved)
+        self.assertNotIn("not bold", json.dumps(self.games[self.room].to_dict()))
+        self.assertNotIn("<b>", render_text(self.games[self.room], written))
+
+    def test_the_page_sets_a_chat_line_as_text(self) -> None:
+        """The page never hands a chat line to innerHTML."""
+        script = (Path(server.STATIC) / "app.js").read_text(encoding="utf-8")
+        start = script.index("function drawChat(")
+        body = script[start:script.index("\n}\n", start)]
+        self.assertNotIn("html", body.lower())
+        self.assertIn("message.text", body)
 
 
 class EntryPointTests(unittest.TestCase):
