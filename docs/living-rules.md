@@ -1140,7 +1140,7 @@ The one place it reaches further is a stack: an Ooze sharing a space with a team
 
 ### Whose they are
 
-**Some players carry an ability of their own, and four carry an advanced skill.** Both are played in [advanced mode](#what-each-mode-plays) and in no other. A personal ability belongs to the player rather than their role or their species, so a player fielded on both sides of one game carries it on both cards.
+**Some players carry an ability of their own, and five carry an advanced skill.** Both are played in [advanced mode](#what-each-mode-plays) and in no other. A personal ability belongs to the player rather than their role or their species, so a player fielded on both sides of one game carries it on both cards.
 
 A personal ability is played **beside the player's role ability, never instead of it**: a player keeps their role's ability in advanced mode. The advanced side of a card prints the personal ability in the role's place, and the role's is on the other side.
 
@@ -1153,6 +1153,7 @@ Most personal abilities change the player's own [species ability](#species-abili
 | Player | Offense | Defense |
 | --- | ---: | ---: |
 | Flux (Defender, Cyborg) | 5 | 5 |
+| Gurgoth (Defender, Ooze) | 5 | 6 |
 | Hellguard (Fullback, Fire Demon) | 0 | 8 |
 | Ozul (Playmaker, Ooze) | 6 | 5 |
 | Tachyon (Striker, Cyborg) | 6 | 4 |
@@ -1167,6 +1168,14 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Emberdash runs further.** Emberdash's [Dribble Advance](#dribble-advance) may go up to 3 spaces, and their [Dribble Burst](#dribble-burst) costs no exhaustion.
 
+**Flickerwing shoots past the wall.** When Flickerwing takes a [scoring opportunity](#scoring-opportunities), only the defending players standing on the ball's space add their skill to the defense; a defending player between the ball and the goal adds nothing. An ordinary score attempt is unchanged.
+
+**Inferno lights the ball.** Whenever the ball comes to Inferno -- they are left holding it, however that happened, or chosen to handle it -- its speed goes to 12. Anything that sets the speed later in the same resolution, such as the speed step after a [Steal](#steal), still does.
+
+**Kindlefinger's injury check can ignite.** Kindlefinger's die in an [injury check](#the-injury-check) ignites on a natural 6 or 7 exactly as a [Volatile](#volatile-fire-demon) roll does, and the blaze or burn is added to or subtracted from the check. Once the check is read, a blaze clears 1 token from Kindlefinger and a burn adds 1 -- unless the check injured them, since an Injured player clears every token and adds none.
+
+**Scorchit forces the test.** When Scorchit's maneuver loses on the cards, it goes to a [skill test](#the-skill-test) anyway. Entering it, Scorchit adds 2 tokens and their opponent none; a tie is rolled again at a token each, as always. The higher total wins and their maneuver resolves. A gambit's effect still follows the cards, as it does after a test an [injury](#playing-injured) forced: if the card that won on the cards also wins the test, its benefit and Scorchit's cost both land; if Scorchit wins the test, neither fires and Scorchit's card resolves as the basic maneuver on its rank. Where the winner on the cards is injured, the test is the one their injury already forces, and costs its usual token each.
+
 ### Cyborgs
 
 **Bulwark is Drained at 10.** Bulwark is Drained at 10 or more drain tokens rather than 7, and never below.
@@ -1178,6 +1187,8 @@ Most personal abilities change the player's own [species ability](#species-abili
 **Strider runs on less.** When Strider [charges up](#lithium-powered-cyborg), they clear 2 drain rather than 1. A [run back](#running-back-after-a-steal) drains Strider 1 at most, however far they run.
 
 **Quantor runs onto the pass.** When a teammate's won [High Pass](#high-pass) or [Setup Pass](#setup-pass) is about to resolve, Quantor may **drain 3** to move to the space the pass is aimed at and receive it there, without a contest. The pass then resolves with Quantor as its receiver: a High Pass of 2 in range and a Setup Pass set up Quantor's [scoring opportunity](#scoring-opportunities), and a longer High Pass is simply received. It is declared with the pass's distance, only for a distance whose space is on the field, and never on Quantor's own pass.
+
+**Pulsar charges up on the ball.** Whenever the ball comes to Pulsar -- they are left holding it, however that happened, or chosen to handle it -- they clear 1 drain, never below zero.
 
 **Synapse's Overdrive decides a tier.** When Synapse wins a maneuver skill test on a roll they Overdrove, their maneuver resolves as its advanced version -- the gambit on its rank -- whether or not their coach [may play a gambit](#who-may-play-a-gambit) this turn, exactly as a [blaze that wins](#volatile-fire-demon) does. A maneuver already resolving as a gambit gains nothing more.
 
@@ -1191,9 +1202,25 @@ Most personal abilities change the player's own [species ability](#species-abili
 
 **Dravox and Hexis play their gambits on the dice.** When Dravox wins a maneuver skill test with a defensive gambit they played, or Hexis with an offensive one, it resolves as the gambit -- where a card that did not win on the cards [would otherwise resolve as its basic maneuver](#when-a-gambits-effect-fires). A basic card they played is not upgraded.
 
+**Umbrik plays the long ball on defense.** Umbrik adds their defensive skill rather than their offensive skill to an [own-goal roll](#own-goal), to a maneuver skill test over their own [High Pass](#high-pass), and to a [High Pass contest](#the-high-pass-contest) for a pass their side threw.
+
+**Vorix's long pass is a set-up.** When Vorix's won High Pass of 3 spaces reaches a teammate, there is no High Pass contest: the ball's speed goes to 12, the teammate receives it, and they may take a [scoring opportunity](#scoring-opportunities) if it is in range, exactly as off a 2-space pass.
+
+**Zenith flies.** When a [steal](#running-back-after-a-steal) is about to run players back, Zenith's coach may first move Zenith to any space on the field, adding 1 token for every space travelled. Zenith then does not run back. The player holding the ball cannot fly, and a [new-play reset](#resetting-after-a-new-play) is not a run back.
+
+**Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#scoring-opportunities) if it is in range -- after a [Low Pass](#low-pass) or a [Skilled Pass](#skilled-pass) as after a 2-space High Pass. A High Pass of 3 or more offers it in place of the [High Pass contest](#the-high-pass-contest), as an overshoot does: declining the shot means taking the contest. The ball speed modifier counts for them, not against them, unless the pass overshot.
+
 ### Oozes
 
-**Goopkeeper blocks in full.** In a [score attempt](#score-attempt), Goopkeeper adds their full defensive skill to the defense when standing beyond the ball, rather than half.
+**Glompex joins the ball.** Once a maneuver's challenger is in place and before either coach chooses a card, Glompex -- standing on a space next to the ball's, and not one of the two players -- may take 1 token to move onto the ball's space, where [Merge](#slimey-ooze) counts them. It is offered only against a challenge, since an unchallenged maneuver rolls nothing.
+
+**Goopkeeper always counts as on the ball.** In a [score attempt](#score-attempt), Goopkeeper defends as a player standing on the ball's space wherever they stand -- beyond the ball or behind it -- and adds their full defensive skill.
+
+**Slitheron wins in the air and on the loose.** In a [High Pass contest](#the-high-pass-contest), and in the contest for a [loose ball](#a-loose-ball) both sides sent somebody after, Slitheron takes the ball without a roll. Nothing is rolled, so nobody owes an injury check for it. Against another player with the same ability, the contest is rolled as usual.
+
+**Spritz may Smooth.** Spritz has the Telekinetics' [Smooth](#mind-pull-telekinetic), and takes their own side's ball over exactly as a Telekinetic does. Spritz has no Mind Pull.
+
+**Zorch tests for free.** Zorch adds no token for entering a maneuver [skill test](#the-skill-test), or for any re-roll of one or of a contest for the ball.
 
 **Acidel turns a pressure into a shot.** When Acidel is the challenger whose won [Pressure](#pressure) or [Double Team](#double-team) would risk an [own goal](#own-goal), there is no own-goal roll: Acidel's side takes the ball, at speed 1, and Acidel has a [scoring opportunity](#scoring-opportunities) from that space. Declining it leaves Acidel's side holding the ball where it stands.
 

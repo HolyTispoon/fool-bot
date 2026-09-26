@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-09-25.
+**As of:** 2026-09-26.
 
 ## Where the rules come from
 
@@ -152,6 +152,68 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-26 -- sheet, thirteen more personal abilities, and the readings they left open
+
+Re-imported from the sheet. The `advanced_abilities` tab gives thirteen more players a personal
+ability and Gurgoth advanced skills (5 offense, 6 defense), and the player cards tab's rows are
+re-sorted -- which changes which of a colour team's two same-role players the standard deal
+starts, since the deal takes the first. Brightburn ("clear" for "remove"), Quantor ("drain 3"
+for "add 3 drain") and Strider ("Charge-up 2" for "Recharges 2") are reworded with no change of
+meaning.
+
+**Written into Law 21 from one-line cells, with the readings the build made.** None of these has
+been put to the author yet; each is the reading the Charter now states, and each is a question
+on the pull request that brought it in.
+
+- **Flickerwing:** *"When making a scoring opportunity, only defender on the ball contribute
+  their skill scores."* Read as Flickerwing *taking* the set-up's shot, where the defenders
+  beyond the ball add nothing. The other reading is a set-up Flickerwing's pass *makes* for a
+  teammate.
+- **Glompex:** *"Before selecting a maneuver, if Glomplex is in a space adjacent to the move they
+  may gain 1 exhaustion to move to the ball's space and Merge."* "The move" is read as the ball's
+  space. Offered after the challenger is in place and before the cards, and only against a
+  challenge, since Merge adds to a roll and an unchallenged maneuver rolls nothing.
+- **Goopkeeper:** now *"Always counts as 'on the ball' when defending against score attempts."*
+  Read as reaching a Goopkeeper standing *behind* the ball too, who added nothing under the
+  2026-09-25 wording.
+- **Inferno:** *"Ball speed to 12 when touches the ball."* Read as whenever the ball comes to
+  Inferno -- left holding it, or chosen to handle it -- with anything later in the same
+  resolution (a Steal's speed step) still setting it.
+- **Kindlefinger:** *"Can iginite on injury test: when blazes clear 1 exhaustion and when burns
+  add 1 exhaustion."* Read as an ordinary ignite on the check's die -- the number added or
+  subtracted -- with the token cleared or added once the check is read.
+- **Pulsar:** *"Charge-up when receives the ball."* Read the same way as Inferno's touch: whenever
+  the ball comes to Pulsar, not only off a teammate's pass.
+- **Scorchit:** *"Forces a skill test even when their maneuver is on the losing side but gains 2
+  exhaustion while opponent gains none."* Read as automatic rather than a choice, and as following
+  the cards for a gambit exactly as the test an injury forces does.
+- **Slitheron:** *"Auto wins contests for high pass and loose ball."* Read as the High Pass contest
+  and the contest for a ball on an empty space; a ball that comes down between both sides is a
+  contest, not a loose ball, and is rolled as usual.
+- **Spritz:** *"Smooth (eammate sharing space may handover ball handling.)"* Read as the
+  Telekinetics' Smooth, without Mind Pull.
+- **Umbrik:** *"Uses dSkill for own goal attempts and high pass skill tests."* Read as the
+  own-goal roll, a maneuver skill test over Umbrik's own High Pass, and a High Pass contest for a
+  pass Umbrik's side threw -- the sheet calls the contest the receiver's "skill test".
+- **Vorix:** *"When successfully high passes for 3: speed ball to 12 and set up a scoring
+  opportunity without contest."* Read as a won High Pass of exactly 3 onto a teammate; out of
+  range the pass is still received, uncontested, at 12.
+- **Zenith:** *"Fly: before runback, can be moved anywhere on the board gaining exhaustion as
+  normal. Does not run back if moved by Fly."* Read as a choice at a steal's run back, 1 token a
+  space, never for the player holding the ball.
+- **Zorch:** *"Does not add exhaustion when rolling skill tests (including after ties)."* Read as
+  a maneuver skill test's entry token and every re-roll, including a contest's.
+- **Zytheris:** *"Gets a scoring opportunity when receiving any pass."* Read as any teammate's
+  pass Zytheris receives, with a High Pass of 3 or more offering the shot in place of the contest,
+  as an overshoot does.
+
+**Not applied: the Playmaker's sentence.** The `basic_abilities` tab now reads *"May advance an
+additional space when resolving Dribble maneuvers."* -- plural -- where it read *"May advance 2
+spaces when resolving Dribble Advance."* On a Dribble Burst that would be a run of up to 5, and
+the author ruled on 2026-08-19 that the Playmaker's Burst is one token fewer instead. The
+abbreviated column still reads "Dribble Advance up to 2". The ruling stands until the author
+says otherwise; this is asked on the pull request.
 
 ### 2026-09-25 (last) -- author and sheet, Volatile decides no cost, and the personal abilities move on
 
@@ -2782,6 +2844,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
 | The maneuvers sheet's `Mode` column reads `basic` / `advanced` | A gambit, on the rank of a basic maneuver. The importer keeps the sheet's word as the tier value, so a fresh pull rewrites it unchanged |
 | Smooth: "the ball moves to or through your space" (the `spec_abilities` tab, and so `species.json` and the printed species cards) | Only where the ball comes to rest -- a Telekinetic it passes through is offered nothing (2026-09-24) |
+| Playmaker: "May advance an additional space when resolving Dribble maneuvers" (the `basic_abilities` tab, 2026-09-26) | Dribble Advance up to 2; a Dribble Burst one token fewer (2026-08-19) -- asked, not yet answered |
 
 ---
 
@@ -2913,8 +2976,9 @@ From the author, for `foolbot.py`'s generic commands:
   injured player is downgraded to a skill test they have to win. Specified since the rules
   were first vendored on 2026-07-25 and built on 2026-08-09; the readings it rests on are in
   [Still open](#still-open).
-- **The personal abilities and the advanced skill scores** (Law 21), all sixteen, since
-  2026-09-25, with the four readings in that day's entry still the author's to confirm. The
+- **The personal abilities and the advanced skill scores** (Law 21): sixteen since
+  2026-09-25, thirteen more and Gurgoth's scores since 2026-09-26, with the readings in that
+  day's entry still the author's to confirm. The
   printed player card's back shows them (the author, 2026-09-25: the personal ability instead of
   the role's on the card, while in play a player keeps both, and the advanced scores), and so do
   the player cards the bot draws on the board and the coaching image.
