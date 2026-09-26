@@ -1574,6 +1574,7 @@ class WebApp:
         return {
             "headline": render_text(game, headline["text"]),
             "under": render_text(game, headline.get("under") or ""),
+            "working": render_text(game, headline.get("working") or ""),
             "colour": (
                 None if side is None
                 else side_colour(match, TeamSide(side))

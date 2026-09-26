@@ -926,9 +926,9 @@ is either, so the page has no winner's colour to draw. And the
 arithmetic the canvas shows under a skill test is not a line the
 model says at all: the numbers are in the roll's `detail`.
 
-**The proposal, for the author: the model says its headline once
-more, on its own** (`d12ball.flow.result.Headline`, its own commit on
-step 3's PR). A step that announces an outcome hands back, beside its
+**So the model says its headline once more, on its own**
+(`d12ball.flow.result.Headline`: proposed in its own commit on step 3's
+PR, and accepted by the author there, 2026-09-26: "sounds fine"). A step that announces an outcome hands back, beside its
 lines, the heading it wrote without its marks (`**Pressure** wins!`),
 the line it wrote under it where there is one, and whose outcome it is
 (the side whose card won, that scored, that kept the ball out, that
@@ -938,21 +938,37 @@ do not move. The driver carries a headline wherever it carries the
 lines (the first said is a group's), `Narration.headline` and
 `GameResult.headline` / `answer_headline` put it on the wire, and it
 goes with the answer's kept lines where the frontend keeps any. Four
-sites set one today -- the maneuver settled on the cards (and "lets
-it stand", and the uncontested "succeeds"), the skill test's verdict,
-the shot's GOAL! or Missed attempt!, and a steal's Turnover! -- the
-three the step's test names and the skill test between them.
-Halftime, full time, an own goal and a loose ball do not yet.
+sites set one -- the maneuver settled on the cards (and "lets it
+stand", and the uncontested "succeeds"), the skill test's verdict, the
+shot's GOAL! or Missed attempt!, and a steal's Turnover! -- and, at
+the author's word on the same PR ("these should be headlines"), two
+more: Halftime, and the result at full time or after the shootout
+(`full_time_heading`, the heading `build_full_time_summary` writes,
+with the final score under it). An own goal and a loose ball do not
+yet.
+
+**A roll's arithmetic is written out, not only shown** (the author, on
+the same PR: "the arithmetic needs explanation, it's not enough to just
+show the math ... the model should write this with greater detail").
+`Headline.working`, set by the skill test and the shot, is each side
+as who rolled, the face, every addend and the total, then how the two
+totals are read ("**16** beats **10**."; "**13** is lower than
+**15**: the attack does not score."), built by `rolls.roll_working`
+from the same detail lines the dice picture is drawn with, so the words
+and the picture cannot disagree. It is on the headline and not in the
+narration: the bot posts the dice picture that already says it, so no
+line moves and neither does a golden. The shot's defenders are listed
+without the picture's running total, which written out would read as
+one more addend.
 
 **On the page** the journal keeps the first headline of the latest
 result as `showing_outcome` (in its file, as `showing_roll` is), up
 until a result comes with none; the state's `outcome` is its words
 through `render_text` and its side's colour (`board.side_colour`).
-The page sets them in the outcome block, 46px in the display face and
-17px under it, and words nothing. What the canvas shows that this does
-not: the arithmetic under a skill test ("9 + 4 + 2 = 15 beats ...") is
-not a line the model says, and HALFTIME · 1 : 1 or PURPLE WINS 3 : 2
-are not headlines it sets yet; both are the author's to decide.
+The page sets them in the outcome block -- the headline 46px in the
+display face, the line under it 17px, the working under that at 15px
+-- and words nothing. The canvas's "HALFTIME · 1 : 1" is the model's
+"Halftime": the score is the jumbotron's.
 `OutcomeBannerTests` hold the headline to a heading the narration
 itself says, word for word, for a resolved maneuver, a saved shot and
 a steal.

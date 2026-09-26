@@ -278,7 +278,10 @@ class ResultWireTests(unittest.TestCase):
 
         self.assertEqual(
             group.to_dict()["headline"],
-            {"text": "GOAL!", "side": "home", "under": "{team:orange} scores."},
+            {
+                "text": "GOAL!", "side": "home",
+                "under": "{team:orange} scores.", "working": "",
+            },
         )
         self.assertIsNone(Narration(("Said.",)).to_dict()["headline"])
         json.dumps(GameResult(headline=headline).to_dict())

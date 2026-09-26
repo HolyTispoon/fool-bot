@@ -1192,12 +1192,15 @@ function drawRoll(state) {
 function drawHeadline(state) {
   const headline = el("outcome-headline");
   const under = el("outcome-detail");
+  const working = el("outcome-working");
   const outcome = state.outcome;
   headline.hidden = !outcome;
   under.hidden = !(outcome && outcome.under);
+  working.hidden = !(outcome && outcome.working);
   if (outcome) {
     headline.innerHTML = outcome.headline;
     under.innerHTML = outcome.under || "";
+    working.innerHTML = outcome.working || "";
     el("outcome").style.setProperty("--outcome", outcome.colour || "var(--gold)");
   }
   drawOutcome();

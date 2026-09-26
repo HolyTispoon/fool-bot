@@ -346,7 +346,9 @@ img { display: block; }
   color: var(--outcome, var(--gold));
 }
 .outcome-headline strong, .outcome-headline em { color: inherit; font-weight: inherit; font-style: inherit; }
-.outcome-detail { font-size: 17px; font-weight: 700; color: var(--strong); }
+.outcome-detail { font-size: 17px; font-weight: 700; color: var(--strong); white-space: pre-line; }
+/* The roll's arithmetic, written out by the model (`Headline.working`). */
+.outcome-working { font-size: 15px; line-height: 1.4; color: var(--text); }
 
 /* The owed step: its own strip above the box. */
 .owed-strip {

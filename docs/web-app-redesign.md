@@ -341,9 +341,10 @@ button.
 refusal strip, the owed strip and the picture slot are in
 docs/design/web-app.md, "The page" ("The question box"). The narration
 did not split into a headline and a detail, so the banner's words ride
-on a proposed model change, `d12ball.flow.result.Headline`, in its own
-commit on the step's PR for the author to accept or refuse -- see "The
-outcome banner" there.
+on a model change, `d12ball.flow.result.Headline`, proposed in its own
+commit on the step's PR and accepted there, with halftime and the
+result made headlines and a roll's arithmetic written out at the
+author's word -- see "The outcome banner" there.
 
 **Prompt.**
 

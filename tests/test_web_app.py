@@ -699,6 +699,35 @@ class OutcomeBannerTests(unittest.TestCase):
         self.assertEqual(written["text"], "Missed attempt!")
         self.assertEqual(written["side"], defending.value)
         self.assertTrue(written["under"])
+        # The arithmetic is written out, from the numbers rolled.
+        self.assertIn("rolled **1**", written["working"])
+        self.assertIn("rolled **12**", written["working"])
+        self.assertTrue(
+            written["working"].endswith("the attack does not score."),
+        )
+        self.assertEqual(
+            web._state(game, Viewer(None))["outcome"]["working"],
+            render_text(game, written["working"]),
+        )
+
+    def test_a_skill_test_writes_its_arithmetic_out(self) -> None:
+        web, game = self.open("skill test")
+        with mock.patch(
+            "d12ball.flow.rolls.scripted_or_random",
+            lambda engine, game, kind, count: [9, 2],
+        ):
+            self.press(
+                web, game, 1, lambda action: action["choice"] == "roll",
+            )
+
+        written = self.assert_the_narration_s_own(web, game)
+        self.assertTrue(written["text"].endswith("wins the skill test!"))
+        working = written["working"]
+        self.assertIn("rolled **9**", working)
+        self.assertIn("rolled **2**", working)
+        self.assertIn("Offensive skill +", working)
+        self.assertIn("Defensive skill +", working)
+        self.assertIn(" beats ", working)
 
     def test_a_steal_is_headed_by_its_own_line(self) -> None:
         web, game = self.open("maneuver picks")

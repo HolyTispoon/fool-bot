@@ -44,7 +44,7 @@ is a rule rather than an accident:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 from d12ball.components import (
@@ -140,6 +140,29 @@ class ContestDice:
                 for player_id, ignite in self.ignites
             ],
         }
+
+
+def roll_working(
+    sides: list[tuple[str, int, list[str], int]],
+    verdict: str,
+) -> str:
+    """
+    A roll's arithmetic written out, for a `Headline`: each side as
+    who rolled, the face, everything added to it and the total, then
+    how the two totals are read against each other.
+
+    `sides` is `(who, roll, added, total)`, and `added` is the lines
+    the dice picture is drawn with -- "Offensive skill +4", "+3
+    Midfielder ability", "+1 ball speed modifier" -- so the words and
+    the picture cannot say different things.
+    """
+    written = " ".join(
+        f"{who} rolled **{roll}**"
+        + "".join(f", {line}" for line in added)
+        + f" = **{total}**."
+        for who, roll, added, total in sides
+    )
+    return f"{written} {verdict}"
 
 
 def _with_extras(
@@ -571,10 +594,25 @@ def skill_test_step(
     )
     wins = f"**{winner_name}** wins the skill test!"
     result.narration.insert(0, f"## {wins}{volatile_note}")
+    high, low = sorted((offense_total, defense_total), reverse=True)
     result.headline = Headline(
         wins,
         match.ball.possession if outcome == "offense"
         else match.defending_side(),
+        working=roll_working(
+            [
+                (
+                    engine.format_player_label(match, player),
+                    roll,
+                    detail[1:],
+                    total,
+                )
+                for player, (roll, _, detail, total, _, _) in zip(
+                    (offense_player, defense_player), contestants,
+                )
+            ],
+            f"**{high}** beats **{low}**.",
+        ),
     )
     result.board_changed = True
     return dice, result
@@ -1252,6 +1290,41 @@ def score_attempt_step(
     verdict, space_minutes, headline = settle_score_attempt(
         engine, game, match, shooter, attacking_setup, defending_setup,
         scored,
+    )
+    (attack_roll, _, attack_detail, _, _, _), (
+        defense_roll, _, defense_detail, _, _, _,
+    ) = contestants
+    headline = replace(
+        headline,
+        working=roll_working(
+            [
+                (
+                    engine.format_player_label(match, shooter),
+                    attack_roll,
+                    attack_detail[1:],
+                    attack_total,
+                ),
+                (
+                    format_team_side_label(defending_setup),
+                    defense_roll,
+                    # The picture's running total of the defenders is
+                    # not an addend; written out, it would read as one.
+                    [
+                        line for line in defense_detail
+                        if line != "Total defensive skill "
+                        f"+{defense_total - defense_roll}"
+                    ],
+                    defense_total,
+                ),
+            ],
+            (
+                f"**{attack_total}** is equal to or higher than "
+                f"**{defense_total}**: the attack scores."
+                if scored else
+                f"**{attack_total}** is lower than **{defense_total}**: "
+                "the attack does not score."
+            ),
+        ),
     )
 
     return dice, StepResult(
