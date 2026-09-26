@@ -52,7 +52,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.flow.turn import record_maneuver, scripted_or_random, tutorial_beat
 from d12ball.formatting import (
     ball_space_phrase,
@@ -627,8 +627,9 @@ def steal_result_text(
     name: str,
     challenger_id: str,
     actual_distance: int,
-) -> str:
-    """The turnover, and which way the thief carried it."""
+) -> tuple[str, Headline]:
+    """The turnover, and which way the thief carried it -- and its
+    `Headline`, for the side that took the ball."""
     space_word = "space" if actual_distance == 1 else "spaces"
     challenger = engine.get_player_definition(challenger_id)
     challenger_label = engine.format_player_label(match, challenger)
@@ -640,13 +641,13 @@ def steal_result_text(
         else f"then falls back {actual_distance} {space_word} toward "
         "their own goal with the ball"
     )
-    return (
-        f"**{name}:**\n"
-        "# Turnover!\n"
+    under = (
         f"{challenger_label} steals the ball. "
         f"{format_team_side_label(new_possession)} now has possession, "
         f"{travel}."
     )
+    headline = Headline("Turnover!", match.ball.possession, under)
+    return f"**{name}:**\n# {headline.text}\n{under}", headline
 
 
 def steal_step(
@@ -680,7 +681,7 @@ def steal_step(
     overshot, actual_distance = take_ball_by_steal(
         match, challenger_id, new_possession_side, direction,
     )
-    content = steal_result_text(
+    content, headline = steal_result_text(
         engine, match, key, name, challenger_id, actual_distance,
     )
 
@@ -712,6 +713,7 @@ def steal_step(
                 + "\n\nThere is no field left ahead of them -- "
                 "a scoring opportunity!"
             ],
+            headline=headline,
             board_changed=True,
             next=FollowOn(
                 FollowOnStep.BEGIN_SHOOTER_CHOICE,
@@ -740,6 +742,7 @@ def steal_step(
     # which take_ball_by_steal has already made the interceptor.
     return StepResult(
         narration=[content],
+        headline=headline,
         board_changed=True,
         next=FollowOn(
             FollowOnStep.BEGIN_RUN_BACK, {"speed_choice_after": True},

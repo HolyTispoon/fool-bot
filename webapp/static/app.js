@@ -195,6 +195,7 @@ function draw(state) {
   drawChat(state);
   drawPrompt(state);
   drawRoll(state);
+  drawHeadline(state);
   drawTable(state);
   drawRoom(state);
   drawStats(state);
@@ -1181,6 +1182,24 @@ function drawRoll(state) {
   }
   if (image.getAttribute("src") !== state.roll.url) image.src = state.roll.url;
   image.hidden = false;
+  drawOutcome();
+}
+
+/* The outcome's words, large and first: the model's own headline and
+   the line it wrote under it, in the colour of the side whose outcome
+   it is -- up until the next thing happens, as the dice are. The page
+   words none of it ("The outcome banner", docs/design/web-app.md). */
+function drawHeadline(state) {
+  const headline = el("outcome-headline");
+  const under = el("outcome-detail");
+  const outcome = state.outcome;
+  headline.hidden = !outcome;
+  under.hidden = !(outcome && outcome.under);
+  if (outcome) {
+    headline.innerHTML = outcome.headline;
+    under.innerHTML = outcome.under || "";
+    el("outcome").style.setProperty("--outcome", outcome.colour || "var(--gold)");
+  }
   drawOutcome();
 }
 

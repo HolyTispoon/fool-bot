@@ -40,6 +40,7 @@ from unittest import mock
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 from d12ball.components import MatchState, TeamSide
+from d12ball.render import TEAM_COLORS
 from d12ball.flow import FollowOnStep
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
 from gamesaves.d12ball import storage
@@ -577,6 +578,156 @@ class QuestionBoxTests(unittest.TestCase):
             self.assertEqual(
                 self.box(fixture, Viewer(number))["state"], "full_time",
             )
+
+
+class OutcomeBannerTests(unittest.TestCase):
+    """
+    The outcome the question box puts up large (step 3 of
+    docs/web-app-redesign.md) is the model's own: its headline is a
+    heading line the narration already says, word for word, and the
+    line under it one the narration says too -- never the page's
+    wording. Driven through the service, as a click is, with the web
+    app's journal listening.
+    """
+
+    def setUp(self) -> None:
+        ENGINE.rng.seed(11)
+
+    def open(self, name: str):
+        fixture = case(name)
+        web = WebApp(service_over(fixture), GameLocks())
+        web.watch()
+        return web, fixture.game
+
+    def press(self, web, game, number: int, keep) -> None:
+        match = web.service.load(game)
+        prompt = pending_prompt(ENGINE, game, match)
+        (control,) = [
+            control
+            for group in controls_for(
+                ENGINE, game, match, prompt, Viewer(number),
+            )
+            for control in group["controls"]
+            if not control["disabled"] and keep(control["action"])
+        ]
+        result = web.service.apply_action(
+            game.game_id, Action.from_dict(control["action"]),
+        )
+        self.assertIsNone(result.refusal)
+
+    def said(self, web, game) -> list[str]:
+        """Every line the page's log holds, as the model wrote it."""
+        return [
+            line
+            for entry in web.journal(game.game_id).entries
+            for block in entry.lines
+            for line in block.split("\n")
+        ]
+
+    def assert_the_narration_s_own(self, web, game) -> dict:
+        written = web.journal(game.game_id).showing_outcome
+        self.assertIsNotNone(written, "no outcome up")
+        said = self.said(web, game)
+        # The headline is a heading the narration says, as it says it.
+        self.assertTrue(
+            any(
+                line.lstrip("#").strip() == written["text"]
+                or line.lstrip("#").strip().startswith(written["text"])
+                and line.startswith("#")
+                for line in said
+            ),
+            (written, said),
+        )
+        if written["under"]:
+            self.assertIn(written["under"], said)
+        state = web._state(game, Viewer(None))
+        self.assertEqual(
+            state["outcome"]["headline"], render_text(game, written["text"]),
+        )
+        self.assertEqual(
+            state["outcome"]["under"], render_text(game, written["under"]),
+        )
+        return written
+
+    def pick(self, web, game, offense_key: str, defense_key: str) -> None:
+        self.press(
+            web, game, 1,
+            lambda action: action["arguments"].get("maneuver_key")
+            == offense_key,
+        )
+        self.press(
+            web, game, 2,
+            lambda action: action["arguments"].get("maneuver_key")
+            == defense_key,
+        )
+
+    def test_a_resolved_maneuver_is_headed_by_its_own_line(self) -> None:
+        web, game = self.open("maneuver picks")
+        offense, defense = next(
+            (offense, defense)
+            for offense in ("low_pass", "dribble_advance", "high_pass")
+            for defense in ("deflect", "steal", "pressure")
+            if ENGINE.maneuver_catalog.resolve(offense, defense)
+            == "offense"
+        )
+        self.pick(web, game, offense, defense)
+
+        written = self.assert_the_narration_s_own(web, game)
+        self.assertEqual(
+            written["text"], f"**{ENGINE.maneuver_name(offense)}** wins!",
+        )
+        match = web.service.load(game)
+        self.assertEqual(
+            web._state(game, Viewer(None))["outcome"]["colour"],
+            TEAM_COLORS[match.setup_for_side(TeamSide(written["side"])).team],
+        )
+
+    def test_a_saved_shot_is_headed_by_its_own_line(self) -> None:
+        web, game = self.open("score attempt")
+        match = web.service.load(game)
+        defending = match.defending_side()
+        # The attack rolls a 1 and the defence a 12.
+        with mock.patch(
+            "d12ball.flow.rolls.scripted_or_random",
+            lambda engine, game, kind, count: [1, 12],
+        ):
+            self.press(
+                web, game, 1, lambda action: action["choice"] == "roll",
+            )
+
+        written = self.assert_the_narration_s_own(web, game)
+        self.assertEqual(written["text"], "Missed attempt!")
+        self.assertEqual(written["side"], defending.value)
+        self.assertTrue(written["under"])
+
+    def test_a_steal_is_headed_by_its_own_line(self) -> None:
+        web, game = self.open("maneuver picks")
+        offense = next(
+            offense
+            for offense in ("low_pass", "dribble_advance", "high_pass")
+            if ENGINE.maneuver_catalog.resolve(offense, "steal")
+            == "defense"
+        )
+        match = web.service.load(game)
+        defending = match.defending_side()
+        self.pick(web, game, offense, "steal")
+
+        written = self.assert_the_narration_s_own(web, game)
+        self.assertEqual(written["text"], "**Steal** wins!")
+        self.assertEqual(written["side"], defending.value)
+        # The turnover it caused carries its own headline, in the lines
+        # the same result said.
+        self.assertIn("# Turnover!", self.said(web, game))
+
+    def test_a_result_with_no_outcome_takes_the_banner_down(self) -> None:
+        web, game = self.open("maneuver picks")
+        self.press(
+            web, game, 1,
+            lambda action: action["arguments"].get("maneuver_key")
+            == "low_pass",
+        )
+        self.assertIsNone(web.journal(game.game_id).showing_outcome)
+        self.assertIsNone(web._state(game, Viewer(1))["outcome"])
 
 
 class DiceTests(unittest.IsolatedAsyncioTestCase):

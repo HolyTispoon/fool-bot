@@ -51,6 +51,7 @@ from d12ball import stats, tutorial
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MatchState,
+    TeamSide,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -90,7 +91,7 @@ from gamesaves.d12ball.service import Batching, GameResult, GameService
 from gamesaves.d12ball.storage import WEB_GAMES_FILE, load_games, save_games
 from webapp import aids, identity, keys, pictures
 from webapp.identity import Coach
-from webapp.board import board_layout, period_name
+from webapp.board import board_layout, period_name, side_colour
 from webapp.present import (
     PROMPT_PICTURES,
     Viewer,
@@ -1499,6 +1500,9 @@ class WebApp:
             # next thing happens ("The dice", docs/design/web-app.md);
             # the log keeps the words.
             "roll": self._roll(game, journal),
+            # The outcome beside them, large and first: the model's own
+            # headline ("The outcome banner", docs/design/web-app.md).
+            "outcome": self._outcome(game, match, journal),
             "entries": journal.since(since, game),
             "latest": journal.next_id - 1,
             "chat": [
@@ -1550,6 +1554,30 @@ class WebApp:
                     if prompt.kind is PromptKind.MANEUVER_ACTION else None
                 ),
             },
+        }
+
+    def _outcome(
+        self,
+        game: D12BallGame,
+        match: Optional[MatchState],
+        journal: Journal,
+    ) -> Optional[dict]:
+        """
+        The latest result's `Headline`, as the question box puts it up:
+        the model's own words rendered at this door, and its side's
+        colour. The page words nothing of it.
+        """
+        headline = journal.showing_outcome
+        if headline is None or match is None:
+            return None
+        side = headline.get("side")
+        return {
+            "headline": render_text(game, headline["text"]),
+            "under": render_text(game, headline.get("under") or ""),
+            "colour": (
+                None if side is None
+                else side_colour(match, TeamSide(side))
+            ),
         }
 
     def _roll(self, game: D12BallGame, journal: Journal) -> Optional[dict]:

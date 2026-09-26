@@ -36,10 +36,11 @@ from d12ball.components import (
     EVENT_TURN_ACTION,
     MatchState,
     RuleRefusal,
+    TeamSide,
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.formatting import (
     challenger_prompt_ask,
     format_player_with_team,
@@ -98,7 +99,7 @@ def maneuver_winner_text(
         # read alike. Whoever resolves the effect isn't named here: an
         # effect with a choice in it prompts them by name itself, and
         # one without needs nobody to do anything.
-        return f"{reveal}\n\n## **{winner_name}** wins!"
+        return f"{reveal}\n\n## {maneuver_wins(winner_name)}"
 
     # A tie with exactly one injured participant: they lose it
     # outright. Nothing is rolled, so neither side pays the token a
@@ -117,8 +118,23 @@ def maneuver_winner_text(
         f" is **{word}** "
         f"{emoji} and "
         "automatically loses the tie.\n\n"
-        f"## **{winner_name}** wins!"
+        f"## {maneuver_wins(winner_name)}"
     )
+
+
+def maneuver_wins(winner_name: str) -> str:
+    """The heading a maneuver settled on the cards is announced under
+    -- one wording, for the narration and its `Headline` alike."""
+    return f"**{winner_name}** wins!"
+
+
+def winning_side(match: MatchState, winner_key: str) -> TeamSide:
+    """Whose card `winner_key` is: the side on the ball played the
+    offense's, the other side the defense's. What the `Headline` of a
+    settled maneuver is coloured by, and nothing else."""
+    if winner_key == match.offense_maneuver:
+        return match.ball.possession
+    return match.defending_side()
 
 
 def skill_test_headline(
@@ -199,11 +215,13 @@ def resolve_maneuver(
         # Nothing to reveal against and nothing to rank: the offense's
         # pick is the winner, and its effect runs the same pipeline a
         # decisive win always does.
+        succeeds = f"**{offense_name}** succeeds!"
         return StepResult(
             narration=[
                 f"{offense_display} chose **{offense_name}**, "
-                f"unchallenged.\n\n## **{offense_name}** succeeds!"
+                f"unchallenged.\n\n## {succeeds}"
             ],
+            headline=Headline(succeeds, match.ball.possession),
             next=FollowOn(
                 FollowOnStep.BEGIN_EFFECT_RESOLUTION,
                 {"winner_key": offense_key},
@@ -254,6 +272,10 @@ def resolve_maneuver(
                     defense_name,
                 )
             ],
+            headline=Headline(
+                maneuver_wins(engine.maneuver_name(winner_key)),
+                winning_side(match, winner_key),
+            ),
             next=FollowOn(
                 FollowOnStep.BEGIN_EFFECT_RESOLUTION,
                 {"winner_key": winner_key},
@@ -847,11 +869,10 @@ def force_test_step(
             ),
         )
     winner_key = engine.settled_maneuver_winner(match, game)
+    wins = maneuver_wins(engine.maneuver_name(winner_key))
     return StepResult(
-        narration=[
-            f"{label} lets it stand.\n\n"
-            f"## **{engine.maneuver_name(winner_key)}** wins!"
-        ],
+        narration=[f"{label} lets it stand.\n\n## {wins}"],
+        headline=Headline(wins, winning_side(match, winner_key)),
         next=FollowOn(
             FollowOnStep.BEGIN_EFFECT_RESOLUTION,
             {"winner_key": winner_key},

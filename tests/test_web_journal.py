@@ -58,6 +58,9 @@ class JournalFileTests(unittest.TestCase):
         journal.entries.append(Entry(2, ("Rolled.",), detail=dict(INJURY)))
         journal.next_id = 3
         journal.showing_roll = 2
+        journal.showing_outcome = {
+            "text": "GOAL!", "side": "home", "under": "{team:purple} scores.",
+        }
         journal.board_version = 7
 
         back = reloaded(journal)
@@ -72,6 +75,8 @@ class JournalFileTests(unittest.TestCase):
         self.assertEqual(back.board_for(1), {"a": 1})
         self.assertEqual(back.entry(2).detail, INJURY)
         self.assertEqual(back.showing_roll, 2)
+        # The headline up is still up after a restart, as the dice are.
+        self.assertEqual(back.showing_outcome, journal.showing_outcome)
         self.assertEqual(back.next_id, 3)
         # A browser keeps a board by its URL, so the version goes on
         # counting rather than handing an old picture a new position.
