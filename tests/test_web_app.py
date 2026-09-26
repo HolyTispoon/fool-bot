@@ -36,6 +36,7 @@ from unittest import mock
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 from d12ball.components import TeamSide
+from d12ball.flow import FollowOnStep
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
 from gamesaves.d12ball import storage
 from gamesaves.d12ball.service import GameService
@@ -570,6 +571,58 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(body.startswith(b"\x89PNG"))
                 self.assertEqual(drawn, [Image.open(io.BytesIO(body)).size])
 
+    async def test_the_dice_are_up_in_the_question_box_until_the_next_thing(
+        self,
+    ) -> None:
+        ENGINE.rng.seed(11)
+        client, game = await self.open("injury test")
+        entry, headers = await self.roll(client, game)
+
+        state = await (
+            await client.get(f"/api/game/{game.game_id}", headers=headers)
+        ).json()
+        watcher = await (
+            await client.get(
+                f"/api/game/{game.game_id}", headers=as_coach(STRANGER),
+            )
+        ).json()
+        self.assertEqual(state["roll"]["shape"], entry["dice"])
+        self.assertIn(f"/detail/{entry['id']}.png", state["roll"]["url"])
+        # Everybody in the room sees what was rolled.
+        self.assertEqual(watcher["roll"], state["roll"])
+        response = await client.get(state["roll"]["url"])
+        self.assertEqual(response.status, 200)
+
+        # The next thing that happens takes them down.
+        for coach_id in (game.player_1_id, game.player_2_id):
+            headers = as_coach(coach_id)
+            state = await (
+                await client.get(f"/api/game/{game.game_id}", headers=headers)
+            ).json()
+            live = [
+                control["action"]
+                for group in (state["prompt"] or {}).get("controls", [])
+                for control in group["controls"]
+                if not control["disabled"]
+            ]
+            if live:
+                break
+        self.assertTrue(live, "no question after the injury test")
+        played = await (
+            await client.post(
+                f"/api/game/{game.game_id}/action",
+                params={"since": str(state["latest"])},
+                headers=headers,
+                data=json.dumps({"action": live[0]}),
+            )
+        ).json()
+        self.assertIsNone(played["refusal"])
+        rolled_again = any(said["dice"] for said in played["entries"])
+        if rolled_again:
+            self.assertNotIn(f"/detail/{entry['id']}.png", played["roll"]["url"])
+        else:
+            self.assertIsNone(played["roll"])
+
     async def test_the_own_goal_breakdown_is_read_above_its_dice(self) -> None:
         # On Discord the breakdown is the text of the message the dice
         # are attached to, and the verdict follows: one line, then the
@@ -609,6 +662,181 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(played["entries"][0]["dice"])
         self.assertEqual(response.status, 404)
+
+
+class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The picture a question is asked over (step 8 of
+    docs/web-app-next.md): the two matchups the cog posts with the same
+    question -- the shot over its roll, the challenge over the maneuver
+    pick -- served for the prompt the match is on, and drawn by the
+    renderer the cog calls, off the same brief. The field strip and the
+    coach's half-field are not drawn: the board is beside the prompt.
+    """
+
+    #: The fixture, and the renderer the cog calls for its picture --
+    #: named here rather than read off `present.PROMPT_PICTURES`, so a
+    #: wrong pick in the table is caught.
+    PICTURES = (
+        ("score attempt", "render_score_attempt"),
+        ("maneuver picks", "render_maneuver_challenge"),
+    )
+
+    async def open(self, name: str):
+        fixture = case(name)
+        fixture.game.match_state = fixture.match.to_dict()
+        service = GameService(
+            ENGINE,
+            {fixture.game.game_id: fixture.game},
+            batching=server.WEB_BATCHING,
+            save=lambda games: None,
+        )
+        web = WebApp(service, GameLocks())
+        web.watch()
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        self.addAsyncCleanup(web.stop)
+        return client, fixture
+
+    async def get_state(self, client, game, headers) -> dict:
+        response = await client.get(f"/api/game/{game.game_id}", headers=headers)
+        self.assertEqual(response.status, 200)
+        return await response.json()
+
+    def spy(self, renderer: str, drawn: list):
+        from PIL import Image
+
+        from d12ball import render
+
+        real = getattr(render, renderer)
+
+        def spy(*args, **kwargs):
+            image = real(*args, **kwargs)
+            drawn.append((Image.open(image).size, args))
+            image.seek(0)
+            return image
+
+        return mock.patch(f"webapp.pictures.{renderer}", spy)
+
+    async def test_each_matchup_is_served_as_the_cog_draws_it(self) -> None:
+        from PIL import Image
+
+        for name, renderer in self.PICTURES:
+            with self.subTest(name):
+                ENGINE.rng.seed(11)
+                client, fixture = await self.open(name)
+                game = fixture.game
+                coach = await self.get_state(
+                    client, game, as_coach(game.player_1_id),
+                )
+                watcher = await self.get_state(
+                    client, game, as_coach(STRANGER),
+                )
+                url = coach["prompt"]["picture"]
+                self.assertIsNotNone(url)
+                # The position's picture, so nobody's hand: an observer
+                # is handed the same one.
+                self.assertEqual(watcher["prompt"]["picture"], url)
+
+                drawn = []
+                with self.spy(renderer, drawn):
+                    response = await client.get(url)
+                    body = await response.read()
+
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.content_type, "image/png")
+                self.assertTrue(body.startswith(b"\x89PNG"))
+                self.assertEqual(
+                    [size for size, _ in drawn],
+                    [Image.open(io.BytesIO(body)).size],
+                )
+
+    async def test_the_challenge_is_the_ball_against_the_challenger(
+        self,
+    ) -> None:
+        ENGINE.rng.seed(11)
+        client, fixture = await self.open("maneuver picks")
+        match = fixture.match
+        state = await self.get_state(client, fixture.game, as_coach(STRANGER))
+        drawn = []
+
+        with self.spy("render_maneuver_challenge", drawn):
+            await client.get(state["prompt"]["picture"])
+
+        (_, (offense, defense, _)), = drawn
+        self.assertEqual(
+            offense.name,
+            ENGINE.get_player_definition(match.active_player_id).name,
+        )
+        self.assertEqual(
+            defense.name,
+            ENGINE.get_player_definition(match.challenger_id).name,
+        )
+
+    async def test_every_other_question_has_no_picture(self) -> None:
+        # The distance questions and the Coaching Choice among them:
+        # the board beside the prompt is the field.
+        for name in (
+            "low pass", "run back, where", "coaching hub", "coaching offer",
+            "kickoff", "skill test",
+        ):
+            with self.subTest(name):
+                ENGINE.rng.seed(11)
+                client, fixture = await self.open(name)
+                state = await self.get_state(
+                    client, fixture.game, as_coach(fixture.game.player_1_id),
+                )
+                response = await client.get(
+                    f"/api/room/{fixture.game.game_id}/prompt.png?v=1",
+                )
+
+                self.assertIsNone(state["prompt"]["picture"])
+                self.assertEqual(response.status, 404)
+
+    async def test_the_log_says_the_challenge_in_words(self) -> None:
+        # Sending a challenger walks one in. On Discord the challenge
+        # image follows the walk-in; the log draws no picture, so it
+        # says who is on the ball, who challenges and where.
+        ENGINE.rng.seed(11)
+        client, fixture = await self.open("maneuver challenge")
+        game = fixture.game
+        for coach_id in (game.player_1_id, game.player_2_id):
+            headers = as_coach(coach_id)
+            state = await self.get_state(client, game, headers)
+            sent = [
+                control["action"]
+                for group in state["prompt"]["controls"]
+                for control in group["controls"]
+                if not control["disabled"]
+            ]
+            if sent:
+                break
+        attacker = fixture.match.active_player_id
+        challenger = sent[0]["arguments"]["player_id"]
+
+        played = await (
+            await client.post(
+                f"/api/game/{game.game_id}/action",
+                headers=headers,
+                data=json.dumps({"action": sent[0]}),
+            )
+        ).json()
+
+        self.assertIsNone(played["refusal"])
+        self.assertEqual(played["prompt"]["kind"], "maneuver_action")
+        self.assertIsNotNone(played["prompt"]["picture"])
+        said = [
+            line
+            for entry in played["entries"]
+            for line in entry["lines"]
+            if "Maneuver challenge" in line
+        ]
+        self.assertEqual(len(said), 1, played["entries"])
+        for player_id in (attacker, challenger):
+            self.assertIn(
+                ENGINE.get_player_definition(player_id).name, said[0],
+            )
 
 
 class IdentityTests(unittest.IsolatedAsyncioTestCase):
@@ -1322,13 +1550,24 @@ class EntryPointTests(unittest.TestCase):
             self.assertFalse(bot_file.exists())
             self.assertEqual(len(json.loads(web_file.read_text())), 1)
 
-    def test_it_takes_the_default_batching(self) -> None:
+    def test_it_batches_for_the_walk_in_and_nothing_else(self) -> None:
         """Discord's economy is the cog's; the web app has no rate
-        limit to batch for."""
+        limit to batch for. The one boundary it draws is the walk-in,
+        which the log words the challenge on (step 8 of
+        docs/web-app-next.md); it stops nowhere and carries every
+        answer the default way."""
         with tempfile.TemporaryDirectory() as directory:
             service = server.build_service(Path(directory) / "web.json")
 
-        self.assertEqual(service.batching, GameService(None, {}).batching)
+        default = GameService(None, {}).batching
+        self.assertIs(service.batching, server.WEB_BATCHING)
+        self.assertEqual(
+            service.batching.own_message,
+            frozenset({FollowOnStep.AUTO_RESOLVE_CHALLENGER}),
+        )
+        self.assertEqual(service.batching.stop_after, default.stop_after)
+        self.assertEqual(service.batching.speaks_lines, default.speaks_lines)
+        self.assertIs(type(service.batching), type(default))
 
 
 if __name__ == "__main__":

@@ -14,6 +14,12 @@ picture on both until they moved below the renderer (step 7 of
 docs/web-app-next.md). What is left on the Discord side is the file
 and the worker thread.
 
+**So did the two matchups' whole briefs** (step 8): who is drawn on
+each side of a challenge and a shot, with what, over which caption --
+`maneuver_challenge_brief` and `score_attempt_brief`, which the cog's
+`build_maneuver_challenge_file` and `build_score_attempt_file` wrap in
+a file and the web app serves, so the two frontends draw one picture.
+
 It imports `render.py`, and so Pillow: it is the drawing side of the
 model, never under the engine. See "What it may not do" in
 docs/design/web-app.md, and the purity ratchets in
@@ -25,12 +31,19 @@ from __future__ import annotations
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
-from d12ball.formatting import role_initials
+from d12ball.components import MatchState, PlayerRole
+from d12ball.formatting import (
+    ball_space_label,
+    capitalized,
+    format_team_side_label,
+    role_initials,
+)
 from d12ball.game import D12BallGame, Team, team_display_name
 from d12ball.render import (
     TEAM_COLORS,
     ChallengeSide,
     render_skill_test_dice,
+    zone_labels,
 )
 
 if TYPE_CHECKING:
@@ -117,4 +130,106 @@ def challenge_side(
         modifiers=modifiers,
         contribution=contribution,
         halved=halved,
+    )
+
+
+def maneuver_challenge_brief(
+    engine: RulesEngine,
+    match: MatchState,
+    defender_id: str,
+    game: Optional[D12BallGame] = None,
+) -> tuple[ChallengeSide, ChallengeSide, str]:
+    """
+    The matchup about to be contested, as `render_maneuver_challenge`
+    takes it: the player on the ball, the challenger `defender_id`
+    names, and where on the field it is. It stands in for the two lines
+    of prose that used to announce a challenge: the players' skills and
+    abilities are what a coach weighs while choosing a maneuver, and
+    neither was in the text.
+
+    The challenger is handed in rather than read off the match: by the
+    time a frontend draws it the match may have moved on, and the walk-in
+    that named them carries the id (`Narration.arguments`).
+    """
+    return (
+        challenge_side(
+            engine,
+            match.active_player_id,
+            match.team_for_player(match.active_player_id),
+            attacking=True,
+            game=game,
+        ),
+        challenge_side(
+            engine,
+            defender_id,
+            match.team_for_player(defender_id),
+            attacking=False,
+            game=game,
+        ),
+        capitalized(
+            f"{ball_space_label(match)}"
+            f" — {zone_labels(match.board.layout.board_size)[match.ball.zone].title()}"
+        ),
+    )
+
+
+def score_attempt_brief(
+    engine: RulesEngine,
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> tuple[ChallengeSide, list[ChallengeSide], str]:
+    """
+    What the shot is made of, as `render_score_attempt` takes it: the
+    shooter with the modifiers this particular attempt earns them, and
+    every defender between them and the goal.
+
+    The two modifiers are listed on the shooter rather than folded
+    into their skill, because both are conditions of this attempt
+    and not of the player -- the ball speed is spent on the shot,
+    and the Striker's +3 only applies off a set-up.
+
+    The defenders are the other way round: what each one adds is
+    folded in, as their `contribution`, because a coach counting
+    the wall is asking what it comes to and not what it would come
+    to somewhere else on the field. Who they are is
+    `RulesEngine.intervening_defenders`, the reading the roll adds.
+    """
+    shooter = engine.get_player_definition(match.active_player_id)
+    speed_modifier = match.ball_speed_modifier()
+    defenders = engine.intervening_defenders(match, game)
+    defending_setup = match.setup_for_side(match.defending_side())
+
+    modifiers = []
+    if speed_modifier:
+        modifiers.append(
+            f"{speed_modifier:+d} ball speed ({match.ball.speed})"
+        )
+    if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
+        modifiers.append("+3 Striker ability")
+
+    return (
+        challenge_side(
+            engine,
+            shooter.player_id,
+            match.team_for_player(shooter.player_id),
+            attacking=True,
+            game=game,
+            modifiers=tuple(modifiers),
+        ),
+        [
+            challenge_side(
+                engine,
+                defender.player.player_id,
+                match.team_for_player(defender.player.player_id),
+                attacking=False,
+                contribution=defender.value,
+                halved=defender.halved,
+                game=game,
+            )
+            for defender in defenders
+        ],
+        capitalized(
+            f"{ball_space_label(match)}"
+            f" → {format_team_side_label(defending_setup)} goal"
+        ),
     )

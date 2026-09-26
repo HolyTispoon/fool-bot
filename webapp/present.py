@@ -26,6 +26,9 @@ frontend's to decide (principle 8):
   page collects what a chooser's fields say and posts one `Action`,
   where Discord walks a coach through a menu at a time. The hub is the
   one prompt where that shows.
+- **A prompt carries its picture** where the cog posts a matchup with
+  the same question (`PROMPT_PICTURES`) -- the shot and the challenge.
+  The kind is the key; the drawing is `webapp/pictures.py`'s.
 - **What a coach may not see is not sent.** A maneuver pick and a
   shootout order are secret (the model says so in the ask itself), so
   the rows for a side this viewer does not coach are left out of the
@@ -58,6 +61,7 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball.prompts import PendingPrompt, PromptKind, asked_sides
+from webapp import pictures
 
 
 #: What the page calls each of a turn's three actions, and each of the
@@ -1191,3 +1195,39 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.COACHING_HUB: _coaching_hub,
     PromptKind.GAME_OVER: _game_over,
 }
+
+
+#: The picture a prompt is asked over, by its kind: the two matchups
+#: the cog posts with the same question -- the shot's composition over
+#: its roll (`D12Ball.begin_score_attempt`), and the challenge over the
+#: maneuver pick, which on Discord sits directly on top of it
+#: (`announce_maneuver_challenge`). A kind not here has no picture.
+#:
+#: **Deliberately not the field strip or the coach's half-field**
+#: (the author, 2026-09-26): the page's board is beside the prompt, so
+#: a coach can see the field. And nothing here goes in the log.
+#:
+#: Each is the position's picture and holds nobody's hand, so it is
+#: the same for a coach and an observer.
+PROMPT_PICTURES: Mapping[PromptKind, Callable[..., bytes]] = {
+    PromptKind.SCORE_ATTEMPT: pictures.score_attempt_png,
+    PromptKind.MANEUVER_ACTION: pictures.challenge_png,
+}
+
+
+def prompt_picture_key(
+    prompt: Optional[PendingPrompt], match: Optional[MatchState],
+) -> Optional[str]:
+    """
+    What a prompt's picture depends on beyond the position, for its
+    URL, or `None` where the prompt has none: the kind, and for the
+    maneuver pick the challenger -- the picture is of them, and an
+    uncontested maneuver has nobody to draw.
+    """
+    if prompt is None or match is None or prompt.kind not in PROMPT_PICTURES:
+        return None
+    if prompt.kind is PromptKind.MANEUVER_ACTION:
+        if match.challenger_id is None:
+            return None
+        return f"{prompt.kind.value}.{match.challenger_id}"
+    return prompt.kind.value

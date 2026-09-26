@@ -16,13 +16,15 @@ from typing import Optional
 
 from d12ball.components import (
     MatchState,
-    PlayerRole,
     TeamSetup,
     load_species_abilities,
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.flow import FollowOnStep
-from d12ball.dice_brief import challenge_side
+from d12ball.dice_brief import (
+    maneuver_challenge_brief,
+    score_attempt_brief,
+)
 from d12ball.game import D12BallGame, Team, team_display_name
 from d12ball.player_cards import render_player_card, render_player_card_back
 from d12ball.render import (
@@ -32,7 +34,6 @@ from d12ball.render import (
     render_match_image,
     render_score_attempt,
     render_volatile_die,
-    zone_labels,
 )
 from d12ball.role_cards import render_role_reference
 from d12ball.species_cards import render_species_reference
@@ -41,9 +42,7 @@ from cogs.d12ball_helpers import (
     FIELD_IMAGE_FILENAME,
     PBD_ARCHIVE_CATEGORY_NAME,
     add_full_image_button,
-    ball_space_label,
     board_image_filename,
-    capitalized,
     format_player_with_team_name,
     format_team_side_label,
     get_or_create_category,
@@ -134,35 +133,17 @@ class PresentationMixin:
         game: Optional[D12BallGame] = None,
     ) -> discord.File:
         """
-        The matchup about to be contested, as a picture. It stands in
-        for the two lines of prose that used to announce a challenge:
-        the players' skills and abilities are what a coach weighs while
-        choosing a maneuver, and neither was in the text.
-
-        Drawn in a worker thread for the same reason the board is --
-        see render_match_png.
+        The matchup about to be contested, as a picture: the brief is
+        the model's (`dice_brief.maneuver_challenge_brief`), so the web
+        page draws the same one. Drawn in a worker thread for the same
+        reason the board is -- see render_match_png.
         """
+        offense, defense, location = maneuver_challenge_brief(
+            self.engine, match, defender_id, game,
+        )
         return discord.File(
             await asyncio.to_thread(
-                render_maneuver_challenge,
-                challenge_side(
-                    self.engine,
-                    match.active_player_id,
-                    match.team_for_player(match.active_player_id),
-                    attacking=True,
-                    game=game,
-                ),
-                challenge_side(
-                    self.engine,
-                    defender_id,
-                    match.team_for_player(defender_id),
-                    attacking=False,
-                    game=game,
-                ),
-                location=capitalized(
-                    f"{ball_space_label(match)}"
-                    f" — {zone_labels(match.board.layout.board_size)[match.ball.zone].title()}"
-                ),
+                render_maneuver_challenge, offense, defense, location,
             ),
             filename="maneuver_challenge.png",
         )
@@ -173,60 +154,16 @@ class PresentationMixin:
         game: Optional[D12BallGame] = None,
     ) -> discord.File:
         """
-        What the shot is made of: the shooter with the modifiers this
-        particular attempt earns them, and every defender between them
-        and the goal.
-
-        The two modifiers are listed on the shooter rather than folded
-        into their skill, because both are conditions of this attempt
-        and not of the player -- the ball speed is spent on the shot,
-        and the Striker's +3 only applies off a set-up.
-
-        The defenders are the other way round: what each one adds is
-        folded in, as their `contribution`, because a coach counting
-        the wall is asking what it comes to and not what it would come
-        to somewhere else on the field.
+        What the shot is made of, as a picture: the brief is the
+        model's (`dice_brief.score_attempt_brief`), so the web page
+        draws the same one.
         """
-        shooter = self.engine.get_player_definition(match.active_player_id)
-        speed_modifier = match.ball_speed_modifier()
-        defenders = self.engine.intervening_defenders(match, game)
-        defending_setup = match.setup_for_side(match.defending_side())
-
-        modifiers = []
-        if speed_modifier:
-            modifiers.append(
-                f"{speed_modifier:+d} ball speed ({match.ball.speed})"
-            )
-        if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
-            modifiers.append("+3 Striker ability")
-
+        shooter, defenders, location = score_attempt_brief(
+            self.engine, match, game,
+        )
         return discord.File(
             await asyncio.to_thread(
-                render_score_attempt,
-                challenge_side(
-                    self.engine,
-                    shooter.player_id,
-                    match.team_for_player(shooter.player_id),
-                    attacking=True,
-                    game=game,
-                    modifiers=tuple(modifiers),
-                ),
-                [
-                    challenge_side(
-                        self.engine,
-                        defender.player.player_id,
-                        match.team_for_player(defender.player.player_id),
-                        attacking=False,
-                        contribution=defender.value,
-                        halved=defender.halved,
-                        game=game,
-                    )
-                    for defender in defenders
-                ],
-                location=capitalized(
-                    f"{ball_space_label(match)}"
-                    f" → {format_team_side_label(defending_setup)} goal"
-                ),
+                render_score_attempt, shooter, defenders, location,
             ),
             filename="score_attempt.png",
         )

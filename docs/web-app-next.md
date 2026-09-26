@@ -159,7 +159,7 @@ that existed; steps 1 to 3 are one sprint.
 | ~~5~~ | ~~Run it for real, and write down how~~ -- the how landed: `docs/design/collaboration.md`, "Running the web app", and `scripts/run_web_app.ps1`; the playtest below is the author's to run | a day, little code |
 | ~~6~~ | ~~The web games' numbers on Discord, cut by source~~ -- landed; what it settled is in `docs/design/clock-and-records.md`, "What the statistics are, and what they are not" (the source cut, and the read across the line), and `docs/design/web-app.md`, "Its own process, its own file" | small |
 | ~~7~~ | ~~The dice on the page~~ -- landed; what it settled is in `docs/design/web-app.md`, "The dice", and `docs/design/board-image.md`, "The matchup image" (the briefs below the renderer) | medium |
-| 8 | The prompt's pictures | medium |
+| ~~8~~ | ~~The prompt's pictures~~ -- landed; what it settled is in `docs/design/web-app.md`, "The prompt's pictures", and `docs/design/board-image.md`, "The matchup image" (the rest of both briefs below the renderer) | medium |
 | 9 | What Discord has that the page lacks: my rooms, resume, abandon, stats | medium |
 | 10 | The page as a thing to play on; the wire tree; the tests the survey found missing | medium |
 | 11 | The reading room: the rulebooks and the player aids | medium |
@@ -919,6 +919,17 @@ the board-image checklist line applies to the move.
 
 ### 8. The prompt's pictures
 
+**Landed, narrowed by the author on 2026-09-26.** What it settled is
+in `docs/design/web-app.md`, "The prompt's pictures": the shot and the
+challenge in the question area, keyed on the kind, and gone with the
+question; **no field strip and no half-field**, since the board is
+beside the prompt; **no picture in the log**, which says the
+challenge in words instead (`WEB_BATCHING` gives the walk-in a group
+to carry its challenger on); step 7's dice moved out of the log into
+the question box, up until the next thing happens. Both briefs moved
+below the renderer, byte-identical (`docs/design/board-image.md`, "The
+matchup image").
+
 **What it is.** What a coach looks at while choosing: the field strip
 under the seven distance prompts, the hand of cards on the maneuver
 pick, the shot image on a score attempt, the coach's half-field on
@@ -980,8 +991,11 @@ Update docs/design/web-app.md. PR against the template.
 over a model function the web app may call: resume and abandon
 (`GameService.resume` is already a route; `abandon_game`'s model half
 is the record's status change), `/d12ball stats` for the web games on
-the page itself (`d12ball/stats.py`, with step 6's source axis), and a
-finished game's board. Each is a read-only route and a page section,
+the page itself (`d12ball/stats.py`, with step 6's source axis). A
+finished game's board is not on the list, though Discord posts one
+with the game-over prompt: the page's own board already shows the
+final position, and coaches can see the field (the author,
+2026-09-26, at step 8). Each is a read-only route and a page section,
 and none goes near the driver except resume. The rules commands and
 the reference cards were on this list; they are step 11, with the
 rulebooks beside them. Reading the code says which of
@@ -1034,10 +1048,13 @@ against the template.
   the wire.
 - **The journal survives a restart.** Each room's journal written to
   `data/d12ball_web_journal.json` on every `add` (frontend state, its
-  own file, never the save) and read at start, bounded as in memory,
-  with the board snapshots and details its entries draw. A room's
-  link is good after a restart (step 2); this makes its transcript
-  good too.
+  own file, never the save) and read at start, bounded as in memory.
+  An entry is kept with its words, its roll's `detail` -- which the
+  question box draws the dice from, since the log draws no picture
+  (step 8) -- and its board snapshot, which `board.png?entry=` serves
+  though no page draws it (kept, the author, 2026-09-26); and the journal's `showing_roll`, so the
+  dice a restart finds up are still up after it. A room's link is
+  good after a restart (step 2); this makes its transcript good too.
 
 And two loose ends: decision 3 on the wire tree, taken as "keep it and
 read it", and the tests the 2026-09-25 survey found missing (no test
@@ -1059,8 +1076,10 @@ Branch off an up-to-date main. Four commits, each reviewable alone.
    fire one notification per prompt naming the ask.
 3. The journal survives a restart. Journal writes itself on every add
    to data/d12ball_web_journal.json (keyed by game id, the same
-   JOURNAL_LENGTH bound, entries with their snapshots and details)
-   and reads it at startup; a write failure is logged and never fails
+   JOURNAL_LENGTH bound, entries with their words, snapshots and
+   roll details, and showing_roll -- the roll the question box
+   shows) and reads it at startup; the log still draws no picture
+   (docs/design/web-app.md, "The page"); a write failure is logged and never fails
    the request, like save_games; a room the journal knows and the
    service does not is dropped on load. A full test run must not
    create data/ (see tests/save_patches.py and do the same here).
@@ -1209,7 +1228,10 @@ drawing or text.
    seat's own team's cards first and the other team's a tab away
    (both for an observer). At the front door: both hexagons named by
    tier, the species card, and a team picker. The maneuver prompt
-   links to the hexagon. Nothing in it takes a lock or touches the
+   links to the hexagon -- a link, never a picture inline, since the
+   question box already carries the challenge over the hand (step 8).
+   Nothing in the panel goes in the log. Nothing in it takes a lock or
+   touches the
    service beyond reading the game.
 5. Tests, on the routes and never on the pictures or the books
    (CLAUDE.md: nothing printed is tested): each route answers 200
@@ -1248,6 +1270,11 @@ Written down so nobody starts them by accident.
   hundred and thirty code comments cite them by step and finding
   number; re-pointing those is its own change, and this file joins
   them when its steps are struck.
+- **Rolling the dice with an animation** (the author, 2026-09-26: "at
+  some point"). Today the question box shows the bot's own picture of
+  the roll the moment it is rolled. An animation is the page's to
+  draw, ending on that same picture -- never a second drawing of the
+  numbers, and never before the service has rolled them.
 - **Discord playing web coaches, or the reverse.** Decided against on
   2026-09-25; not to be re-opened by a step here. The statistics
   (step 6) are a read across the line, not a game.
