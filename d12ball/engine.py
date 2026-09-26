@@ -2262,9 +2262,10 @@ class RulesEngine:
     def dribble_burst_distances(self, match: MatchState) -> list[int]:
         """
         How far a Dribble Burst may be run: 1 up to
-        `DRIBBLE_BURST_MAX_DISTANCE`, cut short by the field. It is
-        the coach's pick, and it is charged a token a space -- which
-        is what makes the shorter runs worth offering.
+        `DRIBBLE_BURST_MAX_DISTANCE`, one more for a Playmaker, cut
+        short by the field. It is the coach's pick, and it is charged
+        a token a space -- which is what makes the shorter runs worth
+        offering.
 
         **It used to be no choice at all.** The card ran the handler
         to the last space of the goal they attack, so the distance was
@@ -2276,13 +2277,17 @@ class RulesEngine:
         Empty from the last space of the field itself, which is the
         one position with nothing to ask -- `resolve_dribble_burst`
         applies a run of 0 rather than putting up a menu with no
-        buttons on it. The Playmaker's ability is deliberately not
-        here: it is a token off the cost, not a space onto the run
-        (the author, 2026-08-19), so it does not change what is
-        offered.
+        buttons on it. **The Playmaker's ability moved onto the run
+        on 2026-09-26**, reversing the 2026-08-19/2026-08-26 reading
+        that kept it a token off the cost instead -- the sheet's
+        sentence now names an additional space on either Dribble card,
+        so this is where that space is offered rather than
+        `dribble_burst_cost` discounting it.
         """
+        handler = self.get_player_definition(match.active_player_id)
+        playmaker_bonus = 1 if handler.role == PlayerRole.PLAYMAKER else 0
         reach = min(
-            DRIBBLE_BURST_MAX_DISTANCE,
+            DRIBBLE_BURST_MAX_DISTANCE + playmaker_bonus,
             match.spaces_to_attacking_end(
                 match.active_player_id, match.ball.possession,
             ),
@@ -2382,19 +2387,19 @@ class RulesEngine:
     ) -> int:
         """
         What a Dribble Burst of `distance` charges the handler: a token
-        a space, one fewer for a Playmaker (the author, 2026-08-26),
-        floored at 0 -- a burst that moved nowhere costs nothing, and
-        the discount cannot turn a run into a token back. Nothing at
-        all for Emberdash (Law 21). The step charges this and the menu
-        prices its buttons by it.
+        a space. Nothing at all for Emberdash (Law 21). The step
+        charges this and the menu prices its buttons by it.
+
+        **No longer a Playmaker discount** (the author, 2026-09-26):
+        the ability moved onto `dribble_burst_distances` as the extra
+        space its sheet sentence names, so the cost here is everybody's
+        same token a space, including a Playmaker's fifth.
         """
         if self.has_personal_ability(
             game, match.active_player_id, PersonalAbility.FREE_BURST,
         ):
             return 0
-        handler = self.get_player_definition(match.active_player_id)
-        discount = 1 if handler.role == PlayerRole.PLAYMAKER else 0
-        return max(0, distance - discount)
+        return distance
 
     def pass_runner(
         self,

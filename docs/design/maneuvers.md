@@ -365,11 +365,23 @@ once -- one trailing while the other is the more hurt.
   The author settled all three on 2026-08-19 -- **the Fullback's
   ability is +1 distance** (High Pass 3->4, Deflect 1->2, Clear
   3->4, Setup Pass gains a 4), and **the Playmaker's is one exhaustion
-  token off a Dribble Burst**, which is the only ability that reads
-  differently on the two cards of a rank. The Midfielder's +3 and the
-  rank-D2 ball speed modifier were already uniform and needed no
-  ruling.
-  - **The Playmaker's stayed on the cost when the burst was bounded**
+  token off a Dribble Burst**, kept on 2026-08-26 once the burst was
+  bounded (below). The Midfielder's +3 and the rank-D2 ball speed
+  modifier were already uniform and needed no ruling.
+  - **The Playmaker's moved back onto the space on 2026-09-26**, and
+    with it the "only ability that reads differently on the two cards
+    of a rank" stopped being true of anything. The sheet's sentence no
+    longer names either card ("may advance an additional space when
+    resolving Dribble maneuvers"), so neither auto-matches
+    `role_abilities`' needle any more; both `dribble_advance` and
+    `dribble_burst` carry a hand-written `EXTRA_NOTES` row in
+    `d12ball/cards.py` instead of the one `dribble_burst` used to. The
+    2026-08-26 reading (below) is superseded: a Playmaker's Dribble
+    Burst now runs up to 5, `dribble_burst_distances`' own +1, charged
+    the plain token a space `dribble_burst_cost` charges everybody --
+    no more discount named beside the run.
+  - *(Superseded 2026-09-26, kept for the reasoning it recorded.)*
+    **The Playmaker's stayed on the cost when the burst was bounded**
     (the author, 2026-08-26). The 2026-08-19 reading turned on there
     being no distance left to add to; a run of up to 4 has one, and the
     ability is still a token off rather than a fifth space. So the

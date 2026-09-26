@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-09-25.
+**As of:** 2026-09-26.
 
 ## Where the rules come from
 
@@ -86,7 +86,8 @@ at it:
 - **Clear** carries the Fullback's "Block deflect: ball goes back 2", which against a 3-space
   clearance is a reduction.
 - **Dribble Burst** carries the Playmaker's "may advance 2", which against a run to the goal is
-  not a bonus at all.
+  not a bonus at all. *Settled 2026-08-19, reopened and resettled 2026-08-26 (a token off the
+  cost), reversed 2026-09-26 (an additional space, same as the advance) -- see that entry.*
 - **Setup Pass** carries the Fullback's "High pass up to 4", which is a fourth distance against
   a card that offers 0, 1 and 3.
 
@@ -152,6 +153,24 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-26 -- author, the Playmaker's ability reads the same on both Dribble cards
+
+**The Playmaker's role ability changes to one sentence naming neither card:** *"May advance an
+additional space when resolving Dribble maneuvers."* This reverses the 2026-08-19 reading (kept
+on 2026-08-26 once the burst was bounded at 4 -- see that entry) that put the ability on the
+Dribble Burst's cost rather than its distance, which was "the only ability that reads
+differently on the two cards of a rank" (docs/design/maneuvers.md). Now it does not: a Dribble
+Advance goes up to 2 spaces, same as before; a Dribble Burst goes up to 5, charged the same
+token a space as everyone else, with no discount. `players.json`'s `role_profiles.playmaker`
+ability text was hand-edited to the new sentence rather than pulled by the import script, since
+the change came from the author directly rather than a sheet update -- **the sheet should be
+updated to match before the next `import_d12ball_players.py` run**, or the import will revert it.
+
+Emberdash's own personal ability is unchanged (*"Dribble Advance up to 3 or Dribble Burst with
+no exhaustion"*, 2026-09-25): Emberdash still advances up to 3, and still bursts for nothing --
+now up to the Playmaker's 5, since Emberdash is a Playmaker too and the role ability and the
+personal ability stack, same as they always have (Law 21, "Whose they are").
 
 ### 2026-09-25 (last) -- author and sheet, Volatile decides no cost, and the personal abilities move on
 

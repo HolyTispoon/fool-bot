@@ -623,7 +623,7 @@
         "action": "maneuver",
         "by_ai": false,
         "exhaustion": {
-          "quillon_playmaker": 1
+          "quillon_playmaker": 2
         }
       },
       "kind": "turn_action",
@@ -825,9 +825,10 @@
         "action": "maneuver",
         "by_ai": true,
         "exhaustion": {
-          "dravox_defender": 1,
           "quillon_playmaker": 2,
-          "sizzifizik_playmaker": 2
+          "sizzifizik_playmaker": 2,
+          "spectra_midfielder": 1,
+          "umbrik_fullback": 1
         }
       },
       "kind": "turn_action",
@@ -874,6 +875,18 @@
       "period": "second_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
+      "time": 26
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 7,
+        "tokens": 4
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "quillon_playmaker",
+      "side": "home",
       "time": 26
     },
     {
@@ -962,17 +975,18 @@
   ],
   "exhausted": [
     "brightburn_striker",
+    "quillon_playmaker",
     "sizzifizik_playmaker",
     "zenith_winger"
   ],
   "exhaustion": {
     "brightburn_striker": 2,
-    "dravox_defender": 3,
+    "dravox_defender": 2,
     "flickerwing_winger": 1,
-    "quillon_playmaker": 3,
+    "quillon_playmaker": 4,
     "sizzifizik_playmaker": 5,
-    "spectra_midfielder": 3,
-    "umbrik_fullback": 1,
+    "spectra_midfielder": 4,
+    "umbrik_fullback": 2,
     "zenith_winger": 3
   },
   "goals": [

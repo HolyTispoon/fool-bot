@@ -431,12 +431,13 @@ BALL_SPEED_NOTE = (
     "BALL SPEED",
     "The defender adds the ball speed modifier to this skill test.",
 )
-# **Three abilities that reach a gambit their sentence does not
-# name** (the author, 2026-08-19). Each role's sentence is written
-# against its basic counterpart and states a *number*; what carries to
-# the gambit is the rule behind the number, which for the
-# Fullback is +1 distance and for the Playmaker is one less token. So
-# the sentence cannot be matched or reused, and the card says what the
+# **Abilities that reach a card their sentence does not name**
+# (the author, 2026-08-19). A role's sentence states a *number* against
+# one card (or, for the Playmaker's since 2026-09-26, against neither
+# card by name at all); what carries to the other card is the rule
+# behind the number, which for the Fullback is +1 distance and for the
+# Playmaker is 1 additional space, on both Dribble cards alike. So the
+# sentence cannot be matched or reused, and each card says what the
 # ability does *there* instead.
 EXTRA_NOTES: dict[str, tuple[tuple[str, str], ...]] = {
     "steal": (BALL_SPEED_NOTE,),
@@ -450,8 +451,16 @@ EXTRA_NOTES: dict[str, tuple[tuple[str, str], ...]] = {
     "setup_pass": (
         ("FULLBACK", "May also set up at 4 spaces."),
     ),
+    # The sheet's own sentence now names "Dribble maneuvers" rather
+    # than either card, so neither auto-matches the needle below and
+    # both need saying here (the author, 2026-09-26: the Playmaker's
+    # ability reads the same on both cards of the rank -- see
+    # docs/design/maneuvers.md, "Maneuvers").
+    "dribble_advance": (
+        ("PLAYMAKER", "May advance an additional space."),
+    ),
     "dribble_burst": (
-        ("PLAYMAKER", "Pays one exhaustion token fewer for the run."),
+        ("PLAYMAKER", "May advance an additional space."),
     ),
 }
 

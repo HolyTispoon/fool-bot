@@ -25,8 +25,8 @@
     "playmaker": {
       "offense": 4,
       "defense": 3,
-      "ability": "May advance 2 spaces when resolving Dribble Advance.",
-      "ability_short": "Dribble Advance up to 2"
+      "ability": "May advance an additional space when resolving Dribble maneuvers.",
+      "ability_short": "Dribble maneuvers +1 space"
     },
     "winger": {
       "offense": 5,
