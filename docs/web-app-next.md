@@ -1052,7 +1052,7 @@ against the template.
   An entry is kept with its words, its roll's `detail` -- which the
   question box draws the dice from, since the log draws no picture
   (step 8) -- and its board snapshot, which `board.png?entry=` serves
-  though no page draws it; and the journal's `showing_roll`, so the
+  though no page draws it (kept, the author, 2026-09-26); and the journal's `showing_roll`, so the
   dice a restart finds up are still up after it. A room's link is
   good after a restart (step 2); this makes its transcript good too.
 

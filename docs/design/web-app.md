@@ -533,7 +533,8 @@ what happened, which is the opposite of a table.
   live board is beside it, and a snapshot in every stopped entry
   pushed the lines a coach reads off the panel. An entry's wire shape
   carries no `layout`; the journal still keeps the position the run
-  stopped at, and `board.png?entry=` still serves it. **It draws no
+  stopped at, and `board.png?entry=` still serves it -- kept although
+  no page asks for it now (the author, 2026-09-26). **It draws no
   picture of any kind** (2026-09-26, the author, at step 8): not the
   dice, not the challenge. A picture belongs to a question and goes
   with it ("The prompt's pictures", below); what the challenge image
@@ -613,6 +614,9 @@ question box), at the top, above whatever is asked next -- on Discord
 the prompt a coach pressed *becomes* the dice, so the question area is
 where they are read. The log keeps the roll's words.
 
+- **Every roll's dice**, whatever rolled them -- a skill test, a loose
+  ball, a score attempt, a shootout test, an own goal, an injury test,
+  a Mind Pull (the author, 2026-09-26).
 - **They stay up until the next thing happens in the game**, by
   either coach or the AI, and come down with it: the journal's
   `showing_roll` is the last roll of the latest result the service
