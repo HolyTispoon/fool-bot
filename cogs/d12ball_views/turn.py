@@ -783,7 +783,9 @@ class ManeuverActionPromptView(SafeView):
         """
         await interaction.response.send_message(
             file=self.cog.build_maneuver_reference_file(
-                self.cog.reference_tier(self.cog.games.get(self.game_id))
+                self.cog.engine.maneuver_reference_tier(
+                    self.cog.games.get(self.game_id)
+                )
             ),
             ephemeral=True,
         )

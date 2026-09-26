@@ -789,7 +789,8 @@ batch for.
 
 Step 9 of [../web-app-next.md](../web-app-next.md): the slash commands
 that are not about Discord, each over a model function both frontends
-call. The rules and the reference cards are step 11's.
+call. The rules and the reference cards are step 11's ("The rules and
+the player aids", below).
 
 **My rooms, resume and abandon.** The front door already listed a
 coach's rooms by where each stands, and an in-progress one opens; an
@@ -831,6 +832,86 @@ from `WEB_GAMES_FILE`; `source` is accepted only as `web`, anything
 else a 400 rather than a wider read, so the one read across the line
 stays the bot's of this file and never the reverse. A heading is the
 same `format_scope_heading` the bot's is.
+
+## The rules and the player aids
+
+Step 11 of [../web-app-next.md](../web-app-next.md): everything a
+Discord coach can pull up beside a game without it being a turn --
+`rules_full`, `rules_search`, `maneuver_reference`,
+`role_abilities_reference`, `species_abilities_reference`,
+`team_reference` -- and the two rulebooks, which Discord has only in
+print. `webapp/aids.py` holds all of it and `webapp/static/aids.js`
+draws it: a **Rules & aids** panel opened from the room's header and
+from the front door, and `/rules` on a page of its own. Every route is
+a read-only GET open to anybody -- an observer, or nobody with a
+cookie -- takes no lock and touches the service no further than
+reading the game; nothing in it goes in the log.
+
+**The rules are `rules_doc`'s, numbered by the Charter's build.** The
+living rules carry no Law numbers; the Charter gives them at build
+time (`rulebooks.number_blocks`, [rulebooks.md](rulebooks.md)), and
+the Learn to Play cites them as *(Law 6.4)*. A page that set
+`docs/living-rules.md` as it stands would be a Charter without the
+numbers the other book points at. So `/rules` is one section per
+`RulesSection` of `rules_doc.load_rules_document` -- the same parse
+`/d12ball rules_search` answers from, and `GET /api/rules?q=` is its
+`RulesDocument.search` -- each headed with its number from
+`number_blocks(parse_markdown(...)).headings`, looked up by slug. The
+two already agree on a slug (`rulebooks.Heading.slug` is
+`rules_doc.slugify_heading`), and `tests/test_web_aids.py` holds that
+agreement: every heading the Charter numbers is a section with that
+number, and the front matter, the Parts and the Appendices are
+unnumbered on the page as in the book. A link to a heading reads
+`text (6.4)`, as the book resolves it. Each section's text is read by
+`rulebooks.parse_markdown` -- the books' own subset, which raises on a
+line outside it -- and set as HTML after escaping, so the page and the
+printed Charter fail on the same line; the Charter's one figure is
+served from `docs/rulebooks/figures/`. There is no second copy of the
+rules text: the page is re-rendered when `rules_doc` re-parses a
+changed file, and a missing file is logged at ERROR and answered 503,
+as `load_rules` refuses on Discord.
+
+**The books as PDFs, and only as PDFs.** The printed layout is
+`rulebooks.py`'s and the figures are laid out for it; an HTML Learn to
+Play would be a second layout of the book to keep right, the mistake
+`webapp/pictures.py` exists to avoid for the cards. `rulebooks.book_bytes`
+sets a book into memory (`build_book` writes the same bytes, so
+`scripts/build_rulebooks.py` is unchanged), and `/books/charter.pdf`
+and `/books/learn-to-play.pdf` serve it inline, on letter paper, set in
+a worker thread once per process and again when the source's mtime
+changes -- never written to `print/`. The in-page reading is the
+Charter's text, searchable, for a coach mid-turn; the PDFs are the
+books.
+
+**Which aids a room gets is the model's.** The room's state carries
+`aids`: the hexagon at `RulesEngine.maneuver_reference_tier(game)`, the
+species card only where `species_abilities_apply(game)`, the team cards
+in the face `personal_abilities_apply(game)` says the game holds, and
+the three answers themselves, so `app.js` decides none of them and
+never reads `game.mode`. The seat's own team comes first and the other
+a tab away; an observer gets both, seat 1's first. At the front door,
+with no game to ask, `GET /api/aids` offers all of it: both hexagons
+named by tier, the species card, every team with both faces. Every
+picture is the one the reference command posts, drawn by the same
+function (`render_maneuver_reference_image`, `render_role_reference`,
+`player_cards`), in a worker thread and kept with the cards. The
+species card is the one exception in shape: the page shows the two
+`species_cards.REFERENCE_FACES` as two images, since it has no
+attachment tiles to crop them, where Discord posts them side by side.
+The maneuver pick carries `reference`, a **link** to the hexagon at the
+game's tier, as the Discord prompt's reference button posts it --
+never a picture inline, since the question box already carries the
+challenge over the hand (step 8).
+
+**Why the two choices moved below the cog.** Which hexagon a game gets
+was `D12Ball.reference_tier`, and which two species faces a screen
+shows was the cog's `CARD_FACES[0]`; the web app may import neither.
+Neither is Discord's -- "a screen has no table to lay a card on" is as
+true of a page as of a channel -- so they are
+`RulesEngine.maneuver_reference_tier` and `species_cards.REFERENCE_FACES`,
+and the cog asks them, the way `cyborg_condition_ids` moved for the
+board. Every image the four reference commands post was byte-identical
+before and after the move.
 
 ## What it does not do yet
 

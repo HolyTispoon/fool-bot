@@ -846,3 +846,63 @@ body.front { display: grid; place-items: start center; padding: 16px; }
 .linkish.danger-link { color: var(--red); }
 body.front .stats-door { width: min(640px, 100%); }
 .stats-door select { font: inherit; background: var(--field); color: var(--text); border: 0; border-radius: 4px; padding: 6px; }
+
+/* -- The reading room (webapp/static/aids.js) --------------------------------
+   The rules, the two books and the player aids: a panel over the room
+   or the front door, and /rules on a page of its own. Every picture is
+   the model's own drawing, served as it is. */
+
+.topbar-end { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.aids-button { padding: 4px 12px; min-height: 28px; font-size: 13px; white-space: nowrap; }
+
+.viewer.aids { width: min(980px, 96vw); }
+.viewer-body.aids-body {
+  display: flex;
+  flex-direction: column;
+  /* From the top: centred, a column taller than the panel would push
+     its first sections out of reach above the scroll. */
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 16px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--deep);
+  border-radius: 8px;
+  color: var(--text);
+}
+.viewer.aids .viewer-body > a > img { max-width: 100%; max-height: 86vh; margin: 0 auto; border-radius: 10px; }
+.viewer.aids .viewer-body { flex-direction: column; justify-content: flex-start; align-items: center; gap: 8px; }
+.viewer.aids .viewer-body.aids-body { align-items: stretch; }
+.aid-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.aid { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.aid-open { border: 0; padding: 0; background: none; cursor: zoom-in; }
+.aid-open img { max-width: min(420px, 100%); max-height: 320px; width: auto; height: auto; border-radius: 10px; }
+.aid-row.cards .aid-open img { max-height: 240px; }
+.aid-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.aid-tabs .btn { padding: 4px 12px; min-height: 28px; font-size: 13px; }
+.linkish.chosen { color: var(--strong); text-decoration: underline; }
+
+.rules-search { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.rules-results { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; max-height: 40vh; overflow: auto; }
+.rules-number { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 2px; }
+
+body.rules-page { place-items: start center; }
+.rules { width: min(820px, 100%); line-height: 1.5; }
+.rules h1 { color: var(--strong); font-size: 26px; margin: 8px 0; }
+.rules h2 { color: var(--strong); font-size: 21px; margin: 28px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.rules h3 { color: var(--strong); font-size: 17px; margin: 20px 0 6px; }
+.rules h4, .rules h5, .rules h6 { color: var(--strong); font-size: 15px; margin: 14px 0 4px; }
+.rules a { color: var(--link); }
+.rules p.note { color: var(--muted); font-size: 14px; margin-left: 16px; }
+.rules code { background: var(--deep); border-radius: 3px; padding: 0 3px; }
+.rules blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--line); color: var(--muted); }
+.rules-table { overflow-x: auto; }
+.rules table { border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+.rules th, .rules td { border: 1px solid var(--line); padding: 4px 8px; vertical-align: top; }
+.rules th { background: var(--deep); color: var(--strong); }
+.rules figure { margin: 12px 0; }
+.rules figure img { max-width: 100%; height: auto; }
+.rules figcaption { color: var(--muted); font-size: 13px; }
+.rules-contents ol { list-style: none; padding-left: 0; columns: 2 260px; font-size: 14px; }
+.rules-contents li.level-3 { padding-left: 16px; }
+.rules-section { scroll-margin-top: 12px; }

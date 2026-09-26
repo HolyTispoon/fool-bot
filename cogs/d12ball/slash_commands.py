@@ -1690,7 +1690,7 @@ class CommandsMixin:
     ) -> None:
         await interaction.response.send_message(
             file=self.build_maneuver_reference_file(
-                self.reference_tier(
+                self.engine.maneuver_reference_tier(
                     self.game_for_channel(interaction.channel_id)
                 )
             ),

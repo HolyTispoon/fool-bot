@@ -19,7 +19,12 @@
         <span class="topbar-divider" aria-hidden="true"></span>
         <span id="topic" class="topic"></span>
       </div>
-      <div id="you" class="you"></div>
+      <div class="topbar-end">
+        <!-- The reading room: the rules, the books and the aids this
+             game plays (webapp/static/aids.js). -->
+        <button type="button" class="btn secondary aids-button" id="open-aids">Rules &amp; aids</button>
+        <div id="you" class="you"></div>
+      </div>
     </header>
 
     <div class="app">
@@ -64,6 +69,11 @@
           <!-- The matchup the cog posts with the same question: the
                shot, or the challenge over the maneuver pick. -->
           <img id="prompt-picture" class="prompt-picture" alt="" hidden>
+          <!-- The maneuver pick's hexagon, at the game's tier: a link,
+               as the Discord prompt's reference button is. -->
+          <p id="reference" class="note-line" hidden>
+            <a id="reference-link" class="linkish" target="_blank" rel="noopener">The maneuver hexagon</a>
+          </p>
           <div id="controls" class="controls"></div>
           <p id="rematch-note" class="note-line" hidden></p>
         </section>
@@ -164,6 +174,7 @@
 
     <div id="peek" class="peek" hidden><img alt="" /></div>
 
+    <script src="/static/aids.js"></script>
     <script src="/static/app.js"></script>
   </body>
 </html>

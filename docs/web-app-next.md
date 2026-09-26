@@ -162,7 +162,7 @@ that existed; steps 1 to 3 are one sprint.
 | ~~8~~ | ~~The prompt's pictures~~ -- landed; what it settled is in `docs/design/web-app.md`, "The prompt's pictures", and `docs/design/board-image.md`, "The matchup image" (the rest of both briefs below the renderer) | medium |
 | ~~9~~ | ~~What Discord has that the page lacks: my rooms, resume, abandon, stats~~ -- landed; what it settled is in `docs/design/web-app.md`, "Beyond the game", and `docs/design/clock-and-records.md`, "What the statistics are, and what they are not" (the reports moved below the cog) | medium |
 | ~~10~~ | ~~The page as a thing to play on; the wire tree; the tests the survey found missing~~ -- landed; what it settled is in `docs/design/web-app.md`, "The page" (the notification), "What a page is handed" (the journal's own file) and "The wire" (the page as its consumer) | medium |
-| 11 | The reading room: the rulebooks and the player aids | medium |
+| ~~11~~ | ~~The reading room: the rulebooks and the player aids~~ -- landed; what it settled is in `docs/design/web-app.md`, "The rules and the player aids" | medium |
 | -- | Later, and not now | -- |
 
 ### Claiming a step
@@ -1116,6 +1116,13 @@ yet" loses what this closes). PR against the template.
 ```
 
 ### 11. The reading room: the rulebooks and the player aids
+
+**Landed.** What it settled -- the rules as `rules_doc`'s sections
+headed with the Charter's numbers, the books as PDFs set in memory,
+which aids a room gets as the engine's answer, and the two choices
+moved below the cog (`RulesEngine.maneuver_reference_tier`,
+`species_cards.REFERENCE_FACES`) -- is in `docs/design/web-app.md`,
+"The rules and the player aids".
 
 **What it is.** Everything a Discord coach can pull up beside a game
 without it being a turn, on the page: the two rulebooks, and the

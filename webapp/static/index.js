@@ -141,3 +141,6 @@ document.getElementById("leave-app").addEventListener("click", async () => {
   }
   location.reload();
 });
+
+/* The reading room, with no game to ask: every aid (/api/aids). */
+document.getElementById("open-aids").addEventListener("click", () => window.D12Aids.openEverything());

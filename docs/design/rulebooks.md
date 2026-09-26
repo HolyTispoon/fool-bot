@@ -75,6 +75,12 @@ checked by reading the PDF.
   regular face; adding `DejaVuSans-Oblique.ttf` under the licence already
   in `d12ball/fonts/` is the fix. The palette is the cards' (`INK`,
   `FACE_COLOR`, `PANEL_COLOR`).
+- **A book is bytes first.** `book_bytes` sets a book into memory and
+  `build_book` writes those bytes, so the web app serves the same PDF
+  the CLI prints without a file in `print/`
+  ([web-app.md](web-app.md), "The rules and the player aids"); the page
+  also reads the Charter's heading numbers from `number_blocks` rather
+  than numbering anything itself.
 - **Letter by default, A4 by `--paper`; no bleed.** Nothing in either
   book reaches the edge, and the Learn to Play is imposed as a booklet
   by the print shop, not the script. Output goes to `print/`, which is

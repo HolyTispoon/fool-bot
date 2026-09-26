@@ -695,7 +695,13 @@ reading the same card:
   cropped the pair to two tiles that cut off each card's text (the author,
   2026-09-26); one image is shown whole. Posted whatever the game's mode,
   like the role card: it is a reference to the rules, not a statement about
-  this game.
+  this game. **Which two faces is `species_cards.REFERENCE_FACES`**, beside
+  `CARD_FACES`: it was chosen in the cog until the web page needed the same
+  two (step 11 of [../web-app-next.md](../web-app-next.md)), and "a screen
+  has no table" is as true of a page as of a channel, so it is not
+  Discord's to decide. The page shows the two faces as two images
+  ([web-app.md](web-app.md), "The rules and the player aids"), since it
+  has no attachment tiles to crop them.
 - **`/d12ball team_reference`** posts the asking coach's team (both with
   `all_teams`), one message a team, nine cards inside Discord's ten
   attachments a message. **Which face is the game's mode**:
