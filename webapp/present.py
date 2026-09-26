@@ -14,10 +14,14 @@ Three things it does that Discord does differently, and each is a
 frontend's to decide (principle 8):
 
 - **The tokens are rendered here**, at this frontend's door, the way
-  the cog renders them at its own (`D12Ball.rendered`). A team is a
-  coloured dot, a role a badge, a coach their name --
+  the cog renders them at its own (`D12Ball.rendered`), and with the
+  same pictures: a team is its team emoji, a role the badge edged in
+  the team's colour, a condition its mark, a coach their name --
   `d12ball/tokens.py` says which thing is named and nothing about how
   it is drawn.
+- **A button has Discord's colour for it** (`STYLES`), set to what
+  the Discord view puts on the same answer, so the page reads the way
+  the channel does.
 - **A control is a button or a chooser**, not a `discord.ui.Item`: the
   page collects what a chooser's fields say and posts one `Action`,
   where Discord walks a coach through a menu at a time. The hub is the
@@ -45,18 +49,24 @@ from d12ball.formatting import (
     space_label,
     travel_space_label,
 )
-from d12ball.game import D12BallGame, Formation, Team, team_display_name
+from d12ball.game import (
+    COLOR_TEAMS,
+    D12BallGame,
+    Formation,
+    Team,
+    paired_team,
+    team_display_name,
+)
 from d12ball.prompts import PendingPrompt, PromptKind, asked_sides
-from d12ball.render import TEAM_COLORS
 
 
 #: What the page calls each of a turn's three actions, and each of the
 #: answers a decision prompt offers. The model's own wording is in the
 #: ask above the buttons; these are the buttons.
 CHOICE_LABELS: Mapping[str, str] = {
-    "shoot": "Take a shot",
+    "shoot": "Shoot to score",
     "maneuver": "Maneuver",
-    "time_out": "Call a time out",
+    "time_out": "Time out",
     "take": "Take it",
     "decline": "Pass",
     "declare": "Coach",
@@ -66,20 +76,20 @@ CHOICE_LABELS: Mapping[str, str] = {
     "done": "Done",
 }
 
-#: How this frontend draws the six condition marks. Discord fetches
-#: an application emoji for each and falls back to one of these when
-#: the upload has not landed (`CONDITION_EMOJI_FALLBACKS`); a page has
-#: no upload to wait for, so the fallback is what it draws. They are
-#: the same characters on purpose -- a coach reading both should be
-#: reading the same game -- and they are a frontend's choice, not a
-#: constant the model shares.
-CONDITION_MARKS: Mapping[str, str] = {
-    tokens.CONDITION_EXHAUST: "😮‍💨",
-    tokens.CONDITION_EXHAUSTED: "🥵",
-    tokens.CONDITION_INJURED: "🤕",
-    tokens.CONDITION_DRAIN: "⚡",
-    tokens.CONDITION_DRAINED: "🪫",
-    tokens.CONDITION_DAMAGED: "💥",
+#: How this frontend draws the six condition marks: the PNGs the bot
+#: uploads as its application emoji, by the name each is uploaded
+#: under (`CONDITION_EMOJI_NAMES` in the cog). A coach reading both
+#: should be reading the same game, so the page shows the pictures a
+#: Discord message does rather than the characters it falls back to.
+#: The one name that differs from its token is `drain`, whose upload
+#: is named for the art it was made from.
+CONDITION_EMOJI: Mapping[str, str] = {
+    tokens.CONDITION_EXHAUST: "exhaust",
+    tokens.CONDITION_EXHAUSTED: "exhausted",
+    tokens.CONDITION_INJURED: "injured",
+    tokens.CONDITION_DRAIN: "exhaust_cyborg",
+    tokens.CONDITION_DRAINED: "drained",
+    tokens.CONDITION_DAMAGED: "damaged",
 }
 
 #: What a tutorial beat says about the buttons it has railed off. The
@@ -129,40 +139,51 @@ def render_text(game: D12BallGame, text: str) -> str:
 #: characters it is.
 BOLD = re.compile(r"\*\*(.+?)\*\*", re.S)
 ITALIC = re.compile(r"(?<![*\w])\*(?!\s)([^*\n]+?)(?<!\s)\*(?!\*)")
-HEADLINE = re.compile(r"^(#{2,3})\s+(.*)$", re.M)
+#: A headline is a block of its own, so the line break that ends it is
+#: part of it -- left behind, it would be an empty line under every
+#: headline on a page that keeps the sentences' line breaks.
+HEADLINE = re.compile(r"^(#{1,3})[ \t]+(.*)$\n?", re.M)
 
 
 def _markdown(escaped: str) -> str:
-    """The narration's own markup, over text that is already escaped."""
-    text = HEADLINE.sub(r'<span class="headline">\2</span>', escaped)
+    """The narration's own markup, over text that is already escaped.
+    A headline keeps its level (`h1` to `h3`), as Discord draws `#`
+    larger than `##`."""
+    text = HEADLINE.sub(
+        lambda found: (
+            f'<span class="headline h{len(found.group(1))}">'
+            f"{found.group(2)}</span>"
+        ),
+        escaped,
+    )
     text = BOLD.sub(r"<strong>\1</strong>", text)
     return ITALIC.sub(r"<em>\1</em>", text)
 
 
 def _resolver(game: D12BallGame) -> tokens.Resolver:
-    """How this frontend draws what a sentence names."""
+    """How this frontend draws what a sentence names: with the bot's
+    own emoji, as a Discord message draws it."""
 
     def resolve(kind: str, arguments: tuple[str, ...]) -> Optional[str]:
         if kind == "team":
-            return _team_mark(arguments[0])
+            team = Team(arguments[0])
+            return emoji(f"team_{team.value}", team_display_name(team))
         if kind == "role":
             role = PlayerRole(arguments[0])
-            team = arguments[1] if len(arguments) > 1 else None
-            return (
-                f'<span class="badge{_team_class(team)}">'
-                f"{html.escape(role_brackets(role))}</span>"
+            team = Team(arguments[1]) if len(arguments) > 1 else None
+            return emoji(
+                role_emoji_name(role, team), role_brackets(role), "badge",
             )
         if kind == "condition":
-            mark = CONDITION_MARKS.get(arguments[0])
-            if mark is None:
+            name = CONDITION_EMOJI.get(arguments[0])
+            if name is None:
                 return None
-            return (
-                f'<span class="mark" title="{arguments[0]}">{mark}</span>'
-            )
+            return emoji(name, arguments[0].replace("_", " "))
         if kind == "species":
+            name = arguments[0]
             return (
-                '<span class="mark species">'
-                f"{html.escape(arguments[0].replace('_', ' ').title())}</span>"
+                f'<img class="emoji species" src="/species/{name}_color.png" '
+                f'alt="" title="{html.escape(name.replace("_", " ").title())}">'
             )
         if kind == "coach":
             return (
@@ -174,17 +195,30 @@ def _resolver(game: D12BallGame) -> tokens.Resolver:
     return resolve
 
 
-def _team_mark(value: str) -> str:
-    """A team's ring, in the one colour `render.py` draws it in."""
-    colour = TEAM_COLORS[Team(value)]
+def emoji(name: str, said: str, css: str = "") -> str:
+    """
+    One of the bot's emoji, inline in a sentence. `said` is its alt
+    text, which is what a copy of the sentence reads -- the role badge's
+    is its brackets, the fallback a Discord message shows too.
+    """
+    said = html.escape(said)
     return (
-        f'<span class="ring" style="background:{colour}" '
-        f'title="{html.escape(team_display_name(Team(value)))}"></span>'
+        f'<img class="emoji{" " + css if css else ""}" '
+        f'src="/emoji/{name}.png" alt="{said}" title="{said}">'
     )
 
 
-def _team_class(team: Optional[str]) -> str:
-    return f" {team}" if team else ""
+def role_emoji_name(role: PlayerRole, team: Optional[Team]) -> str:
+    """
+    A role badge's upload: edged in the colour of the team the card is
+    fielded as, where a sentence names one. A species team shares its
+    colour team's hex, so it shares its badge too -- resolved here the
+    way the cog's `ROLE_TEAM_EMOJI_NAMES` resolves it.
+    """
+    if team is None:
+        return f"role_{role.value}"
+    colour = team if team in COLOR_TEAMS else paired_team(team)
+    return f"role_{role.value}_{colour.value}"
 
 
 # -- Controls --------------------------------------------------------
@@ -196,6 +230,16 @@ def _team_class(team: Optional[str]) -> str:
 # -- see `webapp/server.py`, which refuses anything else.
 
 
+#: A button's colour, in Discord's four: `primary` (blurple) is the
+#: ordinary answer, `success` (green) finishing something, `danger`
+#: (red) the answer that cannot be taken back -- a shot, an own-goal
+#: roll -- and `secondary` (grey) the way out. The page matches what
+#: the Discord view puts on the same button, so a coach who has played
+#: in a channel reads the colours the same way; the offense's cards
+#: are red and the defense's green, as their printed cards are.
+STYLES = ("primary", "secondary", "success", "danger")
+
+
 def button(
     label: str,
     kind: PromptKind,
@@ -203,13 +247,27 @@ def button(
     *,
     disabled: bool = False,
     note: str = "",
+    style: str = "primary",
+    player: Optional[str] = None,
+    card: Optional[dict] = None,
     **arguments: Any,
 ) -> dict:
+    """
+    One answer. `player` is the card id a button names, so the page
+    can show that player's card beside it; `card` is the maneuver card
+    a button plays (`{"key", "side"}`), which the page draws the
+    button as. Neither is part of the answer: what is sent back is
+    `action`, and only `action` is checked against what was offered.
+    """
+    assert style in STYLES, style
     return {
         "type": "button",
         "label": label,
         "disabled": disabled,
         "note": note,
+        "style": style,
+        "player": player,
+        "card": card,
         "action": {
             "kind": kind.value,
             "choice": choice,
@@ -316,10 +374,22 @@ class Asked:
         return self.engine.format_roster_player(player_id)
 
     def players(
-        self, player_ids: Sequence[str], kind: PromptKind, **arguments: Any
+        self,
+        player_ids: Sequence[str],
+        kind: PromptKind,
+        *,
+        style: str = "primary",
+        **arguments: Any,
     ) -> list[dict]:
         return [
-            button(self.label(player_id), kind, player_id=player_id, **arguments)
+            button(
+                self.label(player_id),
+                kind,
+                style=style,
+                player=player_id,
+                player_id=player_id,
+                **arguments,
+            )
             for player_id in player_ids
         ]
 
@@ -370,6 +440,15 @@ def _continue(asked: Asked) -> list:
     return [section(None, [button("Continue", asked.kind)])]
 
 
+#: The turn's three buttons, coloured as `PlayerActionView` colours
+#: them.
+TURN_STYLES = {"maneuver": "primary", "shoot": "danger", "time_out": "secondary"}
+
+#: The two rolls a coach cannot take back once pressed, red on Discord
+#: (`ScoreAttemptView`, `OwnGoalRollView`); every other roll is blurple.
+DANGEROUS_ROLLS = (PromptKind.SCORE_ATTEMPT, PromptKind.OWN_GOAL_ROLL)
+
+
 def _turn(asked: Asked) -> list:
     options = asked.options
     return [
@@ -380,6 +459,7 @@ def _turn(asked: Asked) -> list:
                     CHOICE_LABELS[action],
                     asked.kind,
                     action,
+                    style=TURN_STYLES.get(action, "primary"),
                     disabled=action not in options.live,
                     note=RAILED_NOTE if action not in options.live else "",
                 )
@@ -391,7 +471,14 @@ def _turn(asked: Asked) -> list:
 
 def _roll(asked: Asked) -> list:
     options = asked.options
-    controls = [button(CHOICE_LABELS["roll"], asked.kind, "roll")]
+    controls = [
+        button(
+            CHOICE_LABELS["roll"],
+            asked.kind,
+            "roll",
+            style="danger" if asked.kind in DANGEROUS_ROLLS else "primary",
+        )
+    ]
     if options.back:
 
         controls.append(
@@ -399,16 +486,19 @@ def _roll(asked: Asked) -> list:
                 CHOICE_LABELS["back"],
                 asked.kind,
                 "back",
+                style="secondary",
                 disabled=options.back_railed,
                 note=RAILED_NOTE if options.back_railed else "",
             )
         )
     overdrive = [
         button(
-            f"Overdrive: {asked.label(player_id)} "
+            f"⚡ Overdrive: {asked.label(player_id)} "
             f"(drain {options.overdrive_cost(player_id)})",
             asked.kind,
             "overdrive",
+            style="secondary",
+            player=player_id,
             player_id=player_id,
         )
         for player_id in options.overdrive_player_ids
@@ -447,6 +537,7 @@ def _decision(
                     ),
                     asked.kind,
                     choice,
+                    style=_decision_style(asked, choice),
                     disabled=(
                         options.railed is not None and choice != options.railed
                     ),
@@ -462,6 +553,18 @@ def _decision(
             ],
         )
     ]
+
+
+def _decision_style(asked: Asked, choice: str) -> str:
+    """
+    Yes is blurple and no is grey, as every decision view has them --
+    but a Set Up's shot is red, the way every shot is.
+    """
+    if choice == "decline":
+        return "secondary"
+    if asked.kind is PromptKind.SET_UP_ATTEMPT:
+        return "danger"
+    return "primary"
 
 
 def _smooth(asked: Asked) -> list:
@@ -500,7 +603,13 @@ def _shooter(asked: Asked) -> list:
         section(
             None,
             [
-                button(asked.label(player_id), asked.kind, shooter_id=player_id)
+                button(
+                    asked.label(player_id),
+                    asked.kind,
+                    style="danger",
+                    player=player_id,
+                    shooter_id=player_id,
+                )
                 for player_id in asked.options.player_ids
             ],
         )
@@ -512,7 +621,10 @@ def _halftime_token(asked: Asked) -> list:
         section(
             None,
             asked.players(
-                asked.options.player_ids, asked.kind, side=asked.prompt.side,
+                asked.options.player_ids,
+                asked.kind,
+                style="secondary",
+                side=asked.prompt.side,
             ),
         )
     ]
@@ -531,6 +643,7 @@ def _send(asked: Asked) -> list:
             "Send nobody",
             asked.kind,
             "decline",
+            style="secondary",
             disabled=options.decline_railed,
             note=RAILED_NOTE if options.decline_railed else "",
             **extra,
@@ -546,6 +659,7 @@ def _send(asked: Asked) -> list:
                     asked.label(player_id),
                     asked.kind,
                     "send",
+                    player=player_id,
                     player_id=player_id,
                     **extra,
                 )
@@ -633,16 +747,24 @@ def _spaces(distance: int) -> str:
 
 def _low_pass(asked: Asked) -> list:
     """
-    One control per distance, and a chooser where several teammates
-    share the landing space -- which is the second question the
-    adapter takes beside the distance.
+    One control per landing, named the way `LowPassChoiceView` names
+    it -- the teammate and the space (`match.ball_destination`, the
+    label the Discord button reads) -- and a chooser where several
+    teammates share the landing space, which is the second question
+    the adapter takes beside the distance.
     """
+    match = asked.match
     controls = []
     for option in asked.options.passes:
+        zone, space_index = match.ball_destination(
+            match.ball.possession, option.distance,
+        )
+        where = space_label(zone, space_index, match.board)
         if len(option.receiver_ids) > 1:
             controls.append(
                 chooser(
-                    f"{_spaces(option.distance)} -- who receives it?",
+                    f"{len(option.receiver_ids)} players -- {where}: "
+                    "who receives it?",
                     "Pass",
                     [
                         field(
@@ -659,15 +781,12 @@ def _low_pass(asked: Asked) -> list:
                 )
             )
             continue
-        receiver = (
-            f" - {asked.label(option.receiver_ids[0])}"
-            if option.receiver_ids
-            else ""
-        )
+        receiver = option.receiver_ids[0] if option.receiver_ids else None
         controls.append(
             button(
-                f"{_spaces(option.distance)}{receiver}",
+                f"{asked.label(receiver)} -- {where}" if receiver else where,
                 asked.kind,
+                player=receiver,
                 distance=option.distance,
             )
         )
@@ -716,6 +835,8 @@ def _maneuver(asked: Asked) -> list:
             button(
                 asked.engine.maneuver_name(key),
                 asked.kind,
+                style="danger" if hand.side == "offense" else "success",
+                card={"key": key, "side": hand.side},
                 side=hand.side,
                 maneuver_key=key,
                 disabled=hand.railed is not None and key != hand.railed,
@@ -741,13 +862,20 @@ def _shootout_order(asked: Asked) -> list:
                 asked.label(player_id),
                 asked.kind,
                 "send",
+                player=player_id,
                 side=entry.side,
                 player_id=player_id,
             )
             for player_id in entry.player_ids
         )
         controls.append(
-            button("Start again", asked.kind, "restart", side=entry.side)
+            button(
+                "Start again",
+                asked.kind,
+                "restart",
+                style="secondary",
+                side=entry.side,
+            )
         )
     return [section("Your order", controls)]
 
@@ -762,6 +890,7 @@ def _shootout_pick(asked: Asked) -> list:
             button(
                 asked.label(player_id),
                 asked.kind,
+                player=player_id,
                 side=entry.side,
                 player_id=player_id,
             )
@@ -791,6 +920,11 @@ def _coaching_hub(asked: Asked) -> list:
                     formation.value,
                     asked.kind,
                     "formation",
+                    style=(
+                        "secondary"
+                        if formation == options.current_formation
+                        else "primary"
+                    ),
                     side=side,
                     formation=formation,
                     disabled=formation == options.current_formation,
@@ -870,6 +1004,7 @@ def _coaching_hub(asked: Asked) -> list:
                     CHOICE_LABELS["done"],
                     asked.kind,
                     "done",
+                    style="success",
                     side=side,
                     disabled=options.finish_refusal is not None,
                     note=options.finish_refusal or "",
@@ -924,6 +1059,7 @@ def _repositions(asked: Asked) -> list[dict]:
                     label,
                     asked.kind,
                     "reposition",
+                    player=entry.player_id,
                     side=side,
                     player_id=entry.player_id,
                     space_index=space.space_index,

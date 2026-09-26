@@ -37,6 +37,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -47,12 +48,13 @@ from aiohttp import web
 from d12ball.components import MatchState
 from d12ball.engine import RulesEngine
 from d12ball.formatting import coach_name, format_player_with_team_name
-from d12ball.game import D12BallGame, GameStatus, team_display_name
+from d12ball.game import D12BallGame, GameStatus, Team, team_display_name
 from d12ball.prompts import Action, PendingPrompt, pending
 from d12ball.render import TEAM_COLORS, render_match_image
 from gamelocks import GameLocks
 from gamesaves.d12ball.service import GameResult, GameService
-from webapp import keys
+from webapp import keys, pictures
+from webapp.board import board_layout, period_name
 from webapp.present import Viewer, controls_for, render_text
 
 LOGGER = logging.getLogger(__name__)
@@ -70,6 +72,23 @@ JOURNAL_LENGTH = 200
 #: and a game's worth is not.
 BOARD_CACHE = 24
 
+#: How much of a game's chat a page is handed on opening, and the
+#: longest message it takes. Chat is people talking beside the game,
+#: so it is bounded the way the journal is and kept nowhere else.
+CHAT_LENGTH = 200
+CHAT_MESSAGE_LIMIT = 500
+
+#: How many card pictures are kept in hand: every face a game can show
+#: is eighteen players and twelve maneuvers twice, and they never
+#: change, so a few games' worth is cheap and saves a Pillow render a
+#: card on every page that opens.
+CARD_CACHE = 400
+
+#: A card never changes while the process runs, so a browser may keep
+#: it; a restart after an import re-renders it under the same URL,
+#: which is why this is a day rather than a year.
+CARD_MAX_AGE = 86400
+
 #: The environment this reads. `FOOLBOT_WEB_PORT` is the switch: with
 #: none set, no server is started and the bot is exactly what it was.
 PORT_VARIABLE = "FOOLBOT_WEB_PORT"
@@ -85,13 +104,23 @@ class Entry:
     #: The position the frontend stopped to draw, where it did.
     board: Optional[dict] = None
     new_play: bool = False
+    #: When it was said, as a Discord message carries its time.
+    at: float = field(default_factory=time.time)
 
-    def to_dict(self, game: D12BallGame) -> dict:
+    def to_dict(self, game: D12BallGame, layout=None) -> dict:
+        """`layout` draws the snapshot, where there is one -- the
+        server's, since it needs the engine."""
         return {
             "id": self.id,
             "lines": [render_text(game, line) for line in self.lines],
             "board": self.board is not None,
+            "layout": (
+                layout(self.board)
+                if layout is not None and self.board is not None
+                else None
+            ),
             "new_play": self.new_play,
+            "at": self.at,
         }
 
 
@@ -156,9 +185,11 @@ class Journal:
         if result.narration:
             yield list(result.narration), None
 
-    def since(self, entry_id: int, game: D12BallGame) -> list[dict]:
+    def since(
+        self, entry_id: int, game: D12BallGame, layout=None,
+    ) -> list[dict]:
         return [
-            entry.to_dict(game)
+            entry.to_dict(game, layout)
             for entry in self.entries
             if entry.id > entry_id
         ]
@@ -168,6 +199,56 @@ class Journal:
             if entry.id == entry_id:
                 return entry.board
         return None
+
+
+@dataclass
+class ChatMessage:
+    """One thing a person said at the table."""
+
+    id: int
+    who: str
+    text: str
+    #: The team colour of the coach who said it, or `None` for an
+    #: observer -- the page's to draw their name in.
+    colour: Optional[str] = None
+    at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "who": self.who,
+            "text": self.text,
+            "colour": self.colour,
+            "at": self.at,
+        }
+
+
+@dataclass
+class Chat:
+    """
+    What the people at one game have said to each other since this
+    process started -- step 4 of docs/web-app-next.md, in memory.
+
+    **It is not the game's**: never on the record, never read by the
+    model, and nothing in it is rendered as the model's markdown or
+    tokens, because it is not the model's voice. A message is plain
+    text and the page draws it as text. A restart empties it, as it
+    empties the journal; the file step 4 keeps it in comes with the
+    rooms (step 2), which is when a person has a name of their own
+    rather than a seat's.
+    """
+
+    messages: deque = field(default_factory=lambda: deque(maxlen=CHAT_LENGTH))
+    next_id: int = 1
+
+    def add(self, who: str, text: str, colour: Optional[str]) -> ChatMessage:
+        message = ChatMessage(self.next_id, who, text, colour)
+        self.messages.append(message)
+        self.next_id += 1
+        return message
+
+    def since(self, message_id: int) -> list[dict]:
+        return [one.to_dict() for one in self.messages if one.id > message_id]
 
 
 class WebApp:
@@ -193,7 +274,9 @@ class WebApp:
         self.host = host
         self.port = port
         self.journals: dict[str, Journal] = {}
+        self.chats: dict[str, Chat] = {}
         self._boards: dict[tuple, bytes] = {}
+        self._cards: dict[tuple, bytes] = {}
         self._runner: Optional[web.AppRunner] = None
         self.app = web.Application()
         self.app.add_routes(
@@ -203,7 +286,19 @@ class WebApp:
                 web.get("/api/game/{game_id}", self.state),
                 web.post("/api/game/{game_id}/action", self.act),
                 web.post("/api/game/{game_id}/resume", self.resume),
+                web.post("/api/game/{game_id}/chat", self.say),
                 web.get("/api/game/{game_id}/board.png", self.board),
+                web.get(
+                    "/api/game/{game_id}/card/{card_id}.png", self.player_card,
+                ),
+                web.get(
+                    "/api/game/{game_id}/maneuver/{key}.png",
+                    self.maneuver_card,
+                ),
+                web.get("/api/game/{game_id}/goal/{side}.png", self.goal),
+                web.get("/emoji/{name}", self.emoji),
+                web.get("/species/{name}", self.species),
+                web.get("/fonts/{name}", self.font),
                 web.static("/static", STATIC),
             ],
         )
@@ -239,6 +334,13 @@ class WebApp:
             journal = Journal()
             self.journals[game_id] = journal
         return journal
+
+    def chat(self, game_id: str) -> Chat:
+        chat = self.chats.get(game_id)
+        if chat is None:
+            chat = Chat()
+            self.chats[game_id] = chat
+        return chat
 
     async def start(self) -> None:
         self._runner = web.AppRunner(self.app)
@@ -302,6 +404,7 @@ class WebApp:
                 game,
                 self._viewer(request, game),
                 since=_since(request),
+                chat_since=_int(request.query.get("chat_since")) or 0,
             ),
         )
 
@@ -372,6 +475,35 @@ class WebApp:
         state["resumed"] = found
         return web.json_response(state)
 
+    async def say(self, request: web.Request) -> web.Response:
+        """
+        One chat message. Anybody reading the page may talk -- a coach
+        under their name off the record, anybody else as an observer
+        -- and it goes nowhere near the service: talking is not an
+        action on the game.
+        """
+        game = self._game(request)
+        viewer = self._viewer(request, game)
+        body = await _body(request)
+        text = str(body.get("text") or "").strip()
+        if not text:
+            raise web.HTTPBadRequest(text="Say something.")
+        text = text[:CHAT_MESSAGE_LIMIT]
+        if viewer.is_coach:
+            coach = self._coach(game, viewer.player_number)
+            who, colour = coach["name"], coach["colour"]
+        else:
+            who, colour = "Observer", None
+        self.chat(game.game_id).add(who, text, colour)
+        return web.json_response(
+            self._state(
+                game,
+                viewer,
+                since=_since(request),
+                chat_since=_int(request.query.get("chat_since")) or 0,
+            ),
+        )
+
     async def board(self, request: web.Request) -> web.Response:
         """
         The board as a PNG -- read-only, so it never goes near the
@@ -415,21 +547,188 @@ class WebApp:
             headers={"Cache-Control": "public, max-age=31536000"},
         )
 
-    def _render_board(self, game: D12BallGame, match: MatchState) -> bytes:
-        """Pillow, in a worker thread: the same picture the bot pins,
-        off the same renderer."""
-        period = _period(match)
+    async def player_card(self, request: web.Request) -> web.Response:
+        """
+        One player's card, read-only. `face=board` is the face the
+        bot's board draws (the default); `face=full` is the printed
+        card with the whole ability on it -- its advanced face in an
+        advanced game (`personal_abilities_apply`: the personal ability
+        and the advanced skills are that face), which is the card a
+        coach in that game is holding.
+        """
+        game = self._game(request)
+        match = self._match(game)
+        if match is None:
+            raise web.HTTPNotFound(text="This game has no cards yet.")
+        card_id = request.match_info["card_id"]
+        try:
+            team = match.team_for_player(card_id)
+        except (KeyError, ValueError):
+            raise web.HTTPNotFound(text="No such card in this game.")
+        face = request.query.get("face", "board")
+        if face not in ("board", "full"):
+            raise web.HTTPBadRequest(text="A face is board or full.")
+        catalog = self.engine.player_catalog
+        if face == "board":
+            # The marks the card is drawn with, as the page's layout
+            # spelled them (`webapp/board.py`). A picture of a card and
+            # nothing more: a mark asked for here changes no game.
+            exhaustion = _int(request.query.get("x")) or 0
+            flags = [
+                request.query.get(name, "0") == "1" for name in ("e", "i", "c")
+            ]
+            if not 0 <= exhaustion <= 20:
+                raise web.HTTPBadRequest(text="No card carries that many.")
+            exhausted, injured, cyborg = flags
+            # The skills an advanced game prints, answered off the
+            # game rather than the request (`RulesEngine.card_skills`).
+            skills = self.engine.card_skills(game, match)
+            printed = skills.get(card_id)
+            key = ("board", card_id, team, exhaustion, *flags, printed)
+            draw = lambda: pictures.board_card_png(  # noqa: E731
+                catalog,
+                card_id,
+                team,
+                exhaustion=exhaustion,
+                exhausted=exhausted,
+                injured=injured,
+                cyborg=cyborg,
+                card_skills=skills,
+            )
+        else:
+            advanced = self.engine.personal_abilities_apply(game)
+            key = ("full", card_id, team, advanced)
+            draw = lambda: pictures.player_card_png(  # noqa: E731
+                catalog, card_id, team, advanced=advanced, size="full",
+            )
+        return await self._card(key, draw)
+
+    async def goal(self, request: web.Request) -> web.Response:
+        """One end zone, in the colour of the side defending it, turned
+        the way the bot's board turns it."""
+        game = self._game(request)
+        match = self._match(game)
+        if match is None:
+            raise web.HTTPNotFound(text="This game has no board yet.")
+        side = request.match_info["side"]
+        if side not in ("home", "visiting"):
+            raise web.HTTPNotFound()
+        team = match.home.team if side == "home" else match.visiting.team
+        angle = 90 if side == "home" else 270
+        return await self._card(
+            ("goal", team, angle), lambda: pictures.goal_png(team, angle),
+        )
+
+    async def maneuver_card(self, request: web.Request) -> web.Response:
+        """One maneuver card, in the colour of the side holding it."""
+        self._game(request)
+        key = request.match_info["key"]
+        side = request.query.get("side", "offense")
+        if side not in ("offense", "defense"):
+            raise web.HTTPBadRequest(text="A side is offense or defense.")
+        if self.engine.maneuver_catalog.get(key) is None:
+            raise web.HTTPNotFound(text="No such maneuver.")
+        size = request.query.get("size", "small")
+        if size not in pictures.CARD_WIDTHS:
+            raise web.HTTPBadRequest(text="A size is small or full.")
+        return await self._card(
+            ("maneuver", key, side, size),
+            lambda: pictures.maneuver_card_png(
+                self.engine.maneuver_catalog,
+                self.engine.player_catalog,
+                key,
+                offense=side == "offense",
+                size=size,
+            ),
+        )
+
+    async def _card(self, key: tuple, draw) -> web.Response:
+        png = self._cards.get(key)
+        if png is None:
+            png = await asyncio.to_thread(draw)
+            self._cards[key] = png
+            while len(self._cards) > CARD_CACHE:
+                self._cards.pop(next(iter(self._cards)))
+        return web.Response(
+            body=png,
+            content_type="image/png",
+            headers={"Cache-Control": f"public, max-age={CARD_MAX_AGE}"},
+        )
+
+    async def emoji(self, request: web.Request) -> web.Response:
+        """The bot's emoji, as it uploads them."""
+        path = pictures.emoji_path(request.match_info["name"])
+        if path is None:
+            raise web.HTTPNotFound()
+        return web.FileResponse(
+            path, headers={"Cache-Control": f"public, max-age={CARD_MAX_AGE}"},
+        )
+
+    async def species(self, request: web.Request) -> web.Response:
+        """The four species icons, ink and coloured."""
+        path = pictures.species_path(request.match_info["name"])
+        if path is None:
+            raise web.HTTPNotFound()
+        return web.FileResponse(
+            path, headers={"Cache-Control": f"public, max-age={CARD_MAX_AGE}"},
+        )
+
+    async def font(self, request: web.Request) -> web.Response:
+        """The board's own typefaces."""
+        path = pictures.font_path(request.match_info["name"])
+        if path is None:
+            raise web.HTTPNotFound()
+        return web.FileResponse(
+            path, headers={"Cache-Control": f"public, max-age={CARD_MAX_AGE}"},
+        )
+
+    def _layout(self, game: D12BallGame, match: MatchState) -> dict:
+        """The board as the page draws it (`webapp/board.py`)."""
+        return board_layout(
+            self.engine,
+            game,
+            match,
+            card_url=f"/api/game/{game.game_id}/card/{{card}}.png",
+            goal_url=f"/api/game/{game.game_id}/goal/{{side}}.png",
+        )
+
+    def _snapshot_layout(self, game: D12BallGame):
+        """How an entry's snapshot is drawn: the same layout, over the
+        position the frontend stopped at."""
+
+        def draw(snapshot: dict) -> Optional[dict]:
+            try:
+                match = MatchState.from_dict(
+                    snapshot, self.engine.basic_ruleset,
+                )
+                return self._layout(game, match)
+            except Exception:  # pragma: no cover - a frontend's own bug
+                LOGGER.exception(
+                    "The web app could not draw a snapshot for game %s",
+                    game.game_id,
+                )
+                return None
+
+        return draw
+
+    def _title(self, game: D12BallGame, match: Optional[MatchState]) -> str:
+        """The title the bot's board carries: the game's number, both
+        coaches with their teams, and the half."""
         title = (
             f"PBD{game.game_number} - "
             f"{format_player_with_team_name(game, game.home_player_number)}"
             f" vs. "
             f"{format_player_with_team_name(game, game.visiting_player_number)}"
-            f", {period}"
         )
+        return title if match is None else f"{title}, {_period(match)}"
+
+    def _render_board(self, game: D12BallGame, match: MatchState) -> bytes:
+        """Pillow, in a worker thread: the same picture the bot pins,
+        off the same renderer."""
         return render_match_image(
             match,
             self.engine.player_catalog,
-            title=title,
+            title=self._title(game, match),
             species_icons=self.engine.species_abilities_apply(game),
             cyborg_ids=self.engine.cyborg_condition_ids(game, match),
             card_skills=self.engine.card_skills(game, match),
@@ -438,9 +737,15 @@ class WebApp:
     # -- What a page is handed ---------------------------------------
 
     def _state(
-        self, game: D12BallGame, viewer: Viewer, *, since: int = 0,
+        self,
+        game: D12BallGame,
+        viewer: Viewer,
+        *,
+        since: int = 0,
+        chat_since: int = 0,
     ) -> dict:
         journal = self.journal(game.game_id)
+        chat = self.chat(game.game_id)
         match = self._match(game)
         # The one reading of what the match waits on: a question for
         # somebody, or a step the bot owes (`d12ball.prompts.pending`).
@@ -454,6 +759,9 @@ class WebApp:
                 "name": game.game_name,
                 "status": GameStatus(game.status).value,
                 "tutorial": game.tutorial,
+                # The board PNG's own title, which is how the bot
+                # names a game everywhere it pins one.
+                "title": self._title(game, match),
                 "coaches": [
                     self._coach(game, number) for number in (1, 2)
                 ],
@@ -477,6 +785,9 @@ class WebApp:
                     f"?v={journal.board_version}"
                 ),
                 "version": journal.board_version,
+                "layout": (
+                    None if match is None else self._layout(game, match)
+                ),
             },
             "prompt": (
                 None if prompt is None else {
@@ -493,8 +804,12 @@ class WebApp:
                 }
             ),
             "owed": owed,
-            "entries": journal.since(since, game),
+            "entries": journal.since(
+                since, game, self._snapshot_layout(game),
+            ),
             "latest": journal.next_id - 1,
+            "chat": chat.since(chat_since),
+            "chat_latest": chat.next_id - 1,
         }
 
     def _coach(self, game: D12BallGame, player_number: int) -> dict:
@@ -514,6 +829,8 @@ class WebApp:
             # `render.py`'s one hex -- a team is not `.value.title()`
             # anywhere (see docs/design/teams-and-players.md).
             "team": None if team is None else team_display_name(team),
+            # What the team's emoji is filed under (`/emoji/team_<key>.png`).
+            "team_key": None if team is None else Team(team).value,
             "colour": None if team is None else TEAM_COLORS[team],
             "side": side,
         }
@@ -522,11 +839,7 @@ class WebApp:
 def _period(match: MatchState) -> str:
     """The half a coach reads, worded as the board's own title words
     it."""
-    return (
-        "First Half"
-        if match.scoreboard.period.value == "first_half"
-        else "Second Half"
-    )
+    return period_name(match)
 
 
 def _was_offered(sections: list, posted: Mapping[str, Any]) -> bool:
