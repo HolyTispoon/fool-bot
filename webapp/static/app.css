@@ -743,3 +743,38 @@ strong { font-weight: 700; color: var(--strong); }
   .peek { display: none; }
   .hand { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* -- The room: two seats, and who is watching --------------------------- */
+
+.seats { display: flex; flex-direction: column; gap: 6px; }
+.seat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--deep);
+}
+.seat.yours { box-shadow: inset 3px 0 0 var(--yours-edge); background: var(--yours); }
+.seat-label { color: var(--muted); font-size: 12px; font-weight: 700; min-width: 9.5em; }
+.seat-name { color: var(--strong); flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.seat-name.empty { color: var(--faint); font-style: italic; }
+.seat .btn { padding: 2px 10px; min-height: 26px; font-size: 13px; }
+.room-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
+
+.name-dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--deep);
+  border-radius: 8px;
+  padding: 16px;
+  width: min(360px, calc(100vw - 32px));
+}
+.name-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.name-dialog form { display: flex; flex-direction: column; gap: 10px; }
+
+/* -- The front door ----------------------------------------------------- */
+
+body.front { display: grid; place-items: start center; padding: 16px; }
+.front-door { width: min(420px, 100%); margin-top: 12vh; display: flex; flex-direction: column; gap: 12px; }
+.front-door form { display: flex; flex-direction: column; gap: 10px; }

@@ -30,12 +30,11 @@ from d12ball.components import Zone
 from d12ball.prompts import pending_prompt
 from d12ball.render import shooting_range_bands, space_code
 from gamelocks import GameLocks
-from webapp import keys
 from webapp.board import ZONES, board_layout
 from webapp.present import STYLES, Viewer, controls_for
 from webapp.server import WebApp
 from prompt_fixtures import CASES, ENGINE
-from test_web_app import case, service_over
+from test_web_app import as_coach, case, service_over
 
 CARD_URL = "/card/{card}.png"
 GOAL_URL = "/goal/{side}.png"
@@ -237,7 +236,7 @@ class PictureRouteTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_state_carries_the_board_the_page_draws(self) -> None:
         response = await self.client.get(
             f"/api/game/{self.game.game_id}",
-            params={"key": keys.key_for(self.game.game_id, 1)},
+            headers=as_coach(self.game.player_1_id),
         )
         state = await response.json()
 
@@ -304,20 +303,21 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         await self.client.start_server()
         self.addAsyncCleanup(self.client.close)
 
-    async def say(self, text: str, key: str = "", since: int = 0):
+    async def say(self, text: str, headers=None, since: int = 0):
         return await self.client.post(
             f"/api/game/{self.game.game_id}/chat",
-            params={"key": key, "chat_since": str(since)},
+            params={"chat_since": str(since)},
+            headers=headers or {},
             json={"text": text},
         )
 
     async def test_a_coach_talks_under_their_name_and_an_observer_as_one(
         self,
     ) -> None:
-        coach = keys.key_for(self.game.game_id, 1)
+        coach = as_coach(self.game.player_1_id)
         before = dict(self.game.match_state)
 
-        await self.say("good luck", key=coach)
+        await self.say("good luck", headers=coach)
         response = await self.say("  watching  ")
         state = await response.json()
 

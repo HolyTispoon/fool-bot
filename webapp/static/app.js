@@ -13,7 +13,6 @@
  */
 
 const GAME_ID = location.pathname.split("/").pop();
-const KEY = new URLSearchParams(location.search).get("key") || "";
 const POLL_MS = 2500;
 
 /* The width the board is laid out at; it is scaled to fit its box,
@@ -67,12 +66,65 @@ function s(tag, attrs, ...children) {
 
 // -- Talking to the server ---------------------------------------------
 
+/* Who is reading is the cookie `POST /api/me` set
+   (webapp/identity.py), which the browser sends with every request. */
 function api(path, options) {
-  const join = path.includes("?") ? "&" : "?";
-  const key = KEY ? `${join}key=${encodeURIComponent(KEY)}` : "";
-  return fetch(`/api/game/${GAME_ID}${path}${key}`, {
+  return fetch(`/api/game/${GAME_ID}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...options,
+  });
+}
+
+/* A move on the room rather than the game: a seat taken, left or
+   kicked, or the admin role. The record refuses with its sentence. */
+async function roomMove(path, body) {
+  if (busy) return;
+  busy = true;
+  try {
+    const response = await fetch(`/api/room/${GAME_ID}${path}?${cursors()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+    const text = await response.text();
+    let state = null;
+    try { state = JSON.parse(text); } catch (error) { /* a plain refusal */ }
+    if (state && state.game) draw(state);
+    else showRefusal(text || "That did not reach the room.");
+  } catch (error) {
+    showRefusal("That did not reach the room. Try again in a moment.");
+  } finally {
+    busy = false;
+  }
+}
+
+/* Somebody the server does not know yet is asked for a name first. */
+async function whoAmI() {
+  try {
+    const response = await fetch("/api/me");
+    if (response.ok && (await response.json())) return;
+  } catch (error) {
+    /* Asked for below, and the poll retries the rest. */
+  }
+  const dialog = el("name-dialog");
+  dialog.showModal();
+  dialog.addEventListener("cancel", (event) => event.preventDefault());
+  await new Promise((resolve) => {
+    el("name-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const response = await fetch("/api/me", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: el("name-input").value }),
+      });
+      if (response.ok) {
+        dialog.close();
+        resolve();
+      } else {
+        el("name-error").textContent = await response.text();
+        el("name-error").hidden = false;
+      }
+    });
   });
 }
 
@@ -133,6 +185,7 @@ function draw(state) {
   drawJournal(state);
   drawChat(state);
   drawPrompt(state);
+  drawRoom(state);
   if (state.refusal) showRefusal(state.refusal);
   el("owed").hidden = !(state.owed && state.you.is_coach);
   const yours = Boolean(state.prompt && state.prompt.yours);
@@ -161,6 +214,54 @@ function drawHeader(state) {
   } else {
     you.append("You are watching");
   }
+  if (state.you.coach) you.prepend(h("strong", {}, state.you.coach.name), " · ");
+}
+
+// -- The room -------------------------------------------------------------
+
+/* The two seats as the server names them -- Coach 1 and Coach 2 until
+   the coin, then Home and Visitors -- with what this reader may do to
+   each. Whether a move stands is the record's; a refused one comes
+   back with its sentence. */
+function drawRoom(state) {
+  const room = state.room;
+  el("room").hidden = false;
+  const seated = room.seats.some((seat) => seat.yours);
+  el("seats").replaceChildren(
+    ...room.seats.map((seat) => {
+      const buttons = [];
+      if (seat.yours) {
+        buttons.push(h("button", {
+          type: "button", class: "btn secondary",
+          onclick: () => roomMove("/seat/leave"),
+        }, "Leave"));
+      } else if (seat.free && !seated) {
+        buttons.push(h("button", {
+          type: "button", class: "btn primary",
+          onclick: () => roomMove("/seat/take", { seat: seat.number }),
+        }, "Take"));
+      }
+      if (room.admin && seat.name && !seat.yours && !seat.ai) {
+        buttons.push(h("button", {
+          type: "button", class: "btn danger",
+          onclick: () => {
+            if (confirm(`Are you sure? ${seat.name} will lose ${seat.label}.`)) {
+              roomMove("/seat/kick", { seat: seat.number });
+            }
+          },
+        }, "Kick"));
+      }
+      return h("div", { class: `seat${seat.yours ? " yours" : ""}` },
+        h("span", { class: "seat-label" }, seat.label),
+        h("span", { class: `seat-name${seat.name ? "" : " empty"}` },
+          seat.name || "Empty", seat.yours ? " (you)" : ""),
+        ...buttons,
+      );
+    }),
+  );
+  el("watching").textContent =
+    room.observers === 1 ? "1 watching" : `${room.observers} watching`;
+  el("become-admin").hidden = room.admin;
 }
 
 // -- The jumbotron -------------------------------------------------------
@@ -867,6 +968,18 @@ function hidePeek() {
 // -- Wiring ------------------------------------------------------------------
 
 el("pick-up").addEventListener("click", pickUp);
+el("become-admin").addEventListener("click", () => {
+  if (confirm("Take the admin role for this room?")) roomMove("/admin");
+});
+el("copy-link").addEventListener("click", async () => {
+  const link = `${location.origin}/room/${GAME_ID}`;
+  try {
+    await navigator.clipboard.writeText(link);
+    el("copy-link").textContent = "Copied";
+  } catch (error) {
+    window.prompt("The room's link:", link);
+  }
+});
 el("dismiss").addEventListener("click", () => { el("refusal").hidden = true; });
 el("viewer-close").addEventListener("click", () => el("viewer").close());
 el("viewer").addEventListener("click", (event) => {
@@ -912,4 +1025,4 @@ for (const tab of document.querySelectorAll(".tab")) {
 document.fonts.ready.then(() => {
   for (const stageNode of document.querySelectorAll(".stage")) clampNames(stageNode);
 });
-poll();
+whoAmI().then(poll);

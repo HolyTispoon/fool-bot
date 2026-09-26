@@ -37,7 +37,8 @@ from d12ball.components import TeamSide
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
 from gamesaves.d12ball import storage
 from gamesaves.d12ball.service import GameService
-from webapp import keys, server
+from webapp import identity, server
+from webapp.identity import Coach
 from webapp.present import CONTROLS, Viewer, controls_for, render_text
 from webapp.server import WebApp, _was_offered
 from prompt_fixtures import (
@@ -55,6 +56,17 @@ def service_over(fixture: PromptFixture) -> GameService:
     return GameService(
         ENGINE, {fixture.game.game_id: fixture.game}, save=lambda games: None,
     )
+
+
+def as_coach(coach_id: int, name: str = None) -> dict:
+    """The request headers of somebody whose cookie names `coach_id`
+    -- a browser that said who it is (`webapp/identity.py`)."""
+    coach = Coach(coach_id, name or f"Coach {coach_id}")
+    return {"Cookie": f"{identity.COOKIE}={identity.encode(coach)}"}
+
+
+#: Somebody with a name who holds neither seat of a fixture's game.
+STRANGER = 999
 
 
 def case(name: str) -> PromptFixture:
@@ -317,7 +329,7 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         ENGINE.rng.seed(11)
         self.client, self.game = await self.open("kickoff")
-        self.key = keys.key_for(self.game.game_id, 1)
+        self.coach = as_coach(self.game.player_1_id)
 
     async def open(self, name: str):
         """A server over one fixture, and a client on it."""
@@ -333,19 +345,21 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(self.web.stop)
         return client, fixture.game
 
-    async def state(self, key: str = None) -> dict:
+    async def state(self, headers: dict = None) -> dict:
         response = await self.client.get(
             f"/api/game/{self.game.game_id}",
-            params={"key": key if key is not None else self.key},
+            headers=headers if headers is not None else self.coach,
         )
         self.assertEqual(response.status, 200)
         return await response.json()
 
-    async def press(self, action: dict, *, key: str = None, since: int = 0):
+    async def press(
+        self, action: dict, *, headers: dict = None, since: int = 0,
+    ):
         return await self.client.post(
             f"/api/game/{self.game.game_id}/action",
-            params={"key": key if key is not None else self.key,
-                    "since": str(since)},
+            params={"since": str(since)},
+            headers=headers if headers is not None else self.coach,
             data=json.dumps({"action": action}),
         )
 
@@ -362,7 +376,7 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         mine = await self.state()
-        theirs = await self.state(key="not-a-key")
+        theirs = await self.state(headers=as_coach(STRANGER))
 
         self.assertTrue(mine["you"]["is_coach"])
         self.assertTrue(mine["prompt"]["yours"])
@@ -406,7 +420,9 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         state = await self.state()
         before = dict(self.game.match_state)
 
-        response = await self.press(self.live(state)["action"], key="not-a-key")
+        response = await self.press(
+            self.live(state)["action"], headers=as_coach(STRANGER),
+        )
 
         self.assertEqual(response.status, 409)
         self.assertEqual(self.game.match_state, before)
@@ -425,7 +441,8 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         self.service.apply_action(self.game.game_id, action)
         caught_up = await self.client.get(
             f"/api/game/{self.game.game_id}",
-            params={"key": self.key, "since": str(state["latest"])},
+            params={"since": str(state["latest"])},
+            headers=self.coach,
         )
         page = await caught_up.json()
 
@@ -477,44 +494,6 @@ class EntryPointTests(unittest.TestCase):
             service = server.build_service(Path(directory) / "web.json")
 
         self.assertEqual(service.batching, GameService(None, {}).batching)
-
-
-class KeyTests(unittest.TestCase):
-    """Who is on the other end of a request."""
-
-    def setUp(self) -> None:
-        self.game_id = "g1"
-
-    def test_a_key_names_the_coach_it_was_made_for(self) -> None:
-        for player_number in (1, 2):
-            with self.subTest(player_number):
-                self.assertEqual(
-                    keys.player_number_for(
-                        self.game_id, keys.key_for(self.game_id, player_number),
-                    ),
-                    player_number,
-                )
-
-    def test_the_two_coaches_of_a_game_have_different_keys(self) -> None:
-        self.assertNotEqual(
-            keys.key_for(self.game_id, 1), keys.key_for(self.game_id, 2),
-        )
-
-    def test_a_key_is_for_one_game(self) -> None:
-        self.assertIsNone(
-            keys.player_number_for("g2", keys.key_for(self.game_id, 1)),
-        )
-
-    def test_no_key_is_nobody(self) -> None:
-        self.assertIsNone(keys.player_number_for(self.game_id, None))
-        self.assertIsNone(keys.player_number_for(self.game_id, ""))
-        self.assertIsNone(keys.player_number_for(self.game_id, "0" * 16))
-
-    def test_a_link_carries_the_key(self) -> None:
-        link = keys.link_for(self.game_id, 2)
-
-        self.assertIn(self.game_id, link)
-        self.assertIn(keys.key_for(self.game_id, 2), link)
 
 
 if __name__ == "__main__":
