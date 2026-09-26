@@ -298,7 +298,8 @@ value the record cannot read is a 400, a bug in the page and not a
 rule. A test game's one coach holds both seats and names which one a
 pick is for.
 
-**There is no Begin button.** The match is dealt by the choice, or by
+**There is no Begin button, and none is wanted** (the author,
+2026-09-26: "no begin button necessary"). The match is dealt by the choice, or by
 the toss where the AI won it and chose, and the route runs `begin` in
 the same request -- which is what the cog does straight after either.
 A separate Begin would need a reading of "dealt, and its pre-kickoff

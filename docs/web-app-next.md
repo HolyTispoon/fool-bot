@@ -465,7 +465,9 @@ the record (`open_settings`, `teams_open_to`, `coin_is_owed`,
 `home_choice_owed_by`, `home_choice_rail`), the rematch as
 `GameService.rematch`, and why there is no separate Begin -- the
 match has no reading of "dealt, not begun", so `begin` runs in the
-request that deals it.
+request that deals it, and the author settled on 2026-09-26 that no
+Begin button is needed. The tutorial is a training game however it is
+made (`D12BallGame.pin_tutorial`, the author, the same day).
 
 **What it is.** Everything between two seats claimed and the first
 prompt, and the rematch at the end, all of it over service methods
