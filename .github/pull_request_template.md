@@ -3,7 +3,8 @@ Write the body as prose. The reviewer is the other developer, and what they
 need is the reasoning the diff cannot show them: why this shape and not the
 obvious one, what it costs, what it deliberately leaves alone.
 
-Delete any heading below that has nothing to say. Keep the checklist.
+Delete any heading below that has nothing to say, except "Questions to the
+author", which every PR keeps. Keep the checklist.
 -->
 
 ## What this changes
@@ -19,9 +20,22 @@ The decisions worth arguing about, and the ones already settled so nobody
 re-opens them in review: what was tried and dropped, what is deliberate
 rather than incidental, what a later change must not undo.
 
-Rules questions go to the author as inline comments on the diff rather than
-in this body — they get answered where they can be versioned.
+Questions for the author go under "Questions to the author" below.
 -->
+
+## Questions to the author
+
+<!--
+Every PR has this section, even with nothing in it: write "None." rather than
+deleting the heading, so a reviewer can tell "no questions" from "forgot".
+
+List each open question, one per bullet, worded so it can be answered on its
+own. A rules question also goes as an inline comment on the line of the diff
+it is about, where the answer can be versioned; list it here as well, so none
+is missed.
+-->
+
+None.
 
 ## Testing
 
