@@ -26,7 +26,7 @@ A handler can do three things: shoot, maneuver, or call a time out to buy both c
 --- prompt PLAYER_ACTION
 {team:orange} {coach:1}, it is your turn.
 
-Sizzifizik {role:playmaker:orange} will be handling the ball.
+Synapse {role:playmaker:orange} will be handling the ball.
 
 Out of shooting range. Maneuver, or take a time out:
 === action 3: PLAYER_ACTION 'maneuver' {}
@@ -61,7 +61,7 @@ Dinky's playmaker is standing on the ball, so they are the one challenging you.
 {team:orange} {coach:1}, choose your Dribble Advance distance (Playmaker ability):
 === action 6: DRIBBLE_ADVANCE_CHOICE '' {"distance": 2}
 --- answer
-**Dribble Advance:** {team:orange} Sizzifizik {role:playmaker:orange} and the ball move forward 2 spaces (Playmaker ability).
+**Dribble Advance:** {team:orange} Synapse {role:playmaker:orange} and the ball move forward 2 spaces (Playmaker ability).
 --- prompt TUTORIAL_CONTINUE
 ### Ball speed
 You get a choice here too: the ball's own speed, up to your player's skill. It cuts both ways -- a faster ball adds to *your* next score attempt, but it adds just as much to a defense stealing it off you with Steal. We will come back to it properly in a few turns, when it actually matters. This turn it does not: the turnover in beat 2 resets it to 1 regardless, so **pick whatever you like.**
@@ -88,7 +88,7 @@ You are on space 6 now, which is inside your shooting range, so the **Shoot** bu
 --- prompt PLAYER_ACTION
 {team:orange} {coach:1}, it is your turn.
 
-The ball was left with Sizzifizik {role:playmaker:orange}, who takes this turn.
+The ball was left with Synapse {role:playmaker:orange}, who takes this turn.
 
 Choose an action:
 === action 10: PLAYER_ACTION 'maneuver' {}
@@ -112,10 +112,10 @@ Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is 
 
 **Low Pass** ties with **Deflect** — skill test!
 
-{team:orange} Sizzifizik {role:playmaker:orange}: offense skill 4
+{team:orange} Synapse {role:playmaker:orange}: offense skill 4
 {team:purple} Dravox {role:defender:purple}: defense skill 5
 
-{team:orange} Sizzifizik {role:playmaker:orange} adds 1 exhaustion {condition:exhaust} (now 1 total).
+{team:orange} Synapse {role:playmaker:orange} adds 1 exhaustion {condition:exhaust} (now 1 total).
 {team:purple} Dravox {role:defender:purple} adds 1 exhaustion {condition:exhaust} (now 1 total).
 --- prompt SKILL_TEST
 Either player can roll:
@@ -133,13 +133,13 @@ The ball is at **space 5** (Midfield). # Turnover!
 # Players run back!
 Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
 --- prompt RUN_BACK_SPACE
-{coach:1}, choose where {team:orange} Sizzifizik {role:playmaker:orange} runs back to:
+{coach:1}, choose where {team:orange} Synapse {role:playmaker:orange} runs back to:
 Space 4 (2 away) or space 5 (1 away).
 --- board changed
 === action 14: RUN_BACK_SPACE '' {"space_index": 1}
 --- answer
-{team:orange} Sizzifizik {role:playmaker:orange} runs back to space 4.
-{team:orange} Sizzifizik {role:playmaker:orange} adds 2 exhaustion {condition:exhaust}{condition:exhaust} (now 3 total).
+{team:orange} Synapse {role:playmaker:orange} runs back to space 4.
+{team:orange} Synapse {role:playmaker:orange} adds 2 exhaustion {condition:exhaust}{condition:exhaust} (now 3 total).
 --- prompt TUTORIAL_CONTINUE
 Ball is now in space 5, Purple (Visiting) has possession. Time has advanced 1, now at 02.
 
@@ -155,11 +155,11 @@ Once your challenger is in position, Dinky moves, and then you are asked for a c
 {team:purple} Glompex {role:midfielder:purple} will maneuver for Purple.
 
 {team:orange} {coach:1}, choose which player will move to challenge the maneuver, or send nobody and let it through.
-=== action 16: MANEUVER_CHALLENGE 'send' {"player_id": "sizzifizik_playmaker"}
+=== action 16: MANEUVER_CHALLENGE 'send' {"player_id": "synapse_playmaker"}
 --- prompt TUTORIAL_CONTINUE
-Sizzifizik has moved 1 space.
-{team:orange} Sizzifizik {role:playmaker:orange} adds 1 exhaustion {condition:exhaust} (now 4 total).
-{team:orange} Sizzifizik {role:playmaker:orange} is now *exhausted* {condition:exhausted}
+Synapse has moved 1 space.
+{team:orange} Synapse {role:playmaker:orange} adds 1 exhaustion {condition:exhaust} (now 4 total).
+{team:orange} Synapse {role:playmaker:orange} is now *exhausted* {condition:exhausted}
 
 ### The other three cards
 Defending, your hand is the other half of the cycle:
@@ -182,7 +182,7 @@ Defending, your hand is the other half of the cycle:
 {team:purple} Dinky AI chose **Dribble Advance**.
 {team:orange} Player 1 chose **Pressure**.
 
-## **Pressure** wins! **Pressure:** {team:purple} Glompex {role:midfielder:purple} and the ball go back 1 space. {team:orange} Sizzifizik {role:playmaker:orange} moves forward.
+## **Pressure** wins! **Pressure:** {team:purple} Glompex {role:midfielder:purple} and the ball go back 1 space. {team:orange} Synapse {role:playmaker:orange} moves forward.
 
 Ball is now in space 6, Purple (Visiting) has possession. Time has advanced 1, now at 03.
 
@@ -196,7 +196,7 @@ Now take it off them.
 {team:purple} Glompex {role:midfielder:purple} will maneuver for Purple.
 
 {team:orange} {coach:1}, these players are already on the ball, so one of them has to challenge -- choose which.
-=== action 20: MANEUVER_CHALLENGE 'send' {"player_id": "sizzifizik_playmaker"}
+=== action 20: MANEUVER_CHALLENGE 'send' {"player_id": "synapse_playmaker"}
 --- prompt TUTORIAL_CONTINUE
 ### Turnovers, the run back, and ball speed
 **Pick Steal.** Dinky is playing Low Pass, and Steal beats it -- the ball will be yours again!
@@ -219,7 +219,7 @@ Then you get to set the **ball's speed**, up to your stealer's defensive skill. 
 
 ## **Steal** wins! **Steal:**
 # Turnover!
-{team:orange} Sizzifizik {role:playmaker:orange} steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
+{team:orange} Synapse {role:playmaker:orange} steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
 # Players run back!
 Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
@@ -250,7 +250,7 @@ A High Pass of exactly 2 spaces lands on space 7. A pass that reaches a teammate
 --- prompt PLAYER_ACTION
 {team:orange} {coach:1}, it is your turn.
 
-The ball was left with Sizzifizik {role:playmaker:orange}, who takes this turn.
+The ball was left with Synapse {role:playmaker:orange}, who takes this turn.
 
 Choose an action:
 === action 25: PLAYER_ACTION 'maneuver' {}
@@ -304,7 +304,7 @@ Orange 1:0 Purple
 --- group BEGIN_RUN_BACK drawn new-play
 # New play
 Both teams reset to the positions their coaches last set:
-{team:orange} Sizzifizik {role:playmaker:orange} to space 4
+{team:orange} Synapse {role:playmaker:orange} to space 4
 {team:purple} Glompex {role:midfielder:purple} to space 5
 {team:purple} Dravox {role:defender:purple} to space 6
 --- group action COACHING_OFFER 'decline'

@@ -418,8 +418,14 @@ def fitted_title(
 # the most common way it happens, so it goes there and nowhere else.
 # The sentence still comes from players.json; only the placement is
 # here.
+#
+# The Playmaker's sentence says "Dribble maneuvers" since the sheet of
+# 2026-09-26, which names neither card, so it is placed on Dribble
+# Advance by hand. Dribble Burst keeps its own note below: what the
+# ability does on a Burst is still the author's ruling of 2026-08-19.
 EXTRA_ROLES: dict[str, tuple[str, ...]] = {
     "high_pass": ("striker",),
+    "dribble_advance": ("playmaker",),
 }
 
 # What a maneuver's own rules add to it, where no role ability names it

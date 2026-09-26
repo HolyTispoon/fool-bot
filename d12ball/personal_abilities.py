@@ -58,7 +58,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "brightburn_striker": (
         PersonalAbility.BRIGHT_BURN,
-        "When burns: opponent does not upgrade maneuver, remove 1 "
+        "When burns: opponent does not upgrade maneuver, clear 1 "
         "exhaustion.",
     ),
     "bulwark_fullback": (
@@ -75,7 +75,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "strider_midfielder": (
         PersonalAbility.EFFICIENT_RUN,
-        "Recharges 2 when stays put. Max 1 drain when runs back.",
+        "Charge-up 2 when stays put. Max 1 drain when runs back.",
     ),
     "synapse_playmaker": (
         PersonalAbility.OVERDRIVE_UPGRADE,
@@ -95,8 +95,8 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "goopkeeper_fullback": (
         PersonalAbility.FULL_BLOCK,
-        "Contributes full block against score attempts when not on the "
-        "ball.",
+        "Always counts as 'on the ball' when defending against score "
+        "attempts.",
     ),
     "acidel_striker": (
         PersonalAbility.PRESSURE_SHOT,
@@ -117,7 +117,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "quantor_winger": (
         PersonalAbility.RUN_ON,
-        "Before resolving High Pass or Setup Pass, add 3 drain to move "
+        "Before resolving High Pass or Setup Pass, drain 3 to move "
         "Quantor to the target space of the pass. Quantor gains "
         "possession without contest.",
     ),
@@ -131,6 +131,7 @@ ADVANCED_SKILL_SENTENCES: dict[str, str] = {
     "hellguard_fullback": "High defensive skill.",
     "tachyon_striker": "High defensive skill.",
     "ozul_playmaker": "High offensive and defensive skills.",
+    "gurgoth_defender": "High offensive and defensive skills.",
 }
 
 # The numbers, beside the ones they replace in d12ball/components.py.

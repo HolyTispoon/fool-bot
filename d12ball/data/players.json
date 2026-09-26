@@ -25,7 +25,7 @@
     "playmaker": {
       "offense": 4,
       "defense": 3,
-      "ability": "May advance 2 spaces when resolving Dribble Advance.",
+      "ability": "May advance an additional space when resolving Dribble maneuvers.",
       "ability_short": "Dribble Advance up to 2"
     },
     "winger": {
@@ -63,7 +63,7 @@
       "role": "striker",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "When burns: opponent does not upgrade maneuver, remove 1 exhaustion.",
+      "advanced_ability": "When burns: opponent does not upgrade maneuver, clear 1 exhaustion.",
       "advanced_skills": {}
     },
     "bulwark_fullback": {
@@ -95,7 +95,7 @@
       "role": "winger",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "When making a scoring opportunity, only defender on the ball contribute their skill scores.",
       "advanced_skills": {}
     },
     "flux_defender": {
@@ -121,7 +121,7 @@
       "role": "midfielder",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Before selecting a maneuver, if Glomplex is in a space adjacent to the move they may gain 1 exhaustion to move to the ball's space and Merge.",
       "advanced_skills": {}
     },
     "goopkeeper_fullback": {
@@ -129,7 +129,7 @@
       "role": "fullback",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "Contributes full block against score attempts when not on the ball.",
+      "advanced_ability": "Always counts as 'on the ball' when defending against score attempts.",
       "advanced_skills": {}
     },
     "gurgoth_defender": {
@@ -137,8 +137,11 @@
       "role": "defender",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "",
-      "advanced_skills": {}
+      "advanced_ability": "High offensive and defensive skills.",
+      "advanced_skills": {
+        "offense": 5,
+        "defense": 6
+      }
     },
     "hellguard_fullback": {
       "name": "Hellguard",
@@ -164,7 +167,7 @@
       "role": "defender",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Ball speed to 12 when touches the ball.",
       "advanced_skills": {}
     },
     "kindlefinger_striker": {
@@ -172,7 +175,7 @@
       "role": "striker",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Can iginite on injury test: when blazes clear 1 exhaustion and when burns add 1 exhaustion.",
       "advanced_skills": {}
     },
     "noxar_striker": {
@@ -199,7 +202,7 @@
       "role": "striker",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Charge-up when receives the ball.",
       "advanced_skills": {}
     },
     "quantor_winger": {
@@ -207,7 +210,7 @@
       "role": "winger",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "Before resolving High Pass or Setup Pass, add 3 drain to move Quantor to the target space of the pass. Quantor gains possession without contest.",
+      "advanced_ability": "Before resolving High Pass or Setup Pass, drain 3 to move Quantor to the target space of the pass. Quantor gains possession without contest.",
       "advanced_skills": {}
     },
     "quillon_playmaker": {
@@ -223,7 +226,7 @@
       "role": "midfielder",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Forces a skill test even when their maneuver is on the losing side but gains 2 exhaustion while opponent gains none (additional tests due to ties add 1 exhaustion per player as normal).",
       "advanced_skills": {}
     },
     "sizzifizik_playmaker": {
@@ -239,7 +242,7 @@
       "role": "striker",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Auto wins contests for high pass and loose ball.",
       "advanced_skills": {}
     },
     "spectra_midfielder": {
@@ -255,7 +258,7 @@
       "role": "winger",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Smooth (eammate sharing space may handover ball handling.)",
       "advanced_skills": {}
     },
     "strider_midfielder": {
@@ -263,7 +266,7 @@
       "role": "midfielder",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "Recharges 2 when stays put. Max 1 drain when runs back.",
+      "advanced_ability": "Charge-up 2 when stays put. Max 1 drain when runs back.",
       "advanced_skills": {}
     },
     "synapse_playmaker": {
@@ -289,7 +292,7 @@
       "role": "fullback",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Uses dSkill for own goal attempts and high pass skill tests.",
       "advanced_skills": {}
     },
     "viscor_defender": {
@@ -313,7 +316,7 @@
       "role": "defender",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "When successfully high passes for 3: speed ball to 12 and set up a scoring opportunity without contest.",
       "advanced_skills": {}
     },
     "zenith_winger": {
@@ -321,7 +324,7 @@
       "role": "winger",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Fly: before runback,  can be moved anywhere on the board gaining exhaustion as normal. Does not run back if moved by Fly.",
       "advanced_skills": {}
     },
     "zorch_playmaker": {
@@ -329,7 +332,7 @@
       "role": "playmaker",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Does not add exhaustion when rolling skill tests (including after ties).",
       "advanced_skills": {}
     },
     "zytheris_striker": {
@@ -337,61 +340,61 @@
       "role": "striker",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "",
+      "advanced_ability": "Gets a scoring opportunity when receiving any pass.",
       "advanced_skills": {}
     }
   },
   "teams": {
     "orange": {
       "player_ids": [
-        "blazebulk_defender",
-        "sizzifizik_playmaker",
-        "flickerwing_winger",
         "voltus_defender",
         "synapse_playmaker",
         "spectra_midfielder",
         "noxar_striker",
         "goopkeeper_fullback",
-        "acidel_striker"
+        "acidel_striker",
+        "blazebulk_defender",
+        "sizzifizik_playmaker",
+        "flickerwing_winger"
       ]
     },
     "teal": {
       "player_ids": [
-        "kindlefinger_striker",
-        "inferno_defender",
         "bulwark_fullback",
         "strider_midfielder",
         "pulsar_striker",
         "vorix_defender",
         "zenith_winger",
         "ozul_playmaker",
-        "zorch_playmaker"
+        "zorch_playmaker",
+        "kindlefinger_striker",
+        "inferno_defender"
       ]
     },
     "purple": {
       "player_ids": [
-        "hellguard_fullback",
-        "emberdash_playmaker",
         "quantor_winger",
         "tachyon_striker",
         "dravox_defender",
         "quillon_playmaker",
         "zytheris_striker",
         "glompex_midfielder",
-        "viscor_defender"
+        "viscor_defender",
+        "hellguard_fullback",
+        "emberdash_playmaker"
       ]
     },
     "slime": {
       "player_ids": [
-        "scorchit_midfielder",
-        "brightburn_striker",
         "flux_defender",
         "gearclaw_playmaker",
         "umbrik_fullback",
         "hexis_playmaker",
         "gurgoth_defender",
         "spritz_winger",
-        "slitheron_striker"
+        "slitheron_striker",
+        "scorchit_midfielder",
+        "brightburn_striker"
       ]
     },
     "fire_demons": {

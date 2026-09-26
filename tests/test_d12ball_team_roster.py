@@ -11,6 +11,7 @@ that is the decision it exists for.
 """
 
 import unittest
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest import mock
 
@@ -323,7 +324,6 @@ class PersonalAbilityRosterTests(unittest.TestCase):
             for player_id, _ in members
         ]
         self.holder = next(p for p in players if p.advanced_ability)
-        self.without = next(p for p in players if not p.advanced_ability)
 
     def entry(self, game: D12BallGame, player, **flags) -> str:
         return self.cog.format_team_roster_entry(
@@ -353,8 +353,21 @@ class PersonalAbilityRosterTests(unittest.TestCase):
         )
 
     def test_a_player_with_no_personal_ability_gets_no_line(self) -> None:
+        # Nearly every player on the sheet has one now, and which do
+        # not is the sheet's to revise, so the test takes the ability
+        # away rather than looking for somebody without one.
         game = build_game(mode=GameMode.ADVANCED)
-        self.assertNotIn("\n", self.entry(game, self.without))
+        engine = self.cog.engine
+        definition = engine.get_player_definition
+        with mock.patch.object(
+            engine,
+            "get_player_definition",
+            side_effect=lambda player_id: replace(
+                definition(player_id), advanced_ability="",
+            ),
+        ):
+            line = self.entry(game, self.holder)
+        self.assertNotIn("\n", line)
 
     def test_no_other_mode_shows_a_personal_ability(self) -> None:
         for game in (
