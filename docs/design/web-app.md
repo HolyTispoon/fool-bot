@@ -168,7 +168,14 @@ number into somebody else's. A cookie is per device, so another
 device is another person as far as the room knows; that is why a seat
 is left and taken again rather than shared. With no secret set,
 identities die with the process, which is the safe default the old
-per-game links had.
+per-game links had. **Leaving the app** (`DELETE /api/me`,
+`identity.clear_cookie`) is the reverse of the first visit: it forgets
+the cookie and nothing else, so a seat held under it stays held --
+leaving is not vacating a seat, the way closing the browser never was.
+A rename (`POST /api/me` again) already kept the id; leaving and a
+rename are both offered beyond the front door's first-visit form now,
+as "Change name" / "Leave the app" in a room and "Save name" / "Leave"
+at the front door (the author, 2026-09-25).
 
 **A room is a game record.** It already has everything a room needs:
 an id, a number, two seats, a status, the settings. `POST /api/rooms`
@@ -261,17 +268,24 @@ two seats claimed and the first prompt, and the rematch at the end.
 
 **The front door** (`/`) lists the reader's rooms by where each
 stands -- the lobby, the rest of setup, playing, finished -- and the
-rooms with a seat free (`GET /api/rooms`), and opens a room two ways:
-a room for two, in its lobby, or one against the AI (`POST /api/rooms`
-with `{"ai": true}`), which is `create_game` with nobody in the other
-seat and no lobby -- the service fills the seat with its default AI,
-so nothing in `webapp/` names one. Either may be the tutorial,
-`create_game(tutorial=True)`, which the record pins to Training on the
-7-space board (`D12BallGame.pin_tutorial`) -- a tutorial room in its
-lobby has no second seat to take, and its Start seats the AI there. A
-room that never started may be closed
+rooms with a seat free (`GET /api/rooms`), and opens a room the one
+way, "Create a new game room": `POST /api/rooms` is always
+`create_game(in_lobby=True, ai_seats=[])`, the creator in seat 1. The
+AI and the tutorial are the lobby's own choices from there, not the
+front door's (the author reversed the original two-buttons-and-a-
+checkbox front door on 2026-09-25, so both read the same on the web as
+they do on Discord): whoever is seated puts the AI in the empty seat
+(`POST /api/room/{id}/seat/ai`, `seat_ai`, "Put Dinky in" on the
+page), and the table's `tutorial` setting
+(`POST /api/room/{id}/table/configure`) pins Training on the 7-space
+board (`D12BallGame.pin_tutorial`) while nobody else has joined -- a
+tutorial room's Start seats the AI in the second seat that pin closed
+off. A room that never started may be closed
 (`DELETE /api/room/{id}`, `discard_game`, whose refusal answers 409)
-by somebody seated or its admin.
+by somebody seated or its admin. A room's own row in "Your rooms" is
+renamed the same way, straight off the front door
+(the table's `name` setting), and the whole row -- not just the
+name -- opens it.
 
 **The table is in the prompt's place until kickoff**, drawn from the
 state's `table` and nothing else: the settings, both seats and the

@@ -244,7 +244,7 @@ class PictureRouteTests(unittest.IsolatedAsyncioTestCase):
             len(state["board"]["layout"]["spaces"]),
             self.match.board.layout.board_size,
         )
-        self.assertTrue(state["game"]["title"].startswith("PBD"))
+        self.assertTrue(state["game"]["title"].startswith("PBW"))
 
     async def test_a_card_this_game_holds_is_served_both_faces(self) -> None:
         card_id = self.match.home.zones[Zone.MIDFIELD][0]

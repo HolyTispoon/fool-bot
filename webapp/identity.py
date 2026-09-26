@@ -169,3 +169,10 @@ def set_cookie(
         secure=request.secure,
         path="/",
     )
+
+
+def clear_cookie(response: web.StreamResponse) -> None:
+    """Leaving the app: forget the cookie. Nothing else is stored, so
+    this is the whole of it -- the next request is nobody until it
+    says a name again."""
+    response.del_cookie(COOKIE, path="/")

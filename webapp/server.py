@@ -321,6 +321,7 @@ class WebApp:
                 web.get("/", self.index),
                 web.get("/api/me", self.who_am_i),
                 web.post("/api/me", self.call_me),
+                web.delete("/api/me", self.forget_me),
                 web.get("/api/rooms", self.list_rooms),
                 web.post("/api/rooms", self.open_room),
                 web.get("/room/{game_id}", self.page),
@@ -488,6 +489,17 @@ class WebApp:
         identity.set_cookie(response, request, coach)
         return response
 
+    async def forget_me(self, request: web.Request) -> web.Response:
+        """
+        Leave the app: forget this browser's cookie. A seat held under
+        it stays held until somebody takes it or an admin kicks it --
+        leaving is not vacating a seat, the way closing the browser
+        never was.
+        """
+        response = web.json_response({})
+        identity.clear_cookie(response)
+        return response
+
     async def page(self, request: web.Request) -> web.Response:
         """A room's page. Everything on it arrives from the API below,
         so this is the same file for every room; its link is good for
@@ -559,42 +571,25 @@ class WebApp:
 
     async def open_room(self, request: web.Request) -> web.Response:
         """
-        A new room, the creator in seat 1 (`GameService.create_game`,
-        as the Discord hub opens one). The page goes to the link this
-        answers.
+        A new room, the creator in seat 1 in its lobby
+        (`GameService.create_game`, as the Discord hub opens one). The
+        page goes to the link this answers.
 
-        `{"ai": true}` is "Play against the AI": no lobby and nobody
-        in the other seat, which the service fills with its default AI
-        -- the AI is the service's to name, not this frontend's.
-        `{"tutorial": true}` is the scripted opening, which
-        `create_game` pins to what a tutorial is played as -- Training
-        on the 7-space board, one player (`D12BallGame.pin_tutorial`).
+        The AI and the tutorial are both the lobby's to decide, not
+        this route's: `ai_seats=[]` says outright that no seat is the
+        AI's, so a seat nobody holds is empty rather than the AI's,
+        and whoever is seated puts the AI in it from there
+        (`POST /api/room/{id}/seat/ai`); the tutorial is the table's
+        `tutorial` setting (`POST /api/room/{id}/table/configure`),
+        open only while nobody else has joined.
         """
         coach = self._required_coach(request)
-        body = await _body(request) if request.can_read_body else {}
-        against_ai = body.get("ai") is True
-        scripted = body.get("tutorial") is True
-        if against_ai:
-            # `ai_seats=[2]`: the room says outright which seat the AI
-            # holds, as every room's record does.
-            game = self.service.create_game(
-                player_1_id=coach.id,
-                player_1_name=coach.name,
-                tutorial=scripted,
-                ai_seats=[2],
-            )
-        else:
-            # `ai_seats=[]`: a room says outright that no seat is the
-            # AI's, so a seat nobody holds is empty rather than the
-            # AI's. A tutorial's second seat is nobody's to take, and
-            # its Start seats the AI there.
-            game = self.service.create_game(
-                player_1_id=coach.id,
-                player_1_name=coach.name,
-                in_lobby=True,
-                tutorial=scripted,
-                ai_seats=[],
-            )
+        game = self.service.create_game(
+            player_1_id=coach.id,
+            player_1_name=coach.name,
+            in_lobby=True,
+            ai_seats=[],
+        )
         self.rooms.first_sight(game.game_id, coach.id)
         return web.json_response(
             {"id": game.game_id, "url": f"/room/{game.game_id}"},
@@ -1174,7 +1169,7 @@ class WebApp:
             else (1, 2)
         )
         title = (
-            f"PBD{game.game_number} - "
+            f"PBW{game.game_number} - "
             f"{format_player_with_team_name(game, first)}"
             f" vs. "
             f"{format_player_with_team_name(game, second)}"

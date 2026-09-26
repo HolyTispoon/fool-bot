@@ -460,7 +460,7 @@ never carries it; say so).
 
 **Landed** (branch `web-step-3`). What it settled is in
 [design/web-app.md](design/web-app.md), "The room's table": the front
-door's two lists and its two ways in, the table drawn off readings on
+door's two lists, the table drawn off readings on
 the record (`open_settings`, `teams_open_to`, `coin_is_owed`,
 `home_choice_owed_by`, `home_choice_rail`), the rematch as
 `GameService.rematch`, and why there is no separate Begin -- the
@@ -468,6 +468,22 @@ match has no reading of "dealt, not begun", so `begin` runs in the
 request that deals it, and the author settled on 2026-09-26 that no
 Begin button is needed. The tutorial is a training game however it is
 made (`D12BallGame.pin_tutorial`, the author, the same day).
+
+**The author reversed the front door's "two ways in" on 2026-09-25**:
+`POST /api/rooms` no longer takes `ai` or `tutorial` -- every room
+opens the same way, in its lobby, and both are the table's own
+settings from there (`seat_ai`/the `ai` seat route, and the `tutorial`
+setting), the way a two-coach room always worked. The front door's
+button reads "Create a new game room" rather than naming Dinky or a
+checkbox. The same review renamed a web room's board title from `PBD`
+to `PBW` (`WebApp._title`, `webapp/static/*.js`) -- `PBD` stays
+Discord's -- made a room's own row in "Your rooms" clickable end to
+end rather than only its name, and gave identity a rename and a leave
+(`DELETE /api/me`, `identity.clear_cookie`) beyond the front door's
+name form: "Change name" and "Leave the app" in a room, "Save name"
+and "Leave" at the front door. Leaving forgets the cookie only -- a
+seat held under it stays held, the way another device already left it
+alone.
 
 **What it is.** Everything between two seats claimed and the first
 prompt, and the rematch at the end, all of it over service methods
