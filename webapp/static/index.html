@@ -12,14 +12,28 @@
       <div class="panel-label">D12 Ball</div>
       <p class="quiet">
         Open a room and send its link: the first two people in are its
-        coaches, and anybody after them watches.
+        coaches, and anybody after them watches. Or play the AI now.
       </p>
       <form id="open-form" autocomplete="off">
         <label for="name-input" class="panel-label">Your name</label>
         <input id="name-input" class="chat-input" maxlength="32" required />
+        <label class="check"><input type="checkbox" id="tutorial" /> Tutorial</label>
         <p id="name-error" class="quiet" hidden></p>
-        <div class="row"><button type="submit" class="btn primary">Open a room</button></div>
+        <div class="row">
+          <button type="submit" class="btn primary" data-ai="0">Open a room</button>
+          <button type="submit" class="btn success" data-ai="1">Play Dinky</button>
+        </div>
       </form>
+
+      <section id="mine" hidden>
+        <div class="panel-label">Your rooms</div>
+        <div id="mine-list" class="room-list"></div>
+      </section>
+
+      <section id="open" hidden>
+        <div class="panel-label">Rooms with a seat free</div>
+        <div id="open-list" class="room-list"></div>
+      </section>
     </main>
     <script src="/static/index.js"></script>
   </body>

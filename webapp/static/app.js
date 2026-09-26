@@ -23,6 +23,11 @@ let latest = 0;
 let chatLatest = 0;
 let busy = false;
 let shownPrompt = null;
+let shownTable = null;
+/* Whether this page has seen its game with no rematch yet: a page that
+   was open when the rematch was made follows it there, and one opened
+   on the finished game afterwards is offered the link instead. */
+let sawNoRematch = false;
 let shownBoard = null;
 let openMenu = null;
 let current = null;
@@ -90,6 +95,7 @@ async function roomMove(path, body, method = "POST") {
     let state = null;
     try { state = JSON.parse(text); } catch (error) { /* a plain refusal */ }
     if (state && state.game) draw(state);
+    else if (state && state.url) location.href = state.url;
     else showRefusal(text || "That did not reach the room.");
   } catch (error) {
     showRefusal("That did not reach the room. Try again in a moment.");
@@ -185,7 +191,9 @@ function draw(state) {
   drawJournal(state);
   drawChat(state);
   drawPrompt(state);
+  drawTable(state);
   drawRoom(state);
+  followRematch(state);
   if (state.refusal) showRefusal(state.refusal);
   el("owed").hidden = !(state.owed && state.you.is_coach);
   const yours = Boolean(state.prompt && state.prompt.yours);
@@ -846,7 +854,9 @@ function drawButton(control) {
       class: `btn ${control.style || "primary"}`,
       disabled: control.disabled,
       title: control.note || null,
-      onclick: () => act(control.action),
+      /* A press that is not an answer to this game (the rematch) goes
+         to the room's own route rather than to the game. */
+      onclick: () => (control.post ? roomMove(control.post) : act(control.action)),
     },
     control.label,
   );
@@ -896,6 +906,158 @@ function drawChooser(control) {
     },
   }, control.submit));
   return row;
+}
+
+// -- The table ---------------------------------------------------------------
+
+/* Before kickoff, in the prompt's place: the settings, both seats and
+   their teams, the coin, home or visiting, and Start. Everything on it
+   is `state.table` -- which setting is open, which team a seat may
+   pick, who owes the toss and the choice are the game record's
+   answers, and a press the record refuses comes back with its
+   sentence. An observer is sent the same table with every control
+   off. */
+function drawTable(state) {
+  const box = el("table");
+  const table = state.table;
+  const shape = JSON.stringify(table);
+  if (shape === shownTable) return;
+  shownTable = shape;
+  if (!table) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  const picking = table.seats.some((seat) => seat.teams.some((team) => team.open));
+  const yours = table.start.may || table.coin.may || table.sides.may || picking;
+  box.classList.toggle("yours", yours);
+  if (yours) news("move", "yours");
+  el("table-state").textContent = yours ? "Your move" : table.lobby ? "The lobby" : "Setting up";
+
+  const body = el("table-body");
+  body.replaceChildren(
+    h("div", { class: "group-label" }, "Settings"),
+    h("div", { class: "table-settings" }, table.settings.map(drawSetting)),
+  );
+  for (const seat of table.seats) {
+    body.append(h("div", { class: "group-label" },
+      `${seat.label}: `,
+      seat.name || "Empty",
+      seat.team ? " · " : "",
+      seat.team ? teamEmoji(seat.team_key, seat.team) : null,
+      seat.team ? ` ${seat.team}` : ""));
+    if (seat.teams.length) body.append(drawTeams(seat));
+  }
+
+  const coin = table.coin;
+  if (coin.flipped) {
+    const winner = table.seats.find((seat) => seat.number === coin.winner);
+    body.append(h("p", { class: "note-line" },
+      `The coin came up ${coin.face === "fortune" ? "Fortune" : "Doom"}: `,
+      h("strong", {}, winner ? winner.name || winner.label : "nobody"),
+      " won the toss."));
+  }
+  const row = h("div", { class: "row" });
+  if (table.start.owed) {
+    row.append(tableButton("Start the game", "success", !table.start.may, "/table/start"));
+  }
+  if (coin.owed) {
+    row.append(tableButton("Flip the coin", "primary", !coin.may, "/table/flip_coin"));
+  }
+  if (table.sides.owed_by) {
+    for (const choice of table.sides.choices) {
+      row.append(tableButton(choice.label, "primary", !(table.sides.may && choice.open),
+        "/table/choose", { choice: choice.value }));
+    }
+  }
+  if (table.may_close) {
+    row.append(h("button", {
+      type: "button",
+      class: "btn secondary",
+      onclick: () => {
+        if (confirm("Close this room? Nothing has been played in it.")) roomMove("", {}, "DELETE");
+      },
+    }, "Close this room"));
+  }
+  if (row.childElementCount) body.append(row);
+}
+
+function tableButton(label, style, disabled, path, body) {
+  return h("button", {
+    type: "button",
+    class: `btn ${style}`,
+    disabled,
+    onclick: () => roomMove(path, body),
+  }, label);
+}
+
+/* One setting: a row of its values as the Discord settings block draws
+   them (the current one grey), a toggle, or the room's name. */
+function drawSetting(setting) {
+  const off = !setting.may_change;
+  const configure = (value) => roomMove("/table/configure", { setting: setting.name, value });
+  let control;
+  if (setting.choices.length) {
+    control = h("div", { class: "row" }, setting.choices.map((choice) => h("button", {
+      type: "button",
+      class: `btn ${choice.value === setting.value ? "secondary" : "primary"}`,
+      disabled: off || choice.value === setting.value,
+      onclick: () => configure(choice.value),
+    }, choice.label)));
+  } else if (typeof setting.value === "boolean") {
+    control = h("button", {
+      type: "button",
+      class: `btn ${setting.value ? "success" : "secondary"}`,
+      disabled: off,
+      onclick: () => configure(null),
+    }, setting.value ? "On" : "Off");
+  } else {
+    const input = h("input", {
+      class: "chat-input",
+      maxlength: "80",
+      value: setting.value,
+      disabled: off,
+      "aria-label": setting.label,
+    });
+    control = h("form", {
+      class: "row",
+      onsubmit: (event) => { event.preventDefault(); configure(input.value); },
+    }, input, h("button", { type: "submit", class: "btn primary", disabled: off }, "Rename"));
+  }
+  return h("div", { class: "table-setting" },
+    h("span", { class: "seat-label" }, setting.label), control);
+}
+
+/* A seat's picker: the colour teams and the species teams, a row each,
+   every team the record does not offer greyed. */
+function drawTeams(seat) {
+  const rows = [0, 1].map((row) => h("div", { class: "row" },
+    seat.teams.filter((team) => team.row === row).map((team) => h("button", {
+      type: "button",
+      class: `btn ${team.open ? "primary" : "secondary"}`,
+      disabled: !team.open,
+      onclick: () => roomMove("/table/pick_team", { team: team.key, seat: seat.number }),
+    }, teamEmoji(team.key, team.name), ` ${team.name}`))));
+  return h("div", { class: "table-teams" }, rows);
+}
+
+/* The rematch, followed: every page in the room when it is made goes
+   to the new room, and a page opened on the finished game later is
+   offered the link. */
+function followRematch(state) {
+  const note = el("rematch-note");
+  if (!state.rematch) {
+    sawNoRematch = true;
+    note.hidden = true;
+    return;
+  }
+  if (sawNoRematch) {
+    location.href = state.rematch.url;
+    return;
+  }
+  note.replaceChildren("This game has a rematch: ",
+    h("a", { href: state.rematch.url }, "go to its room"), ".");
+  note.hidden = false;
 }
 
 function showRefusal(text) {

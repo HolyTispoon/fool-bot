@@ -250,6 +250,7 @@ def button(
     style: str = "primary",
     player: Optional[str] = None,
     card: Optional[dict] = None,
+    post: Optional[str] = None,
     **arguments: Any,
 ) -> dict:
     """
@@ -258,6 +259,10 @@ def button(
     a button plays (`{"key", "side"}`), which the page draws the
     button as. Neither is part of the answer: what is sent back is
     `action`, and only `action` is checked against what was offered.
+
+    `post` is a press that is not an answer to this game at all -- the
+    rematch, which opens another -- and names the room route it goes
+    to instead; `webapp/server.py` never takes one as an action.
     """
     assert style in STYLES, style
     return {
@@ -268,6 +273,7 @@ def button(
         "style": style,
         "player": player,
         "card": card,
+        "post": post,
         "action": {
             "kind": kind.value,
             "choice": choice,
@@ -1073,12 +1079,27 @@ def _repositions(asked: Asked) -> list[dict]:
     return controls
 
 
+def _game_over(asked: Asked) -> list:
+    """
+    A finished game asks nothing of the match; what is under it is the
+    rematch, as `RematchView` puts it under the bot's full-time
+    message -- a new room with this one's settings and seats, which is
+    not an action on this game, so it goes to the room's own route
+    (`GameService.rematch`) rather than to `apply_action`. Either
+    coach may press it: a finished game is nobody's question.
+    """
+    return [
+        section(
+            None,
+            [button("Rematch", asked.kind, post="/rematch")],
+        )
+    ]
+
+
 #: One builder per `PromptKind`, the way `PLAIN_PROMPT_VIEWS` and
 #: `view_for_prompt` are the cog's one mapping from a kind to what it
 #: puts up. A kind with no row here is a prompt this frontend cannot
-#: offer, and `tests/test_web_app.py` asserts there is none --
-#: `GAME_OVER` aside, which asks nothing (the rematch under it opens a
-#: new game, which is not an action on this one).
+#: offer, and `tests/test_web_app.py` asserts there is none.
 CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.TUTORIAL_CONTINUE: _continue,
     PromptKind.PLAYER_ACTION: _turn,
@@ -1111,4 +1132,5 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.SHOOTOUT_ORDER: _shootout_order,
     PromptKind.SHOOTOUT_PICK: _shootout_pick,
     PromptKind.COACHING_HUB: _coaching_hub,
+    PromptKind.GAME_OVER: _game_over,
 }
