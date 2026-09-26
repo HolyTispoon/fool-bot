@@ -114,8 +114,8 @@ You chose **Low Pass**.
 🟠 Sizzifizik [PM]: offense skill 4
 🟣 Dravox [DD]: defense skill 5
 
-🟠 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 1 total).
-🟣 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🟠 Sizzifizik [PM] adds 1 exhaustion 😮‍💨 (now 1 total).
+🟣 Dravox [DD] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 Either player can roll:
 === press 13: SkillTestView -> 'Roll the skill test'
@@ -126,14 +126,14 @@ Either player can roll:
 🟣 Glompex [MF] picks up the ball. Purple (Visiting) now has possession.
 --- message
 # Players run back!
-Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
 --- message
 <@111>, choose where 🟠 Sizzifizik [PM] runs back to:
 Space 4 (2 away) or space 5 (1 away).
 === press 14: RunBackChoiceView -> 'Space 4 (2 away)'
 --- message
 🟠 Sizzifizik [PM] runs back to space 4.
-🟠 Sizzifizik [PM] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 3 total).
+🟠 Sizzifizik [PM] adds 2 exhaustion 😮‍💨😮‍💨 (now 3 total).
 --- message
 Ball is now in space 5, Purple (Visiting) has possession. Time has advanced 1, now at 02.
 --- message
@@ -151,7 +151,7 @@ Once your challenger is in position, Dinky moves, and then you are asked for a c
 === press 16: ManeuverChallengeView -> 'Sizzifizik [PM] (1)'
 --- message
 Sizzifizik has moved 1 space.
-🟠 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 4 total).
+🟠 Sizzifizik [PM] adds 1 exhaustion 😮‍💨 (now 4 total).
 🟠 Sizzifizik [PM] is now *exhausted* 🥵
 --- message
 ### The other three cards
@@ -220,10 +220,10 @@ You chose **Steal**.
 🟠 Sizzifizik [PM] steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
 # Players run back!
-Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
 --- message
 🟣 Glompex [MF] runs back to space 3.
-🟣 Glompex [MF] gains 3 exhaustion tokens 😮‍💨😮‍💨😮‍💨 (now 3 total).
+🟣 Glompex [MF] adds 3 exhaustion 😮‍💨😮‍💨😮‍💨 (now 3 total).
 --- message
 <@111>, manipulate the ball's speed (up to 3):
 === press 23: SpeedDeltaChoiceView -> '4 (+3)'
@@ -252,7 +252,7 @@ Choose an action:
 === press 25: PlayerActionView -> 'Maneuver'
 --- message
 Dravox has moved 1 space.
-🟣 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🟣 Dravox [DD] adds 1 exhaustion 😮‍💨 (now 2 total).
 --- message
 ### High Pass, and what a shot is up against
 **Pick High Pass.** Dinky is playing Steal, and High Pass beats it, so the pass gets through.
@@ -299,7 +299,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 🟠 Noxar [SK] scores for Orange (Home) on **04**!
 Orange 1:0 Purple
 
-🟠 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🟠 Noxar [SK] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 # Coaching Choice
 **🟣 Dinky AI passed.**

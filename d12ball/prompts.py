@@ -1555,7 +1555,7 @@ def _pending(
                 return FollowOn(FollowOnStep.ADVANCE_HALFTIME_STAGE)
             return PendingPrompt(
                 PromptKind.HALFTIME_EXTRA_TOKEN,
-                "Halftime: choose a player to lose an extra "
+                "Halftime: choose a player to clear an extra "
                 "exhaustion token.",
                 side=side,
             )
