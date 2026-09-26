@@ -47,7 +47,7 @@ What it costs, said plainly:
   it is the one place the bot reads the web file. The archive export
   and the hub still see the bot's games only. Anything else the web
   app wants of the slash commands it builds over the model for itself
-  (step 9).
+  (steps 9 and 11).
 - **Two deployments on one machine.** The bot and the web app both
   run on the Windows checkout at `K:\` (decision 2), each with its own
   `data/` file, each restarted on its own.
@@ -160,8 +160,9 @@ that existed; steps 1 to 3 are one sprint.
 | 6 | The web games' numbers on Discord, cut by source | small |
 | 7 | The dice on the page | medium |
 | 8 | The prompt's pictures | medium |
-| 9 | What Discord has that the page lacks: my rooms, resume, abandon, stats, the rules | medium |
+| 9 | What Discord has that the page lacks: my rooms, resume, abandon, stats | medium |
 | 10 | The page as a thing to play on; the wire tree; the tests the survey found missing | medium |
+| 11 | The reading room: the rulebooks and the player aids | medium |
 | -- | Later, and not now | -- |
 
 ### Claiming a step
@@ -870,12 +871,11 @@ Update docs/design/web-app.md. PR against the template.
 over a model function the web app may call: resume and abandon
 (`GameService.resume` is already a route; `abandon_game`'s model half
 is the record's status change), `/d12ball stats` for the web games on
-the page itself (`d12ball/stats.py`, with step 6's source axis),
-`rules_full` and `rules_search` (`d12ball/rules_doc.py` reads
-`docs/living-rules.md`), the maneuver and role references (the
-printed cards are `cards.py`'s and `role_cards.py`'s), and a finished
-game's board. Each is a read-only route and a page section, and none
-goes near the driver except resume. Reading the code says which of
+the page itself (`d12ball/stats.py`, with step 6's source axis), and a
+finished game's board. Each is a read-only route and a page section,
+and none goes near the driver except resume. The rules commands and
+the reference cards were on this list; they are step 11, with the
+rulebooks beside them. Reading the code says which of
 those are model functions and which have logic still in the cog; the
 latter move first, the way `cyborg_condition_ids` moved for the board.
 
@@ -883,9 +883,8 @@ latter move first, the way `cyborg_condition_ids` moved for the board.
 
 ```text
 Read CLAUDE.md, docs/design/web-app.md, docs/design/clock-and-records.md
-(stats), docs/design/rules-and-data.md (the rules commands) and
-docs/design/recovery.md (resume and abandon). Branch off an
-up-to-date main.
+(stats) and docs/design/recovery.md (resume and abandon). Branch off
+an up-to-date main.
 
 For each of these, find the model function under the slash command
 in cogs/d12ball/slash_commands.py, move to the model whatever logic
@@ -903,14 +902,7 @@ PR), add a read-only route and a page section, and a test:
    all of them, a page section at the end of a finished game and a
    link from the front door. The web page never reads the bot's
    file.
-3. The rules: GET /rules and GET /api/rules?q= over
-   d12ball/rules_doc.py, rendered with webapp/present.render_text's
-   markdown pass (extend it if the rules use more of the subset than
-   it handles; the rulebooks' markdown subset in rulebooks.py is the
-   reference). No second copy of the rules text anywhere.
-4. References: the maneuver cards and the role cards as PNGs from
-   cards.py / role_cards.py, served read-only and cached, linked from
-   the maneuver prompt.
+(The rules and the reference cards are step 11, not this step.)
 Nothing under webapp/ imports cogs; nothing under cogs/ imports
 webapp. Docs: docs/design/web-app.md gains "Beyond the game". PR
 against the template.
@@ -979,6 +971,154 @@ Branch off an up-to-date main. Four commits, each reviewable alone.
 Update docs/design/web-app.md ("What a page is handed": the journal
 is persisted and why it is still not the save; "What it does not do
 yet" loses what this closes). PR against the template.
+```
+
+### 11. The reading room: the rulebooks and the player aids
+
+**What it is.** Everything a Discord coach can pull up beside a game
+without it being a turn, on the page: the two rulebooks, and the
+player aids the reference commands post. Asked for by the author on
+2026-09-26. Every one is a drawing or a text the model already has;
+what the page adds is a place to open them.
+
+| On Discord | What it is, and whose | Which one a game gets |
+| --- | --- | --- |
+| `/d12ball rules_full`, `rules_search` | The living rules, `rules_doc.load_rules_document` over `docs/living-rules.md` | -- |
+| none (printed only) | The Charter and the Learn to Play as PDFs, `rulebooks.build_book` | -- |
+| `/d12ball maneuver_reference` | The hexagon, `render.render_maneuver_reference_image` | The gambit tier where `engine.gambits_apply(game)`, basic everywhere else: `D12Ball.reference_tier`, **which is in the cog** |
+| `/d12ball role_abilities_reference` | The role card, `role_cards.render_role_card` over `player_catalog.role_profiles` | One card for every mode |
+| `/d12ball species_abilities_reference` | The species card's two faces, `species_cards.render_species_card` over `CARD_FACES[0]`, **chosen in the cog** (`build_species_reference_files`) | Where `engine.species_abilities_apply(game)` |
+| `/d12ball team_reference` | A team's player cards in catalog order, `player_cards.render_player_card`, or `render_player_card_back` where `engine.personal_abilities_apply(game)` | The seat's own team first; both for an observer |
+
+**Two findings from reading the code**, which is why this is a step
+and not a page section:
+
+- **Two choices are in `cogs/` and the web app may not import them.**
+  `reference_tier` asks `gambits_apply` and maps it to a tier; the
+  species reference picks the first card's two faces because "a
+  channel has no table to lay a card on", which is as true of a page.
+  Neither is Discord. Both move below the cog first --
+  `RulesEngine.maneuver_reference_tier(game)` and a
+  `species_cards.REFERENCE_FACES` beside `CARD_FACES` -- and the cog
+  is re-pointed at them, the way `cyborg_condition_ids` moved for the
+  board.
+- **The living rules carry no Law numbers; the Charter's are given at
+  build time** (`rulebooks.number_blocks`, rulebooks.md), and the
+  Learn to Play cites them as *(Law 6.4)*. A page that rendered
+  `docs/living-rules.md` as it stands, which is what step 9 said
+  before this step took it over, would be a Charter without the
+  numbers the other book points at. So the page reads the rules
+  through `rules_doc` for its sections and search (the same
+  `RulesDocument.search` `rules_search` answers from) and heads each
+  section with its number from `number_blocks(...).headings`. The two
+  agree on a slug already: `rulebooks.Heading.slug` is
+  `rules_doc.slugify_heading`.
+
+**The books as PDFs, and only as PDFs.** The printed layout is
+`rulebooks.py`'s and the figures are laid out for it; an HTML Learn to
+Play would be a second layout of the book to keep right, the mistake
+`webapp/pictures.py` exists to avoid for the cards. The page serves
+what `scripts/build_rulebooks.py` prints, built in the web process
+and held in memory, never written to `print/`. The in-page reading is
+the Charter's text, searchable, for a coach mid-turn; the PDFs are the
+books.
+
+**What is shown where.** In a room, the aids that game plays: the
+hexagon at its tier, the species card only where species abilities
+apply, the player cards in the face the game plays. At the front
+door, with no game to ask, all of them: both hexagons named by tier,
+the species card, both faces offered for a team's cards. The rules
+and the books are in both places. The page shows what the model
+answers; it never reads `game.mode` to choose (CLAUDE.md, "Nothing
+reads `game.advanced_maneuvers`...").
+
+**Where it sits.** It depends on step 2 only for the room's route
+prefix, touches neither the driver nor the save, and can be claimed
+beside any other step. The routine takes steps in number order, so
+claim it by hand to take it sooner.
+
+**Prompt.**
+
+```text
+Read CLAUDE.md, docs/design/web-app.md, docs/design/cards.md,
+docs/design/rulebooks.md, docs/design/rules-and-data.md ("how
+/d12ball rules_* serve the living rules") and
+docs/design/species-abilities.md (gambits_apply,
+species_abilities_apply, personal_abilities_apply). Branch off an
+up-to-date main. Assumes step 2 of docs/web-app-next.md has landed
+(the room's routes); if it has not, use the /api/game/ prefix
+webapp/server.py has today.
+
+Goal: a coach or an observer can open, from the room and from the
+front door, the rules, the two rulebooks and every player aid the
+Discord reference commands post (maneuver_reference,
+role_abilities_reference, species_abilities_reference,
+team_reference, rules_full, rules_search), each the model's own
+drawing or text.
+
+1. Move the two choices out of cogs/, own commit. D12Ball.reference_tier
+   (cogs/d12ball/core.py) becomes RulesEngine.maneuver_reference_tier(game),
+   over gambits_apply, same docstring reasoning; the species reference's
+   choice of CARD_FACES[0] (build_species_reference_files in
+   cogs/d12ball/presentation.py) becomes a named constant in
+   d12ball/species_cards.py. Re-point the cog. Verify by SHA-256
+   that every image the four reference commands post is byte-identical
+   before and after; put the hashes in the PR body.
+2. The rulebooks' PDFs as bytes. d12ball/rulebooks.py gains a function
+   that sets a book into a BytesIO and returns the bytes (reportlab's
+   doc templates take a file-like object); build_book writes those
+   bytes, so scripts/build_rulebooks.py is unchanged. No discord and
+   no async in it (the purity ratchet).
+3. Routes, all read-only, all GET, every render in asyncio.to_thread
+   and cached for the process the way the boards are:
+   - /rules: the Charter's text, one section per RulesSection from
+     d12ball/rules_doc.load_rules_document, each headed with its
+     number from rulebooks.number_blocks(parse_markdown(...)).headings
+     by slug (unnumbered where the Charter leaves it unnumbered: front
+     matter, Parts, Appendices), rendered with present.py's markdown
+     pass (extend it if the rules use more of rulebooks.py's subset
+     than it handles). /api/rules?q= answers RulesDocument.search.
+     A missing rules file is logged at ERROR and answered 503, as
+     load_rules does on Discord. No second copy of the rules text.
+   - /books/charter.pdf and /books/learn-to-play.pdf: from item 2,
+     keyed on the source file's mtime so an edit to the rules is
+     picked up without a restart; served inline (Content-Disposition:
+     inline) so a browser opens them in a tab. Letter only.
+   - /aids/maneuvers/{tier}.png (render_maneuver_reference_image),
+     /aids/roles.png (render_role_card), /aids/species/{n}.png (the
+     faces from item 1), and a team's cards through the player-card
+     route webapp/pictures.py already serves. In a room the page asks
+     the model which: maneuver_reference_tier(game),
+     species_abilities_apply(game), personal_abilities_apply(game);
+     the room's state carries those three answers so app.js never
+     decides one.
+4. The page: a "Rules & aids" button in the room's header and on the
+   front door opens a panel with the rules (search box over
+   /api/rules), the two books as links, and the aids as images that
+   open full size on a tap, like the board. In a room: the hexagon at
+   the game's tier, the species card only where it applies, the
+   seat's own team's cards first and the other team's a tab away
+   (both for an observer). At the front door: both hexagons named by
+   tier, the species card, and a team picker. The maneuver prompt
+   links to the hexagon. Nothing in it takes a lock or touches the
+   service beyond reading the game.
+5. Tests, on the routes and never on the pictures or the books
+   (CLAUDE.md: nothing printed is tested): each route answers 200
+   with its content type; the PDF route is tested with the builder
+   patched to return fixed bytes, so the suite does not set a book;
+   the room's state carries the three answers from item 3 and they
+   change with the game's mode and settings; every RulesSection that
+   the Charter numbers gets a number (the slug agreement is the
+   thing a test holds). An observer may open every aid. Both purity
+   ratchets and tests/test_web_purity.py still pass; nothing under
+   webapp/ imports cogs, nothing under cogs/ imports webapp.
+
+Docs: docs/design/web-app.md gains "The rules and the player aids"
+(why PDFs and not an HTML book, why the numbers come from the
+Charter build, why the choices moved below the cog); "What it does not
+do yet" loses them. docs/design/cards.md notes that the species
+reference's faces are species_cards.py's now. Strike step 11 in
+docs/web-app-next.md. PR against the template.
 ```
 
 ### Later, and not now
