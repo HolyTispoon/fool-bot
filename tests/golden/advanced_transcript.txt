@@ -64,7 +64,7 @@ Out of shooting range, and no time out available. Maneuver:
 === press 7: PlayerActionView -> 'Maneuver'
 --- message
 Sizzifizik has moved 1 space.
-🔥 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔥 Sizzifizik [PM] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -102,7 +102,7 @@ Out of shooting range, and no time out available. Maneuver:
 === press 11: PlayerActionView -> 'Maneuver'
 --- message
 Scorchit has moved 1 space.
-🔥 Scorchit [MF] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔥 Scorchit [MF] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -122,7 +122,7 @@ You chose **High Pass**.
 🔥 Sizzifizik [PM] picks up the ball. Fire Demons (Visiting) now has possession.
 --- message
 # Players run back!
-Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
 --- message
 <@111>, your players are doubled up while their zone still has a space with nobody on it — choose which of them runs back:
 🔮 Quillon [PM] on space 4
@@ -134,7 +134,7 @@ Space 3 (1 away).
 === press 14: RunBackChoiceView -> 'Space 3 (1 away)'
 --- message
 🔮 Quillon [PM] runs back to space 3.
-🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔮 Quillon [PM] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 Ball is now in space 3, Fire Demons (Visiting) has possession. Time has advanced 1, now at 04.
 --- message
@@ -184,7 +184,7 @@ You chose **Pressure**.
 === press 19: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
-🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔮 Zenith [WG] adds 1 exhaustion 😮‍💨 (now 1 total).
 The ball slips past them.
 --- message
 <@111> The ball passed beside 🔮 Noxar [SK], who may 🔮 Mind Pull it for 1 exhaustion.
@@ -242,7 +242,7 @@ Ball is now in space 3, Fire Demons (Visiting) has possession. Time has advanced
 === press 25: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
-🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔮 Dravox [DD] adds 1 exhaustion 😮‍💨 (now 1 total).
 The ball slips past them.
 --- message
 <@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it for 1 exhaustion.
@@ -263,7 +263,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 🔥 Brightburn [SK] scores for Fire Demons (Visiting) on **07**!
 Telekinetics 0:1 Fire Demons
 
-🔥 Brightburn [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔥 Brightburn [SK] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 # Coaching Choice
 <@111>, **Telekinetics (Home)** -- 2 substitutions left.
@@ -325,7 +325,7 @@ Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced
 === press 33: ManeuverChallengeView -> 'Noxar [SK] (1)'
 --- message
 Noxar has moved 1 space.
-🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔮 Noxar [SK] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -357,7 +357,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 # Missed attempt!
 Fire Demons (Visiting) manages to avoid a goal! (phew)
 
-🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🔮 Noxar [SK] adds 1 exhaustion 😮‍💨 (now 2 total).
 🔮 Noxar [SK] is now *exhausted* 🥵
 --- message
 # Coaching Choice
@@ -382,7 +382,7 @@ Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced
 === press 37: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
-🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 3 total).
+🔮 Noxar [SK] adds 1 exhaustion 😮‍💨 (now 3 total).
 The ball slips past them.
 --- message
 **Low Pass:** the ball moves 1 space forward. Ball speed is now 2.
@@ -410,8 +410,8 @@ You chose **Clear**.
 🔥 Blazebulk [DD]: offense skill 2
 🔮 Noxar [SK]: defense skill 1
 
-🔥 Blazebulk [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
-🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 4 total).
+🔥 Blazebulk [DD] adds 1 exhaustion 😮‍💨 (now 1 total).
+🔮 Noxar [SK] adds 1 exhaustion 😮‍💨 (now 4 total).
 --- message
 Either player can roll:
 === press 39: SkillTestView -> 'Roll the skill test'
@@ -433,7 +433,7 @@ Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced
 === press 41: ManeuverChallengeView -> 'Noxar [SK] (1)'
 --- message
 Noxar has moved 1 space.
-🔮 Noxar [SK] is injured 🤕 and gains no exhaustion tokens.
+🔮 Noxar [SK] is injured 🤕 and adds no exhaustion.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -454,8 +454,8 @@ You chose **Double Team**.
 🔥 Hellguard [FB]: offense skill 0
 🔮 Noxar [SK]: defense skill 1
 
-🔥 Hellguard [FB] gains 1 exhaustion token 😮‍💨 (now 1 total).
-🔮 Noxar [SK] is injured 🤕 and gains no exhaustion tokens.
+🔥 Hellguard [FB] adds 1 exhaustion 😮‍💨 (now 1 total).
+🔮 Noxar [SK] is injured 🤕 and adds no exhaustion.
 --- message
 Either player can roll:
 === press 43: SkillTestView -> 'Roll the skill test'
@@ -475,27 +475,27 @@ That overshoots toward their own goal!
 🔥 Hellguard [FB] puts it in their own net on **16 (FH)**.
 Telekinetics 1:1 Fire Demons
 
-🔥 Hellguard [FB] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🔥 Hellguard [FB] adds 1 exhaustion 😮‍💨 (now 2 total).
 --- message
 **End of the first half!** The ball turns over at 16 under last possession -- the period ends. The second half starts at 15.
 --- message
 # Halftime
-Every fielded player recovers 1 exhaustion token:
-🔮 Dravox [DD] recovers 1 exhaustion token (now 0).
-🔮 Quillon [PM] recovers 1 exhaustion token (now 0).
-🔮 Zenith [WG] recovers 1 exhaustion token (now 0).
-🔥 Brightburn [SK] recovers 1 exhaustion token (now 0).
-🔥 Scorchit [MF] recovers 1 exhaustion token (now 0).
-🔥 Sizzifizik [PM] recovers 1 exhaustion token (now 0).
-🔥 Hellguard [FB] recovers 1 exhaustion token (now 1).
-🔥 Blazebulk [DD] recovers 1 exhaustion token (now 0).
+Every fielded player clears 1 exhaustion:
+🔮 Dravox [DD] clears 1 exhaustion (now 0).
+🔮 Quillon [PM] clears 1 exhaustion (now 0).
+🔮 Zenith [WG] clears 1 exhaustion (now 0).
+🔥 Brightburn [SK] clears 1 exhaustion (now 0).
+🔥 Scorchit [MF] clears 1 exhaustion (now 0).
+🔥 Sizzifizik [PM] clears 1 exhaustion (now 0).
+🔥 Hellguard [FB] clears 1 exhaustion (now 1).
+🔥 Blazebulk [DD] clears 1 exhaustion (now 0).
 --- message
-🔥 Hellguard [FB] loses an extra exhaustion token (now 0).
+🔥 Hellguard [FB] clears an extra exhaustion token (now 0).
 --- message
-<@111>, Telekinetics (Home): choose one fielded player to lose an extra exhaustion token.
+<@111>, Telekinetics (Home): choose one fielded player to clear an extra exhaustion token.
 === press 45: HalftimeExtraTokenView -> 'Zenith [WG] (0 exhaustion)'
 --- message
-🔮 Zenith [WG] had no exhaustion to lose.
+🔮 Zenith [WG] had no exhaustion to clear.
 --- message
 # Coaching Choice
 **Fire Demons (Visiting) are done.**
@@ -538,7 +538,7 @@ You chose **Pressure**.
 === press 49: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
-🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔮 Dravox [DD] adds 1 exhaustion 😮‍💨 (now 1 total).
 The ball slips past them.
 --- message
 **Low Pass:** the ball moves 2 spaces forward. Ball speed is now 2.
@@ -564,8 +564,8 @@ You chose **Clear**.
 🔥 Flickerwing [WG]: offense skill 5
 🔮 Dravox [DD]: defense skill 5
 
-🔥 Flickerwing [WG] gains 1 exhaustion token 😮‍💨 (now 1 total).
-🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🔥 Flickerwing [WG] adds 1 exhaustion 😮‍💨 (now 1 total).
+🔮 Dravox [DD] adds 1 exhaustion 😮‍💨 (now 2 total).
 --- message
 Either player can roll:
 === press 51: SkillTestView -> 'Roll the skill test'
@@ -653,7 +653,7 @@ Chose **2 spaces**.
 🔮 Noxar [SK] lets it run.
 --- message
 **Dribble Burst:** 🔮 Quillon [PM] bursts 2 spaces forward, past everyone in the way. That costs them 1 exhaustion less (Playmaker ability).
-🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 1 total). Ball speed is now **12**.
+🔮 Quillon [PM] adds 1 exhaustion 😮‍💨 (now 1 total). Ball speed is now **12**.
 
 Ball is now in space 6, Telekinetics (Home) has possession. Time has advanced 1, now at 19.
 --- message
@@ -732,7 +732,7 @@ You chose **Double Team**.
 === press 67: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
-🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔮 Zenith [WG] adds 1 exhaustion 😮‍💨 (now 1 total).
 The ball slips past them.
 --- message
 **Double Team:** 🔥 Sizzifizik [PM] and the ball go back 2 spaces. 🔮 Quillon [PM] moves forward. 🔮 Spectra [MF] joins them -- and **both** will challenge on the next maneuver, each adding their defensive skill.
@@ -770,10 +770,10 @@ You chose **Steal**.
 🔮 Quillon [PM] steals the ball. Telekinetics (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
 # Players run back!
-Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
 --- message
 🔥 Sizzifizik [PM] runs back to space 3.
-🔥 Sizzifizik [PM] gains 3 exhaustion tokens 😮‍💨😮‍💨😮‍💨 (now 3 total).
+🔥 Sizzifizik [PM] adds 3 exhaustion 😮‍💨😮‍💨😮‍💨 (now 3 total).
 --- message
 <@111>, manipulate the ball's speed (up to 3):
 === press 71: SpeedDeltaChoiceView -> '3 (+2)'
@@ -819,7 +819,7 @@ Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced
 === press 75: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
-🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 3 total).
+🔮 Zenith [WG] adds 1 exhaustion 😮‍💨 (now 3 total).
 🔮 Zenith [WG] is now *exhausted* 🥵
 The ball slips past them.
 --- message
@@ -861,17 +861,17 @@ You chose **Double Team**.
 🔥 Sizzifizik [PM]: offense skill 4
 🔮 Quillon [PM]: defense skill 3
 
-🔥 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 4 total).
+🔥 Sizzifizik [PM] adds 1 exhaustion 😮‍💨 (now 4 total).
 🔥 Sizzifizik [PM] is now *exhausted* 🥵
-🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🔮 Quillon [PM] adds 1 exhaustion 😮‍💨 (now 2 total).
 --- message
 Either player can roll:
 === press 79: SkillTestView -> 'Roll the skill test'
 --- message
 ## **It's a tie (8-8)!**
 The skill test must be rolled again.
-🔥 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 5 total).
-🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 3 total).
+🔥 Sizzifizik [PM] adds 1 exhaustion 😮‍💨 (now 5 total).
+🔮 Quillon [PM] adds 1 exhaustion 😮‍💨 (now 3 total).
 
 Roll again:
 === press 80: SkillTestView -> 'Roll the skill test'
@@ -892,7 +892,7 @@ Dinky AI, 🔥 Sizzifizik [PM] is exhausted and owes an injury test: a d12 that 
 === press 83: MindPullView -> 'Mind Pull'
 --- message
 🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
-🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 3 total).
+🔮 Dravox [DD] adds 1 exhaustion 😮‍💨 (now 3 total).
 The ball slips past them.
 --- message
 <@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it for 1 exhaustion.
@@ -944,8 +944,8 @@ You chose **Dribble Advance**.
 🔮 Umbrik [FB]: offense skill 1
 🔥 Brightburn [SK]: defense skill 1
 
-🔮 Umbrik [FB] gains 1 exhaustion token 😮‍💨 (now 1 total).
-🔥 Brightburn [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔮 Umbrik [FB] adds 1 exhaustion 😮‍💨 (now 1 total).
+🔥 Brightburn [SK] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 Either player can roll:
 === press 88: SkillTestView -> 'Roll the skill test'
@@ -970,7 +970,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 🔥 Brightburn [SK] scores for Fire Demons (Visiting) on **28**!
 Telekinetics 2:2 Fire Demons
 
-🔥 Brightburn [SK] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🔥 Brightburn [SK] adds 1 exhaustion 😮‍💨 (now 2 total).
 🔥 Brightburn [SK] is now *exhausted* 🥵
 --- message
 # Coaching Choice

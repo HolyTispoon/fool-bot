@@ -676,7 +676,7 @@ class D12BallRunBackAnnouncementTests(
         announcement = interaction.followup.send.await_args.args[0]
         self.assertIn("# Players run back!", announcement)
         self.assertIn("assigned zone", announcement)
-        self.assertIn("1 exhaustion token for every space", announcement)
+        self.assertIn("add 1 exhaustion for every space", announcement)
         # What a coach is asked is asked by the prompts themselves, so
         # the announcement no longer explains the two choices ahead of
         # them -- see "What a message says".

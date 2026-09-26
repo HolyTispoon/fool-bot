@@ -373,7 +373,7 @@ def advance_beats_a_clear() -> DribbleFixture:
             f"**Dribble Advance:** {label(match, handler)} and the "
             "ball move forward 1 space."
             "\n\n**Clear** was beaten -- 2 exhaustion.\n"
-            f"{label(match, defender)} gains 2 exhaustion tokens "
+            f"{label(match, defender)} adds 2 exhaustion "
             f"{EXHAUST * 2} (now 3 total)."
             f"\n{label(match, defender)} is now *exhausted* {EXHAUSTED}"
         ),
@@ -407,7 +407,7 @@ def burst_plain() -> DribbleFixture:
         narration=(
             f"**Dribble Burst:** {label(match, handler)} bursts 3 "
             "spaces forward, past everyone in the way."
-            f"\n{label(match, handler)} gains 3 exhaustion tokens "
+            f"\n{label(match, handler)} adds 3 exhaustion "
             f"{EXHAUST * 3} (now 3 total)."
             f" {BURST_SPEED_LINE}"
         ),
@@ -442,7 +442,7 @@ def burst_playmaker_discount() -> DribbleFixture:
             f"**Dribble Burst:** {label(match, handler)} bursts 3 "
             "spaces forward, past everyone in the way."
             " That costs them 1 exhaustion less (Playmaker ability)."
-            f"\n{label(match, handler)} gains 2 exhaustion tokens "
+            f"\n{label(match, handler)} adds 2 exhaustion "
             f"{EXHAUST * 2} (now 2 total)."
             f" {BURST_SPEED_LINE}"
         ),
@@ -544,10 +544,10 @@ def burst_beats_a_clear() -> DribbleFixture:
         narration=(
             f"**Dribble Burst:** {label(match, handler)} bursts 2 "
             "spaces forward, past everyone in the way."
-            f"\n{label(match, handler)} gains 2 exhaustion tokens "
+            f"\n{label(match, handler)} adds 2 exhaustion "
             f"{EXHAUST * 2} (now 2 total)."
             "\n\n**Clear** was beaten -- 2 exhaustion.\n"
-            f"{label(match, defender)} gains 2 exhaustion tokens "
+            f"{label(match, defender)} adds 2 exhaustion "
             f"{EXHAUST * 2} (now 3 total)."
             f"\n{label(match, defender)} is now *exhausted* {EXHAUSTED}"
             f" {BURST_SPEED_LINE}"
@@ -583,7 +583,7 @@ def burst_with_the_ball_already_at_twelve() -> DribbleFixture:
         narration=(
             f"**Dribble Burst:** {label(match, handler)} bursts 1 "
             "space forward, past everyone in the way."
-            f"\n{label(match, handler)} gains 1 exhaustion token "
+            f"\n{label(match, handler)} adds 1 exhaustion "
             f"{EXHAUST} (now 1 total)."
         ),
         follow_on=FINISH,

@@ -220,7 +220,7 @@ def halftime_extra_token() -> PromptFixture:
     return PromptFixture(
         build_game(),
         match,
-        "Halftime: choose a player to lose an extra exhaustion token.",
+        "Halftime: choose a player to clear an extra exhaustion token.",
         {"side": TeamSide.VISITING},
     )
 
@@ -233,7 +233,7 @@ def halftime_extra_token_for_the_ai() -> PromptFixture:
     return PromptFixture(
         build_game(player_2_id=None),
         match,
-        "Halftime: choose a player to lose an extra exhaustion token.",
+        "Halftime: choose a player to clear an extra exhaustion token.",
         {"side": TeamSide.VISITING},
     )
 

@@ -102,8 +102,8 @@ You chose **Deflect**.
 🟣 Emberdash [PM]: offense skill 4
 🟠 Sizzifizik [PM]: defense skill 3
 
-🟣 Emberdash [PM] gains 1 exhaustion token 😮‍💨 (now 1 total).
-🟠 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🟣 Emberdash [PM] adds 1 exhaustion 😮‍💨 (now 1 total).
+🟠 Sizzifizik [PM] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 Either player can roll:
 === press 11: SkillTestView -> 'Roll the skill test'
@@ -164,7 +164,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 🟣 Tachyon [SK] scores for Purple (Visiting) on **06**!
 Orange 1:1 Purple
 
-🟣 Tachyon [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🟣 Tachyon [SK] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 # Coaching Choice
 <@111>, **Orange (Home)** -- 2 substitutions left.
@@ -211,7 +211,7 @@ Out of shooting range, and no time out available. Maneuver:
 === press 19: PlayerActionView -> 'Maneuver'
 --- message
 Emberdash has moved 1 space.
-🟣 Emberdash [PM] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🟣 Emberdash [PM] adds 1 exhaustion 😮‍💨 (now 2 total).
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -257,14 +257,14 @@ You chose **Low Pass**.
 🟣 Emberdash [PM] steals the ball. Purple (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
 
 # Players run back!
-Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
 --- message
 <@111>, choose where 🟠 Spectra [MF] runs back to:
 Space 3 (1 away) or space 5 (3 away).
 === press 23: RunBackChoiceView -> 'Space 3 (1 away)'
 --- message
 🟠 Spectra [MF] runs back to space 3.
-🟠 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🟠 Spectra [MF] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 Ball speed is now **4**.
 --- message
@@ -362,8 +362,8 @@ You chose **High Pass**.
 🟠 Goopkeeper [FB]: offense skill 1
 🟣 Tachyon [SK]: defense skill 1
 
-🟠 Goopkeeper [FB] gains 1 exhaustion token 😮‍💨 (now 1 total).
-🟣 Tachyon [SK] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🟠 Goopkeeper [FB] adds 1 exhaustion 😮‍💨 (now 1 total).
+🟣 Tachyon [SK] adds 1 exhaustion 😮‍💨 (now 2 total).
 🟣 Tachyon [SK] is now *exhausted* 🥵
 --- message
 Either player can roll:
@@ -387,23 +387,23 @@ That overshoots toward their own goal!
 --- message
 ## Own goal avoided!
 
-🟠 Goopkeeper [FB] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🟠 Goopkeeper [FB] adds 1 exhaustion 😮‍💨 (now 2 total).
 --- message
 **End of the first half!** The ball turns over at 15 under last possession -- the period ends. The second half starts at 15.
 --- message
 # Halftime
-Every fielded player recovers 1 exhaustion token:
-🟠 Goopkeeper [FB] recovers 1 exhaustion token (now 1).
-🟠 Spectra [MF] recovers 1 exhaustion token (now 0).
-🟠 Sizzifizik [PM] recovers 1 exhaustion token (now 0).
-🟣 Emberdash [PM] recovers 1 exhaustion token (now 1).
+Every fielded player clears 1 exhaustion:
+🟠 Goopkeeper [FB] clears 1 exhaustion (now 1).
+🟠 Spectra [MF] clears 1 exhaustion (now 0).
+🟠 Sizzifizik [PM] clears 1 exhaustion (now 0).
+🟣 Emberdash [PM] clears 1 exhaustion (now 1).
 --- message
-🟣 Emberdash [PM] loses an extra exhaustion token (now 0).
+🟣 Emberdash [PM] clears an extra exhaustion token (now 0).
 --- message
-<@111>, Orange (Home): choose one fielded player to lose an extra exhaustion token.
+<@111>, Orange (Home): choose one fielded player to clear an extra exhaustion token.
 === press 34: HalftimeExtraTokenView -> 'Sizzifizik [PM] (0 exhaustion)'
 --- message
-🟠 Sizzifizik [PM] had no exhaustion to lose.
+🟠 Sizzifizik [PM] had no exhaustion to clear.
 --- message
 # Coaching Choice
 **Purple (Visiting) are done.**
@@ -475,8 +475,8 @@ Either player can roll:
 --- message
 ## **It's a tie (14-14)!**
 The skill test must be rolled again.
-🟣 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
-🟠 Flickerwing [WG] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🟣 Dravox [DD] adds 1 exhaustion 😮‍💨 (now 1 total).
+🟠 Flickerwing [WG] adds 1 exhaustion 😮‍💨 (now 1 total).
 
 Roll again:
 === press 42: LooseBallSkillTestView -> 'Roll for the ball'
@@ -486,10 +486,10 @@ Roll again:
 🟠 Flickerwing [WG] wins the ball! 🟠 <@111> has possession.
 --- message
 # Players run back!
-Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
 --- message
 🟣 Glompex [MF] runs back to space 3.
-🟣 Glompex [MF] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 2 total).
+🟣 Glompex [MF] adds 2 exhaustion 😮‍💨😮‍💨 (now 2 total).
 --- message
 Ball is now in space 6, Orange (Home) has possession. Time has advanced 1, now at 17.
 --- message
@@ -570,7 +570,7 @@ That overshoots toward their own goal!
 --- message
 ## Own goal avoided!
 
-🟣 Hellguard [FB] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🟣 Hellguard [FB] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 # Coaching Choice
 **🟣 Dinky AI passed.**
@@ -631,7 +631,7 @@ Ball is now in space 5, Purple (Visiting) has possession. Time has advanced 1, n
 === press 53: ManeuverChallengeView -> 'Flickerwing [WG] (1)'
 --- message
 Flickerwing has moved 1 space.
-🟠 Flickerwing [WG] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🟠 Flickerwing [WG] adds 1 exhaustion 😮‍💨 (now 2 total).
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -690,10 +690,10 @@ You chose **Steal**.
 🟠 Blazebulk [DD] steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
 # Players run back!
-Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
 --- message
 🟣 Emberdash [PM] runs back to space 3.
-🟣 Emberdash [PM] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🟣 Emberdash [PM] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 <@111>, manipulate the ball's speed (up to 5):
 === press 57: SpeedDeltaChoiceView -> '3 (+2)'
@@ -755,8 +755,8 @@ You chose **Dribble Advance**.
 🟠 Goopkeeper [FB]: offense skill 1
 🟣 Zytheris [SK]: defense skill 1
 
-🟠 Goopkeeper [FB] gains 1 exhaustion token 😮‍💨 (now 3 total).
-🟣 Zytheris [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🟠 Goopkeeper [FB] adds 1 exhaustion 😮‍💨 (now 3 total).
+🟣 Zytheris [SK] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 Either player can roll:
 === press 63: SkillTestView -> 'Roll the skill test'
@@ -837,7 +837,7 @@ Out of shooting range, and no time out available. Maneuver:
 === press 70: PlayerActionView -> 'Maneuver'
 --- message
 Emberdash has moved 1 space.
-🟣 Emberdash [PM] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🟣 Emberdash [PM] adds 1 exhaustion 😮‍💨 (now 2 total).
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -870,7 +870,7 @@ Out of shooting range, and no time out available. Maneuver:
 === press 73: PlayerActionView -> 'Maneuver'
 --- message
 Glompex has moved 1 space.
-🟣 Glompex [MF] gains 1 exhaustion token 😮‍💨 (now 3 total).
+🟣 Glompex [MF] adds 1 exhaustion 😮‍💨 (now 3 total).
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
