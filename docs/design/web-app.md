@@ -915,7 +915,8 @@ the page plays the window on the pieces themselves, as the canvas's
   substitution limit", "2 substitutions left"), dark once it is spent.
   The prompt carried only whether a substitute was possible and the
   Discord caption said the rest, so the options grew the field
-  (proposed as its own commit on step 6's PR); the page says the
+  (proposed as its own commit on step 6's PR, and accepted by the
+  author there, 2026-09-26); the page says the
   occasion's budget and never works one out.
 - **Under a rule, the box says how**: a line per move made on the
   board ("Substitute: drag a bench meeple onto the player it replaces,

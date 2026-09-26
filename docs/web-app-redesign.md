@@ -557,7 +557,7 @@ formation tiles off `formation_shape`, the lit line naming what may be
 picked up, and no undo, since the service offers none). The budget
 note needed the window's allowance on the prompt, so
 `CoachingHubOptions.allowance` was proposed as its own commit on the
-step's PR. The Teams tab is step 10's, so there were no rows to match
+step's PR and accepted by the author there. The Teams tab is step 10's, so there were no rows to match
 yet.
 
 Step 8, the bench, was folded into this step (2026-09-26): the
