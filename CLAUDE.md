@@ -340,7 +340,7 @@ which the code still cites by finding number.
 | `can_attempt_score`, `ShotDefender`, the High Pass distances and overshoot | [shooting.md](docs/design/shooting.md) | Range is not a zone; halving is per defender; the passer never receives their own pass |
 | `begin_loose_ball`, `contest_noun`, anything announcing where the ball landed | [loose-balls.md](docs/design/loose-balls.md) | What is standing on the space decides; only an empty space is loose; the High Pass exemption |
 | `ball_carrier_id`, `begin_run_back`, `new_play`, `assigned_positions`, `continue_run_back` | [possession-and-turnovers.md](docs/design/possession-and-turnovers.md) | Steal vs new play; the run-back exemption is the carry; who runs back is two questions |
-| `may_call_time_out`, `pending_time_out`, `finish_time_out` | [time-out.md](docs/design/time-out.md) | Not a turnover; charged not asked; the free pickup |
+| `may_call_time_out`, `pending_time_out`, `finish_time_out` | [time-out.md](docs/design/time-out.md) | Not a turnover; charged not asked; the pickup, a token a space like every other |
 | `d12ball/tutorial.py`, any rail, `begin_turn`, `d12ball/flow/gates.py`, `tutorial_gate` | [tutorial.md](docs/design/tutorial.md) | Five real turns from the standard deal; nothing moves a meeple between beats; the Continue gate is a prompt |
 | Adding a method to the cog, moving one between mixins | [cog-structure.md](docs/design/cog-structure.md) | Why mixins, why the order carries nothing, why `commands.GroupCog` is last |
 | `botlog/`, log levels, the deploy notice, `FOOLBOT_LOG_*` | [logging.md](docs/design/logging.md) | Opt-in mirror per bot; what level means; reconnects are weather until they are not |

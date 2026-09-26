@@ -760,13 +760,11 @@ def finish_time_out(
     with them either way (the author, 2026-09-16); they send the
     nearest player either side of it to pick it back up.
 
-    **That pickup is free**, which is the one walk to the ball in
-    the game that charges nothing. A time out costs a minute and no
-    exhaustion, and a coach should not be billed for putting
-    somebody back on a ball their side never lost.
-    `pending_recovery_from_time_out` is what says so, and it says
-    the other half too: the pickup is not a turnover, because the
-    side doing it is the side that had the ball all along.
+    **That pickup charges a token a space**, like every other pickup
+    (the author, 2026-09-26; it was free until then). What
+    `pending_recovery_from_time_out` says is the other half: the
+    pickup is not a turnover, because the side doing it is the side
+    that had the ball all along.
 
     **`turnover_occurred` is False**, unlike a cede's, and that is
     the whole of what stopped being a turnover: nothing resets ball

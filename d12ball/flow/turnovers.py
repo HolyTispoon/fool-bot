@@ -1014,8 +1014,9 @@ def recover_ball_step(
     `reset_maneuver` clears it -- precisely so this step, which can
     span a restart, can still read it back.
 
-    **A time out's pickup is the one walk to the ball that charges
-    nothing**, and it is not a turnover either: the side fetching the
+    **Every pickup charges a token a space**, a time out's included
+    (the author, 2026-09-26: the time-out pickup was free until then).
+    A time out's pickup is still not a turnover: the side fetching the
     ball is the side that has had it all along, so nothing resets and
     nothing ends. Read before the pickup clears it. See
     `finish_time_out`.
@@ -1024,10 +1025,7 @@ def recover_ball_step(
     distance_moved = match.pending_run_back_distance
     from_time_out = match.pending_recovery_from_time_out
     distance = match.recover_out_of_bounds_ball(player_id)
-    exhaustion_text = (
-        "" if from_time_out
-        else engine.apply_exhaustion(game, match, player_id, distance)
-    )
+    exhaustion_text = engine.apply_exhaustion(game, match, player_id, distance)
 
     # A pickup is a way of receiving the ball (the author, 2026-09-26),
     # and leaves no carrier for the driver's hook to see.
@@ -1035,9 +1033,10 @@ def recover_ball_step(
 
     received = receives_the_ball(engine, game, match, player_id)
     prefix = f"{lead_in}\n\n" if lead_in else ""
-    # Joined rather than interpolated: a free pickup has no exhaustion
-    # line at all, and interpolating one would leave a blank line under
-    # the sentence. See "What a message says".
+    # Joined rather than interpolated: a move that costs nothing says
+    # nothing (`describe_exhaustion_gain` returns ""), and interpolating
+    # it would leave a blank line under the sentence. See "What a
+    # message says".
     return StepResult(
         narration=[
             "\n".join(

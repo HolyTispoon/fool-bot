@@ -79,15 +79,19 @@ two kinds now, not three.
   can re-deal a whole side, so a coach can rearrange their own handler off
   their own ball. **Possession stays theirs** (the author, 2026-09-16) and
   `finish_time_out` sends the nearest player either side of it to fetch it.
-  - **That pickup is free**, and it is the one walk to the ball in the game
-    that charges nothing. A time out costs a minute and no exhaustion, and a
-    coach should not be billed for putting somebody back on a ball their side
-    never lost.
-  - **`pending_recovery_from_time_out` is one fact read at both ends**, which
-    is why it is not called `..._is_free`: the same flag says the pickup costs
-    nothing *and* that it is not a turnover, and both follow from the side
-    fetching the ball being the side that had it all along.
-    `apply_ball_recovery` reads it before the pickup clears it.
+  - **That pickup charges a token a space, like every other** (the author,
+    2026-09-26: *"A player chosen to go get the ball adds 1 Exhaustion per
+    space traveled. This should be the case after a time out as well"*). It
+    was free from 2026-09-16 until then, as the one walk to the ball in the
+    game that charged nothing; every pickup is now one rule -- the two
+    nearest, every tie offered, no decline, a token a space
+    ([sending-a-player.md](sending-a-player.md)).
+  - **`pending_recovery_from_time_out` now says one thing**: that the pickup
+    is not a turnover, because the side fetching the ball is the side that
+    had it all along. It said the pickup was free as well, and that half is
+    gone; the saved key stays as it is (it is a saved field, and the
+    turnover half still reads it). `apply_ball_recovery` reads it before the
+    pickup clears it.
 - **The clock cost rides on `pending_run_back_distance`, left at 1.** That
   field is what every tail step reads back for the clock, and the pickup spans
   a restart, so a time out has to say so there rather than pass it down a call

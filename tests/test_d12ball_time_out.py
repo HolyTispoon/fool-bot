@@ -11,8 +11,9 @@ docs/living-rules.md.
 It was **ceding the ball** until 2026-09-16, and the tests that changed
 rather than being renamed are the ones that fact was load-bearing for:
 possession no longer crosses, last possession refuses a time out
-instead of ending the period, the tail is not a turnover, and the
-pickup afterwards is free.
+instead of ending the period, and the tail is not a turnover. The
+pickup afterwards was free until 2026-09-26; it charges a token a space
+now, like every other pickup.
 """
 
 import unittest
@@ -482,11 +483,12 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         # it free and keeps it from reading as a turnover.
         self.assertTrue(match.pending_recovery_from_time_out)
 
-    async def test_the_pickup_after_a_time_out_charges_nothing(self) -> None:
-        # The one walk to the ball in the game that costs no
-        # exhaustion (the author, 2026-09-16): a time out costs a
-        # minute, and a coach is not billed for putting somebody back
-        # on a ball their side never lost.
+    async def test_the_pickup_after_a_time_out_charges_a_token_a_space(
+        self,
+    ) -> None:
+        # Every pickup is the same (the author, 2026-09-26): the one a
+        # time out leaves owed charges a token a space like the rest --
+        # it was free from 2026-09-16 until then.
         cog, game, match = self.build()
         match.call_time_out()
         for player_id in list(match.board.spaces[Zone.MIDFIELD][0]):
@@ -494,6 +496,9 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         match.pending_ball_recovery = True
         match.pending_recovery_from_time_out = True
         fetcher = match.contest_candidates(TeamSide.HOME)[0]
+        before = match.exhaustion.get(fetcher, 0)
+        distance = match.distance_to_ball(fetcher)
+        self.assertGreater(distance, 0)
         interaction = build_interaction()
 
         with suppressed_cog_saves():
@@ -501,16 +506,18 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
                 interaction, game, match, fetcher,
             )
 
-        self.assertEqual(match.exhaustion.get(fetcher, 0), 0)
+        self.assertEqual(match.exhaustion.get(fetcher, 0), before + distance)
         self.assertFalse(match.pending_recovery_from_time_out)
         # Not a turnover either: the side fetching it has had the ball
         # all along, so nothing resets and nothing ends.
         _, kwargs = cog.finish_maneuver_resolution.call_args
         self.assertFalse(kwargs["turnover_occurred"])
 
-    async def test_an_out_of_bounds_pickup_still_charges(self) -> None:
-        # The other half of the same branch: without the flag it is the
-        # ordinary token a space, and it is a turnover.
+    async def test_an_out_of_bounds_pickup_charges_and_is_a_turnover(
+        self,
+    ) -> None:
+        # Without the flag it is the same token a space, and it is a
+        # turnover.
         cog, game, match = self.build()
         for player_id in list(match.board.spaces[Zone.MIDFIELD][0]):
             match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
@@ -700,9 +707,9 @@ class LegacyCedeSaveTests(unittest.TestCase):
         self.assertEqual(again.time_outs_used, {"home"})
         self.assertTrue(again.pending_time_out)
 
-    def test_a_save_that_predates_the_pickup_flag_is_not_free(self) -> None:
+    def test_a_save_that_predates_the_pickup_flag_is_a_turnover(self) -> None:
         # Every pickup owed by a game older than the time out is an
-        # out-of-bounds ball's, and those charge.
+        # out-of-bounds ball's, and those are turnovers.
         back = MatchState.from_dict(self.legacy_save(), self.rules)
 
         self.assertFalse(back.pending_recovery_from_time_out)

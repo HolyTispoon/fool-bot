@@ -862,12 +862,13 @@ PLAYER_CHIPS: Mapping[PromptKind, str] = {
 def _players(asked: Asked) -> list:
     """
     A pick among players: each lit where it stands. The ball's
-    recovery says how far each is from the ball -- the distance and
-    not a price, since a pickup after a time out is free and the
-    options carry the distance alone.
+    recovery says how far each is from the ball and what the pickup
+    would charge them -- `PlayerOptions.costs`, a token a space for
+    every pickup, a time out's included (the author, 2026-09-26).
     """
     options = asked.options
     distances = dict(zip(options["player_ids"], options["distances"]))
+    costs = dict(zip(options["player_ids"], options.get("costs") or []))
     controls = []
     for player_id in options["player_ids"]:
         chip = PLAYER_CHIPS[asked.kind]
@@ -879,6 +880,7 @@ def _players(asked: Asked) -> list:
                 asked.kind,
                 place=on_player(player_id),
                 chip=chip,
+                cost=asked.cost(player_id, costs.get(player_id, 0)),
                 player=player_id,
                 player_id=player_id,
             )

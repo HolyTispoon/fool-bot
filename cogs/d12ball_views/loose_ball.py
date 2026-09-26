@@ -230,14 +230,20 @@ class BallRecoveryView(SafeView):
         if options is None:
             return
 
+        # What each pickup charges is the prompt's (`PlayerOptions.costs`),
+        # named in the player's own tokens -- drain for a Cyborg.
+        costs = dict(zip(options.player_ids, options.costs))
         for player_id, distance in zip(options.player_ids, options.distances):
             player = cog.engine.get_player_definition(player_id)
             space_word = "space" if distance == 1 else "spaces"
+            noun, _ = cog.engine.token_word_and_mark(game, player_id)
+            cost = costs.get(player_id)
+            price = f", {cost} {noun}" if cost else ""
 
             button = discord.ui.Button(
                 label=(
                     f"{player_with_role(player)} ({distance} {space_word} "
-                    "away)"
+                    f"away{price})"
                 )[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(

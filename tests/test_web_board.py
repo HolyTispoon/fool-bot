@@ -706,6 +706,22 @@ class ObjectTests(unittest.TestCase):
             list(receivers),
         )
 
+    def test_a_pickup_says_what_it_charges_each_candidate(self) -> None:
+        fixture = case("ball recovery")
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        costs = dict(zip(prompt.options.player_ids, prompt.options.costs))
+        chips = {
+            control["place"]["id"]: control["cost"]
+            for number in (1, 2)
+            for group in controls_for(
+                ENGINE, fixture.game, fixture.match, prompt, Viewer(number),
+            )
+            for control in group["controls"]
+        }
+        self.assertEqual(set(chips), set(costs))
+        for player_id, cost in chips.items():
+            self.assertEqual(cost["count"], costs[player_id])
+
     def test_the_shot_lights_the_goal_the_side_attacks(self) -> None:
         fixture = case("plain turn")
         side = fixture.match.ball.possession

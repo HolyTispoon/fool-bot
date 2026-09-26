@@ -133,6 +133,61 @@ class OptionsCarryTheirMeasureTests(unittest.TestCase):
                 else:
                     self.assertFalse(options.may_pass_out)
 
+    def test_a_pickup_carries_what_each_candidate_would_be_charged(
+        self,
+    ) -> None:
+        """Every pickup charges a token a space, a time out's included
+        (the author, 2026-09-26), and the prompt says so per player --
+        the same amount the pickup then charges."""
+        played = 0
+        for case in CASES:
+            fixture = case.build()
+            prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+            if prompt is None or prompt.kind is not PromptKind.BALL_RECOVERY:
+                continue
+            options = prompt.options
+            self.assertEqual(options.costs, options.distances)
+            for player_id, cost in zip(options.player_ids, options.costs):
+                for from_time_out in (False, True):
+                    with self.subTest(case.name, player_id=player_id,
+                                      from_time_out=from_time_out):
+                        game, match = _built(case)
+                        match.pending_recovery_from_time_out = from_time_out
+                        before = match.exhaustion.get(player_id, 0)
+                        run = driver.apply(
+                            ENGINE, game, match,
+                            Action(prompt.kind, "", {"player_id": player_id}),
+                        )
+                        self.assertNotIsInstance(run, driver.Refusal)
+                        self.assertEqual(
+                            match.exhaustion.get(player_id, 0), before + cost,
+                        )
+                        played += 1
+        self.assertTrue(played)
+
+    def test_a_pickup_cannot_be_declined(self) -> None:
+        """A pickup offers nobody the choice to send nobody: its options
+        are a pick among players with no decline, and the driver
+        refuses one (the Charter's "Sending nobody")."""
+        seen = False
+        for case in CASES:
+            game, match = _built(case)
+            prompt = pending_prompt(ENGINE, game, match)
+            if prompt is None or prompt.kind is not PromptKind.BALL_RECOVERY:
+                continue
+            seen = True
+            with self.subTest(case.name):
+                self.assertIsInstance(prompt.options, PlayerOptions)
+                for action in (
+                    Action(prompt.kind, "decline", {}),
+                    Action(prompt.kind, "", {}),
+                ):
+                    self.assertIsInstance(
+                        driver.apply(ENGINE, game, match, action),
+                        driver.Refusal,
+                    )
+        self.assertTrue(seen)
+
     def test_a_distance_names_the_space_it_lands_on(self) -> None:
         """
         A coach choosing a distance is choosing a space, and which way

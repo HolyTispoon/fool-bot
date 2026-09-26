@@ -724,7 +724,7 @@ class CoachingWindowFlowTests(PeriodFixture):
 
 
 class TimeOutFlowTests(PeriodFixture):
-    """Charged, not asked; and the free pickup at the end of it."""
+    """Charged, not asked; and the pickup at the end of it."""
 
     def setUp(self) -> None:
         super().setUp()

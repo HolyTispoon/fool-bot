@@ -2079,10 +2079,11 @@ class MatchState:
     loose_ball_defense_declined: bool = False
     pending_ball_recovery: bool = False
     # Whether the pickup `pending_ball_recovery` owes belongs to a time
-    # out rather than to a ball that went dead. Two things read it and
-    # they are the same fact twice: a time out's pickup is **free**,
-    # and it is **not a turnover** -- the side picking the ball up is
-    # the side that had it all along. See `finish_time_out`.
+    # out rather than to a ball that went dead. What it says is that
+    # the pickup is **not a turnover** -- the side picking the ball up
+    # is the side that had it all along. (It said the pickup was free
+    # too, until the author's 2026-09-26 change: every pickup charges a
+    # token a space now.) See `finish_time_out`.
     pending_recovery_from_time_out: bool = False
     # The ball has been given up to coach and neither side's window has
     # closed yet -- see call_time_out. Persisted because the whole of
@@ -3560,11 +3561,9 @@ class MatchState:
         arrangement, so the player placed here is the one who stays on
         the ball rather than being run back off it.
 
-        **What it costs is the caller's to decide**, off
-        `pending_recovery_from_time_out`: an out-of-bounds ball charges
-        the distance this returns, and a time out's charges nothing.
-        The distance is returned either way, because the caller is what
-        knows which it is.
+        **What it costs is the caller's to charge**: the distance this
+        returns, a token a space, for every pickup a time out's
+        included (`RulesEngine.pickup_cost`, which the prompt carries).
         """
         if player_id not in self.contest_candidates(self.ball.possession):
             raise RuleRefusal(

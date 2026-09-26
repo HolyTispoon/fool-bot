@@ -330,12 +330,19 @@ class PlayerOptions:
     #: order of `player_ids` -- the price on the button. Empty for the
     #: kinds where nothing is charged.
     distances: tuple[int, ...] = ()
+    #: BALL_RECOVERY: the exhaustion each candidate adds if sent, in
+    #: the order of `player_ids` -- a token a space, after a time out as
+    #: after anything else (`RulesEngine.pickup_cost`). On the prompt so
+    #: that a button says what the pickup charges and no frontend works
+    #: the price out from the distance itself.
+    costs: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
         return {
             "shape": "player",
             "player_ids": list(self.player_ids),
             "distances": list(self.distances),
+            "costs": list(self.costs),
         }
 
 
@@ -2307,7 +2314,11 @@ def _ball_recovery_options(
     prompt: PendingPrompt,
 ) -> PlayerOptions:
     candidates = tuple(match.contest_candidates(match.ball.possession))
-    return PlayerOptions(candidates, _distances_to_ball(match, candidates))
+    return PlayerOptions(
+        candidates,
+        _distances_to_ball(match, candidates),
+        costs=tuple(engine.pickup_cost(match, one) for one in candidates),
+    )
 
 
 

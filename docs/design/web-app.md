@@ -739,12 +739,13 @@ changed for it.
 | `tutorial_continue` | the note: anywhere on it | -- |
 | `game_over` | the REMATCH mark, which posts to the room's own route | -- |
 
-**A pickup's distance is not drawn as a price.** The run back, the
-walk-in and Fly are charged a token a space every time, so their chips
-carry the token and the count; the ball's recovery chip says only how
-far each candidate is, because a pickup after a time out is free (the
-Charter's "Picking the ball up") and `PlayerOptions.distances` carries
-the distance, not whether it is charged.
+**A pickup's price is the prompt's.** The run back, the walk-in and Fly
+charge a token a space, so their chips carry the token and the count.
+The ball's recovery chip carries how far each candidate is and what the
+pickup would charge them, off `PlayerOptions.costs` -- every pickup
+charges a token a space, a time out's included, since the author's
+2026-09-26 change (the time-out pickup was free until then, which is
+why the price is carried rather than read off the distance).
 
 **The whistle is one control for everything that ends a phase**: Done
 on the hub, Start the game on the table, and Pick it up on the owed

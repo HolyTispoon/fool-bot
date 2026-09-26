@@ -423,6 +423,18 @@ class RulesEngine:
         match.add_exhaustion(player_id, amount)
         return self.describe_exhaustion_gain(game, match, player_id, amount)
 
+    def pickup_cost(self, match: MatchState, player_id: str) -> int:
+        """
+        The exhaustion `player_id` adds if sent to pick the ball up: 1
+        for every space to the ball, whichever of the four pickups it
+        is -- an out-of-bounds ball, a missed shot, an avoided own goal
+        or a time out ("Picking the ball up" in docs/living-rules.md;
+        the time out's was free until the author's 2026-09-26 change).
+        The prompt carries it (`PlayerOptions.costs`), and the pickup
+        charges the distance the same measure walks.
+        """
+        return match.distance_to_ball(player_id)
+
     def drain_wording(
         self, game: D12BallGame, player_id: str,
     ) -> bool:
