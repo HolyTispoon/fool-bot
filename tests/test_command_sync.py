@@ -85,11 +85,14 @@ class BotStateTests(unittest.TestCase):
         # A checkout on a drive that has been unmounted. This runs on
         # the startup path, so a raise here would cost the bot rather
         # than the notice it is a note about.
-        unreachable = Path("/nonexistent-mount/fool-bot/data/bot.json")
+        with mock.patch.object(
+            Path,
+            "mkdir",
+            side_effect=FileNotFoundError("the drive is gone"),
+        ):
+            botstate.write_key("k", "v", self.state_file)
 
-        botstate.write_key("k", "v", unreachable)
-
-        self.assertIsNone(botstate.read_key("k", unreachable))
+        self.assertIsNone(botstate.read_key("k", self.state_file))
 
 
 class CommandFingerprintTests(unittest.TestCase):

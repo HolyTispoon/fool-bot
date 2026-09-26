@@ -150,18 +150,17 @@ class GameStorageTests(unittest.TestCase):
     def test_a_save_onto_an_unreachable_folder_does_not_raise(self) -> None:
         # What the mounted drive did: every component of the path is
         # gone, so mkdir fails rather than the write.
-        self.point_at(Path("/nonexistent-mount/fool-bot/data"))
-
-        with self.assertLogs(storage.LOGGER, level="ERROR") as logs:
+        with self.mount_away(), \
+                self.assertLogs(storage.LOGGER, level="ERROR") as logs:
             self.save({"g1": build_game()})
 
         self.assertIn("Could not save", logs.output[0])
 
     def test_only_the_first_failure_of_a_run_reaches_the_server(self) -> None:
-        self.point_at(Path("/nonexistent-mount/fool-bot/data"))
         games = {"g1": build_game()}
 
-        with self.assertLogs(storage.LOGGER, level="INFO") as logs:
+        with self.mount_away(), \
+                self.assertLogs(storage.LOGGER, level="INFO") as logs:
             self.save(games)
             self.save(games)
             self.save(games)
