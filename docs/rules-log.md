@@ -198,11 +198,14 @@ on the pull request that brought it in.
   for injury so it could compare the check (just like gaining tokens for skill tests)."* So the
   token moves first and the check is compared with the count after it.
 - **Pulsar:** *"Charge-up when receives the ball."* Read the same way as Inferno's, which now
-  uses the same word: being left holding the ball, however that happened, not only off a
-  teammate's pass, and not being chosen as handler.
+  uses the same word: being left holding the ball, however that happened, and not being chosen
+  as handler. The author: *"a steal, a pickup, or a pass -- all are ways Pulsar receives the ball
+  (and inferno)."* A pickup leaves nobody holding the ball, so it is named in the Charter.
 - **Scorchit:** *"Forces a skill test even when their maneuver is on the losing side but gains 2
-  exhaustion while opponent gains none."* Read as automatic rather than a choice, and as following
-  the cards for a gambit exactly as the test an injury forces does.
+  exhaustion while opponent gains none."* First read as automatic. Asked on the pull request, the
+  author: *"Yes it should be 'may force'."*, and the cell now reads *"May force a skill test..."*.
+  So it is Scorchit's coach's choice, asked at the reveal. Read as following the cards for a
+  gambit exactly as the test an injury forces does.
 - **Slitheron:** *"Auto wins contests for high pass and loose ball."* Read as the High Pass contest
   and the contest for a ball on an empty space; a ball that comes down between both sides is a
   contest, not a loose ball, and is rolled as usual.
