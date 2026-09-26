@@ -18,11 +18,13 @@ from d12ball.components import (
     MatchState,
     PlayerRole,
     TeamSetup,
+    load_species_abilities,
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.flow import FollowOnStep
 from d12ball.formatting import role_initials
 from d12ball.game import D12BallGame, Team, team_display_name
+from d12ball.player_cards import render_player_card, render_player_card_back
 from d12ball.render import (
     TEAM_COLORS,
     ChallengeSide,
@@ -33,6 +35,8 @@ from d12ball.render import (
     render_volatile_die,
     zone_labels,
 )
+from d12ball.role_cards import render_role_card
+from d12ball.species_cards import CARD_FACES, render_species_card
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     FIELD_IMAGE_FILENAME,
@@ -48,6 +52,18 @@ from cogs.d12ball_helpers import (
     send_new_prompt,
     space_label,
 )
+
+
+def card_png(render, *args) -> bytes:
+    """
+    One printed card, drawn and encoded as PNG in the same worker
+    thread: the encode is as CPU-bound as the draw. The cards are the
+    print modules' own layout at print size, which is what makes a card
+    on Discord the card on the table (see docs/design/cards.md).
+    """
+    buffer = io.BytesIO()
+    render(*args).save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 class PresentationMixin:
@@ -403,7 +419,8 @@ class PresentationMixin:
         match: MatchState,
         player_id: str,
         location: Optional[str] = None,
-        show_abilities: bool = False,
+        show_role_abilities: bool = False,
+        show_advanced_abilities: bool = True,
     ) -> str:
         """
         One roster line. `location` is the space the player stands on
@@ -435,7 +452,22 @@ class PresentationMixin:
         entry += f" — {count} {token_emoji}"
         if conditions:
             entry += f" — {', '.join(conditions)}"
-        if show_abilities:
+        # The personal ability, in a game playing them, is on unless the
+        # coach turns it off, where the role's is off unless asked for:
+        # the role's is the same on every roster and the badge already
+        # names it, and a personal ability is the one thing here a coach
+        # cannot read off the badge. It is played beside the role's
+        # (Law 21), so both may show. Not in italics, which is how the
+        # role's reads, and because the sheet's own sentence may carry
+        # markdown of its own (Gearclaw's "*Boost*").
+        personal = (
+            self.engine.personal_ability_text(game, player_id)
+            if show_advanced_abilities
+            else ""
+        )
+        if personal:
+            entry += f"\n     **Personal:** {personal}"
+        if show_role_abilities:
             ability = self.player_catalog.effective_profile(player).ability
             entry += f"\n     *{ability}*"
         return entry
@@ -446,7 +478,8 @@ class PresentationMixin:
         game: D12BallGame,
         match: MatchState,
         setup: TeamSetup,
-        show_abilities: bool = False,
+        show_role_abilities: bool = False,
+        show_advanced_abilities: bool = True,
     ) -> str:
         lines = [f"**{format_team_side_label(setup)}**"]
         for heading, members in self.engine.roster_places(match, setup):
@@ -460,11 +493,80 @@ class PresentationMixin:
                     match,
                     player_id,
                     location=location,
-                    show_abilities=show_abilities,
+                    show_role_abilities=show_role_abilities,
+                    show_advanced_abilities=show_advanced_abilities,
                 )
                 for player_id, location in members
             )
         return "\n".join(lines)
+
+    async def build_role_reference_file(self) -> discord.File:
+        """
+        The printed role-ability reference card, for
+        `/d12ball role_abilities_reference`: the one card, since both
+        of its faces are the same image (`render_role_card_set`).
+        """
+        png = await asyncio.to_thread(
+            card_png, render_role_card, self.player_catalog.role_profiles,
+        )
+        return discord.File(io.BytesIO(png), filename="role_abilities.png")
+
+    async def build_species_reference_files(self) -> list[discord.File]:
+        """
+        The printed species-ability reference, for
+        `/d12ball species_abilities_reference`: the two faces of the
+        set's first card, which between them carry all four abilities
+        once each -- the set is three cards only so that every pairing
+        is one face on a table, and a channel has no table to lay a
+        card on.
+        """
+        abilities = load_species_abilities()
+        files = []
+        for pair in CARD_FACES[0]:
+            png = await asyncio.to_thread(
+                card_png, render_species_card, abilities, pair,
+            )
+            files.append(
+                discord.File(
+                    io.BytesIO(png),
+                    filename=f"species_{'_'.join(pair)}.png",
+                )
+            )
+        return files
+
+    async def build_team_reference_files(
+        self, game: D12BallGame, team: Team,
+    ) -> list[discord.File]:
+        """
+        A team's printed player cards, one file each, for
+        `/d12ball team_reference`: the advanced face in a game playing
+        the personal abilities and advanced skills, and the front
+        everywhere else -- the front carries the role's ability and
+        skills, which is the whole of a player in training and basic
+        mode. Which face is `personal_abilities_apply`'s answer, not
+        the game's mode read here.
+
+        In catalog order, which is the same whatever has happened on
+        the board, so a coach finds a card in the same place each time.
+        A team is nine players, inside Discord's ten attachments to a
+        message.
+        """
+        render = (
+            render_player_card_back
+            if self.engine.personal_abilities_apply(game)
+            else render_player_card
+        )
+        files = []
+        for player in self.player_catalog.teams[team].players:
+            png = await asyncio.to_thread(
+                card_png, render, self.player_catalog, player, team, False,
+            )
+            files.append(
+                discord.File(
+                    io.BytesIO(png), filename=f"{player.player_id}.png",
+                )
+            )
+        return files
 
 
     async def send_turn_prompt(

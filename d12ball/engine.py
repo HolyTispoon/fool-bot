@@ -662,6 +662,24 @@ class RulesEngine:
         row = PERSONAL_ABILITIES.get(catalog_player_id(player_id))
         return row is not None and row[0] == ability
 
+    def personal_ability_text(
+        self, game: D12BallGame, player_id: str,
+    ) -> str:
+        """
+        The sentence a roster shows for a player's personal ability:
+        the sheet's own words, as the advanced face of the card prints
+        them, in a game playing the personal abilities, and `""`
+        anywhere else or for a player who has none. For wording
+        alone -- a rule asks `has_personal_ability` or `skills`.
+
+        The column also carries the four advanced-skill sentences
+        ("High defensive skill."), which are shown too, since that is
+        the card's own line for those players.
+        """
+        if not self.personal_abilities_apply(game):
+            return ""
+        return self.get_player_definition(player_id).advanced_ability
+
     def skills(
         self, game: Optional[D12BallGame], player_id: str,
     ) -> PlayerSkills:

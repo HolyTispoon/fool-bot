@@ -13,7 +13,6 @@ from discord.ext import commands
 from d12ball.components import (
     MatchPeriod,
     MatchState,
-    PlayerRole,
     RuleRefusal,
     TeamSide,
     Zone,
@@ -1610,14 +1609,18 @@ class CommandsMixin:
     )
     @app_commands.describe(
         all_teams="Show both teams' rosters instead of just your own.",
-        abilities="Include each player's role ability.",
+        role_abilities="Include each player's role ability.",
+        advanced_abilities=(
+            "Include each player's personal ability, in an advanced game."
+        ),
     )
     @app_commands.guild_only()
     async def team_roster(
         self,
         interaction: discord.Interaction,
         all_teams: bool = False,
-        abilities: bool = False,
+        role_abilities: bool = False,
+        advanced_abilities: bool = True,
     ) -> None:
         result = await self.defer_and_get_match(interaction)
         if result is None:
@@ -1638,8 +1641,51 @@ class CommandsMixin:
         for setup in setups:
             await interaction.followup.send(
                 self.build_team_roster_section(
-                    game, match, setup, show_abilities=abilities,
+                    game,
+                    match,
+                    setup,
+                    show_role_abilities=role_abilities,
+                    show_advanced_abilities=advanced_abilities,
                 )
+            )
+
+    @app_commands.command(
+        name="team_reference",
+        description=(
+            "Post your team's player cards, the side this game's mode plays."
+        ),
+    )
+    @app_commands.describe(
+        all_teams="Show both teams' cards instead of just your own.",
+    )
+    @app_commands.guild_only()
+    async def team_reference(
+        self,
+        interaction: discord.Interaction,
+        all_teams: bool = False,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        setups = self.engine.roster_setups_for_user(
+            game, match, interaction.user.id, all_teams=all_teams,
+        )
+        if setups is None:
+            await interaction.followup.send(
+                "You are not one of the players in this game. Use "
+                "all_teams:true to see both teams' cards.",
+                ephemeral=True,
+            )
+            return
+
+        # One message a team: a team is nine cards, inside Discord's
+        # ten attachments to a message.
+        for setup in setups:
+            await interaction.followup.send(
+                f"**{format_team_side_label(setup)}**",
+                files=await self.build_team_reference_files(game, setup.team),
             )
 
     @app_commands.command(
@@ -1661,20 +1707,34 @@ class CommandsMixin:
         await add_full_image_button_to_response(interaction)
 
     @app_commands.command(
-        name="role_abilities",
-        description="List each role's ability.",
+        name="role_abilities_reference",
+        description="Post the role abilities reference card.",
     )
     @app_commands.guild_only()
-    async def role_abilities(
+    async def role_abilities_reference(
         self,
         interaction: discord.Interaction,
     ) -> None:
-        lines = [
-            f"**{role.value.title()}** — "
-            f"{self.player_catalog.role_profiles[role].ability}"
-            for role in PlayerRole
-        ]
-        await interaction.response.send_message("\n".join(lines))
+        await interaction.response.defer()
+        message = await interaction.followup.send(
+            file=await self.build_role_reference_file(),
+            wait=True,
+        )
+        await add_full_image_button(message)
+
+    @app_commands.command(
+        name="species_abilities_reference",
+        description="Post the species abilities reference cards.",
+    )
+    @app_commands.guild_only()
+    async def species_abilities_reference(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        await interaction.response.defer()
+        await interaction.followup.send(
+            files=await self.build_species_reference_files(),
+        )
 
     async def load_rules(
         self,

@@ -28,7 +28,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from d12ball.game import D12BallGame, Team, team_display_name
+from d12ball.game import D12BallGame, GameMode, Team, team_display_name
 from space_codes import code
 
 
@@ -44,7 +44,7 @@ def build_cog() -> D12Ball:
     return cog
 
 
-def build_game() -> D12BallGame:
+def build_game(**overrides) -> D12BallGame:
     return D12BallGame(
         game_id="g1",
         game_number=1,
@@ -59,6 +59,7 @@ def build_game() -> D12BallGame:
         player_2_team=Team.PURPLE,
         home_player_number=1,
         visiting_player_number=2,
+        **overrides,
     )
 
 
@@ -168,7 +169,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
         match = self.build_match()
 
         text = cog.build_team_roster_section(
-            build_game(), match, match.home, show_abilities=True,
+            build_game(), match, match.home, show_role_abilities=True,
         )
 
         self.assertLess(len(text), 2000)
@@ -290,6 +291,114 @@ class CoachingRosterButtonTests(unittest.IsolatedAsyncioTestCase):
 
         content, _ = interaction.response.send_message.await_args
         self.assertIn(team_display_name(match.visiting.team), content[0])
+
+
+class PersonalAbilityRosterTests(unittest.TestCase):
+    """
+    In advanced mode the roster shows each player's personal ability
+    (Law 21) unless the coach turns it off; the role's is shown only
+    when asked for. The players are picked off the data -- who has a
+    personal ability is the sheet's to revise -- never by id.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def setUp(self) -> None:
+        self.cog = build_cog()
+        self.match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        players = [
+            self.cog.engine.get_player_definition(player_id)
+            for _, members in self.cog.engine.roster_places(
+                self.match, self.match.home,
+            )
+            for player_id, _ in members
+        ]
+        self.holder = next(p for p in players if p.advanced_ability)
+        self.without = next(p for p in players if not p.advanced_ability)
+
+    def entry(self, game: D12BallGame, player, **flags) -> str:
+        return self.cog.format_team_roster_entry(
+            game, self.match, player.player_id, **flags,
+        )
+
+    def test_an_advanced_game_shows_the_personal_ability_by_default(
+        self,
+    ) -> None:
+        game = build_game(mode=GameMode.ADVANCED)
+        line = self.entry(game, self.holder)
+        self.assertIn(self.holder.advanced_ability, line)
+        role = self.catalog.effective_profile(self.holder).ability
+        self.assertNotIn(role, line)
+
+    def test_the_coach_may_turn_the_personal_ability_off(self) -> None:
+        game = build_game(mode=GameMode.ADVANCED)
+        line = self.entry(game, self.holder, show_advanced_abilities=False)
+        self.assertNotIn(self.holder.advanced_ability, line)
+
+    def test_both_abilities_show_when_both_are_asked_for(self) -> None:
+        game = build_game(mode=GameMode.ADVANCED)
+        line = self.entry(game, self.holder, show_role_abilities=True)
+        self.assertIn(self.holder.advanced_ability, line)
+        self.assertIn(
+            self.catalog.effective_profile(self.holder).ability, line,
+        )
+
+    def test_a_player_with_no_personal_ability_gets_no_line(self) -> None:
+        game = build_game(mode=GameMode.ADVANCED)
+        self.assertNotIn("\n", self.entry(game, self.without))
+
+    def test_no_other_mode_shows_a_personal_ability(self) -> None:
+        for game in (
+            build_game(mode=GameMode.BASIC),
+            build_game(mode=GameMode.TRAINING),
+            build_game(mode=GameMode.ADVANCED, tutorial=True),
+        ):
+            with self.subTest(mode=game.mode, tutorial=game.tutorial):
+                self.assertEqual(
+                    self.cog.engine.personal_ability_text(
+                        game, self.holder.player_id,
+                    ),
+                    "",
+                )
+                self.assertNotIn(
+                    self.holder.advanced_ability,
+                    self.entry(game, self.holder),
+                )
+
+    def test_every_advanced_roster_fits_in_one_discord_message(
+        self,
+    ) -> None:
+        # Both abilities is the longest a section gets, and it is sent
+        # as a single message.
+        game = build_game(mode=GameMode.ADVANCED)
+        for home, visiting in (
+            (Team.ORANGE, Team.PURPLE),
+            (Team.FIRE_DEMONS, Team.CYBORGS),
+            (Team.TELEKINETICS, Team.OOZES),
+            (Team.TEAL, Team.SLIME),
+        ):
+            match = MatchState.standard(
+                catalog=self.catalog,
+                ruleset=self.rules,
+                board_size=7,
+                home_team=home,
+                visiting_team=visiting,
+            )
+            for setup in (match.home, match.visiting):
+                with self.subTest(team=setup.team):
+                    text = self.cog.build_team_roster_section(
+                        game, match, setup, show_role_abilities=True,
+                    )
+                    self.assertLess(len(text), 2000)
 
 
 if __name__ == "__main__":

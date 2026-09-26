@@ -348,9 +348,10 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 
 `d12ball/player_cards.py` draws the roster as cards -- one a player, poker
 size at 300dpi, the same as a maneuver's and out of the same `Pen`, palette
-and `print_sheet`. The player, species and role cards are print-only and carry
-no tests -- nothing printed does (the author, 2026-09-23) -- so a change to one
-is checked by rendering the cards and looking.
+and `print_sheet`. The player, species and role cards are drawn for print and
+carry no tests -- nothing printed does (the author, 2026-09-23) -- so a change
+to one is checked by rendering the cards and looking. The bot posts the same
+images; see "The cards on Discord" below.
 
 ```bash
 python3 scripts/render_player_cards.py --out cards/players --sheet
@@ -542,7 +543,7 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
   `spec_abilities` (`gid=123199571`) is these four. The `player cards` tab
   also has a `SpecAbility` column naming each player's species ability, which
   nothing imports -- the species is enough to look it up.
-- **The cards are print-only; the abilities themselves are the engine's** --
+- **The cards draw the text; the abilities themselves are the engine's** --
   see [species-abilities.md](species-abilities.md). This module still only draws the
   three reference cards, and `species.json` still only feeds them; what the
   bot plays is read through `RulesEngine`, which cannot import a Pillow
@@ -657,11 +658,45 @@ python3 scripts/render_role_cards.py --out cards/roles --sheet
   the ceiling to actually hold back.
 - **Nothing here is written in the module.** The ability text and the
   offense/defense numbers come from `players.json`'s `role_profiles`
-  through `load_player_catalog`, the same table `/d12ball
-  role_abilities` (`cogs/d12ball/slash_commands.py`) already reads --
-  so a card cannot claim a stat the bot does not play, and a sheet
-  revision reaches it by re-importing and re-running the render script,
-  same as every other card in this file.
+  through `load_player_catalog` -- so a card cannot claim a stat the
+  bot does not play, and a sheet revision reaches it by re-importing
+  and re-running the render script, same as every other card in this
+  file.
+
+## The cards on Discord
+
+Three commands post the printed cards themselves, not a Discord layout of
+them, because a coach playing by Discord and a coach at the table should be
+reading the same card:
+
+- **`/d12ball role_abilities_reference`** posts the role card
+  (`render_role_card`), one image with the full-image link, the way
+  `maneuver_reference` posts the hexagon. It replaced `/d12ball
+  role_abilities`, a text list of the same six sentences (the author,
+  2026-09-26).
+- **`/d12ball species_abilities_reference`** posts the two faces of the
+  set's first card, which between them carry all four abilities once each.
+  The set is three cards only so that every species pairing is one face on
+  a table; a channel has no table, so the other two cards would only repeat
+  the text. Posted whatever the game's mode, like the role card: it is a
+  reference to the rules, not a statement about this game.
+- **`/d12ball team_reference`** posts the asking coach's team (both with
+  `all_teams`), one message a team, nine cards inside Discord's ten
+  attachments a message. **Which face is the game's mode**:
+  `render_player_card_back`, the advanced face, where
+  `RulesEngine.personal_abilities_apply` says the game plays the personal
+  abilities and advanced skills, and the front everywhere else. The cards are
+  in catalog order rather than the roster's by-place order, so a card is in
+  the same place every time it is asked for.
+
+All three render in a worker thread per request (`card_png` in
+`cogs/d12ball/presentation.py`, which encodes the PNG in the same thread)
+rather than at startup the way the maneuver images are: they are asked for
+rarely, a card is about a tenth of a second, and the maneuver images are
+prerendered because they go out every maneuver. Separate attachments rather
+than one composite image: Discord opens any one of them full-size, which is
+what reading a card needs, where the hand under a maneuver prompt is one
+image because both hands are read together at a glance.
 
 ## The species icons
 
