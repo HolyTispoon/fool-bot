@@ -95,7 +95,7 @@
       "role": "winger",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "When making a scoring opportunity, only defender on the ball contribute their skill scores.",
+      "advanced_ability": "When attempting a scoring opportunity, only defender on the ball contribute their skill scores.",
       "advanced_skills": {}
     },
     "flux_defender": {
@@ -347,54 +347,54 @@
   "teams": {
     "orange": {
       "player_ids": [
+        "goopkeeper_fullback",
+        "blazebulk_defender",
+        "spectra_midfielder",
+        "sizzifizik_playmaker",
+        "flickerwing_winger",
+        "acidel_striker",
         "voltus_defender",
         "synapse_playmaker",
-        "spectra_midfielder",
-        "noxar_striker",
-        "goopkeeper_fullback",
-        "acidel_striker",
-        "blazebulk_defender",
-        "sizzifizik_playmaker",
-        "flickerwing_winger"
+        "noxar_striker"
       ]
     },
     "teal": {
       "player_ids": [
         "bulwark_fullback",
+        "inferno_defender",
         "strider_midfielder",
+        "ozul_playmaker",
+        "zenith_winger",
         "pulsar_striker",
         "vorix_defender",
-        "zenith_winger",
-        "ozul_playmaker",
         "zorch_playmaker",
-        "kindlefinger_striker",
-        "inferno_defender"
+        "kindlefinger_striker"
       ]
     },
     "purple": {
       "player_ids": [
+        "hellguard_fullback",
+        "dravox_defender",
+        "glompex_midfielder",
+        "emberdash_playmaker",
         "quantor_winger",
         "tachyon_striker",
-        "dravox_defender",
-        "quillon_playmaker",
-        "zytheris_striker",
-        "glompex_midfielder",
         "viscor_defender",
-        "hellguard_fullback",
-        "emberdash_playmaker"
+        "quillon_playmaker",
+        "zytheris_striker"
       ]
     },
     "slime": {
       "player_ids": [
-        "flux_defender",
-        "gearclaw_playmaker",
         "umbrik_fullback",
-        "hexis_playmaker",
-        "gurgoth_defender",
-        "spritz_winger",
-        "slitheron_striker",
+        "flux_defender",
         "scorchit_midfielder",
-        "brightburn_striker"
+        "gearclaw_playmaker",
+        "spritz_winger",
+        "brightburn_striker",
+        "gurgoth_defender",
+        "hexis_playmaker",
+        "slitheron_striker"
       ]
     },
     "fire_demons": {
@@ -406,8 +406,8 @@
         "emberdash_playmaker",
         "scorchit_midfielder",
         "brightburn_striker",
-        "kindlefinger_striker",
-        "inferno_defender"
+        "inferno_defender",
+        "kindlefinger_striker"
       ]
     },
     "cyborgs": {
@@ -432,8 +432,8 @@
         "zytheris_striker",
         "umbrik_fullback",
         "hexis_playmaker",
-        "vorix_defender",
-        "zenith_winger"
+        "zenith_winger",
+        "vorix_defender"
       ]
     },
     "oozes": {
@@ -442,8 +442,8 @@
         "acidel_striker",
         "glompex_midfielder",
         "viscor_defender",
-        "gurgoth_defender",
         "spritz_winger",
+        "gurgoth_defender",
         "slitheron_striker",
         "ozul_playmaker",
         "zorch_playmaker"

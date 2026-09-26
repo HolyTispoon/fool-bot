@@ -974,8 +974,8 @@
       "back_bench": [],
       "bench": [
         "emberdash_playmaker",
-        "kindlefinger_striker",
-        "inferno_defender"
+        "inferno_defender",
+        "kindlefinger_striker"
       ],
       "defense_die_value": null,
       "offense_die_value": null,

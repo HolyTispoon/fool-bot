@@ -1,9 +1,21 @@
 {
   "active_player_id": null,
   "assigned_positions": {
+    "acidel_striker": [
+      "visitors_goal",
+      1
+    ],
+    "blazebulk_defender": [
+      "home_goal",
+      1
+    ],
     "dravox_defender": [
       "visitors_goal",
       0
+    ],
+    "emberdash_playmaker": [
+      "midfield",
+      1
     ],
     "flickerwing_winger": [
       "visitors_goal",
@@ -21,15 +33,11 @@
       "visitors_goal",
       1
     ],
-    "noxar_striker": [
-      "visitors_goal",
-      1
-    ],
     "quantor_winger": [
       "home_goal",
       1
     ],
-    "quillon_playmaker": [
+    "sizzifizik_playmaker": [
       "midfield",
       1
     ],
@@ -37,17 +45,9 @@
       "midfield",
       0
     ],
-    "synapse_playmaker": [
-      "midfield",
-      1
-    ],
     "tachyon_striker": [
       "home_goal",
       0
-    ],
-    "voltus_defender": [
-      "home_goal",
-      1
     ]
   },
   "ball": {
@@ -66,7 +66,7 @@
           "tachyon_striker"
         ],
         [
-          "voltus_defender",
+          "blazebulk_defender",
           "quantor_winger"
         ]
       ],
@@ -75,8 +75,8 @@
           "spectra_midfielder"
         ],
         [
-          "quillon_playmaker",
-          "synapse_playmaker"
+          "emberdash_playmaker",
+          "sizzifizik_playmaker"
         ],
         [
           "glompex_midfielder"
@@ -88,7 +88,7 @@
           "dravox_defender"
         ],
         [
-          "noxar_striker",
+          "acidel_striker",
           "hellguard_fullback"
         ]
       ]
@@ -104,13 +104,13 @@
       },
       "kind": "turn_action",
       "period": "first_half",
-      "player_id": "synapse_playmaker",
+      "player_id": "sizzifizik_playmaker",
       "side": "home",
       "time": 0
     },
     {
       "details": {
-        "challenger_id": "quillon_playmaker",
+        "challenger_id": "emberdash_playmaker",
         "decision": "cards",
         "defense_key": "deflect",
         "offense_key": "dribble_advance",
@@ -118,7 +118,7 @@
       },
       "kind": "maneuver",
       "period": "first_half",
-      "player_id": "synapse_playmaker",
+      "player_id": "sizzifizik_playmaker",
       "side": "home",
       "time": 0
     },
@@ -128,12 +128,12 @@
         "by_ai": false,
         "exhaustion": {
           "dravox_defender": 1,
-          "synapse_playmaker": 3
+          "sizzifizik_playmaker": 3
         }
       },
       "kind": "turn_action",
       "period": "first_half",
-      "player_id": "synapse_playmaker",
+      "player_id": "sizzifizik_playmaker",
       "side": "home",
       "time": 1
     },
@@ -147,7 +147,7 @@
       },
       "kind": "skill_test",
       "period": "first_half",
-      "player_id": "synapse_playmaker",
+      "player_id": "sizzifizik_playmaker",
       "side": "home",
       "time": 1
     },
@@ -161,7 +161,7 @@
       },
       "kind": "maneuver",
       "period": "first_half",
-      "player_id": "synapse_playmaker",
+      "player_id": "sizzifizik_playmaker",
       "side": "home",
       "time": 1
     },
@@ -170,7 +170,7 @@
         "action": "maneuver",
         "by_ai": true,
         "exhaustion": {
-          "synapse_playmaker": 1
+          "sizzifizik_playmaker": 1
         }
       },
       "kind": "turn_action",
@@ -181,7 +181,7 @@
     },
     {
       "details": {
-        "challenger_id": "synapse_playmaker",
+        "challenger_id": "sizzifizik_playmaker",
         "decision": "cards",
         "defense_key": "pressure",
         "offense_key": "dribble_advance",
@@ -209,7 +209,7 @@
     },
     {
       "details": {
-        "challenger_id": "synapse_playmaker",
+        "challenger_id": "sizzifizik_playmaker",
         "decision": "cards",
         "defense_key": "steal",
         "offense_key": "low_pass",
@@ -226,13 +226,13 @@
         "action": "maneuver",
         "by_ai": false,
         "exhaustion": {
-          "dravox_defender": 1,
-          "noxar_striker": 1
+          "acidel_striker": 1,
+          "dravox_defender": 1
         }
       },
       "kind": "turn_action",
       "period": "first_half",
-      "player_id": "synapse_playmaker",
+      "player_id": "sizzifizik_playmaker",
       "side": "home",
       "time": 4
     },
@@ -246,7 +246,7 @@
       },
       "kind": "maneuver",
       "period": "first_half",
-      "player_id": "synapse_playmaker",
+      "player_id": "sizzifizik_playmaker",
       "side": "home",
       "time": 4
     },
@@ -261,7 +261,7 @@
       },
       "kind": "shot",
       "period": "first_half",
-      "player_id": "noxar_striker",
+      "player_id": "acidel_striker",
       "side": "home",
       "time": 4
     },
@@ -272,25 +272,25 @@
       },
       "kind": "goal",
       "period": "first_half",
-      "player_id": "noxar_striker",
+      "player_id": "acidel_striker",
       "side": "home",
       "time": 4
     }
   ],
   "exhausted": [
-    "synapse_playmaker"
+    "sizzifizik_playmaker"
   ],
   "exhaustion": {
+    "acidel_striker": 1,
     "dravox_defender": 2,
     "glompex_midfielder": 3,
-    "noxar_striker": 1,
-    "synapse_playmaker": 4
+    "sizzifizik_playmaker": 4
   },
   "goals": [
     {
       "own_goal": false,
       "period": "first_half",
-      "player_id": "noxar_striker",
+      "player_id": "acidel_striker",
       "shootout": false,
       "side": "home",
       "time": 4
@@ -303,9 +303,9 @@
     "team_board": {
       "back_bench": [],
       "bench": [
-        "acidel_striker",
-        "blazebulk_defender",
-        "sizzifizik_playmaker"
+        "voltus_defender",
+        "synapse_playmaker",
+        "noxar_striker"
       ],
       "defense_die_value": null,
       "offense_die_value": null,
@@ -314,15 +314,15 @@
     "zones": {
       "home_goal": [
         "goopkeeper_fullback",
-        "voltus_defender"
+        "blazebulk_defender"
       ],
       "midfield": [
         "spectra_midfielder",
-        "synapse_playmaker"
+        "sizzifizik_playmaker"
       ],
       "visitors_goal": [
         "flickerwing_winger",
-        "noxar_striker"
+        "acidel_striker"
       ]
     }
   },
@@ -405,9 +405,9 @@
     "team_board": {
       "back_bench": [],
       "bench": [
-        "zytheris_striker",
         "viscor_defender",
-        "emberdash_playmaker"
+        "quillon_playmaker",
+        "zytheris_striker"
       ],
       "defense_die_value": null,
       "offense_die_value": null,
@@ -420,7 +420,7 @@
       ],
       "midfield": [
         "glompex_midfielder",
-        "quillon_playmaker"
+        "emberdash_playmaker"
       ],
       "visitors_goal": [
         "hellguard_fullback",

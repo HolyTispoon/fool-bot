@@ -23,7 +23,7 @@ A handler can do three things: shoot, maneuver, or call a time out to buy both c
 --- message
 🟠 <@111>, it is your turn.
 
-Synapse [PM] will be handling the ball.
+Sizzifizik [PM] will be handling the ball.
 
 Out of shooting range. Maneuver, or take a time out:
 === press 3: PlayerActionView -> 'Maneuver'
@@ -61,7 +61,7 @@ You chose **Dribble Advance**.
 --- message
 Chose **2 spaces**.
 --- message
-**Dribble Advance:** 🟠 Synapse [PM] and the ball move forward 2 spaces (Playmaker ability).
+**Dribble Advance:** 🟠 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
 
 ### Ball speed
 You get a choice here too: the ball's own speed, up to your player's skill. It cuts both ways -- a faster ball adds to *your* next score attempt, but it adds just as much to a defense stealing it off you with Steal. We will come back to it properly in a few turns, when it actually matters. This turn it does not: the turnover in beat 2 resets it to 1 regardless, so **pick whatever you like.**
@@ -86,7 +86,7 @@ You are on space 6 now, which is inside your shooting range, so the **Shoot** bu
 --- message
 🟠 <@111>, it is your turn.
 
-The ball was left with Synapse [PM], who takes this turn.
+The ball was left with Sizzifizik [PM], who takes this turn.
 
 Choose an action:
 === press 10: PlayerActionView -> 'Maneuver'
@@ -111,10 +111,10 @@ You chose **Low Pass**.
 
 **Low Pass** ties with **Deflect** — skill test!
 
-🟠 Synapse [PM]: offense skill 4
+🟠 Sizzifizik [PM]: offense skill 4
 🟣 Dravox [DD]: defense skill 5
 
-🟠 Synapse [PM] adds 1 exhaustion 😮‍💨 (now 1 total).
+🟠 Sizzifizik [PM] adds 1 exhaustion 😮‍💨 (now 1 total).
 🟣 Dravox [DD] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 Either player can roll:
@@ -128,12 +128,12 @@ Either player can roll:
 # Players run back!
 Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
 --- message
-<@111>, choose where 🟠 Synapse [PM] runs back to:
+<@111>, choose where 🟠 Sizzifizik [PM] runs back to:
 Space 4 (2 away) or space 5 (1 away).
 === press 14: RunBackChoiceView -> 'Space 4 (2 away)'
 --- message
-🟠 Synapse [PM] runs back to space 4.
-🟠 Synapse [PM] adds 2 exhaustion 😮‍💨😮‍💨 (now 3 total).
+🟠 Sizzifizik [PM] runs back to space 4.
+🟠 Sizzifizik [PM] adds 2 exhaustion 😮‍💨😮‍💨 (now 3 total).
 --- message
 Ball is now in space 5, Purple (Visiting) has possession. Time has advanced 1, now at 02.
 --- message
@@ -148,11 +148,11 @@ Once your challenger is in position, Dinky moves, and then you are asked for a c
 🟣 Glompex [MF] will maneuver for Purple.
 
 🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
-=== press 16: ManeuverChallengeView -> 'Synapse [PM] (1)'
+=== press 16: ManeuverChallengeView -> 'Sizzifizik [PM] (1)'
 --- message
-Synapse has moved 1 space.
-🟠 Synapse [PM] adds 1 exhaustion 😮‍💨 (now 4 total).
-🟠 Synapse [PM] is now *exhausted* 🥵
+Sizzifizik has moved 1 space.
+🟠 Sizzifizik [PM] adds 1 exhaustion 😮‍💨 (now 4 total).
+🟠 Sizzifizik [PM] is now *exhausted* 🥵
 --- message
 ### The other three cards
 Defending, your hand is the other half of the cycle:
@@ -178,7 +178,7 @@ You chose **Pressure**.
 
 ## **Pressure** wins!
 --- message
-**Pressure:** 🟣 Glompex [MF] and the ball go back 1 space. 🟠 Synapse [PM] moves forward.
+**Pressure:** 🟣 Glompex [MF] and the ball go back 1 space. 🟠 Sizzifizik [PM] moves forward.
 
 Ball is now in space 6, Purple (Visiting) has possession. Time has advanced 1, now at 03.
 --- message
@@ -191,7 +191,7 @@ Now take it off them.
 🟣 Glompex [MF] will maneuver for Purple.
 
 🟠 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
-=== press 20: ManeuverChallengeView -> 'Synapse [PM] (0)'
+=== press 20: ManeuverChallengeView -> 'Sizzifizik [PM] (0)'
 --- message
 ### Turnovers, the run back, and ball speed
 **Pick Steal.** Dinky is playing Low Pass, and Steal beats it -- the ball will be yours again!
@@ -217,7 +217,7 @@ You chose **Steal**.
 --- message
 **Steal:**
 # Turnover!
-🟠 Synapse [PM] steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
+🟠 Sizzifizik [PM] steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
 # Players run back!
 Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
@@ -246,7 +246,7 @@ A High Pass of exactly 2 spaces lands on space 7. A pass that reaches a teammate
 --- message
 🟠 <@111>, it is your turn.
 
-The ball was left with Synapse [PM], who takes this turn.
+The ball was left with Sizzifizik [PM], who takes this turn.
 
 Choose an action:
 === press 25: PlayerActionView -> 'Maneuver'
@@ -279,27 +279,27 @@ You chose **High Pass**.
 ## **High Pass** wins!
 --- message
 🟠 <@111>, choose your High Pass distance:
-=== press 28: HighPassChoiceView -> '2 spaces (space 7, Noxar [SK])'
+=== press 28: HighPassChoiceView -> '2 spaces (space 7, Acidel [SK])'
 --- message
 Chose **2 spaces**.
 --- message
 **High Pass:** the ball moves 2 spaces forward. That reaches a teammate -- a scoring opportunity!
 
-<@111> 🟠 Noxar [SK] can attempt the scoring opportunity, or let it go:
-=== press 29: SetUpAttemptChoiceView -> 'Noxar [SK] takes the shot'
+<@111> 🟠 Acidel [SK] can attempt the scoring opportunity, or let it go:
+=== press 29: SetUpAttemptChoiceView -> 'Acidel [SK] takes the shot'
 --- message
-🟠 Noxar [SK] takes the shot.
+🟠 Acidel [SK] takes the shot.
 --- message
-🟠 Noxar [SK] takes the shot off the set-up.
+🟠 Acidel [SK] takes the shot off the set-up.
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
 === press 30: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🟠 Noxar [SK] scores for Orange (Home) on **04**!
+🟠 Acidel [SK] scores for Orange (Home) on **04**!
 Orange 1:0 Purple
 
-🟠 Noxar [SK] adds 1 exhaustion 😮‍💨 (now 1 total).
+🟠 Acidel [SK] adds 1 exhaustion 😮‍💨 (now 1 total).
 --- message
 # Coaching Choice
 **🟣 Dinky AI passed.**

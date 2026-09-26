@@ -130,7 +130,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "flickerwing_winger": (
         PersonalAbility.CLEAR_SHOT,
-        "When making a scoring opportunity, only defender on the ball "
+        "When attempting a scoring opportunity, only defender on the ball "
         "contribute their skill scores.",
     ),
     "inferno_defender": (

@@ -159,7 +159,10 @@ the author directly.
 Re-imported from the sheet. The `advanced_abilities` tab gives thirteen more players a personal
 ability and Gurgoth advanced skills (5 offense, 6 defense), and the player cards tab's rows are
 re-sorted -- which changes which of a colour team's two same-role players the standard deal
-starts, since the deal takes the first. Brightburn ("clear" for "remove"), Quantor ("drain 3"
+starts, since the deal takes the first. The author then put each team's rows in role order
+(Fullback, Defender, Midfielder, Playmaker, Winger, Striker, then the second Defender,
+Playmaker and Striker); against the order before this entry, Orange now starts Acidel rather
+than Noxar and Teal Pulsar rather than Kindlefinger, and every other starter is as it was. Brightburn ("clear" for "remove"), Quantor ("drain 3"
 for "add 3 drain") and Strider ("Charge-up 2" for "Recharges 2") are reworded with no change of
 meaning.
 
@@ -170,7 +173,8 @@ on the pull request that brought it in.
 - **Flickerwing:** *"When making a scoring opportunity, only defender on the ball contribute
   their skill scores."* First read as Flickerwing taking a set-up's shot. Asked on the pull
   request, the author: *"it's every time Flickerwing makes a scoring attempt, off a setup or
-  without it."* So it is every score attempt Flickerwing shoots.
+  without it."* So it is every score attempt Flickerwing shoots, and the sheet now says
+  *"attempting"* for *"making"*.
 - **Glompex:** *"Before selecting a maneuver, if Glomplex is in a space adjacent to the move they
   may gain 1 exhaustion to move to the ball's space and Merge."* "The move" is read as the ball's
   space. Offered after the challenger is in place and before the cards, and only against a
