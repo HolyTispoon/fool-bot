@@ -511,6 +511,10 @@ class GameService:
             in_lobby=in_lobby,
             ai_seats=ai_seats,
         )
+        if tutorial:
+            # Training on a 7-space board against Dinky, whatever the
+            # caller passed -- the tutorial is a training game.
+            game.pin_tutorial()
         self.games[game.game_id] = game
         return game
 

@@ -311,6 +311,18 @@ class AIRoomTests(TableHarness):
         self.assertEqual((game.mode, game.board_size), (GameMode.TRAINING, 7))
 
 
+    async def test_a_tutorial_room_is_a_training_game_for_one(self) -> None:
+        room = await self.open_room(tutorial=True)
+        game = self.games[room]
+
+        self.assertTrue(game.in_lobby)
+        self.assertEqual((game.mode, game.board_size), (GameMode.TRAINING, 7))
+        self.assertFalse(game.seat_is_free(2))
+        await self.state(room, CREATOR)
+        await self.pressed(room, CREATOR, "start")
+        self.assertTrue(game.ai_holds(2))
+
+
 class FrontDoorTests(TableHarness):
     async def test_my_rooms_by_status_and_the_open_ones(self) -> None:
         lobby = await self.open_room()

@@ -756,6 +756,21 @@ class D12BallGame:
             )
         self.ai_seats = sorted(ai - {seat})
 
+    def pin_tutorial(self) -> None:
+        """
+        What a tutorial is played as, whichever way it was made: one
+        person against Dinky, in Training on a 7-space board -- the
+        Charter's "The tutorial is a training game", and the script in
+        d12ball/tutorial.py is written for exactly that. The Tutorial
+        toggle and `GameService.create_game(tutorial=True)` both pin
+        it, and `configure` refuses to move off it.
+        """
+        self.tutorial = True
+        self.test_game = False
+        self.ai_opponent = AIOpponent.DINKY
+        self.mode = GameMode.TRAINING
+        self.board_size = 7
+
     def open_settings(self) -> tuple[str, ...]:
         """
         The settings `configure` will consider now, by the game's
@@ -813,13 +828,7 @@ class D12BallGame:
             else:
                 self.tutorial = not self.tutorial
                 if self.tutorial:
-                    # One person against Dinky, and the script is
-                    # written for Training on a 7-space board -- see
-                    # d12ball/tutorial.py.
-                    self.test_game = False
-                    self.ai_opponent = AIOpponent.DINKY
-                    self.mode = GameMode.TRAINING
-                    self.board_size = 7
+                    self.pin_tutorial()
         elif setting == "name":
             self.game_name = str(value or "").strip() or None
         elif setting == "mode":

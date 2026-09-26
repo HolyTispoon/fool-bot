@@ -566,38 +566,35 @@ class WebApp:
         `{"ai": true}` is "Play against the AI": no lobby and nobody
         in the other seat, which the service fills with its default AI
         -- the AI is the service's to name, not this frontend's.
-        `{"tutorial": true}` is the scripted opening, turned on the
-        record's way (`configure`), so the record's pins -- Training,
-        the 7-space board, one player -- are what it gets; against the
-        AI it then leaves the lobby at once (`start_lobby`), which is
-        what seats the AI in a tutorial.
+        `{"tutorial": true}` is the scripted opening, which
+        `create_game` pins to what a tutorial is played as -- Training
+        on the 7-space board, one player (`D12BallGame.pin_tutorial`).
         """
         coach = self._required_coach(request)
         body = await _body(request) if request.can_read_body else {}
         against_ai = body.get("ai") is True
-        tutorial = body.get("tutorial") is True
-        if against_ai and not tutorial:
-            # `ai_seats=[2]`: the room says outright which seat the
-            # AI holds, as every room's record does.
+        scripted = body.get("tutorial") is True
+        if against_ai:
+            # `ai_seats=[2]`: the room says outright which seat the AI
+            # holds, as every room's record does.
             game = self.service.create_game(
                 player_1_id=coach.id,
                 player_1_name=coach.name,
+                tutorial=scripted,
                 ai_seats=[2],
             )
         else:
-            # `ai_seats=[]`: a room says outright that no seat is
-            # the AI's, so a seat nobody holds is empty rather than
-            # the AI's.
+            # `ai_seats=[]`: a room says outright that no seat is the
+            # AI's, so a seat nobody holds is empty rather than the
+            # AI's. A tutorial's second seat is nobody's to take, and
+            # its Start seats the AI there.
             game = self.service.create_game(
                 player_1_id=coach.id,
                 player_1_name=coach.name,
                 in_lobby=True,
+                tutorial=scripted,
                 ai_seats=[],
             )
-            if tutorial:
-                self.service.configure(game.game_id, "tutorial")
-                if against_ai:
-                    self.service.start_lobby(game.game_id)
         self.rooms.first_sight(game.game_id, coach.id)
         return web.json_response(
             {"id": game.game_id, "url": f"/room/{game.game_id}"},

@@ -265,12 +265,11 @@ rooms with a seat free (`GET /api/rooms`), and opens a room two ways:
 a room for two, in its lobby, or one against the AI (`POST /api/rooms`
 with `{"ai": true}`), which is `create_game` with nobody in the other
 seat and no lobby -- the service fills the seat with its default AI,
-so nothing in `webapp/` names one. Either may be the tutorial. A
-tutorial is turned on the record's way, `configure("tutorial")` in
-the lobby, rather than `create_game(tutorial=True)`, because the
-toggle is what pins Training and the 7-space board; against the AI it
-then leaves the lobby at once, since `start_lobby` is what seats the
-AI in a tutorial. A room that never started may be closed
+so nothing in `webapp/` names one. Either may be the tutorial,
+`create_game(tutorial=True)`, which the record pins to Training on the
+7-space board (`D12BallGame.pin_tutorial`) -- a tutorial room in its
+lobby has no second seat to take, and its Start seats the AI there. A
+room that never started may be closed
 (`DELETE /api/room/{id}`, `discard_game`, whose refusal answers 409)
 by somebody seated or its admin.
 

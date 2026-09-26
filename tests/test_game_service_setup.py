@@ -109,6 +109,31 @@ class CreateGameTests(SetupHarness):
         self.assertEqual(elsewhere.game_number, 1)
         self.assertEqual(nowhere.game_number, 1)
 
+    def test_a_tutorial_is_a_training_game_however_it_is_made(self) -> None:
+        """The Charter's "The tutorial is a training game": asked for
+        at creation, the record pins it just as the lobby's toggle
+        does, whatever settings were passed."""
+        for in_lobby in (False, True):
+            with self.subTest(in_lobby=in_lobby):
+                game = self.service.create_game(
+                    player_1_id=CREATOR,
+                    player_1_name="One",
+                    in_lobby=in_lobby,
+                    tutorial=True,
+                    mode=GameMode.ADVANCED,
+                    board_size=9,
+                )
+                self.assertEqual(
+                    (game.tutorial, game.mode, game.board_size),
+                    (True, GameMode.TRAINING, 7),
+                )
+                self.assertIn(
+                    "Training-mode",
+                    self.refused(
+                        self.service.configure, game.game_id, "mode", "basic",
+                    ),
+                )
+
     def test_a_game_that_never_started_may_be_discarded(self) -> None:
         game = self.open_lobby()
 

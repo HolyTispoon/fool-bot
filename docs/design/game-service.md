@@ -240,7 +240,17 @@ state, never by which screen asked. One consequence the author
 should know: a tutorial created by `/d12ball create_game` used to
 reach the setup screen with live mode and board buttons, and could be
 put on a nine-space board its script is not written for; the pin is
-the record's now and holds for the whole of setup.
+the record's now and holds for the whole of setup. **And it is
+pinned however the tutorial is made** (the author, 2026-09-26: "The
+tutorial should always be played in training mode"):
+`create_game(tutorial=True)` calls the same `D12BallGame.pin_tutorial`
+the lobby's toggle does, so `/d12ball create_game tutorial:true` and
+the web app's tutorial are Training on the 7-space board. Before, a
+tutorial made that way carried `mode="basic"`. It was already *played*
+as training, since `species_abilities_apply` and
+`personal_abilities_apply` never answer yes for a tutorial, but it was
+described and offered as basic. A tutorial saved as `basic` before
+this still loads as it was; nothing rewrites a save.
 
 ## The presenter saves nothing
 
