@@ -111,10 +111,12 @@ class ContestDice:
     entirely -- the image carries the whole arithmetic, which is why no
     message that posts one repeats it in text.
 
-    `ignites` is `(player_id, IgnitedRoll)` a side, in the order they
-    rolled, because Volatile's second die goes up on an image of its
-    own between the roll and the verdict. A roll with one side (the
-    score attempt: the wall of defenders has no species) carries one.
+    `ignites` is `(player_id, IgnitedRoll)` a side, **in the order of
+    `contestants`**, because Volatile's second die is drawn beside the
+    die it came out of and the frontend finds that die by the ignite's
+    index. A roll with one side that can ignite (the score attempt: the
+    wall of defenders has no species) carries one, the first
+    contestant's.
     """
 
     contestants: list[Contestant]

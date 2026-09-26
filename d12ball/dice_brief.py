@@ -29,7 +29,7 @@ tests/test_model_purity.py.
 from __future__ import annotations
 
 from io import BytesIO
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Sequence
 
 from d12ball.components import MatchState, PlayerRole
 from d12ball.formatting import (
@@ -42,6 +42,7 @@ from d12ball.game import D12BallGame, Team, team_display_name
 from d12ball.render import (
     TEAM_COLORS,
     ChallengeSide,
+    IgnitionDie,
     render_skill_test_dice,
     zone_labels,
 )
@@ -54,6 +55,7 @@ def render_contest_dice(
     contestants: list[
         tuple[int, Team, list[str], int, bool, list[tuple[str, int]]]
     ],
+    ignitions: Sequence[tuple[int, IgnitionDie]] = (),
 ) -> BytesIO:
     """
     The dice image behind every two-sided roll in the game -- a skill
@@ -65,6 +67,10 @@ def render_contest_dice(
     that posts one repeats it in text. Rendering is Pillow and pure
     CPU, so every caller runs this in a worker thread; see "Discord's
     rate limits" in docs/design/rate-limits.md.
+
+    `ignitions` is the ignites drawn beside the dice, each keyed on its
+    side's index in `contestants` -- the Discord frontend's alone for
+    now; see "The ignition die" in docs/design/species-abilities.md.
     """
     return render_skill_test_dice(
         [
@@ -79,6 +85,7 @@ def render_contest_dice(
             )
             for roll, team, detail, total, overdriven, merge in contestants
         ],
+        ignitions,
     )
 
 

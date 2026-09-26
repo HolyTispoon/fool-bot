@@ -4,8 +4,8 @@ tests. Two of these are ephemeral and so cannot be re-attached to
 their message after a restart -- see `restore_shootout_menus`.
 """
 
-import asyncio
 import discord
+from functools import partial
 from typing import Optional, TYPE_CHECKING
 
 from d12ball.components import (
@@ -594,9 +594,7 @@ class ShootoutTestView(ShootoutView):
         # other roll site.
         dice_file, ignition = await self.cog.dice_file_with_ignitions(
             match,
-            await asyncio.to_thread(
-                render_contest_dice, dice.contestants,
-            ),
+            partial(render_contest_dice, dice.contestants),
             "shootout_dice.png",
             *dice.ignites,
         )
