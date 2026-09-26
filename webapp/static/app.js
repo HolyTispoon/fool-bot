@@ -194,6 +194,7 @@ function draw(state) {
   drawJournal(state);
   drawChat(state);
   drawPrompt(state);
+  drawRoll(state);
   drawTable(state);
   drawRoom(state);
   followRematch(state);
@@ -860,6 +861,23 @@ function drawPrompt(state) {
   el("ask").innerHTML = state.prompt.ask;
   drawPicture(state.prompt);
   drawControls(state.prompt);
+}
+
+/* The dice just rolled, at the top of the question box: on Discord the
+   prompt a coach pressed becomes the dice, so this is where they are
+   read. They stay until the next thing happens in the game -- the
+   server says which roll, if any, is still showing -- and the log
+   keeps the words. Apart from `drawPrompt`, since a tie can hand back
+   the same question with a new roll behind it. */
+function drawRoll(state) {
+  const image = el("roll-picture");
+  if (!state.roll) {
+    image.hidden = true;
+    image.removeAttribute("src");
+    return;
+  }
+  if (image.getAttribute("src") !== state.roll.url) image.src = state.roll.url;
+  image.hidden = false;
 }
 
 /* The picture the prompt is asked over, where the cog posts one with

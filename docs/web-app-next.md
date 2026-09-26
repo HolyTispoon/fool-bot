@@ -925,11 +925,10 @@ challenge in the question area, keyed on the kind, and gone with the
 question; **no field strip and no half-field**, since the board is
 beside the prompt; **no picture in the log**, which says the
 challenge in words instead (`WEB_BATCHING` gives the walk-in a group
-to carry its challenger on) and stopped drawing step 7's dice. Both
-briefs moved below the renderer, byte-identical
-(`docs/design/board-image.md`, "The matchup image"). Still open: the
-injury test's, the own goal's and the score attempt's dice in the
-question area.
+to carry its challenger on); step 7's dice moved out of the log into
+the question box, up until the next thing happens. Both briefs moved
+below the renderer, byte-identical (`docs/design/board-image.md`, "The
+matchup image").
 
 **What it is.** What a coach looks at while choosing: the field strip
 under the seven distance prompts, the hand of cards on the maneuver
@@ -1260,6 +1259,11 @@ Written down so nobody starts them by accident.
   hundred and thirty code comments cite them by step and finding
   number; re-pointing those is its own change, and this file joins
   them when its steps are struck.
+- **Rolling the dice with an animation** (the author, 2026-09-26: "at
+  some point"). Today the question box shows the bot's own picture of
+  the roll the moment it is rolled. An animation is the page's to
+  draw, ending on that same picture -- never a second drawing of the
+  numbers, and never before the service has rolled them.
 - **Discord playing web coaches, or the reverse.** Decided against on
   2026-09-25; not to be re-opened by a step here. The statistics
   (step 6) are a read across the line, not a game.

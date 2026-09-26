@@ -571,6 +571,58 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(body.startswith(b"\x89PNG"))
                 self.assertEqual(drawn, [Image.open(io.BytesIO(body)).size])
 
+    async def test_the_dice_are_up_in_the_question_box_until_the_next_thing(
+        self,
+    ) -> None:
+        ENGINE.rng.seed(11)
+        client, game = await self.open("injury test")
+        entry, headers = await self.roll(client, game)
+
+        state = await (
+            await client.get(f"/api/game/{game.game_id}", headers=headers)
+        ).json()
+        watcher = await (
+            await client.get(
+                f"/api/game/{game.game_id}", headers=as_coach(STRANGER),
+            )
+        ).json()
+        self.assertEqual(state["roll"]["shape"], entry["dice"])
+        self.assertIn(f"/detail/{entry['id']}.png", state["roll"]["url"])
+        # Everybody in the room sees what was rolled.
+        self.assertEqual(watcher["roll"], state["roll"])
+        response = await client.get(state["roll"]["url"])
+        self.assertEqual(response.status, 200)
+
+        # The next thing that happens takes them down.
+        for coach_id in (game.player_1_id, game.player_2_id):
+            headers = as_coach(coach_id)
+            state = await (
+                await client.get(f"/api/game/{game.game_id}", headers=headers)
+            ).json()
+            live = [
+                control["action"]
+                for group in (state["prompt"] or {}).get("controls", [])
+                for control in group["controls"]
+                if not control["disabled"]
+            ]
+            if live:
+                break
+        self.assertTrue(live, "no question after the injury test")
+        played = await (
+            await client.post(
+                f"/api/game/{game.game_id}/action",
+                params={"since": str(state["latest"])},
+                headers=headers,
+                data=json.dumps({"action": live[0]}),
+            )
+        ).json()
+        self.assertIsNone(played["refusal"])
+        rolled_again = any(said["dice"] for said in played["entries"])
+        if rolled_again:
+            self.assertNotIn(f"/detail/{entry['id']}.png", played["roll"]["url"])
+        else:
+            self.assertIsNone(played["roll"])
+
     async def test_the_own_goal_breakdown_is_read_above_its_dice(self) -> None:
         # On Discord the breakdown is the text of the message the dice
         # are attached to, and the verdict follows: one line, then the

@@ -203,6 +203,12 @@ class Journal:
     #: Bumped whenever anything a board draws has moved, so a page's
     #: `<img>` asks for the new one rather than the browser's copy.
     board_version: int = 1
+    #: The entry whose dice the question box shows: the last roll of
+    #: the latest result, or `None` once a result has come after it
+    #: with no roll in it, whether or not it said anything -- a roll's
+    #: dice stay up until the next thing happens in the game, by either
+    #: coach or the AI (`WebApp._state`'s `roll`).
+    showing_roll: Optional[int] = None
 
     def add(
         self,
@@ -214,6 +220,7 @@ class Journal:
         a walk-in names, from the challenger's id: on Discord the walk-in
         is followed by the challenge image, and the log draws no
         picture, so it says what the picture shows."""
+        rolled = None
         for lines, group, detail in self._blocks(result):
             if (
                 group is not None
@@ -236,7 +243,10 @@ class Journal:
                     detail=detail,
                 ),
             )
+            if pictures.dice_shape(detail) is not None:
+                rolled = self.next_id
             self.next_id += 1
+        self.showing_roll = rolled
         if result.board_changed or any(
             group.board is not None for group in result.groups
         ):
@@ -1359,6 +1369,10 @@ class WebApp:
                 self._table(game, coach) if game.match_state is None else None
             ),
             "rematch": self._rematch_of(game),
+            # The dice just rolled, drawn in the question box until the
+            # next thing happens ("The dice", docs/design/web-app.md);
+            # the log keeps the words.
+            "roll": self._roll(game, journal),
             "entries": journal.since(since, game),
             "latest": journal.next_id - 1,
             "chat": [
@@ -1366,6 +1380,21 @@ class WebApp:
                 for message in chat.since(chat_since)
             ],
             "chat_latest": chat.latest,
+        }
+
+    def _roll(self, game: D12BallGame, journal: Journal) -> Optional[dict]:
+        entry = (
+            None if journal.showing_roll is None
+            else journal.entry(journal.showing_roll)
+        )
+        if entry is None:
+            return None
+        return {
+            "shape": pictures.dice_shape(entry.detail),
+            "url": (
+                f"/api/room/{game.game_id}/detail/{entry.id}.png"
+                f"?at={entry.at}"
+            ),
         }
 
     def _prompt_picture_url(

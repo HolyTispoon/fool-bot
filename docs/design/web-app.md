@@ -607,12 +607,26 @@ it here, headlines at all three of the levels the model writes.
 [../web-app-next.md](../web-app-next.md)): one picture for both
 frontends, because the model's voice is one and so is its picture of a
 roll; HTML dice would be a second drawing to keep right. Step 7 drew
-it in the log. **Since step 8 the page draws it nowhere** (2026-09-26,
-the author: no picture in the log); the journal still keeps each roll
-and the route below still serves it, for the question area the author
-has asked for the injury test's, the own goal's and the score
-attempt's dice to go to -- which is not built yet ("What it does not
-do yet", below).
+it in the log. **Since step 8 it is drawn in the question box**
+(2026-09-26, the author: no picture in the log, and the dice in the
+question box), at the top, above whatever is asked next -- on Discord
+the prompt a coach pressed *becomes* the dice, so the question area is
+where they are read. The log keeps the roll's words.
+
+- **They stay up until the next thing happens in the game**, by
+  either coach or the AI, and come down with it: the journal's
+  `showing_roll` is the last roll of the latest result the service
+  handed over, and `None` once a result comes with no roll in it,
+  whether or not it said anything. The page is handed it as `roll`
+  (its shape and its picture's URL), everybody in the room the same.
+  A re-roll after a tie is a new roll, so it replaces the last.
+- **Drawn apart from the prompt** on the page, since a tie can hand
+  back the same question with a new roll behind it, and the prompt is
+  only redrawn when it changes.
+- **Not animated yet.** The author would like a roll to be rolled with
+  an animation at some point ([../web-app-next.md](../web-app-next.md),
+  "Later, and not now"); the picture is still the bot's own, drawn
+  once.
 
 - **The journal keeps the roll on the entry it rode on.** An entry
   made from a result's answer keeps `GameResult.detail`; one made from
@@ -645,7 +659,8 @@ do yet", below).
   (`SkillTestView.roll`), so the picture comes first; the own-goal
   roll's breakdown is the text of the message its dice are attached
   to, so it is read above them and the verdict under them
-  (`LINES_BEFORE_DICE`).
+  (`LINES_BEFORE_DICE`). The question box draws no lines beside the
+  dice, so this now reads only for the wire's `dice_after`.
 - **The URL carries the entry's time** as well as its id. Entries are
   numbered from 1 again after a restart, and a picture is served to be
   kept; the time keeps a browser from showing a roll it cached before.
@@ -705,11 +720,7 @@ batch for.
 
 ## What it does not do yet
 
-- **The dice are drawn nowhere on the page.** The author has asked
-  for the injury test's, the own goal's and the score attempt's to
-  be in the question area and gone afterwards (2026-09-26); when a
-  roll's picture goes up and when it comes down is still to be
-  settled ("The dice", above).
+- **The dice are not animated** ("The dice", above).
 
 - **Two pictures around a roll are the bot's alone**: Volatile's
   ignition die, with its caption (`D12Ball.post_volatile_ignition`,
