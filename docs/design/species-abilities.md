@@ -78,10 +78,13 @@ named three modes to offer, so the opt-outs went from the screens.
 
 ### Personal abilities
 
-Law 21: seventeen players' own abilities and four players' advanced skill
+Law 21: thirty players' own abilities and five players' advanced skill
 scores, played in advanced mode alone. Almost every one is a number in a
-species ability changed for one player, so almost every one is a branch
-at a site that already existed rather than a mechanic of its own.
+species ability, or a rule of Part I, changed for one player, so almost
+every one is a branch at a site that already existed rather than a
+mechanic of its own. Two are not -- Glompex's join and Zenith's Fly are
+a coach's choice at a moment nothing else asks one, and are prompts of
+their own (below).
 
 - **`d12ball/personal_abilities.py` is the one place a player is tied to
   an ability.** The sheet carries a sentence, not a key, so the table
@@ -173,6 +176,68 @@ at a site that already existed rather than a mechanic of its own.
     shape: possession, speed 1, straight to the shot. A shot walked
     back and declined leaves the ball with Acidel's side, because there
     is no own-goal roll left to fall back to.
+  - *The score attempt's wall* -- `intervening_defenders` is the one
+    reading, so both frontends' pictures and the roll agree. Goopkeeper
+    "always counts as on the ball" since 2026-09-26, so they are in the
+    list wherever they stand, behind the ball too; Flickerwing's set-up
+    shot (`pending_shot_is_set_up`) drops everybody beyond the ball but
+    a Goopkeeper.
+  - *What a test costs* -- `skill_test_tokens` and `re_roll_tokens`:
+    Zorch pays nothing, and a test Scorchit forced is 2 to Scorchit and
+    0 to their opponent. **Scorchit's test is `forced_test_by`, asked
+    by `settled_maneuver_winner` beside the injury**, which is why that
+    method takes the game now: the injury-forced test is the model, and
+    the gambits need nothing of their own because `gambit_cost_applies`
+    and `gambit_benefit_applies` read the cards, not the test. A test
+    an injury already forces is the injury's, at a token each. The
+    reading guards against the handler changing after the cards
+    resolve -- the stealer taking the free Low Pass a beaten Skilled
+    Pass owes names Scorchit as winner and loser at once -- which the
+    advanced golden's seed sweep found.
+  - *Umbrik* -- `attacking_skill`, the one reading of what the side
+    attacking a roll adds, at the six sites that read `.offense` for
+    an own-goal roll, a maneuver skill test and a contest.
+  - *Kindlefinger* -- `injury_ignite` and `settle_injury_ignite`. The
+    ignite is `ignite`'s own, so its die and sentence are Volatile's;
+    it is said beside the injury die rather than drawn on it, which is
+    what `InjuryRoll` already did for Overdrive.
+  - *Slitheron* -- `contest_auto_winner`, asked in `resolve_loose_ball`
+    once both sides have sent somebody: both walk in and pay
+    (`walk_in_contestants`, shared with the rolled contest), and
+    `settle_loose_ball_winner` hands the ball over with no dice and so
+    no injury check.
+  - *Spritz* -- one more clause in `smooth_candidates`.
+  - *Vorix and Zytheris* -- branches in `high_pass_step` and
+    `low_pass_step`, which take the game for them. Zytheris's catch of
+    a long pass offers the shot with `contest_on_decline`, the
+    overshoot's shape, so declining it is the contest it replaced.
+  - *Inferno and Pulsar* -- **the ball comes to a player in a dozen
+    places** (a pass, a steal, a contest, a pull, a Smooth, a pickup, a
+    handler chosen), so rather than a branch at each, the driver asks
+    `effects.ball_comes_to` around every step and every answer
+    (`driver._touch`), comparing `RulesEngine.ball_holder` before and
+    after. A step that forgets is impossible, and the cost is one
+    comparison a step. It reads with `getattr` because the suite's
+    stubbed steps run over a bare namespace.
+- **Glompex's join and Zenith's Fly are prompts** --
+  `PromptKind.JOIN_THE_BALL` and `PromptKind.FLY`, wired the way Mind
+  Pull is: an options row (`DecisionOptions`, and `FlyOptions`, which
+  carries every space and its price so no frontend measures a
+  distance), a branch in `pending`, an answer in the driver, a view,
+  a web control, and Dinky declining both, as it declines every
+  optional ability. Each is a queue on the match whose `None` means
+  "not asked yet" and `[]` "asked": the offer is made once, at one
+  moment, and a restart must neither skip it nor ask it twice.
+  - The join is asked in `begin_maneuver_action_selection`, after the
+    challenger is in place and before the cards, and only against a
+    challenge -- Merge adds to a roll, and an unchallenged maneuver
+    rolls nothing.
+  - The Fly is asked in `begin_run_back` after the arrival gate, a
+    steal's run back only, and resumes it with its own arguments
+    (`pending_fly_resume`), the arrival gate's shape. Who flew is
+    `run_back_flown`, which `run_back_displaced` and
+    `crowded_candidates` leave alone and `run_back_moved` starts from,
+    so a flier never charges up.
 - **The roster shows them, through `RulesEngine.personal_ability_text`.**
   In a game playing the personal abilities, `/d12ball team_roster` lists
   each player's sheet sentence under their line, on by default

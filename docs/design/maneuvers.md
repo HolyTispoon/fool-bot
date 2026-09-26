@@ -364,18 +364,21 @@ once -- one trailing while the other is the more hurt.
   "may advance 2" was no bonus at all on a run to the end of the field.
   The author settled all three on 2026-08-19 -- **the Fullback's
   ability is +1 distance** (High Pass 3->4, Deflect 1->2, Clear
-  3->4, Setup Pass gains a 4), and **the Playmaker's is one exhaustion
-  token off a Dribble Burst**, which is the only ability that reads
-  differently on the two cards of a rank. The Midfielder's +3 and the
-  rank-D2 ball speed modifier were already uniform and needed no
-  ruling.
-  - **The Playmaker's stayed on the cost when the burst was bounded**
-    (the author, 2026-08-26). The 2026-08-19 reading turned on there
-    being no distance left to add to; a run of up to 4 has one, and the
-    ability is still a token off rather than a fifth space. So the
-    distances a Playmaker is offered are everybody's, and the discount
-    comes out of the total in `apply_dribble_burst` -- named once
-    beside the run rather than subtracted from each button's price.
+  3->4, Setup Pass gains a 4), and the Playmaker's was one exhaustion
+  token off a Dribble Burst. The Midfielder's +3 and the rank-D2 ball
+  speed modifier were already uniform and needed no ruling.
+  - **The Playmaker's is a space on both dribbles now** (the sheet and
+    the author, 2026-09-26). The token off stayed through the burst's
+    bound of 4 (2026-08-26), and went when the sheet's sentence became
+    "an additional space when resolving Dribble maneuvers": the author
+    confirmed it supersedes the token off. So the ability changes what
+    is offered rather than what it costs --
+    `RulesEngine.dribble_burst_distances` runs a Playmaker to 5 and
+    `dribble_burst_cost` is a token a space for everybody -- and the
+    burst's narration names the role only on the fifth space, the one
+    nobody else could have run. The sentence now names both cards'
+    rank, so the card places it on both by hand (`EXTRA_ROLES`) and
+    the Burst's own note is gone.
   - **A Fullback's extra space is distance, not speed.** A Block
     Deflect of 2 has always cost 1 speed, so a Clear of 4 still costs
     3. `apply_deflection` keeps `speed_drop` as the card's own number

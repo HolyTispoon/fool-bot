@@ -39,6 +39,20 @@ there is no `--abilities players` mode either -- the basic abilities come from
 `basic_abilities` or nowhere. The advanced tab's own score columns, where it still has them,
 are not read.
 
+**The player cards tab's row order is each team's roster order, and the roster order is the
+deal.** `default_formation_deal` takes the first player of each role a team lists, so of a
+colour team's two Defenders, Playmakers or Strikers, the one higher on the sheet starts and the
+other is benched. The importer keeps the sheet's order rather than sorting, because the sheet
+is the roster's authority -- so re-sorting the tab changes who starts, and moves every golden
+that deals a colour team (it did on 2026-09-26, for names only).
+
+**Where `docs.google.com` cannot be reached** -- a cloud session whose network policy does not
+allow it -- the importer can still be run on the sheet: the Drive connector exports the
+workbook as `.xlsx`, and the three tabs it reads (`player cards `, `basic_abilities`,
+`advanced_abilities `, trailing spaces and all) converted to CSV go in through `--source`,
+`--abilities` and `--advanced`. The importer is the same either way; only where the rows come
+from differs, and the `source` fields it writes still name the sheet's own URLs.
+
 **Every ability is imported twice**, in full and abbreviated -- `ability` and `ability_short` on
 each role profile in `players.json`, from the `basic_abilities` sheet's own two columns. Text
 that shows an ability on its own (the roster, the rules listing) uses the sentence;
@@ -52,7 +66,7 @@ still accepted), and a cell beginning `+3` may be typed with a leading backtick 
 spreadsheet doesn't read it as a formula.
 
 **The advanced sheet is imported and carried, not played.** Each player's record in
-`players.json` has `advanced_ability` (`""` for the twenty who have none yet) and
+`players.json` has `advanced_ability` (`""` for a player who has none) and
 `advanced_skills` -- only the scores that differ from the role's basic ones, so
 `{"offense": 0, "defense": 8}` for one fullback, `{"defense": 4}` for a striker and `{}` for
 most; a missing key means the role's basic score. The player cards tab's `OskillA` and
