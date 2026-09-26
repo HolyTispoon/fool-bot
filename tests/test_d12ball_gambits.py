@@ -1105,20 +1105,30 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
             cog.finish_maneuver_resolution.await_args.kwargs["lead_in"],
         )
 
-    def test_the_run_is_bounded_at_four_and_by_the_field(self) -> None:
+    def test_the_run_is_bounded_at_five_for_a_playmaker_and_by_the_field(
+        self,
+    ) -> None:
         """
         `dribble_burst_distances` is the whole of what may be picked.
-        Board 9 is where the bound bites: from midfield the goal they
-        attack is more than four spaces off, so the card stops short
-        of it -- which is the change, and what "runs to the goal" used
-        to mean.
+        The harness's kickoff handler is a Playmaker, whose ability
+        (since 2026-09-26) is an additional space on either Dribble
+        card, so the bound here is one more than
+        `DRIBBLE_BURST_MAX_DISTANCE`. Board 9 is where it bites: from
+        their own goal zone the goal they attack is more than five
+        spaces off, so the card stops short of it -- which is the
+        change, and what "runs to the goal" used to mean.
         """
         cog, game, match = self.build("dribble_burst", "clear", board_size=9)
         handler = match.active_player_id
+        self.assertEqual(
+            cog.engine.get_player_definition(handler).role,
+            PlayerRole.PLAYMAKER,
+        )
         # Back in their own goal zone, which on board 9 is eight
-        # spaces from the end of the field -- twice what the card now
-        # runs. From the kickoff space it is exactly four, so the
-        # bound would not have bitten there.
+        # spaces from the end of the field -- more than the five
+        # spaces a Playmaker's burst now runs. From the kickoff space
+        # it is exactly four, so the bound would not have bitten
+        # there even before the ability moved onto it.
         match.move_meeple(handler, *match.board.position_at_flat_index(0))
         match.set_ball_space(*match.board.meeple_position(handler))
 
@@ -1126,11 +1136,11 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
             match.spaces_to_attacking_end(handler, match.ball.possession), 8,
         )
         self.assertEqual(
-            cog.engine.dribble_burst_distances(match), [1, 2, 3, 4],
+            cog.engine.dribble_burst_distances(match), [1, 2, 3, 4, 5],
         )
 
         # Two spaces from the end of the field, only those two are on
-        # offer -- the run cannot leave the board.
+        # offer -- the run cannot leave the board, Playmaker or not.
         end_flat = match.board.layout.board_size - 1
         match.move_meeple(
             handler, *match.board.position_at_flat_index(end_flat - 2),
@@ -1142,6 +1152,16 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
             handler, *match.board.position_at_flat_index(end_flat),
         )
         self.assertEqual(cog.engine.dribble_burst_distances(match), [])
+
+        # Somebody who is not a Playmaker stops at four instead of
+        # five.
+        midfielder = fielded(match, PlayerRole.MIDFIELDER)
+        match.active_player_id = midfielder
+        match.move_meeple(midfielder, *match.board.position_at_flat_index(0))
+        match.set_ball_space(*match.board.meeple_position(midfielder))
+        self.assertEqual(
+            cog.engine.dribble_burst_distances(match), [1, 2, 3, 4],
+        )
 
     async def test_a_handler_on_the_last_space_is_asked_nothing(
         self,
@@ -1173,13 +1193,14 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
 
-    async def test_a_playmaker_pays_one_token_fewer(self) -> None:
+    async def test_a_playmaker_pays_the_plain_cost_for_the_extra_space(
+        self,
+    ) -> None:
         """
-        The one role ability that reads differently on the two cards of
-        its rank (the author, 2026-08-19), and it stayed that way when
-        the run was bounded on 2026-08-26: the discount is on what the
-        run costs, not on how far it goes -- so the distances offered
-        are the same ones everybody else gets.
+        Since 2026-09-26 the ability is an additional space, same as
+        the Dribble Advance's -- no longer a token off the cost (that
+        reading held from 2026-08-19 to 2026-08-26). A Playmaker's run
+        is charged the same token a space as anybody else's.
         """
         cog, game, match = self.build("dribble_burst", "clear")
         playmaker = fielded(match, PlayerRole.PLAYMAKER)
@@ -1189,12 +1210,12 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with suppressed_cog_saves():
-            await apply_dribble_burst(cog, 
+            await apply_dribble_burst(cog,
                 build_interaction(), game, match, 3,
             )
 
         self.assertIn(3, offered)
-        self.assertEqual(match.exhaustion[playmaker], 2)
+        self.assertEqual(match.exhaustion[playmaker], 3)
 
     async def test_defenders_are_no_obstacle(self) -> None:
         """

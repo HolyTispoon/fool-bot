@@ -643,7 +643,7 @@ You chose **Dribble Burst**.
 ## **Dribble Burst** wins!
 --- message
 🔮 <@111>, choose your Dribble Burst distance (1 exhaustion token a space):
-=== press 59: DribbleBurstChoiceView -> '2 spaces (space 6, 1 exhaustion)'
+=== press 59: DribbleBurstChoiceView -> '2 spaces (space 6, 2 exhaustion)'
 --- message
 Chose **2 spaces**.
 --- message
@@ -652,8 +652,8 @@ Chose **2 spaces**.
 --- message
 🔮 Noxar [SK] lets it run.
 --- message
-**Dribble Burst:** 🔮 Quillon [PM] bursts 2 spaces forward, past everyone in the way. That costs them 1 exhaustion less (Playmaker ability).
-🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 1 total). Ball speed is now **12**.
+**Dribble Burst:** 🔮 Quillon [PM] bursts 2 spaces forward, past everyone in the way.
+🔮 Quillon [PM] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 2 total). Ball speed is now **12**.
 
 Ball is now in space 6, Telekinetics (Home) has possession. Time has advanced 1, now at 19.
 --- message
@@ -863,7 +863,7 @@ You chose **Double Team**.
 
 🔥 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 4 total).
 🔥 Sizzifizik [PM] is now *exhausted* 🥵
-🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 3 total).
 --- message
 Either player can roll:
 === press 79: SkillTestView -> 'Roll the skill test'
@@ -871,7 +871,8 @@ Either player can roll:
 ## **It's a tie (8-8)!**
 The skill test must be rolled again.
 🔥 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 5 total).
-🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 3 total).
+🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 4 total).
+🔮 Quillon [PM] is now *exhausted* 🥵
 
 Roll again:
 === press 80: SkillTestView -> 'Roll the skill test'
@@ -883,37 +884,32 @@ Dinky AI, 🔥 Sizzifizik [PM] is exhausted and owes an injury test: a d12 that 
 --- message
 🔥 Sizzifizik [PM] is exhausted and rolls an injury test: 11 beats their 5 exhaustion tokens — safe.
 --- message
+<@111>, 🔮 Quillon [PM] is exhausted and owes an injury test: a d12 that has to beat their 4 exhaustion tokens.
+=== press 82: InjuryTestView -> 'Roll the injury test'
+--- message
+🔮 Quillon [PM] is exhausted and rolls an injury test: 7 beats their 4 exhaustion tokens — safe.
+--- message
 <@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it for 1 exhaustion.
-=== press 82: MindPullView -> 'Pass'
---- message
-🔮 Spectra [MF] lets the ball go past.
---- message
-<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 83: MindPullView -> 'Mind Pull'
 --- message
-🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
-🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 3 total).
+🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 4 total).
 The ball slips past them.
 --- message
-<@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it for 1 exhaustion.
+<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it for 1 exhaustion.
 === press 84: MindPullView -> 'Pass'
 --- message
-🔮 Umbrik [FB] lets the ball go past.
+🔮 Dravox [DD] lets the ball go past.
 --- message
-**High Pass:** the ball moves 3 spaces forward.
-
-**High Pass:** the receiving player must win a skill test to keep possession.
+<@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it for 1 exhaustion.
+=== press 85: MindPullView -> 'Mind Pull'
 --- message
-🔮 Umbrik [FB] (defense skill 6) challenges 🔥 Brightburn [SK] (offense skill 6) for the high pass -- the receiver must win this skill test to keep possession!
+🔮 **Mind Pull** — 🔮 Umbrik [FB] reaches for the ball.
+🔮 Umbrik [FB] gains 1 exhaustion token 😮‍💨 (now 1 total).
 
+## 🔮 Umbrik [FB] grabs the ball with their telekinetic powers!
+**Turnover!** They take it on **space 1** (Home Zone).
 
-Either player can roll:
-=== press 85: LooseBallSkillTestView -> 'Roll for the high pass'
---- message
-# Turnover!
-
-🔮 Umbrik [FB] wins possession off the high pass! 🔮 <@111> has possession.
---- message
 The ball speed goes down to **1**.
 --- message
 Ball is now in space 1, Telekinetics (Home) has possession. Time has advanced 2, now at 28.
@@ -944,7 +940,7 @@ You chose **Dribble Advance**.
 🔮 Umbrik [FB]: offense skill 1
 🔥 Brightburn [SK]: defense skill 1
 
-🔮 Umbrik [FB] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔮 Umbrik [FB] gains 1 exhaustion token 😮‍💨 (now 2 total).
 🔥 Brightburn [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
 --- message
 Either player can roll:

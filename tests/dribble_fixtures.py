@@ -421,11 +421,14 @@ def burst_plain() -> DribbleFixture:
     )
 
 
-def burst_playmaker_discount() -> DribbleFixture:
+def burst_playmaker_ordinary_distance() -> DribbleFixture:
     """
-    Role ability -- a Playmaker pays one token fewer for the run (the
-    author, 2026-08-26). The saving is named once beside the run
-    rather than subtracted from each button's price.
+    A Playmaker running a distance everybody else could also run: no
+    ability note and no discount (the ability moved onto the fifth
+    space on 2026-09-26 -- see `burst_playmaker_extra_space` -- and no
+    longer touches the cost at all). Otherwise identical to
+    `burst_plain`, so the only difference in the two narrations is the
+    player it names.
     """
     match = build_match()
     handler = put_on_the_ball(match, fielded(match, PlayerRole.PLAYMAKER))
@@ -441,9 +444,8 @@ def burst_playmaker_discount() -> DribbleFixture:
         narration=(
             f"**Dribble Burst:** {label(match, handler)} bursts 3 "
             "spaces forward, past everyone in the way."
-            " That costs them 1 exhaustion less (Playmaker ability)."
-            f"\n{label(match, handler)} gains 2 exhaustion tokens "
-            f"{EXHAUST * 2} (now 2 total)."
+            f"\n{label(match, handler)} gains 3 exhaustion tokens "
+            f"{EXHAUST * 3} (now 3 total)."
             f" {BURST_SPEED_LINE}"
         ),
         follow_on=FINISH,
@@ -451,32 +453,42 @@ def burst_playmaker_discount() -> DribbleFixture:
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
-        exhaustion={handler: 2},
+        exhaustion={handler: 3},
         ball_speed=12,
     )
 
 
-def burst_playmaker_one_space_is_free() -> DribbleFixture:
+def burst_playmaker_extra_space() -> DribbleFixture:
     """
-    A Playmaker's single space costs nothing -- the discount floors
-    the charge at 0 rather than handing a token back -- so the saving
-    is still named and there is no exhaustion line under it.
+    Role ability -- since 2026-09-26 a Playmaker may run one more
+    space than `DRIBBLE_BURST_MAX_DISTANCE`, same as their Dribble
+    Advance's extra space and charged the same token a space as
+    everybody else (reversing the 2026-08-19/2026-08-26 reading that
+    put this ability on the cost instead -- see
+    docs/design/maneuvers.md, "Maneuvers"). Placed in their own goal
+    zone on the 9-space board, since the standard kickoff space is not
+    far enough from the end of the field for the fifth space to show.
     """
-    match = build_match()
-    handler = put_on_the_ball(match, fielded(match, PlayerRole.PLAYMAKER))
+    match = build_match(board_size=9)
+    handler = fielded(match, PlayerRole.PLAYMAKER)
+    match.move_meeple(handler, *match.board.position_at_flat_index(0))
+    put_on_the_ball(match, handler)
     origin = match.board.flat_index(match.ball.zone, match.ball.space_index)
     destination = match.board.position_at_flat_index(
-        match.relative_flat_index(origin, TeamSide.HOME, 1)
+        match.relative_flat_index(origin, TeamSide.HOME, 5)
     )
     return DribbleFixture(
         game=build_game(),
         match=match,
         key="dribble_burst",
-        distance=1,
+        distance=5,
         narration=(
-            f"**Dribble Burst:** {label(match, handler)} bursts 1 "
-            "space forward, past everyone in the way."
-            " That costs them 1 exhaustion less (Playmaker ability)."
+            f"**Dribble Burst:** {label(match, handler)} bursts 5 "
+            "spaces forward, past everyone in the way (Playmaker "
+            "ability)."
+            f"\n{label(match, handler)} gains 5 exhaustion tokens "
+            f"{EXHAUST * 5} (now 5 total)."
+            f"\n{label(match, handler)} is now *exhausted* {EXHAUSTED}"
             f" {BURST_SPEED_LINE}"
         ),
         follow_on=FINISH,
@@ -484,7 +496,7 @@ def burst_playmaker_one_space_is_free() -> DribbleFixture:
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
-        exhaustion={handler: 0},
+        exhaustion={handler: 5},
         ball_speed=12,
     )
 
@@ -605,11 +617,11 @@ DRIBBLE_CASES: tuple[DribbleCase, ...] = (
     ),
     DribbleCase("advance_beats_a_clear", advance_beats_a_clear),
     DribbleCase("burst_plain", burst_plain),
-    DribbleCase("burst_playmaker_discount", burst_playmaker_discount),
     DribbleCase(
-        "burst_playmaker_one_space_is_free",
-        burst_playmaker_one_space_is_free,
+        "burst_playmaker_ordinary_distance",
+        burst_playmaker_ordinary_distance,
     ),
+    DribbleCase("burst_playmaker_extra_space", burst_playmaker_extra_space),
     DribbleCase("burst_with_nowhere_to_go", burst_with_nowhere_to_go),
     DribbleCase("burst_beats_a_clear", burst_beats_a_clear),
     DribbleCase(
