@@ -2122,16 +2122,11 @@ class RulesEngine:
     ) -> Optional[str]:
         """
         **Slitheron** (Law 21): the contestant who takes the ball
-        without a roll, or None. Only a High Pass contest and the
-        contest for a ball on an empty space -- a ball that came down
-        between both sides is a contest, not a loose ball -- and only
-        where exactly one of the two holds the ability.
+        without a roll, or None. Every contest for the ball -- a High
+        Pass's, a loose ball's, a ball come to rest between both sides
+        (the author, 2026-09-26) -- where exactly one of the two holds
+        the ability.
         """
-        if not (
-            match.pending_loose_ball_is_high_pass
-            or match.pending_loose_ball_on_empty_space
-        ):
-            return None
         holders = [
             player_id
             for player_id in (offense_player_id, defense_player_id)

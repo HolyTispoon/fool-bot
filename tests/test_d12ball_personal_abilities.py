@@ -872,11 +872,14 @@ class SlitheronTests(unittest.TestCase):
             self.game, self.match, self.offense, self.defense,
         )
 
-    def test_only_a_loose_ball_or_a_high_pass(self) -> None:
+    def test_every_contest_for_the_ball(self) -> None:
+        # A ball come down between both sides too -- "a deflect
+        # bouncing the ball to a space with Slitheron and another
+        # player" (the author, 2026-09-26).
         with holding(self.defense, PersonalAbility.WINS_CONTESTS):
             self.match.pending_loose_ball_on_empty_space = False
             self.match.pending_loose_ball_is_high_pass = False
-            self.assertIsNone(self.winner())
+            self.assertEqual(self.winner(), self.defense)
             self.match.pending_loose_ball_on_empty_space = True
             self.assertEqual(self.winner(), self.defense)
             self.match.pending_loose_ball_on_empty_space = False

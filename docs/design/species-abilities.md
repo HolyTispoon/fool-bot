@@ -212,8 +212,9 @@ their own (below).
     ignite is `ignite`'s own, so its die and sentence are Volatile's;
     it is said beside the injury die rather than drawn on it, which is
     what `InjuryRoll` already did for Overdrive.
-  - *Slitheron* -- `contest_auto_winner`, asked in `resolve_loose_ball`
-    once both sides have sent somebody: both walk in and pay
+  - *Slitheron* -- `contest_auto_winner`, every contest for the ball
+    (the author, 2026-09-26), asked in `resolve_loose_ball` once both
+    sides have a contestant: both walk in and pay
     (`walk_in_contestants`, shared with the rolled contest), and
     `settle_loose_ball_winner` hands the ball over with no dice and so
     no injury check.

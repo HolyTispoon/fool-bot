@@ -176,13 +176,13 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "glompex_midfielder": (
         PersonalAbility.JOINS_THE_BALL,
-        "Before selecting a maneuver, if Glomplex is in a space adjacent "
-        "to the ball they may add 1 exhaustion to move to the ball's "
-        "space and Merge.",
+        "After a maneuver is challenged but before selecting a maneuver, "
+        "if Glomplex is in a space adjacent to the ball they may add 1 "
+        "exhaustion to move to the ball's space and Merge.",
     ),
     "slitheron_striker": (
         PersonalAbility.WINS_CONTESTS,
-        "Auto wins contests for high pass and loose ball.",
+        "Auto wins contests for ball including high pass and loose ball.",
     ),
     "spritz_winger": (
         PersonalAbility.SMOOTH,
