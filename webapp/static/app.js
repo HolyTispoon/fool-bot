@@ -197,6 +197,7 @@ function draw(state) {
   drawRoll(state);
   drawTable(state);
   drawRoom(state);
+  drawStats(state);
   followRematch(state);
   if (state.refusal) showRefusal(state.refusal);
   el("owed").hidden = !(state.owed && state.you.is_coach);
@@ -285,6 +286,36 @@ function drawRoom(state) {
     room.observers === 1 ? "1 watching" : `${room.observers} watching`;
   el("become-admin").hidden = room.admin;
   el("drop-admin").hidden = !room.admin;
+  /* A seat may abandon a game that is not over; the record refuses one
+     that is, and the route refuses an observer. */
+  el("abandon").hidden = !(seated && state.game.status !== "finished");
+}
+
+// -- A finished game's numbers --------------------------------------------
+
+/* Fetched once the game is over, and again only if something more has
+   been said since; the tables are `d12ball/stats.py`'s, as the bot
+   posts them in a code block, and set here as text. */
+let statsFor = null;
+
+async function drawStats(state) {
+  const finished = state.game.status === "finished";
+  el("stats").hidden = !finished;
+  if (!finished || statsFor === state.latest) return;
+  statsFor = state.latest;
+  try {
+    const response = await fetch(`/api/room/${GAME_ID}/stats`);
+    if (!response.ok) return;
+    const report = await response.json();
+    el("stats-heading").textContent = report.heading;
+    el("stats-tables").replaceChildren(
+      ...(report.tables.length
+        ? report.tables.map((lines) => h("pre", { class: "stats-table" }, lines.join("\n")))
+        : [h("p", { class: "quiet" }, "Nothing was played in this game.")]),
+    );
+  } catch (error) {
+    statsFor = null; /* tried again on the next poll */
+  }
 }
 
 // -- The jumbotron -------------------------------------------------------
@@ -1262,6 +1293,11 @@ function hidePeek() {
 // -- Wiring ------------------------------------------------------------------
 
 el("pick-up").addEventListener("click", pickUp);
+el("abandon").addEventListener("click", () => {
+  if (confirm("Are you sure? The game ends here with no result. The room, its board and its log are kept.")) {
+    roomMove("/abandon");
+  }
+});
 el("become-admin").addEventListener("click", () => {
   if (confirm("Take the admin role for this room?")) roomMove("/admin");
 });

@@ -723,6 +723,44 @@ is the only one: the web app stops nowhere the model does not and
 carries every answer the default way, because it has no rate limit to
 batch for.
 
+## Beyond the game
+
+Step 9 of [../web-app-next.md](../web-app-next.md): the slash commands
+that are not about Discord, each over a model function both frontends
+call. The rules and the reference cards are step 11's.
+
+**My rooms, resume and abandon.** The front door already listed a
+coach's rooms by where each stands, and an in-progress one opens; an
+abandoned room is listed under the finished, marked "Abandoned"
+(`room_status` reads a finished game as finished even if it was
+abandoned in its lobby). Resume was already a route, offered where the
+state's `owed` is true. **Abandoning is `GameService.abandon`** -- the
+record's `abandon`, which refuses a game already over, saved -- and
+`POST /api/room/{id}/abandon` is it, for a seat and never an observer
+(403), behind "Are you sure?" as the command is behind "confirm". It
+was cog logic only in that the cog called the record and saved by
+hand; the cog now calls the same door, after clearing its own two
+message ids. The room stays: its number stays taken, its board and log
+readable, its statistics count it as abandoned, and a game abandoned
+before kickoff is sent no table.
+
+**The statistics are the bot's tables.** `GET /api/room/{id}/stats`
+is `/d12ball stats game` over `stats.game_tables`, open to anybody who
+can open the room, and the page shows it under the prompt once the
+game is over. `GET /api/stats?kind=` is every web game's numbers cut
+by kind, `stats.report_tables` for each of the four scoped reports,
+on a page of its own (`/stats`) linked from the front door. What the
+cog held that was not Discord moved into `d12ball/stats.py` for it
+(clock-and-records.md, "What the statistics are, and what they are
+not"), so the two frontends post the same tables from the same
+functions and differ only in how: a code fence per message there, a
+`<pre>` per table here. **The page never reads the bot's file**: the
+report is over this process's own games, the ones the service holds
+from `WEB_GAMES_FILE`; `source` is accepted only as `web`, anything
+else a 400 rather than a wider read, so the one read across the line
+stays the bot's of this file and never the reverse. A heading is the
+same `format_scope_heading` the bot's is.
+
 ## What it does not do yet
 
 - **The dice are not animated** ("The dice", above).

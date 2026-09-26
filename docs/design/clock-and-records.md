@@ -239,6 +239,14 @@ fact.
   server, so a saved field would be a second thing to disagree with the record
   and a save-format change for a fact the save already carries. The heading
   names the source beside the kind.
+- **Which tables a report holds is the model's, and so is which matches load.**
+  `stats.readable_matches` (every match that loads, the ones that will not left
+  out and logged, and how many had nothing recorded), `game_standing`,
+  `player_name`, `game_tables` (the one-game report) and `report_tables` (the
+  four scoped reports, by `REPORT_*`) were the cog's until step 9 of
+  docs/web-app-next.md, which put the same reports on the web page; the cog
+  keeps only what is Discord's -- the guild scope, the thread, a code fence per
+  table.
 - **The web games are read across the line, read-only, at the moment somebody
   asks.** They are the web app's process's, in `WEB_GAMES_FILE`, and change
   under the bot -- so `stats_matches` calls `load_games(WEB_GAMES_FILE)` for

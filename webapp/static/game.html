@@ -68,6 +68,15 @@
           <p id="rematch-note" class="note-line" hidden></p>
         </section>
 
+        <!-- A finished game's numbers: /d12ball stats game, over the
+             same tables (GET /api/room/{id}/stats). -->
+        <section id="stats" class="panel stats-panel" data-tab="move" hidden>
+          <div class="panel-label">This game's numbers</div>
+          <p id="stats-heading" class="note-line"></p>
+          <div id="stats-tables" class="stats-tables"></div>
+          <p class="quiet"><a href="/stats" class="linkish">Every web game's numbers</a></p>
+        </section>
+
         <!-- Before kickoff, the table in the prompt's place: the
              settings, both seats and their teams, the coin, home or
              visiting, and Start. Every question on it is the game
@@ -88,6 +97,7 @@
             <button type="button" class="linkish" id="copy-link">Copy the room's link</button>
             <button type="button" class="linkish" id="become-admin">Become admin</button>
             <button type="button" class="linkish" id="drop-admin" hidden>Give up admin</button>
+            <button type="button" class="linkish danger-link" id="abandon" hidden>Abandon the game</button>
           </div>
         </section>
       </main>

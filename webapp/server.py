@@ -50,7 +50,7 @@ from aiohttp import web
 
 from dotenv import load_dotenv
 
-from d12ball import tutorial
+from d12ball import stats, tutorial
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MatchState,
@@ -349,6 +349,10 @@ class WebApp:
                     "/api/room/{game_id}/table/{move}", self.table,
                 ),
                 web.post("/api/room/{game_id}/rematch", self.rematch),
+                web.post("/api/room/{game_id}/abandon", self.abandon),
+                web.get("/api/room/{game_id}/stats", self.room_stats),
+                web.get("/api/stats", self.all_stats),
+                web.get("/stats", self.stats_page),
                 web.post("/api/room/{game_id}/admin", self.take_admin),
                 web.post("/api/room/{game_id}/chat", self.say),
                 web.get(
@@ -599,6 +603,7 @@ class WebApp:
             "number": game.game_number,
             "name": game.game_name,
             "status": room_status(game),
+            "abandoned": game.abandoned,
             "seats": [
                 {
                     key: value
@@ -794,6 +799,38 @@ class WebApp:
             )
         return web.json_response(state)
 
+    async def abandon(self, request: web.Request) -> web.Response:
+        """
+        End this room's game with no result -- what `/d12ball
+        abandon_game` does, through the same door
+        (`GameService.abandon`, over `D12BallGame.abandon`, which
+        refuses a game already over and answers 409). A seat may
+        abandon, before kickoff or during the game; an observer may
+        not. The page asks "Are you sure?" first, which is this
+        frontend's version of the command's "confirm".
+
+        The room stays: its number stays taken, its board and its log
+        stay readable, and its statistics count it as abandoned.
+        """
+        game = self._game(request)
+        coach = self._required_coach(request)
+        if seat_of(game, coach.id) is None:
+            raise web.HTTPForbidden(
+                text="Only a coach of this game may abandon it.",
+            )
+        async with self.locks.hold(game.game_id):
+            try:
+                self.service.abandon(game.game_id)
+            except RuleRefusal as refusal:
+                raise web.HTTPConflict(text=str(refusal))
+            state = self._state(
+                game,
+                self._viewer(request, game),
+                **_cursors(request),
+                coach=coach,
+            )
+        return web.json_response(state)
+
     async def seat(self, request: web.Request) -> web.Response:
         """
         `take` (the free seat, or `{"seat": n}`), `leave`, `ai`
@@ -964,6 +1001,108 @@ class WebApp:
             state = self._state(game, viewer, **_cursors(request))
         state["resumed"] = found
         return web.json_response(state)
+
+    # -- The statistics -----------------------------------------------
+
+    async def stats_page(self, request: web.Request) -> web.Response:
+        """Every web game's numbers, as a page of its own (linked from
+        the front door)."""
+        return web.FileResponse(STATIC / "stats.html")
+
+    async def room_stats(self, request: web.Request) -> web.Response:
+        """
+        This game's report -- `/d12ball stats game`, over the same
+        `d12ball/stats.py` tables (`stats.game_tables`). Read-only, and
+        anybody who can open the room may read it, as anybody in a
+        channel may run the command. The page shows it at the end of a
+        finished game.
+        """
+        game = self._game(request)
+        match = self._match(game)
+        tables = [] if match is None else stats.game_tables(
+            [match], self.engine.maneuver_catalog, self.engine.player_catalog,
+        )
+        return web.json_response(
+            {
+                "heading": self._stats_heading(game, match),
+                "standing": stats.game_standing(game),
+                "tables": tables,
+            },
+        )
+
+    def _stats_heading(
+        self, game: D12BallGame, match: Optional[MatchState],
+    ) -> str:
+        """The "which game is this" line a game's report opens with,
+        as the cog's `stats_game_heading` words it, under the room's
+        own name."""
+        standing = stats.game_standing(game)
+        if match is None:
+            return f"{self._title(game, match)} ({standing})"
+        board = match.scoreboard
+        return (
+            f"{self._title(game, match)} -- "
+            f"{team_display_name(match.home.team)} "
+            f"{board.home_score}:{board.visiting_score} "
+            f"{team_display_name(match.visiting.team)} "
+            f"({standing}, {_period(match)} minute {board.time:02d})"
+        )
+
+    async def all_stats(self, request: web.Request) -> web.Response:
+        """
+        Every web game's numbers, cut by kind -- `/d12ball stats` with
+        `source` the web app, over this process's own games (the ones
+        `load_games(WEB_GAMES_FILE)` read at start and every save has
+        written since). **The page never reads the bot's file**: a
+        `source` other than `web` is a 400, not a wider read. The
+        tables are `stats.report_tables`, the four reports the bot's
+        four scoped commands post.
+        """
+        kind = request.query.get("kind") or stats.SCOPE_ALL
+        source = request.query.get("source") or stats.SOURCE_WEB
+        if kind not in (
+            stats.SCOPE_ALL, stats.SCOPE_DINKY, stats.SCOPE_TEST,
+            stats.SCOPE_HUMAN,
+        ):
+            raise web.HTTPBadRequest(text="No such kind of game.")
+        if source != stats.SOURCE_WEB:
+            raise web.HTTPBadRequest(
+                text="The web app reports on its own games alone.",
+            )
+        games = list(self.service.games.values())
+        in_scope = stats.games_in_scope(games, kind, stats.SOURCE_WEB)
+        pairs, empty = stats.readable_matches(
+            in_scope, self.engine.load_match_state,
+        )
+        return web.json_response(
+            {
+                "kind": kind,
+                "kinds": [
+                    {"value": value, "label": stats.SCOPE_LABELS[value]}
+                    for value in (
+                        stats.SCOPE_ALL, stats.SCOPE_HUMAN,
+                        stats.SCOPE_DINKY, stats.SCOPE_TEST,
+                    )
+                ],
+                "source": stats.SOURCE_WEB,
+                "heading": stats.format_scope_heading(
+                    kind, len(in_scope), empty, stats.SOURCE_WEB,
+                    no_web_games=not games,
+                ),
+                "reports": [
+                    {
+                        "name": report,
+                        "tables": stats.report_tables(
+                            report,
+                            pairs,
+                            self.engine.maneuver_catalog,
+                            self.engine.player_catalog,
+                        ),
+                    }
+                    for report in stats.REPORTS
+                ] if pairs else [],
+            },
+        )
 
     async def say(self, request: web.Request) -> web.Response:
         """
@@ -1310,6 +1449,7 @@ class WebApp:
                 "number": game.game_number,
                 "name": game.game_name,
                 "status": GameStatus(game.status).value,
+                "abandoned": game.abandoned,
                 "tutorial": game.tutorial,
                 # The board PNG's own title, which is how the bot
                 # names a game everywhere it pins one.
@@ -1364,9 +1504,12 @@ class WebApp:
                 }
             ),
             "owed": owed,
-            # Before kickoff the prompt's place is the table's.
+            # Before kickoff the prompt's place is the table's -- unless
+            # the game was abandoned there, which leaves no table.
             "table": (
-                self._table(game, coach) if game.match_state is None else None
+                self._table(game, coach)
+                if game.match_state is None and not game.is_finished
+                else None
             ),
             "rematch": self._rematch_of(game),
             # The dice just rolled, drawn in the question box until the
@@ -1694,8 +1837,9 @@ def seats_held_by(game: D12BallGame) -> set[int]:
 
 def room_status(game: D12BallGame) -> str:
     """Where a room stands, as the front door sorts it: the lobby, the
-    rest of setup, the game, or finished."""
-    if game.in_lobby:
+    rest of setup, the game, or finished -- finished first, since a
+    lobby abandoned before it started is over, not waiting."""
+    if game.in_lobby and not game.is_finished:
         return "lobby"
     return GameStatus(game.status).value
 

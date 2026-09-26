@@ -34,9 +34,10 @@ than trusting the two agree: a table that silently reports on four
 games out of nine is worse than one that reports on four and says it.
 """
 
+import logging
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 
 from d12ball.components import (
     CONTESTED_DECISIONS,
@@ -58,6 +59,9 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.game import D12BallGame, GameStatus
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 # The three kinds of game the statistics are kept apart by, which is
@@ -152,6 +156,77 @@ def games_in_scope(
         if (scope == SCOPE_ALL or game_category(game) == scope)
         and (source == SOURCE_BOTH or game_source(game) == source)
     ]
+
+
+def readable_matches(
+    games: Iterable[D12BallGame],
+    load: Callable[[D12BallGame], MatchState],
+) -> tuple[list[tuple[D12BallGame, MatchState]], int]:
+    """
+    Every game in `games` that has a match, with the match `load`
+    builds for it (the engine's `load_match_state`), and how many of
+    them have nothing recorded -- counting a game whose match would
+    not load, and one still in setup with no match at all.
+
+    **A game whose match fails to load is left out rather than
+    raising.** A saved game older than a rename can refuse to build
+    (the legacy-migration gotcha in docs/design/gotchas.md), and a
+    report that dies on one bad record is worse than one that counts
+    the other forty and says how many it could not read. Logged at
+    INFO: nobody has to act on it.
+
+    Both frontends' reports open with this -- the bot's scoped over
+    its guild and, when asked, the web app's file; the web app's over
+    its own file alone.
+    """
+    games = list(games)
+    pairs: list[tuple[D12BallGame, MatchState]] = []
+    for game in games:
+        if game.match_state is None:
+            continue
+        try:
+            pairs.append((game, load(game)))
+        except (ValueError, KeyError) as error:
+            LOGGER.info(
+                "Leaving game %s out of the statistics: %s",
+                game.game_id,
+                error,
+            )
+    empty = sum(1 for _, match in pairs if not match.events) + (
+        len(games) - len(pairs)
+    )
+    return pairs, empty
+
+
+def game_standing(game: D12BallGame) -> str:
+    """Where one game stands, in the words a per-game report's heading
+    uses: in setup, in progress, finished or abandoned."""
+    if game.status == GameStatus.FINISHED:
+        return "abandoned" if game.abandoned else "finished"
+    if game.status == GameStatus.IN_PROGRESS:
+        return "in progress"
+    return "in setup"
+
+
+def player_name(catalog: PlayerCatalog, player_id: str) -> str:
+    """
+    A card's name for a statistics table.
+
+    Deliberately **no team and no role**, unlike every other place a
+    player is named: these tables are read across games, and the same
+    person can appear in them under either of their two rosters (see
+    "One player, both sides" in docs/design/teams-and-players.md). A
+    colour that changed between rows of one table would be saying
+    something untrue about the player.
+
+    `player_by_id` resolves a visiting side's suffixed card id to the
+    same person, which is what makes one row rather than two.
+    """
+    try:
+        return catalog.player_by_id(player_id).name
+    except ValueError:
+        return player_id
+
 
 
 @dataclass
@@ -1060,3 +1135,90 @@ def format_turn_actions(report: ManeuverReport) -> list[str]:
         f"{'  time outs called':<34}{report.time_outs:>10}",
     ]
     return _ruled(lines)
+
+
+# -- The reports -----------------------------------------------------
+#
+# Which tables make up each report, so the bot's commands and the web
+# app's page post the same ones. What each frontend does with a table
+# -- a code fence per message, a `<pre>` per block -- is its own.
+
+REPORT_OVERVIEW = "overview"
+REPORT_MANEUVERS = "maneuvers"
+REPORT_MATCHUPS = "matchups"
+REPORT_PLAYERS = "players"
+
+# In the order the web page lays them out, one under the next.
+REPORTS = (
+    REPORT_OVERVIEW, REPORT_MANEUVERS, REPORT_MATCHUPS, REPORT_PLAYERS,
+)
+
+
+def game_tables(
+    matches: list[MatchState],
+    maneuver_catalog: ManeuverCatalog,
+    player_catalog: PlayerCatalog,
+) -> list[list[str]]:
+    """
+    Every table one game's report holds -- what it did with its turns,
+    its maneuvers and what they cost, its shots, its conditions and
+    its players -- or none at all when nothing has been played in it
+    (or it was under way before the bot kept a record), which the
+    caller says in words.
+    """
+    maneuvers = collect_maneuvers(matches)
+    if not maneuvers.turns:
+        return []
+    conditions = collect_conditions(matches)
+    return [
+        format_turn_actions(maneuvers),
+        format_maneuver_usage(maneuvers, maneuver_catalog),
+        format_maneuver_cost(maneuvers, maneuver_catalog),
+        format_shots(collect_shots(matches)),
+        format_conditions(conditions),
+        format_players(
+            conditions, lambda one: player_name(player_catalog, one),
+        ),
+    ]
+
+
+def report_tables(
+    report: str,
+    pairs: list[tuple[D12BallGame, MatchState]],
+    maneuver_catalog: ManeuverCatalog,
+    player_catalog: PlayerCatalog,
+) -> list[list[str]]:
+    """
+    The tables of one report over many games, named by the `REPORT_*`
+    constants. Each folds only what its own tables read -- the four
+    reports need different subsets of the event log, and folding them
+    all for every report walks every saved game four times over for
+    tables nobody asked for.
+    """
+    matches = [match for _, match in pairs]
+    if report == REPORT_OVERVIEW:
+        return [
+            format_overview(collect_overview(pairs)),
+            format_shots(collect_shots(matches)),
+        ]
+    if report == REPORT_MANEUVERS:
+        maneuvers = collect_maneuvers(matches)
+        return [
+            format_turn_actions(maneuvers),
+            format_maneuver_usage(maneuvers, maneuver_catalog),
+            format_maneuver_cost(maneuvers, maneuver_catalog),
+        ]
+    if report == REPORT_MATCHUPS:
+        return [format_matchups(collect_maneuvers(matches), maneuver_catalog)]
+    if report == REPORT_PLAYERS:
+        conditions = collect_conditions(matches)
+        return [
+            format_players(
+                conditions,
+                lambda one: player_name(player_catalog, one),
+                limit=15,
+            ),
+            format_roles(conditions, player_catalog),
+            format_conditions(conditions),
+        ]
+    raise ValueError(f"No such report: {report}")

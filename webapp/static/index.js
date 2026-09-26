@@ -42,7 +42,7 @@ function roomLine(room, { renamable = false } = {}) {
     .join(" · ");
   const standing = document.createElement("span");
   standing.className = "seat-label";
-  standing.textContent = STANDING[room.status] || room.status;
+  standing.textContent = room.abandoned ? "Abandoned" : STANDING[room.status] || room.status;
   line.append(title, seats, standing);
   if (renamable) {
     const rename = document.createElement("button");
