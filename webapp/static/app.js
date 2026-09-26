@@ -30,7 +30,6 @@ let shownTable = null;
    on the finished game afterwards is offered the link instead. */
 let sawNoRematch = false;
 let shownBoard = null;
-let openMenu = null;
 /* A chooser opened by clicking its object on the board (a space two
    teammates share): its one question is asked in the box. */
 let openChooser = null;
@@ -38,7 +37,11 @@ let openChooser = null;
    (`readLit`). */
 let lit = null;
 let current = null;
-const openBenches = new Set();
+/* The Coaching Choice's part-made pick: the thing picked up first (a
+   bench meeple coming on, a player changing zones or moving) as its
+   key, and what it is called -- or null. The page's own state, like an
+   open chooser: nothing is sent until the second thing is clicked. */
+let picked = null;
 
 const el = (id) => document.getElementById(id);
 const phone = () => window.matchMedia("(max-width: 960px)").matches;
@@ -193,6 +196,8 @@ async function say(text) {
 // -- The whole page, from one state ------------------------------------
 
 function draw(state) {
+  /* A new question puts back whatever was picked up for the last. */
+  if (picked && JSON.stringify(state.prompt) !== shownPrompt) picked = null;
   current = state;
   latest = state.latest;
   drawHeader(state);
@@ -565,7 +570,16 @@ function drawBoard(state) {
   if (!layout) return;
   box.append(stage(layout, { live: true }));
   watchFit(box);
-  el("benches").append(...layout.team_boards.map(bench));
+  el("benches").append(...layout.team_boards.map((board) => sideline(board, layout)));
+}
+
+/* Redraw what a pick changes: the board's lit things, and the box's
+   line saying what is picked up. */
+function redrawPick() {
+  if (!current) return;
+  shownBoard = null;
+  drawBoard(current);
+  if (current.prompt) drawControls(current.prompt);
 }
 
 // -- Answering on the board ------------------------------------------------
@@ -586,12 +600,28 @@ const BOARD_OBJECTS = new Set([
 function readLit(prompt) {
   const index = {
     player: {}, space: {}, ball: [], goal: {}, out: {}, tile: {}, bench: {}, shape: [],
+    pickable: {}, picked,
   };
   if (!prompt) return index;
   const add = (map, key, control) => { (map[key] = map[key] || []).push(control); };
+  index.shape.push(["picked", picked && picked.key]);
   for (const group of prompt.controls) {
     for (const control of group.controls) {
       if (!control.place || control.disabled) continue;
+      /* An answer given with two things (`first`, then `place`): its
+         first thing is lit until one is picked up, and then the second
+         thing of every answer that starts from it. */
+      if (control.first) {
+        const key = placeKey(control.first);
+        const picks = (index.pickable[key] = index.pickable[key] || []);
+        if (!picks.some((one) => one.chip === control.first_chip)) {
+          picks.push({
+            type: "pick", key, first: control.first, chip: control.first_chip,
+            label: pickName(control),
+          });
+        }
+        if (!picked || picked.key !== key) continue;
+      }
       for (const place of [control.place, ...(control.also || [])]) {
         if (!BOARD_OBJECTS.has(place.at)) continue;
         index.shape.push([place, control.chip, control.cost]);
@@ -605,20 +635,107 @@ function readLit(prompt) {
       }
     }
   }
+  /* Nothing picked up yet: what may be is what is lit. */
+  if (!picked) {
+    for (const picks of Object.values(index.pickable)) {
+      const first = picks[0].first;
+      if (first.at !== "player") continue;
+      for (const one of picks) add(index.player, first.id, one);
+      index.shape.push([first, picks.map((one) => one.chip)]);
+    }
+  }
   return index;
 }
 
-/* Whether a meeple is on the field, where a lit piece is drawn; a
-   player lit who is not is answered from the question box instead. */
+/* Whether a meeple is drawn -- on the field or on the sideline under
+   it, where a lit piece is drawn; a player lit who is neither is
+   answered from the question box instead. */
 function onField(layout, playerId) {
-  return Boolean(layout) && layout.spaces.some((one) =>
-    one.home.some((m) => m.id === playerId) || one.visiting.some((m) => m.id === playerId));
+  return Boolean(layout) && (
+    layout.spaces.some((one) =>
+      one.home.some((m) => m.id === playerId) || one.visiting.some((m) => m.id === playerId))
+    || layout.team_boards.some((board) =>
+      [...board.bench, ...board.back_bench].some((entry) => entry.id === playerId)));
+}
+
+/* A thing on the board as one string, to match a pick to the answers
+   that start from it and a drop to the thing it landed on. */
+function placeKey(place) {
+  if (place.at === "player") return `player:${place.id}`;
+  if (place.at === "space") return `space:${place.zone}:${place.space_index}`;
+  return place.at;
+}
+
+/* What the thing picked up first is called: the control's own label up
+   to where the second thing is named ("Voltus [DD]" of "Voltus [DD] on
+   for ..."), which is the engine's spelling of the player. */
+function pickName(control) {
+  const match = /^(.*?\[[A-Z]+\])/.exec(control.label);
+  return match ? match[1] : control.label;
+}
+
+/* Picking a thing up, or putting it back: the same thing twice, or
+   Esc, lets go. */
+function pick(entry) {
+  picked = entry && (!picked || picked.key !== entry.key) ? entry : null;
+  redrawPick();
+}
+
+/* A drag from a thing that may be picked up onto the thing it goes on:
+   the same answer as clicking the two in turn. The drag picks it up as
+   it starts, so what it may be dropped on lights; a drop on anything
+   else leaves it picked up, to be clicked. */
+let dragged = 0;
+function dragPick(node, key) {
+  const picks = lit && lit.pickable[key];
+  if (!picks) return;
+  node.style.touchAction = "none";
+  node.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    const start = { x: event.clientX, y: event.clientY };
+    let ghost = null;
+    const move = (moved) => {
+      if (!ghost) {
+        if (Math.hypot(moved.clientX - start.x, moved.clientY - start.y) < 8) return;
+        ghost = node.cloneNode(true);
+        ghost.classList.add("drag-ghost");
+        document.body.append(ghost);
+        if (!picked || picked.key !== key) pick(picks[0]);
+      }
+      ghost.style.left = `${moved.clientX}px`;
+      ghost.style.top = `${moved.clientY}px`;
+    };
+    const up = (released) => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", up);
+      if (!ghost) return;
+      ghost.remove();
+      dragged = Date.now();
+      if (released.type !== "pointerup") return;
+      const under = document.elementFromPoint(released.clientX, released.clientY);
+      const target = under && under.closest("[data-place]");
+      if (!target || !current || !current.prompt) return;
+      const control = current.prompt.controls
+        .flatMap((group) => group.controls)
+        .find((one) => one.first && !one.disabled && placeKey(one.first) === key
+          && placeKey(one.place) === target.dataset.place);
+      if (control) press(control);
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", up);
+  });
 }
 
 /* Pressing a control: its answer, or -- for a chooser -- its question
    opened in the box, or for the rematch the room's own route. */
 function press(control) {
   if (!control || control.disabled) return;
+  if (control.type === "pick") {
+    pick(control);
+    return;
+  }
   if (control.type === "chooser") {
     openChooser = control;
     if (current && current.prompt) drawControls(current.prompt);
@@ -647,8 +764,8 @@ function chips(controls, { buttons = controls.length > 1 } = {}) {
 /* The field, drawn from scratch (docs/web-app-redesign.md, step 1): a
    dark stage with the zone names over a row of spaces between the two
    goals, and the shooting ranges under it. Every value on it is
-   `webapp/board.py`'s; the jumbotron has its own panel, and the
-   benches open on demand. */
+   `webapp/board.py`'s; the jumbotron has its own bar, and the benches
+   are the sideline under it. */
 function stage(layout, { live }) {
   return h(
     "div",
@@ -749,6 +866,7 @@ function space(one, layout) {
     {
       class: `space${one.tint ? " tinted" : ""}${on ? " lit" : ""}`,
       style: one.tint ? `--tint: ${one.tint}` : null,
+      "data-place": `space:${one.zone}:${one.index}`,
       title: on ? controls.map((c) => c.label).join(" · ") : null,
       /* A lit space is answered by clicking anywhere on it that is not
          a piece of its own (a meeple opens its card). */
@@ -789,29 +907,7 @@ function fanOf(one, side, layout, marks = {}) {
         meeple(piece, layout, { controls: marks[piece.id] }),
       ),
     );
-    if (piece.exhaustion) {
-      over.push(h(
-        "span",
-        {
-          class: "badge tokens",
-          style: `left: ${piece.x + W * 0.62}px; top: ${piece.y + H * 0.68}px`,
-          title: `${piece.exhaustion.count} ${piece.exhaustion.emoji === "exhaust" ? "exhaustion" : "drain"}`,
-        },
-        h("img", { src: `/emoji/${piece.exhaustion.emoji}.png`, alt: "" }),
-        String(piece.exhaustion.count),
-      ));
-    }
-    if (piece.condition) {
-      over.push(h(
-        "span",
-        {
-          class: "badge condition",
-          style: `left: ${piece.x - 8}px; top: ${piece.y + H - 14}px`,
-          title: piece.condition[0].toUpperCase() + piece.condition.slice(1),
-        },
-        h("img", { src: `/emoji/${piece.condition}.png`, alt: piece.condition }),
-      ));
-    }
+    over.push(...badges(piece, piece.x, piece.y, W, H));
     if (one.ball && one.ball.holder === piece.id) {
       /* Off the top right of a home holder, almost touching the
          shoulder; off the bottom left of a visiting one, over the edge
@@ -828,9 +924,10 @@ function fanOf(one, side, layout, marks = {}) {
   for (const id of drawn.names) {
     const piece = byId[id];
     const lit = id in marks;
+    const held = Boolean(picked && picked.key === `player:${id}`);
     over.push(h(
       "span",
-      { class: `fan-name${lit ? " lit" : ""}`, style: `left: ${piece.x + W / 2}px; top: ${line}px` },
+      { class: `fan-name${lit || held ? " lit" : ""}`, style: `left: ${piece.x + W / 2}px; top: ${line}px` },
       piece.name,
     ));
     line += 16;
@@ -846,6 +943,37 @@ function fanOf(one, side, layout, marks = {}) {
   box.append(...over);
   box.style.height = `${line}px`;
   return box;
+}
+
+/* A piece's badges, over it wherever it stands (a fan on a space, the
+   sideline): the exhaustion token and its count off the bottom right,
+   the condition off the bottom left -- the emoji `board.py` names. */
+function badges(piece, x, y, W, H) {
+  const over = [];
+  if (piece.exhaustion) {
+    over.push(h(
+      "span",
+      {
+        class: "badge tokens",
+        style: `left: ${x + W * 0.62}px; top: ${y + H * 0.68}px`,
+        title: `${piece.exhaustion.count} ${piece.exhaustion.emoji === "exhaust" ? "exhaustion" : "drain"}`,
+      },
+      h("img", { src: `/emoji/${piece.exhaustion.emoji}.png`, alt: "" }),
+      String(piece.exhaustion.count),
+    ));
+  }
+  if (piece.condition) {
+    over.push(h(
+      "span",
+      {
+        class: "badge condition",
+        style: `left: ${x - 8}px; top: ${y + H - 14}px`,
+        title: piece.condition[0].toUpperCase() + piece.condition.slice(1),
+      },
+      h("img", { src: `/emoji/${piece.condition}.png`, alt: piece.condition }),
+    ));
+  }
+  return over;
 }
 
 /* What clicking a lit thing means (the control's `chip`), with any
@@ -866,7 +994,16 @@ function chip(control) {
 /* A meeple, lit gold where a control names it: clicking a lit one
    answers, clicking any other opens its card. */
 function meeple(m, layout, { controls = null } = {}) {
-  const lit = Boolean(controls && controls.length);
+  const on = Boolean(controls && controls.length);
+  const key = `player:${m.id}`;
+  const held = Boolean(picked && picked.key === key);
+  const picks = !on && lit && lit.pickable[key];
+  const node = litMeeple(m, layout, controls, on, held, picks);
+  if (lit && lit.pickable[key]) dragPick(node, key);
+  return node;
+}
+
+function litMeeple(m, layout, controls, lit, held, picks) {
   const g = layout.meeple;
   const [left, top, width, height] = g.box;
   const W = g.width;
@@ -877,13 +1014,21 @@ function meeple(m, layout, { controls = null } = {}) {
     "button",
     {
       type: "button",
-      class: `meeple${lit ? " lit" : ""}`,
+      class: `meeple${lit ? " lit" : ""}${held ? " picked" : ""}${picks ? " pickable" : ""}`,
       style: `width: ${W}px; height: ${H}px; color: ${m.ink}`,
-      title: lit ? `${m.name} [${m.role}]: ${controls[0].chip || controls[0].label}` : `${m.name} [${m.role}]`,
-      "aria-label": lit ? controls[0].label : `${m.name} [${m.role}]`,
+      "data-place": `player:${m.id}`,
+      title: lit ? `${m.name} [${m.role}]: ${controls[0].chip || controls[0].label}`
+        : held ? `${m.name} [${m.role}]: picked up -- click again or Esc to put it back`
+          : `${m.name} [${m.role}]`,
+      "aria-label": lit ? controls[0].label
+        : held ? `${m.name} [${m.role}], picked up: put it back`
+          : picks ? `${m.name} [${m.role}]: pick up` : `${m.name} [${m.role}]`,
+      "aria-pressed": held ? "true" : null,
       onclick: (event) => {
         event.stopPropagation();
+        if (Date.now() - dragged < 300) return;
         if (lit) press(controls[0]);
+        else if (held || picks) pick(held ? picked : picks[0]);
         else openCard(m.id);
       },
     },
@@ -893,8 +1038,9 @@ function meeple(m, layout, { controls = null } = {}) {
       s("path", {
         d: g.path,
         fill: m.colour,
-        stroke: lit ? GOLD : m.ink,
-        "stroke-width": String(lit ? g.stroke * 1.5 : g.stroke),
+        stroke: lit || held ? GOLD : m.ink,
+        "stroke-width": String(lit || held ? g.stroke * 1.5 : g.stroke),
+        "stroke-dasharray": held ? String(g.stroke * 2.2) : null,
         "stroke-linejoin": "round",
       }),
     ),
@@ -1026,95 +1172,72 @@ function die(label, { size, fill, ink, font, ring = false }) {
   );
 }
 
-/* A card as the bot's board draws it -- `render.draw_card`, the team's
-   frame and the card's marks included, so the marks sit where the
-   bot puts them. */
-function playerCard(card) {
-  const marks = [];
-  if (card.exhaustion > 0) marks.push(`${card.exhaustion} ${card.cyborg ? "drain" : "exhaustion"}`);
-  if (card.injured) marks.push(card.cyborg ? "damaged" : "injured");
-  else if (card.exhausted) marks.push(card.cyborg ? "drained" : "exhausted");
-  const said = `${card.name} [${card.role}], offense ${card.offense}, defense ${card.defense}`
-    + (marks.length ? `, ${marks.join(", ")}` : "");
-  const node = h(
-    "button",
-    {
-      type: "button",
-      class: "card",
-      title: `${card.name} [${card.role}]`,
-      onclick: (event) => { event.stopPropagation(); openCard(card.id); },
-    },
-    h("img", { src: card.image, alt: said }),
-  );
-  hoverCard(node, cardUrl(card.id));
-  return node;
-}
-
-/* A team's bench and back bench, behind a button under the board:
-   shown while the pointer is on it, and kept open by a click. Lit gold
-   where a prompt names it -- the Coaching Offer -- and then a click
-   answers it; the cards still show while the pointer is on it. */
-function bench(board) {
-  const count = board.bench.length + board.back_bench.length;
+/* The sideline under the field (docs/web-app-redesign.md, step 6): a
+   team's bench ("may come on") and back bench ("off for the game"), the
+   record's own two rows, each a box edged in the team's colour holding
+   the meeples as the field draws them, badges and all, with the hover
+   card. Home's on the left and the visitors' on the right, under their
+   own ends. Lit gold as a whole where a prompt names the bench -- the
+   Coaching Offer -- and then a click on it answers; a meeple on it is
+   lit where a prompt names that player -- the Coaching Choice's
+   substitutes. */
+function sideline(board, layout) {
   const controls = (lit && lit.bench[board.side]) || [];
   const on = controls.length > 0;
-  const toggle = h(
+  /* Lit, a click anywhere on it that is not a meeple answers (a meeple
+     still opens its card), and the chip is the answer as a real button,
+     for the keyboard -- the meeples are buttons, so the side is not. */
+  return h(
     "div",
     {
-      class: `bench-toggle${openBenches.has(board.side) ? " open" : ""}${on ? " lit" : ""}`,
+      class: `sideline-team ${board.side}${on ? " lit" : ""}`,
       style: `--team: ${board.colour}`,
+      title: on ? controls[0].label : null,
+      onclick: on ? (event) => {
+        if (event.target.closest(".meeple, .chip-button")) return;
+        press(controls[0]);
+      } : null,
     },
-    h(
-      "button",
-      {
-        type: "button",
-        class: "bench-button",
-        "aria-expanded": openBenches.has(board.side) ? "true" : "false",
-        title: on ? controls[0].label : null,
-        onclick: (event) => {
-          event.stopPropagation();
-          if (on) {
-            press(controls[0]);
-            return;
-          }
-          const open = toggle.classList.toggle("open");
-          event.currentTarget.setAttribute("aria-expanded", String(open));
-          if (open) openBenches.add(board.side);
-          else openBenches.delete(board.side);
-        },
-      },
-      teamEmoji(board.key, board.name),
-      `${board.name} bench`,
-      h("span", { class: "count" }, `(${count})`),
-      on ? chips(controls, { buttons: false }) : null,
-    ),
+    benchBox(board, `${board.name.toUpperCase()} BENCH`, "may come on", board.bench, layout),
+    benchBox(board, "BACK BENCH", "off for the game", board.back_bench, layout),
+    on ? h("span", { class: "sideline-chips" }, chips(controls, { buttons: true })) : null,
+  );
+}
+
+function benchBox(board, title, said, entries, layout) {
+  return h(
+    "div",
+    { class: "bench-box", role: "group", "aria-label": `${board.name} ${title.toLowerCase()}` },
+    h("div", { class: "bench-head" },
+      h("span", { class: "bench-title" }, title),
+      h("span", { class: "bench-said" }, said)),
     h(
       "div",
-      { class: "bench-pop" },
-      h("div", { class: "bench-pop-name" }, board.name),
-      h(
-        "div",
-        { class: "bench-pop-rows" },
-        h("span", { class: "bench-label" }, "BENCH"),
-        h(
-          "div",
-          { class: "bench" },
-          board.bench.length
-            ? board.bench.map((card) => playerCard(card))
-            : h("span", { class: "bench-empty" }, "Empty"),
-        ),
-        h("span", { class: "bench-label" }, "BACK BENCH"),
-        h(
-          "div",
-          { class: "bench" },
-          board.back_bench.length
-            ? board.back_bench.map((card) => playerCard(card))
-            : h("span", { class: "bench-empty" }, "Empty"),
-        ),
-      ),
+      { class: "bench-pieces" },
+      entries.length
+        ? entries.map((entry) => benchPiece(entry.meeple, layout))
+        : h("span", { class: "bench-empty" }, "Empty"),
     ),
   );
-  return toggle;
+}
+
+/* One benched meeple: the piece, its badges over it as on the field,
+   its name under it, and -- lit -- what clicking it means. */
+function benchPiece(m, layout) {
+  const marks = (lit && lit.player[m.id]) || null;
+  const on = Boolean(marks && marks.length);
+  const g = layout.meeple;
+  const W = g.width;
+  const H = (W * g.box[3]) / g.box[2];
+  const body = h("span", { class: "bench-body", style: `width: ${W}px; height: ${H}px` },
+    meeple(m, layout, { controls: marks }), ...badges(m, 0, 0, W, H));
+  return h(
+    "span",
+    { class: "bench-piece" },
+    body,
+    h("span", { class: `bench-name${on || (picked && picked.key === `player:${m.id}`) ? " lit" : ""}` }, m.name),
+    on ? h("span", { class: "bench-chip-line" }, chips(marks)) : null,
+  );
 }
 
 // -- Fitting a board to its box ----------------------------------------
@@ -1335,10 +1458,9 @@ function drawPrompt(state) {
   const rematch = state.rematch ? state.rematch.url : null;
   if (shape === shownPrompt && rematch === shownRematch) return;
   shownRematch = rematch;
-  const previous = shownPrompt ? JSON.parse(shownPrompt) : null;
   shownPrompt = shape;
-  if (!previous || !state.prompt || previous.kind !== state.prompt.kind) openMenu = null;
   openChooser = null;
+  picked = null;
   if (!state.prompt) {
     box.hidden = true;
     return;
@@ -1440,7 +1562,7 @@ function drawReference(prompt) {
 /* The objects the question box draws, rather than the board: the die
    to roll, the faces of a speed to choose, the whistle, the note, the
    REMATCH mark, the hand's cards. */
-const BOX_OBJECTS = new Set(["die", "face", "whistle", "note", "rematch", "card"]);
+const BOX_OBJECTS = new Set(["die", "face", "whistle", "note", "rematch", "card", "formation"]);
 
 /* Whether a control is drawn in the question box: the neutral ones, the
    box's own objects, and a meeple lit that is not on the field to be
@@ -1449,6 +1571,9 @@ function inBox(control) {
   const place = control.place;
   if (!place) return true;
   if (BOX_OBJECTS.has(place.at)) return true;
+  /* An answer given with two things is made on the board, the two
+     picked in turn -- or dragged -- and the keyboard list has it too. */
+  if (control.first) return !(current && current.board.layout);
   if (place.at === "player") {
     return !onField(current && current.board.layout, place.id);
   }
@@ -1472,48 +1597,53 @@ function drawControls(prompt) {
     return;
   }
 
+  /* A thing picked up on the board (the Coaching Choice): what it is,
+     and how to put it back. */
+  if (picked) {
+    controls.append(h("div", { class: "row picked-line" },
+      h("span", {}, h("b", {}, picked.label), " is picked up: click where it goes, or drag it there."),
+      neutral("Put it back", () => pick(null), { title: "Esc" })));
+  }
+
   const groups = prompt.controls
     .map((group) => ({ ...group, controls: group.controls.filter(inBox) }))
     .filter((group) => group.controls.length);
-  const menus = groups.filter((group) => group.label);
 
-  /* Several named groups is the Coaching Choice: a neutral control per
-     menu, and the menu opened in its place with a way back, as the
-     Discord hub walks a coach through them. */
-  if (menus.length >= 3) {
-    const open = menus.find((group) => group.label === openMenu);
-    if (open) {
-      controls.append(
-        h("div", { class: "group-label" }, open.label),
-        drawGroup(open),
-        h("div", { class: "row" }, neutral("Back", () => { openMenu = null; drawControls(prompt); })),
-      );
-      return;
-    }
-    const row = h("div", { class: "row" });
-    for (const group of menus) {
-      row.append(neutral(group.label, () => { openMenu = group.label; drawControls(prompt); }));
-    }
-    controls.append(row);
-    for (const group of groups.filter((one) => !one.label)) controls.append(drawGroup(group));
-    appendNotes(controls, groups);
-    return;
-  }
-
-  for (const group of groups) {
+  for (const group of groups.filter((one) => !one.how)) {
     if (group.label) controls.append(h("div", { class: "group-label" }, group.label));
     controls.append(drawGroup(group));
   }
   appendNotes(controls, groups);
   const table = handTable(prompt);
   if (table) controls.append(table);
+
+  /* The groups answered on the board say how, once each, under a rule:
+     a row of tiles where the box draws the things (the formations), a
+     line where the board does. */
+  const how = prompt.controls.filter((group) => group.how);
+  if (how.length) {
+    const block = h("div", { class: "how" });
+    for (const group of how) {
+      const here = group.controls.filter(inBox);
+      if (here.length) {
+        block.append(h("div", { class: "how-row" },
+          h("span", { class: "how-label" }, `${group.label.toUpperCase()} · ${group.how}`),
+          drawGroup({ ...group, controls: here })));
+      } else {
+        block.append(h("p", { class: "how-line" }, h("b", {}, `${group.label}:`), ` ${group.how}.`));
+      }
+    }
+    controls.append(block);
+  }
 }
 
 /* What is lit on the board and why, and -- muted -- what is dark:
    the server's reading of the controls it built (`present.lit_line`). */
 function drawLitLine(prompt) {
   const line = el("lit");
-  const items = prompt.lit || [];
+  /* With a thing picked up, the box says that instead: what was lit
+     before it was picked up is not what is lit now. */
+  const items = picked ? [] : prompt.lit || [];
   line.hidden = !items.length;
   line.replaceChildren(...items.map((item) =>
     h("span", { class: item.dark ? "lit-item dark" : "lit-item" }, item.text)));
@@ -1563,6 +1693,9 @@ function drawGroup(group) {
   if (group.controls.length && group.controls.every((one) => one.place && one.place.at === "face")) {
     return h("div", { class: "faces" }, group.controls.map(face));
   }
+  if (group.controls.length && group.controls.every((one) => one.place && one.place.at === "formation")) {
+    return h("div", { class: "formations" }, group.controls.map(formationTile));
+  }
   return h("div", { class: "row" }, group.controls.map(drawControl));
 }
 
@@ -1591,6 +1724,32 @@ function drawControl(control) {
   });
   if (control.player) hoverCard(button, cardUrl(control.player));
   return button;
+}
+
+/* A formation's tile: its shape as dots per zone, left to right as the
+   field is, in the side's colour -- the counts are the server's
+   (`control.shape`, off the ruleset), the page draws them. The shape a
+   side stands in is dead and marked "now". */
+function formationTile(control) {
+  const side = control.action.arguments.side;
+  const layout = current && current.board.layout;
+  const colour = layout ? layout.jumbotron[side].colour : GOLD;
+  const now = control.disabled;
+  return h(
+    "button",
+    {
+      type: "button",
+      class: `formation${now ? " now" : ""}`,
+      disabled: now,
+      title: now ? control.note : `Set up in ${control.label}`,
+      "aria-label": now ? `${control.label}: ${control.note}` : `Formation ${control.label}`,
+      onclick: () => press(control),
+    },
+    h("span", { class: "formation-dots" },
+      (control.shape || []).map((count) => h("span", { class: "formation-zone" },
+        Array.from({ length: count }, () => h("span", { class: "dot", style: `background: ${colour}` }))))),
+    h("span", { class: "formation-name" }, now ? `${control.label} · now` : control.label),
+  );
 }
 
 /* The one neutral control: outlined, no fill, no colour. */
@@ -2216,7 +2375,8 @@ el("prompt").addEventListener("click", (event) => {
   if (control) press(control);
 });
 /* The keyboard: a number presses that control, Enter the only one,
-   Esc backs out of a menu or a chooser, or puts a refusal away. */
+   Esc puts back what is picked up, backs out of a chooser, or puts a
+   refusal away. */
 document.addEventListener("keydown", (event) => {
   if (event.target.closest("input, textarea, select, dialog[open]")) return;
   if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -2228,9 +2388,10 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     press(keyed[0]);
   } else if (event.key === "Escape") {
-    if (openChooser || openMenu) {
+    if (picked) {
+      pick(null);
+    } else if (openChooser) {
       openChooser = null;
-      openMenu = null;
       if (current && current.prompt) drawControls(current.prompt);
     } else if (!el("refusal").hidden) {
       el("refusal").hidden = true;
@@ -2275,15 +2436,6 @@ el("chat-form").addEventListener("submit", (event) => {
   say(text).then((ok) => {
     if (!ok && !input.value) input.value = text;
   });
-});
-/* A bench kept open by a click closes on a click anywhere else. */
-document.addEventListener("click", (event) => {
-  if (event.target.closest(".bench-toggle")) return;
-  for (const open of document.querySelectorAll(".bench-toggle.open")) {
-    open.classList.remove("open");
-    open.firstElementChild.setAttribute("aria-expanded", "false");
-  }
-  openBenches.clear();
 });
 /* On a phone, which tab is showing, and a mark on the others when
    something new arrives there -- gold on Move when it is this coach's

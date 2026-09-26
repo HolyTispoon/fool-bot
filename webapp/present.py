@@ -31,8 +31,11 @@ frontend's to decide (principle 8):
   object in gold.
 - **A control is a button or a chooser**, not a `discord.ui.Item`: the
   page collects what a chooser's fields say and posts one `Action`,
-  where Discord walks a coach through a menu at a time. The hub is the
-  one prompt where that shows.
+  where Discord walks a coach through a menu at a time. The Coaching
+  Choice is where that shows most: each move is one control made of
+  two things on the board, the one picked up (`first`) and the one it
+  is put on (`place`), so the pair is the page's way of choosing a
+  control the options listed, never a move of its own.
 - **A prompt carries its picture** where the cog posts a matchup with
   the same question (`PROMPT_PICTURES`) -- the shot and the challenge.
   The kind is the key; the drawing is `webapp/pictures.py`'s.
@@ -278,6 +281,8 @@ def button(
     player: Optional[str] = None,
     card: Optional[dict] = None,
     post: Optional[str] = None,
+    first: Optional[dict] = None,
+    first_chip: str = "",
     **arguments: Any,
 ) -> dict:
     """
@@ -297,6 +302,15 @@ def button(
     `post` is a press that is not an answer to this game at all -- the
     rematch, which opens another -- and names the room route it goes
     to instead; `webapp/server.py` never takes one as an action.
+
+    `first` makes it an answer given with two objects: the one picked
+    up first -- a bench meeple coming on, a player changing zones or
+    moving -- and then `place`, the one it is put on. The page lights
+    every `first` with its `first_chip` ("comes on"), and once one is
+    picked, the `place` of each control that starts from it; dragging
+    the first onto the second is the same answer. It is still one
+    control and one `Action`: the pair is the page's way of choosing
+    it, never a move of its own.
     """
     return {
         "type": "button",
@@ -311,6 +325,8 @@ def button(
         "player": player,
         "card": card,
         "post": post,
+        "first": first if place else None,
+        "first_chip": (first_chip or None) if place and first else None,
         "action": {
             "kind": kind.value,
             "choice": choice,
@@ -328,6 +344,8 @@ def chooser(
     *,
     place: Optional[dict] = None,
     chip: str = "",
+    first: Optional[dict] = None,
+    first_chip: str = "",
     **arguments: Any,
 ) -> dict:
     """
@@ -345,6 +363,8 @@ def chooser(
         "place": place,
         "chip": chip or None,
         "style": None if place else NEUTRAL,
+        "first": first if place else None,
+        "first_chip": (first_chip or None) if place and first else None,
         "action": {
             "kind": kind.value,
             "choice": choice,
@@ -375,13 +395,20 @@ def _arguments(arguments: Mapping[str, Any]) -> dict:
     }
 
 
-def section(label: Optional[str], controls: Sequence[dict]) -> Optional[dict]:
+def section(
+    label: Optional[str], controls: Sequence[dict], how: str = "",
+) -> Optional[dict]:
     """A group of controls under a heading, or nothing where the group
-    is empty -- an empty menu is not a menu."""
+    is empty -- an empty menu is not a menu. `how` is how the page
+    answers it, where that is not plain from the lit things (a drag, or
+    two clicks) -- this frontend's words about its own controls."""
     controls = [control for control in controls if control is not None]
     if not controls:
         return None
-    return {"label": label, "controls": controls}
+    group = {"label": label, "controls": controls}
+    if how:
+        group["how"] = how
+    return group
 
 
 # -- The objects a control may light ---------------------------------
@@ -433,6 +460,12 @@ def on_face(value: int) -> dict:
 
 def on_card(key: str, side: str) -> dict:
     return {"at": "card", "key": key, "side": side}
+
+
+def on_formation(formation: Any) -> dict:
+    """A formation's tile in the question box: the Coaching Choice's
+    shapes, drawn as dots per zone."""
+    return {"at": "formation", "name": Formation(formation).value}
 
 
 def on_bench(side: Any) -> dict:
@@ -589,9 +622,12 @@ def _asked(
 
 
 #: The objects the question box draws itself -- the die, a speed's
-#: faces, the whistle, the note, the REMATCH mark, the hand's cards --
+#: faces, the whistle, the note, the REMATCH mark, the hand's cards,
+#: the formation tiles --
 #: which the lit line does not repeat: it says what is lit elsewhere.
-IN_THE_BOX = frozenset({"die", "face", "whistle", "note", "rematch", "card"})
+IN_THE_BOX = frozenset({
+    "die", "face", "whistle", "note", "rematch", "card", "formation",
+})
 
 
 def lit_line(
@@ -620,11 +656,24 @@ def lit_line(
     if asked is None or not controls:
         return []
     lines = []
+    # A control answered with two objects lights its first one until
+    # that is picked up, so the line names those, once each, with what
+    # picking each up is for -- not every pair it could end in.
+    firsts: dict[str, list[str]] = {}
     for group in controls:
         for control in group["controls"]:
             place = control.get("place")
             if not place or place["at"] in IN_THE_BOX:
                 # The box draws its own objects, which say themselves.
+                continue
+            if control.get("first"):
+                if control.get("disabled"):
+                    continue
+                chips = firsts.setdefault(
+                    _object_name(asked, control["first"]), [],
+                )
+                if control["first_chip"] not in chips:
+                    chips.append(control["first_chip"])
                 continue
             name = " and ".join(
                 _object_name(asked, one)
@@ -642,6 +691,25 @@ def lit_line(
                 lines.append({"text": f"{text} -- {control['note']}", "dark": True})
             else:
                 lines.append({"text": text, "dark": False})
+    together: dict[tuple[str, ...], list[str]] = {}
+    for name, chips in firsts.items():
+        together.setdefault(tuple(chips), []).append(name)
+    for chips, names in together.items():
+        lines.append({
+            "text": f"{', '.join(names)} \u00b7 {' or '.join(chips)}",
+            "dark": False,
+        })
+    if asked.kind is PromptKind.COACHING_HUB:
+        # What the window has left to substitute with is the options'
+        # (`allowance`); the bench is dark once it is spent.
+        options = asked.options
+        if options.get("allowance"):
+            lines.append({
+                "text": f"{options['allowance']}.",
+                "dark": not (
+                    options["may_substitute"] and options["incoming_ids"]
+                ),
+            })
     if asked.kind is PromptKind.PLAYER_ACTION:
         offered = set(asked.options["actions"])
         if "shoot" not in offered:
@@ -680,6 +748,8 @@ def _object_name(asked: Asked, place: Mapping[str, Any]) -> str:
         return f"Speed {place['value']}"
     if at == "card":
         return asked.engine.maneuver_name(place["key"])
+    if at == "formation":
+        return place["name"]
     return {
         "ball": "The ball",
         "die": "The die",
@@ -1567,96 +1637,80 @@ def _shootout_pick(asked: Asked) -> list:
 
 def _coaching_hub(asked: Asked) -> list:
     """
-    The Coaching Choice's four menus and its Done, on one page.
-
-    Discord walks a coach through a menu at a time because a message
-    holds twenty-five buttons; a page has room for all four, so the
-    two that take a pair of names are choosers rather than two steps.
+    The Coaching Choice, played on the board (step 6 of
+    docs/web-app-redesign.md): the formations as tiles in the box, and
+    every other move as the two things it is made of -- a bench meeple
+    onto the player it replaces, a player onto the teammate they change
+    zones with, a player onto the space they move to -- each pair one
+    control (`button`'s `first`), so the page lights only what the
+    options allow and sends the `Action` the Discord menus send.
     Everything offered is the options', including why Done may be
     refused (`finish_refusal`, the kickoff space a side must cover),
-    which is said under the whistle. The menus are neutral controls
-    until step 6 puts them on the board.
+    which is said under the whistle.
     """
     options = asked.options
     side = asked.prompt["side"]
     current = options["current_formation"]
     return [
-
         section(
             "Formation",
             [
-                button(
-                    formation,
-                    asked.kind,
-                    "formation",
-                    side=side,
-                    formation=formation,
-                    disabled=formation == current,
-                    note="Where they stand now" if formation == current else "",
-                )
+                _formation(asked, formation, current)
                 for formation in options["formations"]
             ],
+            how="click a shape",
         ),
         section(
-            "Substitution",
+            "Substitute",
             [
-                chooser(
-                    "",
-                    "Substitute",
-                    [
-                        field(
-                            "outgoing_player_id",
-                            "Off",
-                            [
-                                (player_id, asked.label(player_id))
-                                for player_id in options["outgoing_ids"]
-                            ],
-                        ),
-                        field(
-                            "incoming_player_id",
-                            "On",
-                            [
-                                (player_id, asked.label(player_id))
-                                for player_id in options["incoming_ids"]
-                            ],
-                        ),
-                    ],
+                button(
+                    f"{asked.label(incoming)} on for {asked.label(outgoing)}",
                     asked.kind,
                     "substitute",
+                    first=on_player(incoming),
+                    first_chip="comes on",
+                    place=on_player(outgoing),
+                    chip=f"\u21d0 {asked.label(incoming)}",
                     side=side,
+                    outgoing_player_id=outgoing,
+                    incoming_player_id=incoming,
                 )
+                for incoming in options["incoming_ids"]
+                for outgoing in options["outgoing_ids"]
             ]
             if options["may_substitute"]
-            and options["outgoing_ids"]
-            and options["incoming_ids"]
             else [],
+            how=(
+                "drag a bench meeple onto the player it replaces, or "
+                "click the two in turn"
+            ),
         ),
         section(
             "Change zones",
             [
-                chooser(
-                    f"{asked.label(swap['player_id'])} changes zone with",
-                    "Swap",
-                    [
-                        field(
-                            "other_player_id",
-                            "",
-                            [
-                                (player_id, asked.label(player_id))
-                                for player_id in swap["partner_ids"]
-                            ],
-                        )
-                    ],
+                button(
+                    f"{asked.label(swap['player_id'])} changes zone with "
+                    f"{asked.label(other)}",
                     asked.kind,
                     "swap",
+                    first=on_player(swap["player_id"]),
+                    first_chip="change zones",
+                    place=on_player(other),
+                    chip="swap \u21c4",
                     side=side,
                     player_id=swap["player_id"],
+                    other_player_id=other,
                 )
                 for swap in options["swaps"]
+                for other in swap["partner_ids"]
             ],
+            how="click two of your players",
         ),
-        section("Move within a zone", _repositions(asked)),
-
+        section(
+            "Move within a zone",
+            _repositions(asked),
+            how="drag a player to a lit space, or click it and then the space",
+        ),
         section(
             None,
             [
@@ -1675,13 +1729,40 @@ def _coaching_hub(asked: Asked) -> list:
     ]
 
 
-def _repositions(asked: Asked) -> list[dict]:
-
+def _formation(asked: Asked, formation: str, current: Optional[str]) -> dict:
     """
-    A meeple moved inside its own zone -- and, where more than one
-    teammate is standing on the space it is moving to, which of them
-    comes back to keep the zone covered. One is no choice and the
-    driver takes it; several is the second question, as a chooser.
+    A formation's tile: its name, and its shape as the dots the tile
+    draws per zone, left to right as the field is -- a side's own goal
+    zone is at its own end. The counts are the ruleset's
+    (`RulesEngine.formation_shape`), never read off the name. The shape
+    a side stands in is dead, as the Discord menu greys it.
+    """
+    shape = asked.engine.formation_shape(asked.match, Formation(formation))
+    counts = [shape.own_goal, shape.midfield, shape.opponent_goal]
+    if TeamSide(asked.prompt["side"]) is TeamSide.VISITING:
+        counts.reverse()
+    control = button(
+        formation,
+        asked.kind,
+        "formation",
+        place=on_formation(formation),
+        chip="now" if formation == current else "",
+        side=asked.prompt["side"],
+        formation=formation,
+        disabled=formation == current,
+        note="Where they stand now" if formation == current else "",
+    )
+    control["shape"] = counts
+    return control
+
+
+def _repositions(asked: Asked) -> list[dict]:
+    """
+    A meeple moved inside its own zone: the player, then the space --
+    and, where more than one teammate is standing on the space it is
+    moving to, which of them comes back to keep the zone covered. One
+    is no choice and the driver takes it; several is the second
+    question, a chooser the space opens in the box.
     """
     side = asked.prompt["side"]
     controls: list[dict] = []
@@ -1693,7 +1774,11 @@ def _repositions(asked: Asked) -> list[dict]:
                 f"{asked.label(player_id)} to "
                 f"{space_label(zone, space_index, asked.match.board)}"
             )
-
+            pair = {
+                "first": on_player(player_id),
+                "first_chip": "move",
+                "place": on_space(zone, space_index),
+            }
             if len(trade_with) > 1:
                 controls.append(
                     chooser(
@@ -1711,26 +1796,30 @@ def _repositions(asked: Asked) -> list[dict]:
                         ],
                         asked.kind,
                         "reposition",
+                        chip="move here",
+                        **pair,
                         side=side,
                         player_id=player_id,
                         space_index=space_index,
                     )
                 )
                 continue
+            comes_back = (
+                f"{asked.label(trade_with[0])} comes back" if trade_with else ""
+            )
             controls.append(
                 button(
                     label,
                     asked.kind,
                     "reposition",
-                    player=player_id,
+                    chip="move here" + (
+                        f" \u00b7 {comes_back}" if comes_back else ""
+                    ),
+                    **pair,
                     side=side,
                     player_id=player_id,
                     space_index=space_index,
-                    note=(
-                        f"{asked.label(trade_with[0])} comes back"
-                        if trade_with
-                        else ""
-                    ),
+                    note=comes_back,
                 )
             )
     return controls

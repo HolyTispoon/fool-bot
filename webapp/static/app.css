@@ -198,61 +198,72 @@ img { display: block; }
 .board-panel { padding: 10px; }
 .board-empty { color: var(--muted); text-align: center; margin: 60px 0; }
 
+/* The sideline under the field (step 6 of docs/web-app-redesign.md):
+   each team's bench and back bench as boxes edged in the team's colour,
+   home's under the home end and the visitors' under theirs, holding the
+   meeples the field draws. */
 .benches {
   display: flex;
-  gap: 8px;
+  gap: 16px;
   margin-top: 10px;
-  flex-wrap: wrap;
-}
-
-.bench-toggle { position: relative; }
-
-.bench-button {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--team);
+  padding: 10px 14px;
   background: var(--deep);
-  color: var(--text);
-  cursor: pointer;
+  border-radius: 14px;
 }
-.bench-button:hover, .bench-toggle.open .bench-button { background: var(--field); }
-.bench-button .count { color: var(--muted); }
-
-.bench-pop {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 8px);
-  z-index: 10;
-  display: none;
-  width: max-content;
-  max-width: min(640px, 90vw);
-  font-family: "Board", "DejaVu Sans", sans-serif;
-  background: var(--b-team);
-  border: 3px solid var(--team);
-  border-radius: 10px;
-  padding: 10px 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  color: #fff;
+.sideline-team {
+  position: relative;
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-width: 0;
+  flex-wrap: wrap;
+  border-radius: 12px;
 }
-.bench-toggle:last-child .bench-pop { left: auto; right: 0; }
-.benches .bench-toggle:only-child .bench-pop { left: 0; right: auto; }
-@media (hover: hover) {
-  .bench-toggle:hover .bench-pop { display: block; }
+.sideline-team.visiting { justify-content: flex-end; }
+/* A bench that is the answer (the Coaching Offer): edged in gold. */
+.sideline-team.lit { cursor: pointer; }
+.sideline-team.lit .bench-box {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold), 0 0 16px rgba(240, 178, 50, 0.4);
 }
-.bench-toggle.open .bench-pop { display: block; }
-
-.bench-pop-name { font-weight: 700; font-size: 16px; color: var(--team); margin-bottom: 8px; }
-.bench-pop-rows { display: grid; grid-template-columns: auto auto; gap: 8px 12px; align-items: center; }
-.bench-label { font-size: 11px; font-weight: 700; color: var(--b-code); white-space: nowrap; }
-.bench { display: flex; gap: 6px; align-items: center; }
-.bench .card { flex: 0 0 72px; }
-.bench-empty { color: var(--b-quiet); font-size: 13px; }
+.sideline-chips { align-self: center; }
+.bench-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px 6px;
+  border-radius: 12px;
+  border: 2px solid color-mix(in srgb, var(--team) 33%, transparent);
+  background: var(--panel);
+  min-width: 96px;
+}
+.bench-head { display: flex; gap: 8px; align-items: baseline; }
+.bench-title { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--team); }
+.bench-said { font-size: 10px; color: var(--faint); }
+.bench-pieces { display: flex; gap: 2px; min-height: 76px; align-items: flex-start; }
+.bench-piece {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 78px;
+}
+.bench-body { position: relative; display: inline-flex; justify-content: center; }
+.bench-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--strong);
+  white-space: nowrap;
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bench-name.lit { color: var(--gold); }
+.bench-chip-line { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+.bench-chip-line .chip { white-space: normal; text-align: center; line-height: 1.15; }
+.bench-empty { color: var(--muted); font-size: 12px; align-self: center; padding: 0 8px; }
 
 /* -- The prompt ------------------------------------------------------------ */
 
@@ -458,13 +469,6 @@ img { display: block; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn.current:disabled { opacity: 1; cursor: default; }
 .btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
-/* A bench that is the answer (the Coaching Offer): edged in gold. */
-.bench-toggle.lit .bench-button {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(240, 178, 50, 0.45);
-  color: var(--strong);
-}
-.bench-toggle.lit .bench-button .chip { margin-left: 6px; }
 
 /* The things the question box draws to be clicked: the die, a speed's
    faces, the whistle, the REMATCH mark, and the note. */
@@ -1162,7 +1166,18 @@ button.goal { display: block; }
   cursor: zoom-in;
   filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.55));
 }
-.meeple.lit { cursor: pointer; }
+.meeple.lit, .meeple.pickable, .meeple.picked { cursor: pointer; }
+/* The thing picked up in a Coaching Choice: a dashed gold edge until
+   it is put down somewhere lit, or put back. */
+.meeple.picked { filter: drop-shadow(0 0 8px rgba(240, 178, 50, 0.7)); }
+.meeple.pickable { cursor: grab; }
+.drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  opacity: 0.85;
+}
 .meeple:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 .meeple svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .meeple-role, .species-icon {
@@ -1281,10 +1296,8 @@ button.goal { display: block; }
   .jumbo-minute { font-size: 18px; }
   .jumbo-clock { flex: 1 1 100%; min-width: 0; gap: 4px; }
   .board-panel { order: 2; flex: none; padding: 6px; }
-  .benches { margin-top: 6px; gap: 6px; }
-  .bench-button { font-size: 12px; padding: 3px 8px; }
-  .bench-pop { position: fixed; left: 8px !important; right: 8px !important; bottom: auto; top: 30%; max-width: none; }
-  .bench-pop .bench .card { flex-basis: 64px; }
+  .benches { margin-top: 6px; gap: 6px; padding: 6px; flex-direction: column; }
+  .sideline-team.visiting { justify-content: flex-start; }
 
   .tabs {
     order: 3;
@@ -1457,3 +1470,47 @@ body.rules-page { place-items: start center; }
 .rules-contents ol { list-style: none; padding-left: 0; columns: 2 260px; font-size: 14px; }
 .rules-contents li.level-3 { padding-left: 16px; }
 .rules-section { scroll-margin-top: 12px; }
+
+/* The Coaching Choice's box: the formation tiles, and a line for each
+   move made on the board, under a rule (step 6). */
+.how {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  margin-top: 6px;
+}
+.how-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.how-label { font-size: 11px; font-weight: 800; color: var(--muted); }
+.how-line { margin: 0; font-size: 12px; color: var(--muted); }
+.how-line b { color: var(--strong); }
+.formations { display: flex; gap: 6px; flex-wrap: wrap; }
+.formation {
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 2px solid var(--line);
+  background: var(--deep);
+  color: var(--muted);
+  cursor: pointer;
+}
+.formation:hover:not(:disabled) { border-color: var(--gold); color: var(--strong); }
+.formation:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.formation.now { border-color: var(--gold); background: rgba(240, 178, 50, 0.1); color: var(--strong); cursor: default; }
+.formation-dots { display: flex; width: 84px; height: 14px; align-items: center; }
+.formation-zone {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  border-right: 1px solid var(--line);
+}
+.formation-zone:last-child { border-right: 0; }
+.formation-zone .dot { width: 6px; height: 6px; border-radius: 50%; }
+.formation-name { font-size: 11px; font-weight: 800; }
+.picked-line { align-items: center; gap: 12px; font-size: 13px; }
+.picked-line b { color: var(--gold); }

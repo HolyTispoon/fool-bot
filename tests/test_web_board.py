@@ -27,7 +27,7 @@ import unittest
 
 from aiohttp.test_utils import TestClient, TestServer
 
-from d12ball.components import MatchPeriod, TeamSide, Zone
+from d12ball.components import MatchPeriod, PlayerRole, TeamSide, Zone
 from d12ball.prompts import PromptKind, pending_prompt
 from d12ball.render import shooting_range_bands, space_code
 from gamelocks import GameLocks
@@ -35,7 +35,7 @@ from webapp.board import FAN_MEEPLE_WIDTH, FAN_STEPS, ZONES, board_layout
 from webapp.present import CONTROLS, NEUTRAL, Asked, Viewer, controls_for
 from webapp.server import WebApp
 from prompt_fixtures import CASES, ENGINE
-from roster import field_players
+from roster import benched, field_players
 from test_web_app import as_coach, case, service_over
 
 CARD_URL = "/card/{card}.png"
@@ -515,7 +515,7 @@ class ObjectTests(unittest.TestCase):
     (step 4 of docs/web-app-redesign.md)."""
 
     #: The objects the question box draws rather than the board.
-    IN_THE_BOX = {"die", "face", "whistle", "note", "rematch", "card"}
+    IN_THE_BOX = {"die", "face", "whistle", "note", "rematch", "card", "formation"}
 
     def setUp(self) -> None:
         ENGINE.rng.seed(11)
@@ -547,7 +547,7 @@ class ObjectTests(unittest.TestCase):
         # Every object the prompt table names is lit by some fixture.
         self.assertTrue({
             "player", "space", "ball", "goal", "die", "face", "whistle",
-            "note", "rematch", "card", "time_out_tile", "bench",
+            "note", "rematch", "card", "time_out_tile", "bench", "formation",
         } <= places, places)
 
     def test_no_control_carries_a_colour(self) -> None:
@@ -565,7 +565,8 @@ class ObjectTests(unittest.TestCase):
         for name, fixture, control in self.controls():
             if not control.get("place"):
                 continue
-            for place in (control["place"], *control.get("also", ())):
+            first = (control["first"],) if control.get("first") else ()
+            for place in (control["place"], *control.get("also", ()), *first):
                 if place["at"] in self.IN_THE_BOX | {"ball"}:
                     continue
                 self.assert_drawn(name, fixture, place)
@@ -783,6 +784,157 @@ class ObjectTests(unittest.TestCase):
             self.assertEqual(
                 by_choice["shoot"], {"at": "goal", "side": other.value},
             )
+
+
+class SidelineTests(unittest.TestCase):
+    """
+    The sideline under the field (step 6 of docs/web-app-redesign.md):
+    each side's bench and back bench, the record's own two rows, with
+    every benched player the meeple the field draws -- and the
+    Coaching Choice's moves as the two things each is made of.
+    """
+
+    def setUp(self) -> None:
+        ENGINE.rng.seed(11)
+
+    def test_a_benched_player_is_the_piece_the_field_draws(self) -> None:
+        fixture, layout = layout_for("coaching hub")
+        field = {
+            piece["id"]: piece
+            for space in layout["spaces"]
+            for side in ("home", "visiting")
+            for piece in space[side]
+        }
+        some = next(iter(field.values()))
+        for board in layout["team_boards"]:
+            setup = fixture.match.setup_for_side(TeamSide(board["side"]))
+            self.assertEqual(
+                [entry["id"] for entry in board["bench"]],
+                list(setup.team_board.bench),
+            )
+            for entry in board["bench"] + board["back_bench"]:
+                with self.subTest(entry["id"]):
+                    self.assertEqual(entry["meeple"]["id"], entry["id"])
+                    self.assertEqual(set(entry["meeple"]), set(some))
+                    self.assertNotIn(entry["id"], field)
+
+    def test_an_injured_player_on_the_back_bench_carries_the_mark(self) -> None:
+        fixture = case("coaching hub")
+        match = fixture.match
+        hurt = benched(match, PlayerRole.STRIKER)
+        match.home.team_board.bench.remove(hurt)
+        match.home.team_board.back_bench.append(hurt)
+        match.injured.add(hurt)
+        match.exhaustion[hurt] = 2
+        layout = board_layout(
+            ENGINE, fixture.game, match, card_url=CARD_URL, goal_url=GOAL_URL,
+        )
+        home = next(one for one in layout["team_boards"] if one["side"] == "home")
+        self.assertNotIn(hurt, [entry["id"] for entry in home["bench"]])
+        (entry,) = [one for one in home["back_bench"] if one["id"] == hurt]
+        self.assertTrue(entry["injured"])
+        self.assertEqual(entry["meeple"]["condition"], "injured")
+        self.assertEqual(
+            entry["meeple"]["exhaustion"], {"count": 2, "emoji": "exhaust"},
+        )
+
+    def hub(self, name="coaching hub"):
+        fixture = case(name)
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        side = TeamSide(prompt.side)
+        controls = [
+            control
+            for group in controls_for(
+                ENGINE, fixture.game, fixture.match, prompt, Viewer(1),
+            )
+            for control in group["controls"]
+        ]
+        return fixture, prompt, side, controls
+
+    def test_a_substitute_is_a_bench_meeple_put_on_the_player_it_replaces(
+        self,
+    ) -> None:
+        fixture, prompt, side, controls = self.hub()
+        options = prompt.options
+        pairs = {
+            (control["first"]["id"], control["place"]["id"])
+            for control in controls
+            if control["action"]["choice"] == "substitute"
+        }
+        self.assertEqual(
+            pairs,
+            {
+                (incoming, outgoing)
+                for incoming in options.incoming_ids
+                for outgoing in options.outgoing_ids
+            },
+        )
+        for control in controls:
+            if control["action"]["choice"] != "substitute":
+                continue
+            arguments = control["action"]["arguments"]
+            self.assertEqual(control["first"]["id"], arguments["incoming_player_id"])
+            self.assertEqual(control["place"]["id"], arguments["outgoing_player_id"])
+            self.assertEqual(control["first_chip"], "comes on")
+
+    def test_a_zone_change_and_a_move_start_from_a_fielded_player(self) -> None:
+        fixture, prompt, side, controls = self.hub()
+        setup = fixture.match.setup_for_side(side)
+        swaps = {
+            (swap.player_id, other)
+            for swap in prompt.options.swaps
+            for other in swap.partner_ids
+        }
+        seen = set()
+        for control in controls:
+            choice = control["action"]["choice"]
+            arguments = control["action"]["arguments"]
+            if choice == "swap":
+                seen.add((control["first"]["id"], control["place"]["id"]))
+                self.assertEqual(control["first"]["id"], arguments["player_id"])
+                self.assertEqual(control["place"]["id"], arguments["other_player_id"])
+            elif choice == "reposition":
+                player = control["first"]["id"]
+                self.assertEqual(player, arguments["player_id"])
+                self.assertEqual(
+                    control["place"]["zone"], setup.assigned_zone(player).value,
+                )
+                self.assertEqual(
+                    control["place"]["space_index"], arguments["space_index"],
+                )
+        self.assertEqual(seen, swaps)
+
+    def test_a_formation_tile_draws_the_ruleset_s_counts(self) -> None:
+        fixture, prompt, side, controls = self.hub()
+        tiles = [
+            control for control in controls
+            if control["action"]["choice"] == "formation"
+        ]
+        self.assertEqual(
+            [tile["label"] for tile in tiles],
+            [formation.value for formation in prompt.options.formations],
+        )
+        for tile in tiles:
+            shape = ENGINE.formation_shape(
+                fixture.match, tile["action"]["arguments"]["formation"],
+            )
+            self.assertEqual(
+                tile["shape"],
+                [shape.own_goal, shape.midfield, shape.opponent_goal],
+            )
+            self.assertEqual(
+                tile["disabled"],
+                tile["label"] == prompt.options.current_formation.value,
+            )
+
+    def test_the_window_before_the_shootout_moves_nobody(self) -> None:
+        """Full time's window is a substitution and nothing else
+        (`offers_positioning`), so nothing on the field starts a move."""
+        fixture, prompt, side, controls = self.hub("full-time coaching")
+        self.assertEqual(
+            {control["action"]["choice"] for control in controls},
+            {"substitute", "done"},
+        )
 
 
 class PictureRouteTests(unittest.IsolatedAsyncioTestCase):

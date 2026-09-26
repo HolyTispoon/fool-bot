@@ -617,11 +617,21 @@ the coach is looking at it.
   tile plays exactly what the button did. `place` says where on the
   page, never what is answered; step 4 extended it to every object on
   the board ("The answer is the thing on the board", below).
-- **The benches open on demand.** Each team's bench and back bench
-  is behind a button under the board: shown while the pointer is on
-  it, kept open by a click. The board shows the field; a coach looks
-  at a bench when they are thinking about a substitution, and the
-  cards are the same cards either way.
+- **The sideline is under the field** (2026-09-26, step 6 of
+  [../web-app-redesign.md](../web-app-redesign.md), with step 8 folded
+  in; it replaces the benches that opened on demand). Each team has two
+  boxes edged in its colour -- BENCH, "may come on", and BACK BENCH,
+  "off for the game" -- home's under the home end and the visitors'
+  under theirs, holding the meeples the field draws, badges and the
+  hover card included. **Which player is on which is the record's**:
+  `team_board.bench` and `back_bench`, the two rows the popover had,
+  each entry the card and the piece (`board.py` hands both, so a
+  benched player is the same `meeple` on the sideline as on a space);
+  the page groups nobody. The benches were behind a button because a
+  bench was a thing looked up; once the Coaching Choice is played by
+  putting a bench meeple on the field, the bench has to be on the page
+  the field is on. A Coaching Offer lights a side's sideline as a
+  whole, and a substitute lights the meeples that may come on.
 - **The log is words only**: each entry a block with an edge, a new
   play's in blurple. It draws no board (2026-09-26, the author): the
   live board is beside it, and a snapshot in every stopped entry
@@ -696,7 +706,8 @@ object it lights as its `place` -- `{"at": "player", "id"}`, `{"at":
 goal that side defends), `{"at": "out_of_play", "side"}`, `{"at":
 "time_out_tile", "side"}`, `{"at": "bench", "side"}`, and in the
 question box `die`, `{"at": "face", "value"}`, `whistle`, `note`,
-`rematch`, `{"at": "card", "key", "side"}` -- with `also`, any further
+`rematch`, `{"at": "card", "key", "side"}`, `{"at": "formation",
+"name"}` -- with `also`, any further
 object the same answer lights (a Set Up's shot is the goal and the
 shooter, and clicking either sends it), a `chip` saying what clicking
 it means and a `cost`
@@ -735,9 +746,9 @@ changed for it.
 | the six rolls (`RollOptions`) | the large die in the box; a ⚡ chip on each meeple that may declare Overdrive (with its drain) or Boost first | a score attempt's Back is neutral |
 | `mind_pull`, `smooth`, `join_the_ball`, `force_test` | the meeple the prompt names, for the yes | the no is neutral, worded from the option ("Stay", "Let it stand", "X keeps the ball") |
 | `set_up_attempt` | the goal and the player who may take the shot (the prompt's `player_id`), both for the shot (the author, 2026-09-26) | the decline is neutral |
-| `coaching_offer` | the bench of the side it is put to, for Coach (the author, 2026-09-26) -- its cards still show while the pointer is on it | Pass is neutral |
+| `coaching_offer` | the sideline of the side it is put to, for Coach (the author, 2026-09-26) -- its meeples still show their cards | Pass is neutral |
 | `maneuver_action` (`ManeuverOptions`) | the printed cards of this coach's own hand, 150px, the gambits a row under the basic three | a gambit the side does not hold is dimmed and never offered; the other hand is a back ("The hand, the reveal and full time", below) |
-| `coaching_hub` | the whistle for Done, grey with `finish_refusal` under it | the menus are neutral until step 6 |
+| `coaching_hub` | the formation tiles in the box; a bench meeple, then the player it replaces; a player, then the teammate they change zones with or the space they move to; the whistle for Done, grey with `finish_refusal` under it ("The Coaching Choice on the board", below) | a move onto a space two teammates share asks which comes back, in the box |
 | `shootout_order` | -- | neutral until step 7 |
 | `tutorial_continue` | the note: anywhere on it | -- |
 | `game_over` | the REMATCH mark, which posts to the room's own route | -- |
@@ -774,7 +785,8 @@ layout carries its `index` so a control can name it.
 **The keyboard reads the same list.** Under the box, out of sight
 until it has the focus, are the controls in the order the options
 give: a number key presses that one, Enter the only one there is, and
-Esc backs out of an open menu or chooser (or puts a refusal away).
+Esc puts back a thing picked up on the board, backs out of an open
+chooser, or puts a refusal away.
 
 **The hand, the reveal and full time** (2026-09-26, step 5 of
 [../web-app-redesign.md](../web-app-redesign.md), with step 12 folded in).
@@ -855,9 +867,64 @@ Esc backs out of an open menu or chooser (or puts a refusal away).
   scorer in the model's words ([clock-and-records.md](clock-and-records.md),
   "The goal log").
 
-**A lit meeple that is not on the field is answered from the box**, as
-a neutral control with its card on hover. No fixture lights a benched
-player today; the bench on the board is step 6's.
+**A lit meeple that is drawn nowhere is answered from the box**, as
+a neutral control with its card on hover. Since step 6 a benched
+player is drawn on the sideline, so it is lit there like a meeple on a
+space; the box's fallback is for a page with no board to draw on.
+
+**The Coaching Choice on the board** (2026-09-26, step 6 of
+[../web-app-redesign.md](../web-app-redesign.md)). Discord walks a
+coach through four menus because a message holds twenty-five buttons;
+the page plays the window on the pieces themselves, as the canvas's
+"Coaching Choice (setup), on the board" does.
+
+- **A move is two things, and still one control.** A substitute is a
+  bench meeple put on the player it replaces, a zone change one player
+  put on a teammate in another zone, a move within a zone a player put
+  on a space. `present.py` builds **one control per pair the options
+  allow** -- every `incoming_ids` by every `outgoing_ids`, every
+  `swaps` partner, every `repositions` space -- each with `first`, the
+  thing picked up (and its `first_chip`: "comes on", "change zones",
+  "move"), and `place`, the thing it is put on. The page lights every
+  `first`; once one is picked up it lights the `place` of each control
+  that starts from it, and clicking that sends the control's `action`.
+  So the pair is the page's way of *choosing* a control, never a move
+  of its own: what is sent is an `Action` a button was built with,
+  checked by `_was_offered` exactly as before, and the page cannot put
+  together a pair the options did not list. The alternative -- a
+  generic "pick two players" the server checked afterwards -- would
+  have been the page proposing moves and the server refusing them,
+  which is the page having rules and being told off for it.
+- **Dragging is the same answer.** A drag from a thing that may be
+  picked up picks it up as it starts, so what it may land on lights,
+  and a drop on one of those presses that control; a drop anywhere
+  else leaves it picked up, to be clicked. Every drag has its click
+  (the two in turn), and the keyboard list under the box has every
+  pair as its own entry. What is picked up is the page's state, like
+  an open chooser: Esc or clicking it again puts it back, a new
+  question puts it back, and nothing is sent until the second thing.
+- **The formations are tiles in the box**: each shape as dots per zone
+  in the side's colour, left to right as the field is -- the counts
+  are `RulesEngine.formation_shape`'s, handed on the control as
+  `shape`, never read off the name -- and the one the side stands in
+  marked "now" and dead, as the Discord menu greys it.
+- **The lit line names what may be picked up once each**, not every
+  pair it could end in -- "Voltus [DD], Synapse [PM] · comes on" --
+  and **the window's allowance**, `CoachingHubOptions.allowance`: what
+  the window has left in `substitution_allowance_label`'s words ("No
+  substitution limit", "2 substitutions left"), dark once it is spent.
+  The prompt carried only whether a substitute was possible and the
+  Discord caption said the rest, so the options grew the field
+  (proposed as its own commit on step 6's PR); the page says the
+  occasion's budget and never works one out.
+- **Under a rule, the box says how**: a line per move made on the
+  board ("Substitute: drag a bench meeple onto the player it replaces,
+  or click the two in turn"), the section's `how` -- this frontend's
+  words about its own controls, not the model's about the game.
+- **There is no undo.** The service offers none: every move in the
+  window is applied when it is made, as on Discord, and undoing one is
+  making the opposite move, which the board offers like any other. A
+  client-side undo would be a move the page made up.
 
 **The field is drawn from scratch** (2026-09-26, step 1 of
 [../web-app-redesign.md](../web-app-redesign.md), off the design the
@@ -900,8 +967,8 @@ lanes, the visitors' above and home's below.
   its printed card beside it, `player_card_png` in the face the mode
   plays; a press and hold does it on a touch screen. Clicking the card
   pins it, clicking a pinned card or the meeple opens it full size,
-  and Esc or a click elsewhere puts it away. The benches still open
-  from their buttons (step 8 redraws them).
+  and Esc or a click elsewhere puts it away. The benches are the
+  sideline under the field (step 6, above).
 - **A lit piece or goal**: a gold outline, a gold name and a chip
   saying what clicking means, with any cost as the token image and a
   count; a goal's gold ring; a space dashed in gold with its chip at
