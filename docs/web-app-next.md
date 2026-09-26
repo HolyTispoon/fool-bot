@@ -158,7 +158,7 @@ that existed; steps 1 to 3 are one sprint.
 | ~~4~~ | ~~Chat in the room~~ -- landed; what it settled is in `docs/design/web-app.md`, "Chat" | small |
 | ~~5~~ | ~~Run it for real, and write down how~~ -- the how landed: `docs/design/collaboration.md`, "Running the web app", and `scripts/run_web_app.ps1`; the playtest below is the author's to run | a day, little code |
 | ~~6~~ | ~~The web games' numbers on Discord, cut by source~~ -- landed; what it settled is in `docs/design/clock-and-records.md`, "What the statistics are, and what they are not" (the source cut, and the read across the line), and `docs/design/web-app.md`, "Its own process, its own file" | small |
-| 7 | The dice on the page | medium |
+| ~~7~~ | ~~The dice on the page~~ -- landed; what it settled is in `docs/design/web-app.md`, "The dice", and `docs/design/board-image.md`, "The matchup image" (the briefs below the renderer) | medium |
 | 8 | The prompt's pictures | medium |
 | 9 | What Discord has that the page lacks: my rooms, resume, abandon, stats | medium |
 | 10 | The page as a thing to play on; the wire tree; the tests the survey found missing | medium |
@@ -846,6 +846,13 @@ against the template.
 ```
 
 ### 7. The dice on the page
+
+**Landed** (2026-09-26). The two briefs are `d12ball/dice_brief.py`,
+hash-verified byte-identical (`docs/design/board-image.md`, "The
+matchup image"); the page draws every roll in the log, in the Discord
+view's order, off the roll's shape (`docs/design/web-app.md`, "The
+dice"). Volatile's ignition die and the scorer's portrait are still
+the bot's alone ("What it does not do yet").
 
 **Why now.** The rolls are the drama of the game and the page shows a
 sentence where Discord shows a picture. Everything needed is on the
