@@ -22,9 +22,13 @@ frontend's to decide (principle 8):
   the team's colour, a condition its mark, a coach their name --
   `d12ball/tokens.py` says which thing is named and nothing about how
   it is drawn.
-- **A button has Discord's colour for it** (`STYLES`), set to what
-  the Discord view puts on the same answer, so the page reads the way
-  the channel does.
+- **The answer is the thing on the board.** A control names the
+  object it lights -- a meeple, a space, the ball, a goal, the die,
+  the whistle, a time-out tile, a card -- as its `place`, with a chip
+  saying what clicking it means, and carries no colour; where nothing
+  on the board can be the answer it is the one neutral outlined
+  control (`NEUTRAL`). Discord colours its buttons; a page lights the
+  object in gold.
 - **A control is a button or a chooser**, not a `discord.ui.Item`: the
   page collects what a chooser's fields say and posts one `Action`,
   where Discord walks a coach through a menu at a time. The hub is the
@@ -50,6 +54,7 @@ from d12ball import tokens
 from d12ball.components import MatchState, PlayerRole, TeamSide, Zone
 from d12ball.engine import RulesEngine
 from d12ball.formatting import (
+    capitalized,
     coach_name,
     role_brackets,
     space_label,
@@ -230,21 +235,27 @@ def role_emoji_name(role: PlayerRole, team: Optional[Team]) -> str:
 
 # -- Controls --------------------------------------------------------
 #
-# A button answers a prompt on its own; a chooser is a button whose
-# arguments the page collects first, for the one prompt whose answer
-# takes two of them at once. Both carry the whole `Action`, so the
-# page sends back exactly what it was offered and nothing it made up
-# -- see `webapp/server.py`, which refuses anything else.
+# **The answer is the thing on the board** (step 4 of
+# docs/web-app-redesign.md): a control names the object it lights -- a
+# meeple, a space, the ball, a goal, the die, the whistle, a time-out
+# tile, a card -- as its `place`, with the chip that says what clicking
+# it means, and the page lights that object and attaches the click.
+# Where nothing on the board can be the answer the control is the one
+# neutral outlined style. **No control carries a colour**: the colour a
+# Discord button has is Discord's, and the page's one colour for "this
+# is yours to press" is the gold the object is lit in.
+#
+# A place says where on the page and never what is answered: the answer
+# is `action`, and only `action` is checked against what was offered --
+# see `webapp/server.py`, which refuses anything else. A chooser is a
+# control whose arguments the page collects first (a pair of names on
+# the hub, the receiver on a shared space), and carries the whole
+# `Action` the same way.
 
 
-#: A button's colour, in Discord's four: `primary` (blurple) is the
-#: ordinary answer, `success` (green) finishing something, `danger`
-#: (red) the answer that cannot be taken back -- a shot, an own-goal
-#: roll -- and `secondary` (grey) the way out. The page matches what
-#: the Discord view puts on the same button, so a coach who has played
-#: in a channel reads the colours the same way; the offense's cards
-#: are red and the defense's green, as their printed cards are.
-STYLES = ("primary", "secondary", "success", "danger")
+#: The one style a control that names no object has: outlined, no
+#: fill, no colour. Every other control has a `place` instead.
+NEUTRAL = "neutral"
 
 
 def button(
@@ -252,32 +263,41 @@ def button(
     kind: PromptKind,
     choice: str = "",
     *,
+    place: Optional[dict] = None,
+    chip: str = "",
+    cost: Optional[dict] = None,
     disabled: bool = False,
     note: str = "",
-    style: str = "primary",
     player: Optional[str] = None,
     card: Optional[dict] = None,
     post: Optional[str] = None,
     **arguments: Any,
 ) -> dict:
     """
-    One answer. `player` is the card id a button names, so the page
-    can show that player's card beside it; `card` is the maneuver card
-    a button plays (`{"key", "side"}`), which the page draws the
-    button as. Neither is part of the answer: what is sent back is
-    `action`, and only `action` is checked against what was offered.
+    One answer. `place` is the object on the page it lights (the
+    `ON_*` names and `on_*` builders below), or `None` for the neutral
+    control; `chip` is what clicking the lit object means, and `cost`
+    what it charges, drawn as the token image and a count
+    (`{"emoji", "count"}`), never the word "token". `label` is the
+    control said in full, for the keyboard list and anywhere the
+    object cannot be drawn. `player` is the card id a control names,
+    so the page can show that player's card; `card` is the maneuver
+    card a control plays (`{"key", "side"}`). None of them is part of
+    the answer: what is sent back is `action`.
 
     `post` is a press that is not an answer to this game at all -- the
     rematch, which opens another -- and names the room route it goes
     to instead; `webapp/server.py` never takes one as an action.
     """
-    assert style in STYLES, style
     return {
         "type": "button",
         "label": label,
         "disabled": disabled,
         "note": note,
-        "style": style,
+        "place": place,
+        "chip": chip or None,
+        "cost": cost,
+        "style": None if place else NEUTRAL,
         "player": player,
         "card": card,
         "post": post,
@@ -295,19 +315,26 @@ def chooser(
     fields: Sequence[dict],
     kind: PromptKind,
     choice: str = "",
+    *,
+    place: Optional[dict] = None,
+    chip: str = "",
     **arguments: Any,
 ) -> dict:
     """
     `label` is the sentence in front of the fields and `submit` is
     what the button says -- two, because the sentence is usually a
     half one ("Hellguard [FB] changes zone with") and a button is a
-    verb.
+    verb. A chooser with a `place` is opened by clicking that object,
+    and asks its one field in the question box.
     """
     return {
         "type": "chooser",
         "label": label,
         "submit": submit,
         "fields": list(fields),
+        "place": place,
+        "chip": chip or None,
+        "style": None if place else NEUTRAL,
         "action": {
             "kind": kind.value,
             "choice": choice,
@@ -347,6 +374,57 @@ def section(label: Optional[str], controls: Sequence[dict]) -> Optional[dict]:
     return {"label": label, "controls": controls}
 
 
+# -- The objects a control may light ---------------------------------
+#
+# Each names a thing the page already draws: the board's meeples and
+# spaces (by the zone and index `webapp/board.py` hands every space),
+# the ball, the goals (by the side that defends it, as the board draws
+# them), the out-of-play mark past an end, the time-out tiles on the
+# jumbotron bar, and in the question box the die, the faces of a speed
+# choice, the whistle, the note, the hand's cards and the rematch mark.
+
+#: The ball, wherever it is drawn.
+ON_BALL = {"at": "ball"}
+#: The large die in the question box: clicking it rolls.
+ON_DIE = {"at": "die"}
+#: The whistle: Done, Start the game, Pick it up.
+ON_WHISTLE = {"at": "whistle"}
+#: The tutorial's note: clicking anywhere on it goes on.
+ON_NOTE = {"at": "note"}
+#: The REMATCH mark in the box.
+ON_REMATCH = {"at": "rematch"}
+
+
+def on_player(player_id: str) -> dict:
+    return {"at": "player", "id": player_id}
+
+
+def on_space(zone: Any, space_index: int) -> dict:
+    return {"at": "space", "zone": Zone(zone).value, "space_index": space_index}
+
+
+def on_goal(side: TeamSide) -> dict:
+    """The goal `side` defends."""
+    return {"at": "goal", "side": TeamSide(side).value}
+
+
+def off_the_end(side: TeamSide) -> dict:
+    """The ✕ past the end of the field `side` defends: out of play."""
+    return {"at": "out_of_play", "side": TeamSide(side).value}
+
+
+def on_tile(side: TeamSide) -> dict:
+    return {"at": "time_out_tile", "side": TeamSide(side).value}
+
+
+def on_face(value: int) -> dict:
+    return {"at": "face", "value": value}
+
+
+def on_card(key: str, side: str) -> dict:
+    return {"at": "card", "key": key, "side": side}
+
+
 @dataclass(frozen=True)
 class Asked:
     """
@@ -366,8 +444,9 @@ class Asked:
     match: MatchState
     prompt: Mapping[str, Any]
     viewer: Viewer
-    #: The sides the prompt is put to (`asked_sides`), for a control
-    #: the page draws on one side's own part of it -- the time-out tile.
+    #: The sides the prompt is put to (`asked_sides`), for an object
+    #: that belongs to one side -- the time-out tile, the goal a side
+    #: shoots at.
     asked: tuple[TeamSide, ...] = ()
 
     @property
@@ -391,25 +470,23 @@ class Asked:
         """
         return self.engine.format_roster_player(player_id)
 
-    def players(
-        self,
-        player_ids: Sequence[str],
-        kind: PromptKind,
-        *,
-        style: str = "primary",
-        **arguments: Any,
-    ) -> list[dict]:
-        return [
-            button(
-                self.label(player_id),
-                kind,
-                style=style,
-                player=player_id,
-                player_id=player_id,
-                **arguments,
-            )
-            for player_id in player_ids
-        ]
+    def cost(self, player_id: Optional[str], count: int) -> Optional[dict]:
+        """
+        A price in this player's own tokens, as the page draws it: the
+        token image the bot draws on their card -- a Cyborg's drain
+        under its own (`drain_wording`) -- and the count.
+        """
+        if not count or player_id is None:
+            return None
+        drain = self.engine.drain_wording(self.game, player_id)
+        return {"emoji": "exhaust_cyborg" if drain else "exhaust", "count": count}
+
+    def attacking_goal(self) -> TeamSide:
+        """The goal the side on the ball shoots at: the other side's."""
+        side = self.asked[0] if self.asked else TeamSide(
+            self.match.ball.possession,
+        )
+        return TeamSide.VISITING if side is TeamSide.HOME else TeamSide.HOME
 
 
 def coached_sides(
@@ -439,8 +516,8 @@ def may_answer(
 
     A prompt nobody in particular is asked -- every roll, the
     tutorial's Continue -- is either coach's to press, which is what
-    "nothing rolls dice on its own" means from this side: the button
-    is there for both of them and neither is being asked a question.
+    "nothing rolls dice on its own" means from this side: the die is
+    there for both of them and neither is being asked a question.
     A spectator answers nothing.
     """
     if not viewer.is_coach:
@@ -468,14 +545,25 @@ def controls_for(
     wire writes it (`Asked`), so `wire` may be handed in where the
     caller has already written it.
     """
-    if prompt is None:
+    asked = _asked(engine, game, match, prompt, viewer, wire)
+    if asked is None:
         return []
+    return [group for group in CONTROLS[asked.kind](asked) if group is not None]
+
+
+def _asked(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: Optional[PendingPrompt],
+    viewer: Viewer,
+    wire: Optional[Mapping[str, Any]] = None,
+) -> Optional[Asked]:
+    if prompt is None or prompt.kind not in CONTROLS:
+        return None
     if not may_answer(engine, game, match, prompt, viewer):
-        return []
-    build = CONTROLS.get(prompt.kind)
-    if build is None:
-        return []
-    asked = Asked(
+        return None
+    return Asked(
         engine,
         game,
         match,
@@ -483,81 +571,175 @@ def controls_for(
         viewer,
         asked_sides(match, prompt),
     )
-    return [group for group in build(asked) if group is not None]
+
+
+#: The objects the question box draws itself -- the die, a speed's
+#: faces, the whistle, the note, the REMATCH mark, the hand's cards --
+#: which the lit line does not repeat: it says what is lit elsewhere.
+IN_THE_BOX = frozenset({"die", "face", "whistle", "note", "rematch", "card"})
+
+
+def lit_line(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: Optional[PendingPrompt],
+    viewer: Viewer,
+    controls: Sequence[dict],
+    wire: Optional[Mapping[str, Any]] = None,
+) -> list[dict]:
+    """
+    What the question box says is lit on the board (and on the
+    jumbotron's tile), and -- muted -- what is dark and why: a line per
+    object, `{"text", "dark"}`. The box's own objects are not repeated.
+
+    It is built from the controls this viewer was handed and nothing
+    else, so it cannot name a thing that is not lit. The turn is the
+    one prompt that also says what is *not* offered, because its three
+    objects are always on the board and a coach looks for the one that
+    is dark: a shot out of range is not offered at all (`TurnOptions`),
+    which the range bar under the field shows, and a time out not
+    offered is dark on its tile.
+    """
+    asked = _asked(engine, game, match, prompt, viewer, wire)
+    if asked is None or not controls:
+        return []
+    lines = []
+    for group in controls:
+        for control in group["controls"]:
+            place = control.get("place")
+            if not place or place["at"] in IN_THE_BOX:
+                # The box draws its own objects, which say themselves.
+                continue
+            name = _object_name(asked, place)
+            said = control.get("chip") or control["label"]
+            if said == name:
+                said = control["label"]
+            text = name if said == name else f"{name} · {said}"
+            cost = control.get("cost")
+            if cost:
+                noun = "drain" if cost["emoji"] == "exhaust_cyborg" else "exhaustion"
+                text = f"{text} ({cost['count']} {noun})"
+            if control.get("disabled"):
+                lines.append({"text": f"{text} -- {control['note']}", "dark": True})
+            else:
+                lines.append({"text": text, "dark": False})
+    if asked.kind is PromptKind.PLAYER_ACTION:
+        offered = set(asked.options["actions"])
+        if "shoot" not in offered:
+            lines.append({
+                "text": "The goal is dark: no shot from where the ball stands "
+                "(the range is under the field).",
+                "dark": True,
+            })
+        if "time_out" not in offered:
+            lines.append({
+                "text": "The time-out tile is dark: no time out to call now.",
+                "dark": True,
+            })
+    return lines
+
+
+def _object_name(asked: Asked, place: Mapping[str, Any]) -> str:
+    """What a lit object is called in the question box's lit line."""
+    at = place["at"]
+    if at == "player":
+        return asked.label(place["id"])
+    if at == "space":
+        return capitalized(space_label(
+            Zone(place["zone"]), place["space_index"], asked.match.board,
+        ))
+    if at == "goal":
+        return "The goal"
+    if at == "time_out_tile":
+        return "The time-out tile"
+    if at == "out_of_play":
+        return "Past the end"
+    if at == "face":
+        return f"Speed {place['value']}"
+    if at == "card":
+        return asked.engine.maneuver_name(place["key"])
+    return {
+        "ball": "The ball",
+        "die": "The die",
+        "whistle": "The whistle",
+        "note": "The note",
+        "rematch": "Rematch",
+    }.get(at, at)
 
 
 def _continue(asked: Asked) -> list:
-    return [section(None, [button("Continue", asked.kind)])]
+    return [section(None, [
+        button("Continue", asked.kind, place=ON_NOTE, chip="continue"),
+    ])]
 
 
-#: The turn's three buttons, coloured as `PlayerActionView` colours
-#: them.
-TURN_STYLES = {"maneuver": "primary", "shoot": "danger", "time_out": "secondary"}
-
-#: The two rolls a coach cannot take back once pressed, red on Discord
-#: (`ScoreAttemptView`, `OwnGoalRollView`); every other roll is blurple.
-DANGEROUS_ROLLS = (PromptKind.SCORE_ATTEMPT, PromptKind.OWN_GOAL_ROLL)
-
-
-#: The turn's answers the page draws somewhere other than the question
-#: box, by where: the time out is the lit tile on the jumbotron bar
-#: (docs/design/web-app.md, "The jumbotron bar").
-TURN_PLACES = {"time_out": "time_out_tile"}
+#: What clicking each of the turn's three objects does, on its chip.
+TURN_CHIPS = {"maneuver": "maneuver", "shoot": "shoot", "time_out": "call it"}
 
 
 def _turn(asked: Asked) -> list:
+    """
+    The turn's three answers, each on its own object: the ball on the
+    handler for a maneuver, the goal the side attacks for a shot, the
+    side's time-out tile for the time out -- each only where
+    `TurnOptions.actions` offers it, and dark where the tutorial has
+    railed it off.
+    """
     options = asked.options
-    controls = []
-    for action in options["actions"]:
-        control = button(
+    side = asked.asked[0] if asked.asked else TeamSide(asked.match.ball.possession)
+    places = {
+        "maneuver": ON_BALL,
+        "shoot": on_goal(asked.attacking_goal()),
+        "time_out": on_tile(side),
+    }
+    controls = [
+        button(
             CHOICE_LABELS[action],
             asked.kind,
             action,
-            style=TURN_STYLES.get(action, "primary"),
+            place=places[action],
+            chip=TURN_CHIPS[action],
             disabled=action not in options["live"],
             note=RAILED_NOTE if action not in options["live"] else "",
         )
-        if action in TURN_PLACES and asked.asked:
-            # Which side's tile: the side the turn is put to. Where on
-            # the page is all this says; the answer is `action`, the
-            # same one the button always sent.
-            control["place"] = {
-                "at": TURN_PLACES[action],
-                "side": asked.asked[0].value,
-            }
-        controls.append(control)
+        for action in options["actions"]
+    ]
     return [section(None, controls)]
 
 
 def _roll(asked: Asked) -> list:
+    """
+    The die, lit in the question box; the walk-back of a score attempt
+    as the neutral control; and before the die, a ⚡ on each meeple
+    that may declare Overdrive or Boost, with what the Overdrive drains.
+    """
     options = asked.options
     controls = [
-        button(
-            CHOICE_LABELS["roll"],
-            asked.kind,
-            "roll",
-            style="danger" if asked.kind in DANGEROUS_ROLLS else "primary",
-        )
+        button(CHOICE_LABELS["roll"], asked.kind, "roll", place=ON_DIE, chip="roll"),
     ]
     if options["back"]:
-
         controls.append(
             button(
                 CHOICE_LABELS["back"],
                 asked.kind,
                 "back",
-                style="secondary",
                 disabled=options["back_railed"],
                 note=RAILED_NOTE if options["back_railed"] else "",
             )
         )
-    overdrive = [
+    before = [
         button(
             f"⚡ Overdrive: {asked.label(player_id)} "
             f"(drain {options['overdrive_costs'][player_id]})",
             asked.kind,
             "overdrive",
-            style="secondary",
+            place=on_player(player_id),
+            chip="⚡ Overdrive",
+            cost={
+                "emoji": "exhaust_cyborg",
+                "count": options["overdrive_costs"][player_id],
+            },
             player=player_id,
             player_id=player_id,
         )
@@ -568,71 +750,76 @@ def _roll(asked: Asked) -> list:
             f"Boost: {asked.label(player_id)}",
             asked.kind,
             "boost",
+            place=on_player(player_id),
+            chip="⚡ Boost",
+            player=player_id,
             player_id=player_id,
         )
         for player_id in options["boost_player_ids"]
     ]
-    return [section(None, controls), section("Before the die", overdrive)]
+    return [section(None, controls), section("Before the die", before)]
+
+
+#: What the yes of each decision is about on the board, and its chip.
+#: The no is the neutral control, worded from the option.
+DECISION_YES: Mapping[PromptKind, tuple[str, str]] = {
+    PromptKind.MIND_PULL: ("player", "pull"),
+    PromptKind.SMOOTH: ("player", "take it over"),
+    PromptKind.JOIN_THE_BALL: ("player", "join the ball"),
+    PromptKind.FORCE_TEST: ("player", "force a skill test"),
+    PromptKind.SET_UP_ATTEMPT: ("goal", "shoot"),
+}
 
 
 def _decision(
     asked: Asked, labels: Optional[Mapping[str, str]] = None,
 ) -> list:
     """
-    A prompt's yes and no. `labels` is what a kind calls its two
-    answers where the generic `CHOICE_LABELS` are not enough -- a
-    Smooth names both players, since which of the two ends up with
-    the ball is the whole question.
+    A prompt's yes and no. The yes lights the thing the decision is
+    about -- the meeple it names, or the goal for a Set Up's shot --
+    and the no is the neutral control. `labels` is what a kind calls
+    its two answers where the generic `CHOICE_LABELS` are not enough --
+    a Smooth names both players, since which of the two ends up with
+    the ball is the whole question. The Coaching Offer has nothing on
+    the board to light (its window is step 6's), so both of its
+    answers are neutral.
     """
     options = asked.options
     labels = labels or {}
-    return [
-        section(
-            None,
-            [
-                button(
-                    labels.get(choice)
-                    or CHOICE_LABELS.get(
-                        choice, choice.replace("_", " ").title()
-                    ),
-                    asked.kind,
-                    choice,
-                    style=_decision_style(asked, choice),
-                    disabled=(
-                        options["railed"] is not None
-                        and choice != options["railed"]
-                    ),
-                    note=(
-                        RAILED_NOTE
-                        if options["railed"] is not None
-                        and choice != options["railed"]
-                        else ""
-                    ),
-                    **_decision_arguments(asked, choice),
-                )
-                for choice in options["choices"]
-            ],
+    yes = DECISION_YES.get(asked.kind)
+    controls = []
+    for choice in options["choices"]:
+        railed = options["railed"] is not None and choice != options["railed"]
+        label = labels.get(choice) or CHOICE_LABELS.get(
+            choice, choice.replace("_", " ").title()
         )
-    ]
-
-
-def _decision_style(asked: Asked, choice: str) -> str:
-    """
-    Yes is blurple and no is grey, as every decision view has them --
-    but a Set Up's shot is red, the way every shot is.
-    """
-    if choice == "decline":
-        return "secondary"
-    if asked.kind is PromptKind.SET_UP_ATTEMPT:
-        return "danger"
-    return "primary"
+        place, chip = None, ""
+        if yes is not None and choice != "decline":
+            what, chip = yes
+            place = (
+                on_goal(asked.attacking_goal()) if what == "goal"
+                else on_player(asked.prompt["player_id"])
+            )
+        controls.append(
+            button(
+                label,
+                asked.kind,
+                choice,
+                place=place,
+                chip=chip,
+                disabled=railed,
+                note=RAILED_NOTE if railed else "",
+                **_decision_arguments(asked, choice),
+            )
+        )
+    return [section(None, controls)]
 
 
 def _smooth(asked: Asked) -> list:
     """
-    The Smooth's two buttons, each naming its player: the Telekinetic
-    who takes the ball over, and -- where declining leaves somebody
-    holding it -- the player it stays with
+    The Smooth's two answers, each naming its player: the Telekinetic
+    who takes the ball over (their meeple, lit), and -- where declining
+    leaves somebody holding it -- the player it stays with
     (`SmoothOptions.keeper_id`). The page says what the Discord
     buttons say, off the same one list.
     """
@@ -661,10 +848,48 @@ def _decision_arguments(asked: Asked, choice: str) -> dict:
     return {}
 
 
+#: What clicking a lit meeple means, per pick among players.
+PLAYER_CHIPS: Mapping[PromptKind, str] = {
+    PromptKind.BALL_HANDLER_SELECTION: "handles",
+    PromptKind.RUN_BACK_PLAYER: "runs back",
+    PromptKind.BALL_RECOVERY: "picks it up",
+    PromptKind.HALFTIME_EXTRA_TOKEN: "clears one more",
+    PromptKind.SHOOTER_CHOICE: "shoots",
+    PromptKind.SHOOTOUT_PICK: "shoots",
+}
+
+
 def _players(asked: Asked) -> list:
-    return [
-        section(None, asked.players(asked.options["player_ids"], asked.kind)),
-    ]
+    """
+    A pick among players: each lit where it stands. The ball's
+    recovery says how far each is from the ball -- the distance and
+    not a price, since a pickup after a time out is free and the
+    options carry the distance alone.
+    """
+    options = asked.options
+    distances = dict(zip(options["player_ids"], options["distances"]))
+    controls = []
+    for player_id in options["player_ids"]:
+        chip = PLAYER_CHIPS[asked.kind]
+        if player_id in distances:
+            chip = f"{chip} · {_away(distances[player_id])}"
+        controls.append(
+            button(
+                asked.label(player_id),
+                asked.kind,
+                place=on_player(player_id),
+                chip=chip,
+                player=player_id,
+                player_id=player_id,
+            )
+        )
+    return [section(None, controls)]
+
+
+def _away(distance: int) -> str:
+    return "on the ball" if distance == 0 else (
+        f"{_spaces(distance).lower()} away"
+    )
 
 
 def _shooter(asked: Asked) -> list:
@@ -675,7 +900,8 @@ def _shooter(asked: Asked) -> list:
                 button(
                     asked.label(player_id),
                     asked.kind,
-                    style="danger",
+                    place=on_player(player_id),
+                    chip=PLAYER_CHIPS[asked.kind],
                     player=player_id,
                     shooter_id=player_id,
                 )
@@ -689,18 +915,37 @@ def _halftime_token(asked: Asked) -> list:
     return [
         section(
             None,
-            asked.players(
-                asked.options["player_ids"],
-                asked.kind,
-                style="secondary",
-                side=asked.prompt["side"],
-            ),
+            [
+                button(
+                    asked.label(player_id),
+                    asked.kind,
+                    place=on_player(player_id),
+                    chip=PLAYER_CHIPS[asked.kind],
+                    player=player_id,
+                    player_id=player_id,
+                    side=asked.prompt["side"],
+                )
+                for player_id in asked.options["player_ids"]
+            ],
         )
     ]
 
 
+#: Sending nobody is clicking the ball: what its chip says, by kind.
+DECLINE_CHIPS: Mapping[PromptKind, str] = {
+    PromptKind.MANEUVER_CHALLENGE: "let it through",
+    PromptKind.LOOSE_BALL_PICK: "send nobody",
+}
+
+
 def _send(asked: Asked) -> list:
-    """The challenger and the loose ball: somebody, or nobody."""
+    """
+    The challenger and the loose ball: somebody, or nobody. Each
+    candidate is lit with the walk-in it pays -- a token a space
+    (`SendOptions.distances`, the Charter's "Gaining tokens") -- and
+    sending nobody is clicking the ball itself, only where the rule
+    lets this side decline.
+    """
     options = asked.options
     extra = (
         {"skill_type": asked.prompt["skill_type"]}
@@ -712,7 +957,8 @@ def _send(asked: Asked) -> list:
             "Send nobody",
             asked.kind,
             "decline",
-            style="secondary",
+            place=ON_BALL,
+            chip=DECLINE_CHIPS[asked.kind],
             disabled=options["decline_railed"],
             note=RAILED_NOTE if options["decline_railed"] else "",
             **extra,
@@ -720,6 +966,7 @@ def _send(asked: Asked) -> list:
         if options["may_decline"]
         else None
     )
+    distances = dict(zip(options["player_ids"], options["distances"]))
     return [
         section(
             None,
@@ -728,6 +975,12 @@ def _send(asked: Asked) -> list:
                     asked.label(player_id),
                     asked.kind,
                     "send",
+                    place=on_player(player_id),
+                    chip=(
+                        "on the ball" if not distances.get(player_id)
+                        else _spaces(distances[player_id])
+                    ),
+                    cost=asked.cost(player_id, distances.get(player_id, 0)),
                     player=player_id,
                     player_id=player_id,
                     **extra,
@@ -753,8 +1006,8 @@ def _force_test(asked: Asked) -> list:
 
 def _fly(asked: Asked) -> list:
     """
-    Zenith's Fly (Law 21): a button per space the prompt offers, each
-    with its price (`FlyOptions.spaces`), and Stay.
+    Zenith's Fly (Law 21): each space the prompt offers lit, with its
+    price (`FlyOptions.spaces`, a token a space), and Stay.
     """
     options = asked.options
     player_id = asked.prompt["player_id"]
@@ -771,6 +1024,9 @@ def _fly(asked: Asked) -> list:
                     ),
                     asked.kind,
                     "fly",
+                    place=on_space(space["zone"], space["space_index"]),
+                    chip=f"fly · {_spaces(space['distance']).lower()}",
+                    cost=asked.cost(player_id, space["distance"]),
                     player_id=player_id,
                     zone=space["zone"],
                     space_index=space["space_index"],
@@ -782,7 +1038,6 @@ def _fly(asked: Asked) -> list:
                     "Stay",
                     asked.kind,
                     "decline",
-                    style="secondary",
                     player_id=player_id,
                 ),
             ],
@@ -792,11 +1047,12 @@ def _fly(asked: Asked) -> list:
 
 def _run_back_space(asked: Asked) -> list:
     """
-    Where the player the prompt named runs back to. The distance is on
-    the label because it is the price -- a token a space, the same
-    reading the Discord button puts there (`travel_space_label`).
+    Where the player the prompt named runs back to: each space of
+    their zone lit with its price -- a token a space, the same reading
+    the Discord button puts there (`travel_space_label`).
     """
     options = asked.options
+    player_id = asked.prompt.get("player_id")
     return [
         section(
             None,
@@ -809,6 +1065,12 @@ def _run_back_space(asked: Asked) -> list:
                         asked.match.board,
                     ),
                     asked.kind,
+                    place=on_space(options["zone"], space_index),
+                    chip=(
+                        "stays here" if distance == 0
+                        else f"runs back · {_spaces(distance).lower()}"
+                    ),
+                    cost=asked.cost(player_id, distance),
                     space_index=space_index,
                 )
                 for space_index, distance in zip(
@@ -819,47 +1081,102 @@ def _run_back_space(asked: Asked) -> list:
     ]
 
 
-
 def _distance(asked: Asked) -> list:
-    """Every prompt that asks how far, and the push back a beaten
-    Setup Pass owes."""
+    """
+    Every prompt that asks how far, and the push back a beaten Setup
+    Pass owes: each distance lights the space it lands on
+    (`DistanceOptions.landings`), with a chip saying what landing there
+    means. A Setup Pass with nowhere to go is put out of play at the
+    ✕ past the far end; Quantor's run onto the pass is a second chip
+    on the same spaces.
+    """
     options = asked.options
-    distances = [
-        button(
-            _spaces(distance),
-            asked.kind,
-            distance=distance,
-            disabled=(
-                options["railed"] is not None and distance != options["railed"]
-            ),
-            note=(
-                RAILED_NOTE
-                if options["railed"] is not None
-                and distance != options["railed"]
-                else ""
-            ),
+    landings = options.get("landings") or []
+    if len(landings) != len(options["distances"]):
+        landings = [None] * len(options["distances"])
+    controls = []
+    for distance, landing in zip(options["distances"], landings):
+        railed = options["railed"] is not None and distance != options["railed"]
+        chip, cost = _landing_chip(asked, distance)
+        controls.append(
+            button(
+                _spaces(distance),
+                asked.kind,
+                place=(
+                    on_space(landing["zone"], landing["space_index"])
+                    if landing else None
+                ),
+                chip=chip,
+                cost=cost,
+                disabled=railed,
+                note=RAILED_NOTE if railed else "",
+                distance=distance,
+            )
         )
-        for distance in options["distances"]
-    ]
     if options["may_pass_out"]:
         # A Setup Pass with nowhere to go is the card's one way out of
         # play, and it is the absence of a distance rather than a
         # choice -- the driver reads it the same way.
-        distances = [button("Put it out of play", asked.kind)]
+        controls = [
+            button(
+                "Put it out of play",
+                asked.kind,
+                place=off_the_end(asked.attacking_goal()),
+                chip="out of play",
+            )
+        ]
 
     # Quantor running onto the pass (Law 21): the same distances, with
     # the run declared beside them.
+    by_distance = {
+        distance: landing
+        for distance, landing in zip(options["distances"], landings)
+    }
+    runner_id = options["runner_id"]
     runs = [
         button(
-            f"{_spaces(distance)}, {asked.label(options['runner_id'])} "
+            f"{_spaces(distance)}, {asked.label(runner_id)} "
             "runs onto it (drain 3)",
             asked.kind,
+            place=(
+                on_space(
+                    by_distance[distance]["zone"],
+                    by_distance[distance]["space_index"],
+                )
+                if by_distance.get(distance) else None
+            ),
+            chip=f"{asked.label(runner_id)} runs onto it",
+            cost={"emoji": "exhaust_cyborg", "count": 3},
             distance=distance,
             runner=True,
         )
         for distance in options["runner_distances"]
     ]
-    return [section(None, distances), section("Run onto the pass", runs)]
+    return [section(None, controls), section("Run onto the pass", runs)]
+
+
+def _landing_chip(asked: Asked, distance: int) -> tuple[str, Optional[dict]]:
+    """
+    What landing a distance means, as the Discord button beside it
+    says it: a pass names who is standing there to take it
+    (`high_pass_destination_note`), a burst what it costs
+    (`dribble_burst_cost`), the rest only how far.
+    """
+    kind, match = asked.kind, asked.match
+    if kind in (PromptKind.HIGH_PASS_CHOICE, PromptKind.SETUP_PASS_CHOICE):
+        note = asked.engine.high_pass_destination_note(match, distance)
+        return f"{_spaces(distance)} · {note.split(', ', 1)[-1]}", None
+    if kind is PromptKind.DRIBBLE_BURST_CHOICE:
+        cost = asked.engine.dribble_burst_cost(match, distance, asked.game)
+        return (
+            f"burst {_spaces(distance).lower()}",
+            asked.cost(match.active_player_id, cost),
+        )
+    if kind is PromptKind.DRIBBLE_ADVANCE_CHOICE:
+        return f"advance {_spaces(distance).lower()}", None
+    if kind is PromptKind.SETUP_PASS_PUSH_BACK:
+        return f"{distance} back", None
+    return _spaces(distance), None
 
 
 def _spaces(distance: int) -> str:
@@ -870,11 +1187,12 @@ def _spaces(distance: int) -> str:
 
 def _low_pass(asked: Asked) -> list:
     """
-    One control per landing, named the way `LowPassChoiceView` names
-    it -- the teammate and the space (`match.ball_destination`, the
-    label the Discord button reads) -- and a chooser where several
-    teammates share the landing space, which is the second question
-    the adapter takes beside the distance.
+    One control per landing: the teammate standing there lit, named
+    the way `LowPassChoiceView` names it -- the teammate and the space
+    (`match.ball_destination`, the label the Discord button reads) --
+    and where several teammates share the landing space, the space
+    itself lit, asking in the box which of them receives it: the
+    second question the adapter takes beside the distance.
     """
     match = asked.match
     controls = []
@@ -902,6 +1220,8 @@ def _low_pass(asked: Asked) -> list:
                         )
                     ],
                     asked.kind,
+                    place=on_space(zone, space_index),
+                    chip=f"{len(receiver_ids)} may receive",
                     distance=distance,
                 )
             )
@@ -911,6 +1231,8 @@ def _low_pass(asked: Asked) -> list:
             button(
                 f"{asked.label(receiver)} -- {where}" if receiver else where,
                 asked.kind,
+                place=on_player(receiver) if receiver else on_space(zone, space_index),
+                chip="receives" if receiver else "lands here",
                 player=receiver,
                 distance=distance,
             )
@@ -919,6 +1241,8 @@ def _low_pass(asked: Asked) -> list:
 
 
 def _speed(asked: Asked) -> list:
+    """The speeds within reach, as a row of d12 faces in the box --
+    nothing on the board is a speed to be chosen."""
     options = asked.options
     return [
         section(
@@ -927,6 +1251,7 @@ def _speed(asked: Asked) -> list:
                 button(
                     f"Ball speed {target}",
                     asked.kind,
+                    place=on_face(target),
                     target_speed=target,
                     disabled=(
                         options["railed"] is not None
@@ -949,7 +1274,8 @@ def _maneuver(asked: Asked) -> list:
     """
     **One row, and it is this coach's own.** The pick is secret until
     both are in, so the other side's hand is not in what this viewer
-    is sent -- see the module docstring.
+    is sent -- see the module docstring. Each card is the answer; how
+    the hand is drawn is step 5's.
     """
     mine = set(asked.sides())
     controls = []
@@ -961,7 +1287,8 @@ def _maneuver(asked: Asked) -> list:
             button(
                 asked.engine.maneuver_name(key),
                 asked.kind,
-                style="danger" if side == "offense" else "success",
+                place=on_card(key, side),
+                chip="play",
                 card={"key": key, "side": side},
                 side=side,
                 maneuver_key=key,
@@ -978,6 +1305,7 @@ def _maneuver(asked: Asked) -> list:
 
 
 def _shootout_order(asked: Asked) -> list:
+    """The secret order, as neutral controls until step 7 draws it."""
     mine = set(asked.sides())
     controls: list[dict] = []
     for entry in asked.options["sides"]:
@@ -999,7 +1327,6 @@ def _shootout_order(asked: Asked) -> list:
                 "Start again",
                 asked.kind,
                 "restart",
-                style="secondary",
                 side=entry["side"],
             )
         )
@@ -1016,6 +1343,8 @@ def _shootout_pick(asked: Asked) -> list:
             button(
                 asked.label(player_id),
                 asked.kind,
+                place=on_player(player_id),
+                chip=PLAYER_CHIPS[asked.kind],
                 player=player_id,
                 side=entry["side"],
                 player_id=player_id,
@@ -1033,7 +1362,9 @@ def _coaching_hub(asked: Asked) -> list:
     holds twenty-five buttons; a page has room for all four, so the
     two that take a pair of names are choosers rather than two steps.
     Everything offered is the options', including why Done may be
-    refused (`finish_refusal`, the kickoff space a side must cover).
+    refused (`finish_refusal`, the kickoff space a side must cover),
+    which is said under the whistle. The menus are neutral controls
+    until step 6 puts them on the board.
     """
     options = asked.options
     side = asked.prompt["side"]
@@ -1047,7 +1378,6 @@ def _coaching_hub(asked: Asked) -> list:
                     formation,
                     asked.kind,
                     "formation",
-                    style="secondary" if formation == current else "primary",
                     side=side,
                     formation=formation,
                     disabled=formation == current,
@@ -1123,7 +1453,8 @@ def _coaching_hub(asked: Asked) -> list:
                     CHOICE_LABELS["done"],
                     asked.kind,
                     "done",
-                    style="success",
+                    place=ON_WHISTLE,
+                    chip="done",
                     side=side,
                     disabled=options["finish_refusal"] is not None,
                     note=options["finish_refusal"] or "",
@@ -1213,12 +1544,13 @@ def _game_over(asked: Asked) -> list:
     message -- a new room with this one's settings and seats, which is
     not an action on this game, so it goes to the room's own route
     (`GameService.rematch`) rather than to `apply_action`. Either
-    coach may press it: a finished game is nobody's question.
+    coach may press it: a finished game is nobody's question. On the
+    page it is the REMATCH mark in the box.
     """
     return [
         section(
             None,
-            [button("Rematch", asked.kind, post="/rematch")],
+            [button("Rematch", asked.kind, place=ON_REMATCH, post="/rematch")],
         )
     ]
 

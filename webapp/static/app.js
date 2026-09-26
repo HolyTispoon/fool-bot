@@ -30,6 +30,12 @@ let shownTable = null;
 let sawNoRematch = false;
 let shownBoard = null;
 let openMenu = null;
+/* A chooser opened by clicking its object on the board (a space two
+   teammates share): its one question is asked in the box. */
+let openChooser = null;
+/* What the prompt put to this viewer lights on the board, by object
+   (`readLit`). */
+let lit = null;
 let current = null;
 const openBenches = new Set();
 
@@ -309,24 +315,24 @@ function drawRoom(state) {
       const buttons = [];
       if (seat.yours) {
         buttons.push(h("button", {
-          type: "button", class: "btn secondary",
+          type: "button", class: "btn",
           onclick: () => roomMove("/seat/leave"),
         }, "Leave"));
       } else if (seat.free && !seated) {
         buttons.push(h("button", {
-          type: "button", class: "btn primary",
+          type: "button", class: "btn",
           onclick: () => roomMove("/seat/take", { seat: seat.number }),
         }, "Take"));
       } else if (seat.free && seated) {
         /* Anybody seated may hand the other side to the AI. */
         buttons.push(h("button", {
-          type: "button", class: "btn secondary",
+          type: "button", class: "btn",
           onclick: () => roomMove("/seat/ai", { seat: seat.number }),
         }, "Put Dinky in"));
       }
       if (room.admin && seat.name && !seat.yours) {
         buttons.push(h("button", {
-          type: "button", class: "btn danger",
+          type: "button", class: "btn",
           onclick: () => {
             if (confirm(`Are you sure? ${seat.name} will lose ${seat.label}.`)) {
               roomMove("/seat/kick", { seat: seat.number });
@@ -546,7 +552,8 @@ function timeOutTile(team, control) {
 function drawBoard(state) {
   const layout = state.board.layout;
   el("no-board").hidden = Boolean(layout);
-  const shape = JSON.stringify(layout);
+  lit = readLit(state.prompt);
+  const shape = JSON.stringify([layout, lit.shape]);
   if (shape === shownBoard) return;
   shownBoard = shape;
   const box = el("board");
@@ -556,6 +563,73 @@ function drawBoard(state) {
   box.append(stage(layout, { live: true }));
   watchFit(box);
   el("benches").append(...layout.team_boards.map(bench));
+}
+
+// -- Answering on the board ------------------------------------------------
+
+/* What the prompt put to this viewer lights on the board: every live
+   control whose `place` names a thing the field draws -- a meeple, a
+   space, the ball, a goal, the out-of-play mark past an end, a
+   time-out tile -- indexed by that thing. The control is the server's
+   (webapp/present.py, off `PendingPrompt.options`); the page only
+   finds the object and attaches the click. A control the prompt has
+   greyed lights nothing: the question box says why it is dark. */
+const BOARD_OBJECTS = new Set(["player", "space", "ball", "goal", "out_of_play", "time_out_tile"]);
+
+function readLit(prompt) {
+  const index = { player: {}, space: {}, ball: [], goal: {}, out: {}, tile: {}, shape: [] };
+  if (!prompt) return index;
+  const add = (map, key, control) => { (map[key] = map[key] || []).push(control); };
+  for (const group of prompt.controls) {
+    for (const control of group.controls) {
+      const place = control.place;
+      if (!place || control.disabled || !BOARD_OBJECTS.has(place.at)) continue;
+      index.shape.push([place, control.chip, control.cost]);
+      if (place.at === "player") add(index.player, place.id, control);
+      else if (place.at === "space") add(index.space, `${place.zone}:${place.space_index}`, control);
+      else if (place.at === "ball") index.ball.push(control);
+      else if (place.at === "goal") add(index.goal, place.side, control);
+      else if (place.at === "out_of_play") add(index.out, place.side, control);
+      else if (place.at === "time_out_tile") add(index.tile, place.side, control);
+    }
+  }
+  return index;
+}
+
+/* Whether a meeple is on the field, where a lit piece is drawn; a
+   player lit who is not is answered from the question box instead. */
+function onField(layout, playerId) {
+  return Boolean(layout) && layout.spaces.some((one) =>
+    one.home.some((m) => m.id === playerId) || one.visiting.some((m) => m.id === playerId));
+}
+
+/* Pressing a control: its answer, or -- for a chooser -- its question
+   opened in the box, or for the rematch the room's own route. */
+function press(control) {
+  if (!control || control.disabled) return;
+  if (control.type === "chooser") {
+    openChooser = control;
+    if (current && current.prompt) drawControls(current.prompt);
+    return;
+  }
+  if (control.post) roomMove(control.post);
+  else act(control.action);
+}
+
+/* A lit thing's chips: what clicking it means, one per control on it,
+   each its own button where there are several (Overdrive and Boost on
+   one meeple, a pass and a run onto it on one space). */
+function chips(controls, { buttons = controls.length > 1 } = {}) {
+  return controls.map((control) => {
+    const content = chip(control);
+    if (!buttons) return content;
+    return h("button", {
+      type: "button",
+      class: "chip-button",
+      title: control.label,
+      onclick: (event) => { event.stopPropagation(); press(control); },
+    }, content);
+  });
 }
 
 /* The field, drawn from scratch (docs/web-app-redesign.md, step 1): a
@@ -610,15 +684,24 @@ function pitch(layout) {
 
 /* A goal: a slab in the defending side's colour with GOAL along it,
    the d12 showing 12 for its O, turned to read along the goal. It is
-   lit when a prompt names it (`lit`). */
-function goal(side, colour, { lit = false } = {}) {
+   lit when a prompt names it -- the shot -- and pressing it answers;
+   past it, the ✕ a pass is put out of play at, when one is offered. */
+function goal(side, colour) {
+  const controls = (lit && lit.goal[side]) || [];
+  const out = (lit && lit.out[side]) || [];
+  const on = controls.length > 0;
+  const said = `The ${side === "home" ? "home" : "visitors'"} goal`;
   return h(
-    "div",
+    on ? "button" : "div",
     {
-      class: `goal ${side}${lit ? " lit" : ""}`,
+      type: on ? "button" : null,
+      class: `goal ${side}${on ? " lit" : ""}${out.length ? " out-lit" : ""}`,
       style: `--team: ${colour}`,
-      role: "img",
-      "aria-label": `The ${side === "home" ? "home" : "visitors'"} goal`,
+      role: on ? null : "img",
+      "aria-label": on ? `${said}: ${controls[0].label}` : said,
+      title: on ? controls[0].label : null,
+      "data-goal": side,
+      onclick: on ? (event) => { event.stopPropagation(); press(controls[0]); } : null,
     },
     h(
       "span",
@@ -628,22 +711,43 @@ function goal(side, colour, { lit = false } = {}) {
       h("span", {}, "A"),
       h("span", {}, "L"),
     ),
+    on ? h("span", { class: "goal-chips" }, chips(controls, { buttons: false })) : null,
+    out.length
+      ? h("span", {
+        class: "out-mark",
+        role: "button",
+        tabindex: "0",
+        title: `${out[0].label}: drag the ball here, or click`,
+        "aria-label": out[0].label,
+        "data-out": side,
+        onclick: (event) => { event.stopPropagation(); press(out[0]); },
+        onkeydown: (event) => { if (event.key === "Enter") press(out[0]); },
+      }, "✕", h("span", { class: "out-chip" }, chip(out[0])))
+      : null,
   );
 }
 
 function space(one, layout) {
   const loose = one.ball && !one[one.ball.side].length;
+  const controls = (lit && lit.space[`${one.zone}:${one.index}`]) || [];
+  const on = controls.length > 0;
+  const marks = lit ? lit.player : {};
   return h(
     "div",
     {
-      class: one.tint ? "space tinted" : "space",
+      class: `space${one.tint ? " tinted" : ""}${on ? " lit" : ""}`,
       style: one.tint ? `--tint: ${one.tint}` : null,
+      title: on ? controls.map((c) => c.label).join(" · ") : null,
+      /* A lit space is answered by clicking anywhere on it that is not
+         a piece of its own (a meeple opens its card). */
+      onclick: on ? (event) => { event.stopPropagation(); press(controls[0]); } : null,
     },
     h("span", { class: "space-code" }, one.code),
     one.kickoff ? h("span", { class: "kickoff-ring" }) : null,
-    h("div", { class: "lane visiting" }, fanOf(one, "visiting", layout)),
-    h("div", { class: "lane home" }, fanOf(one, "home", layout)),
-    loose ? h("span", { class: "loose-ball" }, ball(one.ball.speed, 36)) : null,
+    h("div", { class: "lane visiting" }, fanOf(one, "visiting", layout, marks)),
+    h("div", { class: "lane home" }, fanOf(one, "home", layout, marks)),
+    loose ? h("span", { class: "loose-ball" }, ball(one.ball.speed, 36, { lit: true })) : null,
+    on ? h("span", { class: "space-chips" }, chips(controls)) : null,
   );
 }
 
@@ -670,7 +774,7 @@ function fanOf(one, side, layout, marks = {}) {
           class: "fan-piece",
           style: `left: ${piece.x}px; top: ${piece.y}px; z-index: ${index + 1}`,
         },
-        meeple(piece, layout, { lit }),
+        meeple(piece, layout, { controls: marks[piece.id] }),
       ),
     );
     if (piece.exhaustion) {
@@ -703,7 +807,7 @@ function fanOf(one, side, layout, marks = {}) {
       const place = side === "home"
         ? `left: ${piece.x + W * 0.66}px; top: ${piece.y - 22}px`
         : `left: ${piece.x - 18}px; top: ${piece.y + H - 30}px`;
-      over.push(h("span", { class: "held-ball", style: place }, ball(one.ball.speed, 30)));
+      over.push(h("span", { class: "held-ball", style: place }, ball(one.ball.speed, 30, { lit: true })));
     }
   });
   /* Names front first, each centred under its own piece. */
@@ -718,11 +822,11 @@ function fanOf(one, side, layout, marks = {}) {
       piece.name,
     ));
     line += 16;
-    if (lit && marks[id]) {
+    if (lit) {
       over.push(h(
         "span",
         { class: "fan-chip-line", style: `left: ${piece.x + W / 2}px; top: ${line}px` },
-        chip(marks[id]),
+        chips(marks[id]),
       ));
       line += 18;
     }
@@ -732,22 +836,25 @@ function fanOf(one, side, layout, marks = {}) {
   return box;
 }
 
-/* What clicking a lit piece means, with any cost as the token image
-   and a count -- never the word "token". */
-function chip(mark) {
+/* What clicking a lit thing means (the control's `chip`), with any
+   cost as the token image and a count -- never the word "token". */
+function chip(control) {
   return h(
     "span",
     { class: "chip" },
-    mark.label,
-    mark.cost
+    control.chip || control.label,
+    control.cost
       ? h("span", { class: "chip-cost" },
-        h("img", { src: `/emoji/${mark.cost.emoji}.png`, alt: "" }),
-        `×${mark.cost.count}`)
+        h("img", { src: `/emoji/${control.cost.emoji}.png`, alt: "" }),
+        `×${control.cost.count}`)
       : null,
   );
 }
 
-function meeple(m, layout, { lit = false } = {}) {
+/* A meeple, lit gold where a control names it: clicking a lit one
+   answers, clicking any other opens its card. */
+function meeple(m, layout, { controls = null } = {}) {
+  const lit = Boolean(controls && controls.length);
   const g = layout.meeple;
   const [left, top, width, height] = g.box;
   const W = g.width;
@@ -760,9 +867,13 @@ function meeple(m, layout, { lit = false } = {}) {
       type: "button",
       class: `meeple${lit ? " lit" : ""}`,
       style: `width: ${W}px; height: ${H}px; color: ${m.ink}`,
-      title: `${m.name} [${m.role}]`,
-      "aria-label": `${m.name} [${m.role}]`,
-      onclick: (event) => { event.stopPropagation(); openCard(m.id); },
+      title: lit ? `${m.name} [${m.role}]: ${controls[0].chip || controls[0].label}` : `${m.name} [${m.role}]`,
+      "aria-label": lit ? controls[0].label : `${m.name} [${m.role}]`,
+      onclick: (event) => {
+        event.stopPropagation();
+        if (lit) press(controls[0]);
+        else openCard(m.id);
+      },
     },
     s(
       "svg",
@@ -797,10 +908,70 @@ function meeple(m, layout, { lit = false } = {}) {
 
 const GOLD = "#f0b232";
 
-/* The ball: the d12 showing its speed, on a dark ring. */
-function ball(speed, size) {
-  return die(String(speed), {
+/* The ball: the d12 showing its speed, on a dark ring. On the field
+   (`lit: true` asks) it is lit where a control names it -- the
+   maneuver, or sending nobody -- and it may be dragged off the end to
+   the ✕ where a pass may be put out of play. */
+function ball(speed, size, { lit: onField = false } = {}) {
+  const face = die(String(speed), {
     size, fill: "#ffffff", ink: "#243347", font: size * 0.44, ring: true,
+  });
+  const controls = onField && lit ? lit.ball : [];
+  const out = onField && lit ? Object.values(lit.out).flat() : [];
+  if (!controls.length && !out.length) return face;
+  const node = h(
+    "button",
+    {
+      type: "button",
+      class: `ball-button${controls.length ? " lit" : ""}${out.length ? " draggable" : ""}`,
+      title: controls.length ? controls.map((c) => c.label).join(" · ") : "Drag the ball off the end to put it out of play",
+      "aria-label": controls.length ? controls[0].label : "The ball",
+      onclick: (event) => {
+        event.stopPropagation();
+        if (controls.length) press(controls[0]);
+      },
+    },
+    face,
+    controls.length ? h("span", { class: "ball-chips" }, chips(controls, { buttons: false })) : null,
+  );
+  if (out.length) dragOff(node, out);
+  return node;
+}
+
+/* Putting a pass out of play by dragging the ball past the end: let go
+   over the ✕ (or the goal it is drawn on) and it is the same answer as
+   clicking the ✕. */
+function dragOff(node, out) {
+  let dragging = null;
+  node.addEventListener("pointerdown", (event) => {
+    dragging = { x: event.clientX, y: event.clientY, id: event.pointerId };
+    node.setPointerCapture(event.pointerId);
+  });
+  node.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    node.style.transform = `translate(${event.clientX - dragging.x}px, ${event.clientY - dragging.y}px)`;
+    node.classList.add("dragging");
+  });
+  const drop = (event) => {
+    if (!dragging) return;
+    const moved = Math.hypot(event.clientX - dragging.x, event.clientY - dragging.y);
+    dragging = null;
+    node.style.transform = "";
+    node.classList.remove("dragging");
+    if (moved < 8) return;
+    node.style.visibility = "hidden";
+    const under = document.elementFromPoint(event.clientX, event.clientY);
+    node.style.visibility = "";
+    const end = under && under.closest("[data-out], [data-goal]");
+    const side = end && (end.dataset.out || end.dataset.goal);
+    const control = out.find((one) => one.place.side === side);
+    if (control) press(control);
+  };
+  node.addEventListener("pointerup", drop);
+  node.addEventListener("pointercancel", () => {
+    dragging = null;
+    node.style.transform = "";
+    node.classList.remove("dragging");
   });
 }
 
@@ -1141,6 +1312,7 @@ function drawPrompt(state) {
   const previous = shownPrompt ? JSON.parse(shownPrompt) : null;
   shownPrompt = shape;
   if (!previous || !state.prompt || previous.kind !== state.prompt.kind) openMenu = null;
+  openChooser = null;
   if (!state.prompt) {
     box.hidden = true;
     return;
@@ -1239,46 +1411,65 @@ function drawReference(prompt) {
   else link.removeAttribute("href");
 }
 
+/* The objects the question box draws, rather than the board: the die
+   to roll, the faces of a speed to choose, the whistle, the note, the
+   REMATCH mark, the hand's cards. */
+const BOX_OBJECTS = new Set(["die", "face", "whistle", "note", "rematch", "card"]);
+
+/* Whether a control is drawn in the question box: the neutral ones, the
+   box's own objects, and a meeple lit that is not on the field to be
+   clicked (a bench, say), which is answered from here instead. */
+function inBox(control) {
+  const place = control.place;
+  if (!place) return true;
+  if (BOX_OBJECTS.has(place.at)) return true;
+  if (place.at === "player") {
+    return !onField(current && current.board.layout, place.id);
+  }
+  if (place.at === "time_out_tile" || place.at === "out_of_play") return false;
+  /* A space, a goal or the ball are always drawn while there is a
+     board; a disabled one is dark there and said in the lit line. */
+  return !(current && current.board.layout);
+}
+
 function drawControls(prompt) {
   const controls = el("controls");
   controls.replaceChildren();
-  /* A control with a `place` is drawn there instead (the time out, on
-     the jumbotron bar's tile), not in the question box. */
+  drawLitLine(prompt);
+  drawKeys(prompt);
+  el("prompt").classList.toggle("note-lit", Boolean(noteControl(prompt)));
+
+  /* A chooser opened from the board: its one question, a neutral
+     control per answer, and a way back. */
+  if (openChooser) {
+    controls.append(drawOpenChooser(openChooser));
+    return;
+  }
+
   const groups = prompt.controls
-    .map((group) => ({ ...group, controls: group.controls.filter((one) => !one.place) }))
+    .map((group) => ({ ...group, controls: group.controls.filter(inBox) }))
     .filter((group) => group.controls.length);
   const menus = groups.filter((group) => group.label);
 
-  /* Several named groups is the Coaching Choice: a button per menu,
-     and the menu opened in its place with a way back, as the Discord
-     hub walks a coach through them. */
+  /* Several named groups is the Coaching Choice: a neutral control per
+     menu, and the menu opened in its place with a way back, as the
+     Discord hub walks a coach through them. */
   if (menus.length >= 3) {
     const open = menus.find((group) => group.label === openMenu);
     if (open) {
       controls.append(
         h("div", { class: "group-label" }, open.label),
         drawGroup(open),
-        h("div", { class: "row" },
-          h("button", {
-            type: "button",
-            class: "btn secondary",
-            onclick: () => { openMenu = null; drawControls(prompt); },
-          }, "Back")),
+        h("div", { class: "row" }, neutral("Back", () => { openMenu = null; drawControls(prompt); })),
       );
       return;
     }
     const row = h("div", { class: "row" });
     for (const group of menus) {
-      row.append(h("button", {
-        type: "button",
-        class: "btn primary",
-        onclick: () => { openMenu = group.label; drawControls(prompt); },
-      }, group.label));
-    }
-    for (const group of groups.filter((one) => !one.label)) {
-      for (const control of group.controls) row.append(drawControl(control));
+      row.append(neutral(group.label, () => { openMenu = group.label; drawControls(prompt); }));
     }
     controls.append(row);
+    for (const group of groups.filter((one) => !one.label)) controls.append(drawGroup(group));
     appendNotes(controls, groups);
     return;
   }
@@ -1290,13 +1481,47 @@ function drawControls(prompt) {
   appendNotes(controls, groups);
 }
 
-/* A dead button's reason, said under the buttons -- the Done a
-   kickoff space holds back is the one a coach most needs to read. */
+/* What is lit on the board and why, and -- muted -- what is dark:
+   the server's reading of the controls it built (`present.lit_line`). */
+function drawLitLine(prompt) {
+  const line = el("lit");
+  const items = prompt.lit || [];
+  line.hidden = !items.length;
+  line.replaceChildren(...items.map((item) =>
+    h("span", { class: item.dark ? "lit-item dark" : "lit-item" }, item.text)));
+}
+
+/* The same controls as a list for the keyboard: a number key presses
+   the control of that number, in the order the options give, Enter
+   the only one there is, and Esc backs out of an open menu. Hidden
+   until it has the focus. */
+let keyed = [];
+function drawKeys(prompt) {
+  keyed = prompt.controls.flatMap((group) => group.controls)
+    .filter((control) => !control.disabled);
+  el("keys").replaceChildren(...keyed.map((control, index) =>
+    h("li", {}, h("button", {
+      type: "button",
+      onclick: () => press(control),
+    }, `${index + 1}. ${control.label}${control.chip && control.chip !== control.label ? ` (${control.chip})` : ""}`))));
+}
+
+function noteControl(prompt) {
+  for (const group of prompt.controls) {
+    for (const control of group.controls) {
+      if (control.place && control.place.at === "note" && !control.disabled) return control;
+    }
+  }
+  return null;
+}
+
+/* A dead control's reason, said under the controls -- the Done a
+   kickoff space holds back is said under the whistle itself. */
 function appendNotes(controls, groups) {
   for (const group of groups) {
     for (const control of group.controls) {
       if (control.type === "button" && control.disabled && control.note
-          && !control.card && !group.label) {
+          && !control.place && !group.label) {
         controls.append(h("p", { class: "note-line" }, control.note));
       }
     }
@@ -1307,29 +1532,124 @@ function drawGroup(group) {
   if (group.controls.length && group.controls.every((one) => one.card)) {
     return h("div", { class: "hand" }, group.controls.map(handCard));
   }
+  if (group.controls.length && group.controls.every((one) => one.place && one.place.at === "face")) {
+    return h("div", { class: "faces" }, group.controls.map(face));
+  }
   return h("div", { class: "row" }, group.controls.map(drawControl));
 }
 
 function drawControl(control) {
-  return control.type === "chooser" ? drawChooser(control) : drawButton(control);
+  if (control.type === "chooser") return drawChooser(control);
+  const at = control.place && control.place.at;
+  if (at === "die") return bigDie(control);
+  if (at === "whistle") {
+    return whistle({
+      allowed: !control.disabled,
+      label: control.label,
+      note: control.disabled ? control.note : "",
+      onclick: () => press(control),
+    });
+  }
+  if (at === "rematch") return rematchMark(control);
+  if (at === "note") {
+    return h("span", { class: "note-chip" }, chip({ ...control, chip: "click the note to go on" }));
+  }
+  if (at === "face") return face(control);
+  if (at === "card") return handCard(control);
+  /* The neutral control, and a meeple answered from the box. */
+  const button = neutral(control.label, () => press(control), {
+    disabled: control.disabled,
+    title: control.note || null,
+  });
+  if (control.player) hoverCard(button, cardUrl(control.player));
+  return button;
 }
 
-function drawButton(control) {
-  const button = h(
+/* The one neutral control: outlined, no fill, no colour. */
+function neutral(label, onclick, { disabled = false, title = null } = {}) {
+  return h("button", { type: "button", class: "btn", disabled, title, onclick }, label);
+}
+
+/* The die: large, lit, and clicking it rolls. */
+function bigDie(control) {
+  return h(
     "button",
     {
       type: "button",
-      class: `btn ${control.style || "primary"}`,
-      disabled: control.disabled,
-      title: control.note || null,
-      /* A press that is not an answer to this game (the rematch) goes
-         to the room's own route rather than to the game. */
-      onclick: () => (control.post ? roomMove(control.post) : act(control.action)),
+      class: "big-die",
+      title: control.label,
+      "aria-label": control.label,
+      onclick: () => press(control),
     },
-    control.label,
+    h("span", { class: "big-die-ring" },
+      die("?", { size: 72, fill: "#1e1f22", ink: GOLD, font: 31 })),
+    h("span", { class: "big-die-word" }, control.chip || control.label),
   );
-  if (control.player) hoverCard(button, cardUrl(control.player));
-  return button;
+}
+
+/* One face of a speed to choose: a d12 showing it, lit. */
+function face(control) {
+  return h(
+    "button",
+    {
+      type: "button",
+      class: "face",
+      disabled: control.disabled,
+      title: control.note || control.label,
+      "aria-label": control.label,
+      onclick: () => press(control),
+    },
+    die(String(control.place.value), { size: 52, fill: "#ffffff", ink: "#243347", font: 24 }),
+  );
+}
+
+/* The whistle: Done, Start the game, Pick it up. A pea-whistle, gold
+   on a dark disc when the position allows it and grey when it does
+   not, with the reason under it. */
+function whistle({ allowed, label, note = "", onclick }) {
+  const colour = allowed ? GOLD : "#6d6f78";
+  return h(
+    "div",
+    { class: "whistle-wrap" },
+    h(
+      "button",
+      {
+        type: "button",
+        class: `whistle${allowed ? " lit" : ""}`,
+        disabled: !allowed,
+        title: note || label,
+        onclick,
+      },
+      h("span", { class: "whistle-disc" },
+        s(
+          "svg",
+          { width: "38", height: "38", viewBox: "0 0 40 40", "aria-hidden": "true" },
+          s(
+            "g",
+            { transform: "rotate(-14 20 20)" },
+            s("path", {
+              d: "M16.5 10.8 H33 a2.9 2.9 0 0 1 2.9 2.9 v0.8 a2.9 2.9 0 0 1 -2.9 2.9 H23.2 L22 20.5 A8.6 8.6 0 1 1 13.2 12.7 a3.4 3.4 0 0 1 3.3 -1.9 Z",
+              fill: colour,
+            }),
+            s("rect", { x: "17.2", y: "12.1", width: "4.6", height: "2.1", rx: "0.6", fill: "#1e1f22" }),
+            s("circle", { cx: "13.6", cy: "21.2", r: "2.7", fill: "#1e1f22" }),
+          ),
+          s("circle", { cx: "6.6", cy: "31.4", r: "3.1", fill: "none", stroke: colour, "stroke-width": "1.9" }),
+        )),
+      h("span", { class: "whistle-label" }, label),
+    ),
+    note ? h("p", { class: "note-line whistle-note" }, note) : null,
+  );
+}
+
+/* The REMATCH mark: a new room with this one's settings and seats. */
+function rematchMark(control) {
+  return h("button", {
+    type: "button",
+    class: "rematch-mark",
+    title: "A new room with this game's settings and seats",
+    onclick: () => press(control),
+  }, "REMATCH");
 }
 
 function handCard(control) {
@@ -1339,10 +1659,10 @@ function handCard(control) {
     "button",
     {
       type: "button",
-      class: `hand-card ${control.style}`,
+      class: "hand-card",
       disabled: control.disabled,
       title: control.note || control.label,
-      onclick: () => act(control.action),
+      onclick: () => press(control),
     },
     h("img", { src: url, alt: control.label }),
   );
@@ -1350,6 +1670,8 @@ function handCard(control) {
   return button;
 }
 
+/* A chooser in the box: its sentence, a menu per field, and a neutral
+   control that sends them (the hub's substitution and swaps). */
 function drawChooser(control) {
   const row = h("div", { class: "chooser" });
   if (control.label) row.append(h("span", { class: "chooser-label" }, control.label));
@@ -1364,16 +1686,34 @@ function drawChooser(control) {
     selects[field.name] = select;
     row.append(select);
   }
-  row.append(h("button", {
-    type: "button",
-    class: "btn primary",
-    onclick: () => {
-      const args = { ...control.action.arguments };
-      for (const [name, select] of Object.entries(selects)) args[name] = select.value;
-      act({ ...control.action, arguments: args });
-    },
-  }, control.submit));
+  row.append(neutral(control.submit, () => {
+    const args = { ...control.action.arguments };
+    for (const [name, select] of Object.entries(selects)) args[name] = select.value;
+    act({ ...control.action, arguments: args });
+  }));
   return row;
+}
+
+/* A chooser opened from its object on the board: its one question, a
+   neutral control per answer, and Back. */
+function drawOpenChooser(control) {
+  const field = control.fields[0];
+  const answer = (value) => {
+    openChooser = null;
+    act({ ...control.action, arguments: { ...control.action.arguments, [field.name]: value } });
+  };
+  return h(
+    "div",
+    { class: "controls" },
+    h("div", { class: "chooser-label" }, control.label),
+    h("div", { class: "row" },
+      field.choices.map((choice) => {
+        const button = neutral(choice.label, () => answer(choice.value));
+        hoverCard(button, cardUrl(choice.value));
+        return button;
+      }),
+      neutral("Back", () => { openChooser = null; drawControls(current.prompt); })),
+  );
 }
 
 // -- The table ---------------------------------------------------------------
@@ -1426,34 +1766,41 @@ function drawTable(state) {
       " won the toss."));
   }
   const row = h("div", { class: "row" });
-  if (table.start.owed) {
-    row.append(tableButton("Start the game", "success", !table.start.may, "/table/start"));
-  }
   if (coin.owed) {
-    row.append(tableButton("Flip the coin", "primary", !coin.may, "/table/flip_coin"));
+    row.append(tableButton("Flip the coin", !coin.may, "/table/flip_coin"));
   }
   if (table.sides.owed_by) {
     for (const choice of table.sides.choices) {
-      row.append(tableButton(choice.label, "primary", !(table.sides.may && choice.open),
+      row.append(tableButton(choice.label, !(table.sides.may && choice.open),
         "/table/choose", { choice: choice.value }));
     }
   }
   if (table.may_close) {
     row.append(h("button", {
       type: "button",
-      class: "btn secondary",
+      class: "btn",
       onclick: () => {
         if (confirm("Close this room? Nothing has been played in it.")) roomMove("", {}, "DELETE");
       },
     }, "Close this room"));
   }
   if (row.childElementCount) body.append(row);
+  /* Start is the whistle: grey, with the record's own sentence under
+     it, while `start_lobby` would refuse. */
+  if (table.start.owed) {
+    body.append(whistle({
+      allowed: table.start.may && !table.start.refusal,
+      label: "Start the game",
+      note: table.start.refusal || "",
+      onclick: () => roomMove("/table/start"),
+    }));
+  }
 }
 
-function tableButton(label, style, disabled, path, body) {
+function tableButton(label, disabled, path, body) {
   return h("button", {
     type: "button",
-    class: `btn ${style}`,
+    class: "btn",
     disabled,
     onclick: () => roomMove(path, body),
   }, label);
@@ -1468,14 +1815,14 @@ function drawSetting(setting) {
   if (setting.choices.length) {
     control = h("div", { class: "row" }, setting.choices.map((choice) => h("button", {
       type: "button",
-      class: `btn ${choice.value === setting.value ? "secondary" : "primary"}`,
+      class: `btn${choice.value === setting.value ? " current" : ""}`,
       disabled: off || choice.value === setting.value,
       onclick: () => configure(choice.value),
     }, choice.label)));
   } else if (typeof setting.value === "boolean") {
     control = h("button", {
       type: "button",
-      class: `btn ${setting.value ? "success" : "secondary"}`,
+      class: `btn${setting.value ? " current" : ""}`,
       disabled: off,
       onclick: () => configure(null),
     }, setting.value ? "On" : "Off");
@@ -1490,7 +1837,7 @@ function drawSetting(setting) {
     control = h("form", {
       class: "row",
       onsubmit: (event) => { event.preventDefault(); configure(input.value); },
-    }, input, h("button", { type: "submit", class: "btn primary", disabled: off }, "Rename"));
+    }, input, h("button", { type: "submit", class: "btn", disabled: off }, "Rename"));
   }
   return h("div", { class: "table-setting" },
     h("span", { class: "seat-label" }, setting.label), control);
@@ -1502,7 +1849,7 @@ function drawTeams(seat) {
   const rows = [0, 1].map((row) => h("div", { class: "row" },
     seat.teams.filter((team) => team.row === row).map((team) => h("button", {
       type: "button",
-      class: `btn ${team.open ? "primary" : "secondary"}`,
+      class: "btn",
       disabled: !team.open,
       onclick: () => roomMove("/table/pick_team", { team: team.key, seat: seat.number }),
     }, teamEmoji(team.key, team.name), ` ${team.name}`))));
@@ -1645,7 +1992,9 @@ function showPeek(url, anchor, { pinned = false } = {}) {
   const peek = el("peek");
   const image = peek.firstElementChild;
   if (image.getAttribute("src") !== url) image.src = url;
-  peekFor = { url, cardId: decodeURIComponent(url.split("/card/")[1].split(".png")[0]) };
+  peekFor = url.includes("/card/")
+    ? { url, cardId: decodeURIComponent(url.split("/card/")[1].split(".png")[0]) }
+    : null;
   peek.classList.toggle("pinned", pinned);
   peek.hidden = false;
   placePeek(anchor);
@@ -1703,7 +2052,36 @@ document.addEventListener("pointerdown", (event) => {
 
 // -- Wiring ------------------------------------------------------------------
 
-el("pick-up").addEventListener("click", pickUp);
+/* The owed step's control is the whistle. */
+el("pick-up").replaceChildren(whistle({ allowed: true, label: "Pick it up", onclick: pickUp }));
+/* The tutorial's note is answered by clicking anywhere on it. */
+el("prompt").addEventListener("click", (event) => {
+  if (!current || !current.prompt || event.target.closest("button, a, select, input")) return;
+  const control = noteControl(current.prompt);
+  if (control) press(control);
+});
+/* The keyboard: a number presses that control, Enter the only one,
+   Esc backs out of a menu or a chooser, or puts a refusal away. */
+document.addEventListener("keydown", (event) => {
+  if (event.target.closest("input, textarea, select, dialog[open]")) return;
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (/^[1-9]$/.test(event.key)) {
+    const control = keyed[Number(event.key) - 1];
+    if (control) { event.preventDefault(); press(control); }
+  } else if (event.key === "Enter" && keyed.length === 1
+             && !event.target.closest("button, a, [role=button]")) {
+    event.preventDefault();
+    press(keyed[0]);
+  } else if (event.key === "Escape") {
+    if (openChooser || openMenu) {
+      openChooser = null;
+      openMenu = null;
+      if (current && current.prompt) drawControls(current.prompt);
+    } else if (!el("refusal").hidden) {
+      el("refusal").hidden = true;
+    }
+  }
+});
 el("abandon").addEventListener("click", () => {
   if (confirm("Are you sure? The game ends here with no result. The room, its board and its log are kept.")) {
     roomMove("/abandon");

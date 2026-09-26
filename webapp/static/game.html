@@ -22,7 +22,7 @@
       <div class="topbar-end">
         <!-- The reading room: the rules, the books and the aids this
              game plays (webapp/static/aids.js). -->
-        <button type="button" class="btn secondary aids-button" id="open-aids">Rules &amp; aids</button>
+        <button type="button" class="btn aids-button" id="open-aids">Rules &amp; aids</button>
         <div id="you" class="you"></div>
       </div>
     </header>
@@ -53,11 +53,10 @@
 
         <!-- The owed step: a restart caught the game mid-turn and
              nobody is asked anything. Its own strip above the question
-             box, not a question in it (step 4 makes the control the
-             whistle). -->
+             box, not a question in it. Its control is the whistle. -->
         <section id="owed" class="owed-strip" data-tab="move" hidden>
           <p>This game has a step of its own to run: a restart caught it mid-turn.</p>
-          <button type="button" class="btn outline" id="pick-up">Pick it up</button>
+          <div id="pick-up"></div>
         </section>
 
         <!-- The question box (docs/design/web-app.md, "The question
@@ -71,7 +70,7 @@
                  moved into whichever box is up (app.js, showRefusal). -->
             <div id="refusal" class="refusal" role="alert" hidden>
               <p id="refusal-text"></p>
-              <button type="button" class="btn outline small" id="dismiss">Dismiss</button>
+              <button type="button" class="btn small" id="dismiss">Dismiss</button>
             </div>
             <!-- The outcome, large and first: the dice just rolled, and
                  the model's own headline beside them. Up until the
@@ -85,7 +84,7 @@
               </div>
             </div>
             <div id="ask" class="ask"></div>
-            <!-- What is lit on the board and why (step 4 lights it). -->
+            <!-- What is lit on the board and why, and what is dark. -->
             <p id="lit" class="lit-line" hidden></p>
             <!-- The maneuver pick's hexagon, at the game's tier: a link,
                  as the Discord prompt's reference button is. -->
@@ -93,6 +92,9 @@
               <a id="reference-link" class="linkish" target="_blank" rel="noopener">The maneuver hexagon</a>
             </p>
             <div id="controls" class="controls"></div>
+            <!-- The same controls for the keyboard: a number presses
+                 that one. Out of sight until it has the focus. -->
+            <ol id="keys" class="keys" aria-label="Answers, by number"></ol>
             <p id="rematch-note" class="note-line" hidden></p>
           </div>
           <!-- The matchup the cog posts with the same question: the
@@ -172,7 +174,7 @@
               placeholder="Message the table"
               aria-label="Message the table"
             />
-            <button type="submit" class="btn primary chat-send">Send</button>
+            <button type="submit" class="btn chat-send">Send</button>
           </form>
         </section>
       </aside>
@@ -190,7 +192,7 @@
         <label for="name-input" class="panel-label">What should the table call you?</label>
         <input id="name-input" class="chat-input" maxlength="32" required />
         <p id="name-error" class="quiet" hidden></p>
-        <div class="row"><button type="submit" class="btn primary">Take a seat</button></div>
+        <div class="row"><button type="submit" class="btn">Take a seat</button></div>
       </form>
     </dialog>
 

@@ -615,8 +615,8 @@ the coach is looking at it.
   from the same reading that used to give them no button, and
   `test_the_lit_time_out_tile_is_the_time_out_button` holds that the
   tile plays exactly what the button did. `place` says where on the
-  page, never what is answered; it is the shape step 4 can extend to
-  the pieces on the board.
+  page, never what is answered; step 4 extended it to every object on
+  the board ("The answer is the thing on the board", below).
 - **The benches open on demand.** Each team's bench and back bench
   is behind a button under the board: shown while the pointer is on
   it, kept open by a click. The board shows the field; a coach looks
@@ -663,9 +663,17 @@ the right the picture the question is asked over.
   headline and the line under it are the model's narration, not the
   page's wording; where they come from is in "The outcome banner",
   below.
-- **The lit line is the step 4 slot.** Nothing on the board is lit
-  yet, so the controls are still the buttons and the line is empty;
-  step 4 fills it as it takes the buttons away.
+- **The lit line says what is lit, and what is dark.** A line per
+  object lit outside the box -- a meeple, a space, the ball, a goal,
+  the tile -- with what clicking it means and its cost, and muted, a
+  railed one with the tutorial's note. It is `present.lit_line`, read
+  off the controls this viewer was just handed, so it cannot name a
+  thing that is not lit and an observer gets none. The turn is the one
+  prompt that also says what is *not* offered, since its three objects
+  are always on the page and a coach looks for the dark one: no shot
+  from where the ball stands (a shot out of range is not offered at
+  all, `TurnOptions`, and the range bar under the field shows why),
+  or no time out to call. The box's own objects are not repeated.
 - **The picture slot is on the right**, behind a rule: the shot or the
   challenge, `PROMPT_PICTURES` as before ("The prompt's pictures").
   On a narrow screen it goes under the question.
@@ -678,19 +686,95 @@ the right the picture the question is asked over.
 - **The owed step is a strip of its own above the box**, not a
   question in it: a restart caught the game mid-turn and nobody is
   asked anything, so there is no tag to give it. Its control is the
-  one neutral outlined button until step 4 makes it the whistle.
+  whistle.
 
-**The buttons are Discord's**: four colours and one shape, and each
-control carries its colour (`style`) from `webapp/present.py`, set to
-what the Discord view puts on the same button -- Maneuver blurple,
-Shoot to score red (the time out is the jumbotron's tile, above); a roll blurple and a shot's or an
-own goal's red; yes blurple and no grey; Done green; the offense's
-cards red and the defense's green. The colour is the frontend's
-(principle 8), so it is set in the web app's builders beside the
-labels, not read from the model. The Coaching Choice is a button per
-menu, opened in place with a Back, because that is how the hub walks a
-coach through it on Discord; the answers are the same `Action`s the
-page always sent.
+**The answer is the thing on the board; there are no coloured
+buttons** (2026-09-26, step 4 of
+[../web-app-redesign.md](../web-app-redesign.md)). A control names the
+object it lights as its `place` -- `{"at": "player", "id"}`, `{"at":
+"space", "zone", "space_index"}`, `ball`, `{"at": "goal", "side"}` (the
+goal that side defends), `{"at": "out_of_play", "side"}`, `{"at":
+"time_out_tile", "side"}`, and in the question box `die`, `{"at":
+"face", "value"}`, `whistle`, `note`, `rematch`, `{"at": "card", "key",
+"side"}` -- with a `chip` saying what clicking it means and a `cost`
+drawn as the token image and a count (a Cyborg's drain under its own,
+`drain_wording`). The page lights that object gold and attaches the
+click; what it sends is still the control's `action`, checked against
+what was offered like any other, so **a place says where on the page
+and never what is answered**.
+`test_every_control_is_an_answer_the_driver_takes` presses every
+control of every fixture as the page sends it -- a chooser opened from
+the board with each of its answers -- through `_was_offered` and the
+service; every control sent the same `Action` as the coloured button
+it replaced (compared over all 230 controls of the 50 asked fixtures
+when it landed). `ObjectTests` hold that every control names an object
+the board draws or is the neutral style, and that none carries a
+colour.
+
+**Where nothing on the board can be the answer, it is the one neutral
+control**: outlined in `#3f4147`, text `#dbdee1`, no fill -- `.btn`,
+everywhere on the page, the table and the front door included, with a
+setting's value as it stands edged in gold. The page's one colour for
+"this is yours to press" is the gold the object is lit in, so a
+coloured button would be a second signal. A button's colour was the
+frontend's (principle 8) and so is its absence: nothing in the model
+changed for it.
+
+| Kind (option shape) | What lights, and its chip | The rest |
+| --- | --- | --- |
+| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "clears one more", "shoots" | -- |
+| `maneuver_challenge`, `loose_ball_pick` (`SendOptions`) | each candidate's meeple with its walk-in, a token a space ("on the ball" for a defender already there) | sending nobody is the ball itself -- "let it through" / "send nobody" -- only when `may_decline` |
+| `player_action` (`TurnOptions`) | the ball for the maneuver, the goal the side attacks for the shot, the side's time-out tile -- each only where offered, dark where railed | the lit line says why the others are dark |
+| `run_back_space` (`SpaceOptions`), `fly` (`FlyOptions`) | each space, with its price | Fly's Stay is neutral |
+| `high_pass_choice`, `setup_pass_choice`, `setup_pass_push_back`, `dribble_advance_choice`, `dribble_burst_choice` (`DistanceOptions`) | the space each distance lands on (`landings`), with who stands there to take a pass, a burst's cost, or how far; Quantor's run a second chip on the same space | a pass with nowhere to go is the ✕ past the far end, clicked or with the ball dragged onto it |
+| `low_pass_choice` (`LowPassOptions`) | each receiver's meeple -- or, where teammates share the landing space, the space, which asks "who receives it?" in the box | -- |
+| `speed_delta_choice` (`SpeedOptions`) | a row of d12 faces in the box | -- |
+| the six rolls (`RollOptions`) | the large die in the box; a ⚡ chip on each meeple that may declare Overdrive (with its drain) or Boost first | a score attempt's Back is neutral |
+| `mind_pull`, `smooth`, `join_the_ball`, `force_test` | the meeple the prompt names, for the yes | the no is neutral, worded from the option ("Stay", "Let it stand", "X keeps the ball") |
+| `set_up_attempt` | the goal, for the shot | the decline is neutral |
+| `coaching_offer` | nothing: the offer is about no one thing on the board | both neutral, until step 6 |
+| `maneuver_action` (`ManeuverOptions`) | the cards of this coach's own hand | how the hand is drawn is step 5's |
+| `coaching_hub` | the whistle for Done, grey with `finish_refusal` under it | the menus are neutral until step 6 |
+| `shootout_order` | -- | neutral until step 7 |
+| `tutorial_continue` | the note: anywhere on it | -- |
+| `game_over` | the REMATCH mark, which posts to the room's own route | -- |
+
+**A pickup's distance is not drawn as a price.** The run back, the
+walk-in and Fly are charged a token a space every time, so their chips
+carry the token and the count; the ball's recovery chip says only how
+far each candidate is, because a pickup after a time out is free (the
+Charter's "Picking the ball up") and `PlayerOptions.distances` carries
+the distance, not whether it is charged.
+
+**The whistle is one control for everything that ends a phase**: Done
+on the hub, Start the game on the table, and Pick it up on the owed
+strip (Lock the order joins it with step 7). A pea-whistle, gold on a
+dark disc when the position allows it and grey when it does not, with
+the reason under it: the hub's `finish_refusal`, or on the table the
+record's own `start_lobby` refusal, asked of a copy of the record
+(`server._start_refusal`), so the sentence the whistle is grey over is
+the one pressing it would have been refused with.
+
+**A distance names its landing because the model says so.** A
+distance prompt carried only the distances, and each Discord view
+worked out where its label's space was -- the ball's space moved
+forward for a pass, back for the push back, the handler's for a
+dribble. Which way a kind moves is a rule, and a page that lit a space
+would have been a third copy of it, so `DistanceOptions.landings`
+carries the space, off the measures the moves themselves take
+(`ball_destination`, `relative_move_destination`), and the two Discord
+views that measured it read it now (proposed as its own commit on step
+4's PR). A space in the layout carries its `index` so a control can
+name it.
+
+**The keyboard reads the same list.** Under the box, out of sight
+until it has the focus, are the controls in the order the options
+give: a number key presses that one, Enter the only one there is, and
+Esc backs out of an open menu or chooser (or puts a refusal away).
+
+**A lit meeple that is not on the field is answered from the box**, as
+a neutral control with its card on hover. No fixture lights a benched
+player today; the bench on the board is step 6's.
 
 **The field is drawn from scratch** (2026-09-26, step 1 of
 [../web-app-redesign.md](../web-app-redesign.md), off the design the
@@ -735,10 +819,12 @@ lanes, the visitors' above and home's below.
   pins it, clicking a pinned card or the meeple opens it full size,
   and Esc or a click elsewhere puts it away. The benches still open
   from their buttons (step 8 redraws them).
-- **What a lit piece or goal looks like is built but not yet fed**: a
-  gold outline, a gold name and a chip saying what clicking means,
-  with any cost as the token image and a count; a goal's gold ring.
-  Step 4 lights them from `PendingPrompt.options`.
+- **A lit piece or goal**: a gold outline, a gold name and a chip
+  saying what clicking means, with any cost as the token image and a
+  count; a goal's gold ring; a space dashed in gold with its chip at
+  its foot; the ball ringed in gold. What lights them is the prompt's
+  (above, "The answer is the thing on the board"); clicking a piece
+  that is not lit still opens its card.
 
 Every picture beside the field is still the model's own drawing,
 served by `webapp/pictures.py` in a worker thread and cached. The PNG

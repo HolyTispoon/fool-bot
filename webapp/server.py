@@ -38,6 +38,7 @@ a web page sees the other coach's turn as it happens.
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import os
 from pathlib import Path
@@ -96,6 +97,7 @@ from webapp.present import (
     PROMPT_PICTURES,
     Viewer,
     controls_for,
+    lit_line,
     prompt_picture_key,
     render_text,
 )
@@ -1543,6 +1545,13 @@ class WebApp:
                     game, match, prompt, journal.board_version,
                 ),
                 "controls": controls,
+                # What is lit on the board and why, and what is dark:
+                # read off the controls just built, for the question
+                # box's muted line.
+                "lit": lit_line(
+                    self.engine, game, match, prompt, viewer, controls,
+                    wire=wire,
+                ),
                 "yours": bool(controls),
                 "state": _box_state(match, prompt, bool(controls)),
                 # The maneuver pick links to the hexagon at the game's
@@ -1747,6 +1756,8 @@ class WebApp:
             "start": {
                 "owed": game.in_lobby,
                 "may": seated and game.in_lobby,
+                # Why the whistle is grey, in the record's own sentence.
+                "refusal": _start_refusal(game),
             },
             "coin": {
                 "owed": game.coin_is_owed,
@@ -1927,6 +1938,23 @@ def _period(match: MatchState) -> str:
     """The half a coach reads, worded as the board's own title words
     it."""
     return period_name(match)
+
+
+def _start_refusal(game: D12BallGame) -> Optional[str]:
+    """
+    What Start would be refused with right now, or `None`: the record's
+    own `start_lobby`, asked of a copy so nothing is changed. The
+    whistle is grey with this sentence under it, where the Discord
+    lobby answers the press with the same sentence -- one rule, read
+    before the press instead of after it.
+    """
+    if not game.in_lobby:
+        return None
+    try:
+        copy.deepcopy(game).start_lobby()
+    except RuleRefusal as refusal:
+        return str(refusal)
+    return None
 
 
 def _was_offered(sections: list, posted: Mapping[str, Any]) -> bool:
