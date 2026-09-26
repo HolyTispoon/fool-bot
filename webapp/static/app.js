@@ -202,7 +202,11 @@ function drawHeader(state) {
   el("topic").textContent = state.game.title;
   const you = el("you");
   you.replaceChildren();
-  if (state.you.is_coach) {
+  const mine = state.room.seats.find((seat) => seat.yours);
+  if (state.you.is_coach && mine && !state.game.coaches.some((one) => one.player_number === mine.number && one.team)) {
+    /* No team picked yet: the seat is what this reader holds. */
+    you.append("You hold ", h("strong", {}, mine.label));
+  } else if (state.you.is_coach) {
     const coach = state.game.coaches.find((one) => one.player_number === state.you.player_number);
     const side = coach && coach.side ? ` (${coach.side === "home" ? "Home" : "Visitors"})` : "";
     you.append(

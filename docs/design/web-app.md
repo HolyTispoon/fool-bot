@@ -20,7 +20,8 @@ side and a browser on the other; that was the proof the split worked,
 and it now lives in the tests (`tests/test_web_app.py` presses every
 prompt fixture through the same service) rather than in play.
 
-**The whole of what it is:** authenticate the person, turn what they
+**The whole of what it is:** say who the person is and which seat of
+the room they hold, turn what they
 pressed into an `Action`, call `apply_action`, render the `GameResult`.
 It is the same four lines the cog is, with `discord.Interaction`
 swapped for an HTTP request -- and it is the measure of whether the
@@ -45,7 +46,7 @@ interrupted. Four environment variables, all of the frontend's:
 | `FOOLBOT_WEB_PORT` | The port, **8080 when unset**. It used to be the switch that started a server inside the bot; there is nothing to switch on now, since running the command is the switch. |
 | `FOOLBOT_WEB_HOST` | What to bind, `0.0.0.0` by default. |
 | `FOOLBOT_WEB_URL` | What a link points at, `http://localhost:8080` by default -- the address a coach's browser can reach, which the server cannot know about itself behind a tunnel or a proxy. |
-| `FOOLBOT_WEB_SECRET` | What the coaches' keys are derived under. With none set one is made per process, and every link dies with it. |
+| `FOOLBOT_WEB_SECRET` | What a person's cookie is signed under (`webapp/keys.py`). With none set one is made per process, and every cookie dies with it. |
 
 A failure to bind raises out of `main`: nothing else is running in the
 process to carry on with.
@@ -116,26 +117,20 @@ adapters, which is where a value off a wire becomes one.
 ## Who is on the other end
 
 A Discord interaction carries the account that clicked. A browser
-carries nothing, so **the link is the credential**: `webapp/keys.py`
-derives one key per coach per game as an HMAC of the game id and the
-player number under `FOOLBOT_WEB_SECRET`. The bot's `/d12ball
-web_link` handed a coach their own until the two were separated; until
-the rooms of step 2 of [../web-app-next.md](../web-app-next.md) land,
-nothing hands one out, so there is no way in to a web game. Derived
-rather than stored,
-because a web session is not a fact about the game and the save
-format is a contract (principle 6); with no secret set, one is made
-per process and every link dies with it, which is the safe default
-for a checkout whose `.env` nobody has edited.
+carries nothing, so the web app issues its own: a name, an id and a
+signed cookie (`webapp/identity.py`). Which seat of a room that person
+holds is read by comparing the cookie's id with the record's two, the
+comparison `SafeView.may_act_for` makes with a Discord id. Rooms and
+seats have a section of their own below.
 
-A key names a coach and is not permission to do anything. What a
+A seat names a coach and is not permission to do anything. What a
 coach may *answer* is `d12ball.prompts.asked_sides`, the same reading
 the service answers an AI side by -- so the web app's gate and the
 bot's are one reading of whose question it is. A prompt nobody in
 particular is asked (every roll, the tutorial's Continue) is either
 coach's, which is what "nothing rolls dice on its own" looks like
-from this side. A viewer with no key sees the board, the score and
-what has been said, and answers nothing.
+from this side. An observer sees the board, the score and what has
+been said, and answers nothing.
 
 **A page may only send back a control it was offered**, checked in
 `webapp/server.py` before the model sees it. That is the web
@@ -146,6 +141,89 @@ it buys is that no hand-made request reaches an adapter with an
 argument no prompt ever offered -- which is the case finding 4 of the
 worksheet left open, since a bad wire value is a bug rather than a
 refusal.
+
+## Rooms, seats and who holds them
+
+Step 2 of [../web-app-next.md](../web-app-next.md), under its decision
+1: a room is created and has a link of its own; the first two people
+in are its coaches and everybody after watches; a seat may be left and
+taken again, before the game or during it; an admin may kick a seat.
+
+**Who somebody is, is a cookie and nothing else.** On a first visit
+the page asks for a name; `POST /api/me` answers with a `Coach(id,
+name)` written into one cookie as base64 JSON and an HMAC-SHA256 under
+`FOOLBOT_WEB_SECRET` (`keys.secret()`), compared with `compare_digest`
+on the way back in. A rename keeps the id. **Nothing is stored**: no
+table of people to migrate or back up, and the game record holds the
+id in a seat the way it holds a Discord id, which is why the id is an
+`int`. It is random rather than the next of a sequence because
+nothing stores the last one -- a counter would restart with the
+process and hand out ids already sitting in somebody's seat -- and it
+stops at 2**53 because it goes to a browser, which rounds a larger
+number into somebody else's. A cookie is per device, so another
+device is another person as far as the room knows; that is why a seat
+is left and taken again rather than shared. With no secret set,
+identities die with the process, which is the safe default the old
+per-game links had.
+
+**A room is a game record.** It already has everything a room needs:
+an id, a number, two seats, a status, the settings. `POST /api/rooms`
+is `create_game(in_lobby=True)` with the creator in seat 1, and
+`/room/{id}` is its page for as long as the record exists. The first
+time somebody with a name opens a room with a seat free, the server
+takes it for them through `GameService.take_seat`, so the second
+person in is Coach 2; everybody after is an observer. Only the *first*
+time: somebody who has left their seat stays out of it until they take
+one, rather than being sat back down by their next poll.
+
+**A seat changes hands on the record's rule.** `D12BallGame.take_seat`
+and `vacate_seat` are the room's two moves, beside the lobby's own
+(which stay as they are: the Discord lobby depends on the creator's
+seat shifting when they leave, and on the moves closing at start).
+Neither moves the other seat, and both refuse with `RuleRefusal`,
+which the page shows as the record's sentence. **Why a seat may change
+hands mid-game, and what keeps it safe:** everything the match keeps
+about a side is by player *number* -- `home_player_number`,
+`coin_winner_player_number` -- never by id, so a new id in seat 1 is
+the same side, asked the same question, with the same position
+(`tests/test_game_seats.py` takes the seat mid-match and compares the
+prompt). `player_1_id` became `Optional[int]` for it; `None` is
+written only by `vacate_seat`, so a save made before the rooms never
+carries it.
+
+**Seat 2 is never emptied outside the lobby.** An empty `player_2_id`
+is how the record says the AI plays that side (`is_solo_game`, which
+`side_controlled_by_ai` reads), and older saves say so with
+`ai_opponent` unset too, so an emptied human seat 2 would be handed to
+Dinky on the next turn. Until the record can tell the two apart,
+`vacate_seat` refuses seat 2 once the lobby has closed, and a test
+game's one coach, who holds both seats. This is open with the author
+(the PR for step 2); seat 1 changes hands at any time.
+
+**Roles are the frontend's, in its own file.** Who is admin in a room,
+and who has been in, is `webapp/rooms.py`, in
+`data/d12ball_web_rooms.json` beside the games: written on every
+change, read at start, a room the games file has lost dropped on load,
+and a failed write logged and swallowed the way `save_games` swallows
+its own. Never on the game record, because the save format is the
+contract and a room role is not a fact about the game -- no rule reads
+it. Anybody may become admin, by a button of its own behind "Take the
+admin role for this room?"; a kick is refused unless the caller is an
+admin, and is `vacate_seat` for the seated id behind "Are you sure?".
+That is the frontend's authorisation over the record's rule, the way a
+Discord helper's `manage_channels` gates a click the record then
+judges. **What is not here is a second gate**: the identity says which
+seat, never whether the seat may act.
+
+**The seat names follow the coin.** The winner of the toss chooses
+home or visiting (the Charter's "Winning the toss"), so no seat is
+Home before it: the seats are Coach 1 and Coach 2 until the record's
+`home_player_number` says otherwise, then Home Team Coach and Visitors
+Team Coach, read off the record and never worked out here. The
+state's `room` carries both seats (their label, their holder's name
+or the AI's, and which is yours), how many are watching, whether the
+reader is an admin, and their role: `observer`, `coach`, or `home` /
+`visiting` once the coin has settled it.
 
 ## Its own process, its own file, a lock per game
 
@@ -340,11 +418,11 @@ it here, headlines at all three of the levels the model writes.
 
 ## What it does not do yet
 
-- **It does not create games, and nobody can reach one.** Its games
-  file starts empty, and no link is handed out. Rooms and seats are
-  step 2 of [../web-app-next.md](../web-app-next.md), and the table
-  that sets a game up is step 3; the service has the setup methods, so
-  both are work rather than a question.
+- **A room cannot be set up or kicked off from the page.** A room
+  opens in its lobby with its seats, and nothing past that yet: the
+  table that sets a game up is step 3 of
+  [../web-app-next.md](../web-app-next.md), and the service has the
+  setup methods, so it is work rather than a question.
 - **It does not draw most of the pictures a prompt rides on** -- the
   field strip, the challenge image, the coach's half-field, the dice.
   They are `D12Ball.render_prompt`'s, keyed on the kind, and the web
