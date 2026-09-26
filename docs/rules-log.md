@@ -208,12 +208,15 @@ on the pull request that brought it in.
   pass Zytheris receives, with a High Pass of 3 or more offering the shot in place of the contest,
   as an overshoot does.
 
-**Not applied: the Playmaker's sentence.** The `basic_abilities` tab now reads *"May advance an
-additional space when resolving Dribble maneuvers."* -- plural -- where it read *"May advance 2
-spaces when resolving Dribble Advance."* On a Dribble Burst that would be a run of up to 5, and
-the author ruled on 2026-08-19 that the Playmaker's Burst is one token fewer instead. The
-abbreviated column still reads "Dribble Advance up to 2". The ruling stands until the author
-says otherwise; this is asked on the pull request.
+**The Playmaker runs further on a Dribble Burst.** The `basic_abilities` tab now reads *"May
+advance an additional space when resolving Dribble maneuvers."* -- plural -- where it read *"May
+advance 2 spaces when resolving Dribble Advance."* Asked whether that overrides the ruling of
+2026-08-19 (a Playmaker's Burst is one token fewer), the author: *"This rule was changed and
+superceded. It's no longer 'one token fewer' on a dribble burst."* So the sheet's sentence is
+the rule: a Playmaker's Dribble Burst may run 1 space further, up to 5, at the ordinary token a
+space. Emberdash, a Playmaker, runs the same 5, for nothing. The abbreviated column still reads
+"Dribble Advance up to 2", which the card prints and is the sheet's to update. **The Dribble
+Burst half of 2026-08-19 is superseded.**
 
 ### 2026-09-25 (last) -- author and sheet, Volatile decides no cost, and the personal abilities move on
 
@@ -1448,6 +1451,8 @@ end of the field. All three were left unapplied pending this.
   one that does. A Dribble Burst's distance is not a choice, so the ability lands on the one
   thing the card has that its counterpart does not: it **pays one exhaustion token fewer** for
   the run. Floored at 0 — a discount cannot hand a token back.
+  *Superseded on 2026-09-26*: a Playmaker's Burst runs 1 space further instead -- see that
+  entry.
 
 Nothing here is in the sheet: the `Interactions` column still carries the counterpart's
 sentences. The cards print what the ability does on the card it is on, out of `EXTRA_NOTES`.
@@ -2844,7 +2849,6 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
 | The maneuvers sheet's `Mode` column reads `basic` / `advanced` | A gambit, on the rank of a basic maneuver. The importer keeps the sheet's word as the tier value, so a fresh pull rewrites it unchanged |
 | Smooth: "the ball moves to or through your space" (the `spec_abilities` tab, and so `species.json` and the printed species cards) | Only where the ball comes to rest -- a Telekinetic it passes through is offered nothing (2026-09-24) |
-| Playmaker: "May advance an additional space when resolving Dribble maneuvers" (the `basic_abilities` tab, 2026-09-26) | Dribble Advance up to 2; a Dribble Burst one token fewer (2026-08-19) -- asked, not yet answered |
 
 ---
 

@@ -122,7 +122,7 @@ Every player has an **offensive skill** from 1 to 6 and a **defensive skill** th
 | Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Pass up to 4, a Deflect of 2, a Clear of 4, a Setup Pass that may also reach 4. |
 | Defender | 2 | 5 | A won Pressure also steals the ball. |
 | Midfielder | 3 | 4 | Adds 3 to a skill test for a Low Pass or a Pressure. |
-| Playmaker | 4 | 3 | May advance 2 spaces with a Dribble Advance, and pays one exhaustion token fewer for a Dribble Burst. |
+| Playmaker | 4 | 3 | May advance an additional space with a dribble: a Dribble Advance of 2, a Dribble Burst of up to 5. |
 | Winger | 5 | 2 | A completed Low Pass may set up a scoring opportunity. |
 | Striker | 6 | 1 | Adds 3 to a score attempt taken off a set-up. |
 
@@ -973,11 +973,11 @@ Ball speed rises by **3**, to a maximum of 12. Everything else is a Low Pass's: 
 
 **Rank O2. Costs 1 space minute. Beats Deflect and Clear, loses to Pressure and Double Team.**
 
-The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler adds **1 exhaustion per space travelled**. A handler within 4 spaces of the end of the field may run only as far as the field goes.
+The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler adds **1 exhaustion per space travelled**. A handler nearer the end of the field than their run may go only as far as the field goes.
 
 *Note.* It is the only maneuver that charges by distance, which is what makes the shorter runs worth taking.
 
-*Playmaker:* pays one token fewer for the run.
+*Playmaker:* may run 1 space further -- up to 5 -- at the same token a space.
 
 The ball is left with the handler **at speed 12** -- not a choice, and not bounded by anybody's skill.
 
