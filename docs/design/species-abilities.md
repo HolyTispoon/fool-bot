@@ -641,6 +641,21 @@ why there is no `spread_link` on `MatchState` and no `CoachingSpreadView`.
   furthest plumbing (`position_meeple` has no `game` today) for the least
   certain payoff -- worth revisiting if the author confirms it, not
   inferred.
+- **Every Coaching Choice reminds the coach, since there is nothing to
+  click.** A side fielding any exempt Ooze gets `SPREADABLE_NOTE` ("Your
+  Spreadable Oozes may be positioned in the same space as a teammate", the
+  author, 2026-09-25) under every window it is offered or given, from
+  `RulesEngine.spreadable_note`. It rides in `coaching_prompt` and in
+  `prompts._window`'s ask rather than in `coaching_window_note`, because
+  that note belongs to the step that opened the window and the next hub
+  action writes over it; the reminder holds for the whole window, and the
+  web app reads the ask `pending` builds rather than the opening one. The
+  window before the shootout positions nobody, so it says nothing there.
+  **It is a reminder of the coverage rule, not a promise about Space
+  Positioning**: `positioning_swap_candidates` above still trades a lone
+  Ooze with the teammate on its target, so in a Coaching Choice an Ooze
+  comes to share a space by a formation's stack, or by a teammate moving
+  onto it off a shared space.
 - **Neither the formation's zone headcount nor kickoff-space coverage reads
   the exemption.** `current_formation` and `kickoff_space_occupied_by` are
   untouched: an exempt Ooze still counts once toward its zone's shape, and

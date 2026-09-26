@@ -111,7 +111,8 @@ from flow_stubs import (
 )
 from save_patches import suppressed_cog_saves
 from d12ball.flow.injuries import injury_test_ask, injury_test_step
-from d12ball.flow.windows import coaching_window_note
+from d12ball.flow.windows import coaching_window_note, open_substitution_window
+from d12ball.engine import SPREADABLE_NOTE
 from d12ball.flow.periods import begin_halftime, halftime_extra_token_step
 from d12ball.components import CoachingOccasion
 from d12ball.render import render_injury_test_die
@@ -2290,6 +2291,72 @@ class SpreadableTests(unittest.TestCase):
         self.assertEqual(
             self.match.board.meeple_position(mover), (zone, own_index),
         )
+
+
+class SpreadableNoteTests(unittest.TestCase):
+    """
+    Every Coaching Choice a side fielding Spreadable Oozes is offered or
+    given reminds its coach they may share a teammate's space (the
+    author, 2026-09-25) -- on the window's opening prompt, and on the
+    ask `pending_prompt` reads back for as long as the window is open.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+
+    def opened(self, game: D12BallGame, side: TeamSide, occasion):
+        match = build_match(self.engine, game)
+        result = open_substitution_window(
+            self.engine, game, match, side, occasion,
+        )
+        return match, result.next.ask
+
+    def test_the_offer_and_the_hub_both_carry_it(self) -> None:
+        game = build_game(player_1_team=Team.OOZES)
+        match, ask = self.opened(
+            game, TeamSide.HOME, CoachingOccasion.NEW_PLAY,
+        )
+        self.assertIn(SPREADABLE_NOTE, ask)
+        offer = pending_prompt(self.engine, game, match)
+        self.assertIs(offer.kind, PromptKind.COACHING_OFFER)
+        self.assertIn(SPREADABLE_NOTE, offer.ask)
+
+        match.declare_coaching()
+        hub = pending_prompt(self.engine, game, match)
+        self.assertIs(hub.kind, PromptKind.COACHING_HUB)
+        self.assertIn(SPREADABLE_NOTE, hub.ask)
+
+    def test_setup_carries_it(self) -> None:
+        game = build_game(player_1_team=Team.OOZES)
+        _, ask = self.opened(game, TeamSide.HOME, CoachingOccasion.SETUP)
+        self.assertIn(SPREADABLE_NOTE, ask)
+
+    def test_a_mixed_side_fielding_an_ooze_is_told(self) -> None:
+        game = build_game(player_1_team=Team.PURPLE)
+        match, ask = self.opened(
+            game, TeamSide.HOME, CoachingOccasion.NEW_PLAY,
+        )
+        self.assertTrue(fielded_of_species(match, SPECIES_OOZE))
+        self.assertIn(SPREADABLE_NOTE, ask)
+
+    def test_a_side_without_oozes_is_not_told(self) -> None:
+        game = build_game(
+            player_1_team=Team.OOZES, player_2_team=Team.FIRE_DEMONS,
+        )
+        _, ask = self.opened(
+            game, TeamSide.VISITING, CoachingOccasion.NEW_PLAY,
+        )
+        self.assertNotIn(SPREADABLE_NOTE, ask)
+
+    def test_training_mode_says_nothing(self) -> None:
+        game = build_game(player_1_team=Team.OOZES, mode=GameMode.TRAINING)
+        _, ask = self.opened(game, TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        self.assertNotIn(SPREADABLE_NOTE, ask)
+
+    def test_the_window_before_the_shootout_says_nothing(self) -> None:
+        game = build_game(player_1_team=Team.OOZES)
+        _, ask = self.opened(game, TeamSide.HOME, CoachingOccasion.FULL_TIME)
+        self.assertNotIn(SPREADABLE_NOTE, ask)
 
 
 class BallPathTests(unittest.TestCase):

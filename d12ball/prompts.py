@@ -1834,8 +1834,17 @@ def _window(
     window it is. An AI side's is the same prompt -- it answers it
     through the service, one hub action at a time, the way a coach
     does (step 7 of docs/architecture-migration.md).
+
+    The Spreadable reminder is part of the window's ask wherever the
+    window is read, not only where it opened -- see
+    `RulesEngine.spreadable_note`.
     """
-    return PendingPrompt(kind, ask, side=TeamSide(match.pending_coaching_side))
+    side = TeamSide(match.pending_coaching_side)
+    ask = "\n".join(
+        part for part in (ask, engine.spreadable_note(game, match, side))
+        if part
+    )
+    return PendingPrompt(kind, ask, side=side)
 
 
 def _stage_window(
