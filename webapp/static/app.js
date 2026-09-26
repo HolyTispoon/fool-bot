@@ -441,9 +441,11 @@ function drawBoard(state) {
   el("benches").append(...layout.team_boards.map(bench));
 }
 
-/* The field as the bot draws it: the visitors' cards over each zone,
-   the spaces, the range bands, the home side's cards under it. The
-   jumbotron has its own panel, and the benches open on demand. */
+/* The field, drawn from scratch (docs/web-app-redesign.md, step 1): a
+   dark stage with the zone names over a row of spaces between the two
+   goals, and the shooting ranges under it. Every value on it is
+   `webapp/board.py`'s; the jumbotron has its own panel, and the
+   benches open on demand. */
 function stage(layout, { live }) {
   return h(
     "div",
@@ -453,119 +455,196 @@ function stage(layout, { live }) {
 }
 
 function pitch(layout) {
-  const count = layout.spaces.length;
-  const grid = h("div", {
-    class: "pitch",
-    style: `grid-template-columns: 62px repeat(${count}, minmax(0, 1fr)) 62px`,
-  });
-
-  grid.append(
-    h("div", { class: "field-frame", style: `grid-column: 2 / ${count + 2}` }),
-    goal("home", layout.goals.home, 1),
-    goal("visiting", layout.goals.visiting, count + 2),
-  );
-
-  let column = 2;
-  let first = 0;
-  for (const zone of layout.zones) {
-    const span = `grid-column: ${column} / span ${zone.spaces}`;
-    grid.append(
-      h("div", { class: "cards-row visiting", style: `${span}; grid-row: 1` },
-        zone.visiting.map((card) => playerCard(card))),
-      h("div", { class: "cards-row home", style: `${span}; grid-row: 4` },
-        zone.home.map((card) => playerCard(card))),
-      h(
-        "div",
-        { class: "zone", style: `${span}; background: ${zone.fill}` },
-        h("div", { class: "zone-label" }, zone.label),
-        h(
-          "div",
-          {
-            class: "spaces",
-            style: `grid-template-columns: repeat(${zone.spaces}, minmax(0, 1fr))`,
-          },
-          layout.spaces.slice(first, first + zone.spaces).map((one) => space(one, layout)),
-        ),
-      ),
-    );
-    column += zone.spaces;
-    first += zone.spaces;
-  }
-
-  for (const band of layout.bands) {
-    grid.append(
+  const zones = h(
+    "div",
+    { class: "field-row zone-names" },
+    layout.zones.map((zone) =>
       h(
         "div",
         {
-          class: band.side ? "band side" : "band neutral",
-          style: `grid-column: ${band.first + 2} / ${band.last + 3}`,
+          class: "zone-name",
+          style: `flex: ${zone.spaces}${zone.colour ? `; color: ${zone.colour}` : ""}`,
         },
-        band.label || "",
-      ),
-    );
-  }
-  return grid;
-}
-
-/* An end zone, as the bot's board draws it (`render.draw_end_zone`). */
-function goal(side, url, column) {
-  return h(
-    "div",
-    { class: `goal ${side}`, style: `grid-column: ${column}` },
-    h("img", { src: url, alt: "", draggable: "false" }),
+        zone.label,
+      )),
   );
-}
-
-/* How wide a meeple is on the stage. Everything else about the piece
-   -- its height, where its icon and letters sit, the ball beside it --
-   is a share of this, in `render.py`'s own numbers
-   (`webapp/board.py`, `meeple_geometry`). */
-const MEEPLE_WIDTH = 42;
-
-function space(one, layout) {
-  const g = layout.meeple;
-  const half = (side) => {
-    const players = one[side];
-    const holds = one.ball && one.ball.side === side;
-    const ball = holds ? d12(String(one.ball.speed), g) : null;
-    /* Each name under its own meeple, a line further down for each
-       player along the row, as `draw_meeple_group` lists them. */
-    const pieces = players.map((m, index) =>
+  const spaces = h(
+    "div",
+    { class: "field-spaces" },
+    goal("home", layout.jumbotron.home.colour),
+    layout.spaces.map((one) => space(one, layout)),
+    goal("visiting", layout.jumbotron.visiting.colour),
+  );
+  const bands = h(
+    "div",
+    { class: "field-row bands" },
+    layout.bands.map((band) =>
       h(
         "div",
-        { class: "piece" },
-        meeple(m, layout),
-        h("div", { class: "piece-name", style: `margin-top: ${index * 1.15}em` }, m.name),
-      ));
-    const row = side === "home" ? [...pieces, ball] : [ball, ...pieces];
-    return h(
-      "div",
-      { class: `half ${side}${holds && !players.length ? " ball-only" : ""}` },
-      row,
-    );
-  };
+        {
+          class: `band${band.lit ? " lit" : ""}`,
+          style: `flex: ${band.last - band.first + 1}${band.colour ? `; --team: ${band.colour}` : ""}`,
+        },
+        band.label,
+      )),
+  );
+  return h("div", { class: "pitch" }, zones, spaces, bands);
+}
+
+/* A goal: a slab in the defending side's colour with GOAL along it,
+   the d12 showing 12 for its O, turned to read along the goal. It is
+   lit when a prompt names it (`lit`). */
+function goal(side, colour, { lit = false } = {}) {
   return h(
     "div",
-    { class: "space" },
-    h("span", { class: "space-code" }, one.code),
-    half("visiting"),
-    half("home"),
+    {
+      class: `goal ${side}${lit ? " lit" : ""}`,
+      style: `--team: ${colour}`,
+      role: "img",
+      "aria-label": `The ${side === "home" ? "home" : "visitors'"} goal`,
+    },
+    h(
+      "span",
+      { class: "goal-word" },
+      h("span", {}, "G"),
+      die("12", { size: 56, fill: "#0c141c", ink: colour, font: 24 }),
+      h("span", {}, "A"),
+      h("span", {}, "L"),
+    ),
   );
 }
 
-function meeple(m, layout) {
+function space(one, layout) {
+  const loose = one.ball && !one[one.ball.side].length;
+  return h(
+    "div",
+    {
+      class: one.tint ? "space tinted" : "space",
+      style: one.tint ? `--tint: ${one.tint}` : null,
+    },
+    h("span", { class: "space-code" }, one.code),
+    one.kickoff ? h("span", { class: "kickoff-ring" }) : null,
+    h("div", { class: "lane visiting" }, fanOf(one, "visiting", layout)),
+    h("div", { class: "lane home" }, fanOf(one, "home", layout)),
+    loose ? h("span", { class: "loose-ball" }, ball(one.ball.speed, 36)) : null,
+  );
+}
+
+/* One team's meeples on a space, overlapped where `board.py` placed
+   them, back to front, with each name on its own line under the fan
+   (the front piece's first) and every badge and the ball drawn over
+   the whole of it. `marks` is what a prompt lights: a piece's id to
+   the chip saying what clicking it means. */
+function fanOf(one, side, layout, marks = {}) {
+  const drawn = one.fans[side];
+  if (!drawn.pieces.length) return null;
+  const g = layout.meeple;
+  const W = g.width;
+  const H = (W * g.box[3]) / g.box[2];
+  const tall = Math.max(...drawn.pieces.map((p) => p.y)) + H;
+  const box = h("span", { class: "fan", style: `width: ${drawn.width}px` });
+  const over = [];
+  drawn.pieces.forEach((piece, index) => {
+    const lit = piece.id in marks;
+    box.append(
+      h(
+        "span",
+        {
+          class: "fan-piece",
+          style: `left: ${piece.x}px; top: ${piece.y}px; z-index: ${index + 1}`,
+        },
+        meeple(piece, layout, { lit }),
+      ),
+    );
+    if (piece.exhaustion) {
+      over.push(h(
+        "span",
+        {
+          class: "badge tokens",
+          style: `left: ${piece.x + W * 0.62}px; top: ${piece.y + H * 0.68}px`,
+          title: `${piece.exhaustion.count} ${piece.exhaustion.emoji === "exhaust" ? "exhaustion" : "drain"}`,
+        },
+        h("img", { src: `/emoji/${piece.exhaustion.emoji}.png`, alt: "" }),
+        String(piece.exhaustion.count),
+      ));
+    }
+    if (piece.condition) {
+      over.push(h(
+        "span",
+        {
+          class: "badge condition",
+          style: `left: ${piece.x - 8}px; top: ${piece.y + H - 14}px`,
+          title: piece.condition[0].toUpperCase() + piece.condition.slice(1),
+        },
+        h("img", { src: `/emoji/${piece.condition}.png`, alt: piece.condition }),
+      ));
+    }
+    if (one.ball && one.ball.holder === piece.id) {
+      /* Off the top right of a home holder, almost touching the
+         shoulder; off the bottom left of a visiting one, over the edge
+         by the foot. */
+      const place = side === "home"
+        ? `left: ${piece.x + W * 0.66}px; top: ${piece.y - 22}px`
+        : `left: ${piece.x - 18}px; top: ${piece.y + H - 30}px`;
+      over.push(h("span", { class: "held-ball", style: place }, ball(one.ball.speed, 30)));
+    }
+  });
+  /* Names front first, each centred under its own piece. */
+  let line = tall + 4;
+  const byId = Object.fromEntries(drawn.pieces.map((p) => [p.id, p]));
+  for (const id of drawn.names) {
+    const piece = byId[id];
+    const lit = id in marks;
+    over.push(h(
+      "span",
+      { class: `fan-name${lit ? " lit" : ""}`, style: `left: ${piece.x + W / 2}px; top: ${line}px` },
+      piece.name,
+    ));
+    line += 16;
+    if (lit && marks[id]) {
+      over.push(h(
+        "span",
+        { class: "fan-chip-line", style: `left: ${piece.x + W / 2}px; top: ${line}px` },
+        chip(marks[id]),
+      ));
+      line += 18;
+    }
+  }
+  box.append(...over);
+  box.style.height = `${line}px`;
+  return box;
+}
+
+/* What clicking a lit piece means, with any cost as the token image
+   and a count -- never the word "token". */
+function chip(mark) {
+  return h(
+    "span",
+    { class: "chip" },
+    mark.label,
+    mark.cost
+      ? h("span", { class: "chip-cost" },
+        h("img", { src: `/emoji/${mark.cost.emoji}.png`, alt: "" }),
+        `×${mark.cost.count}`)
+      : null,
+  );
+}
+
+function meeple(m, layout, { lit = false } = {}) {
   const g = layout.meeple;
   const [left, top, width, height] = g.box;
-  const W = MEEPLE_WIDTH;
+  const W = g.width;
   const H = (W * height) / width;
   const icon = layout.species_icons && m.species;
   const center = icon ? g.role_center : g.solo_center;
   const node = h(
-    "div",
+    "button",
     {
-      class: "meeple",
+      type: "button",
+      class: `meeple${lit ? " lit" : ""}`,
       style: `width: ${W}px; height: ${H}px; color: ${m.ink}`,
       title: `${m.name} [${m.role}]`,
+      "aria-label": `${m.name} [${m.role}]`,
       onclick: (event) => { event.stopPropagation(); openCard(m.id); },
     },
     s(
@@ -574,8 +653,8 @@ function meeple(m, layout) {
       s("path", {
         d: g.path,
         fill: m.colour,
-        stroke: m.ink,
-        "stroke-width": String(g.stroke),
+        stroke: lit ? GOLD : m.ink,
+        "stroke-width": String(lit ? g.stroke * 1.5 : g.stroke),
         "stroke-linejoin": "round",
       }),
     ),
@@ -599,33 +678,37 @@ function meeple(m, layout) {
   return node;
 }
 
-/* The ball: a white d12 the size `BALL_RADIUS` makes it beside a
-   meeple, its speed in the board's small regular face, both in the
-   bot's dark blue. */
-function d12(label, g) {
-  const size = g.ball * MEEPLE_WIDTH;
-  /* Centred on the meeples' height, as `ball_y` centres it on theirs. */
-  const tall = (MEEPLE_WIDTH * g.box[3]) / g.box[2];
+const GOLD = "#f0b232";
+
+/* The ball: the d12 showing its speed, on a dark ring. */
+function ball(speed, size) {
+  return die(String(speed), {
+    size, fill: "#ffffff", ink: "#243347", font: size * 0.44, ring: true,
+  });
+}
+
+/* A d12 face-on: the ten-sided outline the design draws, a number on it. */
+function die(label, { size, fill, ink, font, ring = false }) {
   const points = [];
-  for (let i = 0; i < 12; i += 1) {
-    const angle = (Math.PI / 6) * i - Math.PI / 2;
+  for (let i = 0; i < 10; i += 1) {
+    const angle = (Math.PI / 5) * i - Math.PI / 2;
     points.push(`${(Math.cos(angle) * 50).toFixed(2)},${(Math.sin(angle) * 50).toFixed(2)}`);
   }
   return s(
     "svg",
     {
-      class: "ball",
-      viewBox: "-53 -53 106 106",
+      class: ring ? "die ringed" : "die",
+      viewBox: "-52 -52 104 104",
       width: size,
       height: size,
-      style: `margin-top: ${(tall - size) / 2}px`,
-      "aria-label": `ball, speed ${label}`,
+      role: "img",
+      "aria-label": `d12 showing ${label}`,
     },
     s("polygon", {
       points: points.join(" "),
-      fill: "#ffffff",
-      stroke: "#243347",
-      "stroke-width": String((3 / 27) * 50),
+      fill,
+      stroke: ink,
+      "stroke-width": String((2 / size) * 100),
     }),
     s(
       "text",
@@ -634,9 +717,9 @@ function d12(label, g) {
         y: "0",
         "text-anchor": "middle",
         "dominant-baseline": "central",
-        "font-size": String(g.ball_font * 100),
-        "font-family": "Board, sans-serif",
-        fill: "#243347",
+        "font-size": String((font / size) * 100),
+        "font-weight": "800",
+        fill: ink,
       },
       label,
     ),
@@ -745,17 +828,19 @@ function watchFit(box) {
   fit(box);
 }
 
-/* A name is centred under its meeple and kept inside the space's own
-   border, as `draw_meeple_group` keeps it (10px in on a 2200px board). */
+/* A name is centred under its own piece and kept inside its space,
+   which clips whatever is left over: nothing on the field leaves the
+   space it stands on. Measured in layout pixels, before the stage's
+   scale, so it is the same on every screen. */
 function clampNames(root) {
-  for (const name of root.querySelectorAll(".piece-name")) {
+  for (const name of root.querySelectorAll(".fan-name, .fan-chip-line")) {
     name.style.setProperty("--nudge", "0px");
-    const piece = name.parentElement;
-    const space = piece.closest(".space");
-    if (!space || !name.offsetWidth) continue;
-    const left = piece.offsetLeft + piece.offsetWidth / 2 - name.offsetWidth / 2;
-    const least = 5;
-    const most = space.clientWidth - 5 - name.offsetWidth;
+    const fan = name.offsetParent;
+    const space = name.closest(".space");
+    if (!fan || !space || !name.offsetWidth) continue;
+    const left = fan.offsetLeft + name.offsetLeft - name.offsetWidth / 2;
+    const least = 4;
+    const most = space.clientWidth - 4 - name.offsetWidth;
     const nudge = Math.max(least, Math.min(left, most)) - left;
     name.style.setProperty("--nudge", `${nudge}px`);
   }
@@ -1328,39 +1413,120 @@ function openBoardOnPhone() {
   }
 }
 
-/* The printed card under the pointer, where there is a pointer. */
+/* The player's card beside a meeple (or a bench card): shown while
+   the pointer is on it, or after a press and hold on a touch screen.
+   Clicking the card pins it where it is; clicking a pinned card opens
+   it full size, as clicking the meeple does. Esc, or a click anywhere
+   else, puts it away. The picture is the model's own, in the face the
+   game's mode plays (`pictures.player_card_png`). */
+const HOLD_MS = 450;
+let peekHide = null;
+let peekFor = null;
+let heldOpen = false;
+
 function hoverCard(node, url) {
-  node.addEventListener("mouseenter", (event) => {
-    if (finePointer()) showPeek(url, event);
+  node.addEventListener("mouseenter", () => {
+    if (!finePointer() || el("peek").classList.contains("pinned")) return;
+    showPeek(url, node);
   });
-  node.addEventListener("mousemove", movePeek);
-  node.addEventListener("mouseleave", hidePeek);
+  node.addEventListener("mouseleave", () => {
+    if (!el("peek").classList.contains("pinned")) hidePeekSoon();
+  });
+  let hold = null;
+  let from = null;
+  const cancel = () => { clearTimeout(hold); hold = null; };
+  node.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "touch") return;
+    from = [event.clientX, event.clientY];
+    cancel();
+    hold = setTimeout(() => {
+      hold = null;
+      heldOpen = true;
+      showPeek(url, node, { pinned: true });
+    }, HOLD_MS);
+  });
+  node.addEventListener("pointermove", (event) => {
+    if (hold && from && Math.hypot(event.clientX - from[0], event.clientY - from[1]) > 8) cancel();
+  });
+  node.addEventListener("pointerup", () => {
+    cancel();
+    /* A long press may or may not end in a click; either way the
+       next tap is a tap. */
+    if (heldOpen) setTimeout(() => { heldOpen = false; }, 400);
+  });
+  node.addEventListener("pointercancel", cancel);
+  node.addEventListener("contextmenu", (event) => {
+    if (heldOpen) event.preventDefault();
+  });
+  /* The click a hold ends in only opens the card; it is not a tap. */
+  node.addEventListener("click", (event) => {
+    if (!heldOpen) return;
+    heldOpen = false;
+    event.stopImmediatePropagation();
+    event.preventDefault();
+  }, true);
 }
 
-function showPeek(url, event) {
+function showPeek(url, anchor, { pinned = false } = {}) {
+  clearTimeout(peekHide);
   const peek = el("peek");
   const image = peek.firstElementChild;
   if (image.getAttribute("src") !== url) image.src = url;
+  peekFor = { url, cardId: decodeURIComponent(url.split("/card/")[1].split(".png")[0]) };
+  peek.classList.toggle("pinned", pinned);
   peek.hidden = false;
-  movePeek(event);
+  placePeek(anchor);
 }
 
-function movePeek(event) {
+/* Beside what it belongs to: to the right, or the left where the
+   right has no room, and kept on the screen. */
+function placePeek(anchor) {
   const peek = el("peek");
-  if (peek.hidden) return;
-  const width = 260;
-  const height = 364;
-  let x = event.clientX + 18;
-  let y = event.clientY - height / 2;
-  if (x + width > window.innerWidth - 8) x = event.clientX - width - 18;
+  const box = anchor.getBoundingClientRect();
+  const width = Math.min(260, window.innerWidth - 16);
+  const height = width * (364 / 260);
+  let x = box.right + 12;
+  if (x + width > window.innerWidth - 8) x = box.left - width - 12;
+  x = Math.max(8, Math.min(x, window.innerWidth - width - 8));
+  let y = box.top + box.height / 2 - height / 2;
   y = Math.max(8, Math.min(y, window.innerHeight - height - 8));
   peek.style.left = `${x}px`;
   peek.style.top = `${y}px`;
 }
 
-function hidePeek() {
-  el("peek").hidden = true;
+function hidePeekSoon() {
+  clearTimeout(peekHide);
+  peekHide = setTimeout(hidePeek, 160);
 }
+
+function hidePeek() {
+  clearTimeout(peekHide);
+  const peek = el("peek");
+  peek.hidden = true;
+  peek.classList.remove("pinned");
+  peekFor = null;
+}
+
+el("peek").addEventListener("mouseenter", () => clearTimeout(peekHide));
+el("peek").addEventListener("mouseleave", () => {
+  if (!el("peek").classList.contains("pinned")) hidePeekSoon();
+});
+el("peek").addEventListener("click", (event) => {
+  event.stopPropagation();
+  const peek = el("peek");
+  if (!peek.classList.contains("pinned")) {
+    peek.classList.add("pinned");
+    return;
+  }
+  if (peekFor) openCard(peekFor.cardId);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !el("peek").hidden) hidePeek();
+});
+document.addEventListener("pointerdown", (event) => {
+  if (el("peek").hidden || event.target.closest("#peek")) return;
+  if (el("peek").classList.contains("pinned")) hidePeek();
+});
 
 // -- Wiring ------------------------------------------------------------------
 
