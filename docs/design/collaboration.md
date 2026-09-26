@@ -46,7 +46,9 @@ person's development checkout. So:
   the swallowed-save handling in [gotchas.md](gotchas.md) was written for -- when the mount
   goes away mid-game every `save_games` raises.
 
-**One bot per token, and `scripts/update_main_bot.ps1` is what enforces it.**
+**One bot per token, and `scripts/update_main_bot.ps1` is what enforces it**
+(run on the host as `scripts\update_main_bot.cmd`; see "Keeping it
+running" below for why through the launcher).
 Discord lets a token hold more than one gateway session and delivers every
 interaction to all of them, so a second bot on the same token is not a spare:
 one of them answers and the rest fail on their own first line with
@@ -179,11 +181,37 @@ thing between that request and the cookie.
 `scripts/run_web_app.ps1` is `update_main_bot.ps1`'s process handling
 for the web app, and nothing else:
 
+From the checkout's root folder, through the two launchers beside the
+scripts:
+
 ```powershell
-.\scripts\update_main_bot.ps1 -RepoPath 'K:\...\fool-bot'   # pull, install, restart the bot
-.\scripts\run_web_app.ps1     -RepoPath 'K:\...\fool-bot'   # restart the web app on the same tree
-.\scripts\run_web_app.ps1     -RepoPath 'K:\...\fool-bot' -StopOnly
+.\scripts\update_main_bot.cmd          # pull, install, restart the bot
+.\scripts\run_web_app.cmd              # restart the web app on the same tree
+.\scripts\run_web_app.cmd -StopOnly
 ```
+
+(The same lines work in `cmd.exe`, without the comments.)
+
+- **Run them through the `.cmd` launchers, never as `.\x.ps1`.** The
+  checkout is on the Google Drive letter, and on that host the shell's
+  policy is `RemoteSigned` (set per window; every other scope is
+  `Undefined`, so a plain window is `Restricted` and runs no script at
+  all). `RemoteSigned` treats `K:\` as remote and refuses both scripts
+  as unsigned (`... is not digitally signed. You cannot run this script
+  on the current system`). A launcher runs its script with
+  `powershell -ExecutionPolicy Bypass -File`, which lifts the policy for
+  that one run and changes no setting on the machine -- the way
+  `scripts/update-main-bot.sh` has always launched the updater over
+  SSH. That is why it is preferred over `Set-ExecutionPolicy` (every
+  script for the account, forever) and over signing (a certificate,
+  and a re-sign on every change to either script).
+- A launcher fills in `-RepoPath` with the folder above `scripts\`,
+  so it is not passed; every other option goes after it
+  (`update_main_bot.cmd -Branch <name>`, `-SkipPull`). It exits with
+  the script's own code, so a failed start fails the caller.
+- `.gitattributes` holds `*.cmd` to CRLF, since `cmd.exe` misreads a
+  batch file with bare LF endings and the Mac checkout would otherwise
+  commit them that way.
 
 - **It does not pull or install.** The checkout and the `.venv` are the
   bot's too, and moving them is the updater's; a web script that pulled
@@ -203,9 +231,8 @@ for the web app, and nothing else:
   way it does.
 - **Nothing restarts it on a crash or a reboot**, the same as the bot.
   To have it come back after a reboot, a Task Scheduler task "At log
-  on" running `powershell -ExecutionPolicy Bypass -File
-  <checkout>\scripts\run_web_app.ps1 -RepoPath <checkout>` is the
-  obvious shape -- at log on rather than at startup, because the `K:\`
+  on" running `<checkout>\scripts\run_web_app.cmd` is the obvious
+  shape -- at log on rather than at startup, because the `K:\`
   Google Drive letter is mounted per user and is not there before
   somebody logs in.
 
@@ -238,8 +265,12 @@ the shape, not a promise.
    can run your tunnel -- so it goes nowhere else, and never in the
    repository.
 4. **Give it the public hostname:** on the same tunnel, *Public
-   Hostname* -> subdomain `play`, domain `d12ball.com`, service type
-   `HTTP`, URL `127.0.0.1:8080`. Written as `127.0.0.1`, not
+   Hostname* (a *published application*, in newer dashboards) ->
+   subdomain `play`, domain `d12ball.com`, service URL
+   `http://127.0.0.1:8080` -- **`http`, not `https`**: the web app
+   speaks plain HTTP, the HTTPS is Cloudflare's, and an `https://`
+   service URL gets a 502 from a process that has no certificate.
+   Written as `127.0.0.1`, not
    `localhost`: Windows can answer `localhost` with the IPv6 `::1`,
    and the web app bound to `127.0.0.1` would refuse it. Cloudflare
    creates the DNS record itself.
