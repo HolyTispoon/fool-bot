@@ -237,6 +237,11 @@ Two things follow from that:
   startup restores views off those two and reads nothing about status.
   `D12BallGame.abandon()` accepts a game still in setup, which `finish_game`
   refuses; a game gets stuck before kickoff as easily as after it.
+- **The model's half of abandoning is `GameService.abandon`**: the record's
+  `abandon()`, saved. The cog clears its two message ids and calls it; the web
+  app's `POST /api/room/{id}/abandon` calls it with nothing to clear. Everything
+  else the command does -- the channel told, moved and stripped -- is Discord's
+  (see [web-app.md](web-app.md), "Beyond the game").
 
 **A bot run out of a git worktree keeps its own saved games.** `PROJECT_ROOT` in
 `gamesaves/d12ball/storage.py` is resolved from that file's own path, so

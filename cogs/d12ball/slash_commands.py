@@ -152,11 +152,9 @@ class CommandsMixin:
         logged what it could not read and returns nothing, and the
         heading says so rather than a second log line.
 
-        A game whose match fails to load is skipped rather than
-        raising. A saved game older than a rename can refuse to build
-        (see the legacy-migration gotcha in docs/design/gotchas.md), and a report
-        that dies on one bad record is worse than one that counts the
-        other forty and says how many it could not read.
+        Which matches load, and how many games had nothing recorded,
+        is `stats.readable_matches` -- the web app's page reads its own
+        games through the same function.
         """
         if scope == stats.SCOPE_THIS_GAME:
             game, match = self.match_for_channel(interaction.channel_id)
@@ -180,23 +178,8 @@ class CommandsMixin:
             in_scope += stats.games_in_scope(
                 web_games.values(), scope, stats.SOURCE_WEB,
             )
-        pairs: list[tuple[D12BallGame, MatchState]] = []
-        unreadable = 0
-        for game in in_scope:
-            if game.match_state is None:
-                continue
-            try:
-                pairs.append((game, self.engine.load_match_state(game)))
-            except (ValueError, KeyError) as error:
-                unreadable += 1
-                LOGGER.info(
-                    "Leaving game %s out of the statistics: %s",
-                    game.game_id,
-                    error,
-                )
-
-        empty = sum(1 for _, match in pairs if not match.events) + (
-            len(in_scope) - len(pairs)
+        pairs, empty = stats.readable_matches(
+            in_scope, self.engine.load_match_state,
         )
         heading = "\n".join(
             stats.format_scope_heading(
@@ -211,13 +194,7 @@ class CommandsMixin:
         match: MatchState,
     ) -> str:
         """The one-line "which game is this" a per-game report opens with."""
-        status = {
-            GameStatus.SETUP: "in setup",
-            GameStatus.IN_PROGRESS: "in progress",
-            GameStatus.FINISHED: (
-                "abandoned" if game.abandoned else "finished"
-            ),
-        }[game.status]
+        status = stats.game_standing(game)
         board = match.scoreboard
         return (
             f"**PBD{game.game_number}** -- "
@@ -340,9 +317,12 @@ class CommandsMixin:
             return
 
         pairs, _, heading = found
-        matches = [match for _, match in pairs]
-        maneuvers = stats.collect_maneuvers(matches)
-        if not maneuvers.turns:
+        tables = stats.game_tables(
+            [match for _, match in pairs],
+            self.maneuver_catalog,
+            self.player_catalog,
+        )
+        if not tables:
             await interaction.followup.send(
                 f"{heading}\n\nNothing has been played yet -- or this "
                 "game was already under way before the bot started "
@@ -351,20 +331,7 @@ class CommandsMixin:
             )
             return
 
-        conditions = stats.collect_conditions(matches)
-        await self.send_stats(
-            interaction,
-            heading,
-            [
-                stats.format_turn_actions(maneuvers),
-                stats.format_maneuver_usage(maneuvers, self.maneuver_catalog),
-                stats.format_maneuver_cost(maneuvers, self.maneuver_catalog),
-                stats.format_shots(stats.collect_shots(matches)),
-                stats.format_conditions(conditions),
-                stats.format_players(conditions, self.stats_player_name),
-            ],
-            share,
-        )
+        await self.send_stats(interaction, heading, tables, share)
 
     @stats_group.command(
         name="maneuvers",
@@ -392,11 +359,7 @@ class CommandsMixin:
             scope,
             source,
             share,
-            lambda maneuvers, matches, pairs: [
-                stats.format_turn_actions(maneuvers),
-                stats.format_maneuver_usage(maneuvers, self.maneuver_catalog),
-                stats.format_maneuver_cost(maneuvers, self.maneuver_catalog),
-            ],
+            stats.REPORT_MANEUVERS,
         )
 
     @stats_group.command(
@@ -425,9 +388,7 @@ class CommandsMixin:
             scope,
             source,
             share,
-            lambda maneuvers, matches, pairs: [
-                stats.format_matchups(maneuvers, self.maneuver_catalog),
-            ],
+            stats.REPORT_MATCHUPS,
         )
 
     @stats_group.command(
@@ -456,10 +417,7 @@ class CommandsMixin:
             scope,
             source,
             share,
-            lambda maneuvers, matches, pairs: [
-                stats.format_overview(stats.collect_overview(pairs)),
-                stats.format_shots(stats.collect_shots(matches)),
-            ],
+            stats.REPORT_OVERVIEW,
         )
 
     @stats_group.command(
@@ -483,40 +441,13 @@ class CommandsMixin:
         share: bool = False,
     ) -> None:
         await interaction.response.defer(ephemeral=not share)
-
-        def blocks(maneuvers, matches, pairs):
-            conditions = stats.collect_conditions(matches)
-            return [
-                stats.format_players(
-                    conditions, self.stats_player_name, limit=15,
-                ),
-                stats.format_roles(conditions, self.player_catalog),
-                stats.format_conditions(conditions),
-            ]
-
         await self.post_scoped_stats(
-            interaction, scope, source, share, blocks,
+            interaction, scope, source, share, stats.REPORT_PLAYERS,
         )
 
     def stats_player_name(self, player_id: str) -> str:
-        """
-        A card's name for a statistics table.
-
-        Deliberately **no team emoji and no role bracket**, unlike
-        `player_label` and every other place the bot names somebody:
-        these tables are read across games, and the same person can
-        appear in them under either of their two rosters (see "One
-        player, both sides" in docs/design/teams-and-players.md). A colour that changed
-        between rows of one table would be saying something untrue
-        about the player.
-
-        `player_by_id` resolves a visiting side's suffixed card id to
-        the same person, which is what makes one row rather than two.
-        """
-        try:
-            return self.player_catalog.player_by_id(player_id).name
-        except ValueError:
-            return player_id
+        """A card's name for a statistics table -- `stats.player_name`."""
+        return stats.player_name(self.player_catalog, player_id)
 
     async def post_scoped_stats(
         self,
@@ -524,18 +455,15 @@ class CommandsMixin:
         scope: Optional[app_commands.Choice[str]],
         source: Optional[app_commands.Choice[str]],
         share: bool,
-        blocks,
+        report: str,
     ) -> None:
         """
         The body every scoped stats command shares: resolve the scope,
         fold the matches, and post whichever tables the command asked
         for.
 
-        `blocks` is handed the folded maneuver report, the matches and
-        the game/match pairs, because the five commands need different
-        subsets of the three and folding them all for every command
-        would walk every saved game four times over for tables nobody
-        asked for.
+        `report` names the tables (`stats.REPORT_*`), and
+        `stats.report_tables` folds only what those tables read.
         """
         chosen = scope.value if scope is not None else stats.SCOPE_ALL
         where = source.value if source is not None else stats.SOURCE_DISCORD
@@ -548,8 +476,6 @@ class CommandsMixin:
             return
 
         pairs, _, heading = found
-        matches = [match for _, match in pairs]
-        maneuvers = stats.collect_maneuvers(matches)
         if not pairs:
             await interaction.followup.send(
                 f"{heading}\n\nThere is nothing to report yet.",
@@ -558,7 +484,12 @@ class CommandsMixin:
             return
 
         await self.send_stats(
-            interaction, heading, blocks(maneuvers, matches, pairs), share,
+            interaction,
+            heading,
+            stats.report_tables(
+                report, pairs, self.maneuver_catalog, self.player_catalog,
+            ),
+            share,
         )
 
 
@@ -2302,10 +2233,9 @@ class CommandsMixin:
 
         self.boards.forget(game)
 
-        game.abandon()
         game.message_id = None
         game.turn_message_id = None
-        save_games(self.games)
+        self.service.abandon(game.game_id)
 
         LOGGER.info(
             "D12 Ball game %s abandoned by %s.", game.game_id, abandoned_by,

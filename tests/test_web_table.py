@@ -358,8 +358,8 @@ class FrontDoorTests(TableHarness):
         one = listed["open"][0]
         self.assertEqual(
             set(one),
-            {"id", "number", "name", "status", "seats", "observers",
-             "tutorial", "url"},
+            {"id", "number", "name", "status", "abandoned", "seats",
+             "observers", "tutorial", "url"},
         )
         self.assertEqual(one["seats"][1]["free"], True)
 

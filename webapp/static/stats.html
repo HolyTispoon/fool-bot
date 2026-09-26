@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>D12 Ball numbers</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body class="front">
+    <!-- Every web game's numbers: /d12ball stats with source the web
+         app, over this process's own games (GET /api/stats). Never the
+         bot's file. -->
+    <main class="front-door stats-door panel">
+      <div class="panel-label">
+        <a href="/" class="back" title="Your rooms">&lsaquo; Rooms</a>
+        · The web games' numbers
+      </div>
+      <label for="kind" class="panel-label">Which games</label>
+      <select id="kind"></select>
+      <div id="heading" class="stats-tables"></div>
+      <div id="reports" class="stats-tables"></div>
+      <p id="nothing" class="quiet" hidden>There is nothing to report yet.</p>
+    </main>
+    <script src="/static/stats.js"></script>
+  </body>
+</html>

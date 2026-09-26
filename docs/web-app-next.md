@@ -160,7 +160,7 @@ that existed; steps 1 to 3 are one sprint.
 | ~~6~~ | ~~The web games' numbers on Discord, cut by source~~ -- landed; what it settled is in `docs/design/clock-and-records.md`, "What the statistics are, and what they are not" (the source cut, and the read across the line), and `docs/design/web-app.md`, "Its own process, its own file" | small |
 | ~~7~~ | ~~The dice on the page~~ -- landed; what it settled is in `docs/design/web-app.md`, "The dice", and `docs/design/board-image.md`, "The matchup image" (the briefs below the renderer) | medium |
 | ~~8~~ | ~~The prompt's pictures~~ -- landed; what it settled is in `docs/design/web-app.md`, "The prompt's pictures", and `docs/design/board-image.md`, "The matchup image" (the rest of both briefs below the renderer) | medium |
-| 9 | What Discord has that the page lacks: my rooms, resume, abandon, stats | medium |
+| ~~9~~ | ~~What Discord has that the page lacks: my rooms, resume, abandon, stats~~ -- landed; what it settled is in `docs/design/web-app.md`, "Beyond the game", and `docs/design/clock-and-records.md`, "What the statistics are, and what they are not" (the reports moved below the cog) | medium |
 | 10 | The page as a thing to play on; the wire tree; the tests the survey found missing | medium |
 | 11 | The reading room: the rulebooks and the player aids | medium |
 | -- | Later, and not now | -- |
@@ -986,6 +986,12 @@ Update docs/design/web-app.md. PR against the template.
 ```
 
 ### 9. What Discord has that the page lacks
+
+**Landed.** `docs/design/web-app.md`, "Beyond the game", is what it
+settled: abandoning is `GameService.abandon`, which the cog calls too;
+a game's numbers and every web game's are `d12ball/stats.py`'s own
+tables, moved out of the cog for it; the page never reads the bot's
+file. My rooms and resume were already on the page.
 
 **What it is.** The slash commands that are not about Discord, each
 over a model function the web app may call: resume and abandon

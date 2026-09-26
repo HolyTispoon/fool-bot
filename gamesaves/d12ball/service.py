@@ -531,6 +531,23 @@ class GameService:
         del self.games[game_id]
         self.save()
 
+    def abandon(self, game_id: str) -> D12BallGame:
+        """
+        End a game nobody is going to finish -- `D12BallGame.abandon`,
+        which refuses a game already over, saved. The record stays, so
+        its number stays taken and what was played stays in the
+        statistics as an abandoned game.
+
+        The whole of the model's half of `/d12ball abandon_game`: the
+        channel moved to the archive, the prompt stripped and the
+        message ids forgotten are the cog's, and a page has none of
+        them.
+        """
+        game = self.game(game_id)
+        game.abandon()
+        self.save()
+        return game
+
     def lobby_join(
         self, game_id: str, user_id: int, user_name: Optional[str],
     ) -> D12BallGame:
