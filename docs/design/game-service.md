@@ -218,6 +218,20 @@ behind it), `coin_is_owed` and `home_choice_owed_by`. The Discord team
 picker and the web table both grey by `teams_open_to`, so a pairing
 greyed on one is greyed on the other.
 
+**A web room picks its teams in its lobby; a Discord game after Start**
+(the author, 2026-09-26, off the redesign canvas). The record says
+which with `picks_teams_in_lobby` -- true for a record that carries
+`ai_seats`, which only a web room does -- and `team_selection_open`
+is the one reading `teams_open_to` and `pick_team` both ask, so the
+two frontends differ in when the picker opens and in nothing else.
+In a room, a seated coach may pick the AI's team too (the route
+lets a seated coach pick for a seat the AI holds); **nobody picking it
+is an answer as well**: `start_lobby` refuses until every side a
+person plays has a team, and `GameService.start_lobby` draws the AI's
+own through `_ai_picks_team` -- which never runs in a lobby -- so the
+coin is owed straight after Start. A Discord game's AI still picks the
+moment the coach has, after Start Game, as it always did.
+
 **The rematch is a service method too**: `rematch(game_id)` is a
 finished game's next record -- the same two seats (the AI where it
 sat), the same settings, remembered on the finished game as

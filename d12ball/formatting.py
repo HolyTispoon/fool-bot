@@ -820,3 +820,19 @@ def describe_game_mode(
     if mode == GameMode.ADVANCED and not game.tutorial:
         parts.append("personal abilities")
     return ", ".join(parts)
+
+
+#: What the settings that are not the mode *are*, by their key in
+#: `GAME_SETTINGS`, in the coach's own terms. A test game is defined by
+#: one coach playing both sides; that it is kept out of the statistics
+#: follows from that and is said second (the author, 2026-09-26). The
+#: tutorial is `D12BallGame.pin_tutorial`'s game: one coach against
+#: Dinky, the Charter's training game, on a 7-space board, opened by
+#: the script in `d12ball/tutorial.py`.
+SETTING_DEFINITIONS: dict[str, str] = {
+    "test": "one coach plays both sides; kept out of the statistics",
+    "tutorial": (
+        "one coach against Dinky, in training mode on a 7-space board, "
+        "with a scripted opening"
+    ),
+}

@@ -310,10 +310,52 @@ class AISeatTests(SeatHarness):
         )
 
         self.service.seat_ai(game.game_id, 2)
+        # A room picks its teams in its lobby: Start waits for the
+        # people's, and draws the AI's where nobody picked one for it.
+        self.assertIn(
+            "Seat 1 has no team yet",
+            self.refused(self.service.start_lobby, game.game_id),
+        )
+        self.service.pick_team(game.game_id, 1, Team.ORANGE)
+        self.assertIsNone(game.player_2_team)
         self.service.start_lobby(game.game_id)
 
         self.assertFalse(game.in_lobby)
         self.assertTrue(game.ai_holds(2))
+        self.assertNotIn(
+            game.player_2_team, (Team.ORANGE, paired_team(Team.ORANGE)),
+        )
+        self.assertTrue(game.coin_is_owed)
+
+    def test_a_seated_coach_may_pick_the_ai_s_team_in_the_lobby(self) -> None:
+        """The author, 2026-09-26: a coach may pick Dinky's team; if
+        nobody does, Dinky picks at Start."""
+        game = self.service.create_game(
+            player_1_id=CREATOR, player_1_name="One", in_lobby=True,
+            ai_seats=[],
+        )
+        self.service.seat_ai(game.game_id, 2)
+        self.assertEqual(game.teams_open_to(2), list(Team))
+        self.service.pick_team(game.game_id, 2, Team.TEAL)
+        self.service.pick_team(game.game_id, 1, Team.ORANGE)
+        self.service.start_lobby(game.game_id)
+
+        self.assertEqual(
+            (game.player_1_team, game.player_2_team), (Team.ORANGE, Team.TEAL),
+        )
+
+    def test_a_discord_lobby_still_picks_after_start(self) -> None:
+        """A game with no `ai_seats` -- every Discord game -- is refused
+        a team in its lobby, as it always was."""
+        game = self.service.create_game(
+            player_1_id=CREATOR, player_1_name="One", in_lobby=True,
+        )
+        self.assertFalse(game.picks_teams_in_lobby)
+        self.assertEqual(game.teams_open_to(1), [])
+        self.assertIn(
+            "Team selection is already closed",
+            self.refused(self.service.pick_team, game.game_id, 1, Team.ORANGE),
+        )
 
     def test_the_ai_in_seat_one_picks_its_team_and_takes_the_coin(
         self,
@@ -322,9 +364,10 @@ class AISeatTests(SeatHarness):
         self.service.take_seat(game.game_id, JOINER, "Two")
         self.service.vacate_seat(game.game_id, CREATOR)
         self.service.seat_ai(game.game_id, 1)
-        self.service.start_lobby(game.game_id)
-
         self.service.pick_team(game.game_id, 2, Team.ORANGE)
+        # Nobody picked the AI's team in the lobby: it draws at Start.
+        self.assertIsNone(game.player_1_team)
+        self.service.start_lobby(game.game_id)
 
         self.assertIsNotNone(game.player_1_team)
         self.assertNotIn(

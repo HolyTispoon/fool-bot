@@ -624,6 +624,9 @@ class D12BallGame:
             return {2}
         return set()
 
+    def _seat_team(self, seat: int) -> Optional[Team]:
+        return self.player_1_team if seat == 1 else self.player_2_team
+
     def _seat_id(self, seat: int) -> Optional[int]:
         return self.player_1_id if seat == 1 else self.player_2_id
 
@@ -891,6 +894,14 @@ class D12BallGame:
                         f"Seat {seat} is empty -- somebody has to take "
                         "it, or put the AI in it, to start."
                     )
+            # The room picks its teams in the lobby: every side a
+            # person plays needs one. The AI's is drawn at Start where
+            # nobody picked it for the AI (`GameService.start_lobby`).
+            for seat in (1, 2):
+                if seat not in ai and self._seat_team(seat) is None:
+                    raise RuleRefusal(
+                        f"Seat {seat} has no team yet -- pick one to start."
+                    )
             self.ai_seats = sorted(ai)
             if ai:
                 self.ai_opponent = self.ai_opponent or AIOpponent.DINKY
@@ -1000,6 +1011,27 @@ class D12BallGame:
             if team not in self.excluded_teams(None)
         ]
 
+    @property
+    def picks_teams_in_lobby(self) -> bool:
+        """
+        Whether this game's teams are picked in its lobby, before
+        Start, rather than after it. A web room's are (the author,
+        2026-09-26: the room's table picks them beside the seats, and
+        Start waits for them); a Discord game's are picked after Start
+        Game, as they always were. A web room is the record that says
+        who holds each seat outright (`ai_seats` is not `None`), which
+        no Discord game carries.
+        """
+        return self.ai_seats is not None
+
+    def team_selection_open(self) -> bool:
+        """Whether a team may be picked now: in setup, before both
+        sides have one, and -- for a game that picks in its lobby
+        (`picks_teams_in_lobby`) -- in the lobby too."""
+        if self.status != GameStatus.SETUP or self.teams_selected:
+            return False
+        return not self.in_lobby or self.picks_teams_in_lobby
+
     def teams_open_to(self, player_number: Optional[int]) -> list[Team]:
         """
         The teams a picker for `player_number` offers now, in `Team`'s
@@ -1007,17 +1039,13 @@ class D12BallGame:
         row and the web table grey the same buttons. `None` is a
         normal game's shared row, as in `excluded_teams`.
 
-        Empty once team selection is not open: in the lobby, past
-        setup, and once both sides have picked (the screen moves on to
-        the coin). A test game's screens go one side at a time
-        (`picking_player_number`), so only that side is offered.
-        Otherwise every team but what `pick_team` refuses.
+        Empty once team selection is not open (`team_selection_open`):
+        in a Discord lobby, past setup, and once both sides have picked
+        (the screen moves on to the coin). A test game's screens go one
+        side at a time (`picking_player_number`), so only that side is
+        offered. Otherwise every team but what `pick_team` refuses.
         """
-        if (
-            self.in_lobby
-            or self.status != GameStatus.SETUP
-            or self.teams_selected
-        ):
+        if not self.team_selection_open():
             return []
         if self.test_game:
             if player_number != self.picking_player_number():
@@ -1037,7 +1065,9 @@ class D12BallGame:
         """
         if player_number not in (1, 2):
             raise ValueError("Player numbers must be either 1 or 2.")
-        if self.status != GameStatus.SETUP or self.in_lobby:
+        if self.status != GameStatus.SETUP or (
+            self.in_lobby and not self.picks_teams_in_lobby
+        ):
             raise RuleRefusal("Team selection is already closed.")
         team = Team(team)
         if team in self.excluded_teams(
