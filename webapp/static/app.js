@@ -197,7 +197,7 @@ function draw(state) {
   if (state.refusal) showRefusal(state.refusal);
   el("owed").hidden = !(state.owed && state.you.is_coach);
   const yours = Boolean(state.prompt && state.prompt.yours);
-  document.title = `${yours ? "● " : ""}PBD${state.game.number} · D12 Ball`;
+  document.title = `${yours ? "● " : ""}PBW${state.game.number} · D12 Ball`;
 }
 
 function teamEmoji(key, name) {
@@ -206,7 +206,7 @@ function teamEmoji(key, name) {
 }
 
 function drawHeader(state) {
-  el("channel").textContent = `pbd${state.game.number}`;
+  el("channel").textContent = `pbw${state.game.number}`;
   el("topic").textContent = state.game.title;
   const you = el("you");
   you.replaceChildren();
@@ -1146,6 +1146,23 @@ el("become-admin").addEventListener("click", () => {
 });
 el("drop-admin").addEventListener("click", () => {
   if (confirm("Give up the admin role for this room?")) roomMove("/admin", {}, "DELETE");
+});
+el("change-name").addEventListener("click", async () => {
+  const known = current && current.you && current.you.coach;
+  const name = window.prompt("What should the table call you?", known ? known.name : "");
+  if (name === null) return;
+  const response = await fetch("/api/me", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (response.ok) location.reload();
+  else window.alert(await response.text());
+});
+el("leave-app").addEventListener("click", async () => {
+  if (!confirm("Leave the app? You will be asked for a name again next time.")) return;
+  await fetch("/api/me", { method: "DELETE" });
+  location.href = "/";
 });
 el("copy-link").addEventListener("click", async () => {
   const link = `${location.origin}/room/${GAME_ID}`;

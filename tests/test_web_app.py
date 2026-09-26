@@ -522,6 +522,22 @@ class IdentityTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(refused.status, 400)
                 self.assertTrue(await refused.text())
 
+    async def test_leaving_the_app_forgets_the_cookie(self) -> None:
+        """Nothing is stored, so leaving is only forgetting the cookie
+        -- a seat held under it is untouched, the way another device
+        already leaves it alone."""
+        web = WebApp(GameService(ENGINE, {}, save=lambda games: None), GameLocks())
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+
+        await client.post("/api/me", json={"name": "Ann"})
+        self.assertIsNotNone(await (await client.get("/api/me")).json())
+
+        left = await client.delete("/api/me")
+        self.assertEqual(left.status, 200)
+        self.assertIsNone(await (await client.get("/api/me")).json())
+
 
 class RoomTests(unittest.IsolatedAsyncioTestCase):
     """

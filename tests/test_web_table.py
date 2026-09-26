@@ -58,9 +58,9 @@ class TableHarness(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(self.client.close)
         self.addAsyncCleanup(self.web.stop)
 
-    async def open_room(self, **body) -> str:
+    async def open_room(self) -> str:
         response = await self.client.post(
-            "/api/rooms", headers=as_coach(CREATOR, "Creator"), json=body,
+            "/api/rooms", headers=as_coach(CREATOR, "Creator"),
         )
         self.assertEqual(response.status, 200)
         return (await response.json())["id"]
@@ -75,6 +75,15 @@ class TableHarness(unittest.IsolatedAsyncioTestCase):
     async def press(self, room: str, coach_id: int, move: str, body=None):
         return await self.client.post(
             f"/api/room/{room}/table/{move}",
+            headers=as_coach(coach_id),
+            json=body or {},
+        )
+
+    async def seat_move(self, room: str, coach_id: int, move: str, body=None):
+        """The AI and tutorial are now the lobby's own choices, put in
+        through the seat and table routes rather than at creation."""
+        return await self.client.post(
+            f"/api/room/{room}/seat/{move}",
             headers=as_coach(coach_id),
             json=body or {},
         )
@@ -267,7 +276,10 @@ class AIRoomTests(TableHarness):
         for seed in range(6):
             with self.subTest(seed=seed):
                 ENGINE.rng.seed(seed)
-                room = await self.open_room(ai=True)
+                room = await self.open_room()
+                put = await self.seat_move(room, CREATOR, "ai", {"seat": 2})
+                self.assertEqual(put.status, 200)
+                await self.pressed(room, CREATOR, "start")
                 game = self.games[room]
                 self.assertFalse(game.in_lobby)
                 self.assertTrue(game.ai_holds(2))
@@ -299,34 +311,35 @@ class AIRoomTests(TableHarness):
                 self.assertIsNotNone(tossed["prompt"])
                 self.assertEqual(game.status, GameStatus.IN_PROGRESS)
 
-    async def test_the_tutorial_against_the_ai_takes_the_record_s_pins(
+    async def test_the_tutorial_is_a_training_game_for_one_against_the_ai(
         self,
     ) -> None:
-        room = await self.open_room(ai=True, tutorial=True)
+        """The tutorial toggle (`configure`'s `tutorial` setting) pins
+        the record's own training game for one, in the lobby -- Start
+        is what puts the AI in the empty seat and leaves it."""
+        room = await self.open_room()
+        toggled = await self.pressed(
+            room, CREATOR, "configure", {"setting": "tutorial"},
+        )
         game = self.games[room]
 
         self.assertTrue(game.tutorial)
-        self.assertFalse(game.in_lobby)
-        self.assertTrue(game.ai_holds(2))
-        self.assertEqual((game.mode, game.board_size), (GameMode.TRAINING, 7))
-
-
-    async def test_a_tutorial_room_is_a_training_game_for_one(self) -> None:
-        room = await self.open_room(tutorial=True)
-        game = self.games[room]
-
         self.assertTrue(game.in_lobby)
         self.assertEqual((game.mode, game.board_size), (GameMode.TRAINING, 7))
         self.assertFalse(game.seat_is_free(2))
-        await self.state(room, CREATOR)
+        self.assertTrue(toggled["table"]["lobby"])
+
         await self.pressed(room, CREATOR, "start")
+        self.assertFalse(game.in_lobby)
         self.assertTrue(game.ai_holds(2))
 
 
 class FrontDoorTests(TableHarness):
     async def test_my_rooms_by_status_and_the_open_ones(self) -> None:
         lobby = await self.open_room()
-        ai = await self.open_room(ai=True)
+        ai = await self.open_room()
+        await self.seat_move(ai, CREATOR, "ai", {"seat": 2})
+        await self.pressed(ai, CREATOR, "start")
         response = await self.client.post(
             "/api/rooms", headers=as_coach(SECOND, "Second"), json={},
         )
@@ -365,7 +378,9 @@ class FrontDoorTests(TableHarness):
         self.assertNotIn(room, self.games)
 
     async def test_a_room_that_has_kicked_off_is_not_closed(self) -> None:
-        room = await self.open_room(ai=True)
+        room = await self.open_room()
+        await self.seat_move(room, CREATOR, "ai", {"seat": 2})
+        await self.pressed(room, CREATOR, "start")
         await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
         await self.pressed(room, CREATOR, "flip_coin")
         game = self.games[room]

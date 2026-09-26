@@ -11,19 +11,20 @@
     <main class="front-door panel">
       <div class="panel-label">D12 Ball</div>
       <p class="quiet">
-        Open a room and send its link: the first two people in are its
-        coaches, and anybody after them watches. Or play the AI now.
+        Create a room and send its link: the first two people in are
+        its coaches, and anybody after them watches. The tutorial and
+        the AI are both choices you make once you are in.
       </p>
       <form id="open-form" autocomplete="off">
         <label for="name-input" class="panel-label">Your name</label>
         <input id="name-input" class="chat-input" maxlength="32" required />
-        <label class="check"><input type="checkbox" id="tutorial" /> Tutorial</label>
         <p id="name-error" class="quiet" hidden></p>
         <div class="row">
-          <button type="submit" class="btn primary" data-ai="0">Open a room</button>
-          <button type="submit" class="btn success" data-ai="1">Play Dinky</button>
+          <button type="submit" class="btn primary">Create a new game room</button>
+          <button type="button" class="btn secondary" id="save-name">Save name</button>
         </div>
       </form>
+      <p class="quiet"><button type="button" class="linkish" id="leave-app">Leave</button></p>
 
       <section id="mine" hidden>
         <div class="panel-label">Your rooms</div>
