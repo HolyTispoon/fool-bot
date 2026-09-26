@@ -39,8 +39,8 @@ from typing import Optional
 
 from d12ball import tutorial
 from d12ball.components import (
-    DRIBBLE_BURST_MAX_DISTANCE,
     BALL_SPEED_MAX,
+    DRIBBLE_BURST_MAX_DISTANCE,
     EVENT_OWN_GOAL_ROLL,
     MIN_HIGH_PASS_DISTANCE,
     MatchState,
@@ -459,18 +459,21 @@ def dribble_burst_step(
 ) -> StepResult:
     """
     Play a won Dribble Burst: the handler carries the ball up to
-    `DRIBBLE_BURST_MAX_DISTANCE` spaces forward, defenders no
-    obstacle, at a token a space -- and the ball is left at speed
-    `BALL_SPEED_MAX`, where a Dribble Advance offers the handler a
-    change of up to oSkill (the author, 2026-09-20: "precisely 12, not
-    any number"). Nothing is asked, so unlike the advance the burst
-    ends on the maneuver's tail rather than on a speed choice; the
-    speed is said in the narration the way `apply_speed_choice` says
-    it, and said only where it changed.
+    `DRIBBLE_BURST_MAX_DISTANCE` spaces forward (one more for a
+    Playmaker), defenders no obstacle, at a token a space -- and the
+    ball is left at speed `BALL_SPEED_MAX`, where a Dribble Advance
+    offers the handler a change of up to oSkill (the author,
+    2026-09-20: "precisely 12, not any number"). Nothing is asked, so
+    unlike the advance the burst ends on the maneuver's tail rather
+    than on a speed choice; the speed is said in the narration the way
+    `apply_speed_choice` says it, and said only where it changed.
 
-    Role ability -- Playmaker: 1 space further, up to 5, which the
-    distances offered already carry (`dribble_burst_distances`; the
-    author, 2026-09-26, superseding a token off the run).
+    Role ability -- Playmaker: the extra space their sentence names,
+    same as the advance's (the author, 2026-09-26, reversing the
+    2026-08-19/2026-08-26 reading that kept this one on the cost
+    instead -- the only ability that used to read differently on the
+    two cards of a rank). `dribble_burst_distances` is where the space
+    is offered; the cost here is everybody's same token a space.
 
     `distance` is what the coach picked (or what the field left);
     `actual_distance` is what the move came to. The exhaustion and the
@@ -487,11 +490,7 @@ def dribble_burst_step(
         *match.board.meeple_position(match.active_player_id)
     )
     match.set_ball_carrier(match.active_player_id)
-    # The fifth space is every Playmaker's (2026-09-26).
-    playmaker_bonus = (
-        handler.role == PlayerRole.PLAYMAKER
-        and actual_distance > DRIBBLE_BURST_MAX_DISTANCE
-    )
+    playmaker_bonus = handler.role == PlayerRole.PLAYMAKER
     # Emberdash bursts for nothing (Law 21), which the cost already
     # says; the note below says why.
     free_burst = engine.has_personal_ability(
@@ -505,12 +504,18 @@ def dribble_burst_step(
 
     space_word = "space" if actual_distance == 1 else "spaces"
     handler_label = engine.format_player_label(match, handler)
+    # The fifth space is a Playmaker's alone, same as the advance's
+    # second (`dribble_advance_step`'s ability_note).
+    ability_note = (
+        " (Playmaker ability)"
+        if playmaker_bonus and actual_distance > DRIBBLE_BURST_MAX_DISTANCE
+        else ""
+    )
     if actual_distance:
         content = (
             f"**Dribble Burst:** {handler_label} bursts "
-            f"{actual_distance} {space_word} forward"
-            f"{' (Playmaker ability)' if playmaker_bonus else ''}, past "
-            "everyone in the way."
+            f"{actual_distance} {space_word} forward, past everyone in "
+            f"the way{ability_note}."
         )
     else:
         # The handler was already on the last space of the field, so
@@ -521,8 +526,8 @@ def dribble_burst_step(
             f"**Dribble Burst:** {handler_label} is already as far "
             "forward as the field goes, so the ball stays where it is."
         )
-    # Only worth saying where a token was actually saved: a burst that
-    # moved nowhere is free for everybody.
+    # Worth saying only for Emberdash: everybody else, Playmaker
+    # included, pays the plain token-a-space cost.
     if free_burst and actual_distance:
         content += " That costs them nothing (personal ability)."
     if exhaustion_text:

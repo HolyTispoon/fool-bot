@@ -147,10 +147,35 @@ img { display: block; }
 
 .sidebar {
   display: grid;
-  grid-template-rows: auto minmax(0, 1.3fr) minmax(0, 1fr);
-  gap: 12px;
+  /* app.js sets the two panels' shares from the divider. */
+  grid-template-rows: auto minmax(0, 1.3fr) auto minmax(0, 1fr);
   min-height: 0;
 }
+.sidebar > .jumbotron { margin-bottom: 12px; }
+
+/* The divider between the log and the chat: the 12px gap between
+   them, with a line down its middle that lights up under the
+   pointer. */
+.split {
+  height: 12px;
+  cursor: row-resize;
+  touch-action: none;
+  position: relative;
+}
+.split::after {
+  content: "";
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  top: 5px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--line);
+}
+.split:hover::after,
+.split:focus-visible::after,
+.split.dragging::after { background: var(--blurple); }
+.split:focus-visible { outline: none; }
 
 .panel {
   background: var(--panel);
@@ -398,15 +423,6 @@ select {
 .entry.new-play { border-left-color: var(--blurple); }
 .entry p { margin: 0 0 3px; white-space: pre-wrap; word-wrap: break-word; }
 .entry .stamp { font-size: 11px; color: var(--faint); }
-
-.snapshot {
-  margin-top: 6px;
-  border-radius: 6px;
-  overflow: hidden;
-  cursor: zoom-in;
-  border: 1px solid var(--deep);
-}
-.snapshot .card, .snapshot .meeple { pointer-events: none; }
 
 /* The model's `#`, `##` and `###`. */
 .headline {
@@ -687,6 +703,8 @@ strong { font-weight: 700; color: var(--strong); }
     overflow: hidden;
   }
   .main, .sidebar { display: contents; }
+  .split { display: none; }
+  .sidebar > .jumbotron { margin-bottom: 0; }
   .jumbotron { order: 1; padding: 6px 10px 8px; border-width: 2px; flex: none; }
   .jumbo-top { margin-bottom: 2px; }
   .jumbo-brand { font-size: 12px; }

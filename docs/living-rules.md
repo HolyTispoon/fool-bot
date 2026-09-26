@@ -122,7 +122,7 @@ Every player has an **offensive skill** from 1 to 6 and a **defensive skill** th
 | Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Pass up to 4, a Deflect of 2, a Clear of 4, a Setup Pass that may also reach 4. |
 | Defender | 2 | 5 | A won Pressure also steals the ball. |
 | Midfielder | 3 | 4 | Adds 3 to a skill test for a Low Pass or a Pressure. |
-| Playmaker | 4 | 3 | May advance an additional space with a dribble: a Dribble Advance of 2, a Dribble Burst of up to 5. |
+| Playmaker | 4 | 3 | May advance an additional space when resolving a Dribble maneuver: 2 spaces with a Dribble Advance, or 5 with a Dribble Burst. |
 | Winger | 5 | 2 | A completed Low Pass may set up a scoring opportunity. |
 | Striker | 6 | 1 | Adds 3 to a score attempt taken off a set-up. |
 
@@ -354,7 +354,7 @@ The handler and the ball move 1 space forward together. The handler then changes
 
 The ball is left with the handler.
 
-*Playmaker:* may advance 2 spaces instead of 1.
+*Playmaker:* may advance 2 spaces instead of 1 -- an additional space.
 
 ### High Pass
 
@@ -977,7 +977,7 @@ The handler carries the ball **up to 4 spaces forward**, and defenders are no ob
 
 *Note.* It is the only maneuver that charges by distance, which is what makes the shorter runs worth taking.
 
-*Playmaker:* may run 1 space further -- up to 5 -- at the same token a space.
+*Playmaker:* may run up to 5 spaces instead of 4 -- an additional space, same as the Playmaker's Dribble Advance ability -- at the same token a space as everyone else.
 
 The ball is left with the handler **at speed 12** -- not a choice, and not bounded by anybody's skill.
 

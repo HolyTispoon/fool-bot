@@ -421,12 +421,14 @@ def burst_plain() -> DribbleFixture:
     )
 
 
-def burst_playmaker_pays_every_space() -> DribbleFixture:
+def burst_playmaker_ordinary_distance() -> DribbleFixture:
     """
-    A Playmaker pays a token a space like everybody else: their token
-    off the run went on 2026-09-26, for a fifth space onto it
-    (`RulesEngine.dribble_burst_distances`), so a run of 3 says
-    nothing about the role.
+    A Playmaker running a distance everybody else could also run: no
+    ability note and no discount (the ability moved onto the fifth
+    space on 2026-09-26 -- see `burst_playmaker_extra_space` -- and no
+    longer touches the cost at all). Otherwise identical to
+    `burst_plain`, so the only difference in the two narrations is the
+    player it names.
     """
     match = build_match()
     handler = put_on_the_ball(match, fielded(match, PlayerRole.PLAYMAKER))
@@ -456,27 +458,37 @@ def burst_playmaker_pays_every_space() -> DribbleFixture:
     )
 
 
-def burst_playmaker_one_space_costs_one() -> DribbleFixture:
+def burst_playmaker_extra_space() -> DribbleFixture:
     """
-    A Playmaker's single space costs its token -- it used to be free,
-    under the discount that went on 2026-09-26.
+    Role ability -- since 2026-09-26 a Playmaker may run one more
+    space than `DRIBBLE_BURST_MAX_DISTANCE`, same as their Dribble
+    Advance's extra space and charged the same token a space as
+    everybody else (reversing the 2026-08-19/2026-08-26 reading that
+    put this ability on the cost instead -- see
+    docs/design/maneuvers.md, "Maneuvers"). Placed in their own goal
+    zone on the 9-space board, since the standard kickoff space is not
+    far enough from the end of the field for the fifth space to show.
     """
-    match = build_match()
-    handler = put_on_the_ball(match, fielded(match, PlayerRole.PLAYMAKER))
+    match = build_match(board_size=9)
+    handler = fielded(match, PlayerRole.PLAYMAKER)
+    match.move_meeple(handler, *match.board.position_at_flat_index(0))
+    put_on_the_ball(match, handler)
     origin = match.board.flat_index(match.ball.zone, match.ball.space_index)
     destination = match.board.position_at_flat_index(
-        match.relative_flat_index(origin, TeamSide.HOME, 1)
+        match.relative_flat_index(origin, TeamSide.HOME, 5)
     )
     return DribbleFixture(
         game=build_game(),
         match=match,
         key="dribble_burst",
-        distance=1,
+        distance=5,
         narration=(
-            f"**Dribble Burst:** {label(match, handler)} bursts 1 "
-            "space forward, past everyone in the way."
-            f"\n{label(match, handler)} adds 1 exhaustion "
-            f"{EXHAUST} (now 1 total)."
+            f"**Dribble Burst:** {label(match, handler)} bursts 5 "
+            "spaces forward, past everyone in the way (Playmaker "
+            "ability)."
+            f"\n{label(match, handler)} adds 5 exhaustion "
+            f"{EXHAUST * 5} (now 5 total)."
+            f"\n{label(match, handler)} is now *exhausted* {EXHAUSTED}"
             f" {BURST_SPEED_LINE}"
         ),
         follow_on=FINISH,
@@ -484,7 +496,7 @@ def burst_playmaker_one_space_costs_one() -> DribbleFixture:
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
-        exhaustion={handler: 1},
+        exhaustion={handler: 5},
         ball_speed=12,
     )
 
@@ -606,13 +618,10 @@ DRIBBLE_CASES: tuple[DribbleCase, ...] = (
     DribbleCase("advance_beats_a_clear", advance_beats_a_clear),
     DribbleCase("burst_plain", burst_plain),
     DribbleCase(
-        "burst_playmaker_pays_every_space",
-        burst_playmaker_pays_every_space,
+        "burst_playmaker_ordinary_distance",
+        burst_playmaker_ordinary_distance,
     ),
-    DribbleCase(
-        "burst_playmaker_one_space_costs_one",
-        burst_playmaker_one_space_costs_one,
-    ),
+    DribbleCase("burst_playmaker_extra_space", burst_playmaker_extra_space),
     DribbleCase("burst_with_nowhere_to_go", burst_with_nowhere_to_go),
     DribbleCase("burst_beats_a_clear", burst_beats_a_clear),
     DribbleCase(

@@ -695,9 +695,7 @@ function drawJournal(state) {
   for (const entry of state.entries) {
     const block = h("div", { class: entry.new_play ? "entry new-play" : "entry" });
     for (const line of entry.lines) block.append(h("p", { html: line }));
-    if (entry.layout) block.append(snapshot(entry));
     journal.append(block);
-    if (entry.layout) watchFit(block.lastElementChild.firstElementChild);
   }
   if (nearBottom || !journal.dataset.scrolled) {
     journal.scrollTop = journal.scrollHeight;
@@ -705,16 +703,93 @@ function drawJournal(state) {
   }
 }
 
-/* The position the game stopped to draw, as the bot posts one: small
-   here, and full size on a click. */
-function snapshot(entry) {
-  const png = `/api/game/${GAME_ID}/board.png?entry=${entry.id}`;
-  return h(
-    "div",
-    { class: "snapshot", onclick: () => openBoard(entry.layout, png) },
-    h("div", { class: "board-fit", "data-max": "1" }, stage(entry.layout, { live: false })),
-  );
+// -- The divider between the log and the chat ---------------------------------
+
+/* The share of the column the log takes, the chat the rest. Remembered
+   in this browser only; a page with none stored, or with storage
+   refused, opens at the default. */
+const SPLIT_KEY = "d12ball.split";
+const SPLIT_DEFAULT = 1.3 / 2.3;
+const SPLIT_MIN_PX = 80;
+let splitShare = SPLIT_DEFAULT;
+
+function applySplit(share) {
+  /* A panel read to its newest line stays on it as it is resized. */
+  const pinned = ["journal", "chat"]
+    .map(el)
+    .filter((box) => box.scrollHeight - box.scrollTop - box.clientHeight < 8);
+  splitShare = share;
+  el("split").parentElement.style.gridTemplateRows =
+    `auto minmax(0, ${share}fr) auto minmax(0, ${1 - share}fr)`;
+  el("split").setAttribute("aria-valuenow", String(Math.round(share * 100)));
+  for (const box of pinned) box.scrollTop = box.scrollHeight;
 }
+
+function keepSplit() {
+  try {
+    localStorage.setItem(SPLIT_KEY, String(splitShare));
+  } catch (error) {
+    /* Storage refused: the divider still moves, it is only forgotten. */
+  }
+}
+
+/* The share a divider at `y` would give, kept so neither panel goes
+   below SPLIT_MIN_PX. */
+function shareAt(y) {
+  const split = el("split");
+  const top = split.previousElementSibling.getBoundingClientRect().top;
+  const bottom = split.nextElementSibling.getBoundingClientRect().bottom;
+  const room = bottom - top - split.offsetHeight;
+  if (room <= 2 * SPLIT_MIN_PX) return splitShare;
+  const log = Math.min(room - SPLIT_MIN_PX, Math.max(SPLIT_MIN_PX, y - top - split.offsetHeight / 2));
+  return log / room;
+}
+
+(function setUpSplit() {
+  const split = el("split");
+  split.setAttribute("aria-valuemin", "0");
+  split.setAttribute("aria-valuemax", "100");
+  let stored = NaN;
+  try {
+    stored = Number(localStorage.getItem(SPLIT_KEY));
+  } catch (error) {
+    /* Nothing stored that can be read: the default. */
+  }
+  applySplit(stored > 0 && stored < 1 ? stored : SPLIT_DEFAULT);
+
+  split.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    split.setPointerCapture(event.pointerId);
+    split.classList.add("dragging");
+  });
+  split.addEventListener("pointermove", (event) => {
+    if (split.hasPointerCapture(event.pointerId)) applySplit(shareAt(event.clientY));
+  });
+  const release = (event) => {
+    if (!split.hasPointerCapture(event.pointerId)) return;
+    split.releasePointerCapture(event.pointerId);
+    split.classList.remove("dragging");
+    keepSplit();
+  };
+  split.addEventListener("pointerup", release);
+  split.addEventListener("pointercancel", release);
+  split.addEventListener("dblclick", () => {
+    applySplit(SPLIT_DEFAULT);
+    keepSplit();
+  });
+  split.addEventListener("keydown", (event) => {
+    const step = { ArrowUp: -0.05, ArrowDown: 0.05 }[event.key];
+    if (step === undefined) return;
+    event.preventDefault();
+    const box = split.getBoundingClientRect();
+    const middle = box.top + box.height / 2;
+    const room = split.nextElementSibling.getBoundingClientRect().bottom
+      - split.previousElementSibling.getBoundingClientRect().top;
+    applySplit(shareAt(middle + step * room));
+    keepSplit();
+  });
+})();
 
 // -- The chat -----------------------------------------------------------------
 

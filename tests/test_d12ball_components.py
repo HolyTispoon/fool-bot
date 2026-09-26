@@ -2833,11 +2833,10 @@ class D12BallManeuverTests(unittest.TestCase):
         self.assertEqual(by_maneuver["double_team"], {"CARDS"})
         self.assertEqual(by_maneuver["intercept"], {"BALL SPEED", "CARDS"})
 
-        # **Three abilities reach a card their sentence does not name**,
-        # so they cannot be matched and are placed by hand: the
-        # Fullback's +1 distance, which the card words for itself
-        # (2026-08-19), and the Playmaker's "Dribble maneuvers", whose
-        # own sentence is the rule on the Burst too (2026-09-26).
+        # **Abilities reach cards their sentence does not name**, so
+        # they cannot be matched and are placed by hand, each worded
+        # for its card: the Fullback's +1 distance (2026-08-19), and the
+        # Playmaker's additional space on both dribbles (2026-09-26).
         self.assertEqual(by_maneuver["clear"], {"FULLBACK", "CARDS"})
         self.assertEqual(by_maneuver["setup_pass"], {"FULLBACK", "CARDS"})
         self.assertEqual(by_maneuver["dribble_burst"], {"PLAYMAKER", "CARDS"})

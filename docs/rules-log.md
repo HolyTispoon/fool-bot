@@ -86,7 +86,8 @@ at it:
 - **Clear** carries the Fullback's "Block deflect: ball goes back 2", which against a 3-space
   clearance is a reduction.
 - **Dribble Burst** carries the Playmaker's "may advance 2", which against a run to the goal is
-  not a bonus at all.
+  not a bonus at all. *Settled 2026-08-19, reopened and resettled 2026-08-26 (a token off the
+  cost), reversed 2026-09-26 (an additional space, same as the advance) -- see that entry.*
 - **Setup Pass** carries the Fullback's "High pass up to 4", which is a fourth distance against
   a card that offers 0, 1 and 3.
 
@@ -208,15 +209,28 @@ on the pull request that brought it in.
   pass Zytheris receives, with a High Pass of 3 or more offering the shot in place of the contest,
   as an overshoot does.
 
-**The Playmaker runs further on a Dribble Burst.** The `basic_abilities` tab now reads *"May
-advance an additional space when resolving Dribble maneuvers."* -- plural -- where it read *"May
-advance 2 spaces when resolving Dribble Advance."* Asked whether that overrides the ruling of
-2026-08-19 (a Playmaker's Burst is one token fewer), the author: *"This rule was changed and
-superceded. It's no longer 'one token fewer' on a dribble burst."* So the sheet's sentence is
-the rule: a Playmaker's Dribble Burst may run 1 space further, up to 5, at the ordinary token a
-space. Emberdash, a Playmaker, runs the same 5, for nothing. The abbreviated column still reads
-"Dribble Advance up to 2", which the card prints and is the sheet's to update. **The Dribble
-Burst half of 2026-08-19 is superseded.**
+**The Playmaker's sentence is on the sheet now** -- the entry below, made the same day from the
+author directly, asked for it -- and the import carries it. The sheet's abbreviated column still
+reads *"Dribble Advance up to 2"*, so the import put that back over the short form the entry
+below wrote by hand ("Dribble maneuvers +1 space"); the short form is the sheet's to update.
+
+### 2026-09-26 -- author, the Playmaker's ability reads the same on both Dribble cards
+
+**The Playmaker's role ability changes to one sentence naming neither card:** *"May advance an
+additional space when resolving Dribble maneuvers."* This reverses the 2026-08-19 reading (kept
+on 2026-08-26 once the burst was bounded at 4 -- see that entry) that put the ability on the
+Dribble Burst's cost rather than its distance, which was "the only ability that reads
+differently on the two cards of a rank" (docs/design/maneuvers.md). Now it does not: a Dribble
+Advance goes up to 2 spaces, same as before; a Dribble Burst goes up to 5, charged the same
+token a space as everyone else, with no discount. `players.json`'s `role_profiles.playmaker`
+ability text was hand-edited to the new sentence rather than pulled by the import script, since
+the change came from the author directly rather than a sheet update -- **the sheet should be
+updated to match before the next `import_d12ball_players.py` run**, or the import will revert it.
+
+Emberdash's own personal ability is unchanged (*"Dribble Advance up to 3 or Dribble Burst with
+no exhaustion"*, 2026-09-25): Emberdash still advances up to 3, and still bursts for nothing --
+now up to the Playmaker's 5, since Emberdash is a Playmaker too and the role ability and the
+personal ability stack, same as they always have (Law 21, "Whose they are").
 
 ### 2026-09-25 (last) -- author and sheet, Volatile decides no cost, and the personal abilities move on
 
@@ -1451,8 +1465,8 @@ end of the field. All three were left unapplied pending this.
   one that does. A Dribble Burst's distance is not a choice, so the ability lands on the one
   thing the card has that its counterpart does not: it **pays one exhaustion token fewer** for
   the run. Floored at 0 — a discount cannot hand a token back.
-  *Superseded on 2026-09-26*: a Playmaker's Burst runs 1 space further instead -- see that
-  entry.
+  *Superseded on 2026-09-26*: a Playmaker's Burst runs 1 space further instead -- see "the
+  Playmaker's ability reads the same on both Dribble cards".
 
 Nothing here is in the sheet: the `Interactions` column still carries the counterpart's
 sentences. The cards print what the ability does on the card it is on, out of `EXTRA_NOTES`.
