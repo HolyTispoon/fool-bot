@@ -113,7 +113,7 @@
       "role": "playmaker",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "*Boost*: drain 1 for +3 on a roll.",
+      "advanced_ability": "Boost: drain 1 for +3 (once per role).",
       "advanced_skills": {}
     },
     "glompex_midfielder": {
@@ -324,7 +324,7 @@
       "role": "winger",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "Fly: if not injured or in possession, after turnover can move anywhere adding exhaustion per space. Does not run back if Flying.",
+      "advanced_ability": "Fly: if not injured or in possession, after turnover can move anywhere, exhausting per space. Does not run back if Flying.",
       "advanced_skills": {}
     },
     "zorch_playmaker": {

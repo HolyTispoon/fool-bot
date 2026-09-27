@@ -85,7 +85,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "gearclaw_playmaker": (
         PersonalAbility.BOOST,
-        "*Boost*: drain 1 for +3 on a roll.",
+        "Boost: drain 1 for +3 (once per role).",
     ),
     "strider_midfielder": (
         PersonalAbility.EFFICIENT_RUN,
@@ -166,8 +166,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     "zenith_winger": (
         PersonalAbility.FLY,
         "Fly: if not injured or in possession, after turnover can move "
-        "anywhere adding exhaustion per space. Does not run back if "
-        "Flying.",
+        "anywhere, exhausting per space. Does not run back if Flying.",
     ),
     "zytheris_striker": (
         PersonalAbility.SHOOTS_OFF_ANY_PASS,
