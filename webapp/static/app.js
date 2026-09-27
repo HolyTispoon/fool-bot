@@ -2621,7 +2621,7 @@ function drawTeams(seat) {
       }, number === 1 ? teamEmoji(team.key, team.name) : null))),
   ];
   return h("div", { class: "table-teams" },
-    row(0, "Colour teams"),
+    row(0, "Color teams"),
     row(1, "Species teams"));
 }
 
