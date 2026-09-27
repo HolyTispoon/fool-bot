@@ -798,7 +798,7 @@ GAME_MODE_DEFINITIONS: dict[GameMode, str] = {
     GameMode.TRAINING: (
         "Symmetric abilities, fundamental rules, best way to learn the game"
     ),
-    GameMode.STANDARD: "Adding Species abilities for asymmetric game play",
+    GameMode.STANDARD: "Species abilities create asymmetric gameplay",
     GameMode.ADVANCED: (
         "Individual players with unique abilities adding significant "
         "complexity, variety, and chaos"
