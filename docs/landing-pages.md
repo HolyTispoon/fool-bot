@@ -585,6 +585,10 @@ Fill the studio page:
      scripts/render_landing_dice.py is the renderer written for the
      sketch; move it to landing/dice.py, keep its output identical,
      and compose the still in landing/build.py with Pillow.
+     The renderer shades per pixel with numpy, which requirements.txt
+     does not list: add it in this step (the Pages build image
+     installs its wheel), or rewrite the shading in plain Pillow if
+     the author would rather not add a dependency for one picture.
 
 3. Footer: the studio's name, politicsgames@gmail.com as a mailto
    link, the year.
