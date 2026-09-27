@@ -115,6 +115,29 @@ img { display: block; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* The topic as the name's editor, before kickoff: the text itself is
+   the button, with a pencil that brightens on hover. */
+.topic-edit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.topic-edit .topic-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px dashed var(--faint);
+}
+.topic-edit .topic-pencil { color: var(--faint); font-size: 13px; }
+.topic-edit:hover, .topic-edit:focus-visible { color: var(--strong); }
+.topic-edit:hover .topic-pencil, .topic-edit:focus-visible .topic-pencil { color: var(--gold); }
+.topic .topic-field { width: 260px; }
 
 /* -- The two columns ---------------------------------------------------- */
 

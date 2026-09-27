@@ -288,9 +288,64 @@ function teamEmoji(key, name) {
    edge), the side and its team after it (the team's colour), or
    watching, with the free seat beside it when there is one. Which is
    which is the server's `room.role`, read off the record. */
+/* The topic: the room's name, or who plays whom. Before kickoff, to
+   whoever may change the name, it is the name's editor too -- click
+   it, type, and it saves on Enter or when the field is left; Escape
+   leaves it as it was (the author, 2026-09-27). Drawn again only when
+   it changes, and never under the reader's typing. */
+let shownTopic = null;
+function drawTopic(state) {
+  const box = el("topic");
+  if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+  const setting = state.table && state.table.settings.find((one) => one.name === "name");
+  const editable = Boolean(setting && setting.may_change);
+  const shape = JSON.stringify([state.game.topic, editable, setting && setting.value]);
+  if (shape === shownTopic) return;
+  shownTopic = shape;
+  if (!editable) {
+    box.replaceChildren(state.game.topic);
+    return;
+  }
+  const edit = () => {
+    const input = h("input", {
+      class: "name-field small topic-field",
+      maxlength: "80",
+      value: setting.value || "",
+      placeholder: state.game.topic,
+      "aria-label": "Rename this game",
+    });
+    let done = false;
+    const finish = (save) => {
+      if (done) return;
+      done = true;
+      const value = input.value;
+      shownTopic = null;
+      box.replaceChildren();
+      drawTopic(current);
+      if (save && value !== (setting.value || "")) {
+        roomMove("/table/configure", { setting: "name", value });
+      }
+    };
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); finish(true); }
+      else if (event.key === "Escape") finish(false);
+    });
+    input.addEventListener("blur", () => finish(true));
+    box.replaceChildren(input);
+    input.focus();
+    input.select();
+  };
+  box.replaceChildren(h("button", {
+    type: "button",
+    class: "topic-edit",
+    title: "Rename this game",
+    onclick: edit,
+  }, h("span", { class: "topic-text" }, state.game.topic), h("span", { class: "topic-pencil", "aria-hidden": "true" }, "✎")));
+}
+
 function drawHeader(state) {
   el("channel").textContent = `pbw${state.game.number}`;
-  el("topic").textContent = state.game.topic;
+  drawTopic(state);
   const you = el("you");
   const room = state.room;
   const mine = room.seats.find((seat) => seat.yours);
@@ -2582,8 +2637,7 @@ function seatTeamLine(seat) {
 
 function seatHint(seat, room, seated) {
   let hint = null;
-  if (seat.yours) hint = "Drag your name out of the seat, or click ✕, to leave it";
-  else if (seat.name && room.admin) hint = `Drag ${seat.name} out, or click ✕, to free the seat`;
+  if (seat.name && !seat.yours && room.admin) hint = `Drag ${seat.name} out, or click ✕, to free the seat`;
   else if (seat.free && seated && room.ai_seats.includes(seat.number)) {
     return h("div", { class: "seat-hint" },
       h("span", {}, "Invite your friends to play with this "),
