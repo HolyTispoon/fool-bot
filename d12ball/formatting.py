@@ -853,14 +853,14 @@ def describe_game_mode(
 #: `GAME_SETTINGS`, in the coach's own terms. A test game is defined by
 #: one coach playing both sides; that it is kept out of the statistics
 #: follows from that and is said second (the author, 2026-09-26). The
-#: tutorial is `D12BallGame.pin_tutorial`'s game: one coach against
-#: Dinky, the Charter's training game, on a 7-space board, opened by
-#: the script in `d12ball/tutorial.py`.
+#: tutorial is said as what it is for, in the author's words
+#: (2026-09-27); what it pins -- one coach against Dinky, Training, a
+#: 7-space board, the script in `d12ball/tutorial.py` -- is
+#: `D12BallGame.pin_tutorial`'s, and the pills show it.
 SETTING_DEFINITIONS: dict[str, str] = {
     "test": "one coach plays both sides; kept out of the statistics",
     "tutorial": (
-        "one coach against Dinky, in training mode on a 7-space board, "
-        "with a scripted opening"
+        "Learn to play the game! Dinky AI will walk you through the basics."
     ),
 }
 
