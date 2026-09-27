@@ -1218,7 +1218,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.5.2** **Quillon pulls for free.** Quillon takes no token for a Mind Pull.
 
-**21.5.3** **Spectra pulls harder.** Spectra's Mind Pull succeeds on 8 or more.
+**21.5.3** **Spectra pulls harder.** Spectra's Mind Pull succeeds on 9 or more.
 
 **21.5.4** **Dravox and Hexis play their gambits on the dice.** When Dravox wins a maneuver skill test with a defensive gambit they played, or Hexis with an offensive one, it resolves as the gambit -- where a card that did not win on the cards [would otherwise resolve as its basic maneuver](#194-when-a-gambits-effect-fires) (19.4). A basic card they played is not upgraded.
 

@@ -154,6 +154,22 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-27 (final) -- sheet and author, Spectra pulls on 9 or more
+
+The author: Spectra's ability is revised to a successful Mind Pull on nine and above instead of
+eight and above, and the sheet is updated to match. Re-imported, Spectra's cell reads *"Mind
+Pulls on 9+."* Law 21.5.3 now reads "succeeds on 9 or more". Nothing else about the pull
+changes; the roll, its cost and where a pull lands are still Law 20.4's.
+
+The same import rewords two more cells with no change of meaning, and each is played as it was:
+
+- **Gearclaw** now reads *"Boost: drain 1 for +3 (once per roll)."* where it read "drain 1 for
+  +3 on a roll". The author: Boost *"was always once per roll so it's just a different phrasing
+  of the same rule"* -- Law 21.4.3 already says once per roll.
+- **Zenith's Fly** now says *"exhausting per space"* where it said *"adding exhaustion per
+  space"* -- the sheet catching up with the 2026-09-27 wording, so it leaves "Where upstream is
+  behind".
+
 ### 2026-09-27 (newest) -- sheet and author, Zorch rolls with the ball; eleven abilities reworded
 
 Re-imported from the sheet. Zorch's personal ability is new: *"Adds ball speed modifier to all
@@ -3022,7 +3038,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Cleanup restarts "from the middle (back of the midfield)" | The same kickoff space rule, for every restart |
 | "Clash" / "clash roll" | Skill test |
 | Lithium Powered: "can gain 3 drain tokens to add +5", "3 drain → +5" (the sheet) | Drain 3 for +5 -- *drain* is the verb for gaining drain |
-| Dribble Burst "adding exhaustion per space", Clear "if defeated, add 2 exhaustion", Mind Pull "take 1 exhaustion" (both columns), Zenith's Fly "adding exhaustion per space" (the sheet) | Exhausting 1 per space, exhaust 2, exhaust 1 -- *exhaust* is the verb for gaining exhaustion |
+| Dribble Burst "adding exhaustion per space", Clear "if defeated, add 2 exhaustion", Mind Pull "take 1 exhaustion" (both columns) (the sheet) | Exhausting 1 per space, exhaust 2, exhaust 1 -- *exhaust* is the verb for gaining exhaustion |
 | Volatile: "When a Fire Demon rolls a natural 6 or 7", on any roll (the sheet) | Only a skill test, a contest, a score attempt's shooter and a shootout test ignite; never an injury check or an own-goal roll |
 | A score attempt's "each player rolls a d12" | Exactly two dice, one per coach; the defence sums intervening meeples |
 | Every meeple in the way adds its whole defensive skill | Full on the ball's own space, half rounded up beyond it |

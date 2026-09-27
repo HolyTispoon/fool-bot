@@ -1223,7 +1223,7 @@ class RulesEngine:
 
     def mind_pull_minimum(self, game: D12BallGame, player_id: str) -> int:
         """
-        The lowest total a Mind Pull lands on: 11, or Spectra's 8
+        The lowest total a Mind Pull lands on: 11, or Spectra's 9
         (Law 21). "On 11-12" is read as 11 or more, because an ignite
         could carry a total past 12 and a higher roll is never a worse
         one.
