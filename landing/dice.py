@@ -11,8 +11,8 @@ from them and the bot's coins.
 
 Written for the landing-page sketch the author reviewed (2026-09-27)
 as `scripts/render_landing_dice.py` and moved here with its output
-unchanged; the resin finish came after, when the author asked for the
-two orange dice they play with. Nothing in the game reads it, and it
+unchanged; the resin finish came after, when the author asked for a
+pair like the dice they play with, in teal. Nothing in the game reads it, and it
 shades per pixel with numpy. See docs/design/landing-pages.md, "The
 studio page".
 """
@@ -52,15 +52,16 @@ class Die:
     swirl: float = 0.0
 
 
-# The two dice are orange resin, the bright one and the dark one, after
-# the pair the author plays with (a photo, 2026-09-27).
-# Fortune: bright frosted orange, painted white numerals, a satin sheen.
-FORTUNE = Die((244, 104, 24), (250, 246, 236), 12, 18, False, 30, 0.45,
-              glow=(255, 176, 80), glow_strength=0.4)
-# Doom: dark amber swirled with lighter amber, painted gold numerals,
-# a glossy highlight.
-DOOM = Die((118, 42, 14), (232, 178, 72), 1, -31, False, 60, 0.7,
-           gloss_tint=(255, 215, 170), glow=(214, 104, 30), glow_strength=0.3,
+# The two dice are teal resin, a bright one and a dark one, in the shape
+# of the orange pair the author plays with (a photo, 2026-09-27) and the
+# colour the author chose after.
+# Fortune: bright, frosted teal, painted white numerals, a satin sheen.
+FORTUNE = Die((24, 214, 200), (252, 255, 252), 12, 18, False, 30, 0.45,
+              glow=(150, 255, 238), glow_strength=0.4)
+# Doom: dark teal swirled with lighter teal, painted gold numerals, a
+# glossy highlight.
+DOOM = Die((12, 74, 76), (232, 178, 72), 1, -31, False, 60, 0.7,
+           gloss_tint=(200, 245, 240), glow=(38, 150, 146), glow_strength=0.3,
            swirl=0.7)
 
 
