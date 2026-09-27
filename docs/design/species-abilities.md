@@ -210,8 +210,17 @@ their own (below).
     The shooter is `active_player_id`, so the picture drawn before the
     shot and the roll read the same wall.
   - *What a test costs* -- `skill_test_tokens` and `re_roll_tokens`:
-    Zorch pays nothing, and a test Scorchit forced is 2 to Scorchit and
-    0 to their opponent. **Scorchit's test is their coach's choice** --
+    a test Scorchit forced is 2 to Scorchit and 0 to their opponent.
+    (Zorch's free tests went on 2026-09-27; `re_roll_tokens` is kept as
+    the one question a re-roll's price is read from.)
+  - *Zorch's speed* -- `speed_roll_bonus` is the ball speed modifier
+    Zorch adds to every roll they make, asked at the skill test, the
+    contest, the injury check and the own-goal roll. **The caller
+    decides whether to ask**: where the roll already adds the modifier
+    to Zorch's side (a Steal or Intercept, the thrower's side of a High
+    Pass contest, the shot) it does not, because Zorch adds it once.
+    It is `ball.speed // 2`, never `ball_speed_modifier()`'s signed
+    value -- an overshoot is the pass's penalty, not Zorch's. **Scorchit's test is their coach's choice** --
     "may force" (the author, 2026-09-26) -- so it is a prompt,
     `FORCE_TEST`, put up by `resolve_maneuver` at the reveal where
     `force_test_offer` names them, and the yes is **saved**

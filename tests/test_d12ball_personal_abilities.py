@@ -45,7 +45,7 @@ from d12ball.flow.effects import (
 )
 from d12ball.flow.arrivals import resolve_loose_ball
 from d12ball.flow.injuries import injury_test_step
-from d12ball.flow.rolls import after_the_contest
+from d12ball.flow.rolls import after_the_contest, score_skill_test
 from d12ball.flow.result import FollowOnStep
 from d12ball.flow.turn import (
     begin_maneuver_action_selection,
@@ -659,25 +659,96 @@ class AcidelTests(unittest.TestCase):
 
 
 class ZorchTests(unittest.TestCase):
-    """Zorch pays no token for a skill test or any re-roll (Law 21)."""
+    """Zorch adds the ball speed modifier to every roll they make, once
+    (Law 21)."""
 
     def setUp(self) -> None:
         self.game = advanced()
         self.match = build_match(ENGINE, self.game)
-        self.player = self.match.home.field_players[0]
+        self.offense = self.match.home.field_players[0]
+        self.defense = self.match.visiting.field_players[0]
+        self.match.ball.speed = 7  # modifier +3
+        self.match.offense_maneuver = "low_pass"
+        self.match.defense_maneuver = "pressure"
 
-    def test_every_test_is_free(self) -> None:
-        self.assertEqual(ENGINE.re_roll_tokens(self.game, self.player), 1)
+    def skill_test(self):
+        with mock.patch.object(ENGINE.rng, "randint", return_value=5):
+            _, offense, defense, _, _ = score_skill_test(
+                ENGINE, self.game, self.match,
+                ENGINE.get_player_definition(self.offense),
+                ENGINE.get_player_definition(self.defense),
+            )
+        return offense, defense
+
+    def test_nobody_else_adds_it(self) -> None:
         self.assertEqual(
-            ENGINE.skill_test_tokens(self.game, self.match, self.player), 1,
+            ENGINE.speed_roll_bonus(self.game, self.match, self.offense),
+            (0, ""),
         )
-        with holding(self.player, PersonalAbility.FREE_TESTS):
+
+    def test_it_is_half_the_speed_and_nothing_at_speed_one(self) -> None:
+        with holding(self.offense, PersonalAbility.SPEED_ROLLS):
             self.assertEqual(
-                ENGINE.re_roll_tokens(self.game, self.player), 0,
+                ENGINE.speed_roll_bonus(self.game, self.match, self.offense),
+                (3, "+3 ball speed modifier"),
+            )
+            self.match.ball.speed = 1
+            self.assertEqual(
+                ENGINE.speed_roll_bonus(self.game, self.match, self.offense),
+                (0, ""),
+            )
+
+    def test_only_in_advanced_mode(self) -> None:
+        game = build_game(mode=GameMode.STANDARD)
+        with holding(self.offense, PersonalAbility.SPEED_ROLLS):
+            self.assertEqual(
+                ENGINE.speed_roll_bonus(game, self.match, self.offense),
+                (0, ""),
+            )
+
+    def test_a_skill_test_adds_it_on_either_side(self) -> None:
+        plain = self.skill_test()
+        with holding(self.offense, PersonalAbility.SPEED_ROLLS):
+            attacking = self.skill_test()
+        with holding(self.defense, PersonalAbility.SPEED_ROLLS):
+            defending = self.skill_test()
+        self.assertEqual(attacking, (plain[0] + 3, plain[1]))
+        self.assertEqual(defending, (plain[0], plain[1] + 3))
+
+    def test_a_steal_already_adds_it_so_zorch_adds_nothing_more(self) -> None:
+        self.match.defense_maneuver = "steal"
+        plain = self.skill_test()
+        with holding(self.defense, PersonalAbility.SPEED_ROLLS):
+            self.assertEqual(self.skill_test(), plain)
+
+    def test_an_injury_check_adds_it(self) -> None:
+        # 3 against 4 tokens fails; Zorch's +3 makes it 6, and safe.
+        self.match.exhaustion[self.offense] = 4
+        with mock.patch.object(ENGINE.rng, "randint", return_value=3):
+            plain, _ = injury_test_step(
+                ENGINE, self.game, self.match, self.offense,
+            )
+        self.match.injured.discard(self.offense)
+        self.match.exhaustion[self.offense] = 4
+        with holding(self.offense, PersonalAbility.SPEED_ROLLS), \
+                mock.patch.object(ENGINE.rng, "randint", return_value=3):
+            zorch, result = injury_test_step(
+                ENGINE, self.game, self.match, self.offense,
+            )
+        self.assertFalse(plain.safe)
+        self.assertTrue(zorch.safe)
+        self.assertIn("+3 ball speed modifier", " ".join(result.narration))
+
+    def test_tests_are_no_longer_free(self) -> None:
+        with holding(self.offense, PersonalAbility.SPEED_ROLLS):
+            self.assertEqual(
+                ENGINE.re_roll_tokens(self.game, self.offense), 1,
             )
             self.assertEqual(
-                ENGINE.skill_test_tokens(self.game, self.match, self.player),
-                0,
+                ENGINE.skill_test_tokens(
+                    self.game, self.match, self.offense,
+                ),
+                1,
             )
 
 

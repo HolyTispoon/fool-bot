@@ -375,6 +375,21 @@ def score_skill_test(
         defense_total += modifier
         defense_detail.append(f"+{modifier} ball speed modifier")
 
+    # Zorch adds the modifier to every roll they make (Law 21), once:
+    # a defense contesting with Steal or Intercept already has it.
+    offense_speed, offense_speed_line = engine.speed_roll_bonus(
+        game, match, offense_player.player_id,
+    )
+    defense_speed, defense_speed_line = (
+        (0, "")
+        if match.defense_maneuver in ("steal", "intercept")
+        else engine.speed_roll_bonus(game, match, defense_player.player_id)
+    )
+    offense_total += offense_speed
+    defense_total += defense_speed
+    offense_detail.extend(filter(None, [offense_speed_line]))
+    defense_detail.extend(filter(None, [defense_speed_line]))
+
     # **Merge**: an Ooze standing on the ball who is not one of the two
     # rolling adds to their own side -- offensive skill on the attack,
     # defensive on the defence. A maneuver's skill test is always
@@ -743,6 +758,23 @@ def score_loose_ball(
         modifier = match.ball_speed_modifier()
         offense_total += modifier
         offense_detail.append(f"{modifier:+d} ball speed modifier")
+
+    # Zorch adds the modifier to every roll they make (Law 21), once:
+    # the thrower's side of a High Pass contest already has it, signed.
+    offense_speed, offense_speed_line = (
+        (0, "")
+        if match.pending_loose_ball_is_high_pass
+        else engine.speed_roll_bonus(
+            game, match, offense_player.player_id,
+        )
+    )
+    defense_speed, defense_speed_line = engine.speed_roll_bonus(
+        game, match, defense_player.player_id,
+    )
+    offense_total += offense_speed
+    defense_total += defense_speed
+    offense_detail.extend(filter(None, [offense_speed_line]))
+    defense_detail.extend(filter(None, [defense_speed_line]))
 
     # **Merge**, for a contest fought on the ball's space -- which this
     # always is: both contestants have been walked onto it by the time

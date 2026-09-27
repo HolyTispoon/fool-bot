@@ -316,7 +316,9 @@ def injury_test_step(
     ignite = engine.injury_ignite(game, player_id, roll)
     overdrive = match.overdrive_modifier(player_id)
     match.consume_overdrive()
-    check = roll + overdrive + ignite.modifier
+    # Zorch adds the ball speed modifier to every roll they make (Law 21).
+    speed, speed_line = engine.speed_roll_bonus(game, match, player_id)
+    check = roll + overdrive + ignite.modifier + speed
     # Kindlefinger's token moves **before** the check is compared (the
     # author, 2026-09-26), as a skill test's own tokens count toward the
     # check behind it.
@@ -330,6 +332,7 @@ def injury_test_step(
         part for part in (
             f"+{overdrive} Overdrive" if overdrive else None,
             ignite.detail,
+            speed_line,
         )
         if part
     ]

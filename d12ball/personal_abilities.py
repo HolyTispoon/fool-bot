@@ -56,7 +56,7 @@ class PersonalAbility(str, Enum):
     JOINS_THE_BALL = "joins_the_ball"          # Glompex
     WINS_CONTESTS = "wins_contests"            # Slitheron
     SMOOTH = "smooth"                          # Spritz
-    FREE_TESTS = "free_tests"                  # Zorch
+    SPEED_ROLLS = "speed_rolls"                # Zorch
     MERGES_HARDER = "merges_harder"            # Viscor
 
 
@@ -101,11 +101,11 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "quillon_playmaker": (
         PersonalAbility.FREE_PULL,
-        "Does not get exhausted for Mind Pull.",
+        "Does not  exhaust for Mind Pull.",
     ),
     "spectra_midfielder": (
         PersonalAbility.STRONG_PULL,
-        "Mind Pulls succeds on 8+.",
+        "Mind Pulls on 8+.",
     ),
     "goopkeeper_fullback": (
         PersonalAbility.FULL_BLOCK,
@@ -141,14 +141,13 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     "kindlefinger_striker": (
         PersonalAbility.INJURY_IGNITION,
         "Can iginite on injury test: when blazes clear 1 exhaustion and "
-        "when burns add 1 exhaustion.",
+        "when burns exhaust 1.",
     ),
     "scorchit_midfielder": (
         PersonalAbility.FORCES_THE_TEST,
-        "May force a skill test even when their maneuver is on the losing "
-        "side but gains 2 exhaustion while opponent gains none "
-        "(additional tests due to ties add 1 exhaustion per player as "
-        "normal).",
+        "When their maneuver loses on rank, may exhaust 2 to force a "
+        "skill test while rival doesn't exhaust. Subseuqent ties "
+        "exhaust as normal.",
     ),
     "pulsar_striker": (
         PersonalAbility.CHARGES_ON_THE_BALL,
@@ -156,19 +155,19 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "umbrik_fullback": (
         PersonalAbility.DEFENSIVE_THROW,
-        "Uses dSkill for attempting to avoid an own goal and for skill "
-        "tests when attempting to high pass.",
+        "Uses dSkill for high pass skill tests and when avoiding own "
+        "goals.",
     ),
     "vorix_defender": (
         PersonalAbility.LONG_SET_UP,
-        "When successfully high passes for 3: speed ball to 12 and set up "
-        "a scoring opportunity without contest.",
+        "When high passing for 3: speed ball to 12 and set up a scoring "
+        "opportunity without contest.",
     ),
     "zenith_winger": (
         PersonalAbility.FLY,
-        "Fly: before runback, if not injured or in possession can be "
-        "moved anywhere on the board gaining exhaustion as normal. Does "
-        "not run back if moved by Fly.",
+        "Fly: if not injured or in possession, after turnover can move "
+        "anywhere adding exhaustion per space. Does not run back if "
+        "Flying.",
     ),
     "zytheris_striker": (
         PersonalAbility.SHOOTS_OFF_ANY_PASS,
@@ -176,9 +175,8 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "glompex_midfielder": (
         PersonalAbility.JOINS_THE_BALL,
-        "After a maneuver is challenged but before selecting a maneuver, "
-        "if Glomplex is in a space adjacent to the ball they may add 1 "
-        "exhaustion to move to the ball's space and Merge.",
+        "After a maneuver is challenged, if Glomplex is adjacent to the "
+        "ball they may exhaust 1 to move to the ball's space and Merge.",
     ),
     "slitheron_striker": (
         PersonalAbility.WINS_CONTESTS,
@@ -186,22 +184,20 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "spritz_winger": (
         PersonalAbility.SMOOTH,
-        "Smooth (eammate sharing space may handover ball handling.)",
+        "Smooth (teammate sharing space may handover ball handling).",
     ),
     "viscor_defender": (
         PersonalAbility.MERGES_HARDER,
-        "+3 when Merging.",
+        "Gain +3 when Merging.",
     ),
     "zorch_playmaker": (
-        PersonalAbility.FREE_TESTS,
-        "Does not add exhaustion when rolling skill tests (including "
-        "after ties).",
+        PersonalAbility.SPEED_ROLLS,
+        "Adds ball speed modifier to all rolls.",
     ),
     "quantor_winger": (
         PersonalAbility.RUN_ON,
-        "Before resolving High Pass or Setup Pass, drain 3 to move "
-        "Quantor to the target space of the pass. Quantor gains "
-        "possession without contest.",
+        "Before resolving High/Setup Pass, drain 3 to move to the "
+        "pass's target space. Quantor gains possession without contest.",
     ),
 }
 

@@ -1175,7 +1175,11 @@ def own_goal_roll_step(
     # natural 6 or 7 here is only the number.
     overdrive = match.overdrive_modifier(offense_player.player_id)
     match.consume_overdrive()
-    safe = max(rolls) + offense_skill + overdrive >= 7
+    # Zorch adds the ball speed modifier to every roll they make (Law 21).
+    speed, speed_line = engine.speed_roll_bonus(
+        game, match, offense_player.player_id,
+    )
+    safe = max(rolls) + offense_skill + overdrive + speed >= 7
 
     # Logged ahead of `apply_own_goal_outcome`, which is what concedes
     # the goal, so the risk sits above the goal it sometimes produced.
@@ -1206,7 +1210,9 @@ def own_goal_roll_step(
     )
     if overdrive:
         arithmetic += f", +{overdrive} Overdrive"
-    total = taken + offense_skill + overdrive
+    if speed:
+        arithmetic += f", {speed_line}"
+    total = taken + offense_skill + overdrive + speed
     arithmetic += f" = {total}"
     breakdown = f"**Own goal risk!** {arithmetic}"
     # Whose outcome it is: the roller's side keeps it out, the other
