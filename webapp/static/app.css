@@ -1298,12 +1298,18 @@ button.goal { display: block; }
 .peek img { width: min(260px, calc(100vw - 16px)); height: auto; border-radius: 12px; }
 .peek.pinned img { box-shadow: 0 0 0 2px var(--gold); cursor: zoom-in; }
 
-.tabs { display: none; }
+/* A phone's own tabs and its strip are not drawn on a wider screen,
+   and the Move tab's pane is only a grouping there. */
+.strip, .lit-repeat { display: none; }
+.move-pane { display: contents; }
 
 /* -- A phone: one screen ------------------------------------------------------
-   The score and the board stay on screen; under them, tabs switch
-   between the prompt, the log and the chat, which fill what is left.
-   Nothing scrolls but the tab that is showing. */
+   (step 11 of docs/web-app-redesign.md). The score and the field stay on
+   screen; tabs -- Move, Log, Chat, Teams, Rules -- switch what fills the
+   rest, and only the tab showing scrolls. Held upright, the field is the
+   narrow one and the move a bottom sheet with the tabs along its foot;
+   on its side, the desktop field whole with the score and the clock in
+   the top bar and the move one slim strip under the field. */
 
 @media (max-width: 960px) {
   .app {
@@ -1311,77 +1317,311 @@ button.goal { display: block; }
     flex-direction: column;
     height: calc(100vh - var(--topbar));
     height: calc(100dvh - var(--topbar));
-    padding: 8px;
+    padding: 8px 12px 0;
     gap: 8px;
     overflow: hidden;
   }
   .main, .sidebar { display: contents; }
   /* A phone's own tabs switch the screen; the sidebar's are not drawn. */
   .side-tabs { display: none; }
-  .pane { background: var(--panel); border: 1px solid var(--deep); border-radius: 8px; }
-  /* The bar keeps its order on a phone and wraps: teams and score on
-     one line, the clock and the tiles under it (step 11 redraws it). */
-  .jumbotron { order: 1; flex-wrap: wrap; gap: 6px 10px; padding: 6px 10px; }
-  .jumbo-teams { flex-basis: 100%; gap: 8px; }
-  .jumbo-rule { display: none; }
-  .jumbo-team { font-size: 16px; }
-  .jumbo-goals { font-size: 26px; }
-  .jumbo-score { min-width: 0; }
-  .jumbo-brand { display: none; }
-  .jumbo-minute { font-size: 18px; }
-  .jumbo-clock { flex: 1 1 100%; min-width: 0; gap: 4px; }
-  .board-panel { order: 2; flex: none; padding: 6px; }
+  .topic, .topbar-divider { display: none; }
+  .you-pill { padding: 4px 10px; font-size: 12px; gap: 6px; }
+  .you-pill .pill-lead, .you-pill .pill-team { display: none; }
+
+  .board-panel { order: 2; flex: none; padding: 0; background: none; border: 0; }
   .benches { margin-top: 6px; gap: 6px; padding: 6px; flex-direction: column; }
   .sideline-team.visiting { justify-content: flex-start; }
 
-  .tabs {
-    order: 3;
+  /* What a tab holds: the one that is showing fills the rest and
+     scrolls; the others are not drawn. */
+  .move-pane, .pane {
+    order: 4;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
     display: flex;
-    flex: none;
-    gap: 4px;
-    background: var(--deep);
-    border-radius: 8px;
-    padding: 3px;
+    flex-direction: column;
+    gap: 10px;
   }
-  .tab {
-    flex: 1;
-    font: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--muted);
-    background: none;
-    border: 0;
-    border-radius: 6px;
-    padding: 6px 0;
-    position: relative;
-  }
-  body[data-show="move"] .tab[data-show="move"],
-  body[data-show="log"] .tab[data-show="log"],
-  body[data-show="chat"] .tab[data-show="chat"],
-  body[data-show="teams"] .tab[data-show="teams"],
-  body[data-show="rules"] .tab[data-show="rules"] { background: var(--field); color: var(--strong); }
-  .tab.news::after {
-    content: "";
-    position: absolute;
-    top: 6px;
-    right: 18%;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--red);
-  }
-  .tab.yours::after { background: var(--yours-edge); }
-
-  [data-tab] { order: 4; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-  #refusal[data-tab] { flex: none; }
-  body:not([data-show="move"]) [data-tab="move"],
+  .pane { background: var(--panel); border: 1px solid var(--deep); border-radius: 8px; }
+  body:not([data-show="move"]) .move-pane,
   body:not([data-show="log"]) [data-tab="log"],
   body:not([data-show="chat"]) [data-tab="chat"],
   body:not([data-show="teams"]) [data-tab="teams"],
   body:not([data-show="rules"]) [data-tab="rules"] { display: none !important; }
 
-  .topic { display: none; }
+  .strip { display: flex; order: 5; flex: none; }
+  .tabs { display: flex; }
+  .tab {
+    position: relative;
+    font: inherit;
+    font-weight: 700;
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+  }
+  body[data-show="move"] .tab[data-show="move"],
+  body[data-show="log"] .tab[data-show="log"],
+  body[data-show="chat"] .tab[data-show="chat"],
+  body[data-show="teams"] .tab[data-show="teams"],
+  body[data-show="rules"] .tab[data-show="rules"] { color: var(--strong); }
+  /* A dot on a tab that is not showing: red for news, gold on Move
+     where the question is this coach's. */
+  .tab.news::after {
+    content: "";
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+  }
+  .tab.yours::after { background: var(--gold); }
+  .strip[data-state="yours"] { --tag: var(--gold); --tag-ink: var(--deep); }
+  .strip[data-state="waiting"] { --tag: var(--grey); --tag-ink: #fff; }
+  .strip[data-state="now"] { --tag: var(--blurple); --tag-ink: #fff; }
+  .strip[data-state="full_time"] { --tag: var(--green); --tag-ink: #fff; }
+
+  .qbox { flex-direction: column; min-height: 0; gap: 10px; }
+  .qbox-aside { max-width: 100%; padding-left: 0; border-left: 0; }
+  .outcome { flex-wrap: wrap; gap: 14px; }
+  .outcome-headline { font-size: 34px; }
   .hand { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Held upright: the compact jumbotron, the narrow field, and the sheet. */
+@media (max-width: 960px) and (orientation: portrait) {
+  :root { --topbar: 44px; }
+  .topbar { padding: 0 12px; background: var(--deep); border-bottom-color: var(--line); }
+
+  /* One line: the teams and the score, the minute and the half, and
+     the ball's d12 beside the side that has it. The coaches, the track
+     and the tiles are the wide screen's; a time out that is lit is on
+     the sheet with everything else lit. */
+  .jumbotron { order: 1; gap: 8px; padding: 6px 10px; border-radius: 12px; }
+  .jumbo-teams { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+  .jumbo-side { flex: 0 1 auto; flex-direction: row; align-items: center; gap: 3px; }
+  .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
+  .jumbo-score { order: 2; min-width: 0; }
+  .jumbo-team { font-size: 13px; letter-spacing: 0.3px; }
+  .jumbo-arrow { font-size: inherit; color: inherit; }
+  .jumbo-goals { font-size: 24px; }
+  .jumbo-coach, .jumbo-brand, .jumbo-rule, .jumbo-track, .jumbo-marks, .jumbo-tiles { display: none; }
+  .jumbo-ball { font-size: 0; gap: 0; }
+  .jumbo-clock { flex: none; min-width: 0; gap: 0; align-items: flex-end; }
+  /* The minute over the half, so the teams keep the width. */
+  .jumbo-time { flex-direction: column; align-items: flex-end; gap: 1px; flex-wrap: nowrap; white-space: nowrap; }
+  .jumbo-minute { font-size: 20px; }
+  .jumbo-half { font-size: 10px; color: var(--muted); }
+  .jumbo-last { font-size: 7px; letter-spacing: 0; padding: 1px 3px; }
+  .jumbo-note { font-size: 9px; text-align: right; }
+
+  .board-panel > .benches { display: none; }
+
+  /* The sheet: the Move tab's pane over the page's foot, edged in the
+     tag's colour, and the tabs along its foot. */
+  .move-pane {
+    --edge: var(--line);
+    margin: 0 -12px;
+    padding: 10px 12px 12px;
+    background: var(--panel);
+    border-radius: 14px 14px 0 0;
+    border-top: 4px solid var(--edge);
+  }
+  .move-pane[data-state="yours"] { --edge: var(--gold); }
+  .move-pane[data-state="now"] { --edge: var(--blurple); }
+  .move-pane[data-state="full_time"] { --edge: var(--green); }
+  .move-pane > .panel, .move-pane > .qbox { background: none; border: 0; padding: 0; border-radius: 0; }
+  .move-pane .qbox .ask { font-size: 14px; }
+  /* The sheet opens on the question: its tag, the ask and what is lit,
+     then the box's own controls; the outcome and the reveal of what
+     just happened follow them, so answering never needs a scroll. */
+  .qbox-main > * { order: 5; }
+  .qbox-main > :first-child { order: 0; }
+  .qbox-main > #refusal { order: 1; }
+  .qbox-main > #ask { order: 2; }
+  .qbox-main > #lit { order: 3; }
+  .qbox-main > #lit-repeat { order: 4; }
+  .qbox-main > .outcome-row { order: 8; }
+  .qbox-main > #reveal { order: 9; }
+  .qbox-main > #rematch-note { order: 10; }
+  .outcome { padding: 10px 12px; }
+  .outcome-dice { height: 110px; }
+  .outcome-headline { font-size: 26px; }
+  .outcome-detail { font-size: 14px; }
+  .outcome-working { font-size: 13px; }
+  .reveal-card { width: 96px; }
+  .reveal-between { font-size: 22px; }
+  .pane { margin: 0 -12px; border-radius: 14px 14px 0 0; border-width: 4px 0 0; border-color: var(--line); }
+  .strip { margin: 0 -12px; background: var(--panel); border-top: 1px solid var(--line); }
+  .strip-ask, #strip-state { display: none !important; }
+  .tabs { flex: 1; }
+  .tab { flex: 1; padding: 10px 4px; font-size: 12px; border-top: 2px solid transparent; }
+  body[data-show="move"] .tab[data-show="move"],
+  body[data-show="log"] .tab[data-show="log"],
+  body[data-show="chat"] .tab[data-show="chat"],
+  body[data-show="teams"] .tab[data-show="teams"],
+  body[data-show="rules"] .tab[data-show="rules"] { border-top-color: var(--blurple); }
+  .tab.news::after { top: 8px; right: 14%; }
+
+  /* What is lit on the field, again, large enough to tap. */
+  .lit-repeat {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 6px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--deep);
+  }
+  .lit-repeat[hidden] { display: none; }
+  .repeat-label { flex-basis: 100%; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: var(--muted); }
+  .repeat-item { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 78px; max-width: 132px; text-align: center; }
+  .repeat-name { font-size: 12px; font-weight: 700; color: var(--gold); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .repeat-item.held .repeat-name { color: var(--muted); font-weight: 600; white-space: normal; }
+  .repeat-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+  .repeat-chips .chip { white-space: normal; line-height: 1.15; }
+  .repeat-thing {
+    min-width: 50px;
+    min-height: 50px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 10px;
+    border: 2px dashed var(--gold);
+    background: rgba(240, 178, 50, 0.1);
+    color: var(--gold);
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .repeat-thing.ball { border-style: solid; border-radius: 50%; }
+  .repeat-thing.out { font-size: 26px; }
+  .repeat-code { font-size: 20px; }
+  .repeat-goal, .repeat-tile { font-family: "Goal", "Board", sans-serif; color: var(--team); font-size: 14px; letter-spacing: 1px; }
+  .repeat-thing.goal, .repeat-thing.tile { border-style: solid; background: var(--b-goal); }
+
+  /* The narrow field, laid out at the screen's width, unscaled: the
+     seven spaces between narrow goals, 30px meeples with their role
+     and species and no names, badges scaled with them. */
+  .stage.narrow { position: relative; width: 100%; padding: 6px; border-radius: 10px; }
+  .stage.narrow .pitch { gap: 4px; }
+  .stage.narrow .field-row { gap: 2px; padding: 0 20px; }
+  .stage.narrow .zone-name { font-size: 9px; letter-spacing: 1.5px; }
+  .stage.narrow .field-spaces { gap: 2px; }
+  .stage.narrow .goal { flex: 0 0 18px; border-width: 1.5px; border-radius: 6px; }
+  .stage.narrow .goal-word { font-size: 15px; gap: 7px; }
+  .stage.narrow .goal-chips, .stage.narrow .out-chip,
+  .stage.narrow .space-chips, .stage.narrow .ball-chips { display: none; }
+  .stage.narrow .out-mark { font-size: 16px; }
+  .stage.narrow .out-mark::before { width: 24px; height: 24px; top: -4px; }
+  .stage.narrow .space {
+    min-height: 0;
+    height: 180px;
+    padding: 12px 1px 2px;
+    border-width: 1.5px;
+    border-radius: 6px;
+  }
+  .stage.narrow .space.lit { padding-bottom: 2px; border-width: 1.5px; }
+  .stage.narrow .space-code { top: 2px; left: 4px; font-size: 9px; }
+  .stage.narrow .kickoff-ring { width: 26px; height: 26px; border-width: 1.5px; }
+  .stage.narrow .lane { min-height: 0; flex: 1 1 0; }
+  .stage.narrow .lane.visiting { padding-top: 0; }
+  .stage.narrow .badge img { width: 9px; height: 9px; }
+  .stage.narrow .badge.tokens { font-size: 8px; padding: 0 3px 0 1px; border-radius: 6px; }
+  .stage.narrow .badge.condition { padding: 1px; }
+  .stage.narrow .band { height: 12px; font-size: 7px; letter-spacing: 0.5px; border-radius: 3px; }
+  .stage.narrow .ball-button.lit { box-shadow: 0 0 0 2px var(--gold), 0 0 8px rgba(240, 178, 50, 0.55); }
+  .stage.narrow .die.ringed { padding: 1px; }
+}
+
+/* On its side: the desktop field whole, the score and the clock in the
+   top bar, and the move one slim strip under the field with the tabs as
+   pills in it. The page scrolls under the top bar, the strip kept at
+   the foot of the screen while there is more under it. */
+@media (max-width: 960px) and (orientation: landscape) {
+  :root { --topbar: 38px; }
+  .app { overflow-y: auto; padding-bottom: 0; }
+  .move-pane { flex: none; overflow: visible; min-height: 50vh; }
+  /* A sidebar pane is a screen high under the top bar, less the strip,
+     and scrolls in itself: the log opens on its latest lines. */
+  .pane { flex: none; height: calc(100dvh - var(--topbar) - 56px); overflow-y: auto; }
+  .topbar-title .back { font-size: 13px; }
+
+  /* The jumbotron, laid over the middle of the top bar as one line. */
+  .jumbotron {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    height: var(--topbar);
+    max-width: calc(100vw - 280px);
+    padding: 0 6px;
+    gap: 10px;
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+  .jumbo-teams { display: flex; align-items: center; gap: 8px; flex: none; }
+  .jumbo-side { flex-direction: row; align-items: center; gap: 4px; }
+  .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
+  .jumbo-score { order: 2; min-width: 0; }
+  .jumbo-team { font-size: 15px; }
+  .jumbo-arrow { font-size: inherit; color: inherit; }
+  .jumbo-goals { font-size: 22px; }
+  .jumbo-coach, .jumbo-brand, .jumbo-track, .jumbo-marks, .jumbo-note { display: none; }
+  .jumbo-rule { align-self: center; height: 18px; }
+  .jumbo-ball { font-size: 0; gap: 0; }
+  .jumbo-clock { flex: none; min-width: 0; flex-direction: row; align-items: center; gap: 8px; }
+  .jumbo-time { flex-wrap: nowrap; white-space: nowrap; gap: 6px; }
+  .jumbo-minute { font-size: 18px; }
+  .jumbo-half { font-size: 10px; color: var(--muted); }
+  .jumbo-last { font-size: 8px; padding: 1px 4px; }
+  /* Only a time out that may be called is drawn up here. */
+  .jumbo-tiles > :not(.lit) { display: none; }
+  .timeout-tile.lit { padding: 2px 8px; }
+  .timeout-tile.lit .tile-title { font-size: 11px; }
+  .timeout-tile.lit small { display: none; }
+
+  .board-panel { order: 1; }
+  /* Last in the column, so it stays at the foot of the screen however
+     far down the page is read. */
+  .strip {
+    order: 5;
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+    align-items: center;
+    gap: 12px;
+    margin: 0 -2px;
+    padding: 6px 12px;
+    background: var(--panel);
+    border-radius: 10px 10px 0 0;
+    border-left: 4px solid var(--tag, var(--line));
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.35);
+  }
+  .strip-ask {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .strip-ask br { display: none; }
+  .strip-ask:not(:empty) { cursor: pointer; }
+  .tabs { flex: none; gap: 2px; }
+  .tab { padding: 4px 10px; border-radius: 12px; font-size: 11px; }
+  body[data-show="move"] .tab[data-show="move"],
+  body[data-show="log"] .tab[data-show="log"],
+  body[data-show="chat"] .tab[data-show="chat"],
+  body[data-show="teams"] .tab[data-show="teams"],
+  body[data-show="rules"] .tab[data-show="rules"] { background: var(--field); }
+  .tab.news::after { top: 2px; right: 2px; width: 6px; height: 6px; }
+  .move-pane, .pane { order: 4; scroll-margin-top: 8px; }
 }
 
 /* -- The room: two seats, and who is watching --------------------------- */

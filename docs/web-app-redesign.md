@@ -115,7 +115,7 @@ kept so every cross-reference by step number still reads.
 | ~~8~~ | ~~The bench~~ -- folded into step 6 | -- |
 | ~~9~~ | ~~The front door and the table~~ -- landed; what it settled is in docs/design/web-app.md, "The room's table" ("The front door is row 1 of the design canvas", "The two ticks", "Its shape is row 1 of the design canvas") | large |
 | ~~10~~ | ~~The sidebar tabs and the reading room~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The sidebar is four tabs", the log's kinds) and "The rules and the player aids" | large |
-| 11 | The phone | medium |
+| ~~11~~ | ~~The phone~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("A phone is one screen, not a long page") | medium |
 | ~~12~~ | ~~Full time~~ -- folded into step 5 | -- |
 | -- | Later, and not now | -- |
 
@@ -767,6 +767,12 @@ room renders, and the Teams tab's numbers are board.py's.
 ---
 
 ### 11. The phone
+
+**Landed** (2026-09-27): what it settled -- the narrow field held
+upright with `board.py`'s `narrow_fans`, the bottom sheet that repeats
+everything lit, the desktop field on its side under a slim strip -- is
+in docs/design/web-app.md, "The page" ("A phone is one screen, not a
+long page").
 
 **Prompt.**
 

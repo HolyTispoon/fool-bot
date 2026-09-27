@@ -29,17 +29,6 @@
     </header>
 
     <div class="app">
-      <!-- A phone's one screen: the score and the board stay put, and
-           these switch what fills the rest. Hidden on a wider screen,
-           which shows all three at once. -->
-      <nav id="tabs" class="tabs" role="tablist" aria-label="Show">
-        <button type="button" class="tab" role="tab" data-show="move">Move</button>
-        <button type="button" class="tab" role="tab" data-show="log">Log</button>
-        <button type="button" class="tab" role="tab" data-show="chat">Chat</button>
-        <button type="button" class="tab" role="tab" data-show="teams">Teams</button>
-        <button type="button" class="tab" role="tab" data-show="rules">Rules</button>
-      </nav>
-
       <main class="main">
         <!-- One bar across the play area: the teams, the score, the
              clock and the two time-out tiles (webapp/static/app.js,
@@ -54,10 +43,15 @@
           <div id="benches" class="benches"></div>
         </section>
 
+        <!-- Everything the Move tab holds: on a wide screen it is only
+             a grouping and draws nothing of its own; on a phone it is
+             the one pane that scrolls under the field (the bottom sheet
+             held upright, step 11 of docs/web-app-redesign.md). -->
+        <div id="move-pane" class="move-pane" data-tab="move">
         <!-- The owed step: a restart caught the game mid-turn and
              nobody is asked anything. Its own strip above the question
              box, not a question in it. Its control is the whistle. -->
-        <section id="owed" class="owed-strip" data-tab="move" hidden>
+        <section id="owed" class="owed-strip" hidden>
           <p>This game has a step of its own to run: a restart caught it mid-turn.</p>
           <div id="pick-up"></div>
         </section>
@@ -66,7 +60,7 @@
              box"): the state tag, the outcome, the ask, what is lit on
              the board, and the picture the question is asked over on
              the right. -->
-        <section id="prompt" class="panel prompt qbox" data-tab="move" hidden>
+        <section id="prompt" class="panel prompt qbox" hidden>
           <div class="qbox-main">
             <div><span id="prompt-state" class="state-tag"></span></div>
             <!-- A refusal rides on the question it refused; it is
@@ -101,6 +95,9 @@
             <div id="ask" class="ask"></div>
             <!-- What is lit on the board and why, and what is dark. -->
             <p id="lit" class="lit-line" hidden></p>
+            <!-- A phone held upright: every thing lit on the field
+                 again, large enough to tap, with its name and chip. -->
+            <div id="lit-repeat" class="lit-repeat" hidden></div>
             <!-- The maneuver pick's hexagon, at the game's tier: a link,
                  as the Discord prompt's reference button is. -->
             <p id="reference" class="note-line" hidden>
@@ -121,7 +118,7 @@
 
         <!-- A finished game's numbers: /d12ball stats game, over the
              same tables (GET /api/room/{id}/stats). -->
-        <section id="stats" class="panel stats-panel" data-tab="move" hidden>
+        <section id="stats" class="panel stats-panel" hidden>
           <div class="panel-label">Every table of this game</div>
           <p id="stats-heading" class="note-line"></p>
           <div id="stats-tables" class="stats-tables"></div>
@@ -134,7 +131,7 @@
              the coin, the goal to defend -- and the sideline. Every
              question on it is the game record's (webapp/server.py,
              `_table`); the page draws it and decides none. -->
-        <section id="table" class="table-area" data-tab="move" hidden>
+        <section id="table" class="table-area" hidden>
           <div id="seat-cards" class="seat-cards"></div>
           <div id="table-settings" class="panel settings-panel"></div>
           <div id="table-box" class="panel qbox table-box">
@@ -150,7 +147,7 @@
         <!-- Who holds the two seats, and who is watching. The seats
              are the game record's; the admin role is the web app's own
              (webapp/rooms.py). -->
-        <section id="room" class="panel room-panel" data-tab="move" aria-label="The room" hidden>
+        <section id="room" class="panel room-panel" aria-label="The room" hidden>
           <div class="panel-label">Room</div>
           <div id="seats" class="seats"></div>
           <div class="room-foot">
@@ -161,6 +158,11 @@
             <button type="button" class="linkish danger-link" id="abandon" hidden>Abandon the game</button>
           </div>
         </section>
+
+        <!-- A phone held upright: the sideline, in the sheet under the
+             question rather than under a field too narrow for it. -->
+        <div id="sheet-benches" class="benches sheet-benches" hidden></div>
+        </div>
       </main>
 
       <!-- The sidebar's four tabs (step 10 of docs/web-app-redesign.md):
@@ -213,6 +215,23 @@
           <div id="rules-tab" class="rules-tab"></div>
         </section>
       </aside>
+
+      <!-- A phone's own tabs, which switch what fills the screen under
+           the field: along the sheet's foot held upright, and as pills
+           in one slim strip under the field on its side, beside the
+           question's tag and ask. Not drawn on a wider screen, which
+           shows the question and the sidebar at once. -->
+      <div id="strip" class="strip">
+        <span id="strip-state" class="state-tag" hidden></span>
+        <span id="strip-ask" class="strip-ask"></span>
+        <nav id="tabs" class="tabs" role="tablist" aria-label="Show">
+          <button type="button" class="tab" role="tab" data-show="move">Move</button>
+          <button type="button" class="tab" role="tab" data-show="log">Log</button>
+          <button type="button" class="tab" role="tab" data-show="chat">Chat</button>
+          <button type="button" class="tab" role="tab" data-show="teams">Teams</button>
+          <button type="button" class="tab" role="tab" data-show="rules">Rules</button>
+        </nav>
+      </div>
     </div>
 
     <dialog id="viewer" class="viewer">

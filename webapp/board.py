@@ -85,15 +85,40 @@ FAN_STEPS = {1: (0, 0), 2: (30, 22), 3: (22, 16), 4: (17, 12)}
 #: A fan of more than four spreads no wider than a four-fan does.
 FAN_SPREAD = (3 * FAN_STEPS[4][0], 3 * FAN_STEPS[4][1])
 
+#: How wide a phone held upright draws a meeple on its field, in CSS
+#: pixels (step 11 of docs/web-app-redesign.md): the field is kept
+#: horizontal and whole at 390px across, which leaves a space about
+#: forty pixels wide -- room for one piece, not the desktop's lean.
+NARROW_MEEPLE_WIDTH = 30
 
-def fan_step(count: int) -> tuple[float, float]:
+#: The same fans for that field: the same order and the same lean
+#: toward the goal each side attacks, stepped mostly down the space's
+#: lane and barely across it, so a four-fan is no wider than a piece
+#: and a pixel a step and stays inside a space the phone can draw.
+NARROW_FAN_STEPS = {1: (0, 0), 2: (3, 24), 3: (2, 18), 4: (1, 15)}
+
+
+def _spread(steps: dict) -> tuple[float, float]:
+    return (3 * steps[4][0], 3 * steps[4][1])
+
+
+def fan_step(count: int, steps: Optional[dict] = None) -> tuple[float, float]:
     """The step between two pieces of a fan of `count`."""
-    if count in FAN_STEPS:
-        return FAN_STEPS[count]
-    return (FAN_SPREAD[0] / (count - 1), FAN_SPREAD[1] / (count - 1))
+    steps = FAN_STEPS if steps is None else steps
+    if count in steps:
+        return steps[count]
+    spread = _spread(steps)
+    return (spread[0] / (count - 1), spread[1] / (count - 1))
 
 
-def fan(pieces: list[dict], side: str, holder: Optional[str]) -> dict:
+def fan(
+    pieces: list[dict],
+    side: str,
+    holder: Optional[str],
+    *,
+    steps: Optional[dict] = None,
+    width: int = FAN_MEEPLE_WIDTH,
+) -> dict:
     """
     One team's meeples on one space, as the page overlaps them.
 
@@ -105,11 +130,13 @@ def fan(pieces: list[dict], side: str, holder: Optional[str]) -> dict:
     `holder`, when it is one of them, is moved to the front, which is
     where the ball is drawn; the rest keep the board's order. `names`
     is the same pieces front first: one line each under the fan.
+    `steps` and `width` are the narrow field's (`NARROW_FAN_STEPS`,
+    `NARROW_MEEPLE_WIDTH`) for a phone held upright.
     """
     ordered = [one for one in pieces if one["id"] != holder]
     ordered += [one for one in pieces if one["id"] == holder]
     count = len(ordered)
-    step_x, step_y = fan_step(count) if count else (0, 0)
+    step_x, step_y = fan_step(count, steps) if count else (0, 0)
     last = count - 1
     placed = []
     for index, one in enumerate(ordered):
@@ -123,7 +150,7 @@ def fan(pieces: list[dict], side: str, holder: Optional[str]) -> dict:
         "pieces": placed,
         "names": [one["id"] for one in reversed(placed)],
         "step": [step_x, step_y],
-        "width": last * step_x + FAN_MEEPLE_WIDTH if count else 0,
+        "width": last * step_x + width if count else 0,
     }
 
 
@@ -390,6 +417,16 @@ def board_layout(
                         side: fan(lanes[side], side, holder)
                         for side in ("visiting", "home")
                     },
+                    # The same fans for a phone held upright, whose
+                    # field is narrow (`NARROW_FAN_STEPS`).
+                    "narrow_fans": {
+                        side: fan(
+                            lanes[side], side, holder,
+                            steps=NARROW_FAN_STEPS,
+                            width=NARROW_MEEPLE_WIDTH,
+                        )
+                        for side in ("visiting", "home")
+                    },
                     "ball": (
                         {
                             "speed": match.ball.speed,
@@ -500,6 +537,7 @@ def board_layout(
         ],
         "species_icons": engine.species_abilities_apply(game),
         "meeple": {**meeple_geometry(), "width": FAN_MEEPLE_WIDTH},
+        "narrow_meeple": {**meeple_geometry(), "width": NARROW_MEEPLE_WIDTH},
     }
 
 
