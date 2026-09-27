@@ -2479,16 +2479,22 @@ function seatDropTarget(node, accept) {
   });
 }
 
-/* A seat's holder taken out: yourself, which is leaving it, or -- an
-   admin's -- somebody else or the AI, which is a kick and is asked
-   first. Every way out of a seat (the ✕, a drag to the sideline)
-   comes through here. */
+/* A seat's holder taken out: yourself, which is leaving it; the AI,
+   by anybody seated, as putting it in is; or -- an admin's --
+   somebody else. The last two are a kick and are asked first. Every
+   way out of a seat (the ✕, a drag to the sideline) comes through
+   here. */
 function seatOut(seat, room) {
   if (seat.yours) {
     roomMove("/seat/leave");
-  } else if (room.admin && seat.name) {
+  } else if (mayKick(seat, room)) {
     kickSeat(seat);
   }
+}
+
+function mayKick(seat, room) {
+  if (!seat.name) return false;
+  return room.admin || (seat.ai && room.seats.some((one) => one.yours));
 }
 
 function kickSeat(seat) {
@@ -2499,7 +2505,7 @@ function kickSeat(seat) {
 
 function seatCard(seat, room) {
   const seated = room.seats.some((one) => one.yours);
-  const mayOut = seat.yours || (room.admin && Boolean(seat.name));
+  const mayOut = seat.yours || mayKick(seat, room);
   const chips = [];
   if (seat.yours) chips.push(h("span", { class: "tag-chip you" }, "YOU"));
   if (seat.ai) chips.push(h("span", { class: "tag-chip ai" }, "AI"));
@@ -2578,12 +2584,20 @@ function seatHint(seat, room, seated) {
   else if (seat.name && room.admin) hint = `Drag ${seat.name} out, or click ✕, to free the seat`;
   else if (seat.free && seated && room.ai_seats.includes(seat.number)) {
     return h("div", { class: "seat-hint" },
-      h("span", {}, "Drag Dinky in from the sideline, or "),
+      h("span", {}, "Invite your friends to play with this "),
+      h("a", {
+        class: "linkish",
+        href: roomLink(),
+        title: "Copy the room's link",
+        "data-copied": "room link (copied)",
+        onclick: (event) => { event.preventDefault(); copyLink(event); },
+      }, "room link"),
+      h("span", {}, " or "),
       h("button", {
         type: "button",
         class: "linkish",
         onclick: () => roomMove("/seat/ai", { seat: seat.number }),
-      }, "put Dinky in"));
+      }, "play against AI"));
   } else if (seat.free && !seated) hint = "Drag your name in from the sideline, or click the seat";
   return hint ? h("div", { class: "seat-hint" }, hint) : null;
 }
@@ -2606,10 +2620,9 @@ function drawTeams(seat) {
         onclick: () => roomMove("/table/pick_team", { team: team.key, seat: seat.number }),
       }, number === 1 ? teamEmoji(team.key, team.name) : null))),
   ];
-  const mayPick = seat.teams.some((team) => team.open);
   return h("div", { class: "table-teams" },
-    row(0, mayPick ? "Colour teams · click a swatch" : "Colour teams"),
-    row(1, "Species teams (greyed where the game does not offer one)"));
+    row(0, "Colour teams"),
+    row(1, "Species teams"));
 }
 
 /* The settings: a row of gold pills per setting, the current value
@@ -2728,7 +2741,7 @@ function drawTableBox(table) {
   if (!coin.flipped && !coin.owed) {
     const waiting = table.seats.filter((seat) => !seat.team);
     ask.textContent = waiting.some((seat) => seat.yours)
-      ? "Pick your team: click a swatch in your seat."
+      ? "Pick your team in your seat."
       : `Waiting for ${waiting.map((seat) => seat.name || seat.label).join(" and ")} to pick a team.`;
     body.replaceChildren(h("span", { class: "coin-later" },
       h("img", { src: coin.faces.fortune, alt: "", class: "coin small" }),
@@ -3108,12 +3121,15 @@ function becomeAdmin() {
 function dropAdmin() {
   if (confirm("Give up the admin role for this room?")) roomMove("/admin", {}, "DELETE");
 }
+function roomLink() {
+  return `${location.origin}/room/${GAME_ID}`;
+}
 async function copyLink(event) {
-  const link = `${location.origin}/room/${GAME_ID}`;
+  const link = roomLink();
   const button = event && event.currentTarget;
   try {
     await navigator.clipboard.writeText(link);
-    if (button) button.textContent = "Copied";
+    if (button) button.textContent = button.dataset.copied || "Copied";
   } catch (error) {
     window.prompt("The room's link:", link);
   }

@@ -756,6 +756,28 @@ class RedesignedTableTests(TableHarness):
         self.assertGreaterEqual(len(re.findall(r"kickSeat\(seat\)", script)), 2)
 
 
+    async def test_anybody_seated_takes_dinky_out_and_nobody_watching_does(
+        self,
+    ) -> None:
+        # Whoever may put the AI in may take it out again -- no admin
+        # needed -- and somebody watching may do neither.
+        room = await self.open_room()
+        await self.state(room, CREATOR)
+        await self.seat_move(room, CREATOR, "ai", {"seat": 2})
+        self.assertTrue(self.games[room].ai_holds(2))
+        await self.client.get(
+            f"/api/game/{room}", headers=as_coach(WATCHER, "Watcher"),
+        )
+        refused = await self.seat_move(room, WATCHER, "kick", {"seat": 2})
+        self.assertEqual(refused.status, 403)
+        self.assertTrue(self.games[room].ai_holds(2))
+
+        out = await self.seat_move(room, CREATOR, "kick", {"seat": 2})
+        self.assertEqual(out.status, 200, await out.text())
+        self.assertFalse(self.games[room].ai_holds(2))
+        self.assertTrue((await out.json())["room"]["seats"][1]["free"])
+
+
 class RematchTests(TableHarness):
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()

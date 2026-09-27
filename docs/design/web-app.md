@@ -176,7 +176,10 @@ taken again, before the game or during it; an admin may kick a seat.
 And, from the author's review of the step (2026-09-26): the AI may
 hold either seat, anybody seated may put it in an empty one, an admin
 may kick it out for a person to take over, and an admin may give the
-role up.
+role up. Since the author's lobby review of 2026-09-26 anybody seated
+may also take the AI out -- the ✕ on its seat -- because whoever may
+put it in may change their mind; a person is still kicked by an admin
+alone.
 
 **Who somebody is, is a cookie.** On a first visit nobody is asked
 anything: `GET /api/me`, which every page calls first, finds no cookie
@@ -315,8 +318,9 @@ contract and a room role is not a fact about the game -- no rule reads
 it. Anybody may become admin, by a button of its own behind "Take the
 admin role for this room?", and an admin may give it up again
 (`DELETE /api/room/{id}/admin`), which may leave a room with none; a
-kick is refused unless the caller is an admin, and is `vacate_seat`
-for the seated id, or `unseat_ai` for the AI, behind "Are you sure?".
+kick is refused unless the caller is an admin -- or, for the AI's
+seat, anybody seated -- and is `vacate_seat` for the seated id, or
+`unseat_ai` for the AI, behind "Are you sure?".
 Putting the AI in an empty seat is open to anybody seated -- the
 coach whose opponent has gone -- and to nobody watching.
 That is the frontend's authorisation over the record's rule, the way a
@@ -429,10 +433,12 @@ its sideline.
   `pick_team`'s.
 - **The seat moves are drags, each with a click beside it**: the
   reader's own name dragged off the sideline into an empty seat (or
-  the seat clicked) takes it; the Dinky chip dragged in (or "put Dinky
-  in") is `seat_ai`; the reader's name dragged out of their seat (or
-  its ✕) leaves it; and an admin dragging somebody else out (or their
-  ✕) kicks them. **Every kick goes through one function that asks "Are
+  the seat clicked) takes it; the Dinky chip dragged in (or "play
+  against AI" in the empty seat, beside "invite your friends to play
+  with this room link", the link copying itself) is `seat_ai`; the
+  reader's name dragged out of their seat (or its ✕) leaves it; and an
+  admin dragging somebody else out (or their ✕), or anybody seated
+  taking Dinky out, kicks them. **Every kick goes through one function that asks "Are
   you sure?" first** -- the card's ✕, the drag and the in-game Kick
   alike, which `RedesignedTableTests` reads the page for. A drag
   carries only which of those it is; the drop makes the request the
