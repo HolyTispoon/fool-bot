@@ -1483,9 +1483,9 @@ def render_box_side(
     draw_d12(sheet, ball_center, inches(0.5))
 
     title_left = panel.x(1.75)
+    # No modes on the side (the author, 2026-09-27).
     facts_line = (
-        f"{facts.coaches} coaches · {facts.players_per_team} players a "
-        f"team · standard & advanced"
+        f"{facts.coaches} coaches · {facts.players_per_team} players a team"
     )
     tail = print_font(0.16, bold=True)
     tail_width = max(
