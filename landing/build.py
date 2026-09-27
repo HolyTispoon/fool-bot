@@ -206,13 +206,17 @@ def copy_styles(site: str, out: Path) -> None:
         shutil.copyfile(stylesheet, out / stylesheet.name)
     shutil.copyfile(LANDING_DIR / site / "site.css", out / "site.css")
     (out / "colours.css").write_text(colours_css(), encoding="utf-8")
-    # Served as the TTF it is bundled as: the OFL lets it be
-    # redistributed unmodified beside its licence, and a converted
-    # woff2 would be a second file to keep in step with the first.
+    # The display face is the bot's own, served as the TTF it is bundled
+    # as: the OFL lets it be redistributed unmodified beside its
+    # licence, and a converted woff2 would be a second file to keep in
+    # step with the first. The text faces, IBM Plex, are the pages'
+    # alone and live in landing/shared/fonts/ as IBM ships them.
     fonts = out / "fonts"
     fonts.mkdir(exist_ok=True)
     for name in (DISPLAY_FONT, DISPLAY_FONT_LICENCE):
         shutil.copyfile(FONT_DIR / name, fonts / name)
+    for font in sorted((LANDING_DIR / "shared" / "fonts").iterdir()):
+        shutil.copyfile(font, fonts / font.name)
 
 
 # ------------------------------------------------------------ the pages

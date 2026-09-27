@@ -90,8 +90,19 @@ is the jumbotron's.
 bundled as.** The OFL lets it be redistributed unmodified beside its licence
 (`fonts/RacingSansOne-OFL.txt` goes out with it); converting it to woff2 would
 be a second file to keep in step with the first and a question about whether
-a conversion is a Modified Version. It is 146 KB, once, cached. Body text is a
-system stack, and the studio's serif is too.
+a conversion is a Modified Version. It is 146 KB, once, cached.
+
+**The text faces are IBM Plex, bundled, not linked** (the author,
+2026-09-27): Plex Sans at 400, 500 and 600 for every page's text, and Plex
+Serif at 400, 500 and italic for the studio's voice -- the six weights the
+reviewed sketch used. They sit in `landing/shared/fonts/` as IBM ships them
+(woff2 from `@ibm/plex-sans` 1.1.0 and `@ibm/plex-serif` 2.0.0, one copy of
+their shared OFL beside them), and the build copies them into each site's
+`fonts/`. The sketch loaded them from Google Fonts; served from the site
+instead, no visitor's browser calls anybody else, and the page does not
+depend on another host being up. About 410 KB in all, and a browser fetches
+only the weights a page uses. A weight not in the folder is one the pages do
+not use yet -- add its file and its `@font-face` together.
 
 The layout holds at 375px with a 16px gutter and no horizontal scroll; the
 gutter is 40px from 720px up, and the nav's section links show from 900px.
