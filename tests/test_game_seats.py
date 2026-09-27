@@ -25,6 +25,7 @@ from unittest import mock
 from cogs.d12ball_helpers import game_participant_ids, refresh_player_names
 from d12ball.components import RuleRefusal, TeamSide
 from d12ball.formatting import coach_name
+from d12ball.formatting import configure_warning
 from d12ball.game import AIOpponent, CoinFace, D12BallGame, Team, paired_team
 from d12ball.prompts import asked_sides, pending_prompt
 from d12ball.stats import SCOPE_DINKY, SCOPE_HUMAN, game_category
@@ -343,6 +344,34 @@ class AISeatTests(SeatHarness):
         self.assertEqual(
             (game.player_1_team, game.player_2_team), (Team.ORANGE, Team.TEAL),
         )
+
+    def test_a_test_game_has_no_seat_for_the_ai(self) -> None:
+        """The author, 2026-09-26: a test game cannot have Dinky, and
+        Dinky cannot join one. Turning it on kicks the AI, which both
+        frontends warn of first."""
+        game = self.service.create_game(
+            player_1_id=CREATOR, player_1_name="One", in_lobby=True,
+            ai_seats=[],
+        )
+        self.assertIsNone(configure_warning(game, "test"))
+        self.service.seat_ai(game.game_id, 2)
+        self.assertTrue(game.test_toggle_unseats_ai)
+        self.assertEqual(
+            configure_warning(game, "test"), "That would kick Dinky AI.",
+        )
+        self.assertIsNone(configure_warning(game, "tutorial"))
+
+        self.service.configure(game.game_id, "test")
+        self.assertTrue(game.test_game)
+        self.assertFalse(game.ai_holds(2))
+        self.assertEqual(game.ai_seats, [])
+        self.assertIn(
+            "one-player game",
+            self.refused(self.service.seat_ai, game.game_id, 2),
+        )
+        # Turning it off again brings nobody back.
+        self.service.configure(game.game_id, "test")
+        self.assertFalse(game.ai_holds(2))
 
     def test_a_discord_lobby_still_picks_after_start(self) -> None:
         """A game with no `ai_seats` -- every Discord game -- is refused

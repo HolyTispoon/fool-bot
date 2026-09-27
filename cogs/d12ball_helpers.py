@@ -44,6 +44,7 @@ from d12ball.formatting import (
     coach_name,
     contest_noun,
     GAME_MODE_NAMES,
+    SETTING_DEFINITIONS,
     describe_game_mode,
     contestant_detail,
     destination_display_name,
@@ -1018,7 +1019,7 @@ def build_setup_message(
         f"**Player 1:** {player_1}\n\n"
         f"**Player 2:** {player_2}\n\n"
         "### Game settings\n\n"
-        f"Game Mode: {game.mode.value.title()} "
+        f"Game Mode: {GAME_MODE_NAMES[GameMode(game.mode)]} "
         f"-- {describe_game_mode(game)}\n"
         f"Board size: {game.board_size}\n\n"
     )
@@ -1229,13 +1230,19 @@ def build_lobby_message(
     lobby has `player_2_id = None` even for a game two humans will play,
     so `format_player` would call it a game against Dinky.
     """
+    # What the tutorial and the test game are is the model's
+    # (`SETTING_DEFINITIONS`), worded once for this lobby and the web
+    # table alike.
     if game.tutorial:
         player_2 = (
-            f"**{format_ai_name(game.ai_opponent)}** _(guided tutorial -- "
-            "the first turns are scripted)_"
+            f"**{format_ai_name(game.ai_opponent)}** _(tutorial -- "
+            f"{SETTING_DEFINITIONS['tutorial']})_"
         )
     elif game.test_game:
-        player_2 = f"<@{game.player_1_id}> _(test game -- you play both sides)_"
+        player_2 = (
+            f"<@{game.player_1_id}> _(test game -- "
+            f"{SETTING_DEFINITIONS['test']})_"
+        )
     elif game.player_2_id is not None:
         player_2 = f"<@{game.player_2_id}>"
     else:
@@ -1267,7 +1274,7 @@ def build_lobby_message(
 
     text += (
         "\n### Settings\n\n"
-        f"Mode: **{game.mode.value.title()}** "
+        f"Mode: **{GAME_MODE_NAMES[GameMode(game.mode)]}** "
         f"-- {describe_game_mode(game)}\n"
         f"Board size: **{game.board_size}** spaces\n"
     )

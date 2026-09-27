@@ -232,6 +232,16 @@ own through `_ai_picks_team` -- which never runs in a lobby -- so the
 coin is owed straight after Start. A Discord game's AI still picks the
 moment the coach has, after Start Game, as it always did.
 
+**A test game has no seat for the AI** (the author, 2026-09-26): it is
+one coach playing both sides. `configure("test")` turning it on takes
+the AI out of a web room's seat, and `seat_ai` refuses while it is on
+(a one-player game). Because the AI does not come back on its own,
+`D12BallGame.test_toggle_unseats_ai` says so before the press and
+`formatting.configure_warning` words it -- "That would kick Dinky AI."
+-- for a frontend to confirm first. What the test game and the
+tutorial *are* is `formatting.SETTING_DEFINITIONS`, which the Discord
+lobby message and the web table both word from.
+
 **The rematch is a service method too**: `rematch(game_id)` is a
 finished game's next record -- the same two seats (the AI where it
 sat), the same settings, remembered on the finished game as

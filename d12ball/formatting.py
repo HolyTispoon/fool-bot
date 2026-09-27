@@ -836,3 +836,16 @@ SETTING_DEFINITIONS: dict[str, str] = {
         "with a scripted opening"
     ),
 }
+
+
+def configure_warning(game: D12BallGame, setting: str) -> Optional[str]:
+    """
+    What a coach is warned of before a setting changes, where the change
+    takes something away the setting's own row does not show: turning
+    the test game on with the AI seated kicks the AI (the author,
+    2026-09-26: a test game cannot have Dinky). `None` where nothing is
+    lost. Both frontends ask this, so the warning is worded once.
+    """
+    if setting == "test" and game.test_toggle_unseats_ai:
+        return f"That would kick {format_ai_name(game.ai_opponent)}."
+    return None

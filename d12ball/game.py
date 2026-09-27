@@ -791,6 +791,13 @@ class D12BallGame:
             if self.in_lobby or setting not in LOBBY_SETTINGS
         )
 
+    @property
+    def test_toggle_unseats_ai(self) -> bool:
+        """Whether turning the test game on now would take the AI out
+        of its seat (`configure`) -- which a frontend warns of before
+        the press, since the AI does not come back on its own."""
+        return not self.test_game and bool(self.ai_seats)
+
     def configure(self, setting: str, value: object = None) -> None:
         """
         Change one setting, by the key a button carries (`GAME_SETTINGS`).
@@ -828,6 +835,12 @@ class D12BallGame:
                 self.test_game = not self.test_game
                 if self.test_game:
                     self.tutorial = False
+                    # A test game is one coach playing both sides, so it
+                    # has no seat for the AI: turning it on takes the AI
+                    # out of a web room's seat (the author, 2026-09-26),
+                    # and `seat_ai` refuses one for as long as it is on.
+                    if self.ai_seats:
+                        self.ai_seats = []
             else:
                 self.tutorial = not self.tutorial
                 if self.tutorial:
