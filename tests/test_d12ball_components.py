@@ -1480,7 +1480,7 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_the_species_icon_is_drawn_only_when_asked_for(self) -> None:
         # The icon is a fact of an advanced game playing species
-        # abilities; a basic game's meeple is the initials alone,
+        # abilities; a standard game's meeple is the initials alone,
         # sized to fill the body (the author, 2026-09-18). The cog
         # answers the flag from RulesEngine.species_abilities_apply --
         # the renderer never reads the game's own bools.
@@ -1510,8 +1510,8 @@ class D12BallComponentTests(unittest.TestCase):
             self.assertIs(draw.text.call_args.kwargs["font"], font)
 
         # And every render entry point takes the flag, defaulting to
-        # the basic look, so a caller that forgets it draws a basic
-        # game rather than an advanced one.
+        # the training look, so a caller that forgets it draws a training
+        # game rather than one playing species abilities.
         for renderer in (
             render_match_image, render_field_image, render_coaching_image,
         ):

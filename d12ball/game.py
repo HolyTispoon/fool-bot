@@ -128,18 +128,22 @@ class GameMode(str, Enum):
     """
     The three modes a game is played in (2026-09-25): **training**, the
     game with no ability of any kind (Part I of the Charter alone);
-    **basic**, which adds the species abilities; and **advanced**, which
+    **standard**, which adds the species abilities; and **advanced**, which
     adds the gambits and the players' individual abilities on top. See
     "Modes" in docs/design/species-abilities.md.
 
     `basic` is the value every save made before training mode existed
     carries, and it now means the game with species abilities -- the
     value was kept rather than renamed (CLAUDE.md: don't rename saved
-    keys), so an unfinished basic game plays on as a basic game.
+    keys), so an unfinished standard game plays on as a standard game.
+    The mode itself was called basic until 2026-09-27, when the author
+    renamed it standard; the member was renamed with it and the value
+    was not, for the same reason. A mode is shown by its name in
+    `formatting.GAME_MODE_NAMES`, never by its value.
     """
 
     TRAINING = "training"
-    BASIC = "basic"
+    STANDARD = "basic"
     ADVANCED = "advanced"
 
 
@@ -291,14 +295,14 @@ class D12BallGame:
     tutorial_gate: Optional[dict] = None
 
     # Game configuration
-    mode: GameMode = GameMode.BASIC
+    mode: GameMode = GameMode.STANDARD
     status: GameStatus = GameStatus.SETUP
     board_size: int = 7
 
     # Two opt-outs advanced mode carried until 2026-09-25, when it was
     # one switch over two modules (the gambits and the species
     # abilities) and a game could drop either. The modes became three
-    # that day and species abilities moved into basic, so the toggles
+    # that day and species abilities moved into basic (now standard) mode, so the toggles
     # went; nothing sets these to False any more. They stay on the
     # record because they are saved fields (CLAUDE.md: legacy fallbacks
     # stay) and an advanced game started with one module off plays on

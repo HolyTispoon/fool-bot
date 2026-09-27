@@ -22,7 +22,7 @@ living-rules heading it is under today.
   - Precedence: the Charter over the Learn to Play, over the text on a
     card or a board, over the bot. Where the Learn to Play simplifies,
     it says so.
-  - Basic mode and advanced mode: Laws 1-17 are the whole game in basic
+  - Training mode and advanced mode: Laws 1-17 are the whole game in training
     mode; Part II is what advanced mode adds and changes. A rule in
     Part II wins over a rule in Part I for a game played in advanced
     mode, and nowhere else.
@@ -135,7 +135,7 @@ what the ball is left with.
   challenges and cannot decline; the defending coach may send a player
   (Law 9) or send nobody; an unchallenged maneuver succeeds outright.
 - 6.2 **Choosing and revealing.** Secretly and together; three cards a
-  side in basic mode. (The gambit sentence moves to 19.2.)
+  side in training mode. (The gambit sentence moves to 19.2.)
 - 6.3 **Who wins.** The cycle table; equal ranks tie; the injured
   participant's two changes (cross-reference to 15.4).
 - 6.4 **The skill test.** A token each, then a d12 each; what each side
@@ -166,7 +166,7 @@ what the ball is left with.
 lists only the four basic changes.
 
 - 7.1 The speed and its modifier (table).
-- 7.2 What changes it in basic mode: Low Pass, Deflect, Dribble
+- 7.2 What changes it in training mode: Low Pass, Deflect, Dribble
   Advance, Steal.
 - 7.3 Every turnover resets it to 1. (The Dribble Burst exception is
   stated at 19.6, not here.)
@@ -327,7 +327,7 @@ paragraph of Gambits.
   species abilities (Law 20). A game may take one, the other or both,
   declared before the toss.
 - 18.2 A rule in Part II wins over Part I in a game playing the module
-  it belongs to; in basic mode Part II does not exist.
+  it belongs to; in training mode Part II does not exist.
 - 18.3 The exceptions Part II makes to Part I, in one table, each with
   both numbers: the Dribble Burst's speed (7.3 / 19.6), the Cyborg's
   threshold (15.2 / 20.3), Damaged for Injured (15.4 / 20.3), Mind
@@ -358,7 +358,7 @@ paragraph of Gambits.
 *From:* Species abilities.
 
 - 20.1 One ability per species; every player of the species has it on
-  either side; in basic mode species is only a name.
+  either side; in training mode species is only a name.
 - 20.2 **Volatile (Fire Demon).** The ignite; blaze and burn; every
   roll it covers; the four skill-test cases, lettered; outside a skill
   test it is only the number.

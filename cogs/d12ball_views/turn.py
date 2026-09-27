@@ -683,7 +683,7 @@ class ManeuverActionPromptView(SafeView):
         for hand in hands:
             side = hand.side
             # **The hand is the engine's answer, not the whole
-            # catalog**, and it is asked **per side**: a basic game is
+            # catalog**, and it is asked **per side**: a standard game is
             # three cards, an unchallenged maneuver is basic whatever
             # the mode, and a gambit is held only by a coach whose team
             # is behind -- so one row here can be six buttons and the

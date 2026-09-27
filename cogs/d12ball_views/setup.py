@@ -66,7 +66,7 @@ class GameConfigurationView(SafeView):
 
     def add_configuration_buttons(self) -> None:
         game = self.cog.games.get(self.game_id)
-        selected_mode = game.mode if game else GameMode.BASIC
+        selected_mode = game.mode if game else GameMode.STANDARD
         selected_board_size = game.board_size if game else 7
         configuration_closed = bool(
             game and game.status != GameStatus.SETUP

@@ -167,7 +167,7 @@ def build_match(engine: RulesEngine, game: D12BallGame) -> MatchState:
 
 class ModuleSwitchTests(unittest.TestCase):
     """
-    The three modes (2026-09-25): training plays no ability, basic adds
+    The three modes (2026-09-25): training plays no ability, standard adds
     the species abilities, advanced adds the gambits on top. The two
     opt-outs on the record are what an advanced game saved before then
     could have turned off, and are still honoured.
@@ -181,8 +181,8 @@ class ModuleSwitchTests(unittest.TestCase):
         self.assertTrue(self.engine.gambits_apply(game))
         self.assertTrue(self.engine.species_abilities_apply(game))
 
-    def test_a_basic_game_plays_the_species_abilities_alone(self):
-        game = build_game(mode=GameMode.BASIC)
+    def test_a_standard_game_plays_the_species_abilities_alone(self):
+        game = build_game(mode=GameMode.STANDARD)
         self.assertFalse(self.engine.gambits_apply(game))
         self.assertTrue(self.engine.species_abilities_apply(game))
 
@@ -207,7 +207,7 @@ class ModuleSwitchTests(unittest.TestCase):
         # A tutorial saved before training mode existed carries
         # `basic`, which now means the species abilities -- but its
         # script was written for a game without them.
-        game = build_game(mode=GameMode.BASIC, tutorial=True)
+        game = build_game(mode=GameMode.STANDARD, tutorial=True)
         self.assertFalse(self.engine.species_abilities_apply(game))
 
     def test_a_game_may_take_the_abilities_without_the_maneuvers(self):
@@ -1068,10 +1068,10 @@ class DrainThresholdTests(unittest.TestCase):
         self.engine = build_engine()
         # Nine Cyborgs a side is the cleanest fixture for a threshold
         # that is about the species and not about the role.
-        # Basic mode: the species rule alone, with no Cyborg's
+        # Standard mode: the species rule alone, with no Cyborg's
         # personal ability (Law 21) moving the numbers.
         self.game = build_game(
-            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+            player_1_team=Team.CYBORGS, mode=GameMode.STANDARD,
         )
         self.match = build_match(self.engine, self.game)
         self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
@@ -1375,10 +1375,10 @@ class OverdriveTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        # Basic mode: the species rule alone, with no Cyborg's
+        # Standard mode: the species rule alone, with no Cyborg's
         # personal ability (Law 21) moving the numbers.
         self.game = build_game(
-            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+            player_1_team=Team.CYBORGS, mode=GameMode.STANDARD,
         )
         self.match = build_match(self.engine, self.game)
         self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
@@ -1520,10 +1520,10 @@ class ChargeUpTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        # Basic mode: the species rule alone, with no Cyborg's
+        # Standard mode: the species rule alone, with no Cyborg's
         # personal ability (Law 21) moving the numbers.
         self.game = build_game(
-            player_1_team=Team.CYBORGS, mode=GameMode.BASIC,
+            player_1_team=Team.CYBORGS, mode=GameMode.STANDARD,
         )
         self.match = build_match(self.engine, self.game)
 
@@ -2018,10 +2018,10 @@ class MergeTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        # Basic mode: Merge without the personal abilities, since an
+        # Standard mode: Merge without the personal abilities, since an
         # Oozes side fields Viscor, who adds 3 more (Law 21).
         self.game = build_game(
-            player_1_team=Team.OOZES, mode=GameMode.BASIC,
+            player_1_team=Team.OOZES, mode=GameMode.STANDARD,
         )
         self.match = build_match(self.engine, self.game)
         self.side = self.match.ball.possession
@@ -3139,12 +3139,12 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         # `build_mind_pull_cog` mocks out for the tests above.
         del self.cog.begin_run_back
         self.cog.announce_run_back = mock.AsyncMock()
-        # Basic mode: the species abilities without the personal ones,
+        # Standard mode: the species abilities without the personal ones,
         # since a Telekinetics side fields Zenith, whose Fly (Law 21)
         # would stop the run back before the gate these assert.
         self.game = build_game(
             player_1_team=Team.PURPLE, player_2_team=Team.TELEKINETICS,
-            mode=GameMode.BASIC,
+            mode=GameMode.STANDARD,
         )
         self.cog.games[self.game.game_id] = self.game
         self.match = self.cog.engine.initialize_standard_match(self.game)

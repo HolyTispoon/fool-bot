@@ -1,5 +1,5 @@
 """
-Formations: the shapes basic mode allows, which boards allow which,
+Formations: the shapes standard mode allows, which boards allow which,
 how a coach moves between them in a Coaching Choice, and the coverage
 rule that decides where a meeple may stand once a zone holds more
 players than it has spaces.

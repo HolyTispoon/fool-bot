@@ -507,7 +507,7 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
         # are no longer cog methods a test can mock out. Neither fires
         # on this position anyway, which is the same thing the mocks
         # were asserting: the standard deal leaves a player on the
-        # ball's space (nothing loose), and a basic game has no
+        # ball's space (nothing loose), and a standard game has no
         # species abilities (nothing to pull or take over).
         cog.engine = RulesEngine(
             self.catalog,

@@ -1,6 +1,6 @@
 # D12 Ball -- Learn to Play: outline
 
-Sixteen letter pages, eight spreads, basic mode only. Every rule on a
+Sixteen letter pages, eight spreads, training mode only. Every rule on a
 page cites the Charter Law it comes from (numbers per
 [charter-outline.md](charter-outline.md)); every figure is sketched in
 [figures/](figures/) and shown here where it goes. Read
@@ -36,8 +36,8 @@ a d12 rolling. Title, and the one line that sets the two books up:
   d12s, the exhaustion tokens, the two condition markers, the coin.
   Each labelled; a caption under the twelve cards says the six with
   the gambit band are advanced mode and stay in the box for now.
-- A sidebar: *Basic and advanced mode.* One sentence each, and "this
-  book teaches basic mode; the appendix on page 15 says what advanced
+- A sidebar: *Training and advanced mode.* One sentence each, and "this
+  book teaches training mode; the appendix on page 15 says what advanced
   mode adds."
 
 ## Spread 1 (pages 3-4) -- The field, the players, the deal

@@ -22,7 +22,7 @@ books are built from, and it goes when they have shipped.
 | Job | The ultimate source of truth. Every rule, once, settled. | Get a new table playing within fifteen minutes of opening the box. |
 | Voice | Precise, exhaustive, impersonal. States what is true. | Warm, second person, one idea at a time. Teaches by playing. |
 | Structure | Hierarchical. Numbered Laws, sections and paragraphs (`6.4.2`). Every cross-reference is a number. | Linear. A spread per idea, in the order a first game meets them. |
-| Scope | Basic mode and advanced mode, both in full. | Basic mode only, with a two-page appendix that says what advanced mode adds and sends the reader to the Charter for it. |
+| Scope | Training mode and advanced mode, both in full. | Training mode only, with a two-page appendix that says what advanced mode adds and sends the reader to the Charter for it. |
 | Pictures | Diagrams only where a table cannot say it: the field, the cycle, the shooting-range bands. | On every spread. Every rule in it is shown on a board before it is stated. |
 | Length | Whatever the rules take. Today's living rules are about 30 letter pages set as prose. | Sixteen pages, hard limit. Root's is sixteen. |
 | Precedence | The Charter wins over the Learn to Play, over the card text, over the printed boards, and over the bot. A bot that disagrees with the Charter has a bug. | Where it simplifies, it says so and names the Law. It never contradicts the Charter; it leaves things out. |
@@ -122,10 +122,10 @@ The conventions:
 - **Tables stay tables.** The cycle, the boards, the roles, the
   formations, the set-ups, the tokens and the clock costs are all better
   as tables and are already tables.
-- **Advanced mode is Part II.** Laws 1-17 are the whole of basic mode
+- **Advanced mode is Part II.** Laws 1-17 are the whole of training mode
   and never mention a gambit or a species. Part II opens with the one
   Law that says what advanced mode switches on, then the gambits, then
-  the species. Everywhere basic mode has an exception in advanced
+  the species. Everywhere training mode has an exception in advanced
   mode (the Cyborg's threshold, the Dribble Burst's speed), the basic
   Law states the basic rule and Part II states the exception -- not the
   other way round, which is how the living rules read today in three
@@ -143,7 +143,7 @@ is in [charter-outline.md](charter-outline.md).
 Root's Learn to Play works because it refuses to be complete. The
 principles this one is written to:
 
-- **Basic mode, and nothing else.** No gambit, no species, no "in
+- **Training mode, and nothing else.** No gambit, no species, no "in
   advanced mode ...". The appendix is two pages and is the only place
   the words appear.
 - **Teach by playing.** The middle of the book is *your first five

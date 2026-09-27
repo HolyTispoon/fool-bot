@@ -319,7 +319,7 @@ class RealSaveDataTests(unittest.TestCase):
                 "player_1_team": Team.ORANGE,
                 "player_2_team": Team.PURPLE,
                 "home_player_number": 1,
-                "mode": GameMode.BASIC,
+                "mode": GameMode.STANDARD,
                 "status": GameStatus.FINISHED,
             },
             [],
@@ -327,7 +327,7 @@ class RealSaveDataTests(unittest.TestCase):
         )
 
         self.assertIn("Tomer (orange)", page)
-        self.assertIn("<dd>basic</dd>", page)
+        self.assertIn("<dd>standard</dd>", page)
         self.assertIn("<dd>finished</dd>", page)
         self.assertNotIn("Team.ORANGE", page)
         self.assertNotIn("GameStatus.", page)

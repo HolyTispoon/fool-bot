@@ -991,7 +991,7 @@ async def get_or_create_category(
 
 # -- The three modes ----------------------------------------------
 #
-# Training, basic and advanced, in the order each adds to the one
+# Training, standard and advanced, in the order each adds to the one
 # before it (2026-09-25; see "Modes" in
 # docs/design/species-abilities.md). The setup settings block and the
 # lobby both build their mode row out of this, so the two screens

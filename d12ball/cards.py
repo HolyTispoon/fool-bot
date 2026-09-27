@@ -1925,7 +1925,7 @@ def render_maneuver_card_back(
 
     **`tier` picks which back a coach needs.** `MANEUVER_TIER_GAMBIT`
     (the default) draws all twelve, for the reason above.
-    `MANEUVER_TIER_BASIC` draws six -- a basic-mode coach's own hand is
+    `MANEUVER_TIER_BASIC` draws six -- a standard-mode coach's own hand is
     never anything but the three basic cards, so there is no tier to
     hide and a node showing its one name reads larger than one showing
     two stacked on a hairline.
@@ -2073,7 +2073,7 @@ def hand_back_image(catalog: ManeuverCatalog) -> Image.Image:
 
     **It is the basic back, because a hand is the only thing that
     carries a back and a hand holding gambits no longer carries one** (the
-    author) -- see `render_maneuver_hands`. A basic-mode coach's hand
+    author) -- see `render_maneuver_hands`. A standard-mode coach's hand
     is never anything but the three basic cards, so there is no tier to
     hide and the hexagon shows one name a node rather than the two-tier
     hairline design a mixed deck calls for. The gambit back is still
@@ -2241,7 +2241,7 @@ def render_maneuver_hands(
     relations drawn a second time, for the width of a card.
 
     **So the back is the lone basic hand's alone**: an unchallenged
-    maneuver, or a solo game against Dinky in basic mode, which is half
+    maneuver, or a solo game against Dinky in standard mode, which is half
     a cycle and the one hand that cannot read the relations off the
     cards in front of it. That is also the layout this drew before the
     prompt went public -- three cards and the back, one row of four.

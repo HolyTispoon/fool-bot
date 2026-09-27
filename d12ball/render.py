@@ -4835,7 +4835,7 @@ def render_maneuver_reference_image(
     exactly where its basic counterpart does and the two cannot be
     drawn as two unrelated cycles without implying a second rule that
     does not exist. `MANEUVER_TIER_BASIC` draws one box a rank instead:
-    a basic-mode coach has no gambits to read a matchup for, so
+    a standard-mode coach has no gambits to read a matchup for, so
     showing them anyway would be describing a rule this game is not
     playing by. The one box keeps the same shape it always had rather
     than stretching to the width the pair would have shared.

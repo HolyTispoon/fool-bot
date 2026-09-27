@@ -636,7 +636,7 @@ class WebApp:
             ],
             "observers": self._observers(game),
             "tutorial": game.tutorial,
-            "mode": GameMode(game.mode).value.title(),
+            "mode": GAME_MODE_NAMES[GameMode(game.mode)],
             "board_size": game.board_size,
             # The jumbotron's own words for the clock: the result once
             # it is over, the stage between the halves, the minute and

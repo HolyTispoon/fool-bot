@@ -60,12 +60,12 @@ FIGURES_DIR = rulebooks.RULEBOOKS_DIR / "figures"
 FIGURE_PREFIX = "rulebooks/figures/"
 
 #: What a face of a team's cards is called where a person picks one.
-#: The front is the card training and basic mode play; the advanced
+#: The front is the card training and standard mode play; the advanced
 #: face is the one `personal_abilities_apply` says an advanced game
 #: holds (`player_cards.render_player_card_back`).
 FACE_FRONT = "front"
 FACE_ADVANCED = "advanced"
-FACE_WORDS = {FACE_FRONT: "Training and basic", FACE_ADVANCED: "Advanced"}
+FACE_WORDS = {FACE_FRONT: "Training and standard", FACE_ADVANCED: "Advanced"}
 
 
 # -- The rules ----------------------------------------------------------

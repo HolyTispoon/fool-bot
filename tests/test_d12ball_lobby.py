@@ -379,7 +379,7 @@ class LobbyViewTests(unittest.TestCase):
                 view.change_setting(interaction, game, "mode", "advanced")
             )
 
-        self.assertEqual(game.mode, GameMode.BASIC)
+        self.assertEqual(game.mode, GameMode.STANDARD)
         interaction.response.send_message.assert_awaited_once()
 
     def test_test_game_toggle_flips_the_flag(self) -> None:
@@ -457,7 +457,7 @@ class LobbyViewTests(unittest.TestCase):
                 view.change_setting(interaction, game, "mode", "advanced")
             )
 
-        self.assertEqual(game.mode, GameMode.BASIC)
+        self.assertEqual(game.mode, GameMode.STANDARD)
         interaction.response.send_message.assert_awaited_once()
 
     def test_name_button_opens_the_modal(self) -> None:

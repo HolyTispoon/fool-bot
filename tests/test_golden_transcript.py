@@ -38,7 +38,7 @@ transcript if it is the same every time. `GOLDEN_SEED` is chosen so the
 run scores, because that is the path the script is built to reach; a
 seed that missed would pin the unusual branch as the reference.
 
-**What it does not cover.** This golden is one *basic*-mode solo game on
+**What it does not cover.** This golden is one *standard*-mode solo game on
 board 7, so it watches no advanced maneuver, no species ability, no
 halftime, no shootout and no time out. Phase 4 added the second one this
 asked for -- `tests/test_golden_advanced.py`, an advanced game in 2-3-1

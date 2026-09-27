@@ -1408,7 +1408,7 @@ rewords a result has changed the game.
   is identical under `PYTHONHASHSEED` 0, 1 and 42 (checked by hand) -- a set
   of player ids iterated into a message would otherwise vary by machine
   rather than by the change that broke it.
-- **It covers one basic-mode solo game on board 7** -- no gambit, no species
+- **It covers one standard-mode solo game on board 7** -- no gambit, no species
   ability, no halftime, no shootout, no time out. Rewording two of the three
   `Ball speed is now` sites in `effects.py` did not fail it, because the
   tutorial only reaches the third. Don't read a green golden as "the wording
@@ -1435,8 +1435,8 @@ merged two messages into one, which the tutorial golden does not reach.
 
 - **`mode` is load-bearing and easy to miss.** `gambits_apply` and
   `species_abilities_apply` both read `game.mode` *as well as* their own
-  flag, so a fixture with the two flags set and `mode` left at its `BASIC`
-  default plays a basic game -- and the golden would have recorded nothing
+  flag, so a fixture with the two flags set and `mode` left at its `STANDARD`
+  default plays a standard game -- and the golden would have recorded nothing
   this file is for. Every seed swept looked healthy until that was fixed.
 - **A whole-species team, and the human coaches it.** Dinky never pulls and
   never takes a Smooth, so an AI Telekinetic would be skipped rather than
@@ -1459,11 +1459,11 @@ merged two messages into one, which the tutorial golden does not reach.
 
 `tests/test_golden_windows.py`, Phase 5's, and the one that reaches what the
 advanced golden's own docstring said it could not: full time, the shootout,
-and the windows either side of them. It plays a **solo basic** game on board
+and the windows either side of them. It plays a **solo standard** game on board
 7 from the standard deal, both halves out, to 1-1 at the whistle and 3-4 in
 a shootout that goes to sudden death.
 
-- **Basic and plain on purpose.** The advanced modules are the advanced
+- **Standard and plain on purpose.** The advanced modules are the advanced
   golden's ground, and every press spent on a gambit here is a press not
   spent getting to minute 30. A whole game is about 100 presses.
 - **Seed 31 was picked for the two things a script cannot arrange**, both of

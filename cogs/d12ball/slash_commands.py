@@ -969,7 +969,7 @@ class CommandsMixin:
         player_2: Optional[discord.Member],
         test_game: bool = False,
         created_by: Optional[discord.abc.User] = None,
-        mode: GameMode = GameMode.BASIC,
+        mode: GameMode = GameMode.STANDARD,
         board_size: int = 7,
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,

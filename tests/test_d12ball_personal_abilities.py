@@ -150,7 +150,7 @@ class GateTests(unittest.TestCase):
     def test_only_advanced_mode_plays_them(self) -> None:
         for mode, expected in (
             (GameMode.TRAINING, False),
-            (GameMode.BASIC, False),
+            (GameMode.STANDARD, False),
             (GameMode.ADVANCED, True),
         ):
             with self.subTest(mode.value):
@@ -200,7 +200,7 @@ class AdvancedSkillTests(unittest.TestCase):
     def test_other_modes_play_the_roles(self) -> None:
         player = ENGINE.get_player_definition(self.scored)
         profile = ENGINE.player_catalog.effective_profile(player)
-        skills = ENGINE.skills(build_game(mode=GameMode.BASIC), self.scored)
+        skills = ENGINE.skills(build_game(mode=GameMode.STANDARD), self.scored)
         self.assertEqual(
             (skills.offense, skills.defense),
             (profile.offense, profile.defense),
@@ -264,7 +264,7 @@ class CardSkillTests(unittest.TestCase):
             )
 
     def test_no_other_mode_prints_anything_but_the_role(self) -> None:
-        for mode in (GameMode.TRAINING, GameMode.BASIC):
+        for mode in (GameMode.TRAINING, GameMode.STANDARD):
             with self.subTest(mode.value):
                 game, match = self.build(mode)
                 self.assertEqual(ENGINE.card_skills(game, match), {})
@@ -477,7 +477,7 @@ class TelekineticTests(unittest.TestCase):
             self.assertNotIn(
                 self.puller,
                 ENGINE.mind_pull_candidates(
-                    build_game(mode=GameMode.BASIC), match,
+                    build_game(mode=GameMode.STANDARD), match,
                 ),
             )
 
@@ -653,7 +653,7 @@ class AcidelTests(unittest.TestCase):
         with holding(self.challenger, PersonalAbility.PRESSURE_SHOT):
             result = pressure_step(
                 ENGINE, self.match, "pressure",
-                build_game(mode=GameMode.BASIC),
+                build_game(mode=GameMode.STANDARD),
             )
         self.assertIs(result.next.step, FollowOnStep.BEGIN_OWN_GOAL_ROLL)
 
@@ -1068,7 +1068,7 @@ class SpritzTests(unittest.TestCase):
             self.assertEqual(
                 ENGINE.smooth_candidates(
                     build_game(
-                        mode=GameMode.BASIC, player_1_team=Team.OOZES,
+                        mode=GameMode.STANDARD, player_1_team=Team.OOZES,
                     ),
                     self.match,
                 ),

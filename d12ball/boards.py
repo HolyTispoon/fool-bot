@@ -791,7 +791,7 @@ def draw_field_header(
     sheet.text((left, top), "D12 BALL", sheet.font(40, bold=True), INK)
     sheet.text(
         (left, top + sheet.u(46)),
-        f"FIELD BOARD  ·  {layout.board_size} SPACES  ·  BASIC MODE",
+        f"FIELD BOARD  ·  {layout.board_size} SPACES  ·  STANDARD MODE",
         sheet.font(16, bold=True),
         MUTED,
     )

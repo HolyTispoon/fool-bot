@@ -504,7 +504,7 @@ class CoreMixin:
         reference hexagon depends on the match, so none of these can go
         stale.
         """
-        # One hexagon per tier: a basic-mode coach has no gambits
+        # One hexagon per tier: a standard-mode coach has no gambits
         # to read a matchup for, so its hexagon shows one box a
         # rank rather than the pair an advanced game's does -- see
         # render_maneuver_reference_image.

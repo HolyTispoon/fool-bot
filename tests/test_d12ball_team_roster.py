@@ -371,7 +371,7 @@ class PersonalAbilityRosterTests(unittest.TestCase):
 
     def test_no_other_mode_shows_a_personal_ability(self) -> None:
         for game in (
-            build_game(mode=GameMode.BASIC),
+            build_game(mode=GameMode.STANDARD),
             build_game(mode=GameMode.TRAINING),
             build_game(mode=GameMode.ADVANCED, tutorial=True),
         ):

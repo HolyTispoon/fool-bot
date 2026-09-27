@@ -786,7 +786,7 @@ def contestant_detail(
 #: Discord lobby and the web table cannot name a mode differently.
 GAME_MODE_NAMES: dict[GameMode, str] = {
     GameMode.TRAINING: "Training",
-    GameMode.BASIC: "Basic",
+    GameMode.STANDARD: "Standard",
     GameMode.ADVANCED: "Advanced",
 }
 

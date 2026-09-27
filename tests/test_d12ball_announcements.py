@@ -278,7 +278,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
             "d12ball.flow.rolls.score_skill_test",
             # The two trailing IgnitedRolls are what Volatile did to
             # each side's die; a tie that never ignited is two bare
-            # faces, which is what every roll in a basic game is.
+            # faces, which is what every roll in a standard game is.
             return_value=([], 7, 7, IgnitedRoll(face=7), IgnitedRoll(face=7)),
         ), mock.patch(
             "d12ball.dice_brief.render_skill_test_dice",

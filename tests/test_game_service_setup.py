@@ -304,8 +304,8 @@ class ConfigureTests(SetupHarness):
         self.assertEqual(game.game_name, "The Cup Final")
         self.service.configure(game.game_id, "name", "")
         self.assertIsNone(game.game_name)
-        self.service.configure(game.game_id, "mode", GameMode.BASIC)
-        self.assertEqual(game.mode, GameMode.BASIC)
+        self.service.configure(game.game_id, "mode", GameMode.STANDARD)
+        self.assertEqual(game.mode, GameMode.STANDARD)
         self.service.configure(game.game_id, "mode", "training")
         self.assertEqual(game.mode, GameMode.TRAINING)
         # The per-module toggles went with the three modes (2026-09-25).

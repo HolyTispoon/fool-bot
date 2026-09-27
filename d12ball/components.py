@@ -190,7 +190,7 @@ class MatchPeriod(str, Enum):
 @dataclass(frozen=True)
 class RoleProfile:
     """
-    What a role is, in basic mode. `ability_short` is the same ability
+    What a role is, in training and standard mode. `ability_short` is the same ability
     written to fit beside something else -- it comes from its own
     column in the abilities sheet rather than being cut down here,
     because which half of a two-part ability matters is a rules

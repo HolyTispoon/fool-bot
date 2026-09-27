@@ -359,7 +359,7 @@ def import_players(
         existing_profile = role_profiles.get(role)
         if existing_profile is not None and existing_profile != profile:
             raise ValueError(
-                f"{player_id}: basic-mode {role} data differs from "
+                f"{player_id}: training- and standard-mode {role} data differs from "
                 "other players with that role."
             )
         role_profiles[role] = profile

@@ -1,7 +1,7 @@
 """
-Picking the mode a game plays: training, basic or advanced (2026-09-25).
+Picking the mode a game plays: training, standard or advanced (2026-09-25).
 
-Training plays no ability, basic adds the species abilities, advanced
+Training plays no ability, standard adds the species abilities, advanced
 adds the gambits on top (see "Modes" in
 docs/design/species-abilities.md). What is tested here is the *offer*:
 the three mode buttons the setup settings block and the lobby build out
@@ -132,9 +132,9 @@ class ModeWordingTests(unittest.TestCase):
             "three maneuvers a side",
         )
 
-    def test_a_basic_game_plays_the_species_abilities(self) -> None:
+    def test_a_standard_game_plays_the_species_abilities(self) -> None:
         self.assertEqual(
-            describe_game_mode(build_game(mode=GameMode.BASIC)),
+            describe_game_mode(build_game(mode=GameMode.STANDARD)),
             "three maneuvers a side, species abilities",
         )
 
@@ -173,18 +173,18 @@ class ModeWordingTests(unittest.TestCase):
     ) -> None:
         self.assertEqual(
             describe_game_mode(
-                build_game(mode=GameMode.BASIC, tutorial=True),
+                build_game(mode=GameMode.STANDARD, tutorial=True),
             ),
             "three maneuvers a side",
         )
 
     def test_both_setup_screens_say_what_the_game_is_playing(self) -> None:
-        game = build_game(mode=GameMode.BASIC, board_size=7)
+        game = build_game(mode=GameMode.STANDARD, board_size=7)
 
         self.assertIn("species abilities", build_setup_message(game))
         self.assertNotIn("gambit", build_setup_message(game))
         self.assertIn("species abilities", build_lobby_message(build_lobby(
-            mode=GameMode.BASIC, board_size=7,
+            mode=GameMode.STANDARD, board_size=7,
         )))
 
 
@@ -195,7 +195,7 @@ class SetupSettingsTests(unittest.TestCase):
     """
 
     def test_all_three_modes_are_offered_on_one_row(self) -> None:
-        game = build_game(mode=GameMode.BASIC, board_size=7)
+        game = build_game(mode=GameMode.STANDARD, board_size=7)
         buttons = mode_buttons(CoinFlipView(FakeCog(game), game.game_id))
 
         self.assertEqual(set(buttons), {mode.value for mode in GameMode})
@@ -213,7 +213,7 @@ class SetupSettingsTests(unittest.TestCase):
         ))
 
     def test_picking_training_sets_it(self) -> None:
-        game = build_game(mode=GameMode.BASIC, board_size=7)
+        game = build_game(mode=GameMode.STANDARD, board_size=7)
         view = CoinFlipView(FakeCog(game), game.game_id)
         interaction = build_interaction(game.player_1_id)
 
@@ -226,7 +226,7 @@ class SetupSettingsTests(unittest.TestCase):
 
 class LobbySettingsTests(unittest.TestCase):
     def test_all_three_modes_are_offered(self) -> None:
-        game = build_lobby(mode=GameMode.BASIC, board_size=7)
+        game = build_lobby(mode=GameMode.STANDARD, board_size=7)
         buttons = mode_buttons(LobbyView(FakeCog(game), game.game_id))
 
         self.assertEqual(set(buttons), {mode.value for mode in GameMode})

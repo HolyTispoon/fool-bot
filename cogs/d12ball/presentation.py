@@ -437,7 +437,7 @@ class PresentationMixin:
         `/d12ball team_reference`: the advanced face in a game playing
         the personal abilities and advanced skills, and the front
         everywhere else -- the front carries the role's ability and
-        skills, which is the whole of a player in training and basic
+        skills, which is the whole of a player in training and standard
         mode. Which face is `personal_abilities_apply`'s answer, not
         the game's mode read here.
 

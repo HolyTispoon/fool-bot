@@ -98,7 +98,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     not part of the pairing the layout exists to show. Anywhere rather than in
     the hand the back would ride on, since the image is one canvas and its
     widest row sizes every card on it. What is left is the unchallenged
-    maneuver and the solo basic game against Dinky -- half a cycle, and the one
+    maneuver and the solo standard game against Dinky -- half a cycle, and the one
     hand that cannot read the relations off the cards in front of it. The
     "Maneuver Reference" button is still there for anyone who wants the
     hexagon, which is why dropping it costs nothing.
@@ -181,7 +181,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     resolving Pressure" -- so the Defender's ability, which is Pressure's,
     silently appeared on Steal's card as well.
   - **No role ability names a gambit**, and that is the data being
-    honest rather than a gap: the six role abilities are basic mode's, and the
+    honest rather than a gap: the six role abilities are training and standard mode's, and the
     per-player advanced abilities are not played. What a gambit carries instead is the one thing
     settled about how it resolves -- `tie_note`, which says a tie resolves it
     as the basic card on its rank with no gambit's effect, and that a skill
@@ -253,7 +253,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   twelve: a coach holding both sets must not show which side
   of the ball -- or which tier -- they are reading, and the offense there
   holds six. `MANEUVER_TIER_BASIC` draws six nodes with one name apiece
-  instead: a basic-mode coach's hand is never anything but the three basic
+  instead: a standard-mode coach's hand is never anything but the three basic
   cards, so there is no tier to hide, and a name with no counterpart stacked
   under it reads larger in the same circle. `render_maneuver_hands` picks
   between them off its own `tiers` argument -- `MANEUVER_TIER_GAMBIT` in it
@@ -439,7 +439,7 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     advanced score is not held to 1-6.
   - **The species keyword** rides in a pill on the right of the ability
     band's heading row. It is on this face because species abilities are
-    played in basic and advanced mode, and the front is the card for every
+    played in standard and advanced mode, and the front is the card for every
     mode. The pill is *filled* with
     the species' colour rather than the keyword being set in it, for the
     reason the header band is filled: Slime green on a white face cannot be

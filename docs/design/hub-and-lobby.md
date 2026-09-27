@@ -71,7 +71,7 @@ does bar naming specific opponents up front). Two pieces:
   `player_2_id`/`ai_opponent` are **both None** -- and posts a
   `LobbyView` -- Join / Observe / Leave / Start Game, the Test game and Tutorial
   toggles, a **Name** button (opening `LobbyNameModal`, the one text field in
-  the flow), and the mode (training, basic or advanced -- see
+  the flow), and the mode (training, standard or advanced -- see
   [Modes](species-abilities.md#modes)) / board-size / opponent settings.
   **Nothing may read
   `is_solo_game` off a lobby**: a two-human game also starts with `player_2_id`
@@ -116,7 +116,7 @@ does bar naming specific opponents up front). Two pieces:
     `D12BallGame.__post_init__`'s "same user for both sides" check is **relaxed
     while `in_lobby`** and holds again once `lobby_start` sets
     `player_2_id = player_1_id`. Tutorial toggles `game.tutorial` and **pins
-    Basic mode on a 7-space board against Dinky** -- the only shape
+    Standard mode on a 7-space board against Dinky** -- the only shape
     `d12ball/tutorial.py`'s script is written for -- greying the mode and board
     rows; `tutorial_step` stays None and the kickoff arms it, exactly as the
     `create_game` path does.
