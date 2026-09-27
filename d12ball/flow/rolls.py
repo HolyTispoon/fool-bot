@@ -1530,7 +1530,13 @@ def score_shootout_test(
         )
         ignites.append((player.player_id, ignite))
         overdrive = match.overdrive_modifier(player.player_id)
-        totals[side] = roll + skill + ignite.modifier + overdrive
+        # Zorch adds the modifier to every roll they make (Law 21) --
+        # which here is nothing, since full time left the ball at
+        # speed 1 (Law 7.3), but it is asked like every other roll.
+        speed, speed_line = engine.speed_roll_bonus(
+            game, match, player.player_id,
+        )
+        totals[side] = roll + skill + ignite.modifier + overdrive + speed
         detail = contestant_detail(
             player, "Offensive", skill, injured=injured,
             cyborg=engine.has_species_ability(
@@ -1538,6 +1544,7 @@ def score_shootout_test(
             ),
         )
         _with_extras(engine, match, detail, ignite, player.player_id)
+        detail.extend(filter(None, [speed_line]))
         dice.append(
             (
                 roll,

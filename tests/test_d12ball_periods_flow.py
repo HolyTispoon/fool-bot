@@ -152,6 +152,19 @@ class EndPeriodTests(PeriodFixture):
         # ends it, so a restart mid-shootout comes back to a live game.
         self.assertFalse(self.game.is_finished)
 
+    def test_full_time_turns_the_ball_over_at_speed_one(self) -> None:
+        """Law 7.3: every turnover resets the speed, and full time is
+        one -- so the shootout is played at speed 1 (the author,
+        2026-09-27), which is what makes Zorch's bonus nothing there."""
+        self.match.scoreboard.period = MatchPeriod.SECOND_HALF
+        self.match.scoreboard.time = 30
+        self.match.scoreboard.last_possession = True
+        self.match.ball.speed = 9
+
+        end_period(self.engine, self.game, self.match)
+
+        self.assertEqual(self.match.ball.speed, 1)
+
     def test_an_unlevel_full_time_finishes_the_game(self) -> None:
         self.match.scoreboard.period = MatchPeriod.SECOND_HALF
         self.match.scoreboard.time = 30
