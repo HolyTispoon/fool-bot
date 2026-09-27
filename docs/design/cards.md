@@ -366,6 +366,37 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   should be reading the same card. `ROLE_INITIALS` is shared for the same
   reason: the two letters in the badge are the two letters on the meeple's
   card in the channel.
+- **The stats panel is one row, and it does not name the role** (the author,
+  2026-09-27). `OFFENSE 2 | 5 DEFENSE`: each number centred in its half at 70,
+  its label on the outside of it at 19 (the author, 2026-09-27), in a panel
+  88 units tall where it was 132 with a `ROLE`
+  column between the two. The role is already said twice -- in words under
+  the name, and in the badge beside the role ability -- so the column was
+  the third saying of it, and the height it held went to the portrait and
+  the ability text. Both faces draw the panel, so the back's portrait slot grew by the
+  same amount; its band did not move (`ADVANCED_BAND_TOP`).
+- **The line under the name is the role, set at 26** (the author,
+  2026-09-27): `DEFENDER`, and on the back `DEFENDER · ADVANCED`. It was the
+  team at 16, but the team is already the band's colour, the card's edge and
+  the corner emoji. It is fitted to the name's room with 26 as the ceiling,
+  because `MIDFIELDER · ADVANCED` does not fit at 26 and a line that ran
+  under the emoji would read as a mistake.
+- **The front's ability band is two rows, each behind a badge, with no
+  heading** (the author, 2026-09-27): the role's emoji beside the role's
+  sentence, and the species' icon beside the species ability's *name*. The
+  badges are the labels -- which sentence is the role's and which ability is
+  the species' is read off the two pictures in front of them -- so
+  the `ABILITY` heading went, and the text went from 30 to 36. The role
+  badge is the bot's own emoji in the card's team colour
+  (`role_defender_purple.png`), a species team using its colour team's file
+  as it uses its hex; the species badge is the icon in `high_contrast_ink`
+  on a rounded square of the species' colour, the size and shape of the role
+  badge, because Slime green on a white face cannot be read. Only the species
+  ability's name is on the front: its rules are on the species reference
+  cards, and the front is the picture face. The badge is level with the
+  sentence's first line, so a three-line ability hangs off it. The longest
+  role ability still leaves the portrait about 480 units, well over
+  `MIN_PORTRAIT_HEIGHT`.
 - **What the print adds is the ability, and it is the full sentence.** The
   bot has the roster and the rules commands a click away; a card on a table is
   the whole of what its coach has, so the sentence goes under the portrait.
@@ -411,15 +442,26 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   players, and nine poker cards in a 3x3 come out at about 8 x 11 inches --
   a page. Print it at 100% on A4, or borderless on letter, or the cards come
   off the printer undersized.
-- **The species icon answers the role badge across the header band.** The two
-  things about a player that are not their name are the job they do and what
-  they are, and a card should give up both in one glance -- so the role's
-  initials sit in a badge at the left of the band and the species icon at the
-  right, with the name and the team stacked between them. The team used to
-  have that right-hand spot; stacking it under the name is what paid for the
-  icon, and it is also what lets the back say `ORANGE · ADVANCED` on the same
-  line. Both the icon and the badge are drawn in `high_contrast_ink`, which is
-  the whole reason the art is one flat silhouette -- see "The species icons".
+- **The header is the name, the role under it, and the team's emoji in the
+  right-hand corner** (the author, 2026-09-27). It used to carry the role's
+  initials in a badge on the left and the species icon on the right; both
+  moved down to the ability band, where each sits beside the ability it
+  grants, and the header says the role once in full. The corner is the
+  team's own emoji as the bot uploads it (`images/emoji/team_<team>.png`):
+  on the band of the same colour its ring disappears and what reads is a
+  white disc with the team's letter. A species team's emoji is its icon in
+  that disc rather than a letter, because that is the emoji the bot shows
+  for it. The left corner stays empty and the name's room stays symmetric,
+  so the name is centred on the card.
+  The name and the role are set in `high_contrast_ink` -- black on Slime
+  green, white on every other band (the author, 2026-09-27) -- because
+  white on Slime could not be read. The corner emoji follows: on a band
+  whose ink is black, `corner_mark` redraws the emoji's letter black inside
+  its white disc, from the file's blue channel (Slime green's is 0 and
+  white's 255, so the antialiasing comes through exactly). The file itself,
+  and the emoji the bot uploads, are unchanged. A printed set is the four colour teams'
+  cards; a species team's card is one the bot posts, and there the species
+  icon in the corner is the right mark (the author, 2026-09-27).
 
 - **The back is the player's gambit**, drawn by
   `render_player_card_back`. Not a shared back like a maneuver's: player cards
@@ -437,55 +479,32 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     with no personal ability prints the role's sentence on both faces.
     `CardSkills` rather than a `RoleProfile` carries the numbers, because an
     advanced score is not held to 1-6.
-  - **The species keyword** rides in a pill on the right of the ability
-    band's heading row. It is on this face because species abilities are
-    played in standard and advanced mode, and the front is the card for every
-    mode. The pill is *filled* with
-    the species' colour rather than the keyword being set in it, for the
-    reason the header band is filled: Slime green on a white face cannot be
-    read, and a filled pill plus `high_contrast_ink` answers all four species
-    at once instead of three of them.
-  - **The band starts at a fixed height on this face, where the front's
-    floats** (`ADVANCED_BAND_TOP`). The badge rides the band's heading row and
-    it has to be in the same place on every card in the set -- a marker a
-    coach finds by looking at one spot cannot be a marker that moves with how
-    long the player's role ability happens to run (the author, 2026-09-07).
-    That gives up the thing the front's design is built on: on the front the
-    portrait takes whatever the ability leaves, so a short ability buys a
-    bigger picture, and here it cannot, because the picture's bottom edge *is*
-    the badge's position. Every back gets the same portrait slot and the same
-    band, and a card whose text does not fill the band leaves white under it.
-    The way it breaks is somebody laying the band out from the bottom edge up
-    again, the way the front still does.
-  - **The species' short form goes under it where the band has room, and the
-    question is asked of the species rather than of the card.** How much of
-    the band a card has left depends on how long its *role* ability runs, so
-    asked per card the answer differs between a Fire Demon fullback and a Fire
-    Demon striker -- and a set where two cards carrying the same species line
-    disagree about whether it is on there reads as a misprint, not as a layout
-    that scaled. `species_short_fits` walks the species and lets the longest
-    ability the backs print decide for all of them. Since the personal
-    abilities went on the backs, Goopkeeper's and Acidel's sentences leave no
-    Ooze back room for Slimey's short form. **This is the one place a printed
-    card carries an abbreviation**, and it is not the role's --
-    `ability_short` in `species.json` exists for exactly "anywhere the
-    sentence does not fit".
-  - **Nothing can overflow the fixed band, so nothing has to be kept ahead of
-    the data.** A species whose short form stops fitting simply stops carrying
-    one and the cards go on printing. What has to fit unconditionally is the
-    ability the back prints on its own -- three lines at most today (Acidel),
-    against a band of 340 units. An import that doubled one would print off
-    the bottom of a card, so look at the backs after an import that lengthens
-    a role or personal ability.
-  - **`MIN_BACK_PORTRAIT_HEIGHT` is 360 against the front's 380, and the
-    20 units are what buy the fixed band.** The front is the picture face and
-    the back is the rules face -- it carries a second ability where the front
-    carries one -- so the back's portrait is the thing that pays for a badge
-    that does not move, and at 340 the band holds every species' short form
-    including Volatile's, which is the longest by half again. Neither floor is
-    a number tuned to today's data: they are the line at which a player card
-    has stopped being a picture, and lowering one to fit a paragraph is the
-    move to resist.
+  - **It is laid out exactly as the front** (the author, 2026-09-27): the
+    same header, stats panel and ability band, the role badge in front of
+    the personal ability and the species badge and ability name under it.
+    `draw_face` draws both faces; they differ only in the subtitle, the
+    skills and the sentence they are handed. The role badge stays in front
+    of a personal ability because the ability belongs to a player of that
+    role, and the badge is what marks the row as the player's own rather
+    than the species'.
+  - **This replaced a fixed band with the species keyword in a pill, and the
+    species' short form under the ability where it fitted.** The band was
+    fixed (`ADVANCED_BAND_TOP`, 2026-09-07) so the pill on its heading row
+    sat in the same place on every back; a band laid out from the bottom
+    edge up gets that for free now that the species is the band's *last*
+    row, so the fixed band, `species_short_fits` and the separate back floor
+    all went. The back no longer carries the species' short form, as the
+    front never did: the species' rules are on the species reference cards.
+  - **A long sentence is set smaller rather than squeezing the portrait
+    past its floor.** At 36 a five-line personal ability (Scorchit's,
+    Glompex's, Zenith's, Quantor's) would leave the portrait 260-315 units
+    against `MIN_PORTRAIT_HEIGHT`'s 380, so `ability_band` comes down a
+    point at a time until the portrait keeps its floor, stopping at
+    `ABILITY_MIN_SIZE` (24): those four print at 28-33 and every other
+    card, front and back, at 36. A card whose sentence is smaller than its
+    neighbours' was judged better than a card that has stopped being a
+    picture. An import that lengthens a personal ability past what 24 fits
+    would push the portrait under the floor, so look at the backs after one.
   - **`duplex_order` reverses every row of the back sheet.** A duplex print
     comes out flipped about the paper's long edge, so the leftmost cell of a
     row on the front is the rightmost on the back. A maneuver deck never
@@ -617,8 +636,8 @@ python3 scripts/render_role_cards.py --out cards/roles --sheet
   right-anchored as a pair, instead of stacked one above the other.** A
   name sized to fill the row has no width left beside it for numbers on
   the same line, but a one-digit number doesn't need a row of its own
-  either -- stacking them the way `player_cards.draw_stats` sometimes
-  does was room the ability text below could use instead. The pair is
+  either -- stacking each under its own label was room the ability text
+  below could use instead. The pair is
   right-anchored as a block (`"OFF 1  DEF 6"`, not each number anchored
   on its own) so six panels' pairs still read as a column when they sit
   side by side, since "OFF 1  DEF 6" is not the same width as "OFF 4

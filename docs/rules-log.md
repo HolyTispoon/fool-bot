@@ -154,6 +154,39 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-27 (newest) -- sheet and author, Zorch rolls with the ball; eleven abilities reworded
+
+Re-imported from the sheet. Zorch's personal ability is new: *"Adds ball speed modifier to all
+rolls."* It replaces *"Does not add exhaustion when rolling skill tests (including after
+ties)."*, and the author settled three readings of it:
+
+- **Every roll Zorch makes** (the author): a maneuver skill test on either side, a contest for
+  the ball, an injury check and an own-goal roll. The modifier is the ball's speed halved, as
+  Law 7 has it.
+- **Once, not twice** (the author): where the roll already adds the modifier to Zorch's side --
+  Zorch's own score attempt, a Steal or Intercept Zorch contests with, the throwing side of a
+  High Pass contest -- Zorch adds nothing more. An overshoot's modifier still counts against
+  the pass.
+- **The free tests are gone** (the author): Zorch exhausts 1 for a skill test and for a re-roll
+  like anybody else.
+- **The shootout** (the author): *"During shootouts the ball speed is at 1 and so the modifier
+  is 0."* Zorch's shootout test asks for the modifier like every other roll and gets 0. The
+  code had not reset the speed at full time, which Law 7.3 already required since full time
+  turns the ball over; it does now, so a shootout is played at speed 1.
+- **Defending a shot** (the author): *"Zorch doesn't add speed modifier because ... it's not
+  Zorch's own roll even if they are the only one in the way."*
+
+Law 7.4.1, which said the modifier is added in three places "and nowhere else", now points at
+Law 21.6.
+
+**Eleven sentences are reworded with no change of meaning**, and each is played as it was:
+Glompex (the author dropped "but before selecting a maneuver"; Law 21.6.1 still offers the move
+before the cards are chosen), Kindlefinger, Quantor, Quillon, Scorchit, Spectra, Spritz (the
+typo *"eammate"* fixed), Umbrik, Viscor, Vorix (the author dropped "successfully"; Law 21.5.6
+still needs the High Pass won) and Zenith. Zenith's now reads *"after turnover"* where it said
+*"before runback"*; the author: Fly is still offered only at a steal's run back, never after a
+new play. The Playmaker's abbreviated column now reads *"Dribble for 1 additional space"*.
+
 ### 2026-09-27 (latest) -- author, "exhaust" is the verb for gaining exhaustion
 
 The author: *"replace all 'add X exhaustion' with 'Exhaust X' - similar to 'Drain X' and 'Clear

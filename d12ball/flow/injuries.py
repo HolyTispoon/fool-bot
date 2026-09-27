@@ -319,7 +319,9 @@ def injury_test_step(
     # Boost is said as itself, beside an Overdrive or alone (Law 21).
     overdrive_details = engine.overdrive_details(match, player_id)
     match.consume_overdrive()
-    check = roll + overdrive + ignite.modifier
+    # Zorch adds the ball speed modifier to every roll they make (Law 21).
+    speed, speed_line = engine.speed_roll_bonus(game, match, player_id)
+    check = roll + overdrive + ignite.modifier + speed
     # Kindlefinger's token moves **before** the check is compared (the
     # author, 2026-09-26), as a skill test's own tokens count toward the
     # check behind it.
@@ -330,7 +332,8 @@ def injury_test_step(
     # said in words or the number a coach reads and the verdict they
     # are given would not add up.
     modifiers = [
-        part for part in (*overdrive_details, ignite.detail) if part
+        part for part in (*overdrive_details, ignite.detail, speed_line)
+        if part
     ]
     overdrive_note = (
         f" ({', '.join(modifiers)}, {check})" if modifiers else ""

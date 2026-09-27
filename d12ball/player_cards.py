@@ -7,10 +7,12 @@ and the same print machinery as `d12ball/cards.py`, which this borrows
 playing by Discord should be reading the same card, so the layout
 follows the one the bot draws on the board (`build_player_card` in
 `d12ball/render.py`): the name, the two skills in their own two
-colours, the role, and the portrait under them, inside the team's
-colour.
+colours, the role's badge, and the portrait under them, inside the
+team's colour.
 
-**What the printed card adds is the ability**, under the portrait. The
+**What the printed card adds is the ability**, under the portrait,
+behind the role's badge, with the species' badge and its ability's
+name under it. The
 bot has the board to put it on -- a coach can ask for the roster or the
 rules -- where a card on a table is the only thing in front of its
 coach, so the sentence has to be on it. It is the full sentence from
@@ -24,11 +26,12 @@ reaches the cards by re-running `scripts/render_player_cards.py`.
 
 **The other side of the card is the same player in advanced mode** --
 not a shared back, since these are dealt face up and nothing about
-them is hidden. `render_player_card_back` draws it: the same header and
-portrait, **the player's advanced skills** in the stats row, and **their
-personal ability instead of the role's** where they have one (Law 21;
-the author, 2026-09-25), with the keyword of their species ability
-beside it and the species' short form under it where the card has room.
+them is hidden. `render_player_card_back` draws it, laid out exactly
+as the front: the same header and portrait, **the player's advanced
+skills** in the stats row, and **their personal ability instead of the
+role's** beside the role badge where they have one (Law 21; the
+author, 2026-09-25), with the species badge and its ability's name
+under it (the author, 2026-09-27).
 
 The personal ability replaces the role's *on the card only*: in play a
 player keeps both (the author, 2026-09-25), and the role's sentence is
@@ -39,7 +42,7 @@ ability prints their role's sentence on both faces.
 """
 from dataclasses import dataclass
 
-from PIL import Image, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.cards import (
     CARD_FACE,
@@ -61,37 +64,51 @@ from d12ball.cards import (
 from d12ball.components import (
     PlayerCatalog,
     PlayerDefinition,
+    PlayerRole,
     RoleProfile,
     load_species_abilities,
 )
-from d12ball.game import Team, team_display_name
+from d12ball.game import COLOR_TEAMS, Team, paired_team
 from d12ball.render import (
     CARD_DEFENSE_COLOR,
     CARD_OFFENSE_COLOR,
-    ROLE_INITIALS,
     TEAM_COLORS,
     high_contrast_ink,
     load_player_portrait,
     species_icon,
 )
+from d12ball.role_cards import ROLE_EMOJI_DIR
 from d12ball.species_cards import SPECIES_TEAM
 
 # The header band, and the stats panel under it. Both are fixed: the
 # portrait takes whatever the ability band leaves, because the ability
 # is the one thing on the card whose length is not the layout's to
 # choose.
+#
+# The stats panel is one row, each skill's label on the outside of its
+# number rather than over it, and it no longer carries the role: the badge in
+# the header and the role's badge in the ability band both say it
+# (the author, 2026-09-27). What the panel gave up went to the
+# portrait and the ability text.
 HEADER_HEIGHT = 132
-STATS_TOP_GAP = 20
-STATS_HEIGHT = 132
+STATS_TOP_GAP = 16
+STATS_HEIGHT = 88
 PORTRAIT_GAP = 18
 
-# The species icon in the header, mirroring the role badge across the
-# band: the two things about a player that are not their name are the
-# job they do and what they are, and both are read at a glance from
-# the same row. It is drawn in the band's own ink rather than the
-# species' colour, because the band is already a colour -- see
-# `high_contrast_ink`, which is what keeps a Slime-green band legible.
-HEADER_ICON = 84
+# The role under the name, set large enough to read across a table
+# (the author, 2026-09-27). The back's "MIDFIELDER · ADVANCED" is the
+# longest line it carries, so it is fitted to the name's room with this
+# as the ceiling rather than set at it.
+SUBTITLE_SIZE = 26
+
+# The team's own emoji in the header's right-hand corner -- the letter
+# in a team-coloured ring the bot puts beside a team's name in Discord
+# (`images/emoji/team_<team>.png`, uploaded under `TEAM_EMOJI_NAMES`).
+# On the band of the same colour its ring disappears and what reads is
+# a white disc with the letter in it. The left-hand corner is left
+# empty and the name stays centred on the card.
+HEADER_EMOJI = 104
+TEAM_EMOJI_DIR = ROLE_EMOJI_DIR
 
 # A portrait is around 400px on its longest side -- the bot's own art,
 # and there is no larger source -- so filling this slot scales it up by
@@ -109,14 +126,75 @@ def fitted_name(
     """
     The largest bold size the header will carry the name at. Player
     names are one word, so unlike a maneuver's there is nothing to
-    break -- the size comes down until "Flickerwing" fits between the
-    role badge and the species icon, floored at 22 even if that still
-    doesn't.
+    break -- the size comes down until "Flickerwing" fits in the room
+    the team emoji leaves, kept symmetric about the centre, floored at
+    22 even if that still doesn't.
     """
     return (
         fitted_bold_font(pen, name, max_width, max_size=54, min_size=22)
         or font(22, bold=True)
     )
+
+
+def team_emoji(team: Team) -> Image.Image | None:
+    """
+    The team's emoji as the bot uploads it, read off disk, or None when
+    the file is missing -- the swallowed-`OSError` contract every
+    bundled image here follows. A species team's emoji is its species'
+    icon in a ring rather than a letter, because that is the emoji the
+    bot shows for it.
+    """
+    if team not in _TEAM_EMOJI:
+        try:
+            _TEAM_EMOJI[team] = Image.open(
+                TEAM_EMOJI_DIR / f"team_{team.value}.png"
+            ).convert("RGBA")
+        except OSError:
+            _TEAM_EMOJI[team] = None
+    return _TEAM_EMOJI[team]
+
+
+_TEAM_EMOJI: dict[Team, Image.Image | None] = {}
+
+
+def corner_mark(team: Team, color: str) -> Image.Image | None:
+    """
+    The team's emoji as the header's corner draws it: as the bot
+    uploads it, except that on a band whose `high_contrast_ink` is
+    black -- Slime green -- the letter is black too (the author,
+    2026-09-27), so the corner reads like the name beside it. The ring
+    is left alone; it is the band's own colour and disappears into it.
+
+    Only the white disc is recoloured, and the recolouring is exact
+    rather than a threshold: the emoji's letter is Slime green
+    antialiased onto white, and Slime green's blue channel is 0 where
+    white's is 255, so the blue channel alone says how much letter a
+    pixel holds. Setting all three channels to it redraws the same
+    antialiased letter in black.
+    """
+    emoji = team_emoji(team)
+    if emoji is None or high_contrast_ink(color) == "#ffffff":
+        return emoji
+
+    blue = emoji.getchannel("B")
+    inked = Image.merge("RGBA", (blue, blue, blue, emoji.getchannel("A")))
+    disc = Image.new("L", emoji.size, 0)
+    radius = emoji.width * CORNER_DISC_FRAC
+    center = emoji.width / 2
+    ImageDraw.Draw(disc).ellipse(
+        (center - radius, center - radius, center + radius, center + radius),
+        fill=255,
+    )
+    marked = emoji.copy()
+    marked.paste(inked, (0, 0), disc)
+    return marked
+
+
+# How much of the emoji's width, as a radius, the recoloured disc
+# covers: inside the white face (which ends at 96/256, where the ring
+# starts) with room for the ring's antialiased edge, and well outside
+# the letter.
+CORNER_DISC_FRAC = 88 / 256
 
 
 def draw_header(
@@ -127,22 +205,16 @@ def draw_header(
     subtitle: str,
 ) -> None:
     """
-    The team-coloured band: the role's initials in a badge on the left,
-    the species icon answering it on the right, and the name over
-    `subtitle` between them. The initials are the board's own
-    (`ROLE_INITIALS`), so the two letters on the card are the two
-    letters on the meeple's card in Discord.
+    The team-coloured band: the name over `subtitle`, centred, and the
+    team's emoji in the right-hand corner (the author, 2026-09-27).
 
-    The name and the subtitle are stacked because the icon took the
-    room the team used to sit in, and the two lines are what tell a
-    front from its advanced back at a glance -- see
-    `header_subtitle`.
-
-    A player with no species draws no icon and the layout does not
-    close up around it, because `players.json` written before the
-    species column loads with an empty one (see "Player species" in
-    docs/design/teams-and-players.md) and a set of cards where some names are centred
-    differently from others reads as a mistake.
+    The role is the subtitle, in words, where it used to be two letters
+    in a badge on the left: the badge beside the role ability in the
+    band at the bottom carries the initials, and the header says the
+    role once in full. The species is the badge beside the species
+    ability; the header no longer carries its icon. The name's room is
+    kept symmetric about the card's centre, so the empty left corner
+    does not pull the name off-centre.
     """
     pen.rect(
         (FRAME, FRAME, CARD_WIDTH - FRAME, FRAME + HEADER_HEIGHT),
@@ -159,56 +231,55 @@ def draw_header(
         fill=color,
     )
 
-    badge_center = (FRAME + 78, FRAME + HEADER_HEIGHT / 2)
-    pen.circle(badge_center, 44, fill=CARD_FACE)
-    pen.text(
-        badge_center,
-        ROLE_INITIALS[player.role.value],
-        font(36, bold=True),
-        color,
-        anchor="mm",
-    )
-
-    icon = species_icon(player.species, high_contrast_ink(color))
-    if icon is not None:
+    emoji = corner_mark(team, color)
+    if emoji is not None:
         pen.paste(
-            icon,
+            emoji,
             (CARD_WIDTH - FRAME - 78, FRAME + HEADER_HEIGHT / 2),
-            (HEADER_ICON, HEADER_ICON),
+            (HEADER_EMOJI, HEADER_EMOJI),
         )
 
+    # Black on Slime green and white on every other band (the author,
+    # 2026-09-27): white on Slime could not be read.
+    ink = high_contrast_ink(color)
     name_left = FRAME + 132
     name_right = CARD_WIDTH - FRAME - 132
     pen.text(
-        ((name_left + name_right) / 2, FRAME + 54),
+        ((name_left + name_right) / 2, FRAME + 50),
         player.name,
         fitted_name(pen, player.name, name_right - name_left),
-        "#ffffff",
+        ink,
         anchor="mm",
     )
     pen.text(
-        ((name_left + name_right) / 2, FRAME + 104),
+        ((name_left + name_right) / 2, FRAME + 102),
         subtitle,
-        font(16, bold=True),
-        "#ffffff",
+        fitted_bold_font(
+            pen,
+            subtitle,
+            name_right - name_left,
+            max_size=SUBTITLE_SIZE,
+            min_size=14,
+        )
+        or font(14, bold=True),
+        ink,
         anchor="mm",
     )
 
 
-def header_subtitle(team: Team, advanced: bool) -> str:
+def header_subtitle(player: PlayerDefinition, advanced: bool) -> str:
     """
-    The line under the name: the team, and on the back the word that
-    says which side of the card this is.
+    The line under the name: the player's role, and on the back the
+    word that says which side of the card this is.
 
     The back has to announce itself in words rather than by a shade or
     a border, because it is otherwise the same card -- same colour,
-    same portrait, same skills -- and a coach turning a stack over has
-    nothing else to read. The team stays on both faces: the edge colour
-    says it too, but a card printed for one of a player's two rosters
-    should say which on whichever side is showing.
+    same portrait, same role -- and a coach turning a stack over has
+    nothing else to read. The team is the corner emoji and the edge
+    colour on both faces.
     """
-    name = team_display_name(team).upper()
-    return f"{name} \u00b7 ADVANCED" if advanced else name
+    role = player.role.value.upper()
+    return f"{role} \u00b7 ADVANCED" if advanced else role
 
 
 @dataclass(frozen=True)
@@ -255,18 +326,21 @@ def advanced_card_ability(
 
 def draw_stats(
     pen: Pen,
-    player: PlayerDefinition,
     profile: "RoleProfile | CardSkills",
     top: float,
 ) -> None:
     """
-    The two skills either side of the role, each under its own label.
+    The two skills on one row, each number centred in its half with
+    its label on the outside: `OFFENSE 2 | 5 DEFENSE`.
 
     The bot's card stacks the bare numbers in the corner, unlabelled,
     because a coach reads them off a board they have been looking at
     all game -- but they are the same two numbers in the same two
     colours (`CARD_OFFENSE_COLOR` and `CARD_DEFENSE_COLOR`), so a
     printed 6 and a drawn 6 are the same red.
+
+    The role is not here: the header's badge carries it, and the
+    ability band's badge sits beside the ability it grants.
     """
     pen.rect(
         (MARGIN, top, CARD_WIDTH - MARGIN, top + STATS_HEIGHT),
@@ -276,107 +350,75 @@ def draw_stats(
         width=2,
     )
 
-    column_width = (CARD_WIDTH - MARGIN * 2) / 3
+    column_width = (CARD_WIDTH - MARGIN * 2) / 2
+    label_face = font(STATS_LABEL_SIZE, bold=True)
+    value_face = font(STATS_VALUE_SIZE, bold=True)
+    center_y = top + STATS_HEIGHT / 2
+    # Each number is centred in its half, and its label sits on the
+    # outside of it -- OFFENSE to the left of the offence, DEFENSE to
+    # the right of the defence (the author, 2026-09-27) -- so the two
+    # numbers read as a pair either side of the divider.
     columns = (
-        ("OFFENSE", str(profile.offense), CARD_OFFENSE_COLOR),
-        ("ROLE", player.role.value.upper(), INK),
-        ("DEFENSE", str(profile.defense), CARD_DEFENSE_COLOR),
+        ("OFFENSE", str(profile.offense), CARD_OFFENSE_COLOR, -1),
+        ("DEFENSE", str(profile.defense), CARD_DEFENSE_COLOR, 1),
     )
-    for index, (label, value, color) in enumerate(columns):
+    for index, (label, value, color, side) in enumerate(columns):
         cx = MARGIN + column_width * (index + 0.5)
+        pen.text((cx, center_y), value, value_face, color, anchor="mm")
+        value_half = pen.text_size(value, value_face)[0] / 2
         pen.text(
-            (cx, top + 32), label, font(17, bold=True), MUTED, anchor="mm"
+            (cx + side * (value_half + STATS_LABEL_GAP), center_y),
+            label,
+            label_face,
+            MUTED,
+            anchor="rm" if side < 0 else "lm",
         )
-        # The role is a word where the skills are a digit, so it is set
-        # small enough for "MIDFIELDER" to clear the dividers.
-        face = font(24 if index == 1 else 64, bold=True)
-        pen.text((cx, top + 84), value, face, color, anchor="mm")
-        if index:
-            pen.line(
-                [
-                    (MARGIN + column_width * index, top + 16),
-                    (MARGIN + column_width * index, top + STATS_HEIGHT - 16),
-                ],
-                fill=PANEL_EDGE,
-                width=2,
-            )
+    pen.line(
+        [
+            (MARGIN + column_width, top + 14),
+            (MARGIN + column_width, top + STATS_HEIGHT - 14),
+        ],
+        fill=PANEL_EDGE,
+        width=2,
+    )
 
 
-# The ability is set a shade larger than a maneuver card's effect,
-# because it is the same thing read at a worse angle: the rule the card
-# exists to state, on a card lying on a table rather than held up to a
-# face. It started at the size a maneuver card lists a *role's* ability
-# at -- but there it is a footnote under the effect, and here there is
-# nothing else on the card to be a footnote to.
+STATS_LABEL_SIZE = 19
+STATS_VALUE_SIZE = 70
+STATS_LABEL_GAP = 16
+
+
+# The ability is set larger than a maneuver card's effect, because it
+# is the same thing read at a worse angle: the rule the card exists to
+# state, on a card lying on a table rather than held up to a face. It
+# went from 30 to 36 when the badges replaced the band's heading (the
+# author, 2026-09-27: "the font should be larger even if the portrait
+# becomes a bit smaller").
 #
 # **The portrait gives up whatever this takes**, which is the trade the
 # author asked for: the picture gets smaller where it has to. Most
 # cards do not pay at all, since the art is capped at
 # PORTRAIT_MAX_SCALE and was leaving white under itself anyway; the
 # long abilities pay a line's worth. The floor is MIN_PORTRAIT_HEIGHT
-# below, which is where the trade stops being one.
-ABILITY_SIZE = 30
-ABILITY_HEADING_SIZE = 19
-
-# The species half of the advanced card. The keyword rides in a pill on
-# the ability band's heading row -- literally next to the role ability,
-# which is what the author asked for -- and the pill is filled with the
-# species' own colour for the reason the header band is: Slime green on
-# a white face is unreadable, and `high_contrast_ink` on a filled pill
-# solves all four species at once rather than three of them.
-SPECIES_KEYWORD_SIZE = 26
-SPECIES_CHIP_ICON = 38
-SPECIES_CHIP_PAD = 16
-SPECIES_CHIP_HEIGHT = 50
-
-# The species' short form, under the role ability where there is room
-# for it. This is the one place a card is allowed to carry an
-# abbreviation, and it is not the role's: `ability_short` in
-# species.json exists for "anywhere the sentence does not fit" (see
-# "The species cards" in docs/design/cards.md), and a player's card carrying two
-# full ability paragraphs is exactly that. The role's own sentence is
-# never cut -- see "Every ability is imported twice".
-SPECIES_SHORT_SIZE = 23
-SPECIES_SHORT_GAP = 18
+# below, which is where the trade stops being one: a sentence that
+# would cross it is set smaller instead (`ability_band`), down to
+# ABILITY_MIN_SIZE.
+ABILITY_SIZE = 36
+ABILITY_MIN_SIZE = 24
+BAND_BADGE = 64
+BAND_BADGE_GAP = 18
+BAND_TOP_PAD = 22
+BAND_ROW_GAP = 18
 
 # The portrait is the reason a player card is a picture at all, so a
 # layout leaving it less than this much of a 1050-unit card has stopped
-# being a player card and become a paragraph.
+# being a player card and become a paragraph. Both faces are held to
+# it; the back's longest personal ability is the one that comes
+# nearest.
 MIN_PORTRAIT_HEIGHT = 380
 
 PORTRAIT_TOP = FRAME + HEADER_HEIGHT + STATS_TOP_GAP + STATS_HEIGHT
 ABILITY_BOTTOM_PAD = 18
-
-# **The back's ability band starts at a fixed height, where the front's
-# floats.** The species badge rides that band's heading row, and the
-# author's call is that it be in the same place on every card -- a
-# marker a coach finds by looking at one spot cannot be a marker that
-# moves with how long the player's role ability happens to run.
-#
-# That costs the thing the front's design is built on: on the front the
-# portrait takes whatever the ability leaves, so a short ability buys a
-# bigger picture. Here it cannot, because the picture's bottom edge is
-# what the badge's position *is*. Every back gets the same portrait
-# slot and the same band, and a card whose text does not fill the band
-# leaves white under it.
-#
-# The height is what today's fullest back needs with a few units over
-# -- and it is not tuned to stay ahead of the data, because nothing
-# overflows it: a species whose short form no longer fits simply stops
-# carrying one (`species_short_fits`). What has to fit unconditionally
-# is the role ability alone, which is 153 units against 340.
-ADVANCED_BAND_TOP = 686
-ADVANCED_BAND_HEIGHT = CARD_HEIGHT - FRAME - ABILITY_BOTTOM_PAD - (
-    ADVANCED_BAND_TOP
-)
-
-# The back's own floor, and lower than the front's on purpose. The
-# front is the picture face and the back is the rules face -- it
-# carries a second ability where the front carries one -- so the
-# 20-unit difference is what buys every species its short form on a
-# band that no longer moves. Anything below this and the portrait has
-# stopped being the point of the card, on either face.
-MIN_BACK_PORTRAIT_HEIGHT = 360
 
 
 def portrait_room(ability_height: float) -> float:
@@ -390,38 +432,174 @@ def portrait_room(ability_height: float) -> float:
     return ability_top - PORTRAIT_GAP * 2 - PORTRAIT_TOP
 
 
-def ability_lines(pen: Pen, ability: str) -> tuple[list[str], float]:
+def role_badge(role: PlayerRole, team: Team) -> Image.Image | None:
     """
-    The ability wrapped to the card, and the height the band it sits in
-    needs. Measured before anything is drawn, because the band is laid
-    out from the bottom edge up and the portrait above it takes what is
-    left: a two-line ability and a four-line one are different cards.
+    The bot's own role emoji with its edge in the card's team colour --
+    `role_defender_purple.png`, the badge a message puts beside a
+    player fielded for Purple. A species team has no file of its own
+    and shares its colour team's, as it shares its hex in `TEAM_COLORS`;
+    the plain badge stands in if a file is missing, and nothing at all
+    if that is missing too, the swallowed-`OSError` contract every
+    bundled image here follows.
     """
-    body = font(ABILITY_SIZE)
-    lines = pen.wrapped(ability, body, CARD_WIDTH - MARGIN * 2 - 12)
-    height = 50 + len(lines) * line_height(pen, body) + 12
-    return lines, height
+    colour = team if team in COLOR_TEAMS else paired_team(team)
+    key = (role, colour)
+    if key not in _ROLE_BADGES:
+        badge = None
+        for name in (f"role_{role.value}_{colour.value}", f"role_{role.value}"):
+            try:
+                badge = Image.open(ROLE_EMOJI_DIR / f"{name}.png").convert(
+                    "RGBA"
+                )
+                break
+            except OSError:
+                continue
+        _ROLE_BADGES[key] = badge
+    return _ROLE_BADGES[key]
 
 
-def draw_ability(pen: Pen, lines: list[str], top: float) -> None:
+_ROLE_BADGES: dict[tuple[PlayerRole, Team], Image.Image | None] = {}
+
+
+def ability_text_width() -> float:
+    """The room a band row leaves its text, right of the badge."""
+    return CARD_WIDTH - MARGIN * 2 - 20 - BAND_BADGE - BAND_BADGE_GAP
+
+
+@dataclass(frozen=True)
+class AbilityBand:
+    """
+    The ability band as measured: the sentence wrapped beside its
+    badge, the size it is set at, and the height the whole band needs.
+    """
+
+    lines: list[str]
+    size: int
+    height: float
+
+
+def ability_band(
+    pen: Pen, ability: str, species_name: str
+) -> AbilityBand:
+    """
+    The sentence wrapped beside its badge at the largest size, up to
+    ABILITY_SIZE, that still leaves the portrait MIN_PORTRAIT_HEIGHT,
+    and the height of the whole band -- the sentence's row, and the
+    species' row under it where the player has a species. Measured
+    before anything is drawn, because the band is laid out from the
+    bottom edge up and the portrait above it takes what is left.
+
+    Almost every card is set at ABILITY_SIZE. The few whose sentence
+    runs to five lines or more -- personal abilities on the back, today
+    -- come down a point at a time until the portrait keeps its floor,
+    and stop at ABILITY_MIN_SIZE whatever that leaves.
+    """
+    for size in range(ABILITY_SIZE, ABILITY_MIN_SIZE - 1, -1):
+        lines = pen.wrapped(ability, font(size), ability_text_width())
+        height = BAND_TOP_PAD + row_height(pen, size, len(lines))
+        if species_name:
+            height += BAND_ROW_GAP + BAND_BADGE
+        if portrait_room(height) >= MIN_PORTRAIT_HEIGHT:
+            break
+    return AbilityBand(lines, size, height)
+
+
+def first_line_offset(pen: Pen, size: int) -> float:
+    """
+    How far below its row's top the sentence's first line starts, so
+    that line is centred on the badge: a three-line ability reads as
+    one entry hanging off its label, not as a paragraph the badge sits
+    beside the middle of.
+    """
+    return (BAND_BADGE - line_height(pen, font(size))) / 2
+
+
+def row_height(pen: Pen, size: int, line_count: int) -> float:
+    step = line_height(pen, font(size))
+    return max(BAND_BADGE, first_line_offset(pen, size) + line_count * step)
+
+
+def draw_species_badge(
+    pen: Pen, species: str, center: tuple[float, float]
+) -> None:
+    """
+    The species icon on a rounded square of the species' colour, the
+    same size and shape as the role badge above it. Filled rather than
+    the icon set in the colour, for the reason the header band is:
+    Slime green on a white face cannot be read, and `high_contrast_ink`
+    on a fill answers all four species at once.
+    """
+    color = TEAM_COLORS[SPECIES_TEAM[species]]
+    half = BAND_BADGE / 2
+    pen.rect(
+        (center[0] - half, center[1] - half, center[0] + half, center[1] + half),
+        radius=BAND_BADGE * 0.22,
+        fill=color,
+    )
+    icon = species_icon(species, high_contrast_ink(color))
+    if icon is not None:
+        size = BAND_BADGE * 0.72
+        pen.paste(icon, center, (size, size))
+
+
+def draw_ability(
+    pen: Pen,
+    player: PlayerDefinition,
+    team: Team,
+    band: AbilityBand,
+    species_name: str,
+    top: float,
+) -> None:
+    """
+    The ability band, the same on both faces: the role's badge beside
+    the sentence the face prints, and the species' badge beside the
+    species ability's name under it (the author, 2026-09-27). The two
+    badges are the labels, so the band carries no heading.
+
+    The sentence is the role's on the front and the player's advanced
+    ability on the back (`advanced_card_ability`) -- the badge in front
+    of it is the role's on both, since a personal ability belongs to a
+    player of that role. Only the species ability's *name* is here; its
+    rules are on the species reference cards.
+
+    The band is laid out from the bottom edge up, so the species row is
+    in the same place on every card of either face, whatever the
+    sentence above it runs to.
+    """
     pen.line(
         [(MARGIN + 10, top), (CARD_WIDTH - MARGIN - 10, top)],
         fill=PANEL_EDGE,
         width=2,
     )
-    pen.text(
-        (CARD_WIDTH / 2, top + 26),
-        "ABILITY",
-        font(ABILITY_HEADING_SIZE, bold=True),
-        MUTED,
-        anchor="mm",
-    )
 
-    body = font(ABILITY_SIZE)
-    y = top + 50
-    for line in lines:
-        pen.text((CARD_WIDTH / 2, y), line, body, INK, anchor="ma")
-        y += line_height(pen, body)
+    body = font(band.size)
+    step = line_height(pen, body)
+    badge_x = MARGIN + 10 + BAND_BADGE / 2
+    text_x = MARGIN + 10 + BAND_BADGE + BAND_BADGE_GAP
+    y = top + BAND_TOP_PAD
+
+    badge = role_badge(player.role, team)
+    if badge is not None:
+        pen.paste(
+            badge, (badge_x, y + BAND_BADGE / 2), (BAND_BADGE, BAND_BADGE)
+        )
+    text_y = y + first_line_offset(pen, band.size)
+    for line in band.lines:
+        pen.text((text_x, text_y), line, body, INK, anchor="la")
+        text_y += step
+
+    if not species_name:
+        return
+    y += row_height(pen, band.size, len(band.lines)) + BAND_ROW_GAP
+    center_y = y + BAND_BADGE / 2
+    draw_species_badge(pen, player.species, (badge_x, center_y))
+    pen.text(
+        (text_x, center_y),
+        species_name,
+        font(ABILITY_SIZE, bold=True),
+        INK,
+        anchor="lm",
+    )
 
 
 def species_ability(species: str) -> dict[str, str]:
@@ -446,203 +624,6 @@ def _species_abilities() -> dict[str, dict[str, str]]:
 # the render scripts and by the box art, and a card is drawn seventy-two
 # times a run.
 _SPECIES_ABILITIES: dict[str, dict[str, str]] | None = None
-
-
-def advanced_ability_lines(
-    pen: Pen, ability: str, short: str
-) -> tuple[list[str], list[str], float]:
-    """
-    The advanced band's two halves and the height they need: the role
-    ability, and the species' short form under it when `short` is
-    given.
-
-    The caller decides whether to ask for the short form at all --
-    `render_player_card_back` measures the band both ways and keeps the
-    fuller one the portrait can still afford. Measuring here and
-    deciding there is what keeps the floor a single number: this
-    function only ever answers how tall a given band is.
-    """
-    body = font(ABILITY_SIZE)
-    role_lines = pen.wrapped(ability, body, CARD_WIDTH - MARGIN * 2 - 12)
-    height = 50 + len(role_lines) * line_height(pen, body) + 12
-
-    short_lines: list[str] = []
-    if short:
-        small = font(SPECIES_SHORT_SIZE)
-        short_lines = pen.wrapped(short, small, CARD_WIDTH - MARGIN * 2 - 12)
-        height += (
-            SPECIES_SHORT_GAP * 2
-            + 2
-            + len(short_lines) * line_height(pen, small)
-        )
-
-    return role_lines, short_lines, height
-
-
-def species_players(catalog: PlayerCatalog, species: str):
-    """
-    Every player of a species, once each. A player is on two rosters
-    (their colour team and their species team), so the walk dedupes by
-    id -- see "One player, both sides" in docs/design/teams-and-players.md.
-    """
-    seen: set[str] = set()
-    for roster in catalog.teams.values():
-        for player in roster.players:
-            if player.species == species and player.player_id not in seen:
-                seen.add(player.player_id)
-                yield player
-
-
-def species_short_fits(
-    pen: Pen, catalog: PlayerCatalog, species: str
-) -> bool:
-    """
-    Whether every card of this species can carry the species' short
-    form and still leave MIN_PORTRAIT_HEIGHT to the portrait.
-
-    **Asked of the species rather than of the card**, which is the
-    whole point: how much of the band a card has left depends on how
-    long the ability it prints runs (`advanced_card_ability`), so asked per card the answer comes
-    out differently for a Fire Demon fullback and a Fire Demon striker
-    -- and a set where two cards carrying the same species line
-    disagree about whether it is on there reads as a misprint rather
-    than as a layout that scaled. The longest role ability of the
-    species decides for all of them.
-
-    It is measured against the band rather than against the portrait,
-    because the band is fixed now (see `ADVANCED_BAND_TOP`) and the
-    portrait no longer moves to make room. So this cannot overflow a
-    card: a species whose short form stops fitting stops carrying one,
-    and the cards go on printing.
-
-    Cached per species: the data does not move inside a run, and this
-    walks the whole roster.
-    """
-    if species in _SPECIES_SHORT_FITS:
-        return _SPECIES_SHORT_FITS[species]
-
-    short = species_ability(species).get("ability_short", "")
-    players = list(species_players(catalog, species))
-    fits = bool(short and players) and all(
-        advanced_ability_lines(
-            pen, advanced_card_ability(catalog, player), short
-        )[2]
-        <= ADVANCED_BAND_HEIGHT
-        for player in players
-    )
-
-    _SPECIES_SHORT_FITS[species] = fits
-    return fits
-
-
-_SPECIES_SHORT_FITS: dict[str, bool] = {}
-
-
-def draw_species_chip(
-    pen: Pen, species: str, keyword: str, center_y: float
-) -> None:
-    """
-    The keyword in a pill on the right of the heading row, with the
-    species icon in front of it -- the same icon the header carries, so
-    a coach matches the two without reading either.
-
-    Measured out from the right edge rather than laid out left to
-    right, because the pill is what has to end flush with the band
-    above and below it; "LITHIUM POWERED" and "SLIMEY" are very
-    different widths and neither may drift off the edge.
-    """
-    color = TEAM_COLORS[SPECIES_TEAM[species]]
-    ink = high_contrast_ink(color)
-    face = font(SPECIES_KEYWORD_SIZE, bold=True)
-
-    text_width = pen.text_size(keyword, face)[0]
-    width = (
-        SPECIES_CHIP_PAD * 2 + SPECIES_CHIP_ICON + 12 + text_width
-    )
-    right = CARD_WIDTH - MARGIN - 10
-    left = right - width
-
-    pen.rect(
-        (
-            left,
-            center_y - SPECIES_CHIP_HEIGHT / 2,
-            right,
-            center_y + SPECIES_CHIP_HEIGHT / 2,
-        ),
-        radius=SPECIES_CHIP_HEIGHT / 2,
-        fill=color,
-    )
-
-    icon = species_icon(species, ink)
-    if icon is not None:
-        pen.paste(
-            icon,
-            (left + SPECIES_CHIP_PAD + SPECIES_CHIP_ICON / 2, center_y),
-            (SPECIES_CHIP_ICON, SPECIES_CHIP_ICON),
-        )
-    pen.text(
-        (right - SPECIES_CHIP_PAD, center_y),
-        keyword,
-        face,
-        ink,
-        anchor="rm",
-    )
-
-
-def draw_advanced_ability(
-    pen: Pen,
-    player: PlayerDefinition,
-    role_lines: list[str],
-    short_lines: list[str],
-    top: float,
-) -> None:
-    """
-    The back's ability band: "ABILITY" and the species keyword on one
-    row, the role's own sentence under them, and the species' short
-    form under a divider where the card had room for it.
-
-    The role ability is left-aligned here where the front centres it,
-    because the heading row above it is now two things at two edges and
-    a centred paragraph under that reads as belonging to neither.
-    """
-    pen.line(
-        [(MARGIN + 10, top), (CARD_WIDTH - MARGIN - 10, top)],
-        fill=PANEL_EDGE,
-        width=2,
-    )
-    pen.text(
-        (MARGIN + 10, top + 26),
-        "ABILITY",
-        font(ABILITY_HEADING_SIZE, bold=True),
-        MUTED,
-        anchor="lm",
-    )
-
-    keyword = species_ability(player.species).get("name", "")
-    if keyword:
-        draw_species_chip(pen, player.species, keyword.upper(), top + 26)
-
-    body = font(ABILITY_SIZE)
-    y = top + 50
-    for line in role_lines:
-        pen.text((MARGIN + 10, y), line, body, INK, anchor="la")
-        y += line_height(pen, body)
-
-    if not short_lines:
-        return
-
-    y += SPECIES_SHORT_GAP
-    pen.line(
-        [(MARGIN + 10, y), (CARD_WIDTH - MARGIN - 10, y)],
-        fill=PANEL_EDGE,
-        width=2,
-    )
-    y += SPECIES_SHORT_GAP + 2
-
-    small = font(SPECIES_SHORT_SIZE)
-    for line in short_lines:
-        pen.text((MARGIN + 10, y), line, small, MUTED, anchor="la")
-        y += line_height(pen, small)
 
 
 def draw_portrait(
@@ -691,6 +672,33 @@ def start_card(color: str) -> Pen:
     return pen
 
 
+def draw_face(
+    pen: Pen,
+    player: PlayerDefinition,
+    team: Team,
+    subtitle: str,
+    skills: "RoleProfile | CardSkills",
+    ability: str,
+) -> None:
+    """
+    Everything on a face but its edge, top to bottom: the header, the
+    stats, the ability band measured first and pinned to the bottom,
+    and the portrait in what is left between them. The two faces
+    differ only in the three things they are handed.
+    """
+    color = TEAM_COLORS[Team(team)]
+    draw_header(pen, player, team, color, subtitle)
+    draw_stats(pen, skills, FRAME + HEADER_HEIGHT + STATS_TOP_GAP)
+
+    species_name = species_ability(player.species).get("name", "")
+    band = ability_band(pen, ability, species_name)
+    ability_top = CARD_HEIGHT - FRAME - ABILITY_BOTTOM_PAD - band.height
+    draw_portrait(
+        pen, player, PORTRAIT_TOP + PORTRAIT_GAP, ability_top - PORTRAIT_GAP
+    )
+    draw_ability(pen, player, team, band, species_name, ability_top)
+
+
 def render_player_card(
     catalog: PlayerCatalog,
     player: PlayerDefinition,
@@ -707,21 +715,15 @@ def render_player_card(
     `PlayerCatalog.teams` names them under -- no special-casing.
     """
     profile = catalog.effective_profile(player)
-    color = TEAM_COLORS[Team(team)]
-    pen = start_card(color)
-
-    draw_header(pen, player, team, color, header_subtitle(team, False))
-    draw_stats(pen, player, profile, FRAME + HEADER_HEIGHT + STATS_TOP_GAP)
-
-    lines, ability_height = ability_lines(pen, profile.ability)
-    ability_top = (
-        CARD_HEIGHT - FRAME - ABILITY_BOTTOM_PAD - ability_height
+    pen = start_card(TEAM_COLORS[Team(team)])
+    draw_face(
+        pen,
+        player,
+        team,
+        header_subtitle(player, False),
+        profile,
+        profile.ability,
     )
-    draw_portrait(
-        pen, player, PORTRAIT_TOP + PORTRAIT_GAP, ability_top - PORTRAIT_GAP
-    )
-    draw_ability(pen, lines, ability_top)
-
     return pen.finish(bleed, CARD_FACE)
 
 
@@ -739,50 +741,18 @@ def render_player_card_back(
     What makes it the advanced one is what advanced mode plays for this
     player: their advanced skills in the stats row, and their personal
     ability in the band where they have one (`advanced_card_skills`,
-    `advanced_card_ability`; see the module docstring), with the
-    species keyword beside it.
-
-    **The ability band starts at a fixed height on this face**, so the
-    species badge on its heading row is in the same place on every card
-    in the set -- see `ADVANCED_BAND_TOP` for what that costs. The
-    portrait slot is therefore the same on every back too, rather than
-    being whatever the ability left.
-
-    **The short form is carried only where the band has room for it**,
-    and that is decided for the whole species at once rather than card
-    by card -- see `species_short_fits`. Which species carry the extra
-    line is decided by the data rather than by a list here.
+    `advanced_card_ability`; see the module docstring). Otherwise it is
+    laid out exactly as the front (the author, 2026-09-27).
     """
-    color = TEAM_COLORS[Team(team)]
-    pen = start_card(color)
-
-    draw_header(pen, player, team, color, header_subtitle(team, True))
-    draw_stats(
+    pen = start_card(TEAM_COLORS[Team(team)])
+    draw_face(
         pen,
         player,
+        team,
+        header_subtitle(player, True),
         advanced_card_skills(catalog, player),
-        FRAME + HEADER_HEIGHT + STATS_TOP_GAP,
+        advanced_card_ability(catalog, player),
     )
-
-    short = (
-        species_ability(player.species)["ability_short"]
-        if species_short_fits(pen, catalog, player.species)
-        else ""
-    )
-    role_lines, short_lines, _ = advanced_ability_lines(
-        pen, advanced_card_ability(catalog, player), short
-    )
-
-    draw_portrait(
-        pen,
-        player,
-        PORTRAIT_TOP + PORTRAIT_GAP,
-        ADVANCED_BAND_TOP - PORTRAIT_GAP,
-    )
-    draw_advanced_ability(
-        pen, player, role_lines, short_lines, ADVANCED_BAND_TOP
-    )
-
     return pen.finish(bleed, CARD_FACE)
 
 

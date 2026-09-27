@@ -2203,17 +2203,13 @@ class RulesEngine:
         """
         What entering a maneuver skill test costs `player_id`: 1, or
         under a test Scorchit forced (`forced_by`) 2 to Scorchit and
-        nothing to their opponent. **Zorch** pays nothing for any test
-        (Law 21), which `re_roll_tokens` says for the re-rolls.
+        nothing to their opponent.
         """
         if forced_by is not None:
-            base = (
+            return (
                 SCORCHIT_FORCED_TEST_TOKENS if player_id == forced_by else 0
             )
-        else:
-            base = 1
-        # Zorch's free tests (Law 21) zero whatever the test would cost.
-        return base if self.re_roll_tokens(game, player_id) else 0
+        return 1
 
     def contest_auto_winner(
         self,
@@ -2399,14 +2395,41 @@ class RulesEngine:
     ) -> int:
         """
         The token a tie's re-roll costs `player_id`, in a maneuver
-        skill test or a contest for the ball: 1, and nothing for
-        **Zorch** (Law 21).
+        skill test or a contest for the ball: 1 for everybody. It stays
+        a question, asked of the player, because the answer used to
+        depend on who was asked (Zorch's free tests, until 2026-09-27)
+        and a personal ability is the kind of thing that changes it.
         """
-        if self.has_personal_ability(
-            game, player_id, PersonalAbility.FREE_TESTS,
-        ):
-            return 0
         return 1
+
+    def speed_roll_bonus(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        player_id: Optional[str],
+    ) -> tuple[int, str]:
+        """
+        **Zorch** adds the ball speed modifier to every roll they make
+        (Law 21): the number, and the line the dice list it under, or
+        `(0, "")` for anybody else or a ball at speed 1 -- a bonus of
+        nothing says nothing.
+
+        The caller asks only where the roll does not already add the
+        modifier to Zorch's side -- Zorch shooting, contesting a
+        maneuver with Steal or Intercept, or holding the thrower's side
+        of a High Pass contest -- because Zorch adds it once, not twice
+        (the author, 2026-09-27). It is the ball's speed halved and
+        never signed: an overshoot counts the modifier against the pass
+        that overshot, and Zorch's own bonus is not that pass's.
+        """
+        if not self.has_personal_ability(
+            game, player_id, PersonalAbility.SPEED_ROLLS,
+        ):
+            return 0, ""
+        modifier = match.ball.speed // 2
+        if not modifier:
+            return 0, ""
+        return modifier, f"+{modifier} ball speed modifier"
 
     def controlling_player_number(
         self,

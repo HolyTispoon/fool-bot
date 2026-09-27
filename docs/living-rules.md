@@ -428,7 +428,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 7.4 Where the modifier is added
 
-**7.4.1** The modifier is added in three places and nowhere else: to a [score attempt](#5-score-attempt) (5), by the attack; to a maneuver skill test, by a defense contesting with Steal; and to a [High Pass contest](#104-the-high-pass-contest) (10.4), by the side that threw the pass.
+**7.4.1** The modifier is added in three places and nowhere else: to a [score attempt](#5-score-attempt) (5), by the attack; to a maneuver skill test, by a defense contesting with Steal; and to a [High Pass contest](#104-the-high-pass-contest) (10.4), by the side that threw the pass. In advanced mode one player adds it to every roll they make: see [Oozes](#216-oozes) (21.6).
 
 **7.4.2** The ball [where it came to rest](#101-where-the-ball-comes-to-rest) (10.1) belongs to nobody yet, so neither contestant adds it there.
 
@@ -1242,7 +1242,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.6.5** **Spritz may Smooth.** Spritz has the Telekinetics' [Smooth](#204-mind-pull-telekinetic) (20.4), and takes their own side's ball over exactly as a Telekinetic does. Spritz has no Mind Pull.
 
-**21.6.6** **Zorch tests for free.** Zorch does not exhaust for entering a maneuver [skill test](#64-the-skill-test) (6.4), or for any re-roll of one or of a contest for the ball.
+**21.6.6** **Zorch rolls with the ball.** Zorch adds the [ball speed modifier](#7-ball-speed) (7) to every roll they make: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2), an [injury check](#153-the-injury-check) (15.3) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Pass contest](#104-the-high-pass-contest) (10.4) -- it is added once, not twice, and an [overshoot](#75-the-overshoot) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so the modifier is 0. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
 
 **21.6.7** **Acidel turns a pressure into a shot.** When Acidel is the challenger whose won [Pressure](#610-pressure) (6.10) or [Double Team](#1910-double-team) (19.10) would risk an [own goal](#11-own-goal) (11), there is no own-goal roll: Acidel's side takes the ball, at speed 1, and Acidel has a [scoring opportunity](#8-scoring-opportunities) (8) from that space. Declining it leaves Acidel's side holding the ball where it stands.
 
