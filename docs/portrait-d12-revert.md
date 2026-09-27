@@ -138,8 +138,12 @@ running bot or web app keeps drawing the old file until restarted:
 - **Or file by file,** which works however it was merged:
 
   ```bash
-  git checkout d6a320e -- d12ball/images/player_images/{Acidel,Dravox,Emberdash,Glompex,Gurgoth,Hexis,Kindlefinger,Noxar,Ozul,Quillon,Slitheron,Spectra,Spritz,Umbrik,Viscor,Vorix,Zorch,Zytheris}.png
+  git checkout d6a320e -- d12ball/images/player_images/{Acidel,Dravox,Emberdash,Glompex,Gurgoth,Hexis,Kindlefinger,Noxar,Ozul,Quillon,Slitheron,Spectra,Umbrik,Viscor,Vorix,Zorch,Zytheris}.png
+  git show d6a320e:d12ball/images/player_images/Spritz.png > d12ball/images/player_images/Shpritz.png
   ```
+
+  Spritz was renamed Shpritz on 2026-09-27, after that commit, so their
+  painting comes back under the new file name rather than the old one.
 
   Then regenerate figure 12 (step 7), remove the `cards.md` bullet (step 6),
   delete this guide and its row in `CLAUDE.md`, and restore the `box_art.py`
@@ -200,7 +204,7 @@ foreshortened one on its top face and sometimes a sliver at one side.
   banners and the playtest card's back, which carries the cover. Regenerate
   with `render_box_art.py`. Also Discord and the web app.
 
-#### Spritz
+#### Shpritz (Spritz at the time)
 - **Before** `e534f97e1771` (220,865) → **after** `4769168d2ca6` (223,269)
 - **Changed:** ooze d12, faces 2, 4, 8. The ball was refitted once (centre
   44,286, radius 42) to clear a sliver of rim on its right. Gaps filled with

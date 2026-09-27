@@ -346,12 +346,14 @@ def score_skill_test(
     )
 
     # Role ability -- Midfielder: +3 on a skill test when attempting
-    # Low Pass (offense) or Pressure (defense).
+    # Low Pass (offense) or Steal (defense).
     #
     # **Read by rank, so a gambit inherits it.** The Midfielder's +3
     # and the ball speed modifier below are listed against both cards
     # on their rank in the sheet's own `Interactions` column, and
-    # neither contradicts what the gambit does. The three that *do*
+    # neither contradicts what the gambit does. When the +3 moved off
+    # Pressure onto Steal (the author, 2026-09-27) it went with the
+    # rank, onto Intercept and off Double Team. The three that *do*
     # contradict -- the Fullback on Clear, the Playmaker on Dribble
     # Burst, the Fullback's pass distance on Setup Pass -- are the
     # author's to settle and are deliberately not inherited anywhere;
@@ -365,7 +367,7 @@ def score_skill_test(
 
     if (
         defense_player.role == PlayerRole.MIDFIELDER
-        and match.defense_maneuver in ("pressure", "double_team")
+        and match.defense_maneuver in ("steal", "intercept")
     ):
         defense_total += 3
         defense_detail.append("+3 Midfielder ability")

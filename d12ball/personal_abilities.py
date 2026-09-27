@@ -55,7 +55,7 @@ class PersonalAbility(str, Enum):
     SHOOTS_OFF_ANY_PASS = "shoots_off_any_pass"  # Zytheris
     JOINS_THE_BALL = "joins_the_ball"          # Glompex
     WINS_CONTESTS = "wins_contests"            # Slitheron
-    SMOOTH = "smooth"                          # Spritz
+    SMOOTH = "smooth"                          # Shpritz
     SPEED_ROLLS = "speed_rolls"                # Zorch
     MERGES_HARDER = "merges_harder"            # Viscor
 
@@ -181,7 +181,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
         PersonalAbility.WINS_CONTESTS,
         "Auto wins contests for ball including high pass and loose ball.",
     ),
-    "spritz_winger": (
+    "shpritz_winger": (
         PersonalAbility.SMOOTH,
         "Smooth (teammate sharing space may handover ball handling).",
     ),

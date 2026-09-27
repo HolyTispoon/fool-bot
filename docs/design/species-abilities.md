@@ -259,7 +259,7 @@ their own (below).
     (`walk_in_contestants`, shared with the rolled contest), and
     `settle_loose_ball_winner` hands the ball over with no dice and so
     no injury check.
-  - *Spritz* -- one more clause in `smooth_candidates`.
+  - *Shpritz* -- one more clause in `smooth_candidates`.
   - *Viscor* -- 3 more in `merge_bonus`, the one sum every Merge adds
     through, so the dice image's contributor line carries it too.
   - *Vorix and Zytheris* -- branches in `high_pass_step` and
