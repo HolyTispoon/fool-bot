@@ -884,7 +884,14 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   other -- and never a PNG per card, and the player cards are all four
   colour teams'. The printed game has no species-team cards; a colour
   team's card carries its species on its advanced side. The kit's
-  README says so in those words. The three card scripts take
+  README says so in those words.
+- **The reference cards share one sheet, and the tokens have their own**
+  (the author, 2026-09-27). `render_reference_cards.py` lays the three
+  species cards and the role card out together, each front beside its
+  back for cutting and gluing -- eight faces, two full rows, so nothing
+  is padded. `render_token_sheet.py` is the condition tokens as fold-over
+  pairs ([printed-tokens.md](printed-tokens.md), "Paper tokens"). So the
+  kit prints everything a table needs but the meeples and the dice. The three card scripts take
   `--sheets-only` for this, and the kit passes it and a `--team` per
   colour team. A developer checking one card still runs the script on
   its own and gets every card. The kit came to 128 MB before this and

@@ -227,7 +227,7 @@ checked by looking: the picture is the page the download opens on.
 cards in two.** `write_kit` runs `scripts/generate_print_and_play_kit.py`
 into a temporary folder and zips it as `KIT_DOWNLOADS` says:
 
-- `/kit` -- the boards, the maneuver and species sheets, the README and the
+- `/kit` -- the boards, the maneuver, reference and token sheets, the README and the
   rules (about 5 MB);
 - `/kit-players-1` and `/kit-players-2` -- the player sheets of two colour
   teams each, Orange and Teal, then Purple and Slime (about 15 MB each).

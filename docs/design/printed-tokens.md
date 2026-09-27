@@ -66,3 +66,27 @@ the letters more room, but the silos would then need reprinting to match.
 The script needs `numpy scikit-image shapely trimesh manifold3d
 mapbox-earcut`. The bot does not, which is why they are not in
 `requirements.txt`.
+
+## Paper tokens: the kit's sheet
+
+The print-and-play kit carries the same three tokens on paper
+(`d12ball/token_sheet.py`, CLI `scripts/render_token_sheet.py`), because
+a kit that sends a table off to find poker chips is not a kit (the
+author, 2026-09-27). Same pairings, same art -- the PNGs `render.py`
+loads, as they are, rays and all, since paper has no nozzle -- and the
+same 19 mm, so a paper token sits in a jumbotron silo like a printed one.
+
+- **A token is a fold-over pair.** Its two faces are printed joined on
+  the front's top edge, the back flipped top to bottom so it reads right
+  once folded under; the pair is cut out as one piece, folded on the grey
+  ticks and glued. Printing the two faces on two sides of a sheet would
+  need a duplex printer and would come out of register -- a millimetre off
+  is a tenth of a 19 mm token. The exhaustion pair is a diamond, the
+  markers a tall rounded rectangle.
+- **The counts are a first guess and fill one letter sheet**
+  (`TOKEN_COUNTS`, 2026-09-27): 32 exhaustion, 8 Exhausted/Injured and 8
+  Drained/Damaged, eight to a row. The rules count no stock. The sheet
+  refuses counts that do not fit rather than running off the page.
+- `TOKEN_FACES` holds the pairings for paper; `render_token_models.py`'s
+  `TOKENS` holds them for the printer, with the accent colours it traces.
+  A change to a pairing is a change to both.

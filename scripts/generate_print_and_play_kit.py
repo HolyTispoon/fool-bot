@@ -13,10 +13,12 @@ sheet (two for a team: its cards' standard sides and their advanced
 sides, printed duplex), never a PNG per card, and the player cards are
 all four colour teams' -- the print game has no cards for the species
 teams; a colour team's card carries its species on its advanced side
-(the author, 2026-09-27). **It draws nothing on
-its own** -- it runs `render_maneuver_cards.py`, `render_player_cards.py`,
-`render_species_cards.py` and `render_boards.py`, the same four scripts
-a developer already reaches for to check one component at a time, and
+(the author, 2026-09-27). The species and role reference cards share
+one sheet, and the condition tokens have a sheet of their own. **It
+draws nothing on its own** -- it runs `render_maneuver_cards.py`,
+`render_player_cards.py`, `render_reference_cards.py`,
+`render_token_sheet.py` and `render_boards.py`, the same scripts a
+developer already reaches for to check one component at a time, and
 is only their sum into a folder meant to leave the repo. So a rules
 change, an import, or an art fix reaches the kit exactly the way it
 reaches each of those on its own -- by re-running this -- and there is
@@ -26,14 +28,9 @@ The kit is print-ready output and is gitignored, like `cards/` and
 `print/`; run this again whenever the game underneath it changes rather
 than keeping a stale copy around.
 
-**What is not in the box.** The kit prints every card and every board;
-it does not print meeples, dice or exhaustion tokens, none of which the
-bot draws as cut-out components (a player's own tokens sit on their
-card, not on a punch sheet -- see "The printed boards" in
-docs/design/printed-boards.md). `write_readme` below lists what a table
-still needs to bring, read straight off "The ball, the dice, and the
-tokens" in docs/living-rules.md so the list cannot drift from what that
-section says either.
+**What is not in the box.** The kit prints every card, every board and
+the tokens; it does not print meeples or dice. `write_readme` below
+lists what a table still needs to bring.
 """
 import argparse
 import shutil
@@ -51,6 +48,14 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from d12ball.boards import DEFAULT_PAPER, PAPERS  # noqa: E402
 from d12ball.components import load_player_catalog  # noqa: E402
 from d12ball.game import COLOR_TEAMS, team_display_name  # noqa: E402
+from d12ball.token_sheet import TOKEN_COUNTS  # noqa: E402
+
+# What the README calls each token, by its key in `TOKEN_COUNTS`.
+TOKEN_NAMES = {
+    "exhaust": "exhaustion",
+    "exhausted": "Exhausted / Injured",
+    "drained": "Drained / Damaged",
+}
 
 
 def run(script: str, script_args: list[str]) -> None:
@@ -85,9 +90,17 @@ printer, {sheet_columns} cards to a row.
   its standard side on one face and its advanced side on the other --
   the advanced sheet's rows are laid out reversed so they land back to
   back (`duplex_order` in `d12ball/player_cards.py`).
-- **species-cards/print-sheet.png** -- the three double-sided
-  species-ability reference cards (every pairing of the four species
-  appears on one face).
+- **reference-cards/print-sheet.png** -- the reference cards: the
+  three double-sided species-ability cards (every pairing of the four
+  species appears on one face) and the double-sided role-ability card
+  (the six basic roles). Each card's front is printed beside its back:
+  cut the two out together and glue them back to back.
+- **tokens/print-sheet.png** -- the condition tokens, on one
+  letter sheet: {token_counts}. Each is a fold-over pair, its two faces joined
+  on one edge -- cut the pair out as one piece, fold on the grey ticks
+  and glue. The exhaustion token has a Cyborg drain side, and each
+  marker is the condition on one face and what it turns into on a
+  failed check on the other.
 - **boards/** -- the field board at every size the ruleset defines
   (7 and 9 spaces), each also as a `-top` and `-bottom` half for a
   letter printer; the jumbotron board (clock, score, token supplies);
@@ -121,17 +134,13 @@ if a print shop wants the extra 1/8in margin to trim into.
 
 ## What to bring besides this kit
 
-Printed here: every card and every board. Not printed, because the
-rules never turn them into cut-out components:
+Printed here: every card, every board and the tokens. Not printed:
 
 - **A d12 a side** (a twelve-sided die) -- it is also the ball, and the
   face it shows is the ball's speed.
 - **Nine meeples or pawns a team**, in each team's own colour --
   `d12ball/render.py`'s `TEAM_COLORS` names the hex if you want to
   match a set to the board's own palette.
-- **A handful of small tokens** for exhaustion, per player -- these sit
-  on a player's own card, not on a punch sheet, so bring poker chips,
-  glass beads or coins rather than looking for them in this kit.
 
 ## Rules
 
@@ -158,6 +167,9 @@ def write_readme(out_dir: Path, paper: str, players_per_team: int) -> None:
         sheet_columns=4,
         team_count=len(COLOR_TEAMS),
         team_names=", ".join(team_display_name(team) for team in COLOR_TEAMS),
+        token_counts=", ".join(
+            f"{count} {TOKEN_NAMES[name]}" for name, count in TOKEN_COUNTS.items()
+        ),
         players_per_team=players_per_team,
         paper=paper,
         paper_size=f"{width:.2f} x {height:.2f}in",
@@ -182,8 +194,9 @@ def zip_kit(out_dir: Path) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Build the whole print-and-play kit -- every maneuver, "
-            "player and species card, and every board -- in one folder."
+            "Build the whole print-and-play kit -- the maneuver, player "
+            "and reference card sheets, the tokens and every board -- in "
+            "one folder."
         ),
     )
     parser.add_argument(
@@ -243,9 +256,11 @@ def main() -> None:
     run("render_player_cards.py", player_args)
 
     run(
-        "render_species_cards.py",
-        ["--out", str(args.out / "species-cards"), "--sheets-only", *bleed_flag],
+        "render_reference_cards.py",
+        ["--out", str(args.out / "reference-cards"), *bleed_flag],
     )
+
+    run("render_token_sheet.py", ["--out", str(args.out / "tokens")])
 
     board_args = [
         "--out", str(args.out / "boards"),
