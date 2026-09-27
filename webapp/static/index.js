@@ -1,5 +1,9 @@
 /*
- * The front door: a name (webapp/identity.py), this reader's rooms and
+ * The front door: who is reading, as `@name` in the top bar -- a name
+ * the server made up on the first visit (webapp/identity.py,
+ * `guest_name`) and nobody else holds (webapp/names.py), and a click on
+ * it the menu to rename or delete every game you sit in -- this
+ * reader's rooms and
  * the rooms with a seat free as cards (`GET /api/rooms`), and a new
  * room in its lobby (`POST /api/rooms`) -- always a room of two. The
  * two ticks under it are the table's own moves, made in sequence
@@ -130,6 +134,7 @@ async function listRooms() {
     if (!response.ok) return;
     const rooms = await response.json();
     const mine = Object.keys(STANDING).flatMap((status) => rooms.mine[status] || []);
+    mineCount = mine.length;
     document.getElementById("mine-list").replaceChildren(
       ...mine.map((room) => roomCard(room, { renamable: true })),
     );
@@ -142,48 +147,94 @@ async function listRooms() {
   }
 }
 
+const named = document.getElementById("named");
+const menu = document.getElementById("me-menu");
+const nameRefusal = document.getElementById("name-refusal");
+let savedName = "";
+let mineCount = 0;
+
 function showName(name) {
-  document.getElementById("named").textContent = name || "";
+  savedName = name || "";
+  named.textContent = savedName ? `@${savedName}` : "";
 }
 
-fetch("/api/me")
+/* Who is reading. `GET /api/me` names somebody new when the cookie
+   names nobody, so every move below waits on it: a room is opened
+   under the cookie it sets. */
+const me = fetch("/api/me")
   .then((response) => (response.ok ? response.json() : null))
-  .then((me) => {
-    if (me) input.value = me.name;
-    showName(me && me.name);
-  })
+  .then((coach) => showName(coach && coach.name))
   .catch(() => {});
 listRooms();
 
-let savedName = null;
+/* The menu under `@name`: the name, edited and saved, and deleting
+   every game this reader sits in. Escape or a click outside closes it. */
+function openMenu() {
+  input.value = savedName;
+  nameRefusal.hidden = true;
+  menu.hidden = false;
+  named.setAttribute("aria-expanded", "true");
+  input.focus();
+  input.select();
+}
 
-async function saveName() {
+function closeMenu() {
+  menu.hidden = true;
+  named.setAttribute("aria-expanded", "false");
+}
+
+named.addEventListener("click", () => (menu.hidden ? openMenu() : closeMenu()));
+document.addEventListener("click", (event) => {
+  if (!menu.hidden && !menu.contains(event.target) && event.target !== named) closeMenu();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !menu.hidden) { closeMenu(); named.focus(); }
+});
+
+/* A rename the server refuses -- empty, too long, or somebody else's
+   name (webapp/names.py) -- says why in the menu and leaves it open. */
+document.getElementById("name-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
   const name = input.value.trim();
-  if (!name) throw new Error("Say what the table should call you first.");
-  if (name === savedName) return;
-  const named = await fetch("/api/me", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  });
-  if (!named.ok) throw new Error(await named.text());
-  savedName = name;
-  error.hidden = true;
-  showName(name);
-}
-
-/* The name is edited in place: it saves when the field is left, or on
-   Enter. */
-async function saveNameQuietly() {
+  if (name === savedName) return closeMenu();
   try {
-    await saveName();
+    const response = await fetch("/api/me", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!response.ok) {
+      nameRefusal.textContent = await response.text();
+      nameRefusal.hidden = false;
+      return;
+    }
+    showName((await response.json()).name);
+    closeMenu();
+    listRooms();
   } catch (failure) {
-    refuse(failure.message || "That did not reach the server. Try again in a moment.");
+    nameRefusal.textContent = "That did not reach the server. Try again in a moment.";
+    nameRefusal.hidden = false;
   }
-}
-input.addEventListener("change", saveNameQuietly);
-input.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") { event.preventDefault(); input.blur(); }
+});
+
+/* Every game this reader holds a seat in -- "Your rooms" -- erased for
+   everybody in it, and a new made-up name; asked once more first. */
+document.getElementById("delete-games").addEventListener("click", async () => {
+  const count = mineCount === 1 ? "your 1 game" : `all ${mineCount} of your games`;
+  if (!window.confirm(
+    `Are you sure? This deletes ${count} — every game you hold a seat in, `
+    + "for everyone in it, finished ones included — and gives you a new "
+    + "random name. It cannot be undone.",
+  )) return;
+  try {
+    const response = await fetch("/api/me/games", { method: "DELETE" });
+    if (!response.ok) return refuse(await response.text());
+    showName((await response.json()).coach.name);
+    closeMenu();
+    listRooms();
+  } catch (failure) {
+    refuse("That did not reach the server. Try again in a moment.");
+  }
 });
 
 /* A new room, then the ticks in order: Dinky first, since the tutorial
@@ -191,30 +242,25 @@ input.addEventListener("keydown", (event) => {
    after -- while the tutorial toggle is still open with the AI seated,
    because nobody has joined. A refusal is shown and the room still
    opens, where the table offers both again. */
-document.getElementById("new-room").addEventListener("click", async () => {
+async function openRoom({ ai = false, tutorial = false } = {}) {
   try {
-    await saveName();
+    await me;
     const opened = await fetch("/api/rooms", { method: "POST" });
     if (!opened.ok) return refuse(await opened.text());
     const room = await opened.json();
-    if (document.getElementById("tick-ai").checked) {
-      await tableMove(room.id, "/seat/ai", { seat: 2 });
-    }
-    if (document.getElementById("tick-tutorial").checked) {
-      await tableMove(room.id, "/table/configure", { setting: "tutorial" });
-    }
+    if (ai) await tableMove(room.id, "/seat/ai", { seat: 2 });
+    if (tutorial) await tableMove(room.id, "/table/configure", { setting: "tutorial" });
     location.href = room.url;
   } catch (failure) {
     refuse(failure.message || "That did not reach the server. Try again in a moment.");
   }
-});
+}
 
-document.getElementById("leave-app").addEventListener("click", async () => {
-  if (!window.confirm("Leave the app? You will be asked for a name again next time.")) return;
-  try {
-    await fetch("/api/me", { method: "DELETE" });
-  } catch (failure) {
-    /* Leaving is local either way; the cookie is what mattered. */
-  }
-  location.reload();
-});
+document.getElementById("new-room").addEventListener("click", () => openRoom({
+  ai: document.getElementById("tick-ai").checked,
+  tutorial: document.getElementById("tick-tutorial").checked,
+}));
+
+/* "New to the game?": a room of one with the tutorial set, the same as
+   ticking only "the tutorial" under a new room. */
+document.getElementById("tutorial").addEventListener("click", () => openRoom({ tutorial: true }));

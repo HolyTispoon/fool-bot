@@ -1861,17 +1861,6 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
   .mini-goal { width: 70px; flex-basis: 70px; }
 }
 
-.name-dialog {
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--deep);
-  border-radius: 8px;
-  padding: 16px;
-  width: min(360px, calc(100vw - 32px));
-}
-.name-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
-.name-dialog form { display: flex; flex-direction: column; gap: 10px; }
-
 /* -- The front door ----------------------------------------------------- */
 
 /* Row 1 of the canvas: who you are and a new room on the left, your
@@ -1879,7 +1868,44 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
    with a gold edge is waiting on you (the server's `your_move`). */
 
 .wordmark { font-family: "Goal", sans-serif; font-size: 18px; letter-spacing: 1px; color: var(--strong); }
-.named { color: var(--strong); }
+.named-button {
+  background: none;
+  border: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--strong);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.named-button:hover { background: var(--field); }
+.named-button:focus-visible { outline: 2px solid var(--link); }
+.me { position: relative; }
+.me-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: min(300px, calc(100vw - 32px));
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--deep);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.me-menu[hidden] { display: none; }
+.me-name { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.me-row { display: flex; gap: 8px; }
+.me-row .name-field { flex: 1; width: auto; min-width: 0; }
+.me-divider { height: 1px; background: var(--deep); }
+.btn.danger { color: var(--red); border-color: var(--red); }
+.btn.danger:hover:not(:disabled) { background: var(--red); color: var(--strong); }
 .field-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--muted); }
 .faint { color: var(--faint); }
 .grow { flex: 1; }
@@ -1939,7 +1965,6 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
 .ticks input { accent-color: var(--gold); }
 .reading-room { padding: 16px 22px; gap: 8px; }
 .reading-room .linkish { color: var(--text); text-align: left; }
-.leave-line { margin: 0; padding: 0 4px; font-size: 12px; color: var(--faint); }
 .linkish.faint { color: var(--faint); }
 
 .list-head { display: flex; align-items: center; gap: 10px; }

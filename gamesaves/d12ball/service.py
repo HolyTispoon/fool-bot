@@ -550,6 +550,27 @@ class GameService:
         del self.games[game_id]
         self.save()
 
+    def delete_game(self, game_id: str) -> None:
+        """
+        Erase a game whatever it stands at -- a web person's "Delete all
+        my games", asked for by somebody seated in it and confirmed on
+        the page. Unlike `discard_game` it takes a game that was played,
+        and what was played goes with it, statistics included; the Discord
+        bot never calls it, since there a played game is abandoned.
+        """
+        self.game(game_id)
+        del self.games[game_id]
+        self.save()
+
+    def rename_coach(self, game_id: str, user_id: int, user_name: str) -> bool:
+        """`D12BallGame.rename_coach`, saved if a seat changed: a web
+        person renamed. True when one did."""
+        game = self.game(game_id)
+        if not game.rename_coach(user_id, user_name):
+            return False
+        self.save()
+        return True
+
     def abandon(self, game_id: str) -> D12BallGame:
         """
         End a game nobody is going to finish -- `D12BallGame.abandon`,

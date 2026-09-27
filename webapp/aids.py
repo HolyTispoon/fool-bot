@@ -884,7 +884,7 @@ def rules_html(document: RulesDocument, offered: dict) -> str:
   <body class="reading-room" data-view="charter">
     <header class="topbar room-bar">
       <div class="topbar-title">
-        <a href="/" class="back" data-back>&lsaquo; D12 Ball</a>
+        <a href="/" class="back" data-back>&lsaquo; Master Lobby</a>
         <span class="topbar-divider" aria-hidden="true"></span>
         <span class="reading-title">The Reading Room</span>
       </div>

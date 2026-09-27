@@ -4,34 +4,52 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
-    <title>D12 Ball</title>
+    <title>D12 Ball · Master Lobby</title>
     <link rel="stylesheet" href="/static/app.css" />
   </head>
   <body class="front">
     <header class="topbar">
       <div class="topbar-title">
         <span class="wordmark">D12 BALL</span>
-        <span class="topic">Rooms</span>
+        <span class="topic">Master Lobby</span>
       </div>
-      <div class="topbar-end">
-        <span class="quiet">At the table as</span>
-        <strong id="named" class="named"></strong>
+      <!-- Who is reading, as `@name`: the server made the name up on
+           the first visit (webapp/identity.py, `guest_name`), and no
+           two people hold the same one (webapp/names.py). A click opens
+           the menu: the name, and deleting every game you sit in. -->
+      <div class="topbar-end me">
+        <button type="button" id="named" class="named-button" title="Your name and your games"
+                aria-haspopup="true" aria-expanded="false" aria-controls="me-menu"></button>
+        <div id="me-menu" class="me-menu panel" hidden>
+          <form id="name-form" class="me-name" autocomplete="off">
+            <label for="name-input" class="field-label">YOUR NAME</label>
+            <div class="me-row">
+              <input id="name-input" class="name-field small" maxlength="32" required />
+              <button type="submit" class="btn small">Save</button>
+            </div>
+            <p id="name-refusal" class="refusal-line" role="alert" hidden></p>
+          </form>
+          <div class="me-divider" aria-hidden="true"></div>
+          <button type="button" id="delete-games" class="btn small danger">Delete all my games</button>
+        </div>
       </div>
     </header>
 
     <!-- Rows 1 of the design canvas (docs/web-app-redesign.md, step 9):
-         who you are and a new room on the left, the rooms on the right. -->
+         the tutorial and a new room on the left, the rooms on the right. -->
     <main class="front-door">
       <div class="front-left">
         <section class="panel front-card">
           <div class="front-title">D12 BALL</div>
           <p class="quiet">
-            Open a room and send its link. The first two people in are
-            its coaches; everyone after them watches. A seat can change
-            hands at any time, and Dinky the AI will take an empty one.
+            New to the game?
+            <button type="button" id="tutorial" class="linkish">Start by playing the tutorial!</button>
           </p>
-          <label for="name-input" class="field-label">YOUR NAME AT THE TABLE · click to edit</label>
-          <input id="name-input" class="name-field" maxlength="32" required autocomplete="off" />
+          <p class="quiet">
+            Open a room to start a game or join an existing game with
+            open seats. To invite a friend to play or watch, copy and
+            send them the room's link.
+          </p>
           <p id="name-error" class="refusal-line" role="alert" hidden></p>
 
           <!-- A new room: always a room of two in its lobby
@@ -41,7 +59,7 @@
           <div class="new-room">
             <button type="button" id="new-room" class="new-room-button">
               <span class="new-room-word">+ A new room</span>
-              <span class="quiet">Opens with you in Coach 1. Tick below to have Dinky waiting in Coach 2, or to start the tutorial.</span>
+              <span class="quiet">Create a game! Invite a friend to join you or play vs. the AI.</span>
             </button>
             <div class="ticks">
               <label><input type="checkbox" id="tick-ai" /> Dinky in the other seat</label>
@@ -55,11 +73,6 @@
           <a class="linkish" href="/rules">The rules, the Learn to Play and the player aids</a>
           <a href="/stats" class="linkish">The web games' numbers</a>
         </section>
-
-        <p class="leave-line">
-          <button type="button" class="linkish faint" id="leave-app">Leave the app</button>
-          · your name lives in a cookie and nowhere else
-        </p>
       </div>
 
       <div class="front-right">

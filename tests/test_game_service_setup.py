@@ -142,6 +142,28 @@ class CreateGameTests(SetupHarness):
         self.assertNotIn(game.game_id, self.games)
         self.assertEqual(self.saves, 2)
 
+    def test_a_played_game_may_be_deleted_where_it_may_not_be_discarded(self) -> None:
+        game = self.open_lobby()
+        game.match_state = {"played": True}
+
+        self.assertRaises(ValueError, self.service.discard_game, game.game_id)
+        self.service.delete_game(game.game_id)
+
+        self.assertNotIn(game.game_id, self.games)
+        self.assertEqual(self.saves, 2)
+
+    def test_a_rename_reaches_every_seat_its_holder_sits_in(self) -> None:
+        game = self.open_lobby()
+        self.service.lobby_join(game.game_id, JOINER, "Two")
+        saves = self.saves
+
+        self.assertTrue(self.service.rename_coach(game.game_id, JOINER, "Deux"))
+        self.assertFalse(self.service.rename_coach(game.game_id, JOINER, "Deux"))
+        self.assertFalse(self.service.rename_coach(game.game_id, WATCHER, "Nobody"))
+
+        self.assertEqual((game.player_1_name, game.player_2_name), ("One", "Deux"))
+        self.assertEqual(self.saves, saves + 1)
+
 
 class LobbyTests(SetupHarness):
     def test_join_observe_and_leave(self) -> None:

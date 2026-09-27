@@ -116,6 +116,7 @@ from webapp.present import (
 )
 from webapp.chat import WEB_CHAT_FILE, Chats, MessageRefused, clean_text
 from webapp.journal import WEB_JOURNAL_FILE, Journal, Journals
+from webapp.names import WEB_NAMES_FILE, Names, NameTaken
 from webapp.rooms import WEB_ROOMS_FILE, Rooms
 
 LOGGER = logging.getLogger(__name__)
@@ -179,6 +180,7 @@ class WebApp:
         rooms: Optional[Rooms] = None,
         chats: Optional[Chats] = None,
         journals: Optional[Journals] = None,
+        names: Optional[Names] = None,
         host: str = "0.0.0.0",
         port: int = 8080,
     ) -> None:
@@ -194,6 +196,9 @@ class WebApp:
         #: What has been said in each game -- the web app's own file
         #: too (`webapp/journal.py`), in memory for a test.
         self.journals = journals if journals is not None else Journals()
+        #: Which name each person holds, so no two hold the same one
+        #: (`webapp/names.py`) -- in memory for a test.
+        self.names = names if names is not None else Names()
         self.host = host
         self.port = port
         #: The kind of question a click on this page is answering, per
@@ -213,7 +218,7 @@ class WebApp:
                 web.get("/", self.index),
                 web.get("/api/me", self.who_am_i),
                 web.post("/api/me", self.call_me),
-                web.delete("/api/me", self.forget_me),
+                web.delete("/api/me/games", self.delete_my_games),
                 web.get("/api/rooms", self.list_rooms),
                 web.post("/api/rooms", self.open_room),
                 web.get("/room/{game_id}", self.page),
@@ -365,13 +370,27 @@ class WebApp:
             raise web.HTTPNotFound(text="No such game.")
         return game
 
+    def _person(self, request: web.Request) -> Optional[Coach]:
+        """
+        Who sent this request, if they have said -- the cookie's id,
+        under the name the names file says that id holds
+        (`webapp/names.py`), which is the one reading of a person's
+        name. The cookie's own name only for an id the file does not
+        know yet, which `GET /api/me` settles on the next page load.
+        """
+        coach = identity.coach_for(request)
+        if coach is None:
+            return None
+        held = self.names.name_of(coach.id)
+        return coach if held is None else Coach(coach.id, held)
+
     def _viewer(self, request: web.Request, game: D12BallGame) -> Viewer:
         """Which seat of this room the reader holds, if either."""
-        coach = identity.coach_for(request)
+        coach = self._person(request)
         return Viewer(None if coach is None else seat_of(game, coach.id))
 
     def _required_coach(self, request: web.Request) -> Coach:
-        coach = identity.coach_for(request)
+        coach = self._person(request)
         if coach is None:
             raise web.HTTPUnauthorized(text="Say who you are first.")
         return coach
@@ -409,39 +428,93 @@ class WebApp:
     # -- Who is reading ----------------------------------------------
 
     async def who_am_i(self, request: web.Request) -> web.Response:
-        """The person this browser's cookie names, or null."""
-        coach = identity.coach_for(request)
-        return web.json_response(None if coach is None else coach.to_dict())
+        """
+        The person this browser's cookie names -- and somebody new, under
+        a made-up name nobody holds (`Names.claim_guest`), when it names
+        nobody. Every page asks this first, so a visitor is never asked
+        for a name before they may do anything; they may change it after.
 
-    async def call_me(self, request: web.Request) -> web.Response:
+        A cookie whose id the names file does not know -- one set before
+        the file was, or under a file started afresh -- keeps its name
+        if nobody else holds it, and is given a made-up one if somebody
+        does, so two people are never called the same.
         """
-        Take a name: a new id the first time, the same id with the new
-        name after that (`webapp/identity.py`).
-        """
-        body = await _body(request)
-        try:
-            name = identity.clean_name(body.get("name"))
-        except identity.NameRefused as refusal:
-            raise web.HTTPBadRequest(text=str(refusal))
-        known = identity.coach_for(request)
-        coach = (
-            identity.issue(name)
-            if known is None
-            else identity.Coach(known.id, name)
-        )
+        coach = identity.coach_for(request)
+        if coach is not None and self.names.name_of(coach.id) is not None:
+            return web.json_response(self._person(request).to_dict())
+        if coach is None:
+            coach = identity.issue(identity.guest_name())
+            name = self.names.claim_guest(coach.id)
+        elif self.names.is_free_for(coach.name, coach.id):
+            name = self.names.claim(coach.id, coach.name)
+        else:
+            name = self.names.claim_guest(coach.id)
+        coach = Coach(coach.id, name)
+        await self._rename_seats(coach)
         response = web.json_response(coach.to_dict())
         identity.set_cookie(response, request, coach)
         return response
 
-    async def forget_me(self, request: web.Request) -> web.Response:
+    async def call_me(self, request: web.Request) -> web.Response:
         """
-        Leave the app: forget this browser's cookie. A seat held under
-        it stays held until somebody takes it or an admin kicks it --
-        leaving is not vacating a seat, the way closing the browser
-        never was.
+        Take a name: the same id under the new name, refused with 409
+        when somebody else holds it (`Names.claim`), and carried to the
+        seats the person holds (`GameService.rename_coach`).
         """
-        response = web.json_response({})
-        identity.clear_cookie(response)
+        body = await _body(request)
+        known = identity.coach_for(request)
+        coach_id = identity.issue_id() if known is None else known.id
+        try:
+            name = self.names.claim(coach_id, body.get("name"))
+        except NameTaken as refusal:
+            raise web.HTTPConflict(text=str(refusal))
+        except identity.NameRefused as refusal:
+            raise web.HTTPBadRequest(text=str(refusal))
+        coach = Coach(coach_id, name)
+        await self._rename_seats(coach)
+        response = web.json_response(coach.to_dict())
+        identity.set_cookie(response, request, coach)
+        return response
+
+    async def _rename_seats(self, coach: Coach) -> None:
+        """A person's name carried to every seat they hold, each under
+        its game's lock."""
+        for game in list(self.service.games.values()):
+            if seat_of(game, coach.id) is None:
+                continue
+            async with self.locks.hold(game.game_id):
+                if game.game_id in self.service.games:
+                    self.service.rename_coach(game.game_id, coach.id, coach.name)
+
+    async def delete_my_games(self, request: web.Request) -> web.Response:
+        """
+        "Delete all my games": every game the reader holds a seat in --
+        the front door's "Your rooms" -- erased whatever it stands at
+        (`GameService.delete_game`), with its journal, chat and room
+        state, each under its game's lock; then a new made-up name for
+        the reader, on the same id. The page has asked "are you sure"
+        before this is sent. The other people in those games lose them
+        too, which is what the question says.
+        """
+        coach = self._required_coach(request)
+        deleted = 0
+        for game in list(self.service.games.values()):
+            if seat_of(game, coach.id) is None:
+                continue
+            async with self.locks.hold(game.game_id):
+                if game.game_id not in self.service.games:
+                    continue
+                self.service.delete_game(game.game_id)
+                self.journals.forget(game.game_id)
+                self.chats.forget(game.game_id)
+                self.rooms.forget(game.game_id)
+                self._answering.pop(game.game_id, None)
+                deleted += 1
+        renamed = Coach(coach.id, self.names.claim_guest(coach.id))
+        response = web.json_response(
+            {"coach": renamed.to_dict(), "deleted": deleted},
+        )
+        identity.set_cookie(response, request, renamed)
         return response
 
     async def page(self, request: web.Request) -> web.Response:
@@ -453,7 +526,7 @@ class WebApp:
 
     async def state(self, request: web.Request) -> web.Response:
         game = self._game(request)
-        coach = identity.coach_for(request)
+        coach = self._person(request)
         async with self.locks.hold(game.game_id):
             self._arrive(game, coach)
             if coach is not None:
@@ -475,7 +548,7 @@ class WebApp:
         Every room here is a game in the web app's own file -- the
         bot's games are never in this service.
         """
-        coach = identity.coach_for(request)
+        coach = self._person(request)
         mine: dict[str, list] = {
             "lobby": [], "setup": [], "in_progress": [], "finished": [],
         }
@@ -614,6 +687,7 @@ class WebApp:
                 raise web.HTTPConflict(text=str(refusal))
             self.journals.forget(game.game_id)
             self.chats.forget(game.game_id)
+            self.rooms.forget(game.game_id)
         return web.json_response({"url": "/"})
 
     async def table(self, request: web.Request) -> web.Response:
@@ -1073,7 +1147,7 @@ class WebApp:
         poster sees their line at once.
         """
         game = self._game(request)
-        coach = identity.coach_for(request)
+        coach = self._person(request)
         if coach is None:
             raise web.HTTPForbidden(text="Say who you are first.")
         body = await _body(request)
@@ -1862,7 +1936,8 @@ class WebApp:
             # seen under (webapp/rooms.py) -- the reader marked.
             "watching": [
                 {
-                    "name": self.rooms.room(game.game_id).names.get(one)
+                    "name": self.names.name_of(one)
+                    or self.rooms.room(game.game_id).names.get(one)
                     or "A guest",
                     "yours": coach is not None and one == coach.id,
                 }
@@ -2451,6 +2526,7 @@ async def start_web_app(
     rooms: Optional[Rooms] = None,
     chats: Optional[Chats] = None,
     journals: Optional[Journals] = None,
+    names: Optional[Names] = None,
 ) -> WebApp:
     """Start the server over `service` on this process's event loop."""
     app = WebApp(
@@ -2459,6 +2535,7 @@ async def start_web_app(
         rooms=rooms,
         chats=chats,
         journals=journals,
+        names=names,
         host=host or os.environ.get(HOST_VARIABLE, "0.0.0.0"),
         port=port if port is not None else configured_port(),
     )
@@ -2519,10 +2596,11 @@ async def serve(
     rooms_file: Path = WEB_ROOMS_FILE,
     chat_file: Path = WEB_CHAT_FILE,
     journal_file: Path = WEB_JOURNAL_FILE,
+    names_file: Path = WEB_NAMES_FILE,
 ) -> None:
     """Run the web app over `games_file` (its rooms over `rooms_file`,
-    its chat over `chat_file` and its journal over `journal_file`)
-    until cancelled."""
+    its chat over `chat_file`, its journal over `journal_file` and the
+    names in use over `names_file`) until cancelled."""
     service = build_service(games_file)
     LOGGER.info(
         "Loaded %d web game(s) from %s.", len(service.games), games_file,
@@ -2530,8 +2608,10 @@ async def serve(
     rooms = Rooms.load(rooms_file, service.games)
     chats = Chats.load(chat_file, service.games)
     journals = Journals.load(journal_file, service.games)
+    names = Names.load(names_file)
     app = await start_web_app(
         service, GameLocks(), rooms=rooms, chats=chats, journals=journals,
+        names=names,
     )
     try:
         await asyncio.Event().wait()

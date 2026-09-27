@@ -178,35 +178,75 @@ hold either seat, anybody seated may put it in an empty one, an admin
 may kick it out for a person to take over, and an admin may give the
 role up.
 
-**Who somebody is, is a cookie and nothing else.** On a first visit
-the page asks for a name; `POST /api/me` answers with a `Coach(id,
-name)` written into one cookie as base64 JSON and an HMAC-SHA256 under
-`FOOLBOT_WEB_SECRET` (`keys.secret()`), compared with `compare_digest`
-on the way back in. A rename keeps the id. **Nothing is stored**: no
-table of people to migrate or back up, and the game record holds the
-id in a seat the way it holds a Discord id, which is why the id is an
-`int`. It is random rather than the next of a sequence because
-nothing stores the last one -- a counter would restart with the
-process and hand out ids already sitting in somebody's seat -- and it
-stops at 2**53 because it goes to a browser, which rounds a larger
-number into somebody else's. A cookie is per device, so another
-device is another person as far as the room knows; that is why a seat
-is left and taken again rather than shared. With no secret set,
-identities die with the process, which is the safe default the old
-per-game links had. **The cookie is `Secure` when the browser came
-over HTTPS**, and behind the tunnel that is the tunnel's
+**Who somebody is, is a cookie.** On a first visit nobody is asked
+anything: `GET /api/me`, which every page calls first, finds no cookie
+and makes somebody up -- a `Coach(id, name)` under
+`identity.guest_name`, `adjective_creature_#####` (a kind word, an
+animal or a fantasy creature, and five digits), written into one
+cookie as base64 JSON and an HMAC-SHA256 under `FOOLBOT_WEB_SECRET`
+(`keys.secret()`), compared with `compare_digest` on the way back in.
+A name is asked for nowhere because it was a question standing between
+a link and the game, and a made-up one is enough to seat somebody (the
+author, 2026-09-27). The words are drawn with `secrets`, not
+`engine.rng`: a name is nothing the game draws, and the tests seed
+that one. There is no table of people to migrate or back up, and the
+game record holds the id in a seat the way it holds a Discord id,
+which is why the id is an `int`. It is random rather than the next of
+a sequence because nothing stores the last one -- a counter would
+restart with the process and hand out ids already sitting in
+somebody's seat -- and it stops at 2**53 because it goes to a browser,
+which rounds a larger number into somebody else's. A cookie is per
+device, so another device is another person as far as the room knows;
+that is why a seat is left and taken again rather than shared. With no
+secret set, identities die with the process, which is the safe default
+the old per-game links had. **The cookie is `Secure` when the browser
+came over HTTPS**, and behind the tunnel that is the tunnel's
 `X-Forwarded-Proto`, believed only from this machine
 (`identity.came_over_https`; why, and why not simply "whenever
 `FOOLBOT_WEB_URL` is HTTPS", is [collaboration.md](collaboration.md),
-"Only ever over HTTPS"). **Leaving the app** (`DELETE /api/me`,
-`identity.clear_cookie`) is the reverse of the first visit: it forgets
-the cookie and nothing else, so a seat held under it stays held --
-leaving is not vacating a seat, the way closing the browser never was.
-A rename (`POST /api/me` again) already kept the id. Both are the
-front door's, as "Save name" / "Leave the app", and nowhere in a room:
-who you are is the app's business, not a game's, and a room's top bar
-carries a "Rooms" link back to the front door instead (the author,
-2026-09-26).
+"Only ever over HTTPS").
+
+**No two people hold the same name at once** (the author,
+2026-09-27), as written -- "Tom" and "tom" are two names, the
+author's call the same day -- so the one thing kept about a person is
+which name each id holds right now: `webapp/names.py`, over
+`data/d12ball_web_names.json`. A cookie alone could not say it --
+nothing sees every cookie -- which is why this is a file and not a
+check. It is the one reading of a name: `WebApp._person` answers the
+cookie's id under the file's name, and the cookie's own copy is only
+what the name was when the cookie was set. A made-up name is drawn
+again while somebody holds it; a rename to a held name is refused
+with 409 ("Somebody is already called that."); a rename frees the old
+name. An entry lasts as long as its cookie can -- `COOKIE_MAX_AGE`
+from the last time it was set, dropped on load after that -- and the
+file is written under a fingerprint of the secret, so a file written
+under another secret, or under a per-process one that died with its
+cookies, is started afresh rather than holding names nobody can still
+carry. A cookie the file does not know (one set before it existed)
+keeps its name at its next `GET /api/me` if nobody holds it, and is
+given a made-up one if somebody does. **A name reaches the seats**:
+`GameService.rename_coach` over `D12BallGame.rename_coach`, per game
+under its lock, so a seat is never still named after somebody who is
+now called something else -- and another person can then take the old
+name without the rooms showing two of it. Chat lines keep the name
+they were posted under; they are what was said, not who is here.
+
+**The account menu** is the front door's alone -- `@name` at the
+right of its top bar, and a click opens it: the name, edited and saved
+there, and **"Delete all my games"** (`DELETE /api/me/games`), which
+the page asks "are you sure" about first. It erases every game the
+reader holds a seat in -- the "Your rooms" list, whatever each stands
+at, finished games and their statistics included and for everybody in
+them -- through `GameService.delete_game`, with each game's journal,
+chat and room state, then gives the reader a new made-up name on the
+same id. A page still open on a deleted game finds it gone at its
+next poll and goes back to the front door. It replaced "Leave the
+app", which forgot the cookie and nothing else (the author,
+2026-09-27). `delete_game` is not `discard_game`: the Discord bot
+abandons a played game and never erases one, and only the web app
+calls it. Who you are stays the app's business, not a game's, so a
+room's top bar carries a "Master Lobby" link back to the front door
+instead (the author, 2026-09-26).
 
 **A room is a game record.** It already has everything a room needs:
 an id, a number, two seats, a status, the settings. `POST /api/rooms`
@@ -299,7 +339,8 @@ reader is an admin, and their role: `observer`, `coach`, or `home` /
 Step 3 of [../web-app-next.md](../web-app-next.md): everything between
 two seats claimed and the first prompt, and the rematch at the end.
 
-**The front door** (`/`) lists the reader's rooms by where each
+**The front door** (`/`), which the author named **the Master
+Lobby** on 2026-09-27, lists the reader's rooms by where each
 stands -- the lobby, the rest of setup, playing, finished -- and the
 rooms with a seat free (`GET /api/rooms`), and opens a room the one
 way: `POST /api/rooms` is always `create_game(in_lobby=True,
@@ -310,11 +351,16 @@ rooms" is renamed straight off the front door while it is in its
 lobby (the table's `name` setting), and the whole card opens it.
 
 **The front door is row 1 of the design canvas** (2026-09-26, step 9
-of [../web-app-redesign.md](../web-app-redesign.md)): on the left the
-name, edited in place (it saves when the field is left, or on Enter),
-a dashed gold "+ A new room" card, the reading room and the leave
-link; on the right the rooms as cards -- `#pbw<n>`, the room's name or
-its two teams, a status chip, both seats with their team's dot, and
+of [../web-app-redesign.md](../web-app-redesign.md)), as the author
+reworded it on 2026-09-27: on the left "New to the game? Start by
+playing the tutorial!" -- a link that opens a room with only the
+tutorial set, the same as ticking "the tutorial" alone under a new
+room -- a line on opening a room or joining one and sending its link,
+a dashed gold "+ A new room" card ("Create a game! Invite a friend to
+join you or play vs. the AI.") and the reading room -- the name is
+not on the left but `@name` in the top bar, and the account menu
+under it; on the right the rooms as cards -- `#pbw<n>`, the room's
+name or its two teams, a status chip, both seats with their team's dot, and
 the mode, the board and the clock. **A card with a gold edge is
 waiting on the reader** (`your_move` on the listing): at the table, a
 move on it is theirs (`_table_moves` -- Start once `start_lobby` would
