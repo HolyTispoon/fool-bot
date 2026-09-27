@@ -223,27 +223,33 @@ of the PDF (`draw_cover`), and by Pillow in `landing/covers.py` as the picture
 on the card. One source for the words, one for where they go, two drawings,
 checked by looking: the picture is the page the download opens on.
 
-**The print-and-play kit is two zips, split by team.** `write_kit` runs
-`scripts/generate_print_and_play_kit.py` into a temporary folder and zips it
-as `KIT_DOWNLOADS` says: `/kit` is a whole game -- every board, the maneuver
-and species sheets, the README, the rules and the first two colour teams'
-sheets (about 20 MB) -- and `/kit-teams` the other two teams' sheets (about
-15 MB). Both hold one folder, `d12ball-print-and-play/`, so unzipped together
-they are the one kit. The card links each, saying which teams it carries.
+**The print-and-play kit is three zips: the components, and the player
+cards in two.** `write_kit` runs `scripts/generate_print_and_play_kit.py`
+into a temporary folder and zips it as `KIT_DOWNLOADS` says:
 
-Why two: a single file on Cloudflare Pages may be 25 MB. The kit was 128 MB
+- `/kit` -- the boards, the maneuver and species sheets, the README and the
+  rules (about 5 MB);
+- `/kit-players-1` and `/kit-players-2` -- the player sheets of two colour
+  teams each, Orange and Teal, then Purple and Slime (about 15 MB each).
+
+Every part holds one folder, `d12ball-print-and-play/`, so unzipped together
+they are the one kit. The card links each and says what is in it.
+
+Why: a single file on Cloudflare Pages may be 25 MB. The kit was 128 MB
 (2026-09-27), because it wrote every card of all eight teams as a PNG of its
 own besides the sheets; the author cut it to the print version -- sheets
-only, and only the colour teams, since the printed game has no species-team
-cards and a colour team's card carries its species on the advanced back
+only, all four colour teams, each card standard on one side and advanced on
+the other, and no species-team cards, which the printed game does not have
 ([cards.md](cards.md), "The print-and-play kit"). That is 35 MB, 28 of it the
 eight player sheets, which PNG will not squeeze (re-encoding saved 1%). The
-author kept PNG and took two zips over JPEG sheets or hosting elsewhere. A
-split by component would not do: the player sheets alone are over the limit.
-So it is split by team, which leaves the first download a game two people can
-print and play. **The build refuses a zip over the limit** (`PAGES_FILE_LIMIT`)
-rather than leaving it to fail the deploy; if the art grows past it, the
-split is what moves.
+author kept PNG and split the player cards from the boards and the other
+components. The player sheets alone are over the limit too, so they are
+split again by team pair, each team's standard and advanced sheets in the
+same zip because they print duplex together. **The build refuses a zip over
+the limit** (`PAGES_FILE_LIMIT`) rather than leaving it to fail the deploy.
+The split is fixed rather than worked out from the sizes, because its
+addresses are what a page or a card links: if the art grows past the limit,
+`KIT_DOWNLOADS` is what changes, by hand.
 
 ## Redirects
 
@@ -256,7 +262,8 @@ the build as Cloudflare Pages' `_redirects` file:
 - `/play` -- the web app.
 - `/learn` and `/rules` -- the two books' PDFs in `downloads/`, built beside
   the page.
-- `/kit` and `/kit-teams` -- the print-and-play kit's two zips, likewise.
+- `/kit`, `/kit-players-1` and `/kit-players-2` -- the print-and-play kit's
+  three zips, likewise.
 - `/survey` -- `box_art.SURVEY_URL`, read rather than copied. The survey is a
   redirect so a form that moves is a one-line change here and no printed
   card is reprinted.

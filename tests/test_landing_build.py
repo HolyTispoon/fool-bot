@@ -12,7 +12,7 @@ what a look would not catch --
   address names a file in that site's output, or an address the site's
   `_redirects` forwards -- and a redirect whose target is local names a
   file too, and one to a `.pdf` or a `.zip` names one (the two books
-  and the kit's two zips the build makes);
+  and the kit's zips the build makes);
 - **a quoted rule is the Charter's own words**: every
   `<blockquote data-law>` on the d12ball page appears verbatim in
   docs/living-rules.md, the guarantee the box art is held to. The page

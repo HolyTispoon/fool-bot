@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from contextlib import ExitStack
 import sys
 import tempfile
 import zipfile
@@ -102,18 +103,27 @@ BOOK_DOWNLOADS: tuple[tuple[str, str, str], ...] = (
 )
 DOWNLOADS_DIR = "downloads"
 
-# The print-and-play kit, in two zips because one is over the 25 MB a
-# file on Cloudflare Pages may be (the author, 2026-09-27: two zips, the
-# sheets kept as PNG). Split by team, so the first is a whole game --
-# every board and sheet and the first two colour teams -- and the second
-# the other two teams' sheets. Both unzip into the one folder, `KIT_DIR`,
-# which together they make the kit. Each entry is the address that is
-# printed, the zip's name, and the colour teams whose player sheets it
-# carries; the first carries everything that is not a team's.
+# The print-and-play kit, in parts because the whole is over the 25 MB a
+# file on Cloudflare Pages may be. The author's split (2026-09-27): the
+# player cards apart from the boards and the other components, the
+# sheets kept as PNG. The player sheets alone are over the limit too, so
+# they are split again by team, each team's standard and advanced
+# sheets together so a team prints duplex from one download. Every part
+# unzips into the one folder, `KIT_DIR`, and together they are the kit.
+# Each entry is the address, the zip's name, and the colour teams whose
+# player sheets it carries; the first, with none, carries everything
+# that is not a team's.
 KIT_DIR = "d12ball-print-and-play"
 KIT_DOWNLOADS: tuple[tuple[str, str, tuple[Team, ...]], ...] = (
-    ("/kit", f"{KIT_DIR}.zip", COLOR_TEAMS[:2]),
-    ("/kit-teams", f"{KIT_DIR}-more-teams.zip", COLOR_TEAMS[2:]),
+    ("/kit", f"{KIT_DIR}.zip", ()),
+    *(
+        (
+            f"/kit-players-{number}",
+            f"{KIT_DIR}-players-{'-'.join(team.value for team in teams)}.zip",
+            teams,
+        )
+        for number, teams in enumerate((COLOR_TEAMS[:2], COLOR_TEAMS[2:]), start=1)
+    ),
 )
 # The most a single file on Cloudflare Pages may be. The build refuses a
 # download over it, rather than the deploy.
@@ -121,8 +131,8 @@ PAGES_FILE_LIMIT = 25 * 1024 * 1024
 
 # The addresses a site owns and forwards, Cloudflare Pages' `_redirects`
 # format. `/learn` and `/rules` open the books' PDFs and `/kit` and
-# `/kit-teams` the kit's two zips, which the build makes. The survey is
-# a redirect so it can move without a card being reprinted.
+# `/kit-players-<n>` the kit's zips, which the build makes. The survey
+# is a redirect so it can move without a card being reprinted.
 REDIRECTS: dict[str, tuple[tuple[str, str], ...]] = {
     "d12ball": (
         ("/play", PLAY_URL),
@@ -364,11 +374,13 @@ def write_kit(downloads: Path) -> None:
             check=True, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL,
         )
         downloads.mkdir(parents=True, exist_ok=True)
-        archives = [
-            zipfile.ZipFile(downloads / filename, "w", zipfile.ZIP_DEFLATED)
-            for _, filename, _ in KIT_DOWNLOADS
-        ]
-        with archives[0], archives[1]:
+        with ExitStack() as stack:
+            archives = [
+                stack.enter_context(
+                    zipfile.ZipFile(downloads / filename, "w", zipfile.ZIP_DEFLATED)
+                )
+                for _, filename, _ in KIT_DOWNLOADS
+            ]
             for path in sorted(kit.rglob("*")):
                 if path.is_file():
                     relative = path.relative_to(kit)
@@ -522,22 +534,26 @@ def team_names(teams: tuple[Team, ...]) -> str:
     return " and ".join(team_display_name(team) for team in teams)
 
 
+def kit_link_text(teams: tuple[Team, ...]) -> str:
+    if not teams:
+        return "Boards and components (zip)"
+    return f"Player cards: {team_names(teams)} (zip)"
+
+
 def kit_card_html() -> str:
-    """The print-and-play card, with a link to each of the kit's two
-    zips, each saying what is in it."""
-    (first, _, first_teams), (second, _, second_teams) = KIT_DOWNLOADS
+    """The print-and-play card, with a link to each of the kit's zips,
+    each saying what is in it."""
+    links = "".join(
+        f'    <a class="way-link" href="{source}">{escape(kit_link_text(teams))}</a>\n'
+        for source, _, teams in KIT_DOWNLOADS
+    )
     return (
         '<div class="card way-card">\n'
         '  <span class="way-title">At the table</span>\n'
         '  <span class="way-words">Get the print-and-play kit. Meeples and '
         'd12s not included. 3D files for printing tokens are available on '
         'request.</span>\n'
-        '  <span class="way-links">\n'
-        f'    <a class="way-link" href="{first}">The kit, with '
-        f'{escape(team_names(first_teams))} (zip)</a>\n'
-        f'    <a class="way-link" href="{second}">'
-        f'{escape(team_names(second_teams))} (zip)</a>\n'
-        '  </span>\n'
+        f'  <span class="way-links">\n{links}  </span>\n'
         '</div>'
     )
 

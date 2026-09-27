@@ -888,7 +888,7 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   `--sheets-only` for this, and the kit passes it and a `--team` per
   colour team. A developer checking one card still runs the script on
   its own and gets every card. The kit came to 128 MB before this and
-  35 MB after, which is what let d12ball.com carry it
+  35 MB after, which d12ball.com carries in three zips
   ([landing-pages.md](landing-pages.md), "The downloads").
 - **`print-and-play/` is generated output and is gitignored**, like
   `cards/` and `print/` -- run the script again rather than trusting an
