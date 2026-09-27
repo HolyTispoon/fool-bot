@@ -33,10 +33,10 @@ point on the line between that same ink and the target teal -- which
 carries every anti-aliased edge across unchanged, since those pixels
 are just partway blends of the same two colours to begin with.
 
-**No numpy.** This project's `requirements.txt` doesn't carry it and no
-other script does either, so the recolour is a plain-Python pass over
-`getdata()` rather than a vectorised one -- slower, but this runs by
-hand and not in the bot's own path.
+**No numpy.** The bot does not use it (`requirements.txt` carries it
+only for the landing build's dice), so the recolour is a plain-Python
+pass over `getdata()` rather than a vectorised one -- slower, but this
+runs by hand and not in the bot's own path.
 """
 import argparse
 import sys
