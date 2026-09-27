@@ -2774,23 +2774,26 @@ function drawTableBox(table) {
   };
 
   if (table.start.owed) {
-    /* Start is the whistle: dark, with the record's own sentence
-       under it, while `start_lobby` would refuse. */
+    /* The coin starts the game (the author, 2026-09-27: no whistle):
+       dark, with the record's own sentence under it, while
+       `start_lobby` would refuse; flipped, it leaves the lobby and
+       tosses in one request. */
+    const allowed = table.start.may && !table.start.refusal;
     ask.textContent = table.start.refusal
-      ? "Fill both seats and pick the teams; then the whistle starts the game."
+      ? "Once both seats are filled and teams are picked: flip a coin to start the game!"
       : table.start.may
-        ? "The table is set. Blow the whistle to start the game."
-        : "The table is set. Either coach blows the whistle to start the game.";
+        ? "Flip the coin to start the game!"
+        : "Either coach flips the coin to start the game.";
     body.replaceChildren(h("div", { class: "row table-row" },
-      whistle({
-        allowed: table.start.may && !table.start.refusal,
-        label: "Start the game",
-        note: table.start.refusal || "",
-        onclick: () => roomMove("/table/start"),
-      }),
-      h("span", { class: "coin-later" },
-        h("img", { src: coin.faces.fortune, alt: "", class: "coin small" }),
-        "then the coin")));
+      h("button", {
+        type: "button",
+        class: `coin-button${allowed ? " lit" : ""}`,
+        disabled: !allowed,
+        title: table.start.refusal || "Flip the coin to start the game",
+        "aria-label": "Flip the coin to start the game",
+        onclick: () => roomMove("/table/flip_coin"),
+      }, h("img", { src: coin.faces.fortune, alt: "", class: "coin big" })),
+      table.start.refusal ? h("span", { class: "quiet faint" }, table.start.refusal) : null));
     return;
   }
 

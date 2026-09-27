@@ -715,7 +715,9 @@ class WebApp:
     async def table(self, request: web.Request) -> web.Response:
         """
         The table before kickoff: `start`, `configure` (`{"setting",
-        "value"}`), `pick_team` (`{"team", "seat"?}`), `flip_coin` and
+        "value"}`), `pick_team` (`{"team", "seat"?}`), `flip_coin` (which
+        starts a game still in the lobby first -- the page's one
+        control for both) and
         `choose` (`{"choice": "home" | "visiting"}`) -- each one service
         door over the record's rule, answered with the room's state,
         or with the record's sentence and a 409 when it refuses.
@@ -760,6 +762,13 @@ class WebApp:
                         raise web.HTTPForbidden(text="That is not your seat.")
                     self.service.pick_team(game.game_id, seat, team)
                 elif move == "flip_coin":
+                    # The coin starts the game: flipped in the lobby, it
+                    # leaves it first -- `start_lobby`, refused in its
+                    # own sentence while a seat or a team is missing --
+                    # and the toss follows in the same request (the
+                    # author, 2026-09-27: no whistle).
+                    if game.in_lobby:
+                        self.service.start_lobby(game.game_id)
                     self.service.flip_coin(game.game_id, held[0])
                     self._begin_if_dealt(game)
                 elif move == "choose":

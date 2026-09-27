@@ -226,6 +226,23 @@ class TwoCoachTableTests(TableHarness):
         self.assertIsNone(ready["table"]["start"]["refusal"])
         self.assertTrue(ready["table"]["start"]["may"])
 
+    async def test_the_coin_starts_a_game_still_in_its_lobby(self) -> None:
+        """The author, 2026-09-27: no whistle -- the coin, flipped in
+        the lobby, leaves it and tosses in one request, and is refused
+        in `start_lobby`'s own sentence while the table is not set."""
+        room = await self.seated_pair()
+        refused = await self.press(room, CREATOR, "flip_coin")
+        self.assertEqual(refused.status, 409)
+        self.assertIn("no team yet", await refused.text())
+        self.assertTrue(self.games[room].in_lobby)
+
+        await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
+        await self.pressed(room, SECOND, "pick_team", {"team": Team.PURPLE.value})
+        tossed = await self.pressed(room, CREATOR, "flip_coin")
+        self.assertFalse(self.games[room].in_lobby)
+        self.assertTrue(tossed["table"]["coin"]["flipped"])
+        self.assertFalse(tossed["table"]["start"]["owed"])
+
     async def test_a_refused_pick_is_the_record_s_sentence_and_writes_nothing(
         self,
     ) -> None:

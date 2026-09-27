@@ -474,10 +474,14 @@ its sideline.
   instead of the other. A change that takes something away carries the
   model's `warning` (`configure_warning`: turning the test game on with
   Dinky seated kicks Dinky), and the page confirms it before sending.
-- **The question box** asks one thing at a time: the whistle for
-  Start, dark with `start_lobby`'s refusal until both seats are held
-  and every side a person plays has a team; the coin -- the bot's own gold coin (the `3_gold_fortune`
-  and `3_gold_doom` emoji, served), clicked to flip; then the face it
+- **The question box** asks one thing at a time: the coin -- the
+  bot's own gold coin (the `3_gold_fortune` and `3_gold_doom` emoji,
+  served) -- dark with `start_lobby`'s refusal until both seats are
+  held and every side a person plays has a team, and clicked to flip.
+  **There is no whistle: the coin starts the game** (the author,
+  2026-09-27). Flipped in the lobby, `flip_coin` runs `start_lobby`
+  and the toss in one request; the `start` move stays on the route for
+  what else calls it, but the page no longer offers it. Then the face it
   came up large and the other small and dim, and "Click the goal you
   want to defend" over a miniature field whose two ends are
   `choose_home_or_visiting`'s two answers. **Which end is which is the
