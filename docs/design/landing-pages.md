@@ -238,8 +238,8 @@ own way of measuring a run of text. It is drawn twice: by reportlab as page 1
 of the PDF (`draw_cover`), and by Pillow in `landing/covers.py` as the picture
 on the card. One source for the words, one for where they go, two drawings,
 checked by looking: the picture is the page the download opens on. The die on
-each is `rulebooks.cover_die`, the one both drawings ask ("The dice as
-marks").
+each is one committed picture, `rulebooks.cover_die_path`, which both
+drawings put down ("The dice as marks").
 
 **The print-and-play kit is three zips: the components, and the player
 cards in two.** `write_kit` runs `scripts/generate_print_and_play_kit.py`
@@ -387,10 +387,14 @@ nav's die is the teal one too. `dice.die_mark` draws a die cropped to itself
 -- a render keeps a margin round the die for the table, which would shrink it
 in a tab or in the cover's square -- and caches it, so a build draws each mark
 once. The books' die is why the renderer moved from `landing/` to
-`d12ball/`: `rulebooks.draw_cover` sets the PDF's cover, and nothing under
-`d12ball/` imports `landing`. It imports the dice inside `cover_die`, so the
-rulebooks module still loads without numpy. At the cover's 300 dpi the die
-adds about four seconds to setting each book.
+`d12ball/`: `rulebooks.write_cover_dice` draws it, and nothing under
+`d12ball/` imports `landing`. **The books' dice are committed pictures**,
+`d12ball/images/cover_dice/`, redrawn by `scripts/build_rulebooks.py
+--cover-dice` when the dice change (the author, 2026-09-27): shading one at
+the cover's 300 dpi took about four seconds, paid on every book set, every
+kit and every landing build, for a picture that never changes between them.
+The PDF embeds the file as it is and the page's picture scales it down, so
+setting a book needs no numpy and draws no die.
 
 ## Building and looking
 

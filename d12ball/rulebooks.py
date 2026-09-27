@@ -868,17 +868,49 @@ def cover_layout(cover: Cover, width: float, height: float, measure: Measure) ->
     )
 
 
-# The die is drawn at print resolution whatever the page is scaled to.
+# The cover's dice are committed pictures, not drawn per build: a die
+# takes seconds to shade at print resolution, and the purple pair only
+# changes when the dice do. `--cover-dice` on scripts/build_rulebooks.py
+# draws them again (`write_cover_dice`), at 300 dpi on the widest paper,
+# so any paper scales them down.
+COVER_DICE_DIR = PROJECT_ROOT / "d12ball" / "images" / "cover_dice"
 COVER_DIE_DPI = 300
+COVER_DIE_PIXELS = round(
+    max(page_width for page_width, _ in PAPERS.values()) * COVER_DIE_SIZE / inch * COVER_DIE_DPI
+)
+
+
+def cover_die_path(cover: Cover) -> Path:
+    """The committed picture of the die on `cover`: its half of
+    `dice.PURPLE`."""
+    return COVER_DICE_DIR / f"purple_{cover.die}.png"
 
 
 def cover_die(cover: Cover, pixels: int):
-    """The die on `cover`, `pixels` square: its half of `dice.PURPLE`,
-    cropped to itself so it fills the layout's square as the box's solid
-    did. Imported here, not at the top, because it shades with numpy."""
+    """The die on `cover`, `pixels` square, from its committed picture."""
+    from PIL import Image
+
+    with Image.open(cover_die_path(cover)) as picture:
+        die = picture.convert("RGBA")
+    if die.width != pixels:
+        die = die.resize((pixels, pixels), Image.Resampling.LANCZOS)
+    return die
+
+
+def write_cover_dice() -> list[Path]:
+    """Draw every cover's die at `COVER_DIE_PIXELS` into `COVER_DICE_DIR`:
+    the die cropped to itself (`dice.die_mark`), so it fills the layout's
+    square as the box's solid did. Imported here because it shades with
+    numpy."""
     from . import dice
 
-    return dice.die_mark(getattr(dice.PURPLE, cover.die), pixels)
+    COVER_DICE_DIR.mkdir(parents=True, exist_ok=True)
+    written = []
+    for cover in sorted({book.cover for book in BOOKS.values() if book.cover}, key=lambda c: c.die):
+        path = cover_die_path(cover)
+        dice.die_mark(getattr(dice.PURPLE, cover.die), COVER_DIE_PIXELS).save(path, optimize=True)
+        written.append(path)
+    return written
 
 
 def draw_cover(canvas, cover: Cover, pagesize) -> None:
@@ -905,9 +937,9 @@ def draw_cover(canvas, cover: Cover, pagesize) -> None:
         canvas.setFont(faces[text.face], text.size)
         canvas.drawString(text.x, height - text.baseline, text.text)
     left, top, size = layout.die
-    die = cover_die(cover, round(size / inch * COVER_DIE_DPI))
     canvas.drawImage(
-        ImageReader(die), left, height - top - size, width=size, height=size, mask="auto",
+        ImageReader(str(cover_die_path(cover))), left, height - top - size,
+        width=size, height=size, mask="auto",
     )
     canvas.restoreState()
 

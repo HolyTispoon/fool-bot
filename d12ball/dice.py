@@ -10,8 +10,8 @@ Prophetic Folly's dice are three `DicePair`s, `ORANGE`, `TEAL` and
 `PURPLE`; `landing/build.py` composes the still the studio page's card
 shows from them and the bot's coins. One die of a pair, cropped to
 itself by `die_mark`, is also a mark: each landing site's tab icon, and
-the die on each rulebook's cover (`rulebooks.cover_die`), which is why
-it lives under `d12ball/` rather than `landing/`.
+the die on each rulebook's cover (`rulebooks.write_cover_dice`), which
+is why it lives under `d12ball/` rather than `landing/`.
 
 Written for the landing-page sketch the author reviewed (2026-09-27)
 as `scripts/render_landing_dice.py` and moved here with its output

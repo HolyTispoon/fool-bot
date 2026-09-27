@@ -95,7 +95,9 @@ checked by reading the PDF.
   was the box's solid until the author gave the books the purple pair of
   Prophetic Folly's resin dice (2026-09-27): the `Cover` names its half
   of `dice.PURPLE` -- the Learn to Play the Fortune, the Charter the
-  Doom -- and `cover_die` draws it for both drawings
+  Doom -- and both drawings put down the same committed picture of it,
+  `d12ball/images/cover_dice/`, which `--cover-dice` redraws when the
+  dice change rather than every build shading it again
   ([landing-pages.md](landing-pages.md), "The dice as marks").
   The words are the book's `Cover` in `BOOKS`, and the layout is
   `cover_layout`, in shares of the page, so the PDF's first page
