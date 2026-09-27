@@ -1143,7 +1143,7 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
       { class: `fan-name${lit || held ? " lit" : ""}`, style: `left: ${piece.x + W / 2}px; top: ${line}px` },
       piece.name,
     ));
-    line += 16;
+    line += 24;
     const said = lit ? chips(marks[id]) : [];
     if (said.length) {
       over.push(h(
@@ -1151,7 +1151,7 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
         { class: "fan-chip-line", style: `left: ${piece.x + W / 2}px; top: ${line}px` },
         said,
       ));
-      line += 18;
+      line += 32;
     }
   }
   box.append(...over);
