@@ -241,6 +241,29 @@ img { display: block; }
 /* -- The board panel ---------------------------------------------------- */
 
 .board-panel { padding: 10px; }
+/* What to do with a meeple just picked up, at the foot of the window
+   -- never over the field, where it would hide what is clicked next --
+   until it is put down or put back. */
+.pick-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--gold);
+  background: rgba(17, 18, 20, 0.92);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.pick-toast[hidden] { display: none; }
 .board-empty { color: var(--muted); text-align: center; margin: 60px 0; }
 
 /* The sideline under the field (step 6 of docs/web-app-redesign.md):
@@ -2287,16 +2310,19 @@ body.reading-room { height: 100vh; height: 100dvh; display: flex; flex-direction
   .reading-text { padding: 0; border: 0; overflow: visible; }
 }
 
-/* The Coaching Choice's box: the formation tiles, and a line for each
-   move made on the board, under a rule (step 6). */
+/* The Coaching Choice's box: a line for each move made on the board,
+   then the formation tiles, above the whistle and set off from it by a
+   rule (step 6; reordered by the author, 2026-09-26). */
 .how {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px solid var(--line);
-  padding-top: 10px;
-  margin-top: 6px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  margin-bottom: 6px;
 }
+/* The Spreadable reminder, under the whistle. */
+.footnote { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
 .how-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .how-label { font-size: 11px; font-weight: 800; color: var(--muted); }
 .how-line { margin: 0; font-size: 12px; color: var(--muted); }

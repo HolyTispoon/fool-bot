@@ -1160,10 +1160,19 @@ the page plays the window on the pieces themselves, as the canvas's
   on a space. `present.py` builds **one control per pair the options
   allow** -- every `incoming_ids` by every `outgoing_ids`, every
   `swaps` partner, every `repositions` space -- each with `first`, the
-  thing picked up (and its `first_chip`: "comes on", "change zones",
-  "move"), and `place`, the thing it is put on. The page lights every
-  `first`; once one is picked up it lights the `place` of each control
-  that starts from it, and clicking that sends the control's `action`.
+  thing picked up, and `place`, the thing it is put on. The page lights
+  every `first`; once one is picked up it lights the `place` of each
+  control that starts from it, and clicking that sends the control's
+  `action`. **None of them carries a `first_chip`** (the author,
+  2026-09-26): a chip per way a player could go ("change zones",
+  "move") made one meeple two things to pick up, and gold pills under
+  every player on the field; without them one click picks the meeple
+  up and lights the teammates it may trade zones with and the spaces
+  in its own zone together. What may be done with it is said instead
+  as it is picked up, in a toast at the foot of the window rather than
+  over the field, where it would hide the next click ("Click another
+  meeple to trade zones, or a lit space to move within the zone") --
+  `pickHint` in `app.js`, read off the same controls.
   So the pair is the page's way of *choosing* a control, never a move
   of its own: what is sent is an `Action` a button was built with,
   checked by `_was_offered` exactly as before, and the page cannot put
@@ -1184,9 +1193,10 @@ the page plays the window on the pieces themselves, as the canvas's
   are `RulesEngine.formation_shape`'s, handed on the control as
   `shape`, never read off the name -- and the one the side stands in
   marked "now" and dead, as the Discord menu greys it.
-- **The lit line names what may be picked up once each**, not every
-  pair it could end in -- "Voltus [DD], Synapse [PM] · comes on" --
-  and **the window's allowance**, `CoachingHubOptions.allowance`: what
+- **The lit line names none of what may be picked up** (the author,
+  2026-09-26): the board lights it and the how-lines say what to do
+  with it, so a list of names only repeated the board. It says **the
+  window's allowance**, `CoachingHubOptions.allowance`: what
   the window has left in `substitution_allowance_label`'s words ("No
   substitution limit", "2 substitutions left"), dark once it is spent.
   The prompt carried only whether a substitute was possible and the
@@ -1194,10 +1204,22 @@ the page plays the window on the pieces themselves, as the canvas's
   (proposed as its own commit on step 6's PR, and accepted by the
   author there, 2026-09-26); the page says the
   occasion's budget and never works one out.
-- **Under a rule, the box says how**: a line per move made on the
-  board ("Substitute: drag a bench meeple onto the player it replaces,
-  or click the two in turn"), the section's `how` -- this frontend's
-  words about its own controls, not the model's about the game.
+- **The box reads top to bottom as a coach works through it**: the
+  ask, a line per move made on the board ("Substitute: drag a bench
+  meeple onto the player it replaces, or click the two in turn"), the
+  section's `how` -- this frontend's words about its own controls, not
+  the model's about the game -- then the formation tiles, a rule, the
+  whistle, and under it the lit line (the allowance) and last the
+  Spreadable reminder (the author, 2026-09-26). The reminder is the model's sentence
+  (`RulesEngine.spreadable_note`, appended to the window's ask by
+  `prompts._window`); `present.split_footnote` only takes it off the
+  end of the ask so the page can say it under the whistle, as the
+  prompt's `footnote`.
+- **A Coaching Choice opening brings up the Teams tab**, once, as the
+  offer or the window appears -- the rosters are what a coach decides
+  from -- and a meeple shows **no hover card** while it is open: a
+  card over the meeple being picked up and dropped confused more than
+  it told (the author, 2026-09-26). The Teams tab's rows keep theirs.
 - **There is no undo.** The service offers none: every move in the
   window is applied when it is made, as on Discord, and undoing one is
   making the opposite move, which the board offers like any other. A

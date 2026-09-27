@@ -112,6 +112,7 @@ from webapp.present import (
     render_text,
     reveal,
     shootout_sides,
+    split_footnote,
     still_to_answer,
 )
 from webapp.chat import WEB_CHAT_FILE, Chats, MessageRefused, clean_text
@@ -1845,10 +1846,16 @@ class WebApp:
         owed = bool(controls) and still_to_answer(
             self.engine, game, match, prompt, viewer, wire=wire,
         )
+        ask, footnote = split_footnote(
+            self.engine, game, match, prompt, wire["ask"],
+        )
         return {
             "prompt": {
                 "kind": wire["kind"],
-                "ask": render_text(game, wire["ask"]),
+                "ask": render_text(game, ask),
+                # The Spreadable reminder, said under the whistle rather
+                # than under the title (`present.split_footnote`).
+                "footnote": render_text(game, footnote) if footnote else None,
                 # What the cog puts under the same kind, or null: the
                 # same for a coach and an observer, since it is the
                 # position's and holds nobody's hand.

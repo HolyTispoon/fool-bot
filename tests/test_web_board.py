@@ -922,7 +922,7 @@ class SidelineTests(unittest.TestCase):
             arguments = control["action"]["arguments"]
             self.assertEqual(control["first"]["id"], arguments["incoming_player_id"])
             self.assertEqual(control["place"]["id"], arguments["outgoing_player_id"])
-            self.assertEqual(control["first_chip"], "comes on")
+            self.assertIsNone(control["first_chip"])
 
     def test_a_zone_change_and_a_move_start_from_a_fielded_player(self) -> None:
         fixture, prompt, side, controls = self.hub()
