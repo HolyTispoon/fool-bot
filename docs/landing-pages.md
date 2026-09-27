@@ -577,7 +577,7 @@ Fill the studio page:
      Doom die. Rolling with Hope makes it possible to beat challenges
      you wouldn't otherwise be able to face but is overall less
      successful. Rolling with Fear makes spectacular successes less
-     likely but also avoid catastrophic failures."), the
+     likely but also avoids catastrophic failures."), the
      chip "IN DEVELOPMENT", and the gold link "Read more about the
      system" -> https://propheticfools.notion.site/ at the card's
      foot; the title "Prophetic Folly" links there too. No contact
