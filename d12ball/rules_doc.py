@@ -51,6 +51,26 @@ def slugify_heading(title: str) -> str:
     return SLUG_SPACE_PATTERN.sub("-", text).strip("-")
 
 
+# The Charter's numbers, as `rulebooks.renumber` writes them into the
+# headings: a Law is `## 6. Maneuvers`, a section `### 6.4 The skill
+# test`. Nothing deeper carries one. See "The two rulebooks" in
+# docs/design/rulebooks.md.
+HEADING_NUMBER_PATTERNS = {
+    2: re.compile(r"^(\d+)\.\s+(?=\S)"),
+    3: re.compile(r"^(\d+\.\d+)\s+(?=\S)"),
+}
+
+
+def split_heading_number(level: int, title: str) -> tuple[Optional[str], str]:
+    """A heading's Charter number, if it carries one, and its title
+    without it -- `(6.4, "The skill test")`."""
+    pattern = HEADING_NUMBER_PATTERNS.get(level)
+    found = pattern.match(title) if pattern else None
+    if found is None:
+        return None, title
+    return found.group(1), title[found.end():]
+
+
 def for_discord(text: str) -> str:
     """The markdown, with what Discord cannot render taken out."""
     return LOCAL_LINK_PATTERN.sub(r"\1", text)
@@ -61,6 +81,8 @@ class RulesSection:
     """One heading of the living rules, and what sits under it."""
 
     level: int
+    # The heading without its Charter number, and the slug of that: the
+    # section's name, which a renumbering does not move.
     title: str
     slug: str
     # Enclosing headings, outermost first. Empty for a level-2 section.
@@ -69,6 +91,11 @@ class RulesSection:
     # what a lookup posts: asking about "Maneuver" means the four steps
     # as well.
     text: str
+    # The Charter's number for a Law or a section (`6`, `6.4`), and the
+    # anchor GitHub gives the heading as written, number and all --
+    # which is what the file's own links point at.
+    number: Optional[str] = None
+    anchor: str = ""
 
     @property
     def path(self) -> tuple[str, ...]:
@@ -97,8 +124,8 @@ class RulesDocument:
 
         Discord lets a coach submit whatever they typed rather than a
         choice from the autocomplete, so this accepts the slug the
-        autocomplete sends, the label it displayed, and a plain heading
-        typed by hand.
+        autocomplete sends, the label it displayed, a plain heading
+        typed by hand, and a Charter number (`6.4`).
         """
         wanted = query.strip().lstrip("#").strip()
         if not wanted:
@@ -107,7 +134,8 @@ class RulesDocument:
         slug = slugify_heading(wanted)
 
         for section in self.sections:
-            if section.slug == folded or section.slug == slug:
+            if folded in (section.slug, section.anchor, section.number) \
+                    or slug in (section.slug, section.anchor):
                 return section
         for section in self.sections:
             if folded in (section.title.lower(), section.label.lower()):
@@ -190,7 +218,8 @@ def parse_rules_document(markdown: str) -> RulesDocument:
     for position, (start, level, heading) in enumerate(headings):
         if level < 2:
             continue
-        slug = slugify_heading(heading)
+        number, bare = split_heading_number(level, heading)
+        slug = slugify_heading(bare)
         if slug in UNLISTED_SLUGS:
             continue
 
@@ -211,7 +240,9 @@ def parse_rules_document(markdown: str) -> RulesDocument:
                 break
             while open_levels and open_levels[-1][0] >= earlier_level:
                 open_levels.pop()
-            open_levels.append((earlier_level, earlier_title))
+            open_levels.append(
+                (earlier_level, split_heading_number(earlier_level, earlier_title)[1])
+            )
         while open_levels and open_levels[-1][0] >= level:
             open_levels.pop()
         ancestors = [
@@ -227,10 +258,12 @@ def parse_rules_document(markdown: str) -> RulesDocument:
         sections.append(
             RulesSection(
                 level=level,
-                title=heading,
+                title=bare,
                 slug=slug,
                 ancestors=tuple(ancestors),
                 text=body.rstrip(),
+                number=number,
+                anchor=slugify_heading(heading),
             )
         )
 

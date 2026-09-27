@@ -130,7 +130,7 @@ a game, and the current number was settled deliberately.
 
 A Steal or Intercept carries the ball with the interceptor, and the Charter
 offers a Smooth to a teammate already standing on the space it is carried to
-([Smooth](living-rules.md#mind-pull-telekinetic), "a teammate standing on the same
+([Smooth](living-rules.md#204-mind-pull-telekinetic), "a teammate standing on the same
 space as the intended receiver *is* offered one"). Take it, and the Telekinetic
 is the carrier who stays while everyone runs back. The Charter then says "once
 everyone has run back, **the interceptor** changes the ball's speed" and says
@@ -830,7 +830,7 @@ rank, beating and losing to exactly what Pressure does. That was already the rul
 decides (2026-08-18 below) -- but the old name argued against it, and the living rules' own table
 read "Replaces", which is the one thing a gambit does not do: both cards are in the coach's hand
 at once. The table's third column is now "A kind of", and the section is
-[Gambits](living-rules.md#gambits).
+[Gambits](living-rules.md#19-gambits).
 
 **The gate.** A coach holds their gambits only while their team is **behind**, in one of the two
 senses: behind on the scoreboard, or fielding more injured players than the opponent (only the six
@@ -1226,7 +1226,7 @@ own text is the author's, on the sheet's new `spec_abilities` tab (`Spec`, `Name
 | Ooze | **Slimey** | *Slip in:* any Ooze sharing the ball's space may play the handler's turn. *Merge:* an Ooze on the ball's space who isn't one of the two players rolling adds their skill to their own side -- oSkill attacking, dSkill defending; every such Ooze adds. In a score attempt it is the attack only, and their oSkill. Named and rewritten on the sheet 2026-09-07, after the review below settled it. |
 
 **These are the author's ask turned into settled rules.** The section is
-[Species abilities](living-rules.md#species-abilities).
+[Species abilities](living-rules.md#20-species-abilities).
 
 **Advanced mode is one switch over two modules.** The author, in PR review: *"Advanced mode
 does exist. What turning advanced mode does is enabling the two modules: advanced maneuvers and
@@ -1271,7 +1271,7 @@ then confirmed or corrected in PR review:
   ooze is on the ball when another player attempts a scoring, they add their oSkill"* (author).
   So an Ooze standing on the ball while a teammate shoots adds their offensive skill, and the
   defence gains nothing there: defenders on and beyond the ball are already in the total by
-  [what the defense adds](living-rules.md#what-the-defense-adds).
+  [what the defense adds](living-rules.md#53-what-the-defense-adds).
 
 **Nothing is built in the engine.** `species.json` is data for the printed cards; the mechanics
 are played off the table for now. See "Advanced mode" under [Still open](#still-open).
@@ -1835,7 +1835,7 @@ covers its kickoff space.*
   choice -- forward costs position, back costs the cover behind the ball -- where a list of six
   is a distance sum a coach reads off the board. A tie is the coach's, since two players
   equidistant on the same side differ only in who they are.
-- **[Sending a player](living-rules.md#sending-a-player) is stated once and linked four times.**
+- **[Sending a player](living-rules.md#9-sending-a-player) is stated once and linked four times.**
   The maneuver challenge, the loose ball, the long High Pass contest and the required pickup
   were four wordings of one act, and had drifted: three said "in the zone" and the fourth said
   "any field player from anywhere". A single definition is what stops the next rule that sends

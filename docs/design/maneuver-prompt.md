@@ -42,7 +42,7 @@ extra click bought a round trip and nothing else.
   would leave those clicks answered by nothing.
 - **A second click is a change of pick, while the other side is still
   choosing** (the author, 2026-09-25). Both cards are revealed together
-  ([Law 6](../living-rules.md#choosing-and-revealing)), so the first one in is a
+  ([Law 6](../living-rules.md#62-choosing-and-revealing)), so the first one in is a
   card held face down and may be swapped until the second is down. The rule is
   `maneuver_pick_refusal` and `MatchState.change_maneuver`; the channel reads "X
   has changed their maneuver." and the clicker's ephemeral reply names the card

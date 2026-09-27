@@ -9,13 +9,14 @@ and a page break (`---` on its own line) -- and sets it with reportlab
 in the printed cards' palette and the bundled fonts. Anything else in
 the file is an error, not something dropped on the floor.
 
-**A numbered book is numbered at build time.** For the Charter, every
+**A numbered book is numbered by the builder.** For the Charter, every
 level-2 heading is a Law, every level-3 heading a section, and every
 paragraph under one carries its own number (`6.4.2`); a `[text](#slug)`
-link to a heading becomes `text (6.4)` on the page. The source file is
-not changed, which is what lets the same file be the one the bot's
-rules commands read. Writing the numbers into the source is the plan's
-second step, and it is not built yet.
+link to a heading becomes `text (6.4)` on the page. `renumber` writes
+those same numbers into the source, so the file the bot's rules commands
+read and GitHub shows carries the printed edition's numbers; `unnumber`
+takes them out again, and the book is always built from the unnumbered
+text, so a stale number in the file can never reach the page.
 
 The layout lives here and `scripts/build_rulebooks.py` is the CLI, the
 same split `boards.py` and `render_boards.py` make. No discord and no
@@ -57,7 +58,7 @@ from reportlab.platypus import (
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from .cards import FACE_COLOR, INK, PANEL_COLOR
-from .rules_doc import slugify_heading
+from .rules_doc import slugify_heading, split_heading_number
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FONT_DIR = PROJECT_ROOT / "d12ball" / "fonts"
@@ -154,12 +155,18 @@ class MarkdownError(ValueError):
 
 def parse_markdown(text: str) -> list[Block]:
     """The file as blocks, in order. Raises `MarkdownError` on anything else."""
+    return [block for _, block in parse_markdown_lines(text)]
+
+
+def parse_markdown_lines(text: str) -> list[tuple[int, Block]]:
+    """`parse_markdown`, with the line each block starts on."""
     lines = text.splitlines()
-    blocks: list[Block] = []
+    blocks: list[tuple[int, Block]] = []
     index = 0
     while index < len(lines):
         line = lines[index]
         stripped = line.strip()
+        start = index
         if not stripped:
             index += 1
             continue
@@ -171,21 +178,21 @@ def parse_markdown(text: str) -> list[Block]:
                 index += 1
             if index >= len(lines):
                 raise MarkdownError("A code fence was opened and never closed.")
-            blocks.append(CodeBlock("\n".join(code)))
+            blocks.append((start, CodeBlock("\n".join(code))))
             index += 1
             continue
         heading = HEADING_RE.match(line)
         if heading:
-            blocks.append(Heading(len(heading.group(1)), heading.group(2)))
+            blocks.append((start, Heading(len(heading.group(1)), heading.group(2))))
             index += 1
             continue
         if PAGE_BREAK_RE.match(stripped):
-            blocks.append(PageBreakBlock())
+            blocks.append((start, PageBreakBlock()))
             index += 1
             continue
         image = IMAGE_RE.match(stripped)
         if image:
-            blocks.append(ImageBlock(image.group(2), image.group(1)))
+            blocks.append((start, ImageBlock(image.group(2), image.group(1))))
             index += 1
             continue
         if stripped.startswith("|"):
@@ -193,18 +200,18 @@ def parse_markdown(text: str) -> list[Block]:
             while index < len(lines) and lines[index].strip().startswith("|"):
                 rows.append(lines[index].strip())
                 index += 1
-            blocks.append(parse_table(rows))
+            blocks.append((start, parse_table(rows)))
             continue
         if stripped.startswith(">"):
             quote: list[str] = []
             while index < len(lines) and lines[index].strip().startswith(">"):
                 quote.append(lines[index].strip()[1:].strip())
                 index += 1
-            blocks.append(QuoteBlock(" ".join(part for part in quote if part)))
+            blocks.append((start, QuoteBlock(" ".join(part for part in quote if part))))
             continue
         if LIST_RE.match(line):
             block, index = parse_list(lines, index)
-            blocks.append(block)
+            blocks.append((start, block))
             continue
         if stripped.startswith("<"):
             raise MarkdownError(f"HTML is not part of the books' markdown: {stripped!r}")
@@ -215,7 +222,7 @@ def parse_markdown(text: str) -> list[Block]:
                 break
             paragraph.append(candidate.strip())
             index += 1
-        blocks.append(Paragraph_(" ".join(paragraph)))
+        blocks.append((start, Paragraph_(" ".join(paragraph))))
     return blocks
 
 
@@ -355,10 +362,14 @@ class Numbering:
     """
     The numbers a Charter build hands out: a heading's, by slug, and a
     number for every block that gets one, by position in the block list.
+    `cases` is every list or table that belongs to the paragraph just
+    before it and so shares its number, by position: a list's items are
+    that paragraph's cases, lettered (`6.4.2b`).
     """
 
     headings: dict[str, str] = field(default_factory=dict)
     blocks: dict[int, str] = field(default_factory=dict)
+    cases: dict[int, str] = field(default_factory=dict)
 
 
 NUMBERED_BLOCKS = (Paragraph_, ListBlock, TableBlock, QuoteBlock)
@@ -389,6 +400,10 @@ def number_blocks(blocks: Sequence[Block]) -> Numbering:
     Law . section . paragraph. A paragraph straight under a Law, before
     any section, takes the second position itself (`1.3`), as the Law of
     Root numbers them, so sections and such paragraphs share one count.
+    A list or table straight after a numbered paragraph is that
+    paragraph's -- the cases it lists, the table it introduces -- and
+    takes no number of its own (the author, 2026-09-26); one straight
+    after a heading, with no paragraph to belong to, is numbered.
     """
     numbering = Numbering()
     law = 0
@@ -420,6 +435,11 @@ def number_blocks(blocks: Sequence[Block]) -> Numbering:
             continue
         if skipping or law == 0 or not isinstance(block, NUMBERED_BLOCKS) or is_note(block):
             continue
+        owner = numbering.blocks.get(position - 1)
+        if isinstance(block, (ListBlock, TableBlock)) and owner \
+                and isinstance(blocks[position - 1], Paragraph_):
+            numbering.cases[position] = owner
+            continue
         if in_section:
             third += 1
             numbering.blocks[position] = f"{law}.{second}.{third}"
@@ -439,6 +459,191 @@ def dropped_positions(blocks: Sequence[Block]) -> set[int]:
         if skipping:
             dropped.add(position)
     return dropped
+
+
+def cites_itself(text: str, number: str) -> bool:
+    """A link whose words already are the number -- `[Law 18](#...)`,
+    `[Appendix B](#...)` -- which a `(18)` after it would only repeat."""
+    return re.search(rf"(?<![\w.]){re.escape(number)}$", text.strip()) is not None
+
+
+# --- The numbers in the source ----------------------------------------------
+#
+# `renumber` writes the build's numbers into the Charter's own markdown,
+# the way the page prints them: `## 6. Maneuvers`, `### 6.4 The skill
+# test`, a paragraph opening `**6.4.2**`, a numbered list or table under
+# its number on a line of its own with the list's cases lettered
+# (`- **a.**`), and a cross-reference as the link followed by its number,
+# `[the skill test](#64-the-skill-test) (6.4)`. A list that is a
+# paragraph's cases goes straight under it, lettered, with no number of
+# its own, and a table a paragraph introduces likewise. Each link is pointed at
+# the anchor GitHub gives the numbered heading, so the links still work
+# there. `unnumber` takes every one of those out again, and the two are
+# inverses: `renumber(unnumber(text))` is `text` for a file that has
+# been renumbered, which is what the test suite checks.
+
+BLOCK_NUMBER = r"\*\*\d+(?:\.\d+)+\*\*"
+PARAGRAPH_NUMBER_RE = re.compile(rf"^(\s*(?:>\s*)?){BLOCK_NUMBER}\s+")
+LONE_NUMBER_RE = re.compile(rf"^\s*{BLOCK_NUMBER}\s*$")
+CASE_LETTER_RE = re.compile(r"^(\s*[-*]\s+)\*\*[a-z]\.\*\*\s+")
+CROSS_REFERENCE_RE = re.compile(r"(\]\(#[^)\s]+\)) \((?:\d+(?:\.\d+)*|Appendix [A-Z])\)")
+ANCHOR_LINK_RE = re.compile(r"\]\(#([^)\s]+)\)")
+CONTENTS_LAW_RE = re.compile(r"^Law \d+\. ")
+STALE_ANCHOR_RE = re.compile(r"^\d+-(.+)$")
+CASE_LETTERS = "abcdefghijklmnopqrstuvwxyz"
+
+
+def heading_anchors(text: str) -> dict[str, str]:
+    """Every heading's anchor as written, by the slug of its name
+    without a number: `{"the-skill-test": "64-the-skill-test"}`."""
+    anchors: dict[str, str] = {}
+    for _, block in parse_markdown_lines(text):
+        if isinstance(block, Heading):
+            _, bare = split_heading_number(block.level, block.text)
+            anchors[slugify_heading(bare)] = block.slug
+    return anchors
+
+
+def unnumber(text: str) -> str:
+    """The markdown with every number `renumber` writes taken out, and
+    every link pointed back at the anchor of the unnumbered heading."""
+    anchors = heading_anchors(text)
+    to_bare = {written: bare for bare, written in anchors.items()}
+
+    def bare_anchor(target: str) -> str:
+        if target in to_bare:
+            return to_bare[target]
+        # A link still pointing at an old number's anchor (`#64-...`)
+        # after the heading's number was changed by hand.
+        stale = STALE_ANCHOR_RE.match(target)
+        if stale and stale.group(1) in anchors:
+            return stale.group(1)
+        return target
+
+    lines = text.split("\n")
+    kept: list[str] = []
+    in_code = False
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        index += 1
+        if FENCE_RE.match(line.strip()):
+            in_code = not in_code
+        if in_code or FENCE_RE.match(line.strip()):
+            kept.append(line)
+            continue
+        if LONE_NUMBER_RE.match(line):
+            # The number a list or a table is set under, and the blank
+            # line `renumber` put after it.
+            if index < len(lines) and not lines[index].strip():
+                index += 1
+            continue
+        heading = HEADING_RE.match(line)
+        if heading:
+            level = len(heading.group(1))
+            line = f"{heading.group(1)} {split_heading_number(level, heading.group(2))[1]}"
+        line = PARAGRAPH_NUMBER_RE.sub(r"\1", line, count=1)
+        line = CASE_LETTER_RE.sub(r"\1", line, count=1)
+        line = CROSS_REFERENCE_RE.sub(r"\1", line)
+        line = ANCHOR_LINK_RE.sub(lambda m: f"](#{bare_anchor(m.group(1))})", line)
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def renumber(text: str) -> str:
+    """The markdown with the printed edition's numbers written in."""
+    text = unnumber(text)
+    positioned = parse_markdown_lines(text)
+    blocks = [block for _, block in positioned]
+    numbering = number_blocks(blocks)
+    lines = text.split("\n")
+    before: dict[int, list[str]] = {}
+    anchors: dict[str, str] = {}
+
+    for position, (start, block) in enumerate(positioned):
+        if isinstance(block, Heading):
+            number = numbering.headings.get(block.slug)
+            written = block.text
+            if number and not number.startswith("Appendix"):
+                if block.level == 2:
+                    written = f"{number}. {block.text}"
+                elif block.level == 3:
+                    written = f"{number} {block.text}"
+            lines[start] = f"{'#' * block.level} {written}"
+            anchors[block.slug] = slugify_heading(written)
+            continue
+        number = numbering.blocks.get(position)
+        if number is None:
+            number = numbering.cases.get(position)
+            if number is not None and isinstance(block, ListBlock):
+                letter_cases(lines, positioned, position, number)
+            continue
+        if isinstance(block, (Paragraph_, QuoteBlock)):
+            lines[start] = re.sub(r"^(\s*(?:>\s*)?)", rf"\g<1>**{number}** ", lines[start], count=1)
+            continue
+        # A list or a table goes under its number, on a line of its own.
+        before[start] = [f"**{number}**", ""]
+        if isinstance(block, ListBlock):
+            letter_cases(lines, positioned, position, number)
+
+    def cross_reference(found: re.Match) -> str:
+        words, target = found.group(1), found.group(2)
+        link = f"[{words}](#{anchors.get(target, target)})"
+        number = numbering.headings.get(target)
+        if number is None:
+            return link
+        if in_contents:
+            return link.replace(words, CONTENTS_LAW_RE.sub(f"Law {number}. ", words), 1)
+        if cites_itself(words, number):
+            return link
+        return f"{link} ({number})"
+
+    written: list[str] = []
+    in_code = False
+    in_contents = False
+    for index, line in enumerate(lines):
+        written.extend(before.get(index, ()))
+        if FENCE_RE.match(line.strip()):
+            in_code = not in_code
+        elif not in_code:
+            heading = HEADING_RE.match(line)
+            if heading and len(heading.group(1)) == 2:
+                in_contents = slugify_heading(heading.group(2)) in DROPPED_SECTIONS
+            line = re.sub(r"\[([^\]]+)\]\(#([^)\s]+)\)", cross_reference, line)
+        written.append(line)
+    return "\n".join(written)
+
+
+def letter_cases(
+    lines: list[str], positioned: list[tuple[int, Block]], position: int, number: str,
+) -> None:
+    """A numbered list's own items as `- **a.**`, `- **b.**`, in place;
+    a list nested under one of them keeps its bullets."""
+    start = positioned[position][0]
+    end = positioned[position + 1][0] if position + 1 < len(positioned) else len(lines)
+    own_indent = len(LIST_RE.match(lines[start]).group(1))
+    letters = iter(CASE_LETTERS)
+    for index in range(start, end):
+        item = LIST_RE.match(lines[index])
+        if item and len(item.group(1)) == own_indent:
+            letter = next(letters, None)
+            if letter is None:
+                raise MarkdownError(f"{number} lists more cases than there are letters")
+            lines[index] = f"{item.group(1)}- **{letter}.** {item.group(3)}"
+
+
+def anchor_moves(before: str, after: str) -> dict[str, str]:
+    """Where each heading's anchor went, old anchor to new, for a link
+    into the file from outside it. A link written to the unnumbered
+    heading's anchor is moved as well."""
+    old = heading_anchors(before)
+    new = heading_anchors(after)
+    moves: dict[str, str] = {}
+    for bare, anchor in new.items():
+        for previous in (bare, old.get(bare, bare)):
+            if previous != anchor:
+                moves[previous] = anchor
+    return moves
 
 
 # --- The book ---------------------------------------------------------------
@@ -617,9 +822,10 @@ def build_story(book: Book, blocks: Sequence[Block], available_width: float) -> 
     base_dir = book.source.parent if book.source else PROJECT_ROOT
 
     def resolve_link(text: str, target: str) -> str:
-        if target.startswith("#") and target[1:] in numbering.headings:
-            return f"{text} ({numbering.headings[target[1:]]})"
-        return text
+        number = numbering.headings.get(target[1:]) if target.startswith("#") else None
+        if number is None or cites_itself(text, number):
+            return text
+        return f"{text} ({number})"
 
     story: list = [
         Paragraph(escape(book.title), style["Title"]),
@@ -665,7 +871,8 @@ def build_story(book: Book, blocks: Sequence[Block], available_width: float) -> 
         elif isinstance(block, ListBlock):
             if number:
                 story.append(Paragraph(f"<b>{number}</b>", style["Body"]))
-            story.append(list_flowable(block, style, resolve_link, lettered=bool(number)))
+            lettered = bool(number) or position in numbering.cases
+            story.append(list_flowable(block, style, resolve_link, lettered=lettered))
             story.append(Spacer(1, 4))
         elif isinstance(block, TableBlock):
             if number:
@@ -778,7 +985,10 @@ def book_bytes(book: Book, paper: str = DEFAULT_PAPER) -> bytes:
         raise FileNotFoundError(
             f"{book.name}: none of its sources exist yet ({', '.join(str(p) for p in book.sources)})"
         )
-    blocks = parse_markdown(source.read_text(encoding="utf-8"))
+    text = source.read_text(encoding="utf-8")
+    # The numbers written into the source are the build's own; it
+    # numbers the text without them, so a stale one never prints.
+    blocks = parse_markdown(unnumber(text) if book.numbered else text)
     pagesize = PAPERS[paper]
     available_width = pagesize[0] - 2 * MARGIN
     story = build_story(book, blocks, available_width)

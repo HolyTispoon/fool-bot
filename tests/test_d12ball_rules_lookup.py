@@ -326,7 +326,8 @@ class RulesSearchCommandTests(unittest.TestCase):
     def test_the_section_is_the_response_not_a_deferral(self) -> None:
         interaction = self.run_search("low-pass")
         content, ephemeral = interaction.response.sent[0]
-        self.assertTrue(content.startswith("### Low Pass"))
+        # Headed with its Charter number, as the file writes it.
+        self.assertRegex(content, r"^### \d+\.\d+ Low Pass\n")
         self.assertFalse(ephemeral)
 
     def test_a_long_section_continues_in_followups(self) -> None:
@@ -341,10 +342,9 @@ class RulesSearchCommandTests(unittest.TestCase):
         # Typed rather than picked, and in no heading at all: only
         # "Winning the shootout" and the section carrying it say this.
         interaction = self.run_search("sudden death")
-        self.assertTrue(
-            interaction.response.sent[0][0].startswith(
-                "### Winning the shootout"
-            )
+        self.assertRegex(
+            interaction.response.sent[0][0],
+            r"^### \d+\.\d+ Winning the shootout\n",
         )
 
     def test_an_unknown_heading_is_refused_privately(self) -> None:
