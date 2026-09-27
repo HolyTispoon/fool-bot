@@ -104,13 +104,14 @@ settled, so the steps below build it rather than the first draft:
   and the rulebooks as two cover images with only their titles.
   Screentop is off the page; Discord is not a way to play but an icon,
   in the footer and beside the playtest panel's contact line, carrying
-  the invite.
+  the invite https://discord.gg/MpgGm8FvKB.
 - **The rulebooks get covers.** The built PDFs open on their first text
   page, which does not read as a book at thumbnail size; the author
   gave each cover its line (step 3).
 - **The contact is politicsgames@gmail.com**, on both sites.
-- **Prophetic Folly stays gated**: no link to the draft, stage "In
-  development", playtest access on request at the studio address. Its
+- **Prophetic Folly is "In development"** with playtest access on
+  request at the studio address, and -- the author's second thought,
+  on this PR -- a link to its Notion page after all. Its
   picture is one composed still: two d12s rendered as solids, bone
   Fortune showing 12 and obsidian Doom showing 1, with the bot's six
   coins gathered round them, fortune faces on Fortune's side and doom
@@ -231,16 +232,17 @@ are the ones known before any step starts. A step whose prompt needs
 the answer says what it builds until it has one. Struck ones were
 answered on the canvas on 2026-09-27.
 
-- **The Discord invite.** The server is public and the page carries
-  the invite as an icon (the author, on the canvas); what is still
-  wanted is the invite link itself, one that does not expire, since
-  it sits on a public page. Built with a placeholder until it arrives.
-- **`www.d12ball.com` to `d12ball.com`, or the other way?** Bare is
-  the recommendation; it is what is printed.
-- **Does the studio site want a mailing list?** Not built unless
-  asked: it needs a provider and a privacy line.
-- ~~Does the Prophetic Folly card link to the Notion page?~~ Keep it
-  gated: no link, stage "In development", playtest access on request.
+Nothing is open as of the author's review of this PR (2026-09-27).
+
+- ~~The Discord invite.~~ https://discord.gg/MpgGm8FvKB (the author,
+  on this PR). The page carries it as an icon, in the footer and
+  beside the playtest panel's contact line.
+- ~~`www.d12ball.com` to `d12ball.com`, or the other way?~~ Bare.
+- ~~Does the studio site want a mailing list?~~ Not for now.
+- ~~Does the Prophetic Folly card link to the Notion page?~~ Yes,
+  after all (the author, on this PR): the chip stays "In
+  development" and the card links to
+  https://propheticfools.notion.site/ under its contact line.
 - ~~What contact goes on both sites?~~ politicsgames@gmail.com.
 - ~~Is the Screentop table public?~~ Public, and off the page anyway.
 - ~~The stage words.~~ D12 Ball "in playtesting"; Prophetic Folly "In
@@ -485,7 +487,8 @@ Play now; there is no Books entry.
    Discord!" with the address a mailto link and the Discord mark
    beside the line as the invite link -- a 32px blurple square with
    the white mark, an aria-label, the permanent invite once the
-   author supplies it and discord.gg/INVITE-CODE until then. On the
+   author gave on the worksheet's PR: https://discord.gg/MpgGm8FvKB.
+   On the
    desktop the night cover sits beside the text.
 
 6. Footer: PUBLISHER linking https://propheticfoolsgames.com, the
@@ -572,9 +575,12 @@ Fill the studio page:
      interactions."), one line naming the mechanic ("Every risky
      action is a Resolution Roll on two twelve-sided dice, the
      Fortune and Doom dice. The table is run by the Fool."), the
-     chip "IN DEVELOPMENT", no link anywhere, and the last line
-     "Playtest access on request: politicsgames@gmail.com" as a
-     mailto link. Its picture is one composed still, centred in the
+     chip "IN DEVELOPMENT", the line "Playtest access on request:
+     politicsgames@gmail.com" as a mailto link, and under it the
+     gold link "Read the system on Notion" ->
+     https://propheticfools.notion.site/ (the author, on the
+     worksheet's PR, 2026-09-27, reversing the earlier "keep it
+     gated": the stage word stays, the link goes public). Its picture is one composed still, centred in the
      card's picture panel: the two d12s rendered as solids -- bone
      Fortune showing 12 with engraved umber numerals, obsidian Doom
      showing 1 with painted bone numerals, each resting on a face
