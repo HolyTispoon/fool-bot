@@ -275,7 +275,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 5.4 The cost of a shot
 
-**5.4.1** An ordinary shot costs its shooter nothing. A shot taken off a set-up adds its shooter 1 exhaustion after the roll, whether it went in or not.
+**5.4.1** An ordinary shot costs its shooter nothing. A shooter taking a shot off a set-up exhausts 1 after the roll, whether it went in or not.
 
 **5.4.2** A score attempt costs 1 space minute, and a set-up's shot costs that on top of the maneuver that created it.
 
@@ -295,7 +295,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.1.2** A defending player already standing on the ball's space **challenges**. They have nowhere to walk and nothing to pay, so that challenge cannot be declined, and nobody may be walked in past them. Where more than one of them shares the space, the defending coach chooses which of them challenges.
 
-**6.1.3** Otherwise the defending coach may [send a player](#9-sending-a-player) (9) to the ball's space, at 1 exhaustion token per space, **or send nobody** rather than pay for the challenge.
+**6.1.3** Otherwise the defending coach may [send a player](#9-sending-a-player) (9) to the ball's space, who exhausts 1 per space, **or send nobody** rather than pay for the challenge.
 
 **6.1.4** With no challenger, the maneuver the offense chooses succeeds outright: there is nothing to reveal against, no ranking to read and no test to roll. Nobody moves and nobody pays.
 
@@ -319,7 +319,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.4 The skill test
 
-**6.4.1** Both participants add 1 exhaustion, and then each rolls a d12.
+**6.4.1** Both participants exhaust 1, and then each rolls a d12.
 
 **6.4.2** The offense adds the handler's offensive skill and the defense adds the challenger's defensive skill. On top of that:
 
@@ -328,7 +328,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.4.3** The higher total wins and their maneuver is what resolves.
 
-**6.4.4** A tie is rolled again, and each participant adds another token for it.
+**6.4.4** A tie is rolled again, and each participant exhausts 1 more for it.
 
 **6.4.5** When the test finally resolves, every participant who is Exhausted takes an [injury check](#153-the-injury-check) (15.3).
 
@@ -457,7 +457,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 8.3 The shooter
 
-**8.3.1** The shooter adds 1 exhaustion after the roll either way, and a Striker adds 3 to it.
+**8.3.1** The shooter exhausts 1 after the roll either way, and a Striker adds 3 to it.
 
 ### 8.4 Declining
 
@@ -491,7 +491,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 9.4 What a send costs
 
-**9.4.1** A sent player moves onto the space and adds 1 exhaustion for every space they travelled.
+**9.4.1** A sent player moves onto the space and exhausts 1 for every space they travelled.
 
 ### 9.5 Sending nobody
 
@@ -521,7 +521,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **10.2.1** Both contestants roll a skill test: the side that last had the ball adds their player's offensive skill, the other side adds their player's defensive skill.
 
-**10.2.2** The higher total wins the ball and is left holding it. A tie is rolled again, at a token each.
+**10.2.2** The higher total wins the ball and is left holding it. A tie is rolled again, and each exhausts 1.
 
 **10.2.3** Neither side adds the [ball speed modifier](#7-ball-speed) (7) -- the ball is nobody's yet. A [High Pass contest](#104-the-high-pass-contest) (10.4) is the one exception.
 
@@ -555,7 +555,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **10.6.1** An out-of-bounds ball, a [missed shot](#5-score-attempt) (5), an [avoided own goal](#11-own-goal) (11) and a [time out](#13-time-out) (13) can all leave the ball on a space nobody of the gaining or keeping side is standing on. Once everything else has settled, that side [sends a player](#9-sending-a-player) (9) to the ball's space -- unless one of theirs is already standing there, which settles it for nothing.
 
-**10.6.2** **Every pickup is the same**, whichever of the four left it owed. The coach of the side with the ball is offered the [two nearest](#92-the-two-nearest) (9.2) -- the nearest in front of the ball and the nearest behind it, only the one in front where the ball is at the end of the field, and every player tied for nearest -- and **must send one of them**: a pickup cannot be declined. The player sent adds 1 exhaustion for every space they travel, **after a time out as after anything else**.
+**10.6.2** **Every pickup is the same**, whichever of the four left it owed. The coach of the side with the ball is offered the [two nearest](#92-the-two-nearest) (9.2) -- the nearest in front of the ball and the nearest behind it, only the one in front where the ball is at the end of the field, and every player tied for nearest -- and **must send one of them**: a pickup cannot be declined. The player sent exhausts 1 for every space they travel, **after a time out as after anything else**.
 
 **10.6.3** A pickup is a placement rather than a contest: nobody rolls for it, nobody may contest it, and the ball is left with nobody in particular afterwards.
 
@@ -573,7 +573,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **11.2.1** The handler rolls **two d12, keeps the higher, and adds their offensive skill**. On a total of 7 or more the own goal is avoided.
 
-**11.2.2** The roll costs that player 1 exhaustion token whichever way it goes. It is not a skill test, so it owes no injury check.
+**11.2.2** The player rolling exhausts 1 whichever way it goes. It is not a skill test, so it owes no injury check.
 
 **11.2.3** Either result is a [new play](#125-resetting-after-a-new-play) (12.5).
 
@@ -611,7 +611,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **12.4.2** Nobody else moves. A player alone in their own zone is already where they belong and pays nothing, and **the player holding the ball never runs back**.
 
-**12.4.3** A player running back goes to a space in their own zone that their team has not covered, and adds 1 exhaustion for every space they travel. Where the zone is already covered, any space in it will do.
+**12.4.3** A player running back goes to a space in their own zone that their team has not covered, and exhausts 1 for every space they travel. Where the zone is already covered, any space in it will do.
 
 **12.4.4** **Where two teammates share a space, the one holding the ball stays and the other runs back. Where neither of them is holding it, their coach chooses which of them goes.**
 
@@ -768,7 +768,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **15.1.2** Nothing else costs anything. An ordinary score attempt, a maneuver won outright, a reset, a Coaching Choice and a shootout test are all free.
 
-**15.1.3** An injured player never adds tokens.
+**15.1.3** An injured player never exhausts.
+
+**15.1.4** **Exhaust** is the verb for gaining tokens: a player who **exhausts 2** adds 2 exhaustion tokens to their card. [Clearing](#155-recovery) (15.5) takes them off.
 
 ### 15.2 Becoming Exhausted
 
@@ -991,7 +993,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.6.1** **Rank O2. Costs 1 space minute. Beats Deflect and Clear, loses to Pressure and Double Team.**
 
-**19.6.2** The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler adds **1 exhaustion per space travelled**. A handler nearer the end of the field than their run may go only as far as the field goes.
+**19.6.2** The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler **exhausts 1 per space travelled**. A handler nearer the end of the field than their run may go only as far as the field goes.
 
 *Note.* It is the only maneuver that charges by distance, which is what makes the shorter runs worth taking.
 
@@ -1027,7 +1029,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.8.4** *Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 -- a Fullback's extra space is distance, not speed, exactly as it is on a Deflect.
 
-**19.8.5** *Beaten:* the defender who played it adds **2 exhaustion**.
+**19.8.5** *Beaten:* the defender who played it **exhausts 2**.
 
 ### 19.9 Intercept
 
@@ -1055,7 +1057,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.10.5** **On the defending side's next maneuver both of those players challenge**, and the skill test adds **both** of their defensive skills. It lasts until a [new play](#125-resetting-after-a-new-play) (12.5), which is the only thing that ends it.
 
-**19.10.6** *Beaten:* the challenger and that same nearest teammate each move 1 space forward, away from their own goal. Neither pays a token for it.
+**19.10.6** *Beaten:* the challenger and that same nearest teammate each move 1 space forward, away from their own goal. Neither exhausts for it.
 
 ## 20. Species abilities
 
@@ -1090,15 +1092,15 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 20.3 Lithium Powered (Cyborg)
 
-**20.3.1** **A Cyborg's tokens are drain.** They are added and spent exactly as exhaustion tokens -- wherever a rule adds or clears an exhaustion token, a Cyborg adds or clears a drain token instead -- but a Cyborg does not become [Exhausted](#152-becoming-exhausted) (15.2) on the ordinary threshold.
+**20.3.1** **A Cyborg's tokens are drain.** They are added and spent exactly as exhaustion tokens -- wherever a rule has a player exhaust or clear an exhaustion token, a Cyborg adds or clears a drain token instead -- but a Cyborg does not become [Exhausted](#152-becoming-exhausted) (15.2) on the ordinary threshold.
 
-**20.3.2** **Drain** is also the verb: a Cyborg who **drains 2** adds 2 drain. Wherever a rule would add exhaustion tokens to a Cyborg, they drain that many instead.
+**20.3.2** **Drain** is also the verb, as [exhaust](#151-gaining-tokens) (15.1) is everybody else's: a Cyborg who **drains 2** adds 2 drain. Wherever a rule has a Cyborg exhaust, they drain that many instead.
 
 **20.3.3** A Cyborg carrying **7 or more** drain is **Drained**, which counts as Exhausted everywhere the rules use that word: the [injury check](#153-the-injury-check) (15.3) after a skill test, the halftime [recovery](#155-recovery) (15.5) re-test, and anywhere else. Below 7 a Cyborg is never Exhausted, however low their defensive skill.
 
 **20.3.4** **A Cyborg's injury check is a damage test, and a Cyborg who fails it is Damaged, not Injured.** It is the same check and the same disadvantage under the Cyborgs' own words -- everywhere the rules say [injury check](#153-the-injury-check) (15.3) or [Injured](#154-playing-injured) (15.4), a Cyborg's damage test or a Damaged Cyborg is meant, and nothing about the check, the disadvantage or the substitution rules differs for them. Only the words (and the token art) are a Cyborg's own.
 
-**20.3.5** **Overdrive.** Once per roll, *before* the die is thrown, a Cyborg may **drain 3** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls -- a [skill test](#64-the-skill-test) (6.4), a [score attempt](#5-score-attempt) (5), an [own-goal roll](#11-own-goal) (11), a [damage test](#153-the-injury-check) (15.3), a [contest](#101-where-the-ball-comes-to-rest) (10.1) or a [shootout test](#17-extreme-shootout) (17).
+**20.3.5** **Overdrive.** **Once per roll**, *before* the die is thrown, a Cyborg may **drain 3** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls -- a [skill test](#64-the-skill-test) (6.4), a [score attempt](#5-score-attempt) (5), an [own-goal roll](#11-own-goal) (11), a [damage test](#153-the-injury-check) (15.3), a [contest](#101-where-the-ball-comes-to-rest) (10.1) or a [shootout test](#17-extreme-shootout) (17).
 
 **20.3.6** A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven by draining another 3. A Drained Cyborg may still Overdrive -- the drain stacks. Overdrive is a flat bonus rather than a skill modifier, so a [Damaged](#154-playing-injured) (15.4) Cyborg keeps it.
 
@@ -1114,7 +1116,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 20.4 Mind Pull (Telekinetic)
 
-**20.4.1** **When the opponent's ball moves to or through a Telekinetic's space** -- it passes over the space on its way somewhere, or comes to rest on it -- the Telekinetic may take **1 exhaustion token** and roll one d12. On **11-12** they pull the ball in: it stops on their space, their side takes possession, and the Telekinetic holds it.
+**20.4.1** **When the opponent's ball moves to or through a Telekinetic's space** -- it passes over the space on its way somewhere, or comes to rest on it -- the Telekinetic may **exhaust 1** and roll one d12. On **11-12** they pull the ball in: it stops on their space, their side takes possession, and the Telekinetic holds it.
 
 **20.4.2** The token is paid whether or not the pull lands, and Mind Pull is a choice. The roll is not a skill test and owes no [injury check](#153-the-injury-check) (15.3).
 
@@ -1190,9 +1192,9 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.3.6** **Inferno lights the ball.** Whenever Inferno receives the ball -- is left holding it, however that happened: a pass, a steal, a won contest, a pull, a Smooth, or [picking it up](#106-picking-the-ball-up) (10.6) -- its speed goes to 12. Being chosen to handle a ball they were already standing on is not receiving it. Anything that sets the speed later in the same resolution, such as the speed step after a [Steal](#69-steal) (6.9), still does.
 
-**21.3.7** **Kindlefinger's injury check can ignite.** Kindlefinger's die in an [injury check](#153-the-injury-check) (15.3) ignites on a natural 6 or 7 exactly as a [Volatile](#202-volatile-fire-demon) (20.2) roll does, and the blaze or burn is added to or subtracted from the check. A blaze also clears 1 token from Kindlefinger and a burn adds 1, **before** the check is compared with their tokens -- so the token can decide it, as the tokens a skill test charges count toward the check that follows it.
+**21.3.7** **Kindlefinger's injury check can ignite.** Kindlefinger's die in an [injury check](#153-the-injury-check) (15.3) ignites on a natural 6 or 7 exactly as a [Volatile](#202-volatile-fire-demon) (20.2) roll does, and the blaze or burn is added to or subtracted from the check. A blaze also clears 1 token from Kindlefinger and on a burn they exhaust 1, **before** the check is compared with their tokens -- so the token can decide it, as the tokens a skill test charges count toward the check that follows it.
 
-**21.3.8** **Scorchit may force the test.** When Scorchit's maneuver loses on the cards, their coach may send it to a [skill test](#64-the-skill-test) (6.4) anyway, once the cards are revealed and before anything resolves. Entering it, Scorchit adds 2 tokens and their opponent none; a tie is rolled again at a token each, as always. The higher total wins and their maneuver resolves. A gambit's effect still follows the cards, as it does after a test an [injury](#154-playing-injured) (15.4) forced: if the card that won on the cards also wins the test, its benefit and Scorchit's cost both land; if Scorchit wins the test, neither fires and Scorchit's card resolves as the basic maneuver on its rank. Where the winner on the cards is injured, the test is the one their injury already forces, and costs its usual token each.
+**21.3.8** **Scorchit may force the test.** When Scorchit's maneuver loses on the cards, their coach may send it to a [skill test](#64-the-skill-test) (6.4) anyway, once the cards are revealed and before anything resolves. Entering it, Scorchit exhausts 2 and their opponent nothing; a tie is rolled again and each exhausts 1, as always. The higher total wins and their maneuver resolves. A gambit's effect still follows the cards, as it does after a test an [injury](#154-playing-injured) (15.4) forced: if the card that won on the cards also wins the test, its benefit and Scorchit's cost both land; if Scorchit wins the test, neither fires and Scorchit's card resolves as the basic maneuver on its rank. Where the winner on the cards is injured, the test is the one their injury already forces, and costs its usual token each.
 
 ### 21.4 Cyborgs
 
@@ -1200,7 +1202,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.4.2** **Voltus Overdrives for 2.** Voltus's [Overdrive](#203-lithium-powered-cyborg) (20.3) drains 2 rather than 3, for the same +5.
 
-**21.4.3** **Gearclaw may Boost.** Once per roll, before the die is thrown, Gearclaw may **drain 1** to add **+3** to that roll. It is declared blind, on any roll Gearclaw could Overdrive, and follows every rule of Overdrive -- except that on one roll Gearclaw may Boost or Overdrive, never both.
+**21.4.3** **Gearclaw may Boost.** **Once per roll**, before the die is thrown, Gearclaw may **drain 1** to add **+3** to that roll. It is declared blind, on any roll Gearclaw could Overdrive, and follows every rule of Overdrive. **Boost and Overdrive are each once per roll, and neither excludes the other**: on one roll Gearclaw's coach may Boost, Overdrive, do both -- draining 4 for +8 -- or do neither. A tie that is rolled again is a fresh roll, on which each may be declared once more.
 
 **21.4.4** **Strider runs on less.** When Strider [charges up](#203-lithium-powered-cyborg) (20.3), they clear 2 drain rather than 1. A [run back](#124-running-back-after-a-steal) (12.4) drains Strider 1 at most, however far they run.
 
@@ -1224,13 +1226,13 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.5.6** **Vorix's long pass is a set-up.** When Vorix's won High Pass of 3 spaces reaches a teammate, there is no High Pass contest: the ball's speed goes to 12, the teammate receives it, and they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range, exactly as off a 2-space pass.
 
-**21.5.7** **Zenith flies.** When a [steal](#124-running-back-after-a-steal) (12.4) is about to run players back, Zenith's coach may first move Zenith to any space on the field, adding 1 token for every space travelled. Zenith then does not run back. An [injured](#154-playing-injured) (15.4) Zenith cannot fly, nor can Zenith holding the ball, and a [new-play reset](#125-resetting-after-a-new-play) (12.5) is not a run back.
+**21.5.7** **Zenith flies.** When a [steal](#124-running-back-after-a-steal) (12.4) is about to run players back, Zenith's coach may first move Zenith to any space on the field, exhausting 1 for every space travelled. Zenith then does not run back. An [injured](#154-playing-injured) (15.4) Zenith cannot fly, nor can Zenith holding the ball, and a [new-play reset](#125-resetting-after-a-new-play) (12.5) is not a run back.
 
 **21.5.8** **Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range -- after a [Low Pass](#65-low-pass) (6.5) or a [Skilled Pass](#195-skilled-pass) (19.5) as after a 2-space High Pass. A High Pass of 3 or more is contested as usual, and only if Zytheris wins the [High Pass contest](#104-the-high-pass-contest) (10.4) -- or keeps the pass because nobody contests it -- may they then take the scoring opportunity.
 
 ### 21.6 Oozes
 
-**21.6.1** **Glompex joins the ball.** Once a maneuver's challenger is in place and before either coach chooses a card, Glompex -- standing on a space next to the ball's, and not one of the two players -- may take 1 token to move onto the ball's space, where [Merge](#205-slimey-ooze) (20.5) counts them. It is offered only against a challenge, since an unchallenged maneuver rolls nothing.
+**21.6.1** **Glompex joins the ball.** Once a maneuver's challenger is in place and before either coach chooses a card, Glompex -- standing on a space next to the ball's, and not one of the two players -- may exhaust 1 to move onto the ball's space, where [Merge](#205-slimey-ooze) (20.5) counts them. It is offered only against a challenge, since an unchallenged maneuver rolls nothing.
 
 **21.6.2** **Goopkeeper blocks in full.** In a [score attempt](#5-score-attempt) (5), Goopkeeper standing anywhere between the ball and the goal counts as on the ball, and adds their full defensive skill rather than half. Behind the ball they add nothing, like anyone else.
 
@@ -1249,7 +1251,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Roll | Dice | How it reads |
 | --- | --- | --- |
 | Score attempt | 1d12 each | Attack adds offense and the speed modifier; defense adds full skill on the ball and half beyond it. Equal totals score. |
-| Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled at a token each. |
+| Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled and each exhausts 1. |
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |
 | Shootout test | 1d12 each | Both add offensive skill. Higher scores; a tie stands. |
@@ -1263,8 +1265,8 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Species | Ability |
 | --- | --- |
 | Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's gambit), and a burn that loses upgrades the opponent's. |
-| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: drain 3 for +5 on a roll, declared before it. Charge-up: -1 drain for not moving at all during a run back. |
-| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball comes to rest on your space -- take it over, free. |
+| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: once per roll, drain 3 for +5, declared before it. Charge-up: -1 drain for not moving at all during a run back. |
+| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: exhaust 1, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball comes to rest on your space -- take it over, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 
 ## Appendix B. Glossary

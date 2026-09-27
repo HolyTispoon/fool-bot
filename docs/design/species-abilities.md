@@ -185,9 +185,18 @@ their own (below).
   - *Boost* is Overdrive's shape at drain 1 for +3: its own list on the
     match (`pending_boost`, a saved field whose absence reads as
     nobody), its own `boost` answer on all six roll prompts beside
-    `overdrive`, and one `overdrive_modifier` that answers either,
-    because every roll site already adds that one number. Declaring
-    either closes the other on that roll ("either, not both").
+    `overdrive`, and one `overdrive_modifier` that sums both, because
+    every roll site already adds that one number. Each is once per
+    roll and neither closes the other (the author, 2026-09-27,
+    reversing "either, not both"), so `overdrive_candidates` and
+    `boost_candidates` each narrow the one shared reading of who could
+    drain on this roll (`_may_drain_before_roll`) by their own
+    declaration alone. What each added is said by
+    `overdrive_details`, a line per declaration rather than one
+    summed line, so a roll carrying both reads "+5 Overdrive, +3
+    Boost" -- the injury check and the own-goal roll word it from
+    the same list, which is also what stops a Boost alone being
+    called an Overdrive there.
   - *Mind Pull* -- `mind_pull_candidates` reads the two spaces beside
     each path space for Noxar, in the order the ball reaches them, and
     `apply_mind_pull` already lands the ball on the puller's space;
@@ -673,7 +682,9 @@ missing other half for Injured, scoped the same way.
 **A Cyborg's injury check is a damage test, and "drain" is a verb** (the
 author, 2026-09-23). The third and fourth words of the same set: a Drained
 Cyborg takes a damage test and, failing it, is Damaged; a Cyborg *drains 2*
-where anybody else gains 2 exhaustion tokens.
+where anybody else *exhausts 2* (the author, 2026-09-27 -- the same shape,
+so a gain is a verb and a number for everybody; `describe_exhaustion_gain`
+words both).
 
 - **`RulesEngine.injury_test_name` is the one answer to what the check is
   called**, beside `token_word_and_mark` and the other `drain_wording`

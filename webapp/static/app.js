@@ -192,6 +192,7 @@ function draw(state) {
   /* A new question puts back whatever was picked up for the last. */
   if (picked && JSON.stringify(state.prompt) !== shownPrompt) picked = null;
   current = state;
+  drawPickToast();
   latest = state.latest;
   /* Before kickoff the table is the whole of the play area: no
      jumbotron and no board until there is a match to draw. */
@@ -656,13 +657,16 @@ function drawLitRepeat(layout) {
 
 function litItems(layout) {
   const items = [];
-  const item = (object, name, controls, { held = false } = {}) => h(
-    "div",
-    { class: `repeat-item${held ? " held" : ""}` },
-    object,
-    name ? h("span", { class: "repeat-name" }, name) : null,
-    controls.length ? h("span", { class: "repeat-chips" }, chips(controls)) : null,
-  );
+  const item = (object, name, controls, { held = false } = {}) => {
+    const said = chips(controls);
+    return h(
+      "div",
+      { class: `repeat-item${held ? " held" : ""}` },
+      object,
+      name ? h("span", { class: "repeat-name" }, name) : null,
+      said.length ? h("span", { class: "repeat-chips" }, said) : null,
+    );
+  };
   const thing = (label, controls, content, extra = "") => h(
     "button",
     {
@@ -731,10 +735,39 @@ function litItems(layout) {
 /* Redraw what a pick changes: the board's lit things, and the box's
    line saying what is picked up. */
 function redrawPick() {
+  drawPickToast();
   if (!current) return;
   shownBoard = null;
   drawBoard(current);
   if (current.prompt) drawControls(current.prompt);
+}
+
+function drawPickToast() {
+  const toast = el("pick-toast");
+  const hint = picked ? pickHint(picked) : "";
+  toast.hidden = !hint;
+  toast.textContent = hint;
+}
+
+/* What may be done with the thing just picked up, said from the
+   answers that start from it: another meeple to trade zones with, a
+   lit space in its own zone, or the player a bench meeple replaces. */
+function pickHint(entry) {
+  const choices = new Set();
+  for (const group of (current && current.prompt ? current.prompt.controls : [])) {
+    for (const control of group.controls) {
+      if (control.first && !control.disabled && placeKey(control.first) === entry.key) {
+        choices.add(control.action.choice);
+      }
+    }
+  }
+  const ways = [];
+  if (choices.has("substitute")) ways.push("click the player they replace");
+  if (choices.has("swap")) ways.push("click another meeple to trade zones");
+  if (choices.has("reposition")) ways.push(`${ways.length ? "" : "click "}a lit space to move within the zone`);
+  if (!ways.length) return "";
+  const said = ways.join(", or ");
+  return `${entry.label}: ${said.charAt(0).toUpperCase()}${said.slice(1)}.`;
 }
 
 // -- Answering on the board ------------------------------------------------
@@ -907,7 +940,11 @@ function press(control) {
 /* A lit thing's chips: what clicking it means, one per control on it,
    each its own button where there are several (Overdrive and Boost on
    one meeple, a pass and a run onto it on one space). */
-function chips(controls, { buttons = controls.length > 1 } = {}) {
+function chips(all, { buttons } = {}) {
+  /* A thing to pick up with no chip of its own (a player in the
+     Coaching Choice) is lit and says nothing. */
+  const controls = all.filter((control) => control.type !== "pick" || control.chip);
+  if (buttons === undefined) buttons = controls.length > 1;
   return controls.map((control) => {
     const content = chip(control);
     if (!buttons) return content;
@@ -1106,14 +1143,15 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
       { class: `fan-name${lit || held ? " lit" : ""}`, style: `left: ${piece.x + W / 2}px; top: ${line}px` },
       piece.name,
     ));
-    line += 16;
-    if (lit) {
+    line += 24;
+    const said = lit ? chips(marks[id]) : [];
+    if (said.length) {
       over.push(h(
         "span",
         { class: "fan-chip-line", style: `left: ${piece.x + W / 2}px; top: ${line}px` },
-        chips(marks[id]),
+        said,
       ));
-      line += 18;
+      line += 32;
     }
   }
   box.append(...over);
@@ -1208,7 +1246,10 @@ function litMeeple(m, layout, controls, lit, held, picks, g = layout.meeple) {
     },
     meepleArt(m, layout, { ring: lit || held, dashed: held, g }),
   );
-  hoverCard(node, cardUrl(m.id));
+  /* Not while a Coaching Choice is open: a card over the meeple being
+     picked up and dropped confuses more than it tells, and the Teams
+     tab is up instead (the author, 2026-09-26). */
+  hoverCard(node, cardUrl(m.id), { when: () => !coaching(current && current.prompt) });
   return node;
 }
 
@@ -1413,6 +1454,7 @@ function benchBox(board, title, said, entries, layout) {
 function benchPiece(m, layout) {
   const marks = (lit && lit.player[m.id]) || null;
   const on = Boolean(marks && marks.length);
+  const said = on ? chips(marks) : [];
   const g = layout.meeple;
   const W = g.width;
   const H = (W * g.box[3]) / g.box[2];
@@ -1423,7 +1465,7 @@ function benchPiece(m, layout) {
     { class: "bench-piece" },
     body,
     h("span", { class: `bench-name${on || (picked && picked.key === `player:${m.id}`) ? " lit" : ""}` }, m.name),
-    on ? h("span", { class: "bench-chip-line" }, chips(marks)) : null,
+    said.length ? h("span", { class: "bench-chip-line" }, said) : null,
   );
 }
 
@@ -1561,7 +1603,25 @@ function drawChat(state) {
 
 // -- The prompt --------------------------------------------------------------
 
+/* The two questions of a Coaching Choice: whether to take one, and
+   the window itself. */
+const COACHING_KINDS = new Set(["coaching_offer", "coaching_hub"]);
+function coaching(prompt) {
+  return Boolean(prompt && COACHING_KINDS.has(prompt.kind));
+}
+
+/* A Coaching Choice opening brings up the Teams tab, whose rosters are
+   what a coach decides it from (the author, 2026-09-26) -- once, as it
+   opens, so a coach who goes back to the log is left there. */
+let wasCoaching = false;
+function teamsOnCoaching(prompt) {
+  const now = coaching(prompt);
+  if (now && !wasCoaching) showPane("teams");
+  wasCoaching = now;
+}
+
 function drawPrompt(state) {
+  teamsOnCoaching(state.prompt);
   const box = el("prompt");
   /*
    * Only when it has actually changed. The page re-reads the whole
@@ -1719,6 +1779,7 @@ function inBox(control) {
 }
 
 function drawControls(prompt) {
+  drawPickToast();
   const controls = el("controls");
   controls.replaceChildren();
   drawLitLine(prompt);
@@ -1748,6 +1809,28 @@ function drawControls(prompt) {
     .map((group) => ({ ...group, controls: group.controls.filter(inBox) }))
     .filter((group) => group.controls.length);
 
+  /* The groups answered on the board say how, once each, first: a
+     line per move the board answers, then a row of tiles for the
+     things the box draws (the formations), all above the whistle and
+     set off from it by a rule (the author, 2026-09-26). */
+  const how = prompt.controls.filter((group) => group.how);
+  if (how.length) {
+    const block = h("div", { class: "how" });
+    const rows = [];
+    for (const group of how) {
+      const here = group.controls.filter(inBox);
+      if (here.length) {
+        rows.push(h("div", { class: "how-row" },
+          h("span", { class: "how-label" }, `${group.label.toUpperCase()} · ${group.how}`),
+          drawGroup({ ...group, controls: here })));
+      } else {
+        block.append(h("p", { class: "how-line" }, h("b", {}, `${group.label}:`), ` ${group.how}.`));
+      }
+    }
+    block.append(...rows);
+    controls.append(block);
+  }
+
   for (const group of groups.filter((one) => !one.how)) {
     if (group.label) controls.append(h("div", { class: "group-label" }, group.label));
     controls.append(drawGroup(group));
@@ -1758,23 +1841,18 @@ function drawControls(prompt) {
   const sides = shootoutSides(prompt);
   if (sides) controls.append(sides);
 
-  /* The groups answered on the board say how, once each, under a rule:
-     a row of tiles where the box draws the things (the formations), a
-     line where the board does. */
-  const how = prompt.controls.filter((group) => group.how);
-  if (how.length) {
-    const block = h("div", { class: "how" });
-    for (const group of how) {
-      const here = group.controls.filter(inBox);
-      if (here.length) {
-        block.append(h("div", { class: "how-row" },
-          h("span", { class: "how-label" }, `${group.label.toUpperCase()} · ${group.how}`),
-          drawGroup({ ...group, controls: here })));
-      } else {
-        block.append(h("p", { class: "how-line" }, h("b", {}, `${group.label}:`), ` ${group.how}.`));
-      }
-    }
-    controls.append(block);
+  /* A Coaching Choice says its lit line -- the window's allowance --
+     under the whistle rather than under the ask (the author,
+     2026-09-26); `drawLitLine` leaves the usual place empty for it. */
+  if (coaching(prompt)) {
+    const items = litItemsOf(prompt);
+    if (items.length) controls.append(h("p", { class: "lit-line" }, ...items));
+  }
+
+  /* The Spreadable reminder, under the whistle rather than the title
+     (`present.split_footnote`). */
+  if (prompt.footnote) {
+    controls.append(h("p", { class: "footnote", html: prompt.footnote }));
   }
 }
 
@@ -1782,12 +1860,17 @@ function drawControls(prompt) {
    the server's reading of the controls it built (`present.lit_line`). */
 function drawLitLine(prompt) {
   const line = el("lit");
+  const items = coaching(prompt) ? [] : litItemsOf(prompt);
+  line.hidden = !items.length;
+  line.replaceChildren(...items);
+}
+
+function litItemsOf(prompt) {
   /* With a thing picked up, the box says that instead: what was lit
      before it was picked up is not what is lit now. */
   const items = picked ? [] : prompt.lit || [];
-  line.hidden = !items.length;
-  line.replaceChildren(...items.map((item) =>
-    h("span", { class: item.dark ? "lit-item dark" : "lit-item" }, item.text)));
+  return items.map((item) =>
+    h("span", { class: item.dark ? "lit-item dark" : "lit-item" }, item.text));
 }
 
 /* The same controls as a list for the keyboard: a number key presses
@@ -3021,9 +3104,9 @@ let peekHide = null;
 let peekFor = null;
 let heldOpen = false;
 
-function hoverCard(node, url) {
+function hoverCard(node, url, { when = () => true } = {}) {
   node.addEventListener("mouseenter", () => {
-    if (!finePointer() || el("peek").classList.contains("pinned")) return;
+    if (!finePointer() || el("peek").classList.contains("pinned") || !when()) return;
     showPeek(url, node);
   });
   node.addEventListener("mouseleave", () => {
@@ -3033,7 +3116,7 @@ function hoverCard(node, url) {
   let from = null;
   const cancel = () => { clearTimeout(hold); hold = null; };
   node.addEventListener("pointerdown", (event) => {
-    if (event.pointerType !== "touch") return;
+    if (event.pointerType !== "touch" || !when()) return;
     from = [event.clientX, event.clientY];
     cancel();
     hold = setTimeout(() => {

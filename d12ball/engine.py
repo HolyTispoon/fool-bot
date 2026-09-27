@@ -105,6 +105,7 @@ from d12ball.game import (
 )
 from d12ball import tokens
 from d12ball.personal_abilities import (
+    BOOST_BONUS,
     BRIGHTBURN_BURN_RECOVERY,
     BULWARK_DRAINED_AT,
     EMBERDASH_ADVANCE_MAX,
@@ -525,7 +526,7 @@ class RulesEngine:
         if player_id in match.injured:
             out_word, out_emoji = self.injured_word_and_mark(game, player_id)
             gains_nothing = (
-                "does not drain" if drain else f"adds no {noun}"
+                "does not drain" if drain else "does not exhaust"
             )
             return (
                 f"{self.format_player_label(match, player)} is {out_word} "
@@ -548,13 +549,14 @@ class RulesEngine:
         # tally in teal (`render.draw_exhaustion_badge`), and the same
         # tokens in two colours would read as two different costs.
         #
-        # A Cyborg *drains*: "drain 2" is two drain tokens gained, one
-        # verb where everybody else adds a noun (the author,
-        # 2026-09-23; "add"/"clear" for exhaustion since 2026-09-26).
+        # A Cyborg *drains* and everybody else *exhausts*: "drain 2"
+        # is two drain tokens gained and "exhaust 2" two exhaustion
+        # tokens (the author, 2026-09-23 and 2026-09-27); "clear" takes
+        # either kind off.
         total = match.exhaustion.get(player_id, 0)
         gained = (
             f"drains {amount}" if drain
-            else f"adds {amount} {noun}"
+            else f"exhausts {amount}"
         )
         text = (
             f"{self.format_player_label(match, player)} {gained} "
@@ -917,14 +919,33 @@ class RulesEngine:
         `None` is allowed in and filtered out, since a score attempt's
         second die belongs to no player.
         """
+        return [
+            player_id
+            for player_id in self._may_drain_before_roll(
+                game, match, player_ids,
+            )
+            if player_id not in match.pending_overdrive
+        ]
+
+    def _may_drain_before_roll(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_ids: Collection[Optional[str]],
+    ) -> list[str]:
+        """
+        The rollers who could spend drain on this roll at all -- the
+        uninjured Cyborgs among them -- whatever they have already
+        declared. Overdrive and Boost each narrow it by their own
+        declaration and nothing else, since Gearclaw may declare both
+        on one roll (Law 21).
+        """
         if not self.species_abilities_apply(game):
             return []
         return [
             player_id
             for player_id in player_ids
             if player_id is not None
-            and player_id not in match.pending_overdrive
-            and player_id not in match.pending_boost
             and player_id not in match.injured
             and self.has_species_ability(game, player_id, SPECIES_CYBORG)
         ]
@@ -949,32 +970,39 @@ class RulesEngine:
         """
         Which of the players about to roll may still declare **Boost**
         -- Gearclaw's personal ability (Law 21), offered on every roll
-        an Overdrive is and on the same terms: `overdrive_candidates`,
-        narrowed to the player who holds it. A roll declared either way
-        is closed to the other, which that same list already says.
+        an Overdrive is and on the same terms, narrowed to the player
+        who holds it. Once per roll, like Overdrive, and independent of
+        it: an Overdrive declared on this roll leaves Boost open, and
+        the other way round.
         """
         return [
             player_id
-            for player_id in self.overdrive_candidates(
+            for player_id in self._may_drain_before_roll(
                 game, match, player_ids,
             )
-            if self.has_personal_ability(
+            if player_id not in match.pending_boost
+            and self.has_personal_ability(
                 game, player_id, PersonalAbility.BOOST,
             )
         ]
 
-    def overdrive_detail(self, match: MatchState, player_id: str) -> str:
+    def overdrive_details(
+        self, match: MatchState, player_id: str,
+    ) -> list[str]:
         """
-        The line a declared Overdrive or Boost adds to the dice image's
-        modifier list, or "" -- the twin of `IgnitedRoll.detail`, and
-        worded the same way so a coach reads one list of modifiers
-        however they were earned.
+        The lines a declared Overdrive and Boost add to the dice image's
+        modifier list, one each, and none for neither -- the twin of
+        `IgnitedRoll.detail`, and worded the same way so a coach reads
+        one list of modifiers however they were earned. Two lines
+        rather than one sum because Gearclaw may declare both on a roll
+        (Law 21), and each is its own price.
         """
-        modifier = match.overdrive_modifier(player_id)
-        if not modifier:
-            return ""
-        word = "Boost" if player_id in match.pending_boost else "Overdrive"
-        return f"+{modifier} {word}"
+        lines = []
+        if player_id in match.pending_overdrive:
+            lines.append(f"+{OVERDRIVE_BONUS} Overdrive")
+        if player_id in match.pending_boost:
+            lines.append(f"+{BOOST_BONUS} Boost")
+        return lines
 
     def smooth_candidates(
         self, game: D12BallGame, match: MatchState,

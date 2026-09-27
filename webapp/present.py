@@ -306,7 +306,8 @@ def button(
     `first` makes it an answer given with two objects: the one picked
     up first -- a bench meeple coming on, a player changing zones or
     moving -- and then `place`, the one it is put on. The page lights
-    every `first` with its `first_chip` ("comes on"), and once one is
+    every `first` -- with its `first_chip`, where it has one -- and
+    once one is
     picked, the `place` of each control that starts from it; dragging
     the first onto the second is the same answer. It is still one
     control and one `Action`: the pair is the page's way of choosing
@@ -630,6 +631,29 @@ IN_THE_BOX = frozenset({
 })
 
 
+def split_footnote(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: Optional[MatchState],
+    prompt: PendingPrompt,
+    ask: str,
+) -> tuple[str, str]:
+    """
+    A Coaching Choice's ask with its Spreadable reminder taken off the
+    end, and the reminder: the question box says the reminder under the
+    whistle rather than under the title (the author, 2026-09-26). The
+    words are the model's either way (`RulesEngine.spreadable_note`,
+    which `prompts._window` appends); only where they stand is the
+    page's. Any other ask comes back whole, with no footnote.
+    """
+    if match is None or prompt.side is None:
+        return ask, ""
+    note = engine.spreadable_note(game, match, TeamSide(prompt.side))
+    if not note or not ask.endswith(note):
+        return ask, ""
+    return ask[: -len(note)].rstrip("\n"), note
+
+
 def lit_line(
     engine: RulesEngine,
     game: D12BallGame,
@@ -656,10 +680,6 @@ def lit_line(
     if asked is None or not controls:
         return []
     lines = []
-    # A control answered with two objects lights its first one until
-    # that is picked up, so the line names those, once each, with what
-    # picking each up is for -- not every pair it could end in.
-    firsts: dict[str, list[str]] = {}
     for group in controls:
         for control in group["controls"]:
             place = control.get("place")
@@ -667,13 +687,11 @@ def lit_line(
                 # The box draws its own objects, which say themselves.
                 continue
             if control.get("first"):
-                if control.get("disabled"):
-                    continue
-                chips = firsts.setdefault(
-                    _object_name(asked, control["first"]), [],
-                )
-                if control["first_chip"] not in chips:
-                    chips.append(control["first_chip"])
+                # An answer given with two objects (the Coaching
+                # Choice's) is said by its group's how-line, and the
+                # board lights every player it may start from: a list
+                # of them here only repeats the board (the author,
+                # 2026-09-26).
                 continue
             name = " and ".join(
                 _object_name(asked, one)
@@ -685,20 +703,12 @@ def lit_line(
             text = name if said == name else f"{name} · {said}"
             cost = control.get("cost")
             if cost:
-                noun = "drain" if cost["emoji"] == "exhaust_cyborg" else "exhaustion"
-                text = f"{text} ({cost['count']} {noun})"
+                verb = "drain" if cost["emoji"] == "exhaust_cyborg" else "exhaust"
+                text = f"{text} ({verb} {cost['count']})"
             if control.get("disabled"):
                 lines.append({"text": f"{text} -- {control['note']}", "dark": True})
             else:
                 lines.append({"text": text, "dark": False})
-    together: dict[tuple[str, ...], list[str]] = {}
-    for name, chips in firsts.items():
-        together.setdefault(tuple(chips), []).append(name)
-    for chips, names in together.items():
-        lines.append({
-            "text": f"{', '.join(names)} \u00b7 {' or '.join(chips)}",
-            "dark": False,
-        })
     if asked.kind is PromptKind.COACHING_HUB:
         # What the window has left to substitute with is the options'
         # (`allowance`); the bench is dark once it is spent.
@@ -1777,8 +1787,11 @@ def _coaching_hub(asked: Asked) -> list:
                     f"{asked.label(incoming)} on for {asked.label(outgoing)}",
                     asked.kind,
                     "substitute",
+                    # No chip on a player to pick up, here or below:
+                    # lit, it says itself, and one pick lights every
+                    # answer that starts from it (the author,
+                    # 2026-09-26).
                     first=on_player(incoming),
-                    first_chip="comes on",
                     place=on_player(outgoing),
                     chip=f"\u21d0 {asked.label(incoming)}",
                     side=side,
@@ -1804,7 +1817,6 @@ def _coaching_hub(asked: Asked) -> list:
                     asked.kind,
                     "swap",
                     first=on_player(swap["player_id"]),
-                    first_chip="change zones",
                     place=on_player(other),
                     chip="swap \u21c4",
                     side=side,
@@ -1814,12 +1826,18 @@ def _coaching_hub(asked: Asked) -> list:
                 for swap in options["swaps"]
                 for other in swap["partner_ids"]
             ],
-            how="click two of your players",
+            how=(
+                "pick up a player and drop it on a teammate in another "
+                "zone"
+            ),
         ),
         section(
             "Move within a zone",
             _repositions(asked),
-            how="drag a player to a lit space, or click it and then the space",
+            how=(
+                "pick up a player and drop it on a lit space in its own "
+                "zone"
+            ),
         ),
         section(
             None,
@@ -1886,7 +1904,6 @@ def _repositions(asked: Asked) -> list[dict]:
             )
             pair = {
                 "first": on_player(player_id),
-                "first_chip": "move",
                 "place": on_space(zone, space_index),
             }
             if len(trade_with) > 1:

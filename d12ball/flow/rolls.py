@@ -202,7 +202,7 @@ def _with_extras(
 ) -> None:
     """
     Add the two lines every contestant can carry beyond their own
-    skill: an ignition and an Overdrive.
+    skill: an ignition, and an Overdrive or Boost (or both, Law 21).
 
     Both are asked of every roller in every game -- a training game gets
     an ignite that is the face and nothing else, and a side with no
@@ -212,7 +212,7 @@ def _with_extras(
     """
     for line in (
         getattr(ignite, "detail", None),
-        engine.overdrive_detail(match, player_id),
+        *engine.overdrive_details(match, player_id),
     ):
         if line:
             detail.append(line)
@@ -1135,9 +1135,7 @@ def score_score_attempt(
         attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
     if attack_ignite.detail:
         attack_detail.append(attack_ignite.detail)
-    overdrive_detail = engine.overdrive_detail(match, shooter.player_id)
-    if overdrive_detail:
-        attack_detail.append(overdrive_detail)
+    attack_detail.extend(engine.overdrive_details(match, shooter.player_id))
 
     # **Merge in a score attempt is the attack alone.** An Ooze on the
     # ball while a teammate shoots adds their offensive skill; the

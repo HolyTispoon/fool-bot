@@ -346,7 +346,7 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
             "the ball back one space to M3 - where their Midfielder was already standing. A ball that lands on "
             "one side's player is simply theirs: no roll, and never loose.",
             "That is a turnover, so everybody outside their own zone runs back. Home's Playmaker walks from V1 "
-            "to M2 and pays one exhaustion token for the space.",
+            "to M2 and exhausts 1 for the space.",
         ],
     ))
 

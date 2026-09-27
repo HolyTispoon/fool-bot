@@ -241,6 +241,29 @@ img { display: block; }
 /* -- The board panel ---------------------------------------------------- */
 
 .board-panel { padding: 10px; }
+/* What to do with a meeple just picked up, at the foot of the window
+   -- never over the field, where it would hide what is clicked next --
+   until it is put down or put back. */
+.pick-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--gold);
+  background: rgba(17, 18, 20, 0.92);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.pick-toast[hidden] { display: none; }
 .board-empty { color: var(--muted); text-align: center; margin: 60px 0; }
 
 /* The sideline under the field (step 6 of docs/web-app-redesign.md):
@@ -1078,7 +1101,13 @@ button.goal { display: block; }
   background: var(--panel);
   border: 2px solid rgba(255, 255, 255, 0.07);
   border-radius: 10px;
-  overflow: hidden;
+  /* Not `overflow: hidden`: a piece at the lane's edge wears its
+     badges off its own body -- the token count off the bottom right,
+     the condition off the bottom left -- and a visiting fan is
+     right-aligned, so the front piece's token hangs past the space.
+     Clipped, it read as a chip out of the token (the author,
+     2026-09-27). The badge is drawn over the gap and the neighbour's
+     edge instead, above them by its own z-index. */
 }
 .space.tinted { background: color-mix(in srgb, var(--tint) 12%, var(--panel)); }
 /* A space that is the answer: dashed gold, faintly lit, its chip at
@@ -1088,7 +1117,7 @@ button.goal { display: block; }
   box-shadow: inset 0 0 0 999px rgba(240, 178, 50, 0.10);
   cursor: pointer;
   /* Room at the foot for the chip, under the names. */
-  padding-bottom: 48px;
+  padding-bottom: 84px;
 }
 .space-chips {
   position: absolute;
@@ -1136,7 +1165,9 @@ button.goal { display: block; }
   line-height: 1;
   z-index: 40;
 }
-.fan-name { font-size: 12px; font-weight: 700; color: var(--strong); }
+/* Drawn on the 1200px field and scaled down with it, so larger than
+   the page's own text to read at the scale a laptop shows it. */
+.fan-name { font-size: 20px; font-weight: 700; color: var(--strong); }
 .fan-name.lit { color: var(--gold); }
 .chip {
   display: inline-flex;
@@ -1153,8 +1184,11 @@ button.goal { display: block; }
 .chip-cost { display: inline-flex; align-items: center; gap: 3px; }
 .chip-button { font: inherit; padding: 0; border: 0; background: none; cursor: pointer; }
 .chip-button:hover .chip { filter: brightness(1.1); }
-.fan-chip-line { display: inline-flex; gap: 3px; }
+.fan-chip-line { display: inline-flex; gap: 4px; }
 .chip-cost img { width: 14px; height: 14px; }
+/* On the field, which is scaled down with it, a chip is drawn larger. */
+.stage .chip { border-radius: 7px; padding: 3px 9px; font-size: 18px; }
+.stage .chip-cost img { width: 22px; height: 22px; }
 
 .badge {
   position: absolute;
@@ -2287,16 +2321,19 @@ body.reading-room { height: 100vh; height: 100dvh; display: flex; flex-direction
   .reading-text { padding: 0; border: 0; overflow: visible; }
 }
 
-/* The Coaching Choice's box: the formation tiles, and a line for each
-   move made on the board, under a rule (step 6). */
+/* The Coaching Choice's box: a line for each move made on the board,
+   then the formation tiles, above the whistle and set off from it by a
+   rule (step 6; reordered by the author, 2026-09-26). */
 .how {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px solid var(--line);
-  padding-top: 10px;
-  margin-top: 6px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  margin-bottom: 6px;
 }
+/* The Spreadable reminder, under the whistle. */
+.footnote { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
 .how-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .how-label { font-size: 11px; font-weight: 800; color: var(--muted); }
 .how-line { margin: 0; font-size: 12px; color: var(--muted); }

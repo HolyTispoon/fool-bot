@@ -315,6 +315,9 @@ def injury_test_step(
     # Overdrive still is -- it is the Cyborg's to spend on any roll.
     ignite = engine.injury_ignite(game, player_id, roll)
     overdrive = match.overdrive_modifier(player_id)
+    # One line per declaration, read before they are spent: Gearclaw's
+    # Boost is said as itself, beside an Overdrive or alone (Law 21).
+    overdrive_details = engine.overdrive_details(match, player_id)
     match.consume_overdrive()
     # Zorch adds the ball speed modifier to every roll they make (Law 21).
     speed, speed_line = engine.speed_roll_bonus(game, match, player_id)
@@ -329,11 +332,7 @@ def injury_test_step(
     # said in words or the number a coach reads and the verdict they
     # are given would not add up.
     modifiers = [
-        part for part in (
-            f"+{overdrive} Overdrive" if overdrive else None,
-            ignite.detail,
-            speed_line,
-        )
+        part for part in (*overdrive_details, ignite.detail, speed_line)
         if part
     ]
     overdrive_note = (

@@ -154,7 +154,7 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-09-27 (latest) -- sheet and author, Zorch rolls with the ball; eleven abilities reworded
+### 2026-09-27 (newest) -- sheet and author, Zorch rolls with the ball; eleven abilities reworded
 
 Re-imported from the sheet. Zorch's personal ability is new: *"Adds ball speed modifier to all
 rolls."* It replaces *"Does not add exhaustion when rolling skill tests (including after
@@ -167,8 +167,8 @@ ties)."*, and the author settled three readings of it:
   Zorch's own score attempt, a Steal or Intercept Zorch contests with, the throwing side of a
   High Pass contest -- Zorch adds nothing more. An overshoot's modifier still counts against
   the pass.
-- **The free tests are gone** (the author): Zorch pays a skill test's token and a re-roll's like
-  anybody else.
+- **The free tests are gone** (the author): Zorch exhausts 1 for a skill test and for a re-roll
+  like anybody else.
 - **The shootout** (the author): *"During shootouts the ball speed is at 1 and so the modifier
   is 0."* Zorch's shootout test asks for the modifier like every other roll and gets 0. The
   code had not reset the speed at full time, which Law 7.3 already required since full time
@@ -186,6 +186,42 @@ typo *"eammate"* fixed), Umbrik, Viscor, Vorix (the author dropped "successfully
 still needs the High Pass won) and Zenith. Zenith's now reads *"after turnover"* where it said
 *"before runback"*; the author: Fly is still offered only at a steal's run back, never after a
 new play. The Playmaker's abbreviated column now reads *"Dribble for 1 additional space"*.
+
+### 2026-09-27 (latest) -- author, "exhaust" is the verb for gaining exhaustion
+
+The author: *"replace all 'add X exhaustion' with 'Exhaust X' - similar to 'Drain X' and 'Clear
+X' which we already have."*
+
+- **A word, not a rule.** A player who **exhausts 2** adds 2 exhaustion tokens, as a Cyborg who
+  drains 2 adds 2 drain (the 2026-09-23 entry below). Every number, threshold and condition is
+  unchanged. The 2026-09-26 narration commit had settled on *adds N exhaustion*; this replaces it.
+- **The Charter says it once**, as 15.1.4, and 20.3.2 now reads "wherever a rule has a Cyborg
+  exhaust, they drain that many instead". Every other "adds 1 exhaustion", "costs 1 exhaustion
+  token", "take 1 token" and "at a token each" in the Laws and the Learn to Play now reads
+  *exhausts 1*, *exhaust 1* or *each exhausts 1*. Headings and table labels that name the
+  mechanic ("Gaining tokens", "What costs tokens") stay as they are.
+- **The bot says it too**: *Name exhausts 2* where it said *Name adds 2 exhaustion*, *does not
+  exhaust* for an injured player, *exhaust 1 for every space traveled* on a run back, *(exhaust 1
+  a space)* on a Dribble Burst, *Mind Pull it (exhaust 1)*, and *Clear was beaten -- exhaust 2*.
+- **Clear** (taking tokens off) and **drain** are unchanged.
+- **Upstream is behind** in four cells: the sheet's Dribble Burst and Clear effects, the
+  Telekinetic's Mind Pull (both columns) and Zenith's Fly -- see "Where upstream is behind".
+  The data files are never edited by hand, so the maneuver cards and the ability text keep the
+  sheet's wording until it changes and is imported.
+
+### 2026-09-27 (later) -- author, Gearclaw may Boost and Overdrive on the same roll
+
+The author: *"Gearclaw can boost and overcharge in the same maneuver. Each ability can be used
+once per maneuver, and a coach can choose to use one, both, or neither."*
+
+- **Reverses the 2026-09-25 (later) answer** *"Either, not both."* Boost (drain 1, +3) and
+  Overdrive (drain 3, +5) may now both be declared on one roll: drain 4 for +8.
+- **Once per roll, each.** "Overcharge" is Overdrive, the only ability of that shape Gearclaw
+  holds. Asked whether "once per maneuver" meant once per roll, the author: *"Correct both
+  overdrive and boost are 'once per role' and should say so clearly."* So a tie that is rolled
+  again is a fresh roll on which each may be declared again, as
+  [Law 20.3.6](living-rules.md#203-lithium-powered-cyborg) already said of Overdrive. Laws
+  20.3.5 and 21.4.3 now put **once per roll** in bold, and the species table says it too.
 
 ### 2026-09-27 -- author, basic mode is renamed standard mode
 
@@ -447,6 +483,7 @@ the one-line cells left open:
   one."*
 - **Gearclaw:** Boost is *"declared blind before the roll like overdrive"*; asked whether Boost
   and Overdrive stack on one roll: *"Either, not both."*
+  *Superseded on 2026-09-27*: both may be declared on one roll -- see that entry.
 - **Acidel:** *"scoring opportunity replaces the own goal."*
 - **Goopkeeper:** *"full block means they just contribute their full value of their defense
   skill rather than just halfway, which is what would usually be the case when they are not on
@@ -2985,6 +3022,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Cleanup restarts "from the middle (back of the midfield)" | The same kickoff space rule, for every restart |
 | "Clash" / "clash roll" | Skill test |
 | Lithium Powered: "can gain 3 drain tokens to add +5", "3 drain → +5" (the sheet) | Drain 3 for +5 -- *drain* is the verb for gaining drain |
+| Dribble Burst "adding exhaustion per space", Clear "if defeated, add 2 exhaustion", Mind Pull "take 1 exhaustion" (both columns), Zenith's Fly "adding exhaustion per space" (the sheet) | Exhausting 1 per space, exhaust 2, exhaust 1 -- *exhaust* is the verb for gaining exhaustion |
 | Volatile: "When a Fire Demon rolls a natural 6 or 7", on any roll (the sheet) | Only a skill test, a contest, a score attempt's shooter and a shootout test ignite; never an injury check or an own-goal roll |
 | A score attempt's "each player rolls a d12" | Exactly two dice, one per coach; the defence sums intervening meeples |
 | Every meeple in the way adds its whole defensive skill | Full on the ball's own space, half rounded up beyond it |

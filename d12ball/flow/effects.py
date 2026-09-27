@@ -405,7 +405,7 @@ def pay_clear_cost(
     if defender_id is None:
         return ""
     text = engine.apply_exhaustion(game, match, defender_id, 2)
-    return f"\n\n**Clear** was beaten -- 2 exhaustion.\n{text}"
+    return f"\n\n**Clear** was beaten -- exhaust 2.\n{text}"
 
 
 def dribble_advance_step(
@@ -1174,6 +1174,11 @@ def own_goal_roll_step(
     # so neither die is asked through `engine.ignite`: a Fire Demon's
     # natural 6 or 7 here is only the number.
     overdrive = match.overdrive_modifier(offense_player.player_id)
+    # Worded per declaration, read before they are spent: Gearclaw's
+    # Boost is its own line, beside an Overdrive or alone (Law 21).
+    overdrive_details = engine.overdrive_details(
+        match, offense_player.player_id,
+    )
     match.consume_overdrive()
     # Zorch adds the ball speed modifier to every roll they make (Law 21).
     speed, speed_line = engine.speed_roll_bonus(
@@ -1208,8 +1213,8 @@ def own_goal_roll_step(
         f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
         f"is {taken}, + {offense_skill} (offensive skill)"
     )
-    if overdrive:
-        arithmetic += f", +{overdrive} Overdrive"
+    for line in overdrive_details:
+        arithmetic += f", {line}"
     if speed:
         arithmetic += f", {speed_line}"
     total = taken + offense_skill + overdrive + speed
@@ -2415,11 +2420,11 @@ def offer_dribble_burst(
             dribble_burst_step(engine, game, match, 0), lead_in,
         )
 
-    # "Drain 1" is a Cyborg's word for gaining a drain token.
+    # "Drain 1" and "exhaust 1" are the verbs for gaining a token.
     cost = (
         "drain 1"
         if engine.drain_wording(game, match.active_player_id)
-        else "1 exhaustion token"
+        else "exhaust 1"
     )
     # Emberdash's burst costs nothing (Law 21), so the prompt names no
     # price rather than one that is not charged.

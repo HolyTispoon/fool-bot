@@ -94,7 +94,7 @@ Choose an action:
 === action 10: PLAYER_ACTION 'maneuver' {}
 --- prompt TUTORIAL_CONTINUE
 ### When both cards are the same rank
-Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is not a draw -- it goes to a **skill test**: both players roll a d12 and add their skill, the attacker their offensive and the defender their defensive, plus whatever their ability is worth. Highest total takes it, and both players pick up an **exhaustion token** for the effort. Exhaustion is the game's running cost; enough of it and a player risks getting injured.
+Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is not a draw -- it goes to a **skill test**: both players roll a d12 and add their skill, the attacker their offensive and the defender their defensive, plus whatever their ability is worth. Highest total takes it, and both players **exhaust 1** for the effort. Exhaustion is the game's running cost; enough of it and a player risks getting injured.
 
 **Pick Low Pass.** It is rank 1, just like the Deflect Dinky has played, so this one goes to the dice -- and Dinky is going to win it. Watch what a won Deflect does: it knocks the ball back a space, nothing more. It only comes **loose** -- open to both sides -- when it lands where nobody is standing. Dinky already has a midfielder right there on space 5, so the ball is simply theirs: no roll, no contest, never loose.
 --- board changed
@@ -115,8 +115,8 @@ Every maneuver has a **rank**, and two cards of the same rank **tie**. A tie is 
 {team:orange} Sizzifizik {role:playmaker:orange}: offense skill 4
 {team:purple} Dravox {role:defender:purple}: defense skill 5
 
-{team:orange} Sizzifizik {role:playmaker:orange} adds 1 exhaustion {condition:exhaust} (now 1 total).
-{team:purple} Dravox {role:defender:purple} adds 1 exhaustion {condition:exhaust} (now 1 total).
+{team:orange} Sizzifizik {role:playmaker:orange} exhausts 1 {condition:exhaust} (now 1 total).
+{team:purple} Dravox {role:defender:purple} exhausts 1 {condition:exhaust} (now 1 total).
 --- prompt SKILL_TEST
 Either player can roll:
 --- board changed
@@ -131,7 +131,7 @@ The ball is at **space 5** (Midfield). # Turnover!
 {team:purple} Glompex {role:midfielder:purple} picks up the ball. Purple (Visiting) now has possession.
 
 # Players run back!
-Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
+Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
 --- prompt RUN_BACK_SPACE
 {coach:1}, choose where {team:orange} Sizzifizik {role:playmaker:orange} runs back to:
 Space 4 (2 away) or space 5 (1 away).
@@ -139,12 +139,12 @@ Space 4 (2 away) or space 5 (1 away).
 === action 14: RUN_BACK_SPACE '' {"space_index": 1}
 --- answer
 {team:orange} Sizzifizik {role:playmaker:orange} runs back to space 4.
-{team:orange} Sizzifizik {role:playmaker:orange} adds 2 exhaustion {condition:exhaust}{condition:exhaust} (now 3 total).
+{team:orange} Sizzifizik {role:playmaker:orange} exhausts 2 {condition:exhaust}{condition:exhaust} (now 3 total).
 --- prompt TUTORIAL_CONTINUE
 Ball is now in space 5, Purple (Visiting) has possession. Time has advanced 1, now at 02.
 
 ## 3. Your turn to defend
-Dang it. You lost possession. Dinky won the skill test, and their Deflect knocked the ball back to **space 5** -- right onto one of their own midfielders, who was already standing there. Nobody of yours was, so it went straight to them: no roll, and never loose at all. Your playmaker, left standing outside her own zone at space 6, has run back into midfield -- and paid an exhaustion token per space to do it.
+Dang it. You lost possession. Dinky won the skill test, and their Deflect knocked the ball back to **space 5** -- right onto one of their own midfielders, who was already standing there. Nobody of yours was, so it went straight to them: no roll, and never loose at all. Your playmaker, left standing outside her own zone at space 6, has run back into midfield -- and exhausted 1 per space to do it.
 
 Dinky is coming at your goal now, and this time **nobody of yours is anywhere near the ball**. Before anything else, you'll be asked to send a challenger to it -- pick either of the two offered, it costs the same either way. Sending nobody would let Dinky's maneuver straight through unchallenged, so that button is greyed out here.
 
@@ -158,7 +158,7 @@ Once your challenger is in position, Dinky moves, and then you are asked for a c
 === action 16: MANEUVER_CHALLENGE 'send' {"player_id": "sizzifizik_playmaker"}
 --- prompt TUTORIAL_CONTINUE
 Sizzifizik has moved 1 space.
-{team:orange} Sizzifizik {role:playmaker:orange} adds 1 exhaustion {condition:exhaust} (now 4 total).
+{team:orange} Sizzifizik {role:playmaker:orange} exhausts 1 {condition:exhaust} (now 4 total).
 {team:orange} Sizzifizik {role:playmaker:orange} is now *exhausted* {condition:exhausted}
 
 ### The other three cards
@@ -201,7 +201,7 @@ Now take it off them.
 ### Turnovers, the run back, and ball speed
 **Pick Steal.** Dinky is playing Low Pass, and Steal beats it -- the ball will be yours again!
 
-Two things happen after it. Your player takes the ball back a space with them, and **anyone left standing outside their own zone runs back into it** =gainin an exhaustion per space, the same cost you watched Dinky pay two turns ago.
+Two things happen after it. Your player takes the ball back a space with them, and **anyone left standing outside their own zone runs back into it**, exhausting 1 per space, the same cost you watched Dinky pay two turns ago.
 
 Then you get to set the **ball's speed**, up to your stealer's defensive skill. Speed is worth half itself, rounded down, **added to a score attempt** -- and it is reset by every turnover, so a speed set now is one that survives. You are about to shoot. **Take the highest number offered**; the rest are greyed out.
 --- board changed
@@ -222,10 +222,10 @@ Then you get to set the **ball's speed**, up to your stealer's defensive skill. 
 {team:orange} Sizzifizik {role:playmaker:orange} steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
 # Players run back!
-Players return to an open space in their assigned zone and add 1 exhaustion for every space traveled. The ball speed goes down to **1**.
+Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
 --- group action RUN_BACK_SPACE ''
 {team:purple} Glompex {role:midfielder:purple} runs back to space 3.
-{team:purple} Glompex {role:midfielder:purple} adds 3 exhaustion {condition:exhaust}{condition:exhaust}{condition:exhaust} (now 3 total).
+{team:purple} Glompex {role:midfielder:purple} exhausts 3 {condition:exhaust}{condition:exhaust}{condition:exhaust} (now 3 total).
 --- prompt SPEED_DELTA_CHOICE
 {coach:1}, manipulate the ball's speed (up to 3):
 --- board changed
@@ -256,7 +256,7 @@ Choose an action:
 === action 25: PLAYER_ACTION 'maneuver' {}
 --- prompt TUTORIAL_CONTINUE
 Dravox has moved 1 space.
-{team:purple} Dravox {role:defender:purple} adds 1 exhaustion {condition:exhaust} (now 2 total).
+{team:purple} Dravox {role:defender:purple} exhausts 1 {condition:exhaust} (now 2 total).
 
 ### High Pass, and what a shot is up against
 **Pick High Pass.** Dinky is playing Steal, and High Pass beats it, so the pass gets through.
@@ -300,7 +300,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 {team:orange} Acidel {role:striker:orange} scores for Orange (Home) on **04**!
 Orange 1:0 Purple
 
-{team:orange} Acidel {role:striker:orange} adds 1 exhaustion {condition:exhaust} (now 1 total).
+{team:orange} Acidel {role:striker:orange} exhausts 1 {condition:exhaust} (now 1 total).
 --- group BEGIN_RUN_BACK drawn new-play
 # New play
 Both teams reset to the positions their coaches last set:
