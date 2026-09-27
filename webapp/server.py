@@ -179,6 +179,13 @@ async def revalidate_by_default(
     return response
 
 
+#: How long a room may go with nobody's page open on it before the
+#: front door stops offering it to strangers, in seconds: a day, the
+#: author's choice (2026-09-26), after the outage left rooms opened by
+#: people who saw nothing and never came back. The room is not closed.
+OPEN_ROOM_IDLE = 24 * 60 * 60
+
+
 PORT_VARIABLE = "FOOLBOT_WEB_PORT"
 HOST_VARIABLE = "FOOLBOT_WEB_HOST"
 DEFAULT_PORT = 8080
@@ -234,6 +241,14 @@ class WebApp:
         self._cards: dict[tuple, bytes] = {}
         self._dice: dict[tuple, bytes] = {}
         self._runner: Optional[web.AppRunner] = None
+        #: The time, per game, somebody last had its page open -- every
+        #: poll sets it -- which is what takes a room nobody comes back
+        #: to off the Open rooms list (`OPEN_ROOM_IDLE`). Memory only:
+        #: after a restart a room counts from the restart, which puts
+        #: off hiding it and never hides one early.
+        self.clock = time.time
+        self._started = self.clock()
+        self._looked_at: dict[str, float] = {}
         self.app = web.Application(middlewares=[revalidate_by_default])
         self.app.add_routes(
             [
@@ -549,6 +564,7 @@ class WebApp:
     async def state(self, request: web.Request) -> web.Response:
         game = self._game(request)
         coach = self._person(request)
+        self._looked_at[game.game_id] = self.clock()
         async with self.locks.hold(game.game_id):
             self._arrive(game, coach)
             if coach is not None:
@@ -583,8 +599,10 @@ class WebApp:
             held = coach is not None and seat_of(game, coach.id) is not None
             if held:
                 mine[room_status(game)].append(self._listing(game, coach))
-            elif not game.is_finished and any(
-                game.seat_is_free(number) for number in (1, 2)
+            elif (
+                not game.is_finished
+                and any(game.seat_is_free(number) for number in (1, 2))
+                and not self._idle(game)
             ):
                 free.append(self._listing(game, None))
         return web.json_response({"mine": mine, "open": free})
@@ -629,6 +647,19 @@ class WebApp:
                 or f"{match.scoreboard.time:02d}' {period_name(match)}"
             ),
             "your_move": self._your_move(game, match, coach),
+            # The card's way out, so a dead room is cleared from the
+            # front door without opening it: Close for a room nothing
+            # was played in, Abandon for a game under way -- the same
+            # two routes the room's own page calls, which judge again.
+            "may_close": self._may_close(game, coach),
+            # Whether Close asks "Are you sure?" first: only when it
+            # would close a room on somebody else sitting in it.
+            "close_asks": others_seated(game, coach),
+            "may_abandon": (
+                coach is not None
+                and seat_of(game, coach.id) is not None
+                and game.status == GameStatus.IN_PROGRESS
+            ),
             "url": f"/room/{game.game_id}",
         }
 
@@ -2154,13 +2185,27 @@ class WebApp:
                 ],
                 "board_size": game.board_size,
             },
-            "may_close": (
-                seated
-                or self.rooms.is_admin(
-                    game.game_id, None if coach is None else coach.id,
-                )
-            ) and game.status == GameStatus.SETUP,
+            "may_close": self._may_close(game, coach),
+            "close_asks": others_seated(game, coach),
         }
+
+    def _idle(self, game: D12BallGame) -> bool:
+        """Whether nobody has had this room open for `OPEN_ROOM_IDLE`:
+        it stays in its coaches' own list, where its card can close it,
+        and leaves everybody else's Open rooms."""
+        seen = self._looked_at.get(game.game_id, self._started)
+        return self.clock() - seen > OPEN_ROOM_IDLE
+
+    def _may_close(self, game: D12BallGame, coach: Optional[Coach]) -> bool:
+        """Whether this reader is offered "Close this room", on the
+        table and on the room's card: somebody seated or the admin, in
+        a game still in setup -- `close_room`'s gate, and
+        `discard_game`'s refusal is the service's."""
+        if coach is None or game.status != GameStatus.SETUP:
+            return False
+        return seat_of(game, coach.id) is not None or self.rooms.is_admin(
+            game.game_id, coach.id,
+        )
 
     def _table_moves(self, game: D12BallGame, coach: Optional[Coach]) -> bool:
         """
@@ -2293,6 +2338,18 @@ class WebApp:
             "colour": None if team is None else TEAM_COLORS[team],
             "side": side,
         }
+
+
+def others_seated(game: D12BallGame, coach: Optional[Coach]) -> bool:
+    """Whether a person other than this reader holds a seat -- the AI
+    is nobody to warn, and neither is a test game's one coach in both
+    seats. What decides if closing the room asks first (the author,
+    2026-09-26)."""
+    reader = None if coach is None else coach.id
+    return any(
+        held is not None and held != reader and not game.ai_holds(number)
+        for number, held in ((1, game.player_1_id), (2, game.player_2_id))
+    )
 
 
 def seat_of(game: D12BallGame, coach_id: Optional[int]) -> Optional[int]:

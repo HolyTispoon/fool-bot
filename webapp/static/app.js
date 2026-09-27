@@ -2834,7 +2834,8 @@ function drawSideline(table, room) {
     room.admin ? neutral("Give up admin", dropAdmin) : neutral("Become admin", becomeAdmin),
     table.may_close
       ? neutral("Close this room", () => {
-        if (confirm("Close this room? Nothing has been played in it.")) roomMove("", {}, "DELETE");
+        /* Asked only when somebody else holds a seat (`close_asks`). */
+        if (!table.close_asks || confirm("Close this room? Nothing has been played in it.")) roomMove("", {}, "DELETE");
       })
       : null,
   ].filter(Boolean));

@@ -56,7 +56,7 @@ from webapp.chat import CHAT_LENGTH, WEB_CHAT_FILE, Chats
 from webapp.journal import WEB_JOURNAL_FILE, Entry
 from webapp.names import Names
 from webapp.rooms import WEB_ROOMS_FILE, Rooms
-from webapp.server import WebApp, _was_offered
+from webapp.server import OPEN_ROOM_IDLE, WebApp, _was_offered
 from prompt_fixtures import (
     CASES,
     ENGINE,
@@ -1652,6 +1652,85 @@ class RoomTests(unittest.IsolatedAsyncioTestCase):
         return controls_for(
             ENGINE, game, match, pending_prompt(ENGINE, game, match),
             Viewer(player_number),
+        )
+
+    async def rooms(self, coach_id: int) -> dict:
+        response = await self.client.get("/api/rooms", headers=as_coach(coach_id))
+        self.assertEqual(response.status, 200)
+        return await response.json()
+
+    async def test_a_room_card_offers_its_coach_the_way_out(self) -> None:
+        room = await self.open_room()
+
+        lobby = (await self.rooms(self.CREATOR))["mine"]["lobby"][0]
+        stranger = (await self.rooms(self.SECOND))["open"][0]
+
+        self.assertTrue(lobby["may_close"])
+        self.assertFalse(lobby["may_abandon"])
+        self.assertFalse(stranger["may_close"])
+        self.assertFalse(stranger["may_abandon"])
+
+        self.kick_off(room)
+        playing = (await self.rooms(self.CREATOR))["mine"]["in_progress"][0]
+
+        self.assertFalse(playing["may_close"])
+        self.assertTrue(playing["may_abandon"])
+
+    async def test_closing_asks_first_only_over_somebody_else_seated(
+        self,
+    ) -> None:
+        def asks(listed: dict, room: str) -> bool:
+            return next(
+                one for one in listed["mine"]["lobby"] if one["id"] == room
+            )["close_asks"]
+
+        alone = await self.open_room()
+        self.assertFalse(asks(await self.rooms(self.CREATOR), alone))
+        self.assertFalse((await self.arrive(alone, self.CREATOR))["table"]["close_asks"])
+
+        # The AI is nobody to warn.
+        response = await self.move(alone, self.CREATOR, "/seat/ai", {"seat": 2})
+        self.assertEqual(response.status, 200)
+        self.assertFalse(asks(await self.rooms(self.CREATOR), alone))
+
+        shared = await self.open_room()
+        await self.arrive(shared, self.SECOND)
+        self.assertTrue(asks(await self.rooms(self.CREATOR), shared))
+        self.assertTrue(asks(await self.rooms(self.SECOND), shared))
+        self.assertTrue((await self.arrive(shared, self.CREATOR))["table"]["close_asks"])
+
+    async def test_a_room_closed_from_its_card_leaves_the_list(self) -> None:
+        room = await self.open_room()
+
+        response = await self.client.delete(
+            f"/api/room/{room}", headers=as_coach(self.CREATOR),
+        )
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(self.games, {})
+        mine = (await self.rooms(self.CREATOR))["mine"]
+        self.assertEqual(sum(map(len, mine.values())), 0)
+
+    async def test_a_room_nobody_has_open_for_a_day_leaves_open_rooms(
+        self,
+    ) -> None:
+        room = await self.open_room()
+        await self.arrive(room, self.CREATOR)
+        now = self.web.clock()
+        self.web.clock = lambda: now + OPEN_ROOM_IDLE + 1
+
+        self.assertEqual((await self.rooms(self.SECOND))["open"], [])
+        # Its coach still has it, and its card can close it.
+        self.assertEqual(
+            [one["id"] for one in (await self.rooms(self.CREATOR))["mine"]["lobby"]],
+            [room],
+        )
+
+        # Somebody looking at it again puts it back.
+        await self.arrive(room, self.CREATOR)
+        self.assertEqual(
+            [one["id"] for one in (await self.rooms(self.SECOND))["open"]],
+            [room],
         )
 
     async def test_opening_a_room_needs_a_name(self) -> None:

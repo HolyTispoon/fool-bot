@@ -97,7 +97,42 @@ function roomCard(room, { renamable = false } = {}) {
       onclick: (event) => { event.preventDefault(); event.stopPropagation(); renameRoom(room); },
     }, "Name"));
   }
+  const out = wayOut(room);
+  if (out) card.querySelector(".card-head").append(out);
   return card;
+}
+
+/* A dead room cleared from the list without opening it: Close for a
+   room nothing was played in (it is gone), Abandon for a game under
+   way (it stays, over, and counts as abandoned). The server says
+   which a card is offered (`may_close`, `may_abandon`) and judges the
+   click again; the room's own page asks the same two routes. */
+function wayOut(room) {
+  const [label, question, method, path] = room.may_close
+    ? ["Close", "Close this room? Nothing has been played in it.", "DELETE", ""]
+    : room.may_abandon
+      ? ["Abandon", "Abandon this game? It ends with no result.", "POST", "/abandon"]
+      : [];
+  if (!label) return null;
+  return h("button", {
+    type: "button",
+    class: "linkish danger-link",
+    title: label === "Close" ? "Close this room" : "Abandon this game",
+    onclick: async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      /* Closing asks only when somebody else is sitting in the room
+         (`close_asks`); abandoning a game always does. */
+      if ((label !== "Close" || room.close_asks) && !confirm(question)) return;
+      try {
+        const response = await fetch(`/api/room/${room.id}${path}`, { method });
+        if (!response.ok) refuse(await response.text());
+      } catch (failure) {
+        refuse("That did not reach the server. Try again in a moment.");
+      }
+      listRooms();
+    },
+  }, label);
 }
 
 /* Naming a room is the table's `name` setting (d12ball/game.py's
