@@ -28,7 +28,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from d12ball.render import FONT_DIR
 
-FONT = FONT_DIR / "DejaVuSans-Bold.ttf"
+FONT = FONT_DIR / "RobotoSlab-Bold.ttf"
 SS = 2  # supersample
 
 # A clear die: how much of a near face gives way to the far faces behind

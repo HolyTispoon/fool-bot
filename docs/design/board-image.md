@@ -400,11 +400,29 @@ stay Racing Sans One.
 - **It is Apache 2.0, not OFL**, and the built files are modified from
   upstream, so they say so in their own name table (description, ID 10) and in
   `RobotoSlab-LICENSE.txt`.
-- **DejaVu is still bundled** for what was drawn from it once and committed as
-  art: the role and team emoji, the condition tokens (uploaded to Discord and
-  traced into the 3D tokens), and Prophetic Folly's dice on the studio page.
-  Redrawing those in Roboto Slab is a separate decision, because the emoji
-  have to be re-uploaded and the 3D tokens re-traced.
+- **The bundled faces are hinted with ttfautohint.** Roboto Slab ships
+  unhinted, and under Pillow's layout an unhinted face sets each letter at a
+  fractional position rounded on its own, so text at 7 to 11 pixels spaced
+  unevenly ("FOOLSGAMES", "Comp rehensive") -- a board's smallest labels, and
+  the rulebook covers on d12ball.com. DejaVu never showed it because DejaVu is
+  hinted. The hinting reaches 200 pixels, so rebuilding the fonts moves the
+  emoji and token art by an edge pixel too: rebuild, then rerun the art
+  scripts.
+- **The committed art is Roboto Slab too** (the author, 2026-09-27): the role
+  badges, the colour teams' letters and the species' lettered alternates
+  (`render_role_emoji.py`, `render_team_emoji.py`), the four condition words
+  (`render_condition_tokens.py`), the exhaustion token's Zs
+  (`redraw_exhaust_zs.py`, then `recolor_exhaust_token.py`), and Prophetic
+  Folly's dice on the studio page (`landing/dice.py`). Before the switch each
+  script was run with DejaVu and checked against the committed files -- every
+  one reproduced them, to text rasterisation -- so the font is the only thing
+  the redraw changed. The Discord copies of the emoji change only when the
+  files are uploaded again, by hand, in the Developer Portal; the board, the
+  cards, the web app and the paper token sheet read the files and change at
+  once, and the 3D tokens change when `render_token_models.py` is rerun.
+- **DejaVu stays bundled for one reason**: it is where the arrows come from,
+  and `build_bundled_fonts.py` needs it to rebuild the Roboto Slab files.
+  Nothing draws with it.
 
 Fonts are bundled in `d12ball/fonts/` and loaded by absolute path. **Do not go
 back to looking them up by bare filename.** `ImageFont.truetype("Arial.ttf")`

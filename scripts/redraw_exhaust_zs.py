@@ -36,9 +36,18 @@ every other glyph's actual ink, not just its bounding box, so letters that
 lean past their own rectangle (the shear, or a stroke's own diagonal)
 still can't touch.
 
-    python3 scripts/redraw_exhaust_zs.py                 # dry run
-    python3 scripts/redraw_exhaust_zs.py --in-place
-    python3 scripts/redraw_exhaust_zs.py --out /tmp/tokens
+    git show 9abf307:d12ball/images/emoji/exhaust.png > /tmp/exhaust-pill.png
+    python3 scripts/redraw_exhaust_zs.py --source /tmp/exhaust-pill.png             # dry run
+    python3 scripts/redraw_exhaust_zs.py --source /tmp/exhaust-pill.png --in-place
+    python3 scripts/redraw_exhaust_zs.py --source /tmp/exhaust-pill.png --out /tmp/tokens
+
+**The source is the token before its Zs, not today's `exhaust.png`**:
+the script erases the old pill and draws the Zs onto what is left, so
+run on its own output it would draw a second set over the first. That
+art is `exhaust.png` as commit 9abf307 left it; redrawn from there with
+the Zs' old face, the result is today's file pixel for pixel, which is
+how the Roboto Slab redraw (2026-09-27) was checked to change nothing
+but the face.
 
 It writes nothing unless asked, same as `recolor_exhaust_token.py` and
 `render_condition_tokens.py` -- what it would overwrite is tracked art.
@@ -63,8 +72,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 EMOJI_DIR = PROJECT_ROOT / "d12ball" / "images" / "emoji"
-SOURCE = EMOJI_DIR / "exhaust.png"
-FONT_PATH = PROJECT_ROOT / "d12ball" / "fonts" / "DejaVuSans-Bold.ttf"
+FONT_PATH = PROJECT_ROOT / "d12ball" / "fonts" / "RobotoSlab-Bold.ttf"
 
 # The source's own two flat colours -- the same ones
 # `recolor_exhaust_token.py` samples, since the Zs are drawn in the ring's
@@ -193,6 +201,12 @@ def main() -> int:
         type=Path,
         help="write the token to this directory instead",
     )
+    parser.add_argument(
+        "--source",
+        type=Path,
+        required=True,
+        help="the token before its Zs: exhaust.png as of commit 9abf307",
+    )
     args = parser.parse_args()
 
     if args.in_place and args.out:
@@ -202,7 +216,7 @@ def main() -> int:
     if destination is not None:
         destination.mkdir(parents=True, exist_ok=True)
 
-    token = redraw(SOURCE)
+    token = redraw(args.source)
     if destination is None:
         print("exhaust: three diagonal Zs -- not written")
         print("\nDry run. Pass --in-place to overwrite, or --out to look first.")

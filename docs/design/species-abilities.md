@@ -657,7 +657,10 @@ missing other half for Injured, scoped the same way.
   erases the pill back to the face's own ink and draws three bold "Z"s
   straight onto the face in the ring's own amber, stepped down in size
   top-right to bottom-left, the largest tucked into the triangle's own
-  corner. **The triangle itself is still not regenerated** -- the edge,
+  corner. The Zs are Roboto Slab Bold since 2026-09-27; the script now takes
+  `--source`, the pill-bearing `exhaust.png` of commit 9abf307, because run on
+  its own output it would draw a second set over the first. **The triangle
+  itself is still not regenerated** -- the edge,
   ring and face are the same pixels they always were, only the content
   inside the ring changed, for the same "don't risk a shape that doesn't
   match" reason `recolor_exhaust_token.py` never redraws it either. That

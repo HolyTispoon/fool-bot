@@ -65,7 +65,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 EMOJI_DIR = PROJECT_ROOT / "d12ball" / "images" / "emoji"
-FONT_PATH = PROJECT_ROOT / "d12ball" / "fonts" / "DejaVuSans-Bold.ttf"
+FONT_PATH = PROJECT_ROOT / "d12ball" / "fonts" / "RobotoSlab-Bold.ttf"
 
 # The size the art this replaces was drawn at. Discord takes anything
 # and `render.py` resizes to 26px, but a token is also the one image a
@@ -96,8 +96,8 @@ RAY_COUNT = 28
 RAY_HALF_ANGLE = 1.4  # degrees
 
 # The word is drawn at whatever size fits and then squashed to this box,
-# which is what gives it the condensed face the bundled DejaVu does not
-# have. Both words fill the same box, so INJURED and EXHAUSTED read as
+# which is what gives it the condensed face the bundled Roboto Slab does
+# not have. Both words fill the same box, so INJURED and EXHAUSTED read as
 # one set rather than as two sizes.
 TEXT_WIDTH = 0.86
 TEXT_HEIGHT = 0.34
