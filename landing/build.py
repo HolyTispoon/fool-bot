@@ -49,8 +49,10 @@ from d12ball.components import (
 from d12ball.game import COLOR_TEAMS, Team, team_display_name
 from d12ball.player_cards import render_player_card
 from d12ball.render import FONT_DIR, TEAM_COLORS, species_icon
+from d12ball.rulebooks import BOOKS, DEFAULT_PAPER, book_bytes
 from d12ball.species_cards import SPECIES_TEAM
 from landing.capture import BOARD_CAPTURE
+from landing.covers import render_cover
 
 LANDING_DIR = Path(__file__).resolve().parent
 DIST_DIR = LANDING_DIR / "dist"
@@ -83,16 +85,27 @@ STUDIO_PARAGRAPH = (
     "interactions that invite repeat play."
 )
 
+# The two books the site hands out, built by this build into
+# `downloads/`: the address that is printed, the book in
+# `rulebooks.BOOKS`, and the file's name, which says what it is once it
+# is sitting in somebody's downloads folder. The page's rulebooks card
+# shows each book's cover in this order.
+BOOK_DOWNLOADS: tuple[tuple[str, str, str], ...] = (
+    ("/learn", "learn-to-play", "d12ball-learn-to-play.pdf"),
+    ("/rules", "charter", "d12ball-charter.pdf"),
+)
+DOWNLOADS_DIR = "downloads"
+
 # The addresses a site owns and forwards, Cloudflare Pages' `_redirects`
-# format. `/learn` and `/rules` go to the web app's Reading Room, which
-# carries both books in the page, until step 3 of docs/landing-pages.md
-# builds the PDFs and points them there; `/kit` arrives with the kit.
-# The survey is a redirect so it can move without a card being reprinted.
+# format. `/learn` and `/rules` open the books' PDFs, which the build
+# makes. The survey is a redirect so it can move without a card being
+# reprinted. `/kit` is not here: the kit's zip is over the 25 MB a
+# Pages file may be, and where it lives instead is the author's call
+# (step 3 of docs/landing-pages.md); its card stands unlinked until then.
 REDIRECTS: dict[str, tuple[tuple[str, str], ...]] = {
     "d12ball": (
         ("/play", PLAY_URL),
-        ("/learn", f"{PLAY_URL}/rules"),
-        ("/rules", f"{PLAY_URL}/rules"),
+        *((source, f"/{DOWNLOADS_DIR}/{filename}") for source, _, filename in BOOK_DOWNLOADS),
         ("/survey", SURVEY_URL),
     ),
     "studio": (),
@@ -162,6 +175,8 @@ COVER_WIDTH = 1200
 SPECIES_ICON_PIXELS = 96
 # Cards are shown about 200px wide; twice that keeps them sharp.
 CARD_PIXELS = 400
+# A book's cover is shown about 130px wide on the rulebooks card.
+BOOK_COVER_PIXELS = 320
 FAVICON_PIXELS = 64
 JPEG_QUALITY = 85
 
@@ -285,6 +300,24 @@ def write_d12ball_pictures(out: Path) -> None:
         )
         write_png(fit_width(card, CARD_PIXELS), out / "images" / "players" / f"{species}.png")
     write_species_icons(out)
+    write_book_covers(out)
+
+
+def write_book_covers(out: Path) -> None:
+    """Each book's cover, as its PDF's first page draws it
+    (landing/covers.py)."""
+    for _, name, _ in BOOK_DOWNLOADS:
+        cover = render_cover(BOOKS[name].cover, BOOK_COVER_PIXELS, DEFAULT_PAPER)
+        write_png(cover, out / "images" / "books" / f"{name}.png")
+
+
+def write_downloads(out: Path) -> None:
+    """The two books as PDFs, on letter paper, set by the same code
+    `scripts/build_rulebooks.py` runs."""
+    for _, name, filename in BOOK_DOWNLOADS:
+        path = out / DOWNLOADS_DIR / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(book_bytes(BOOKS[name], DEFAULT_PAPER))
 
 
 def write_species_icons(out: Path) -> None:
@@ -363,10 +396,33 @@ def redirect_target(site: str, source: str) -> str | None:
 
 
 def book_title(source: str, title: str) -> str:
-    """A book's link text, which says "(PDF)" only once the address is
-    forwarded to one -- until step 3 it opens the Reading Room."""
+    """A book's link text, which says "(PDF)" when the address is
+    forwarded to one: a link says what it opens."""
     target = redirect_target("d12ball", source) or ""
     return f"{title} (PDF)" if target.endswith(".pdf") else title
+
+
+# What the rulebooks card calls each book, by the address it links.
+BOOK_TITLES = {
+    "/learn": "Learn to Play",
+    "/rules": "The Charter: Laws of the Game",
+}
+
+
+def book_links_html() -> str:
+    """The rulebooks card's two covers, each a link to its book with
+    only its title under it."""
+    links = []
+    for source, name, _ in BOOK_DOWNLOADS:
+        title = escape(book_title(source, BOOK_TITLES[source]))
+        links.append(
+            f'<a class="book" href="{source}">\n'
+            f'  <img src="images/books/{name}.png" width="{BOOK_COVER_PIXELS}" '
+            f'alt="{escape(BOOKS[name].title)}, the cover">\n'
+            f'  <span>{title}</span>\n'
+            '</a>'
+        )
+    return "\n".join(links)
 
 
 def turn_card_html(number: int, key: str, heading: str, words: str) -> str:
@@ -465,9 +521,8 @@ def d12ball_values() -> dict[str, str]:
             species_card_html(species, line) for species, line in SPECIES_LINES
         ),
         "kit_card": kit_card_html(),
-        "learn_title": book_title("/learn", "Learn to Play"),
+        "books": book_links_html(),
         "hero_learn": book_title("/learn", "Learn to play"),
-        "rules_title": book_title("/rules", "The Charter: Laws of the Game"),
         "discord_mark": DISCORD_MARK,
     }
 
@@ -507,6 +562,7 @@ def build(site: str, out_dir: Path) -> Path:
     write_shared_pictures(out)
     if site == "d12ball":
         write_d12ball_pictures(out)
+        write_downloads(out)
     if REDIRECTS[site]:
         (out / "_redirects").write_text(redirects_file(site), encoding="utf-8")
     return out

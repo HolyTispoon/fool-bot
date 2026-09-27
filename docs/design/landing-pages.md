@@ -163,11 +163,12 @@ and the four player cards `player_cards.render_player_card` in the basic face.
   game has. The roster order is the `player cards` tab's, so a re-sort there
   can change the face, as it changes who starts.
 
-**A link says what it opens.** The two books are "Learn to Play" and "The
-Charter: Laws of the Game" while `/learn` and `/rules` open the web app's
-Reading Room, and gain "(PDF)" once the redirects point at PDFs (`book_title`
-reads the target). The print-and-play card stands unlinked until the site
-forwards `/kit`; adding that redirect is what links it (`kit_card_html`).
+**A link says what it opens.** The two books are "Learn to Play (PDF)" and
+"The Charter: Laws of the Game (PDF)" because `/learn` and `/rules` forward
+to PDFs; `book_title` reads the target, so a redirect pointed back at a page
+drops the "(PDF)" by itself. The print-and-play card stands unlinked until
+the site forwards `/kit`; adding that redirect is what links it
+(`kit_card_html`).
 
 ## The board
 
@@ -200,17 +201,55 @@ fix to how a piece is drawn -- and committed. `LANDING_CHROME` names a
 browser when none is found. The root `.gitignore` ignores every `board.png`,
 so this one is excepted by path.
 
+## The downloads
+
+**The two rulebooks are built by this build**, into `downloads/` in the
+d12ball site: `write_downloads` calls `rulebooks.book_bytes` for each book in
+`BOOK_DOWNLOADS`, on letter paper -- the same code `scripts/build_rulebooks.py`
+runs, so a merge that changes the Charter changes the download, and there is
+no PDF committed anywhere to go stale. Each file is named for what it is
+(`d12ball-charter.pdf`, `d12ball-learn-to-play.pdf`), because that is the name
+it keeps in somebody's downloads folder. They are about 0.8 MB and 6 MB; the
+Learn to Play is its figures.
+
+**Each book has a cover, and the rulebooks card shows it.** The PDFs used to
+open on their first text page, which does not read as a book at the size the
+card shows it (the author, on the canvas, 2026-09-27). The cover's words are
+the book's own, `Cover` in `rulebooks.BOOKS` -- the title broken where the
+author broke it, and the lines under it -- and the layout is one function,
+`rulebooks.cover_layout`, in shares of the page, which takes the drawing's
+own way of measuring a run of text. It is drawn twice: by reportlab as page 1
+of the PDF (`draw_cover`), and by Pillow in `landing/covers.py` as the picture
+on the card. One source for the words, one for where they go, two drawings,
+checked by looking: the picture is the page the download opens on.
+
+**The print-and-play kit is not a download yet.** Built by
+`scripts/generate_print_and_play_kit.py --zip`, it comes to about 128 MB
+(2026-09-27), almost all of it the player cards -- every card of all eight
+teams on its own and on its sheets, both faces -- against the 25 MB a
+single file on Cloudflare Pages may be. The worksheet's step 3 stops there:
+whether the kit is cut down, split or hosted elsewhere is the author's call,
+and `/kit` is added to `REDIRECTS` wherever it lands, which is what links the
+card.
+
 ## Redirects
 
-The addresses a site forwards are `REDIRECTS` in `landing/build.py`, written
-into the build as Cloudflare Pages' `_redirects` file:
+**The site owns every address that gets printed.** A card, a box or a
+rulebook prints `d12ball.com/rules`, never the file or the form behind it, so
+that what is behind it can move without anything being reprinted. The
+addresses a site forwards are `REDIRECTS` in `landing/build.py`, written into
+the build as Cloudflare Pages' `_redirects` file:
 
 - `/play` -- the web app.
-- `/learn` and `/rules` -- the web app's Reading Room, which carries both
-  books in the page, until the build makes the PDFs and points them there.
+- `/learn` and `/rules` -- the two books' PDFs in `downloads/`, built beside
+  the page.
 - `/survey` -- `box_art.SURVEY_URL`, read rather than copied. The survey is a
   redirect so a form that moves is a one-line change here and no printed
   card is reprinted.
+
+Every redirect is a 302, not a 301: a browser caches a 301 for good, and the
+point of the address is that its target may change. A local target is held
+by the test to name a file in the build, and one ending `.pdf` to name a PDF.
 
 ## Building and looking
 

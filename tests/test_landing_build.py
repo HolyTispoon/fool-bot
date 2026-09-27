@@ -11,7 +11,8 @@ what a look would not catch --
   candidate, and a stylesheet's `url(...)`) that is not an outside
   address names a file in that site's output, or an address the site's
   `_redirects` forwards -- and a redirect whose target is local names a
-  file too;
+  file too, and one to a `.pdf` names a PDF (the two books the build
+  sets);
 - **a quoted rule is the Charter's own words**: every
   `<blockquote data-law>` on the d12ball page appears verbatim in
   docs/living-rules.md, the guarantee the box art is held to. The page
@@ -167,6 +168,17 @@ class LandingBuildTests(unittest.TestCase):
                         resolves(target, site_dir, site_dir, {}),
                         f"{source} forwards to {target!r}, which is not in the build",
                     )
+
+    def test_a_forwarded_pdf_is_a_pdf(self):
+        # The books are set by the build itself; a redirect to one that
+        # came out empty or as something else would still "resolve".
+        for site, site_dir in self.sites.items():
+            for source, target in redirect_sources(site_dir).items():
+                if not (is_local(target) and target.endswith(".pdf")):
+                    continue
+                with self.subTest(site=site, source=source):
+                    data = (site_dir / target.lstrip("/")).read_bytes()
+                    self.assertTrue(data.startswith(b"%PDF-"), f"{target} is not a PDF")
 
     def test_a_quoted_rule_is_the_charters_own_words(self):
         charter = " ".join(plain(LIVING_RULES.read_text(encoding="utf-8")).split())
