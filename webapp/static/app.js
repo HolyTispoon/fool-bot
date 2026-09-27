@@ -2785,14 +2785,11 @@ function drawTableBox(table) {
         ? "Flip the coin to start the game!"
         : "Either coach flips the coin to start the game.";
     body.replaceChildren(h("div", { class: "row table-row" },
-      h("button", {
-        type: "button",
-        class: `coin-button${allowed ? " lit" : ""}`,
-        disabled: !allowed,
+      coinSides(coin, {
+        allowed,
         title: table.start.refusal || "Flip the coin to start the game",
-        "aria-label": "Flip the coin to start the game",
-        onclick: () => roomMove("/table/flip_coin"),
-      }, h("img", { src: coin.faces.fortune, alt: "", class: "coin big" })),
+        label: "Flip the coin to start the game",
+      }),
       // What the toss decides (the author, 2026-09-27); why the coin is
       // dark is the ask above it, and the record's sentence its title.
       h("span", { class: "quiet faint" },
@@ -2813,14 +2810,9 @@ function drawTableBox(table) {
 
   if (coin.owed) {
     ask.textContent = coin.may ? "Click the coin to flip it." : "Waiting for a coach to flip the coin.";
-    body.replaceChildren(h("button", {
-      type: "button",
-      class: `coin-button${coin.may ? " lit" : ""}`,
-      disabled: !coin.may,
-      title: "Flip the coin",
-      "aria-label": "Flip the coin",
-      onclick: () => roomMove("/table/flip_coin"),
-    }, h("img", { src: coin.faces.fortune, alt: "", class: "coin big" })));
+    body.replaceChildren(coinSides(coin, {
+      allowed: coin.may, title: "Flip the coin", label: "Flip the coin",
+    }));
     return;
   }
 
@@ -2845,6 +2837,23 @@ function drawTableBox(table) {
         h("img", { src: coin.faces[other], alt: "", class: "coin small" }),
         h("figcaption", {}, other.toUpperCase()))),
     sides.owed_by ? miniField(sides) : null));
+}
+
+/* The coin before the toss: both its faces side by side, Fortune and
+   Doom, so a coach sees what it can come up (the author, 2026-09-27)
+   -- the pair one button, lit gold while it may be flipped. */
+function coinSides(coin, { allowed, title, label }) {
+  const side = (face) => h("figure", { class: "coin-face" },
+    h("img", { src: coin.faces[face], alt: "", class: "coin mid" }),
+    h("figcaption", {}, face.toUpperCase()));
+  return h("button", {
+    type: "button",
+    class: `coin-button coin-pair${allowed ? " lit" : ""}`,
+    disabled: !allowed,
+    title,
+    "aria-label": label,
+    onclick: () => roomMove("/table/flip_coin"),
+  }, h("div", { class: "coin-faces" }, side("fortune"), side("doom")));
 }
 
 /* The miniature field: a goal at each end -- the goal the board draws

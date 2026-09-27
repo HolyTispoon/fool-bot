@@ -1802,6 +1802,11 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
   border-radius: 50%;
   cursor: pointer;
 }
+.coin.mid { width: 88px; height: 88px; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55)); }
+.coin-button.coin-pair { border-radius: 16px; padding: 8px 14px 6px; }
+.coin-pair .coin-faces { gap: 18px; }
+.coin-pair .coin-face figcaption { color: var(--muted); }
+.coin-pair.lit .coin-face figcaption { color: var(--gold); }
 .coin-button.lit { box-shadow: 0 0 0 3px var(--gold), 0 0 22px rgba(240, 178, 50, 0.45); }
 .coin-button:disabled { cursor: default; opacity: 0.6; }
 .toss { display: flex; flex-wrap: wrap; align-items: center; gap: 26px; }
