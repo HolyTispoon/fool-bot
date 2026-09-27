@@ -45,17 +45,24 @@ checked by reading the PDF.
   field`), as the Law of Root does. A `[text](#slug)` link to a heading
   becomes `text (6.4)` -- unless its words already are the number
   (`[Law 18]`, `[Appendix B]`), which `cites_itself` leaves alone
-  rather than printing `Law 18 (18)`; a numbered list is lettered so a
-  case can be cited. A source section whose slug is in
+  rather than printing `Law 18 (18)`. **A list or table straight after
+  a numbered paragraph is that paragraph's** (the author, 2026-09-26)
+  and takes no number of its own (`Numbering.cases`): a list's items
+  are the paragraph's cases, lettered, so 6.4.2 "On top of that:" is
+  followed by 6.4.2a and 6.4.2b, as the Charter's preface says and the
+  Law of Root does. One straight after a heading has no paragraph to
+  belong to and is numbered, on a line of its own; a list there is
+  lettered under its own number. A source section whose slug is in
   `DROPPED_SECTIONS` (the living rules' own "Contents") is dropped,
   because the builder generates the contents page.
 - **`--renumber` writes those numbers into the source** (the author,
   2026-09-26: the file carries the printed edition's numbers), so
   GitHub, `/d12ball rules_search` and the web page read the numbers
   the book prints. `renumber` writes `## 6. Maneuvers`, `### 6.4 The
-  skill test`, a paragraph opening `**6.4.2**`, a list or table under
-  its number on a line of its own with its cases `- **a.**`, and a
-  cross-reference as the link followed by its number, `[the skill
+  skill test`, a paragraph opening `**6.4.2**`, a paragraph's cases
+  straight under it as `- **a.**`, a list or table under a heading
+  under its own number on a line of its own, and a cross-reference as
+  the link followed by its number, `[the skill
   test](#64-the-skill-test) (6.4)`. `unnumber` takes all of it out
   again, and **the book is built from `unnumber`'s text**, so the
   numbering logic stays in one place and a stale number in the file

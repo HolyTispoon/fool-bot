@@ -362,10 +362,14 @@ class Numbering:
     """
     The numbers a Charter build hands out: a heading's, by slug, and a
     number for every block that gets one, by position in the block list.
+    `cases` is every list or table that belongs to the paragraph just
+    before it and so shares its number, by position: a list's items are
+    that paragraph's cases, lettered (`6.4.2b`).
     """
 
     headings: dict[str, str] = field(default_factory=dict)
     blocks: dict[int, str] = field(default_factory=dict)
+    cases: dict[int, str] = field(default_factory=dict)
 
 
 NUMBERED_BLOCKS = (Paragraph_, ListBlock, TableBlock, QuoteBlock)
@@ -396,6 +400,10 @@ def number_blocks(blocks: Sequence[Block]) -> Numbering:
     Law . section . paragraph. A paragraph straight under a Law, before
     any section, takes the second position itself (`1.3`), as the Law of
     Root numbers them, so sections and such paragraphs share one count.
+    A list or table straight after a numbered paragraph is that
+    paragraph's -- the cases it lists, the table it introduces -- and
+    takes no number of its own (the author, 2026-09-26); one straight
+    after a heading, with no paragraph to belong to, is numbered.
     """
     numbering = Numbering()
     law = 0
@@ -426,6 +434,11 @@ def number_blocks(blocks: Sequence[Block]) -> Numbering:
                 numbering.headings[block.slug] = f"{law}.{second}"
             continue
         if skipping or law == 0 or not isinstance(block, NUMBERED_BLOCKS) or is_note(block):
+            continue
+        owner = numbering.blocks.get(position - 1)
+        if isinstance(block, (ListBlock, TableBlock)) and owner \
+                and isinstance(blocks[position - 1], Paragraph_):
+            numbering.cases[position] = owner
             continue
         if in_section:
             third += 1
@@ -461,7 +474,9 @@ def cites_itself(text: str, number: str) -> bool:
 # test`, a paragraph opening `**6.4.2**`, a numbered list or table under
 # its number on a line of its own with the list's cases lettered
 # (`- **a.**`), and a cross-reference as the link followed by its number,
-# `[the skill test](#64-the-skill-test) (6.4)`. Each link is pointed at
+# `[the skill test](#64-the-skill-test) (6.4)`. A list that is a
+# paragraph's cases goes straight under it, lettered, with no number of
+# its own, and a table a paragraph introduces likewise. Each link is pointed at
 # the anchor GitHub gives the numbered heading, so the links still work
 # there. `unnumber` takes every one of those out again, and the two are
 # inverses: `renumber(unnumber(text))` is `text` for a file that has
@@ -559,6 +574,9 @@ def renumber(text: str) -> str:
             continue
         number = numbering.blocks.get(position)
         if number is None:
+            number = numbering.cases.get(position)
+            if number is not None and isinstance(block, ListBlock):
+                letter_cases(lines, positioned, position, number)
             continue
         if isinstance(block, (Paragraph_, QuoteBlock)):
             lines[start] = re.sub(r"^(\s*(?:>\s*)?)", rf"\g<1>**{number}** ", lines[start], count=1)
@@ -566,16 +584,7 @@ def renumber(text: str) -> str:
         # A list or a table goes under its number, on a line of its own.
         before[start] = [f"**{number}**", ""]
         if isinstance(block, ListBlock):
-            end = positioned[position + 1][0] if position + 1 < len(positioned) else len(lines)
-            own_indent = len(LIST_RE.match(lines[start]).group(1))
-            letters = iter(CASE_LETTERS)
-            for index in range(start, end):
-                item = LIST_RE.match(lines[index])
-                if item and len(item.group(1)) == own_indent:
-                    letter = next(letters, None)
-                    if letter is None:
-                        raise MarkdownError(f"{number} lists more cases than there are letters")
-                    lines[index] = f"{item.group(1)}- **{letter}.** {item.group(3)}"
+            letter_cases(lines, positioned, position, number)
 
     def cross_reference(found: re.Match) -> str:
         words, target = found.group(1), found.group(2)
@@ -603,6 +612,24 @@ def renumber(text: str) -> str:
             line = re.sub(r"\[([^\]]+)\]\(#([^)\s]+)\)", cross_reference, line)
         written.append(line)
     return "\n".join(written)
+
+
+def letter_cases(
+    lines: list[str], positioned: list[tuple[int, Block]], position: int, number: str,
+) -> None:
+    """A numbered list's own items as `- **a.**`, `- **b.**`, in place;
+    a list nested under one of them keeps its bullets."""
+    start = positioned[position][0]
+    end = positioned[position + 1][0] if position + 1 < len(positioned) else len(lines)
+    own_indent = len(LIST_RE.match(lines[start]).group(1))
+    letters = iter(CASE_LETTERS)
+    for index in range(start, end):
+        item = LIST_RE.match(lines[index])
+        if item and len(item.group(1)) == own_indent:
+            letter = next(letters, None)
+            if letter is None:
+                raise MarkdownError(f"{number} lists more cases than there are letters")
+            lines[index] = f"{item.group(1)}- **{letter}.** {item.group(3)}"
 
 
 def anchor_moves(before: str, after: str) -> dict[str, str]:
@@ -844,7 +871,8 @@ def build_story(book: Book, blocks: Sequence[Block], available_width: float) -> 
         elif isinstance(block, ListBlock):
             if number:
                 story.append(Paragraph(f"<b>{number}</b>", style["Body"]))
-            story.append(list_flowable(block, style, resolve_link, lettered=bool(number)))
+            lettered = bool(number) or position in numbering.cases
+            story.append(list_flowable(block, style, resolve_link, lettered=lettered))
             story.append(Spacer(1, 4))
         elif isinstance(block, TableBlock):
             if number:

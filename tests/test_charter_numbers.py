@@ -64,6 +64,17 @@ class RenumberTests(unittest.TestCase):
         "",
         "See [Law 1](#the-game) and [the field](#the-field).",
         "",
+        "Two cases:",
+        "",
+        "- one",
+        "- two",
+        "",
+        "And a table it introduces.",
+        "",
+        "| c |",
+        "| --- |",
+        "| 3 |",
+        "",
     ])
 
     NUMBERED = "\n".join([
@@ -96,6 +107,17 @@ class RenumberTests(unittest.TestCase):
         "| 1 | 2 |",
         "",
         "**1.2.4** See [Law 1](#1-the-game) and [the field](#12-the-field) (1.2).",
+        "",
+        "**1.2.5** Two cases:",
+        "",
+        "- **a.** one",
+        "- **b.** two",
+        "",
+        "**1.2.6** And a table it introduces.",
+        "",
+        "| c |",
+        "| --- |",
+        "| 3 |",
         "",
     ])
 

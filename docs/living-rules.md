@@ -67,18 +67,16 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.1.1** The field is a row of spaces divided into three zones, left to right: the home goal, midfield, and the visitors goal. A game is played on a board of 7 or 9 spaces.
 
-**2.1.2**
-
 | Board | Home goal | Midfield | Visitors goal |
 | --- | ---: | ---: | ---: |
 | 7 (default) | 2 | 3 | 2 |
 | 9 | 3 | 3 | 3 |
 
-**2.1.3** On the board itself, the two outer zones are labelled **Home Zone** and **Visitors Zone** -- **Home Third** and **Visitors Third** on the 9-space board, the only one where all three zones are equal.
+**2.1.2** On the board itself, the two outer zones are labelled **Home Zone** and **Visitors Zone** -- **Home Third** and **Visitors Third** on the 9-space board, the only one where all three zones are equal.
 
-**2.1.4** A space is named by its zone's letter and its position counted from the home end: H1 and H2 are the home goal on board 7, M1 to M3 its midfield, V1 and V2 the visitors goal.
+**2.1.3** A space is named by its zone's letter and its position counted from the home end: H1 and H2 are the home goal on board 7, M1 to M3 its midfield, V1 and V2 the visitors goal.
 
-**2.1.5** A space belongs to nobody. Any number of meeples from either team may stand on one, and distances are counted in spaces straight across the zone boundaries.
+**2.1.4** A space belongs to nobody. Any number of meeples from either team may stand on one, and distances are counted in spaces straight across the zone boundaries.
 
 ### 2.2 Forward and back
 
@@ -90,14 +88,12 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.3.1** A team may only shoot from within its **shooting range**, which is the far part of the field measured from the middle of the board. It is not a zone: it takes in the goal zone a team attacks and cuts partway across midfield.
 
-**2.3.2**
-
 | Board | The visitors may shoot from | Neither | Home may shoot from |
 | --- | --- | --- | --- |
 | 7 | H1, H2, M1 | M2 | M3, V1, V2 |
 | 9 | H1, H2, H3, M1 | M2 | M3, V1, V2, V3 |
 
-**2.3.3** Both boards have an odd number of spaces, so both have a true middle space, and that space is in neither team's range.
+**2.3.2** Both boards have an odd number of spaces, so both have a true middle space, and that space is in neither team's range.
 
 *Note.* The middle space is also the kickoff space, so no restart ever begins in range.
 
@@ -121,8 +117,6 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.6.2** Every player has an **offensive skill** from 1 to 6 and a **defensive skill** that is its inverse, so the two always total 7.
 
-**2.6.3**
-
 | Role | Offense | Defense | Ability |
 | --- | ---: | ---: | --- |
 | Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Pass up to 4, a Deflect of 2, a Clear of 4, a Setup Pass that may also reach 4. |
@@ -132,7 +126,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | Winger | 5 | 2 | A completed Low Pass may set up a scoring opportunity. |
 | Striker | 6 | 1 | Adds 3 to a score attempt taken off a set-up. |
 
-**2.6.4** Each squad is one Fullback, two Defenders, one Midfielder, two Playmakers, one Winger and two Strikers. Beyond the standard deal, no role belongs to any particular zone.
+**2.6.3** Each squad is one Fullback, two Defenders, one Midfielder, two Playmakers, one Winger and two Strikers. Beyond the standard deal, no role belongs to any particular zone.
 
 ### 2.7 The ball, the dice and the tokens
 
@@ -152,7 +146,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.8.3** The **challenger** is the defending player who meets a maneuver on the ball's space -- see [determining the two players](#61-determining-the-two-players) (6.1).
 
-**2.8.4** The **carrier** is the player a resolution leaves the ball with. The carrier handles the ball on their team's next turn without a choice being offered, and never runs back -- see [choosing the handler](#42-choosing-the-handler) (4.2) and [running back after a steal](#125-running-back-after-a-steal) (12.5).
+**2.8.4** The **carrier** is the player a resolution leaves the ball with. The carrier handles the ball on their team's next turn without a choice being offered, and never runs back -- see [choosing the handler](#42-choosing-the-handler) (4.2) and [running back after a steal](#124-running-back-after-a-steal) (12.4).
 
 **2.8.5** An **arrangement** is where a coach's meeples were standing when they last closed a [Coaching Choice](#14-coaching-choice) (14). It is what a new play puts them back on.
 
@@ -210,8 +204,6 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **4.1.1** The team in possession takes a turn, in this order:
 
-**4.1.2**
-
 - **a.** Choose [which of their players on the ball's space handles it](#42-choosing-the-handler) (4.2).
 - **b.** Choose the action: a [score attempt](#5-score-attempt) (5) if the ball is in that team's shooting range, and otherwise a [maneuver](#6-maneuvers) (6) or a [time out](#13-time-out) (13).
 - **c.** Resolve the action, and anything it leads to.
@@ -219,7 +211,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 - **e.** If the ball changed hands, resolve the [turnover](#12-turnovers) (12).
 - **f.** Advance the clock by what the action cost.
 
-**4.1.3** Whichever team has the ball at the end of all that takes the next turn.
+**4.1.2** Whichever team has the ball at the end of all that takes the next turn.
 
 ### 4.2 Choosing the handler
 
@@ -227,19 +219,17 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **4.2.2** These leave the ball with a particular player:
 
-**4.2.3**
-
 - **a.** a Dribble Advance, with the player who dribbled it;
 - **b.** a completed Low Pass and a received 2-space High Pass, with the receiver;
 - **c.** a Steal, with the interceptor;
 - **d.** a ball won where it came to rest, or a won High Pass contest, with the winner;
 - **e.** a Pressure, with the handler who was shoved back still holding it -- including one who has just survived an own-goal roll, and with the Defender instead where their Pressure also stole it.
 
-**4.2.4** These leave it with nobody in particular: a kickoff or any other restart, and a required [pickup](#106-picking-the-ball-up) (10.6). A [Deflect](#68-deflect) (6.8) leaves nobody in possession at all, so who gets it is settled -- by a contest, or automatically if only one side is there -- before anybody handles it.
+**4.2.3** These leave it with nobody in particular: a kickoff or any other restart, and a required [pickup](#106-picking-the-ball-up) (10.6). A [Deflect](#68-deflect) (6.8) leaves nobody in possession at all, so who gets it is settled -- by a contest, or automatically if only one side is there -- before anybody handles it.
 
-**4.2.5** The carry holds for one turn only. If that player is no longer on the ball by the time the turn comes round, their coach chooses in the ordinary way.
+**4.2.4** The carry holds for one turn only. If that player is no longer on the ball by the time the turn comes round, their coach chooses in the ordinary way.
 
-**4.2.6** The player holding the ball [never runs back](#125-running-back-after-a-steal) (12.5).
+**4.2.5** The player holding the ball [never runs back](#124-running-back-after-a-steal) (12.4).
 
 ### 4.3 Choosing the action
 
@@ -253,7 +243,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **4.4.1** The ball [where it came to rest](#101-where-the-ball-comes-to-rest) (10.1) comes first: an action that left nobody holding it is settled before anything else, however it left the ball there.
 
-**4.4.2** Then the turnover, if the ball changed hands. A [steal](#125-running-back-after-a-steal) (12.5) runs players back and play carries straight on; a [new play](#126-resetting-after-a-new-play) (12.6) resets both sides and offers a Coaching Choice.
+**4.4.2** Then the turnover, if the ball changed hands. A [steal](#124-running-back-after-a-steal) (12.4) runs players back and play carries straight on; a [new play](#125-resetting-after-a-new-play) (12.5) resets both sides and offers a Coaching Choice.
 
 **4.4.3** Then the clock, by the action's own cost -- which is charged whether or not the action turned the ball over. Running back, resetting, contests, rolls, pickups and Coaching Choices all cost no time.
 
@@ -291,7 +281,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 5.5 After the shot
 
-**5.5.1** Goal or miss, the ball is dead and the game restarts as a [new play](#126-resetting-after-a-new-play) (12.6), with speed back to 1.
+**5.5.1** Goal or miss, the ball is dead and the game restarts as a [new play](#125-resetting-after-a-new-play) (12.5), with speed back to 1.
 
 **5.5.2** A goal restarts from the conceding side's own kickoff space with them in possession. Every arrangement is required to cover that space, so nothing further is owed.
 
@@ -319,15 +309,13 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.3.1** The three ranks a side form a cycle. Equal ranks tie.
 
-**6.3.2**
-
 | Offense | Deflect (D1) | Steal (D2) | Pressure (D3) |
 | --- | --- | --- | --- |
 | Low Pass (O1) | Tie | Steal wins | Low Pass wins |
 | Dribble Advance (O2) | Dribble Advance wins | Tie | Pressure wins |
 | High Pass (O3) | Deflect wins | High Pass wins | Tie |
 
-**6.3.3** An [injured](#154-playing-injured) (15.4) participant changes this in both directions: a maneuver they would have won outright goes to a skill test they have to win, and a tie against one healthy opponent is their automatic loss with nothing rolled.
+**6.3.2** An [injured](#154-playing-injured) (15.4) participant changes this in both directions: a maneuver they would have won outright goes to a skill test they have to win, and a tie against one healthy opponent is their automatic loss with nothing rolled.
 
 ### 6.4 The skill test
 
@@ -335,16 +323,14 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.4.2** The offense adds the handler's offensive skill and the defense adds the challenger's defensive skill. On top of that:
 
-**6.4.3**
-
 - **a.** a Midfielder adds 3 more when the maneuver being tested is their own Low Pass or their own Pressure;
 - **b.** a defense contesting with Steal adds the [ball speed modifier](#7-ball-speed) (7).
 
-**6.4.4** The higher total wins and their maneuver is what resolves.
+**6.4.3** The higher total wins and their maneuver is what resolves.
 
-**6.4.5** A tie is rolled again, and each participant adds another token for it.
+**6.4.4** A tie is rolled again, and each participant adds another token for it.
 
-**6.4.6** When the test finally resolves, every participant who is Exhausted takes an [injury check](#153-the-injury-check) (15.3).
+**6.4.5** When the test finally resolves, every participant who is Exhausted takes an [injury check](#153-the-injury-check) (15.3).
 
 ### 6.5 Low Pass
 
@@ -376,21 +362,19 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.7.2** The ball is thrown 2 or 3 spaces forward, and a Fullback may throw it 4. Only distances that land on a space the field actually has are offered, and a distance is dropped when a shorter one already reaches the space it would land on -- the longer throw would be the same pass at a disadvantage.
 
-**6.7.3**
-
 | The throw | What happens |
 | --- | --- |
 | 2 spaces, a teammate on the landing space | Received. The ball is left with the receiver, who may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range. |
 | 3 or 4 spaces, a teammate there | Received but contested: the receiver has to win the [High Pass contest](#104-the-high-pass-contest) (10.4) to keep it. |
 | Nobody there | The ball is [loose](#101-where-the-ball-comes-to-rest) (10.1). |
 
-**6.7.4** A 2-space pass that lands short of shooting range is still received. The range rule takes away the shot, not the catch.
+**6.7.3** A 2-space pass that lands short of shooting range is still received. The range rule takes away the shot, not the catch.
 
-**6.7.5** **An overshoot** is a throw that runs out of field. With the ball 0 or 1 spaces from the end, every distance lands on the same last space, so nothing is offered and the throw overshoots before anyone chooses. An overshoot onto a teammate offers that receiver the scoring opportunity **or** the High Pass contest: they are two halves of one choice, declining the shot means taking the contest, and the ball speed modifier counts **against** them either way.
+**6.7.4** **An overshoot** is a throw that runs out of field. With the ball 0 or 1 spaces from the end, every distance lands on the same last space, so nothing is offered and the throw overshoots before anyone chooses. An overshoot onto a teammate offers that receiver the scoring opportunity **or** the High Pass contest: they are two halves of one choice, declining the shot means taking the contest, and the ball speed modifier counts **against** them either way.
 
-**6.7.6** **A passer never receives their own pass.** Thrown from the last space the ball comes straight back down where it was, and a teammate sharing that space receives it and is offered the choice above.
+**6.7.5** **A passer never receives their own pass.** Thrown from the last space the ball comes straight back down where it was, and a teammate sharing that space receives it and is offered the choice above.
 
-**6.7.7** With no other teammate on that last space, there is nowhere left to throw it and nobody to throw it to: the ball goes [out of play](#105-out-of-bounds) (10.5), the other team gains possession, and the gaining side sends somebody to pick it up. The throw still costs its 2 minutes.
+**6.7.6** With no other teammate on that last space, there is nowhere left to throw it and nobody to throw it to: the ball goes [out of play](#105-out-of-bounds) (10.5), the other team gains possession, and the gaining side sends somebody to pick it up. The throw still costs its 2 minutes.
 
 ### 6.8 Deflect
 
@@ -429,8 +413,6 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 ### 7.1 The speed and its modifier
 
 **7.1.1** The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is half that, rounded down.
-
-**7.1.2**
 
 | Speed | 1 | 2-3 | 4-5 | 6-7 | 8-9 | 10-11 | 12 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -517,7 +499,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 9.6 Staying put
 
-**9.6.1** Nothing brings a sent player home again. They stay where the contest left them until a turnover [runs them back](#125-running-back-after-a-steal) (12.5) or [resets](#126-resetting-after-a-new-play) (12.6) them.
+**9.6.1** Nothing brings a sent player home again. They stay where the contest left them until a turnover [runs them back](#124-running-back-after-a-steal) (12.4) or [resets](#125-resetting-after-a-new-play) (12.5) them.
 
 ## 10. Contests for the ball
 
@@ -525,17 +507,15 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **10.1.1** Some actions leave the ball on a space with nobody named as holding it -- a pass that reaches nobody, a [Deflect](#68-deflect) (6.8), and in advanced mode a [Clear](#198-clear) (19.8) or a beaten [Setup Pass](#197-setup-pass) (19.7). **What is standing on that space decides what happens, and there are three answers.**
 
-**10.1.2**
-
 | On the space the ball lands on | What happens |
 | --- | --- |
 | Nobody | The ball is **loose**. Each side may [send a player](#9-sending-a-player) (9) after it, or send nobody. |
 | One side only | The ball is simply **theirs**, uncontested. No roll, and the other side is not offered a send. |
 | Both sides | A **contest**. The players already standing there roll for it, and nobody else may be sent. |
 
-**10.1.3** **"Loose" means the space was empty, and it means nothing else.** A ball that comes down on somebody has not gone loose: either it has landed on a player who simply has it, or it has landed between two who fight for it on the spot. Nobody walks in on either -- a side is offered a send only against an empty space.
+**10.1.2** **"Loose" means the space was empty, and it means nothing else.** A ball that comes down on somebody has not gone loose: either it has landed on a player who simply has it, or it has landed between two who fight for it on the spot. Nobody walks in on either -- a side is offered a send only against an empty space.
 
-**10.1.4** Where a side has several players on the space, their coach picks which of them takes the ball or contests for it. A player already standing there is not sent anywhere and pays nothing, and their side may not withhold them.
+**10.1.3** Where a side has several players on the space, their coach picks which of them takes the ball or contests for it. A player already standing there is not sent anywhere and pays nothing, and their side may not withhold them.
 
 ### 10.2 The contest
 
@@ -569,7 +549,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **10.5.1** Where neither side sends anybody after a loose ball, the ball goes out. The side that did not have it takes over at speed 1.
 
-**10.5.2** It is a [new play](#126-resetting-after-a-new-play) (12.6) rather than a steal -- nobody took the ball off anyone, it simply went dead. Once both sides have reset, the side that gained it [picks the ball up](#106-picking-the-ball-up) (10.6).
+**10.5.2** It is a [new play](#125-resetting-after-a-new-play) (12.5) rather than a steal -- nobody took the ball off anyone, it simply went dead. Once both sides have reset, the side that gained it [picks the ball up](#106-picking-the-ball-up) (10.6).
 
 ### 10.6 Picking the ball up
 
@@ -595,7 +575,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **11.2.2** The roll costs that player 1 exhaustion token whichever way it goes. It is not a skill test, so it owes no injury check.
 
-**11.2.3** Either result is a [new play](#126-resetting-after-a-new-play) (12.6).
+**11.2.3** Either result is a [new play](#125-resetting-after-a-new-play) (12.5).
 
 ### 11.3 Avoided
 
@@ -613,45 +593,41 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **12.1** Every change of possession resets ball speed to 1. There are two kinds, and what follows is different for each.
 
-**12.2**
-
 | Cause | Kind | What follows |
 | --- | --- | --- |
 | Steal, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins -- and in advanced mode Intercept and a beaten Dribble Burst | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
 | A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds -- and in advanced mode a Setup Pass that found nobody | New play | Both sides reset, and the side with the ball may call a Coaching Choice. |
 
-**12.3** A [time out](#13-time-out) (13) is a new play too, though not a turnover: possession does not change, but both sides reset and the ball goes back to speed 1.
+**12.2** A [time out](#13-time-out) (13) is a new play too, though not a turnover: possession does not change, but both sides reset and the ball goes back to speed 1.
 
-**12.4** **Only a turnover moves anybody.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them -- a receiver who won their High Pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is out of position stays there, and pays nothing for it, until a turnover comes.
+**12.3** **Only a turnover moves anybody.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them -- a receiver who won their High Pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is out of position stays there, and pays nothing for it, until a turnover comes.
 
-### 12.5 Running back after a steal
+### 12.4 Running back after a steal
 
-**12.5.1** A steal sends players back to their own zones. Two groups run, on both sides:
-
-**12.5.2**
+**12.4.1** A steal sends players back to their own zones. Two groups run, on both sides:
 
 - **a.** everyone standing outside the zone their card is assigned to -- they have to come back, so the only question is which space;
 - **b.** one of any group of teammates sharing a space, while their zone still has a space with none of their team standing on it.
 
-**12.5.3** Nobody else moves. A player alone in their own zone is already where they belong and pays nothing, and **the player holding the ball never runs back**.
+**12.4.2** Nobody else moves. A player alone in their own zone is already where they belong and pays nothing, and **the player holding the ball never runs back**.
 
-**12.5.4** A player running back goes to a space in their own zone that their team has not covered, and adds 1 exhaustion for every space they travel. Where the zone is already covered, any space in it will do.
+**12.4.3** A player running back goes to a space in their own zone that their team has not covered, and adds 1 exhaustion for every space they travel. Where the zone is already covered, any space in it will do.
 
-**12.5.5** **Where two teammates share a space, the one holding the ball stays and the other runs back. Where neither of them is holding it, their coach chooses which of them goes.**
+**12.4.4** **Where two teammates share a space, the one holding the ball stays and the other runs back. Where neither of them is holding it, their coach chooses which of them goes.**
 
-**12.5.6** A stack only has to break up while its zone still has an uncovered space. A formation that puts more players in a zone than the zone has spaces settles doubled up, and nobody moves.
+**12.4.5** A stack only has to break up while its zone still has an uncovered space. A formation that puts more players in a zone than the zone has spaces settles doubled up, and nobody moves.
 
-**12.5.7** Running back never changes an arrangement.
+**12.4.6** Running back never changes an arrangement.
 
 *Note.* The scramble a steal forces is not a shape anybody chose, and the next new play undoes it.
 
-### 12.6 Resetting after a new play
+### 12.5 Resetting after a new play
 
-**12.6.1** Every fielded meeple on **both** sides goes back to the space its coach's [arrangement](#14-coaching-choice) (14) puts it on. It costs nobody anything, and it happens before either coach is offered a Coaching Choice.
+**12.5.1** Every fielded meeple on **both** sides goes back to the space its coach's [arrangement](#14-coaching-choice) (14) puts it on. It costs nobody anything, and it happens before either coach is offered a Coaching Choice.
 
-**12.6.2** Because every arrangement covers its own side's kickoff space, a goal restarts without anybody having to be dropped back to take the kickoff.
+**12.5.2** Because every arrangement covers its own side's kickoff space, a goal restarts without anybody having to be dropped back to take the kickoff.
 
-**12.6.3** An out-of-bounds ball is [picked up](#106-picking-the-ball-up) (10.6) after the reset, at the usual cost -- an arrangement covers a side's zones, not wherever the ball happens to be lying.
+**12.5.3** An out-of-bounds ball is [picked up](#106-picking-the-ball-up) (10.6) after the reset, at the usual cost -- an arrangement covers a side's zones, not wherever the ball happens to be lying.
 
 ## 13. Time out
 
@@ -659,13 +635,11 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **13.1.1** A side out of [shooting range](#23-shooting-range) (2.3) may call a **time out** instead of playing the ball. **Possession does not change and the ball does not move.** What a time out buys is the pause, not the ball.
 
-**13.1.2** **A time out is a [new play](#126-resetting-after-a-new-play) (12.6).** Ball speed goes back to 1, and once both coaches have taken their Coaching Choice, every fielded meeple on both sides goes back to the space its coach's arrangement puts it on -- the arrangement as it stands after those Choices, changed or not. It is not a turnover: the side that called it keeps the ball.
+**13.1.2** **A time out is a [new play](#125-resetting-after-a-new-play) (12.5).** Ball speed goes back to 1, and once both coaches have taken their Coaching Choice, every fielded meeple on both sides goes back to the space its coach's arrangement puts it on -- the arrangement as it stands after those Choices, changed or not. It is not a turnover: the side that called it keeps the ball.
 
 ### 13.2 The three conditions
 
 **13.2.1** A time out may be called under three conditions, and no others:
-
-**13.2.2**
 
 - **a.** the side is **out of shooting range**;
 - **b.** the side has **not yet taken a time out this half** -- it is once a half, per side;
@@ -814,16 +788,14 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **15.4.2** Until they are substituted off:
 
-**15.4.3**
-
 - **a.** in a maneuver, against a healthy opponent, a tie loses outright with nothing rolled, and a maneuver they would have won outright goes to a skill test they have to win instead;
 - **b.** in a contest for the ball or a High Pass contest, they add no skill modifier at all: their offensive or defensive skill comes off the roll, and only that. Ball speed and role abilities still apply.
 
-**15.4.4** Nothing else is withheld. The forced skill test above is rolled with their skill in full, and a score attempt is untouched -- an injured Striker still adds 3 off a set-up.
+**15.4.3** Nothing else is withheld. The forced skill test above is rolled with their skill in full, and a score attempt is untouched -- an injured Striker still adds 3 off a set-up.
 
-**15.4.5** The maneuver disadvantage is measured against a healthy opponent, so two cases escape it: a tie where **both** participants are injured is an ordinary tie, and an unchallenged maneuver has no opponent at all and succeeds as always.
+**15.4.4** The maneuver disadvantage is measured against a healthy opponent, so two cases escape it: a tie where **both** participants are injured is an ordinary tie, and an unchallenged maneuver has no opponent at all and succeeds as always.
 
-**15.4.6** Nothing compels a coach to take an injured player off. They may leave them on, disadvantaged, for the rest of the game.
+**15.4.5** Nothing compels a coach to take an injured player off. They may leave them on, disadvantaged, for the rest of the game.
 
 ### 15.5 Recovery
 
@@ -924,8 +896,6 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **18.1.1** A game is played in one of three modes, declared before the toss. Each adds to the one before it:
 
-**18.1.2**
-
 - **a.** **Training mode** is Part I and nothing else. Species is only a name on the card, and every player follows the standard rules. The tutorial is a training game.
 - **b.** **Basic mode** adds the [species abilities](#20-species-abilities) (20).
 - **c.** **Advanced mode** adds the [gambits](#19-gambits) (19) and the [personal abilities](#21-personal-abilities) (21) to basic mode.
@@ -961,8 +931,6 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **19.1.2** **A gambit is the advanced version of the basic maneuver on its rank.** Double Team *is* Pressure, advanced: it beats what Pressure beats, loses to what Pressure loses to, ties Pressure itself, and where the cards tie it resolves as Pressure. Rank alone decides who wins, so [the cycle](#63-who-wins) (6.3) is unchanged and the table below is the whole of what a coach has to learn about matchups.
 
-**19.1.3**
-
 | Gambit | Rank | Advanced version of |
 | --- | --- | --- |
 | Skilled Pass | O1 | Low Pass |
@@ -982,20 +950,16 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **19.3.1** A coach holds their gambits only while their team is **behind**, which is one of two things:
 
-**19.3.2**
-
 - **a.** their team has **scored fewer goals** than the other team;
 - **b.** their team **fields more Exhausted-or-Injured players** than the other team. Only the six on the field count, and a Cyborg's [Drained](#203-lithium-powered-cyborg) (20.3) and [Damaged](#203-lithium-powered-cyborg) (20.3) are Exhausted and Injured under their own words.
 
-**19.3.3** It is read when the maneuvers are chosen, off the scoreboard and off the field, so **who is holding gambits is public knowledge**: neither coach learns anything from it the other cannot see for themselves.
+**19.3.2** It is read when the maneuvers are chosen, off the scoreboard and off the field, so **who is holding gambits is public knowledge**: neither coach learns anything from it the other cannot see for themselves.
 
-**19.3.4** Both coaches may hold them at once -- one trailing while the other is the more hurt -- and a coach neither is true of chooses from the basic three.
+**19.3.3** Both coaches may hold them at once -- one trailing while the other is the more hurt -- and a coach neither is true of chooses from the basic three.
 
 ### 19.4 When a gambit's effect fires
 
 **19.4.1** **The cards decide, not the dice -- and they decide about each card separately.**
-
-**19.4.2**
 
 | A gambit | Carries |
 | --- | --- |
@@ -1003,9 +967,7 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 | **Lost on the cards** | Its **cost**, paid by the side that played it. |
 | Tied on the cards | Neither. The winner of the skill test resolves the **basic** maneuver on their rank instead. |
 
-**19.4.3** A tie is the commonest case where nothing fires, but it is not the test. What matters is what the cards said about **that card**. Everything below follows from it:
-
-**19.4.4**
+**19.4.2** A tie is the commonest case where nothing fires, but it is not the test. What matters is what the cards said about **that card**. Everything below follows from it:
 
 - **a.** an [injured](#154-playing-injured) (15.4) participant's automatic loss of a tie carries nothing -- nobody won or lost on the cards; the injury only settled it without a roll;
 - **b.** where the cards were decisive and the card-winner also wins the skill test their injury forced, both effects land where the cards put them: their benefit, and the loser's cost;
@@ -1091,7 +1053,7 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **19.10.4** *Midfielder:* adds 3 to the skill test for their own Double Team, as for a Pressure.
 
-**19.10.5** **On the defending side's next maneuver both of those players challenge**, and the skill test adds **both** of their defensive skills. It lasts until a [new play](#126-resetting-after-a-new-play) (12.6), which is the only thing that ends it.
+**19.10.5** **On the defending side's next maneuver both of those players challenge**, and the skill test adds **both** of their defensive skills. It lasts until a [new play](#125-resetting-after-a-new-play) (12.5), which is the only thing that ends it.
 
 **19.10.6** *Beaten:* the challenger and that same nearest teammate each move 1 space forward, away from their own goal. Neither pays a token for it.
 
@@ -1107,28 +1069,24 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **20.2.1** **A Fire Demon's die can ignite.** In the rolls listed below, when the die's own face -- before any skill or modifier -- comes up a natural **6 or 7**, the Fire Demon immediately rolls a second d12:
 
-**20.2.2**
-
 - **a.** **5-12: a blaze.** Add the second die to the Fire Demon's total for that roll.
 - **b.** **1-4: a burn.** Subtract it.
 
-**20.2.3** Ignite is not a choice, and the second die never ignites in turn -- one reroll, however it falls.
+**20.2.2** Ignite is not a choice, and the second die never ignites in turn -- one reroll, however it falls.
 
-**20.2.4** Four rolls are covered: their die in a [skill test](#64-the-skill-test) (6.4) or a [contest for the ball](#101-where-the-ball-comes-to-rest) (10.1) -- and if both players rolling are Fire Demons, each checks their own -- the shooter's die in a [score attempt](#5-score-attempt) (5), and a [shootout test](#17-extreme-shootout) (17). An [injury check](#153-the-injury-check) (15.3) and an [own-goal roll](#11-own-goal) (11) never ignite: a natural 6 or 7 there is only a 6 or 7.
+**20.2.3** Four rolls are covered: their die in a [skill test](#64-the-skill-test) (6.4) or a [contest for the ball](#101-where-the-ball-comes-to-rest) (10.1) -- and if both players rolling are Fire Demons, each checks their own -- the shooter's die in a [score attempt](#5-score-attempt) (5), and a [shootout test](#17-extreme-shootout) (17). An [injury check](#153-the-injury-check) (15.3) and an [own-goal roll](#11-own-goal) (11) never ignite: a natural 6 or 7 there is only a 6 or 7.
 
-**20.2.5** **In a maneuver skill test the blaze or burn can decide a tier.** Four cases, one for each way an ignite can land:
-
-**20.2.6**
+**20.2.4** **In a maneuver skill test the blaze or burn can decide a tier.** Four cases, one for each way an ignite can land:
 
 - **a.** **A blaze that wins** resolves that side's maneuver as **its advanced version -- the gambit on its rank** -- even where the [cards would have resolved the basic maneuver](#194-when-a-gambits-effect-fires) (19.4), and whether or not that coach [may play a gambit](#193-who-may-play-a-gambit) (19.3) this turn. A maneuver already resolving as a gambit gains nothing more.
 - **b.** **A burn that loses** resolves the *opponent's* maneuver as its advanced version, the same way.
 - **c.** **A blaze that loses** and **a burn that wins** change nothing but the number.
 
-**20.2.7** **An ignite never decides a [gambit's cost](#194-when-a-gambits-effect-fires) (19.4).** A player who loses the skill test pays their own gambit's cost exactly where they would have without the ignite, whichever way it went.
+**20.2.5** **An ignite never decides a [gambit's cost](#194-when-a-gambits-effect-fires) (19.4).** A player who loses the skill test pays their own gambit's cost exactly where they would have without the ignite, whichever way it went.
 
 *Note.* A blaze that wins is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as a gambit on its own, so even a player who *did* play the gambit gets it resolving as one for the first time. A burn that wins won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
 
-**20.2.8** Outside a maneuver skill test -- or in basic mode, which plays the species abilities without the [gambits](#19-gambits) (19) -- there is no tier to change, and the blaze or burn is only the number.
+**20.2.6** Outside a maneuver skill test -- or in basic mode, which plays the species abilities without the [gambits](#19-gambits) (19) -- there is no tier to change, and the blaze or burn is only the number.
 
 ### 20.3 Lithium Powered (Cyborg)
 
@@ -1144,15 +1102,15 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **20.3.6** A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven by draining another 3. A Drained Cyborg may still Overdrive -- the drain stacks. Overdrive is a flat bonus rather than a skill modifier, so a [Damaged](#154-playing-injured) (15.4) Cyborg keeps it.
 
-**20.3.7** **Charge-up.** Whenever players [run back](#125-running-back-after-a-steal) (12.5), a Cyborg who **does not move** clears **1 drain**. Once per run back, never below zero.
+**20.3.7** **Charge-up.** Whenever players [run back](#124-running-back-after-a-steal) (12.4), a Cyborg who **does not move** clears **1 drain**. Once per run back, never below zero.
 
-**20.3.8** **Any player who moves is running back**, whatever moved them and however far, so any Cyborg who moves clears nothing. A player standing outside their own zone has to return and therefore can never charge up; a player already in their own zone charges up unless something moves them anyway, and the [carrier who never runs back](#125-running-back-after-a-steal) (12.5) charges up like anyone else standing still.
+**20.3.8** **Any player who moves is running back**, whatever moved them and however far, so any Cyborg who moves clears nothing. A player standing outside their own zone has to return and therefore can never charge up; a player already in their own zone charges up unless something moves them anyway, and the [carrier who never runs back](#124-running-back-after-a-steal) (12.4) charges up like anyone else standing still.
 
 **20.3.9** Where several of a side's players share a space and one of them must go to an uncovered space in that zone, the coach chooses which -- and a Cyborg among them charges up only if they are not the one sent.
 
 *Note.* Holding a Cyborg still is a real reason to send somebody else.
 
-**20.3.10** A [new-play reset](#126-resetting-after-a-new-play) (12.6) is not a run back and triggers no Charge-up.
+**20.3.10** A [new-play reset](#125-resetting-after-a-new-play) (12.5) is not a run back and triggers no Charge-up.
 
 ### 20.4 Mind Pull (Telekinetic)
 
@@ -1210,8 +1168,6 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **21.2.1** **A player's advanced skill replaces their role's skill of the same kind**, everywhere a skill is added or read, and a player with no advanced skill of that kind keeps their role's. An advanced skill is not held to 1 to 6, and a player's two skills need not total 7.
 
-**21.2.2**
-
 | Player | Offense | Defense |
 | --- | ---: | ---: |
 | Flux (Defender, Cyborg) | 5 | 5 |
@@ -1246,7 +1202,7 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **21.4.3** **Gearclaw may Boost.** Once per roll, before the die is thrown, Gearclaw may **drain 1** to add **+3** to that roll. It is declared blind, on any roll Gearclaw could Overdrive, and follows every rule of Overdrive -- except that on one roll Gearclaw may Boost or Overdrive, never both.
 
-**21.4.4** **Strider runs on less.** When Strider [charges up](#203-lithium-powered-cyborg) (20.3), they clear 2 drain rather than 1. A [run back](#125-running-back-after-a-steal) (12.5) drains Strider 1 at most, however far they run.
+**21.4.4** **Strider runs on less.** When Strider [charges up](#203-lithium-powered-cyborg) (20.3), they clear 2 drain rather than 1. A [run back](#124-running-back-after-a-steal) (12.4) drains Strider 1 at most, however far they run.
 
 **21.4.5** **Quantor runs onto the pass.** When a teammate's won [High Pass](#67-high-pass) (6.7) or [Setup Pass](#197-setup-pass) (19.7) is about to resolve, Quantor may **drain 3** to move to the space the pass is aimed at and receive it there, without a contest. The pass then resolves with Quantor as its receiver: a High Pass of 2 in range and a Setup Pass set up Quantor's [scoring opportunity](#8-scoring-opportunities) (8), and a longer High Pass is simply received. It is declared with the pass's distance, only for a distance whose space is on the field, and never on Quantor's own pass.
 
@@ -1268,7 +1224,7 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **21.5.6** **Vorix's long pass is a set-up.** When Vorix's won High Pass of 3 spaces reaches a teammate, there is no High Pass contest: the ball's speed goes to 12, the teammate receives it, and they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range, exactly as off a 2-space pass.
 
-**21.5.7** **Zenith flies.** When a [steal](#125-running-back-after-a-steal) (12.5) is about to run players back, Zenith's coach may first move Zenith to any space on the field, adding 1 token for every space travelled. Zenith then does not run back. An [injured](#154-playing-injured) (15.4) Zenith cannot fly, nor can Zenith holding the ball, and a [new-play reset](#126-resetting-after-a-new-play) (12.6) is not a run back.
+**21.5.7** **Zenith flies.** When a [steal](#124-running-back-after-a-steal) (12.4) is about to run players back, Zenith's coach may first move Zenith to any space on the field, adding 1 token for every space travelled. Zenith then does not run back. An [injured](#154-playing-injured) (15.4) Zenith cannot fly, nor can Zenith holding the ball, and a [new-play reset](#125-resetting-after-a-new-play) (12.5) is not a run back.
 
 **21.5.8** **Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range -- after a [Low Pass](#65-low-pass) (6.5) or a [Skilled Pass](#195-skilled-pass) (19.5) as after a 2-space High Pass. A High Pass of 3 or more is contested as usual, and only if Zytheris wins the [High Pass contest](#104-the-high-pass-contest) (10.4) -- or keeps the pass because nobody contests it -- may they then take the scoring opportunity.
 
