@@ -2758,11 +2758,14 @@ async def serve(
     chat_file: Path = WEB_CHAT_FILE,
     journal_file: Path = WEB_JOURNAL_FILE,
     names_file: Path = WEB_NAMES_FILE,
+    secret_file: Path = keys.WEB_SECRET_FILE,
 ) -> None:
     """Run the web app over `games_file` (its rooms over `rooms_file`,
-    its chat over `chat_file`, its journal over `journal_file` and the
-    names in use over `names_file`) until cancelled."""
-    keys.keep_secret_in(keys.WEB_SECRET_FILE)
+    its chat over `chat_file`, its journal over `journal_file`, the
+    names in use over `names_file`, and the secret in `secret_file`
+    where the environment names none) until cancelled. The secret
+    first: the names file is written under its fingerprint."""
+    keys.keep_secret_in(secret_file)
     service = build_service(games_file)
     LOGGER.info(
         "Loaded %d web game(s) from %s.", len(service.games), games_file,

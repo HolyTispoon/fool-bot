@@ -3218,6 +3218,8 @@ class EntryPointTests(unittest.TestCase):
         self.assertEqual(defaults["rooms_file"], WEB_ROOMS_FILE)
         self.assertEqual(defaults["chat_file"], WEB_CHAT_FILE)
         self.assertEqual(defaults["journal_file"], WEB_JOURNAL_FILE)
+        self.assertEqual(defaults["secret_file"], keys.WEB_SECRET_FILE)
+        self.assertEqual(keys.WEB_SECRET_FILE.parent, storage.DATA_FOLDER)
         self.assertNotIn(storage.GAMES_FILE, defaults.values())
 
         built = []
@@ -3229,10 +3231,13 @@ class EntryPointTests(unittest.TestCase):
             built.append(path)
             raise Built
 
-        with mock.patch.object(server, "build_service", build):
+        kept = mock.Mock()
+        with mock.patch.object(server, "build_service", build), \
+             mock.patch.object(keys, "keep_secret_in", kept):
             with self.assertRaises(Built):
                 asyncio.run(server.serve())
         self.assertEqual(built, [storage.WEB_GAMES_FILE])
+        kept.assert_called_once_with(keys.WEB_SECRET_FILE)
 
     def test_it_batches_for_the_walk_in_and_nothing_else(self) -> None:
         """Discord's economy is the cog's; the web app has no rate
