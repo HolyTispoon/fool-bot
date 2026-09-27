@@ -455,7 +455,11 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   so the name is centred on the card.
   The name and the role are set in `high_contrast_ink` -- black on Slime
   green, white on every other band (the author, 2026-09-27) -- because
-  white on Slime could not be read. A printed set is the four colour teams'
+  white on Slime could not be read. The corner emoji follows: on a band
+  whose ink is black, `corner_mark` redraws the emoji's letter black inside
+  its white disc, from the file's blue channel (Slime green's is 0 and
+  white's 255, so the antialiasing comes through exactly). The file itself,
+  and the emoji the bot uploads, are unchanged. A printed set is the four colour teams'
   cards; a species team's card is one the bot posts, and there the species
   icon in the corner is the right mark (the author, 2026-09-27).
 

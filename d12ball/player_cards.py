@@ -42,7 +42,7 @@ ability prints their role's sentence on both faces.
 """
 from dataclasses import dataclass
 
-from PIL import Image, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.cards import (
     CARD_FACE,
@@ -157,6 +157,46 @@ def team_emoji(team: Team) -> Image.Image | None:
 _TEAM_EMOJI: dict[Team, Image.Image | None] = {}
 
 
+def corner_mark(team: Team, color: str) -> Image.Image | None:
+    """
+    The team's emoji as the header's corner draws it: as the bot
+    uploads it, except that on a band whose `high_contrast_ink` is
+    black -- Slime green -- the letter is black too (the author,
+    2026-09-27), so the corner reads like the name beside it. The ring
+    is left alone; it is the band's own colour and disappears into it.
+
+    Only the white disc is recoloured, and the recolouring is exact
+    rather than a threshold: the emoji's letter is Slime green
+    antialiased onto white, and Slime green's blue channel is 0 where
+    white's is 255, so the blue channel alone says how much letter a
+    pixel holds. Setting all three channels to it redraws the same
+    antialiased letter in black.
+    """
+    emoji = team_emoji(team)
+    if emoji is None or high_contrast_ink(color) == "#ffffff":
+        return emoji
+
+    blue = emoji.getchannel("B")
+    inked = Image.merge("RGBA", (blue, blue, blue, emoji.getchannel("A")))
+    disc = Image.new("L", emoji.size, 0)
+    radius = emoji.width * CORNER_DISC_FRAC
+    center = emoji.width / 2
+    ImageDraw.Draw(disc).ellipse(
+        (center - radius, center - radius, center + radius, center + radius),
+        fill=255,
+    )
+    marked = emoji.copy()
+    marked.paste(inked, (0, 0), disc)
+    return marked
+
+
+# How much of the emoji's width, as a radius, the recoloured disc
+# covers: inside the white face (which ends at 96/256, where the ring
+# starts) with room for the ring's antialiased edge, and well outside
+# the letter.
+CORNER_DISC_FRAC = 88 / 256
+
+
 def draw_header(
     pen: Pen,
     player: PlayerDefinition,
@@ -191,7 +231,7 @@ def draw_header(
         fill=color,
     )
 
-    emoji = team_emoji(team)
+    emoji = corner_mark(team, color)
     if emoji is not None:
         pen.paste(
             emoji,
