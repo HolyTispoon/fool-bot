@@ -2690,7 +2690,9 @@ function drawSettings(table) {
       h("span", { class: "field-label" }, "SETTINGS"),
       h("span", { class: "quiet faint" },
         "the gold pill is how it stands; click another to change it, either coach may")),
-    ...table.settings.map(drawSetting),
+    // The name is changed in the top bar's topic, not here (the
+    // author, 2026-09-27).
+    ...table.settings.filter((setting) => setting.name !== "name").map(drawSetting),
   );
 }
 
@@ -2721,40 +2723,23 @@ function drawSetting(setting) {
       title: choice.definition || null,
       onclick: () => configure(choice.value),
     })));
-  } else if (typeof setting.value === "boolean") {
+  } else {
     control = h("div", { class: "pills" }, [false, true].map((value) => pill(value ? "On" : "Off", {
       current: setting.value === value,
       disabled: off || !setting.toggle_open,
       onclick: () => configure(null),
     })));
-  } else {
-    const input = h("input", {
-      class: "name-field small",
-      maxlength: "80",
-      value: setting.value,
-      disabled: off,
-      "aria-label": setting.label,
-      placeholder: "Name this room",
-    });
-    const save = () => { if (input.value !== setting.value) configure(input.value); };
-    input.addEventListener("change", save);
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") { event.preventDefault(); input.blur(); }
-    });
-    control = input;
   }
   /* What the setting is (the model's definition), then why a value is
      dark (the record's refusal), when there is one of each. */
-  const hint = setting.name === "name" && !off
-    ? "click the name to edit it; it saves when you leave the field" : "";
-  const said = [setting.definition, setting.note || hint].filter(Boolean);
+  const said = [setting.definition, setting.note].filter(Boolean);
   return h("div", { class: "table-setting" },
     h("span", { class: "setting-label" }, setting.label), control,
     said.length
       ? h("span", { class: "setting-note" },
         setting.definition ? h("span", { class: "setting-definition" }, setting.definition) : null,
-        setting.definition && (setting.note || hint) ? " · " : null,
-        setting.note || hint || null)
+        setting.definition && setting.note ? " · " : null,
+        setting.note || null)
       : null);
 }
 

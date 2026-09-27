@@ -1347,7 +1347,11 @@ button.goal { display: block; }
   .main, .sidebar { display: contents; }
   /* A phone's own tabs switch the screen; the sidebar's are not drawn. */
   .side-tabs { display: none; }
-  .topic, .topbar-divider { display: none; }
+  .topbar-divider { display: none; }
+  /* The topic stays, cut short, because before kickoff it is where
+     the game is renamed (the author, 2026-09-27). */
+  .topbar-title, .room-title, .topic { min-width: 0; overflow: hidden; }
+  .topic .topic-field { width: 150px; }
   .you-pill { padding: 4px 10px; font-size: 12px; gap: 6px; }
   .you-pill .pill-lead, .you-pill .pill-team { display: none; }
 

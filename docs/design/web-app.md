@@ -452,8 +452,10 @@ its sideline.
   whoever may change the name: the topic is the button, a dashed
   underline and a pencil beside it, and a click swaps it for a field
   that saves on Enter or when left and is dropped on Escape -- the
-  same `configure("name")` as the settings' Name row (the author,
-  2026-09-27). Clearing it gives the room back its "X vs. Y".
+  same `configure("name")`, and the only place the name is changed:
+  the settings carry no Name row, and on a phone the topic stays in the
+  top bar, cut short, for that reason (the author, 2026-09-27).
+  Clearing it gives the room back its "X vs. Y".
 - **The settings are pills**: the current value gold, the others
   outlined. **What a setting is, is the model's** (`definition`):
   `describe_game_mode` for the mode, and `SETTING_DEFINITIONS` in
