@@ -7,7 +7,12 @@
 
 This is the thing to hand somebody before a meetup, a playtest table or
 a con booth: every printable component in one folder (or one zip),
-built fresh from whatever the bot itself plays. **It draws nothing on
+built fresh from whatever the bot itself plays. **It is the print
+version of the game, as print sheets only**: each card set is one
+sheet (two for a team, front and advanced back), never a PNG per card,
+and the player cards are the four colour teams' alone -- the print
+game has no cards for the species teams; a colour team's card carries
+its species on the advanced back (the author, 2026-09-27). **It draws nothing on
 its own** -- it runs `render_maneuver_cards.py`, `render_player_cards.py`,
 `render_species_cards.py` and `render_boards.py`, the same four scripts
 a developer already reaches for to check one component at a time, and
@@ -44,6 +49,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.boards import DEFAULT_PAPER, PAPERS  # noqa: E402
 from d12ball.components import load_player_catalog  # noqa: E402
+from d12ball.game import COLOR_TEAMS  # noqa: E402
 
 
 def run(script: str, script_args: list[str]) -> None:
@@ -63,18 +69,20 @@ rather than trusting an old copy.
 
 ## What's in the box
 
-- **maneuver-cards/** -- the twelve maneuver cards (six basic, six
-  gambits) and their one shared back, plus `print-sheet.png`
-  ({sheet_columns} to a row) for a home or copy-shop printer.
-- **player-cards/** -- all {team_count} teams' rosters, front (the
-  basic role) and back (the advanced version, species keyword and
-  all), {players_per_team} players a team, plus a `<team>-sheet.png`
-  and `<team>-advanced-sheet.png` for each. Print the front sheet and
-  the advanced sheet duplex and they land back to back correctly --
-  see `duplex_order` in `d12ball/player_cards.py`.
-- **species-cards/** -- the three double-sided species-ability
-  reference cards (every pairing of the four species appears on one
-  face), plus `print-sheet.png`.
+Every card set comes as print sheets, ready for a home or copy-shop
+printer, {sheet_columns} cards to a row.
+
+- **maneuver-cards/print-sheet.png** -- the twelve maneuver cards (six
+  basic, six gambits) and their shared back.
+- **player-cards/** -- the {team_count} colour teams ({team_names}),
+  {players_per_team} players a team: `<team>-sheet.png` is the fronts
+  (the basic role) and `<team>-advanced-sheet.png` the backs (the
+  advanced version, species and all). Print the two duplex and they
+  land back to back correctly -- see `duplex_order` in
+  `d12ball/player_cards.py`.
+- **species-cards/print-sheet.png** -- the three double-sided
+  species-ability reference cards (every pairing of the four species
+  appears on one face).
 - **boards/** -- the field board at every size the ruleset defines
   (7 and 9 spaces), each also as a `-top` and `-bottom` half for a
   letter printer; the jumbotron board (clock, score, token supplies);
@@ -132,19 +140,19 @@ mechanic against.
     python3 scripts/generate_print_and_play_kit.py
 
 Add `--bleed` for a print shop, `--pdf` for a PDF of each board
-alongside its PNG, `--teams` for a team-coloured board and set of
-player-card sheets per team colour (on top of the generic ones above),
-and `--zip` to also bundle the whole kit into `<out>.zip` for handing
+alongside its PNG, `--teams` for a team board per team colour
+rather than one uncoloured one, and `--zip` to also bundle the whole kit into `<out>.zip` for handing
 to somebody who does not want a folder. See `--help` for the rest.
 """
 
 
-def write_readme(out_dir: Path, paper: str, team_count: int, players_per_team: int) -> None:
+def write_readme(out_dir: Path, paper: str, players_per_team: int) -> None:
     width, height = PAPERS[paper]
     readme = README_TEMPLATE.format(
         generated=date.today().isoformat(),
         sheet_columns=4,
-        team_count=team_count,
+        team_count=len(COLOR_TEAMS),
+        team_names=", ".join(team.value for team in COLOR_TEAMS),
         players_per_team=players_per_team,
         paper=paper,
         paper_size=f"{width:.2f} x {height:.2f}in",
@@ -192,8 +200,8 @@ def main() -> None:
         "--teams",
         action="store_true",
         help=(
-            "Also render a team-coloured board and a per-team-coloured "
-            "player-card set, not just the generic ones."
+            "Render a team board per team colour instead of one "
+            "uncoloured board."
         ),
     )
     parser.add_argument(
@@ -221,15 +229,17 @@ def main() -> None:
 
     run(
         "render_maneuver_cards.py",
-        ["--out", str(args.out / "maneuver-cards"), "--sheet", *bleed_flag],
+        ["--out", str(args.out / "maneuver-cards"), "--sheets-only", *bleed_flag],
     )
 
-    player_args = ["--out", str(args.out / "player-cards"), "--sheet", *bleed_flag]
+    player_args = ["--out", str(args.out / "player-cards"), "--sheets-only", *bleed_flag]
+    for team in COLOR_TEAMS:
+        player_args += ["--team", team.value]
     run("render_player_cards.py", player_args)
 
     run(
         "render_species_cards.py",
-        ["--out", str(args.out / "species-cards"), "--sheet", *bleed_flag],
+        ["--out", str(args.out / "species-cards"), "--sheets-only", *bleed_flag],
     )
 
     board_args = [
@@ -250,9 +260,8 @@ def main() -> None:
     print(f"wrote {args.out / 'living-rules.md'}")
 
     catalog = load_player_catalog()
-    team_count = len(catalog.teams)
-    players_per_team = len(next(iter(catalog.teams.values())).players)
-    write_readme(args.out, args.paper, team_count, players_per_team)
+    players_per_team = len(catalog.teams[COLOR_TEAMS[0]].players)
+    write_readme(args.out, args.paper, players_per_team)
 
     if args.zip:
         zip_kit(args.out)

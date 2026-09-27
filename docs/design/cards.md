@@ -853,8 +853,8 @@ python3 scripts/render_species_icons.py --in-place
 ## The print-and-play kit
 
 `scripts/generate_print_and_play_kit.py` is the one command for
-everything above plus the boards -- every maneuver, player and species
-card, and the field, jumbotron and team boards, into a folder (or a zip)
+everything above plus the boards -- the maneuver, player and species
+card sheets, and the field, jumbotron and team boards, into a folder (or a zip)
 meant to leave the repo for a meetup, a playtest table or a con booth.
 
 ```bash
@@ -877,6 +877,17 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   exhaustion tokens), read off "The ball, the dice, and the tokens" in
   the living rules rather than kept as a second list here that could
   drift from it.
+- **It is the print version of the game, as print sheets only** (the
+  author, 2026-09-27): each card set is its sheet -- two for a team,
+  the fronts and the advanced backs in duplex order -- and never a PNG
+  per card, and the player cards are the four colour teams' alone. The
+  printed game has no species-team cards; a colour team's card carries
+  its species on its advanced back. The three card scripts take
+  `--sheets-only` for this, and the kit passes it and a `--team` per
+  colour team. A developer checking one card still runs the script on
+  its own and gets every card. The kit came to 128 MB before this and
+  35 MB after, which is what let d12ball.com carry it
+  ([landing-pages.md](landing-pages.md), "The downloads").
 - **`print-and-play/` is generated output and is gitignored**, like
   `cards/` and `print/` -- run the script again rather than trusting an
   old copy after the rules move.
