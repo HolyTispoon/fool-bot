@@ -261,7 +261,7 @@ other worksheets do (`| ~~n~~ | ~~title~~ -- landed; ... |`).
 | ~~2~~ | ~~`d12ball.com`: the page itself~~ -- landed; see [landing-pages.md](design/landing-pages.md) | ~~medium~~ |
 | ~~3~~ | ~~`d12ball.com`: the downloads and the redirects~~ -- landed; the kit is the colour teams' print sheets, in three zips -- the components, and the player cards in two -- to fit Pages' 25 MB; see [landing-pages.md](design/landing-pages.md) | ~~small~~ |
 | ~~4~~ | ~~`propheticfoolsgames.com`: the page itself~~ -- landed; the dice renderer is `landing/dice.py` and `requirements.txt` carries numpy for it; see [landing-pages.md](design/landing-pages.md) | ~~small~~ |
-| 5 | Deploy: the two Pages projects, the domains, the printed addresses | medium, half of it in dashboards |
+| ~~5~~ | ~~Deploy: the two Pages projects, the domains, the printed addresses~~ -- landed on the repository side: the box prints `d12ball.com` and `d12ball.com/feedback` (the survey, renamed by the author), and the build refuses a printed address the site does not serve; **the dashboard half is the author's to run**, the checklist in [landing-pages.md](design/landing-pages.md), "Deploying" -- Web Analytics is Pages' one-click setting rather than a snippet in the template | ~~medium, half of it in dashboards~~ |
 | 6 | Cross-links: the app, the bot, the Notion pages | small |
 
 Steps 1 to 4 can be looked at locally (`python3 -m http.server` in
@@ -676,6 +676,13 @@ main, not from a machine).
 ```text
 Step 6 of docs/landing-pages.md. Step 5 has landed and both sites are
 live.
+
+Before anything else: the checklist in docs/design/landing-pages.md,
+"Deploying", has been run, and the line at its end saying which path was
+taken is filled in; https://d12ball.com and https://propheticfoolsgames.com
+both load. If either is not so, stop and say so -- this step links both
+sites from the app and the bot, and a link to a site that is not up yet is
+a dead link in front of every player.
 
 - webapp/static/index.html: one line under the "D12 Ball" panel
   linking https://d12ball.com ("What is D12 Ball?"), styled like the

@@ -79,11 +79,16 @@ Prophetic Folly's dice (`dice.py`, "The studio page"). Anything that shows D12
 Ball is the renderer's.
 
 What the code cannot answer is one constant each in `landing/build.py`, dated
-where it is the author's call: the stage word (`STAGE`, "in playtesting",
-2026-09-27), the contact address, the Discord invite, the studio's paragraph
+where it is the author's call: the contact address, the Discord invite, the studio's paragraph
 (quoted from its Notion page as written), the game's overview line (`OVERVIEW`,
 its Notion page's, which both sites carry), Prophetic Folly's words and
-address, and each site's origin.
+address, and each site's origin. The stage word (`STAGE`, "in playtesting",
+2026-09-27) and the playtest panel's headline (`PLAYTEST_HEADLINE`) are
+`box_art`'s instead, because the playtest card prints them too: one copy,
+which the card and the page both read. The panel's line under it and its
+"Give us feedback" button are the page's own (the author's rewording,
+2026-09-27); the card words its line differently, since it points at a code
+the page does not have.
 
 ## The night palette, because a page is a screen
 
@@ -271,9 +276,10 @@ the build as Cloudflare Pages' `_redirects` file:
   the page.
 - `/kit`, `/kit-players-1` and `/kit-players-2` -- the print-and-play kit's
   three zips, likewise.
-- `/survey` -- `box_art.SURVEY_URL`, read rather than copied. The survey is a
-  redirect so a form that moves is a one-line change here and no printed
-  card is reprinted.
+- `/feedback` -- `box_art.SURVEY_FORM_URL`, read rather than copied. The
+  playtest card prints `box_art.SURVEY_URL`, which is this address, so a
+  form that moves is a one-line change here and no printed card is
+  reprinted.
 
 Every redirect is a 302, not a 301: a browser caches a 301 for good, and the
 point of the address is that its target may change. A local target is held
@@ -372,3 +378,128 @@ Look at each at a desktop width (1280) and at 375, the narrowest phone the
 page is held to: no horizontal scroll, the chips wrap, the hero's two buttons
 stack. `http.server` does not read `_redirects`, so `/learn` is a 404 locally;
 that is Cloudflare's to serve.
+
+## Deploying
+
+Both sites are Cloudflare Pages projects built from `main` by Cloudflare,
+with Pages' Git integration -- nothing is uploaded from a machine. **Nothing
+here is per checkout**: the projects, the domains, the redirects and the
+analytics are all the author's Cloudflare account's, and a site is whatever
+`main` builds. There is no secret in the repository and none on a host.
+
+### What the repository guarantees the build
+
+- **`python3 scripts/build_landing.py` with no arguments builds both
+  sites**, and `--only <site>` one. **Any failure exits non-zero**: a
+  refusal (a turn card that is not basic, a download over
+  `PAGES_FILE_LIMIT`, a printed address the site does not serve) is a
+  `ValueError`, the kit is a subprocess run with `check=True`, and nothing
+  is caught -- so a broken build is a failed deploy, and the last good one
+  stays up.
+- **It runs from any working directory**: every path is resolved from
+  `landing/build.py`'s own location, and the fonts by absolute path. Built
+  from a scratch directory and from the root on 2026-09-27, the studio
+  site's 21 files were byte-identical.
+- **It installs on a clean Linux Python.** Every pin in `requirements.txt`
+  has a manylinux wheel for 3.11 and 3.13 (checked 2026-09-27), so the
+  install compiles nothing. numpy 2.4 needs Python 3.11 or later. From a
+  fresh 3.13 virtualenv the install took about 12 seconds, and the build
+  of both sites 68 seconds -- 49 MB and 2 MB, 59 files, the largest the
+  first players' zip at 15 MB. Pages allows 20 minutes a build, 25 MiB a
+  file and 20,000 files a site on the free plan.
+
+### The checklist
+
+Written 2026-09-27, before it has been run. Cloudflare's dashboard moves
+its menus around; the names below are the shape, not a promise -- as in
+[collaboration.md](collaboration.md), "Exposing the port". Pages is still
+offered for a new project from Git, though Cloudflare now points new
+projects at Workers with static assets and says Pages' new features stop
+there. **Pages it is** (the author, 2026-09-27): for two static sites it is
+less to set up -- no Wrangler config in the repository -- and does everything
+these need, and moving a site of files and redirects to Workers later is a
+config file, not a rewrite.
+
+1. **Both domains are on Cloudflare**: `d12ball.com` and
+   `propheticfoolsgames.com` listed as sites, each *Active*.
+2. **Create the `d12ball` project**: Workers & Pages -> *Create* -> *Pages*
+   -> *Connect to Git* -> `HolyTispoon/fool-bot` (this installs
+   Cloudflare's GitHub app on the repository, if it is not already).
+   - Production branch: `main`.
+   - Framework preset: *None*.
+   - Build command:
+     `python3 -m pip install -r requirements.txt && python3 scripts/build_landing.py --only d12ball`.
+     `python3 -m pip` rather than `pip`, so the install lands in the Python
+     that runs the build.
+   - Build output directory: `landing/dist/d12ball`. Root directory: blank.
+   - Environment variable `PYTHON_VERSION` = `3.13`, the version the build
+     was checked on. New projects get build image v3, whose default is
+     3.13 already; naming it keeps a future default from changing the
+     Python under the build unannounced.
+3. **Create the `propheticfoolsgames` project** the same way, with
+   `--only studio` and `landing/dist/studio`.
+4. **On each project, build only what matters** (Settings -> Build):
+   - *Branch control*: automatic production deployments on, **preview
+     deployments *None***. Otherwise every pushed branch builds -- and
+     this repository pushes a branch per task -- and each gets a public
+     `*.pages.dev` address.
+   - *Build watch paths*, include: `landing/*`, `d12ball/*`, `docs/*`,
+     `scripts/*`, `requirements.txt`. The build reads the model, its
+     catalogs and images, the Charter and the Learn to Play, and runs the
+     kit's scripts; it never reads `cogs/`, `webapp/`, `gamesaves/`,
+     `tests/` or `botlog/`, and a merge that touches only those is a build
+     that would change nothing. The free plan is 500 builds a month with
+     one at a time, and two projects build on every merge that passes the
+     filter. A path left off the list is a site that silently stops
+     following the game, so when the build starts reading somewhere new,
+     add it here.
+5. **Custom domains**: `d12ball.com` on the first project,
+   `propheticfoolsgames.com` on the second (Custom domains -> *Set up a
+   custom domain*). The zones are on the same account, so Cloudflare adds
+   the DNS record itself on confirming; a record made by hand first gets a
+   522. `play.d12ball.com`'s record is the tunnel's and is not touched.
+6. **`www` to the bare domain**, on both: `_redirects` matches paths only,
+   never a host, so this is Cloudflare's, not the site's. `www` needs a
+   proxied DNS record for the redirect to answer on (Cloudflare's own
+   "Redirecting www to domain apex" for Pages says which); then either the
+   zone's Redirect Rule template for www to root, or an account-level Bulk
+   Redirect, whichever the dashboard offers. Source `www.<domain>`, target
+   `https://<domain>`, 301 (this one is permanent, unlike the site's own
+   302s), with the query string preserved, subpath matching and the path
+   suffix preserved, so `www.d12ball.com/rules` still lands on the book.
+7. **"Always Use HTTPS"** on both zones (SSL/TLS -> Edge Certificates). On
+   `d12ball.com` it may already be on from the tunnel.
+8. **Web Analytics**, on each project: Metrics -> Web Analytics ->
+   *Enable*. Pages adds the beacon itself on the next deployment, so the
+   templates carry none; a snippet pasted into the page as well would be
+   two beacons on one page, which Cloudflare's analytics does not support.
+   The worksheet planned a build-time value for the snippet; the one-click
+   setting made it unnecessary.
+9. **Check from a phone off the home Wi-Fi**: both bare domains load;
+   `www.` redirects to the bare one; `/play` reaches the app (once the
+   tunnel is up); `/feedback` reaches the form; `/rules` and `/learn` open
+   the books; `/kit`, `/kit-players-1` and `/kit-players-2` download; a
+   link to each site pasted in a Discord message previews with the Open
+   Graph card. And scan the sale sheet's and the playtest card's codes off
+   a fresh print.
+10. **Check what a browser is told to keep**:
+    `curl -sI https://d12ball.com/site.css` and
+    `https://d12ball.com/images/board.png`. The
+    assets are unversioned names, so a long `max-age` is how a visitor
+    gets a new page over an old stylesheet -- exactly what happened to the
+    web app through the tunnel ([collaboration.md](collaboration.md),
+    "Cloudflare keeps what the web app does not say about"). If Pages
+    answers with one, a `_headers` file written by the build is the fix;
+    it is not written until a response says it is needed.
+11. **If a Pages build fails on the renders** and cannot be fixed in the
+    repository, fall back to a GitHub Action on push to `main` that runs
+    the same build and `wrangler pages deploy landing/dist/<site>
+    --project-name <project>`, with `CLOUDFLARE_API_TOKEN` and
+    `CLOUDFLARE_ACCOUNT_ID` as repository secrets -- the one case in which
+    a secret exists, and it lives in GitHub, not in a checkout.
+
+**Which path was taken, and anything the dashboard did differently, is
+written here when the checklist has been run.** The `*.pages.dev`
+addresses stay reachable after the domains are on; each page's canonical
+link names its own domain (`ORIGINS`), so a search engine files the copy
+under the right one.

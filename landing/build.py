@@ -34,9 +34,13 @@ from PIL import Image, ImageFilter
 from d12ball.box_art import (
     DEFAULT_CLAIMS,
     NIGHT_COVER,
+    PAGE_URL,
+    PLAYTEST_HEADLINE,
     PUBLISHER,
     SCREENTOP_BANNER_INCHES,
+    STAGE,
     STRAPLINE,
+    SURVEY_FORM_URL,
     SURVEY_URL,
     TITLE,
     BoxFacts,
@@ -79,11 +83,6 @@ ORIGINS = {
 PLAY_URL = "https://play.d12ball.com"
 CONTACT = "politicsgames@gmail.com"
 DISCORD_INVITE = "https://discord.gg/MpgGm8FvKB"
-
-# The stage the game is at, in the author's word (2026-09-27). Not a
-# fact the code can answer, so it is one constant with a date on it,
-# as `DEFAULT_CLAIMS` is.
-STAGE = "in playtesting"
 
 # The studio's own paragraph, from its Notion page, as written -- the
 # author's voice, which the page quotes rather than rewords. The studio
@@ -171,16 +170,24 @@ PAGES_FILE_LIMIT = 25 * 1024 * 1024
 # The addresses a site owns and forwards, Cloudflare Pages' `_redirects`
 # format. `/learn` and `/rules` open the books' PDFs and `/kit` and
 # `/kit-players-<n>` the kit's zips, which the build makes. The survey
-# is a redirect so it can move without a card being reprinted.
+# is a redirect so the form can move without a card being reprinted:
+# the card prints `SURVEY_URL`, and this forwards it to the form.
 REDIRECTS: dict[str, tuple[tuple[str, str], ...]] = {
     "d12ball": (
         ("/play", PLAY_URL),
         *((source, f"/{DOWNLOADS_DIR}/{filename}") for source, _, filename in BOOK_DOWNLOADS),
         *((source, f"/{DOWNLOADS_DIR}/{filename}") for source, filename, _ in KIT_DOWNLOADS),
-        ("/survey", SURVEY_URL),
+        ("/feedback", SURVEY_FORM_URL),
     ),
     "studio": (),
 }
+
+# The addresses the box art prints -- the sale sheet's QR and the
+# playtest card's. Each is the d12ball site's own and must be one it
+# serves, the page or a redirect; the build refuses one that is not,
+# because a printed address that goes nowhere is found by somebody
+# holding the card.
+PRINTED_ADDRESSES = (PAGE_URL, SURVEY_URL)
 
 # The three beats of "How a turn goes", each over one maneuver's card.
 # All three are basic cards -- the beats describe a basic turn, and a
@@ -707,6 +714,7 @@ def d12ball_values() -> dict[str, str]:
         "strapline": escape(STRAPLINE),
         "chips": "\n        ".join(chip_row),
         "stage": escape(STAGE),
+        "playtest_headline": escape(PLAYTEST_HEADLINE, quote=False),
         "play": escape(PLAY_URL),
         "studio_origin": ORIGINS["studio"],
         "turn_cards": "\n".join(turn_cards),
@@ -778,11 +786,28 @@ def redirects_file(site: str) -> str:
     )
 
 
+def unserved_printed_addresses() -> list[str]:
+    """The printed addresses the d12ball site does not serve: off its
+    origin, or a path that is neither the page nor a redirect."""
+    origin = ORIGINS["d12ball"]
+    unserved = []
+    for address in PRINTED_ADDRESSES:
+        path = address[len(origin):] if address.startswith(origin) else None
+        if path is None or (path not in ("", "/") and redirect_target("d12ball", path) is None):
+            unserved.append(address)
+    return unserved
+
+
 def build(site: str, out_dir: Path) -> Path:
     """Build one site into `out_dir`, which is created if it is missing.
     Returns the directory."""
     if site not in SITES:
         raise ValueError(f"no site {site!r}; the sites are {', '.join(SITES)}")
+    if site == "d12ball" and (unserved := unserved_printed_addresses()):
+        raise ValueError(
+            f"the box art prints {', '.join(unserved)}, which {ORIGINS[site]} "
+            "does not serve; add a redirect to REDIRECTS"
+        )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
