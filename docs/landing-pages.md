@@ -82,6 +82,48 @@ closed playtesting" and offers a contact, is a question for the
 author (below) and the prompt for step 4 builds the gated version
 until answered.
 
+## What the canvas review changed (2026-09-27)
+
+The author reviewed the sketch on the canvas over the evening of
+2026-09-26 and the morning after, in comment threads answered as they
+came; each is resolved on the canvas with what was done. What they
+settled, so the steps below build it rather than the first draft:
+
+- **The copy is the author's.** The three beats of "How a turn goes",
+  the four species lines, the section headings, the playtest panel and
+  the card texts were written on the canvas in the author's voice and
+  are reproduced in step 2 word for word. The first draft quoted the
+  Charter; the page now quotes nothing, and the verbatim test guards
+  only a `<blockquote data-law>` a later edit might add.
+- **The board is the web app's.** Not the sale sheet's printed board
+  and not the bot's PNG: a headless-Chrome capture of a room page's
+  board panel, the way play.d12ball.com draws it. Taking it turned up
+  a web app bug -- a space clipped the badges of a piece at its edge --
+  fixed in PR #358 and re-captured.
+- **Ways to play is three cards**: the browser, the print-and-play kit,
+  and the rulebooks as two cover images with only their titles.
+  Screentop is off the page; Discord is not a way to play but an icon,
+  in the footer and beside the playtest panel's contact line, carrying
+  the invite.
+- **The rulebooks get covers.** The built PDFs open on their first text
+  page, which does not read as a book at thumbnail size; the author
+  gave each cover its line (step 3).
+- **The contact is politicsgames@gmail.com**, on both sites.
+- **Prophetic Folly stays gated**: no link to the draft, stage "In
+  development", playtest access on request at the studio address. Its
+  picture is one composed still: two d12s rendered as solids, bone
+  Fortune showing 12 and obsidian Doom showing 1, with the bot's six
+  coins gathered round them, fortune faces on Fortune's side and doom
+  faces on Doom's. The renderer written for it is
+  `scripts/render_landing_dice.py`, which step 4 moves under
+  `landing/`.
+- **The player cards follow `player_cards.py`**: PR #356 changed the
+  face while the sketch was open and the sketch was re-rendered from
+  main; the build renders them, so the page follows every merge.
+- **Typos fixed in the author's copy on the canvas, nothing reworded**:
+  "DIdn't", "secrets picks", "The maneuvers related", "around each",
+  "for most of the games".
+
 ## The decisions
 
 These are the ones the plan is built on. Each is the recommendation
@@ -154,7 +196,9 @@ PR, and the step's prompt is rewritten rather than argued with.
    two PDFs, `generate_print_and_play_kit.py --zip` the kit; the
    landing build runs both into `dist/d12ball/downloads/`. The
    Charter and Learn to Play are the books the box quotes; a
-   download link is how a table gets them without the app.
+   download link is how a table gets them without the app. On the
+   page they are two cover images under "Ways to play", so each book
+   gains a cover page (step 3) and the page shows that page.
 
 7. **Nothing on the pages is tested for how it looks; one test checks
    the build stands up.** The author's rule for everything printed
@@ -162,9 +206,11 @@ PR, and the step's prompt is rewritten rather than argued with.
    catch cheaply is a build that fails or a link into the site that
    points at nothing, so `tests/test_landing_build.py` builds both
    sites into a temp dir, asserts every local `href`/`src` resolves
-   to a file in the output, and asserts every quoted rule on the D12
-   Ball page appears verbatim in `docs/living-rules.md` -- the same
-   test the box art has.
+   to a file in the output, and asserts every `<blockquote data-law>`
+   on the D12 Ball page appears verbatim in `docs/living-rules.md` --
+   the same test the box art has. The page as reviewed carries no
+   such quote (its copy is the author's); the check is there for the
+   day one is added.
 
 8. **Cloudflare Web Analytics, on, cookieless.** One `<script>` from
    the dashboard, no consent banner needed, tells the author whether
@@ -182,31 +228,23 @@ PR, and the step's prompt is rewritten rather than argued with.
 
 Each step's PR carries a `## Questions for the author` section; these
 are the ones known before any step starts. A step whose prompt needs
-the answer says what it builds until it has one.
+the answer says what it builds until it has one. Struck ones were
+answered on the canvas on 2026-09-27.
 
-- **Does the Prophetic Folly card link to the Notion page?** The page
-  is marked draft, do not circulate. Until answered the card says
-  "in closed playtesting" and offers the contact address.
-- **What contact goes on both sites?** An email, a Discord invite, a
-  form. The sale sheet's `--contact` flag has the same hole. Until
-  answered, no contact is shown and the footer names the studio
-  only.
-- **The Discord invite.** The server is public and the page may
-  carry an invite (the author, on the canvas, 2026-09-27); what is
-  still wanted is the invite link itself, one that does not expire,
-  since it sits on a public page. The card is built with a
-  placeholder until it arrives.
-- ~~Is the Screentop table public?~~ Answered on the canvas,
-  2026-09-27: the Screentop card comes off the page. Three ways to
-  play, not four: the browser, the print-and-play kit, Discord.
+- **The Discord invite.** The server is public and the page carries
+  the invite as an icon (the author, on the canvas); what is still
+  wanted is the invite link itself, one that does not expire, since
+  it sits on a public page. Built with a placeholder until it arrives.
 - **`www.d12ball.com` to `d12ball.com`, or the other way?** Bare is
   the recommendation; it is what is printed.
 - **Does the studio site want a mailing list?** Not built unless
   asked: it needs a provider and a privacy line.
-- **The stage words.** Notion says D12 Ball is "Early development"
-  and Folly "Playtesting". The pages say what the author wants
-  strangers told; the D12 Ball page currently says "in playtesting",
-  which is what the playtest card says.
+- ~~Does the Prophetic Folly card link to the Notion page?~~ Keep it
+  gated: no link, stage "In development", playtest access on request.
+- ~~What contact goes on both sites?~~ politicsgames@gmail.com.
+- ~~Is the Screentop table public?~~ Public, and off the page anyway.
+- ~~The stage words.~~ D12 Ball "in playtesting"; Prophetic Folly "In
+  development".
 
 ## The steps
 
@@ -351,64 +389,114 @@ screenshot of each to the PR.
 
 ### 2. `d12ball.com`: the page itself
 
-The sections, top to bottom. Every sentence that is not the author's
-is a caption over something drawn or quoted.
+The sections, top to bottom, as the author left them on the canvas.
+Where the words below are in quotation marks they are the author's
+and go on the page unchanged.
 
 ```text
-Step 2 of docs/landing-pages.md. Step 1 has landed.
+Step 2 of docs/landing-pages.md. Step 1 has landed. The copy below
+was written by the author on the canvas on 2026-09-27; reproduce it
+exactly, and do not reword what is quoted.
 
-Fill the d12ball page's sections, in this order below the hero:
+Fill the d12ball page's sections, in this order below the hero. The
+nav is How it plays, The teams, Ways to play, Playtest, and the gold
+Play now; there is no Books entry.
 
-1. "What it is": the overview paragraph from the game's Notion page,
-   quoted in the worksheet ("D12 Ball is a fast playing fantasy
-   sports game with tense last-ditch efforts and dramatic
-   comebacks..."), the author's words unchanged. Beside it, the
-   printed board with meeples on it, rendered the way the sale sheet
-   renders its picture of the game (box_art.board_photo and
-   draw_meeples_on_board; reuse them, do not redraw).
+1. "What it is": the overview paragraph from the game's Notion page
+   ("D12 Ball is a fast playing fantasy sports game with tense
+   last-ditch efforts and dramatic comebacks, where two teams of
+   fantasy creatures compete by maneuvering around the field,
+   manipulating the ball and outwitting the other team on their way
+   to score epic goals."), on its own -- no Charter quote beside it.
+   Under it, full width, the board as the web app draws it: a 2x
+   headless-Chrome capture of a room page's board panel (the field,
+   the goals, both benches) with the caption "The board as the web
+   app draws it at play.d12ball.com." The build takes it itself:
+   it starts a web app on a spare port over a games file it writes
+   from a fixture in landing/fixtures/ (one saved web game at
+   kickoff, Purple at home against the Cyborgs), captures the room
+   with `chrome --headless=new --screenshot --force-device-scale-
+   factor=2`, crops the `.board-panel` rectangle it reads from the
+   page, and stops the app. Where no Chrome is on the machine (the
+   Pages build image), it uses the committed capture in
+   landing/d12ball/board.png and says so; the design note records
+   that the committed capture is refreshed by hand after a redesign
+   step lands. Not the sale sheet's printed board, and not the bot's
+   PNG: the author asked for the web app's picture.
 
-2. "How a turn goes": three beats, each a <blockquote data-law="N">
-   quoting one sentence of docs/living-rules.md verbatim -- the
-   maneuver being chosen, the challenge, the roll -- with a
-   one-line caption above each that names what the picture shows.
-   Pick the sentences the sale sheet already quotes (box_art's quoted
-   rules) before reaching for new ones. Under each beat, the picture
-   the bot itself posts at that moment: a maneuver card face from
-   cards.py, the challenge image from dice_brief's brief through
-   render.py, the skill-test dice. Build a real match state to render
-   from, the way d12ball/rulebook_figures.py does; do not hand-place
-   anything.
+2. "How a turn goes": heading "Maneuver around each other in a spicy
+   Rock, Paper, Scissors game". Three cards, each a maneuver card face
+   from cards.py over one of the author's paragraphs:
+   1. "The offense chooses its action", over the Low Pass card: "When
+      you're close enough to the opponent's goal you can try to score,
+      but for most of the game players maneuver: choosing one of three
+      possible actions to handle the ball."
+   2. "The defense challenges", over the Intercept card: "The
+      defending coach secretly picks a maneuver of their own. Both
+      sides reveal their choice simultaneously."
+   3. "Resolution", over the High Pass card: "The maneuvers relate to
+      each other in a rock-paper-scissors cycle of priority: a low
+      pass beats pressure, which beats dribble advance, and so forth.
+      In case of a tie in rank, players engage in an exhausting skill
+      test, rolling d12s until one side gains the upper hand, or
+      tentacle!"
+   No Charter quotes and no Law citations: the beats are the author's
+   voice. The <blockquote data-law> test stays for any quote a later
+   edit adds.
 
-3. "The teams": eight team swatches from the generated colours.css,
-   grouped by TEAM_PAIRS, each species' coloured icon beside its pair,
-   and one player card per species from player_cards.py in the basic
-   face. Names through team_display_name, never .value.title().
+3. "The teams": heading "Four species, eight teams"; intro "Four
+   colour teams, and the four species that wear their colours. Nine
+   players a team, six on the field and three on the bench." Four
+   cards, one per species: a player card from player_cards.py in the
+   basic face (the Fire Demons' fullback, the other three's
+   goalkeeper -- named by role, never by id), a row of the species'
+   coloured icon, the species name and the colour team's swatch from
+   colours.css, and one line of the author's under the row:
+   - Fire Demons: "Can ignite the ball for explosive successes as well
+     as catastrophic burns."
+   - Cyborgs: "Can overcharge for a significant boost, but only if
+     they get charged up enough to keep up with the energy cost."
+   - Telekinetics: "Be careful when you go by them, because they may
+     just pull the ball away from you."
+   - Oozes: "Most players get assigned to just one space, but these
+     oozes tend to spread around on as many as they want."
+   The cards are rendered by the build, so a change to
+   player_cards.py reaches the page on the next merge.
 
-4. "Ways to play": three cards -- the browser (play.d12ball.com,
-   one line: two coaches, or one against the AI), the table (the
-   print-and-play kit, linking to /kit, step 3), and Discord (a
-   permanent invite, which the author supplies; a placeholder until
-   then). Not Screentop: the author took it off the page on the
-   canvas, 2026-09-27.
+4. "Ways to play": heading "Try it today!". Three cards:
+   - "In your browser": "Try the game online by playing in your
+     browser. Play against friends or an AI opponent. There's even a
+     tutorial!" -> https://play.d12ball.com
+   - "At the table": "Get the print-and-play kit. Meeples and d12s
+     not included. 3D files for printing tokens are available on
+     request." -> /kit (step 3)
+   - "The rulebooks": no description. Two cover images side by side,
+     each a link, only the titles under them: "Learn to Play (PDF)"
+     -> /learn and "The Charter: Laws of the Game (PDF)" -> /rules.
+     The covers are the books' own cover pages rendered by step 3's
+     cover function; until step 3 lands the card links with the
+     titles alone.
+   Not Screentop and not Discord: the author took both off this list.
 
-5. "The books": the Charter and Learn to Play as two download cards
-   linking /rules and /learn (step 3), each with its title from
-   rulebooks.py's book table and its page count read from the built
-   PDF if step 3 has landed, otherwise no count.
+5. "Playtesting": heading "You liked it? Great! Didn't like it? Tell
+   us why!"; line "D12 Ball is in playtesting and we'd love your
+   feedback."; the survey button -> /survey (step 3); the contact
+   line "For more information: politicsgames@gmail.com or join our
+   Discord!" with the address a mailto link and the Discord mark
+   beside the line as the invite link -- a 32px blurple square with
+   the white mark, an aria-label, the permanent invite once the
+   author supplies it and discord.gg/INVITE-CODE until then. On the
+   desktop the night cover sits beside the text.
 
-6. "Playtesting": one paragraph saying the game is in playtesting
-   and inviting a table to play and answer the survey, linking /survey
-   (step 3). No contact until the author gives one.
+6. Footer: PUBLISHER linking https://propheticfoolsgames.com, the
+   stage word, the year, and the Discord mark again as an icon-only
+   link at the right.
 
-7. Footer: PUBLISHER linking https://propheticfoolsgames.com, the
-   stage word, and the year.
-
-Keep the copy rules: say what the game is, never what it is not; a
-number is the game's; no second strapline. Extend the test's
-blockquote check so it fails on any quote that is not verbatim in
-the living rules. Build, look at desktop and phone, screenshots on
-the PR, and list under Questions for the author every place the page
-is thinner than it should be because an answer is missing.
+Where the author has not written the words, keep the copy rules: a
+number is the game's; no second strapline. Build, look at desktop
+and phone, screenshots on the PR, and list under Questions for the
+author every place the page is thinner than it should be because an
+answer is missing.
 ```
 
 ### 3. `d12ball.com`: the downloads and the redirects
@@ -436,6 +524,20 @@ not have.
   The survey line reads SURVEY_URL from box_art.py so there is one
   copy of it. Make the test count a redirect source as a resolving
   link and check each redirect target that is local resolves too.
+- The books gain a cover page. The built PDFs open on their first
+  text page, which does not read as a book at thumbnail size (the
+  author, on the canvas, 2026-09-27). Each entry in rulebooks.py's
+  book table gains its cover's words -- Learn to Play: "Learn the
+  fundamentals quickly with a beautifully illustrated guide for the
+  training mode."; the Charter: "Laws of the Game." and under it
+  "Comprehensive rules reference for the game." -- and the same
+  layout is drawn twice from those fields: by reportlab as page 1
+  of the PDF, and by Pillow (a function in landing/, cream paper,
+  a gold band at the head, the title in Racing Sans One, the
+  subtitle, box_art.d12_art low right, the publisher line at the
+  foot) as the cover image the rulebooks card shows. One source for
+  the words; two drawings of them, checked by looking. The PDF
+  change is reviewed against docs/design/rulebooks.md.
 - The books are the ones the box quotes; if build_rulebooks fails on
   the markdown subset, that is a rulebook bug to fix in
   d12ball/rulebooks.py, not to work around here.
@@ -452,34 +554,40 @@ Step 4 of docs/landing-pages.md. Step 1 has landed.
 Fill the studio page:
 
 1. Hero: the studio's name, and the studio paragraph already in the
-   skeleton, unchanged. No strapline: the studio has not written one,
-   and the page does not write one for it. Under Questions for the
-   author, ask whether it wants one.
+   skeleton, unchanged, set as the headline in the serif. No
+   strapline: the studio has not written one, and the page does not
+   write one for it. Beside it, the night box cover with two of the
+   bot's coins at its foot.
 
-2. "Games": two cards.
+2. "Games", heading "Two at the table": two cards.
    - D12 Ball: the night banner (built by the same build; copy it
      from the d12ball build or render it again, once), the overview
      line from the game's Notion page, the chips (coaches, minutes,
-     age, read the same way as the d12ball page), the stage word,
-     and a link to https://d12ball.com.
-   - Prophetic Folly: the callout sentence from its Notion page
-     ("A streamlined tabletop roleplaying system, providing a robust
-     mechanics for action resolution with lots of flexibility for
-     narrative driven interactions."), one line naming the mechanic
-     (two twelve-sided dice, Fortune and Doom -- the page's own
-     words, quoted), the stage word "Playtesting", and -- until the
-     author answers -- "In closed playtesting" with no link. If the
-     author has answered that the link goes public, link
-     https://propheticfools.notion.site/ and drop the closed line.
-     The card has a picture slot; the Folly page has no art of its
-     own, and the bot already draws a Fortune die and a Doom die
-     (d12ball/images/emoji/*_fortune.png, *_doom.png -- the same
-     names Folly gives its two dice), so the card shows that pair,
-     one darker than the other as the page describes them, rather
-     than leaving a hole. Ask the author whether the shared names
-     are a coincidence or the studio's house dice.
+     age, read the same way as the d12ball page), the chip
+     "IN PLAYTESTING", and a link to https://d12ball.com.
+   - Prophetic Folly, gated (the author, 2026-09-27): the callout
+     sentence from its Notion page ("A streamlined tabletop
+     roleplaying system, providing a robust mechanics for action
+     resolution with lots of flexibility for narrative driven
+     interactions."), one line naming the mechanic ("Every risky
+     action is a Resolution Roll on two twelve-sided dice, the
+     Fortune and Doom dice. The table is run by the Fool."), the
+     chip "IN DEVELOPMENT", no link anywhere, and the last line
+     "Playtest access on request: politicsgames@gmail.com" as a
+     mailto link. Its picture is one composed still, centred in the
+     card's picture panel: the two d12s rendered as solids -- bone
+     Fortune showing 12 with engraved umber numerals, obsidian Doom
+     showing 1 with painted bone numerals, each resting on a face
+     with a contact shadow -- and the six coins from
+     d12ball/images/emoji gathered tight round their feet, turned a
+     little, fortune faces (gold 3, silver 1, bronze 3) at Fortune's
+     side and doom faces (gold 1, silver 3, bronze 1) at Doom's.
+     scripts/render_landing_dice.py is the renderer written for the
+     sketch; move it to landing/dice.py, keep its output identical,
+     and compose the still in landing/build.py with Pillow.
 
-3. Footer: the studio's name, the year, the contact if given.
+3. Footer: the studio's name, politicsgames@gmail.com as a mailto
+   link, the year.
 
 The studio page shares landing/shared/base.css with the d12ball page
 and has its own site.css for the card grid. It has no downloads and
@@ -579,6 +687,9 @@ live.
 
 - **A blog, news, a mailing list, a shop.** Not until the author asks
   for one; each needs a provider or a second toolchain.
+- **Screentop, and Discord as a way to play.** Both were on the first
+  draft; the author took them off. The Discord invite lives on as an
+  icon.
 - **A landing page for Prophetic Folly of its own.** It has a Notion
   site and is in closed playtesting. When it has a domain, this
   worksheet's shape is what to copy.
