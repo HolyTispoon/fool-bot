@@ -81,9 +81,10 @@ EDGE_WIDTH = 5
 # reference image's own colours, aliased so a coach reading a card and
 # a coach reading the bot's hexagon are looking at the same two
 # colours by construction, not by two hex literals happening to agree.
-# The paper tone the boards are printed on. The cards are white
-# instead -- they are printed nine to a page and a tinted face is a
-# full page of ink for nothing, where a board is one sheet a game.
+# The cream the rulebooks, their figures and the hand image are drawn
+# on. The cards are white instead -- they are printed nine to a page
+# and a tinted face is a full page of ink for nothing -- and so are the
+# printed boards now, which have a palette of their own in `boards.py`.
 FACE_COLOR = "#f6f1e6"
 CARD_FACE = "#ffffff"
 PANEL_COLOR = "#e6ded0"

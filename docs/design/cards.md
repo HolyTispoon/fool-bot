@@ -241,9 +241,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   which is a page of ink per sheet of nine and the first thing a home printer
   runs out of. The face and the back are now `CARD_FACE` white, the maneuver's
   colour is a `EDGE_WIDTH` outline, and `BACK_COLOR` is white with a grey
-  edge. **`FACE_COLOR` is still the boards' cream** and is deliberately not
-  the cards': a board is one sheet a game, where cards are printed by the
-  page.
+  edge. **`FACE_COLOR` is still cream** -- the ground of the rulebooks, their
+  figures and the hand image -- and is deliberately not the cards'. The printed
+  boards used to share it and went white on 2026-09-27; see printed-boards.md.
 - **The rounded outline is the cut line.** With the face and the sheet both
   white there is nothing else to say where a card ends, which is why the
   corner radius is drawn rather than implied and why `FRAME` is small enough

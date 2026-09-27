@@ -126,9 +126,8 @@ SURVEY_URL = (
 # gives for a board being dark ink on a light face. What carries the
 # game's look instead is the art, the team colours and the type.
 #
-# The ground is **white**, not the cards' and boards' cream: a page is
-# a page. `FACE_COLOR` is still what a component is printed on, and is
-# deliberately not used here.
+# The ground is **white**, not `cards.FACE_COLOR`'s cream: a page is a
+# page. The printed boards went white too (see `boards.BOARD_FACE`).
 PAPER = "#ffffff"
 # A panel on the page -- the glance table, the answer box. Neutral
 # rather than the cards' warm `PANEL_COLOR`, for the same reason the
