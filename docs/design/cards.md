@@ -436,6 +436,22 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     background that hides this. The printed card is white, which is why the
     fault survived the cards being looked at, and the dark matchup image is
     what showed how much of it was still there.
+- **The ball in a portrait is a d12, with real numbers on it** (the author,
+  2026-09-27). Eighteen of the paintings showed a round ball and Kindlefinger's
+  die carried glyphs; the game is played with a d12. The balls were replaced by
+  the box art's own die (`box_art.d12_art`'s solid) wearing each painted
+  ball's surface, so an ooze die keeps its veins and a telekinetic one its
+  dimples. Every face turned to the viewer carries a number drawn in its own
+  plane, and the numbering is a real d12's: opposite faces sum to 13, so no
+  visible pair does, and 6 and 9 carry a dot. What stood in front of a ball
+  -- a hand, a toe, flames -- was put back over the die from the painting.
+  Kindlefinger kept its painted die and had its glyphs painted out and
+  numbered. **Synapse still shows its round ball**: its draft was not taken.
+  - **A light grey on a die is tinted, never left colourless.** A silver
+    highlight or a pale numeral is exactly what the recut takes for studio
+    background, so the replaced pixels near each die carry a few units of the
+    team's colour and stay under the level the cut feathers at -- the check in
+    `D12BallPortraitRecutTests` is what caught them.
 - **`Pen.paste` resizes straight to the supersampled canvas.** The
   supersampling is there because Pillow does not antialias the shapes the cards
   are drawn out of; a photograph put through it would be resampled twice for
