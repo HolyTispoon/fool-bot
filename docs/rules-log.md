@@ -169,10 +169,12 @@ ties)."*, and the author settled three readings of it:
   the pass.
 - **The free tests are gone** (the author): Zorch pays a skill test's token and a re-roll's like
   anybody else.
-- **Read by the build, not yet put to the author:** a shootout test adds nothing, since
-  nothing is in play and the ball's speed is whatever the last play left it at. The defense's
-  die in a score attempt is not Zorch's own roll, so a Zorch defending a shot adds nothing
-  either.
+- **The shootout** (the author): *"During shootouts the ball speed is at 1 and so the modifier
+  is 0."* Zorch's shootout test asks for the modifier like every other roll and gets 0. The
+  code had not reset the speed at full time, which Law 7.3 already required since full time
+  turns the ball over; it does now, so a shootout is played at speed 1.
+- **Defending a shot** (the author): *"Zorch doesn't add speed modifier because ... it's not
+  Zorch's own roll even if they are the only one in the way."*
 
 Law 7.4.1, which said the modifier is added in three places "and nowhere else", now points at
 Law 21.6.
