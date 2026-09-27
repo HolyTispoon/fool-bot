@@ -1154,8 +1154,8 @@ class ViscorTests(unittest.TestCase):
         self.assertTrue(lines)
 
 
-class SpritzTests(unittest.TestCase):
-    """Spritz has the Telekinetics' Smooth (Law 21)."""
+class ShpritzTests(unittest.TestCase):
+    """Shpritz has the Telekinetics' Smooth (Law 21)."""
 
     def setUp(self) -> None:
         self.game = advanced(player_1_team=Team.OOZES)
@@ -1170,7 +1170,7 @@ class SpritzTests(unittest.TestCase):
         self.match.board.place_meeple(self.taker, zone, index)
         self.match.set_ball_space(zone, index)
 
-    def test_only_spritz_may_take_it_over(self) -> None:
+    def test_only_shpritz_may_take_it_over(self) -> None:
         self.assertEqual(ENGINE.smooth_candidates(self.game, self.match), [])
         with holding(self.taker, PersonalAbility.SMOOTH):
             self.assertEqual(

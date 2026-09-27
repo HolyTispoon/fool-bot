@@ -258,10 +258,71 @@ class LegacyGameMigrationTests(unittest.TestCase):
 
         # And they reach the map under their legacy color, which is
         # read off the species rather than written down beside them.
+        species_by_name = {
+            player.name.lower(): player.species
+            for roster in self.catalog.teams.values()
+            for player in roster.players
+        }
         legacy_ids = storage._build_legacy_id_map()
-        for old_name in storage.LEGACY_RENAMED_NAMES:
+        for old_name, current_name in storage.LEGACY_RENAMED_NAMES.items():
             with self.subTest(old=old_name):
-                self.assertIn(f"orange_{old_name}", legacy_ids)
+                color = LEGACY_COLOR_FOR_SPECIES[species_by_name[current_name]]
+                self.assertIn(f"{color}_{old_name}", legacy_ids)
+
+    def test_every_renamed_id_maps_to_a_player_who_exists(self) -> None:
+        current_ids = {
+            player.player_id
+            for roster in self.catalog.teams.values()
+            for player in roster.players
+        }
+        self.assertTrue(storage.RENAMED_PLAYER_IDS)
+        for old_id, current_id in storage.RENAMED_PLAYER_IDS.items():
+            with self.subTest(old=old_id):
+                self.assertIn(current_id, current_ids)
+                self.assertNotIn(old_id, current_ids)
+
+    def test_a_save_from_before_a_rename_since_the_reshuffle_loads(
+        self,
+    ) -> None:
+        """
+        An id is `{name}_{role}` since the reshuffle, so a rename
+        renames the id: a game saved mid-match with Spritz on the field
+        names `spritz_winger`, whom the catalog no longer holds.
+
+        Played by today's Slime, whose value is also a legacy color:
+        the rename must not drag the team through the reshuffle's remap.
+        """
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.OOZES,
+            visiting_team=Team.SLIME,
+        )
+        new_to_old = {
+            current: old
+            for old, current in storage.RENAMED_PLAYER_IDS.items()
+        }
+        old_state = rename_ids(match.to_dict(), new_to_old)
+        self.assertIn("spritz_winger", json.dumps(old_state))
+        with self.assertRaises(ValueError):
+            MatchState.from_dict(old_state, self.rules).validate(self.catalog)
+
+        game_data = {
+            "player_1_team": "oozes",
+            "player_2_team": "slime",
+            "match_state": old_state,
+        }
+        with mock.patch.object(storage.LOGGER, "error") as error:
+            migrated = storage.migrate_legacy_game_data(game_data)
+        error.assert_not_called()
+
+        self.assertEqual(migrated["player_1_team"], "oozes")
+        self.assertEqual(migrated["player_2_team"], "slime")
+        self.assertEqual(migrated["match_state"], match.to_dict())
+        MatchState.from_dict(
+            migrated["match_state"], self.rules,
+        ).validate(self.catalog)
 
     def test_a_half_migrated_save_says_so_in_the_log(self) -> None:
         """

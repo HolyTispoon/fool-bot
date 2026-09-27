@@ -92,6 +92,13 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
     already failing `TeamSetup.validate`, and the reshuffle migration
     shipped mapping six of its nine ids and leaving three. Add to the
     table whenever a player is renamed.
+  - **Since the reshuffle an id is `{slug(name)}_{role}`, so a rename
+    renames the id too**, and a game saved mid-match under the old one
+    fails `TeamSetup.validate` the same way. `RENAMED_PLAYER_IDS` maps
+    those (`spritz_winger` -> `shpritz_winger`, 2026-09-27), in its own
+    pass ahead of the reshuffle's and never through its team remap:
+    `slime` is a legacy color and today's Slime team both, and Shpritz
+    plays for today's Slime. A rename goes in both tables.
   - **A migration that fires and cannot finish is worse than one that
     does not fire**, which is what that half-mapped side was: the save
     still fails to load and the traceback names nobody.

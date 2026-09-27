@@ -46,6 +46,20 @@ LEGACY_RENAMED_NAMES = {
     "blazekick": "brightburn",
     "kindlefoot": "kindlefinger",
     "sizzik": "sizzifizik",
+    "spritz": "shpritz",
+}
+
+# `{an id a player has had since the reshuffle: their id now}`. Since
+# the reshuffle an id is `{slug(name)}_{role}`, so renaming a player
+# renames their id, and a game saved mid-match under the old one names
+# somebody the catalog no longer holds -- `TeamSetup.validate` fails
+# it the same way it failed a pre-reshuffle save. Same pass, same walk,
+# same reason: the new id is the one thing the save cannot tell you.
+#
+# Add to this, and to `LEGACY_RENAMED_NAMES`, whenever a player is
+# renamed. Spritz became Shpritz on 2026-09-27 (docs/rules-log.md).
+RENAMED_PLAYER_IDS = {
+    "spritz_winger": "shpritz_winger",
 }
 
 # Built once and cached: load_player_catalog() reads and parses
@@ -200,8 +214,18 @@ def migrate_legacy_game_data(game_data: dict) -> dict:
 
     A game already in the new shape is returned untouched: nothing
     here fires unless `_remap_legacy_ids` actually found a legacy id
-    somewhere in it.
+    somewhere in it. A player renamed since the reshuffle is the one
+    other thing mended here (`RENAMED_PLAYER_IDS`), as an id alone.
     """
+    # A player renamed since the reshuffle, first and on its own: it
+    # is an id and nothing else, so it must not reach the team remap
+    # below -- "slime" is a legacy color and today's Slime team both,
+    # and a save of today's that happened to name Spritz would come
+    # back as the Oozes.
+    renamed, any_renamed = _remap_legacy_ids(game_data, RENAMED_PLAYER_IDS)
+    if any_renamed:
+        game_data = renamed
+
     legacy_ids = _build_legacy_id_map()
     remapped, replaced = _remap_legacy_ids(game_data, legacy_ids)
     if not replaced:
@@ -308,12 +332,14 @@ def load_games(path: Optional[Path] = None) -> dict[str, D12BallGame]:
         # A game saved before the 2026-08-17 eight-team reshuffle names
         # its players by their old id and its two sides by a legacy
         # color -- migrate_legacy_game_data is a no-op the moment
-        # neither is true any more. See the legacy-migration gotcha in
+        # neither is true any more, and no player it names has been
+        # renamed since. See the legacy-migration gotcha in
         # docs/design/gotchas.md.
         migrated = migrate_legacy_game_data(game_data)
         if migrated is not game_data:
             LOGGER.info(
-                "Migrated saved game %s off its pre-reshuffle team ids.",
+                "Migrated saved game %s off player or team ids it no "
+                "longer holds.",
                 game_id,
             )
             game_data = migrated

@@ -1078,7 +1078,7 @@ class RulesEngine:
                     continue
                 if player_id in moved or player_id == carrier_id:
                     continue
-                # Spritz has the Telekinetics' Smooth (Law 21); the
+                # Shpritz has the Telekinetics' Smooth (Law 21); the
                 # early return above already covers them, since every
                 # mode playing personal abilities plays species ones.
                 if not (

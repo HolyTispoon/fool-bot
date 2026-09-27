@@ -2843,8 +2843,8 @@ class D12BallManeuverTests(unittest.TestCase):
         """
         The match is over the ability sentences, so a re-import that
         rewords one silently drops it off the card it belongs to.
-        Pressure is the case with two roles and Steal Intercept the one
-        with none, which is why it carries a note instead.
+        Steal is the case with a role and a note, and Intercept the
+        one with no role, which is why it carries the note alone.
         """
         players = load_player_catalog()
         by_maneuver = {
@@ -2859,8 +2859,8 @@ class D12BallManeuverTests(unittest.TestCase):
         self.assertEqual(by_maneuver["dribble_advance"], {"PLAYMAKER"})
         self.assertEqual(by_maneuver["high_pass"], {"FULLBACK", "STRIKER"})
         self.assertEqual(by_maneuver["deflect"], {"FULLBACK"})
-        self.assertEqual(by_maneuver["steal"], {"BALL SPEED"})
-        self.assertEqual(by_maneuver["pressure"], {"DEFENDER", "MIDFIELDER"})
+        self.assertEqual(by_maneuver["steal"], {"MIDFIELDER", "BALL SPEED"})
+        self.assertEqual(by_maneuver["pressure"], {"DEFENDER"})
 
         # **No role ability names a gambit**, which is the
         # data being honest rather than a gap: advanced mode's other

@@ -269,7 +269,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "role has an ability**, printed on their card and worth "
             "reading before you pick a maneuver -- the Fullback throws "
             "a longer High Pass, the Midfielder gets +3 on a Low Pass "
-            "or Pressure test, the Defender steals the ball off a won "
+            "or Steal test, the Defender steals the ball off a won "
             "Pressure. Two commands list them whenever you want: "
             "**`/d12ball role_abilities_reference`** for all six, and "
             "**`/d12ball team_roster`** gives you a list of your team "

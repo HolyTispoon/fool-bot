@@ -19,8 +19,8 @@
     "midfielder": {
       "offense": 3,
       "defense": 4,
-      "ability": "+3 on skill tests for low pass or pressure.",
-      "ability_short": "+3 for low pass/pressure"
+      "ability": "Add +3 to skill tests for steal and low pass.",
+      "ability_short": "+3 for skill tests"
     },
     "playmaker": {
       "offense": 4,
@@ -37,7 +37,7 @@
     "striker": {
       "offense": 6,
       "defense": 1,
-      "ability": "+3 for scoring off a set up.",
+      "ability": "Add +3 when rolling a score attempt off a set up.",
       "ability_short": "+3 for scoring off setup"
     }
   },
@@ -229,6 +229,14 @@
       "advanced_ability": "When their maneuver loses on rank, may exhaust 2 to force a skill test while rival doesn't exhaust. Subseuqent ties exhaust as normal.",
       "advanced_skills": {}
     },
+    "shpritz_winger": {
+      "name": "Shpritz",
+      "role": "winger",
+      "species": "ooze",
+      "stat_overrides": {},
+      "advanced_ability": "Smooth (teammate sharing space may handover ball handling).",
+      "advanced_skills": {}
+    },
     "sizzifizik_playmaker": {
       "name": "Sizzifizik",
       "role": "playmaker",
@@ -251,14 +259,6 @@
       "species": "telekinetic",
       "stat_overrides": {},
       "advanced_ability": "Mind Pulls on 9+.",
-      "advanced_skills": {}
-    },
-    "spritz_winger": {
-      "name": "Spritz",
-      "role": "winger",
-      "species": "ooze",
-      "stat_overrides": {},
-      "advanced_ability": "Smooth (teammate sharing space may handover ball handling).",
       "advanced_skills": {}
     },
     "strider_midfielder": {
@@ -390,7 +390,7 @@
         "flux_defender",
         "scorchit_midfielder",
         "gearclaw_playmaker",
-        "spritz_winger",
+        "shpritz_winger",
         "brightburn_striker",
         "gurgoth_defender",
         "hexis_playmaker",
@@ -442,7 +442,7 @@
         "acidel_striker",
         "glompex_midfielder",
         "viscor_defender",
-        "spritz_winger",
+        "shpritz_winger",
         "gurgoth_defender",
         "slitheron_striker",
         "ozul_playmaker",

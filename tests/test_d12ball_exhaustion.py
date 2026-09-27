@@ -169,7 +169,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(offense_id, cog.engine.load_match_state(game).exhausted)
 
         # Rolls chosen so the two totals land level. Neither of these
-        # two is a Midfielder and neither maneuver is Steal Intercept,
+        # two is a Midfielder and neither maneuver is Steal or Intercept,
         # so skill is the only modifier in play.
         offense_roll = 6
         defense_roll = (

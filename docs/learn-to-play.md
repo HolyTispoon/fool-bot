@@ -181,7 +181,7 @@ Standard mode adds the species abilities to everything in this book. Advanced mo
 | --- | ---: | ---: | --- |
 | Fullback | 1 | 6 | +1 space on a pass or a deflection |
 | Defender | 2 | 5 | A won Pressure also steals the ball |
-| Midfielder | 3 | 4 | +3 on a skill test for a Low Pass or a Pressure |
+| Midfielder | 3 | 4 | +3 on a skill test for a Low Pass or a Steal |
 | Playmaker | 4 | 3 | May Dribble Advance 2 spaces |
 | Winger | 5 | 2 | A completed Low Pass may set up a shot |
 | Striker | 6 | 1 | +3 on a shot off a set-up |
