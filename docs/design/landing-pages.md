@@ -126,13 +126,83 @@ both sites into a temporary directory and checks what a look would miss:
 
 The build touches no game save, so nothing is suppressed.
 
+## The D12 Ball page
+
+Top to bottom, as the author left it on the canvas (2026-09-27): the hero,
+"What it is" with the board, "How a turn goes", "The teams", "Ways to play",
+"Playtesting", the footer. **The copy is the author's**, written on the canvas
+and reproduced word for word -- the section headings, the three beats, the
+four species lines, the playtest panel and the card texts -- and the overview
+is the game's Notion page's own line. None of it quotes the Charter, so none
+of it cites a Law; the `<blockquote data-law>` check stays for the day a
+quote is added.
+
+Where the author's sentence carries a number, the build fills the number
+in from the game, so the sentence reads as written today and follows the
+roster tomorrow: "Four species, eight teams" and "Nine players a team, six on
+the field and three on the bench" are `BoxFacts`' species, teams,
+`players_per_team` and `fielded` (and the colour teams `COLOR_TEAMS`),
+written as words by `number_word`.
+
+**The pictures are rendered by the build**, so a merge that changes a card
+changes the page: the three maneuver cards under the beats are
+`cards.render_maneuver_card` (`TURN_CARDS`: Low Pass, Intercept, High Pass,
+the author's choice), and the four player cards `player_cards.render_player_card`
+in the basic face. **Whose card stands for a species is asked of the roster,
+never named**: `SPECIES_FACE_ROLE` holds the Fire Demons' fullback, and every
+other species shows the first player of its roster -- which is what the
+reviewed sketch showed (the worksheet's "goalkeeper" is not a role the game
+has). The roster order is the `player cards` tab's, so a re-sort there
+changes the face, as it changes who starts.
+
+**A link says what it opens.** The two books are "Learn to Play" and "The
+Charter: Laws of the Game" while `/learn` and `/rules` open the web app's
+Reading Room, and gain "(PDF)" once the redirects point at PDFs (`book_title`
+reads the target). The print-and-play card stands unlinked until the site
+forwards `/kit`; adding that redirect is what links it (`kit_card_html`).
+
+## The board
+
+The page shows **the board as the web app draws it**, not the printed board
+and not the bot's PNG -- the author's call on the canvas. `landing/capture.py`
+takes it: it stages a web game through `GameService` in a temporary directory
+(two coaches seated, Purple picked by the first and the Cyborgs by the
+second, Purple at home whoever wins the coin, the match dealt and begun, so
+it is the kickoff), runs `webapp.server.serve` over that directory alone on
+a spare local port -- every file the app would keep under `data/` named
+there instead -- opens `/room/<id>` in a headless Chrome as an observer (both
+seats are held, so the visitor takes neither), waits for the board's SVG, and
+captures the `.board-panel` rectangle at twice the density over the
+DevTools protocol (aiohttp's websocket client, which the web app already
+needs). Chrome's own `--screenshot` flag was tried first and never exited.
+
+**The capture is committed, as `landing/d12ball/board.png`, and the build
+copies it; it never starts a browser.** The worksheet had the build take the
+picture itself wherever Chrome was installed. That would make the page a
+different set of bytes depending on the machine, start a server and a
+browser in every test run, and do nothing on Cloudflare's build image, which
+has no Chrome. So taking it is its own command,
+
+```bash
+python3 scripts/build_landing.py --capture-board
+```
+
+run by hand **after a web app change to the board** -- a redesign step, a
+fix to how a piece is drawn -- and committed. `LANDING_CHROME` names a
+browser when none is found. The root `.gitignore` ignores every `board.png`,
+so this one is excepted by path.
+
 ## Redirects
 
 The addresses a site forwards are `REDIRECTS` in `landing/build.py`, written
-into the build as Cloudflare Pages' `_redirects` file. The D12 Ball site has
-`/play` (the web app) and `/learn`, which forwards to the web app's Reading
-Room -- it carries the Learn to Play in the page -- until the build makes the
-PDF. The rest of the printed addresses come with the downloads.
+into the build as Cloudflare Pages' `_redirects` file:
+
+- `/play` -- the web app.
+- `/learn` and `/rules` -- the web app's Reading Room, which carries both
+  books in the page, until the build makes the PDFs and points them there.
+- `/survey` -- `box_art.SURVEY_URL`, read rather than copied. The survey is a
+  redirect so a form that moves is a one-line change here and no printed
+  card is reprinted.
 
 ## Building and looking
 

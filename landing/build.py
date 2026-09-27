@@ -30,6 +30,7 @@ from d12ball.box_art import (
     PUBLISHER,
     SCREENTOP_BANNER_INCHES,
     STRAPLINE,
+    SURVEY_URL,
     TITLE,
     BoxFacts,
     d12_art,
@@ -37,9 +38,18 @@ from d12ball.box_art import (
     render_box_cover,
     retail_chips,
 )
-from d12ball.components import load_basic_ruleset, load_player_catalog
+from d12ball.cards import render_maneuver_card
+from d12ball.components import (
+    PlayerRole,
+    load_basic_ruleset,
+    load_maneuver_catalog,
+    load_player_catalog,
+)
+from d12ball.game import COLOR_TEAMS, Team, team_display_name
+from d12ball.player_cards import render_player_card
 from d12ball.render import FONT_DIR, TEAM_COLORS, species_icon
 from d12ball.species_cards import SPECIES_TEAM
+from landing.capture import BOARD_CAPTURE
 
 LANDING_DIR = Path(__file__).resolve().parent
 DIST_DIR = LANDING_DIR / "dist"
@@ -73,16 +83,69 @@ STUDIO_PARAGRAPH = (
 )
 
 # The addresses a site owns and forwards, Cloudflare Pages' `_redirects`
-# format. `/learn` goes to the web app's Reading Room, which carries the
-# Learn to Play in the page, until step 3 of docs/landing-pages.md builds
-# the PDF and points it there.
+# format. `/learn` and `/rules` go to the web app's Reading Room, which
+# carries both books in the page, until step 3 of docs/landing-pages.md
+# builds the PDFs and points them there; `/kit` arrives with the kit.
+# The survey is a redirect so it can move without a card being reprinted.
 REDIRECTS: dict[str, tuple[tuple[str, str], ...]] = {
     "d12ball": (
         ("/play", PLAY_URL),
         ("/learn", f"{PLAY_URL}/rules"),
+        ("/rules", f"{PLAY_URL}/rules"),
+        ("/survey", SURVEY_URL),
     ),
     "studio": (),
 }
+
+# The three beats of "How a turn goes", each over one maneuver's card.
+# The words are in the template, as the author wrote them; this is only
+# which card each one is drawn over.
+TURN_CARDS = ("low_pass", "intercept", "high_pass")
+
+# Whose card stands for each species under "The teams" -- the sketch the
+# author reviewed (2026-09-27): the Fire Demons' fullback, and the first
+# player of each other species' roster. Asked of the roster by role and
+# by roster order, never by id or name, so a roster revision moves it.
+SPECIES_FACE_ROLE: dict[Team, PlayerRole] = {
+    Team.FIRE_DEMONS: PlayerRole.FULLBACK,
+}
+
+# The species in the order the page shows them, with the author's line
+# for each; the name and the colour are read from the team.
+SPECIES_LINES: tuple[tuple[str, str], ...] = (
+    ("fire_demon",
+     "Can ignite the ball for explosive successes as well as catastrophic burns."),
+    ("cyborg",
+     "Can overcharge for a significant boost, but only if they get charged "
+     "up enough to keep up with the energy cost."),
+    ("telekinetic",
+     "Be careful when you go by them, because they may just pull the ball "
+     "away from you."),
+    ("ooze",
+     "Most players get assigned to just one space, but these oozes tend to "
+     "spread around on as many as they want."),
+)
+
+# Discord's mark, for the two links to the invite. One copy, filled in
+# wherever the template asks for it.
+DISCORD_MARK = (
+    '<svg viewBox="0 0 127.14 96.36" aria-hidden="true" focusable="false">'
+    '<path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,'
+    '6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,'
+    '0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,'
+    '32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91'
+    '-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a'
+    '68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,'
+    '126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,'
+    '65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,'
+    '65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,'
+    '46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg>'
+)
+
+NUMBER_WORDS = (
+    "no", "one", "two", "three", "four", "five", "six", "seven", "eight",
+    "nine", "ten", "eleven", "twelve",
+)
 
 DISPLAY_FONT = "RacingSansOne-Regular.ttf"
 DISPLAY_FONT_LICENCE = "RacingSansOne-OFL.txt"
@@ -90,6 +153,8 @@ DISPLAY_FONT_LICENCE = "RacingSansOne-OFL.txt"
 BANNER_WIDTHS = (1500, 3000)
 COVER_WIDTH = 1200
 SPECIES_ICON_PIXELS = 96
+# Cards are shown about 200px wide; twice that keeps them sharp.
+CARD_PIXELS = 400
 FAVICON_PIXELS = 64
 JPEG_QUALITY = 85
 
@@ -104,9 +169,30 @@ def game() -> tuple:
     return catalog, rules, BoxFacts.read(catalog=catalog, rules=rules)
 
 
+@lru_cache(maxsize=None)
+def maneuvers():
+    return load_maneuver_catalog()
+
+
 def chips() -> list[str]:
     """The box's own three chips: how many, how long, how old."""
     return retail_chips(game()[2], DEFAULT_CLAIMS)
+
+
+def number_word(count: int) -> str:
+    """A count as the page writes it in a sentence -- "nine players" --
+    so the author's sentence can carry the game's number."""
+    return NUMBER_WORDS[count] if count < len(NUMBER_WORDS) else str(count)
+
+
+def species_face(species: str):
+    """The player whose card stands for `species` (`SPECIES_FACE_ROLE`)."""
+    team = SPECIES_TEAM[species]
+    roster = game()[0].teams[team].players
+    role = SPECIES_FACE_ROLE.get(team)
+    if role is None:
+        return roster[0]
+    return next(player for player in roster if player.role == role)
 
 
 # --------------------------------------------------------- the pictures
@@ -164,6 +250,32 @@ def write_shared_pictures(out: Path) -> None:
     # there is no d12 PNG among d12ball/images, so the icon is the
     # box's solid, drawn at the size a tab asks for.
     write_png(d12_art(FAVICON_PIXELS), out / "favicon.png")
+
+
+def fit_width(image: Image.Image, width: int) -> Image.Image:
+    height = round(image.height * width / image.width)
+    return image.resize((width, height), Image.Resampling.LANCZOS)
+
+
+def write_d12ball_pictures(out: Path) -> None:
+    """The d12ball page's own pictures: the board the web app draws (the
+    committed capture, landing/capture.py), the three maneuver cards
+    under "How a turn goes", and a player card per species."""
+    shutil.copyfile(BOARD_CAPTURE, out / "images" / "board.png")
+    catalog = game()[0]
+    for key in TURN_CARDS:
+        maneuver = maneuvers().get(key)
+        card = render_maneuver_card(
+            maneuvers(), catalog, maneuver,
+            is_offense=maneuvers().side_of(key) == "offense", bleed=False,
+        )
+        write_png(fit_width(card, CARD_PIXELS), out / "images" / "cards" / f"{key}.png")
+    for species, _ in SPECIES_LINES:
+        card = render_player_card(
+            catalog, species_face(species), SPECIES_TEAM[species], bleed=False,
+        )
+        write_png(fit_width(card, CARD_PIXELS), out / "images" / "players" / f"{species}.png")
+    write_species_icons(out)
 
 
 def write_species_icons(out: Path) -> None:
@@ -237,9 +349,93 @@ def common_values(site: str) -> dict[str, str]:
     }
 
 
+def redirect_target(site: str, source: str) -> str | None:
+    return dict(REDIRECTS[site]).get(source)
+
+
+def book_title(source: str, title: str) -> str:
+    """A book's link text, which says "(PDF)" only once the address is
+    forwarded to one -- until step 3 it opens the Reading Room."""
+    target = redirect_target("d12ball", source) or ""
+    return f"{title} (PDF)" if target.endswith(".pdf") else title
+
+
+def turn_card_html(number: int, key: str, heading: str, words: str) -> str:
+    name = escape(maneuvers().get(key).name)
+    return (
+        '<article class="card turn-card">\n'
+        f'  <p class="turn-step">{number}. {escape(heading)}</p>\n'
+        f'  <img src="images/cards/{key}.png" width="{CARD_PIXELS}" '
+        f'alt="The {name} maneuver card">\n'
+        f'  <p>{escape(words)}</p>\n'
+        '</article>'
+    )
+
+
+def species_card_html(species: str, line: str) -> str:
+    team = SPECIES_TEAM[species]
+    player = species_face(species)
+    team_name = escape(team_display_name(team))
+    role = escape(player.role.value)
+    return (
+        '<article class="card species-card">\n'
+        f'  <img class="player-card" src="images/players/{species}.png" '
+        f'width="{CARD_PIXELS}" alt="{escape(player.name)}, {team_name} {role}">\n'
+        '  <div class="species-row">\n'
+        f'    <img src="images/species/{species}.png" width="32" height="32" alt="">\n'
+        f'    <span>{team_name}</span>\n'
+        f'    <span class="swatch" style="background: var(--team-{team.value.replace("_", "-")})"></span>\n'
+        '  </div>\n'
+        f'  <p>{escape(line)}</p>\n'
+        '</article>'
+    )
+
+
+def kit_card_html() -> str:
+    """The print-and-play card, which links once the site forwards
+    `/kit` to the kit (step 3) and stands unlinked until then."""
+    words = (
+        '<span class="way-title">At the table</span>\n'
+        '  <span class="way-words">Get the print-and-play kit. Meeples and '
+        'd12s not included. 3D files for printing tokens are available on '
+        'request.</span>'
+    )
+    if redirect_target("d12ball", "/kit") is None:
+        return f'<div class="card way-card">\n  {words}\n</div>'
+    return (
+        f'<a class="card way-card" href="/kit">\n  {words}\n'
+        '  <span class="way-link">Download the kit (zip)</span>\n</a>'
+    )
+
+
+# The three beats, as the author wrote them on the canvas (2026-09-27).
+TURN_BEATS = (
+    ("The offense chooses its action",
+     "When you're close enough to the opponent's goal you can try to "
+     "score, but for most of the game players maneuver: choosing one of "
+     "three possible actions to handle the ball."),
+    ("The defense challenges",
+     "The defending coach secretly picks a maneuver of their own. Both "
+     "sides reveal their choice simultaneously."),
+    ("Resolution",
+     "The maneuvers relate to each other in a rock-paper-scissors cycle of "
+     "priority: a low pass beats pressure, which beats dribble advance, and "
+     "so forth. In case of a tie in rank, players engage in an exhausting "
+     "skill test, rolling d12s until one side gains the upper hand, or "
+     "tentacle!"),
+)
+
+
 def d12ball_values() -> dict[str, str]:
+    facts = game()[2]
     chip_row = [chip_html(words) for words in chips()]
     chip_row.append(chip_html(STAGE.upper(), quiet=True))
+    turn_cards = [
+        turn_card_html(number, key, heading, words)
+        for number, (key, (heading, words)) in enumerate(
+            zip(TURN_CARDS, TURN_BEATS), start=1,
+        )
+    ]
     return {
         **common_values("d12ball"),
         "title": escape(TITLE),
@@ -248,6 +444,22 @@ def d12ball_values() -> dict[str, str]:
         "stage": escape(STAGE),
         "play": escape(PLAY_URL),
         "studio_origin": ORIGINS["studio"],
+        "turn_cards": "\n".join(turn_cards),
+        "species_count": number_word(facts.species).capitalize(),
+        "species_word": number_word(facts.species),
+        "teams_word": number_word(facts.teams),
+        "colour_teams_count": number_word(len(COLOR_TEAMS)).capitalize(),
+        "players_count": number_word(facts.players_per_team).capitalize(),
+        "fielded_word": number_word(facts.fielded),
+        "bench_word": number_word(facts.players_per_team - facts.fielded),
+        "species_cards": "\n".join(
+            species_card_html(species, line) for species, line in SPECIES_LINES
+        ),
+        "kit_card": kit_card_html(),
+        "learn_title": book_title("/learn", "Learn to Play"),
+        "hero_learn": book_title("/learn", "Learn to play"),
+        "rules_title": book_title("/rules", "The Charter: Laws of the Game"),
+        "discord_mark": DISCORD_MARK,
     }
 
 
@@ -285,7 +497,7 @@ def build(site: str, out_dir: Path) -> Path:
     copy_styles(site, out)
     write_shared_pictures(out)
     if site == "d12ball":
-        write_species_icons(out)
+        write_d12ball_pictures(out)
     if REDIRECTS[site]:
         (out / "_redirects").write_text(redirects_file(site), encoding="utf-8")
     return out
