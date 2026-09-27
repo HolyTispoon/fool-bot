@@ -68,6 +68,11 @@ named three modes to offer, so the opt-outs went from the screens.
   with it too, and `describe_game_mode(game, mode)` answers for a mode
   the game is not yet in, still off the record's opt-outs and the
   tutorial, so a pill never promises what that game would not play.
+  **A game that plays all its mode deals gets the author's sentence
+  for the mode** (`GAME_MODE_DEFINITIONS`, 2026-09-27: "Symmetric
+  abilities, fundamental rules, best way to learn the game" and so on);
+  only a record with a module opted out falls back to the list of what
+  it plays, which is the one case where the sentence would lie.
 - **`RulesEngine.has_species_ability` is the one question every ability site
   asks**: this card, this game, this species. It folds the module gate and
   the species check together for the reason `settled_maneuver_winner` is one

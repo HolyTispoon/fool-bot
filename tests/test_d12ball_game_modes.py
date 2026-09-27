@@ -22,7 +22,7 @@ from cogs.d12ball_helpers import (
     describe_game_mode,
 )
 from cogs.d12ball_views import CoinFlipView, LobbyView
-from d12ball.formatting import SETTING_DEFINITIONS
+from d12ball.formatting import GAME_MODE_DEFINITIONS, SETTING_DEFINITIONS
 from d12ball.game import (
     GAME_SETTINGS,
     D12BallGame,
@@ -126,22 +126,16 @@ class ModeWordingTests(unittest.TestCase):
         self.assertIn("statistics", definition)
         self.assertLessEqual(set(SETTING_DEFINITIONS), set(GAME_SETTINGS))
 
-    def test_a_training_game_is_described_by_its_cards(self) -> None:
-        self.assertEqual(
-            describe_game_mode(build_game(mode=GameMode.TRAINING)),
-            "three maneuvers a side",
-        )
-
-    def test_a_basic_game_plays_the_species_abilities(self) -> None:
-        self.assertEqual(
+    def test_a_whole_mode_is_described_in_the_authors_words(self) -> None:
+        """The author, 2026-09-27: one sentence per mode."""
+        for mode in GameMode:
+            self.assertEqual(
+                describe_game_mode(build_game(mode=mode)),
+                GAME_MODE_DEFINITIONS[mode],
+            )
+        self.assertIn(
+            "Species abilities",
             describe_game_mode(build_game(mode=GameMode.BASIC)),
-            "three maneuvers a side, species abilities",
-        )
-
-    def test_an_advanced_game_adds_the_gambits(self) -> None:
-        self.assertEqual(
-            describe_game_mode(build_game()),
-            "a gambit on every rank, species abilities, personal abilities",
         )
 
     def test_an_advanced_game_saved_with_a_module_off_says_so(
@@ -177,13 +171,20 @@ class ModeWordingTests(unittest.TestCase):
             ),
             "three maneuvers a side",
         )
+        # (A tutorial is pinned to Training, whose sentence it gets.)
+        self.assertEqual(
+            describe_game_mode(
+                build_game(mode=GameMode.TRAINING, tutorial=True),
+            ),
+            GAME_MODE_DEFINITIONS[GameMode.TRAINING],
+        )
 
     def test_both_setup_screens_say_what_the_game_is_playing(self) -> None:
         game = build_game(mode=GameMode.BASIC, board_size=7)
 
-        self.assertIn("species abilities", build_setup_message(game))
+        self.assertIn("Species abilities", build_setup_message(game))
         self.assertNotIn("gambit", build_setup_message(game))
-        self.assertIn("species abilities", build_lobby_message(build_lobby(
+        self.assertIn("Species abilities", build_lobby_message(build_lobby(
             mode=GameMode.BASIC, board_size=7,
         )))
 

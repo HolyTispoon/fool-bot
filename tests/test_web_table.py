@@ -226,6 +226,23 @@ class TwoCoachTableTests(TableHarness):
         self.assertIsNone(ready["table"]["start"]["refusal"])
         self.assertTrue(ready["table"]["start"]["may"])
 
+    async def test_the_coin_starts_a_game_still_in_its_lobby(self) -> None:
+        """The author, 2026-09-27: no whistle -- the coin, flipped in
+        the lobby, leaves it and tosses in one request, and is refused
+        in `start_lobby`'s own sentence while the table is not set."""
+        room = await self.seated_pair()
+        refused = await self.press(room, CREATOR, "flip_coin")
+        self.assertEqual(refused.status, 409)
+        self.assertIn("no team yet", await refused.text())
+        self.assertTrue(self.games[room].in_lobby)
+
+        await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
+        await self.pressed(room, SECOND, "pick_team", {"team": Team.PURPLE.value})
+        tossed = await self.pressed(room, CREATOR, "flip_coin")
+        self.assertFalse(self.games[room].in_lobby)
+        self.assertTrue(tossed["table"]["coin"]["flipped"])
+        self.assertFalse(tossed["table"]["start"]["owed"])
+
     async def test_a_refused_pick_is_the_record_s_sentence_and_writes_nothing(
         self,
     ) -> None:
@@ -754,6 +771,28 @@ class RedesignedTableTests(TableHarness):
         self.assertRegex(body, r"if \(confirm\(`Are you sure\?")
         self.assertIn('"/seat/kick"', body)
         self.assertGreaterEqual(len(re.findall(r"kickSeat\(seat\)", script)), 2)
+
+
+    async def test_anybody_seated_takes_dinky_out_and_nobody_watching_does(
+        self,
+    ) -> None:
+        # Whoever may put the AI in may take it out again -- no admin
+        # needed -- and somebody watching may do neither.
+        room = await self.open_room()
+        await self.state(room, CREATOR)
+        await self.seat_move(room, CREATOR, "ai", {"seat": 2})
+        self.assertTrue(self.games[room].ai_holds(2))
+        await self.client.get(
+            f"/api/game/{room}", headers=as_coach(WATCHER, "Watcher"),
+        )
+        refused = await self.seat_move(room, WATCHER, "kick", {"seat": 2})
+        self.assertEqual(refused.status, 403)
+        self.assertTrue(self.games[room].ai_holds(2))
+
+        out = await self.seat_move(room, CREATOR, "kick", {"seat": 2})
+        self.assertEqual(out.status, 200, await out.text())
+        self.assertFalse(self.games[room].ai_holds(2))
+        self.assertTrue((await out.json())["room"]["seats"][1]["free"])
 
 
 class RematchTests(TableHarness):

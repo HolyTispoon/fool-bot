@@ -288,9 +288,64 @@ function teamEmoji(key, name) {
    edge), the side and its team after it (the team's colour), or
    watching, with the free seat beside it when there is one. Which is
    which is the server's `room.role`, read off the record. */
+/* The topic: the room's name, or who plays whom. Before kickoff, to
+   whoever may change the name, it is the name's editor too -- click
+   it, type, and it saves on Enter or when the field is left; Escape
+   leaves it as it was (the author, 2026-09-27). Drawn again only when
+   it changes, and never under the reader's typing. */
+let shownTopic = null;
+function drawTopic(state) {
+  const box = el("topic");
+  if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+  const setting = state.table && state.table.settings.find((one) => one.name === "name");
+  const editable = Boolean(setting && setting.may_change);
+  const shape = JSON.stringify([state.game.topic, editable, setting && setting.value]);
+  if (shape === shownTopic) return;
+  shownTopic = shape;
+  if (!editable) {
+    box.replaceChildren(state.game.topic);
+    return;
+  }
+  const edit = () => {
+    const input = h("input", {
+      class: "name-field small topic-field",
+      maxlength: "80",
+      value: setting.value || "",
+      placeholder: state.game.topic,
+      "aria-label": "Rename this game",
+    });
+    let done = false;
+    const finish = (save) => {
+      if (done) return;
+      done = true;
+      const value = input.value;
+      shownTopic = null;
+      box.replaceChildren();
+      drawTopic(current);
+      if (save && value !== (setting.value || "")) {
+        roomMove("/table/configure", { setting: "name", value });
+      }
+    };
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); finish(true); }
+      else if (event.key === "Escape") finish(false);
+    });
+    input.addEventListener("blur", () => finish(true));
+    box.replaceChildren(input);
+    input.focus();
+    input.select();
+  };
+  box.replaceChildren(h("button", {
+    type: "button",
+    class: "topic-edit",
+    title: "Rename this game",
+    onclick: edit,
+  }, h("span", { class: "topic-text" }, state.game.topic), h("span", { class: "topic-pencil", "aria-hidden": "true" }, "✎")));
+}
+
 function drawHeader(state) {
   el("channel").textContent = `pbw${state.game.number}`;
-  el("topic").textContent = state.game.topic;
+  drawTopic(state);
   const you = el("you");
   const room = state.room;
   const mine = room.seats.find((seat) => seat.yours);
@@ -2479,16 +2534,22 @@ function seatDropTarget(node, accept) {
   });
 }
 
-/* A seat's holder taken out: yourself, which is leaving it, or -- an
-   admin's -- somebody else or the AI, which is a kick and is asked
-   first. Every way out of a seat (the ✕, a drag to the sideline)
-   comes through here. */
+/* A seat's holder taken out: yourself, which is leaving it; the AI,
+   by anybody seated, as putting it in is; or -- an admin's --
+   somebody else. The last two are a kick and are asked first. Every
+   way out of a seat (the ✕, a drag to the sideline) comes through
+   here. */
 function seatOut(seat, room) {
   if (seat.yours) {
     roomMove("/seat/leave");
-  } else if (room.admin && seat.name) {
+  } else if (mayKick(seat, room)) {
     kickSeat(seat);
   }
+}
+
+function mayKick(seat, room) {
+  if (!seat.name) return false;
+  return room.admin || (seat.ai && room.seats.some((one) => one.yours));
 }
 
 function kickSeat(seat) {
@@ -2499,7 +2560,7 @@ function kickSeat(seat) {
 
 function seatCard(seat, room) {
   const seated = room.seats.some((one) => one.yours);
-  const mayOut = seat.yours || (room.admin && Boolean(seat.name));
+  const mayOut = seat.yours || mayKick(seat, room);
   const chips = [];
   if (seat.yours) chips.push(h("span", { class: "tag-chip you" }, "YOU"));
   if (seat.ai) chips.push(h("span", { class: "tag-chip ai" }, "AI"));
@@ -2539,8 +2600,10 @@ function seatCard(seat, room) {
         }, "✕")
         : null),
     holder,
-    seatTeamLine(seat),
-    seat.teams.length ? drawTeams(seat) : null,
+    // The team pick opens once somebody holds the seat (the author,
+    // 2026-09-27).
+    seat.free ? null : seatTeamLine(seat),
+    seat.teams.length && !seat.free ? drawTeams(seat) : null,
     seatHint(seat, room, seated),
   );
   if (seat.free) {
@@ -2562,8 +2625,8 @@ function seatTeamLine(seat) {
   if (seat.picks_itself) {
     return h("div", { class: `seat-team${mayPick ? " owed" : ""}` },
       mayPick
-        ? `Pick a team for ${seat.name}, or ${seat.name} picks at the whistle`
-        : `${seat.name} picks a team at the whistle`);
+        ? `Pick a team for ${seat.name}, or ${seat.name} picks when the coin is flipped`
+        : `${seat.name} picks a team when the coin is flipped`);
   }
   if (seat.teams.length) {
     return h("div", { class: `seat-team${mayPick ? " owed" : ""}` },
@@ -2574,16 +2637,23 @@ function seatTeamLine(seat) {
 
 function seatHint(seat, room, seated) {
   let hint = null;
-  if (seat.yours) hint = "Drag your name out of the seat, or click ✕, to leave it";
-  else if (seat.name && room.admin) hint = `Drag ${seat.name} out, or click ✕, to free the seat`;
+  if (seat.name && !seat.yours && room.admin) hint = `Drag ${seat.name} out, or click ✕, to free the seat`;
   else if (seat.free && seated && room.ai_seats.includes(seat.number)) {
     return h("div", { class: "seat-hint" },
-      h("span", {}, "Drag Dinky in from the sideline, or "),
+      h("span", {}, "Invite your friends to play with this "),
+      h("a", {
+        class: "linkish",
+        href: roomLink(),
+        title: "Copy the room's link",
+        "data-copied": "room link (copied)",
+        onclick: (event) => { event.preventDefault(); copyLink(event); },
+      }, "room link"),
+      h("span", {}, " or "),
       h("button", {
         type: "button",
         class: "linkish",
         onclick: () => roomMove("/seat/ai", { seat: seat.number }),
-      }, "put Dinky in"));
+      }, "play against AI"));
   } else if (seat.free && !seated) hint = "Drag your name in from the sideline, or click the seat";
   return hint ? h("div", { class: "seat-hint" }, hint) : null;
 }
@@ -2606,10 +2676,9 @@ function drawTeams(seat) {
         onclick: () => roomMove("/table/pick_team", { team: team.key, seat: seat.number }),
       }, number === 1 ? teamEmoji(team.key, team.name) : null))),
   ];
-  const mayPick = seat.teams.some((team) => team.open);
   return h("div", { class: "table-teams" },
-    row(0, mayPick ? "Colour teams · click a swatch" : "Colour teams"),
-    row(1, "Species teams (greyed where the game does not offer one)"));
+    row(0, "Color teams"),
+    row(1, "Species teams"));
 }
 
 /* The settings: a row of gold pills per setting, the current value
@@ -2621,7 +2690,9 @@ function drawSettings(table) {
       h("span", { class: "field-label" }, "SETTINGS"),
       h("span", { class: "quiet faint" },
         "the gold pill is how it stands; click another to change it, either coach may")),
-    ...table.settings.map(drawSetting),
+    // The name is changed in the top bar's topic, not here (the
+    // author, 2026-09-27).
+    ...table.settings.filter((setting) => setting.name !== "name").map(drawSetting),
   );
 }
 
@@ -2652,40 +2723,23 @@ function drawSetting(setting) {
       title: choice.definition || null,
       onclick: () => configure(choice.value),
     })));
-  } else if (typeof setting.value === "boolean") {
+  } else {
     control = h("div", { class: "pills" }, [false, true].map((value) => pill(value ? "On" : "Off", {
       current: setting.value === value,
       disabled: off || !setting.toggle_open,
       onclick: () => configure(null),
     })));
-  } else {
-    const input = h("input", {
-      class: "name-field small",
-      maxlength: "80",
-      value: setting.value,
-      disabled: off,
-      "aria-label": setting.label,
-      placeholder: "Name this room",
-    });
-    const save = () => { if (input.value !== setting.value) configure(input.value); };
-    input.addEventListener("change", save);
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") { event.preventDefault(); input.blur(); }
-    });
-    control = input;
   }
   /* What the setting is (the model's definition), then why a value is
      dark (the record's refusal), when there is one of each. */
-  const hint = setting.name === "name" && !off
-    ? "click the name to edit it; it saves when you leave the field" : "";
-  const said = [setting.definition, setting.note || hint].filter(Boolean);
+  const said = [setting.definition, setting.note].filter(Boolean);
   return h("div", { class: "table-setting" },
     h("span", { class: "setting-label" }, setting.label), control,
     said.length
       ? h("span", { class: "setting-note" },
         setting.definition ? h("span", { class: "setting-definition" }, setting.definition) : null,
-        setting.definition && (setting.note || hint) ? " · " : null,
-        setting.note || hint || null)
+        setting.definition && setting.note ? " · " : null,
+        setting.note || null)
       : null);
 }
 
@@ -2705,30 +2759,33 @@ function drawTableBox(table) {
   };
 
   if (table.start.owed) {
-    /* Start is the whistle: dark, with the record's own sentence
-       under it, while `start_lobby` would refuse. */
+    /* The coin starts the game (the author, 2026-09-27: no whistle):
+       dark, with the record's own sentence under it, while
+       `start_lobby` would refuse; flipped, it leaves the lobby and
+       tosses in one request. */
+    const allowed = table.start.may && !table.start.refusal;
     ask.textContent = table.start.refusal
-      ? "Fill both seats and pick the teams; then the whistle starts the game."
+      ? "Once both seats are filled and teams are picked: flip a coin to start the game!"
       : table.start.may
-        ? "The table is set. Blow the whistle to start the game."
-        : "The table is set. Either coach blows the whistle to start the game.";
+        ? "Flip the coin to start the game!"
+        : "Either coach flips the coin to start the game.";
     body.replaceChildren(h("div", { class: "row table-row" },
-      whistle({
-        allowed: table.start.may && !table.start.refusal,
-        label: "Start the game",
-        note: table.start.refusal || "",
-        onclick: () => roomMove("/table/start"),
+      coinSides(coin, {
+        allowed,
+        title: table.start.refusal || "Flip the coin to start the game",
+        label: "Flip the coin to start the game",
       }),
-      h("span", { class: "coin-later" },
-        h("img", { src: coin.faces.fortune, alt: "", class: "coin small" }),
-        "then the coin")));
+      // What the toss decides (the author, 2026-09-27); why the coin is
+      // dark is the ask above it, and the record's sentence its title.
+      h("span", { class: "quiet faint" },
+        "The winner of the coin toss chooses whether to play as the home or visiting team.")));
     return;
   }
 
   if (!coin.flipped && !coin.owed) {
     const waiting = table.seats.filter((seat) => !seat.team);
     ask.textContent = waiting.some((seat) => seat.yours)
-      ? "Pick your team: click a swatch in your seat."
+      ? "Pick your team in your seat."
       : `Waiting for ${waiting.map((seat) => seat.name || seat.label).join(" and ")} to pick a team.`;
     body.replaceChildren(h("span", { class: "coin-later" },
       h("img", { src: coin.faces.fortune, alt: "", class: "coin small" }),
@@ -2738,14 +2795,9 @@ function drawTableBox(table) {
 
   if (coin.owed) {
     ask.textContent = coin.may ? "Click the coin to flip it." : "Waiting for a coach to flip the coin.";
-    body.replaceChildren(h("button", {
-      type: "button",
-      class: `coin-button${coin.may ? " lit" : ""}`,
-      disabled: !coin.may,
-      title: "Flip the coin",
-      "aria-label": "Flip the coin",
-      onclick: () => roomMove("/table/flip_coin"),
-    }, h("img", { src: coin.faces.fortune, alt: "", class: "coin big" })));
+    body.replaceChildren(coinSides(coin, {
+      allowed: coin.may, title: "Flip the coin", label: "Flip the coin",
+    }));
     return;
   }
 
@@ -2770,6 +2822,23 @@ function drawTableBox(table) {
         h("img", { src: coin.faces[other], alt: "", class: "coin small" }),
         h("figcaption", {}, other.toUpperCase()))),
     sides.owed_by ? miniField(sides) : null));
+}
+
+/* The coin before the toss: both its faces side by side, Fortune and
+   Doom, so a coach sees what it can come up (the author, 2026-09-27)
+   -- the pair one button, lit gold while it may be flipped. */
+function coinSides(coin, { allowed, title, label }) {
+  const side = (face) => h("figure", { class: "coin-face" },
+    h("img", { src: coin.faces[face], alt: "", class: "coin mid" }),
+    h("figcaption", {}, face.toUpperCase()));
+  return h("button", {
+    type: "button",
+    class: `coin-button coin-pair${allowed ? " lit" : ""}`,
+    disabled: !allowed,
+    title,
+    "aria-label": label,
+    onclick: () => roomMove("/table/flip_coin"),
+  }, h("div", { class: "coin-faces" }, side("fortune"), side("doom")));
 }
 
 /* The miniature field: a goal at each end -- the goal the board draws
@@ -3109,12 +3178,15 @@ function becomeAdmin() {
 function dropAdmin() {
   if (confirm("Give up the admin role for this room?")) roomMove("/admin", {}, "DELETE");
 }
+function roomLink() {
+  return `${location.origin}/room/${GAME_ID}`;
+}
 async function copyLink(event) {
-  const link = `${location.origin}/room/${GAME_ID}`;
+  const link = roomLink();
   const button = event && event.currentTarget;
   try {
     await navigator.clipboard.writeText(link);
-    if (button) button.textContent = "Copied";
+    if (button) button.textContent = button.dataset.copied || "Copied";
   } catch (error) {
     window.prompt("The room's link:", link);
   }

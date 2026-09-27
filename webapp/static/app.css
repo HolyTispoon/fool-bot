@@ -115,6 +115,29 @@ img { display: block; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* The topic as the name's editor, before kickoff: the text itself is
+   the button, with a pencil that brightens on hover. */
+.topic-edit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.topic-edit .topic-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px dashed var(--faint);
+}
+.topic-edit .topic-pencil { color: var(--faint); font-size: 13px; }
+.topic-edit:hover, .topic-edit:focus-visible { color: var(--strong); }
+.topic-edit:hover .topic-pencil, .topic-edit:focus-visible .topic-pencil { color: var(--gold); }
+.topic .topic-field { width: 260px; }
 
 /* -- The two columns ---------------------------------------------------- */
 
@@ -1324,7 +1347,11 @@ button.goal { display: block; }
   .main, .sidebar { display: contents; }
   /* A phone's own tabs switch the screen; the sidebar's are not drawn. */
   .side-tabs { display: none; }
-  .topic, .topbar-divider { display: none; }
+  .topbar-divider { display: none; }
+  /* The topic stays, cut short, because before kickoff it is where
+     the game is renamed (the author, 2026-09-27). */
+  .topbar-title, .room-title, .topic { min-width: 0; overflow: hidden; }
+  .topic .topic-field { width: 150px; }
   .you-pill { padding: 4px 10px; font-size: 12px; gap: 6px; }
   .you-pill .pill-lead, .you-pill .pill-team { display: none; }
 
@@ -1779,6 +1806,11 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
   border-radius: 50%;
   cursor: pointer;
 }
+.coin.mid { width: 88px; height: 88px; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55)); }
+.coin-button.coin-pair { border-radius: 16px; padding: 8px 14px 6px; }
+.coin-pair .coin-faces { gap: 18px; }
+.coin-pair .coin-face figcaption { color: var(--muted); }
+.coin-pair.lit .coin-face figcaption { color: var(--gold); }
 .coin-button.lit { box-shadow: 0 0 0 3px var(--gold), 0 0 22px rgba(240, 178, 50, 0.45); }
 .coin-button:disabled { cursor: default; opacity: 0.6; }
 .toss { display: flex; flex-wrap: wrap; align-items: center; gap: 26px; }
