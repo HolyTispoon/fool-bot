@@ -81,12 +81,22 @@ EDGE_WIDTH = 5
 # reference image's own colours, aliased so a coach reading a card and
 # a coach reading the bot's hexagon are looking at the same two
 # colours by construction, not by two hex literals happening to agree.
-# The cream the rulebooks, their figures and the hand image are drawn
-# on. The cards are white instead -- they are printed nine to a page
-# and a tinted face is a full page of ink for nothing -- and so are the
-# printed boards now, which have a palette of their own in `boards.py`.
+# The cream the hand image is drawn on. The cards are white instead --
+# they are printed nine to a page and a tinted face is a full page of
+# ink for nothing -- and so is everything else printed now (`PAPER`).
 FACE_COLOR = "#f6f1e6"
 CARD_FACE = "#ffffff"
+# **What the printed boards, the rulebooks and their figures are drawn
+# on** (the author, 2026-09-27; they were `FACE_COLOR`'s cream with
+# `PANEL_COLOR` panels). White, because a tinted ground is a sheet of
+# ink for nothing; the panel went neutral with it, because warm beige
+# reads as a stain on white paper, and is the box art's own panel, so
+# a board, a book and the box read as one family. The edge is a step
+# darker than the box's: it also draws the boards' dashed card guides,
+# and the box's grey vanishes into the home zone's blue tint.
+PAPER = "#ffffff"
+PAPER_PANEL = "#f1f3f5"
+PAPER_EDGE = "#aab4be"
 PANEL_COLOR = "#e6ded0"
 PANEL_EDGE = "#c3b7a3"
 INK = "#14202b"

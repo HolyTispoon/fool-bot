@@ -34,9 +34,10 @@ The field board comes out three times, whole and as two halves. See below.
   cards' cream (`FACE_COLOR`) for a while after the cards went white, on the
   argument that a board is one sheet a game; the author dropped it, since a
   tinted ground is still a full sheet of ink for nothing and the box was already
-  white. `BOARD_FACE` is white and the panels went neutral with it
-  (`BOARD_PANEL`, the box art's own `#f1f3f5`), because the cards' warm beige
-  reads as a stain on white paper. `BOARD_PANEL_EDGE` is a step darker than the
+  white. The palette is `cards.PAPER` -- shared with the rulebooks and their
+  figures, which went white the same day -- and the panels went neutral with it
+  (`PAPER_PANEL`, the box art's own `#f1f3f5`), because the cards' warm beige
+  reads as a stain on white paper. `PAPER_EDGE` is a step darker than the
   box's edge grey, at the old beige's weight: it also draws the dashed card
   guides on the zone rows, and the box's grey vanished into the home zone's blue
   tint.

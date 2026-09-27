@@ -88,7 +88,8 @@ checked by reading the PDF.
   It builds to 19 letter pages with its cover against the sixteen the
   plan cuts it to; the artist's pieces are what the rest are waiting on.
 - **Both books open on a cover** (the author, on the landing pages'
-  canvas, 2026-09-27): cream paper, a gold band at the head, the title
+  canvas, 2026-09-27): white paper (cream until the author took it off
+  the same day), a gold band at the head, the title
   in Racing Sans One broken where the author broke it, a gold rule, the
   lines under it, the box's d12 low right, the publisher at the foot.
   The words are the book's `Cover` in `BOOKS`, and the layout is
@@ -118,8 +119,12 @@ checked by reading the PDF.
   until 2026-09-27; see "Fonts" in board-image.md), Racing Sans One
   (`Display`) for the title and the Law headings -- the boards' and cards'
   family. No italic face is bundled and Roboto Slab has none, so `<i>`
-  falls back to the regular face; emphasis would need a second family. The palette is the cards' (`INK`,
-  `FACE_COLOR`, `PANEL_COLOR`).
+  falls back to the regular face; emphasis would need a second family.
+- **The page is white** (the author, 2026-09-27): `cards.PAPER`, the
+  printed boards' ground, with `PAPER_PANEL` behind code and table heads,
+  and the figures drawn on the same two. It was the cards' cream
+  (`FACE_COLOR`) and beige (`PANEL_COLOR`); a tinted page is ink on every
+  sheet for nothing. `INK` is still the cards'.
 - **A book is bytes first.** `book_bytes` sets a book into memory and
   `build_book` writes those bytes. The web app served that PDF until
   step 10 of [../web-app-redesign.md](../web-app-redesign.md), when the

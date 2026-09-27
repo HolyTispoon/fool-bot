@@ -58,7 +58,7 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 
-from .cards import FACE_COLOR, INK, PANEL_COLOR
+from .cards import INK, PAPER, PAPER_PANEL
 from .rules_doc import slugify_heading, split_heading_number
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -73,8 +73,8 @@ MARGIN = 0.85 * inch
 
 # The cards' palette, so the books and the components are one family.
 INK_COLOR = colors.HexColor(INK)
-FACE = colors.HexColor(FACE_COLOR)
-PANEL = colors.HexColor(PANEL_COLOR)
+FACE = colors.HexColor(PAPER)
+PANEL = colors.HexColor(PAPER_PANEL)
 RULE_COLOR = colors.HexColor("#c9c1b2")
 MUTED_HEX = "#5d6770"
 MUTED = colors.HexColor(MUTED_HEX)
@@ -850,7 +850,7 @@ def cover_layout(cover: Cover, width: float, height: float, measure: Measure) ->
     return CoverLayout(
         width=width,
         height=height,
-        ground=FACE_COLOR,
+        ground=PAPER,
         # The jumbotron's gold: a band and a rule, never text, which is
         # what box_art says it cannot carry on paper.
         gold=NIGHT_COVER.accent,

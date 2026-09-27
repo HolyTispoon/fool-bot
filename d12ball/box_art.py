@@ -57,6 +57,8 @@ from d12ball.cards import (
     CARD_WIDTH,
     INK,
     MUTED,
+    PAPER,
+    PAPER_PANEL,
     render_maneuver_card,
 )
 from d12ball.player_cards import render_player_card
@@ -126,13 +128,12 @@ SURVEY_URL = (
 # gives for a board being dark ink on a light face. What carries the
 # game's look instead is the art, the team colours and the type.
 #
-# The ground is **white**, not `cards.FACE_COLOR`'s cream: a page is a
-# page. The printed boards went white too (see `boards.BOARD_FACE`).
-PAPER = "#ffffff"
+# The ground is **white** -- `cards.PAPER`, what every printed thing
+# is drawn on now: a page is a page.
 # A panel on the page -- the glance table, the answer box. Neutral
 # rather than the cards' warm `PANEL_COLOR`, for the same reason the
 # ground is white.
-PANEL = "#f1f3f5"
+PANEL = PAPER_PANEL
 PANEL_EDGE_INK = "#c9d1d9"
 # The ink and the grey are the cards' own, so a panel and a card read
 # as one family.

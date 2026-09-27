@@ -50,12 +50,12 @@ four team colours and the type. Check the corners of every printed panel
 for ink after a change, because a gradient or a scrim creeping back in looks
 fine on a screen and turns up on a quote.
 
-**The ground is white, not the cards' and boards' cream.** `FACE_COLOR`
-is what a component is printed on; a page is a page. It is deliberately
-not imported here, and `PANEL` is a neutral grey rather than the cards'
-warm one for the same reason. The one thing that keeps the cream is the
-picture of the printed board, because that is the board, photographed
-rather than restyled.
+**The ground is white**, `cards.PAPER` -- which the printed boards and
+the rulebooks went to as well on 2026-09-27; they were the cards' cream
+until then, and the box was white first. `PANEL` is `cards.PAPER_PANEL`,
+a neutral grey rather than the cards' warm one, for the same reason. The
+picture of the printed board is the board as printed, photographed
+rather than restyled, so it is white now because the board is.
 
 The gold the jumbotron's clock is drawn in (`#f0b429`) disappears into
 white paper at text sizes, so `ACCENT` is the same hue taken down far
