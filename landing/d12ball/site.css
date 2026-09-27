@@ -39,3 +39,115 @@
 @media (min-width: 720px) {
   .hero-copy { padding-bottom: 56px; }
 }
+
+/* The sections. */
+.band h2 {
+  margin: 0 0 12px;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.15;
+}
+.intro { margin: 0 0 8px; color: var(--muted); max-width: 760px; }
+.grid { display: grid; gap: 16px; margin-top: 24px; }
+@media (min-width: 720px) {
+  .grid { gap: 24px; margin-top: 32px; }
+  .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 1000px) {
+  .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+}
+
+/* What it is: the overview, then the board full width. */
+.what-copy { max-width: 880px; }
+.lede { margin: 0; font-size: clamp(18px, 2.2vw, 24px); line-height: 1.42; }
+.board-figure { margin: 24px 0 0; }
+.board-figure img { width: 100%; border: 1px solid var(--edge); border-radius: 14px; }
+.board-figure figcaption { margin-top: 10px; font-size: 13px; color: var(--muted); }
+
+/* How a turn goes: a card over each beat. */
+.turn-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+}
+.turn-card img { width: 200px; align-self: center; border-radius: 8px; }
+.turn-card p { margin: 0; font-size: 15px; }
+.turn-card .turn-step { color: var(--accent); font-weight: 600; }
+@media (max-width: 719px) {
+  /* On a phone the card sits beside its words. */
+  .turn-card { display: grid; grid-template-columns: 96px 1fr; column-gap: 14px; row-gap: 8px; }
+  .turn-card img { width: 96px; grid-row: 1 / span 2; grid-column: 1; align-self: start; border-radius: 6px; }
+  .turn-card p { grid-column: 2; font-size: 14px; }
+}
+
+/* The teams: a player card per species, its icon, name and colour. */
+.species-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  align-items: center;
+}
+.species-card .player-card { width: 100%; max-width: 200px; border-radius: 8px; }
+.species-row { display: flex; align-items: center; gap: 8px; align-self: stretch; font-size: 14px; font-weight: 600; }
+.species-row img { width: 24px; height: 24px; }
+.swatch { margin-left: auto; width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; }
+.species-card p { margin: 0; align-self: stretch; font-size: 13px; line-height: 1.45; }
+@media (min-width: 1000px) {
+  .species-card { padding: 20px; gap: 14px; }
+  .species-row { font-size: 16px; }
+  .species-row img { width: 32px; height: 32px; }
+  .swatch { width: 20px; height: 20px; }
+  .species-card p { font-size: 14px; }
+}
+
+/* Ways to play. */
+.way-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  color: var(--ink);
+  text-decoration: none;
+}
+a.way-card:hover { color: var(--ink); border-color: var(--muted); }
+.way-card-lit { border-color: var(--accent); }
+a.way-card-lit:hover { border-color: var(--accent-hover); }
+.way-title { font-size: 19px; font-weight: 600; }
+.way-words { font-size: 15px; color: var(--muted); }
+.way-link { margin-top: auto; font-size: 15px; font-weight: 600; color: var(--accent); }
+.books { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.books a { font-weight: 600; text-decoration: none; }
+
+/* Playtesting, with the night cover beside it on a wide screen. */
+.playtest { display: grid; gap: 32px; align-items: center; }
+.playtest-copy h2 { margin-bottom: 8px; }
+.playtest-actions { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+.contact { margin: 0; font-size: 14px; color: var(--muted); }
+.contact a { color: var(--ink); }
+.playtest-cover { display: none; width: 300px; border-radius: 8px; justify-self: center; box-shadow: 0 16px 48px rgb(0 0 0 / 0.6); }
+@media (max-width: 519px) {
+  .playtest-actions .button { width: 100%; }
+}
+@media (min-width: 900px) {
+  .playtest { grid-template-columns: minmax(0, 1fr) auto; gap: 56px; }
+  .playtest-actions { flex-direction: row; align-items: center; gap: 20px; }
+  .playtest-cover { display: block; }
+}
+
+/* The Discord mark: a blurple square by the contact line, a bare icon
+   in the footer. */
+.discord-badge, .discord-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  text-decoration: none;
+}
+.discord-badge { width: 32px; height: 32px; margin-left: 6px; border-radius: 8px; background: #5865F2; }
+.discord-badge svg { width: 18px; height: 14px; fill: #ffffff; }
+.discord-icon { width: 44px; height: 44px; border-radius: 10px; }
+.discord-icon svg { width: 26px; height: 20px; fill: var(--ink); }
+.discord-icon:hover svg { fill: var(--accent); }
+.footer-end { display: inline-flex; align-items: center; gap: 12px; }

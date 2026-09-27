@@ -50,7 +50,7 @@
     </div>
     <div class="actions">
       <a class="button" href="$play">Play in your browser</a>
-      <a class="button button-quiet" href="/learn">Learn to play</a>
+      <a class="button button-quiet" href="/learn">$hero_learn</a>
     </div>
   </div>
 </header>
@@ -58,31 +58,75 @@
 <main>
   <section id="what" class="band">
     <div class="wrap">
-      <p class="kicker">What it is</p>
+      <div class="what-copy">
+        <p class="kicker">What it is</p>
+        <p class="lede">D12 Ball is a fast playing fantasy sports game with tense last-ditch efforts and dramatic comebacks, where two teams of fantasy creatures compete by maneuvering around the field, manipulating the ball and outwitting the other team on their way to score epic goals.</p>
+      </div>
+      <figure class="board-figure">
+        <img src="images/board.png" width="2024" height="998"
+             alt="The board as the web app draws it: Purple at home against the Cyborgs at kickoff, with both benches">
+        <figcaption>The board as the web app draws it at play.d12ball.com.</figcaption>
+      </figure>
     </div>
   </section>
 
   <section id="how" class="band band-alt">
     <div class="wrap">
       <p class="kicker">How a turn goes</p>
+      <h2 class="display">Maneuver around each other in a spicy Rock, Paper, Scissors game</h2>
+      <div class="grid grid-3">
+$turn_cards
+      </div>
     </div>
   </section>
 
   <section id="teams" class="band">
     <div class="wrap">
       <p class="kicker">The teams</p>
+      <h2 class="display">$species_count species, $teams_word teams</h2>
+      <p class="intro">$colour_teams_count colour teams, and the $species_word species that wear their colours. $players_count players a team, $fielded_word on the field and $bench_word on the bench.</p>
+      <div class="grid grid-4">
+$species_cards
+      </div>
     </div>
   </section>
 
   <section id="ways" class="band band-alt">
     <div class="wrap">
       <p class="kicker">Ways to play</p>
+      <h2 class="display">Try it today!</h2>
+      <div class="grid grid-3">
+        <a class="card way-card way-card-lit" href="$play">
+          <span class="way-title">In your browser</span>
+          <span class="way-words">Try the game online by playing in your browser. Play against friends or an AI opponent. There's even a tutorial!</span>
+          <span class="way-link">play.d12ball.com</span>
+        </a>
+        $kit_card
+        <div class="card way-card">
+          <span class="way-title">The rulebooks</span>
+          <div class="books">
+            <a href="/learn">$learn_title</a>
+            <a href="/rules">$rules_title</a>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
   <section id="playtest" class="band">
-    <div class="wrap">
-      <p class="kicker">Playtesting</p>
+    <div class="wrap playtest">
+      <div class="playtest-copy">
+        <p class="kicker">Playtesting</p>
+        <h2 class="display">You liked it? Great! Didn't like it? Tell us why!</h2>
+        <p class="intro">$title is $stage and we'd love your feedback.</p>
+        <div class="playtest-actions">
+          <a class="button" href="/survey">Take the survey</a>
+          <p class="contact">For more information: <a href="mailto:$contact">$contact</a> or join our Discord!
+            <a class="discord-badge" href="$discord" aria-label="Join the $title Discord" title="Join the Discord">$discord_mark</a></p>
+        </div>
+      </div>
+      <img class="playtest-cover" src="images/cover-night.jpg" width="1200" height="1200"
+           alt="The $title box cover, night edition">
     </div>
   </section>
 </main>
@@ -90,7 +134,10 @@
 <footer class="footer">
   <div class="wrap footer-row">
     <span>A game by <a href="$studio_origin">$publisher</a></span>
-    <span>$title &middot; $stage &middot; $year</span>
+    <span class="footer-end">
+      <span>$title &middot; $stage &middot; $year</span>
+      <a class="discord-icon" href="$discord" aria-label="Join the $title Discord" title="Join the Discord">$discord_mark</a>
+    </span>
   </div>
 </footer>
 </body>

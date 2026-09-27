@@ -35,3 +35,5 @@ data/webapp.pid
 
 # The landing pages, built by scripts/build_landing.py
 landing/dist/
+# ...except the web board capture the d12ball page shows (landing/capture.py)
+!landing/d12ball/board.png
