@@ -328,8 +328,8 @@ side by side is a stamp; eight overlapped are eight cards, of which seven
 show their name and their art -- which is what somebody looks at anyway. The
 last one is whole, so at least one card is on the page in full.
 
-**The foot carries a QR to the game's own page** (`PAGE_URL`), beside the
-line an address goes on. It is a second address rather than the survey's --
+**The foot carries a QR to the game's own page** (`PAGE_URL`,
+`https://d12ball.com`), beside the line an address goes on. It is a second address rather than the survey's --
 one asks how a game went, the other says what the game is -- and it is there
 so that a sheet handed across a table is not a dead end when nobody has
 filled the line in.
@@ -383,10 +383,30 @@ these cut-outs are as wide as they are tall, a share of the panel's width says
 nothing about where an arm ends, and Pillow crops what falls off the canvas
 without a word.
 
+## Every printed address is the game's own site's
+
+Both addresses on these panels are `d12ball.com`'s: `PAGE_URL` is the site
+itself and `SURVEY_URL` its `/survey`, which the site forwards to the form
+behind it, `SURVEY_FORM_URL` (landing/build.py, `REDIRECTS`). Until the site
+went up (2026-09-27, the landing pages' step 5) they were the two Notion
+addresses. A printed card cannot be edited; a redirect can, so the form or
+the page behind an address can move without anything being reprinted
+([landing-pages.md](landing-pages.md), "Redirects"). `SURVEY_FORM_URL` is
+never printed -- it is the form's address, which nobody chose.
+
+**The landing build refuses a printed address the site does not serve**
+(`PRINTED_ADDRESSES` in `landing/build.py`): one that is off `d12ball.com`,
+or a path that is neither the page nor a redirect. A dead address on a card
+is found by somebody holding the card, which is the worst place to find it.
+
+The shorter addresses also make smaller codes: the survey's modules went
+from 0.86mm to 1.39mm at the same printed size.
+
 ## The survey code
 
-The playtest card's back carries a QR of `SURVEY_URL`, and the address is
-**printed under it as well**: a code is one smudge away from being nothing, and
+The playtest card's back carries a QR of `SURVEY_URL`,
+`https://d12ball.com/survey`, and the address is **printed under it as
+well**: a code is one smudge away from being nothing, and
 a card whose only route to the survey is optical fails quietly. The URL has no
 spaces, so it is broken by `draw_hard_wrapped` -- `wrap_text` breaks on spaces
 and, handed an address, returns one line and draws it off the edge of the
@@ -398,7 +418,7 @@ panel without a word.
   everyone who looks at the render, so check a change by scanning the
   printed card.
 - **`QR_MIN_MODULE_INCHES` is 0.4mm**, the floor a phone reads reliably off an
-  office printer. The card's own code comes out at 0.86mm; a longer URL makes
+  office printer. The card's own code comes out at 1.39mm; a longer URL makes
   a denser code at the same printed size, and the CLI reports the module size
   so an address that has quietly grown past what the card can carry shows
   there. Change the URL with `--survey-url`.

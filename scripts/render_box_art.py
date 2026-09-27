@@ -16,9 +16,10 @@ quoted rule from the Charter or the Learn to Play, word for word. So
 an import or a rules change reaches the box the way it reaches the
 printed boards: by running this again.
 
-**A playing time and an age rating are not printed unless you pass
-them.** Nothing in this repository measures either, and a box that
-guesses is a box that lies; see `RetailClaims` in `d12ball/box_art.py`.
+**The playing time and the age rating are the author's**, not
+measured -- nothing in this repository can measure either -- and are
+printed from `DEFAULT_CLAIMS` in `d12ball/box_art.py`; `--play-minutes`
+and `--min-age` override them.
 """
 import argparse
 import sys

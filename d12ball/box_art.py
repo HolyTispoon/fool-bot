@@ -24,13 +24,14 @@ checked against this module by hand. A box that claims a rule the game does not 
 the failure this is built to make impossible, and it is the same rule
 the printed boards are held to.
 
-**What is deliberately not on the box**: a playing time and an age
-rating. Both are retail claims and nothing in this repository measures
-either -- the "thirty minutes" the game is played over is fifteen
-space minutes a half on the game clock, which is not a wall clock and
-must not be printed as one. `RetailClaims` is where they go once
-somebody has sat at a table with a stopwatch; until then the chips are
-left off rather than guessed at.
+**What the box says that the game cannot answer**: a playing time and
+an age rating. Both are retail claims and nothing in this repository
+measures either -- the "thirty minutes" the game is played over is
+fifteen space minutes a half on the game clock, which is not a wall
+clock and must not be printed as one. So they are the author's, in
+one dated constant, `DEFAULT_CLAIMS`, printed since 2026-09-23 because
+somebody who has run the table said so; `RetailClaims()` carries
+nothing and prints nothing.
 """
 from __future__ import annotations
 
@@ -99,18 +100,24 @@ LEARN_TO_PLAY_PATH = PROJECT_ROOT / "docs" / "learn-to-play.md"
 PUBLISHER = "Prophetic Fools Games"
 TITLE = "D12 Ball"
 
+# The two addresses printed here are the game's own site's, never the
+# page or the form behind them: the site forwards each (landing/build.py,
+# `REDIRECTS`), so what is behind one can move without anything being
+# reprinted (docs/design/landing-pages.md, "Redirects").
+#
+# The game's own page, which is what a sale sheet sends somebody to.
+# A second address rather than the survey's: one asks how a game went,
+# the other says what the game is.
+PAGE_URL = "https://d12ball.com"
 # The survey the playtest card sends a table to. A constant rather
 # than a literal in the drawing code because it is the one thing on
 # the card that will be replaced without the card being redesigned,
 # and `scripts/render_box_art.py --survey-url` overrides it.
-# The game's own page, which is what a sale sheet sends somebody to.
-# A second address rather than the survey's: one asks how a game went,
-# the other says what the game is.
-PAGE_URL = (
-    "https://propheticfools.notion.site/"
-    "D12-Ball-6c9e1ea7ca61825391e881ec5fbfdca5?pvs=74"
-)
-SURVEY_URL = (
+SURVEY_URL = "https://d12ball.com/survey"
+# The form behind `SURVEY_URL`, which the site forwards the printed
+# address to. Never printed: it is the author's Notion form, whose
+# address is not one anybody chose.
+SURVEY_FORM_URL = (
     "https://app.notion.com/p/3a5e1ea7ca618006b187cd98ebf0c9ff"
     "?v=3a5e1ea7ca6180478080000c31b041d0&source=copy_link"
 )

@@ -271,9 +271,10 @@ the build as Cloudflare Pages' `_redirects` file:
   the page.
 - `/kit`, `/kit-players-1` and `/kit-players-2` -- the print-and-play kit's
   three zips, likewise.
-- `/survey` -- `box_art.SURVEY_URL`, read rather than copied. The survey is a
-  redirect so a form that moves is a one-line change here and no printed
-  card is reprinted.
+- `/survey` -- `box_art.SURVEY_FORM_URL`, read rather than copied. The
+  playtest card prints `box_art.SURVEY_URL`, which is this address, so a
+  form that moves is a one-line change here and no printed card is
+  reprinted.
 
 Every redirect is a 302, not a 301: a browser caches a 301 for good, and the
 point of the address is that its target may change. A local target is held
