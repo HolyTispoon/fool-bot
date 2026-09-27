@@ -264,7 +264,9 @@ game's one coach holds both seats and may not leave them once it has
 started.
 
 **Roles are the frontend's, in its own file.** Who is admin in a room,
-and who has been in, is `webapp/rooms.py`, in
+who has been in and what each was last called (the table's sideline,
+step 9 of [../web-app-redesign.md](../web-app-redesign.md)), is
+`webapp/rooms.py`, in
 `data/d12ball_web_rooms.json` beside the games: written on every
 change, read at start, a room the games file has lost dropped on load,
 and a failed write logged and swallowed the way `save_games` swallows
@@ -300,41 +302,141 @@ two seats claimed and the first prompt, and the rematch at the end.
 **The front door** (`/`) lists the reader's rooms by where each
 stands -- the lobby, the rest of setup, playing, finished -- and the
 rooms with a seat free (`GET /api/rooms`), and opens a room the one
-way, "Create a new game room": `POST /api/rooms` is always
-`create_game(in_lobby=True, ai_seats=[])`, the creator in seat 1. The
-AI and the tutorial are the lobby's own choices from there, not the
-front door's (the author reversed the original two-buttons-and-a-
-checkbox front door on 2026-09-25, so both read the same on the web as
-they do on Discord): whoever is seated puts the AI in the empty seat
-(`POST /api/room/{id}/seat/ai`, `seat_ai`, "Put Dinky in" on the
-page), and the table's `tutorial` setting
-(`POST /api/room/{id}/table/configure`) pins Training on the 7-space
-board (`D12BallGame.pin_tutorial`) while nobody else has joined -- a
-tutorial room's Start seats the AI in the second seat that pin closed
-off. A room that never started may be closed
-(`DELETE /api/room/{id}`, `discard_game`, whose refusal answers 409)
-by somebody seated or its admin. A room's own row in "Your rooms" is
-renamed the same way, straight off the front door
-(the table's `name` setting), and the whole row -- not just the
-name -- opens it.
+way: `POST /api/rooms` is always `create_game(in_lobby=True,
+ai_seats=[])`, the creator in seat 1. A room that never started may be
+closed (`DELETE /api/room/{id}`, `discard_game`, whose refusal answers
+409) by somebody seated or its admin. A room's own card in "Your
+rooms" is renamed straight off the front door while it is in its
+lobby (the table's `name` setting), and the whole card opens it.
+
+**The front door is row 1 of the design canvas** (2026-09-26, step 9
+of [../web-app-redesign.md](../web-app-redesign.md)): on the left the
+name, edited in place (it saves when the field is left, or on Enter),
+a dashed gold "+ A new room" card, the reading room and the leave
+link; on the right the rooms as cards -- `#pbw<n>`, the room's name or
+its two teams, a status chip, both seats with their team's dot, and
+the mode, the board and the clock. **A card with a gold edge is
+waiting on the reader** (`your_move` on the listing): at the table, a
+move on it is theirs (`_table_moves` -- Start once `start_lobby` would
+take it, the coin, the choice of ends, a team for a seat of theirs
+with none); in the game, the question up is theirs to answer
+(`still_to_answer`, the same reading that marks the question box and
+the tab's title). The clock is the jumbotron's own words
+(`board.clock_note`, or the minute and the half), so a card and the
+room never word the same moment two ways.
+
+**The two ticks under "+ A new room" are the table's own moves, made
+in sequence by the page** -- "Dinky in the other seat" is
+`POST /api/room/{id}/seat/ai` for seat 2 (`seat_ai`) and "the
+tutorial" is the table's `tutorial` setting through `configure` --
+straight after the room is created and before the page goes to it.
+The author had reversed an earlier two-buttons-and-a-checkbox front
+door on 2026-09-25 because it made the AI and the tutorial the front
+door's rather than the lobby's; the ticks put them back on the front
+door without doing that, because nothing new decides them: no field
+on the record, no second way of creating a room, and the record still
+judges each (a refused tick leaves the room open, where the table
+offers the same move again). **Dinky goes first**: the tutorial makes
+the room a game for one, and `seat_ai` refuses one of those, while the
+tutorial's toggle is still open with the AI seated -- the AI's seat
+holds no id, so nobody has joined.
 
 **The table is in the prompt's place until kickoff**, drawn from the
-state's `table` and nothing else: the settings, both seats and the
-teams this reader may pick for theirs, the coin, home or visiting, and
-Start. **Every question on it is the record's**, and each is the same
-reading the door behind the button refuses against: which settings
-are open is `D12BallGame.open_settings` (which `configure` opens with),
-which teams a seat is offered is `teams_open_to` (which the Discord
-team picker greys by too, so the two cannot drift), whether the coin
-is owed is `coin_is_owed`, who owes the choice is
-`home_choice_owed_by`, and which side they may take is
-`home_choice_rail`. A page that worked out a pairing exclusion or a
-tutorial's pin for itself would be a second copy of a rule, which is
-the failure the whole split exists to prevent; a press the record
-refuses comes back as a 409 with its own sentence and nothing
-written. What the web app decides is who may press: somebody seated,
-as the Discord setup views let either player. An observer is sent the
-same table with every control off, and a press from one is a 403.
+state's `table` and `room` and nothing else. **Every question on it is
+the record's**, and each is the same reading the door behind the
+control refuses against: which settings are open is
+`D12BallGame.open_settings` (which `configure` opens with), which
+teams a seat is offered is `teams_open_to` (which the Discord team
+picker greys by too, so the two cannot drift), whether the coin is
+owed is `coin_is_owed`, who owes the choice is `home_choice_owed_by`,
+and which side they may take is `home_choice_rail`. A page that worked
+out a pairing exclusion or a tutorial's pin for itself would be a
+second copy of a rule, which is the failure the whole split exists to
+prevent; a press the record refuses comes back as a 409 with its own
+sentence and nothing written. What the web app decides is who may
+press: somebody seated, as the Discord setup views let either player.
+An observer is sent the same table with every control off, and a press
+from one is a 403.
+
+**Its shape is row 1 of the design canvas** (step 9 of
+[../web-app-redesign.md](../web-app-redesign.md)). Before kickoff the
+jumbotron and the board give way to it, since there is no match to
+draw yet, and the in-game room panel gives way to its seat cards and
+its sideline.
+
+- **Two seat cards**: the label, the holder's name large (or "Empty
+  seat · click to sit"), YOU and AI chips, the picked team's line, and
+  while team selection is open **both** seats' swatches -- the colour
+  teams and the species teams, a row each. **The teams are picked in
+  the lobby, beside the seats, before Start** (the author, 2026-09-26,
+  off the canvas; the record's `picks_teams_in_lobby`, which only a web
+  room's record answers yes -- "A web room picks its teams in its
+  lobby" in [game-service.md](game-service.md)). Each swatch carries
+  three answers: `offered` (`teams_open_to` for that seat; a pair
+  greyed where it says so), `open` (the reader may press it) and
+  `picked`. Which seats a reader picks for is `pick_seats`: their own,
+  the AI's where they are seated -- **a seated coach may pick Dinky's
+  team, and if nobody does, Dinky draws its own at the whistle**
+  (`picks_itself` on its seat) -- and in a game for one (a test game,
+  the tutorial) the second seat as well, which that one coach answers
+  for. The route refuses any other seat; whether a pick stands is still
+  `pick_team`'s.
+- **The seat moves are drags, each with a click beside it**: the
+  reader's own name dragged off the sideline into an empty seat (or
+  the seat clicked) takes it; the Dinky chip dragged in (or "put Dinky
+  in") is `seat_ai`; the reader's name dragged out of their seat (or
+  its ✕) leaves it; and an admin dragging somebody else out (or their
+  ✕) kicks them. **Every kick goes through one function that asks "Are
+  you sure?" first** -- the card's ✕, the drag and the in-game Kick
+  alike, which `RedesignedTableTests` reads the page for. A drag
+  carries only which of those it is; the drop makes the request the
+  click makes. Only one's own name and Dinky are dragged *in*, because
+  a seat is taken by the person who sits in it: the cookie says who,
+  and nobody seats somebody else.
+- **The settings are pills**: the current value gold, the others
+  outlined. **What a setting is, is the model's** (`definition`):
+  `describe_game_mode` for the mode, and `SETTING_DEFINITIONS` in
+  `d12ball/formatting.py` for the test game -- "one coach plays both
+  sides", its defining feature, with being kept out of the statistics
+  said second (the author, 2026-09-26) -- and the tutorial. **A
+  setting's note is the record's own sentence**: each
+  value `configure` would refuse right now is asked of a copy of the
+  record, the way the whistle's note is `start_lobby` asked of one
+  (`_configure_refusal`, `_start_refusal`), so a dark pill says why --
+  "Someone has already joined -- they would have to leave first." --
+  in the words the press would be refused with. **What a mode plays is
+  the model's definition too** (`describe_game_mode`, moved out of the
+  cog for it, at the author's word on 2026-09-26): each mode pill
+  carries the definition of the mode it would pick, and the row's note
+  is the current mode's, unless the record has a refusal to say there.
+  A definition and a refusal are shown side by side, never one
+  instead of the other. A change that takes something away carries the
+  model's `warning` (`configure_warning`: turning the test game on with
+  Dinky seated kicks Dinky), and the page confirms it before sending.
+- **The question box** asks one thing at a time: the whistle for
+  Start, dark with `start_lobby`'s refusal until both seats are held
+  and every side a person plays has a team; the coin -- the bot's own gold coin (the `3_gold_fortune`
+  and `3_gold_doom` emoji, served), clicked to flip; then the face it
+  came up large and the other small and dim, and "Click the goal you
+  want to defend" over a miniature field whose two ends are
+  `choose_home_or_visiting`'s two answers. **Which end is which is the
+  board's** (`board.DEFENDED_ENDS`, off `ZONES`), so the goal clicked
+  is the goal the field then draws on that side.
+- **The sideline strip**: who is watching, by the name each was last
+  seen under -- the web app's rooms file (`Room.names`), never the
+  game's, and a name only, since who somebody is stays the cookie's --
+  Dinky waiting wherever the record would seat it (`room.ai_seats`:
+  `seat_ai` asked of a copy, offered only to somebody seated), and
+  Copy the room's link / Become admin / Close this room as neutral
+  controls.
+
+**The top bar says who the reader is as one pill**: "You are Coach 1"
+(gold edge) before the toss, "You are the Home coach · <team>" (the
+team's colour) after it, "You are an observer" otherwise, with "Take
+the free seat" beside it when there is one -- all off `room.role`,
+the record's `home_player_number` read. The room's number and its
+topic (`game.topic`: the room's name, or the coaches and their teams)
+share a baseline.
 
 Each move is `POST /api/room/{id}/table/{start|configure|pick_team|
 flip_coin|choose}`, one service door each, with a value off the wire

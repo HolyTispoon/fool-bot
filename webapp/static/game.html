@@ -14,16 +14,20 @@
              name is changed or the app left (webapp/static/index.html). -->
         <a href="/" class="back" title="Your rooms">&lsaquo; Rooms</a>
         <span class="topbar-divider" aria-hidden="true"></span>
-        <span class="hash" aria-hidden="true">#</span>
-        <span id="channel" class="channel-name">d12-ball</span>
-        <span class="topbar-divider" aria-hidden="true"></span>
-        <span id="topic" class="topic"></span>
+        <!-- The room's number and its topic, on one baseline. -->
+        <span class="room-title">
+          <span class="channel-name"><span class="hash" aria-hidden="true">#</span><span id="channel">d12-ball</span></span>
+          <span id="topic" class="topic"></span>
+        </span>
       </div>
       <div class="topbar-end">
         <!-- The reading room: the rules, the books and the aids this
              game plays (webapp/static/aids.js). -->
         <button type="button" class="btn aids-button" id="open-aids">Rules &amp; aids</button>
-        <div id="you" class="you"></div>
+        <!-- Who this reader is here, as one pill: the seat before the
+             toss, the side and its team after it, or watching. -->
+        <span id="you" class="you-pill"></span>
+        <button type="button" class="btn small" id="take-free-seat" hidden>Take the free seat</button>
       </div>
     </header>
 
@@ -122,13 +126,23 @@
           <p class="quiet"><a href="/stats" class="linkish">Every web game's numbers</a></p>
         </section>
 
-        <!-- Before kickoff, the table in the prompt's place: the
-             settings, both seats and their teams, the coin, home or
-             visiting, and Start. Every question on it is the game
-             record's (webapp/server.py, `_table`). -->
-        <section id="table" class="panel prompt table" data-tab="move" hidden>
-          <div id="table-state" class="panel-label">The table</div>
-          <div id="table-body" class="controls"></div>
+        <!-- Before kickoff, the table in the prompt's place (row 1 of
+             the design canvas): the two seat cards with their teams,
+             the settings as pills, the question box -- the whistle,
+             the coin, the goal to defend -- and the sideline. Every
+             question on it is the game record's (webapp/server.py,
+             `_table`); the page draws it and decides none. -->
+        <section id="table" class="table-area" data-tab="move" hidden>
+          <div id="seat-cards" class="seat-cards"></div>
+          <div id="table-settings" class="panel settings-panel"></div>
+          <div id="table-box" class="panel qbox table-box">
+            <div class="qbox-main">
+              <div><span id="table-state" class="state-tag"></span></div>
+              <div id="table-ask" class="ask"></div>
+              <div id="table-body" class="table-controls"></div>
+            </div>
+          </div>
+          <div id="sideline-strip" class="panel sideline-strip"></div>
         </section>
 
         <!-- Who holds the two seats, and who is watching. The seats

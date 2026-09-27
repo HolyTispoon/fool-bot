@@ -34,7 +34,9 @@ from d12ball.space_numbering import (
     FLAT_SPACE_NUMBERING,
     flat_space_number,
 )
-from d12ball.game import AIOpponent, D12BallGame, Team, team_display_name
+from d12ball.game import (
+    AIOpponent, D12BallGame, GameMode, Team, team_display_name,
+)
 
 
 ROLE_INITIALS = {
@@ -776,3 +778,74 @@ def contestant_detail(
         if injured
         else f"{skill_word} skill +{skill}",
     ]
+
+
+#: What each mode is called, in the order each adds to the one before
+#: it (2026-09-25; "The three modes" in docs/living-rules.md). Every
+#: frontend's mode row is built from this, so the Discord settings, the
+#: Discord lobby and the web table cannot name a mode differently.
+GAME_MODE_NAMES: dict[GameMode, str] = {
+    GameMode.TRAINING: "Training",
+    GameMode.BASIC: "Basic",
+    GameMode.ADVANCED: "Advanced",
+}
+
+
+def describe_game_mode(
+    game: D12BallGame, mode: Optional[GameMode] = None,
+) -> str:
+    """
+    What a mode means for this game, in the coach's own terms: the cards
+    it deals and the abilities it plays -- the game's own mode, or
+    `mode` where a frontend offers another. Read off the record's
+    opt-outs as well as the mode, so an advanced game saved with a
+    module turned off (before 2026-09-25) is not advertised as playing
+    it -- the same reading `RulesEngine.gambits_apply` and
+    `species_abilities_apply` make. The model's, not a frontend's
+    (it was the cog's until 2026-09-26), so the Discord setup screens
+    and the web table define a mode in the same words.
+    """
+    mode = GameMode(game.mode if mode is None else mode)
+    gambits = mode == GameMode.ADVANCED and game.advanced_maneuvers
+    species = (
+        mode != GameMode.TRAINING
+        and game.species_abilities
+        and not game.tutorial
+    )
+    parts = [
+        "a gambit on every rank" if gambits else "three maneuvers a side",
+    ]
+    if species:
+        parts.append("species abilities")
+    if mode == GameMode.ADVANCED and not game.tutorial:
+        parts.append("personal abilities")
+    return ", ".join(parts)
+
+
+#: What the settings that are not the mode *are*, by their key in
+#: `GAME_SETTINGS`, in the coach's own terms. A test game is defined by
+#: one coach playing both sides; that it is kept out of the statistics
+#: follows from that and is said second (the author, 2026-09-26). The
+#: tutorial is `D12BallGame.pin_tutorial`'s game: one coach against
+#: Dinky, the Charter's training game, on a 7-space board, opened by
+#: the script in `d12ball/tutorial.py`.
+SETTING_DEFINITIONS: dict[str, str] = {
+    "test": "one coach plays both sides; kept out of the statistics",
+    "tutorial": (
+        "one coach against Dinky, in training mode on a 7-space board, "
+        "with a scripted opening"
+    ),
+}
+
+
+def configure_warning(game: D12BallGame, setting: str) -> Optional[str]:
+    """
+    What a coach is warned of before a setting changes, where the change
+    takes something away the setting's own row does not show: turning
+    the test game on with the AI seated kicks the AI (the author,
+    2026-09-26: a test game cannot have Dinky). `None` where nothing is
+    lost. Both frontends ask this, so the warning is worded once.
+    """
+    if setting == "test" and game.test_toggle_unseats_ai:
+        return f"That would kick {format_ai_name(game.ai_opponent)}."
+    return None

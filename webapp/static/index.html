@@ -8,37 +8,78 @@
     <link rel="stylesheet" href="/static/app.css" />
   </head>
   <body class="front">
-    <main class="front-door panel">
-      <div class="panel-label">D12 Ball</div>
-      <p class="quiet">
-        Create a room and send its link: the first two people in are
-        its coaches, and anybody after them watches. The tutorial and
-        the AI are both choices you make once you are in.
-      </p>
-      <form id="open-form" autocomplete="off">
-        <label for="name-input" class="panel-label">Your name</label>
-        <input id="name-input" class="chat-input" maxlength="32" required />
-        <p id="name-error" class="quiet" hidden></p>
-        <div class="row">
-          <button type="submit" class="btn primary">Create a new game room</button>
-          <button type="button" class="btn secondary" id="save-name">Save name</button>
-        </div>
-      </form>
-      <p class="quiet">
-        <button type="button" class="linkish" id="open-aids">Rules &amp; aids</button>
-        · <a href="/stats" class="linkish">The web games' numbers</a>
-        · <button type="button" class="linkish" id="leave-app">Leave the app</button>
-      </p>
+    <header class="topbar">
+      <div class="topbar-title">
+        <span class="wordmark">D12 BALL</span>
+        <span class="topic">Rooms</span>
+      </div>
+      <div class="topbar-end">
+        <span class="quiet">At the table as</span>
+        <strong id="named" class="named"></strong>
+      </div>
+    </header>
 
-      <section id="mine" hidden>
-        <div class="panel-label">Your rooms</div>
-        <div id="mine-list" class="room-list"></div>
-      </section>
+    <!-- Rows 1 of the design canvas (docs/web-app-redesign.md, step 9):
+         who you are and a new room on the left, the rooms on the right. -->
+    <main class="front-door">
+      <div class="front-left">
+        <section class="panel front-card">
+          <div class="front-title">D12 BALL</div>
+          <p class="quiet">
+            Open a room and send its link. The first two people in are
+            its coaches; everyone after them watches. A seat can change
+            hands at any time, and Dinky the AI will take an empty one.
+          </p>
+          <label for="name-input" class="field-label">YOUR NAME AT THE TABLE · click to edit</label>
+          <input id="name-input" class="name-field" maxlength="32" required autocomplete="off" />
+          <p id="name-error" class="refusal-line" role="alert" hidden></p>
 
-      <section id="open" hidden>
-        <div class="panel-label">Rooms with a seat free</div>
-        <div id="open-list" class="room-list"></div>
-      </section>
+          <!-- A new room: always a room of two in its lobby
+               (`POST /api/rooms`). The two ticks are the table's own
+               moves, made straight after: the AI put in seat 2
+               (`seat/ai`) and the tutorial setting (`table/configure`). -->
+          <div class="new-room">
+            <button type="button" id="new-room" class="new-room-button">
+              <span class="new-room-word">+ A new room</span>
+              <span class="quiet">Opens with you in Coach 1. Tick below to have Dinky waiting in Coach 2, or to start the tutorial.</span>
+            </button>
+            <div class="ticks">
+              <label><input type="checkbox" id="tick-ai" /> Dinky in the other seat</label>
+              <label><input type="checkbox" id="tick-tutorial" /> the tutorial</label>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel front-card reading-room">
+          <div class="field-label">THE READING ROOM</div>
+          <button type="button" class="linkish" id="open-aids">The rules, the books and the player aids</button>
+          <a href="/stats" class="linkish">The web games' numbers</a>
+        </section>
+
+        <p class="leave-line">
+          <button type="button" class="linkish faint" id="leave-app">Leave the app</button>
+          · your name lives in a cookie and nowhere else
+        </p>
+      </div>
+
+      <div class="front-right">
+        <section id="mine" hidden>
+          <div class="list-head">
+            <span class="field-label">YOUR ROOMS · click one to enter</span>
+            <span class="quiet faint">a gold edge means it is your move</span>
+          </div>
+          <div id="mine-list" class="room-list"></div>
+        </section>
+
+        <section id="open" hidden>
+          <div class="list-head"><span class="field-label">ROOMS WITH A SEAT FREE</span></div>
+          <div id="open-list" class="room-list"></div>
+        </section>
+
+        <p id="no-rooms" class="quiet" hidden>
+          No rooms yet. Open one on the left and send its link.
+        </p>
+      </div>
     </main>
     <script src="/static/aids.js"></script>
     <script src="/static/index.js"></script>

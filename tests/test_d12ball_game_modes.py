@@ -22,7 +22,9 @@ from cogs.d12ball_helpers import (
     describe_game_mode,
 )
 from cogs.d12ball_views import CoinFlipView, LobbyView
+from d12ball.formatting import SETTING_DEFINITIONS
 from d12ball.game import (
+    GAME_SETTINGS,
     D12BallGame,
     GameMode,
     GameStatus,
@@ -114,6 +116,16 @@ class ModeTableTests(unittest.TestCase):
 
 
 class ModeWordingTests(unittest.TestCase):
+    def test_a_test_game_is_defined_by_one_coach_playing_both_sides(
+        self,
+    ) -> None:
+        """The author, 2026-09-26: that is what a test game is; being
+        kept out of the statistics follows, and is said second."""
+        definition = SETTING_DEFINITIONS["test"]
+        self.assertTrue(definition.startswith("one coach plays both sides"))
+        self.assertIn("statistics", definition)
+        self.assertLessEqual(set(SETTING_DEFINITIONS), set(GAME_SETTINGS))
+
     def test_a_training_game_is_described_by_its_cards(self) -> None:
         self.assertEqual(
             describe_game_mode(build_game(mode=GameMode.TRAINING)),
@@ -143,6 +155,18 @@ class ModeWordingTests(unittest.TestCase):
             describe_game_mode(build_game(species_abilities=False)),
             "a gambit on every rank, personal abilities",
         )
+
+    def test_a_mode_the_game_is_not_in_is_described_off_its_record(
+        self,
+    ) -> None:
+        """What a frontend offers beside the current mode is worded by
+        the same reading, the record's opt-outs included."""
+        game = build_game(mode=GameMode.TRAINING, species_abilities=False)
+        self.assertEqual(
+            describe_game_mode(game, GameMode.ADVANCED),
+            "a gambit on every rank, personal abilities",
+        )
+        self.assertEqual(game.mode, GameMode.TRAINING)
 
     def test_a_tutorial_saved_as_basic_is_described_as_training(
         self,

@@ -33,7 +33,9 @@ named three modes to offer, so the opt-outs went from the screens.
 - **The three buttons are one table**, `GAME_MODE_BUTTONS` in
   `cogs/d12ball_helpers.py`, which the setup settings block
   (`GameConfigurationView.add_configuration_buttons`) and the lobby both
-  build their mode row from. Three buttons of Discord's five, on the row
+  build their mode row from. Its names are the model's
+  (`GAME_MODE_NAMES` in `d12ball/formatting.py`), which the web table's
+  mode pills read too. Three buttons of Discord's five, on the row
   the mode and its two module toggles used to share.
 - **The two opt-outs stay on the record and are still read**,
   `advanced_maneuvers` and `species_abilities`, both defaulting True.
@@ -60,6 +62,12 @@ named three modes to offer, so the opt-outs went from the screens.
   lobby used to say "six maneuvers a side" for every advanced game. A screen
   that advertises a module the game left behind is the same bug as a rule
   site that plays it.
+  **The definition is the model's** (`d12ball/formatting.py`, moved from
+  the cog on 2026-09-26 at the author's word that "the model should have
+  definitions of the game modes"): the web table defines each mode pill
+  with it too, and `describe_game_mode(game, mode)` answers for a mode
+  the game is not yet in, still off the record's opt-outs and the
+  tutorial, so a pill never promises what that game would not play.
 - **`RulesEngine.has_species_ability` is the one question every ability site
   asks**: this card, this game, this species. It folds the module gate and
   the species check together for the reason `settled_maneuver_winner` is one

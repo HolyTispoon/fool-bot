@@ -1757,6 +1757,22 @@ class RoomTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(rooms.rooms), {"kept"})
         self.assertTrue(rooms.is_admin("kept", 1))
 
+    def test_a_sideline_name_survives_a_restart_and_an_old_file_has_none(
+        self,
+    ) -> None:
+        """The names the sideline shows are the rooms file's own, and a
+        file written before they were kept reads with none."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rooms.json"
+            path.write_text(json.dumps({"old": {"admins": [], "seen": [4]}}))
+            rooms = Rooms.load(path, ["old"])
+            self.assertEqual(rooms.room("old").names, {})
+
+            rooms.call("old", 4, "Maya")
+            again = Rooms.load(path, ["old"])
+
+        self.assertEqual(again.room("old").names, {4: "Maya"})
+
 
 class ChatTests(unittest.IsolatedAsyncioTestCase):
     """

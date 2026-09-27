@@ -43,6 +43,9 @@ from d12ball.formatting import (
     challenger_prompt_ask,
     coach_name,
     contest_noun,
+    GAME_MODE_NAMES,
+    SETTING_DEFINITIONS,
+    describe_game_mode,
     contestant_detail,
     destination_display_name,
     format_ai_name,
@@ -993,36 +996,9 @@ async def get_or_create_category(
 # docs/design/species-abilities.md). The setup settings block and the
 # lobby both build their mode row out of this, so the two screens
 # cannot come to offer different modes or word them differently.
-GAME_MODE_BUTTONS: tuple[tuple[str, GameMode], ...] = (
-    ("Training", GameMode.TRAINING),
-    ("Basic", GameMode.BASIC),
-    ("Advanced", GameMode.ADVANCED),
+GAME_MODE_BUTTONS: tuple[tuple[str, GameMode], ...] = tuple(
+    (GAME_MODE_NAMES[mode], mode) for mode in GameMode
 )
-
-
-def describe_game_mode(game: D12BallGame) -> str:
-    """
-    What this game's mode means, in the coach's own terms: the cards it
-    deals and the abilities it plays. Read off the record's opt-outs as
-    well as the mode, so an advanced game saved with a module turned off
-    (before 2026-09-25) is not advertised as playing it -- the same
-    reading `RulesEngine.gambits_apply` and `species_abilities_apply`
-    make.
-    """
-    gambits = game.mode == GameMode.ADVANCED and game.advanced_maneuvers
-    species = (
-        game.mode != GameMode.TRAINING
-        and game.species_abilities
-        and not game.tutorial
-    )
-    parts = [
-        "a gambit on every rank" if gambits else "three maneuvers a side",
-    ]
-    if species:
-        parts.append("species abilities")
-    if game.mode == GameMode.ADVANCED and not game.tutorial:
-        parts.append("personal abilities")
-    return ", ".join(parts)
 
 
 def build_setup_message(
@@ -1043,7 +1019,7 @@ def build_setup_message(
         f"**Player 1:** {player_1}\n\n"
         f"**Player 2:** {player_2}\n\n"
         "### Game settings\n\n"
-        f"Game Mode: {game.mode.value.title()} "
+        f"Game Mode: {GAME_MODE_NAMES[GameMode(game.mode)]} "
         f"-- {describe_game_mode(game)}\n"
         f"Board size: {game.board_size}\n\n"
     )
@@ -1254,13 +1230,19 @@ def build_lobby_message(
     lobby has `player_2_id = None` even for a game two humans will play,
     so `format_player` would call it a game against Dinky.
     """
+    # What the tutorial and the test game are is the model's
+    # (`SETTING_DEFINITIONS`), worded once for this lobby and the web
+    # table alike.
     if game.tutorial:
         player_2 = (
-            f"**{format_ai_name(game.ai_opponent)}** _(guided tutorial -- "
-            "the first turns are scripted)_"
+            f"**{format_ai_name(game.ai_opponent)}** _(tutorial -- "
+            f"{SETTING_DEFINITIONS['tutorial']})_"
         )
     elif game.test_game:
-        player_2 = f"<@{game.player_1_id}> _(test game -- you play both sides)_"
+        player_2 = (
+            f"<@{game.player_1_id}> _(test game -- "
+            f"{SETTING_DEFINITIONS['test']})_"
+        )
     elif game.player_2_id is not None:
         player_2 = f"<@{game.player_2_id}>"
     else:
@@ -1292,7 +1274,7 @@ def build_lobby_message(
 
     text += (
         "\n### Settings\n\n"
-        f"Mode: **{game.mode.value.title()}** "
+        f"Mode: **{GAME_MODE_NAMES[GameMode(game.mode)]}** "
         f"-- {describe_game_mode(game)}\n"
         f"Board size: **{game.board_size}** spaces\n"
     )

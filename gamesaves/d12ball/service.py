@@ -649,9 +649,12 @@ class GameService:
 
     def start_lobby(self, game_id: str) -> D12BallGame:
         """Leave the lobby with the other side settled
-        (`D12BallGame.start_lobby`); team selection follows."""
+        (`D12BallGame.start_lobby`); team selection follows -- or, in a
+        game that picked its teams in the lobby, the AI draws its own
+        where nobody picked one for it, and the coin follows."""
         game = self.game(game_id)
         game.start_lobby()
+        self._ai_picks_team(game)
         self.save()
         return game
 
@@ -682,7 +685,9 @@ class GameService:
         The AI's team, drawn by its strategy from the pool the record
         leaves it, once the other side has picked -- whichever seat
         the AI holds, and whenever it was seated during team
-        selection.
+        selection. Never in the lobby: a game that picks its teams
+        there leaves the AI's to a coach until Start, and draws it
+        only then if nobody picked it (the author, 2026-09-26).
         """
         if game.in_lobby or game.status != GameStatus.SETUP:
             return

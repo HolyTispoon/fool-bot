@@ -698,6 +698,7 @@ class RematchTests(SetupHarness):
 
         self.assertTrue(rematch.in_lobby)
         self.assertEqual(rematch.ai_seats, [2])
+        self.service.pick_team(rematch.game_id, 1, Team.ORANGE)
         self.service.start_lobby(rematch.game_id)
         self.assertTrue(rematch.ai_holds(2))
 
