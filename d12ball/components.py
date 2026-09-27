@@ -1881,9 +1881,10 @@ class MatchState:
     pending_overdrive: list[str] = field(default_factory=list)
     # **Boost** -- Gearclaw's personal ability (Law 21): Overdrive's
     # shape at drain 1 for +3, declared and spent the same way, and
-    # never on the same roll as an Overdrive. Its own list rather than
-    # a mark on `pending_overdrive` because the two add different
-    # amounts and the dice image names which it was.
+    # free to sit beside an Overdrive on the same roll. Its own list
+    # rather than a mark on `pending_overdrive` because the two are
+    # declared separately, add different amounts, and the dice image
+    # names each.
     pending_boost: list[str] = field(default_factory=list)
     # **Mind Pull.** Three fields, and all three exist because a pull
     # is a *choice with a roll* that has to happen before the ball
@@ -3260,11 +3261,6 @@ class MatchState:
                 "Overdrive has already been declared.",
                 law="lithium-powered-cyborg",
             )
-        if player_id in self.pending_boost:
-            raise RuleRefusal(
-                "Boost has already been declared on this roll.",
-                law="cyborgs",
-            )
         if player_id in self.injured:
             # An injured player carries no tokens and cannot gain any,
             # so there is nothing to spend. Overdrive itself is not
@@ -3280,17 +3276,13 @@ class MatchState:
     def declare_boost(self, player_id: str, threshold: int) -> None:
         """
         Gearclaw's Boost (Law 21): drain 1 for +3 on the next roll,
-        declared exactly as an Overdrive is -- and one or the other on
-        a roll, never both.
+        declared exactly as an Overdrive is. Once per roll, and beside
+        an Overdrive rather than instead of one: the two may both be
+        declared on a roll, and stack.
         """
         if player_id in self.pending_boost:
             raise RuleRefusal(
                 "Boost has already been declared.",
-                law="cyborgs",
-            )
-        if player_id in self.pending_overdrive:
-            raise RuleRefusal(
-                "Overdrive has already been declared on this roll.",
                 law="cyborgs",
             )
         if player_id in self.injured:
@@ -3301,15 +3293,16 @@ class MatchState:
 
     def overdrive_modifier(self, player_id: str) -> int:
         """
-        What a declared Overdrive, or Gearclaw's Boost, adds to this
+        What a declared Overdrive, and Gearclaw's Boost, add to this
         player's roll. One number because every roll site adds it in the
-        same place, and the two never both apply.
+        same place; the two stack when both are declared (Law 21).
         """
+        modifier = 0
         if player_id in self.pending_overdrive:
-            return OVERDRIVE_BONUS
+            modifier += OVERDRIVE_BONUS
         if player_id in self.pending_boost:
-            return BOOST_BONUS
-        return 0
+            modifier += BOOST_BONUS
+        return modifier
 
     def consume_overdrive(self) -> None:
         """
