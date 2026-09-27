@@ -146,14 +146,22 @@ written as words by `number_word`.
 
 **The pictures are rendered by the build**, so a merge that changes a card
 changes the page: the three maneuver cards under the beats are
-`cards.render_maneuver_card` (`TURN_CARDS`: Low Pass, Intercept, High Pass,
-the author's choice), and the four player cards `player_cards.render_player_card`
-in the basic face. **Whose card stands for a species is asked of the roster,
-never named**: `SPECIES_FACE_ROLE` holds the Fire Demons' fullback, and every
-other species shows the first player of its roster -- which is what the
-reviewed sketch showed (the worksheet's "goalkeeper" is not a role the game
-has). The roster order is the `player cards` tab's, so a re-sort there
-changes the face, as it changes who starts.
+`cards.render_maneuver_card` (`TURN_CARDS`: Low Pass, Pressure, High Pass),
+and the four player cards `player_cards.render_player_card` in the basic face.
+
+- **The turn cards are basic cards, and the build refuses one that is not.**
+  The beats describe a basic turn, and a gambit is only held by a coach who
+  is behind; the sketch's Intercept was not intended (the author,
+  2026-09-27). Pressure stands under the defence's beat because it is the
+  card the Resolution beat names.
+- **Each species' card shows a different role, asked of the roster, never
+  named**: `SPECIES_FACE_ROLE` maps each species team to a role -- the Fire
+  Demons' winger, the Cyborgs' playmaker, the Telekinetics' defender, the
+  Oozes' fullback (Flickerwing, Synapse, Dravox and Goopkeeper as the roster
+  stood, the author's four, 2026-09-27) -- and the face is the first player of
+  that role in roster order. The worksheet's "goalkeeper" is not a role the
+  game has. The roster order is the `player cards` tab's, so a re-sort there
+  can change the face, as it changes who starts.
 
 **A link says what it opens.** The two books are "Learn to Play" and "The
 Charter: Laws of the Game" while `/learn` and `/rules` open the web app's

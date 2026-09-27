@@ -40,6 +40,7 @@ from d12ball.box_art import (
 )
 from d12ball.cards import render_maneuver_card
 from d12ball.components import (
+    MANEUVER_TIER_BASIC,
     PlayerRole,
     load_basic_ruleset,
     load_maneuver_catalog,
@@ -98,16 +99,22 @@ REDIRECTS: dict[str, tuple[tuple[str, str], ...]] = {
 }
 
 # The three beats of "How a turn goes", each over one maneuver's card.
-# The words are in the template, as the author wrote them; this is only
-# which card each one is drawn over.
-TURN_CARDS = ("low_pass", "intercept", "high_pass")
+# All three are basic cards -- the beats describe a basic turn, and a
+# gambit is held only by a coach who is behind (the author, 2026-09-27);
+# the build refuses one that is not. Pressure under the defence's beat
+# is the card the Resolution beat names ("a low pass beats pressure").
+TURN_CARDS = ("low_pass", "pressure", "high_pass")
 
-# Whose card stands for each species under "The teams" -- the sketch the
-# author reviewed (2026-09-27): the Fire Demons' fullback, and the first
-# player of each other species' roster. Asked of the roster by role and
-# by roster order, never by id or name, so a roster revision moves it.
+# Whose card stands for each species under "The teams": a different
+# role for each, so the four cards show four roles (the author,
+# 2026-09-27 -- Flickerwing, Synapse, Dravox and Goopkeeper as the
+# roster stood). Asked of the roster as the first player of that role in
+# roster order, never by id or name, so a roster revision moves it.
 SPECIES_FACE_ROLE: dict[Team, PlayerRole] = {
-    Team.FIRE_DEMONS: PlayerRole.FULLBACK,
+    Team.FIRE_DEMONS: PlayerRole.WINGER,
+    Team.CYBORGS: PlayerRole.PLAYMAKER,
+    Team.TELEKINETICS: PlayerRole.DEFENDER,
+    Team.OOZES: PlayerRole.FULLBACK,
 }
 
 # The species in the order the page shows them, with the author's line
@@ -188,11 +195,11 @@ def number_word(count: int) -> str:
 def species_face(species: str):
     """The player whose card stands for `species` (`SPECIES_FACE_ROLE`)."""
     team = SPECIES_TEAM[species]
-    roster = game()[0].teams[team].players
-    role = SPECIES_FACE_ROLE.get(team)
-    if role is None:
-        return roster[0]
-    return next(player for player in roster if player.role == role)
+    role = SPECIES_FACE_ROLE[team]
+    return next(
+        player for player in game()[0].teams[team].players
+        if player.role == role
+    )
 
 
 # --------------------------------------------------------- the pictures
@@ -265,6 +272,8 @@ def write_d12ball_pictures(out: Path) -> None:
     catalog = game()[0]
     for key in TURN_CARDS:
         maneuver = maneuvers().get(key)
+        if maneuver.tier != MANEUVER_TIER_BASIC:
+            raise ValueError(f"{key} is not a basic card; the turn is a basic one")
         card = render_maneuver_card(
             maneuvers(), catalog, maneuver,
             is_offense=maneuvers().side_of(key) == "offense", bleed=False,
