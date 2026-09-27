@@ -313,48 +313,52 @@ banner's shape, so the two titles line up:
   word. No contact line on the card: the footer's address is the studio's.
 
 **Prophetic Folly's picture is one composed still**: three pairs of
-Fortune and Doom dice as solids of resin, orange and purple behind and teal in
-front. In each pair, Fortune is bright and shiny with white numerals, showing
-12, and Doom is dark, swirled with a lighter shade, with gold numerals,
-showing 1. The bot's six coins lie round them, turned a little: the fortune
-faces (gold 3, silver 1, bronze 3) on the Fortune side, and the doom faces
-(gold 1, silver 3, bronze 1) on the Doom side. `landing/dice.py` draws a die
-and holds the three pairs (`ORANGE`, `TEAL`, `PURPLE`, each built by
-`resin_pair`); `folly_still` in `landing/build.py` draws `FOLLY_STILL`'s
-layers back to front, on a transparent ground the card's panel shows
-through. The layout was checked by rendering it and looking, at the size
-the card shows it.
+Fortune and Doom dice as solids of resin, close together, orange and purple
+behind and teal in front. In each pair, Fortune is a clear die, bright, with
+white numerals, and Doom is dark, swirled with a lighter shade, with gold
+numerals. All six show a different number (12, 3, 9, 1, 7, 5), so the picture
+is not one throw repeated. The bot's six coins lie round them, turned a
+little: the fortune faces (gold 3, silver 1, bronze 3) on the Fortune side,
+and the doom faces (gold 1, silver 3, bronze 1) on the Doom side.
+`landing/dice.py` draws a die and holds the three pairs (`ORANGE`, `TEAL`,
+`PURPLE`, each built by `resin_pair`); `folly_still` in `landing/build.py`
+draws `FOLLY_STILL`'s layers back to front, on a transparent ground the
+card's panel shows through. The layout was checked by rendering it and
+looking, at the size the card shows it.
 
 **`dice.py` is the renderer written for the sketch, moved, its output
 unchanged** (the pixels of both dice hashed before and after the move).
 **The dice are resin because the author's own are** (a photo, 2026-09-27).
-The sketch had one pair, in bone and obsidian. The author then asked for a
-bright and a dark die like the orange pair they play with, then for the pair
-in teal with the bright one brighter, and then for three pairs -- orange,
-teal and purple -- with the bright one shiny. Resin is three finishes a `Die`
-may carry beside the old ones:
+The sketch had one pair, in bone and obsidian. The author then asked for dice
+like the orange pair they play with, then for teal, then for three pairs --
+orange, teal and purple -- close together, each showing its own number, with
+the bright die clear. Resin is three finishes a `Die` may carry beside the
+old ones:
 
 - `glow`, the light coming through, strongest on the faces turned from the
   light and along the silhouette;
 - `swirl`, broad streaks of a lighter shade poured into the dark die;
-- `shine`, the reflection of a soft window overhead. The eye is a finite
-  distance from the die, so the reflected ray turns across a flat face and
-  the highlight has an edge that crosses it, which is what reads as polish.
-  A point light alone gives a flat face one flat tone, and only the bevels
-  catch it. The window sits where the top face -- the face a die shows --
-  reflects, so turning a die on the table does not lose it.
+- `clear`, a see-through body. The faces turned away are drawn first, lit
+  from inside, their numerals reading backwards through the body; the near
+  faces go over them only partly covering, and the table shows a little
+  through both. The numerals painted on the near faces stay solid, and the
+  shadow on the table is the die's colour, as the light through a clear die
+  lands. A die showing its far faces is what reads as clear; a lighter or
+  paler body alone reads as frosted.
 
-A die with none of the three draws exactly what it drew before, which was
-checked by hashing the sketch's two presets again. The swirl is seeded
-noise, so the picture is the same on every build. The renderer
+A polished reflection on the bright die was tried and taken out (the author,
+2026-09-27). A die with none of the three draws exactly what it drew before,
+which was checked by hashing the sketch's two presets again. The swirl is
+seeded noise, so the picture is the same on every build. The renderer
 shades every pixel of every face with numpy, which is why `requirements.txt`
 carries numpy: the one picture that needs it, and the only thing the bot or a
 build imports it for (`scripts/render_token_models.py` uses it too, run by
 hand with the rest of its own list). The alternative was rewriting the
 shading in plain Pillow, which would have been a second renderer to check by
 eye against the one the author reviewed; the wheel is on every platform the
-bot and the Pages build run on. The six dice are drawn at 400px, which keeps
-them to about fifteen seconds of the studio build, most of what it costs.
+bot and the Pages build run on. The six dice are drawn at 400px; a clear die
+draws its far faces too, and the six take about twenty seconds of the studio
+build, most of what it costs.
 
 ## Building and looking
 

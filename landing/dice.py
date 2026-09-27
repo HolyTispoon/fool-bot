@@ -5,10 +5,10 @@ A dodecahedron resting on one face, seen from above at a table angle:
 bevelled edges, a key and a fill light, a specular highlight, numerals
 on every visible face (engraved or painted), a soft contact shadow, and
 the finishes of a resin die -- the light coming through it, the swirl
-poured into it, and the shine of a polished face. Prophetic Folly's
-dice are three `DicePair`s, `ORANGE`, `TEAL` and `PURPLE`;
-`landing/build.py` composes the still the studio page's card shows from
-them and the bot's coins.
+poured into it, and a clear body the far faces show through.
+Prophetic Folly's dice are three `DicePair`s, `ORANGE`, `TEAL` and
+`PURPLE`; `landing/build.py` composes the still the studio page's card
+shows from them and the bot's coins.
 
 Written for the landing-page sketch the author reviewed (2026-09-27)
 as `scripts/render_landing_dice.py` and moved here with its output
@@ -31,17 +31,14 @@ from d12ball.render import FONT_DIR
 FONT = FONT_DIR / "DejaVuSans-Bold.ttf"
 SS = 2  # supersample
 
-# The window a shiny die mirrors (view space: overhead and a little to
-# the left, where the top face -- the face the die shows -- reflects),
-# how far off its centre a reflection still catches it, how soft its
-# edge is, how far away the eye is in the die's own units, and the
-# share of sheen at a grazing edge.
-SHINE_WINDOW = np.array([-0.3, 0.95, 0.1]) / np.linalg.norm([-0.3, 0.95, 0.1])
-SHINE_WINDOW_EDGE = 0.965
-SHINE_WINDOW_SOFTNESS = 0.02
-SHINE_EYE_DISTANCE = 5.0
-SHINE_GRAZING = 0.35
-
+# A clear die: how much of a near face gives way to the far faces behind
+# it at `clear` 1, how dark the far faces are for the body between, how
+# much of the table shows through, and its shadow's colour and weight.
+CLEAR_FAR_SHARE = 0.6
+CLEAR_FAR_SHADE = 1.0
+CLEAR_TABLE_SHARE = 0.15
+CLEAR_SHADOW_TINT = 0.55
+CLEAR_SHADOW_STRENGTH = 0.8
 
 @dataclass(frozen=True)
 class Die:
@@ -63,18 +60,20 @@ class Die:
     # How far the body's colour swirls, as in a resin poured in two
     # shades: 0 is one flat colour. The swirl is the same on every build.
     swirl: float = 0.0
-    # A polished die: how strongly it mirrors a soft window above and to
-    # the left of the table, a highlight that slides across each face as
-    # the angle to the eye changes, with a sheen at the grazing edges.
-    # 0 is a die that mirrors nothing.
-    shine: float = 0.0
+    # A clear die: how far you see through it, 0 to 1. The far faces
+    # are drawn first, their numerals read backwards through the body,
+    # the near faces over them only partly covering, and the table
+    # partly through both; the painted numerals on the near faces stay
+    # solid, and the shadow is the body's colour. 0 is an opaque die.
+    clear: float = 0.0
 
 
 # The dice are pairs of resin d12s, after the orange pair the author
-# plays with (a photo, 2026-09-27): a bright Fortune, shiny, with white
-# numerals, showing 12, and a dark Doom swirled with a lighter shade,
-# with gold numerals, showing 1. The author asked for three pairs --
-# orange, teal and purple -- and for the bright one to shine.
+# plays with (a photo, 2026-09-27): a bright Fortune, clear, with white
+# numerals, and a dark Doom swirled with a lighter shade, with gold
+# numerals. The author asked for three pairs -- orange, teal and purple
+# -- for the bright one to be a clear die, and for all six to show a
+# different number.
 WHITE = (255, 255, 255)
 GOLD = (236, 184, 76)
 
@@ -85,24 +84,24 @@ class DicePair:
     doom: Die
 
 
-def resin_pair(bright, bright_glow, dark, dark_glow, yaws) -> DicePair:
+def resin_pair(bright, bright_glow, dark, dark_glow, values, yaws) -> DicePair:
     """A Fortune and a Doom in one colour: `bright` and `dark` are the
-    bodies, each glow the light that comes through that body, and `yaws`
-    how each die is turned on the table."""
+    bodies, each glow the light that comes through that body, `values`
+    the number each shows, and `yaws` how each is turned on the table."""
+    fortune_value, doom_value = values
     fortune_yaw, doom_yaw = yaws
     return DicePair(
-        fortune=Die(bright, WHITE, 12, fortune_yaw, False, 90, 1.1,
-                    gloss_tint=WHITE, glow=bright_glow, glow_strength=0.35,
-                    shine=0.8),
-        doom=Die(dark, GOLD, 1, doom_yaw, False, 60, 0.7,
+        fortune=Die(bright, WHITE, fortune_value, fortune_yaw, False, 60, 0.5,
+                    glow=bright_glow, glow_strength=0.45, clear=0.6),
+        doom=Die(dark, GOLD, doom_value, doom_yaw, False, 60, 0.7,
                  gloss_tint=(235, 235, 245), glow=dark_glow, glow_strength=0.3,
                  swirl=0.7),
     )
 
 
-ORANGE = resin_pair((255, 128, 30), (255, 196, 110), (118, 42, 14), (214, 104, 30), (30, -20))
-TEAL = resin_pair((40, 232, 216), (190, 255, 246), (12, 74, 76), (38, 150, 146), (18, -31))
-PURPLE = resin_pair((176, 104, 255), (226, 196, 255), (52, 20, 86), (128, 70, 190), (5, -45))
+ORANGE = resin_pair((255, 128, 30), (255, 196, 110), (118, 42, 14), (214, 104, 30), (12, 3), (30, -20))
+TEAL = resin_pair((40, 232, 216), (190, 255, 246), (12, 74, 76), (38, 150, 146), (9, 1), (18, -31))
+PURPLE = resin_pair((176, 104, 255), (226, 196, 255), (52, 20, 86), (128, 70, 190), (7, 5), (5, -45))
 
 
 def dodecahedron():
@@ -226,32 +225,18 @@ def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
         else:
             values[i] = pool.pop(0)
 
-    def mirrored(n, nrm, centre):
-        """How much of the window a face shows at each pixel: the eye is
-        a finite distance away, so the reflected ray turns across a flat
-        face and the highlight has an edge rather than one flat tone."""
-        x = (xx - cx) / scale
-        y = (cy - yy) / scale
-        z = (n @ centre - n[0] * x - n[1] * y) / n[2]
-        to_eye = np.stack([-x, -y, SHINE_EYE_DISTANCE - z], axis=2)
-        to_eye /= np.linalg.norm(to_eye, axis=2, keepdims=True)
-        facing = np.sum(nrm * to_eye, axis=2, keepdims=True)
-        reflected = 2 * facing * nrm - to_eye
-        along = reflected @ SHINE_WINDOW
-        window = np.clip((along - SHINE_WINDOW_EDGE) / SHINE_WINDOW_SOFTNESS, 0, 1) ** 2
-        grazing = (1 - np.clip(facing[..., 0], 0, 1)) ** 3
-        return window + SHINE_GRAZING * grazing
-
-    for fi, (n0, order) in enumerate(faces):
+    def draw_face(fi, into, far=False, ink=None):
+        """Shade face `fi` into `into`: its body, bevels and numeral.
+        A far face is one turned away, seen through a clear die; `ink`
+        collects where the near faces' numerals are painted."""
+        n0, order = faces[fi]
         n = normals_v[fi]
-        if n[2] <= 0.02:
-            continue
         pts = [to_screen(verts_v[k]) for k in order]
         mask_im = Image.new("L", (span, span), 0)
         ImageDraw.Draw(mask_im).polygon(pts, fill=255)
         mask = np.array(mask_im, dtype=float) / 255.0
         if mask.sum() == 0:
-            continue
+            return
         # bevel: distance to the nearest edge, and which neighbour it borders
         bevel_w = span * 0.028
         best_d = np.full((span, span), 1e9)
@@ -280,9 +265,12 @@ def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
         t = np.clip(1 - best_d / bevel_w, 0, 1) ** 1.6 * 0.55
         nrm = n[None, None, :] * (1 - t[..., None]) + best_nb * t[..., None]
         nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
-        diff = np.clip(nrm @ light, 0, 1)
-        fil = np.clip(nrm @ fill, 0, 1)
-        spec = np.clip(nrm @ half, 0, 1) ** die.spec_power
+        # a far face is lit from inside the die, so it answers the light
+        # with its inner side
+        lit = -nrm if far else nrm
+        diff = np.clip(lit @ light, 0, 1)
+        fil = np.clip(lit @ fill, 0, 1)
+        spec = np.clip(lit @ half, 0, 1) ** die.spec_power
         # softer inner shading: faces darken slightly toward their edges
         shade = 0.30 + 0.62 * diff + 0.18 * fil
         col = body_rgb[None, None, :] * shade[..., None]
@@ -299,8 +287,6 @@ def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
             col = col * (1 - through[..., None]) + np.array(die.glow, dtype=float)[None, None, :] * through[..., None]
         tint = np.array(die.gloss_tint if die.gloss_tint else (255, 250, 240), dtype=float)
         col = col + tint[None, None, :] * (spec * die.spec_strength)[..., None]
-        if die.shine:
-            col = col + tint[None, None, :] * (die.shine * mirrored(n, nrm, verts_v[order].mean(axis=0)))[..., None]
 
         # the numeral, engraved or painted, mapped affinely onto the face
         c3 = verts_v[order].mean(axis=0)
@@ -350,8 +336,29 @@ def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
             col = col + (255 - col) * (lip * 0.35)[..., None]
         else:
             col = col * (1 - nm[..., None]) + (num_rgb[None, None, :] * (0.55 + 0.5 * shade)[..., None]) * nm[..., None]
-        img[..., :3] = np.where(mask[..., None] > 0, col, img[..., :3])
-        img[..., 3] = np.maximum(img[..., 3], mask * 255)
+        into[..., :3] = np.where(mask[..., None] > 0, col, into[..., :3])
+        into[..., 3] = np.maximum(into[..., 3], mask * 255)
+        if ink is not None:
+            np.maximum(ink, nm, out=ink)
+
+
+    near = [fi for fi in range(12) if normals_v[fi][2] > 0.02]
+    if die.clear:
+        far_faces = np.zeros((span, span, 4), dtype=float)
+        for fi in range(12):
+            if normals_v[fi][2] < -0.02:
+                draw_face(fi, far_faces, far=True)
+        ink = np.zeros((span, span), dtype=float)
+        for fi in near:
+            draw_face(fi, img, ink=ink)
+        # the far faces through the near ones, dimmer for the body between,
+        # and the table through both, except where a numeral is painted
+        seen = die.clear * (1 - ink)
+        behind = far_faces[..., :3] * CLEAR_FAR_SHADE
+        img[..., :3] = img[..., :3] * (1 - seen[..., None] * CLEAR_FAR_SHARE) + behind * (seen[..., None] * CLEAR_FAR_SHARE)
+    else:
+        for fi in near:
+            draw_face(fi, img)
 
     # the silhouette's edge, darkened
     alpha = Image.fromarray(np.clip(img[..., 3], 0, 255).astype(np.uint8))
@@ -363,6 +370,10 @@ def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
         # a translucent die's edge is where the light comes through
         glow_rgb = np.array(die.glow, dtype=float)[None, None, :]
         img[..., :3] += (glow_rgb - img[..., :3]) * (rim * die.glow_strength)[..., None]
+
+    if die.clear:
+        # the table through the die, once its outline has been drawn
+        img[..., 3] *= 1 - seen * CLEAR_TABLE_SHARE
 
     rendered = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGBA")
     # the contact shadow on the table: an ellipse under the die, offset
@@ -377,7 +388,12 @@ def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
         fill=190,
     )
     sh = sh.filter(ImageFilter.GaussianBlur(span * 0.035))
-    shadow = Image.new("RGBA", (span, span), (0, 0, 0, 0))
+    shade_rgb = (0, 0, 0)
+    if die.clear:
+        # light through a clear die lands on the table in its colour
+        shade_rgb = tuple(int(c * CLEAR_SHADOW_TINT) for c in die.body)
+        sh = sh.point(lambda value: int(value * CLEAR_SHADOW_STRENGTH))
+    shadow = Image.new("RGBA", (span, span), shade_rgb + (0,))
     shadow.putalpha(sh)
     out = Image.alpha_composite(shadow, rendered)
     return out.resize((size, size), Image.Resampling.LANCZOS)

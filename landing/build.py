@@ -234,31 +234,31 @@ DISCORD_MARK = (
 )
 
 # Prophetic Folly's picture: three pairs of Fortune and Doom dice
-# (landing/dice.py) -- orange and purple behind, teal in front -- with
-# the bot's six coins round them, turned a little, the fortune faces on
-# the Fortune side and the doom faces on the Doom side. The sketch the
-# author reviewed had one pair; the author asked for three
-# (2026-09-27). The layers are drawn back to front: a die is its
-# render, the size it is drawn at and its top-left corner; a coin its
-# file in d12ball/images/emoji (one of which is named with spaces), its
-# centre, its width and how far it is turned. Every position is in
-# `FOLLY_STILL_SIZE`.
+# (landing/dice.py) close together -- orange and purple behind, teal in
+# front -- with the bot's six coins round them, turned a little, the
+# fortune faces on the Fortune side and the doom faces on the Doom
+# side. The sketch the author reviewed had one pair; the author asked
+# for three, close together (2026-09-27). The layers are drawn back to
+# front: a die is its render, the size it is drawn at and its top-left
+# corner; a coin its file in d12ball/images/emoji (one of which is
+# named with spaces), its centre, its width and how far it is turned.
+# Every position is in `FOLLY_STILL_SIZE`.
 FOLLY_STILL_SIZE = (1600, 640)
 FOLLY_STILL_WIDTH = 1200
 FOLLY_DIE_PIXELS = 400
 FOLLY_STILL = (
-    (ORANGE.fortune, 330, (215, 0)),
-    (ORANGE.doom, 330, (430, 25)),
-    (PURPLE.fortune, 330, (840, 25)),
-    (PURPLE.doom, 330, (1055, 0)),
-    ("3 bronze fortune.png", (200, 330), 120, 8),
-    ("1_gold_doom.png", (1400, 330), 120, -6),
-    ("3_gold_fortune.png", (330, 470), 125, -7),
-    ("3_silver_doom.png", (1270, 470), 125, 6),
-    (TEAL.fortune, 390, (480, 215)),
-    (TEAL.doom, 390, (735, 240)),
-    ("1_silver_fortune.png", (540, 575), 120, 5),
-    ("1_bronze_doom.png", (1080, 580), 120, -5),
+    (ORANGE.fortune, 360, (300, 0)),
+    (ORANGE.doom, 360, (500, 20)),
+    (PURPLE.fortune, 360, (780, 20)),
+    (PURPLE.doom, 360, (980, 0)),
+    ("3 bronze fortune.png", (400, 375), 115, 8),
+    ("1_gold_doom.png", (1200, 375), 115, -6),
+    ("3_gold_fortune.png", (455, 495), 120, -7),
+    ("3_silver_doom.png", (1140, 495), 120, 6),
+    (TEAL.fortune, 410, (470, 215)),
+    (TEAL.doom, 410, (720, 235)),
+    ("1_silver_fortune.png", (560, 590), 110, 5),
+    ("1_bronze_doom.png", (1045, 590), 110, -5),
 )
 # The two coins at the foot of the box in the studio's hero.
 HERO_COINS = ("1_gold_fortune.png", "1_gold_doom.png")
