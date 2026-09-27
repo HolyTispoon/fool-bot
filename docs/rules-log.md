@@ -161,13 +161,12 @@ once per maneuver, and a coach can choose to use one, both, or neither."*
 
 - **Reverses the 2026-09-25 (later) answer** *"Either, not both."* Boost (drain 1, +3) and
   Overdrive (drain 3, +5) may now both be declared on one roll: drain 4 for +8.
-- **Read as once per roll.** "Overcharge" is read as Overdrive, which is the only ability of
-  that shape Gearclaw holds. "Once per maneuver" is read as once per roll, which is what every
-  other clause of Boost and Overdrive counts in: both are declared on any roll Gearclaw could
-  Overdrive -- a score attempt, a damage test, a contest, a shootout test are not maneuvers --
-  and a tie that is rolled again is a fresh roll that may be declared on again
-  ([Law 20.3.6](living-rules.md#203-lithium-powered-cyborg)). *Unconfirmed*: if the author
-  meant once across a maneuver's re-rolled ties, that is a further change.
+- **Once per roll, each.** "Overcharge" is Overdrive, the only ability of that shape Gearclaw
+  holds. Asked whether "once per maneuver" meant once per roll, the author: *"Correct both
+  overdrive and boost are 'once per role' and should say so clearly."* So a tie that is rolled
+  again is a fresh roll on which each may be declared again, as
+  [Law 20.3.6](living-rules.md#203-lithium-powered-cyborg) already said of Overdrive. Laws
+  20.3.5 and 21.4.3 now put **once per roll** in bold, and the species table says it too.
 
 ### 2026-09-27 -- author, basic mode is renamed standard mode
 
