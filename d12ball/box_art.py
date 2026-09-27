@@ -1021,38 +1021,76 @@ def letterspaced(
 # a name is written down here rather than taken off the top of each
 # species' roster -- everything else about them is read from the
 # catalog.
+#
 # Where the four stand and how tall they come out: the pair nearer
 # the middle is the taller, so the group reads as a line closing on
 # the middle rather than as four cut-outs in a row. A share is of the
 # cover's own width, so nothing here changes if the box does.
-# Each entry is (share of the width, height in inches, how far back).
-# The back rank is smaller and darkened rather than moved further out:
-# these cut-outs are as wide as they are tall, so there is no further
-# out to move them to on a square panel. The right-hand pair is not
-# the left's mirror: Dravox is half again as wide as he is tall and at
-# the left front's height covers Synapse to the eyes, so he stands a
-# little shorter and nearer the middle, and Synapse a little taller
-# and further out.
-COVER_PLACES: tuple[tuple[tuple[float, float, float], ...], ...] = (
-    ((0.165, 3.5, 0.45), (0.35, 4.6, 0.0)),
-    ((0.85, 3.7, 0.45), (0.60, 4.3, 0.0)),
+# Each place is (share of the width, height in inches, how far back),
+# and the players and the places pair up in order within each facing:
+# the first of each is the back rank at the edge. The back rank is
+# smaller and darkened rather than moved further out: these cut-outs
+# are as wide as they are tall, so there is no further out to move
+# them to on a square panel.
+
+
+@dataclass(frozen=True)
+class CoverCast:
+    """Four players with a facing each, and where each stands."""
+
+    players: tuple[tuple[str, str], ...]
+    places: tuple[tuple[tuple[float, float, float], ...], ...]
+
+
+# The website's four: the players the D12 Ball page's species cards
+# show (`SPECIES_FACE_ROLE` in landing/build.py). The right-hand pair
+# is not the left's mirror: Dravox is half again as wide as he is tall
+# and at the left front's height covers Synapse to the eyes, so he
+# stands a little shorter and nearer the middle, and Synapse a little
+# taller and further out.
+WEBSITE_CAST = CoverCast(
+    players=(
+        ("Goopkeeper", "right"),
+        ("Flickerwing", "right"),
+        ("Synapse", "left"),
+        ("Dravox", "left"),
+    ),
+    places=(
+        ((0.165, 3.5, 0.45), (0.35, 4.6, 0.0)),
+        ((0.85, 3.7, 0.45), (0.60, 4.3, 0.0)),
+    ),
 )
+# The cover's first four, kept for a second pair of covers (the
+# author, 2026-09-27), in the places they were first drawn in.
+ORIGINAL_CAST = CoverCast(
+    players=(
+        ("Voltus", "right"),
+        ("Vorix", "right"),
+        ("Inferno", "left"),
+        ("Slitheron", "left"),
+    ),
+    places=(
+        ((0.165, 3.5, 0.45), (0.35, 4.6, 0.0)),
+        ((0.835, 3.5, 0.45), (0.65, 4.6, 0.0)),
+    ),
+)
+# The cast a cover, a banner and the landing pages get unless one is
+# named, and the name each is written under by the CLI.
+COVER_CAST = WEBSITE_CAST
+COVER_CASTS: dict[str, CoverCast] = {
+    "website": WEBSITE_CAST,
+    "original": ORIGINAL_CAST,
+}
 # How close to the trim a figure may come. It is not a bleed
 # measurement: the art may run off the edge, but a head that leaves
 # half of itself outside the box reads as a mistake rather than as a
 # crop.
 COVER_EDGE = 0.1
 
-COVER_CAST: tuple[tuple[str, str], ...] = (
-    ("Goopkeeper", "right"),
-    ("Flickerwing", "right"),
-    ("Synapse", "left"),
-    ("Dravox", "left"),
-)
-
 
 def cast_portraits(
     catalog: PlayerCatalog,
+    cast: CoverCast = COVER_CAST,
 ) -> tuple[tuple[Image.Image, str, str], ...]:
     """
     The cover's four, each with the colour of a team they play for.
@@ -1063,7 +1101,7 @@ def cast_portraits(
     case-sensitive..." in docs/design/gotchas.md).
     """
     found: list[tuple[Image.Image, str, str]] = []
-    for name, facing in COVER_CAST:
+    for name, facing in cast.players:
         portrait = load_player_portrait(name)
         if portrait is None:
             continue
@@ -1146,13 +1184,14 @@ def render_box_cover(
     claims: RetailClaims = DEFAULT_CLAIMS,
     bleed: bool = False,
     palette: CoverPalette = PAGE_COVER,
+    cast: CoverCast = COVER_CAST,
 ) -> Image.Image:
     """
     The lid's top face: the title, the four and the facts.
 
     `palette` is the only thing that changes between the printed cover
     and the night one a post or a store page wants -- see
-    `CoverPalette`.
+    `CoverPalette` -- and `cast` is who stands on it (`COVER_CASTS`).
     """
     catalog = catalog or load_player_catalog()
     rules = rules or load_basic_ruleset()
@@ -1213,10 +1252,10 @@ def render_box_cover(
     draw_cover_field(sheet, panel, rules, field_top, field_bottom, palette)
 
     baseline = panel.y(9.3)
-    cast = cast_portraits(catalog)
-    facing_right = [one for one in cast if one[1] == "right"]
-    facing_left = [one for one in cast if one[1] == "left"]
-    for group, places in zip((facing_right, facing_left), COVER_PLACES):
+    figures = cast_portraits(catalog, cast)
+    facing_right = [one for one in figures if one[1] == "right"]
+    facing_left = [one for one in figures if one[1] == "left"]
+    for group, places in zip((facing_right, facing_left), cast.places):
         for (portrait, _, color), (share, height, depth) in zip(group, places):
             portrait = (
                 hazed(portrait, depth * palette.haze_share, palette.haze)

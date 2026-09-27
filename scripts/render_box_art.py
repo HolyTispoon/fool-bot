@@ -31,6 +31,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.box_art import (  # noqa: E402
+    COVER_CAST,
+    COVER_CASTS,
     NIGHT_COVER,
     PAGE_COVER,
     PLAYTEST_QR_INCHES,
@@ -193,6 +195,22 @@ def main() -> None:
             arguments.pdf,
         )
         print("  box-cover-night.png is for screens, not for the printer")
+        # The same two covers with the first cast on them, for
+        # comparing the two (the author, 2026-09-27). The ones above
+        # carry `COVER_CAST`, which is what everything else uses.
+        for name, cast in COVER_CASTS.items():
+            if cast is COVER_CAST:
+                continue
+            for palette, suffix in ((PAGE_COVER, ""), (NIGHT_COVER, "-night")):
+                save(
+                    render_box_cover(
+                        facts=facts, catalog=catalog, rules=rules,
+                        claims=claims, bleed=arguments.bleed,
+                        palette=palette, cast=cast,
+                    ),
+                    out / f"box-cover-{name}{suffix}.png",
+                    arguments.pdf,
+                )
     if "banner" in wanted:
         # Wide, for the top of a Notion page or a Screentop table --
         # the cover's art with the title beside the players rather

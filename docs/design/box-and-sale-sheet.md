@@ -20,6 +20,7 @@ None of it has tests -- the print materials carry none (the author,
 | --- | --- | --- |
 | `box-cover.png` | 11.375in square | The lid: the title, four players, the facts |
 | `box-cover-night.png` | 11.375in square | The same cover for a screen, not for the printer |
+| `box-cover-original.png` / `-night.png` | 11.375in square | The same two covers with the first cast on them |
 | `banner.png` / `banner-night.png` | 3000 x 1200px | The same art laid out wide, for a Notion page |
 | `screentop-banner.png` / `-night.png` | 1280 x 720px | The same again at the size a Screentop table asks for |
 | `box-side.png` | 11.375 x 2.75in | One wall -- and all four, since the box is square |
@@ -372,8 +373,18 @@ it.
 
 ## The cover's four
 
-`COVER_CAST` is four player names with a facing, and it is the only art
-direction written into the module. **They are the website's four** -- Goopkeeper,
+A `CoverCast` is four player names with a facing and the place each stands,
+and the casts are the only art direction written into the module. There are
+two (`COVER_CASTS`): **the website's four**, `WEBSITE_CAST`, which is
+`COVER_CAST` -- what `box-cover.png`, the banners and the landing pages get --
+and **the original four**, `ORIGINAL_CAST` (Voltus, Vorix, Inferno and
+Slitheron, in the places they were first drawn in), which the CLI writes as
+`box-cover-original.png` and `-night.png` so the two can be set side by side
+(the author asked for all four, 2026-09-27). Neither carries the die. The
+banners are laid out for the website's four only (`BANNER_PLACES`), so they
+take no cast.
+
+The website's four are Goopkeeper,
 Flickerwing, Synapse and Dravox, the players the author picked for the D12 Ball
 page's species cards (`SPECIES_FACE_ROLE` in `landing/build.py`, 2026-09-27) --
 so the box and the page show the same cast. The two lists are written down
@@ -384,7 +395,8 @@ hand.
 
 **There is no die in the middle of the cover** (the author, 2026-09-27). It
 floated over the four, in front of them, as the thing they were playing for;
-Dravox and Synapse each carry a ball in their own art, so a third one hung in
+Dravox and Synapse each carry a ball in their own art -- Dravox's a numbered
+d12 since the portraits' balls were redrawn as dice -- so a third one hung in
 the air between them was a sticker on the picture rather than part of it.
 
 The layout follows what the art is. Goopkeeper stands in his own goal, so he
@@ -482,7 +494,8 @@ panel without a word.
 
 Nothing tests any of it, so the render is the only check. **Look at the
 image** --
-`scripts/render_box_art.py --out box/` writes all ten files -- six printed
-panels, the night cover and the three banners -- and reports the box's own
+`scripts/render_box_art.py --out box/` writes all twelve files -- six printed
+panels, the night cover, the original cast's two covers and the three
+banners -- and reports the box's own
 dimensions, the QR's module size, and that the playing time and the age are
 the author's.
