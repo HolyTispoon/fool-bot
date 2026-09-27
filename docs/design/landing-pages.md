@@ -86,8 +86,9 @@ address, and each site's origin. The stage word (`STAGE`, "in playtesting",
 2026-09-27) and the playtest panel's headline (`PLAYTEST_HEADLINE`) are
 `box_art`'s instead, because the playtest card prints them too: one copy,
 which the card and the page both read. The panel's line under it and its
-"Take the survey" button are the page's own; the card words its line
-differently, since it points at a code the page does not have.
+"Give us feedback" button are the page's own (the author's rewording,
+2026-09-27); the card words its line differently, since it points at a code
+the page does not have.
 
 ## The night palette, because a page is a screen
 
