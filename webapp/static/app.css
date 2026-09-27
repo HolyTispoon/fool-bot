@@ -1101,7 +1101,13 @@ button.goal { display: block; }
   background: var(--panel);
   border: 2px solid rgba(255, 255, 255, 0.07);
   border-radius: 10px;
-  overflow: hidden;
+  /* Not `overflow: hidden`: a piece at the lane's edge wears its
+     badges off its own body -- the token count off the bottom right,
+     the condition off the bottom left -- and a visiting fan is
+     right-aligned, so the front piece's token hangs past the space.
+     Clipped, it read as a chip out of the token (the author,
+     2026-09-27). The badge is drawn over the gap and the neighbour's
+     edge instead, above them by its own z-index. */
 }
 .space.tinted { background: color-mix(in srgb, var(--tint) 12%, var(--panel)); }
 /* A space that is the answer: dashed gold, faintly lit, its chip at
