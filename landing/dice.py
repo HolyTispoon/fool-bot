@@ -3,16 +3,18 @@ A d12 as a shaded solid resting on a table, for the studio page.
 
 A dodecahedron resting on one face, seen from above at a table angle:
 bevelled edges, a key and a fill light, a specular highlight, numerals
-on every visible face (engraved into a light die, painted on a dark
-one) and a soft contact shadow. Prophetic Folly's Fortune and Doom
-dice are `FORTUNE` and `DOOM`; `landing/build.py` composes the still
-the studio page's card shows from them and the bot's coins.
+on every visible face (engraved or painted), a soft contact shadow, and
+for a resin die the light coming through it and the swirl poured into
+it. Prophetic Folly's Fortune and Doom dice are `FORTUNE` and `DOOM`;
+`landing/build.py` composes the still the studio page's card shows
+from them and the bot's coins.
 
 Written for the landing-page sketch the author reviewed (2026-09-27)
-as `scripts/render_landing_dice.py`, and moved here with its output
-unchanged. Nothing in the game reads it, and it is the only thing in
-the repository that needs numpy: it shades per pixel. See
-docs/design/landing-pages.md, "The studio page".
+as `scripts/render_landing_dice.py` and moved here with its output
+unchanged; the resin finish came after, when the author asked for the
+two orange dice they play with. Nothing in the game reads it, and it
+shades per pixel with numpy. See docs/design/landing-pages.md, "The
+studio page".
 """
 from __future__ import annotations
 
@@ -40,13 +42,26 @@ class Die:
     spec_power: float
     spec_strength: float
     gloss_tint: tuple[int, int, int] | None = None
+    # Translucent resin: light that passes through the die glows in
+    # `glow`, most on the faces turned from the light and along the
+    # silhouette, where the body is thinnest. None is an opaque die.
+    glow: tuple[int, int, int] | None = None
+    glow_strength: float = 0.0
+    # How far the body's colour swirls, as in a resin poured in two
+    # shades: 0 is one flat colour. The swirl is the same on every build.
+    swirl: float = 0.0
 
 
-# Fortune: bone-ivory, engraved umber numerals, a soft satin sheen.
-FORTUNE = Die((236, 226, 204), (58, 44, 30), 12, 18, True, 26, 0.35)
-# Doom: obsidian, painted bone numerals, a hard glossy highlight.
-DOOM = Die((26, 22, 20), (232, 220, 196), 1, -31, False, 60, 0.85,
-           gloss_tint=(200, 215, 235))
+# The two dice are orange resin, the bright one and the dark one, after
+# the pair the author plays with (a photo, 2026-09-27).
+# Fortune: bright frosted orange, painted white numerals, a satin sheen.
+FORTUNE = Die((244, 104, 24), (250, 246, 236), 12, 18, False, 30, 0.45,
+              glow=(255, 176, 80), glow_strength=0.4)
+# Doom: dark amber swirled with lighter amber, painted gold numerals,
+# a glossy highlight.
+DOOM = Die((118, 42, 14), (232, 178, 72), 1, -31, False, 60, 0.7,
+           gloss_tint=(255, 215, 170), glow=(214, 104, 30), glow_strength=0.3,
+           swirl=0.7)
 
 
 def dodecahedron():
@@ -107,6 +122,20 @@ def align(a, b):
     return np.eye(3) + vx + vx @ vx * ((1 - c) / s ** 2)
 
 
+def swirl_field(span: int) -> np.ndarray:
+    """Broad streaks in [-1, 1] across a `span` square: seeded noise,
+    coarse, stretched along a diagonal and blurred, so a resin's swirl
+    is the same picture on every build."""
+    noise = np.random.default_rng(12).random((span // 48, span // 48))
+    field = Image.fromarray((noise * 255).astype(np.uint8)).resize(
+        (span, span // 5), Image.Resampling.BICUBIC,
+    ).resize((span, span), Image.Resampling.BICUBIC).rotate(35, resample=Image.Resampling.BICUBIC)
+    field = field.filter(ImageFilter.GaussianBlur(span / 60))
+    values = np.array(field, dtype=float) / 255.0
+    values = (values - values.mean()) / (values.std() + 1e-9)
+    return np.clip(values / 2, -1, 1)
+
+
 def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
     """`die` as a `size`-pixel RGBA square, its shadow included."""
     verts, faces = dodecahedron()
@@ -141,6 +170,7 @@ def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
     num_rgb = np.array(die.numeral, dtype=float)
     img = np.zeros((span, span, 4), dtype=float)
     yy, xx = np.mgrid[0:span, 0:span].astype(float)
+    swirl = swirl_field(span) if die.swirl else None
 
     # the face values: the top-most face shows the die's value, the
     # bottom face its opposite, and the rest the others in turn
@@ -199,6 +229,17 @@ def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
         # softer inner shading: faces darken slightly toward their edges
         shade = 0.30 + 0.62 * diff + 0.18 * fil
         col = body_rgb[None, None, :] * shade[..., None]
+        if die.swirl:
+            # the lighter streaks run toward the glow's colour, the
+            # darker ones deepen the body
+            lighter = np.clip(swirl, 0, 1) * die.swirl
+            darker = np.clip(-swirl, 0, 1) * die.swirl
+            streak = np.array(die.glow or die.body, dtype=float)[None, None, :] * shade[..., None]
+            col = col * (1 - lighter[..., None]) + streak * lighter[..., None]
+            col = col * (1 - 0.5 * darker[..., None])
+        if die.glow is not None:
+            through = die.glow_strength * (0.35 + 0.65 * (1 - diff)) * (0.6 + 0.8 * t)
+            col = col * (1 - through[..., None]) + np.array(die.glow, dtype=float)[None, None, :] * through[..., None]
         tint = np.array(die.gloss_tint if die.gloss_tint else (255, 250, 240), dtype=float)
         col = col + tint[None, None, :] * (spec * die.spec_strength)[..., None]
 
@@ -257,7 +298,12 @@ def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
     alpha = Image.fromarray(np.clip(img[..., 3], 0, 255).astype(np.uint8))
     eroded = alpha.filter(ImageFilter.MinFilter(int(4 * SS) | 1))
     rim = (np.array(alpha, dtype=float) - np.array(eroded, dtype=float)) / 255.0
-    img[..., :3] *= (1 - rim * 0.35)[..., None]
+    if die.glow is None:
+        img[..., :3] *= (1 - rim * 0.35)[..., None]
+    else:
+        # a translucent die's edge is where the light comes through
+        glow_rgb = np.array(die.glow, dtype=float)[None, None, :]
+        img[..., :3] += (glow_rgb - img[..., :3]) * (rim * die.glow_strength)[..., None]
 
     rendered = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGBA")
     # the contact shadow on the table: an ellipse under the die, offset

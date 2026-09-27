@@ -313,8 +313,9 @@ banner's shape, so the two titles line up:
   word. No contact line on the card: the footer's address is the studio's.
 
 **Prophetic Folly's picture is one composed still**: the Fortune and Doom
-dice as solids -- bone Fortune showing 12 with engraved numerals, obsidian
-Doom showing 1 with painted ones -- side by side with Doom in front, and the
+dice as solids of orange resin -- Fortune bright and frosted with white
+numerals, showing 12, and Doom dark amber swirled with lighter amber, with gold
+numerals, showing 1 -- side by side with Doom in front, and the
 bot's six coins gathered round their feet, turned a little, the fortune
 faces (gold 3, silver 1, bronze 3) at Fortune's side and the doom faces
 (gold 1, silver 3, bronze 1) at Doom's. `landing/dice.py` draws a die;
@@ -324,7 +325,16 @@ shows through. The positions are the sketch's, measured off it and checked
 side by side.
 
 **`dice.py` is the renderer written for the sketch, moved, its output
-unchanged** (the pixels of both dice hashed before and after the move). It
+unchanged** (the pixels of both dice hashed before and after the move). **The
+dice are orange because they are the author's own pair** (a photo,
+2026-09-27): the sketch had bone and obsidian, and the author asked for the
+bright and the dark orange dice they play with. Resin is two finishes a `Die`
+may carry beside the old ones -- `glow`, the light coming through, strongest
+on the faces turned from the light and along the silhouette, and `swirl`,
+broad streaks of a lighter shade poured into the dark one -- and a die with
+neither draws exactly what it drew before, which was checked by hashing the
+sketch's two presets again. The swirl is seeded noise, so the picture is the
+same on every build. The renderer
 shades every pixel of every face with numpy, which is why `requirements.txt`
 carries numpy: the one picture that needs it, and the only thing the bot or a
 build imports it for (`scripts/render_token_models.py` uses it too, run by
