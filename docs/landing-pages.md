@@ -191,13 +191,14 @@ the answer says what it builds until it has one.
   form. The sale sheet's `--contact` flag has the same hole. Until
   answered, no contact is shown and the footer names the studio
   only.
-- **Is the Discord server public?** If a stranger may join and play
-  the bot, "Play on Discord" is a way to play and needs an invite
-  link that does not expire. Until answered the page lists the
-  browser, the table and the print-and-play kit.
-- **Is the Screentop table public, and what is its address?** The
-  Screentop banner exists (`screentop-banner-night.png`); whether
-  the table is listed is the author's.
+- **The Discord invite.** The server is public and the page may
+  carry an invite (the author, on the canvas, 2026-09-27); what is
+  still wanted is the invite link itself, one that does not expire,
+  since it sits on a public page. The card is built with a
+  placeholder until it arrives.
+- ~~Is the Screentop table public?~~ Answered on the canvas,
+  2026-09-27: the Screentop card comes off the page. Three ways to
+  play, not four: the browser, the print-and-play kit, Discord.
 - **`www.d12ball.com` to `d12ball.com`, or the other way?** Bare is
   the recommendation; it is what is printed.
 - **Does the studio site want a mailing list?** Not built unless
@@ -383,12 +384,12 @@ Fill the d12ball page's sections, in this order below the hero:
    and one player card per species from player_cards.py in the basic
    face. Names through team_display_name, never .value.title().
 
-4. "Ways to play": cards for the browser (play.d12ball.com, one line:
-   two coaches, or one against the AI), the table (the
-   print-and-play kit, linking to /kit, step 3), and the Screentop
-   table if the author has answered with an address; Discord only if
-   the author has answered that the server is public. A way the
-   author has not confirmed is not on the page.
+4. "Ways to play": three cards -- the browser (play.d12ball.com,
+   one line: two coaches, or one against the AI), the table (the
+   print-and-play kit, linking to /kit, step 3), and Discord (a
+   permanent invite, which the author supplies; a placeholder until
+   then). Not Screentop: the author took it off the page on the
+   canvas, 2026-09-27.
 
 5. "The books": the Charter and Learn to Play as two download cards
    linking /rules and /learn (step 3), each with its title from
