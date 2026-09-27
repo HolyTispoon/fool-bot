@@ -1200,7 +1200,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.4.2** **Voltus Overdrives for 2.** Voltus's [Overdrive](#203-lithium-powered-cyborg) (20.3) drains 2 rather than 3, for the same +5.
 
-**21.4.3** **Gearclaw may Boost.** Once per roll, before the die is thrown, Gearclaw may **drain 1** to add **+3** to that roll. It is declared blind, on any roll Gearclaw could Overdrive, and follows every rule of Overdrive -- except that on one roll Gearclaw may Boost or Overdrive, never both.
+**21.4.3** **Gearclaw may Boost.** Once per roll, before the die is thrown, Gearclaw may **drain 1** to add **+3** to that roll. It is declared blind, on any roll Gearclaw could Overdrive, and follows every rule of Overdrive. Boost and Overdrive are each once per roll and do not exclude each other: on one roll Gearclaw's coach may declare either, both -- draining 4 for +8 -- or neither.
 
 **21.4.4** **Strider runs on less.** When Strider [charges up](#203-lithium-powered-cyborg) (20.3), they clear 2 drain rather than 1. A [run back](#124-running-back-after-a-steal) (12.4) drains Strider 1 at most, however far they run.
 

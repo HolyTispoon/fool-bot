@@ -154,6 +154,21 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-27 (later) -- author, Gearclaw may Boost and Overdrive on the same roll
+
+The author: *"Gearclaw can boost and overcharge in the same maneuver. Each ability can be used
+once per maneuver, and a coach can choose to use one, both, or neither."*
+
+- **Reverses the 2026-09-25 (later) answer** *"Either, not both."* Boost (drain 1, +3) and
+  Overdrive (drain 3, +5) may now both be declared on one roll: drain 4 for +8.
+- **Read as once per roll.** "Overcharge" is read as Overdrive, which is the only ability of
+  that shape Gearclaw holds. "Once per maneuver" is read as once per roll, which is what every
+  other clause of Boost and Overdrive counts in: both are declared on any roll Gearclaw could
+  Overdrive -- a score attempt, a damage test, a contest, a shootout test are not maneuvers --
+  and a tie that is rolled again is a fresh roll that may be declared on again
+  ([Law 20.3.6](living-rules.md#203-lithium-powered-cyborg)). *Unconfirmed*: if the author
+  meant once across a maneuver's re-rolled ties, that is a further change.
+
 ### 2026-09-27 -- author, basic mode is renamed standard mode
 
 The author: *"Basic mode is now called 'standard'."*
@@ -414,6 +429,7 @@ the one-line cells left open:
   one."*
 - **Gearclaw:** Boost is *"declared blind before the roll like overdrive"*; asked whether Boost
   and Overdrive stack on one roll: *"Either, not both."*
+  *Superseded on 2026-09-27*: both may be declared on one roll -- see that entry.
 - **Acidel:** *"scoring opportunity replaces the own goal."*
 - **Goopkeeper:** *"full block means they just contribute their full value of their defense
   skill rather than just halfway, which is what would usually be the case when they are not on
