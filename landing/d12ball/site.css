@@ -117,6 +117,8 @@ a.way-card-lit:hover { border-color: var(--accent-hover); }
 .way-title { font-size: 19px; font-weight: 600; }
 .way-words { font-size: 15px; color: var(--muted); }
 .way-link { margin-top: auto; font-size: 15px; font-weight: 600; color: var(--accent); }
+.way-links { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
+.way-links .way-link { margin-top: 0; text-decoration: none; }
 .books { display: flex; gap: 16px; align-items: flex-start; margin-top: 4px; }
 .book {
   flex: 1 1 0;

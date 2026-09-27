@@ -16,6 +16,10 @@ the title, the publisher, the strapline and the chips are
 from __future__ import annotations
 
 import shutil
+import subprocess
+import sys
+import tempfile
+import zipfile
 from datetime import date
 from functools import lru_cache
 from html import escape
@@ -55,6 +59,8 @@ from landing.capture import BOARD_CAPTURE
 from landing.covers import render_cover
 
 LANDING_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = LANDING_DIR.parent
+KIT_SCRIPT = PROJECT_ROOT / "scripts" / "generate_print_and_play_kit.py"
 DIST_DIR = LANDING_DIR / "dist"
 SITES = ("d12ball", "studio")
 
@@ -96,16 +102,32 @@ BOOK_DOWNLOADS: tuple[tuple[str, str, str], ...] = (
 )
 DOWNLOADS_DIR = "downloads"
 
+# The print-and-play kit, in two zips because one is over the 25 MB a
+# file on Cloudflare Pages may be (the author, 2026-09-27: two zips, the
+# sheets kept as PNG). Split by team, so the first is a whole game --
+# every board and sheet and the first two colour teams -- and the second
+# the other two teams' sheets. Both unzip into the one folder, `KIT_DIR`,
+# which together they make the kit. Each entry is the address that is
+# printed, the zip's name, and the colour teams whose player sheets it
+# carries; the first carries everything that is not a team's.
+KIT_DIR = "d12ball-print-and-play"
+KIT_DOWNLOADS: tuple[tuple[str, str, tuple[Team, ...]], ...] = (
+    ("/kit", f"{KIT_DIR}.zip", COLOR_TEAMS[:2]),
+    ("/kit-teams", f"{KIT_DIR}-more-teams.zip", COLOR_TEAMS[2:]),
+)
+# The most a single file on Cloudflare Pages may be. The build refuses a
+# download over it, rather than the deploy.
+PAGES_FILE_LIMIT = 25 * 1024 * 1024
+
 # The addresses a site owns and forwards, Cloudflare Pages' `_redirects`
-# format. `/learn` and `/rules` open the books' PDFs, which the build
-# makes. The survey is a redirect so it can move without a card being
-# reprinted. `/kit` is not here: the kit's zip is over the 25 MB a
-# Pages file may be, and where it lives instead is the author's call
-# (step 3 of docs/landing-pages.md); its card stands unlinked until then.
+# format. `/learn` and `/rules` open the books' PDFs and `/kit` and
+# `/kit-teams` the kit's two zips, which the build makes. The survey is
+# a redirect so it can move without a card being reprinted.
 REDIRECTS: dict[str, tuple[tuple[str, str], ...]] = {
     "d12ball": (
         ("/play", PLAY_URL),
         *((source, f"/{DOWNLOADS_DIR}/{filename}") for source, _, filename in BOOK_DOWNLOADS),
+        *((source, f"/{DOWNLOADS_DIR}/{filename}") for source, filename, _ in KIT_DOWNLOADS),
         ("/survey", SURVEY_URL),
     ),
     "studio": (),
@@ -313,11 +335,51 @@ def write_book_covers(out: Path) -> None:
 
 def write_downloads(out: Path) -> None:
     """The two books as PDFs, on letter paper, set by the same code
-    `scripts/build_rulebooks.py` runs."""
+    `scripts/build_rulebooks.py` runs, and the print-and-play kit."""
     for _, name, filename in BOOK_DOWNLOADS:
         path = out / DOWNLOADS_DIR / filename
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(book_bytes(BOOKS[name], DEFAULT_PAPER))
+    write_kit(out / DOWNLOADS_DIR)
+
+
+def kit_part(relative: Path) -> int:
+    """Which of `KIT_DOWNLOADS` a file of the kit goes in: a team's
+    player sheet goes with its team, and everything else in the first."""
+    if relative.parts[0] == "player-cards":
+        for index, (_, _, teams) in enumerate(KIT_DOWNLOADS):
+            if any(relative.name.startswith(f"{team.value}-") for team in teams):
+                return index
+        raise ValueError(f"{relative} is no colour team's sheet")
+    return 0
+
+
+def write_kit(downloads: Path) -> None:
+    """The kit as `scripts/generate_print_and_play_kit.py` builds it,
+    zipped in the parts `KIT_DOWNLOADS` names."""
+    with tempfile.TemporaryDirectory() as scratch:
+        kit = Path(scratch) / KIT_DIR
+        subprocess.run(
+            [sys.executable, str(KIT_SCRIPT), "--out", str(kit)],
+            check=True, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL,
+        )
+        downloads.mkdir(parents=True, exist_ok=True)
+        archives = [
+            zipfile.ZipFile(downloads / filename, "w", zipfile.ZIP_DEFLATED)
+            for _, filename, _ in KIT_DOWNLOADS
+        ]
+        with archives[0], archives[1]:
+            for path in sorted(kit.rglob("*")):
+                if path.is_file():
+                    relative = path.relative_to(kit)
+                    archives[kit_part(relative)].write(path, Path(KIT_DIR) / relative)
+    for _, filename, _ in KIT_DOWNLOADS:
+        size = (downloads / filename).stat().st_size
+        if size > PAGES_FILE_LIMIT:
+            raise ValueError(
+                f"{filename} is {size / 2**20:.1f} MB, over the "
+                f"{PAGES_FILE_LIMIT / 2**20:.0f} MB a Pages file may be"
+            )
 
 
 def write_species_icons(out: Path) -> None:
@@ -456,20 +518,27 @@ def species_card_html(species: str, line: str) -> str:
     )
 
 
+def team_names(teams: tuple[Team, ...]) -> str:
+    return " and ".join(team_display_name(team) for team in teams)
+
+
 def kit_card_html() -> str:
-    """The print-and-play card, which links once the site forwards
-    `/kit` to the kit (step 3) and stands unlinked until then."""
-    words = (
-        '<span class="way-title">At the table</span>\n'
+    """The print-and-play card, with a link to each of the kit's two
+    zips, each saying what is in it."""
+    (first, _, first_teams), (second, _, second_teams) = KIT_DOWNLOADS
+    return (
+        '<div class="card way-card">\n'
+        '  <span class="way-title">At the table</span>\n'
         '  <span class="way-words">Get the print-and-play kit. Meeples and '
         'd12s not included. 3D files for printing tokens are available on '
-        'request.</span>'
-    )
-    if redirect_target("d12ball", "/kit") is None:
-        return f'<div class="card way-card">\n  {words}\n</div>'
-    return (
-        f'<a class="card way-card" href="/kit">\n  {words}\n'
-        '  <span class="way-link">Download the kit (zip)</span>\n</a>'
+        'request.</span>\n'
+        '  <span class="way-links">\n'
+        f'    <a class="way-link" href="{first}">The kit, with '
+        f'{escape(team_names(first_teams))} (zip)</a>\n'
+        f'    <a class="way-link" href="{second}">'
+        f'{escape(team_names(second_teams))} (zip)</a>\n'
+        '  </span>\n'
+        '</div>'
     )
 
 

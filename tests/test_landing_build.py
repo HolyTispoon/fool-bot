@@ -11,8 +11,8 @@ what a look would not catch --
   candidate, and a stylesheet's `url(...)`) that is not an outside
   address names a file in that site's output, or an address the site's
   `_redirects` forwards -- and a redirect whose target is local names a
-  file too, and one to a `.pdf` names a PDF (the two books the build
-  sets);
+  file too, and one to a `.pdf` or a `.zip` names one (the two books
+  and the kit's two zips the build makes);
 - **a quoted rule is the Charter's own words**: every
   `<blockquote data-law>` on the d12ball page appears verbatim in
   docs/living-rules.md, the guarantee the box art is held to. The page
@@ -33,6 +33,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LIVING_RULES = PROJECT_ROOT / "docs" / "living-rules.md"
 
 OUTSIDE = ("http:", "https:", "mailto:", "tel:", "data:", "#")
+# How a download of each kind begins.
+DOWNLOAD_MAGIC = {".pdf": b"%PDF-", ".zip": b"PK\x03\x04"}
 CSS_URL = re.compile(r"url\(\s*['\"]?([^'\")]+)['\"]?\s*\)")
 
 
@@ -169,16 +171,22 @@ class LandingBuildTests(unittest.TestCase):
                         f"{source} forwards to {target!r}, which is not in the build",
                     )
 
-    def test_a_forwarded_pdf_is_a_pdf(self):
-        # The books are set by the build itself; a redirect to one that
-        # came out empty or as something else would still "resolve".
+    def test_a_forwarded_download_is_what_it_says(self):
+        # The books and the kit are made by the build itself; a redirect
+        # to one that came out empty or as something else would still
+        # "resolve".
         for site, site_dir in self.sites.items():
             for source, target in redirect_sources(site_dir).items():
-                if not (is_local(target) and target.endswith(".pdf")):
+                suffix = Path(target).suffix
+                if not (is_local(target) and suffix in DOWNLOAD_MAGIC):
                     continue
                 with self.subTest(site=site, source=source):
-                    data = (site_dir / target.lstrip("/")).read_bytes()
-                    self.assertTrue(data.startswith(b"%PDF-"), f"{target} is not a PDF")
+                    with open(site_dir / target.lstrip("/"), "rb") as download:
+                        head = download.read(8)
+                    self.assertTrue(
+                        head.startswith(DOWNLOAD_MAGIC[suffix]),
+                        f"{target} is not a {suffix}",
+                    )
 
     def test_a_quoted_rule_is_the_charters_own_words(self):
         charter = " ".join(plain(LIVING_RULES.read_text(encoding="utf-8")).split())

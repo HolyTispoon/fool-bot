@@ -223,14 +223,27 @@ of the PDF (`draw_cover`), and by Pillow in `landing/covers.py` as the picture
 on the card. One source for the words, one for where they go, two drawings,
 checked by looking: the picture is the page the download opens on.
 
-**The print-and-play kit is not a download yet.** Built by
-`scripts/generate_print_and_play_kit.py --zip`, it comes to about 128 MB
-(2026-09-27), almost all of it the player cards -- every card of all eight
-teams on its own and on its sheets, both faces -- against the 25 MB a
-single file on Cloudflare Pages may be. The worksheet's step 3 stops there:
-whether the kit is cut down, split or hosted elsewhere is the author's call,
-and `/kit` is added to `REDIRECTS` wherever it lands, which is what links the
-card.
+**The print-and-play kit is two zips, split by team.** `write_kit` runs
+`scripts/generate_print_and_play_kit.py` into a temporary folder and zips it
+as `KIT_DOWNLOADS` says: `/kit` is a whole game -- every board, the maneuver
+and species sheets, the README, the rules and the first two colour teams'
+sheets (about 20 MB) -- and `/kit-teams` the other two teams' sheets (about
+15 MB). Both hold one folder, `d12ball-print-and-play/`, so unzipped together
+they are the one kit. The card links each, saying which teams it carries.
+
+Why two: a single file on Cloudflare Pages may be 25 MB. The kit was 128 MB
+(2026-09-27), because it wrote every card of all eight teams as a PNG of its
+own besides the sheets; the author cut it to the print version -- sheets
+only, and only the colour teams, since the printed game has no species-team
+cards and a colour team's card carries its species on the advanced back
+([cards.md](cards.md), "The print-and-play kit"). That is 35 MB, 28 of it the
+eight player sheets, which PNG will not squeeze (re-encoding saved 1%). The
+author kept PNG and took two zips over JPEG sheets or hosting elsewhere. A
+split by component would not do: the player sheets alone are over the limit.
+So it is split by team, which leaves the first download a game two people can
+print and play. **The build refuses a zip over the limit** (`PAGES_FILE_LIMIT`)
+rather than leaving it to fail the deploy; if the art grows past it, the
+split is what moves.
 
 ## Redirects
 
@@ -243,13 +256,15 @@ the build as Cloudflare Pages' `_redirects` file:
 - `/play` -- the web app.
 - `/learn` and `/rules` -- the two books' PDFs in `downloads/`, built beside
   the page.
+- `/kit` and `/kit-teams` -- the print-and-play kit's two zips, likewise.
 - `/survey` -- `box_art.SURVEY_URL`, read rather than copied. The survey is a
   redirect so a form that moves is a one-line change here and no printed
   card is reprinted.
 
 Every redirect is a 302, not a 301: a browser caches a 301 for good, and the
 point of the address is that its target may change. A local target is held
-by the test to name a file in the build, and one ending `.pdf` to name a PDF.
+by the test to name a file in the build, and one ending `.pdf` or `.zip` to
+name one.
 
 ## Building and looking
 
