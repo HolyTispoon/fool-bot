@@ -350,7 +350,9 @@ old ones:
   through both. The numerals painted on the near faces stay solid, and the
   shadow on the table is the die's colour, as the light through a clear die
   lands. A die showing its far faces is what reads as clear; a lighter or
-  paler body alone reads as frosted.
+  paler body alone reads as frosted. The Fortune dice are `clear=0.45`:
+  0.6 was a little too glassy for the author, and below about 0.4 the far
+  faces fade to where the die stops reading as clear.
 
 A polished reflection on the bright die was tried and taken out (the author,
 2026-09-27). A die with none of the three draws exactly what it drew before,

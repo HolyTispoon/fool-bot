@@ -28,7 +28,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from d12ball.render import FONT_DIR
 
-FONT = FONT_DIR / "DejaVuSans-Bold.ttf"
+FONT = FONT_DIR / "RobotoSlab-Bold.ttf"
 SS = 2  # supersample
 
 # A clear die: how much of a near face gives way to the far faces behind
@@ -73,7 +73,8 @@ class Die:
 # numerals, and a dark Doom swirled with a lighter shade, with gold
 # numerals. The author asked for three pairs -- orange, teal and purple
 # -- for the bright one to be a clear die, and for all six to show a
-# different number.
+# different number. The clear die was 0.6 see-through at first, and
+# was made a little less so (0.45) at the author's word the same day.
 WHITE = (255, 255, 255)
 GOLD = (236, 184, 76)
 
@@ -92,7 +93,7 @@ def resin_pair(bright, bright_glow, dark, dark_glow, values, yaws) -> DicePair:
     fortune_yaw, doom_yaw = yaws
     return DicePair(
         fortune=Die(bright, WHITE, fortune_value, fortune_yaw, False, 60, 0.5,
-                    glow=bright_glow, glow_strength=0.45, clear=0.6),
+                    glow=bright_glow, glow_strength=0.45, clear=0.45),
         doom=Die(dark, GOLD, doom_value, doom_yaw, False, 60, 0.7,
                  gloss_tint=(235, 235, 245), glow=dark_glow, glow_strength=0.3,
                  swirl=0.7),

@@ -216,8 +216,13 @@ ZONE_CODES = {
 
 LOGGER = logging.getLogger(__name__)
 
+# **Every word the game draws is Roboto Slab** (the author, 2026-09-27; it
+# was DejaVu Sans), bar the GOAL lettering below. The bundled files are built
+# by `scripts/build_bundled_fonts.py`, which also copies DejaVu's arrows in,
+# since Pillow prints a missing glyph as a box rather than falling back.
+#
 # Fonts are bundled rather than looked up by name so that board images render
-# identically everywhere. A bare `ImageFont.truetype("DejaVuSans.ttf", size)`
+# identically everywhere. A bare `ImageFont.truetype("RobotoSlab-Regular.ttf", size)`
 # only searches the host's font directories, and no list of bare names can be
 # right on every platform: the same typeface is filed under a different name
 # on each. "Arial Bold.ttf" exists on macOS, Windows calls that file
@@ -230,11 +235,11 @@ FONT_DIR = Path(__file__).resolve().parent / "fonts"
 
 def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
     bundled = FONT_DIR / (
-        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
+        "RobotoSlab-Bold.ttf" if bold else "RobotoSlab-Regular.ttf"
     )
     candidates = (
         str(bundled),
-        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
+        "RobotoSlab-Bold.ttf" if bold else "RobotoSlab-Regular.ttf",
         "Arial Bold.ttf" if bold else "Arial.ttf",
     )
     for candidate in candidates:
@@ -263,7 +268,7 @@ def load_goal_zone_font(size: int) -> ImageFont.ImageFont:
     Racing Sans One -- an uppercase, slightly slanted display face --
     for the goal zone's own "GOAL" lettering, over the
     bundled-path-first chain `load_font` uses and for the same reason
-    (see the fonts note above). Falls back to the bundled DejaVu Bold
+    (see the fonts note above). Falls back to the bundled Roboto Slab Bold
     rather than Pillow's built-in face, so a missing Racing Sans One
     file degrades to a plainer bold rather than an unreadable size-10
     face.
@@ -277,7 +282,7 @@ def load_goal_zone_font(size: int) -> ImageFont.ImageFont:
 
     LOGGER.warning(
         "No scalable Racing Sans One font found for size %d; falling "
-        "back to the bundled DejaVu Bold. Expected a bundled font at %s.",
+        "back to the bundled Roboto Slab Bold. Expected a bundled font at %s.",
         size,
         bundled,
     )

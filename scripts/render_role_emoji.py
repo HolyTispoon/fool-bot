@@ -68,7 +68,7 @@ from d12ball.game import COLOR_TEAMS  # noqa: E402
 from d12ball.render import TEAM_COLORS  # noqa: E402
 
 EMOJI_DIR = PROJECT_ROOT / "d12ball" / "images" / "emoji"
-FONT_PATH = PROJECT_ROOT / "d12ball" / "fonts" / "DejaVuSans-Bold.ttf"
+FONT_PATH = PROJECT_ROOT / "d12ball" / "fonts" / "RobotoSlab-Bold.ttf"
 
 # The team emoji's own canvas. Discord scales an emoji to 128px on
 # upload and shows it at 22px inline, so nothing is gained past this,

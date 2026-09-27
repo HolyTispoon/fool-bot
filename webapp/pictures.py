@@ -80,7 +80,7 @@ CARD_WIDTHS = {"small": 250, "full": 500}
 #: `species_icon` applies with Pillow.
 SPECIES_DIR = EMOJI_DIR.parent / "species"
 
-#: The board's own typefaces -- DejaVu for every word on it, Racing
+#: The board's own typefaces -- Roboto Slab for every word on it, Racing
 #: Sans One for the goals -- so the page's board reads as the bot's.
 FONT_DIR = EMOJI_DIR.parent.parent / "fonts"
 
