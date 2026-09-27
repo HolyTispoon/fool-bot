@@ -350,6 +350,23 @@ closed (`DELETE /api/room/{id}`, `discard_game`, whose refusal answers
 rooms" is renamed straight off the front door while it is in its
 lobby (the table's `name` setting), and the whole card opens it.
 
+**A dead room is cleared from its card** (the author, 2026-09-26, after
+the cache outage left rooms opened by people who saw nothing): a card
+in "Your rooms" carries **Close** while nothing has been played in it
+and **Abandon** once the game is under way, each behind the page's
+"Are you sure?" and each the room page's own route -- the listing's
+`may_close` is `_may_close`, the same reading as the table's, and
+`may_abandon` is a seat in a game in progress, the room page's rule --
+so the front door offers exactly what the room does, and the route
+judges again. A card in "Rooms with a seat free" carries neither: its
+reader holds no seat. **A room nobody has had open for a day leaves
+"Rooms with a seat free"** (`OPEN_ROOM_IDLE`): it is not closed, and
+its coaches still see it in their own list, where its card closes it.
+"Open" is any poll of the room's state, kept in memory
+(`_looked_at`), so a restart counts every room from the restart --
+which puts off hiding a room and never hides one early -- and nothing
+about it is written to any file.
+
 **The front door is row 1 of the design canvas** (2026-09-26, step 9
 of [../web-app-redesign.md](../web-app-redesign.md)), as the author
 reworded it on 2026-09-27: on the left "New to the game? Start by
