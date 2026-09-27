@@ -14,10 +14,10 @@ sides, printed duplex), never a PNG per card, and the player cards are
 all four colour teams' -- the print game has no cards for the species
 teams; a colour team's card carries its species on its advanced side
 (the author, 2026-09-27). The species and role reference cards share
-one sheet, and the condition tokens have a sheet of their own. **It
+one sheet, and the condition tokens have two sheets of their own, printed duplex. **It
 draws nothing on its own** -- it runs `render_maneuver_cards.py`,
 `render_player_cards.py`, `render_reference_cards.py`,
-`render_token_sheet.py` and `render_boards.py`, the same scripts a
+`render_token_sheet.py`, `render_boards.py` and `build_rulebooks.py`, the same scripts a
 developer already reaches for to check one component at a time, and
 is only their sum into a folder meant to leave the repo. So a rules
 change, an import, or an art fix reaches the kit exactly the way it
@@ -95,12 +95,16 @@ printer, {sheet_columns} cards to a row.
   species appears on one face) and the double-sided role-ability card
   (the six basic roles). Each card's front is printed beside its back:
   cut the two out together and glue them back to back.
-- **tokens/print-sheet.png** -- the condition tokens, on one
-  letter sheet: {token_counts}. Each is a fold-over pair, its two faces joined
-  on one edge -- cut the pair out as one piece, fold on the grey ticks
-  and glue. The exhaustion token has a Cyborg drain side, and each
-  marker is the condition on one face and what it turns into on a
-  failed check on the other.
+- **tokens/** -- the condition tokens, double-sided, on one piece of
+  letter paper: {token_counts}. `front-sheet.png` is every token's
+  front and `back-sheet.png` its back. Print the two duplex (flip on
+  the long edge) and cut the tokens out: each lands with its back
+  behind it -- the back sheet is laid out mirrored so they line up,
+  and each face has a thin black margin so a printer a little out of
+  line still cuts clean. The exhaustion token has its Cyborg drain on
+  the back, and each marker is a condition on one side and what it
+  turns into on a failed check on the other. Need more? Print the
+  pair of pages again.
 - **boards/** -- the field board at every size the ruleset defines
   (7 and 9 spaces), each also as a `-top` and `-bottom` half for a
   letter printer; the jumbotron board (clock, score, token supplies);
@@ -144,10 +148,14 @@ Printed here: every card, every board and the tokens. Not printed:
 
 ## Rules
 
-`living-rules.md` alongside this README is the whole ruleset, copied
-straight from `docs/living-rules.md` -- the same text the bot's own
-`/d12ball rules_*` commands serve, and the one thing to check a
-mechanic against.
+The two rulebooks, as PDFs on letter paper, are in **rulebooks/**:
+
+- **learn-to-play.pdf** -- *D12 Ball: Learn to Play*, the illustrated
+  guide to the training mode. Start here.
+- **charter.pdf** -- *The D12Ball Charter: Laws of the Game*, the whole
+  ruleset, numbered: the one thing to check a mechanic against. It is
+  built from the same text the bot's own `/d12ball rules_*` commands
+  serve.
 
 ## Rebuilding
 
@@ -273,11 +281,9 @@ def main() -> None:
         board_args.append("--teams")
     run("render_boards.py", board_args)
 
-    shutil.copyfile(
-        PROJECT_ROOT / "docs" / "living-rules.md",
-        args.out / "living-rules.md",
-    )
-    print(f"wrote {args.out / 'living-rules.md'}")
+    # The two rulebooks as the PDFs a table reads, on letter paper
+    # whatever sheet the field board is on.
+    run("build_rulebooks.py", ["--out", str(args.out / "rulebooks")])
 
     catalog = load_player_catalog()
     players_per_team = len(catalog.teams[COLOR_TEAMS[0]].players)

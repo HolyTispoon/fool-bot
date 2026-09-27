@@ -870,13 +870,13 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   exactly the way it reaches each script on its own, by re-running it;
   there is nothing in the kit script itself for a future rule to drift
   out of step with, because it has no rule of its own to hold.
-- **It also writes a README and a copy of the living rules**, so the
-  kit is self-contained for somebody who has left the repo behind --
-  what's in the box, what paper each component wants, and what a table
-  still has to bring that nothing here prints (a d12 a side, meeples,
-  exhaustion tokens), read off "The ball, the dice, and the tokens" in
-  the living rules rather than kept as a second list here that could
-  drift from it.
+- **It also writes a README and both rulebooks as PDFs**
+  (`build_rulebooks.py` into `rulebooks/`: the Charter and the Learn to
+  Play, the author, 2026-09-27 -- it used to copy `living-rules.md`, which
+  a table does not read), so the kit is self-contained for somebody who
+  has left the repo behind -- what's in the box, what paper each
+  component wants, and what a table still has to bring that nothing here
+  prints (a d12 a side, meeples).
 - **It is the print version of the game, as print sheets only** (the
   author, 2026-09-27): each card set is its sheet -- two for a team,
   its cards' standard sides and their advanced sides in duplex order,
@@ -889,8 +889,8 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   (the author, 2026-09-27). `render_reference_cards.py` lays the three
   species cards and the role card out together, each front beside its
   back for cutting and gluing -- eight faces, two full rows, so nothing
-  is padded. `render_token_sheet.py` is the condition tokens as fold-over
-  pairs ([printed-tokens.md](printed-tokens.md), "Paper tokens"). So the
+  is padded. `render_token_sheet.py` is the condition tokens as a front sheet and a
+  back sheet printed duplex ([printed-tokens.md](printed-tokens.md), "Paper tokens"). So the
   kit prints everything a table needs but the meeples and the dice. The three card scripts take
   `--sheets-only` for this, and the kit passes it and a `--team` per
   colour team. A developer checking one card still runs the script on
