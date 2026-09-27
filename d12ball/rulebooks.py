@@ -655,14 +655,16 @@ def anchor_moves(before: str, after: str) -> dict[str, str]:
 class Cover:
     """
     What a book's cover says: its title, broken where the author broke
-    it, and the lines under the rule. The words are here once; the PDF's
-    first page draws them and so does the picture of the cover the
-    landing page shows (`landing/covers.py`), both through
-    `cover_layout`.
+    it, the lines under the rule, and which of the purple pair of dice
+    (`dice.PURPLE`) lies low right, "fortune" or "doom". The words are
+    here once; the PDF's first page draws them and so does the picture
+    of the cover the landing page shows (`landing/covers.py`), both
+    through `cover_layout` and `cover_die`.
     """
 
     title_lines: tuple[str, ...]
     lines: tuple[str, ...]
+    die: str
 
 
 @dataclass(frozen=True)
@@ -703,6 +705,7 @@ BOOKS: dict[str, Book] = {
         cover=Cover(
             title_lines=("The D12Ball", "Charter"),
             lines=("Laws of the Game.", "Comprehensive rules reference for the game."),
+            die="doom",
         ),
     ),
     "learn-to-play": Book(
@@ -715,6 +718,7 @@ BOOKS: dict[str, Book] = {
                 "Learn the fundamentals quickly with a beautifully illustrated "
                 "guide for the training mode.",
             ),
+            die="fortune",
         ),
     ),
 }
@@ -748,6 +752,9 @@ OUTLINE_BOOKS: dict[str, Book] = {
 # are one layout at any size. As the author reviewed it on the canvas
 # (2026-09-27): cream paper, a gold band at the head, the title, a gold
 # rule, the lines under it, the d12 low right, the publisher at the foot.
+# The d12 was the box's solid until the author gave the books the purple
+# pair of Prophetic Folly's resin dice (2026-09-27), one die a book:
+# `dice.PURPLE`, the half of it each `Cover` names, drawn by `cover_die`.
 COVER_BAND = 0.025
 COVER_MARGIN = 0.09
 COVER_TITLE_TOP = 0.13
@@ -865,11 +872,18 @@ def cover_layout(cover: Cover, width: float, height: float, measure: Measure) ->
 COVER_DIE_DPI = 300
 
 
+def cover_die(cover: Cover, pixels: int):
+    """The die on `cover`, `pixels` square: its half of `dice.PURPLE`,
+    cropped to itself so it fills the layout's square as the box's solid
+    did. Imported here, not at the top, because it shades with numpy."""
+    from . import dice
+
+    return dice.die_mark(getattr(dice.PURPLE, cover.die), pixels)
+
+
 def draw_cover(canvas, cover: Cover, pagesize) -> None:
     """The cover as the PDF's first page, drawn straight onto the canvas."""
     from reportlab.lib.utils import ImageReader
-
-    from .box_art import d12_art
 
     width, height = pagesize
     faces = {"display": "Display", "text": "RobotoSlab", "bold": "RobotoSlab-Bold"}
@@ -891,7 +905,7 @@ def draw_cover(canvas, cover: Cover, pagesize) -> None:
         canvas.setFont(faces[text.face], text.size)
         canvas.drawString(text.x, height - text.baseline, text.text)
     left, top, size = layout.die
-    die = d12_art(round(size / inch * COVER_DIE_DPI))
+    die = cover_die(cover, round(size / inch * COVER_DIE_DPI))
     canvas.drawImage(
         ImageReader(die), left, height - top - size, width=size, height=size, mask="auto",
     )

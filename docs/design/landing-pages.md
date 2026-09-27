@@ -69,14 +69,12 @@ for itself.** Concretely, `landing/build.py` reads:
   Screentop-sized night banner as the Open Graph image -- 16:9, because a link
   preview crops a 2.5:1 banner to a sliver -- the four species icons through
   `render.species_icon` in their colour team's hex (`species_cards.SPECIES_TEAM`),
-  and the favicon, the box's d12 solid (`box_art.d12_art`) at 64px. There is no
-  d12 PNG among `d12ball/images/`; the bot's d12 emoji is an application emoji
-  fetched at runtime.
+  and each site's favicon, one of Prophetic Folly's dice ("The dice as marks").
 
-Two pictures are drawn under `landing/`, and neither is of the game: the
-books' covers (`covers.py`, off `rulebooks.cover_layout`, "The downloads") and
-Prophetic Folly's dice (`dice.py`, "The studio page"). Anything that shows D12
-Ball is the renderer's.
+One picture is drawn under `landing/`, and it is not of the game: the books'
+covers (`covers.py`, off `rulebooks.cover_layout`, "The downloads"). Prophetic
+Folly's dice are `d12ball/dice.py`'s ("The studio page"), because the books'
+PDFs draw one too. Anything that shows D12 Ball is the renderer's.
 
 What the code cannot answer is one constant each in `landing/build.py`, dated
 where it is the author's call: the contact address, the Discord invite, the studio's paragraph
@@ -239,7 +237,9 @@ author broke it, and the lines under it -- and the layout is one function,
 own way of measuring a run of text. It is drawn twice: by reportlab as page 1
 of the PDF (`draw_cover`), and by Pillow in `landing/covers.py` as the picture
 on the card. One source for the words, one for where they go, two drawings,
-checked by looking: the picture is the page the download opens on.
+checked by looking: the picture is the page the download opens on. The die on
+each is `rulebooks.cover_die`, the one both drawings ask ("The dice as
+marks").
 
 **The print-and-play kit is three zips: the components, and the player
 cards in two.** `write_kit` runs `scripts/generate_print_and_play_kit.py`
@@ -332,7 +332,7 @@ numerals. All six show a different number (12, 3, 9, 1, 7, 5), so the picture
 is not one throw repeated. The bot's six coins lie round them, turned a
 little: the fortune faces (gold 3, silver 1, bronze 3) on the Fortune side,
 and the doom faces (gold 1, silver 3, bronze 1) on the Doom side.
-`landing/dice.py` draws a die and holds the three pairs (`ORANGE`, `TEAL`,
+`d12ball/dice.py` draws a die and holds the three pairs (`ORANGE`, `TEAL`,
 `PURPLE`, each built by `resin_pair`); `folly_still` in `landing/build.py`
 draws `FOLLY_STILL`'s layers back to front, on a transparent ground the
 card's panel shows through. The layout was checked by rendering it and
@@ -373,6 +373,24 @@ eye against the one the author reviewed; the wheel is on every platform the
 bot and the Pages build run on. The six dice are drawn at 400px; a clear die
 draws its far faces too, and the six take about twenty seconds of the studio
 build, most of what it costs.
+
+### The dice as marks
+
+**Each site's tab icon and each rulebook's cover die is one of these dice**
+(the author, 2026-09-27), in place of the box's d12 solid (`box_art.d12_art`)
+that both carried before: the d12ball site's is the teal pair's, the studio's
+the orange pair's, and the books take the purple pair, one die each -- the
+Learn to Play the Fortune, the Charter the Doom. A site's icon is the bright
+Fortune die because the dark Doom is lost on a dark tab bar at 16 to 32
+pixels. The d12ball page's nav shows its favicon beside the title, so the
+nav's die is the teal one too. `dice.die_mark` draws a die cropped to itself
+-- a render keeps a margin round the die for the table, which would shrink it
+in a tab or in the cover's square -- and caches it, so a build draws each mark
+once. The books' die is why the renderer moved from `landing/` to
+`d12ball/`: `rulebooks.draw_cover` sets the PDF's cover, and nothing under
+`d12ball/` imports `landing`. It imports the dice inside `cover_die`, so the
+rulebooks module still loads without numpy. At the cover's 300 dpi the die
+adds about four seconds to setting each book.
 
 ## Building and looking
 

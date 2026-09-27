@@ -12,7 +12,7 @@ Nothing of the game is drawn here and nothing is typed that the game
 can answer: the title, the publisher, the strapline and the chips are
 `box_art`'s, the team colours `render.TEAM_COLORS`', the palette
 `box_art.NIGHT_COVER`'s. The one picture composed here is the studio's
-Prophetic Folly still, from landing/dice.py and the bot's coins. See
+Prophetic Folly still, from d12ball/dice.py and the bot's coins. See
 docs/design/landing-pages.md.
 """
 from __future__ import annotations
@@ -45,7 +45,6 @@ from d12ball.box_art import (
     SURVEY_URL,
     TITLE,
     BoxFacts,
-    d12_art,
     render_banner,
     render_box_cover,
     retail_chips,
@@ -57,6 +56,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.dice import ORANGE, PURPLE, TEAL, Die, die_mark, render_die
 from d12ball.game import COLOR_TEAMS, Team, team_display_name
 from d12ball.player_cards import render_player_card
 from d12ball.render import FONT_DIR, TEAM_COLORS, species_icon
@@ -64,7 +64,6 @@ from d12ball.rulebooks import BOOKS, DEFAULT_PAPER, book_bytes
 from d12ball.species_cards import SPECIES_TEAM
 from landing.capture import BOARD_CAPTURE
 from landing.covers import render_cover
-from landing.dice import ORANGE, PURPLE, TEAL, Die, render_die
 
 LANDING_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = LANDING_DIR.parent
@@ -230,7 +229,7 @@ DISCORD_MARK = (
 )
 
 # Prophetic Folly's picture: three pairs of Fortune and Doom dice
-# (landing/dice.py) close together -- orange and purple behind, teal in
+# (d12ball/dice.py) close together -- orange and purple behind, teal in
 # front -- with the bot's six coins round them, turned a little, the
 # fortune faces on the Fortune side and the doom faces on the Doom
 # side. The sketch the author reviewed had one pair; the author asked
@@ -275,6 +274,11 @@ CARD_PIXELS = 400
 # A book's cover is shown about 130px wide on the rulebooks card.
 BOOK_COVER_PIXELS = 320
 FAVICON_PIXELS = 64
+# Each site's tab icon, which the d12ball page's nav shows beside the
+# title too: the bright die of one of Folly's pairs -- teal for the game,
+# orange for the studio (the author, 2026-09-27). The dark die of a pair
+# is lost on a dark tab bar at this size.
+FAVICONS = {"d12ball": TEAL.fortune, "studio": ORANGE.fortune}
 COIN_SHADOW_PAD = 30
 COIN_SHADOW_DROP = 10
 COIN_SHADOW_BLUR = 10
@@ -373,16 +377,12 @@ def write_png(image: Image.Image, path: Path) -> None:
 
 
 def write_shared_pictures(out: Path) -> None:
-    """What both sites show: the banner, the night cover, the preview
-    card, and the d12 as the tab's icon."""
+    """What both sites show: the banner, the night cover and the preview
+    card."""
     for width in BANNER_WIDTHS:
         write_jpeg(night_banner(), out / "images" / f"banner-{width}.jpg", width)
     write_jpeg(night_cover(), out / "images" / "cover-night.jpg", COVER_WIDTH)
     write_jpeg(open_graph_banner(), out / "images" / "og.jpg")
-    # The bot's own d12 is an application emoji fetched at runtime and
-    # there is no d12 PNG among d12ball/images, so the icon is the
-    # box's solid, drawn at the size a tab asks for.
-    write_png(d12_art(FAVICON_PIXELS), out / "favicon.png")
 
 
 def fit_width(image: Image.Image, width: int) -> Image.Image:
@@ -817,6 +817,7 @@ def build(site: str, out_dir: Path) -> Path:
     )
     copy_styles(site, out)
     write_shared_pictures(out)
+    write_png(die_mark(FAVICONS[site], FAVICON_PIXELS), out / "favicon.png")
     if site == "d12ball":
         write_d12ball_pictures(out)
         write_downloads(out)
