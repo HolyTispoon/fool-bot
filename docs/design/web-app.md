@@ -661,7 +661,8 @@ Rules across the head of one 380px panel, the one showing under them.
 A tab that is not showing gets a dot when something new arrives in it
 -- red for news, gold where it is this coach's move -- which goes when
 the tab is opened; the gold is the phone's, on Move, since a wider
-screen has no Move tab and the question box is always in sight. It
+screen has no Move tab and the question box is always in sight (the
+author, 2026-09-27: no mark on a wide screen). It
 replaces the log and the chat stacked with a divider between them
 (the author's of 2026-09-26): with the teams and the rules beside
 them, four panels do not share one column, and a coach reads one of
