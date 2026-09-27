@@ -121,7 +121,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | --- | ---: | ---: | --- |
 | Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Pass up to 4, a Deflect of 2, a Clear of 4, a Setup Pass that may also reach 4. |
 | Defender | 2 | 5 | A won Pressure also steals the ball. |
-| Midfielder | 3 | 4 | Adds 3 to a skill test for a Low Pass or a Pressure. |
+| Midfielder | 3 | 4 | Adds 3 to a skill test for a Low Pass or a Steal. |
 | Playmaker | 4 | 3 | May advance an additional space when resolving a Dribble maneuver: 2 spaces with a Dribble Advance, or 5 with a Dribble Burst. |
 | Winger | 5 | 2 | A completed Low Pass may set up a scoring opportunity. |
 | Striker | 6 | 1 | Adds 3 to a score attempt taken off a set-up. |
@@ -323,7 +323,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.4.2** The offense adds the handler's offensive skill and the defense adds the challenger's defensive skill. On top of that:
 
-- **a.** a Midfielder adds 3 more when the maneuver being tested is their own Low Pass or their own Pressure;
+- **a.** a Midfielder adds 3 more when the maneuver being tested is their own Low Pass or their own Steal;
 - **b.** a defense contesting with Steal adds the [ball speed modifier](#7-ball-speed) (7).
 
 **6.4.3** The higher total wins and their maneuver is what resolves.
@@ -914,7 +914,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | --- | --- | --- |
 | Every turnover resets ball speed to 1 ([Law 7](#73-turnovers-reset-it) (7.3)) | A beaten Dribble Burst hands the ball over at the speed the burst put into it ([Dribble Burst](#196-dribble-burst) (19.6)) | Gambits |
 | A defense adds the speed modifier when contesting with Steal ([Law 6](#64-the-skill-test) (6.4)) | With Intercept too ([Intercept](#199-intercept) (19.9)) | Gambits |
-| A Midfielder adds 3 for their own Low Pass or Pressure ([Law 6](#64-the-skill-test) (6.4)) | For their own Skilled Pass or Double Team too ([Skilled Pass](#195-skilled-pass) (19.5), [Double Team](#1910-double-team) (19.10)) | Gambits |
+| A Midfielder adds 3 for their own Low Pass or Steal ([Law 6](#64-the-skill-test) (6.4)) | For their own Skilled Pass or Intercept too ([Skilled Pass](#195-skilled-pass) (19.5), [Intercept](#199-intercept) (19.9)) | Gambits |
 | The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | Under a Double Team it adds both defenders' ([Double Team](#1910-double-team) (19.10)) | Gambits |
 | A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | A coach who is behind chooses from six, against a challenge ([Law 19](#19-gambits)) | Gambits |
 | A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#26-players-and-roles) (2.6)) | A player's advanced skill replaces their role's ([Advanced skills](#212-advanced-skills) (21.2)) | Personal |
@@ -1039,11 +1039,13 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.9.3** A defense contesting with Intercept adds the [ball speed modifier](#7-ball-speed) (7) to the skill test, as a Steal does.
 
-**19.9.4** Once everyone has run back, the interceptor changes the ball's speed by up to their defensive skill. The ball is left with the interceptor, who therefore does not run back.
+**19.9.4** *Midfielder:* adds 3 to the skill test for their own Intercept, as for a Steal.
 
-**19.9.5** Where the interceptor is already on the last space that way there is nowhere to carry it, and the interception is a [scoring opportunity](#8-scoring-opportunities) (8) for them instead.
+**19.9.5** Once everyone has run back, the interceptor changes the ball's speed by up to their defensive skill. The ball is left with the interceptor, who therefore does not run back.
 
-**19.9.6** *Beaten:* a [High Pass contest](#104-the-high-pass-contest) (10.4) the pass would have owed is not held -- the receiver simply keeps the ball.
+**19.9.6** Where the interceptor is already on the last space that way there is nowhere to carry it, and the interception is a [scoring opportunity](#8-scoring-opportunities) (8) for them instead.
+
+**19.9.7** *Beaten:* a [High Pass contest](#104-the-high-pass-contest) (10.4) the pass would have owed is not held -- the receiver simply keeps the ball.
 
 ### 19.10 Double Team
 
@@ -1053,11 +1055,9 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.10.3** Possession does not change and the ball is left with the handler. Where the handler is already on the space closest to their own goal there is nowhere to push them, and it risks an [own goal](#11-own-goal) (11) as a Pressure does. A Defender's steal applies as it does on a won Pressure.
 
-**19.10.4** *Midfielder:* adds 3 to the skill test for their own Double Team, as for a Pressure.
+**19.10.4** **On the defending side's next maneuver both of those players challenge**, and the skill test adds **both** of their defensive skills. It lasts until a [new play](#125-resetting-after-a-new-play) (12.5), which is the only thing that ends it.
 
-**19.10.5** **On the defending side's next maneuver both of those players challenge**, and the skill test adds **both** of their defensive skills. It lasts until a [new play](#125-resetting-after-a-new-play) (12.5), which is the only thing that ends it.
-
-**19.10.6** *Beaten:* the challenger and that same nearest teammate each move 1 space forward, away from their own goal. Neither exhausts for it.
+**19.10.5** *Beaten:* the challenger and that same nearest teammate each move 1 space forward, away from their own goal. Neither exhausts for it.
 
 ## 20. Species abilities
 
@@ -1240,7 +1240,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.6.4** **Viscor merges harder.** Whenever Viscor [Merges](#205-slimey-ooze) (20.5) -- adds their skill to their side as an Ooze on the ball who is not rolling -- they add 3 more.
 
-**21.6.5** **Spritz may Smooth.** Spritz has the Telekinetics' [Smooth](#204-mind-pull-telekinetic) (20.4), and takes their own side's ball over exactly as a Telekinetic does. Spritz has no Mind Pull.
+**21.6.5** **Shpritz may Smooth.** Shpritz has the Telekinetics' [Smooth](#204-mind-pull-telekinetic) (20.4), and takes their own side's ball over exactly as a Telekinetic does. Shpritz has no Mind Pull.
 
 **21.6.6** **Zorch rolls with the ball.** Zorch adds the [ball speed modifier](#7-ball-speed) (7) to every roll they make: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2), an [injury check](#153-the-injury-check) (15.3) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Pass contest](#104-the-high-pass-contest) (10.4) -- it is added once, not twice, and an [overshoot](#75-the-overshoot) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so the modifier is 0. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
 

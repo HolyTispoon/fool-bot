@@ -254,7 +254,23 @@ once per maneuver, and a coach can choose to use one, both, or neither."*
   [Law 20.3.6](living-rules.md#203-lithium-powered-cyborg) already said of Overdrive. Laws
   20.3.5 and 21.4.3 now put **once per roll** in bold, and the species table says it too.
 
-### 2026-09-27 -- author, basic mode is renamed standard mode
+### 2026-09-27 (later) -- author, the Midfielder's +3 moves from Pressure to Steal; Spritz is Shpritz
+
+The author: *"Spritz's name is now Shpritz. Midfielder now gets bonus for Steal and Low pass."*
+The sheet already carried both: the `player cards` tab names the Ooze Winger **Shpritz**
+(`shpritz_winger`), and the Midfielder's row on `basic_abilities` reads *"Add +3 to skill tests
+for steal and low pass."*
+
+- **The Midfielder adds 3 for their own Low Pass or their own Steal** (Law 2.6, Law 6.4), and
+  no longer for a Pressure. A Midfielder on defence now gets the +3 on the rank that already
+  carries the ball speed modifier, so the two stack on a Steal.
+- **The gambits follow the rank**, as they always have: the +3 carries to Skilled Pass and now
+  to **Intercept**, and Double Team loses it. Asked, the author chose this over keeping it on
+  the basic cards alone or on Double Team as well. Law 18.3's table says so, the Midfielder's
+  line moves from Double Team (was 19.10.4) to Intercept (19.9.4), and the paragraphs after
+  each renumber.
+- **Shpritz is a name, not a rule.** Law 21.6.5 (Smooth) is unchanged but for the name.
+  Quotations of the sheet below keep "Spritz", which is what it said at the time.
 
 The author: *"Basic mode is now called 'standard'."*
 
