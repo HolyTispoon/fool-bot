@@ -44,11 +44,12 @@ from d12ball.components import MatchState, TeamSide
 from d12ball.engine import SPREADABLE_NOTE
 from d12ball.render import TEAM_COLORS
 from d12ball.flow import FollowOnStep
-from d12ball.game import GameMode
+from d12ball.formatting import coach_name
+from d12ball.game import AIOpponent, GameMode
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
 from gamesaves.d12ball import storage
 from gamesaves.d12ball.service import GameService
-from webapp import identity, present, server
+from webapp import identity, keys, present, server
 from webapp.board import board_layout, side_colour
 from webapp.identity import Coach
 from gamelocks import GameLocks
@@ -689,6 +690,69 @@ class QuestionBoxTests(unittest.TestCase):
                 self.box(fixture, Viewer(number))["state"], "full_time",
             )
 
+    def named(self, fixture: PromptFixture) -> PromptFixture:
+        fixture.game.player_1_name = "bright_bear_42696"
+        fixture.game.player_2_name = "jolly_sprite_44424"
+        return fixture
+
+    def test_a_turn_names_the_coach_it_waits_on(self) -> None:
+        fixture = self.named(case("plain turn"))
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        (side,) = asked_sides(fixture.match, prompt)
+        asked = ENGINE.side_player_number(fixture.game, side)
+        name = coach_name(fixture.game, asked)
+        for number in (3 - asked, None):
+            self.assertEqual(
+                self.box(fixture, Viewer(number))["waiting_on"], [name],
+            )
+
+    def test_the_ai_is_named_as_the_record_names_it(self) -> None:
+        fixture = self.named(case("plain turn"))
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        (side,) = asked_sides(fixture.match, prompt)
+        asked = ENGINE.side_player_number(fixture.game, side)
+        setattr(fixture.game, f"player_{asked}_id", None)
+        fixture.game.ai_seats = [asked]
+        fixture.game.ai_opponent = AIOpponent.DINKY
+        self.assertEqual(
+            self.box(fixture, Viewer(None))["waiting_on"],
+            [coach_name(fixture.game, asked)],
+        )
+        self.assertIn("Dinky", self.box(fixture, Viewer(None))["waiting_on"][0])
+
+    def test_the_maneuver_pick_names_the_other_hand_whoever_has_picked(
+        self,
+    ) -> None:
+        fixture = self.named(case("maneuver picks"))
+        offense = ENGINE.side_player_number(
+            fixture.game, fixture.match.ball.possession,
+        )
+        other = [coach_name(fixture.game, 3 - offense)]
+        both = [coach_name(fixture.game, number) for number in (1, 2)]
+        self.assertCountEqual(
+            self.box(fixture, Viewer(None))["waiting_on"], both,
+        )
+        fixture.match.offense_maneuver = "low_pass"
+        box = self.box(fixture, Viewer(offense))
+        self.assertEqual(box["state"], "waiting")
+        self.assertEqual(box["waiting_on"], other)
+        # Nobody learns from it that a card is down: the observer is
+        # told both names still.
+        self.assertCountEqual(
+            self.box(fixture, Viewer(None))["waiting_on"], both,
+        )
+
+    def test_a_question_that_is_yours_waits_on_nobody_else(self) -> None:
+        fixture = self.named(case("plain turn"))
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        (side,) = asked_sides(fixture.match, prompt)
+        asked = ENGINE.side_player_number(fixture.game, side)
+        self.assertEqual(self.box(fixture, Viewer(asked))["waiting_on"], [])
+
+    def test_a_roll_waits_on_nobody(self) -> None:
+        fixture = self.named(case("skill test"))
+        self.assertEqual(self.box(fixture, Viewer(None))["waiting_on"], [])
+
 
 class OutcomeBannerTests(unittest.TestCase):
     """
@@ -1305,6 +1369,46 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
             )
 
 
+class KeptSecretTests(unittest.TestCase):
+    """
+    With `FOOLBOT_WEB_SECRET` unset, the running web app keeps the
+    secret it made in `data/` (`keys.keep_secret_in`), so a restart that
+    comes up without the `.env` line still reads everybody's cookie
+    rather than making every seat's holder a stranger.
+    """
+
+    def setUp(self) -> None:
+        saved = keys._process_secret
+        self.addCleanup(setattr, keys, "_process_secret", saved)
+        keys._process_secret = None
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.path = Path(folder.name) / "data" / "d12ball_web_secret"
+
+    def restart(self) -> bytes:
+        """A new process: nothing made yet, then the file read."""
+        keys._process_secret = None
+        with self.assertLogs("webapp.keys", level="WARNING"):
+            keys.keep_secret_in(self.path)
+        return keys.secret()
+
+    def test_a_cookie_outlives_a_restart_with_no_secret_configured(self) -> None:
+        with mock.patch.dict("os.environ", {keys.SECRET_VARIABLE: ""}):
+            first = self.restart()
+            cookie = identity.encode(Coach(4242, "bright_bear_42696"))
+            self.assertTrue(self.path.exists())
+            self.assertEqual(self.restart(), first)
+            self.assertEqual(identity.decode(cookie).id, 4242)
+
+    def test_a_configured_secret_is_the_secret_and_nothing_is_written(
+        self,
+    ) -> None:
+        with mock.patch.dict("os.environ", {keys.SECRET_VARIABLE: "named"}):
+            keys.keep_secret_in(self.path)
+            self.assertEqual(keys.secret(), b"named")
+        self.assertFalse(self.path.exists())
+
+
 class IdentityTests(unittest.IsolatedAsyncioTestCase):
     """Who is reading: a name in a signed cookie, stored nowhere."""
 
@@ -1390,7 +1494,6 @@ class IdentityTests(unittest.IsolatedAsyncioTestCase):
         # people hold one name (webapp/names.py).
         for number, (headers, secure) in enumerate((
             ({}, False),
-            ({"X-Forwarded-Proto": "http"}, False),
             ({"X-Forwarded-Proto": "https"}, True),
             ({"X-Forwarded-Proto": "HTTPS, http"}, True),
         )):
@@ -1400,6 +1503,80 @@ class IdentityTests(unittest.IsolatedAsyncioTestCase):
                 )
                 cookie = response.cookies[identity.COOKIE]
                 self.assertEqual(bool(cookie["secure"]), secure)
+                # Over the tunnel's HTTPS the browser is told to use
+                # nothing else; a laptop's plain HTTP is told nothing.
+                self.assertEqual(
+                    response.headers.get("Strict-Transport-Security"),
+                    server.STRICT_TRANSPORT if secure else None,
+                )
+
+    async def test_plain_http_through_the_tunnel_goes_to_https(self) -> None:
+        """
+        The tunnel carries `http://` as well, where a `Secure` cookie is
+        never sent: the browser would be somebody new in the same
+        browser, an observer in their own room. So it is sent to the
+        same path over HTTPS before anything answers -- a 308, which a
+        POST repeats as a POST -- and is handed no cookie.
+        """
+        web = WebApp(GameService(ENGINE, {}, save=lambda games: None), GameLocks())
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        forwarded = {"X-Forwarded-Proto": "http", "Host": "play.example"}
+
+        for method, path in (
+            ("GET", "/api/me"),
+            ("GET", "/room/abc?x=1"),
+            ("POST", "/api/me"),
+        ):
+            with self.subTest(method=method, path=path):
+                with mock.patch.dict(
+                    "os.environ", {keys.BASE_URL_VARIABLE: "https://play.d12ball.com"},
+                ):
+                    response = await client.request(
+                        method, path, headers=forwarded, allow_redirects=False,
+                    )
+                self.assertEqual(response.status, 308)
+                self.assertEqual(
+                    response.headers["Location"], f"https://play.d12ball.com{path}",
+                )
+                self.assertNotIn(identity.COOKIE, response.cookies)
+
+        # With no https address configured, the request's own host.
+        with mock.patch.dict(
+            "os.environ", {keys.BASE_URL_VARIABLE: "http://localhost:8080"},
+        ):
+            response = await client.get(
+                "/api/me", headers=forwarded, allow_redirects=False,
+            )
+        self.assertEqual(response.status, 308)
+        self.assertEqual(response.headers["Location"], "https://play.example/api/me")
+
+    async def test_a_cookie_that_fails_its_signature_is_said_at_warning(
+        self,
+    ) -> None:
+        """Somebody whose cookie this server did not sign is somebody
+        new from here on -- an observer in their own rooms -- which is
+        never routine, so the log says who was lost and asks after the
+        secret. A browser with no cookie at all is only a visitor."""
+        web = WebApp(GameService(ENGINE, {}, save=lambda games: None), GameLocks())
+        client = TestClient(TestServer(web.app), cookie_jar=DummyCookieJar())
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        with mock.patch.object(keys, "secret", return_value=b"the old secret"):
+            lost = identity.encode(Coach(4242, "bright_bear_42696"))
+
+        with self.assertLogs("webapp.server", level="WARNING") as said:
+            response = await client.get(
+                "/api/me", headers={"Cookie": f"{identity.COOKIE}={lost}"},
+            )
+        self.assertNotEqual((await response.json())["id"], 4242)
+        (line,) = said.output
+        self.assertIn("'bright_bear_42696' (id 4242)", line)
+        self.assertIn(keys.SECRET_VARIABLE, line)
+
+        with self.assertNoLogs("webapp.server", level="WARNING"):
+            await client.get("/api/me")
 
     def test_the_forwarded_scheme_is_believed_only_from_this_machine(self) -> None:
         """Anybody who reaches the port directly can write the header,
@@ -2398,8 +2575,8 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                         set(state["prompt"]),
                         {
                             "kind", "ask", "footnote", "picture", "controls",
-                            "lit", "yours", "state", "reference", "hand",
-                            "shootout",
+                            "lit", "yours", "state", "waiting_on",
+                            "reference", "hand", "shootout",
                         },
                     )
                     self.assertNotIn("match", state)
@@ -3041,6 +3218,8 @@ class EntryPointTests(unittest.TestCase):
         self.assertEqual(defaults["rooms_file"], WEB_ROOMS_FILE)
         self.assertEqual(defaults["chat_file"], WEB_CHAT_FILE)
         self.assertEqual(defaults["journal_file"], WEB_JOURNAL_FILE)
+        self.assertEqual(defaults["secret_file"], keys.WEB_SECRET_FILE)
+        self.assertEqual(keys.WEB_SECRET_FILE.parent, storage.DATA_FOLDER)
         self.assertNotIn(storage.GAMES_FILE, defaults.values())
 
         built = []
@@ -3052,10 +3231,13 @@ class EntryPointTests(unittest.TestCase):
             built.append(path)
             raise Built
 
-        with mock.patch.object(server, "build_service", build):
+        kept = mock.Mock()
+        with mock.patch.object(server, "build_service", build), \
+             mock.patch.object(keys, "keep_secret_in", kept):
             with self.assertRaises(Built):
                 asyncio.run(server.serve())
         self.assertEqual(built, [storage.WEB_GAMES_FILE])
+        kept.assert_called_once_with(keys.WEB_SECRET_FILE)
 
     def test_it_batches_for_the_walk_in_and_nothing_else(self) -> None:
         """Discord's economy is the cog's; the web app has no rate

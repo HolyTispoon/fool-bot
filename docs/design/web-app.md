@@ -46,7 +46,7 @@ interrupted. Four environment variables, all of the frontend's:
 | `FOOLBOT_WEB_PORT` | The port, **8080 when unset**. It used to be the switch that started a server inside the bot; there is nothing to switch on now, since running the command is the switch. |
 | `FOOLBOT_WEB_HOST` | What to bind, `0.0.0.0` by default. |
 | `FOOLBOT_WEB_URL` | What a link points at, `http://localhost:8080` by default -- the address a coach's browser can reach, which the server cannot know about itself behind a tunnel or a proxy. |
-| `FOOLBOT_WEB_SECRET` | What a person's cookie is signed under (`webapp/keys.py`). With none set one is made per process, and every cookie dies with it. |
+| `FOOLBOT_WEB_SECRET` | What a person's cookie is signed under (`webapp/keys.py`). With none set, `serve` makes one once and keeps it in `data/d12ball_web_secret` (`keys.keep_secret_in`), saying so at WARNING, so a cookie still outlives a restart; only a process that never names the file -- a test, a script -- makes one that dies with it. |
 
 A failure to bind raises out of `main`: nothing else is running in the
 process to carry on with.
@@ -200,14 +200,31 @@ restart with the process and hand out ids already sitting in
 somebody's seat -- and it stops at 2**53 because it goes to a browser,
 which rounds a larger number into somebody else's. A cookie is per
 device, so another device is another person as far as the room knows;
-that is why a seat is left and taken again rather than shared. With no
-secret set, identities die with the process, which is the safe default
-the old per-game links had. **The cookie is `Secure` when the browser
+that is why a seat is left and taken again rather than shared.
+**A restart must never make a seated coach a stranger** (the author,
+2026-09-27, after a coach came back to their own game as an
+observer, in the same browser, more than once): so with no secret in
+the environment the one `serve` made is kept in
+`data/d12ball_web_secret` rather than dying with the process, as it
+did while the per-game links were the model; and a cookie that fails
+its signature -- the one way a returning browser is made somebody
+new -- is said at WARNING with the name and id it claimed and the
+new person it became, so the next time it happens the log says
+whether the secret moved. **The cookie is `Secure` when the browser
 came over HTTPS**, and behind the tunnel that is the tunnel's
 `X-Forwarded-Proto`, believed only from this machine
 (`identity.came_over_https`; why, and why not simply "whenever
 `FOOLBOT_WEB_URL` is HTTPS", is [collaboration.md](collaboration.md),
-"Only ever over HTTPS").
+"Only ever over HTTPS"). **So a browser the tunnel carried over plain
+`http://` is sent to `https://` before anything answers it**
+(`server.https_only`, a 308, to `FOOLBOT_WEB_URL`'s address where it
+is `https://`): it sends no `Secure` cookie, so it used to be handed a
+second, non-`Secure` person in the same browser -- the other way a
+coach came back as an observer. Every response over the tunnel's
+HTTPS carries `Strict-Transport-Security` for a year
+(`STRICT_TRANSPORT`), so after one visit the browser never tries
+`http://` again. A request with no tunnel in front of it is neither,
+so a checkout on a laptop stays on `http://localhost`.
 
 **No two people hold the same name at once** (the author,
 2026-09-27), as written -- "Tom" and "tom" are two names, the
@@ -951,8 +968,17 @@ field, in the canvas's shape: a state tag, the outcome, the ask at
 the right the picture the question is asked over.
 
 - **The tag is the server's reading, never the page's.** Four:
-  YOUR MOVE (gold, and the box's left edge gold), WAITING ON THE OTHER
-  SIDE (grey), NOW (blurple) and FULL TIME (green). The prompt's
+  YOUR MOVE (gold, and the box's left edge gold), WAITING ON <NAME>
+  (grey), NOW (blurple) and FULL TIME (green). **WAITING names who**
+  (the author, 2026-09-27: an observer read "the other side" as
+  Dinky's turn when it was a person's): the prompt's `waiting_on` is
+  `present.waiting_on`, the coach of each side `asked_sides` names
+  that this viewer does not coach, as `coach_name` calls them -- the
+  AI by its name -- joined with "and". It never reads a pick: on the
+  maneuver pick an observer is told both names until the question
+  resolves, since whether the other card is down is that side's
+  secret (the survey test holds the key list). With nobody to name --
+  a test game's one coach -- the tag says "the other side". The prompt's
   `state` is `_box_state` in `webapp/server.py`: `full_time` for
   `GAME_OVER`, `now` where `asked_sides` is empty -- a note or a roll
   either coach may take, which is the reading "nothing rolls dice on

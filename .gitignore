@@ -31,6 +31,7 @@ data/d12ball_web_journal.tmp
 data/d12ball_web_names.json
 data/d12ball_web_names.tmp
 data/webapp.pid
+data/d12ball_web_secret
 *.log
 
 # The landing pages, built by scripts/build_landing.py

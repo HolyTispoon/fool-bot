@@ -140,12 +140,17 @@ FOOLBOT_WEB_URL=https://play.d12ball.com
 FOOLBOT_WEB_SECRET=<64 random hex characters>
 ```
 
-- **`FOOLBOT_WEB_SECRET` must be set.** A person is a signed cookie and
-  nothing else -- no account, nothing stored server-side
-  (`webapp/identity.py`). Without a configured secret one is made per
-  process, so **every restart signs everybody out and every seat's
-  holder becomes a stranger to it** (an admin can hand the seat back,
-  but a mid-game restart for a deploy should not need one). Make it
+- **`FOOLBOT_WEB_SECRET` should be set.** A person is a signed cookie
+  and nothing else -- no account (`webapp/identity.py`). A changed
+  secret **signs everybody out and makes every seat's holder a
+  stranger** (an admin can hand the seat back, but a mid-game restart
+  for a deploy should not need one). Without one in the environment
+  the web app makes one and keeps it in `data/d12ball_web_secret`,
+  which survives a restart but not a new checkout; the `.env` line is
+  the one to keep. A cookie that fails its signature is logged at
+  WARNING in `data/webapp.stderr.log`, naming who it claimed to be --
+  the line to look for when somebody says they came back as an
+  observer. Make it
   once and never change it: changing it is the same as losing it.
   `python -c "import secrets; print(secrets.token_hex(32))"` makes
   one. It is a credential: `.env` is per checkout and untracked, and
@@ -182,10 +187,17 @@ write that header, and with `FOOLBOT_WEB_HOST=127.0.0.1` nothing but
 the tunnel can. That is why the host line in the `.env` matters twice.
 Chosen over marking the cookie `Secure` whenever `FOOLBOT_WEB_URL`
 starts with `https://` (the author, 2026-09-26), because it answers
-per request what the browser actually did. Cloudflare's "Always Use
-HTTPS" is still worth turning on (below): it sends a person who typed
-`http://` to the page they meant, where before it was also the only
-thing between that request and the cookie.
+per request what the browser actually did.
+
+**A request the tunnel carried over `http://` is redirected to
+`https://`** by the web app itself (`server.https_only`), and every
+HTTPS response carries `Strict-Transport-Security`. On 2026-09-27
+`http://play.d12ball.com` was answering in full: "Always Use HTTPS"
+(below) was not on, and a browser there sent no `Secure` cookie and
+was handed a second person -- a coach in their own room became an
+observer in the same browser. The redirect makes that impossible
+whatever the dashboard says; "Always Use HTTPS" is still worth turning
+on, so the request never reaches this machine.
 
 ### Keeping it running
 

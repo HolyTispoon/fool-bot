@@ -198,6 +198,26 @@ def coach_for(request: web.Request) -> Optional[Coach]:
     return decode(request.cookies.get(COOKIE))
 
 
+def unverified_claim(value: Optional[str]) -> Optional[dict]:
+    """
+    What a cookie `decode` refused says it is, read without its
+    signature -- for the log line that says who was lost, and never
+    for anything else: an unsigned claim is anybody's to write.
+    `None` where there is no cookie or nothing readable in it.
+    """
+    if not value or "." not in value:
+        return None
+    payload = value.rsplit(".", 1)[0]
+    try:
+        padded = payload + "=" * (-len(payload) % 4)
+        data = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
+    except (binascii.Error, ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return {"id": data.get("id"), "name": data.get("name")}
+
+
 def _from_this_machine(request: web.Request) -> bool:
     """Whether the request came from a process on this machine -- the
     tunnel's own client, when there is one."""
@@ -207,6 +227,29 @@ def _from_this_machine(request: web.Request) -> bool:
         return False
     mapped = getattr(address, "ipv4_mapped", None)
     return (mapped or address).is_loopback
+
+
+def _forwarded_scheme(request: web.Request) -> Optional[str]:
+    """The scheme the browser used, as the tunnel on this machine says
+    it in `X-Forwarded-Proto` -- or `None` where nothing on this
+    machine said (see `came_over_https` for why only this machine)."""
+    if not _from_this_machine(request):
+        return None
+    forwarded = request.headers.get("X-Forwarded-Proto", "")
+    # A chain of proxies writes a list; the first is the browser's.
+    return forwarded.split(",")[0].strip().lower() or None
+
+
+def came_over_plain_http(request: web.Request) -> bool:
+    """
+    Whether the browser reached the tunnel over plain `http://` -- which
+    the tunnel carries rather than refuses. The cookie is `Secure`, so a
+    browser there sends none, and would be handed a second person in the
+    same browser; `webapp/server.py`'s `https_only` sends it to the
+    `https://` address instead. A request with no tunnel in front of it
+    (a checkout on a laptop, over `http://localhost`) is none of this.
+    """
+    return not request.secure and _forwarded_scheme(request) == "http"
 
 
 def came_over_https(request: web.Request) -> bool:
@@ -224,11 +267,7 @@ def came_over_https(request: web.Request) -> bool:
     """
     if request.secure:
         return True
-    if not _from_this_machine(request):
-        return False
-    forwarded = request.headers.get("X-Forwarded-Proto", "")
-    # A chain of proxies writes a list; the first is the browser's.
-    return forwarded.split(",")[0].strip().lower() == "https"
+    return _forwarded_scheme(request) == "https"
 
 
 def set_cookie(
