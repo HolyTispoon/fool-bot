@@ -1,6 +1,6 @@
 # The D12Ball Charter: Laws of the Game
 
-This document is the final authority on the rules of D12 Ball. It states each rule once and settled, for each of the three modes a game may be played in: **training**, **basic** and **advanced**. History, open questions and the places upstream has not caught up yet all belong in [rules-log.md](rules-log.md), and the illustrated introduction to the game is [learn-to-play.md](learn-to-play.md).
+This document is the final authority on the rules of D12 Ball. It states each rule once and settled, for each of the three modes a game may be played in: **training**, **standard** and **advanced**. History, open questions and the places upstream has not caught up yet all belong in [rules-log.md](rules-log.md), and the illustrated introduction to the game is [learn-to-play.md](learn-to-play.md).
 
 ## Contents
 
@@ -23,7 +23,7 @@ This document is the final authority on the rules of D12 Ball. It states each ru
   - [Law 15. Exhaustion and injury](#15-exhaustion-and-injury)
   - [Law 16. The clock](#16-the-clock)
   - [Law 17. Extreme shootout](#17-extreme-shootout)
-- Part II -- Basic and advanced mode
+- Part II -- Standard and advanced mode
   - [Law 18. The three modes](#18-the-three-modes)
   - [Law 19. Gambits](#19-gambits)
   - [Law 20. Species abilities](#20-species-abilities)
@@ -39,7 +39,7 @@ The Charter is divided into **Laws**, each Law into **sections**, and each secti
 
 **Precedence.** Where the Charter and any other statement of the rules disagree, the Charter is right: it wins over the Learn to Play, over the text printed on a card or a board, and over the bot. Where the Learn to Play simplifies, it says so and names the Law it simplifies.
 
-**Training, basic and advanced mode.** Laws 1 to 17 are the whole of the game in training mode. Part II is what the other two modes add and change: [Law 18](#18-the-three-modes) says which mode plays what, [Law 19](#19-gambits) is the gambits, [Law 20](#20-species-abilities) the species abilities and [Law 21](#21-personal-abilities) the personal abilities. A rule in Part II wins over a rule in Part I for a game playing the module it belongs to, and applies nowhere else.
+**Training, standard and advanced mode.** Laws 1 to 17 are the whole of the game in training mode. Part II is what the other two modes add and change: [Law 18](#18-the-three-modes) says which mode plays what, [Law 19](#19-gambits) is the gambits, [Law 20](#20-species-abilities) the species abilities and [Law 21](#21-personal-abilities) the personal abilities. A rule in Part II wins over a rule in Part I for a game playing the module it belongs to, and applies nowhere else.
 
 **Defined terms** are in bold where they are defined, and every one is listed in [Appendix B](#appendix-b-glossary) with the paragraph that defines it.
 
@@ -164,7 +164,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.8.12** A **live ball** is one in play. A **dead ball** is one being brought back into play after a goal, a missed shot, an own-goal roll, a ball out of bounds or a period's start: it is carried to where play starts again rather than travelling over the spaces between.
 
-**2.8.13** **Exhausted** and **Injured** are the two conditions a player can be in -- see [Law 15](#15-exhaustion-and-injury). In basic and advanced mode a Cyborg's own words for them are Drained and Damaged -- see [Lithium Powered](#203-lithium-powered-cyborg) (20.3).
+**2.8.13** **Exhausted** and **Injured** are the two conditions a player can be in -- see [Law 15](#15-exhaustion-and-injury). In standard and advanced mode a Cyborg's own words for them are Drained and Damaged -- see [Lithium Powered](#203-lithium-powered-cyborg) (20.3).
 
 **2.8.14** **Behind** is the condition under which a coach holds gambits in advanced mode -- see [who may play a gambit](#193-who-may-play-a-gambit) (19.3).
 
@@ -420,7 +420,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 7.2 What changes it
 
-**7.2.1** Only maneuvers change it. In basic mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill.
+**7.2.1** Only maneuvers change it. In standard mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill.
 
 ### 7.3 Turnovers reset it
 
@@ -886,9 +886,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **17.6.3** Once all six have shot, a new round begins and everybody is available again.
 
-## Part II -- Basic and advanced mode
+## Part II -- Standard and advanced mode
 
-What basic and advanced mode add to Part I and where they change it, Laws 18 to 21. In training mode, nothing in Part II exists.
+What standard and advanced mode add to Part I and where they change it, Laws 18 to 21. In training mode, nothing in Part II exists.
 
 ## 18. The three modes
 
@@ -897,8 +897,8 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 **18.1.1** A game is played in one of three modes, declared before the toss. Each adds to the one before it:
 
 - **a.** **Training mode** is Part I and nothing else. Species is only a name on the card, and every player follows the standard rules. The tutorial is a training game.
-- **b.** **Basic mode** adds the [species abilities](#20-species-abilities) (20).
-- **c.** **Advanced mode** adds the [gambits](#19-gambits) (19) and the [personal abilities](#21-personal-abilities) (21) to basic mode.
+- **b.** **Standard mode** adds the [species abilities](#20-species-abilities) (20).
+- **c.** **Advanced mode** adds the [gambits](#19-gambits) (19) and the [personal abilities](#21-personal-abilities) (21) to standard mode.
 
 ### 18.2 Part II wins in its own mode
 
@@ -1063,7 +1063,7 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **20.1.1** There is one ability per species, and every player of that species has it whichever team is fielding them. A player fielded on both sides of one game -- the same person in two kits -- carries it on both cards.
 
-**20.1.2** The species abilities are played in basic mode and in advanced mode, and never in training mode.
+**20.1.2** The species abilities are played in standard mode and in advanced mode, and never in training mode.
 
 ### 20.2 Volatile (Fire Demon)
 
@@ -1086,7 +1086,7 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 *Note.* A blaze that wins is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as a gambit on its own, so even a player who *did* play the gambit gets it resolving as one for the first time. A burn that wins won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
 
-**20.2.6** Outside a maneuver skill test -- or in basic mode, which plays the species abilities without the [gambits](#19-gambits) (19) -- there is no tier to change, and the blaze or burn is only the number.
+**20.2.6** Outside a maneuver skill test -- or in standard mode, which plays the species abilities without the [gambits](#19-gambits) (19) -- there is no tier to change, and the blaze or burn is only the number.
 
 ### 20.3 Lithium Powered (Cyborg)
 
@@ -1258,7 +1258,7 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 
 **A turnover:** reset speed to 1, then -- a steal runs players back; a new play resets both sides and offers the side with the ball a Coaching Choice. **A time out** is not a turnover: the ball stays put and both coaches get one.
 
-**Species abilities (basic and advanced mode):**
+**Species abilities (standard and advanced mode):**
 
 | Species | Ability |
 | --- | --- |
@@ -1304,7 +1304,7 @@ What basic and advanced mode add to Part I and where they change it, Laws 18 to 
 | Space minute | [Space minutes](#162-space-minutes) (16.2) |
 | Speed | [The ball, the dice and the tokens](#27-the-ball-the-dice-and-the-tokens) (2.7) |
 | Time out | [Time out](#13-time-out) (13) |
-| Training mode, basic mode, advanced mode | [What each mode plays](#181-what-each-mode-plays) (18.1) |
+| Training mode, standard mode, advanced mode | [What each mode plays](#181-what-each-mode-plays) (18.1) |
 
 ## Appendix C. The boards
 
