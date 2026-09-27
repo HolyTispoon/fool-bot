@@ -310,3 +310,27 @@ the shape, not a promise.
    `d12ball_coach` has a tick under *Secure*. No tick means the header
    did not arrive and the cookie is back to riding on the redirect
    alone -- say so on the worksheet rather than working around it.
+
+### Cloudflare keeps what the web app does not say about
+
+Cloudflare caches a response by its file extension: a `.js`, `.css`
+or `.png` the origin sent with no `Cache-Control` is kept at the edge
+for four hours, and handed to browsers with `max-age=14400`, while an
+HTML page is always fetched fresh. `/static/` is served under
+unversioned names, so on 2026-09-26, after redesign step 11 was pulled
+onto `K:\`, every visitor got the new `game.html` under the old
+`app.js` and `app.css`, and a room drew nothing but its empty shapes --
+on a phone and a computer alike, for everybody, with the origin
+serving the right files. So the web app says: every response whose
+handler set no `Cache-Control` goes out `no-cache`
+(`revalidate_by_default` in `webapp/server.py`) -- the edge and the
+browser keep their copy and check its ETag first, which an unchanged
+file answers with a 304. The cards, emoji and fonts set their own and
+keep them.
+
+A copy cached before that fix, or anything else stale at the edge, is
+cleared from the dashboard: `d12ball.com` -> Caching -> Configuration
+-> *Purge Everything* (or *Custom Purge* with the URLs). A browser that
+already holds a copy under the old `max-age` still needs a hard reload
+(Cmd/Ctrl+Shift+R; on a phone, clearing the site's data) until it
+expires.

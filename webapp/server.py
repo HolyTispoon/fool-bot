@@ -156,6 +156,28 @@ WEB_BATCHING = Batching(
     own_message=frozenset({FollowOnStep.AUTO_RESOLVE_CHALLENGER}),
 )
 
+#: What a response says about caching when its handler said nothing.
+#: `/static/` is served under unversioned names, and a page and its
+#: script change together: with no header, Cloudflare in front of
+#: `play.d12ball.com` kept `app.js` and `app.css` for four hours while
+#: `game.html` came fresh, and a room drew nothing -- the new page under
+#: the old script -- until the edge let go. `no-cache` still lets the
+#: edge and the browser keep a copy; they ask with its ETag first, and
+#: an unchanged file is a 304. A handler that sets its own (a card, an
+#: emoji, a font) keeps it.
+DEFAULT_CACHE_CONTROL = "no-cache"
+
+
+@web.middleware
+async def revalidate_by_default(
+    request: web.Request, handler,
+) -> web.StreamResponse:
+    """`DEFAULT_CACHE_CONTROL` on every response that did not say."""
+    response = await handler(request)
+    response.headers.setdefault("Cache-Control", DEFAULT_CACHE_CONTROL)
+    return response
+
+
 PORT_VARIABLE = "FOOLBOT_WEB_PORT"
 HOST_VARIABLE = "FOOLBOT_WEB_HOST"
 DEFAULT_PORT = 8080
@@ -207,7 +229,7 @@ class WebApp:
         self._cards: dict[tuple, bytes] = {}
         self._dice: dict[tuple, bytes] = {}
         self._runner: Optional[web.AppRunner] = None
-        self.app = web.Application()
+        self.app = web.Application(middlewares=[revalidate_by_default])
         self.app.add_routes(
             [
                 web.get("/", self.index),

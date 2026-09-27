@@ -425,6 +425,28 @@ class WebAppTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(theirs["you"]["is_coach"])
         self.assertEqual(theirs["prompt"]["controls"], [])
 
+    async def test_the_page_and_its_script_are_asked_for_fresh(
+        self,
+    ) -> None:
+        # Unversioned names under one page: kept without asking, the
+        # old script ran under the new page and a room drew nothing.
+        for path in (
+            "/static/app.js", "/static/app.css", "/static/game.html",
+            f"/room/{self.game.game_id}", "/",
+        ):
+            with self.subTest(path=path):
+                response = await self.client.get(path, headers=self.coach)
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.headers["Cache-Control"], "no-cache")
+
+    async def test_a_picture_that_says_how_long_to_keep_it_keeps_its_own(
+        self,
+    ) -> None:
+        response = await self.client.get("/emoji/team_orange.png")
+
+        self.assertEqual(response.status, 200)
+        self.assertNotEqual(response.headers["Cache-Control"], "no-cache")
+
     async def test_a_control_pressed_plays_the_turn(self) -> None:
         state = await self.state()
 
