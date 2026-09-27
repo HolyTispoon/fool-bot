@@ -664,7 +664,9 @@ missing other half for Injured, scoped the same way.
 **A Cyborg's injury check is a damage test, and "drain" is a verb** (the
 author, 2026-09-23). The third and fourth words of the same set: a Drained
 Cyborg takes a damage test and, failing it, is Damaged; a Cyborg *drains 2*
-where anybody else gains 2 exhaustion tokens.
+where anybody else *exhausts 2* (the author, 2026-09-27 -- the same shape,
+so a gain is a verb and a number for everybody; `describe_exhaustion_gain`
+words both).
 
 - **`RulesEngine.injury_test_name` is the one answer to what the check is
   called**, beside `token_word_and_mark` and the other `drain_wording`

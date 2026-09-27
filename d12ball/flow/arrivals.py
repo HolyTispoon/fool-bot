@@ -293,7 +293,7 @@ def continue_mind_pull(
         player = engine.get_player_definition(player_id)
         mind_pull_emoji = tokens.species(SPECIES_TELEKINETIC)
         cost = engine.mind_pull_cost(game, player_id)
-        price = f" for {cost} exhaustion" if cost else ""
+        price = f" (exhaust {cost})" if cost else ""
         # Noxar is offered a ball that only passed beside them (Law 21).
         on_path = (
             list(match.board.meeple_position(player_id))

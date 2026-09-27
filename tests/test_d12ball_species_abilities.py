@@ -1202,11 +1202,13 @@ class DamagedWordingTests(unittest.TestCase):
         self.assertIn(" drains 2 ", text)
         self.assertNotIn("gains", text)
 
-    def test_everybody_else_still_gains_exhaustion_tokens(self) -> None:
+    def test_everybody_else_exhausts(self) -> None:
+        # "Exhaust 2" is two exhaustion tokens gained (the author,
+        # 2026-09-27), the same shape as a Cyborg's "drain 2".
         text = describe_exhaustion_gain(
             self.cog, self.game, self.match, self.other, 2,
         )
-        self.assertIn(" adds 2 exhaustion ", text)
+        self.assertIn(" exhausts 2 ", text)
 
     def test_a_cyborgs_injury_check_is_a_damage_test(self) -> None:
         engine = self.cog.engine

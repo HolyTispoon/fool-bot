@@ -405,7 +405,7 @@ def pay_clear_cost(
     if defender_id is None:
         return ""
     text = engine.apply_exhaustion(game, match, defender_id, 2)
-    return f"\n\n**Clear** was beaten -- 2 exhaustion.\n{text}"
+    return f"\n\n**Clear** was beaten -- exhaust 2.\n{text}"
 
 
 def dribble_advance_step(
@@ -2409,11 +2409,11 @@ def offer_dribble_burst(
             dribble_burst_step(engine, game, match, 0), lead_in,
         )
 
-    # "Drain 1" is a Cyborg's word for gaining a drain token.
+    # "Drain 1" and "exhaust 1" are the verbs for gaining a token.
     cost = (
         "drain 1"
         if engine.drain_wording(game, match.active_player_id)
-        else "1 exhaustion token"
+        else "exhaust 1"
     )
     # Emberdash's burst costs nothing (Law 21), so the prompt names no
     # price rather than one that is not charged.

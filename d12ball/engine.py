@@ -525,7 +525,7 @@ class RulesEngine:
         if player_id in match.injured:
             out_word, out_emoji = self.injured_word_and_mark(game, player_id)
             gains_nothing = (
-                "does not drain" if drain else f"adds no {noun}"
+                "does not drain" if drain else "does not exhaust"
             )
             return (
                 f"{self.format_player_label(match, player)} is {out_word} "
@@ -548,13 +548,14 @@ class RulesEngine:
         # tally in teal (`render.draw_exhaustion_badge`), and the same
         # tokens in two colours would read as two different costs.
         #
-        # A Cyborg *drains*: "drain 2" is two drain tokens gained, one
-        # verb where everybody else adds a noun (the author,
-        # 2026-09-23; "add"/"clear" for exhaustion since 2026-09-26).
+        # A Cyborg *drains* and everybody else *exhausts*: "drain 2"
+        # is two drain tokens gained and "exhaust 2" two exhaustion
+        # tokens (the author, 2026-09-23 and 2026-09-27); "clear" takes
+        # either kind off.
         total = match.exhaustion.get(player_id, 0)
         gained = (
             f"drains {amount}" if drain
-            else f"adds {amount} {noun}"
+            else f"exhausts {amount}"
         )
         text = (
             f"{self.format_player_label(match, player)} {gained} "
