@@ -1205,12 +1205,12 @@ the page plays the window on the pieces themselves, as the canvas's
   author there, 2026-09-26); the page says the
   occasion's budget and never works one out.
 - **The box reads top to bottom as a coach works through it**: the
-  ask, the allowance, a line per move made on the board ("Substitute:
-  drag a bench meeple onto the player it replaces, or click the two in
-  turn"), the section's `how` -- this frontend's words about its own
-  controls, not the model's about the game -- then the formation
-  tiles, a rule, the whistle, and last the Spreadable reminder
-  (the author, 2026-09-26). The reminder is the model's sentence
+  ask, a line per move made on the board ("Substitute: drag a bench
+  meeple onto the player it replaces, or click the two in turn"), the
+  section's `how` -- this frontend's words about its own controls, not
+  the model's about the game -- then the formation tiles, a rule, the
+  whistle, and under it the lit line (the allowance) and last the
+  Spreadable reminder (the author, 2026-09-26). The reminder is the model's sentence
   (`RulesEngine.spreadable_note`, appended to the window's ask by
   `prompts._window`); `present.split_footnote` only takes it off the
   end of the ask so the page can say it under the whistle, as the

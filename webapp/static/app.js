@@ -1841,6 +1841,14 @@ function drawControls(prompt) {
   const sides = shootoutSides(prompt);
   if (sides) controls.append(sides);
 
+  /* A Coaching Choice says its lit line -- the window's allowance --
+     under the whistle rather than under the ask (the author,
+     2026-09-26); `drawLitLine` leaves the usual place empty for it. */
+  if (coaching(prompt)) {
+    const items = litItemsOf(prompt);
+    if (items.length) controls.append(h("p", { class: "lit-line" }, ...items));
+  }
+
   /* The Spreadable reminder, under the whistle rather than the title
      (`present.split_footnote`). */
   if (prompt.footnote) {
@@ -1852,12 +1860,17 @@ function drawControls(prompt) {
    the server's reading of the controls it built (`present.lit_line`). */
 function drawLitLine(prompt) {
   const line = el("lit");
+  const items = coaching(prompt) ? [] : litItemsOf(prompt);
+  line.hidden = !items.length;
+  line.replaceChildren(...items);
+}
+
+function litItemsOf(prompt) {
   /* With a thing picked up, the box says that instead: what was lit
      before it was picked up is not what is lit now. */
   const items = picked ? [] : prompt.lit || [];
-  line.hidden = !items.length;
-  line.replaceChildren(...items.map((item) =>
-    h("span", { class: item.dark ? "lit-item dark" : "lit-item" }, item.text)));
+  return items.map((item) =>
+    h("span", { class: item.dark ? "lit-item dark" : "lit-item" }, item.text));
 }
 
 /* The same controls as a list for the keyboard: a number key presses
