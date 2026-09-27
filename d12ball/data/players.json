@@ -113,7 +113,7 @@
       "role": "playmaker",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "Boost: drain 1 for +3 (once per role).",
+      "advanced_ability": "Boost: drain 1 for +3 (once per roll).",
       "advanced_skills": {}
     },
     "glompex_midfielder": {

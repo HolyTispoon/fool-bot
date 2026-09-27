@@ -163,10 +163,9 @@ changes; the roll, its cost and where a pull lands are still Law 20.4's.
 
 The same import rewords two more cells with no change of meaning, and each is played as it was:
 
-- **Gearclaw** now reads *"Boost: drain 1 for +3 (once per role)."* where it read "drain 1 for
+- **Gearclaw** now reads *"Boost: drain 1 for +3 (once per roll)."* where it read "drain 1 for
   +3 on a roll". The author: Boost *"was always once per roll so it's just a different phrasing
-  of the same rule"* -- Law 21.4.3 already says once per roll. The cell's "role" is read as
-  "roll"; the data carries the sheet's spelling until the sheet changes.
+  of the same rule"* -- Law 21.4.3 already says once per roll.
 - **Zenith's Fly** now says *"exhausting per space"* where it said *"adding exhaustion per
   space"* -- the sheet catching up with the 2026-09-27 wording, so it leaves "Where upstream is
   behind".

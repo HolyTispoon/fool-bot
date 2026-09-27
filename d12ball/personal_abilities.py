@@ -85,7 +85,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "gearclaw_playmaker": (
         PersonalAbility.BOOST,
-        "Boost: drain 1 for +3 (once per role).",
+        "Boost: drain 1 for +3 (once per roll).",
     ),
     "strider_midfielder": (
         PersonalAbility.EFFICIENT_RUN,
