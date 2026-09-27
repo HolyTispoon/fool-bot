@@ -298,15 +298,16 @@ foreshortened one on its top face and sometimes a sliver at one side.
 
 ## Not part of #370
 
-- **Synapse**'s d12 was drafted and not taken. Instead, after #370, its ball
-  was cut out of the painting entirely: **before** `b26371638600` (207,084)
-  → **after** `744ddc13fb25` (188,334). The ball, the kick's spark, and the
-  ball's shadow were made transparent, and the ground scuff fades in where the
-  ball used to cover its end. Nothing was painted in; the canvas is still
-  390x278. To put the ball back, restore from `d6a320e` as in steps 2-5
-  (`git checkout d6a320e -- d12ball/images/player_images/Synapse.png`) and
-  delete the "Synapse holds no ball" sentence from the `cards.md` note. No
-  committed figure, the box cover or the sale sheet draws Synapse. It appears
+- **Synapse**'s d12 was drafted during #370 and not taken; its ball became
+  a d12 afterwards, in its own PR: **before** `b26371638600` (207,084) →
+  **after** `7595af70ee62` (207,894). Cyborg d12 (the ball's own bronze panels
+  and teal lens, dark teal seams), faces 12, 4, 8 with 3 and 7 on the sides.
+  The ball was taken out inside its painted circle (centre 42.5,230, radius
+  42) and the die set in at centre 44.5,231.5 with a corner reaching the arm's
+  cuff, which sits on the ball's rim and so was kept; the kick's spark was put
+  back over the die. Revert it as in steps 2-6: restore from `d6a320e` and
+  change the "Synapse came later" sentence in the `cards.md` note. No
+  committed figure, the box cover or the sale sheet draws Synapse; it appears
   on its player card, in Discord, in the web app, and on the landing page's
   Cyborgs card (rebuild and redeploy).
 - The **17 portraits with no ball** (Blazebulk, Brightburn, Bulwark,
