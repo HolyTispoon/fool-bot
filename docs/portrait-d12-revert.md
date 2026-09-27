@@ -80,9 +80,9 @@ python3 -m unittest discover -s tests
 ```
 
 **6. Update the note in `docs/design/cards.md`.** Its bullet **"The ball in a
-portrait is a d12, with real numbers on it"** lists what changed and says
-"**Synapse still shows its round ball**". Add the reverted portrait to that
-sentence, e.g. "**Synapse and Umbrik still show their round balls**". If you
+portrait is a d12, with real numbers on it"** lists what changed. Add a
+sentence naming the reverted portrait, e.g. "**Umbrik still shows its round
+ball**". If you
 revert Kindlefinger, change the sentence about its glyphs to say they're back.
 If you revert all 18, remove the bullet and its tint sub-bullet completely.
 
@@ -298,9 +298,17 @@ foreshortened one on its top face and sometimes a sliver at one side.
 
 ## Not part of #370
 
-- **Synapse** was drafted and not taken. Its file is untouched
-  (`d12ball/images/player_images/Synapse.png` is as on `d6a320e`), so there is
-  nothing to revert.
+- **Synapse**'s d12 was drafted and not taken. Instead, after #370, its ball
+  was cut out of the painting entirely: **before** `b26371638600` (207,084)
+  → **after** `744ddc13fb25` (188,334). The ball, the kick's spark, and the
+  ball's shadow were made transparent, and the ground scuff fades in where the
+  ball used to cover its end. Nothing was painted in; the canvas is still
+  390x278. To put the ball back, restore from `d6a320e` as in steps 2-5
+  (`git checkout d6a320e -- d12ball/images/player_images/Synapse.png`) and
+  delete the "Synapse holds no ball" sentence from the `cards.md` note. No
+  committed figure, the box cover or the sale sheet draws Synapse. It appears
+  on its player card, in Discord, in the web app, and on the landing page's
+  Cyborgs card (rebuild and redeploy).
 - The **17 portraits with no ball** (Blazebulk, Brightburn, Bulwark,
   Flickerwing, Flux, Gearclaw, Goopkeeper, Hellguard, Inferno, Pulsar, Quantor,
   Scorchit, Sizzifizik, Strider, Tachyon, Voltus, Zenith) were never changed.
