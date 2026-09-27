@@ -80,9 +80,9 @@ python3 -m unittest discover -s tests
 ```
 
 **6. Update the note in `docs/design/cards.md`.** Its bullet **"The ball in a
-portrait is a d12, with real numbers on it"** lists what changed and says
-"**Synapse still shows its round ball**". Add the reverted portrait to that
-sentence, e.g. "**Synapse and Umbrik still show their round balls**". If you
+portrait is a d12, with real numbers on it"** lists what changed. Add a
+sentence naming the reverted portrait, e.g. "**Umbrik still shows its round
+ball**". If you
 revert Kindlefinger, change the sentence about its glyphs to say they're back.
 If you revert all 18, remove the bullet and its tint sub-bullet completely.
 
@@ -298,9 +298,21 @@ foreshortened one on its top face and sometimes a sliver at one side.
 
 ## Not part of #370
 
-- **Synapse** was drafted and not taken. Its file is untouched
-  (`d12ball/images/player_images/Synapse.png` is as on `d6a320e`), so there is
-  nothing to revert.
+- **Synapse**'s d12 was drafted during #370 and not taken; its ball became
+  a d12 afterwards, in its own PR: **before** `b26371638600` (207,084) →
+  **after** `1164b4efd982` (206,505). Cyborg d12 (the ball's own bronze panels
+  and teal lens, dark teal seams), faces 12, 8, 4 with 7 and 3 on the sides.
+  The ball was taken out inside its painted circle (centre 42.5,230, radius
+  42). The arm's cuff ends on the ball's rim, so it was kept, and the die was
+  turned 23.6 degrees so one flat side of its outline lies along the rim's
+  tangent where the cuff ends (centre 46.2,228.3, reaching 43 px); the cuff
+  was put back over the die and the kick's spark beside it. The painted
+  ball's shadow and soft edge under and beside the die were cleared, and so
+  were the spark's specks that had lain over the ball. Revert it as in steps 2-6: restore from `d6a320e` and
+  change the "Synapse came later" sentence in the `cards.md` note. No
+  committed figure, the box cover or the sale sheet draws Synapse; it appears
+  on its player card, in Discord, in the web app, and on the landing page's
+  Cyborgs card (rebuild and redeploy).
 - The **17 portraits with no ball** (Blazebulk, Brightburn, Bulwark,
   Flickerwing, Flux, Gearclaw, Goopkeeper, Hellguard, Inferno, Pulsar, Quantor,
   Scorchit, Sizzifizik, Strider, Tachyon, Voltus, Zenith) were never changed.

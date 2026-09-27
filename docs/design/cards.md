@@ -446,8 +446,13 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   visible pair does, and 6 and 9 carry a dot. What stood in front of a ball
   -- a hand, a toe, flames -- was put back over the die from the painting.
   Kindlefinger kept its painted die and had its glyphs painted out and
-  numbered. **Synapse still shows its round ball**: its draft was not taken.
-  Putting any of these back to its painting is
+  numbered. **Synapse came later** (2026-09-27): its first d12 draft was not
+  taken, and its ball became a die in a second pass -- the same solid seen
+  corner-on, wearing its ball's bronze panels and teal lens, numbered in
+  teal-tinted numerals, with the kick's spark put back in front of it, and
+  turned so one of its flat sides lies flush against the end of the arm that
+  touched the ball. Putting any of
+  these back to its painting is
   [docs/portrait-d12-revert.md](../portrait-d12-revert.md), portrait by
   portrait.
   - **A light grey on a die is tinted, never left colourless.** A silver
