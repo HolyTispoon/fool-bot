@@ -231,7 +231,8 @@ class GameResult:
       persistent board.
     - `detail`: a roll's numbers, for the picture of the dice.
     - `refusal` and `waiting_on`: why nothing happened, and what the
-      match is actually waiting on, where the action was refused.
+      match is actually waiting on, where the action was refused;
+      `refusal_law` the Charter heading it cites, where one says it.
     - `match`: the position after the call, for a frontend that builds
       its next controls from it.
     """
@@ -250,6 +251,9 @@ class GameResult:
     #: group's are on the group.
     answer_headlines: tuple[Headline, ...] = ()
     headlines: tuple[Headline, ...] = ()
+    #: The Charter heading the refusal cites, where it cites one
+    #: (`RuleRefusal.law`): a slug of `docs/living-rules.md`.
+    refusal_law: Optional[str] = None
 
     @property
     def refused(self) -> bool:
@@ -277,6 +281,7 @@ class GameResult:
             "board_changed": self.board_changed,
             "detail": jsonable(self.detail),
             "refusal": self.refusal,
+            "refusal_law": self.refusal_law,
             "answer_headlines": [
                 one.to_dict() for one in self.answer_headlines
             ],
@@ -833,6 +838,7 @@ class GameService:
                 refusal=answered.reason,
                 waiting_on=answered.waiting_on,
                 match=match,
+                refusal_law=answered.law,
             )
         own = answered.result
         split = carry_from

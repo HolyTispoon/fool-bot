@@ -1391,7 +1391,7 @@ def decline_loose_ball_contest(
     """
     refusal = loose_ball_decline_refusal(match, skill_type)
     if refusal is not None:
-        raise RuleRefusal(refusal)
+        raise RuleRefusal(refusal, law="a-player-already-there")
     side = (
         match.ball.possession
         if skill_type == "offense"

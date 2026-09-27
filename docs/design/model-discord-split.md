@@ -844,6 +844,22 @@ in one call, which is what a web app wants.
     propagates. The validation raises -- a catalog missing a team,
     `validate()`'s invariants -- stay `ValueError`, because they are
     not the position refusing a choice.
+  - **A refusal may cite its Law** (`RuleRefusal.law`, proposed on
+    step 10 of [../web-app-redesign.md](../web-app-redesign.md)): the
+    slug of the heading in `docs/living-rules.md` that says no --
+    the anchor the Charter's own links use, so a renumbering does not
+    move it -- set at the raise site, where the rule is known, and
+    carried out as `Refusal.law` and `GameResult.refusal_law`. It is
+    optional on purpose: the driver's own refusals (a stale click, a
+    question not asked), the lobby's bookkeeping and a sentence a
+    helper returns for several reasons (`turn_action_refusal`) cite
+    nothing rather than one Law for all of them. It changes no
+    sentence, is never read to decide anything, and is for a frontend
+    to link to the rules; the cog does not show it.
+    `tests/test_rule_refusal_laws.py` reads every slug off the source
+    and holds it to a heading the living rules have. Mapping a
+    refusal's *text* to a Law in a frontend would be a second reading
+    of the rules, which is why it is the model's.
 - **`ANSWERS` covers `PromptKind` exactly**, so every question this
   game asks has a model function behind it.
   `test_every_prompt_kind_has_a_model_answer` asserts the equality, so
