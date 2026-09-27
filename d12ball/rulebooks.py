@@ -46,6 +46,7 @@ from reportlab.platypus import (
     Image as ImageFlowable,
     KeepTogether,
     ListFlowable,
+    NextPageTemplate,
     ListItem,
     PageBreak,
     PageTemplate,
@@ -75,7 +76,8 @@ INK_COLOR = colors.HexColor(INK)
 FACE = colors.HexColor(FACE_COLOR)
 PANEL = colors.HexColor(PANEL_COLOR)
 RULE_COLOR = colors.HexColor("#c9c1b2")
-MUTED = colors.HexColor("#5d6770")
+MUTED_HEX = "#5d6770"
+MUTED = colors.HexColor(MUTED_HEX)
 ACCENT = colors.HexColor("#b8452b")
 
 
@@ -650,6 +652,20 @@ def anchor_moves(before: str, after: str) -> dict[str, str]:
 
 
 @dataclass(frozen=True)
+class Cover:
+    """
+    What a book's cover says: its title, broken where the author broke
+    it, and the lines under the rule. The words are here once; the PDF's
+    first page draws them and so does the picture of the cover the
+    landing page shows (`landing/covers.py`), both through
+    `cover_layout`.
+    """
+
+    title_lines: tuple[str, ...]
+    lines: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Book:
     """One book to build: where its text is and how it is set."""
 
@@ -660,6 +676,8 @@ class Book:
     numbered: bool = False
     contents: bool = False
     subtitle: str = ""
+    # A book with a cover opens on it rather than on its title line.
+    cover: Optional[Cover] = None
 
     @property
     def source(self) -> Optional[Path]:
@@ -680,11 +698,24 @@ BOOKS: dict[str, Book] = {
         sources=(DOCS_DIR / "charter.md", DOCS_DIR / "living-rules.md"),
         numbered=True,
         contents=True,
+        # The cover's words are the author's (on the landing pages'
+        # canvas, 2026-09-27).
+        cover=Cover(
+            title_lines=("The D12Ball", "Charter"),
+            lines=("Laws of the Game.", "Comprehensive rules reference for the game."),
+        ),
     ),
     "learn-to-play": Book(
         name="learn-to-play",
         title="D12 Ball: Learn to Play",
         sources=(DOCS_DIR / "learn-to-play.md",),
+        cover=Cover(
+            title_lines=("D12 Ball:", "Learn to Play"),
+            lines=(
+                "Learn the fundamentals quickly with a beautifully illustrated "
+                "guide for the training mode.",
+            ),
+        ),
     ),
 }
 
@@ -708,6 +739,162 @@ OUTLINE_BOOKS: dict[str, Book] = {
         contents=True,
     ),
 }
+
+
+# --- The cover ----------------------------------------------------------------
+
+# The cover as shares of the page -- sizes of its width, heights of its
+# height -- so the PDF's first page and the landing page's picture of it
+# are one layout at any size. As the author reviewed it on the canvas
+# (2026-09-27): cream paper, a gold band at the head, the title, a gold
+# rule, the lines under it, the d12 low right, the publisher at the foot.
+COVER_BAND = 0.025
+COVER_MARGIN = 0.09
+COVER_TITLE_TOP = 0.13
+COVER_TITLE_SIZE = 0.1
+COVER_TITLE_LEADING = 1.2
+COVER_RULE_GAP = 0.42  # of the title's size, from its last baseline
+COVER_RULE_WEIGHT = 0.004
+COVER_TEXT_SIZE = 0.037
+COVER_TEXT_LEADING = 1.45
+COVER_DIE_SIZE = 0.31
+COVER_DIE_CENTRE = (0.745, 0.76)
+COVER_PUBLISHER_SIZE = 0.029
+COVER_PUBLISHER_BASELINE = 0.915
+
+# The three faces a cover sets, which each drawing maps to its own
+# handle on the one bundled file: Racing Sans One, DejaVu, DejaVu Bold.
+COVER_FACES = {
+    "display": "RacingSansOne-Regular.ttf",
+    "text": "DejaVuSans.ttf",
+    "bold": "DejaVuSans-Bold.ttf",
+}
+
+# How wide a run of text is in a face at a size, in the drawing's units.
+Measure = Callable[[str, str, float], float]
+
+
+@dataclass(frozen=True)
+class CoverText:
+    text: str
+    face: str  # a key of COVER_FACES
+    size: float
+    x: float
+    baseline: float  # from the top of the page
+    colour: str
+
+
+@dataclass(frozen=True)
+class CoverLayout:
+    """A cover laid out on a page `width` by `height`, measured from the
+    top left, for a drawing to put down as it is."""
+
+    width: float
+    height: float
+    ground: str
+    gold: str
+    band: float
+    rule: tuple[float, float, float, float]  # x0, x1, y, weight
+    die: tuple[float, float, float]  # left, top, size
+    texts: tuple[CoverText, ...]
+
+
+def wrap_words(text: str, fits: Callable[[str], bool]) -> list[str]:
+    lines: list[str] = []
+    for word in text.split():
+        candidate = f"{lines[-1]} {word}" if lines else word
+        if lines and fits(candidate):
+            lines[-1] = candidate
+        else:
+            lines.append(word)
+    return lines
+
+
+def cover_layout(cover: Cover, width: float, height: float, measure: Measure) -> CoverLayout:
+    """
+    Where everything on `cover` goes on a page `width` by `height`.
+    `measure` is the drawing's own, so a line wraps where that drawing's
+    font says it runs out of room.
+    """
+    from .box_art import NIGHT_COVER, PUBLISHER
+
+    left = width * COVER_MARGIN
+    right = width - left
+    texts: list[CoverText] = []
+
+    title_size = width * COVER_TITLE_SIZE
+    baseline = height * COVER_TITLE_TOP
+    for line in cover.title_lines:
+        baseline += title_size * (COVER_TITLE_LEADING if texts else 1.0)
+        texts.append(CoverText(line, "display", title_size, left, baseline, INK))
+
+    rule_y = baseline + title_size * COVER_RULE_GAP
+    text_size = width * COVER_TEXT_SIZE
+    baseline = rule_y + text_size * 1.8
+    first = True
+    for paragraph in cover.lines:
+        fits = lambda run: measure(run, "text", text_size) <= right - left  # noqa: E731
+        for line in wrap_words(paragraph, fits):
+            if not first:
+                baseline += text_size * COVER_TEXT_LEADING
+            first = False
+            texts.append(CoverText(line, "text", text_size, left, baseline, MUTED_HEX))
+
+    texts.append(CoverText(
+        PUBLISHER.upper(), "bold", width * COVER_PUBLISHER_SIZE, left,
+        height * COVER_PUBLISHER_BASELINE, MUTED_HEX,
+    ))
+    die = width * COVER_DIE_SIZE
+    centre_x, centre_y = width * COVER_DIE_CENTRE[0], height * COVER_DIE_CENTRE[1]
+    return CoverLayout(
+        width=width,
+        height=height,
+        ground=FACE_COLOR,
+        # The jumbotron's gold: a band and a rule, never text, which is
+        # what box_art says it cannot carry on paper.
+        gold=NIGHT_COVER.accent,
+        band=height * COVER_BAND,
+        rule=(left, right, rule_y, width * COVER_RULE_WEIGHT),
+        die=(centre_x - die / 2, centre_y - die / 2, die),
+        texts=tuple(texts),
+    )
+
+
+# The die is drawn at print resolution whatever the page is scaled to.
+COVER_DIE_DPI = 300
+
+
+def draw_cover(canvas, cover: Cover, pagesize) -> None:
+    """The cover as the PDF's first page, drawn straight onto the canvas."""
+    from reportlab.lib.utils import ImageReader
+
+    from .box_art import d12_art
+
+    width, height = pagesize
+    faces = {"display": "Display", "text": "DejaVu", "bold": "DejaVu-Bold"}
+    layout = cover_layout(
+        cover, width, height,
+        lambda text, face, size: pdfmetrics.stringWidth(text, faces[face], size),
+    )
+    canvas.saveState()
+    canvas.setFillColor(colors.HexColor(layout.ground))
+    canvas.rect(0, 0, width, height, stroke=0, fill=1)
+    canvas.setFillColor(colors.HexColor(layout.gold))
+    canvas.rect(0, height - layout.band, width, layout.band, stroke=0, fill=1)
+    x0, x1, y, weight = layout.rule
+    canvas.setStrokeColor(colors.HexColor(layout.gold))
+    canvas.setLineWidth(weight)
+    canvas.line(x0, height - y, x1, height - y)
+    for text in layout.texts:
+        canvas.setFillColor(colors.HexColor(text.colour))
+        canvas.setFont(faces[text.face], text.size)
+        canvas.drawString(text.x, height - text.baseline, text.text)
+    left, top, size = layout.die
+    die = d12_art(round(size / inch * COVER_DIE_DPI))
+    canvas.drawImage(
+        ImageReader(die), left, height - top - size, width=size, height=size, mask="auto",
+    )
+    canvas.restoreState()
 
 
 _fonts_registered = False
@@ -759,12 +946,21 @@ def styles() -> dict[str, ParagraphStyle]:
 class BookTemplate(BaseDocTemplate):
     """One frame a page, a running footer, and the contents entries."""
 
-    def __init__(self, path, book_title: str, pagesize, **kwargs) -> None:
+    def __init__(self, path, book_title: str, pagesize, cover: Optional[Cover] = None, **kwargs) -> None:
         super().__init__(path, pagesize=pagesize, leftMargin=MARGIN, rightMargin=MARGIN,
                          topMargin=MARGIN, bottomMargin=MARGIN, title=book_title, **kwargs)
         self.book_title = book_title
         frame = Frame(self.leftMargin, self.bottomMargin, self.width, self.height, id="page")
-        self.addPageTemplates([PageTemplate(id="page", frames=[frame], onPage=self.draw_footer)])
+        templates = [PageTemplate(id="page", frames=[frame], onPage=self.draw_footer)]
+        if cover is not None:
+            # The first template is the first page's: the cover, drawn
+            # whole by `draw_cover`, with no footer and nothing flowed.
+            templates.insert(0, PageTemplate(
+                id="cover",
+                frames=[Frame(0, 0, pagesize[0], pagesize[1], id="cover")],
+                onPage=lambda canvas, doc: draw_cover(canvas, cover, pagesize),
+            ))
+        self.addPageTemplates(templates)
 
     def draw_footer(self, canvas, doc) -> None:
         canvas.saveState()
@@ -827,13 +1023,16 @@ def build_story(book: Book, blocks: Sequence[Block], available_width: float) -> 
             return text
         return f"{text} ({number})"
 
-    story: list = [
-        Paragraph(escape(book.title), style["Title"]),
-        Paragraph(
-            escape(book.subtitle or f"Built {date.today().isoformat()} from {source_label(book.source)}"),
-            style["Subtitle"],
-        ),
-    ]
+    edition = Paragraph(
+        escape(book.subtitle or f"Built {date.today().isoformat()} from {source_label(book.source)}"),
+        style["Subtitle"],
+    )
+    if book.cover is not None:
+        # The cover carries the title; the page after it opens on the
+        # edition line.
+        story: list = [NextPageTemplate("page"), PageBreak(), edition]
+    else:
+        story = [Paragraph(escape(book.title), style["Title"]), edition]
     if book.contents:
         toc = TableOfContents()
         toc.levelStyles = [style["TOC1"], style["TOC2"]]
@@ -993,7 +1192,7 @@ def book_bytes(book: Book, paper: str = DEFAULT_PAPER) -> bytes:
     available_width = pagesize[0] - 2 * MARGIN
     story = build_story(book, blocks, available_width)
     buffer = io.BytesIO()
-    document = BookTemplate(buffer, book.title, pagesize)
+    document = BookTemplate(buffer, book.title, pagesize, cover=book.cover)
     if book.contents:
         document.multiBuild(story)
     else:

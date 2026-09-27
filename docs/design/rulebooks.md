@@ -85,9 +85,21 @@ checked by reading the PDF.
 - **The Learn to Play is `docs/learn-to-play.md`**, unnumbered, one
   page break (before the appendix) and figures at the text width. It
   cites the Charter inline as *(Law 6.4)*; it is not a copy of any rule.
-  It builds to 18 letter pages against the sixteen the plan cuts it to;
-  the cover and the artist's pieces are what the last two pages are
-  waiting on.
+  It builds to 19 letter pages with its cover against the sixteen the
+  plan cuts it to; the artist's pieces are what the rest are waiting on.
+- **Both books open on a cover** (the author, on the landing pages'
+  canvas, 2026-09-27): cream paper, a gold band at the head, the title
+  in Racing Sans One broken where the author broke it, a gold rule, the
+  lines under it, the box's d12 low right, the publisher at the foot.
+  The words are the book's `Cover` in `BOOKS`, and the layout is
+  `cover_layout`, in shares of the page, so the PDF's first page
+  (`draw_cover`, its own page template with no footer) and the picture
+  of it on the d12ball landing page (`landing/covers.py`, in Pillow)
+  are the same cover at any size. A book with a cover drops its title
+  line from the page after it, which opens on the edition line; the
+  outlines have no cover and keep theirs. The gold is the jumbotron's,
+  used only as a band and a rule -- `box_art` says why it is never text
+  on paper.
 - **`d12ball/rulebooks.py` holds the layout and `scripts/build_rulebooks.py`
   is the CLI**, the split `boards.py` / `render_boards.py` makes. It is
   under `d12ball/` and so under the purity ratchet: no discord, no
