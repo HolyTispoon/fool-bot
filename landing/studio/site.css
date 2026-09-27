@@ -1,0 +1,27 @@
+/* propheticfoolsgames.com's own layout, over base.css. */
+
+.brand.serif { font-size: 20px; font-weight: 500; }
+
+.studio-hero { border-top: 0; }
+.studio-paragraph {
+  margin: 0;
+  max-width: 760px;
+  font-size: clamp(22px, 3vw, 32px);
+  line-height: 1.4;
+}
+
+.game-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  margin-top: 16px;
+}
+@media (min-width: 820px) {
+  .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+}
+.game-card { padding: 24px; }
+.game-card h2 { margin: 0; font-size: 30px; font-weight: 400; }
+.game-card h2 a { color: var(--ink); text-decoration: none; }
+.game-card h2 a:hover { color: var(--accent); }
+
+.footer-name { color: var(--ink); font-size: 18px; }

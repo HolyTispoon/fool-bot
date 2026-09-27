@@ -257,7 +257,7 @@ other worksheets do (`| ~~n~~ | ~~title~~ -- landed; ... |`).
 
 | # | Step | Size |
 | --- | --- | --- |
-| 1 | The build: `landing/`, the two skeletons, the shared look, the test, the design note | medium |
+| ~~1~~ | ~~The build: `landing/`, the two skeletons, the shared look, the test, the design note~~ -- landed; see [landing-pages.md](design/landing-pages.md) | ~~medium~~ |
 | 2 | `d12ball.com`: the page itself | medium |
 | 3 | `d12ball.com`: the downloads and the redirects | small |
 | 4 | `propheticfoolsgames.com`: the page itself | small |

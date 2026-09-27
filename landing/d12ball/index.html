@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$title</title>
+<meta name="description" content="$strapline.">
+<link rel="canonical" href="$origin/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="$title">
+<meta property="og:title" content="$title">
+<meta property="og:description" content="$strapline.">
+<meta property="og:url" content="$origin/">
+<meta property="og:image" content="$origin/images/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="$ground">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="colours.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<nav class="nav">
+  <div class="wrap nav-row">
+    <a class="brand" href="#top">
+      <img src="favicon.png" alt="" width="32" height="32">
+      <span class="display">$title</span>
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it plays</a>
+      <a href="#teams">The teams</a>
+      <a href="#ways">Ways to play</a>
+      <a href="#playtest">Playtest</a>
+    </div>
+    <a class="button button-small" href="$play">Play now</a>
+  </div>
+</nav>
+
+<header id="top" class="hero">
+  <div class="hero-art">
+    <img src="images/banner-1500.jpg"
+         srcset="images/banner-1500.jpg 1500w, images/banner-3000.jpg 3000w"
+         sizes="100vw" width="3000" height="1200"
+         alt="$title: four players of the four species on a night field">
+  </div>
+  <div class="wrap hero-copy">
+    <h1 class="display">$strapline</h1>
+    <div class="chips">
+        $chips
+    </div>
+    <div class="actions">
+      <a class="button" href="$play">Play in your browser</a>
+      <a class="button button-quiet" href="/learn">Learn to play</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="what" class="band">
+    <div class="wrap">
+      <p class="kicker">What it is</p>
+    </div>
+  </section>
+
+  <section id="how" class="band band-alt">
+    <div class="wrap">
+      <p class="kicker">How a turn goes</p>
+    </div>
+  </section>
+
+  <section id="teams" class="band">
+    <div class="wrap">
+      <p class="kicker">The teams</p>
+    </div>
+  </section>
+
+  <section id="ways" class="band band-alt">
+    <div class="wrap">
+      <p class="kicker">Ways to play</p>
+    </div>
+  </section>
+
+  <section id="playtest" class="band">
+    <div class="wrap">
+      <p class="kicker">Playtesting</p>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-row">
+    <span>A game by <a href="$studio_origin">$publisher</a></span>
+    <span>$title &middot; $stage &middot; $year</span>
+  </div>
+</footer>
+</body>
+</html>
