@@ -154,6 +154,28 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-27 (later) -- author, "exhaust" is the verb for gaining exhaustion
+
+The author: *"replace all 'add X exhaustion' with 'Exhaust X' - similar to 'Drain X' and 'Clear
+X' which we already have."*
+
+- **A word, not a rule.** A player who **exhausts 2** adds 2 exhaustion tokens, as a Cyborg who
+  drains 2 adds 2 drain (the 2026-09-23 entry below). Every number, threshold and condition is
+  unchanged. The 2026-09-26 narration commit had settled on *adds N exhaustion*; this replaces it.
+- **The Charter says it once**, as 15.1.4, and 20.3.2 now reads "wherever a rule has a Cyborg
+  exhaust, they drain that many instead". Every other "adds 1 exhaustion", "costs 1 exhaustion
+  token", "take 1 token" and "at a token each" in the Laws and the Learn to Play now reads
+  *exhausts 1*, *exhaust 1* or *each exhausts 1*. Headings and table labels that name the
+  mechanic ("Gaining tokens", "What costs tokens") stay as they are.
+- **The bot says it too**: *Name exhausts 2* where it said *Name adds 2 exhaustion*, *does not
+  exhaust* for an injured player, *exhaust 1 for every space traveled* on a run back, *(exhaust 1
+  a space)* on a Dribble Burst, *Mind Pull it (exhaust 1)*, and *Clear was beaten -- exhaust 2*.
+- **Clear** (taking tokens off) and **drain** are unchanged.
+- **Upstream is behind** in four cells: the sheet's Dribble Burst and Clear effects, the
+  Telekinetic's Mind Pull (both columns) and Zenith's Fly -- see "Where upstream is behind".
+  The data files are never edited by hand, so the maneuver cards and the ability text keep the
+  sheet's wording until it changes and is imported.
+
 ### 2026-09-27 -- author, basic mode is renamed standard mode
 
 The author: *"Basic mode is now called 'standard'."*
@@ -2952,6 +2974,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Cleanup restarts "from the middle (back of the midfield)" | The same kickoff space rule, for every restart |
 | "Clash" / "clash roll" | Skill test |
 | Lithium Powered: "can gain 3 drain tokens to add +5", "3 drain → +5" (the sheet) | Drain 3 for +5 -- *drain* is the verb for gaining drain |
+| Dribble Burst "adding exhaustion per space", Clear "if defeated, add 2 exhaustion", Mind Pull "take 1 exhaustion" (both columns), Zenith's Fly "adding exhaustion per space" (the sheet) | Exhausting 1 per space, exhaust 2, exhaust 1 -- *exhaust* is the verb for gaining exhaustion |
 | Volatile: "When a Fire Demon rolls a natural 6 or 7", on any roll (the sheet) | Only a skill test, a contest, a score attempt's shooter and a shootout test ignite; never an injury check or an own-goal roll |
 | A score attempt's "each player rolls a d12" | Exactly two dice, one per coach; the defence sums intervening meeples |
 | Every meeple in the way adds its whole defensive skill | Full on the ball's own space, half rounded up beyond it |
