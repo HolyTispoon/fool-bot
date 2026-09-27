@@ -33,6 +33,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from d12ball.box_art import (  # noqa: E402
     NIGHT_COVER,
     PAGE_COVER,
+    PLAYTEST_QR_INCHES,
     PRINT_DPI,
     SCREENTOP_BANNER_INCHES,
     QR_MIN_MODULE_INCHES,
@@ -273,7 +274,7 @@ def main() -> None:
             out / "playtest-card-back.png",
             arguments.pdf,
         )
-        module = qr_module_inches(arguments.survey_url, 1.8)
+        module = qr_module_inches(arguments.survey_url, PLAYTEST_QR_INCHES)
         print(
             f"  QR module {module * 25.4:.2f}mm "
             f"(floor {QR_MIN_MODULE_INCHES * 25.4:.2f}mm) -- "

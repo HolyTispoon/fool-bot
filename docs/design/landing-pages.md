@@ -79,11 +79,14 @@ Prophetic Folly's dice (`dice.py`, "The studio page"). Anything that shows D12
 Ball is the renderer's.
 
 What the code cannot answer is one constant each in `landing/build.py`, dated
-where it is the author's call: the stage word (`STAGE`, "in playtesting",
-2026-09-27), the contact address, the Discord invite, the studio's paragraph
+where it is the author's call: the contact address, the Discord invite, the studio's paragraph
 (quoted from its Notion page as written), the game's overview line (`OVERVIEW`,
 its Notion page's, which both sites carry), Prophetic Folly's words and
-address, and each site's origin.
+address, and each site's origin. The stage word (`STAGE`, "in playtesting",
+2026-09-27) and the playtest panel's words (`PLAYTEST_HEADLINE`,
+`PLAYTEST_INTRO`, `SURVEY_CALL`) are `box_art`'s instead, because the
+playtest card prints them too: one copy, which the card and the page both
+read.
 
 ## The night palette, because a page is a screen
 

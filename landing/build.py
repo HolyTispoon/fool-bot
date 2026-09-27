@@ -35,10 +35,14 @@ from d12ball.box_art import (
     DEFAULT_CLAIMS,
     NIGHT_COVER,
     PAGE_URL,
+    PLAYTEST_HEADLINE,
+    PLAYTEST_INTRO,
     PUBLISHER,
     SCREENTOP_BANNER_INCHES,
+    STAGE,
     STRAPLINE,
     SURVEY_FORM_URL,
+    SURVEY_CALL,
     SURVEY_URL,
     TITLE,
     BoxFacts,
@@ -81,11 +85,6 @@ ORIGINS = {
 PLAY_URL = "https://play.d12ball.com"
 CONTACT = "politicsgames@gmail.com"
 DISCORD_INVITE = "https://discord.gg/MpgGm8FvKB"
-
-# The stage the game is at, in the author's word (2026-09-27). Not a
-# fact the code can answer, so it is one constant with a date on it,
-# as `DEFAULT_CLAIMS` is.
-STAGE = "in playtesting"
 
 # The studio's own paragraph, from its Notion page, as written -- the
 # author's voice, which the page quotes rather than rewords. The studio
@@ -717,6 +716,9 @@ def d12ball_values() -> dict[str, str]:
         "strapline": escape(STRAPLINE),
         "chips": "\n        ".join(chip_row),
         "stage": escape(STAGE),
+        "playtest_headline": escape(PLAYTEST_HEADLINE, quote=False),
+        "playtest_intro": escape(PLAYTEST_INTRO, quote=False),
+        "survey_call": escape(SURVEY_CALL),
         "play": escape(PLAY_URL),
         "studio_origin": ORIGINS["studio"],
         "turn_cards": "\n".join(turn_cards),
