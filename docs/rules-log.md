@@ -154,6 +154,20 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-27 (last) -- author, Setup Pass costs a High Pass's 2 in the clock table too
+
+The author: *"Setup pass should cost 2 always like High pass"*, and *"Setup pass is a kind of
+high pass - it's an advanced version of it."* Law 19.7.1 already said so and the bot already
+charged it (`SETUP_PASS_CLOCK_COST`); what did not was the clock table in Law 16.2.1, which
+read "Any maneuver except a High Pass | 1" and so priced a Setup Pass at 1. The table now lists
+the two together at 2. **No change to play.**
+
+- **"Always" is every ending the card itself resolves**: onto a teammate (a shot off it is 2
+  plus the shot's 1, so 3, as off a High Pass), onto nobody, and out of play.
+- **A beaten Setup Pass still costs the card that beat it**, 1 for a Deflect or a Clear, exactly
+  as a beaten High Pass does. The card that resolves is the one charged (2026-08-16); the loser
+  of the cards is not charged on top.
+
 ### 2026-09-27 (final) -- sheet and author, Spectra pulls on 9 or more
 
 The author: Spectra's ability is revised to a successful Mind Pull on nine and above instead of
