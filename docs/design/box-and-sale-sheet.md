@@ -392,7 +392,10 @@ went up (2026-09-27, the landing pages' step 5) they were the two Notion
 addresses. A printed card cannot be edited; a redirect can, so the form or
 the page behind an address can move without anything being reprinted
 ([landing-pages.md](landing-pages.md), "Redirects"). `SURVEY_FORM_URL` is
-never printed -- it is the form's address, which nobody chose.
+never printed -- it is the form's address, which nobody chose. Cards printed
+before carry the form's own address and keep working while it stays put;
+they are not reprinted for this (the author, 2026-09-27), and the next print
+run carries the new code.
 
 **The landing build refuses a printed address the site does not serve**
 (`PRINTED_ADDRESSES` in `landing/build.py`): one that is off `d12ball.com`,

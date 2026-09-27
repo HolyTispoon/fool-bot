@@ -410,8 +410,10 @@ its menus around; the names below are the shape, not a promise -- as in
 [collaboration.md](collaboration.md), "Exposing the port". Pages is still
 offered for a new project from Git, though Cloudflare now points new
 projects at Workers with static assets and says Pages' new features stop
-there; for two static sites Pages is less to set up (no Wrangler config in
-the repository) and does everything these need.
+there. **Pages it is** (the author, 2026-09-27): for two static sites it is
+less to set up -- no Wrangler config in the repository -- and does everything
+these need, and moving a site of files and redirects to Workers later is a
+config file, not a rewrite.
 
 1. **Both domains are on Cloudflare**: `d12ball.com` and
    `propheticfoolsgames.com` listed as sites, each *Active*.
@@ -452,9 +454,11 @@ the repository) and does everything these need.
    the DNS record itself on confirming; a record made by hand first gets a
    522. `play.d12ball.com`'s record is the tunnel's and is not touched.
 6. **`www` to the bare domain**, on both: `_redirects` matches paths only,
-   never a host, so this is an account-level **Bulk Redirect** -- follow
-   Cloudflare's own "Redirecting www to domain apex" for Pages, which also
-   says what DNS record `www` needs. Source `www.<domain>`, target
+   never a host, so this is Cloudflare's, not the site's. `www` needs a
+   proxied DNS record for the redirect to answer on (Cloudflare's own
+   "Redirecting www to domain apex" for Pages says which); then either the
+   zone's Redirect Rule template for www to root, or an account-level Bulk
+   Redirect, whichever the dashboard offers. Source `www.<domain>`, target
    `https://<domain>`, 301 (this one is permanent, unlike the site's own
    302s), with the query string preserved, subpath matching and the path
    suffix preserved, so `www.d12ball.com/rules` still lands on the book.

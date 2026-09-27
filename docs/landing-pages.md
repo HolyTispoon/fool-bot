@@ -677,6 +677,13 @@ main, not from a machine).
 Step 6 of docs/landing-pages.md. Step 5 has landed and both sites are
 live.
 
+Before anything else: the checklist in docs/design/landing-pages.md,
+"Deploying", has been run, and the line at its end saying which path was
+taken is filled in; https://d12ball.com and https://propheticfoolsgames.com
+both load. If either is not so, stop and say so -- this step links both
+sites from the app and the bot, and a link to a site that is not up yet is
+a dead link in front of every player.
+
 - webapp/static/index.html: one line under the "D12 Ball" panel
   linking https://d12ball.com ("What is D12 Ball?"), styled like the
   existing "Rules & aids" link. Nothing else in webapp/ changes; the
