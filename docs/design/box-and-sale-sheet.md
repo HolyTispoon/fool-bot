@@ -294,13 +294,14 @@ it end to end and bury each other.
 four are smaller than on the cover. These four are wider than they are tall,
 and in the right half of a banner at the cover's sizes the outer figure on the
 right is clamped to the trim straight behind the inner one and is lost -- the
-first render of the new cast showed Synapse's tentacles and nothing else.
+first render of the new cast showed Synapse's tentacles and nothing else
+(Synapse was in Gearclaw's place then).
 Standing the back rank higher puts their heads over the front rank's
 shoulders, which is also what further away looks like on a strip this short.
 
 **No die is drawn on a banner.** It stood on the ground between the two
-nearest players; with the new cast it was a third ball beside the two the
-players' own art carries -- see "The cover's four".
+nearest players; with the new cast it was a second ball beside the one
+Dravox's own art carries -- see "The cover's four".
 
 **A banner is not a cropped cover.** A cover's title sits over the players
 with a field of sky between them; crop that to a strip and what survives is
@@ -385,9 +386,12 @@ banners are laid out for the website's four only (`BANNER_PLACES`), so they
 take no cast.
 
 The website's four are Goopkeeper,
-Flickerwing, Synapse and Dravox, the players the author picked for the D12 Ball
-page's species cards (`SPECIES_FACE_ROLE` in `landing/build.py`, 2026-09-27) --
-so the box and the page show the same cast. The two lists are written down
+Flickerwing, Gearclaw and Dravox. They started as the players the author picked
+for the D12 Ball page's species cards (`SPECIES_FACE_ROLE` in
+`landing/build.py`, 2026-09-27), and then Gearclaw took Synapse's place on the
+box (the author, the same day). Both are the Cyborgs' playmakers, but the page
+takes the first playmaker in roster order, which is Synapse, so **the page and
+the box now differ by one**. The two lists are written down
 separately on purpose: the page asks the roster for a role and takes whoever
 is first, and the cover names a player because it needs a facing. A roster
 revision that changes who the page shows needs the cast here re-picked by
@@ -395,17 +399,22 @@ hand.
 
 **There is no die in the middle of the cover** (the author, 2026-09-27). It
 floated over the four, in front of them, as the thing they were playing for;
-Dravox and Synapse each carry a ball in their own art -- Dravox's a numbered
-d12 since the portraits' balls were redrawn as dice -- so a third one hung in
-the air between them was a sticker on the picture rather than part of it.
+Dravox carries a ball in his own art -- a numbered d12 since the portraits'
+balls were redrawn as dice -- so a second one hung in the air beside it was a
+sticker on the picture rather than part of it.
 
 The layout follows what the art is. Goopkeeper stands in his own goal, so he
 is the back rank at the left edge, where the goal reads as the end of the
 field; Flickerwing leaps in front of him, reaching right. Dravox, kicking left,
-is the front rank on the right, and Synapse behind him at the edge. The
+is the front rank on the right, and Gearclaw behind him at the edge. The
 right-hand pair is not the left's mirror: Dravox is half again as wide as he is
-tall, and at the left front's height he covers Synapse to the eyes, so he stands
-a little shorter and nearer the middle and Synapse a little taller. Everything else about them is read: the
+tall, and Gearclaw's head is at the left of his art, facing into the group, so
+on one line Dravox's crystals cover it. Dravox stands a little shorter and
+nearer the middle, and the back rank stands further up the field
+(`CoverCast.back_lift`, 1.8in per unit of depth) -- which puts Gearclaw's jaw
+over Dravox's shoulder and Goopkeeper's goal at the back of the field. The
+original cast has no lift; its back rank is clear of the front one on the same
+line. Everything else about them is read: the
 portraits come from `load_player_portrait`, and each one's colour from the
 first team whose sheet they are on (a player's colour team and their species
 team share a hex, so which is found first cannot change the answer).

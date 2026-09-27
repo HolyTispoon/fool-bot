@@ -1040,25 +1040,32 @@ class CoverCast:
 
     players: tuple[tuple[str, str], ...]
     places: tuple[tuple[tuple[float, float, float], ...], ...]
+    # How far up the field the back rank stands, in inches per unit of
+    # depth. Nothing on the original cast, whose back rank is clear of
+    # the front one on the same line.
+    back_lift: float = 0.0
 
 
-# The website's four: the players the D12 Ball page's species cards
-# show (`SPECIES_FACE_ROLE` in landing/build.py). The right-hand pair
-# is not the left's mirror: Dravox is half again as wide as he is tall
-# and at the left front's height covers Synapse to the eyes, so he
-# stands a little shorter and nearer the middle, and Synapse a little
-# taller and further out.
+# The website's four -- the players the D12 Ball page's species cards
+# show (`SPECIES_FACE_ROLE` in landing/build.py) -- with Gearclaw in
+# Synapse's place (the author, 2026-09-27): both are the Cyborgs'
+# playmakers. The right-hand pair is not the left's mirror: Dravox is
+# half again as wide as he is tall, and Gearclaw's head is at the left
+# of his art, facing into the group, so on one line Dravox's crystals
+# cover it. Dravox stands a little shorter and nearer the middle, and
+# the back rank further up the field.
 WEBSITE_CAST = CoverCast(
     players=(
         ("Goopkeeper", "right"),
         ("Flickerwing", "right"),
-        ("Synapse", "left"),
+        ("Gearclaw", "left"),
         ("Dravox", "left"),
     ),
     places=(
         ((0.165, 3.5, 0.45), (0.35, 4.6, 0.0)),
-        ((0.85, 3.7, 0.45), (0.60, 4.3, 0.0)),
+        ((0.85, 4.1, 0.45), (0.57, 4.2, 0.0)),
     ),
+    back_lift=1.8,
 )
 # The cover's first four, kept for a second pair of covers (the
 # author, 2026-09-27), in the places they were first drawn in.
@@ -1263,6 +1270,9 @@ def render_box_cover(
                 else portrait
             )
             fitted = standing_art(portrait, inches(height))
+            # The back rank stands further up the field by the cast's
+            # own lift (`CoverCast.back_lift`).
+            feet = baseline - inches(depth * cast.back_lift)
             # Kept inside the trim by measuring the art first: these
             # cut-outs are as wide as they are tall and a share of the
             # panel's width says nothing about where an arm ends.
@@ -1279,7 +1289,7 @@ def render_box_cover(
                 sheet,
                 (
                     center,
-                    baseline - inches(height * 0.4 if palette.glows else 0.1),
+                    feet - inches(height * 0.4 if palette.glows else 0.1),
                 ),
                 inches(height * (1.1 if palette.glows else 0.55)),
                 color,
@@ -1297,9 +1307,9 @@ def render_box_cover(
             paste_rgba(
                 sheet,
                 shadow,
-                (center - shadow.width / 2, baseline - shadow.height * 0.62),
+                (center - shadow.width / 2, feet - shadow.height * 0.62),
             )
-            paste_standing(sheet, portrait, center, baseline, inches(height))
+            paste_standing(sheet, portrait, center, feet, inches(height))
 
     # What a shopper checks before anything else: how many of them,
     # how long, and how old. Nothing else -- the rest of what is in
