@@ -260,7 +260,7 @@ other worksheets do (`| ~~n~~ | ~~title~~ -- landed; ... |`).
 | ~~1~~ | ~~The build: `landing/`, the two skeletons, the shared look, the test, the design note~~ -- landed; see [landing-pages.md](design/landing-pages.md) | ~~medium~~ |
 | ~~2~~ | ~~`d12ball.com`: the page itself~~ -- landed; see [landing-pages.md](design/landing-pages.md) | ~~medium~~ |
 | ~~3~~ | ~~`d12ball.com`: the downloads and the redirects~~ -- landed; the kit is the colour teams' print sheets, in three zips -- the components, and the player cards in two -- to fit Pages' 25 MB; see [landing-pages.md](design/landing-pages.md) | ~~small~~ |
-| 4 | `propheticfoolsgames.com`: the page itself | small |
+| ~~4~~ | ~~`propheticfoolsgames.com`: the page itself~~ -- landed; the dice renderer is `landing/dice.py` and `requirements.txt` carries numpy for it; see [landing-pages.md](design/landing-pages.md) | ~~small~~ |
 | 5 | Deploy: the two Pages projects, the domains, the printed addresses | medium, half of it in dashboards |
 | 6 | Cross-links: the app, the bot, the Notion pages | small |
 

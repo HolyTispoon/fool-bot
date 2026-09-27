@@ -65,7 +65,8 @@ the letters more room, but the silos would then need reprinting to match.
 
 The script needs `numpy scikit-image shapely trimesh manifold3d
 mapbox-earcut`. The bot does not, which is why they are not in
-`requirements.txt`.
+`requirements.txt` -- except numpy, which is there for the landing
+build's dice ([landing-pages.md](landing-pages.md)).
 
 ## Paper tokens: the kit's two sheets
 

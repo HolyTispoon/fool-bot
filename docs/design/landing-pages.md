@@ -71,12 +71,19 @@ for itself.** Concretely, `landing/build.py` reads:
   `render.species_icon` in their colour team's hex (`species_cards.SPECIES_TEAM`),
   and the favicon, the box's d12 solid (`box_art.d12_art`) at 64px. There is no
   d12 PNG among `d12ball/images/`; the bot's d12 emoji is an application emoji
-  fetched at runtime. Nothing is drawn under `landing/`.
+  fetched at runtime.
+
+Two pictures are drawn under `landing/`, and neither is of the game: the
+books' covers (`covers.py`, off `rulebooks.cover_layout`, "The downloads") and
+Prophetic Folly's dice (`dice.py`, "The studio page"). Anything that shows D12
+Ball is the renderer's.
 
 What the code cannot answer is one constant each in `landing/build.py`, dated
 where it is the author's call: the stage word (`STAGE`, "in playtesting",
 2026-09-27), the contact address, the Discord invite, the studio's paragraph
-(quoted from its Notion page as written), and each site's origin.
+(quoted from its Notion page as written), the game's overview line (`OVERVIEW`,
+its Notion page's, which both sites carry), Prophetic Folly's words and
+address, and each site's origin.
 
 ## The night palette, because a page is a screen
 
@@ -272,6 +279,60 @@ Every redirect is a 302, not a 301: a browser caches a 301 for good, and the
 point of the address is that its target may change. A local target is held
 by the test to name a file in the build, and one ending `.pdf` or `.zip` to
 name one.
+
+## The studio page
+
+Top to bottom, as the author left it on the canvas (2026-09-27): the hero, the
+games, the footer. It shares `base.css` with the D12 Ball page and has its own
+`site.css` for the hero and the card grid; it has no downloads and no
+redirects.
+
+**The hero is the studio's paragraph, set as the headline in the serif, and
+no strapline**: the studio has not written one, and the page does not write
+one for it. The paragraph is `STUDIO_PARAGRAPH`, word for word; the two
+phrases the reviewed sketch lit in gold (`STUDIO_EMPHASIS`) are set in `<em>`
+by the build, which refuses a phrase the paragraph no longer holds -- a
+rewording upstream shows up as a failed build rather than as emphasis on
+nothing. Beside it from 900px up, the night box cover with two of the bot's
+coins at its foot; on a phone the paragraph stands alone, as the sketch had
+it.
+
+**The games are two cards, each with a 5:2 picture across its head**, the
+banner's shape, so the two titles line up:
+
+- **D12 Ball**: the night banner, the stage chip, `OVERVIEW` as a sentence of
+  its own, the box's chips (`retail_chips`, as on the d12ball page), and a
+  link to `d12ball.com` that reads as the address it opens. The d12ball page
+  opens "What it is" with the same constant after the title, so the line has
+  one copy.
+- **Prophetic Folly**: its still, "IN DEVELOPMENT", the callout from its
+  Notion page, the author's paragraph on the mechanic, and "Read more about
+  the system" to `propheticfools.notion.site`; the title links there too.
+  The Notion page is headed "draft, do not circulate"; the author made the
+  link public on the worksheet's PR anyway (2026-09-27), keeping the stage
+  word. No contact line on the card: the footer's address is the studio's.
+
+**Prophetic Folly's picture is one composed still**: the Fortune and Doom
+dice as solids -- bone Fortune showing 12 with engraved numerals, obsidian
+Doom showing 1 with painted ones -- side by side with Doom in front, and the
+bot's six coins gathered round their feet, turned a little, the fortune
+faces (gold 3, silver 1, bronze 3) at Fortune's side and the doom faces
+(gold 1, silver 3, bronze 1) at Doom's. `landing/dice.py` draws a die;
+`folly_still` in `landing/build.py` lays out the two dice and the coins by
+`FOLLY_DICE` and `FOLLY_COINS`, on a transparent ground the card's panel
+shows through. The positions are the sketch's, measured off it and checked
+side by side.
+
+**`dice.py` is the renderer written for the sketch, moved, its output
+unchanged** (the pixels of both dice hashed before and after the move). It
+shades every pixel of every face with numpy, which is why `requirements.txt`
+carries numpy: the one picture that needs it, and the only thing the bot or a
+build imports it for (`scripts/render_token_models.py` uses it too, run by
+hand with the rest of its own list). The alternative was rewriting the shading in plain Pillow,
+which would have been a second renderer to check by eye against the one the
+author reviewed; the wheel is on every platform the bot and the Pages build
+run on. The dice take about ten seconds of the studio build, most of what it
+costs.
 
 ## Building and looking
 
