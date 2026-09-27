@@ -447,6 +447,9 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   -- a hand, a toe, flames -- was put back over the die from the painting.
   Kindlefinger kept its painted die and had its glyphs painted out and
   numbered. **Synapse still shows its round ball**: its draft was not taken.
+  Putting any of these back to its painting is
+  [docs/portrait-d12-revert.md](../portrait-d12-revert.md), portrait by
+  portrait.
   - **A light grey on a die is tinted, never left colourless.** A silver
     highlight or a pale numeral is exactly what the recut takes for studio
     background, so the replaced pixels near each die carry a few units of the
