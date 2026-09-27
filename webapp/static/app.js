@@ -2625,8 +2625,8 @@ function seatTeamLine(seat) {
   if (seat.picks_itself) {
     return h("div", { class: `seat-team${mayPick ? " owed" : ""}` },
       mayPick
-        ? `Pick a team for ${seat.name}, or ${seat.name} picks at the whistle`
-        : `${seat.name} picks a team at the whistle`);
+        ? `Pick a team for ${seat.name}, or ${seat.name} picks when the coin is flipped`
+        : `${seat.name} picks a team when the coin is flipped`);
   }
   if (seat.teams.length) {
     return h("div", { class: `seat-team${mayPick ? " owed" : ""}` },
