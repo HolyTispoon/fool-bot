@@ -369,6 +369,43 @@ defenders has none, and packs to its own content.
 
 ## Fonts
 
+**Every word the game draws is Roboto Slab** (the author, 2026-09-27, picked
+from ten faces set on the printed boards side by side). It replaced DejaVu Sans
+everywhere `render.load_font` reaches -- the bot's board and every image it
+posts, the cards, the printed boards, the box art, the rulebook figures -- and in
+the rulebook PDFs (`rulebooks.py` registers it with reportlab) and the web app's
+board (the `Board` face in `app.css`). The GOAL lettering and the display titles
+stay Racing Sans One.
+
+- **The bundled files are built, not downloaded.**
+  `scripts/build_bundled_fonts.py` cuts two static weights, 400 and 700, from
+  the upstream variable font -- `load_font` asks by `bold=` and reportlab
+  registers a file per weight -- and copies DejaVu's four arrows (U+2190 to
+  U+2193) into each. Re-run it to update the font; don't swap the files by hand.
+- **Why the arrows.** Roboto Slab has none, and Pillow does not fall back glyph
+  by glyph: a character the face lacks prints as the .notdef box, silently. The
+  game draws `→` on the maneuver card's field strip, in the shot image's
+  caption, and in the species sheet's own ability text -- imported data, which
+  is not ours to reword. Both fonts are TrueType at 2048 units per em, so the
+  glyphs copy across unscaled, each weight from the matching DejaVu weight.
+  `test_bundled_faces_draw_every_character_the_data_carries` checks every
+  non-ASCII character in `d12ball/data/` against both weights, so an import
+  that brings in a new symbol fails the suite rather than a printed card. It
+  measured what the game actually draws when the switch was made: the full
+  suite and every render script drew 83 distinct characters in DejaVu, and `→`
+  was the only one Roboto Slab lacked.
+- **Roboto Slab is narrower and lighter than DejaVu at the same size**, so
+  every layout kept its sizes and gained room; nothing that fitted stopped
+  fitting (Figure 15's title, which ran off the edge in DejaVu, now fits).
+- **It is Apache 2.0, not OFL**, and the built files are modified from
+  upstream, so they say so in their own name table (description, ID 10) and in
+  `RobotoSlab-LICENSE.txt`.
+- **DejaVu is still bundled** for what was drawn from it once and committed as
+  art: the role and team emoji, the condition tokens (uploaded to Discord and
+  traced into the 3D tokens), and Prophetic Folly's dice on the studio page.
+  Redrawing those in Roboto Slab is a separate decision, because the emoji
+  have to be re-uploaded and the 3D tokens re-traced.
+
 Fonts are bundled in `d12ball/fonts/` and loaded by absolute path. **Do not go
 back to looking them up by bare filename.** `ImageFont.truetype("Arial.ttf")`
 searches the host's font directories, and the same typeface is filed under a
@@ -381,11 +418,11 @@ board silently collapses to tiny text. That was a real bug; the tests in
 **A second family, Racing Sans One, is bundled the same way** for the goal
 zone's own "GOAL" lettering (`load_goal_zone_font`) -- an uppercase, slightly
 slanted display face, picked over several others tried in the same slot
-(DejaVu Bold read as too plain, Anton's condensed width didn't leave room to
+(DejaVu Bold, the text face then, read as too plain, Anton's condensed width didn't leave room to
 also space the letters out, Bungee read as too blocky) for the author's own
 taste, over the same bundled-path-first fallback chain and falling back to
-DejaVu Bold rather than Pillow's built-in face. Its OFL license is
-`RacingSansOne-OFL.txt` in the same directory, alongside the DejaVu one.
+Roboto Slab Bold rather than Pillow's built-in face. Its OFL license is
+`RacingSansOne-OFL.txt` in the same directory, alongside the others.
 
 `render.py` builds its font objects at **import time**, so a running bot keeps
 whatever it resolved at startup. Restart after any render change.

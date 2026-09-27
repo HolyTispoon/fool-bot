@@ -4190,8 +4190,8 @@ class D12BallFontTests(unittest.TestCase):
 
     def test_bundled_font_files_exist(self) -> None:
         for file_name in (
-            "DejaVuSans.ttf",
-            "DejaVuSans-Bold.ttf",
+            "RobotoSlab-Regular.ttf",
+            "RobotoSlab-Bold.ttf",
             "RacingSansOne-Regular.ttf",
         ):
             self.assertTrue(
@@ -4224,8 +4224,33 @@ class D12BallFontTests(unittest.TestCase):
         self.assertEqual(font.size, 44)
         self.assertEqual(
             Path(font.path).name,
-            "DejaVuSans-Bold.ttf",
+            "RobotoSlab-Bold.ttf",
         )
+
+    def test_bundled_faces_draw_every_character_the_data_carries(self) -> None:
+        # Pillow does not fall back glyph by glyph: a character the face
+        # lacks prints as the .notdef box. Roboto Slab has no arrows, so
+        # the bundled files carry DejaVu's (scripts/build_bundled_fonts.py)
+        # -- and an import that brings a new symbol in must fail here
+        # rather than on a printed card.
+        data_dir = FONT_DIR.parent / "data"
+        drawn = {"→", "←", "·", "½", "–", "—"}
+        for path in data_dir.glob("*.json"):
+            drawn.update(
+                c for c in path.read_text(encoding="utf-8") if ord(c) > 126
+            )
+        for bold in (False, True):
+            font = load_font(40, bold=bold)
+            # A private-use codepoint no font assigns: its mask is .notdef.
+            notdef = bytes(font.getmask("\ue000"))
+            for character in sorted(drawn):
+                with self.subTest(character=character, bold=bold):
+                    self.assertNotEqual(
+                        bytes(font.getmask(character)),
+                        notdef,
+                        f"U+{ord(character):04X} would print as a box in "
+                        f"{Path(font.path).name}",
+                    )
 
     def test_load_goal_zone_font_honours_requested_size(self) -> None:
         for size in (40, 68, 90):

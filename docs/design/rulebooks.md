@@ -114,11 +114,11 @@ checked by reading the PDF.
   A rulebook is running text with tables, a contents page and page
   numbers; Pillow has no paragraph, and every other route needs a
   program neither bot host has. It is used only here.
-- **The bundled fonts, by absolute path**: DejaVu for text, Racing Sans
-  One (`Display`) for the title and the Law headings -- the boards' and
-  cards' family. No oblique face is bundled, so `<i>` falls back to the
-  regular face; adding `DejaVuSans-Oblique.ttf` under the licence already
-  in `d12ball/fonts/` is the fix. The palette is the cards' (`INK`,
+- **The bundled fonts, by absolute path**: Roboto Slab for text (DejaVu
+  until 2026-09-27; see "Fonts" in board-image.md), Racing Sans One
+  (`Display`) for the title and the Law headings -- the boards' and cards'
+  family. No italic face is bundled and Roboto Slab has none, so `<i>`
+  falls back to the regular face; emphasis would need a second family. The palette is the cards' (`INK`,
   `FACE_COLOR`, `PANEL_COLOR`).
 - **A book is bytes first.** `book_bytes` sets a book into memory and
   `build_book` writes those bytes. The web app served that PDF until
