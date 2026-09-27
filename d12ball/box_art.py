@@ -613,8 +613,10 @@ class DieMaterial:
     What the ball is made of.
 
     It was white, which is what a d12 is in a dice shop and nothing
-    this game's art has ever contained: the balls in the players' own
-    portraits are dark, dimpled, organic things. So the die is drawn
+    this game's art has ever contained: the balls the players were
+    painted with are dark, dimpled, organic things, and the dice that
+    replaced them in the portraits wear the same surfaces (cards.md,
+    "The ball in a portrait is a d12"). So the die is drawn
     as a piece of hard dark rubber -- a lit face, a shadowed one, a
     grain over both, worn seams where the faces meet, and bone
     numerals cut into it.
