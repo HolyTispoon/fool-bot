@@ -1429,16 +1429,22 @@ class NameTests(unittest.IsolatedAsyncioTestCase):
             "/api/me", json={"name": name}, headers=as_coach(coach_id),
         )
 
-    async def test_a_name_somebody_holds_is_refused_whatever_its_case(self) -> None:
+    async def test_a_name_somebody_holds_is_refused(self) -> None:
         self.assertEqual((await self.rename(self.ANN, "Ann")).status, 200)
 
-        for name in ("Ann", "ann", "  ANN "):
+        for name in ("Ann", "  Ann "):
             with self.subTest(name):
                 refused = await self.rename(self.BEA, name)
                 self.assertEqual(refused.status, 409)
                 self.assertTrue(await refused.text())
-        self.assertEqual((await self.rename(self.ANN, "ann")).status, 200)
-        self.assertEqual(self.names.name_of(self.ANN), "ann")
+
+    async def test_names_are_told_apart_by_case(self) -> None:
+        """"Tom" does not block "tom" (the author, 2026-09-27)."""
+        self.assertEqual((await self.rename(self.ANN, "Tom")).status, 200)
+
+        self.assertEqual((await self.rename(self.BEA, "tom")).status, 200)
+        self.assertEqual(self.names.name_of(self.ANN), "Tom")
+        self.assertEqual(self.names.name_of(self.BEA), "tom")
 
     async def test_a_rename_frees_the_old_name(self) -> None:
         await self.rename(self.ANN, "Ann")
@@ -1466,7 +1472,7 @@ class NameTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await kept.json())["name"], "Bea")
         clashed = await clash.json()
         self.assertEqual(clashed["id"], 303)
-        self.assertNotEqual(clashed["name"].casefold(), "ann")
+        self.assertNotEqual(clashed["name"], "Ann")
         self.assertIn(identity.COOKIE, clash.cookies)
 
     async def test_a_rename_reaches_the_seats(self) -> None:

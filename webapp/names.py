@@ -8,9 +8,9 @@ or taken is one nobody else holds. It is the one place the web app
 remembers a person rather than a room, and it holds no more than that:
 an id, a name, and when the cookie carrying it was last set.
 
-**A name is unique ignoring case** (`casefold`): "Ann" and "ann" read
-as the same person in a room's sideline, so they are the same name
-here.
+**A name is unique as written, case and all**: "Tom" does not block
+"tom" (the author, 2026-09-27). The spaces around a name are already
+gone (`identity.clean_name`), so "Tom " is "Tom".
 
 **An entry lasts as long as its cookie can.** A cookie is kept for
 `identity.COOKIE_MAX_AGE` from the last time it was set, so an entry
@@ -113,10 +113,9 @@ class Names:
         return None if entry is None else entry[0]
 
     def holder(self, name: str) -> Optional[int]:
-        """Who holds `name`, ignoring case."""
-        wanted = name.casefold()
+        """Who holds `name`, exactly as written."""
         for coach_id, (held, _) in self.held.items():
-            if held.casefold() == wanted:
+            if held == name:
                 return coach_id
         return None
 

@@ -207,7 +207,8 @@ came over HTTPS**, and behind the tunnel that is the tunnel's
 "Only ever over HTTPS").
 
 **No two people hold the same name at once** (the author,
-2026-09-27), ignoring case, so the one thing kept about a person is
+2026-09-27), as written -- "Tom" and "tom" are two names, the
+author's call the same day -- so the one thing kept about a person is
 which name each id holds right now: `webapp/names.py`, over
 `data/d12ball_web_names.json`. A cookie alone could not say it --
 nothing sees every cookie -- which is why this is a file and not a
