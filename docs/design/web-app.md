@@ -367,15 +367,20 @@ its sideline.
 - **Two seat cards**: the label, the holder's name large (or "Empty
   seat · click to sit"), YOU and AI chips, the picked team's line, and
   while team selection is open **both** seats' swatches -- the colour
-  teams and the species teams, a row each. Each swatch carries three
-  answers: `offered` (`teams_open_to` for that seat; a pair greyed
-  where it says so), `open` (the reader may press it: their own seat
-  only) and `picked`. Every seat's swatches are sent, where the table
-  used to send only the reader's, so each coach sees what the other is
-  choosing from; the route still refuses a pick for a seat that is not
-  the reader's, so Dinky's seat is never picked for -- the service
-  picks the AI's team once the other side has, and a seated coach
-  picking for Dinky is out on purpose (the author, 2026-09-26).
+  teams and the species teams, a row each. **The teams are picked in
+  the lobby, beside the seats, before Start** (the author, 2026-09-26,
+  off the canvas; the record's `picks_teams_in_lobby`, which only a web
+  room's record answers yes -- "A web room picks its teams in its
+  lobby" in [game-service.md](game-service.md)). Each swatch carries
+  three answers: `offered` (`teams_open_to` for that seat; a pair
+  greyed where it says so), `open` (the reader may press it) and
+  `picked`. Which seats a reader picks for is `pick_seats`: their own,
+  the AI's where they are seated -- **a seated coach may pick Dinky's
+  team, and if nobody does, Dinky draws its own at the whistle**
+  (`picks_itself` on its seat) -- and in a game for one (a test game,
+  the tutorial) the second seat as well, which that one coach answers
+  for. The route refuses any other seat; whether a pick stands is still
+  `pick_team`'s.
 - **The seat moves are drags, each with a click beside it**: the
   reader's own name dragged off the sideline into an empty seat (or
   the seat clicked) takes it; the Dinky chip dragged in (or "put Dinky
@@ -389,7 +394,12 @@ its sideline.
   a seat is taken by the person who sits in it: the cookie says who,
   and nobody seats somebody else.
 - **The settings are pills**: the current value gold, the others
-  outlined. **A setting's note is the record's own sentence**: each
+  outlined. **What a setting is, is the model's** (`definition`):
+  `describe_game_mode` for the mode, and `SETTING_DEFINITIONS` in
+  `d12ball/formatting.py` for the test game -- "one coach plays both
+  sides", its defining feature, with being kept out of the statistics
+  said second (the author, 2026-09-26) -- and the tutorial. **A
+  setting's note is the record's own sentence**: each
   value `configure` would refuse right now is asked of a copy of the
   record, the way the whistle's note is `start_lobby` asked of one
   (`_configure_refusal`, `_start_refusal`), so a dark pill says why --
@@ -399,12 +409,11 @@ its sideline.
   cog for it, at the author's word on 2026-09-26): each mode pill
   carries the definition of the mode it would pick, and the row's note
   is the current mode's, unless the record has a refusal to say there.
-  The canvas's other descriptive notes ("kept out of the statistics")
-  were not carried, since nothing in the model words them and the web
-  app wording a rule is what the split forbids.
+  A definition and a refusal are shown side by side, never one
+  instead of the other.
 - **The question box** asks one thing at a time: the whistle for
-  Start, dark with `start_lobby`'s refusal until both seats are held;
-  the teams; the coin -- the bot's own gold coin (the `3_gold_fortune`
+  Start, dark with `start_lobby`'s refusal until both seats are held
+  and every side a person plays has a team; the coin -- the bot's own gold coin (the `3_gold_fortune`
   and `3_gold_doom` emoji, served), clicked to flip; then the face it
   came up large and the other small and dim, and "Click the goal you
   want to defend" over a miniature field whose two ends are

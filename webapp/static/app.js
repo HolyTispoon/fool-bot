@@ -2494,9 +2494,16 @@ function seatTeamLine(seat) {
       h("span", { class: "team-dot big", style: `background: ${seat.colour}` }),
       teamEmoji(seat.team_key, seat.team), h("b", {}, seat.team));
   }
+  const mayPick = seat.teams.some((team) => team.open);
+  if (seat.picks_itself) {
+    return h("div", { class: `seat-team${mayPick ? " owed" : ""}` },
+      mayPick
+        ? `Pick a team for ${seat.name}, or ${seat.name} picks at the whistle`
+        : `${seat.name} picks a team at the whistle`);
+  }
   if (seat.teams.length) {
-    return h("div", { class: `seat-team${seat.yours ? " owed" : ""}` },
-      seat.yours ? "Pick a team" : "Still to pick a team");
+    return h("div", { class: `seat-team${mayPick ? " owed" : ""}` },
+      mayPick ? "Pick a team" : "Still to pick a team");
   }
   return null;
 }
@@ -2535,8 +2542,9 @@ function drawTeams(seat) {
         onclick: () => roomMove("/table/pick_team", { team: team.key, seat: seat.number }),
       }, number === 1 ? teamEmoji(team.key, team.name) : null))),
   ];
+  const mayPick = seat.teams.some((team) => team.open);
   return h("div", { class: "table-teams" },
-    row(0, seat.yours ? "Colour teams · click a swatch" : "Colour teams"),
+    row(0, mayPick ? "Colour teams · click a swatch" : "Colour teams"),
     row(1, "Species teams (greyed where the game does not offer one)"));
 }
 
@@ -2597,11 +2605,19 @@ function drawSetting(setting) {
     });
     control = input;
   }
-  const note = setting.note
-    || (setting.name === "name" && !off ? "click the name to edit it; it saves when you leave the field" : "");
+  /* What the setting is (the model's definition), then why a value is
+     dark (the record's refusal), when there is one of each. */
+  const hint = setting.name === "name" && !off
+    ? "click the name to edit it; it saves when you leave the field" : "";
+  const said = [setting.definition, setting.note || hint].filter(Boolean);
   return h("div", { class: "table-setting" },
     h("span", { class: "setting-label" }, setting.label), control,
-    note ? h("span", { class: "setting-note" }, note) : null);
+    said.length
+      ? h("span", { class: "setting-note" },
+        setting.definition ? h("span", { class: "setting-definition" }, setting.definition) : null,
+        setting.definition && (setting.note || hint) ? " · " : null,
+        setting.note || hint || null)
+      : null);
 }
 
 /* The question box at the table: one question at a time, each the
@@ -2623,10 +2639,10 @@ function drawTableBox(table) {
     /* Start is the whistle: dark, with the record's own sentence
        under it, while `start_lobby` would refuse. */
     ask.textContent = table.start.refusal
-      ? "The whistle starts the game once both seats are held."
+      ? "Fill both seats and pick the teams; then the whistle starts the game."
       : table.start.may
-        ? "Both seats are held. Blow the whistle to start the game."
-        : "Both seats are held. Either coach blows the whistle to start the game.";
+        ? "The table is set. Blow the whistle to start the game."
+        : "The table is set. Either coach blows the whistle to start the game.";
     body.replaceChildren(h("div", { class: "row table-row" },
       whistle({
         allowed: table.start.may && !table.start.refusal,

@@ -1455,6 +1455,7 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
 .table-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .setting-label { width: 90px; font-size: 12px; font-weight: 800; color: var(--muted); }
 .setting-note { font-size: 11px; color: var(--muted); }
+.setting-definition { color: var(--text); }
 .pills { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .pill {
   padding: 5px 12px;

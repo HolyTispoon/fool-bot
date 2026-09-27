@@ -654,7 +654,8 @@ there is nothing to claim here.
 door as cards with a gold edge off the server's `your_move`, the two
 ticks as the table's own `seat_ai` and `configure` called in sequence
 (Dinky first), the seat cards with both seats' swatches off
-`teams_open_to`, every seat move a drag with a click beside it and
+`teams_open_to` and the teams picked in the lobby (Dinky's by a seated
+coach, or by Dinky at Start), every seat move a drag with a click beside it and
 every kick behind one confirm, a setting's note as `configure`'s own
 refusal asked of a copy, the coin and the miniature field whose ends
 are `board.DEFENDED_ENDS`, the sideline's names from the rooms file,

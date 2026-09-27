@@ -62,6 +62,7 @@ from d12ball.engine import RulesEngine
 from d12ball.formatting import (
     AI_OPPONENT_NAMES,
     GAME_MODE_NAMES,
+    SETTING_DEFINITIONS,
     coach_name,
     describe_game_mode,
     format_player_with_team_name,
@@ -657,7 +658,7 @@ class WebApp:
                     seat = body.get("seat", held[0])
                     if isinstance(seat, bool) or seat not in (1, 2):
                         raise web.HTTPBadRequest(text="A seat is 1 or 2.")
-                    if seat not in held:
+                    if seat not in pick_seats(game, held):
                         raise web.HTTPForbidden(text="That is not your seat.")
                     self.service.pick_team(game.game_id, seat, team)
                 elif move == "flip_coin":
@@ -1937,7 +1938,7 @@ class WebApp:
             choice["definition"] = describe_game_mode(
                 game, GameMode(choice["value"]),
             )
-        mode["note"] = mode["note"] or describe_game_mode(game)
+        mode["definition"] = describe_game_mode(game)
         settings = [
             mode,
             setting(
@@ -1963,6 +1964,11 @@ class WebApp:
             setting("tutorial", "Tutorial", game.tutorial, ()),
             setting("name", "Name", game.game_name or "", ()),
         ]
+        # What a setting *is*, in the model's words (`describe_game_mode`,
+        # `SETTING_DEFINITIONS`) -- beside the record's refusal, which is
+        # `note`, never instead of it.
+        for one in settings:
+            one.setdefault("definition", SETTING_DEFINITIONS.get(one["name"]))
 
         owed_by = game.home_choice_owed_by
         rail = None if owed_by is None else game.home_choice_rail(owed_by)
@@ -1974,7 +1980,10 @@ class WebApp:
             "yours": self._table_moves(game, coach),
             "settings": settings,
             "seats": [
-                self._table_seat(game, number, number in held)
+                self._table_seat(
+                    game, number, number in held,
+                    picks=number in pick_seats(game, held),
+                )
                 for number in (1, 2)
             ],
             "start": {
@@ -2034,24 +2043,31 @@ class WebApp:
         held = seats_held(game, None if coach is None else coach.id)
         if not held or game.is_finished or game.match_state is not None:
             return False
-        if game.in_lobby:
-            return _start_refusal(game) is None
+        if game.in_lobby and _start_refusal(game) is None:
+            return True
         if game.coin_is_owed or game.home_choice_owed_by in held:
             return True
+        # A team still owed by a side this reader plays -- not the AI's,
+        # which the AI draws for itself if nobody picks it.
         return any(
             self._coach(game, number)["team"] is None
+            and not game.ai_holds(number)
             and game.teams_open_to(number)
-            for number in held
+            for number in pick_seats(game, held)
         )
 
-    def _table_seat(self, game: D12BallGame, number: int, yours: bool) -> dict:
+    def _table_seat(
+        self, game: D12BallGame, number: int, yours: bool, *, picks: bool,
+    ) -> dict:
         """
         One seat at the table: who holds it, its team, and while team
         selection is open the two rows of swatches -- every seat's, so
         each coach sees the other's too. `offered` is the record's
         `teams_open_to` for the seat (a pair greyed where it says so),
-        `open` is whether this reader may press it (their own seat
-        only), and `picked` the seat's own team.
+        `open` is whether this reader may press it (a seat they pick
+        for, `pick_seats`: their own, the AI's, a game for one's second),
+        and `picked` the seat's own team. The AI's seat also says who
+        picks when nobody has (`picks_itself`: the AI, at Start).
         """
         seat = self._seat(game, number, number if yours else None)
         coach = self._coach(game, number)
@@ -2067,12 +2083,20 @@ class WebApp:
                     "colour": TEAM_COLORS[team],
                     "row": row,
                     "offered": team in offered,
-                    "open": yours and team in offered,
+                    "open": picks and team in offered,
                     "picked": coach["team_key"] == team.value,
                 }
                 for row, teams in enumerate((COLOR_TEAMS, SPECIES_TEAMS))
                 for team in teams
             ] if offered else [],
+            # A room's AI draws its own team at Start where nobody has
+            # picked one for it (`GameService.start_lobby`).
+            picks_itself=(
+                game.ai_holds(number)
+                and coach["team"] is None
+                and game.in_lobby
+                and game.picks_teams_in_lobby
+            ),
         )
         return seat
 
@@ -2170,6 +2194,25 @@ def seats_held(game: D12BallGame, coach_id: Optional[int]) -> list[int]:
         for number, held_by in ((1, game.player_1_id), (2, game.player_2_id))
         if held_by == coach_id
     ]
+
+
+def pick_seats(game: D12BallGame, held: list[int]) -> set[int]:
+    """
+    The seats a reader holding `held` picks a team for: their own; the
+    AI's, where they are seated (the author, 2026-09-26: a seated coach
+    may pick Dinky's team, and Dinky draws its own at Start if nobody
+    does); and, in a game for one -- a test game, the tutorial -- the
+    second seat too, which that one coach answers for. Who may press is
+    this frontend's; whether the pick stands is still the record's
+    (`pick_team`).
+    """
+    if not held:
+        return set()
+    seats = set(held)
+    seats.update(number for number in (1, 2) if game.ai_holds(number))
+    if (game.test_game or game.tutorial) and 1 in held:
+        seats.add(2)
+    return seats
 
 
 def seats_held_by(game: D12BallGame) -> set[int]:

@@ -28,7 +28,9 @@ from pathlib import Path
 
 from aiohttp.test_utils import TestClient, TestServer
 
-from d12ball.formatting import GAME_MODE_NAMES, describe_game_mode
+from d12ball.formatting import (
+    GAME_MODE_NAMES, SETTING_DEFINITIONS, describe_game_mode,
+)
 from d12ball.game import GameMode, GameStatus, Team, paired_team
 from gamelocks import GameLocks
 from gamesaves.d12ball.service import GameService
@@ -98,10 +100,19 @@ class TableHarness(unittest.IsolatedAsyncioTestCase):
         return await response.json()
 
     async def seated_pair(self) -> str:
-        """A room with both seats taken and its lobby left."""
+        """A room with both seats taken, still in its lobby -- where a
+        web room picks its teams."""
         room = await self.open_room()
         await self.state(room, CREATOR)
         await self.state(room, SECOND)
+        return room
+
+    async def started_pair(self) -> str:
+        """A room with both seats taken, both teams picked and its lobby
+        left: the coin is next."""
+        room = await self.seated_pair()
+        await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
+        await self.pressed(room, SECOND, "pick_team", {"team": Team.PURPLE.value})
         await self.pressed(room, CREATOR, "start")
         return room
 
@@ -113,12 +124,14 @@ class TwoCoachTableTests(TableHarness):
         room = await self.open_room()
         await self.state(room, CREATOR)
         second = await self.state(room, SECOND)
-        # The lobby: a table in the prompt's place, and no prompt.
+        # The lobby: a table in the prompt's place, and no prompt. A web
+        # room picks its teams here, before Start.
         self.assertIsNone(second["prompt"])
         self.assertTrue(second["table"]["lobby"])
         self.assertTrue(second["table"]["start"]["may"])
+        self.assertIn("no team yet", second["table"]["start"]["refusal"])
 
-        started = await self.pressed(room, CREATOR, "start")
+        started = await self.state(room, CREATOR)
         mine = started["table"]["seats"][0]
         self.assertTrue(mine["yours"])
         self.assertEqual(
@@ -145,6 +158,7 @@ class TwoCoachTableTests(TableHarness):
         await self.pressed(
             room, SECOND, "pick_team", {"team": Team.PURPLE.value},
         )
+        await self.pressed(room, CREATOR, "start")
 
         tossed = await self.pressed(room, SECOND, "flip_coin")
         winner = game.coin_winner_player_number
@@ -201,8 +215,16 @@ class TwoCoachTableTests(TableHarness):
 
         await self.state(room, SECOND)
         both = await self.state(room, CREATOR)
-        self.assertIsNone(both["table"]["start"]["refusal"])
-        self.assertTrue(both["table"]["start"]["may"])
+        # Both seats held; the room still owes its teams.
+        self.assertEqual(
+            both["table"]["start"]["refusal"],
+            "Seat 1 has no team yet -- pick one to start.",
+        )
+        await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
+        await self.pressed(room, SECOND, "pick_team", {"team": Team.PURPLE.value})
+        ready = await self.state(room, CREATOR)
+        self.assertIsNone(ready["table"]["start"]["refusal"])
+        self.assertTrue(ready["table"]["start"]["may"])
 
     async def test_a_refused_pick_is_the_record_s_sentence_and_writes_nothing(
         self,
@@ -234,7 +256,10 @@ class TwoCoachTableTests(TableHarness):
         table = watching["table"]
         self.assertFalse(table["start"]["may"])
         self.assertFalse(any(one["may_change"] for one in table["settings"]))
-        self.assertTrue(all(not seat["teams"] for seat in table["seats"]))
+        # The swatches are drawn for everybody; none may be pressed.
+        self.assertFalse(any(
+            team["open"] for seat in table["seats"] for team in seat["teams"]
+        ))
 
         game = self.games[room]
         before, saves = game.to_dict(), self.saves
@@ -281,7 +306,7 @@ class TwoCoachTableTests(TableHarness):
         self.assertIn("7-space", (await refused.json())["refusal"])
 
     async def test_a_lobby_setting_closes_with_the_lobby(self) -> None:
-        room = await self.seated_pair()
+        room = await self.started_pair()
         state = await self.state(room, CREATOR)
         shown = {one["name"]: one for one in state["table"]["settings"]}
         open_ones = {name for name, one in shown.items() if one["may_change"]}
@@ -302,20 +327,19 @@ class AIRoomTests(TableHarness):
                 room = await self.open_room()
                 put = await self.seat_move(room, CREATOR, "ai", {"seat": 2})
                 self.assertEqual(put.status, 200)
-                await self.pressed(room, CREATOR, "start")
-                game = self.games[room]
-                self.assertFalse(game.in_lobby)
-                self.assertTrue(game.ai_holds(2))
-
-                opened = await self.state(room, CREATOR)
-                self.assertFalse(opened["table"]["start"]["owed"])
-                self.assertTrue(opened["room"]["seats"][1]["ai"])
-
-                picked = await self.pressed(
+                await self.pressed(
                     room, CREATOR, "pick_team", {"team": Team.ORANGE.value},
                 )
-                # The AI's team is drawn by the engine from the pool the
-                # record leaves it.
+                game = self.games[room]
+                # Nobody picked the AI's team: it waits for Start.
+                self.assertIsNone(game.player_2_team)
+                picked = await self.pressed(room, CREATOR, "start")
+                self.assertFalse(game.in_lobby)
+                self.assertTrue(game.ai_holds(2))
+                self.assertFalse(picked["table"]["start"]["owed"])
+                self.assertTrue(picked["room"]["seats"][1]["ai"])
+                # The AI's team is drawn by the engine at Start, from the
+                # pool the record leaves it.
                 self.assertIn(game.player_2_team, set(Team) - {
                     Team.ORANGE, paired_team(Team.ORANGE),
                 })
@@ -352,6 +376,7 @@ class AIRoomTests(TableHarness):
         self.assertFalse(game.seat_is_free(2))
         self.assertTrue(toggled["table"]["lobby"])
 
+        await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
         await self.pressed(room, CREATOR, "start")
         self.assertFalse(game.in_lobby)
         self.assertTrue(game.ai_holds(2))
@@ -362,6 +387,7 @@ class FrontDoorTests(TableHarness):
         lobby = await self.open_room()
         ai = await self.open_room()
         await self.seat_move(ai, CREATOR, "ai", {"seat": 2})
+        await self.pressed(ai, CREATOR, "pick_team", {"team": Team.ORANGE.value})
         await self.pressed(ai, CREATOR, "start")
         response = await self.client.post(
             "/api/rooms", headers=as_coach(SECOND, "Second"), json={},
@@ -406,8 +432,8 @@ class FrontDoorTests(TableHarness):
     async def test_a_room_that_has_kicked_off_is_not_closed(self) -> None:
         room = await self.open_room()
         await self.seat_move(room, CREATOR, "ai", {"seat": 2})
-        await self.pressed(room, CREATOR, "start")
         await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
+        await self.pressed(room, CREATOR, "start")
         await self.pressed(room, CREATOR, "flip_coin")
         game = self.games[room]
         if game.home_choice_owed_by == 1:
@@ -455,13 +481,16 @@ class RedesignedTableTests(TableHarness):
         self.assertTrue(state["room"]["seats"][1]["ai"])
         # Nothing is empty, so the AI is offered nowhere else.
         self.assertEqual(state["room"]["ai_seats"], [])
-        self.assertIsNone(state["table"]["start"]["refusal"])
+        # Dinky's seat says it picks at Start unless a coach picks for it.
+        self.assertTrue(state["table"]["seats"][1]["picks_itself"])
+        self.assertIn("no team yet", state["table"]["start"]["refusal"])
 
     async def test_the_tutorial_tick_alone_is_the_record_s_tutorial(self) -> None:
         room = await self.ticked_room(ai=False, tutorial=True)
         game = self.games[room]
         self.assertTrue(game.tutorial)
         self.assertEqual((game.mode, game.board_size), (GameMode.TRAINING, 7))
+        await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
         await self.pressed(room, CREATOR, "start")
         self.assertTrue(game.ai_holds(2))
 
@@ -474,6 +503,7 @@ class RedesignedTableTests(TableHarness):
         game = self.games[room]
         self.assertTrue(game.tutorial)
         self.assertTrue(game.ai_holds(2))
+        await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
         await self.pressed(room, CREATOR, "start")
         self.assertEqual(game.ai_seats, [2])
 
@@ -506,31 +536,36 @@ class RedesignedTableTests(TableHarness):
         # observer is offered it nowhere in any case.
         self.assertEqual(seen["ai_seats"], [])
 
-        # The lobby: the whistle is live and it is the creator's move,
-        # on the table and on the front door's card alike.
+        # The lobby: the teams are picked here, so it is each coach's
+        # move until their side has one -- on the table and on the
+        # front door's card alike -- and Start is dark until then.
         lobby = await self.state(room, CREATOR)
         self.assertTrue(lobby["table"]["yours"])
-        self.assertTrue(lobby["table"]["start"]["may"])
+        self.assertIn("no team yet", lobby["table"]["start"]["refusal"])
         self.assertEqual(lobby["game"]["topic"], "Creator vs. Second")
         [card] = (await self.rooms(CREATOR))["mine"]["lobby"]
         self.assertTrue(card["your_move"])
         self.assertEqual((card["mode"], card["board_size"]), ("Basic", 7))
         self.assertIsNone(card["clock"])
 
-        # A setting's note is the record's sentence for why a value is
-        # dark: somebody has joined, so the toggles stay off.
+        # A setting says what it is in the model's words, and why a
+        # value is dark in the record's: somebody has joined, so the
+        # toggles stay off.
         settings = {one["name"]: one for one in lobby["table"]["settings"]}
         self.assertFalse(settings["tutorial"]["toggle_open"])
         self.assertEqual(
             settings["tutorial"]["note"],
             "Someone has already joined -- they would have to leave first.",
         )
-        self.assertTrue(all(one["open"] for one in settings["mode"]["choices"]))
-        # The mode's own note is the model's definition of it, and each
-        # pill carries the definition of the mode it would pick.
         self.assertEqual(
-            settings["mode"]["note"], describe_game_mode(game),
+            settings["test"]["definition"], SETTING_DEFINITIONS["test"],
         )
+        self.assertTrue(all(one["open"] for one in settings["mode"]["choices"]))
+        self.assertIsNone(settings["mode"]["note"])
+        self.assertEqual(
+            settings["mode"]["definition"], describe_game_mode(game),
+        )
+        # Each mode pill carries the definition of the mode it would pick.
         self.assertEqual(
             {one["label"]: one["definition"] for one in settings["mode"]["choices"]},
             {
@@ -539,8 +574,7 @@ class RedesignedTableTests(TableHarness):
             },
         )
 
-        started = await self.pressed(room, CREATOR, "start")
-        mine, theirs = started["table"]["seats"]
+        mine, theirs = lobby["table"]["seats"]
         # Both seats carry their swatches, each greyed or offered as the
         # record says; only the reader's own may be pressed.
         self.assertEqual(len(mine["teams"]), len(Team))
@@ -548,6 +582,10 @@ class RedesignedTableTests(TableHarness):
         self.assertTrue(all(team["open"] for team in mine["teams"]))
         self.assertFalse(any(team["open"] for team in theirs["teams"]))
         self.assertTrue(all(team["offered"] for team in theirs["teams"]))
+        refused = await self.press(
+            room, CREATOR, "pick_team", {"team": Team.TEAL.value, "seat": 2},
+        )
+        self.assertEqual(refused.status, 403)
 
         picked = await self.pressed(
             room, CREATOR, "pick_team", {"team": Team.ORANGE.value},
@@ -570,6 +608,10 @@ class RedesignedTableTests(TableHarness):
         self.assertTrue((await self.state(room, SECOND))["table"]["yours"])
 
         await self.pressed(room, SECOND, "pick_team", {"team": Team.PURPLE.value})
+        ready = await self.state(room, CREATOR)
+        self.assertIsNone(ready["table"]["start"]["refusal"])
+        self.assertTrue(ready["table"]["yours"])
+        await self.pressed(room, CREATOR, "start")
         coin = (await self.state(room, CREATOR))["table"]["coin"]
         self.assertTrue(coin["owed"] and coin["may"])
         self.assertEqual(
@@ -608,6 +650,48 @@ class RedesignedTableTests(TableHarness):
         # Once kicked off, the front door's card carries the clock.
         [card] = (await self.rooms(winner_id))["mine"]["in_progress"]
         self.assertEqual(card["clock"], "00' First Half")
+
+    async def test_a_seated_coach_picks_dinky_s_team_or_dinky_picks_at_start(
+        self,
+    ) -> None:
+        """The author, 2026-09-26: a seated coach may pick the AI's team;
+        if nobody does, the AI picks its own at the whistle."""
+        room = await self.ticked_room(ai=True, tutorial=False)
+        state = await self.state(room, CREATOR)
+        dinky = state["table"]["seats"][1]
+        self.assertTrue(all(team["open"] for team in dinky["teams"]))
+        await self.pressed(
+            room, CREATOR, "pick_team", {"team": Team.TEAL.value, "seat": 2},
+        )
+        await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
+        started = await self.pressed(room, CREATOR, "start")
+        game = self.games[room]
+        self.assertEqual(game.player_2_team, Team.TEAL)
+        self.assertTrue(started["table"]["coin"]["owed"])
+
+        # An observer may not pick for Dinky.
+        other = await self.ticked_room(ai=True, tutorial=False)
+        await self.state(other, WATCHER)
+        refused = await self.press(
+            other, WATCHER, "pick_team", {"team": Team.TEAL.value, "seat": 2},
+        )
+        self.assertEqual(refused.status, 403)
+
+    async def test_a_test_game_s_one_coach_picks_both_teams_in_the_lobby(
+        self,
+    ) -> None:
+        room = await self.open_room()
+        await self.pressed(room, CREATOR, "configure", {"setting": "test"})
+        await self.pressed(room, CREATOR, "pick_team", {"team": Team.ORANGE.value})
+        await self.pressed(
+            room, CREATOR, "pick_team", {"team": Team.PURPLE.value, "seat": 2},
+        )
+        await self.pressed(room, CREATOR, "start")
+        game = self.games[room]
+        self.assertEqual(
+            (game.player_1_team, game.player_2_team), (Team.ORANGE, Team.PURPLE),
+        )
+        self.assertEqual(game.player_2_id, CREATOR)
 
     async def test_a_kicked_coach_is_asked_about_first_and_lands_on_the_sideline(
         self,
