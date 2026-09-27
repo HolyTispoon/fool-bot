@@ -154,6 +154,20 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-27 (final) -- sheet and author, Spectra pulls on 9 or more
+
+The author: Spectra's ability is revised to a successful Mind Pull on nine and above instead of
+eight and above, and the sheet is updated to match. Re-imported, Spectra's cell reads *"Mind
+Pulls on 9+."* Law 21.5.3 now reads "succeeds on 9 or more". Nothing else about the pull
+changes; the roll, its cost and where a pull lands are still Law 20.4's.
+
+The same import also moved two other cells, which are **not** part of this change and are not
+imported yet: Gearclaw's Boost now reads *"Boost: drain 1 for +3 (once per role)."* (it read
+"drain 1 for +3 on a roll"), and Zenith's Fly now says *"exhausting per space"*
+where it said *"adding exhaustion per space"*. The second is the sheet catching up with the
+2026-09-27 wording under "Where upstream is behind"; the first has "once per role" to read, so
+it waits for the author.
+
 ### 2026-09-27 (newest) -- sheet and author, Zorch rolls with the ball; eleven abilities reworded
 
 Re-imported from the sheet. Zorch's personal ability is new: *"Adds ball speed modifier to all
