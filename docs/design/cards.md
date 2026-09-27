@@ -367,22 +367,25 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   reason: the two letters in the badge are the two letters on the meeple's
   card in the channel.
 - **The stats panel is one row, and it does not name the role** (the author,
-  2026-09-27). `OFFENSE 2 | DEFENSE 5`, each label beside its number rather
-  than over it, in a panel 80 units tall where it was 132 with a `ROLE`
-  column between the two. The role is already said twice -- the header's
-  badge, and the badge beside the role ability -- so the word was the third
-  saying of it, and the height it held went to the portrait and the ability
-  text. Both faces draw the panel, so the back's portrait slot grew by the
+  2026-09-27). `OFFENSE 2 | 5 DEFENSE`: each number centred in its half at 70,
+  its label on the outside of it at 19 (the author, 2026-09-27), in a panel
+  88 units tall where it was 132 with a `ROLE`
+  column between the two. The role is already said twice -- in words under
+  the name, and in the badge beside the role ability -- so the column was
+  the third saying of it, and the height it held went to the portrait and
+  the ability text. Both faces draw the panel, so the back's portrait slot grew by the
   same amount; its band did not move (`ADVANCED_BAND_TOP`).
-- **The team under the name is set at 26** where it was 16, so it reads
-  across a table. It is fitted to the name's room with 26 as the ceiling,
-  because the back's `TELEKINETICS · ADVANCED` does not fit at 26 and a
-  line that ran under the icon would read as a mistake.
+- **The line under the name is the role, set at 26** (the author,
+  2026-09-27): `DEFENDER`, and on the back `DEFENDER · ADVANCED`. It was the
+  team at 16, but the team is already the band's colour, the card's edge and
+  the corner emoji. It is fitted to the name's room with 26 as the ceiling,
+  because `MIDFIELDER · ADVANCED` does not fit at 26 and a line that ran
+  under the emoji would read as a mistake.
 - **The front's ability band is two rows, each behind a badge, with no
   heading** (the author, 2026-09-27): the role's emoji beside the role's
   sentence, and the species' icon beside the species ability's *name*. The
   badges are the labels -- which sentence is the role's and which ability is
-  the species' is read off the same two pictures the header carries -- so
+  the species' is read off the two pictures in front of them -- so
   the `ABILITY` heading went, and the text went from 30 to 36. The role
   badge is the bot's own emoji in the card's team colour
   (`role_defender_purple.png`), a species team using its colour team's file
@@ -439,15 +442,17 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   players, and nine poker cards in a 3x3 come out at about 8 x 11 inches --
   a page. Print it at 100% on A4, or borderless on letter, or the cards come
   off the printer undersized.
-- **The species icon answers the role badge across the header band.** The two
-  things about a player that are not their name are the job they do and what
-  they are, and a card should give up both in one glance -- so the role's
-  initials sit in a badge at the left of the band and the species icon at the
-  right, with the name and the team stacked between them. The team used to
-  have that right-hand spot; stacking it under the name is what paid for the
-  icon, and it is also what lets the back say `ORANGE · ADVANCED` on the same
-  line. Both the icon and the badge are drawn in `high_contrast_ink`, which is
-  the whole reason the art is one flat silhouette -- see "The species icons".
+- **The header is the name, the role under it, and the team's emoji in the
+  right-hand corner** (the author, 2026-09-27). It used to carry the role's
+  initials in a badge on the left and the species icon on the right; both
+  moved down to the ability band, where each sits beside the ability it
+  grants, and the header says the role once in full. The corner is the
+  team's own emoji as the bot uploads it (`images/emoji/team_<team>.png`):
+  on the band of the same colour its ring disappears and what reads is a
+  white disc with the team's letter. A species team's emoji is its icon in
+  that disc rather than a letter, because that is the emoji the bot shows
+  for it. The left corner stays empty and the name's room stays symmetric,
+  so the name is centred on the card.
 
 - **The back is the player's gambit**, drawn by
   `render_player_card_back`. Not a shared back like a maneuver's: player cards

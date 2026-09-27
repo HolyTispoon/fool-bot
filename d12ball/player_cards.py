@@ -67,11 +67,10 @@ from d12ball.components import (
     RoleProfile,
     load_species_abilities,
 )
-from d12ball.game import COLOR_TEAMS, Team, paired_team, team_display_name
+from d12ball.game import COLOR_TEAMS, Team, paired_team
 from d12ball.render import (
     CARD_DEFENSE_COLOR,
     CARD_OFFENSE_COLOR,
-    ROLE_INITIALS,
     TEAM_COLORS,
     high_contrast_ink,
     load_player_portrait,
@@ -85,29 +84,30 @@ from d12ball.species_cards import SPECIES_TEAM
 # is the one thing on the card whose length is not the layout's to
 # choose.
 #
-# The stats panel is one row, each skill's label beside its number
-# rather than over it, and it no longer carries the role: the badge in
+# The stats panel is one row, each skill's label on the outside of its
+# number rather than over it, and it no longer carries the role: the badge in
 # the header and the role's badge in the ability band both say it
 # (the author, 2026-09-27). What the panel gave up went to the
 # portrait and the ability text.
 HEADER_HEIGHT = 132
 STATS_TOP_GAP = 16
-STATS_HEIGHT = 80
+STATS_HEIGHT = 88
 PORTRAIT_GAP = 18
 
-# The team under the name, set large enough to read across a table
-# (the author, 2026-09-27). The back's "TELEKINETICS · ADVANCED" is the
-# longest line it carries, so it is fitted to the name's room with
-# this as the ceiling rather than set at it.
+# The role under the name, set large enough to read across a table
+# (the author, 2026-09-27). The back's "MIDFIELDER · ADVANCED" is the
+# longest line it carries, so it is fitted to the name's room with this
+# as the ceiling rather than set at it.
 SUBTITLE_SIZE = 26
 
-# The species icon in the header, mirroring the role badge across the
-# band: the two things about a player that are not their name are the
-# job they do and what they are, and both are read at a glance from
-# the same row. It is drawn in the band's own ink rather than the
-# species' colour, because the band is already a colour -- see
-# `high_contrast_ink`, which is what keeps a Slime-green band legible.
-HEADER_ICON = 84
+# The team's own emoji in the header's right-hand corner -- the letter
+# in a team-coloured ring the bot puts beside a team's name in Discord
+# (`images/emoji/team_<team>.png`, uploaded under `TEAM_EMOJI_NAMES`).
+# On the band of the same colour its ring disappears and what reads is
+# a white disc with the letter in it. The left-hand corner is left
+# empty and the name stays centred on the card.
+HEADER_EMOJI = 104
+TEAM_EMOJI_DIR = ROLE_EMOJI_DIR
 
 # A portrait is around 400px on its longest side -- the bot's own art,
 # and there is no larger source -- so filling this slot scales it up by
@@ -125,14 +125,35 @@ def fitted_name(
     """
     The largest bold size the header will carry the name at. Player
     names are one word, so unlike a maneuver's there is nothing to
-    break -- the size comes down until "Flickerwing" fits between the
-    role badge and the species icon, floored at 22 even if that still
-    doesn't.
+    break -- the size comes down until "Flickerwing" fits in the room
+    the team emoji leaves, kept symmetric about the centre, floored at
+    22 even if that still doesn't.
     """
     return (
         fitted_bold_font(pen, name, max_width, max_size=54, min_size=22)
         or font(22, bold=True)
     )
+
+
+def team_emoji(team: Team) -> Image.Image | None:
+    """
+    The team's emoji as the bot uploads it, read off disk, or None when
+    the file is missing -- the swallowed-`OSError` contract every
+    bundled image here follows. A species team's emoji is its species'
+    icon in a ring rather than a letter, because that is the emoji the
+    bot shows for it.
+    """
+    if team not in _TEAM_EMOJI:
+        try:
+            _TEAM_EMOJI[team] = Image.open(
+                TEAM_EMOJI_DIR / f"team_{team.value}.png"
+            ).convert("RGBA")
+        except OSError:
+            _TEAM_EMOJI[team] = None
+    return _TEAM_EMOJI[team]
+
+
+_TEAM_EMOJI: dict[Team, Image.Image | None] = {}
 
 
 def draw_header(
@@ -143,22 +164,16 @@ def draw_header(
     subtitle: str,
 ) -> None:
     """
-    The team-coloured band: the role's initials in a badge on the left,
-    the species icon answering it on the right, and the name over
-    `subtitle` between them. The initials are the board's own
-    (`ROLE_INITIALS`), so the two letters on the card are the two
-    letters on the meeple's card in Discord.
+    The team-coloured band: the name over `subtitle`, centred, and the
+    team's emoji in the right-hand corner (the author, 2026-09-27).
 
-    The name and the subtitle are stacked because the icon took the
-    room the team used to sit in, and the two lines are what tell a
-    front from its advanced back at a glance -- see
-    `header_subtitle`.
-
-    A player with no species draws no icon and the layout does not
-    close up around it, because `players.json` written before the
-    species column loads with an empty one (see "Player species" in
-    docs/design/teams-and-players.md) and a set of cards where some names are centred
-    differently from others reads as a mistake.
+    The role is the subtitle, in words, where it used to be two letters
+    in a badge on the left: the badge beside the role ability in the
+    band at the bottom carries the initials, and the header says the
+    role once in full. The species is the badge beside the species
+    ability; the header no longer carries its icon. The name's room is
+    kept symmetric about the card's centre, so the empty left corner
+    does not pull the name off-centre.
     """
     pen.rect(
         (FRAME, FRAME, CARD_WIDTH - FRAME, FRAME + HEADER_HEIGHT),
@@ -175,22 +190,12 @@ def draw_header(
         fill=color,
     )
 
-    badge_center = (FRAME + 78, FRAME + HEADER_HEIGHT / 2)
-    pen.circle(badge_center, 44, fill=CARD_FACE)
-    pen.text(
-        badge_center,
-        ROLE_INITIALS[player.role.value],
-        font(36, bold=True),
-        color,
-        anchor="mm",
-    )
-
-    icon = species_icon(player.species, high_contrast_ink(color))
-    if icon is not None:
+    emoji = team_emoji(team)
+    if emoji is not None:
         pen.paste(
-            icon,
+            emoji,
             (CARD_WIDTH - FRAME - 78, FRAME + HEADER_HEIGHT / 2),
-            (HEADER_ICON, HEADER_ICON),
+            (HEADER_EMOJI, HEADER_EMOJI),
         )
 
     name_left = FRAME + 132
@@ -218,20 +223,19 @@ def draw_header(
     )
 
 
-def header_subtitle(team: Team, advanced: bool) -> str:
+def header_subtitle(player: PlayerDefinition, advanced: bool) -> str:
     """
-    The line under the name: the team, and on the back the word that
-    says which side of the card this is.
+    The line under the name: the player's role, and on the back the
+    word that says which side of the card this is.
 
     The back has to announce itself in words rather than by a shade or
     a border, because it is otherwise the same card -- same colour,
-    same portrait, same skills -- and a coach turning a stack over has
-    nothing else to read. The team stays on both faces: the edge colour
-    says it too, but a card printed for one of a player's two rosters
-    should say which on whichever side is showing.
+    same portrait, same role -- and a coach turning a stack over has
+    nothing else to read. The team is the corner emoji and the edge
+    colour on both faces.
     """
-    name = team_display_name(team).upper()
-    return f"{name} \u00b7 ADVANCED" if advanced else name
+    role = player.role.value.upper()
+    return f"{role} \u00b7 ADVANCED" if advanced else role
 
 
 @dataclass(frozen=True)
@@ -282,8 +286,8 @@ def draw_stats(
     top: float,
 ) -> None:
     """
-    The two skills on one row, each with its label beside it:
-    `OFFENSE 2 | DEFENSE 5`.
+    The two skills on one row, each number centred in its half with
+    its label on the outside: `OFFENSE 2 | 5 DEFENSE`.
 
     The bot's card stacks the bare numbers in the corner, unlabelled,
     because a coach reads them off a board they have been looking at
@@ -306,25 +310,24 @@ def draw_stats(
     label_face = font(STATS_LABEL_SIZE, bold=True)
     value_face = font(STATS_VALUE_SIZE, bold=True)
     center_y = top + STATS_HEIGHT / 2
+    # Each number is centred in its half, and its label sits on the
+    # outside of it -- OFFENSE to the left of the offence, DEFENSE to
+    # the right of the defence (the author, 2026-09-27) -- so the two
+    # numbers read as a pair either side of the divider.
     columns = (
-        ("OFFENSE", str(profile.offense), CARD_OFFENSE_COLOR),
-        ("DEFENSE", str(profile.defense), CARD_DEFENSE_COLOR),
+        ("OFFENSE", str(profile.offense), CARD_OFFENSE_COLOR, -1),
+        ("DEFENSE", str(profile.defense), CARD_DEFENSE_COLOR, 1),
     )
-    for index, (label, value, color) in enumerate(columns):
-        # The label and the number are centred in their half as one
-        # group, so the two halves mirror each other whatever the
-        # digits are.
-        label_width = pen.text_size(label, label_face)[0]
-        value_width = pen.text_size(value, value_face)[0]
-        group = label_width + STATS_LABEL_GAP + value_width
-        left = MARGIN + column_width * (index + 0.5) - group / 2
-        pen.text((left, center_y), label, label_face, MUTED, anchor="lm")
+    for index, (label, value, color, side) in enumerate(columns):
+        cx = MARGIN + column_width * (index + 0.5)
+        pen.text((cx, center_y), value, value_face, color, anchor="mm")
+        value_half = pen.text_size(value, value_face)[0] / 2
         pen.text(
-            (left + label_width + STATS_LABEL_GAP, center_y),
-            value,
-            value_face,
-            color,
-            anchor="lm",
+            (cx + side * (value_half + STATS_LABEL_GAP), center_y),
+            label,
+            label_face,
+            MUTED,
+            anchor="rm" if side < 0 else "lm",
         )
     pen.line(
         [
@@ -336,9 +339,9 @@ def draw_stats(
     )
 
 
-STATS_LABEL_SIZE = 22
-STATS_VALUE_SIZE = 56
-STATS_LABEL_GAP = 18
+STATS_LABEL_SIZE = 19
+STATS_VALUE_SIZE = 70
+STATS_LABEL_GAP = 16
 
 
 # The ability is set a shade larger than a maneuver card's effect,
@@ -706,7 +709,7 @@ def draw_species_chip(
 ) -> None:
     """
     The keyword in a pill on the right of the heading row, with the
-    species icon in front of it -- the same icon the header carries, so
+    species icon in front of it -- the same icon the front's species badge carries, so
     a coach matches the two without reading either.
 
     Measured out from the right edge rather than laid out left to
@@ -873,7 +876,7 @@ def render_player_card(
     color = TEAM_COLORS[Team(team)]
     pen = start_card(color)
 
-    draw_header(pen, player, team, color, header_subtitle(team, False))
+    draw_header(pen, player, team, color, header_subtitle(player, False))
     draw_stats(pen, profile, FRAME + HEADER_HEIGHT + STATS_TOP_GAP)
 
     species_name = species_ability(player.species).get("name", "")
@@ -920,7 +923,7 @@ def render_player_card_back(
     color = TEAM_COLORS[Team(team)]
     pen = start_card(color)
 
-    draw_header(pen, player, team, color, header_subtitle(team, True))
+    draw_header(pen, player, team, color, header_subtitle(player, True))
     draw_stats(
         pen,
         advanced_card_skills(catalog, player),
