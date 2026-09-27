@@ -373,30 +373,71 @@ class CyborgTests(unittest.TestCase):
             self.match.overdrive_modifier(self.cyborg), BOOST_BONUS,
         )
         self.assertEqual(
-            ENGINE.overdrive_detail(self.match, self.cyborg),
-            f"+{BOOST_BONUS} Boost",
+            ENGINE.overdrive_details(self.match, self.cyborg),
+            [f"+{BOOST_BONUS} Boost"],
         )
         self.match.consume_overdrive()
         self.assertEqual(self.match.overdrive_modifier(self.cyborg), 0)
 
-    def test_boost_or_overdrive_never_both(self) -> None:
-        self.match.declare_boost(self.cyborg, CYBORG_DRAINED_AT - 1)
-        with self.assertRaises(RuleRefusal):
-            self.match.declare_overdrive(self.cyborg, CYBORG_DRAINED_AT - 1)
-        self.match.consume_overdrive()
-        self.match.declare_overdrive(self.cyborg, CYBORG_DRAINED_AT - 1)
-        with self.assertRaises(RuleRefusal):
-            self.match.declare_boost(self.cyborg, CYBORG_DRAINED_AT - 1)
-        self.assertEqual(
-            self.match.overdrive_modifier(self.cyborg), OVERDRIVE_BONUS,
-        )
+    def test_boost_and_overdrive_stack_on_one_roll(self) -> None:
         with holding(self.cyborg, PersonalAbility.BOOST):
+            self.match.declare_overdrive(self.cyborg, CYBORG_DRAINED_AT - 1)
+            # An Overdrive leaves Boost open on the same roll, and the
+            # other way round (Law 21) ...
+            self.assertEqual(
+                ENGINE.boost_candidates(
+                    self.game, self.match, [self.cyborg],
+                ),
+                [self.cyborg],
+            )
+            self.match.declare_boost(self.cyborg, CYBORG_DRAINED_AT - 1)
+            self.assertEqual(
+                self.match.exhaustion.get(self.cyborg, 0),
+                OVERDRIVE_DRAIN_COST + BOOST_DRAIN_COST,
+            )
+            self.assertEqual(
+                self.match.overdrive_modifier(self.cyborg),
+                OVERDRIVE_BONUS + BOOST_BONUS,
+            )
+            self.assertEqual(
+                ENGINE.overdrive_details(self.match, self.cyborg),
+                [f"+{OVERDRIVE_BONUS} Overdrive", f"+{BOOST_BONUS} Boost"],
+            )
+            # ... but each is once per roll.
             self.assertEqual(
                 ENGINE.boost_candidates(
                     self.game, self.match, [self.cyborg],
                 ),
                 [],
             )
+            self.assertEqual(
+                ENGINE.overdrive_candidates(
+                    self.game, self.match, [self.cyborg],
+                ),
+                [],
+            )
+            with self.assertRaises(RuleRefusal):
+                self.match.declare_boost(self.cyborg, CYBORG_DRAINED_AT - 1)
+            with self.assertRaises(RuleRefusal):
+                self.match.declare_overdrive(
+                    self.cyborg, CYBORG_DRAINED_AT - 1,
+                )
+            # A re-rolled tie is a fresh roll: both are open again.
+            self.match.consume_overdrive()
+            self.assertEqual(self.match.overdrive_modifier(self.cyborg), 0)
+            self.assertEqual(
+                ENGINE.boost_candidates(
+                    self.game, self.match, [self.cyborg],
+                ),
+                [self.cyborg],
+            )
+
+    def test_boost_first_leaves_overdrive_open(self) -> None:
+        self.match.declare_boost(self.cyborg, CYBORG_DRAINED_AT - 1)
+        self.assertEqual(
+            ENGINE.overdrive_candidates(self.game, self.match, [self.cyborg]),
+            [self.cyborg],
+        )
 
     def test_strider_charges_up_two(self) -> None:
         self.assertEqual(ENGINE.charge_up_amount(self.game, self.cyborg), 1)

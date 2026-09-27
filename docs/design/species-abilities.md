@@ -185,9 +185,18 @@ their own (below).
   - *Boost* is Overdrive's shape at drain 1 for +3: its own list on the
     match (`pending_boost`, a saved field whose absence reads as
     nobody), its own `boost` answer on all six roll prompts beside
-    `overdrive`, and one `overdrive_modifier` that answers either,
-    because every roll site already adds that one number. Declaring
-    either closes the other on that roll ("either, not both").
+    `overdrive`, and one `overdrive_modifier` that sums both, because
+    every roll site already adds that one number. Each is once per
+    roll and neither closes the other (the author, 2026-09-27,
+    reversing "either, not both"), so `overdrive_candidates` and
+    `boost_candidates` each narrow the one shared reading of who could
+    drain on this roll (`_may_drain_before_roll`) by their own
+    declaration alone. What each added is said by
+    `overdrive_details`, a line per declaration rather than one
+    summed line, so a roll carrying both reads "+5 Overdrive, +3
+    Boost" -- the injury check and the own-goal roll word it from
+    the same list, which is also what stops a Boost alone being
+    called an Overdrive there.
   - *Mind Pull* -- `mind_pull_candidates` reads the two spaces beside
     each path space for Noxar, in the order the ball reaches them, and
     `apply_mind_pull` already lands the ball on the puller's space;
