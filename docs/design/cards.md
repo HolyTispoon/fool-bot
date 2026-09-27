@@ -879,10 +879,12 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   drift from it.
 - **It is the print version of the game, as print sheets only** (the
   author, 2026-09-27): each card set is its sheet -- two for a team,
-  the fronts and the advanced backs in duplex order -- and never a PNG
-  per card, and the player cards are the four colour teams' alone. The
-  printed game has no species-team cards; a colour team's card carries
-  its species on its advanced back. The three card scripts take
+  its cards' standard sides and their advanced sides in duplex order,
+  so each printed card is standard on one face and advanced on the
+  other -- and never a PNG per card, and the player cards are all four
+  colour teams'. The printed game has no species-team cards; a colour
+  team's card carries its species on its advanced side. The kit's
+  README says so in those words. The three card scripts take
   `--sheets-only` for this, and the kit passes it and a `--team` per
   colour team. A developer checking one card still runs the script on
   its own and gets every card. The kit came to 128 MB before this and

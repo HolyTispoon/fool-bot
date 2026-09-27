@@ -9,10 +9,11 @@ This is the thing to hand somebody before a meetup, a playtest table or
 a con booth: every printable component in one folder (or one zip),
 built fresh from whatever the bot itself plays. **It is the print
 version of the game, as print sheets only**: each card set is one
-sheet (two for a team, front and advanced back), never a PNG per card,
-and the player cards are the four colour teams' alone -- the print
-game has no cards for the species teams; a colour team's card carries
-its species on the advanced back (the author, 2026-09-27). **It draws nothing on
+sheet (two for a team: its cards' standard sides and their advanced
+sides, printed duplex), never a PNG per card, and the player cards are
+all four colour teams' -- the print game has no cards for the species
+teams; a colour team's card carries its species on its advanced side
+(the author, 2026-09-27). **It draws nothing on
 its own** -- it runs `render_maneuver_cards.py`, `render_player_cards.py`,
 `render_species_cards.py` and `render_boards.py`, the same four scripts
 a developer already reaches for to check one component at a time, and
@@ -49,7 +50,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.boards import DEFAULT_PAPER, PAPERS  # noqa: E402
 from d12ball.components import load_player_catalog  # noqa: E402
-from d12ball.game import COLOR_TEAMS  # noqa: E402
+from d12ball.game import COLOR_TEAMS, team_display_name  # noqa: E402
 
 
 def run(script: str, script_args: list[str]) -> None:
@@ -74,12 +75,16 @@ printer, {sheet_columns} cards to a row.
 
 - **maneuver-cards/print-sheet.png** -- the twelve maneuver cards (six
   basic, six gambits) and their shared back.
-- **player-cards/** -- the {team_count} colour teams ({team_names}),
-  {players_per_team} players a team: `<team>-sheet.png` is the fronts
-  (the basic role) and `<team>-advanced-sheet.png` the backs (the
-  advanced version, species and all). Print the two duplex and they
-  land back to back correctly -- see `duplex_order` in
-  `d12ball/player_cards.py`.
+- **player-cards/** -- all {team_count} colour teams ({team_names}),
+  {players_per_team} players a team, two print sheets a team. Every player
+  card is double-sided: one side is the **standard** card and the
+  other the **advanced** one, with the player's species on it.
+  `<team>-sheet.png` is the standard sides and
+  `<team>-advanced-sheet.png` the advanced sides. Print a team's two
+  sheets duplex (flip on the long edge) and every card comes out with
+  its standard side on one face and its advanced side on the other --
+  the advanced sheet's rows are laid out reversed so they land back to
+  back (`duplex_order` in `d12ball/player_cards.py`).
 - **species-cards/print-sheet.png** -- the three double-sided
   species-ability reference cards (every pairing of the four species
   appears on one face).
@@ -140,9 +145,9 @@ mechanic against.
     python3 scripts/generate_print_and_play_kit.py
 
 Add `--bleed` for a print shop, `--pdf` for a PDF of each board
-alongside its PNG, `--teams` for a team board per team colour
-rather than one uncoloured one, and `--zip` to also bundle the whole kit into `<out>.zip` for handing
-to somebody who does not want a folder. See `--help` for the rest.
+alongside its PNG, `--teams` for a team board per team colour rather
+than one uncoloured one, and `--zip` to also bundle the whole kit into
+`<out>.zip` for handing to somebody who does not want a folder. See `--help` for the rest.
 """
 
 
@@ -152,7 +157,7 @@ def write_readme(out_dir: Path, paper: str, players_per_team: int) -> None:
         generated=date.today().isoformat(),
         sheet_columns=4,
         team_count=len(COLOR_TEAMS),
-        team_names=", ".join(team.value for team in COLOR_TEAMS),
+        team_names=", ".join(team_display_name(team) for team in COLOR_TEAMS),
         players_per_team=players_per_team,
         paper=paper,
         paper_size=f"{width:.2f} x {height:.2f}in",
