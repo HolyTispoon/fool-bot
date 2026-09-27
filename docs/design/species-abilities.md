@@ -5,7 +5,7 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 ## Species abilities in the bot
 
 The four abilities as the engine plays them. The rules are
-[Species abilities](../living-rules.md#species-abilities) and are settled;
+[Species abilities](../living-rules.md#20-species-abilities) and are settled;
 what is here is how they are wired, and the reasoning the rules do not carry.
 
 ### Modes

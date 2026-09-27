@@ -1490,19 +1490,27 @@ tab. Every route is a read-only GET open to anybody -- an observer, or
 nobody with a cookie -- takes no lock and touches the service no
 further than reading the game; nothing in it goes in the log.
 
-**The rules are `rules_doc`'s, numbered by the Charter's build and
-grouped by its Laws.** The living rules carry no Law numbers; the
-Charter gives them at build time (`rulebooks.number_blocks`,
-[rulebooks.md](rulebooks.md)), and the Learn to Play cites them as
-*(Law 6.4)*. A page that set `docs/living-rules.md` as it stands would
-be a Charter without the numbers the other book points at. So every
-section is a `RulesSection` of `rules_doc.load_rules_document` -- the
-same parse `/d12ball rules_search` answers from, and `GET
-/api/rules?q=` is its `RulesDocument.search` -- headed with its number
-from `number_blocks(parse_markdown(...)).headings`, looked up by slug.
-The two already agree on a slug (`rulebooks.Heading.slug` is
-`rules_doc.slugify_heading`), and `tests/test_web_aids.py` holds that
-agreement. **What is a Law is what the build numbers as one**:
+**The rules are `rules_doc`'s, with the Charter's numbers the file
+carries, grouped by its Laws.** Since 2026-09-26 `docs/living-rules.md`
+carries the printed edition's numbers, written by
+`scripts/build_rulebooks.py --renumber` ([rulebooks.md](rulebooks.md)),
+and the Learn to Play cites them as *(Law 6.4)*. So every section is a
+`RulesSection` of `rules_doc.load_rules_document` -- the same parse
+`/d12ball rules_search` answers from, and `GET /api/rules?q=` is its
+`RulesDocument.search` -- headed with `RulesSection.number`, the number
+`rules_doc` split off the heading, and each paragraph opening with its
+own as the file writes it. A section is named on the page by its
+numberless `slug`, which a renumbering does not move -- the same slug
+`RuleRefusal.law` cites -- and the file's links, which point at
+GitHub's anchor for the numbered heading, are mapped back to it by
+`page_anchors`. A link to a heading reads `text (6.4)`, the number
+being the file's words after the link. `charter_numbers` is
+`rulebooks.number_blocks` over the file with its numbers taken out
+(`rulebooks.unnumber`), the text the book is built from, keyed by that
+same slug; it is what names an Appendix by its letter and what turns a
+*(Law 6.4)* in the Learn to Play into a link. `tests/test_web_aids.py`
+holds that every heading the Charter numbers is a section with that
+number. **What is a Law is what the build numbers as one**:
 `aids.charter` (`GET /api/rules/charter`) groups the sections under the
 level-2 headings the Charter numbers -- the 21 Laws, each with the Part
 it is in, its own text and its sections, a heading below a section set

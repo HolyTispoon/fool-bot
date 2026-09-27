@@ -5,17 +5,20 @@
     python3 scripts/build_rulebooks.py charter --paper a4
     python3 scripts/build_rulebooks.py --outlines      # the plan and outlines as PDFs
     python3 scripts/build_rulebooks.py --figures       # regenerate docs/rulebooks/figures/
+    python3 scripts/build_rulebooks.py --renumber      # write the Charter's numbers into its source
 
 The layout lives in `d12ball/rulebooks.py` and the figures in
 `d12ball/rulebook_figures.py`; this is the CLI. See
 docs/design/rulebooks.md and docs/rulebooks/plan.md.
 
 Until `docs/charter.md` exists the `charter` book is built from
-`docs/living-rules.md` with build-time numbering, which is what the
-numbered draft will look like. `learn-to-play` is skipped with a notice
+`docs/living-rules.md`. The file carries the printed edition's numbers,
+which `--renumber` writes after any Law, section or paragraph is added,
+moved or taken out; the test suite fails until it has been run. `learn-to-play` is skipped with a notice
 until `docs/learn-to-play.md` is written.
 """
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -28,8 +31,33 @@ from d12ball.rulebooks import (  # noqa: E402
     OUTLINE_BOOKS,
     PAPERS,
     PRINT_DIR,
+    anchor_moves,
     build_book,
+    renumber,
 )
+
+
+def renumber_charter() -> int:
+    """
+    The Charter's source, renumbered in place; then every markdown file
+    that links a heading in it, with the link moved to the heading's
+    new anchor.
+    """
+    source = BOOKS["charter"].source
+    before = source.read_text(encoding="utf-8")
+    after = renumber(before)
+    if after != before:
+        source.write_text(after, encoding="utf-8")
+        print(f"renumbered {source.relative_to(PROJECT_ROOT)}")
+    moves = anchor_moves(before, after)
+    link = re.compile(rf"({re.escape(source.name)}#)([\w-]+)")
+    for path in [PROJECT_ROOT / "CLAUDE.md", *sorted((PROJECT_ROOT / "docs").rglob("*.md"))]:
+        text = path.read_text(encoding="utf-8")
+        moved = link.sub(lambda m: m.group(1) + moves.get(m.group(2), m.group(2)), text)
+        if moved != text:
+            path.write_text(moved, encoding="utf-8")
+            print(f"moved links in {path.relative_to(PROJECT_ROOT)}")
+    return 0
 
 
 def main() -> int:
@@ -47,10 +75,17 @@ def main() -> int:
         help="Build the plan and the two outlines in docs/rulebooks/ instead of the books.",
     )
     parser.add_argument(
+        "--renumber", action="store_true",
+        help="Write the Charter's numbers into its source, and move the links other docs make into it, then exit.",
+    )
+    parser.add_argument(
         "--figures", action="store_true",
         help="Regenerate docs/rulebooks/figures/ from the bot's renderer, then exit.",
     )
     args = parser.parse_args()
+
+    if args.renumber:
+        return renumber_charter()
 
     if args.figures:
         from d12ball.rulebook_figures import write_figures

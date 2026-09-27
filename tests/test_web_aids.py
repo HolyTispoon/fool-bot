@@ -468,7 +468,7 @@ class CharterNumberTests(unittest.TestCase):
         numbered = {
             section["slug"]: section["number"] for section in page.sections
         }
-        blocks = rulebooks.parse_markdown(document.text)
+        blocks = rulebooks.parse_markdown(rulebooks.unnumber(document.text))
         numbers = rulebooks.number_blocks(blocks).headings
         headings = [
             block for block in blocks
@@ -498,11 +498,11 @@ class CharterNumberTests(unittest.TestCase):
 
 class InlineTests(unittest.TestCase):
     def test_the_rules_are_escaped_before_they_are_marked_up(self) -> None:
-        link = aids._link_resolver({"time-out": "13"})
+        link = aids._link_resolver({"13-time-out": "time-out"})
         self.assertEqual(
-            aids.inline_html("<b> **bold** `a*b*` [time out](#time-out)", link),
+            aids.inline_html("<b> **bold** `a*b*` [time out](#13-time-out) (13)", link),
             "&lt;b&gt; <strong>bold</strong> <code>a*b*</code> "
-            '<a href="#time-out">time out (13)</a>',
+            '<a href="#time-out">time out</a> (13)',
         )
 
 
