@@ -572,15 +572,19 @@ Fill the studio page:
      sentence from its Notion page ("A streamlined tabletop
      roleplaying system, providing a robust mechanics for action
      resolution with lots of flexibility for narrative driven
-     interactions."), one line naming the mechanic ("Every risky
-     action is a Resolution Roll on two twelve-sided dice, the
-     Fortune and Doom dice. The table is run by the Fool."), the
-     chip "IN DEVELOPMENT", the line "Playtest access on request:
-     politicsgames@gmail.com" as a mailto link, and under it the
-     gold link "Read the system on Notion" ->
-     https://propheticfools.notion.site/ (the author, on the
-     worksheet's PR, 2026-09-27, reversing the earlier "keep it
-     gated": the stage word stays, the link goes public). Its picture is one composed still, centred in the
+     interactions."), the author's paragraph on the mechanic ("A novel action
+     resolution based on two twelve-sided dice: a Fortune die and a
+     Doom die. Rolling with Hope makes it possible to beat challenges
+     you wouldn't otherwise be able to face but is overall less
+     successful. Rolling with Fear makes spectacular successes less
+     likely but also avoid catastrophic failures."), the
+     chip "IN DEVELOPMENT", and the gold link "Read more about the
+     system" -> https://propheticfools.notion.site/ at the card's
+     foot; the title "Prophetic Folly" links there too. No contact
+     line on the card: the footer's address is the studio's (the
+     author, on the worksheet's PR and the canvas, 2026-09-27,
+     reversing the earlier "keep it gated": the stage word stays,
+     the link goes public). Its picture is one composed still, centred in the
      card's picture panel: the two d12s rendered as solids -- bone
      Fortune showing 12 with engraved umber numerals, obsidian Doom
      showing 1 with painted bone numerals, each resting on a face
