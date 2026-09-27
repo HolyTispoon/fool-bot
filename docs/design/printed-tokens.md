@@ -66,3 +66,38 @@ the letters more room, but the silos would then need reprinting to match.
 The script needs `numpy scikit-image shapely trimesh manifold3d
 mapbox-earcut`. The bot does not, which is why they are not in
 `requirements.txt`.
+
+## Paper tokens: the kit's two sheets
+
+The print-and-play kit carries the same three tokens on paper
+(`d12ball/token_sheet.py`, CLI `scripts/render_token_sheet.py`), because
+a kit that sends a table off to find poker chips is not a kit (the
+author, 2026-09-27). Same pairings, same art -- the PNGs `render.py`
+loads, as they are, rays and all, since paper has no nozzle -- and the
+same 19 mm, so a paper token sits in a jumbotron silo like a printed one.
+
+- **Printed duplex, as the author asked** (2026-09-27): two letter sheets,
+  `front-sheet.png` with every token's front face and `back-sheet.png`
+  with its back, printed on the two sides of one piece of paper. A
+  duplex printer flips the paper about its long edge, so a back is at
+  its front's position mirrored about the page's centre line -- the
+  correction `player_cards.duplex_order` makes for the player cards, done
+  on positions here, so a short last row mirrors exactly too. A
+  fold-over pair (both faces joined on one edge, cut, folded and glued)
+  was the first draft and was replaced by this.
+- **Each face has a black margin, on both sides** (`BLEED_INCHES`, about
+  a millimetre, the art's outline grown in the colour of its own edge,
+  read off the art, since the triangle's black is a warm one). A home
+  duplex printer puts the back a little off the front; a millimetre is
+  a tenth of a 19 mm token, and without the margin that lands as white
+  paper at the cut. With it, the cut runs through black on both sides.
+- **The page is full, every kind is on it, and the triangles are the
+  most** (`TOKEN_COUNTS`; the author, 2026-09-27: the exact count does not
+  matter much, since a table that wants more prints the page again). Ten
+  rows of eight on letter: 48 exhaustion, 16 Exhausted/Injured and 16
+  Drained/Damaged -- all six faces. The white between two margins is 3 mm
+  (`GAP_INCHES`), which is what gets a row to eight. The sheets refuse
+  counts that do not fit rather than running off the page.
+- `TOKEN_FACES` holds the pairings for paper, front first;
+  `render_token_models.py`'s `TOKENS` holds them for the printer, with
+  the accent colours it traces. A change to a pairing is a change to both.

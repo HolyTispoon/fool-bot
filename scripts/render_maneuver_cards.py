@@ -67,7 +67,13 @@ def main() -> None:
             "choosing a maneuver."
         ),
     )
+    parser.add_argument(
+        "--sheets-only",
+        action="store_true",
+        help="Write only the print sheet, not a PNG per card. Implies --sheet.",
+    )
     args = parser.parse_args()
+    args.sheet = args.sheet or args.sheets_only
 
     catalog = load_maneuver_catalog()
     players = load_player_catalog()
@@ -84,16 +90,18 @@ def main() -> None:
             )
             slug = maneuver.name.lower().replace(" ", "-")
             side = "o" if is_offense else "d"
-            path = args.out / f"{side}{maneuver.rank}-{slug}.png"
-            card.save(path, dpi=(300, 300))
             cards.append(card)
-            print(f"wrote {path}")
+            if not args.sheets_only:
+                path = args.out / f"{side}{maneuver.rank}-{slug}.png"
+                card.save(path, dpi=(300, 300))
+                print(f"wrote {path}")
 
     back = render_maneuver_card_back(catalog, args.bleed)
-    back_path = args.out / "back.png"
-    back.save(back_path, dpi=(300, 300))
     cards.append(back)
-    print(f"wrote {back_path}")
+    if not args.sheets_only:
+        back_path = args.out / "back.png"
+        back.save(back_path, dpi=(300, 300))
+        print(f"wrote {back_path}")
 
     if args.sheet:
         # Padded to a full grid with spare backs: the six faces and one

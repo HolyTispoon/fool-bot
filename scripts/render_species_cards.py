@@ -47,16 +47,23 @@ def main() -> None:
         action="store_true",
         help="Also write print-sheet.png: every face in an even grid.",
     )
+    parser.add_argument(
+        "--sheets-only",
+        action="store_true",
+        help="Write only the print sheet, not a PNG per face. Implies --sheet.",
+    )
     args = parser.parse_args()
+    args.sheet = args.sheet or args.sheets_only
 
     abilities = load_species_abilities()
     args.out.mkdir(parents=True, exist_ok=True)
 
     faces = render_species_card_set(abilities, args.bleed)
-    for name, card in faces:
-        path = args.out / f"card-{name}.png"
-        card.save(path, dpi=(300, 300))
-        print(f"wrote {path}")
+    if not args.sheets_only:
+        for name, card in faces:
+            path = args.out / f"card-{name}.png"
+            card.save(path, dpi=(300, 300))
+            print(f"wrote {path}")
 
     if args.sheet:
         cards = [card for _, card in faces]

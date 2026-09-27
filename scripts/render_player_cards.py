@@ -78,7 +78,13 @@ def main() -> None:
         action="store_true",
         help="Skip the advanced backs and print one-sided.",
     )
+    parser.add_argument(
+        "--sheets-only",
+        action="store_true",
+        help="Write only the print sheets, not a PNG per card. Implies --sheet.",
+    )
     args = parser.parse_args()
+    args.sheet = args.sheet or args.sheets_only
 
     catalog = load_player_catalog()
     teams = (
@@ -99,20 +105,22 @@ def main() -> None:
             stem = f"{team.value}-{index}-{slug}"
 
             card = render_player_card(catalog, player, team, args.bleed)
-            path = args.out / f"{stem}.png"
-            card.save(path, dpi=(300, 300))
             fronts.append(card)
-            print(f"wrote {path}")
+            if not args.sheets_only:
+                path = args.out / f"{stem}.png"
+                card.save(path, dpi=(300, 300))
+                print(f"wrote {path}")
 
             if args.fronts_only:
                 continue
             back = render_player_card_back(
                 catalog, player, team, args.bleed
             )
-            back_path = args.out / f"{stem}-advanced.png"
-            back.save(back_path, dpi=(300, 300))
             backs.append(back)
-            print(f"wrote {back_path}")
+            if not args.sheets_only:
+                back_path = args.out / f"{stem}-advanced.png"
+                back.save(back_path, dpi=(300, 300))
+                print(f"wrote {back_path}")
 
         if args.sheet:
             sheet_path = args.out / f"{team.value}-sheet.png"

@@ -853,8 +853,8 @@ python3 scripts/render_species_icons.py --in-place
 ## The print-and-play kit
 
 `scripts/generate_print_and_play_kit.py` is the one command for
-everything above plus the boards -- every maneuver, player and species
-card, and the field, jumbotron and team boards, into a folder (or a zip)
+everything above plus the boards -- the maneuver, player and species
+card sheets, and the field, jumbotron and team boards, into a folder (or a zip)
 meant to leave the repo for a meetup, a playtest table or a con booth.
 
 ```bash
@@ -870,13 +870,33 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   exactly the way it reaches each script on its own, by re-running it;
   there is nothing in the kit script itself for a future rule to drift
   out of step with, because it has no rule of its own to hold.
-- **It also writes a README and a copy of the living rules**, so the
-  kit is self-contained for somebody who has left the repo behind --
-  what's in the box, what paper each component wants, and what a table
-  still has to bring that nothing here prints (a d12 a side, meeples,
-  exhaustion tokens), read off "The ball, the dice, and the tokens" in
-  the living rules rather than kept as a second list here that could
-  drift from it.
+- **It also writes a README and both rulebooks as PDFs**
+  (`build_rulebooks.py` into `rulebooks/`: the Charter and the Learn to
+  Play, the author, 2026-09-27 -- it used to copy `living-rules.md`, which
+  a table does not read), so the kit is self-contained for somebody who
+  has left the repo behind -- what's in the box, what paper each
+  component wants, and what a table still has to bring that nothing here
+  prints (a d12 a side, meeples).
+- **It is the print version of the game, as print sheets only** (the
+  author, 2026-09-27): each card set is its sheet -- two for a team,
+  its cards' standard sides and their advanced sides in duplex order,
+  so each printed card is standard on one face and advanced on the
+  other -- and never a PNG per card, and the player cards are all four
+  colour teams'. The printed game has no species-team cards; a colour
+  team's card carries its species on its advanced side. The kit's
+  README says so in those words.
+- **The reference cards share one sheet, and the tokens have their own**
+  (the author, 2026-09-27). `render_reference_cards.py` lays the three
+  species cards and the role card out together, each front beside its
+  back for cutting and gluing -- eight faces, two full rows, so nothing
+  is padded. `render_token_sheet.py` is the condition tokens as a front sheet and a
+  back sheet printed duplex ([printed-tokens.md](printed-tokens.md), "Paper tokens"). So the
+  kit prints everything a table needs but the meeples and the dice. The three card scripts take
+  `--sheets-only` for this, and the kit passes it and a `--team` per
+  colour team. A developer checking one card still runs the script on
+  its own and gets every card. The kit came to 128 MB before this and
+  35 MB after, which d12ball.com carries in three zips
+  ([landing-pages.md](landing-pages.md), "The downloads").
 - **`print-and-play/` is generated output and is gitignored**, like
   `cards/` and `print/` -- run the script again rather than trusting an
   old copy after the rules move.

@@ -7,10 +7,18 @@
 
 This is the thing to hand somebody before a meetup, a playtest table or
 a con booth: every printable component in one folder (or one zip),
-built fresh from whatever the bot itself plays. **It draws nothing on
-its own** -- it runs `render_maneuver_cards.py`, `render_player_cards.py`,
-`render_species_cards.py` and `render_boards.py`, the same four scripts
-a developer already reaches for to check one component at a time, and
+built fresh from whatever the bot itself plays. **It is the print
+version of the game, as print sheets only**: each card set is one
+sheet (two for a team: its cards' standard sides and their advanced
+sides, printed duplex), never a PNG per card, and the player cards are
+all four colour teams' -- the print game has no cards for the species
+teams; a colour team's card carries its species on its advanced side
+(the author, 2026-09-27). The species and role reference cards share
+one sheet, and the condition tokens have two sheets of their own, printed duplex. **It
+draws nothing on its own** -- it runs `render_maneuver_cards.py`,
+`render_player_cards.py`, `render_reference_cards.py`,
+`render_token_sheet.py`, `render_boards.py` and `build_rulebooks.py`, the same scripts a
+developer already reaches for to check one component at a time, and
 is only their sum into a folder meant to leave the repo. So a rules
 change, an import, or an art fix reaches the kit exactly the way it
 reaches each of those on its own -- by re-running this -- and there is
@@ -20,14 +28,9 @@ The kit is print-ready output and is gitignored, like `cards/` and
 `print/`; run this again whenever the game underneath it changes rather
 than keeping a stale copy around.
 
-**What is not in the box.** The kit prints every card and every board;
-it does not print meeples, dice or exhaustion tokens, none of which the
-bot draws as cut-out components (a player's own tokens sit on their
-card, not on a punch sheet -- see "The printed boards" in
-docs/design/printed-boards.md). `write_readme` below lists what a table
-still needs to bring, read straight off "The ball, the dice, and the
-tokens" in docs/living-rules.md so the list cannot drift from what that
-section says either.
+**What is not in the box.** The kit prints every card, every board and
+the tokens; it does not print meeples or dice. `write_readme` below
+lists what a table still needs to bring.
 """
 import argparse
 import shutil
@@ -44,6 +47,15 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.boards import DEFAULT_PAPER, PAPERS  # noqa: E402
 from d12ball.components import load_player_catalog  # noqa: E402
+from d12ball.game import COLOR_TEAMS, team_display_name  # noqa: E402
+from d12ball.token_sheet import TOKEN_COUNTS  # noqa: E402
+
+# What the README calls each token, by its key in `TOKEN_COUNTS`.
+TOKEN_NAMES = {
+    "exhaust": "exhaustion",
+    "exhausted": "Exhausted / Injured",
+    "drained": "Drained / Damaged",
+}
 
 
 def run(script: str, script_args: list[str]) -> None:
@@ -63,18 +75,36 @@ rather than trusting an old copy.
 
 ## What's in the box
 
-- **maneuver-cards/** -- the twelve maneuver cards (six basic, six
-  gambits) and their one shared back, plus `print-sheet.png`
-  ({sheet_columns} to a row) for a home or copy-shop printer.
-- **player-cards/** -- all {team_count} teams' rosters, front (the
-  basic role) and back (the advanced version, species keyword and
-  all), {players_per_team} players a team, plus a `<team>-sheet.png`
-  and `<team>-advanced-sheet.png` for each. Print the front sheet and
-  the advanced sheet duplex and they land back to back correctly --
-  see `duplex_order` in `d12ball/player_cards.py`.
-- **species-cards/** -- the three double-sided species-ability
-  reference cards (every pairing of the four species appears on one
-  face), plus `print-sheet.png`.
+Every card set comes as print sheets, ready for a home or copy-shop
+printer, {sheet_columns} cards to a row.
+
+- **maneuver-cards/print-sheet.png** -- the twelve maneuver cards (six
+  basic, six gambits) and their shared back.
+- **player-cards/** -- all {team_count} colour teams ({team_names}),
+  {players_per_team} players a team, two print sheets a team. Every player
+  card is double-sided: one side is the **standard** card and the
+  other the **advanced** one, with the player's species on it.
+  `<team>-sheet.png` is the standard sides and
+  `<team>-advanced-sheet.png` the advanced sides. Print a team's two
+  sheets duplex (flip on the long edge) and every card comes out with
+  its standard side on one face and its advanced side on the other --
+  the advanced sheet's rows are laid out reversed so they land back to
+  back (`duplex_order` in `d12ball/player_cards.py`).
+- **reference-cards/print-sheet.png** -- the reference cards: the
+  three double-sided species-ability cards (every pairing of the four
+  species appears on one face) and the double-sided role-ability card
+  (the six basic roles). Each card's front is printed beside its back:
+  cut the two out together and glue them back to back.
+- **tokens/** -- the condition tokens, double-sided, on one piece of
+  letter paper: {token_counts}. `front-sheet.png` is every token's
+  front and `back-sheet.png` its back. Print the two duplex (flip on
+  the long edge) and cut the tokens out: each lands with its back
+  behind it -- the back sheet is laid out mirrored so they line up,
+  and each face has a thin black margin so a printer a little out of
+  line still cuts clean. The exhaustion token has its Cyborg drain on
+  the back, and each marker is a condition on one side and what it
+  turns into on a failed check on the other. Need more? Print the
+  pair of pages again.
 - **boards/** -- the field board at every size the ruleset defines
   (7 and 9 spaces), each also as a `-top` and `-bottom` half for a
   letter printer; the jumbotron board (clock, score, token supplies);
@@ -108,43 +138,46 @@ if a print shop wants the extra 1/8in margin to trim into.
 
 ## What to bring besides this kit
 
-Printed here: every card and every board. Not printed, because the
-rules never turn them into cut-out components:
+Printed here: every card, every board and the tokens. Not printed:
 
 - **A d12 a side** (a twelve-sided die) -- it is also the ball, and the
   face it shows is the ball's speed.
 - **Nine meeples or pawns a team**, in each team's own colour --
   `d12ball/render.py`'s `TEAM_COLORS` names the hex if you want to
   match a set to the board's own palette.
-- **A handful of small tokens** for exhaustion, per player -- these sit
-  on a player's own card, not on a punch sheet, so bring poker chips,
-  glass beads or coins rather than looking for them in this kit.
 
 ## Rules
 
-`living-rules.md` alongside this README is the whole ruleset, copied
-straight from `docs/living-rules.md` -- the same text the bot's own
-`/d12ball rules_*` commands serve, and the one thing to check a
-mechanic against.
+The two rulebooks, as PDFs on letter paper, are in **rulebooks/**:
+
+- **learn-to-play.pdf** -- *D12 Ball: Learn to Play*, the illustrated
+  guide to the training mode. Start here.
+- **charter.pdf** -- *The D12Ball Charter: Laws of the Game*, the whole
+  ruleset, numbered: the one thing to check a mechanic against. It is
+  built from the same text the bot's own `/d12ball rules_*` commands
+  serve.
 
 ## Rebuilding
 
     python3 scripts/generate_print_and_play_kit.py
 
 Add `--bleed` for a print shop, `--pdf` for a PDF of each board
-alongside its PNG, `--teams` for a team-coloured board and set of
-player-card sheets per team colour (on top of the generic ones above),
-and `--zip` to also bundle the whole kit into `<out>.zip` for handing
-to somebody who does not want a folder. See `--help` for the rest.
+alongside its PNG, `--teams` for a team board per team colour rather
+than one uncoloured one, and `--zip` to also bundle the whole kit into
+`<out>.zip` for handing to somebody who does not want a folder. See `--help` for the rest.
 """
 
 
-def write_readme(out_dir: Path, paper: str, team_count: int, players_per_team: int) -> None:
+def write_readme(out_dir: Path, paper: str, players_per_team: int) -> None:
     width, height = PAPERS[paper]
     readme = README_TEMPLATE.format(
         generated=date.today().isoformat(),
         sheet_columns=4,
-        team_count=team_count,
+        team_count=len(COLOR_TEAMS),
+        team_names=", ".join(team_display_name(team) for team in COLOR_TEAMS),
+        token_counts=", ".join(
+            f"{count} {TOKEN_NAMES[name]}" for name, count in TOKEN_COUNTS.items()
+        ),
         players_per_team=players_per_team,
         paper=paper,
         paper_size=f"{width:.2f} x {height:.2f}in",
@@ -169,8 +202,9 @@ def zip_kit(out_dir: Path) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Build the whole print-and-play kit -- every maneuver, "
-            "player and species card, and every board -- in one folder."
+            "Build the whole print-and-play kit -- the maneuver, player "
+            "and reference card sheets, the tokens and every board -- in "
+            "one folder."
         ),
     )
     parser.add_argument(
@@ -192,8 +226,8 @@ def main() -> None:
         "--teams",
         action="store_true",
         help=(
-            "Also render a team-coloured board and a per-team-coloured "
-            "player-card set, not just the generic ones."
+            "Render a team board per team colour instead of one "
+            "uncoloured board."
         ),
     )
     parser.add_argument(
@@ -221,16 +255,20 @@ def main() -> None:
 
     run(
         "render_maneuver_cards.py",
-        ["--out", str(args.out / "maneuver-cards"), "--sheet", *bleed_flag],
+        ["--out", str(args.out / "maneuver-cards"), "--sheets-only", *bleed_flag],
     )
 
-    player_args = ["--out", str(args.out / "player-cards"), "--sheet", *bleed_flag]
+    player_args = ["--out", str(args.out / "player-cards"), "--sheets-only", *bleed_flag]
+    for team in COLOR_TEAMS:
+        player_args += ["--team", team.value]
     run("render_player_cards.py", player_args)
 
     run(
-        "render_species_cards.py",
-        ["--out", str(args.out / "species-cards"), "--sheet", *bleed_flag],
+        "render_reference_cards.py",
+        ["--out", str(args.out / "reference-cards"), *bleed_flag],
     )
+
+    run("render_token_sheet.py", ["--out", str(args.out / "tokens")])
 
     board_args = [
         "--out", str(args.out / "boards"),
@@ -243,16 +281,13 @@ def main() -> None:
         board_args.append("--teams")
     run("render_boards.py", board_args)
 
-    shutil.copyfile(
-        PROJECT_ROOT / "docs" / "living-rules.md",
-        args.out / "living-rules.md",
-    )
-    print(f"wrote {args.out / 'living-rules.md'}")
+    # The two rulebooks as the PDFs a table reads, on letter paper
+    # whatever sheet the field board is on.
+    run("build_rulebooks.py", ["--out", str(args.out / "rulebooks")])
 
     catalog = load_player_catalog()
-    team_count = len(catalog.teams)
-    players_per_team = len(next(iter(catalog.teams.values())).players)
-    write_readme(args.out, args.paper, team_count, players_per_team)
+    players_per_team = len(catalog.teams[COLOR_TEAMS[0]].players)
+    write_readme(args.out, args.paper, players_per_team)
 
     if args.zip:
         zip_kit(args.out)
