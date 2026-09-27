@@ -35,7 +35,7 @@ from typing import Callable, Optional
 from PIL import Image, ImageDraw
 
 from . import render
-from .cards import FACE_COLOR, INK, PANEL_COLOR, render_maneuver_card
+from .cards import INK, PAPER, PAPER_PANEL, render_maneuver_card
 from .components import (
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
@@ -172,7 +172,7 @@ class Sketch:
         canvas = Image.new(
             "RGB",
             (width, title_band + ANNOTATION_BAND + board.height + notes_height),
-            FACE_COLOR,
+            PAPER,
         )
         draw = ImageDraw.Draw(canvas)
         if self.title:
@@ -216,7 +216,7 @@ def wrap(text: str, font, max_width: int) -> list[str]:
 
 def draw_title(draw: ImageDraw.ImageDraw, title: str, width: int) -> None:
     font = render.load_font(52, bold=True)
-    draw.rectangle((0, 0, width, TITLE_BAND), fill=PANEL_COLOR)
+    draw.rectangle((0, 0, width, TITLE_BAND), fill=PAPER_PANEL)
     draw.text((NOTE_MARGIN, 22), title, font=font, fill=INK)
 
 
@@ -484,7 +484,7 @@ def ball_at_rest_figures(catalog: PlayerCatalog) -> Image.Image:
         )
         panels.append(sketch.render(catalog))
     width = max(panel.width for panel in panels)
-    canvas = Image.new("RGB", (width, TITLE_BAND + sum(p.height for p in panels)), FACE_COLOR)
+    canvas = Image.new("RGB", (width, TITLE_BAND + sum(p.height for p in panels)), PAPER)
     draw_title(ImageDraw.Draw(canvas), "Figure 11 - Where the ball comes to rest", width)
     y = TITLE_BAND
     for panel in panels:
@@ -517,7 +517,7 @@ def hand_figure(tier: str = MANEUVER_TIER_BASIC) -> Image.Image:
     canvas = Image.new(
         "RGB",
         (columns * card_w + (columns + 1) * gap, 2 * card_h + 3 * gap),
-        FACE_COLOR,
+        PAPER,
     )
     for r, row in enumerate(rows):
         for c, face in enumerate(row):
@@ -537,7 +537,7 @@ def turn_figure() -> Image.Image:
     ]
     box_w, box_h, gap = 360, 220, 40
     width = len(steps) * box_w + (len(steps) + 1) * gap
-    canvas = Image.new("RGB", (width, TITLE_BAND + box_h + 3 * gap + 60), FACE_COLOR)
+    canvas = Image.new("RGB", (width, TITLE_BAND + box_h + 3 * gap + 60), PAPER)
     draw = ImageDraw.Draw(canvas)
     draw_title(draw, "Figure 4 - One turn, in order", width)
     font = render.load_font(28, bold=True)
@@ -574,7 +574,7 @@ def speed_figure() -> Image.Image:
     """The ball's twelve faces and what each is worth to a shot."""
     cell, gap = 100, 12
     width = 12 * cell + 13 * gap + 2 * NOTE_MARGIN + 220
-    canvas = Image.new("RGB", (width, TITLE_BAND + 2 * cell + 4 * gap + 130), FACE_COLOR)
+    canvas = Image.new("RGB", (width, TITLE_BAND + 2 * cell + 4 * gap + 130), PAPER)
     draw = ImageDraw.Draw(canvas)
     draw_title(draw, "Figure 13 - Ball speed and its modifier", width)
     label_font = render.load_font(30, bold=True)
@@ -590,7 +590,7 @@ def speed_figure() -> Image.Image:
         draw.text((left + (cell - draw.textlength(text, font=cell_font)) / 2, top + 24), text, font=cell_font, fill=INK)
         modifier = speed // 2
         y = top + cell + gap
-        draw.rounded_rectangle((left, y, left + cell, y + cell), radius=16, fill=PANEL_COLOR, outline=INK, width=4)
+        draw.rounded_rectangle((left, y, left + cell, y + cell), radius=16, fill=PAPER_PANEL, outline=INK, width=4)
         text = f"+{modifier}" if modifier else "0"
         draw.text((left + (cell - draw.textlength(text, font=cell_font)) / 2, y + 24), text, font=cell_font, fill=ACCENT)
     caption = ("The modifier is half the speed, rounded down. It is added to a score attempt, "
@@ -614,7 +614,7 @@ def species_figure() -> Image.Image:
     icon = 160
     row_h = icon + 50
     width = 1800
-    canvas = Image.new("RGB", (width, TITLE_BAND + len(entries) * row_h + 40), FACE_COLOR)
+    canvas = Image.new("RGB", (width, TITLE_BAND + len(entries) * row_h + 40), PAPER)
     draw = ImageDraw.Draw(canvas)
     draw_title(draw, "Figure 15 - The four species (standard and advanced mode)", width)
     name_font = render.load_font(38, bold=True)
@@ -638,7 +638,7 @@ def both_boards_figure(catalog: PlayerCatalog) -> Image.Image:
     panels = [field_image(standard_match(size), catalog) for size in (7, 9)]
     width = max(panel.width for panel in panels)
     gap = 30
-    canvas = Image.new("RGB", (width, sum(p.height for p in panels) + gap * (len(panels) - 1)), FACE_COLOR)
+    canvas = Image.new("RGB", (width, sum(p.height for p in panels) + gap * (len(panels) - 1)), PAPER)
     y = 0
     for panel in panels:
         canvas.paste(panel, ((width - panel.width) // 2, y))

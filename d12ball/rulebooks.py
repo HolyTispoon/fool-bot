@@ -58,7 +58,7 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 
-from .cards import FACE_COLOR, INK, PANEL_COLOR
+from .cards import INK, PAPER, PAPER_PANEL
 from .rules_doc import slugify_heading, split_heading_number
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -73,8 +73,8 @@ MARGIN = 0.85 * inch
 
 # The cards' palette, so the books and the components are one family.
 INK_COLOR = colors.HexColor(INK)
-FACE = colors.HexColor(FACE_COLOR)
-PANEL = colors.HexColor(PANEL_COLOR)
+FACE = colors.HexColor(PAPER)
+PANEL = colors.HexColor(PAPER_PANEL)
 RULE_COLOR = colors.HexColor("#c9c1b2")
 MUTED_HEX = "#5d6770"
 MUTED = colors.HexColor(MUTED_HEX)
@@ -763,11 +763,12 @@ COVER_PUBLISHER_SIZE = 0.029
 COVER_PUBLISHER_BASELINE = 0.915
 
 # The three faces a cover sets, which each drawing maps to its own
-# handle on the one bundled file: Racing Sans One, DejaVu, DejaVu Bold.
+# handle on the one bundled file: Racing Sans One, Roboto Slab, Roboto Slab
+# Bold.
 COVER_FACES = {
     "display": "RacingSansOne-Regular.ttf",
-    "text": "DejaVuSans.ttf",
-    "bold": "DejaVuSans-Bold.ttf",
+    "text": "RobotoSlab-Regular.ttf",
+    "bold": "RobotoSlab-Bold.ttf",
 }
 
 # How wide a run of text is in a face at a size, in the drawing's units.
@@ -849,7 +850,7 @@ def cover_layout(cover: Cover, width: float, height: float, measure: Measure) ->
     return CoverLayout(
         width=width,
         height=height,
-        ground=FACE_COLOR,
+        ground=PAPER,
         # The jumbotron's gold: a band and a rule, never text, which is
         # what box_art says it cannot carry on paper.
         gold=NIGHT_COVER.accent,
@@ -871,7 +872,7 @@ def draw_cover(canvas, cover: Cover, pagesize) -> None:
     from .box_art import d12_art
 
     width, height = pagesize
-    faces = {"display": "Display", "text": "DejaVu", "bold": "DejaVu-Bold"}
+    faces = {"display": "Display", "text": "RobotoSlab", "bold": "RobotoSlab-Bold"}
     layout = cover_layout(
         cover, width, height,
         lambda text, face, size: pdfmetrics.stringWidth(text, faces[face], size),
@@ -905,39 +906,39 @@ def register_fonts() -> None:
     global _fonts_registered
     if _fonts_registered:
         return
-    pdfmetrics.registerFont(TTFont("DejaVu", str(FONT_DIR / "DejaVuSans.ttf")))
-    pdfmetrics.registerFont(TTFont("DejaVu-Bold", str(FONT_DIR / "DejaVuSans-Bold.ttf")))
+    pdfmetrics.registerFont(TTFont("RobotoSlab", str(FONT_DIR / "RobotoSlab-Regular.ttf")))
+    pdfmetrics.registerFont(TTFont("RobotoSlab-Bold", str(FONT_DIR / "RobotoSlab-Bold.ttf")))
     pdfmetrics.registerFont(TTFont("Display", str(FONT_DIR / "RacingSansOne-Regular.ttf")))
-    # No oblique face is bundled, so italic falls back to the regular
-    # face; the words are still there. Bundling DejaVuSans-Oblique.ttf
-    # is the fix, and it is one file under the licence already here.
+    # No italic face is bundled, so italic falls back to the regular
+    # face; the words are still there. Roboto Slab has no italic of its
+    # own, so the fix would be a second family for emphasis.
     pdfmetrics.registerFontFamily(
-        "DejaVu", normal="DejaVu", bold="DejaVu-Bold", italic="DejaVu", boldItalic="DejaVu-Bold",
+        "RobotoSlab", normal="RobotoSlab", bold="RobotoSlab-Bold", italic="RobotoSlab", boldItalic="RobotoSlab-Bold",
     )
     _fonts_registered = True
 
 
 def styles() -> dict[str, ParagraphStyle]:
     body = ParagraphStyle(
-        "Body", fontName="DejaVu", fontSize=10, leading=14, textColor=INK_COLOR, spaceAfter=6,
+        "Body", fontName="RobotoSlab", fontSize=10, leading=14, textColor=INK_COLOR, spaceAfter=6,
     )
     return {
         "Title": ParagraphStyle("Title", fontName="Display", fontSize=34, leading=40, textColor=INK_COLOR, spaceAfter=10),
         "Subtitle": ParagraphStyle("Subtitle", parent=body, fontSize=12, leading=16, textColor=MUTED, spaceAfter=24),
         "Law": ParagraphStyle("Law", fontName="Display", fontSize=20, leading=24, textColor=INK_COLOR, spaceBefore=20, spaceAfter=8, keepWithNext=True),
-        "Section": ParagraphStyle("Section", fontName="DejaVu-Bold", fontSize=13, leading=17, textColor=INK_COLOR, spaceBefore=12, spaceAfter=5, keepWithNext=True),
-        "Sub": ParagraphStyle("Sub", fontName="DejaVu-Bold", fontSize=11, leading=15, textColor=INK_COLOR, spaceBefore=8, spaceAfter=4, keepWithNext=True),
+        "Section": ParagraphStyle("Section", fontName="RobotoSlab-Bold", fontSize=13, leading=17, textColor=INK_COLOR, spaceBefore=12, spaceAfter=5, keepWithNext=True),
+        "Sub": ParagraphStyle("Sub", fontName="RobotoSlab-Bold", fontSize=11, leading=15, textColor=INK_COLOR, spaceBefore=8, spaceAfter=4, keepWithNext=True),
         "Body": body,
         "Numbered": ParagraphStyle("Numbered", parent=body, leftIndent=40, firstLineIndent=-40),
         "Item": ParagraphStyle("Item", parent=body, spaceAfter=2),
         "Cell": ParagraphStyle("Cell", parent=body, fontSize=8.5, leading=11, spaceAfter=0),
-        "CellHead": ParagraphStyle("CellHead", parent=body, fontName="DejaVu-Bold", fontSize=8.5, leading=11, spaceAfter=0),
+        "CellHead": ParagraphStyle("CellHead", parent=body, fontName="RobotoSlab-Bold", fontSize=8.5, leading=11, spaceAfter=0),
         "Caption": ParagraphStyle("Caption", parent=body, fontSize=8.5, leading=11, textColor=MUTED, alignment=TA_CENTER, spaceBefore=3, spaceAfter=10),
         "Quote": ParagraphStyle("Quote", parent=body, leftIndent=18, textColor=MUTED, borderPadding=(2, 6, 2, 6)),
         "Note": ParagraphStyle("Note", parent=body, fontSize=9, leading=12.5, leftIndent=40, textColor=MUTED, spaceAfter=8),
-        "Code": ParagraphStyle("Code", fontName="DejaVu", fontSize=8, leading=10.5, textColor=INK_COLOR, backColor=PANEL, borderPadding=6, leftIndent=6, spaceBefore=4, spaceAfter=10),
+        "Code": ParagraphStyle("Code", fontName="RobotoSlab", fontSize=8, leading=10.5, textColor=INK_COLOR, backColor=PANEL, borderPadding=6, leftIndent=6, spaceBefore=4, spaceAfter=10),
         "TOCHeading": ParagraphStyle("TOCHeading", fontName="Display", fontSize=20, leading=24, textColor=INK_COLOR, spaceAfter=10),
-        "TOC1": ParagraphStyle("TOC1", parent=body, fontName="DejaVu-Bold", spaceBefore=4),
+        "TOC1": ParagraphStyle("TOC1", parent=body, fontName="RobotoSlab-Bold", spaceBefore=4),
         "TOC2": ParagraphStyle("TOC2", parent=body, leftIndent=16, spaceAfter=0),
         "Footer": ParagraphStyle("Footer", parent=body, fontSize=8, textColor=MUTED),
     }
@@ -964,7 +965,7 @@ class BookTemplate(BaseDocTemplate):
 
     def draw_footer(self, canvas, doc) -> None:
         canvas.saveState()
-        canvas.setFont("DejaVu", 8)
+        canvas.setFont("RobotoSlab", 8)
         canvas.setFillColor(MUTED)
         y = self.bottomMargin - 0.4 * inch
         canvas.drawString(self.leftMargin, y, self.book_title)
@@ -1125,7 +1126,7 @@ def list_flowable(
     else:
         kwargs = dict(bulletType="bullet", start="\u2022")
     return ListFlowable(
-        items, bulletFontName="DejaVu", bulletFontSize=9, leftIndent=18, spaceAfter=2, **kwargs,
+        items, bulletFontName="RobotoSlab", bulletFontSize=9, leftIndent=18, spaceAfter=2, **kwargs,
     )
 
 

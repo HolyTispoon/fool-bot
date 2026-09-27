@@ -30,8 +30,17 @@ The field board comes out three times, whole and as two halves. See below.
   bot's dark board is the wrong thing to hand a printer. The zone tints are the
   bot's three hues lightened, so a coach reads one board as the other.
   Everything is measured in inches, with the same 1/8in bleed the cards carry.
-  The boards keep `FACE_COLOR`'s cream where the cards went white: a board is
-  one sheet a game.
+- **The boards are printed on white** (the author, 2026-09-27). They kept the
+  cards' cream (`FACE_COLOR`) for a while after the cards went white, on the
+  argument that a board is one sheet a game; the author dropped it, since a
+  tinted ground is still a full sheet of ink for nothing and the box was already
+  white. The palette is `cards.PAPER` -- shared with the rulebooks and their
+  figures, which went white the same day -- and the panels went neutral with it
+  (`PAPER_PANEL`, the box art's own `#f1f3f5`), because the cards' warm beige
+  reads as a stain on white paper. `PAPER_EDGE` is a step darker than the
+  box's edge grey, at the old beige's weight: it also draws the dashed card
+  guides on the zone rows, and the box's grey vanished into the home zone's blue
+  tint.
 - **The jumbotron is a letter sheet of its own, landscape**, and the team
   board half a letter one: the field board is the only board still drawn on
   tabloid, because its spaces are the only thing on any of them that cannot
@@ -364,7 +373,7 @@ and each point is a fault the board it replaced actually had.
   It replaced two columns of names that said which maneuver was which rank
   and nothing about what beat what. It is pasted rather than redrawn because
   a second drawing of the cycle is a second thing to keep true when a rank
-  changes; its corners are cut to the card's own radius so the board's cream
+  changes; its corners are cut to the card's own radius so the board's ground
   shows around it rather than four white squares.
 - **The column is cut to the card, not the card fitted to a third of the
   row.** `reference` is the back at the height the row leaves it, capped at a

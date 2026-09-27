@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Draw the four species team emoji -- the ring beside a coach's name
-for Fire Demons, Cyborgs, Telekinetics and Oozes -- in two sets.
+"""Draw the team emoji -- the ring beside a coach's name -- for all
+eight teams: the four species in two sets, and the four colour teams'
+letters.
 
     python3 scripts/render_team_emoji.py                 # dry run
     python3 scripts/render_team_emoji.py --out /tmp/teams --sheet
@@ -23,9 +24,18 @@ art -- the same reason `render_role_emoji.py` is a dry run by default.
 tab, one file per name. Nothing in the bot reads these files, so a
 change here reaches Discord only when the new file is uploaded.
 
-The four color teams' emoji (a letter in a team-coloured ring) are
-untouched -- this script only ever writes the four species names. A
-species team's ring used to carry a letter picked to stay distinct
+**The four colour teams' emoji are a letter in the ring** (O, P, T,
+S), and only the letter is this script's: the ring and the face are the
+shipped files' own pixels, kept as they are and read back in, because
+`render_ring` reproduces them only to within a pixel at their edges and
+a redrawn ring would be a slightly different badge beside the other
+seven. The face inside `COLOUR_ERASE_RADIUS` is painted white and the
+letter drawn onto it, so a rerun replaces the letter rather than
+stacking a second one. The letters were DejaVu Bold until 2026-09-27;
+they are Roboto Slab Bold now, at the old letters' own measurements --
+a 97px cap height on the 256px canvas, centred on the face.
+
+A species team's ring used to carry a letter picked to stay distinct
 from all eight teams' initials (F/C/K/Z); it now carries that species'
 own silhouette, the same shape `render_species_icons.py` draws and the
 player and species cards already carry, so a coach reads one icon for
@@ -51,7 +61,7 @@ from d12ball.render import (  # noqa: E402
 )
 
 EMOJI_DIR = PROJECT_ROOT / "d12ball" / "images" / "emoji"
-FONT_PATH = PROJECT_ROOT / "d12ball" / "fonts" / "DejaVuSans-Bold.ttf"
+FONT_PATH = PROJECT_ROOT / "d12ball" / "fonts" / "RobotoSlab-Bold.ttf"
 
 # Which species silhouette (see `d12ball/images/species/`) goes in
 # which team's ring. The four color teams' rings are left alone.
@@ -77,6 +87,24 @@ EDGE_WIDTH = 20 / 256
 SUPERSAMPLE = 4
 
 FACE_COLOR = (255, 255, 255, 255)
+
+# --- the colour teams ------------------------------------------------
+COLOUR_LETTERS = {
+    Team.ORANGE: "O",
+    Team.PURPLE: "P",
+    Team.TEAL: "T",
+    Team.SLIME: "S",
+}
+# The face is flat white well past the letter: the letters reach about
+# 72px from the centre and the ring starts at 96, so painting inside 86
+# takes any letter out and leaves the ring's own antialiased edge alone.
+COLOUR_ERASE_RADIUS = 86
+# The old letters' own measurements, off the shipped files: a flat-topped
+# capital (T, P) stood 97px tall, and every letter's cap box was centred
+# at y 127 -- so O and S, which overshoot, share the others' baseline --
+# with each letter centred across by its own ink.
+COLOUR_CAP_HEIGHT = 97
+COLOUR_CENTRE = (128, 127)
 
 # --- the plain set ---------------------------------------------------
 # The icon fills this much of the face circle's own diameter. A
@@ -286,8 +314,63 @@ def lettered_emoji(team: Team) -> Image.Image:
     return centre_on_face(ring, badge.crop(badge.getbbox()), BADGE_FACE_FRAC)
 
 
+def cap_height_font(cap_height: float) -> ImageFont.FreeTypeFont:
+    """The face at the size whose flat-topped capital is `cap_height` tall."""
+    size = round(cap_height)
+    for _ in range(40):
+        font = ImageFont.truetype(str(FONT_PATH), size)
+        mask = font.getmask("H")
+        measured = mask.getbbox()
+        height = measured[3] - measured[1] if measured else 0
+        if abs(height - cap_height) <= 0.5:
+            break
+        size = max(1, round(size * cap_height / max(1, height)))
+    return font
+
+
+def colour_emoji(team: Team, shipped: Path) -> Image.Image:
+    """A colour team's letter, redrawn onto the shipped ring."""
+    ring = Image.open(shipped).convert("RGBA")
+    big = CANVAS * SUPERSAMPLE
+    pen = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    font = cap_height_font(COLOUR_CAP_HEIGHT * SUPERSAMPLE)
+    letter = COLOUR_LETTERS[team]
+    # The cap box comes from H, so every letter sits on one baseline;
+    # the horizontal centre is the letter's own ink.
+    cap_top, cap_bottom = pen.textbbox((0, 0), "H", font=font)[1::2]
+    left, _, right, _ = pen.textbbox((0, 0), letter, font=font)
+    cx, cy = (c * SUPERSAMPLE for c in COLOUR_CENTRE)
+    layer = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    ImageDraw.Draw(layer).text(
+        (cx - (left + right) / 2, cy - (cap_top + cap_bottom) / 2),
+        letter,
+        font=font,
+        fill=TEAM_COLORS[team],
+    )
+    letter_only = layer.resize((CANVAS, CANVAS), Image.LANCZOS)
+
+    # Only the erased disc is taken from the redraw; every pixel outside
+    # it is the shipped file's own.
+    erased = ring.copy()
+    ImageDraw.Draw(erased).ellipse(
+        (
+            CANVAS / 2 - COLOUR_ERASE_RADIUS,
+            CANVAS / 2 - COLOUR_ERASE_RADIUS,
+            CANVAS / 2 + COLOUR_ERASE_RADIUS,
+            CANVAS / 2 + COLOUR_ERASE_RADIUS,
+        ),
+        fill=FACE_COLOR,
+    )
+    erased.alpha_composite(letter_only)
+    return erased
+
+
 def render_all() -> dict[str, Image.Image]:
     emoji = {}
+    for team in COLOUR_LETTERS:
+        emoji[f"team_{team.value}"] = colour_emoji(
+            team, EMOJI_DIR / f"team_{team.value}.png"
+        )
     for team in SPECIES_BY_TEAM:
         emoji[f"team_{team.value}"] = plain_emoji(team)
     for team in SPECIES_BY_TEAM:
@@ -363,9 +446,9 @@ def main() -> int:
         print("\nDry run. Pass --in-place to overwrite, or --out to look first.")
     elif args.in_place:
         print(
-            "\nWritten. Upload all eight to the Developer Portal's Emojis "
-            "tab under these names; the bot reads the four plain ones, "
-            "through TEAM_EMOJI_NAMES."
+            "\nWritten. Upload all twelve to the Developer Portal's Emojis "
+            "tab under these names; the bot reads the eight without "
+            "_letter, through TEAM_EMOJI_NAMES."
         )
     return 0
 

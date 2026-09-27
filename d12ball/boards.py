@@ -53,12 +53,12 @@ from typing import Optional, Sequence
 from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.cards import (
-    FACE_COLOR,
     INK,
     MUTED,
     OFFENSE_COLOR,
-    PANEL_COLOR,
-    PANEL_EDGE,
+    PAPER,
+    PAPER_EDGE,
+    PAPER_PANEL,
     render_maneuver_card_back,
 )
 # The radius a card's own corners are drawn with -- `CORNER` reads as
@@ -333,7 +333,7 @@ class Sheet:
         self,
         width: int,
         height: int,
-        background: str = FACE_COLOR,
+        background: str = PAPER,
     ) -> None:
         self.width = width
         self.height = height
@@ -485,7 +485,7 @@ class Sheet:
         )
 
 
-def add_bleed(image: Image.Image, background: str = FACE_COLOR) -> Image.Image:
+def add_bleed(image: Image.Image, background: str = PAPER) -> Image.Image:
     bleed = round(BLEED_INCHES * PRINT_DPI)
     sheet = Image.new(
         "RGB",
@@ -838,8 +838,8 @@ def draw_attack_directions(
             (visitors[1], bottom),
             (visitors[0] + head, bottom),
         ],
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
+        fill=PAPER_PANEL,
+        outline=PAPER_EDGE,
         width=sheet.u(1.6),
     )
     sheet.text(
@@ -859,8 +859,8 @@ def draw_attack_directions(
             (home[0], bottom),
             (home[1] - head, bottom),
         ],
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
+        fill=PAPER_PANEL,
+        outline=PAPER_EDGE,
         width=sheet.u(1.6),
     )
     sheet.text(
@@ -969,7 +969,7 @@ def draw_kickoff_marks(
         )
         sheet.polygon(
             polygon_points(center_x, center_y, radius, 12),
-            fill=FACE_COLOR,
+            fill=PAPER,
             outline=INK,
             width=sheet.u(2),
         )
@@ -1033,7 +1033,7 @@ def draw_field_end_zone_frame(
     """The end zone's own outline, drawn before the "GOAL" lettering."""
     sheet.rect(
         (round(left), round(top), round(right), round(bottom)),
-        fill=PANEL_COLOR,
+        fill=PAPER_PANEL,
         outline=INK,
         width=sheet.u(2.5),
     )
@@ -1152,7 +1152,7 @@ def draw_field_end_zone(
                 font=font,
                 fill=INK,
                 stroke_width=stroke_width,
-                stroke_fill=FACE_COLOR,
+                stroke_fill=PAPER,
             )
         x += width
         if index < len(word) - 1:
@@ -1181,7 +1181,7 @@ def draw_field_end_zone(
     ball_center = ball_span / 2
     ball_draw.polygon(
         polygon_points(ball_center, ball_center, ball_radius, 12),
-        fill=FACE_COLOR,
+        fill=PAPER,
         outline=INK,
         width=max(1, round(sheet.u(1.5))),
     )
@@ -1267,7 +1267,7 @@ def draw_zone_assignment_cell(
     """
     width = max(1, round(right - left))
     height = max(1, round(bottom - top))
-    cell = Image.new("RGB", (width, height), FACE_COLOR)
+    cell = Image.new("RGB", (width, height), PAPER)
     draw = ImageDraw.Draw(cell)
 
     label = zone_labels(board_size)[zone]
@@ -1307,7 +1307,7 @@ def draw_zone_assignment_cell(
         x = width * slot / slots
         draw_dashed_line(
             draw, x, label_height + sheet.u(6), x, height - sheet.u(6),
-            fill=PANEL_EDGE, width=max(1, round(sheet.u(1.4))),
+            fill=PAPER_EDGE, width=max(1, round(sheet.u(1.4))),
             dash_length=round(sheet.u(8)), gap_length=round(sheet.u(6)),
         )
 
@@ -1391,8 +1391,8 @@ def draw_shooting_ranges(
         sheet.rect(
             (left, top, right, bottom),
             radius=sheet.u(6),
-            fill=PANEL_COLOR,
-            outline=PANEL_EDGE,
+            fill=PAPER_PANEL,
+            outline=PAPER_EDGE,
             width=sheet.u(1.6),
         )
         label = labels[side]
@@ -1828,8 +1828,8 @@ def draw_clock_track_frame(sheet: Sheet, track: ClockTrackGeometry) -> None:
             track.bottom,
         ),
         radius=sheet.u(10),
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
+        fill=PAPER_PANEL,
+        outline=PAPER_EDGE,
         width=sheet.u(2),
     )
     # Centred in the strip the panel keeps for its title, not hung off
@@ -1884,8 +1884,8 @@ def draw_clock_cells(sheet: Sheet, track: ClockTrackGeometry) -> None:
                 cell_top + track.cell_height - sheet.u(4),
             ),
             radius=sheet.u(8),
-            fill=FACE_COLOR,
-            outline=OFFENSE_COLOR if last else PANEL_EDGE,
+            fill=PAPER,
+            outline=OFFENSE_COLOR if last else PAPER_EDGE,
             width=sheet.u(3.5 if last else 1.6),
         )
         # A number sits in the middle of its own cell. Only the two
@@ -1944,8 +1944,8 @@ def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
             geometry.score_bottom,
         ),
         radius=sheet.u(10),
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
+        fill=PAPER_PANEL,
+        outline=PAPER_EDGE,
         width=sheet.u(2),
     )
     # Centred in the strip the panel keeps for its title, exactly as
@@ -1998,8 +1998,8 @@ def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
                     row_top + row_height - sheet.u(4),
                 ),
                 radius=sheet.u(6),
-                fill=FACE_COLOR,
-                outline=PANEL_EDGE,
+                fill=PAPER,
+                outline=PAPER_EDGE,
                 width=sheet.u(1.6),
             )
             sheet.text(
@@ -2044,8 +2044,8 @@ def draw_token_supplies(sheet: Sheet, geometry: JumbotronGeometry) -> None:
             geometry.supply_bottom,
         ),
         radius=sheet.u(10),
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
+        fill=PAPER_PANEL,
+        outline=PAPER_EDGE,
         width=sheet.u(2),
     )
     silos_left = geometry.supply_left + geometry.padding
@@ -2079,8 +2079,8 @@ def draw_token_supplies(sheet: Sheet, geometry: JumbotronGeometry) -> None:
         sheet.rect(
             (left, silos_top, left + silo_width, silos_top + silo_height),
             radius=sheet.u(8),
-            fill=FACE_COLOR,
-            outline=PANEL_EDGE,
+            fill=PAPER,
+            outline=PAPER_EDGE,
             width=sheet.u(1.6),
         )
         art = load_token_art(name)
@@ -2498,7 +2498,7 @@ def draw_cut_line(sheet: Sheet, y: float) -> None:
         round(y),
         sheet.width,
         round(y),
-        fill=PANEL_EDGE,
+        fill=PAPER_EDGE,
         width=max(1, round(TEAM_CUT_INCHES * PRINT_DPI)),
         dash_length=round(0.10 * PRINT_DPI),
         gap_length=round(0.08 * PRINT_DPI),
@@ -2643,7 +2643,7 @@ def draw_card_area(
     sheet.rect(
         area,
         radius=0.08 * PRINT_DPI,
-        fill=PANEL_COLOR,
+        fill=PAPER_PANEL,
         outline=accent,
         width=max(1, round(0.012 * PRINT_DPI)),
     )
@@ -2653,7 +2653,7 @@ def draw_card_area(
     slot_top = (area[1] + area[3] - slot_height) / 2
     sheet.dashed_rect(
         (slot_left, slot_top, slot_left + slot_width, slot_top + slot_height),
-        outline=PANEL_EDGE,
+        outline=PAPER_EDGE,
         width=max(1, round(0.01 * PRINT_DPI)),
         dash=0.055 * PRINT_DPI,
     )
@@ -2683,7 +2683,7 @@ def draw_head_coach_panel(
 
     **No frame around it.** The card has its own, and the cell's would
     be a second border a tenth of an inch outside the first -- the
-    corners are cut instead, so the board's own cream shows around it
+    corners are cut instead, so the board's own ground shows around it
     the way it does around a real card lying on the board rather than
     leaving four white squares.
     """
@@ -2854,7 +2854,7 @@ def draw_die_badge(
     radius = TEAM_DIE_INCHES * PRINT_DPI
     sheet.polygon(
         polygon_points(center[0], center[1], radius, die.sides),
-        fill=FACE_COLOR,
+        fill=PAPER,
         outline=accent,
         width=max(1, round(0.012 * PRINT_DPI)),
     )

@@ -25,7 +25,9 @@ names for the same two conditions ("Lithium Powered" in the living rules).
 The triangle is traced from `exhaust.png` itself, and the teal side from
 `recolor_exhaust_token.recolor` of it. The words are traced from
 `render_condition_tokens.render_token`. So a token on the table, a
-silo on the jumbotron and an icon in Discord are one picture. A
+silo on the jumbotron and an icon in Discord are one picture -- which is
+also why the words and the Zs went to Roboto Slab (2026-09-27) by
+redrawing that art, and reach the 3MFs when this script is rerun. A
 pixel counts as accent when it is past halfway from the ink to the accent
 colour, which is the reading the recolour script uses.
 

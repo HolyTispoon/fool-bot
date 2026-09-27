@@ -241,9 +241,11 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   which is a page of ink per sheet of nine and the first thing a home printer
   runs out of. The face and the back are now `CARD_FACE` white, the maneuver's
   colour is a `EDGE_WIDTH` outline, and `BACK_COLOR` is white with a grey
-  edge. **`FACE_COLOR` is still the boards' cream** and is deliberately not
-  the cards': a board is one sheet a game, where cards are printed by the
-  page.
+  edge. **`FACE_COLOR` is still cream**, for the hand image alone, and is
+  deliberately not the cards'. The printed boards, the rulebooks and their
+  figures used to share it and went white on 2026-09-27: they are `PAPER`,
+  with `PAPER_PANEL` and `PAPER_EDGE`, beside it in `cards.py`; see
+  printed-boards.md.
 - **The rounded outline is the cut line.** With the face and the sheet both
   white there is nothing else to say where a card ends, which is why the
   corner radius is drawn rather than implied and why `FRAME` is small enough
@@ -434,6 +436,25 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     background that hides this. The printed card is white, which is why the
     fault survived the cards being looked at, and the dark matchup image is
     what showed how much of it was still there.
+- **The ball in a portrait is a d12, with real numbers on it** (the author,
+  2026-09-27). Eighteen of the paintings showed a round ball and Kindlefinger's
+  die carried glyphs; the game is played with a d12. The balls were replaced by
+  the box art's own die (`box_art.d12_art`'s solid) wearing each painted
+  ball's surface, so an ooze die keeps its veins and a telekinetic one its
+  dimples. Every face turned to the viewer carries a number drawn in its own
+  plane, and the numbering is a real d12's: opposite faces sum to 13, so no
+  visible pair does, and 6 and 9 carry a dot. What stood in front of a ball
+  -- a hand, a toe, flames -- was put back over the die from the painting.
+  Kindlefinger kept its painted die and had its glyphs painted out and
+  numbered. **Synapse still shows its round ball**: its draft was not taken.
+  Putting any of these back to its painting is
+  [docs/portrait-d12-revert.md](../portrait-d12-revert.md), portrait by
+  portrait.
+  - **A light grey on a die is tinted, never left colourless.** A silver
+    highlight or a pale numeral is exactly what the recut takes for studio
+    background, so the replaced pixels near each die carry a few units of the
+    team's colour and stay under the level the cut feathers at -- the check in
+    `D12BallPortraitRecutTests` is what caught them.
 - **`Pen.paste` resizes straight to the supersampled canvas.** The
   supersampling is there because Pillow does not antialias the shapes the cards
   are drawn out of; a photograph put through it would be resampled twice for

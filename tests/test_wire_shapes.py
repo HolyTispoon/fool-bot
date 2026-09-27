@@ -202,10 +202,10 @@ class DetailWireTests(unittest.TestCase):
             MindPullRoll("p1", 8, True, None).to_dict()["target_label"],
         )
         self.assertEqual(
-            MindPullRoll("p1", 8, True, None, minimum=8).to_dict()[
+            MindPullRoll("p1", 9, True, None, minimum=9).to_dict()[
                 "target_label"
             ],
-            "pulls on 8+",
+            "pulls on 9+",
         )
 
 

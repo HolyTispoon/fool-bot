@@ -161,9 +161,12 @@ anywhere in the code.
   letter here and a shape everywhere else. The ring's own geometry
   (the margin, the edge width, the face) is measured off the four
   color teams' shipped PNGs rather than invented, so a species emoji
-  sits in an identical ring to `team_orange.png`; the four color teams'
-  own letters are untouched, and the script only ever writes the four
-  species names. `TEAM_EMOJI_FALLBACKS` gives each species team a
+  sits in an identical ring to `team_orange.png`. The four color teams'
+  own letters (O, P, T, S) were DejaVu Bold from the first upload and went
+  to Roboto Slab on 2026-09-27; for those four the script keeps the shipped
+  ring's own pixels, paints the face white inside `COLOUR_ERASE_RADIUS` and
+  redraws only the letter, at the old letters' measurements, so a rerun is
+  idempotent and the ring is the one that shipped. `TEAM_EMOJI_FALLBACKS` gives each species team a
   themed unicode emoji (🔥🤖🔮🫧) distinct from the four plain colored
   circles, so the bot reads correctly before a PNG is uploaded --
   which, like the original four, is a manual Developer Portal step

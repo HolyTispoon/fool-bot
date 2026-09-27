@@ -24,13 +24,14 @@ checked against this module by hand. A box that claims a rule the game does not 
 the failure this is built to make impossible, and it is the same rule
 the printed boards are held to.
 
-**What is deliberately not on the box**: a playing time and an age
-rating. Both are retail claims and nothing in this repository measures
-either -- the "thirty minutes" the game is played over is fifteen
-space minutes a half on the game clock, which is not a wall clock and
-must not be printed as one. `RetailClaims` is where they go once
-somebody has sat at a table with a stopwatch; until then the chips are
-left off rather than guessed at.
+**What the box says that the game cannot answer**: a playing time and
+an age rating. Both are retail claims and nothing in this repository
+measures either -- the "thirty minutes" the game is played over is
+fifteen space minutes a half on the game clock, which is not a wall
+clock and must not be printed as one. So they are the author's, in
+one dated constant, `DEFAULT_CLAIMS`, printed since 2026-09-23 because
+somebody who has run the table said so; `RetailClaims()` carries
+nothing and prints nothing.
 """
 from __future__ import annotations
 
@@ -57,6 +58,8 @@ from d12ball.cards import (
     CARD_WIDTH,
     INK,
     MUTED,
+    PAPER,
+    PAPER_PANEL,
     render_maneuver_card,
 )
 from d12ball.player_cards import render_player_card
@@ -99,18 +102,24 @@ LEARN_TO_PLAY_PATH = PROJECT_ROOT / "docs" / "learn-to-play.md"
 PUBLISHER = "Prophetic Fools Games"
 TITLE = "D12 Ball"
 
+# The two addresses printed here are the game's own site's, never the
+# page or the form behind them: the site forwards each (landing/build.py,
+# `REDIRECTS`), so what is behind one can move without anything being
+# reprinted (docs/design/landing-pages.md, "Redirects").
+#
+# The game's own page, which is what a sale sheet sends somebody to.
+# A second address rather than the survey's: one asks how a game went,
+# the other says what the game is.
+PAGE_URL = "https://d12ball.com"
 # The survey the playtest card sends a table to. A constant rather
 # than a literal in the drawing code because it is the one thing on
 # the card that will be replaced without the card being redesigned,
 # and `scripts/render_box_art.py --survey-url` overrides it.
-# The game's own page, which is what a sale sheet sends somebody to.
-# A second address rather than the survey's: one asks how a game went,
-# the other says what the game is.
-PAGE_URL = (
-    "https://propheticfools.notion.site/"
-    "D12-Ball-6c9e1ea7ca61825391e881ec5fbfdca5?pvs=74"
-)
-SURVEY_URL = (
+SURVEY_URL = "https://d12ball.com/feedback"
+# The form behind `SURVEY_URL`, which the site forwards the printed
+# address to. Never printed: it is the author's Notion form, whose
+# address is not one anybody chose.
+SURVEY_FORM_URL = (
     "https://app.notion.com/p/3a5e1ea7ca618006b187cd98ebf0c9ff"
     "?v=3a5e1ea7ca6180478080000c31b041d0&source=copy_link"
 )
@@ -126,14 +135,12 @@ SURVEY_URL = (
 # gives for a board being dark ink on a light face. What carries the
 # game's look instead is the art, the team colours and the type.
 #
-# The ground is **white**, not the cards' and boards' cream: a page is
-# a page. `FACE_COLOR` is still what a component is printed on, and is
-# deliberately not used here.
-PAPER = "#ffffff"
+# The ground is **white** -- `cards.PAPER`, what every printed thing
+# is drawn on now: a page is a page.
 # A panel on the page -- the glance table, the answer box. Neutral
 # rather than the cards' warm `PANEL_COLOR`, for the same reason the
 # ground is white.
-PANEL = "#f1f3f5"
+PANEL = PAPER_PANEL
 PANEL_EDGE_INK = "#c9d1d9"
 # The ink and the grey are the cards' own, so a panel and a card read
 # as one family.
@@ -330,12 +337,11 @@ class BoxFacts:
 
 # ------------------------------------------------- what the books say
 
-# A box may not word a rule for itself. Every line below is quoted
-# from one of the two books, and has to be re-checked against them
-# when either changes -- which is the same guarantee the printed
+# A box may not word a rule for itself: a line that states one is
+# quoted from one of the two books, and has to be re-checked against
+# them when either changes -- which is the same guarantee the printed
 # boards get from reading their layouts out of `basic_rules.json`,
-# applied to sentences instead of numbers.
-CHARTER_LINE = "The Charter settles every question."
+# applied to sentences instead of numbers. The lines below state none.
 
 # The line under the title, and the one piece of copy on any of these
 # panels that is not quoted from the books: it is the author's own
@@ -344,6 +350,22 @@ CHARTER_LINE = "The Charter settles every question."
 STRAPLINE = (
     "A fast playing fantasy sports game of some strategy, a lot of "
     "tactics, a little luck and a bucket of d12s"
+)
+
+# The stage the game is at, in the author's word (2026-09-27). Not a
+# fact the code can answer, so it is one constant with a date on it,
+# as `DEFAULT_CLAIMS` is. The playtest card and both landing pages say
+# it.
+STAGE = "in playtesting"
+
+# The playtest card's words, the author's (2026-09-27), and the only
+# ones on its back besides the address and the publisher. The headline
+# is d12ball.com's playtest panel's too, and this is its one copy; the
+# line under it is the card's own, since it points at the code.
+PLAYTEST_HEADLINE = "You liked it? Great! Didn't like it? Tell us why!"
+PLAYTEST_CARD_INTRO = (
+    f"{TITLE} is {STAGE} and we'd love to hear your thoughts. "
+    "Scan the QR code below to give us your feedback."
 )
 
 def plain(markdown: str) -> str:
@@ -591,8 +613,10 @@ class DieMaterial:
     What the ball is made of.
 
     It was white, which is what a d12 is in a dice shop and nothing
-    this game's art has ever contained: the balls in the players' own
-    portraits are dark, dimpled, organic things. So the die is drawn
+    this game's art has ever contained: the balls the players were
+    painted with are dark, dimpled, organic things, and the dice that
+    replaced them in the portraits wear the same surfaces (cards.md,
+    "The ball in a portrait is a d12"). So the die is drawn
     as a piece of hard dark rubber -- a lit face, a shadowed one, a
     grain over both, worn seams where the faces meet, and bone
     numerals cut into it.
@@ -2007,6 +2031,8 @@ def fan_cards(
 # A postcard, landscape, because the picture on its front is the
 # board and the board is wider than it is tall.
 PLAYTEST_CARD_INCHES = (6.0, 4.0)
+# The survey code's printed side, which the CLI reports the module size of.
+PLAYTEST_QR_INCHES = 1.4
 # The smallest module a printed QR may be drawn at. 0.4mm is the
 # floor a phone camera reads reliably off an office printer at arm's
 # length; the card's own code comes out well above it, and a longer
@@ -2181,7 +2207,14 @@ def render_playtest_card_back(
     bleed: bool = False,
 ) -> Image.Image:
     """
-    The back: the survey, as a code and as the address under it.
+    The back: the survey, as a code and as the address under it, beside
+    the box.
+
+    **Its words are the author's and nothing else** (2026-09-27):
+    `PLAYTEST_HEADLINE`, the landing page's too, and
+    `PLAYTEST_CARD_INTRO`, which sends the reader to the code below it.
+    The picture is the printed box cover, so the card a table takes home
+    looks like the box it came out of.
 
     The address is printed as well as encoded because a code is one
     smudge away from being nothing, and a card whose only route to the
@@ -2195,15 +2228,43 @@ def render_playtest_card_back(
     left = panel.x(margin)
     right = panel.x(width - margin)
 
-    qr_size = 1.8
-    qr_left = right - inches(qr_size)
-    qr_top = panel.y(0.75)
+    headline = fitted_display(sheet, PLAYTEST_HEADLINE, right - left, 0.36)
+    sheet.text(
+        (left, panel.y(margin + 0.2)), PLAYTEST_HEADLINE, headline, PAPER_INK,
+        anchor="lm",
+    )
+
+    # The box, and to its right the words with the code below them,
+    # both standing on the same floor.
+    top = panel.y(0.92)
+    floor = panel.y(height - margin - 0.5)
+    cover = floor - top
+    draw_framed(
+        sheet,
+        render_box_cover(),
+        (left, top, left + cover, floor),
+        PANEL_EDGE_INK,
+        width=0.014,
+    )
+
+    column = left + cover + inches(0.3)
+    draw_wrapped(
+        sheet, column, top, right - column, PLAYTEST_CARD_INTRO, 0.13,
+        PAPER_INK,
+    )
+
+    # The code's frame, not the code, stands on the floor, centred under
+    # the words it is pointed at by.
+    qr_size = PLAYTEST_QR_INCHES
+    frame = inches(0.08)
+    qr_left = (column + right) / 2 - inches(qr_size) / 2
+    qr_top = floor - frame - inches(qr_size)
     sheet.rect(
         (
-            qr_left - inches(0.08),
-            qr_top - inches(0.08),
-            qr_left + inches(qr_size) + inches(0.08),
-            qr_top + inches(qr_size) + inches(0.08),
+            qr_left - frame,
+            qr_top - frame,
+            qr_left + inches(qr_size) + frame,
+            qr_top + inches(qr_size) + frame,
         ),
         radius=inches(0.06),
         fill="#ffffff",
@@ -2211,77 +2272,24 @@ def render_playtest_card_back(
         width=max(1, round(inches(0.014))),
     )
     draw_qr(sheet, survey_url, qr_left, qr_top, qr_size)
-    draw_fitted(
-        sheet,
-        (qr_left + inches(qr_size / 2), panel.y(0.58)),
-        "SCAN FOR THE SURVEY",
-        inches(qr_size),
-        0.145,
-        PAPER_INK,
-        bold=True,
-        anchor="ms",
-    )
 
-    words = qr_left - inches(0.4) - left
-    draw_fitted(
-        sheet, (left, panel.y(0.55)), "How did it play?", words, 0.34,
-        PAPER_INK, bold=True,
-    )
-    below = draw_wrapped(
-        sheet,
-        left,
-        panel.y(1.05),
-        words,
-        "You have just played a version of this game that will not "
-        "exist next month. Tell us what happened: what you had to "
-        "look up, what you argued about, and whether you would play "
-        "it again.",
-        0.135,
-        PAPER_INK,
-    )
-    below += inches(0.12)
-    for prompt in PLAYTEST_PROMPTS:
-        below = draw_bullet(
-            sheet, left, below, words, prompt, 0.12, PAPER_MUTED, ACCENT
-        )
-
-    # The address the code carries, small but printed: a code is one
-    # smudge away from nothing.
-    url_top = panel.y(height - margin - 0.62)
-    sheet.rect(
-        (left, url_top - inches(0.06), right, url_top - inches(0.05)),
-        fill=PANEL_EDGE_INK,
-    )
-    draw_hard_wrapped(
-        sheet, left, url_top + inches(0.06), right - left, survey_url, 0.095,
-        PAPER_MUTED,
-    )
+    # The address the code carries, small but printed, and the
+    # publisher, on one line under a rule.
+    rule = panel.y(height - margin - 0.24)
+    sheet.rect((left, rule, right, rule + 1), fill=PANEL_EDGE_INK)
+    foot = panel.y(height - margin + 0.02)
+    name_width = letterspaced_width(sheet, PUBLISHER.upper(), 0.115, 0.04)
     letterspaced(
-        sheet,
-        (right, panel.y(height - margin + 0.02)),
-        PUBLISHER.upper(),
-        0.115,
-        PAPER_INK,
-        0.04,
+        sheet, (right, foot), PUBLISHER.upper(), 0.115, PAPER_INK, 0.04,
         anchor="right",
     )
     draw_fitted(
         sheet,
-        (left, panel.y(height - margin + 0.02)),
-        CHARTER_LINE,
-        (right - left) * 0.6,
-        0.115,
+        (left, foot),
+        survey_url,
+        right - left - name_width - inches(0.3),
+        0.11,
         PAPER_MUTED,
         anchor="lm",
     )
     return sheet.image
-
-
-# What the survey is actually after, as three things a table can
-# answer from the game they just finished rather than in the
-# abstract.
-PLAYTEST_PROMPTS: tuple[str, ...] = (
-    "Which rule did you have to look up mid-turn?",
-    "What did the table argue about?",
-    "Standard or advanced -- and would you play the other one?",
-)
