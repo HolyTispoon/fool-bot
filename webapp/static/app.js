@@ -2793,7 +2793,10 @@ function drawTableBox(table) {
         "aria-label": "Flip the coin to start the game",
         onclick: () => roomMove("/table/flip_coin"),
       }, h("img", { src: coin.faces.fortune, alt: "", class: "coin big" })),
-      table.start.refusal ? h("span", { class: "quiet faint" }, table.start.refusal) : null));
+      // What the toss decides (the author, 2026-09-27); why the coin is
+      // dark is the ask above it, and the record's sentence its title.
+      h("span", { class: "quiet faint" },
+        "The winner of the coin toss chooses whether to play as the home or visiting team.")));
     return;
   }
 
