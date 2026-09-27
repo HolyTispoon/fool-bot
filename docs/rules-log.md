@@ -164,9 +164,10 @@ the two together at 2. **No change to play.**
 
 - **"Always" is every ending the card itself resolves**: onto a teammate (a shot off it is 2
   plus the shot's 1, so 3, as off a High Pass), onto nobody, and out of play.
-- **A beaten Setup Pass still costs the card that beat it**, 1 for a Deflect or a Clear, exactly
-  as a beaten High Pass does. The card that resolves is the one charged (2026-08-16); the loser
-  of the cards is not charged on top.
+- **A beaten Setup Pass costs the card that beat it**, 1 for a Deflect or a Clear, exactly as a
+  beaten High Pass does. The author: *"when setup pass is beat it doesn't happen and so it
+  doesn't cost 2 time in that case."* The card that resolves is the one charged (2026-08-16);
+  the loser of the cards is not charged on top.
 
 ### 2026-09-27 (final) -- sheet and author, Spectra pulls on 9 or more
 
