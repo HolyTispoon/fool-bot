@@ -35,7 +35,7 @@ This document is the final authority on the rules of D12 Ball. It states each ru
 
 ## How to read this document
 
-The Charter is divided into **Laws**, each Law into **sections**, and each section into **paragraphs**. In the printed edition every paragraph carries a number -- Law, section, paragraph, as in *6.4.2* -- and a paragraph that lists cases letters them, as in *6.4.2b*. A number in parentheses is a cross-reference to the paragraph or section it names. In this file the same references are links.
+The Charter is divided into **Laws**, each Law into **sections**, and each section into **paragraphs**. Every paragraph carries a number -- Law, section, paragraph, as in *6.4.2* -- and a paragraph that lists cases letters them, as in *6.4.2b*. This file and the printed edition carry the same numbers. A number in parentheses is a cross-reference to the paragraph or section it names, and in this file the words before it are also a link.
 
 **Precedence.** Where the Charter and any other statement of the rules disagree, the Charter is right: it wins over the Learn to Play, over the text printed on a card or a board, and over the bot. Where the Learn to Play simplifies, it says so and names the Law it simplifies.
 
