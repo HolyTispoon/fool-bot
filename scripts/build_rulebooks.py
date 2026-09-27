@@ -60,6 +60,19 @@ def renumber_charter() -> int:
     return 0
 
 
+def shown(path: Path) -> str:
+    """
+    A path as the report names it: relative to the repository when it is
+    inside it, absolute otherwise. `--out` may name a folder anywhere, and
+    `Path.relative_to` raises on one outside the repository.
+    """
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(resolved)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build the D12 Ball rulebooks as PDFs.")
     parser.add_argument(
@@ -106,7 +119,7 @@ def main() -> int:
             print(f"skipped {name}: none of {', '.join(str(p.relative_to(PROJECT_ROOT)) for p in book.sources)} exists yet")
             continue
         path = build_book(book, args.out / f"{name}.pdf", paper=args.paper)
-        print(f"wrote {path.relative_to(PROJECT_ROOT)} from {book.source.relative_to(PROJECT_ROOT)}")
+        print(f"wrote {shown(path)} from {shown(book.source)}")
         built += 1
     return 0 if built else 1
 
