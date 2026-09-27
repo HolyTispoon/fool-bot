@@ -32,6 +32,7 @@ from string import Template
 from PIL import Image, ImageFilter
 
 from d12ball.box_art import (
+    COVER_CAST,
     DEFAULT_CLAIMS,
     NIGHT_COVER,
     PAGE_URL,
@@ -52,7 +53,6 @@ from d12ball.box_art import (
 from d12ball.cards import render_maneuver_card
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
-    PlayerRole,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -196,17 +196,6 @@ PRINTED_ADDRESSES = (PAGE_URL, SURVEY_URL)
 # is the card the Resolution beat names ("a low pass beats pressure").
 TURN_CARDS = ("low_pass", "pressure", "high_pass")
 
-# Whose card stands for each species under "The teams": a different
-# role for each, so the four cards show four roles (the author,
-# 2026-09-27 -- Flickerwing, Synapse, Dravox and Goopkeeper as the
-# roster stood). Asked of the roster as the first player of that role in
-# roster order, never by id or name, so a roster revision moves it.
-SPECIES_FACE_ROLE: dict[Team, PlayerRole] = {
-    Team.FIRE_DEMONS: PlayerRole.WINGER,
-    Team.CYBORGS: PlayerRole.PLAYMAKER,
-    Team.TELEKINETICS: PlayerRole.DEFENDER,
-    Team.OOZES: PlayerRole.FULLBACK,
-}
 
 # The species in the order the page shows them, with the author's line
 # for each; the name and the colour are read from the team.
@@ -319,13 +308,24 @@ def number_word(count: int) -> str:
 
 
 def species_face(species: str):
-    """The player whose card stands for `species` (`SPECIES_FACE_ROLE`)."""
+    """
+    The player whose card stands for `species` under "The teams": the
+    one of the box cover's four (`box_art.COVER_CAST`) on that species'
+    team, so the page and the box show the same four and cannot drift.
+    The build refuses a cast with nobody of the species on it.
+    """
     team = SPECIES_TEAM[species]
-    role = SPECIES_FACE_ROLE[team]
-    return next(
+    cast = {name for name, _ in COVER_CAST.players}
+    found = [
         player for player in game()[0].teams[team].players
-        if player.role == role
-    )
+        if player.name in cast
+    ]
+    if len(found) != 1:
+        raise SystemExit(
+            f"the box cover's cast has {len(found)} players on the "
+            f"{team.value} roster; the page shows exactly one of each species"
+        )
+    return found[0]
 
 
 # --------------------------------------------------------- the pictures

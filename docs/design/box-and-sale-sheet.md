@@ -18,8 +18,9 @@ None of it has tests -- the print materials carry none (the author,
 
 | Panel | Size | What it is |
 | --- | --- | --- |
-| `box-cover.png` | 11.375in square | The lid: the title, four players, the ball, the facts |
+| `box-cover.png` | 11.375in square | The lid: the title, four players, the facts |
 | `box-cover-night.png` | 11.375in square | The same cover for a screen, not for the printer |
+| `box-cover-original.png` / `-night.png` | 11.375in square | The same two covers with the first cast on them |
 | `banner.png` / `banner-night.png` | 3000 x 1200px | The same art laid out wide, for a Notion page |
 | `screentop-banner.png` / `-night.png` | 1280 x 720px | The same again at the size a Screentop table asks for |
 | `box-side.png` | 11.375 x 2.75in | One wall -- and all four, since the box is square |
@@ -258,7 +259,8 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
   showing round the edge of the overlay. Covering it would mean a copy of
   that mark's own placement here, and the board is the thing being
   photographed, so the board's ball is the ball. The solid, `d12_art`, stays where it is the object rather than a piece on a
-  space: the covers, the banners and the sale sheet's header.
+  space: the box's side and the sale sheet's header. The covers and the
+  banners drew it too, until the cast changed -- see "The cover's four".
 - **Every face is inset into the solid and what shows between two of them is
   the bevel.** A cast piece has no sharp edges; drawing the creases as lines
   gave a die with a wireframe over it. The inset is the rounded edge seen
@@ -288,9 +290,18 @@ figure is sized against the height but capped by `BANNER_FIGURE_SHARE` of the
 width -- without that cap, four players scaled to a 16:9 panel's height fill
 it end to end and bury each other.
 
-**The ball is on the ground between the two nearest players**, not in the air
-over them: at head height it lands on somebody's face, and a ball on a field
-is where a ball is anyway.
+**The back rank stands further up the field** (`BANNER_BACK_LIFT`), and the
+four are smaller than on the cover. These four are wider than they are tall,
+and in the right half of a banner at the cover's sizes the outer figure on the
+right is clamped to the trim straight behind the inner one and is lost -- the
+first render of the new cast showed Synapse's tentacles and nothing else
+(Synapse was in Gearclaw's place then).
+Standing the back rank higher puts their heads over the front rank's
+shoulders, which is also what further away looks like on a strip this short.
+
+**No die is drawn on a banner.** It stood on the ground between the two
+nearest players; with the new cast it was a second ball beside the one
+Dravox's own art carries -- see "The cover's four".
 
 **A banner is not a cropped cover.** A cover's title sits over the players
 with a field of sky between them; crop that to a strip and what survives is
@@ -363,8 +374,55 @@ it.
 
 ## The cover's four
 
-`COVER_CAST` is four player names with a facing, and it is the only art
-direction written into the module. Everything else about them is read: the
+A `CoverCast` is four player names with a facing and the place each stands,
+and the casts are the only art direction written into the module. There are
+two (`COVER_CASTS`): **the website's four**, `WEBSITE_CAST`, which is
+`COVER_CAST` -- what `box-cover.png`, the banners and the landing pages get --
+and **the original four**, `ORIGINAL_CAST` (Voltus, Vorix, Inferno and
+Slitheron, across the panel where they were first drawn), which the CLI writes as
+`box-cover-original.png` and `-night.png` so the two can be set side by side
+(the author asked for all four, 2026-09-27). Neither carries the die. The
+banners are laid out for the website's four only (`BANNER_PLACES`), so they
+take no cast.
+
+The website's four are Goopkeeper, Flickerwing, Gearclaw and Dravox. They
+started as the players the author picked for the D12 Ball page's species
+cards, with Synapse where Gearclaw is; the author put Gearclaw on the box and
+then on the page (2026-09-27). **The page reads its four from this cast**
+(`species_face` in `landing/build.py`, [landing-pages.md](landing-pages.md)),
+so there is one list and the two cannot differ: change a player here and the
+page's card for that species changes with it. The build refuses a cast
+without exactly one player of each species.
+
+**There is no die in the middle of the cover** (the author, 2026-09-27). It
+floated over the four, in front of them, as the thing they were playing for;
+Dravox carries a ball in his own art -- a numbered d12 since the portraits'
+balls were redrawn as dice -- so a second one hung in the air beside it was a
+sticker on the picture rather than part of it.
+
+The layout follows what the art is. Goopkeeper stands in his own goal, so he
+is the back rank at the left edge, where the goal reads as the end of the
+field; Flickerwing leaps in front of him, reaching right. Dravox, kicking left,
+is the front rank on the right, and Gearclaw behind him at the edge. The
+right-hand pair is not the left's mirror: Dravox is half again as wide as he is
+tall, and Gearclaw's head is at the left of his art, facing into the group, so
+on one line Dravox's crystals cover it. Dravox stands a little shorter and
+nearer the middle, and the back rank stands further up the field
+(`CoverCast.back_lift`, 1.8in per unit of depth) -- which puts Gearclaw's jaw
+over Dravox's shoulder and Goopkeeper's goal at the back of the field. The
+original cast stands raised the same way, for the reason below.
+
+**The scene fills the panel from the strapline down** (the author,
+2026-09-27). With the die gone, the first renders left a band of white
+between the strapline and the players' heads. Both casts are now a fifth
+taller than they were first drawn, and the field strip is 0.3in lower
+(`COVER_FIELD_TOP`; the feet, the strip's foot and the chips are read off
+it), so the tallest heads stop just under the strapline and the chips keep
+their margin. A fifth is where it stops: at three tenths, Dravox's crystals
+and Vorix's hood run into the strapline. Taller means wider, and in the
+original cast the back rank -- Voltus and Inferno -- was lost behind the front
+pair on one line, which is why it takes the same `back_lift` as the website's
+four. Everything else about them is read: the
 portraits come from `load_player_portrait`, and each one's colour from the
 first team whose sheet they are on (a player's colour team and their species
 team share a hex, so which is found first cannot change the answer).
@@ -373,7 +431,9 @@ team share a hex, so which is found first cannot change the answer).
 numbers, so the art cannot be mirrored to make somebody face the other way --
 a flipped number is a number nobody wears. Two face each way, one player of
 each of the four species, and a roster revision that renames one of them, or
-leaves the four no longer two and two, needs the cast re-picked.
+leaves the four no longer two and two, needs the cast re-picked. Goopkeeper
+faces the reader rather than either way; he is counted as facing right
+because the goal behind him is what has to be at an edge.
 
 The back rank is **darkened rather than faded** (`into_the_dark`): a cut-out
 at reduced opacity shows the sky through the middle of a player, where the
@@ -451,7 +511,8 @@ panel without a word.
 
 Nothing tests any of it, so the render is the only check. **Look at the
 image** --
-`scripts/render_box_art.py --out box/` writes all ten files -- six printed
-panels, the night cover and the three banners -- and reports the box's own
+`scripts/render_box_art.py --out box/` writes all twelve files -- six printed
+panels, the night cover, the original cast's two covers and the three
+banners -- and reports the box's own
 dimensions, the QR's module size, and that the playing time and the age are
 the author's.

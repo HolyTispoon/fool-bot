@@ -1021,34 +1021,92 @@ def letterspaced(
 # a name is written down here rather than taken off the top of each
 # species' roster -- everything else about them is read from the
 # catalog.
+#
 # Where the four stand and how tall they come out: the pair nearer
 # the middle is the taller, so the group reads as a line closing on
-# the ball rather than as four cut-outs in a row. A share is of the
+# the middle rather than as four cut-outs in a row. A share is of the
 # cover's own width, so nothing here changes if the box does.
-# Each entry is (share of the width, height in inches, how far back).
-# The back rank is smaller and darkened rather than moved further out:
-# these cut-outs are as wide as they are tall, so there is no further
-# out to move them to on a square panel.
-COVER_PLACES: tuple[tuple[tuple[float, float, float], ...], ...] = (
-    ((0.165, 3.5, 0.45), (0.35, 4.6, 0.0)),
-    ((0.835, 3.5, 0.45), (0.65, 4.6, 0.0)),
+# Each place is (share of the width, height in inches, how far back),
+# and the players and the places pair up in order within each facing:
+# the first of each is the back rank at the edge. The back rank is
+# smaller and darkened rather than moved further out: these cut-outs
+# are as wide as they are tall, so there is no further out to move
+# them to on a square panel.
+
+
+@dataclass(frozen=True)
+class CoverCast:
+    """Four players with a facing each, and where each stands."""
+
+    players: tuple[tuple[str, str], ...]
+    places: tuple[tuple[tuple[float, float, float], ...], ...]
+    # How far up the field the back rank stands, in inches per unit of
+    # depth: what puts a back-rank head over a front-rank shoulder.
+    back_lift: float = 0.0
+
+
+# The website's four: the D12 Ball page's species cards read their
+# players from this cast (`species_face` in landing/build.py), so the
+# page and the box show the same four. Gearclaw took Synapse's place
+# (the author, 2026-09-27); both are the Cyborgs' playmakers. The
+# right-hand pair is not the left's mirror: Dravox is
+# half again as wide as he is tall, and Gearclaw's head is at the left
+# of his art, facing into the group, so on one line Dravox's crystals
+# cover it. Dravox stands a little shorter and nearer the middle, and
+# the back rank further up the field.
+WEBSITE_CAST = CoverCast(
+    players=(
+        ("Goopkeeper", "right"),
+        ("Flickerwing", "right"),
+        ("Gearclaw", "left"),
+        ("Dravox", "left"),
+    ),
+    places=(
+        ((0.165, 4.2, 0.45), (0.35, 5.5, 0.0)),
+        ((0.85, 4.9, 0.45), (0.57, 5.0, 0.0)),
+    ),
+    back_lift=1.8,
 )
+# The cover's first four, kept for a second pair of covers (the
+# author, 2026-09-27), across the panel where they were first drawn but
+# a fifth taller and with the back rank raised, as the website's four
+# are, so the scene fills the panel up to the strapline without losing
+# Voltus and Inferno behind the front pair.
+ORIGINAL_CAST = CoverCast(
+    players=(
+        ("Voltus", "right"),
+        ("Vorix", "right"),
+        ("Inferno", "left"),
+        ("Slitheron", "left"),
+    ),
+    places=(
+        ((0.165, 4.2, 0.45), (0.35, 5.5, 0.0)),
+        ((0.835, 4.2, 0.45), (0.65, 5.5, 0.0)),
+    ),
+    back_lift=1.8,
+)
+# The cast a cover, a banner and the landing pages get unless one is
+# named, and the name each is written under by the CLI.
+COVER_CAST = WEBSITE_CAST
+COVER_CASTS: dict[str, CoverCast] = {
+    "website": WEBSITE_CAST,
+    "original": ORIGINAL_CAST,
+}
 # How close to the trim a figure may come. It is not a bleed
 # measurement: the art may run off the edge, but a head that leaves
 # half of itself outside the box reads as a mistake rather than as a
 # crop.
 COVER_EDGE = 0.1
-
-COVER_CAST: tuple[tuple[str, str], ...] = (
-    ("Voltus", "right"),
-    ("Vorix", "right"),
-    ("Inferno", "left"),
-    ("Slitheron", "left"),
-)
+# Where the field strip the four stand on starts, in inches from the
+# top; their feet, the strip's foot and the chips under it are read
+# off it. Low enough, with the figures as tall as they are, that the
+# scene fills the panel from the strapline down.
+COVER_FIELD_TOP = 8.9
 
 
 def cast_portraits(
     catalog: PlayerCatalog,
+    cast: CoverCast = COVER_CAST,
 ) -> tuple[tuple[Image.Image, str, str], ...]:
     """
     The cover's four, each with the colour of a team they play for.
@@ -1059,7 +1117,7 @@ def cast_portraits(
     case-sensitive..." in docs/design/gotchas.md).
     """
     found: list[tuple[Image.Image, str, str]] = []
-    for name, facing in COVER_CAST:
+    for name, facing in cast.players:
         portrait = load_player_portrait(name)
         if portrait is None:
             continue
@@ -1142,13 +1200,14 @@ def render_box_cover(
     claims: RetailClaims = DEFAULT_CLAIMS,
     bleed: bool = False,
     palette: CoverPalette = PAGE_COVER,
+    cast: CoverCast = COVER_CAST,
 ) -> Image.Image:
     """
-    The lid's top face: the title, the four, the ball and the facts.
+    The lid's top face: the title, the four and the facts.
 
     `palette` is the only thing that changes between the printed cover
     and the night one a post or a store page wants -- see
-    `CoverPalette`.
+    `CoverPalette` -- and `cast` is who stands on it (`COVER_CASTS`).
     """
     catalog = catalog or load_player_catalog()
     rules = rules or load_basic_ruleset()
@@ -1199,19 +1258,20 @@ def render_box_cover(
         palette.muted,
     )
 
-    # The scene. The field is the bottom of the picture, the four
-    # stand on it, and the ball is in front of all of it.
-    field_top = panel.y(8.6)
-    field_bottom = panel.y(9.6)
+    # The scene. The field is the bottom of the picture and the four
+    # stand on it. No die is drawn over them: the balls are the ones
+    # the players' own art carries (see "The cover's four").
+    field_top = panel.y(COVER_FIELD_TOP)
+    field_bottom = panel.y(COVER_FIELD_TOP + 1.0)
     if palette.glows:
         paste_glow(sheet, (middle, field_top), inches(13.0), "#3f7fb8", 90)
     draw_cover_field(sheet, panel, rules, field_top, field_bottom, palette)
 
-    baseline = panel.y(9.3)
-    cast = cast_portraits(catalog)
-    facing_right = [one for one in cast if one[1] == "right"]
-    facing_left = [one for one in cast if one[1] == "left"]
-    for group, places in zip((facing_right, facing_left), COVER_PLACES):
+    baseline = panel.y(COVER_FIELD_TOP + 0.7)
+    figures = cast_portraits(catalog, cast)
+    facing_right = [one for one in figures if one[1] == "right"]
+    facing_left = [one for one in figures if one[1] == "left"]
+    for group, places in zip((facing_right, facing_left), cast.places):
         for (portrait, _, color), (share, height, depth) in zip(group, places):
             portrait = (
                 hazed(portrait, depth * palette.haze_share, palette.haze)
@@ -1219,6 +1279,9 @@ def render_box_cover(
                 else portrait
             )
             fitted = standing_art(portrait, inches(height))
+            # The back rank stands further up the field by the cast's
+            # own lift (`CoverCast.back_lift`).
+            feet = baseline - inches(depth * cast.back_lift)
             # Kept inside the trim by measuring the art first: these
             # cut-outs are as wide as they are tall and a share of the
             # panel's width says nothing about where an arm ends.
@@ -1235,7 +1298,7 @@ def render_box_cover(
                 sheet,
                 (
                     center,
-                    baseline - inches(height * 0.4 if palette.glows else 0.1),
+                    feet - inches(height * 0.4 if palette.glows else 0.1),
                 ),
                 inches(height * (1.1 if palette.glows else 0.55)),
                 color,
@@ -1253,23 +1316,17 @@ def render_box_cover(
             paste_rgba(
                 sheet,
                 shadow,
-                (center - shadow.width / 2, baseline - shadow.height * 0.62),
+                (center - shadow.width / 2, feet - shadow.height * 0.62),
             )
-            paste_standing(sheet, portrait, center, baseline, inches(height))
-
-    # Drawn last, so it is in front of the four rather than between
-    # them: it is the thing they are all playing for.
-    ball_center = (middle, panel.y(6.15))
-    if palette.glows:
-        paste_glow(sheet, ball_center, inches(3.9), palette.accent, 170)
-    draw_d12(sheet, ball_center, inches(0.7))
+            paste_standing(sheet, portrait, center, feet, inches(height))
 
     # What a shopper checks before anything else: how many of them,
     # how long, and how old. Nothing else -- the rest of what is in
     # the box is on the underside, where somebody who has already
     # picked it up will read it.
     draw_chip_row(
-        sheet, retail_chips(facts, claims), middle, panel.y(10.4), content,
+        sheet, retail_chips(facts, claims), middle,
+        panel.y(COVER_FIELD_TOP + 1.8), content,
         palette.ink, palette.edge, size_inches=0.185,
     )
     return sheet.image
@@ -1299,13 +1356,20 @@ SCREENTOP_BANNER_INCHES = (
 # height, capped by this share of the width, so the group takes the
 # same slice of the panel whatever shape it is.
 BANNER_FIGURE_SHARE = 0.4
+# How far up the panel the back rank stands, per unit of depth, as a
+# share of the height.
+BANNER_BACK_LIFT = 0.45
 
 # Where the four stand on a banner, as shares: the group in the right
 # half, so the title has the left to itself. Each is (share of the
-# width, share of the height, how far back).
+# width, share of the height, how far back). Smaller than the cover's
+# and the back rank stood further up the field (`BANNER_BACK_LIFT`):
+# these four are wider than they are tall, and at the cover's sizes
+# the outer one on the right clamps to the trim straight behind the
+# inner one and is lost.
 BANNER_PLACES: tuple[tuple[tuple[float, float, float], ...], ...] = (
-    ((0.580, 0.65, 0.45), (0.705, 0.79, 0.0)),
-    ((0.950, 0.65, 0.45), (0.830, 0.79, 0.0)),
+    ((0.585, 0.52, 0.45), (0.665, 0.66, 0.0)),
+    ((0.930, 0.54, 0.45), (0.790, 0.60, 0.0)),
 )
 
 
@@ -1374,6 +1438,9 @@ def render_banner(
                 else portrait
             )
             fitted = standing_art(portrait, inches(figure))
+            # The back rank stands further up the field, which is
+            # what further away looks like on a strip this short.
+            feet = baseline - inches(height * depth * BANNER_BACK_LIFT)
             center = clamp_center(
                 panel.x(width * across), fitted.width, panel, width, COVER_EDGE
             )
@@ -1381,7 +1448,7 @@ def render_banner(
                 sheet,
                 (
                     center,
-                    baseline - inches(figure * (0.4 if palette.glows else 0.1)),
+                    feet - inches(figure * (0.4 if palette.glows else 0.1)),
                 ),
                 inches(figure * (1.1 if palette.glows else 0.5)),
                 color,
@@ -1395,21 +1462,9 @@ def render_banner(
             paste_rgba(
                 sheet,
                 shadow,
-                (center - shadow.width / 2, baseline - shadow.height * 0.62),
+                (center - shadow.width / 2, feet - shadow.height * 0.62),
             )
-            paste_standing(sheet, portrait, center, baseline, inches(figure))
-
-    # The ball is **on the ground between the two nearest players**,
-    # not in the air over them: at head height it lands on somebody's
-    # face, and a ball on a field is where a ball is anyway.
-    ball_radius = min(height, width * BANNER_FIGURE_SHARE) * 0.115
-    ball_center = (
-        panel.x(width * 0.768),
-        baseline - inches(ball_radius * 0.9),
-    )
-    if palette.glows:
-        paste_glow(sheet, ball_center, inches(height * 0.7), palette.accent, 150)
-    draw_d12(sheet, ball_center, inches(ball_radius))
+            paste_standing(sheet, portrait, center, feet, inches(figure))
 
     # The title block, hard against the group rather than over it.
     left = panel.x(width * 0.055)
