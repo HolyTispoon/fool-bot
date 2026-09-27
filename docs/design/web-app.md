@@ -176,7 +176,10 @@ taken again, before the game or during it; an admin may kick a seat.
 And, from the author's review of the step (2026-09-26): the AI may
 hold either seat, anybody seated may put it in an empty one, an admin
 may kick it out for a person to take over, and an admin may give the
-role up.
+role up. Since the author's lobby review of 2026-09-26 anybody seated
+may also take the AI out -- the ✕ on its seat -- because whoever may
+put it in may change their mind; a person is still kicked by an admin
+alone.
 
 **Who somebody is, is a cookie.** On a first visit nobody is asked
 anything: `GET /api/me`, which every page calls first, finds no cookie
@@ -315,8 +318,9 @@ contract and a room role is not a fact about the game -- no rule reads
 it. Anybody may become admin, by a button of its own behind "Take the
 admin role for this room?", and an admin may give it up again
 (`DELETE /api/room/{id}/admin`), which may leave a room with none; a
-kick is refused unless the caller is an admin, and is `vacate_seat`
-for the seated id, or `unseat_ai` for the AI, behind "Are you sure?".
+kick is refused unless the caller is an admin -- or, for the AI's
+seat, anybody seated -- and is `vacate_seat` for the seated id, or
+`unseat_ai` for the AI, behind "Are you sure?".
 Putting the AI in an empty seat is open to anybody seated -- the
 coach whose opponent has gone -- and to nobody watching.
 That is the frontend's authorisation over the record's rule, the way a
@@ -433,8 +437,11 @@ its sideline.
 
 - **Two seat cards**: the label, the holder's name large (or "Empty
   seat · click to sit"), YOU and AI chips, the picked team's line, and
-  while team selection is open **both** seats' swatches -- the colour
-  teams and the species teams, a row each. **The teams are picked in
+  while team selection is open **both** held seats' swatches -- the
+  colour teams and the species teams, a row each. An empty seat draws
+  neither the team line nor the swatches: the pick opens once
+  somebody, or Dinky, holds the seat (the author, 2026-09-27), though
+  the server still sends its teams, as nobody may press them. **The teams are picked in
   the lobby, beside the seats, before Start** (the author, 2026-09-26,
   off the canvas; the record's `picks_teams_in_lobby`, which only a web
   room's record answers yes -- "A web room picks its teams in its
@@ -450,16 +457,26 @@ its sideline.
   `pick_team`'s.
 - **The seat moves are drags, each with a click beside it**: the
   reader's own name dragged off the sideline into an empty seat (or
-  the seat clicked) takes it; the Dinky chip dragged in (or "put Dinky
-  in") is `seat_ai`; the reader's name dragged out of their seat (or
-  its ✕) leaves it; and an admin dragging somebody else out (or their
-  ✕) kicks them. **Every kick goes through one function that asks "Are
+  the seat clicked) takes it; the Dinky chip dragged in (or "play
+  against AI" in the empty seat, beside "invite your friends to play
+  with this room link", the link copying itself) is `seat_ai`; the
+  reader's name dragged out of their seat (or its ✕) leaves it; and an
+  admin dragging somebody else out (or their ✕), or anybody seated
+  taking Dinky out, kicks them. **Every kick goes through one function that asks "Are
   you sure?" first** -- the card's ✕, the drag and the in-game Kick
   alike, which `RedesignedTableTests` reads the page for. A drag
   carries only which of those it is; the drop makes the request the
   click makes. Only one's own name and Dinky are dragged *in*, because
   a seat is taken by the person who sits in it: the cookie says who,
   and nobody seats somebody else.
+- **The top bar's topic renames the game** before kickoff, for
+  whoever may change the name: the topic is the button, a dashed
+  underline and a pencil beside it, and a click swaps it for a field
+  that saves on Enter or when left and is dropped on Escape -- the
+  same `configure("name")`, and the only place the name is changed:
+  the settings carry no Name row, and on a phone the topic stays in the
+  top bar, cut short, for that reason (the author, 2026-09-27).
+  Clearing it gives the room back its "X vs. Y".
 - **The settings are pills**: the current value gold, the others
   outlined. **What a setting is, is the model's** (`definition`):
   `describe_game_mode` for the mode, and `SETTING_DEFINITIONS` in
@@ -480,10 +497,14 @@ its sideline.
   instead of the other. A change that takes something away carries the
   model's `warning` (`configure_warning`: turning the test game on with
   Dinky seated kicks Dinky), and the page confirms it before sending.
-- **The question box** asks one thing at a time: the whistle for
-  Start, dark with `start_lobby`'s refusal until both seats are held
-  and every side a person plays has a team; the coin -- the bot's own gold coin (the `3_gold_fortune`
-  and `3_gold_doom` emoji, served), clicked to flip; then the face it
+- **The question box** asks one thing at a time: the coin -- the
+  bot's own gold coin (the `3_gold_fortune` and `3_gold_doom` emoji,
+  served) -- dark with `start_lobby`'s refusal until both seats are
+  held and every side a person plays has a team, and clicked to flip.
+  **There is no whistle: the coin starts the game** (the author,
+  2026-09-27). Flipped in the lobby, `flip_coin` runs `start_lobby`
+  and the toss in one request; the `start` move stays on the route for
+  what else calls it, but the page no longer offers it. Then the face it
   came up large and the other small and dim, and "Click the goal you
   want to defend" over a miniature field whose two ends are
   `choose_home_or_visiting`'s two answers. **Which end is which is the
