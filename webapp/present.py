@@ -1489,6 +1489,45 @@ def still_to_answer(
     )
 
 
+def waiting_on(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: Optional[PendingPrompt],
+    viewer: Viewer,
+) -> list[str]:
+    """
+    Who the question is waiting on, by name -- the coach of each side
+    `asked_sides` names that this viewer does not coach, as the record
+    calls them (`coach_name`, which names the AI), once each and in the
+    order asked. Empty for a question nobody in particular is asked,
+    and for one that is only this viewer's.
+
+    What the question box's WAITING tag says after "Waiting on", so an
+    observer reads whose move it is rather than "the other side", which
+    is only somebody's from a seat.
+
+    **It never reads a pick.** On the maneuver pick both hands are
+    asked until the second card is down, and whether the other side's
+    is down already is theirs (`hand_table` keeps the same back either
+    way), so an observer is told both names and a coach whose card is
+    down the other's -- the same whatever the other side has done. The
+    shootout's sides are narrowed to those still to answer by
+    `asked_sides` itself, which `shootout_sides` tells everybody.
+    """
+    if prompt is None:
+        return []
+    mine = set(coached_sides(engine, game, viewer))
+    names: list[str] = []
+    for side in asked_sides(match, prompt):
+        if side in mine:
+            continue
+        name = coach_name(game, engine.side_player_number(game, side))
+        if name not in names:
+            names.append(name)
+    return names
+
+
 #: What a dimmed gambit says: the reason it is not in the hand, which
 #: is the rule `may_play_gambits` answers.
 WITHHELD_NOTE = "Held only by the side behind."

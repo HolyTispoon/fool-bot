@@ -114,6 +114,7 @@ from webapp.present import (
     shootout_sides,
     split_footnote,
     still_to_answer,
+    waiting_on,
 )
 from webapp.chat import WEB_CHAT_FILE, Chats, MessageRefused, clean_text
 from webapp.journal import WEB_JOURNAL_FILE, Journal, Journals
@@ -177,6 +178,44 @@ async def revalidate_by_default(
     """`DEFAULT_CACHE_CONTROL` on every response that did not say."""
     response = await handler(request)
     response.headers.setdefault("Cache-Control", DEFAULT_CACHE_CONTROL)
+    return response
+
+
+#: What a response over the tunnel's HTTPS tells the browser: use
+#: nothing else for this host for a year, so a typed or pasted
+#: `play.d12ball.com` never goes out as `http://` again after the first
+#: visit. The host alone -- d12ball.com and its other names are the
+#: landing pages', not this process's to speak for.
+STRICT_TRANSPORT = "max-age=31536000"
+
+
+@web.middleware
+async def https_only(
+    request: web.Request, handler,
+) -> web.StreamResponse:
+    """
+    A browser that reached the tunnel over plain `http://` is sent to
+    the same path over `https://` before anything answers it: the
+    cookie is `Secure`, so that browser would send none and be handed a
+    second person -- an observer in their own room (`identity.
+    came_over_plain_http`). A 308, so a POST is repeated as a POST. The
+    address is `FOOLBOT_WEB_URL`'s where it is `https://`, and the
+    request's own host otherwise.
+
+    Over HTTPS through the tunnel, every response says so for the next
+    year (`STRICT_TRANSPORT`). A request with no tunnel in front of it
+    is neither: a checkout on a laptop stays on `http://localhost`.
+    """
+    if identity.came_over_plain_http(request):
+        base = keys.base_url()
+        if not base.startswith("https://"):
+            base = f"https://{request.host}"
+        raise web.HTTPPermanentRedirect(f"{base}{request.path_qs}")
+    response = await handler(request)
+    if identity.came_over_https(request) and not request.secure:
+        response.headers.setdefault(
+            "Strict-Transport-Security", STRICT_TRANSPORT,
+        )
     return response
 
 
@@ -250,7 +289,9 @@ class WebApp:
         self.clock = time.time
         self._started = self.clock()
         self._looked_at: dict[str, float] = {}
-        self.app = web.Application(middlewares=[revalidate_by_default])
+        self.app = web.Application(
+            middlewares=[https_only, revalidate_by_default],
+        )
         self.app.add_routes(
             [
                 web.get("/", self.index),
@@ -481,8 +522,22 @@ class WebApp:
         if coach is not None and self.names.name_of(coach.id) is not None:
             return web.json_response(self._person(request).to_dict())
         if coach is None:
+            lost = identity.unverified_claim(
+                request.cookies.get(identity.COOKIE),
+            )
             coach = identity.issue(identity.guest_name())
             name = self.names.claim_guest(coach.id)
+            if lost is not None:
+                # Somebody came back with a cookie this server did not
+                # sign -- the secret changed under them -- and is now
+                # somebody new: an observer in their own rooms until an
+                # admin hands the seat back. Never routine.
+                LOGGER.warning(
+                    "A cookie for %r (id %r) failed its signature and "
+                    "was replaced by %s (id %d): has %s changed?",
+                    lost["name"], lost["id"], name, coach.id,
+                    keys.SECRET_VARIABLE,
+                )
         elif self.names.is_free_for(coach.name, coach.id):
             name = self.names.claim(coach.id, coach.name)
         else:
@@ -1875,6 +1930,11 @@ class WebApp:
                 # down (`present.still_to_answer`).
                 "yours": owed,
                 "state": _box_state(match, prompt, owed),
+                # Who a `waiting` box is waiting on, by name, as the
+                # record calls them (`present.waiting_on`).
+                "waiting_on": waiting_on(
+                    self.engine, game, match, prompt, viewer,
+                ),
                 # The maneuver pick's hands this viewer does not hold,
                 # face down -- every one for an observer -- whether or
                 # not that side has picked (`present.hand_table`).
@@ -2702,6 +2762,7 @@ async def serve(
     """Run the web app over `games_file` (its rooms over `rooms_file`,
     its chat over `chat_file`, its journal over `journal_file` and the
     names in use over `names_file`) until cancelled."""
+    keys.keep_secret_in(keys.WEB_SECRET_FILE)
     service = build_service(games_file)
     LOGGER.info(
         "Loaded %d web game(s) from %s.", len(service.games), games_file,

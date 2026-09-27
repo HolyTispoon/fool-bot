@@ -1654,7 +1654,7 @@ function drawPrompt(state) {
   /* The tag is the server's reading of whose question this is
      (`_box_state`, off `asked_sides`); the page only names it. */
   box.dataset.state = state.prompt.state;
-  el("prompt-state").textContent = BOX_STATES[state.prompt.state] || "";
+  el("prompt-state").textContent = boxTag(state.prompt);
   el("ask").innerHTML = state.prompt.ask;
   drawPicture(state.prompt);
   drawReference(state.prompt);
@@ -1686,6 +1686,17 @@ const BOX_STATES = {
   now: "Now",
   full_time: "Full time",
 };
+
+/* The tag's words: WAITING names who, as the server read them off
+   the record (`present.waiting_on`) -- "the other side" is only
+   somebody's from a seat, and an observer has none. */
+function boxTag(prompt) {
+  const names = prompt.waiting_on || [];
+  if (prompt.state === "waiting" && names.length) {
+    return `Waiting on ${names.join(" and ")}`;
+  }
+  return BOX_STATES[prompt.state] || "";
+}
 
 /* The dice just rolled, in the outcome at the top of the question box: on Discord the
    prompt a coach pressed becomes the dice, so this is where they are
