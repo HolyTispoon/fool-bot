@@ -366,6 +366,34 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   should be reading the same card. `ROLE_INITIALS` is shared for the same
   reason: the two letters in the badge are the two letters on the meeple's
   card in the channel.
+- **The stats panel is one row, and it does not name the role** (the author,
+  2026-09-27). `OFFENSE 2 | DEFENSE 5`, each label beside its number rather
+  than over it, in a panel 80 units tall where it was 132 with a `ROLE`
+  column between the two. The role is already said twice -- the header's
+  badge, and the badge beside the role ability -- so the word was the third
+  saying of it, and the height it held went to the portrait and the ability
+  text. Both faces draw the panel, so the back's portrait slot grew by the
+  same amount; its band did not move (`ADVANCED_BAND_TOP`).
+- **The team under the name is set at 26** where it was 16, so it reads
+  across a table. It is fitted to the name's room with 26 as the ceiling,
+  because the back's `TELEKINETICS · ADVANCED` does not fit at 26 and a
+  line that ran under the icon would read as a mistake.
+- **The front's ability band is two rows, each behind a badge, with no
+  heading** (the author, 2026-09-27): the role's emoji beside the role's
+  sentence, and the species' icon beside the species ability's *name*. The
+  badges are the labels -- which sentence is the role's and which ability is
+  the species' is read off the same two pictures the header carries -- so
+  the `ABILITY` heading went, and the text went from 30 to 36. The role
+  badge is the bot's own emoji in the card's team colour
+  (`role_defender_purple.png`), a species team using its colour team's file
+  as it uses its hex; the species badge is the icon in `high_contrast_ink`
+  on a rounded square of the species' colour, the size and shape of the role
+  badge, for the reason the back's pill is filled. Only the species
+  ability's name is on the front: its rules are on the species reference
+  cards, and the front is the picture face. The badge is level with the
+  sentence's first line, so a three-line ability hangs off it. The longest
+  role ability still leaves the portrait about 480 units, well over
+  `MIN_PORTRAIT_HEIGHT`.
 - **What the print adds is the ability, and it is the full sentence.** The
   bot has the roster and the rules commands a click away; a card on a table is
   the whole of what its coach has, so the sentence goes under the portrait.
@@ -617,8 +645,8 @@ python3 scripts/render_role_cards.py --out cards/roles --sheet
   right-anchored as a pair, instead of stacked one above the other.** A
   name sized to fill the row has no width left beside it for numbers on
   the same line, but a one-digit number doesn't need a row of its own
-  either -- stacking them the way `player_cards.draw_stats` sometimes
-  does was room the ability text below could use instead. The pair is
+  either -- stacking each under its own label was room the ability text
+  below could use instead. The pair is
   right-anchored as a block (`"OFF 1  DEF 6"`, not each number anchored
   on its own) so six panels' pairs still read as a column when they sit
   side by side, since "OFF 1  DEF 6" is not the same width as "OFF 4
