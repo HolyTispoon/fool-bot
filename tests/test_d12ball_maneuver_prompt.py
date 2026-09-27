@@ -418,7 +418,7 @@ class ManeuverPickHarness:
         # the whole process -- the cards are most of a second apiece.
         catalog = load_maneuver_catalog()
         # Keyed the way the cog keys them -- one `(side, tiers)` pair
-        # per hand on the prompt. A basic game is the only one this
+        # per hand on the prompt. A standard game is the only one this
         # harness builds, so every entry for a given set of sides is
         # the same basic bytes rather than a render per tier: nothing
         # here reads a gambit hand, and drawing thirteen more cards a

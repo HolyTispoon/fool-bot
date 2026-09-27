@@ -11,17 +11,27 @@ what is here is how they are wired, and the reasoning the rules do not carry.
 ### Modes
 
 **There are three modes, each adding to the one before** (the author,
-2026-09-25): training plays no ability, basic adds the species abilities,
+2026-09-25): training plays no ability, standard adds the species abilities,
 advanced adds the gambits and the personal abilities. Until then advanced
 mode was one switch over two modules (the gambits and these) with an
-opt-out for each (PR #177 review); the ruling moved these into basic and
+opt-out for each (PR #177 review); the ruling moved these into basic (now standard) mode and
 named three modes to offer, so the opt-outs went from the screens.
 
-- **`GameMode` is TRAINING/BASIC/ADVANCED, and `basic` kept its saved
-  value.** The value is the save format (CLAUDE.md: don't rename saved
-  keys), and a new value for the old meaning would have needed a
-  migration pass to rewrite every save. So an unfinished basic game saved
-  before 2026-09-25 plays on as a basic game with the species abilities
+- **`GameMode` is TRAINING/STANDARD/ADVANCED, and standard mode's saved
+  value is still `basic`.** The value is the save format (CLAUDE.md:
+  don't rename saved keys), and a new value for the old meaning would
+  have needed a migration pass to rewrite every save.
+  - **The mode was named basic until 2026-09-27**, when the author renamed
+    it standard (docs/rules-log.md). The rename is every word a person
+    reads -- the Charter, the Learn to Play, `GAME_MODE_NAMES`, the
+    printed pieces -- and the enum member, `GameMode.STANDARD`; the saved
+    value, and so the wire value the web table posts and the `mode:`
+    segment of a Discord button's custom_id, stay `basic`, for the
+    reason above and because a button put up before the rename must
+    still answer after it. So nothing may show a mode by its value:
+    `GAME_MODE_NAMES` is its name, on every frontend and in the archive
+    export. So an unfinished standard game saved
+  before 2026-09-25 plays on as a standard game with the species abilities
   on. That is the rules change reaching a game in progress, which nothing
   in the record can tell apart from a game started today.
   - **The tutorial is the one exception, and it is held in

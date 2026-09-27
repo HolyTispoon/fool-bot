@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-09-26.
+**As of:** 2026-09-27.
 
 ## Where the rules come from
 
@@ -153,6 +153,21 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-27 -- author, basic mode is renamed standard mode
+
+The author: *"Basic mode is now called 'standard'."*
+
+- **A name, not a rule.** The mode the 2026-09-25 entry below
+  named basic -- Part I with the species abilities (Law 20), and no gambit or personal
+  ability -- is now **standard mode**. What each mode plays is unchanged. The three modes are
+  training, standard and advanced.
+- **Only the mode is renamed.** "Basic" still names two other things, and neither is the mode:
+  a **basic maneuver** or **basic card**, the one on each rank that is not a gambit (Law 19),
+  which every mode plays; and the sheet's `basic_abilities` tab, which holds the six role
+  abilities.
+- The entries below are left as they were written: before 2026-09-25 "basic mode" meant what
+  is now training mode, and between then and today it meant standard mode.
 
 ### 2026-09-26 (newest) -- author, an overshot Deflect is its challenger's shot alone
 

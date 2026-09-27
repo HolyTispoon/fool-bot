@@ -358,7 +358,7 @@ class RoomAidsTests(Harness):
     MODES = (
         # mode, tutorial, tier, species, advanced cards
         (GameMode.TRAINING, False, MANEUVER_TIER_BASIC, False, False),
-        (GameMode.BASIC, False, MANEUVER_TIER_BASIC, True, False),
+        (GameMode.STANDARD, False, MANEUVER_TIER_BASIC, True, False),
         (GameMode.ADVANCED, False, MANEUVER_TIER_GAMBIT, True, True),
         (GameMode.ADVANCED, True, MANEUVER_TIER_GAMBIT, False, False),
     )

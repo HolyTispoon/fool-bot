@@ -6,7 +6,7 @@ Three layers, and they fail for different reasons:
 
 - **The hand.** `RulesEngine.maneuver_tiers` is the only answer to who
   may play what, and the buttons, the card image and the click that
-  answers all read it. A basic game is three cards; a coach holding
+  answers all read it. A standard game is three cards; a coach holding
   their gambits has six.
 - **The outright rule.** `gambit_benefit_applies` and
   `gambit_cost_applies` are two questions about two cards -- did
@@ -276,9 +276,9 @@ class ManeuverHandTests(GambitHarness, unittest.TestCase):
     buttons would need three changes rather than one.
     """
 
-    def test_a_basic_game_offers_three_cards(self) -> None:
+    def test_a_standard_game_offers_three_cards(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
-        game.mode = GameMode.BASIC
+        game.mode = GameMode.STANDARD
 
         for side in ("offense", "defense"):
             with self.subTest(side=side):
@@ -317,7 +317,7 @@ class ManeuverHandTests(GambitHarness, unittest.TestCase):
         """
         `withheld_gambits` is the complement of the hand within the
         side's cards, and only where being behind would have made the
-        difference: empty in a basic game, empty for a side holding
+        difference: empty in a standard game, empty for a side holding
         them, and the three in rank order for a side that is not
         behind (step 5 of docs/web-app-redesign.md dims them).
         """
@@ -349,7 +349,7 @@ class ManeuverHandTests(GambitHarness, unittest.TestCase):
                     engine.withheld_gambits(game, match, side), (),
                 )
 
-        game.mode = GameMode.BASIC
+        game.mode = GameMode.STANDARD
         self.assertEqual(engine.withheld_gambits(game, match, "offense"), ())
 
     def test_an_unchallenged_maneuver_is_basic_even_with_gambits_on(
@@ -622,9 +622,9 @@ class GambitAccessTests(GambitHarness, unittest.TestCase):
             "offense": 6, "defense": 6,
         })
 
-    def test_a_basic_game_holds_none_of_it(self) -> None:
+    def test_a_standard_game_holds_none_of_it(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
-        game.mode = GameMode.BASIC
+        game.mode = GameMode.STANDARD
         match.scoreboard.visiting_score += 1
 
         self.assertFalse(

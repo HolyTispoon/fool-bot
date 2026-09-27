@@ -67,7 +67,7 @@ die: don't "fix" the value.
 and the buttons, the hand image and the click that answers all read
 it. Three things narrow it, and all three are rules:
 
-- a basic game is the basic three;
+- a training or standard game is the basic three;
 - **an unchallenged maneuver is always basic** (the author) -- which
   is answerable at the moment a hand is drawn because all three routes
   into the unopposed branch settle it before the offense is prompted.
@@ -135,7 +135,7 @@ once -- one trailing while the other is the more hurt.
   (`maneuver_pick_sides` drops an AI hand once it has picked), so in a
   solo game Dinky's cards are never on the message.
   Nothing is said where neither coach holds them: three cards a side is
-  the basic game the coaches already know.
+  the standard game the coaches already know.
 
 - **The outright rule is two questions about two cards**, not one
   about the matchup: `gambit_benefit_applies` (this card **won on

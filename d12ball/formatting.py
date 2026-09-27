@@ -786,7 +786,7 @@ def contestant_detail(
 #: Discord lobby and the web table cannot name a mode differently.
 GAME_MODE_NAMES: dict[GameMode, str] = {
     GameMode.TRAINING: "Training",
-    GameMode.BASIC: "Basic",
+    GameMode.STANDARD: "Standard",
     GameMode.ADVANCED: "Advanced",
 }
 
@@ -798,7 +798,7 @@ GAME_MODE_DEFINITIONS: dict[GameMode, str] = {
     GameMode.TRAINING: (
         "Symmetric abilities, fundamental rules, best way to learn the game"
     ),
-    GameMode.BASIC: "Adding Species abilities for asymmetric game play",
+    GameMode.STANDARD: "Adding Species abilities for asymmetric game play",
     GameMode.ADVANCED: (
         "Individual players with unique abilities adding significant "
         "complexity, variety, and chaos"
@@ -834,7 +834,7 @@ def describe_game_mode(
     )
     whole = {
         GameMode.TRAINING: True,
-        GameMode.BASIC: species,
+        GameMode.STANDARD: species,
         GameMode.ADVANCED: gambits and species and not game.tutorial,
     }[mode]
     if whole:

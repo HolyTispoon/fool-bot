@@ -16,7 +16,7 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 - **Exhaustion tokens**, and the two condition markers, Exhausted and Injured.
 - **The coin**, for the toss.
 
-> **Training, basic and advanced mode.** Training mode is everything in this book. Basic mode gives each species an ability; advanced mode adds a second card to every maneuver and some players' own abilities on top. The appendix on the last page says what each adds, and Part II of the Charter says all of it.
+> **Training, standard and advanced mode.** Training mode is everything in this book. Standard mode gives each species an ability; advanced mode adds a second card to every maneuver and some players' own abilities on top. The appendix on the last page says what each adds, and Part II of the Charter says all of it.
 
 
 ## The field, the players, the deal
@@ -158,9 +158,9 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 **Full time and the shootout.** The higher score wins. Level, and each coach lines up their six in secret and the pairs shoot one against one: d12 + offensive skill, higher scores, a tie stands. Best of six, then sudden death. *(Law 17)*
 
 
-## Appendix: basic and advanced mode
+## Appendix: standard and advanced mode
 
-Basic mode adds the species abilities to everything in this book. Advanced mode adds the gambits and the players' personal abilities to basic mode. Everything here is Part II of the Charter, Laws 18 to 21.
+Standard mode adds the species abilities to everything in this book. Advanced mode adds the gambits and the players' personal abilities to standard mode. Everything here is Part II of the Charter, Laws 18 to 21.
 
 ![Figure 14 - The twelve cards on the cycle](rulebooks/figures/fig-14-the-gambits.png)
 
@@ -168,7 +168,7 @@ Basic mode adds the species abilities to everything in this book. Advanced mode 
 
 ![Figure 15 - The four species](rulebooks/figures/fig-15-the-species.png)
 
-**Species abilities (basic and advanced).** Fire Demons **ignite** on a natural 6 or 7. Cyborgs run on **drain** and can **Overdrive** a roll. Telekinetics **pull** the opponent's ball as it crosses them, and take their own ball for free. Oozes **merge** into a skill test on their space. The species reference cards in the box carry the rest, and the Charter carries all of it. *(Law 20)*
+**Species abilities (standard and advanced).** Fire Demons **ignite** on a natural 6 or 7. Cyborgs run on **drain** and can **Overdrive** a roll. Telekinetics **pull** the opponent's ball as it crosses them, and take their own ball for free. Oozes **merge** into a skill test on their space. The species reference cards in the box carry the rest, and the Charter carries all of it. *(Law 20)*
 
 **Personal abilities (advanced).** Some players carry an ability of their own, and a few a higher skill, on the advanced side of their card. *(Law 21)*
 

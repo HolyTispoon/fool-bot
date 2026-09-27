@@ -68,7 +68,7 @@ def build_cog() -> D12Ball:
     cog.refresh_match_image = mock.AsyncMock()
     cog.build_match_file = mock.AsyncMock(return_value=None)
     # Both gates are inside the flow step since Phase 4, so there is
-    # no cog method to mock. Neither fires in a basic game with the
+    # no cog method to mock. Neither fires in a standard game with the
     # possessing side standing on the ball, which is what the mocks
     # were standing in for.
     cog.send_turn_prompt = mock.AsyncMock()

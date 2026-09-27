@@ -284,7 +284,7 @@ the web app's tutorial are Training on the 7-space board. Before, a
 tutorial made that way carried `mode="basic"`. It was already *played*
 as training, since `species_abilities_apply` and
 `personal_abilities_apply` never answer yes for a tutorial, but it was
-described and offered as basic. A tutorial saved as `basic` before
+described and offered as basic (now standard) mode. A tutorial saved as `basic` before
 this still loads as it was; nothing rewrites a save.
 
 ## The presenter saves nothing

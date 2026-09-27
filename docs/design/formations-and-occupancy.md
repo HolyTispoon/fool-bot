@@ -4,7 +4,7 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 
 ## Formations and occupancy
 
-Basic mode has five shapes -- **2-2-2, 2-3-1 and 1-3-2** on every board, plus
+Every mode has five shapes -- **2-2-2, 2-3-1 and 1-3-2** on every board, plus
 **3-2-1 and 1-2-3** on the nine-space board -- read from a coach's own goal
 forward, six cards either way. **Every team is dealt 2-2-2**, and a coach
 changes shape only in a [Coaching Choice](coaching-choice.md#the-coaching-choice) -- of which

@@ -562,7 +562,7 @@ class RedesignedTableTests(TableHarness):
         self.assertEqual(lobby["game"]["topic"], "Creator vs. Second")
         [card] = (await self.rooms(CREATOR))["mine"]["lobby"]
         self.assertTrue(card["your_move"])
-        self.assertEqual((card["mode"], card["board_size"]), ("Basic", 7))
+        self.assertEqual((card["mode"], card["board_size"]), ("Standard", 7))
         self.assertIsNone(card["clock"])
 
         # A setting says what it is in the model's words, and why a

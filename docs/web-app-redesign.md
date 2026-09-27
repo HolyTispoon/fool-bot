@@ -30,7 +30,7 @@ on every step:
   path.
 - **The meeple is the Screentop piece**, `render.MEEPLE_PATH`, in the
   team's colour with the ink outline, the role initials on the body
-  and, in basic and advanced mode, the species icon over them as the
+  and, in standard and advanced mode, the species icon over them as the
   bot draws it (`meeple_geometry`). Not in training mode.
 - **Fans.** Two or more of one team on a space overlap diagonally: a
   home fan from the bottom left at the back to the top right at the
@@ -251,7 +251,7 @@ Meeples:
 - The piece is render.MEEPLE_PATH as an inline SVG (board.py already
   hands meeple_geometry), 50px wide on the desktop, team fill, ink
   outline (high_contrast_ink), and gold outline when lit.
-- The role initials on the body; in basic and advanced mode the
+- The role initials on the body; in standard and advanced mode the
   species icon (render.species_icon in the ink colour) over the
   initials with its top across the neck into the head, at the offsets
   meeple_geometry gives (icon_center, role_center, solo_center). Not in

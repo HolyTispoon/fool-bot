@@ -7,7 +7,7 @@ the toggle button per role on the hub's second message, built off
 `HUB_ROLES`. `LobbyView` is the
 lobby channel's message -- Join / Observe / Leave / Start Game, the Test
 game and Tutorial toggles, a Name button (opening `LobbyNameModal`), and
-the mode (training, basic or advanced), board-size and opponent
+the mode (training, standard or advanced), board-size and opponent
 settings -- and hands Join, Observe, Leave and Start back to the cog,
 where the channel-permission changes live next to `open_lobby`. A
 setting changed here goes through `GameService.configure`: the record
@@ -251,7 +251,7 @@ class LobbyView(SafeView):
             disabled=started,
         )
 
-        selected_mode = game.mode if game else GameMode.BASIC
+        selected_mode = game.mode if game else GameMode.STANDARD
         for label, mode in GAME_MODE_BUTTONS:
             self._add_button(
                 label,

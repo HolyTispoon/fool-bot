@@ -503,7 +503,7 @@ class OverdriveTests(ApplyFixture):
         """
         A skill test with a Cyborg on each side of it.
 
-        The shared fixtures play a **basic** game between two colour
+        The shared fixtures play a **standard** game between two colour
         teams, where no Overdrive is ever offered -- so this one is
         built here: the two species teams, an advanced game with
         species abilities on, and the contest put between two of them.

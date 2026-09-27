@@ -46,14 +46,14 @@ def build_cog() -> D12Ball:
     return cog
 
 
-def build_basic_game() -> D12BallGame:
+def build_standard_game() -> D12BallGame:
     """
-    A plain basic-mode game, for the calls that now take one.
+    A plain standard-mode game, for the calls that now take one.
 
     Charging exhaustion needs a game because the Exhausted threshold is
     a Cyborg's own in a game playing the species abilities -- see
     `RulesEngine.exhaustion_threshold`. Nothing in this file is about
-    that, so a basic game is exactly right: every player there is
+    that, so a standard game is exactly right: every player there is
     Exhausted on their own defensive skill, which is what these tests
     assert.
     """
@@ -164,7 +164,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.declare_coaching()
 
         text = apply_substitution(cog, 
-            build_basic_game(),
+            build_standard_game(),
             match,
             TeamSide.HOME,
             fielded(match, PlayerRole.DEFENDER),
@@ -184,7 +184,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
         text = apply_substitution(cog, 
-            build_basic_game(),
+            build_standard_game(),
             match,
             TeamSide.HOME,
             fielded(match, PlayerRole.STRIKER),
@@ -212,7 +212,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
         text = apply_substitution(cog, 
-            build_basic_game(),
+            build_standard_game(),
             match,
             TeamSide.HOME,
             fielded(match, PlayerRole.STRIKER),

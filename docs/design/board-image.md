@@ -209,14 +209,14 @@ and judged at the width Discord shows the field strip (~900px), not at the
   `test_a_meeple_carries_its_species_over_its_role` holds the sizes that
   are still checked.
 - **The icon is drawn only in a game playing species abilities** (the
-  author, 2026-09-18). In a basic game, or an advanced one that opted the
+  author, 2026-09-18). In a training game, or an advanced one that opted the
   module out, species is a name on the card and nothing a coach acts on, so
   the disc carries the initials alone -- `FONT_TOKEN_SOLO`, sized to fill
   the 76px it still is; the disc does not shrink back, or the two rows and
   the ball would move with the mode. `species_icons` is the flag on all
   three render entry points (`render_match_image`, `render_field_image`,
   `render_coaching_image`), defaulting to **off** so a caller that forgets
-  it draws a basic game rather than an advanced one, and the cog's three
+  it draws a training game rather than one playing species abilities, and the cog's three
   call sites answer it from `RulesEngine.species_abilities_apply(game)` --
   the renderer never reads the game's own bools, which is the same rule
   every ability site follows (see "Species abilities in the bot" in [species-abilities.md](species-abilities.md)).
@@ -224,7 +224,7 @@ and judged at the width Discord shows the field strip (~900px), not at the
   those three calls, because a site that forgets the flag draws every
   advanced game without its species and nothing else in the suite can see
   it. `scripts/render_sample.py` draws the advanced look by default (it is
-  the one worth checking), `--basic` for the other, and a `--game` the way
+  the one worth checking), `--training` for the other, and a `--game` the way
   its own record says.
 - **A missing icon falls back the same way** -- initials alone, filling the
   body -- because the loader is silent (see "A bundled file's name is

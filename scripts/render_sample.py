@@ -109,7 +109,7 @@ def match_from_saved_game(
     # The same reading RulesEngine.species_abilities_apply makes, so a
     # saved game is drawn exactly as the bot draws it.
     species_icons = (
-        game.mode in (GameMode.BASIC, GameMode.ADVANCED)
+        game.mode in (GameMode.STANDARD, GameMode.ADVANCED)
         and game.species_abilities
         and not game.tutorial
     )
@@ -192,7 +192,7 @@ def main() -> None:
         help=(
             "Draw the meeples as a training game does -- role initials "
             "alone, no species icon. The default is the species look "
-            "basic and advanced games are drawn with; a --game is drawn "
+            "standard and advanced games are drawn with; a --game is drawn "
             "the way its own record says."
         ),
     )

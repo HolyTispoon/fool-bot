@@ -1082,7 +1082,7 @@ chooser, or puts a refusal away.
   as its own commit on step 5's PR and accepted by the author there
   (2026-09-26). Empty wherever being behind would
   not change the hand -- a game without the gambits, an unchallenged
-  maneuver, a side that holds them -- so a basic game draws three cards
+  maneuver, a side that holds them -- so a standard game draws three cards
   and nothing else.
 - **A side that has picked keeps its hand** (the author, 2026-09-26, on
   step 5's PR): it may change its card until the other side has picked

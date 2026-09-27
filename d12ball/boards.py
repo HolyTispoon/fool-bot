@@ -789,9 +789,11 @@ def draw_field_header(
     left = geometry.left
     width = geometry.right - geometry.left
     sheet.text((left, top), "D12 BALL", sheet.font(40, bold=True), INK)
+    # No mode: the board is the same in every mode, so naming one says
+    # the board is that mode's (the author, 2026-09-27).
     sheet.text(
         (left, top + sheet.u(46)),
-        f"FIELD BOARD  ·  {layout.board_size} SPACES  ·  BASIC MODE",
+        f"FIELD BOARD  ·  {layout.board_size} SPACES",
         sheet.font(16, bold=True),
         MUTED,
     )

@@ -609,7 +609,7 @@ class RulesEngine:
 
     def species_abilities_apply(self, game: D12BallGame) -> bool:
         """
-        Whether this game is playing the **species abilities**: basic
+        Whether this game is playing the **species abilities**: standard
         and advanced mode do, training mode does not (2026-09-25; see
         "Species abilities" in docs/living-rules.md). In training mode
         species is only a name on the card.
@@ -622,7 +622,7 @@ class RulesEngine:
         reads its twin.
         """
         return (
-            game.mode in (GameMode.BASIC, GameMode.ADVANCED)
+            game.mode in (GameMode.STANDARD, GameMode.ADVANCED)
             and game.species_abilities
             and not game.tutorial
         )
@@ -1463,7 +1463,7 @@ class RulesEngine:
         stored keys (see `gambit_benefit_applies`).
 
         Gated on the module as well, so no caller can ask this and
-        forget that a basic game has no gambits at all.
+        forget that a standard game has no gambits at all.
         """
         if not self.gambits_apply(game):
             return False
@@ -1494,7 +1494,7 @@ class RulesEngine:
         Three things narrow it, and all three are rules rather than
         settings:
 
-        - **A basic game is the basic three**, and so is an advanced
+        - **A standard game is the basic three**, and so is an advanced
           game that took the species abilities without this module --
           `gambits_apply` is both halves of that.
         - **An unchallenged maneuver is always basic** (the author):
@@ -1538,7 +1538,7 @@ class RulesEngine:
         whether six cards are coming back at them.
 
         Nothing is said where neither coach holds them -- three cards a
-        side is the basic game the coaches already know, and a line
+        side is the standard game the coaches already know, and a line
         saying so would be answering a question nobody asked.
         """
         if not self.gambits_apply(game) or match.maneuver_uncontested:

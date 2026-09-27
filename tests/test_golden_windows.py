@@ -28,7 +28,7 @@ because of what this file has to reach.
   `SafeView.may_act_for` would refuse half the presses. `D12BallGame`
   refuses two coaches on one id outright, so "two humans" is not
   available to a script at all.
-- **Basic mode on board 7 in 2-2-2**, the standard deal. The advanced
+- **Standard mode on board 7 in 2-2-2**, the standard deal. The advanced
   modules are the advanced golden's ground, and every press spent on a
   gambit or a Mind Pull offer here is a press not spent getting to
   minute 30. This game plays both halves out, so it is deliberately the
@@ -179,7 +179,7 @@ def build_windows_cog():
 
 def build_windows_game():
     """
-    A solo basic game -- see the module docstring for why it is not two
+    A solo standard game -- see the module docstring for why it is not two
     humans and not advanced.
     """
     return build_game(

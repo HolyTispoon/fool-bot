@@ -294,5 +294,5 @@ there is no fifth color to pair it with today.
   of species; it means the data predates the column.
 - **It is no longer flavor data on its own -- it is what a species
   team's roster is drawn from**, and what the legacy-migration Gotcha
-  below reconstructs a pre-reshuffle id from. Nothing about basic-mode
+  below reconstructs a pre-reshuffle id from. Nothing about training-mode
   rules reads it; it decides roster membership, not a mechanic.

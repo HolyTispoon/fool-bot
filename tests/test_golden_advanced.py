@@ -4,7 +4,7 @@ word for word against a file in `tests/golden/`.
 
 The twin of `tests/test_golden_transcript.py`, and it exists because
 that one's own docstring asked for it: the tutorial golden is one
-*basic*-mode solo game on board 7, so it watches no gambit, no species
+*standard*-mode solo game on board 7, so it watches no gambit, no species
 ability, no Mind Pull, no injury test, no own goal and no stacked run
 back. Phase 4 of `docs/design/model-discord-split.md` moves the spine of a turn
 -- the arrival gates, the run-back cascade, the injury tests, the own
@@ -17,7 +17,7 @@ moving, not beside it.
   `advanced_maneuvers`, `species_abilities`), because
   `RulesEngine.gambits_apply` and `species_abilities_apply` both read
   `game.mode` as well as their own flag -- a game with the flags set and
-  `mode` left at its `BASIC` default plays a basic game and the golden
+  `mode` left at its `STANDARD` default plays a standard game and the golden
   would quietly cover nothing this file is for.
 - **Telekinetics against Fire Demons**, because Mind Pull and Smooth are
   the two halves of the arrival gate and a whole-species team puts one

@@ -1169,7 +1169,7 @@ def maneuver_prompt_wording(
 def maneuver_gambit_paragraph(ask: str, gambit_access: str) -> str:
     """
     Who holds their gambits, under the ask and above the cards --
-    `""` for a basic game, which adds nothing. One join, so the
+    `""` for a standard game, which adds nothing. One join, so the
     Discord caption and the model's ask put the paragraph in the same
     place.
     """

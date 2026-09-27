@@ -139,6 +139,12 @@ INLINE_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp")
 # model's own loading.
 DUPLICATE_CARD_MARK = "~2"
 
+# A mode's saved value where its name differs from it: standard mode
+# was called basic until 2026-09-27 and still saves as "basic" (see
+# "Modes" in docs/design/species-abilities.md). Spelled out here for
+# the reason the mark above is.
+MODE_NAMES = {"basic": "standard"}
+
 
 def plain(value: object) -> str:
     """
@@ -245,12 +251,13 @@ def summarise_game(game_data: dict) -> list[tuple[str, str]]:
 
     visiting_number = 2 if home_number == 1 else 1 if home_number == 2 else None
 
+    mode = plain(game_data.get("mode") or "--")
     rows = [
         ("Game", f"PBD{game_data.get('game_number', '?')}"),
         ("Name", game_data.get("game_name") or "--"),
         ("Home", side_label(home_number)),
         ("Visitors", side_label(visiting_number)),
-        ("Mode", plain(game_data.get("mode") or "--")),
+        ("Mode", MODE_NAMES.get(mode, mode)),
         ("Board", plain(game_data.get("board_size") or "--")),
         ("Status", plain(game_data.get("status") or "--")),
     ]
