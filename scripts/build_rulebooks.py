@@ -5,6 +5,7 @@
     python3 scripts/build_rulebooks.py charter --paper a4
     python3 scripts/build_rulebooks.py --outlines      # the plan and outlines as PDFs
     python3 scripts/build_rulebooks.py --figures       # regenerate docs/rulebooks/figures/
+    python3 scripts/build_rulebooks.py --cover-dice    # redraw d12ball/images/cover_dice/
     python3 scripts/build_rulebooks.py --renumber      # write the Charter's numbers into its source
 
 The layout lives in `d12ball/rulebooks.py` and the figures in
@@ -95,6 +96,10 @@ def main() -> int:
         "--figures", action="store_true",
         help="Regenerate docs/rulebooks/figures/ from the bot's renderer, then exit.",
     )
+    parser.add_argument(
+        "--cover-dice", action="store_true",
+        help="Redraw the covers' dice into d12ball/images/cover_dice/, then exit.",
+    )
     args = parser.parse_args()
 
     if args.renumber:
@@ -104,6 +109,13 @@ def main() -> int:
         from d12ball.rulebook_figures import write_figures
 
         for path in write_figures():
+            print(f"wrote {path.relative_to(PROJECT_ROOT)}")
+        return 0
+
+    if args.cover_dice:
+        from d12ball.rulebooks import write_cover_dice
+
+        for path in write_cover_dice():
             print(f"wrote {path.relative_to(PROJECT_ROOT)}")
         return 0
 

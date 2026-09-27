@@ -12,8 +12,7 @@ from functools import lru_cache
 
 from PIL import Image, ImageDraw, ImageFont
 
-from d12ball.box_art import d12_art
-from d12ball.rulebooks import COVER_FACES, FONT_DIR, PAPERS, Cover, cover_layout
+from d12ball.rulebooks import COVER_FACES, FONT_DIR, PAPERS, Cover, cover_die, cover_layout
 
 
 @lru_cache(maxsize=None)
@@ -40,6 +39,6 @@ def render_cover(cover: Cover, width: int, paper: str = "letter") -> Image.Image
             font=cover_font(text.face, round(text.size)), anchor="ls",
         )
     left, top, size = layout.die
-    die = d12_art(round(size))
-    image.paste(die, (round(left), round(top)), die if die.mode == "RGBA" else None)
+    die = cover_die(cover, round(size))
+    image.paste(die, (round(left), round(top)), die)
     return image

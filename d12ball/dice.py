@@ -1,5 +1,5 @@
 """
-A d12 as a shaded solid resting on a table, for the studio page.
+A d12 as a shaded solid resting on a table.
 
 A dodecahedron resting on one face, seen from above at a table angle:
 bevelled edges, a key and a fill light, a specular highlight, numerals
@@ -8,7 +8,10 @@ the finishes of a resin die -- the light coming through it, the swirl
 poured into it, and a clear body the far faces show through.
 Prophetic Folly's dice are three `DicePair`s, `ORANGE`, `TEAL` and
 `PURPLE`; `landing/build.py` composes the still the studio page's card
-shows from them and the bot's coins.
+shows from them and the bot's coins. One die of a pair, cropped to
+itself by `die_mark`, is also a mark: each landing site's tab icon, and
+the die on each rulebook's cover (`rulebooks.write_cover_dice`), which
+is why it lives under `d12ball/` rather than `landing/`.
 
 Written for the landing-page sketch the author reviewed (2026-09-27)
 as `scripts/render_landing_dice.py` and moved here with its output
@@ -16,12 +19,13 @@ unchanged; the resin finishes came after, when the author asked for
 dice like the ones they play with. A die with none of them draws what
 the sketch's did, pixel for pixel. Nothing in the game reads it, and it
 shades per pixel with numpy. See docs/design/landing-pages.md, "The
-studio page".
+studio page" and "The dice as marks".
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -398,3 +402,28 @@ def render_die(die: Die, size: int, elev_deg: float = 52) -> Image.Image:
     shadow.putalpha(sh)
     out = Image.alpha_composite(shadow, rendered)
     return out.resize((size, size), Image.Resampling.LANCZOS)
+
+
+# A mark is drawn this many times its size and cropped to where the die
+# and its shadow are at least this opaque, so the faint edge of the
+# shadow does not shrink the die inside its square.
+MARK_OVERDRAW = 1.25
+MARK_ALPHA_FLOOR = 24
+
+
+@lru_cache(maxsize=None)
+def die_mark(die: Die, size: int) -> Image.Image:
+    """`die` filling a `size`-pixel RGBA square, centred, its shadow
+    under it: the die as a tab icon or a book cover's die, where
+    `render_die`'s square leaves a margin round it for the table."""
+    drawn = render_die(die, round(size * MARK_OVERDRAW))
+    left, top, right, bottom = drawn.getchannel("A").point(
+        lambda value: 255 if value >= MARK_ALPHA_FLOOR else 0,
+    ).getbbox()
+    side = max(right - left, bottom - top)
+    square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    square.alpha_composite(
+        drawn.crop((left, top, right, bottom)),
+        ((side - (right - left)) // 2, (side - (bottom - top)) // 2),
+    )
+    return square.resize((size, size), Image.Resampling.LANCZOS)

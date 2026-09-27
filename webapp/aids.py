@@ -879,6 +879,7 @@ def rules_html(document: RulesDocument, offered: dict) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
     <title>The Reading Room · D12 Ball</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png" />
     <link rel="stylesheet" href="/static/app.css" />
   </head>
   <body class="reading-room" data-view="charter">

@@ -91,7 +91,14 @@ checked by reading the PDF.
   canvas, 2026-09-27): white paper (cream until the author took it off
   the same day), a gold band at the head, the title
   in Racing Sans One broken where the author broke it, a gold rule, the
-  lines under it, the box's d12 low right, the publisher at the foot.
+  lines under it, a d12 low right, the publisher at the foot. The d12
+  was the box's solid until the author gave the books the purple pair of
+  Prophetic Folly's resin dice (2026-09-27): the `Cover` names its half
+  of `dice.PURPLE` -- the Learn to Play the Fortune, the Charter the
+  Doom -- and both drawings put down the same committed picture of it,
+  `d12ball/images/cover_dice/`, which `--cover-dice` redraws when the
+  dice change rather than every build shading it again
+  ([landing-pages.md](landing-pages.md), "The dice as marks").
   The words are the book's `Cover` in `BOOKS`, and the layout is
   `cover_layout`, in shares of the page, so the PDF's first page
   (`draw_cover`, its own page template with no footer) and the picture

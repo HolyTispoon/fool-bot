@@ -760,6 +760,15 @@ its controls, marked when they are this coach's -- which is the page's
 original shape, under the jumbotron bar across the top of it. On the
 right, the sidebar.
 
+**The tab icon is the bot's d12 emoji in periwinkle**, `static/favicon.png`,
+which every page links (the author, 2026-09-27). It is the stroke art of
+the `d12dice` and `d12dicecream` emoji, inked periwinkle and drawn a
+little heavier so it holds together at 16 pixels. The author picked it over
+the cream cut, which is lost on a light or orange tab bar. It is a
+committed file rather than drawn by a build: the emoji are application
+emoji the Developer Portal holds, with no copy in the repository, and
+the web app renders no picture it does not have to.
+
 **The sidebar is four tabs** (2026-09-27, step 10 of
 [../web-app-redesign.md](../web-app-redesign.md)): Log, Chat, Teams and
 Rules across the head of one 380px panel, the one showing under them.

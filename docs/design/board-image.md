@@ -413,7 +413,7 @@ stay Racing Sans One.
   (`render_role_emoji.py`, `render_team_emoji.py`), the four condition words
   (`render_condition_tokens.py`), the exhaustion token's Zs
   (`redraw_exhaust_zs.py`, then `recolor_exhaust_token.py`), and Prophetic
-  Folly's dice on the studio page (`landing/dice.py`). Before the switch each
+  Folly's dice on the studio page (`d12ball/dice.py`). Before the switch each
   script was run with DejaVu and checked against the committed files -- every
   one reproduced them, to text rasterisation -- so the font is the only thing
   the redraw changed. The Discord copies of the emoji change only when the
