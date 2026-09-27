@@ -208,6 +208,8 @@ function draw(state) {
   drawBoard(state);
   drawJournal(state);
   drawChat(state);
+  drawRosters(state);
+  rulesTab.setAids(state.aids);
   drawPrompt(state);
   drawRoll(state);
   drawHeadline(state);
@@ -217,7 +219,7 @@ function draw(state) {
   drawRoom(state);
   drawStats(state);
   followRematch(state);
-  if (state.refusal) showRefusal(state.refusal);
+  if (state.refusal) showRefusal(state.refusal, state.refusal_law);
   el("owed").hidden = !(state.owed && state.you.is_coach);
   const yours = Boolean(state.prompt && state.prompt.yours);
   document.title = `${yours ? "● " : ""}PBW${state.game.number} · D12 Ball`;
@@ -1312,6 +1314,10 @@ function fit(box) {
 
 // -- The game log -------------------------------------------------------------
 
+/* The minute the log last put a heading over, so a heading goes up
+   only when it changes. */
+let journalMinute = null;
+
 function drawJournal(state) {
   if (!state.entries.length) return;
   news("log");
@@ -1320,7 +1326,19 @@ function drawJournal(state) {
   if (empty) empty.remove();
   const nearBottom = journal.scrollHeight - journal.scrollTop - journal.clientHeight < 80;
   for (const entry of state.entries) {
-    const block = h("div", { class: entry.new_play ? "entry new-play" : "entry" });
+    /* The minute as a small heading when it changes: the clock the
+       result left, as the journal kept it. */
+    if (entry.minute !== null && entry.minute !== undefined) {
+      const minute = `${entry.minute}' · ${entry.half}`;
+      if (minute !== journalMinute) {
+        journal.append(h("div", { class: "log-minute" }, minute));
+        journalMinute = minute;
+      }
+    }
+    /* The edge is the entry's kind (`Entry.kind`): a goal, a new play,
+       a roll, the clock or a line -- the model's facts, never the
+       words read for them. */
+    const block = h("div", { class: `entry kind-${entry.kind || "line"}` });
     /* Words only: the log draws no picture (2026-09-26, the author).
        A question's picture is in the question area, and goes with it. */
     for (const line of entry.lines) block.append(h("p", { html: line }));
@@ -1331,94 +1349,6 @@ function drawJournal(state) {
     journal.dataset.scrolled = "1";
   }
 }
-
-// -- The divider between the log and the chat ---------------------------------
-
-/* The share of the column the log takes, the chat the rest. Remembered
-   in this browser only; a page with none stored, or with storage
-   refused, opens at the default. */
-const SPLIT_KEY = "d12ball.split";
-const SPLIT_DEFAULT = 1.3 / 2.3;
-const SPLIT_MIN_PX = 80;
-let splitShare = SPLIT_DEFAULT;
-
-function applySplit(share) {
-  /* A panel read to its newest line stays on it as it is resized. */
-  const pinned = ["journal", "chat"]
-    .map(el)
-    .filter((box) => box.scrollHeight - box.scrollTop - box.clientHeight < 8);
-  splitShare = share;
-  el("split").parentElement.style.gridTemplateRows =
-    `minmax(0, ${share}fr) auto minmax(0, ${1 - share}fr)`;
-  el("split").setAttribute("aria-valuenow", String(Math.round(share * 100)));
-  for (const box of pinned) box.scrollTop = box.scrollHeight;
-}
-
-function keepSplit() {
-  try {
-    localStorage.setItem(SPLIT_KEY, String(splitShare));
-  } catch (error) {
-    /* Storage refused: the divider still moves, it is only forgotten. */
-  }
-}
-
-/* The share a divider at `y` would give, kept so neither panel goes
-   below SPLIT_MIN_PX. */
-function shareAt(y) {
-  const split = el("split");
-  const top = split.previousElementSibling.getBoundingClientRect().top;
-  const bottom = split.nextElementSibling.getBoundingClientRect().bottom;
-  const room = bottom - top - split.offsetHeight;
-  if (room <= 2 * SPLIT_MIN_PX) return splitShare;
-  const log = Math.min(room - SPLIT_MIN_PX, Math.max(SPLIT_MIN_PX, y - top - split.offsetHeight / 2));
-  return log / room;
-}
-
-(function setUpSplit() {
-  const split = el("split");
-  split.setAttribute("aria-valuemin", "0");
-  split.setAttribute("aria-valuemax", "100");
-  let stored = NaN;
-  try {
-    stored = Number(localStorage.getItem(SPLIT_KEY));
-  } catch (error) {
-    /* Nothing stored that can be read: the default. */
-  }
-  applySplit(stored > 0 && stored < 1 ? stored : SPLIT_DEFAULT);
-
-  split.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    split.setPointerCapture(event.pointerId);
-    split.classList.add("dragging");
-  });
-  split.addEventListener("pointermove", (event) => {
-    if (split.hasPointerCapture(event.pointerId)) applySplit(shareAt(event.clientY));
-  });
-  const release = (event) => {
-    if (!split.hasPointerCapture(event.pointerId)) return;
-    split.releasePointerCapture(event.pointerId);
-    split.classList.remove("dragging");
-    keepSplit();
-  };
-  split.addEventListener("pointerup", release);
-  split.addEventListener("pointercancel", release);
-  split.addEventListener("dblclick", () => {
-    applySplit(SPLIT_DEFAULT);
-    keepSplit();
-  });
-  split.addEventListener("keydown", (event) => {
-    const step = { ArrowUp: -0.05, ArrowDown: 0.05 }[event.key];
-    if (step === undefined) return;
-    event.preventDefault();
-    const box = split.getBoundingClientRect();
-    const middle = box.top + box.height / 2;
-    const room = split.nextElementSibling.getBoundingClientRect().bottom
-      - split.previousElementSibling.getBoundingClientRect().top;
-    applySplit(shareAt(middle + step * room));
-    keepSplit();
-  });
-})();
 
 // -- The chat -----------------------------------------------------------------
 
@@ -2806,9 +2736,27 @@ function followRematch(state) {
 /* A refusal rides on the question it refused: a strip inside whichever
    box is asking -- the question box, or the table before kickoff --
    under its tag, and above the question box where neither is up. */
-function showRefusal(text) {
+function showRefusal(text, law = null) {
   const strip = el("refusal");
   el("refusal-text").textContent = text;
+  /* The Law it comes from, where the model named one: a link that
+     opens it in the Rules tab. The page maps no sentence to a Law. */
+  const cite = el("refusal-law");
+  if (law) {
+    cite.replaceChildren(
+      "See ",
+      h("a", {
+        href: `/rules#${law.slug}`,
+        class: "linkish",
+        onclick: (event) => { event.preventDefault(); openRule(law.slug); },
+      },
+      `Law ${law.number || law.law_number || ""}`.trim(), " · ", h("span", { html: law.title })),
+    );
+    cite.hidden = false;
+  } else {
+    cite.replaceChildren();
+    cite.hidden = true;
+  }
   if (!el("prompt").hidden) {
     el("prompt-state").parentElement.after(strip);
     strip.removeAttribute("data-tab");
@@ -3044,10 +2992,6 @@ el("drop-admin").addEventListener("click", dropAdmin);
 el("copy-link").addEventListener("click", copyLink);
 el("take-free-seat").addEventListener("click", () => roomMove("/seat/take"));
 el("dismiss").addEventListener("click", () => { el("refusal").hidden = true; });
-/* The reading room: what this game plays, as the state names it. */
-el("open-aids").addEventListener("click", () => {
-  if (current) window.D12Aids.open(current.aids);
-});
 el("viewer-close").addEventListener("click", () => el("viewer").close());
 el("viewer").addEventListener("click", (event) => {
   if (event.target === el("viewer") || event.target === el("viewer-body")) el("viewer").close();
@@ -3062,22 +3006,142 @@ el("chat-form").addEventListener("submit", (event) => {
     if (!ok && !input.value) input.value = text;
   });
 });
-/* On a phone, which tab is showing, and a mark on the others when
-   something new arrives there -- gold on Move when it is this coach's
-   turn to answer. */
+/* Which tab is showing, and a dot on the others when something new
+   arrives there: red for news, gold on Move when it is this coach's
+   turn to answer. A phone switches the whole screen (`body[data-show]`,
+   Move / Log / Chat / Teams / Rules); a wider screen switches the
+   sidebar's four (`#sidebar[data-pane]`). */
 function news(tab, kind = "news") {
-  if (document.body.dataset.show === tab) return;
-  const button = document.querySelector(`.tab[data-show="${tab}"]`);
-  if (button) button.classList.add(kind === "yours" ? "yours" : "news", "news");
+  const marks = kind === "yours" ? ["yours", "news"] : ["news"];
+  if (document.body.dataset.show !== tab) {
+    const button = document.querySelector(`.tab[data-show="${tab}"]`);
+    if (button) button.classList.add(...marks);
+  }
+  if (el("sidebar").dataset.pane !== tab) {
+    const button = document.querySelector(`.side-tab[data-pane="${tab}"]`);
+    if (button) button.classList.add(...marks);
+  }
+}
+
+function showing(tab) {
+  if (tab === "log") el("journal").scrollTop = el("journal").scrollHeight;
+  if (tab === "chat") el("chat").scrollTop = el("chat").scrollHeight;
 }
 
 for (const tab of document.querySelectorAll(".tab")) {
   tab.addEventListener("click", () => {
     document.body.dataset.show = tab.dataset.show;
     tab.classList.remove("news", "yours");
-    if (tab.dataset.show === "log") el("journal").scrollTop = el("journal").scrollHeight;
-    if (tab.dataset.show === "chat") el("chat").scrollTop = el("chat").scrollHeight;
+    if (["log", "chat", "teams", "rules"].includes(tab.dataset.show)) {
+      el("sidebar").dataset.pane = tab.dataset.show;
+      const side = document.querySelector(`.side-tab[data-pane="${tab.dataset.show}"]`);
+      if (side) side.classList.remove("news", "yours");
+    }
+    showing(tab.dataset.show);
   });
+}
+
+function showPane(pane) {
+  el("sidebar").dataset.pane = pane;
+  for (const button of document.querySelectorAll(".side-tab")) {
+    const on = button.dataset.pane === pane;
+    button.setAttribute("aria-selected", on ? "true" : "false");
+    if (on) button.classList.remove("news", "yours");
+  }
+  showing(pane);
+}
+
+for (const tab of document.querySelectorAll(".side-tab")) {
+  tab.addEventListener("click", () => showPane(tab.dataset.pane));
+}
+showPane(el("sidebar").dataset.pane);
+
+// -- The Teams tab -------------------------------------------------------------
+
+let shownRosters = null;
+
+/* Both rosters as tables, `board.py`'s rows as they come: the role and
+   the name, the two skills the card prints, the exhaustion as one token
+   a point, the condition, and the space or the bench. Hover a row for
+   the card; click it (or Enter) to open it. */
+function drawRosters(state) {
+  const layout = state.board && state.board.layout;
+  const rosters = layout && layout.rosters;
+  const key = JSON.stringify(rosters || null);
+  if (key === shownRosters) return;
+  shownRosters = key;
+  if (!rosters) {
+    el("rosters").replaceChildren(h("p", { class: "quiet" }, "The teams are drawn here once the game kicks off."));
+    return;
+  }
+  el("rosters").replaceChildren(...rosters.map((team) =>
+    h("section", { class: "roster" },
+      h("div", { class: "roster-head" },
+        h("span", { class: "roster-team", style: `color: ${team.colour}` }, team.name),
+        h("span", { class: "quiet" }, "exhaustion · condition · space")),
+      h("table", { class: "roster-table" },
+        h("thead", {},
+          h("tr", {},
+            h("th", {}, "Player"), h("th", {}, "OFF"), h("th", {}, "DEF"),
+            h("th", {}, "Exhaustion"), h("th", {}, h("span", { class: "sr" }, "Condition")),
+            h("th", {}, h("span", { class: "sr" }, "Where")))),
+        h("tbody", {}, team.rows.map(rosterRow))))));
+}
+
+function rosterRow(row) {
+  const marks = row.marks || {};
+  const tokens = marks.exhaustion
+    ? Array.from({ length: marks.exhaustion.count }, () =>
+      h("img", { class: "token", src: `/emoji/${marks.exhaustion.emoji}.png`, alt: "" }))
+    : [];
+  const condition = marks.condition
+    ? h("img", {
+      class: "emoji",
+      src: `/emoji/${marks.condition}.png`,
+      alt: marks.condition,
+      title: marks.condition[0].toUpperCase() + marks.condition.slice(1),
+    })
+    : null;
+  const tr = h("tr", {
+    class: row.where === "bench" || row.where === "back bench" ? "benched" : "",
+    tabindex: "0",
+    onclick: () => openCard(row.id),
+    onkeydown: (event) => { if (event.key === "Enter") openCard(row.id); },
+  },
+  h("td", { class: "who" },
+    h("span", { class: "role-dot", style: `background: ${row.colour}` }, row.role),
+    row.name),
+  h("td", { class: "num" }, String(row.offense)),
+  h("td", { class: "num" }, String(row.defense)),
+  h("td", {
+    class: "tokens",
+    title: marks.exhaustion
+      ? `${marks.exhaustion.count} ${marks.exhaustion.emoji === "exhaust" ? "exhaustion" : "drain"}`
+      : null,
+  }, tokens),
+  h("td", {}, condition),
+  h("td", { class: "where" }, row.ball ? `${row.where} · ball` : row.where));
+  hoverCard(tr, cardUrl(row.id));
+  return tr;
+}
+
+// -- The Rules tab -------------------------------------------------------------
+
+/* The Charter, the Learn to Play and the References
+   (webapp/static/aids.js), with the room's hover card for a card. */
+const rulesTab = window.D12Rules.mountTab(el("rules-tab"), {
+  hover: (node, url) => hoverCard(node, url),
+});
+
+/* A refusal's Law, opened where the reader is: the Rules tab. */
+function openRule(slug) {
+  if (phone()) {
+    document.body.dataset.show = "rules";
+    const tab = document.querySelector('.tab[data-show="rules"]');
+    if (tab) tab.classList.remove("news", "yours");
+  }
+  showPane("rules");
+  rulesTab.open(slug);
 }
 
 /* Names are measured in the board's face, so measure again once it

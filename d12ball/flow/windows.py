@@ -213,7 +213,8 @@ def apply_substitution(
     if not match.may_substitute():
         raise RuleRefusal(
             f"{engine.substitution_allowance_label(match)} in this "
-            "Coaching Choice."
+            "Coaching Choice.",
+            law="how-many-substitutions",
         )
     was_injured = outgoing_player_id in match.injured
     from_back_bench = (
@@ -405,7 +406,7 @@ def finish_coaching_step(
     """
     refusal = engine.coaching_finish_refusal(match, side)
     if refusal is not None:
-        raise RuleRefusal(refusal)
+        raise RuleRefusal(refusal, law="finishing-a-coaching-choice")
 
     setup = match.setup_for_side(side)
     changes = coaching_summary(engine, match, side)

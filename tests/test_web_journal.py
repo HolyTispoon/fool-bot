@@ -161,6 +161,73 @@ class JournalFileTests(unittest.TestCase):
         )
 
 
+class JournalKindTests(unittest.TestCase):
+    """
+    What the log's edge is coloured by (step 10 of
+    docs/web-app-redesign.md), and the minute over it -- every one a fact
+    the model handed over, never the words read for it.
+    """
+
+    def match(self, home=0, visiting=0, minute=5):
+        fixture = case("smooth")
+        match = fixture.match
+        match.scoreboard.home_score = home
+        match.scoreboard.visiting_score = visiting
+        match.scoreboard.time = minute
+        return match
+
+    def test_each_kind_by_what_carried_it(self) -> None:
+        self.assertEqual(Entry(1, ("A line.",)).kind, "line")
+        self.assertEqual(Entry(1, ("New.",), new_play=True).kind, "new_play")
+        self.assertEqual(Entry(1, ("Rolled.",), detail=dict(INJURY)).kind, "roll")
+        self.assertEqual(Entry(1, ("Whistle.",), clock=True).kind, "clock")
+        self.assertEqual(
+            Entry(1, ("Rolled.",), detail=dict(INJURY), goal=True).kind, "goal",
+        )
+
+    def test_a_goal_is_the_result_the_score_went_up_in(self) -> None:
+        journal = Journal()
+        journal.add(GameResult(answer=("Kickoff.",), match=self.match()))
+        journal.add(
+            GameResult(
+                answer=("Shot.",), detail=dict(INJURY), narration=("Next.",),
+                match=self.match(home=1, minute=7),
+            ),
+        )
+        journal.add(GameResult(answer=("On.",), match=self.match(home=1)))
+        kinds = [entry.kind for entry in journal.entries]
+        # The roll the goal came off is the goal; the lines after it are
+        # lines, and a result with no goal in it has none.
+        self.assertEqual(kinds, ["line", "goal", "line", "line"])
+
+    def test_the_minute_is_the_clock_the_result_left(self) -> None:
+        journal = Journal()
+        journal.add(GameResult(answer=("On.",), match=self.match(minute=12)))
+        written = journal.entries[-1].to_dict(case("smooth").game)
+        self.assertEqual(written["minute"], 12)
+        self.assertTrue(written["half"])
+        self.assertEqual(written["kind"], "line")
+        journal.add(GameResult(answer=("Before kickoff.",)))
+        self.assertIsNone(journal.entries[-1].minute)
+
+    def test_the_kind_survives_a_restart(self) -> None:
+        journal = Journal()
+        journal.add(GameResult(answer=("On.",), match=self.match()))
+        journal.add(
+            GameResult(
+                answer=("Shot.",), detail=dict(INJURY),
+                match=self.match(visiting=1, minute=9),
+            ),
+        )
+        back = reloaded(journal)
+        self.assertEqual(
+            [entry.kind for entry in back.entries],
+            [entry.kind for entry in journal.entries],
+        )
+        self.assertEqual(back.goals_seen, 1)
+        self.assertEqual(back.entries[-1].minute, 9)
+
+
 class JournalRestartTests(unittest.IsolatedAsyncioTestCase):
     """A room's transcript is as good after a restart as its link."""
 

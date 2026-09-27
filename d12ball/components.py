@@ -2366,7 +2366,8 @@ class MatchState:
     def select_ball_handler(self, player_id: str) -> None:
         if player_id not in self.turn_handler_candidates():
             raise RuleRefusal(
-                "The selected player is not an eligible ball handler."
+                "The selected player is not an eligible ball handler.",
+                law="choosing-the-handler",
             )
         self.active_player_id = player_id
         # Consumed: the carrier has taken their turn, and what happens
@@ -3255,10 +3256,14 @@ class MatchState:
         not a ban on spending.
         """
         if player_id in self.pending_overdrive:
-            raise RuleRefusal("Overdrive has already been declared.")
+            raise RuleRefusal(
+                "Overdrive has already been declared.",
+                law="lithium-powered-cyborg",
+            )
         if player_id in self.pending_boost:
             raise RuleRefusal(
                 "Boost has already been declared on this roll.",
+                law="cyborgs",
             )
         if player_id in self.injured:
             # An injured player carries no tokens and cannot gain any,
@@ -3279,10 +3284,14 @@ class MatchState:
         a roll, never both.
         """
         if player_id in self.pending_boost:
-            raise RuleRefusal("Boost has already been declared.")
+            raise RuleRefusal(
+                "Boost has already been declared.",
+                law="cyborgs",
+            )
         if player_id in self.pending_overdrive:
             raise RuleRefusal(
                 "Overdrive has already been declared on this roll.",
+                law="cyborgs",
             )
         if player_id in self.injured:
             raise RuleRefusal("An injured player cannot Boost.")
@@ -3394,7 +3403,8 @@ class MatchState:
             raise RuleRefusal("A defender has already been chosen.")
         if player_id not in self.challenge_candidates():
             raise RuleRefusal(
-                "The selected player cannot challenge for the ball."
+                "The selected player cannot challenge for the ball.",
+                law="the-two-nearest",
             )
 
         distance = self.distance_to_ball(player_id)
@@ -3427,7 +3437,8 @@ class MatchState:
         """
         if self.automatic_challengers():
             raise RuleRefusal(
-                "A defender on the ball's space has to challenge."
+                "A defender on the ball's space has to challenge.",
+                law="a-player-already-there",
             )
         self.maneuver_uncontested = True
         self.pending_action = None
@@ -3510,7 +3521,10 @@ class MatchState:
         if mine is None:
             raise RuleRefusal("That side has not chosen a maneuver yet.")
         if self.maneuver_uncontested or theirs is not None:
-            raise RuleRefusal("Both sides have chosen; the pick stands.")
+            raise RuleRefusal(
+                "Both sides have chosen; the pick stands.",
+                law="choosing-and-revealing",
+            )
         if side == "offense":
             self.offense_maneuver = key
         else:
@@ -3574,7 +3588,8 @@ class MatchState:
         if player_id not in self.contest_candidates(self.ball.possession):
             raise RuleRefusal(
                 f"{player_id} cannot recover the ball -- not one of the "
-                "nearest players for the side now in possession."
+                "nearest players for the side now in possession.",
+                law="picking-the-ball-up",
             )
         origin_flat = self.board.flat_index(
             *self.board.meeple_position(player_id)
@@ -4188,7 +4203,8 @@ class MatchState:
             side, zone, player_id, spread_exempt_ids,
         ):
             raise RuleRefusal(
-                "That zone still has a space with nobody on it."
+                "That zone still has a space with nobody on it.",
+                law="running-back-after-a-steal",
             )
 
         distance = self.run_back_distance(player_id, zone, space_index)
@@ -4492,12 +4508,14 @@ class MatchState:
         if incoming_player_id not in self.substitution_pool(side):
             if incoming_player_id in self.injured:
                 raise RuleRefusal(
-                    "An injured player can never be subbed back in."
+                    "An injured player can never be subbed back in.",
+                    law="who-may-come-on",
                 )
             if setup.team_board.bench:
                 raise RuleRefusal(
                     "The incoming player card is not on the bench, which "
-                    "is the only pool until it has drained."
+                    "is the only pool until it has drained.",
+                    law="who-may-come-on",
                 )
             raise RuleRefusal(
                 "The incoming player card is not on the back bench."
@@ -4596,7 +4614,8 @@ class MatchState:
             # `position_meeple`'s.
             raise RuleRefusal(
                 "Both players are assigned to the same zone; a zone "
-                "assignment trades two players in different zones."
+                "assignment trades two players in different zones.",
+                law="what-a-coach-may-do",
             )
 
         setup.zones[zone][setup.zones[zone].index(player_id)] = (
@@ -4884,7 +4903,8 @@ class MatchState:
         squad = self.shootout_squad(side)
         if sorted(player_ids) != sorted(squad):
             raise RuleRefusal(
-                "A shootout order has to be all six field players."
+                "A shootout order has to be all six field players.",
+                law="who-shoots",
             )
         self.shootout_orders[TeamSide(side).value] = list(player_ids)
 
