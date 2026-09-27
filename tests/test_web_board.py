@@ -31,7 +31,14 @@ from d12ball.components import MatchPeriod, PlayerRole, TeamSide, Zone
 from d12ball.prompts import PromptKind, pending_prompt
 from d12ball.render import shooting_range_bands, space_code
 from gamelocks import GameLocks
-from webapp.board import FAN_MEEPLE_WIDTH, FAN_STEPS, ZONES, board_layout
+from webapp.board import (
+    FAN_MEEPLE_WIDTH,
+    FAN_STEPS,
+    NARROW_FAN_STEPS,
+    NARROW_MEEPLE_WIDTH,
+    ZONES,
+    board_layout,
+)
 from webapp.present import CONTROLS, NEUTRAL, Asked, Viewer, controls_for
 from webapp.server import WebApp
 from prompt_fixtures import CASES, ENGINE
@@ -281,6 +288,46 @@ class FanTests(unittest.TestCase):
         if len(more["pieces"]) < 5:
             self.skipTest("the fixture fields fewer than five")
         self.assertAlmostEqual(more["width"], home["width"])
+
+    def test_the_narrow_fan_is_the_same_fan_at_the_phone_s_steps(self) -> None:
+        """A phone held upright draws each space's `narrow_fans`: the
+        same pieces in the same order, front and names, leaning the
+        same way, at `NARROW_FAN_STEPS` -- the page lays out neither."""
+        for count in (1, 2, 3, 4):
+            for side in TeamSide:
+                with self.subTest(count=count, side=side.value):
+                    self.setUp()
+                    space = self.crowd(side, count, ball=False)
+                    wide = space["fans"][side.value]
+                    narrow = space["narrow_fans"][side.value]
+                    strip = lambda fan: [
+                        (piece["id"], piece["front"]) for piece in fan["pieces"]
+                    ]
+                    self.assertEqual(strip(narrow), strip(wide))
+                    self.assertEqual(narrow["names"], wide["names"])
+                    self.assertEqual(narrow["step"], list(NARROW_FAN_STEPS[count]))
+                    if count > 1:
+                        for fan in (wide, narrow):
+                            back, front = fan["pieces"][0], fan["pieces"][-1]
+                            self.assertEqual(
+                                front["x"] > back["x"], side is TeamSide.HOME,
+                            )
+
+    def test_a_narrow_four_fan_fits_a_phone_s_space(self) -> None:
+        """No meeple leaves its space on a phone either: a four-fan is
+        no wider than a piece and a few pixels, and no taller than the
+        lane `app.css` gives the narrow field (78px, half of a 180px
+        space less its number)."""
+        space = self.crowd(TeamSide.HOME, 4, ball=False)
+        geometry = board_layout(
+            ENGINE, self.fixture.game, self.match,
+            card_url=CARD_URL, goal_url=GOAL_URL,
+        )["narrow_meeple"]
+        self.assertEqual(geometry["width"], NARROW_MEEPLE_WIDTH)
+        tall = NARROW_MEEPLE_WIDTH * geometry["box"][3] / geometry["box"][2]
+        drawn = space["narrow_fans"]["home"]
+        self.assertLessEqual(drawn["width"], NARROW_MEEPLE_WIDTH + 4)
+        self.assertLessEqual(max(p["y"] for p in drawn["pieces"]) + tall, 78)
 
     def test_a_loose_ball_names_no_holder(self) -> None:
         midfield = self.match.board.spaces[Zone.MIDFIELD]

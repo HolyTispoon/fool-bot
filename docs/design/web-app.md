@@ -681,14 +681,64 @@ tabs on the step's PR (2026-09-27).
   every row to the card and the space the layout already hands over.
 - **Rules** is "The rules and the player aids", below.
 
-**A phone is one screen, not a long page.** The jumbotron and the
-board stay on it; under them five tabs -- Move, Log, Chat, Teams,
-Rules -- switch what fills the rest, and only the tab showing scrolls
-(the phone's own layout is step 11 of the redesign). A tab that is
-not showing is marked when something new arrives in it, gold on Move
-when the prompt is this coach's. Stacking all five panels made a page
-a coach scrolled past the board to answer and past the answer to read
-what happened, which is the opposite of a table.
+**A phone is one screen, not a long page** (2026-09-27, step 11 of
+[../web-app-redesign.md](../web-app-redesign.md), the two phone
+artboards of row 4 of the canvas; at 960px and under). The score and
+the field stay on it; five tabs -- Move, Log, Chat, Teams, Rules --
+switch what fills the rest, and only the tab showing scrolls. A tab
+that is not showing is marked when something new arrives in it, gold
+on Move when the prompt is this coach's. Stacking all five panels made
+a page a coach scrolled past the board to answer and past the answer
+to read what happened, which is the opposite of a table. The phone has
+two shapes, by which way it is held:
+
+- **Upright, the field is kept horizontal and whole, fitted to the
+  width.** The seven spaces between narrow goals, the zone names over
+  them and the ranges under them, laid out at the screen's own width
+  rather than the desktop's 1200px scaled down -- scaled, a meeple
+  would be 15px. A meeple is 30px with its role and species and no
+  name; its badges and the ball scale with it; a hold on it opens its
+  card, which carries the name. **The fans are still `board.py`'s**:
+  each space carries `narrow_fans` beside `fans`, the same pieces in
+  the same order leaning the same way, at `NARROW_FAN_STEPS` measured
+  against `NARROW_MEEPLE_WIDTH` -- a space is about forty pixels across
+  at 390px, room for one piece and a pixel's lean a step, so the
+  narrow fan steps down its lane rather than across it. The page draws
+  whichever it is handed and works neither out (`FanTests`).
+  Pinching zooms; a tap on the field away from a piece opens the whole
+  board at the desktop's size, as it did.
+- **Upright, the move is a bottom sheet**: the Move tab's pane, edged
+  in the state tag's colour, over the rest of the screen, with the
+  tabs along its foot. It opens on the question -- the tag, the ask,
+  what is lit -- and the box's own controls; the outcome and the
+  reveal of what just happened come after them there, where on a
+  wide screen they come first, because in half a phone's height the
+  outcome at full size pushed the question out of sight. **Every
+  thing lit on the field is on the sheet again**, large enough to tap:
+  "LIT ON THE FIELD", each lit meeple at the desktop's 50px with its
+  name and chip, each lit space, the ball, a goal, the ✕, a bench or a
+  time-out tile as a gold object with its chips, and a piece picked up
+  in a Coaching Choice, to put back. It is `readLit`'s index read a
+  second time, each entry pressed exactly as its object on the field
+  is, so nothing is on the sheet that is not lit on the field and
+  nothing lit is missing from it. The sideline is on the sheet too,
+  under the question, since the narrow field has no room under it.
+  The compact jumbotron is one line: the teams, the score, the ball's
+  d12 beside the side that has it, the minute over the half; the
+  coaches, the track and the tiles are the wide screen's, and a time
+  out that may be called is on the sheet with everything else lit.
+- **On its side, the desktop field whole** (the 1200px stage scaled to
+  the width, sideline and all), with the jumbotron's one line laid
+  over the middle of the top bar -- the teams, the score, the minute,
+  the half, and a time-out tile only where it may be called -- and the
+  move one slim strip at the foot of the screen: the tag, the ask cut
+  to a line, and the tabs as pills. The page scrolls under the top bar
+  and the strip stays at the foot; the box, or the tab a pill opens,
+  is under the field, and a tap on the strip's ask brings the box up.
+  The field is large enough there to answer on, so the strip repeats
+  nothing.
+- The top bar is the room's number and the seat, the team's emoji for
+  its name.
 
 **Your turn reaches a coach who is not looking.** The tab's title
 carries a mark while the prompt is theirs (`prompt.yours`), and where

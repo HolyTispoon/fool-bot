@@ -45,6 +45,12 @@ let picked = null;
 
 const el = (id) => document.getElementById(id);
 const phone = () => window.matchMedia("(max-width: 960px)").matches;
+/* A phone held upright (step 11 of docs/web-app-redesign.md): the field
+   is drawn narrow -- horizontal and whole at the screen's width, small
+   meeples with no names -- and the move is a bottom sheet that repeats
+   every lit thing large enough to tap. */
+const UPRIGHT = window.matchMedia("(max-width: 960px) and (orientation: portrait)");
+const upright = () => UPRIGHT.matches;
 const finePointer = () => window.matchMedia("(pointer: fine)").matches;
 
 /* One element: `h("div", {class: "x", onclick: fn}, child, ...)`. Text
@@ -221,6 +227,7 @@ function draw(state) {
   followRematch(state);
   if (state.refusal) showRefusal(state.refusal, state.refusal_law);
   el("owed").hidden = !(state.owed && state.you.is_coach);
+  drawStrip();
   const yours = Boolean(state.prompt && state.prompt.yours);
   document.title = `${yours ? "● " : ""}PBW${state.game.number} · D12 Ball`;
   notifyTurn(state);
@@ -303,19 +310,21 @@ function drawHeader(state) {
   you.style.removeProperty("--pill-edge");
   if (room.role === "home" || room.role === "visiting") {
     const coach = state.game.coaches.find((one) => one.player_number === mine.number);
+    /* The lead words and the team's name are what a phone's top bar
+       leaves out: the seat and the team's emoji say it. */
     you.replaceChildren(
-      "You are the ",
+      h("span", { class: "pill-lead" }, "You are the "),
       h("strong", {}, room.role === "home" ? "Home coach" : "Visitors coach"),
-      coach && coach.team ? " · " : "",
+      coach && coach.team ? h("span", { class: "pill-lead" }, " · ") : "",
       coach && coach.team ? teamEmoji(coach.team_key, coach.team) : "",
-      coach && coach.team ? h("strong", {}, coach.team) : "",
+      coach && coach.team ? h("strong", { class: "pill-team" }, coach.team) : "",
     );
     if (coach && coach.colour) you.style.setProperty("--pill-edge", coach.colour);
   } else if (mine) {
-    you.replaceChildren("You are ", h("strong", {}, mine.label));
+    you.replaceChildren(h("span", { class: "pill-lead" }, "You are "), h("strong", {}, mine.label));
     you.style.setProperty("--pill-edge", GOLD);
   } else {
-    you.replaceChildren("You are an observer");
+    you.replaceChildren(h("span", { class: "pill-lead" }, "You are an "), "observer");
   }
   el("take-free-seat").hidden = Boolean(mine) || !room.seats.some((seat) => seat.free);
 }
@@ -563,16 +572,118 @@ function drawBoard(state) {
   const layout = state.board.layout;
   el("no-board").hidden = Boolean(layout);
   lit = readLit(state.prompt);
-  const shape = JSON.stringify([layout, lit.shape]);
+  const narrow = upright();
+  const shape = JSON.stringify([layout, lit.shape, narrow]);
   if (shape === shownBoard) return;
   shownBoard = shape;
   const box = el("board");
   box.replaceChildren();
+  /* The sideline is under the field, or -- held upright, where the
+     field is too narrow for it -- in the sheet under the question. */
+  const benches = narrow ? el("sheet-benches") : el("benches");
   el("benches").replaceChildren();
+  el("sheet-benches").replaceChildren();
+  el("sheet-benches").hidden = !(narrow && layout);
+  drawLitRepeat(layout);
   if (!layout) return;
-  box.append(stage(layout, { live: true }));
+  box.append(stage(layout, { live: true, narrow }));
   watchFit(box);
-  el("benches").append(...layout.team_boards.map((board) => sideline(board, layout)));
+  benches.append(...layout.team_boards.map((board) => sideline(board, layout)));
+}
+
+/* Turned between upright and on its side: the field is drawn again for
+   the other shape. */
+UPRIGHT.addEventListener("change", () => {
+  shownBoard = null;
+  if (current) drawBoard(current);
+});
+
+/* Held upright, the sheet repeats every thing the prompt lights on the
+   board, at the desktop's size with its name and its chip, so nothing
+   needs zooming to answer. It is `lit` read again -- the same controls
+   the field lights, each pressed the same way -- so nothing is on it
+   that is not lit on the field, and nothing lit is missing from it. */
+function drawLitRepeat(layout) {
+  const box = el("lit-repeat");
+  box.replaceChildren();
+  const items = layout && lit ? litItems(layout) : [];
+  box.hidden = !items.length;
+  if (!items.length) return;
+  box.append(h("span", { class: "repeat-label" }, "LIT ON THE FIELD"), ...items);
+}
+
+function litItems(layout) {
+  const items = [];
+  const item = (object, name, controls, { held = false } = {}) => h(
+    "div",
+    { class: `repeat-item${held ? " held" : ""}` },
+    object,
+    name ? h("span", { class: "repeat-name" }, name) : null,
+    controls.length ? h("span", { class: "repeat-chips" }, chips(controls)) : null,
+  );
+  const thing = (label, controls, content, extra = "") => h(
+    "button",
+    {
+      type: "button",
+      class: `repeat-thing${extra}`,
+      title: controls.map((c) => c.label).join(" · "),
+      "aria-label": controls[0].label,
+      onclick: () => press(controls[0]),
+    },
+    content,
+  );
+  const players = new Map();
+  for (const one of layout.spaces) {
+    for (const m of [...one.home, ...one.visiting]) players.set(m.id, m);
+  }
+  for (const board of layout.team_boards) {
+    for (const entry of [...board.bench, ...board.back_bench]) players.set(entry.id, entry.meeple);
+  }
+  /* The thing picked up first, to put back; then every lit meeple. */
+  if (picked && picked.first && picked.first.at === "player" && players.has(picked.first.id)) {
+    const m = players.get(picked.first.id);
+    items.push(item(meeple(m, layout), `${m.name} · picked up`, [], { held: true }));
+  }
+  for (const [id, controls] of Object.entries(lit.player)) {
+    const m = players.get(id);
+    if (!m) continue;
+    items.push(item(meeple(m, layout, { controls }), m.name, controls));
+  }
+  for (const one of layout.spaces) {
+    const controls = lit.space[`${one.zone}:${one.index}`];
+    if (controls) {
+      items.push(item(thing(one.code, controls, h("span", { class: "repeat-code" }, one.code), " space"),
+        `Space ${one.code}`, controls));
+    }
+  }
+  if (lit.ball.length) {
+    const speed = (layout.spaces.find((one) => one.ball) || {}).ball;
+    items.push(item(thing("ball", lit.ball, die(String(speed ? speed.speed : ""), {
+      size: 40, fill: "#ffffff", ink: "#243347", font: 18, ring: true,
+    }), " ball"), "The ball", lit.ball));
+  }
+  for (const side of ["home", "visiting"]) {
+    const colour = layout.jumbotron[side].colour;
+    const name = layout.jumbotron[side].name;
+    const goals = lit.goal[side];
+    if (goals) {
+      items.push(item(thing("goal", goals, h("span", { class: "repeat-goal", style: `--team: ${colour}` }, "GOAL"), " goal"),
+        `${name}'s goal`, goals));
+    }
+    const out = lit.out[side];
+    if (out) items.push(item(thing("out", out, "✕", " out"), "Out of play", out));
+    const tile = lit.tile[side];
+    if (tile) {
+      items.push(item(thing("tile", tile, h("span", { class: "repeat-tile", style: `--team: ${colour}` }, "TIME OUT"), " tile"),
+        name, tile));
+    }
+    const bench = lit.bench[side];
+    if (bench) {
+      items.push(item(thing("bench", bench, h("span", { class: "repeat-tile", style: `--team: ${colour}` }, "BENCH"), " tile"),
+        name, bench));
+    }
+  }
+  return items;
 }
 
 /* Redraw what a pick changes: the board's lit things, and the box's
@@ -772,15 +883,15 @@ function chips(controls, { buttons = controls.length > 1 } = {}) {
    goals, and the shooting ranges under it. Every value on it is
    `webapp/board.py`'s; the jumbotron has its own bar, and the benches
    are the sideline under it. */
-function stage(layout, { live }) {
+function stage(layout, { live, narrow = false }) {
   return h(
     "div",
-    { class: "stage", onclick: live ? openBoardOnPhone : null },
-    pitch(layout),
+    { class: `stage${narrow ? " narrow" : ""}`, onclick: live ? openBoardOnPhone : null },
+    pitch(layout, narrow),
   );
 }
 
-function pitch(layout) {
+function pitch(layout, narrow = false) {
   const zones = h(
     "div",
     { class: "field-row zone-names" },
@@ -797,9 +908,9 @@ function pitch(layout) {
   const spaces = h(
     "div",
     { class: "field-spaces" },
-    goal("home", layout.jumbotron.home.colour),
-    layout.spaces.map((one) => space(one, layout)),
-    goal("visiting", layout.jumbotron.visiting.colour),
+    goal("home", layout.jumbotron.home.colour, narrow),
+    layout.spaces.map((one) => space(one, layout, narrow)),
+    goal("visiting", layout.jumbotron.visiting.colour, narrow),
   );
   const bands = h(
     "div",
@@ -821,7 +932,7 @@ function pitch(layout) {
    the d12 showing 12 for its O, turned to read along the goal. It is
    lit when a prompt names it -- the shot -- and pressing it answers;
    past it, the ✕ a pass is put out of play at, when one is offered. */
-function goal(side, colour) {
+function goal(side, colour, narrow = false) {
   const controls = (lit && lit.goal[side]) || [];
   const out = (lit && lit.out[side]) || [];
   const on = controls.length > 0;
@@ -842,7 +953,9 @@ function goal(side, colour) {
       "span",
       { class: "goal-word" },
       h("span", {}, "G"),
-      die("12", { size: 56, fill: "#0c141c", ink: colour, font: 24 }),
+      narrow
+        ? die("12", { size: 18, fill: "#0c141c", ink: colour, font: 7 })
+        : die("12", { size: 56, fill: "#0c141c", ink: colour, font: 24 }),
       h("span", {}, "A"),
       h("span", {}, "L"),
     ),
@@ -862,7 +975,7 @@ function goal(side, colour) {
   );
 }
 
-function space(one, layout) {
+function space(one, layout, narrow = false) {
   const loose = one.ball && !one[one.ball.side].length;
   const controls = (lit && lit.space[`${one.zone}:${one.index}`]) || [];
   const on = controls.length > 0;
@@ -880,9 +993,9 @@ function space(one, layout) {
     },
     h("span", { class: "space-code" }, one.code),
     one.kickoff ? h("span", { class: "kickoff-ring" }) : null,
-    h("div", { class: "lane visiting" }, fanOf(one, "visiting", layout, marks)),
-    h("div", { class: "lane home" }, fanOf(one, "home", layout, marks)),
-    loose ? h("span", { class: "loose-ball" }, ball(one.ball.speed, 36, { lit: true })) : null,
+    h("div", { class: "lane visiting" }, fanOf(one, "visiting", layout, marks, narrow)),
+    h("div", { class: "lane home" }, fanOf(one, "home", layout, marks, narrow)),
+    loose ? h("span", { class: "loose-ball" }, ball(one.ball.speed, narrow ? 22 : 36, { lit: true })) : null,
     on ? h("span", { class: "space-chips" }, chips(controls)) : null,
   );
 }
@@ -892,10 +1005,13 @@ function space(one, layout) {
    (the front piece's first) and every badge and the ball drawn over
    the whole of it. `marks` is what a prompt lights: a piece's id to
    the chip saying what clicking it means. */
-function fanOf(one, side, layout, marks = {}) {
-  const drawn = one.fans[side];
+function fanOf(one, side, layout, marks = {}, narrow = false) {
+  /* Held upright, the narrow fan at the phone's own steps, and no
+     names under it: the sheet names whatever is lit, and a hold on a
+     piece opens its card. */
+  const drawn = narrow ? one.narrow_fans[side] : one.fans[side];
   if (!drawn.pieces.length) return null;
-  const g = layout.meeple;
+  const g = narrow ? layout.narrow_meeple : layout.meeple;
   const W = g.width;
   const H = (W * g.box[3]) / g.box[2];
   const tall = Math.max(...drawn.pieces.map((p) => p.y)) + H;
@@ -910,7 +1026,7 @@ function fanOf(one, side, layout, marks = {}) {
           class: "fan-piece",
           style: `left: ${piece.x}px; top: ${piece.y}px; z-index: ${index + 1}`,
         },
-        meeple(piece, layout, { controls: marks[piece.id] }),
+        meeple(piece, layout, { controls: marks[piece.id], narrow }),
       ),
     );
     over.push(...badges(piece, piece.x, piece.y, W, H));
@@ -918,12 +1034,24 @@ function fanOf(one, side, layout, marks = {}) {
       /* Off the top right of a home holder, almost touching the
          shoulder; off the bottom left of a visiting one, over the edge
          by the foot. */
-      const place = side === "home"
-        ? `left: ${piece.x + W * 0.66}px; top: ${piece.y - 22}px`
-        : `left: ${piece.x - 18}px; top: ${piece.y + H - 30}px`;
-      over.push(h("span", { class: "held-ball", style: place }, ball(one.ball.speed, 30, { lit: true })));
+      /* Narrow, the space has no room beside the piece: the ball sits
+         on its shoulder, inside the space, rather than off it. */
+      const size = narrow ? 16 : 30;
+      const place = narrow
+        ? side === "home"
+          ? `left: ${piece.x + W - size}px; top: ${piece.y - size * 0.5}px`
+          : `left: ${piece.x}px; top: ${piece.y + H - size}px`
+        : side === "home"
+          ? `left: ${piece.x + W * 0.66}px; top: ${piece.y - 22}px`
+          : `left: ${piece.x - 18}px; top: ${piece.y + H - 30}px`;
+      over.push(h("span", { class: "held-ball", style: place }, ball(one.ball.speed, size, { lit: true })));
     }
   });
+  if (narrow) {
+    box.append(...over);
+    box.style.height = `${tall}px`;
+    return box;
+  }
   /* Names front first, each centred under its own piece. */
   let line = tall + 4;
   const byId = Object.fromEntries(drawn.pieces.map((p) => [p.id, p]));
@@ -999,18 +1127,18 @@ function chip(control) {
 
 /* A meeple, lit gold where a control names it: clicking a lit one
    answers, clicking any other opens its card. */
-function meeple(m, layout, { controls = null } = {}) {
+function meeple(m, layout, { controls = null, narrow = false } = {}) {
   const on = Boolean(controls && controls.length);
   const key = `player:${m.id}`;
   const held = Boolean(picked && picked.key === key);
   const picks = !on && lit && lit.pickable[key];
-  const node = litMeeple(m, layout, controls, on, held, picks);
+  const g = narrow ? layout.narrow_meeple : layout.meeple;
+  const node = litMeeple(m, layout, controls, on, held, picks, g);
   if (lit && lit.pickable[key]) dragPick(node, key);
   return node;
 }
 
-function litMeeple(m, layout, controls, lit, held, picks) {
-  const g = layout.meeple;
+function litMeeple(m, layout, controls, lit, held, picks, g = layout.meeple) {
   const [, , width, height] = g.box;
   const W = g.width;
   const H = (W * height) / width;
@@ -1036,7 +1164,7 @@ function litMeeple(m, layout, controls, lit, held, picks) {
         else openCard(m.id);
       },
     },
-    meepleArt(m, layout, { ring: lit || held, dashed: held }),
+    meepleArt(m, layout, { ring: lit || held, dashed: held, g }),
   );
   hoverCard(node, cardUrl(m.id));
   return node;
@@ -1045,8 +1173,7 @@ function litMeeple(m, layout, controls, lit, held, picks) {
 /* A meeple's own drawing, for whatever holds it: the Screentop piece in
    the team's colour, edged gold where it is lit, the species icon and
    the role badge. */
-function meepleArt(m, layout, { ring = false, dashed = false } = {}) {
-  const g = layout.meeple;
+function meepleArt(m, layout, { ring = false, dashed = false, g = layout.meeple } = {}) {
   const [left, top, width, height] = g.box;
   const W = g.width;
   const icon = layout.species_icons && m.species;
@@ -1301,14 +1428,16 @@ function fit(box) {
   const inner = box.firstElementChild;
   if (!inner) return;
   const max = Number(box.dataset.max || 1.35);
-  const scale = Math.min(max, box.clientWidth / STAGE_WIDTH);
+  /* The narrow field is laid out at the box's own width, unscaled. */
+  const scale = inner.classList.contains("narrow")
+    ? 1 : Math.min(max, box.clientWidth / STAGE_WIDTH);
   const height = Math.ceil(inner.offsetHeight * scale);
   /* A ResizeObserver hears its own height change; answering that with
      the same numbers is what keeps it from looping. */
   const last = fitted.get(box);
   if (last && last.inner === inner && last.scale === scale && last.height === height) return;
   fitted.set(box, { inner, scale, height });
-  inner.style.transform = `scale(${scale})`;
+  inner.style.transform = scale === 1 ? "" : `scale(${scale})`;
   box.style.height = `${height}px`;
 }
 
@@ -1422,6 +1551,24 @@ function drawPrompt(state) {
   drawPicture(state.prompt);
   drawReference(state.prompt);
   drawControls(state.prompt);
+}
+
+/* A phone's tag and ask where the question box is not in sight: the
+   slim strip under the field on its side, and the sheet's gold edge
+   held upright. Copied from whichever box is up -- the question, or
+   the table before kickoff -- so it says nothing the box does not. */
+function drawStrip() {
+  const box = !el("prompt").hidden ? el("prompt") : !el("table").hidden ? el("table-box") : null;
+  const tag = el("strip-state");
+  const said = box === el("prompt") ? el("prompt-state") : el("table-state");
+  const state = box === el("prompt") ? box.dataset.state : box ? el("table-box").dataset.state : null;
+  tag.hidden = !box || !said.textContent;
+  tag.textContent = box ? said.textContent : "";
+  tag.className = said.className;
+  const ask = box === el("prompt") ? el("ask") : el("table-ask");
+  el("strip-ask").innerHTML = box ? ask.innerHTML : "";
+  el("move-pane").dataset.state = state || "";
+  el("strip").dataset.state = state || "";
 }
 
 /* The question box's four tags, by the state the server read. */
@@ -2759,13 +2906,10 @@ function showRefusal(text, law = null) {
   }
   if (!el("prompt").hidden) {
     el("prompt-state").parentElement.after(strip);
-    strip.removeAttribute("data-tab");
   } else if (!el("table").hidden) {
     el("table-state").parentElement.after(strip);
-    strip.removeAttribute("data-tab");
   } else {
     el("prompt").before(strip);
-    strip.dataset.tab = "move";
   }
   strip.hidden = false;
 }
@@ -3028,8 +3172,21 @@ function showing(tab) {
   if (tab === "chat") el("chat").scrollTop = el("chat").scrollHeight;
 }
 
+/* On its side the tabs' panes are under the field: the strip's ask
+   brings the question's answers up, and a tab pressed brings up what
+   it shows (Move, pressed while it is showing, the question). */
+function toThePane(tab) {
+  if (!phone() || upright()) return;
+  const pane = tab === "move" ? el("move-pane") : document.querySelector(`.pane[data-tab="${tab}"]`);
+  if (pane) pane.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+el("strip-ask").addEventListener("click", () => toThePane("move"));
+
 for (const tab of document.querySelectorAll(".tab")) {
   tab.addEventListener("click", () => {
+    if (tab.dataset.show !== "move" || document.body.dataset.show === "move") {
+      requestAnimationFrame(() => toThePane(tab.dataset.show));
+    }
     document.body.dataset.show = tab.dataset.show;
     tab.classList.remove("news", "yours");
     if (["log", "chat", "teams", "rules"].includes(tab.dataset.show)) {
