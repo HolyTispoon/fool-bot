@@ -105,7 +105,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "spectra_midfielder": (
         PersonalAbility.STRONG_PULL,
-        "Mind Pulls on 8+.",
+        "Mind Pulls on 9+.",
     ),
     "goopkeeper_fullback": (
         PersonalAbility.FULL_BLOCK,
@@ -220,7 +220,7 @@ BOOST_DRAIN_COST = 1
 BOOST_BONUS = 3
 STRIDER_CHARGE_UP = 2
 STRIDER_RUN_BACK_MAXIMUM = 1
-SPECTRA_PULL_MINIMUM = 8
+SPECTRA_PULL_MINIMUM = 9
 EMBERDASH_ADVANCE_MAX = 3
 QUANTOR_RUN_DRAIN = 3
 BRIGHTBURN_BURN_RECOVERY = 1

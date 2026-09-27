@@ -200,7 +200,7 @@ their own (below).
   - *Mind Pull* -- `mind_pull_candidates` reads the two spaces beside
     each path space for Noxar, in the order the ball reaches them, and
     `apply_mind_pull` already lands the ball on the puller's space;
-    `mind_pull_cost` (Quillon) and `mind_pull_minimum` (Spectra's 8,
+    `mind_pull_cost` (Quillon) and `mind_pull_minimum` (Spectra's 9,
     which `MindPullRoll.minimum` carries to the die image's band).
   - *Goopkeeper* is `ShotDefender.full_block`, set by
     `intervening_defenders`; `halved` is what the dice line and the

@@ -1501,7 +1501,7 @@ class MindPullRoll:
     roll: int
     pulled: bool
     ignite: object
-    # The lowest total that lands: 11, or Spectra's 8 (Law 21).
+    # The lowest total that lands: 11, or Spectra's 9 (Law 21).
     minimum: int = 11
 
     @property
@@ -1609,7 +1609,7 @@ def attempt_mind_pull_step(
     # rather than assuming the two can never meet.
     ignite = engine.ignite(game, player_id, roll)
     total = roll + ignite.modifier
-    # 11 or more, or Spectra's 8 (Law 21) -- `mind_pull_minimum`.
+    # 11 or more, or Spectra's 9 (Law 21) -- `mind_pull_minimum`.
     minimum = engine.mind_pull_minimum(game, player_id)
     pulled = total >= minimum
 

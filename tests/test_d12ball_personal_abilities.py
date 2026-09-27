@@ -489,7 +489,7 @@ class TelekineticTests(unittest.TestCase):
         with holding(self.puller, PersonalAbility.FREE_PULL):
             self.assertEqual(ENGINE.mind_pull_cost(self.game, self.puller), 0)
 
-    def test_spectra_succeeds_on_eight(self) -> None:
+    def test_spectra_succeeds_on_nine(self) -> None:
         self.assertEqual(ENGINE.mind_pull_minimum(self.game, self.puller), 11)
         with holding(self.puller, PersonalAbility.STRONG_PULL):
             self.assertEqual(
