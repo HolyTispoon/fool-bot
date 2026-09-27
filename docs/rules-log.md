@@ -154,6 +154,37 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-27 (latest) -- sheet and author, Zorch rolls with the ball; eleven abilities reworded
+
+Re-imported from the sheet. Zorch's personal ability is new: *"Adds ball speed modifier to all
+rolls."* It replaces *"Does not add exhaustion when rolling skill tests (including after
+ties)."*, and the author settled three readings of it:
+
+- **Every roll Zorch makes** (the author): a maneuver skill test on either side, a contest for
+  the ball, an injury check and an own-goal roll. The modifier is the ball's speed halved, as
+  Law 7 has it.
+- **Once, not twice** (the author): where the roll already adds the modifier to Zorch's side --
+  Zorch's own score attempt, a Steal or Intercept Zorch contests with, the throwing side of a
+  High Pass contest -- Zorch adds nothing more. An overshoot's modifier still counts against
+  the pass.
+- **The free tests are gone** (the author): Zorch pays a skill test's token and a re-roll's like
+  anybody else.
+- **Read by the build, not yet put to the author:** a shootout test adds nothing, since
+  nothing is in play and the ball's speed is whatever the last play left it at. The defense's
+  die in a score attempt is not Zorch's own roll, so a Zorch defending a shot adds nothing
+  either.
+
+Law 7.4.1, which said the modifier is added in three places "and nowhere else", now points at
+Law 21.6.
+
+**Eleven sentences are reworded with no change of meaning**, and each is played as it was:
+Glompex (the author dropped "but before selecting a maneuver"; Law 21.6.1 still offers the move
+before the cards are chosen), Kindlefinger, Quantor, Quillon, Scorchit, Spectra, Spritz (the
+typo *"eammate"* fixed), Umbrik, Viscor, Vorix (the author dropped "successfully"; Law 21.5.6
+still needs the High Pass won) and Zenith. Zenith's now reads *"after turnover"* where it said
+*"before runback"*; the author: Fly is still offered only at a steal's run back, never after a
+new play. The Playmaker's abbreviated column now reads *"Dribble for 1 additional space"*.
+
 ### 2026-09-27 -- author, basic mode is renamed standard mode
 
 The author: *"Basic mode is now called 'standard'."*
