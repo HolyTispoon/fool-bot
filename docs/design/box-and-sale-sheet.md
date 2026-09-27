@@ -379,23 +379,20 @@ and the casts are the only art direction written into the module. There are
 two (`COVER_CASTS`): **the website's four**, `WEBSITE_CAST`, which is
 `COVER_CAST` -- what `box-cover.png`, the banners and the landing pages get --
 and **the original four**, `ORIGINAL_CAST` (Voltus, Vorix, Inferno and
-Slitheron, in the places they were first drawn in), which the CLI writes as
+Slitheron, across the panel where they were first drawn), which the CLI writes as
 `box-cover-original.png` and `-night.png` so the two can be set side by side
 (the author asked for all four, 2026-09-27). Neither carries the die. The
 banners are laid out for the website's four only (`BANNER_PLACES`), so they
 take no cast.
 
-The website's four are Goopkeeper,
-Flickerwing, Gearclaw and Dravox. They started as the players the author picked
-for the D12 Ball page's species cards (`SPECIES_FACE_ROLE` in
-`landing/build.py`, 2026-09-27), and then Gearclaw took Synapse's place on the
-box (the author, the same day). Both are the Cyborgs' playmakers, but the page
-takes the first playmaker in roster order, which is Synapse, so **the page and
-the box now differ by one**. The two lists are written down
-separately on purpose: the page asks the roster for a role and takes whoever
-is first, and the cover names a player because it needs a facing. A roster
-revision that changes who the page shows needs the cast here re-picked by
-hand.
+The website's four are Goopkeeper, Flickerwing, Gearclaw and Dravox. They
+started as the players the author picked for the D12 Ball page's species
+cards, with Synapse where Gearclaw is; the author put Gearclaw on the box and
+then on the page (2026-09-27). **The page reads its four from this cast**
+(`species_face` in `landing/build.py`, [landing-pages.md](landing-pages.md)),
+so there is one list and the two cannot differ: change a player here and the
+page's card for that species changes with it. The build refuses a cast
+without exactly one player of each species.
 
 **There is no die in the middle of the cover** (the author, 2026-09-27). It
 floated over the four, in front of them, as the thing they were playing for;
@@ -413,8 +410,19 @@ on one line Dravox's crystals cover it. Dravox stands a little shorter and
 nearer the middle, and the back rank stands further up the field
 (`CoverCast.back_lift`, 1.8in per unit of depth) -- which puts Gearclaw's jaw
 over Dravox's shoulder and Goopkeeper's goal at the back of the field. The
-original cast has no lift; its back rank is clear of the front one on the same
-line. Everything else about them is read: the
+original cast stands raised the same way, for the reason below.
+
+**The scene fills the panel from the strapline down** (the author,
+2026-09-27). With the die gone, the first renders left a band of white
+between the strapline and the players' heads. Both casts are now a fifth
+taller than they were first drawn, and the field strip is 0.3in lower
+(`COVER_FIELD_TOP`; the feet, the strip's foot and the chips are read off
+it), so the tallest heads stop just under the strapline and the chips keep
+their margin. A fifth is where it stops: at three tenths, Dravox's crystals
+and Vorix's hood run into the strapline. Taller means wider, and in the
+original cast the back rank -- Voltus and Inferno -- was lost behind the front
+pair on one line, which is why it takes the same `back_lift` as the website's
+four. Everything else about them is read: the
 portraits come from `load_player_portrait`, and each one's colour from the
 first team whose sheet they are on (a player's colour team and their species
 team share a hex, so which is found first cannot change the answer).

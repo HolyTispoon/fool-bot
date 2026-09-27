@@ -166,14 +166,20 @@ and the four player cards `player_cards.render_player_card` in the basic face.
   is behind; the sketch's Intercept was not intended (the author,
   2026-09-27). Pressure stands under the defence's beat because it is the
   card the Resolution beat names.
-- **Each species' card shows a different role, asked of the roster, never
-  named**: `SPECIES_FACE_ROLE` maps each species team to a role -- the Fire
-  Demons' winger, the Cyborgs' playmaker, the Telekinetics' defender, the
-  Oozes' fullback (Flickerwing, Synapse, Dravox and Goopkeeper as the roster
-  stood, the author's four, 2026-09-27) -- and the face is the first player of
-  that role in roster order. The worksheet's "goalkeeper" is not a role the
-  game has. The roster order is the `player cards` tab's, so a re-sort there
-  can change the face, as it changes who starts.
+- **Each species' card is the box cover's player of that species**:
+  `species_face` takes the one of `box_art.COVER_CAST`'s four on that
+  species' team -- Flickerwing, Gearclaw, Dravox and Goopkeeper, a winger, a
+  playmaker, a defender and a fullback -- so the page and the box show the
+  same four from one list. The page first asked the roster for a role per
+  species and took the first player of it (`SPECIES_FACE_ROLE`); that gave
+  Synapse for the Cyborgs, and when the author put Gearclaw -- the Cyborgs'
+  other playmaker -- on the box and then asked for him on the page too
+  (2026-09-27), a role could no longer say who. The cover names its players
+  anyway, because it needs a facing ([box-and-sale-sheet.md](box-and-sale-sheet.md),
+  "The cover's four"), so the page reads those names rather than keeping a
+  second list. The build refuses a cast without exactly one player of each
+  species, and a roster revision that renames one of the four needs the
+  cast re-picked.
 
 **A link says what it opens.** The two books are "Learn to Play (PDF)" and
 "The Charter: Laws of the Game (PDF)" because `/learn` and `/rules` forward

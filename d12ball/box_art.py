@@ -1041,15 +1041,15 @@ class CoverCast:
     players: tuple[tuple[str, str], ...]
     places: tuple[tuple[tuple[float, float, float], ...], ...]
     # How far up the field the back rank stands, in inches per unit of
-    # depth. Nothing on the original cast, whose back rank is clear of
-    # the front one on the same line.
+    # depth: what puts a back-rank head over a front-rank shoulder.
     back_lift: float = 0.0
 
 
-# The website's four -- the players the D12 Ball page's species cards
-# show (`SPECIES_FACE_ROLE` in landing/build.py) -- with Gearclaw in
-# Synapse's place (the author, 2026-09-27): both are the Cyborgs'
-# playmakers. The right-hand pair is not the left's mirror: Dravox is
+# The website's four: the D12 Ball page's species cards read their
+# players from this cast (`species_face` in landing/build.py), so the
+# page and the box show the same four. Gearclaw took Synapse's place
+# (the author, 2026-09-27); both are the Cyborgs' playmakers. The
+# right-hand pair is not the left's mirror: Dravox is
 # half again as wide as he is tall, and Gearclaw's head is at the left
 # of his art, facing into the group, so on one line Dravox's crystals
 # cover it. Dravox stands a little shorter and nearer the middle, and
@@ -1062,13 +1062,16 @@ WEBSITE_CAST = CoverCast(
         ("Dravox", "left"),
     ),
     places=(
-        ((0.165, 3.5, 0.45), (0.35, 4.6, 0.0)),
-        ((0.85, 4.1, 0.45), (0.57, 4.2, 0.0)),
+        ((0.165, 4.2, 0.45), (0.35, 5.5, 0.0)),
+        ((0.85, 4.9, 0.45), (0.57, 5.0, 0.0)),
     ),
     back_lift=1.8,
 )
 # The cover's first four, kept for a second pair of covers (the
-# author, 2026-09-27), in the places they were first drawn in.
+# author, 2026-09-27), across the panel where they were first drawn but
+# a fifth taller and with the back rank raised, as the website's four
+# are, so the scene fills the panel up to the strapline without losing
+# Voltus and Inferno behind the front pair.
 ORIGINAL_CAST = CoverCast(
     players=(
         ("Voltus", "right"),
@@ -1077,9 +1080,10 @@ ORIGINAL_CAST = CoverCast(
         ("Slitheron", "left"),
     ),
     places=(
-        ((0.165, 3.5, 0.45), (0.35, 4.6, 0.0)),
-        ((0.835, 3.5, 0.45), (0.65, 4.6, 0.0)),
+        ((0.165, 4.2, 0.45), (0.35, 5.5, 0.0)),
+        ((0.835, 4.2, 0.45), (0.65, 5.5, 0.0)),
     ),
+    back_lift=1.8,
 )
 # The cast a cover, a banner and the landing pages get unless one is
 # named, and the name each is written under by the CLI.
@@ -1093,6 +1097,11 @@ COVER_CASTS: dict[str, CoverCast] = {
 # half of itself outside the box reads as a mistake rather than as a
 # crop.
 COVER_EDGE = 0.1
+# Where the field strip the four stand on starts, in inches from the
+# top; their feet, the strip's foot and the chips under it are read
+# off it. Low enough, with the figures as tall as they are, that the
+# scene fills the panel from the strapline down.
+COVER_FIELD_TOP = 8.9
 
 
 def cast_portraits(
@@ -1252,13 +1261,13 @@ def render_box_cover(
     # The scene. The field is the bottom of the picture and the four
     # stand on it. No die is drawn over them: the balls are the ones
     # the players' own art carries (see "The cover's four").
-    field_top = panel.y(8.6)
-    field_bottom = panel.y(9.6)
+    field_top = panel.y(COVER_FIELD_TOP)
+    field_bottom = panel.y(COVER_FIELD_TOP + 1.0)
     if palette.glows:
         paste_glow(sheet, (middle, field_top), inches(13.0), "#3f7fb8", 90)
     draw_cover_field(sheet, panel, rules, field_top, field_bottom, palette)
 
-    baseline = panel.y(9.3)
+    baseline = panel.y(COVER_FIELD_TOP + 0.7)
     figures = cast_portraits(catalog, cast)
     facing_right = [one for one in figures if one[1] == "right"]
     facing_left = [one for one in figures if one[1] == "left"]
@@ -1316,7 +1325,8 @@ def render_box_cover(
     # the box is on the underside, where somebody who has already
     # picked it up will read it.
     draw_chip_row(
-        sheet, retail_chips(facts, claims), middle, panel.y(10.4), content,
+        sheet, retail_chips(facts, claims), middle,
+        panel.y(COVER_FIELD_TOP + 1.8), content,
         palette.ink, palette.edge, size_inches=0.185,
     )
     return sheet.image
