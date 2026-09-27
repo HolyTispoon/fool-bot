@@ -410,7 +410,9 @@ its sideline.
   carries the definition of the mode it would pick, and the row's note
   is the current mode's, unless the record has a refusal to say there.
   A definition and a refusal are shown side by side, never one
-  instead of the other.
+  instead of the other. A change that takes something away carries the
+  model's `warning` (`configure_warning`: turning the test game on with
+  Dinky seated kicks Dinky), and the page confirms it before sending.
 - **The question box** asks one thing at a time: the whistle for
   Start, dark with `start_lobby`'s refusal until both seats are held
   and every side a person plays has a team; the coin -- the bot's own gold coin (the `3_gold_fortune`

@@ -677,6 +677,24 @@ class RedesignedTableTests(TableHarness):
         )
         self.assertEqual(refused.status, 403)
 
+    async def test_the_test_game_toggle_warns_it_would_kick_dinky(self) -> None:
+        room = await self.ticked_room(ai=True, tutorial=False)
+        state = await self.state(room, CREATOR)
+        settings = {one["name"]: one for one in state["table"]["settings"]}
+        self.assertEqual(settings["test"]["warning"], "That would kick Dinky AI.")
+        self.assertIsNone(settings["tutorial"]["warning"])
+
+        toggled = await self.pressed(room, CREATOR, "configure", {"setting": "test"})
+        self.assertFalse(toggled["room"]["seats"][1]["ai"])
+        settings = {one["name"]: one for one in toggled["table"]["settings"]}
+        self.assertIsNone(settings["test"]["warning"])
+
+        # The page asks before it sends a setting that warns.
+        script = (Path(server.STATIC) / "app.js").read_text(encoding="utf-8")
+        start = script.index("function drawSetting(")
+        body = script[start:script.index("\n}\n", start)]
+        self.assertIn("if (setting.warning && !confirm(setting.warning)) return;", body)
+
     async def test_a_test_game_s_one_coach_picks_both_teams_in_the_lobby(
         self,
     ) -> None:

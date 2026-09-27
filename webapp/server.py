@@ -64,6 +64,7 @@ from d12ball.formatting import (
     GAME_MODE_NAMES,
     SETTING_DEFINITIONS,
     coach_name,
+    configure_warning,
     describe_game_mode,
     format_player_with_team_name,
 )
@@ -1969,6 +1970,9 @@ class WebApp:
         # `note`, never instead of it.
         for one in settings:
             one.setdefault("definition", SETTING_DEFINITIONS.get(one["name"]))
+            # What the change would take away, asked before the press
+            # (`configure_warning`): the page confirms it first.
+            one["warning"] = configure_warning(game, one["name"])
 
         owed_by = game.home_choice_owed_by
         rail = None if owed_by is None else game.home_choice_rail(owed_by)

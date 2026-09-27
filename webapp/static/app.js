@@ -2574,7 +2574,12 @@ function pill(label, { current = false, disabled = false, onclick = null, title 
 
 function drawSetting(setting) {
   const off = !setting.may_change;
-  const configure = (value) => roomMove("/table/configure", { setting: setting.name, value });
+  /* A change that takes something away (the model's `warning`: a test
+     game kicks Dinky) is confirmed first. */
+  const configure = (value) => {
+    if (setting.warning && !confirm(setting.warning)) return;
+    roomMove("/table/configure", { setting: setting.name, value });
+  };
   let control;
   if (setting.choices.length) {
     control = h("div", { class: "pills" }, setting.choices.map((choice) => pill(choice.label, {
