@@ -31,9 +31,16 @@
 </nav>
 
 <header id="top" class="band studio-hero">
-  <div class="wrap">
-    <p class="kicker">A tabletop gaming studio</p>
-    <p class="studio-paragraph serif">$paragraph</p>
+  <div class="wrap studio-hero-row">
+    <div class="studio-hero-copy">
+      <p class="kicker">A tabletop gaming studio</p>
+      <h1 class="studio-paragraph serif">$paragraph</h1>
+      <a class="button button-quiet" href="#games">See the games</a>
+    </div>
+    <div class="studio-hero-art" aria-hidden="true">
+      <img class="hero-box" src="images/cover-night.jpg" width="1200" height="1200" alt="">
+      $hero_coins
+    </div>
   </div>
 </header>
 
@@ -41,12 +48,37 @@
   <section id="games" class="band band-alt">
     <div class="wrap">
       <p class="kicker">Games</p>
+      <h2 class="serif section-heading">Two at the table</h2>
       <div class="game-grid">
         <article class="card game-card">
-          <h2 class="display"><a href="$game_origin">$game_title</a></h2>
+          <img class="game-picture" src="images/banner-1500.jpg" width="1500" height="600"
+               alt="$title: four players of the four species on a night field">
+          <div class="game-body">
+            <div class="game-head">
+              <h3 class="display"><a href="$game_origin">$title</a></h3>
+              $game_stage
+            </div>
+            <p>$game_overview</p>
+            <div class="chips">
+            $game_chips
+            </div>
+            <a class="game-link" href="$game_origin">$game_address</a>
+          </div>
         </article>
         <article class="card game-card">
-          <h2 class="serif">Prophetic Folly</h2>
+          <div class="game-picture game-picture-panel">
+            <img src="images/folly.png" width="1200" height="480"
+                 alt="The Fortune die showing 12 and the Doom die showing 1, with the six coins round them">
+          </div>
+          <div class="game-body">
+            <div class="game-head">
+              <h3 class="serif"><a href="$folly_url">$folly_title</a></h3>
+              $folly_stage
+            </div>
+            <p>$folly_callout</p>
+            <p class="game-aside">$folly_mechanic</p>
+            <a class="game-link" href="$folly_url">Read more about the system</a>
+          </div>
         </article>
       </div>
     </div>

@@ -8,10 +8,12 @@ Build the two landing pages into static files.
 `string.Template`, with values read from the game, copies the
 stylesheets and the display face beside it, and renders the pictures
 the page shows through the renderers the box and the bot already use.
-Nothing is drawn here and nothing is typed that the game can answer:
-the title, the publisher, the strapline and the chips are
+Nothing of the game is drawn here and nothing is typed that the game
+can answer: the title, the publisher, the strapline and the chips are
 `box_art`'s, the team colours `render.TEAM_COLORS`', the palette
-`box_art.NIGHT_COVER`'s. See docs/design/landing-pages.md.
+`box_art.NIGHT_COVER`'s. The one picture composed here is the studio's
+Prophetic Folly still, from landing/dice.py and the bot's coins. See
+docs/design/landing-pages.md.
 """
 from __future__ import annotations
 
@@ -27,7 +29,7 @@ from html import escape
 from pathlib import Path
 from string import Template
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 from d12ball.box_art import (
     DEFAULT_CLAIMS,
@@ -58,10 +60,12 @@ from d12ball.rulebooks import BOOKS, DEFAULT_PAPER, book_bytes
 from d12ball.species_cards import SPECIES_TEAM
 from landing.capture import BOARD_CAPTURE
 from landing.covers import render_cover
+from landing.dice import ORANGE, PURPLE, TEAL, Die, render_die
 
 LANDING_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = LANDING_DIR.parent
 KIT_SCRIPT = PROJECT_ROOT / "scripts" / "generate_print_and_play_kit.py"
+COIN_DIR = PROJECT_ROOT / "d12ball" / "images" / "emoji"
 DIST_DIR = LANDING_DIR / "dist"
 SITES = ("d12ball", "studio")
 
@@ -82,7 +86,10 @@ DISCORD_INVITE = "https://discord.gg/MpgGm8FvKB"
 STAGE = "in playtesting"
 
 # The studio's own paragraph, from its Notion page, as written -- the
-# author's voice, which the page quotes rather than rewords.
+# author's voice, which the page quotes rather than rewords. The studio
+# page sets it as its headline with the two phrases the reviewed sketch
+# lit in gold (`STUDIO_EMPHASIS`): the words are the paragraph's, only
+# their weight is the page's.
 STUDIO_PARAGRAPH = (
     "Prophetic Fools is a tabletop gaming studio creating meaningful and "
     "engaging play experiences. We make games that aim to capture a slice "
@@ -90,6 +97,38 @@ STUDIO_PARAGRAPH = (
     "often unusual, complex, or emotionally loaded. We design mechanics to "
     "match the theme to deliver compelling, immersive, and challenging "
     "interactions that invite repeat play."
+)
+STUDIO_EMPHASIS = ("capture a slice of the human experience", "mechanics to match the theme")
+
+# D12 Ball's overview, the line from the game's Notion page, as written.
+# The d12ball page opens "What it is" with it after the title; the
+# studio's card for the game carries it as a sentence of its own.
+OVERVIEW = (
+    "a fast playing fantasy sports game with tense last-ditch efforts and "
+    "dramatic comebacks, where two teams of fantasy creatures compete by "
+    "maneuvering around the field, manipulating the ball and outwitting "
+    "the other team on their way to score epic goals."
+)
+
+# Prophetic Folly, the studio's other game, which lives on the studio's
+# Notion site. Its stage word is the author's (2026-09-27); the callout
+# is its Notion page's, and the paragraph on the mechanic the author's,
+# written on the canvas. The card links out: the author made the Notion
+# page public on the worksheet's PR (2026-09-27).
+FOLLY_TITLE = "Prophetic Folly"
+FOLLY_STAGE = "in development"
+FOLLY_URL = "https://propheticfools.notion.site/"
+FOLLY_CALLOUT = (
+    "A streamlined tabletop roleplaying system, providing a robust "
+    "mechanics for action resolution with lots of flexibility for "
+    "narrative driven interactions."
+)
+FOLLY_MECHANIC = (
+    "A novel action resolution based on two twelve-sided dice: a Fortune "
+    "die and a Doom die. Rolling with Hope makes it possible to beat "
+    "challenges you wouldn't otherwise be able to face but is overall less "
+    "successful. Rolling with Fear makes spectacular successes less likely "
+    "but also avoids catastrophic failures."
 )
 
 # The two books the site hands out, built by this build into
@@ -194,6 +233,36 @@ DISCORD_MARK = (
     '46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg>'
 )
 
+# Prophetic Folly's picture: three pairs of Fortune and Doom dice
+# (landing/dice.py) close together -- orange and purple behind, teal in
+# front -- with the bot's six coins round them, turned a little, the
+# fortune faces on the Fortune side and the doom faces on the Doom
+# side. The sketch the author reviewed had one pair; the author asked
+# for three, close together (2026-09-27). The layers are drawn back to
+# front: a die is its render, the size it is drawn at and its top-left
+# corner; a coin its file in d12ball/images/emoji (one of which is
+# named with spaces), its centre, its width and how far it is turned.
+# Every position is in `FOLLY_STILL_SIZE`.
+FOLLY_STILL_SIZE = (1600, 640)
+FOLLY_STILL_WIDTH = 1200
+FOLLY_DIE_PIXELS = 400
+FOLLY_STILL = (
+    (ORANGE.fortune, 360, (300, 0)),
+    (ORANGE.doom, 360, (500, 20)),
+    (PURPLE.fortune, 360, (780, 20)),
+    (PURPLE.doom, 360, (980, 0)),
+    ("3 bronze fortune.png", (400, 375), 115, 8),
+    ("1_gold_doom.png", (1200, 375), 115, -6),
+    ("3_gold_fortune.png", (455, 495), 120, -7),
+    ("3_silver_doom.png", (1140, 495), 120, 6),
+    (TEAL.fortune, 410, (470, 215)),
+    (TEAL.doom, 410, (720, 235)),
+    ("1_silver_fortune.png", (560, 590), 110, 5),
+    ("1_bronze_doom.png", (1045, 590), 110, -5),
+)
+# The two coins at the foot of the box in the studio's hero.
+HERO_COINS = ("1_gold_fortune.png", "1_gold_doom.png")
+
 NUMBER_WORDS = (
     "no", "one", "two", "three", "four", "five", "six", "seven", "eight",
     "nine", "ten", "eleven", "twelve",
@@ -210,6 +279,9 @@ CARD_PIXELS = 400
 # A book's cover is shown about 130px wide on the rulebooks card.
 BOOK_COVER_PIXELS = 320
 FAVICON_PIXELS = 64
+COIN_SHADOW_PAD = 30
+COIN_SHADOW_DROP = 10
+COIN_SHADOW_BLUR = 10
 JPEG_QUALITY = 85
 
 
@@ -392,6 +464,49 @@ def write_kit(downloads: Path) -> None:
                 f"{filename} is {size / 2**20:.1f} MB, over the "
                 f"{PAGES_FILE_LIMIT / 2**20:.0f} MB a Pages file may be"
             )
+
+
+def coin(filename: str, width: int, angle: float) -> Image.Image:
+    """One of the bot's coins at `width`, turned `angle` degrees, with a
+    soft shadow under it so it lies on the table with the dice."""
+    face = Image.open(COIN_DIR / filename).convert("RGBA")
+    face = fit_width(face, width).rotate(
+        angle, resample=Image.Resampling.BICUBIC, expand=True,
+    )
+    pad = COIN_SHADOW_PAD
+    shadow = Image.new("RGBA", face.size, (0, 0, 0, 0))
+    shadow.putalpha(face.getchannel("A").point(lambda value: value * 150 // 255))
+    lying = Image.new("RGBA", (face.width + 2 * pad, face.height + 2 * pad), (0, 0, 0, 0))
+    lying.alpha_composite(shadow, (pad, pad + COIN_SHADOW_DROP))
+    lying = lying.filter(ImageFilter.GaussianBlur(COIN_SHADOW_BLUR))
+    lying.alpha_composite(face, (pad, pad))
+    return lying
+
+
+def folly_still() -> Image.Image:
+    """Prophetic Folly's picture: `FOLLY_STILL`'s dice and coins,
+    composed back to front on a transparent ground, which the card's
+    panel shows through."""
+    still = Image.new("RGBA", FOLLY_STILL_SIZE, (0, 0, 0, 0))
+    for layer in FOLLY_STILL:
+        if isinstance(layer[0], Die):
+            die, size, corner = layer
+            drawn = render_die(die, FOLLY_DIE_PIXELS)
+            still.alpha_composite(drawn.resize((size, size), Image.Resampling.LANCZOS), corner)
+        else:
+            filename, (x, y), width, angle = layer
+            piece = coin(filename, width, angle)
+            still.alpha_composite(piece, (x - piece.width // 2, y - piece.height // 2))
+    return still
+
+
+def write_studio_pictures(out: Path) -> None:
+    """The studio page's own pictures: Prophetic Folly's still, and the
+    two coins at the foot of the box in the hero. The banner and the
+    cover are the shared ones."""
+    write_png(fit_width(folly_still(), FOLLY_STILL_WIDTH), out / "images" / "folly.png")
+    for filename in HERO_COINS:
+        write_png(Image.open(COIN_DIR / filename), out / "images" / "coins" / filename)
 
 
 def write_species_icons(out: Path) -> None:
@@ -599,6 +714,7 @@ def d12ball_values() -> dict[str, str]:
         "species_word": number_word(facts.species),
         "teams_word": number_word(facts.teams),
         "colour_teams_count": number_word(len(COLOR_TEAMS)).capitalize(),
+        "overview": escape(f"{TITLE} is {OVERVIEW}"),
         "players_count": number_word(facts.players_per_team).capitalize(),
         "fielded_word": number_word(facts.fielded),
         "bench_word": number_word(facts.players_per_team - facts.fielded),
@@ -612,13 +728,44 @@ def d12ball_values() -> dict[str, str]:
     }
 
 
+def emphasised(text: str, phrases: tuple[str, ...]) -> str:
+    """`text` escaped, with each of `phrases` set in `<em>`. A phrase
+    the text does not hold is an error: the paragraph is quoted, so a
+    phrase that no longer matches means it was reworded."""
+    html = escape(text)
+    for phrase in phrases:
+        if escape(phrase) not in html:
+            raise ValueError(f"{phrase!r} is not in the paragraph")
+        html = html.replace(escape(phrase), f"<em>{escape(phrase)}</em>", 1)
+    return html
+
+
+def site_address(origin: str) -> str:
+    """How a link to another site reads: its bare domain."""
+    return origin.split("://", 1)[1]
+
+
 def studio_values() -> dict[str, str]:
+    game_chips = [chip_html(words) for words in chips()]
     return {
         **common_values("studio"),
-        "paragraph": escape(STUDIO_PARAGRAPH),
+        "paragraph": emphasised(STUDIO_PARAGRAPH, STUDIO_EMPHASIS),
         "description": escape(STUDIO_PARAGRAPH.split(". ")[0] + "."),
-        "game_title": escape(TITLE),
+        "title": escape(TITLE),
         "game_origin": ORIGINS["d12ball"],
+        "game_address": escape(site_address(ORIGINS["d12ball"])),
+        "game_stage": chip_html(STAGE.upper(), quiet=True),
+        "game_overview": escape(OVERVIEW[0].upper() + OVERVIEW[1:]),
+        "game_chips": "\n            ".join(game_chips),
+        "folly_title": escape(FOLLY_TITLE),
+        "folly_url": escape(FOLLY_URL),
+        "folly_stage": chip_html(FOLLY_STAGE.upper(), quiet=True),
+        "folly_callout": escape(FOLLY_CALLOUT),
+        "folly_mechanic": escape(FOLLY_MECHANIC),
+        "hero_coins": "\n      ".join(
+            f'<img class="hero-coin hero-coin-{number}" src="images/coins/{filename}" alt="">'
+            for number, filename in enumerate(HERO_COINS, start=1)
+        ),
     }
 
 
@@ -648,6 +795,8 @@ def build(site: str, out_dir: Path) -> Path:
     if site == "d12ball":
         write_d12ball_pictures(out)
         write_downloads(out)
+    if site == "studio":
+        write_studio_pictures(out)
     if REDIRECTS[site]:
         (out / "_redirects").write_text(redirects_file(site), encoding="utf-8")
     return out
