@@ -819,8 +819,8 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 | Action | Cost |
 | --- | ---: |
-| Any maneuver except a High Pass | 1 |
-| A High Pass | 2 |
+| Any maneuver except a High Pass or a Setup Pass | 1 |
+| A High Pass, or a [Setup Pass](#197-setup-pass) (19.7) -- the advanced High Pass | 2 |
 | A score attempt | 1 |
 | A scoring opportunity taken off a set-up | 1, on top of the maneuver's |
 | A time out | 1 |
