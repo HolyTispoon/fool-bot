@@ -18,7 +18,7 @@ None of it has tests -- the print materials carry none (the author,
 
 | Panel | Size | What it is |
 | --- | --- | --- |
-| `box-cover.png` | 11.375in square | The lid: the title, four players, the ball, the facts |
+| `box-cover.png` | 11.375in square | The lid: the title, four players, the facts |
 | `box-cover-night.png` | 11.375in square | The same cover for a screen, not for the printer |
 | `banner.png` / `banner-night.png` | 3000 x 1200px | The same art laid out wide, for a Notion page |
 | `screentop-banner.png` / `-night.png` | 1280 x 720px | The same again at the size a Screentop table asks for |
@@ -258,7 +258,8 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
   showing round the edge of the overlay. Covering it would mean a copy of
   that mark's own placement here, and the board is the thing being
   photographed, so the board's ball is the ball. The solid, `d12_art`, stays where it is the object rather than a piece on a
-  space: the covers, the banners and the sale sheet's header.
+  space: the box's side and the sale sheet's header. The covers and the
+  banners drew it too, until the cast changed -- see "The cover's four".
 - **Every face is inset into the solid and what shows between two of them is
   the bevel.** A cast piece has no sharp edges; drawing the creases as lines
   gave a die with a wireframe over it. The inset is the rounded edge seen
@@ -288,9 +289,17 @@ figure is sized against the height but capped by `BANNER_FIGURE_SHARE` of the
 width -- without that cap, four players scaled to a 16:9 panel's height fill
 it end to end and bury each other.
 
-**The ball is on the ground between the two nearest players**, not in the air
-over them: at head height it lands on somebody's face, and a ball on a field
-is where a ball is anyway.
+**The back rank stands further up the field** (`BANNER_BACK_LIFT`), and the
+four are smaller than on the cover. These four are wider than they are tall,
+and in the right half of a banner at the cover's sizes the outer figure on the
+right is clamped to the trim straight behind the inner one and is lost -- the
+first render of the new cast showed Synapse's tentacles and nothing else.
+Standing the back rank higher puts their heads over the front rank's
+shoulders, which is also what further away looks like on a strip this short.
+
+**No die is drawn on a banner.** It stood on the ground between the two
+nearest players; with the new cast it was a third ball beside the two the
+players' own art carries -- see "The cover's four".
 
 **A banner is not a cropped cover.** A cover's title sits over the players
 with a field of sky between them; crop that to a strip and what survives is
@@ -364,7 +373,27 @@ it.
 ## The cover's four
 
 `COVER_CAST` is four player names with a facing, and it is the only art
-direction written into the module. Everything else about them is read: the
+direction written into the module. **They are the website's four** -- Goopkeeper,
+Flickerwing, Synapse and Dravox, the players the author picked for the D12 Ball
+page's species cards (`SPECIES_FACE_ROLE` in `landing/build.py`, 2026-09-27) --
+so the box and the page show the same cast. The two lists are written down
+separately on purpose: the page asks the roster for a role and takes whoever
+is first, and the cover names a player because it needs a facing. A roster
+revision that changes who the page shows needs the cast here re-picked by
+hand.
+
+**There is no die in the middle of the cover** (the author, 2026-09-27). It
+floated over the four, in front of them, as the thing they were playing for;
+Dravox and Synapse each carry a ball in their own art, so a third one hung in
+the air between them was a sticker on the picture rather than part of it.
+
+The layout follows what the art is. Goopkeeper stands in his own goal, so he
+is the back rank at the left edge, where the goal reads as the end of the
+field; Flickerwing leaps in front of him, reaching right. Dravox, kicking left,
+is the front rank on the right, and Synapse behind him at the edge. The
+right-hand pair is not the left's mirror: Dravox is half again as wide as he is
+tall, and at the left front's height he covers Synapse to the eyes, so he stands
+a little shorter and nearer the middle and Synapse a little taller. Everything else about them is read: the
 portraits come from `load_player_portrait`, and each one's colour from the
 first team whose sheet they are on (a player's colour team and their species
 team share a hex, so which is found first cannot change the answer).
@@ -373,7 +402,9 @@ team share a hex, so which is found first cannot change the answer).
 numbers, so the art cannot be mirrored to make somebody face the other way --
 a flipped number is a number nobody wears. Two face each way, one player of
 each of the four species, and a roster revision that renames one of them, or
-leaves the four no longer two and two, needs the cast re-picked.
+leaves the four no longer two and two, needs the cast re-picked. Goopkeeper
+faces the reader rather than either way; he is counted as facing right
+because the goal behind him is what has to be at an edge.
 
 The back rank is **darkened rather than faded** (`into_the_dark`): a cut-out
 at reduced opacity shows the sky through the middle of a player, where the

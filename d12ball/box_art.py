@@ -999,15 +999,19 @@ def letterspaced(
 # catalog.
 # Where the four stand and how tall they come out: the pair nearer
 # the middle is the taller, so the group reads as a line closing on
-# the ball rather than as four cut-outs in a row. A share is of the
+# the middle rather than as four cut-outs in a row. A share is of the
 # cover's own width, so nothing here changes if the box does.
 # Each entry is (share of the width, height in inches, how far back).
 # The back rank is smaller and darkened rather than moved further out:
 # these cut-outs are as wide as they are tall, so there is no further
-# out to move them to on a square panel.
+# out to move them to on a square panel. The right-hand pair is not
+# the left's mirror: Dravox is half again as wide as he is tall and at
+# the left front's height covers Synapse to the eyes, so he stands a
+# little shorter and nearer the middle, and Synapse a little taller
+# and further out.
 COVER_PLACES: tuple[tuple[tuple[float, float, float], ...], ...] = (
     ((0.165, 3.5, 0.45), (0.35, 4.6, 0.0)),
-    ((0.835, 3.5, 0.45), (0.65, 4.6, 0.0)),
+    ((0.85, 3.7, 0.45), (0.60, 4.3, 0.0)),
 )
 # How close to the trim a figure may come. It is not a bleed
 # measurement: the art may run off the edge, but a head that leaves
@@ -1016,10 +1020,10 @@ COVER_PLACES: tuple[tuple[tuple[float, float, float], ...], ...] = (
 COVER_EDGE = 0.1
 
 COVER_CAST: tuple[tuple[str, str], ...] = (
-    ("Voltus", "right"),
-    ("Vorix", "right"),
-    ("Inferno", "left"),
-    ("Slitheron", "left"),
+    ("Goopkeeper", "right"),
+    ("Flickerwing", "right"),
+    ("Synapse", "left"),
+    ("Dravox", "left"),
 )
 
 
@@ -1120,7 +1124,7 @@ def render_box_cover(
     palette: CoverPalette = PAGE_COVER,
 ) -> Image.Image:
     """
-    The lid's top face: the title, the four, the ball and the facts.
+    The lid's top face: the title, the four and the facts.
 
     `palette` is the only thing that changes between the printed cover
     and the night one a post or a store page wants -- see
@@ -1175,8 +1179,9 @@ def render_box_cover(
         palette.muted,
     )
 
-    # The scene. The field is the bottom of the picture, the four
-    # stand on it, and the ball is in front of all of it.
+    # The scene. The field is the bottom of the picture and the four
+    # stand on it. No die is drawn over them: the balls are the ones
+    # the players' own art carries (see "The cover's four").
     field_top = panel.y(8.6)
     field_bottom = panel.y(9.6)
     if palette.glows:
@@ -1233,13 +1238,6 @@ def render_box_cover(
             )
             paste_standing(sheet, portrait, center, baseline, inches(height))
 
-    # Drawn last, so it is in front of the four rather than between
-    # them: it is the thing they are all playing for.
-    ball_center = (middle, panel.y(6.15))
-    if palette.glows:
-        paste_glow(sheet, ball_center, inches(3.9), palette.accent, 170)
-    draw_d12(sheet, ball_center, inches(0.7))
-
     # What a shopper checks before anything else: how many of them,
     # how long, and how old. Nothing else -- the rest of what is in
     # the box is on the underside, where somebody who has already
@@ -1275,13 +1273,20 @@ SCREENTOP_BANNER_INCHES = (
 # height, capped by this share of the width, so the group takes the
 # same slice of the panel whatever shape it is.
 BANNER_FIGURE_SHARE = 0.4
+# How far up the panel the back rank stands, per unit of depth, as a
+# share of the height.
+BANNER_BACK_LIFT = 0.45
 
 # Where the four stand on a banner, as shares: the group in the right
 # half, so the title has the left to itself. Each is (share of the
-# width, share of the height, how far back).
+# width, share of the height, how far back). Smaller than the cover's
+# and the back rank stood further up the field (`BANNER_BACK_LIFT`):
+# these four are wider than they are tall, and at the cover's sizes
+# the outer one on the right clamps to the trim straight behind the
+# inner one and is lost.
 BANNER_PLACES: tuple[tuple[tuple[float, float, float], ...], ...] = (
-    ((0.580, 0.65, 0.45), (0.705, 0.79, 0.0)),
-    ((0.950, 0.65, 0.45), (0.830, 0.79, 0.0)),
+    ((0.585, 0.52, 0.45), (0.665, 0.66, 0.0)),
+    ((0.930, 0.54, 0.45), (0.790, 0.60, 0.0)),
 )
 
 
@@ -1350,6 +1355,9 @@ def render_banner(
                 else portrait
             )
             fitted = standing_art(portrait, inches(figure))
+            # The back rank stands further up the field, which is
+            # what further away looks like on a strip this short.
+            feet = baseline - inches(height * depth * BANNER_BACK_LIFT)
             center = clamp_center(
                 panel.x(width * across), fitted.width, panel, width, COVER_EDGE
             )
@@ -1357,7 +1365,7 @@ def render_banner(
                 sheet,
                 (
                     center,
-                    baseline - inches(figure * (0.4 if palette.glows else 0.1)),
+                    feet - inches(figure * (0.4 if palette.glows else 0.1)),
                 ),
                 inches(figure * (1.1 if palette.glows else 0.5)),
                 color,
@@ -1371,21 +1379,9 @@ def render_banner(
             paste_rgba(
                 sheet,
                 shadow,
-                (center - shadow.width / 2, baseline - shadow.height * 0.62),
+                (center - shadow.width / 2, feet - shadow.height * 0.62),
             )
-            paste_standing(sheet, portrait, center, baseline, inches(figure))
-
-    # The ball is **on the ground between the two nearest players**,
-    # not in the air over them: at head height it lands on somebody's
-    # face, and a ball on a field is where a ball is anyway.
-    ball_radius = min(height, width * BANNER_FIGURE_SHARE) * 0.115
-    ball_center = (
-        panel.x(width * 0.768),
-        baseline - inches(ball_radius * 0.9),
-    )
-    if palette.glows:
-        paste_glow(sheet, ball_center, inches(height * 0.7), palette.accent, 150)
-    draw_d12(sheet, ball_center, inches(ball_radius))
+            paste_standing(sheet, portrait, center, feet, inches(figure))
 
     # The title block, hard against the group rather than over it.
     left = panel.x(width * 0.055)
