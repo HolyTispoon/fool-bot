@@ -703,8 +703,8 @@ def lit_line(
             text = name if said == name else f"{name} · {said}"
             cost = control.get("cost")
             if cost:
-                noun = "drain" if cost["emoji"] == "exhaust_cyborg" else "exhaustion"
-                text = f"{text} ({cost['count']} {noun})"
+                verb = "drain" if cost["emoji"] == "exhaust_cyborg" else "exhaust"
+                text = f"{text} ({verb} {cost['count']})"
             if control.get("disabled"):
                 lines.append({"text": f"{text} -- {control['note']}", "dark": True})
             else:

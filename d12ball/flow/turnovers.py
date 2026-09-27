@@ -429,7 +429,7 @@ def announce_run_back(
         narration.append(
             f"{prefix}# Players run back!\n"
             "Players return to an open space in their assigned zone and "
-            "add 1 exhaustion for every space traveled. "
+            "exhaust 1 for every space traveled. "
             f"{speed_note}".rstrip()
         )
     elif prefix or speed_note:

@@ -59,9 +59,9 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 
 **Rank decides, not dice.** Each card beats one of the other side's cards, ties one, and loses to one. The card that wins is what happens. *(Law 6.3)*
 
-**A tie is not a draw.** It goes to a **skill test**: each player rolls a d12, the handler adds their offensive skill and the defender their defensive skill, and the higher total wins -- their card is what happens. Both players take an **exhaustion token** for the effort. A tied test is rolled again, at another token each. *(Law 6.4)*
+**A tie is not a draw.** It goes to a **skill test**: each player rolls a d12, the handler adds their offensive skill and the defender their defensive skill, and the higher total wins -- their card is what happens. Both players **exhaust 1** -- take one exhaustion token -- for the effort. A tied test is rolled again, and each exhausts 1 more. *(Law 6.4)*
 
-**Who defends?** A defender already standing on the ball challenges, and cannot refuse. Otherwise the defending coach may **send** one of their two nearest players to the ball -- the nearest in front of it or the nearest behind it -- paying one exhaustion token for every space walked. Or they may send nobody, and the maneuver simply succeeds. *(Law 6.1, Law 9)*
+**Who defends?** A defender already standing on the ball challenges, and cannot refuse. Otherwise the defending coach may **send** one of their two nearest players to the ball -- the nearest in front of it or the nearest behind it -- who exhausts 1 for every space walked. Or they may send nobody, and the maneuver simply succeeds. *(Law 6.1, Law 9)*
 
 
 ## Your first five turns
@@ -86,13 +86,13 @@ You are standing in your shooting range now, so next turn a shot would be offere
 
 The visitors' Deflect knocks the ball **one space back** for you, from V1 to M3 -- and their Midfielder is already standing on M3. A ball that lands on one side's players is simply theirs: no roll, and never loose. *(Law 6.8, 10.1)*
 
-That is a **turnover**, and a turnover by steal makes everyone outside their own zone **run back**: your Playmaker walks from V1 to M2, one exhaustion token for the one space. The ball's speed resets to 1. *(Law 12.4)*
+That is a **turnover**, and a turnover by steal makes everyone outside their own zone **run back**: your Playmaker walks from V1 to M2 and exhausts 1 for the one space. The ball's speed resets to 1. *(Law 12.4)*
 
 > A ball only comes **loose** when it lands on an empty space. Page 12 shows all three cases.
 
 ### Turn 3: a challenger is sent, and Pressure beats Dribble Advance
 
-The visitors have the ball on M3 and nobody of yours is standing there, so before they play you are asked to **send a challenger**: your Playmaker on M2 or your Winger on V1, one space and one token either way. Send the Playmaker. **The visitors play Dribble Advance. You play Pressure.**
+The visitors have the ball on M3 and nobody of yours is standing there, so before they play you are asked to **send a challenger**: your Playmaker on M2 or your Winger on V1, one space and exhaust 1 either way. Send the Playmaker. **The visitors play Dribble Advance. You play Pressure.**
 
 ![Figure 7 - Beat 3](rulebooks/figures/fig-07-beat-3.png)
 
@@ -106,7 +106,7 @@ The visitors' Midfielder has the ball on V1 with your Playmaker and Winger stand
 
 ![Figure 8 - Beat 4](rulebooks/figures/fig-08-beat-4.png)
 
-Steal beats Low Pass. Possession flips, the ball's speed resets to 1, and your stealer carries the ball **one space back toward your own goal**, to M3. Then everyone out of position runs back: the visitors' Midfielder walks two spaces home to M3 and pays two tokens. *(Law 6.9, 12.1, 12.4)*
+Steal beats Low Pass. Possession flips, the ball's speed resets to 1, and your stealer carries the ball **one space back toward your own goal**, to M3. Then everyone out of position runs back: the visitors' Midfielder walks two spaces home to M3 and exhausts 2. *(Law 6.9, 12.1, 12.4)*
 
 Last, the stealer **sets the ball's speed**, up or down by up to their defensive skill. Take the most: 1 + 3 = **4**. Half the speed, rounded down, is added to a shot -- speed 4 is worth **+2** on the one you are about to take. *(Law 6.9, 7.1)*
 
@@ -143,13 +143,13 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 
 ## Turnovers, the Coaching Choice, tokens and the clock
 
-**Two kinds of turnover.** A **steal** -- a Steal card, a lost contest for the ball -- keeps the ball live: everyone outside their own zone runs back, one token a space, and play carries straight on. A **new play** -- a goal, a missed shot, a ball out of bounds -- resets both sides to their arrangement, free, and offers the restarting side a Coaching Choice. *(Law 12)*
+**Two kinds of turnover.** A **steal** -- a Steal card, a lost contest for the ball -- keeps the ball live: everyone outside their own zone runs back, exhausting 1 a space, and play carries straight on. A **new play** -- a goal, a missed shot, a ball out of bounds -- resets both sides to their arrangement, free, and offers the restarting side a Coaching Choice. *(Law 12)*
 
 ![Figure 12 - The Coaching Choice](rulebooks/figures/fig-12-coaching-choice.png)
 
 **The Coaching Choice.** A pause, in which you may do any of four things, in any order: change **formation**, **substitute** a player from the bench, **swap two players' zones**, or **move a player** to another space in their zone. You have **two substitutions a half**. You must finish with a player on your kickoff space, and the positions you finish on are your **arrangement** -- where every later new play puts you back. If the restarting side takes a Coaching Choice, the other coach gets one in reply. *(Law 14.2, 14.5, 14.8)*
 
-**Time out.** Out of range, once a half, and not in the last minute, a side may call a time out instead of playing the ball. It is a new play: it costs a minute on the clock, the ball stays where it is at speed 1, both coaches take a Coaching Choice, the caller first, and then both sides reset to their coaches' positions. If nobody of the calling side is then on the ball, one of their two nearest goes and gets it, at a token a space. *(Law 13)*
+**Time out.** Out of range, once a half, and not in the last minute, a side may call a time out instead of playing the ball. It is a new play: it costs a minute on the clock, the ball stays where it is at speed 1, both coaches take a Coaching Choice, the caller first, and then both sides reset to their coaches' positions. If nobody of the calling side is then on the ball, one of their two nearest goes and gets it, exhausting 1 a space. *(Law 13)*
 
 **Exhaustion and injury.** Tokens come from skill tests, from walking to the ball, from running back, and from taking a set-up shot. A player carrying **more tokens than their defensive skill is Exhausted**, and rolls an **injury check** after every skill test they are in: a d12, safe if it is higher than their tokens. An **Injured** player loses their tokens, loses ties outright, and adds no skill in a contest for the ball -- until a substitution takes them off, which nothing forces. Halftime takes one token off every player on the field, and one more off a player of each coach's choice. *(Law 15)*
 
@@ -191,7 +191,7 @@ Standard mode adds the species abilities to everything in this book. Advanced mo
 | Roll | Dice | How it reads |
 | --- | --- | --- |
 | Score attempt | 1d12 each | Attack adds offense and the speed modifier; defense adds full skill on the ball and half beyond it. Equal totals score. |
-| Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled at a token each. |
+| Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled and each exhausts 1. |
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |
 | Shootout test | 1d12 each | Both add offensive skill. Higher scores; a tie stands. |
