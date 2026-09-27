@@ -51,6 +51,12 @@ const phone = () => window.matchMedia("(max-width: 960px)").matches;
    every lit thing large enough to tap. */
 const UPRIGHT = window.matchMedia("(max-width: 960px) and (orientation: portrait)");
 const upright = () => UPRIGHT.matches;
+/* A touch screen on its side wider than a phone -- a tablet: the
+   desktop field, and the phone's tabs in a column beside it. The same
+   query as app.css's tablet block. */
+const TABLET = window.matchMedia(
+  "(min-width: 961px) and (max-width: 1400px) and (orientation: landscape) and (any-pointer: coarse)",
+);
 const finePointer = () => window.matchMedia("(pointer: fine)").matches;
 
 /* One element: `h("div", {class: "x", onclick: fn}, child, ...)`. Text
@@ -3435,7 +3441,7 @@ const rulesTab = window.D12Rules.mountTab(el("rules-tab"), {
 
 /* A refusal's Law, opened where the reader is: the Rules tab. */
 function openRule(slug) {
-  if (phone()) {
+  if (phone() || TABLET.matches) {
     document.body.dataset.show = "rules";
     const tab = document.querySelector('.tab[data-show="rules"]');
     if (tab) tab.classList.remove("news", "yours");
