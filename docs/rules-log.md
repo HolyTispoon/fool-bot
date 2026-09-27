@@ -154,7 +154,7 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-09-27 (later) -- author, "exhaust" is the verb for gaining exhaustion
+### 2026-09-27 (latest) -- author, "exhaust" is the verb for gaining exhaustion
 
 The author: *"replace all 'add X exhaustion' with 'Exhaust X' - similar to 'Drain X' and 'Clear
 X' which we already have."*
@@ -175,6 +175,20 @@ X' which we already have."*
   Telekinetic's Mind Pull (both columns) and Zenith's Fly -- see "Where upstream is behind".
   The data files are never edited by hand, so the maneuver cards and the ability text keep the
   sheet's wording until it changes and is imported.
+
+### 2026-09-27 (later) -- author, Gearclaw may Boost and Overdrive on the same roll
+
+The author: *"Gearclaw can boost and overcharge in the same maneuver. Each ability can be used
+once per maneuver, and a coach can choose to use one, both, or neither."*
+
+- **Reverses the 2026-09-25 (later) answer** *"Either, not both."* Boost (drain 1, +3) and
+  Overdrive (drain 3, +5) may now both be declared on one roll: drain 4 for +8.
+- **Once per roll, each.** "Overcharge" is Overdrive, the only ability of that shape Gearclaw
+  holds. Asked whether "once per maneuver" meant once per roll, the author: *"Correct both
+  overdrive and boost are 'once per role' and should say so clearly."* So a tie that is rolled
+  again is a fresh roll on which each may be declared again, as
+  [Law 20.3.6](living-rules.md#203-lithium-powered-cyborg) already said of Overdrive. Laws
+  20.3.5 and 21.4.3 now put **once per roll** in bold, and the species table says it too.
 
 ### 2026-09-27 -- author, basic mode is renamed standard mode
 
@@ -436,6 +450,7 @@ the one-line cells left open:
   one."*
 - **Gearclaw:** Boost is *"declared blind before the roll like overdrive"*; asked whether Boost
   and Overdrive stack on one roll: *"Either, not both."*
+  *Superseded on 2026-09-27*: both may be declared on one roll -- see that entry.
 - **Acidel:** *"scoring opportunity replaces the own goal."*
 - **Goopkeeper:** *"full block means they just contribute their full value of their defense
   skill rather than just halfway, which is what would usually be the case when they are not on

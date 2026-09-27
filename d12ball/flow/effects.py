@@ -1174,6 +1174,11 @@ def own_goal_roll_step(
     # so neither die is asked through `engine.ignite`: a Fire Demon's
     # natural 6 or 7 here is only the number.
     overdrive = match.overdrive_modifier(offense_player.player_id)
+    # Worded per declaration, read before they are spent: Gearclaw's
+    # Boost is its own line, beside an Overdrive or alone (Law 21).
+    overdrive_details = engine.overdrive_details(
+        match, offense_player.player_id,
+    )
     match.consume_overdrive()
     safe = max(rolls) + offense_skill + overdrive >= 7
 
@@ -1204,8 +1209,8 @@ def own_goal_roll_step(
         f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
         f"is {taken}, + {offense_skill} (offensive skill)"
     )
-    if overdrive:
-        arithmetic += f", +{overdrive} Overdrive"
+    for line in overdrive_details:
+        arithmetic += f", {line}"
     total = taken + offense_skill + overdrive
     arithmetic += f" = {total}"
     breakdown = f"**Own goal risk!** {arithmetic}"
