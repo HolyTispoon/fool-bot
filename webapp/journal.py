@@ -44,11 +44,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Optional
 
+from d12ball.components import MatchPeriod
 from d12ball.flow import FollowOnStep
 from d12ball.game import D12BallGame
 from gamesaves.d12ball.service import GameResult
 from gamesaves.d12ball.storage import DATA_FOLDER
 from webapp import pictures
+from webapp.board import HALF_NAMES
 from d12ball.prompts import PromptKind
 from webapp.present import own_block_dropped, render_text
 
@@ -92,6 +94,36 @@ class Entry:
     #: the result's `detail` (the answer's own) or the group's (an AI's
     #: answer) -- as its wire dict (`roll_of`), for `detail/{entry}.png`.
     detail: Optional[dict] = None
+    #: The minute and the half on the clock once the result it came
+    #: from had run, for the log's heading when the minute changes;
+    #: `None` before kickoff.
+    minute: Optional[int] = None
+    half: str = ""
+    #: Whether the score went up in the result it came from, and this
+    #: is the entry that said so -- the roll's, where the result had
+    #: one (every goal is rolled), else its last.
+    goal: bool = False
+    #: Whether the step that said it is the clock's (`CLOCK_STEPS`).
+    clock: bool = False
+
+    @property
+    def kind(self) -> str:
+        """
+        What the log's edge colours the entry by (step 10 of
+        docs/web-app-redesign.md): a goal, a new play, a roll, the
+        clock, or a line. Every one is a fact the model handed over --
+        the scoreboard, `new_play`, the roll's detail, the step's tag
+        -- and none is read off the words.
+        """
+        if self.goal:
+            return "goal"
+        if self.new_play:
+            return "new_play"
+        if pictures.dice_shape(self.detail) is not None:
+            return "roll"
+        if self.clock:
+            return "clock"
+        return "line"
 
     def to_dict(self, game: D12BallGame) -> dict:
         """The entry as the page's log reads it: its words, and the
@@ -111,6 +143,9 @@ class Entry:
             "at": self.at,
             "dice": shape,
             "dice_after": pictures.LINES_BEFORE_DICE.get(shape, 0),
+            "kind": self.kind,
+            "minute": self.minute,
+            "half": self.half,
         }
 
     def saved(self) -> dict:
@@ -123,6 +158,10 @@ class Entry:
             "new_play": self.new_play,
             "at": self.at,
             "detail": self.detail,
+            "minute": self.minute,
+            "half": self.half,
+            "goal": self.goal,
+            "clock": self.clock,
         }
 
     @classmethod
@@ -136,7 +175,45 @@ class Entry:
             new_play=bool(data.get("new_play", False)),
             at=float(data["at"]),
             detail=roll_of(detail),
+            minute=_minute(data.get("minute")),
+            half=str(data.get("half") or ""),
+            goal=bool(data.get("goal", False)),
+            clock=bool(data.get("clock", False)),
         )
+
+
+def _minute(value: object) -> Optional[int]:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+#: The steps whose lines are the clock's: the whistle at the end of a
+#: half, and the stages between the halves and after them -- the tag
+#: the driver puts on a group (`NarrationGroup.step`), which is where
+#: one thing ends and the next begins, never a reading of the words.
+CLOCK_STEPS = frozenset(
+    step.name
+    for step in (
+        FollowOnStep.END_PERIOD,
+        FollowOnStep.ADVANCE_HALFTIME_STAGE,
+        FollowOnStep.FINISH_HALFTIME,
+        FollowOnStep.ADVANCE_FULL_TIME_STAGE,
+    )
+)
+
+
+def _clock(match) -> tuple[Optional[int], str]:
+    """The minute and the half a result left the clock on."""
+    if match is None:
+        return None, ""
+    board = match.scoreboard
+    return board.time, HALF_NAMES.get(MatchPeriod(board.period), "")
+
+
+def _goals(match) -> Optional[int]:
+    """Every goal on the scoreboard, the shootout's included."""
+    if match is None:
+        return None
+    return match.scoreboard.home_score + match.scoreboard.visiting_score
 
 
 @dataclass
@@ -166,6 +243,9 @@ class Journal:
     #: the author's review of redesign step 3: a steal is "STEAL ·
     #: TURNOVER", as the canvas has it.
     showing_outcomes: list = field(default_factory=list)
+    #: The goals on the scoreboard as of the last result, so the entry
+    #: a goal was said in can be marked; `None` until one is seen.
+    goals_seen: Optional[int] = None
 
     def add(
         self,
@@ -194,6 +274,8 @@ class Journal:
         is what the file keeps."""
         written = result.to_dict()
         rolled = None
+        clock = _clock(result.match)
+        added: list[Entry] = []
         for lines, group, detail in self._blocks(written, answered):
             if (
                 group is not None
@@ -208,18 +290,32 @@ class Journal:
             if not lines and group is None and detail is None:
                 continue
             roll = roll_of(detail)
-            self.entries.append(
-                Entry(
-                    self.next_id,
-                    tuple(lines),
-                    board=None if group is None else group["board"],
-                    new_play=False if group is None else group["new_play"],
-                    detail=roll,
-                ),
+            entry = Entry(
+                self.next_id,
+                tuple(lines),
+                board=None if group is None else group["board"],
+                new_play=False if group is None else group["new_play"],
+                detail=roll,
+                minute=clock[0],
+                half=clock[1],
+                clock=group is not None and group["step"] in CLOCK_STEPS,
             )
+            self.entries.append(entry)
+            added.append(entry)
             if roll is not None:
                 rolled = self.next_id
             self.next_id += 1
+        goals = _goals(result.match)
+        if (
+            goals is not None and self.goals_seen is not None
+            and goals > self.goals_seen and added
+        ):
+            scored = next(
+                (one for one in added if one.id == rolled), added[-1],
+            )
+            scored.goal = True
+        if goals is not None:
+            self.goals_seen = goals
         self.showing_roll = rolled
         self.showing_outcomes = [
             *written["answer_headlines"],
@@ -301,6 +397,7 @@ class Journal:
             "board_version": self.board_version,
             "showing_roll": self.showing_roll,
             "showing_outcomes": self.showing_outcomes,
+            "goals_seen": self.goals_seen,
             "entries": [entry.saved() for entry in self.entries],
         }
 
@@ -320,6 +417,7 @@ class Journal:
             entry.id if entry is not None and entry.detail is not None
             else None
         )
+        journal.goals_seen = _minute(data.get("goals_seen"))
         outcomes = data.get("showing_outcomes") or ()
         journal.showing_outcomes = [
             outcome for outcome in outcomes

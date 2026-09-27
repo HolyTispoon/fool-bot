@@ -937,6 +937,97 @@ class SidelineTests(unittest.TestCase):
         )
 
 
+class TeamsTabTests(unittest.TestCase):
+    """
+    The Teams tab (step 10 of docs/web-app-redesign.md): both rosters
+    as rows, the field, the bench and the back bench as the record
+    holds them, and every number the one `board.py` hands the field
+    and the sideline -- the tab adds nothing to a number.
+    """
+
+    def setUp(self) -> None:
+        ENGINE.rng.seed(11)
+
+    def test_the_rows_are_the_record_s_three_lists(self) -> None:
+        fixture, layout = layout_for("coaching hub")
+        for roster in layout["rosters"]:
+            setup = fixture.match.setup_for_side(TeamSide(roster["side"]))
+            self.assertEqual(
+                [row["id"] for row in roster["rows"]],
+                [
+                    *setup.field_players,
+                    *setup.team_board.bench,
+                    *setup.team_board.back_bench,
+                ],
+            )
+            self.assertEqual(
+                [row["where"] for row in roster["rows"]][len(setup.field_players):],
+                ["bench"] * len(setup.team_board.bench)
+                + ["back bench"] * len(setup.team_board.back_bench),
+            )
+
+    def test_the_numbers_are_board_py_s(self) -> None:
+        fixture, layout = layout_for("kickoff")
+        cards = {
+            card["id"]: card
+            for zone in layout["zones"]
+            for side in ("home", "visiting")
+            for card in zone[side]
+        }
+        cards.update(
+            (entry["id"], entry)
+            for board in layout["team_boards"]
+            for entry in board["bench"] + board["back_bench"]
+        )
+        codes = {
+            piece["id"]: space["code"]
+            for space in layout["spaces"]
+            for side in ("home", "visiting")
+            for piece in space[side]
+        }
+        for roster in layout["rosters"]:
+            for row in roster["rows"]:
+                with self.subTest(row["id"]):
+                    card = cards[row["id"]]
+                    self.assertEqual(
+                        (row["offense"], row["defense"], row["exhaustion"]),
+                        (card["offense"], card["defense"], card["exhaustion"]),
+                    )
+                    if row["id"] in codes:
+                        self.assertEqual(row["where"], codes[row["id"]])
+
+    def test_an_injured_player_s_row_and_the_ball(self) -> None:
+        fixture = case("coaching hub")
+        match = fixture.match
+        hurt = benched(match, PlayerRole.STRIKER)
+        match.home.team_board.bench.remove(hurt)
+        match.home.team_board.back_bench.append(hurt)
+        match.injured.add(hurt)
+        match.exhaustion[hurt] = 2
+        layout = board_layout(
+            ENGINE, fixture.game, match, card_url=CARD_URL, goal_url=GOAL_URL,
+        )
+        home = next(one for one in layout["rosters"] if one["side"] == "home")
+        (row,) = [one for one in home["rows"] if one["id"] == hurt]
+        self.assertEqual(row["where"], "back bench")
+        self.assertEqual(row["marks"]["condition"], "injured")
+        self.assertEqual(
+            row["marks"]["exhaustion"], {"count": 2, "emoji": "exhaust"},
+        )
+        holders = [
+            space["ball"]["holder"]
+            for space in layout["spaces"]
+            if space["ball"] and space["ball"]["holder"]
+        ]
+        with_ball = [
+            row["id"]
+            for roster in layout["rosters"]
+            for row in roster["rows"]
+            if row["ball"]
+        ]
+        self.assertEqual(with_ball, holders)
+
+
 class PictureRouteTests(unittest.IsolatedAsyncioTestCase):
     """The pictures a page draws the board with, over a real client."""
 

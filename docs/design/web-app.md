@@ -558,8 +558,11 @@ it, so it is never on the record, and the save format is the contract.
 What the file keeps of an entry is the whole of it -- its words with
 the model's tokens as written (rendered at the door on the way out, as
 ever), the position the run stopped at (which `board.png?entry=`
-serves, though no page draws it), and its roll's numbers as the wire
-writes them, which the question box draws the dice from. The journal's
+serves, though no page draws it), its roll's numbers as the wire
+writes them, which the question box draws the dice from, and what the
+log's edge and minute heading are read from -- the minute and half the
+result left, and whether it was a goal or the clock ("The page",
+below). The journal's
 `showing_roll` is kept too, so the dice a restart finds up are still
 up after it, and its `board_version`, because a browser keeps a board
 by its URL and a version that started again at 1 would hand it an old
@@ -650,18 +653,34 @@ seeing a page built as a Discord channel and finding it too much like
 one). On the left, the board, and under it the prompt -- the ask and
 its controls, marked when they are this coach's -- which is the page's
 original shape, under the jumbotron bar across the top of it. On the
-right, two panels: the game log and the chat. **A divider between the log and the chat** is
-dragged (or moved with the arrow keys, and reset by a double-click) to
-share the column between them (2026-09-26, the author): which of the
-two a coach wants the room for changes over a game. Each keeps at
-least 80px, a panel read to its newest line stays on it as it
-resizes, and the share is remembered in that browser's
-`localStorage` -- a convenience per viewer, never the room's state,
-so a browser that refuses storage opens at the default.
+right, the sidebar.
+
+**The sidebar is four tabs** (2026-09-27, step 10 of
+[../web-app-redesign.md](../web-app-redesign.md)): Log, Chat, Teams and
+Rules across the head of one 380px panel, the one showing under them.
+A tab that is not showing gets a dot when something new arrives in it
+-- red for news, gold where it is this coach's move -- which goes when
+the tab is opened. It replaces the log and the chat stacked with a
+divider between them (the author's of 2026-09-26): with the teams and
+the rules beside them, four panels do not share one column, and a
+coach reads one of them at a time.
+
+- **Teams** is both rosters as tables, `board.py`'s `rosters`: a row a
+  player -- the field in the side's own order, then the bench, then
+  the back bench, the record's three lists -- with the role and the
+  name, OFF and DEF as the card prints them (`card_profile`, the same
+  numbers the card and the field carry), the exhaustion as one token
+  image a point (the drain token on a Cyborg), the condition emoji,
+  and the space's code, "bench" or "back bench", with "· ball" on the
+  holder. Hovering a row shows the card, and clicking it (or Enter)
+  opens it. The page adds nothing to a number: `TeamsTabTests` hold
+  every row to the card and the space the layout already hands over.
+- **Rules** is "The rules and the player aids", below.
 
 **A phone is one screen, not a long page.** The jumbotron and the
-board stay on it; under them three tabs -- Move, Log, Chat -- switch
-what fills the rest, and only the tab showing scrolls. A tab that is
+board stay on it; under them five tabs -- Move, Log, Chat, Teams,
+Rules -- switch what fills the rest, and only the tab showing scrolls
+(the phone's own layout is step 11 of the redesign). A tab that is
 not showing is marked when something new arrives in it, gold on Move
 when the prompt is this coach's. Stacking all five panels made a page
 a coach scrolled past the board to answer and past the answer to read
@@ -736,8 +755,17 @@ the coach is looking at it.
   putting a bench meeple on the field, the bench has to be on the page
   the field is on. A Coaching Offer lights a side's sideline as a
   whole, and a substitute lights the meeples that may come on.
-- **The log is words only**: each entry a block with an edge, a new
-  play's in blurple. It draws no board (2026-09-26, the author): the
+- **The log is words only**: each entry a block with an edge coloured
+  by its kind (step 10 of the redesign) -- a new play blurple, a goal
+  gold, a roll grey, the clock faint, a line the panel's line -- and
+  the minute as a small heading when it changes. **The kind is the
+  journal's reading of facts the model handed over, never of the
+  words**: a goal is the entry the score went up in (the roll's, since
+  every goal is rolled), a new play the group's `new_play`, a roll an
+  entry with a roll's detail, the clock a group whose step is the
+  whistle or a stage between the halves (`CLOCK_STEPS`); the minute is
+  the clock the result left. All four are kept with the entry in the
+  journal's file, so the log reads the same after a restart. It draws no board (2026-09-26, the author): the
   live board is beside it, and a snapshot in every stopped entry
   pushed the lines a coach reads off the panel. An entry's wire shape
   carries no `layout`; the journal still keeps the position the run
@@ -795,8 +823,10 @@ the right the picture the question is asked over.
   under the tag with the model's sentence and an outlined Dismiss. The
   page moves the one strip into whichever box is asking -- the question
   box, or the table before kickoff -- and above the box where neither
-  is up (a dropped connection with nothing asked). Its Law is step
-  10's.
+  is up (a dropped connection with nothing asked). **Under the sentence,
+  its Law** where the model names one -- "See Law 14.5 · How many
+  substitutions", opening the Rules tab there ("The rules and the
+  player aids", below).
 - **The owed step is a strip of its own above the box**, not a
   question in it: a restart caught the game mid-turn and nobody is
   asked anything, so there is no tag to give it. Its control is the
@@ -1443,69 +1473,115 @@ same `format_scope_heading` the bot's is.
 
 ## The rules and the player aids
 
-Step 11 of [../web-app-next.md](../web-app-next.md): everything a
-Discord coach can pull up beside a game without it being a turn --
-`rules_full`, `rules_search`, `maneuver_reference`,
+Step 11 of [../web-app-next.md](../web-app-next.md), redrawn by step 10
+of [../web-app-redesign.md](../web-app-redesign.md) (2026-09-27):
+everything a Discord coach can pull up beside a game without it being
+a turn -- `rules_full`, `rules_search`, `maneuver_reference`,
 `role_abilities_reference`, `species_abilities_reference`,
 `team_reference` -- and the two rulebooks, which Discord has only in
 print. `webapp/aids.py` holds all of it and `webapp/static/aids.js`
-draws it: a **Rules & aids** panel opened from the room's header and
-from the front door, and `/rules` on a page of its own. Every route is
-a read-only GET open to anybody -- an observer, or nobody with a
-cookie -- takes no lock and touches the service no further than
-reading the game; nothing in it goes in the log.
+draws it twice: as the **Rules tab** in a room's sidebar, and as the
+**Reading Room** at `/rules`, linked from the front door and from the
+tab. Every route is a read-only GET open to anybody -- an observer, or
+nobody with a cookie -- takes no lock and touches the service no
+further than reading the game; nothing in it goes in the log.
 
-**The rules are `rules_doc`'s, numbered by the Charter's build.** The
-living rules carry no Law numbers; the Charter gives them at build
-time (`rulebooks.number_blocks`, [rulebooks.md](rulebooks.md)), and
-the Learn to Play cites them as *(Law 6.4)*. A page that set
-`docs/living-rules.md` as it stands would be a Charter without the
-numbers the other book points at. So `/rules` is one section per
-`RulesSection` of `rules_doc.load_rules_document` -- the same parse
-`/d12ball rules_search` answers from, and `GET /api/rules?q=` is its
-`RulesDocument.search` -- each headed with its number from
-`number_blocks(parse_markdown(...)).headings`, looked up by slug. The
-two already agree on a slug (`rulebooks.Heading.slug` is
+**The rules are `rules_doc`'s, numbered by the Charter's build and
+grouped by its Laws.** The living rules carry no Law numbers; the
+Charter gives them at build time (`rulebooks.number_blocks`,
+[rulebooks.md](rulebooks.md)), and the Learn to Play cites them as
+*(Law 6.4)*. A page that set `docs/living-rules.md` as it stands would
+be a Charter without the numbers the other book points at. So every
+section is a `RulesSection` of `rules_doc.load_rules_document` -- the
+same parse `/d12ball rules_search` answers from, and `GET
+/api/rules?q=` is its `RulesDocument.search` -- headed with its number
+from `number_blocks(parse_markdown(...)).headings`, looked up by slug.
+The two already agree on a slug (`rulebooks.Heading.slug` is
 `rules_doc.slugify_heading`), and `tests/test_web_aids.py` holds that
-agreement: every heading the Charter numbers is a section with that
-number, and the front matter, the Parts and the Appendices are
-unnumbered on the page as in the book. A link to a heading reads
-`text (6.4)`, as the book resolves it. Each section's text is read by
-`rulebooks.parse_markdown` -- the books' own subset, which raises on a
-line outside it -- and set as HTML after escaping, so the page and the
-printed Charter fail on the same line; the Charter's one figure is
-served from `docs/rulebooks/figures/`. There is no second copy of the
-rules text: the page is re-rendered when `rules_doc` re-parses a
-changed file, and a missing file is logged at ERROR and answered 503,
-as `load_rules` refuses on Discord.
+agreement. **What is a Law is what the build numbers as one**:
+`aids.charter` (`GET /api/rules/charter`) groups the sections under the
+level-2 headings the Charter numbers -- the 21 Laws, each with the Part
+it is in, its own text and its sections, a heading below a section set
+in that section's text as the book sets it -- then the Appendices,
+which the Charter letters, and the front matter before the first Part.
+Each section's text is read by `rulebooks.parse_markdown` -- the books'
+own subset, which raises on a line outside it -- and set as HTML after
+escaping, so the page and the printed Charter fail on the same line.
+There is no second copy of the rules text: the page is re-rendered when
+`rules_doc` re-parses a changed file, and a missing file is logged at
+ERROR and answered 503, as `load_rules` refuses on Discord.
+`CharterTests` read a heading through `rules_doc` and find it in what
+the tab and the Reading Room are handed.
 
-**The books as PDFs, and only as PDFs.** The printed layout is
-`rulebooks.py`'s and the figures are laid out for it; an HTML Learn to
-Play would be a second layout of the book to keep right, the mistake
-`webapp/pictures.py` exists to avoid for the cards. `rulebooks.book_bytes`
-sets a book into memory (`build_book` writes the same bytes, so
-`scripts/build_rulebooks.py` is unchanged), and `/books/charter.pdf`
-and `/books/learn-to-play.pdf` serve it inline, on letter paper, set in
-a worker thread once per process and again when the source's mtime
-changes -- never written to `print/`. The in-page reading is the
-Charter's text, searchable, for a coach mid-turn; the PDFs are the
-books.
+- **The Rules tab** is a search box, three chips -- THE CHARTER, LEARN
+  TO PLAY, REFERENCES -- and the Laws by their headings, one opened to
+  its text: its sections named in a row, then each under its number. A
+  search is `RulesDocument.search`, except that "Law 12" or "6.4" goes
+  straight to the heading the Charter numbers so; a link inside the
+  rules opens its heading in the tab rather than leaving the room.
+- **The Reading Room** is the canvas's: the Laws down the left, the Law
+  text in the middle, the References on the right, with a search over
+  everything and chips for the Learn to Play and the rosters. The
+  Charter and the References are set on the server, so the page reads
+  without a script; the Law being read is lit in the contents as it
+  scrolls.
+- **The Learn to Play is read in the page.** `aids.learn_to_play`
+  (`GET /api/rules/learn`) reads `docs/learn-to-play.md` with the
+  books' own parser, its figures served from
+  `docs/rulebooks/figures/` like the Charter's, and turns every number
+  in a *(Law 6.4)* into a link to the heading the build gives that
+  number -- so the book's citations open the Charter, in the tab or the
+  Reading Room, and a number the Charter does not give stays words.
+- **No PDF anywhere** (the author, reviewing the redesign, 2026-09-26).
+  Step 11 of the earlier worksheet served both books as PDFs, set in
+  memory, on the reasoning that an HTML Learn to Play would be a second
+  layout of the book; the redesign settled the other way, because a
+  coach mid-turn reads the rules in the page and never in a download.
+  `/books/*.pdf` is gone, and nothing the pages link is a PDF
+  (`NoPdfTests`). What keeps it from being a second layout is that it
+  has none of its own: it is the book's markdown in the page's type,
+  with the book's figures, and the printed layout stays
+  `rulebooks.py`'s alone (`scripts/build_rulebooks.py` is unchanged).
+- **The References are the model's own data.** The cards are the
+  printed faces the hand shows (`pictures.maneuver_card_png`, served at
+  `/aids/cards/{key}.png`): the six basic ones always, and the six
+  gambits under them where the game's hexagon is the gambit one. The
+  roles table is `role_profiles` -- the role card's own numbers, its
+  badge, and `short_ability`, the sheet's short column, never cut down
+  here -- and the species table is `species.json`, the species card's
+  data, each species team in its colour with its icon. In a room the
+  species table is there only where `species_abilities_apply`.
+- **A refusal cites its Law.** Which Law says no is a reading of the
+  rules, so it is the model's: `RuleRefusal.law`, the slug of the
+  living-rules heading, set at the raise site (proposed on this step's
+  PR as a model change of its own; see
+  [model-discord-split.md](model-discord-split.md)). The server turns
+  it into `refusal_law` -- the heading, its Charter number and title,
+  and the Law it is under (`aids.citation`) -- beside the sentence, on
+  an action's answer and on the table's; the strip shows "See Law 14.5
+  · How many substitutions", and clicking it opens the Rules tab at
+  that heading. A refusal that cites nothing shows no link: **the page
+  maps no sentence to a Law.**
 
 **Which aids a room gets is the model's.** The room's state carries
-`aids`: the hexagon at `RulesEngine.maneuver_reference_tier(game)`, the
-species card only where `species_abilities_apply(game)`, the team cards
-in the face `personal_abilities_apply(game)` says the game holds, and
-the three answers themselves, so `app.js` decides none of them and
-never reads `game.mode`. The seat's own team comes first and the other
-a tab away; an observer gets both, seat 1's first. At the front door,
-with no game to ask, `GET /api/aids` offers all of it: both hexagons
-named by tier, the species card, every team with both faces. Every
-picture is the one the reference command posts, drawn by the same
-function (`render_maneuver_reference_image`, `render_role_reference`,
-`player_cards`), in a worker thread and kept with the cards. The
-species card is the one exception in shape: the page shows the two
-`species_cards.REFERENCE_FACES` as two images, since it has no
-attachment tiles to crop them, where Discord posts them side by side.
+`aids`: the cards at the game's tier and the hexagon at
+`RulesEngine.maneuver_reference_tier(game)`, the species table and card
+only where `species_abilities_apply(game)`, the team cards in the face
+`personal_abilities_apply(game)` says the game holds, and the three
+answers themselves, so `app.js` decides none of them and never reads
+`game.mode`. The team cards come the seat's own team first (an
+observer's seat 1's); a room no longer draws them as a gallery, since
+the Teams tab is the rosters and a row's hover card is the card in the
+face the game plays. In the Reading Room, with no game to ask, `GET
+/api/aids` offers all of it: all twelve cards, both hexagons named by
+tier, the species table, every team with both faces (the ROSTERS
+chip). Every picture is the one the reference command posts, drawn by
+the same function (`render_maneuver_reference_image`,
+`render_role_reference`, `player_cards`), in a worker thread and kept
+with the cards; the References draw the role and species *tables*
+from the data those cards are drawn from, as the canvas has it, and
+the role card and the two `species_cards.REFERENCE_FACES` stay served
+at their routes for a link.
 The maneuver pick carries `reference`, a **link** to the hexagon at the
 game's tier, as the Discord prompt's reference button posts it --
 never a picture inline, since the question box already carries the

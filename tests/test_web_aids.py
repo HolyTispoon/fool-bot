@@ -1,11 +1,12 @@
 """
-The reading room over HTTP: the rules, the two rulebooks and the
-player aids -- step 11 of docs/web-app-next.md ("The rules and the
-player aids" in docs/design/web-app.md).
+The reading room over HTTP: the rules, the Learn to Play and the player
+aids -- step 11 of docs/web-app-next.md, redrawn as the Rules tab and
+the Reading Room in step 10 of docs/web-app-redesign.md ("The rules and
+the player aids" in docs/design/web-app.md).
 
-Nothing printed is tested (CLAUDE.md), so neither a picture nor a book
-is looked at here: every renderer is patched to hand back fixed bytes,
-and what is watched is the routes and what the page is told --
+Nothing printed is tested (CLAUDE.md), so no picture is looked at here:
+every renderer is patched to hand back fixed bytes, and what is watched
+is the routes and what the page is told --
 
 - **every route answers**, with its content type, and to anybody: an
   observer, and nobody at all, may open every aid;
@@ -13,11 +14,15 @@ and what is watched is the routes and what the page is told --
   `maneuver_reference_tier`, `species_abilities_apply` and
   `personal_abilities_apply` as the engine answers them, and they
   change with the game's mode;
-- **the rules are headed with the Charter's numbers**: every heading
-  the Charter build numbers is a `RulesSection` with that number, which
-  is the slug agreement between `rules_doc` and `rulebooks`;
-- **a book is set once and served inline**, and set again when its
-  source changes.
+- **the rules are headed with the Charter's numbers** and grouped by
+  its Laws: every heading the Charter build numbers is a `RulesSection`
+  with that number, which is the slug agreement between `rules_doc` and
+  `rulebooks`, and the Rules tab's Laws are the ones the build numbers;
+- **the Rules tab shows the living rules as they stand**: a heading
+  read through `rules_doc` is found in what the tab and the Reading
+  Room are handed;
+- **a refusal's Law is the model's**, linked by its heading;
+- **no PDF anywhere**.
 """
 
 from __future__ import annotations
@@ -42,7 +47,6 @@ from webapp.server import WebApp
 
 WATCHER = 303
 PNG = b"\x89PNG not a picture"
-PDF = b"%PDF-1.4 not a book"
 
 
 class Harness(unittest.IsolatedAsyncioTestCase):
@@ -59,6 +63,7 @@ class Harness(unittest.IsolatedAsyncioTestCase):
         # No picture is drawn and no book is set: the routes are the
         # thing tested, never what they serve.
         for target in (
+            "webapp.pictures.maneuver_card_png",
             "webapp.aids.maneuver_reference_png",
             "webapp.aids.role_reference_png",
             "webapp.aids.species_face_png",
@@ -173,38 +178,180 @@ class RouteTests(Harness):
                     self.assertEqual((await self.get(path)).status, 503)
 
 
-class BookTests(Harness):
-    async def test_a_book_is_set_once_and_served_inline(self) -> None:
-        with mock.patch.object(
-            rulebooks, "book_bytes", return_value=PDF,
-        ) as setter:
-            for name in aids.BOOK_NAMES:
-                with self.subTest(name):
-                    for _ in range(2):
-                        response = await self.get(f"/books/{name}.pdf")
-                        self.assertEqual(response.status, 200)
-                        self.assertEqual(
-                            response.content_type, "application/pdf",
-                        )
-                        self.assertTrue(
-                            response.headers["Content-Disposition"]
-                            .startswith("inline"),
-                        )
-                        self.assertEqual(await response.read(), PDF)
-            self.assertEqual(setter.call_count, len(aids.BOOK_NAMES))
-            self.assertEqual(
-                [call.args[0].name for call in setter.call_args_list],
-                list(aids.BOOK_NAMES),
-            )
+class NoPdfTests(Harness):
+    """No PDF anywhere (the author, reviewing the redesign): the books
+    are read in the page, and nothing the page links is a PDF."""
 
-    async def test_an_edited_source_is_set_again(self) -> None:
+    async def test_no_book_is_served(self) -> None:
+        for name in ("charter", "learn-to-play"):
+            with self.subTest(name):
+                self.assertEqual(
+                    (await self.get(f"/books/{name}.pdf")).status, 404,
+                )
+
+    async def test_nothing_the_pages_link_is_a_pdf(self) -> None:
+        pages = [await (await self.get("/rules")).text()]
+        for name in ("game.html", "index.html", "aids.js", "app.js"):
+            pages.append(await (await self.get(f"/static/{name}")).text())
+        pages.append(await (await self.get("/api/aids")).text())
+        game = self.file(case("smooth"))
+        pages.append(await (await self.get(
+            f"/api/game/{game.game_id}", game.player_1_id,
+        )).text())
+        for page in pages:
+            self.assertNotIn(".pdf", page)
+
+
+class CharterTests(Harness):
+    """The Rules tab and the Reading Room read the living rules."""
+
+    async def test_the_tab_lists_the_laws_the_charter_numbers(self) -> None:
+        found = await (await self.get("/api/rules/charter")).json()
+        document = load_rules_document()
+        numbers = aids.charter_numbers(document)
+        laws = [
+            slug for slug, number in numbers.items()
+            if number.isdigit()
+        ]
+        self.assertEqual([law["slug"] for law in found["laws"]], laws)
+        self.assertEqual(
+            [law["number"] for law in found["laws"]],
+            [str(n) for n in range(1, len(laws) + 1)],
+        )
+        for law in found["laws"]:
+            for section in law["sections"]:
+                self.assertEqual(section["number"], numbers[section["slug"]])
+        self.assertTrue(
+            all(one["label"].startswith("Appendix") for one in found["appendices"])
+        )
+
+    async def test_a_heading_of_the_living_rules_is_in_the_page(self) -> None:
+        """Done when: the Rules tab shows the current living rules."""
+        document = load_rules_document()
+        heading = next(
+            section for section in document.sections if section.level == 3
+        )
+        found = await (await self.get("/api/rules/charter")).json()
+        sections = {
+            one["slug"]: one["title"]
+            for law in found["laws"]
+            for one in law["sections"]
+        }
+        self.assertIn(heading.slug, sections)
+        self.assertEqual(sections[heading.slug], heading.title)
+        room = await (await self.get("/rules")).text()
+        self.assertIn(f'id="{heading.slug}"', room)
+        self.assertIn(heading.title, room)
+
+    async def test_the_reading_room_renders(self) -> None:
+        response = await self.get("/rules")
+        self.assertEqual(response.status, 200)
+        page = await response.text()
+        for column in ("reading-contents", "reading-text", "reading-refs"):
+            self.assertIn(column, page)
+        found = aids.charter(load_rules_document())
+        for law in found["laws"]:
+            self.assertIn(f'id="{law["slug"]}"', page)
+            self.assertIn(f'data-rule="{law["slug"]}"', page)
+        # The References column: the six basic cards and the roles.
+        for card in aids.maneuver_cards(
+            ENGINE.maneuver_catalog, (MANEUVER_TIER_BASIC,),
+        )[0]["cards"]:
+            self.assertIn(card["url"], page)
+        for row in aids.roles(ENGINE.player_catalog):
+            self.assertIn(row["ability"].replace("'", "&#x27;"), page)
+
+    async def test_the_learn_to_play_is_in_the_page(self) -> None:
+        book = await (await self.get("/api/rules/learn")).json()
+        self.assertIn("Learn to Play", book["title"])
+        self.assertTrue(book["contents"])
+        self.assertIn("/rules/figures/", book["html"])
+        # Its citations link into the Charter by the number the build gives.
+        numbers = aids.charter_numbers(load_rules_document())
+        self.assertIn(
+            f'data-rule="{next(s for s, n in numbers.items() if n == "6.4")}"',
+            book["html"],
+        )
+        self.assertNotIn("<script", book["html"])
+
+    async def test_a_missing_learn_to_play_is_an_error_and_a_503(self) -> None:
+        with mock.patch(
+            "webapp.aids.cached_learn_to_play", side_effect=OSError("gone"),
+        ), self.assertLogs("webapp.server", level="ERROR"):
+            self.assertEqual((await self.get("/api/rules/learn")).status, 503)
+
+
+class CitationTests(Harness):
+    """A refusal cites its Law: the model's slug, linked by its heading."""
+
+    def test_a_citation_names_the_heading_and_its_law(self) -> None:
+        document = load_rules_document()
+        cited = aids.citation(document, "how-many-substitutions")
+        numbers = aids.charter_numbers(document)
+        self.assertEqual(cited["number"], numbers["how-many-substitutions"])
+        self.assertEqual(cited["law"], "coaching-choice")
+        self.assertEqual(cited["law_number"], numbers["coaching-choice"])
+        self.assertIsNone(aids.citation(document, None))
+        self.assertIsNone(aids.citation(document, "no-such-heading"))
+
+    async def test_a_refused_click_carries_its_law(self) -> None:
+        from gamesaves.d12ball.service import GameResult
+
+        game = self.file(case("smooth"))
+        state = await self.state(game, game.player_1_id)
+        control = next(
+            control["action"]
+            for group in state["prompt"]["controls"]
+            for control in group["controls"]
+            if not control["disabled"]
+        )
+        refused = GameResult(
+            refusal="Not that one.", refusal_law="winning-the-toss",
+        )
         with mock.patch.object(
-            rulebooks, "book_bytes", side_effect=[b"%PDF old", b"%PDF new"],
-        ), mock.patch.object(aids, "book_stamp", side_effect=[1, 2]):
-            first = await self.get("/books/charter.pdf")
-            second = await self.get("/books/charter.pdf")
-        self.assertEqual(await first.read(), b"%PDF old")
-        self.assertEqual(await second.read(), b"%PDF new")
+            self.service, "apply_action", return_value=refused,
+        ):
+            response = await self.client.post(
+                f"/api/game/{game.game_id}/action",
+                headers=as_coach(game.player_1_id),
+                json={"action": control},
+            )
+        answered = await response.json()
+        self.assertEqual(answered["refusal"], "Not that one.")
+        self.assertEqual(answered["refusal_law"]["slug"], "winning-the-toss")
+        self.assertEqual(
+            answered["refusal_law"]["number"],
+            aids.charter_numbers(load_rules_document())["winning-the-toss"],
+        )
+
+
+class ReferenceTests(Harness):
+    async def test_every_card_the_references_offer_answers(self) -> None:
+        offered = await (await self.get("/api/aids")).json()
+        rows = offered["maneuver_cards"]
+        self.assertEqual(
+            [row["tier"] for row in rows],
+            [MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT],
+        )
+        self.assertEqual(len(rows[0]["cards"]), 6)
+        for row in rows:
+            for card in row["cards"]:
+                with self.subTest(card["key"]):
+                    response = await self.get(card["url"])
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(response.content_type, "image/png")
+        self.assertEqual((await self.get("/aids/cards/nonsense.png")).status, 404)
+
+    def test_the_tables_are_the_cards_own_data(self) -> None:
+        roles = aids.roles(ENGINE.player_catalog)
+        self.assertEqual(
+            [(row["offense"], row["defense"], row["ability"]) for row in roles],
+            [
+                (profile.offense, profile.defense, profile.short_ability)
+                for profile in ENGINE.player_catalog.role_profiles.values()
+            ],
+        )
+        self.assertEqual(len(aids.species_rows()), 4)
 
 
 class RoomAidsTests(Harness):
@@ -244,6 +391,12 @@ class RoomAidsTests(Harness):
                     [one["tier"] for one in room["maneuvers"]], [tier],
                 )
                 self.assertEqual(bool(room["species"]), species)
+                self.assertEqual(bool(room["species_rows"]), species)
+                self.assertEqual(
+                    [row["tier"] for row in room["maneuver_cards"]],
+                    [MANEUVER_TIER_BASIC] if tier == MANEUVER_TIER_BASIC
+                    else [MANEUVER_TIER_BASIC, tier],
+                )
                 face = aids.FACE_ADVANCED if advanced else aids.FACE_FRONT
                 for team in room["teams"]:
                     self.assertEqual(

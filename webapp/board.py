@@ -350,8 +350,14 @@ def board_layout(
         one for one in (match.ball_carrier_id, match.active_player_id) if one
     ]
     spaces = []
+    #: Where each fielded player stands, as the space's code, and who
+    #: the ball is drawn on -- for the Teams tab's rows.
+    standing: dict[str, str] = {}
+    holding: Optional[str] = None
     for zone in ZONES:
         for index, occupants in enumerate(board.spaces[zone]):
+            for one in occupants:
+                standing.setdefault(one, space_code(zone, index, board))
             has_ball = (
                 match.ball.zone == zone and match.ball.space_index == index
             )
@@ -367,6 +373,7 @@ def board_layout(
                 holder = next(
                     (one for one in named if one in on_space), on_space[-1],
                 )
+                holding = holder
             spaces.append(
                 {
                     "code": space_code(zone, index, board),
@@ -454,6 +461,39 @@ def board_layout(
                 "back_bench": [
                     {**card(one), "meeple": meeple(one)}
                     for one in setup.team_board.back_bench
+                ],
+            }
+            for setup in (match.home, match.visiting)
+        ],
+        # The Teams tab (step 10 of docs/web-app-redesign.md): both
+        # rosters as rows -- the field in the side's own order, then
+        # the bench, then the back bench, the record's three lists --
+        # each the card (its printed numbers and picture, the numbers
+        # `card_profile` gives the card itself), its marks as the field
+        # draws them, and where it is: the space's code, or which
+        # bench. The page adds nothing to a number.
+        "rosters": [
+            {
+                "side": setup.side.value,
+                **_team(setup.team),
+                "rows": [
+                    {
+                        **card(one),
+                        "marks": badges(one),
+                        "where": where,
+                        "ball": one == holding,
+                    }
+                    for one, where in (
+                        *(
+                            (one, standing.get(one, ""))
+                            for one in setup.field_players
+                        ),
+                        *((one, "bench") for one in setup.team_board.bench),
+                        *(
+                            (one, "back bench")
+                            for one in setup.team_board.back_bench
+                        ),
+                    )
                 ],
             }
             for setup in (match.home, match.visiting)

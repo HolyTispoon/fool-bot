@@ -76,11 +76,13 @@ checked by reading the PDF.
   in `d12ball/fonts/` is the fix. The palette is the cards' (`INK`,
   `FACE_COLOR`, `PANEL_COLOR`).
 - **A book is bytes first.** `book_bytes` sets a book into memory and
-  `build_book` writes those bytes, so the web app serves the same PDF
-  the CLI prints without a file in `print/`
-  ([web-app.md](web-app.md), "The rules and the player aids"); the page
-  also reads the Charter's heading numbers from `number_blocks` rather
-  than numbering anything itself.
+  `build_book` writes those bytes. The web app served that PDF until
+  step 10 of [../web-app-redesign.md](../web-app-redesign.md), when the
+  author's "no PDF anywhere" put both books in the page instead
+  ([web-app.md](web-app.md), "The rules and the player aids"): the
+  Learn to Play read by `parse_markdown`, the books' own subset, with
+  its figures, and the Charter's heading numbers read from
+  `number_blocks` rather than numbered by the page.
 - **Letter by default, A4 by `--paper`; no bleed.** Nothing in either
   book reaches the edge, and the Learn to Play is imposed as a booklet
   by the print shop, not the script. Output goes to `print/`, which is
