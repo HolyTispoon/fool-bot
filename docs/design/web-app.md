@@ -1455,22 +1455,23 @@ a read-only GET open to anybody -- an observer, or nobody with a
 cookie -- takes no lock and touches the service no further than
 reading the game; nothing in it goes in the log.
 
-**The rules are `rules_doc`'s, numbered by the Charter's build.** The
-living rules carry no Law numbers; the Charter gives them at build
-time (`rulebooks.number_blocks`, [rulebooks.md](rulebooks.md)), and
-the Learn to Play cites them as *(Law 6.4)*. A page that set
-`docs/living-rules.md` as it stands would be a Charter without the
-numbers the other book points at. So `/rules` is one section per
-`RulesSection` of `rules_doc.load_rules_document` -- the same parse
-`/d12ball rules_search` answers from, and `GET /api/rules?q=` is its
-`RulesDocument.search` -- each headed with its number from
-`number_blocks(parse_markdown(...)).headings`, looked up by slug. The
-two already agree on a slug (`rulebooks.Heading.slug` is
-`rules_doc.slugify_heading`), and `tests/test_web_aids.py` holds that
-agreement: every heading the Charter numbers is a section with that
-number, and the front matter, the Parts and the Appendices are
-unnumbered on the page as in the book. A link to a heading reads
-`text (6.4)`, as the book resolves it. Each section's text is read by
+**The rules are `rules_doc`'s, with the Charter's numbers the file
+carries.** Since 2026-09-26 `docs/living-rules.md` carries the printed
+edition's numbers, written by `scripts/build_rulebooks.py --renumber`
+([rulebooks.md](rulebooks.md)), and the Learn to Play cites them as
+*(Law 6.4)*. So `/rules` is one section per `RulesSection` of
+`rules_doc.load_rules_document` -- the same parse `/d12ball
+rules_search` answers from, and `GET /api/rules?q=` is its
+`RulesDocument.search` -- each headed with `RulesSection.number`, the
+number `rules_doc` split off the heading, and each paragraph opening
+with its own as the file writes it. A section is named on the page by
+its numberless `slug`; the file's links point at GitHub's anchor for
+the numbered heading, and `page_anchors` maps one to the other.
+`tests/test_web_aids.py` holds that every heading the Charter numbers
+is a section with that number, and that the front matter, the Parts
+and the Appendices are unnumbered on the page as in the book. A link
+to a heading reads `text (6.4)`, the number being the file's words
+after the link. Each section's text is read by
 `rulebooks.parse_markdown` -- the books' own subset, which raises on a
 line outside it -- and set as HTML after escaping, so the page and the
 printed Charter fail on the same line; the Charter's one figure is

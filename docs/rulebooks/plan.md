@@ -85,7 +85,7 @@ builder does the first today; the second is the next thing it grows:
 
 | | Numbered at build time (default today) | Numbers written into the source |
 | --- | --- | --- |
-| How | The builder numbers Laws from the H2 headings in order, sections from the H3s, and paragraphs from the blocks under them; a list under a numbered paragraph is lettered. Every `[text](#anchor)` link the living rules already carry becomes *text (6.4)* in the PDF. **Built.** | A `--renumber` mode rewrites the markdown itself: each paragraph starts with its bold number, and each link becomes a number. Anchors stay in the source as the stable identity a reference is resolved through, so inserting a paragraph is one edit and one `--renumber`. **Not built yet**; sized once the Charter's text has settled. |
+| How | The builder numbers Laws from the H2 headings in order, sections from the H3s, and paragraphs from the blocks under them; a list under a numbered paragraph is lettered. Every `[text](#anchor)` link the living rules already carry becomes *text (6.4)* in the PDF. **Built.** | A `--renumber` mode rewrites the markdown itself: each paragraph starts with its bold number, and each link is followed by its number. Inserting a paragraph is one edit and one `--renumber`. **Built 2026-09-26**, at the author's word; the book is still numbered by the builder, from the file with the numbers taken out, so the two cannot disagree ([rulebooks.md](../design/rulebooks.md)). |
 | Where the numbers show | The PDF only. GitHub and Discord show the headings and the links, as now. | Everywhere, including `/d12ball rules_lookup`. |
 | Cost | None. The file the bot reads does not change. | A one-time reformat of the whole file, and a `--renumber` after every insertion (the test suite can check it has been run). |
 
@@ -275,7 +275,8 @@ starts.
    The rename to `docs/charter.md` is one `git mv` and a link sweep, for
    whenever the author wants the filename to match the title.
 2. **Numbering: build-time now, written into the source once the text
-   settles.** Or written in from the start.
+   settles.** Or written in from the start. *Written in, 2026-09-26*
+   (`--renumber`).
 3. **The Charter's section map** in [charter-outline.md](charter-outline.md)
    -- in particular Part II holding every advanced-mode exception, and
    Law 2 gathering every definition.

@@ -37,18 +37,44 @@ checked by reading the PDF.
   opening `*Note` is never numbered and is set small and indented: the
   Charter's preface says a note is never a rule, and the layout is what
   makes that visible.
-- **Numbering is done at build time and the source is not touched.**
+- **The builder numbers; the source carries what it numbered.**
   `number_blocks` gives every level-2 heading a Law number, every
   level-3 heading a section number, and every paragraph, list, table or
   quote under one its own number; a paragraph straight under a Law
   shares the second position with the sections (`1.3`, then `2.1 The
   field`), as the Law of Root does. A `[text](#slug)` link to a heading
-  becomes `text (6.4)`; a list under a numbered paragraph is lettered so
-  a case can be cited. A source section whose slug is in
-  `UNNUMBERED_SECTIONS` (the living rules' own "Contents") is dropped,
-  because the builder generates the contents page. Writing the numbers
-  into the markdown (`--renumber`) is the plan's second step and is not
-  built.
+  becomes `text (6.4)` -- unless its words already are the number
+  (`[Law 18]`, `[Appendix B]`), which `cites_itself` leaves alone
+  rather than printing `Law 18 (18)`; a numbered list is lettered so a
+  case can be cited. A source section whose slug is in
+  `DROPPED_SECTIONS` (the living rules' own "Contents") is dropped,
+  because the builder generates the contents page.
+- **`--renumber` writes those numbers into the source** (the author,
+  2026-09-26: the file carries the printed edition's numbers), so
+  GitHub, `/d12ball rules_search` and the web page read the numbers
+  the book prints. `renumber` writes `## 6. Maneuvers`, `### 6.4 The
+  skill test`, a paragraph opening `**6.4.2**`, a list or table under
+  its number on a line of its own with its cases `- **a.**`, and a
+  cross-reference as the link followed by its number, `[the skill
+  test](#64-the-skill-test) (6.4)`. `unnumber` takes all of it out
+  again, and **the book is built from `unnumber`'s text**, so the
+  numbering logic stays in one place and a stale number in the file
+  never reaches a page; the two are inverses on a renumbered file,
+  which `tests/test_charter_numbers.py` checks -- the suite fails until
+  `--renumber` has been run after an edit that moves a number. That
+  test is not a print test: it guards the file the bot serves.
+- **A numbered heading's GitHub anchor moves with its number**
+  (`#64-the-skill-test`), because GitHub slugs the heading as written
+  and markdown has no fixed anchor without HTML, which the subset
+  refuses. So the links carry the anchor as written and `renumber`
+  rewrites them; `--renumber` also moves every `living-rules.md#...`
+  link in `docs/` and CLAUDE.md through `anchor_moves`. The stable name
+  a section is known by inside the bot is the slug of its title without
+  the number: `rules_doc` splits the number off (`split_heading_number`)
+  into `RulesSection.number`, keeps `slug` numberless and puts GitHub's
+  anchor on `anchor`, so an autocomplete value, a page's `#the-skill-test`
+  and every test that names a section survive a renumbering. `find`
+  also takes a number, so `/d12ball rules_search 6.4` answers.
 - **The Learn to Play is `docs/learn-to-play.md`**, unnumbered, one
   page break (before the appendix) and figures at the text width. It
   cites the Charter inline as *(Law 6.4)*; it is not a copy of any rule.
@@ -79,8 +105,8 @@ checked by reading the PDF.
   `build_book` writes those bytes, so the web app serves the same PDF
   the CLI prints without a file in `print/`
   ([web-app.md](web-app.md), "The rules and the player aids"); the page
-  also reads the Charter's heading numbers from `number_blocks` rather
-  than numbering anything itself.
+  reads the Charter's numbers from the file, where `renumber` wrote
+  them, rather than numbering anything itself.
 - **Letter by default, A4 by `--paper`; no bleed.** Nothing in either
   book reaches the edge, and the Learn to Play is imposed as a booklet
   by the print shop, not the script. Output goes to `print/`, which is

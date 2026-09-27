@@ -5,8 +5,8 @@ the page is handed them (step 11 of docs/web-app-next.md).
 Everything here is something the model already draws or says; what the
 web app adds is a place to open it. The rules are `rules_doc`'s
 sections -- the same `RulesDocument` `/d12ball rules_search` answers
-from -- headed with the Charter's numbers, which `rulebooks` gives at
-build time and the Learn to Play cites. The books are
+from -- with the Charter's numbers the file carries, the ones
+`rulebooks.renumber` writes and the Learn to Play cites. The books are
 `rulebooks.book_bytes`, the PDF `scripts/build_rulebooks.py` writes.
 The aids are the pictures the reference commands post, and which of
 them a game gets is the engine's answer, never `game.mode` read here
@@ -40,7 +40,7 @@ from d12ball.engine import RulesEngine
 from d12ball.game import COLOR_TEAMS, SPECIES_TEAMS, D12BallGame, Team, team_display_name
 from d12ball.render import TEAM_COLORS, render_maneuver_reference_image
 from d12ball.role_cards import render_role_reference
-from d12ball.rules_doc import HEADING_PATTERN, RulesDocument, RulesSection
+from d12ball.rules_doc import HEADING_PATTERN, RulesDocument
 from d12ball.species_cards import REFERENCE_FACES, render_species_reference_face
 
 #: The two books a page may open, in the order it lists them.
@@ -73,47 +73,28 @@ class RulesPage:
     sections: tuple[dict, ...]
 
 
-def charter_numbers(document: RulesDocument) -> dict[str, str]:
+def page_anchors(document: RulesDocument) -> dict[str, str]:
     """
-    Every heading's number as the Charter's build gives it, by slug:
-    `rulebooks.number_blocks` over the same text `rules_doc` parsed.
-    The two agree on a slug already (`rulebooks.Heading.slug` is
-    `rules_doc.slugify_heading`), which is what lets the page head a
-    `RulesSection` with the number the Learn to Play cites.
+    Where a link in the file lands on the page: the file's links point
+    at the anchor GitHub gives a numbered heading (`#64-the-skill-test`),
+    and the page names each section by the slug of its name alone,
+    which a renumbering does not move.
     """
-    blocks = rulebooks.parse_markdown(document.text)
-    return rulebooks.number_blocks(blocks).headings
-
-
-def section_number(section: RulesSection, numbers: dict[str, str]) -> Optional[str]:
-    """
-    The number a section is headed with: a Law's, or a Law's section's,
-    and none where the Charter leaves it unnumbered -- the front
-    matter, a Part, an Appendix (which its own title already names),
-    and a heading below level 3, which shares its section's number
-    rather than having one of its own.
-    """
-    if section.level not in (2, 3):
-        return None
-    number = numbers.get(section.slug)
-    if number is None or number.startswith("Appendix"):
-        return None
-    return number
+    return {section.anchor: section.slug for section in document.sections}
 
 
 def rules_page(document: RulesDocument) -> RulesPage:
     """The rules, rendered. Every section is only its own text -- up to
     its first subsection -- since a `RulesSection` carries its
     subsections and the page shows each of them after it."""
-    numbers = charter_numbers(document)
-    link = _link_resolver(numbers)
+    link = _link_resolver(page_anchors(document))
     sections = tuple(
         {
             "slug": section.slug,
             "title": section.title,
             "level": section.level,
             "label": section.label,
-            "number": section_number(section, numbers),
+            "number": section.number,
             "html": blocks_html(_own_body(section.text), link),
         }
         for section in document.sections
@@ -145,12 +126,11 @@ def cached_rules_page(document: RulesDocument) -> RulesPage:
 def search(document: RulesDocument, query: str) -> list[dict]:
     """`RulesDocument.search` -- the answer `/d12ball rules_search`
     offers -- with each section's number beside its label."""
-    numbers = charter_numbers(document)
     return [
         {
             "slug": section.slug,
             "label": section.label,
-            "number": section_number(section, numbers),
+            "number": section.number,
         }
         for section in document.search(query)
     ]
@@ -186,20 +166,18 @@ CODE = re.compile(r"`([^`]+)`")
 PLACEHOLDER = re.compile("\x00(\\d+)\x00")
 
 
-def _link_resolver(numbers: dict[str, str]) -> LinkResolver:
+def _link_resolver(anchors: dict[str, str]) -> LinkResolver:
     """
     A link as the page draws it: to a heading, an anchor on the page
-    with the number the book prints beside it (`text (6.4)`, as
-    `rulebooks.build_story` resolves one); to the web, a link out; to
-    a neighbouring file, the words alone, as the bot posts it.
+    (the number the book prints beside it is the file's own words,
+    after the link); to the web, a link out; to a neighbouring file,
+    the words alone, as the bot posts it.
     """
 
     def resolve(text: str, target: str) -> str:
         if target.startswith("#"):
-            slug = target[1:]
-            number = numbers.get(slug)
-            suffix = f" ({number})" if number else ""
-            return f'<a href="#{html.escape(slug)}">{text}{suffix}</a>'
+            slug = anchors.get(target[1:], target[1:])
+            return f'<a href="#{html.escape(slug)}">{text}</a>'
         if target.startswith(("http://", "https://")):
             href = target.replace('"', "%22")
             return (
