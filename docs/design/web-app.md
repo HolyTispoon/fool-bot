@@ -828,6 +828,28 @@ two shapes, by which way it is held:
 - The top bar is the room's number and the seat, the team's emoji for
   its name.
 
+**A tablet on its side is a third shape: two columns** (2026-09-27).
+A touch screen held on its side and wider than a phone -- 961px to
+1400px across with a coarse pointer anywhere (`any-pointer: coarse`):
+an iPad, a Surface -- got the desktop's layout, which stacks the
+field, the question box and the sidebar; at 1180x820 the team names
+were cut short and the question was under the fold, so every answer
+took a scroll. There the jumbotron runs whole across the top, the
+desktop field and its sideline fill the left column, and the right is
+the phone's tabs -- Move, Log, Chat, Teams, Rules -- with only the one
+showing filling the column and scrolling. The box opens on the
+question as the upright sheet does (the ordering is one block shared
+by the two), since in a column the outcome at full size would push the
+answers down. The field is large enough to answer on, so nothing is
+repeated. It is keyed on touch rather than width alone so that a
+laptop at the same width keeps the desktop's page, which the author
+reviewed; `any-pointer` rather than `pointer` so that an iPad does not
+change shape when a trackpad is attached. Before kickoff it is the
+desktop's table, which fits as it is. A tablet held upright is 960px
+or under and is the phone's upright shape already. `TABLET` in
+`app.js` is the same query, for the one thing the page does with it:
+a refusal's Law opens the Rules tab.
+
 **Your turn reaches a coach who is not looking.** The tab's title
 carries a mark while the prompt is theirs (`prompt.yours`), and where
 the browser allows it one notification per prompt names the ask

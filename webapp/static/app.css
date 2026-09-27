@@ -1494,25 +1494,6 @@ button.goal { display: block; }
   .move-pane[data-state="full_time"] { --edge: var(--green); }
   .move-pane > .panel, .move-pane > .qbox { background: none; border: 0; padding: 0; border-radius: 0; }
   .move-pane .qbox .ask { font-size: 14px; }
-  /* The sheet opens on the question: its tag, the ask and what is lit,
-     then the box's own controls; the outcome and the reveal of what
-     just happened follow them, so answering never needs a scroll. */
-  .qbox-main > * { order: 5; }
-  .qbox-main > :first-child { order: 0; }
-  .qbox-main > #refusal { order: 1; }
-  .qbox-main > #ask { order: 2; }
-  .qbox-main > #lit { order: 3; }
-  .qbox-main > #lit-repeat { order: 4; }
-  .qbox-main > .outcome-row { order: 8; }
-  .qbox-main > #reveal { order: 9; }
-  .qbox-main > #rematch-note { order: 10; }
-  .outcome { padding: 10px 12px; }
-  .outcome-dice { height: 110px; }
-  .outcome-headline { font-size: 26px; }
-  .outcome-detail { font-size: 14px; }
-  .outcome-working { font-size: 13px; }
-  .reveal-card { width: 96px; }
-  .reveal-between { font-size: 22px; }
   .pane { margin: 0 -12px; border-radius: 14px 14px 0 0; border-width: 4px 0 0; border-color: var(--line); }
   .strip { margin: 0 -12px; background: var(--panel); border-top: 1px solid var(--line); }
   .strip-ask, #strip-state { display: none !important; }
@@ -1595,6 +1576,30 @@ button.goal { display: block; }
   .stage.narrow .band { height: 12px; font-size: 7px; letter-spacing: 0.5px; border-radius: 3px; }
   .stage.narrow .ball-button.lit { box-shadow: 0 0 0 2px var(--gold), 0 0 8px rgba(240, 178, 50, 0.55); }
   .stage.narrow .die.ringed { padding: 1px; }
+}
+
+/* The phone's sheet held upright, and a tablet's column on its side:
+   the box opens on the question -- its tag, the ask and what is lit,
+   then the box's own controls; the outcome and the reveal of what just
+   happened follow them, so answering never needs a scroll. */
+@media (max-width: 960px) and (orientation: portrait),
+  (min-width: 961px) and (max-width: 1400px) and (orientation: landscape) and (any-pointer: coarse) {
+  .qbox-main > * { order: 5; }
+  .qbox-main > :first-child { order: 0; }
+  .qbox-main > #refusal { order: 1; }
+  .qbox-main > #ask { order: 2; }
+  .qbox-main > #lit { order: 3; }
+  .qbox-main > #lit-repeat { order: 4; }
+  .qbox-main > .outcome-row { order: 8; }
+  .qbox-main > #reveal { order: 9; }
+  .qbox-main > #rematch-note { order: 10; }
+  .outcome { padding: 10px 12px; }
+  .outcome-dice { height: 110px; }
+  .outcome-headline { font-size: 26px; }
+  .outcome-detail { font-size: 14px; }
+  .outcome-working { font-size: 13px; }
+  .reveal-card { width: 96px; }
+  .reveal-between { font-size: 22px; }
 }
 
 /* On its side: the desktop field whole, the score and the clock in the
@@ -1683,6 +1688,102 @@ button.goal { display: block; }
   body[data-show="rules"] .tab[data-show="rules"] { background: var(--field); }
   .tab.news::after { top: 2px; right: 2px; width: 6px; height: 6px; }
   .move-pane, .pane { order: 4; scroll-margin-top: 8px; }
+}
+
+/* -- A tablet on its side: two columns ------------------------------------
+   A touch screen held on its side and wider than a phone -- an iPad, a
+   Surface, 961px to 1400px across -- has the room for the field and the
+   move side by side, and not for the desktop's field, question box and
+   sidebar at once, which put the question under the fold. The jumbotron
+   runs whole across the top; the desktop field and its sideline fill
+   the left column; the phone's tabs head the right one, Move first, and
+   only the tab showing scrolls. Before kickoff it is the desktop's
+   table, which fits as it is. `TABLET` in app.js is the same query. */
+@media (min-width: 961px) and (max-width: 1400px) and (orientation: landscape) and (any-pointer: coarse) {
+  :root { --side: clamp(320px, 32vw, 400px); }
+  body:not(.at-table) .app {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "jumbo jumbo" "field tabs" "field pane";
+    gap: 10px 12px;
+    padding: 12px;
+  }
+  body:not(.at-table) .main, body:not(.at-table) .sidebar { display: contents; }
+  body:not(.at-table) .side-tabs { display: none; }
+  body:not(.at-table) .jumbotron { grid-area: jumbo; }
+  body:not(.at-table) .board-panel {
+    grid-area: field;
+    align-self: start;
+    max-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* The tabs, as the sidebar's own head. */
+  body:not(.at-table) .strip {
+    grid-area: tabs;
+    display: flex;
+    background: var(--panel);
+    border: 1px solid var(--deep);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .strip-ask, #strip-state { display: none !important; }
+  .tabs { display: flex; flex: 1; }
+  .tab {
+    flex: 1;
+    position: relative;
+    padding: 11px 6px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  body[data-show="move"] .tab[data-show="move"],
+  body[data-show="log"] .tab[data-show="log"],
+  body[data-show="chat"] .tab[data-show="chat"],
+  body[data-show="teams"] .tab[data-show="teams"],
+  body[data-show="rules"] .tab[data-show="rules"] {
+    color: var(--strong);
+    border-bottom-color: var(--blurple);
+  }
+  .tab.news::after {
+    content: "";
+    position: absolute;
+    top: 9px;
+    right: 12%;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+  }
+  .tab.yours::after { background: var(--gold); }
+
+  /* What a tab holds: the one showing fills the column and scrolls. */
+  body:not(.at-table) .move-pane, body:not(.at-table) .pane {
+    grid-area: pane;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  body:not(.at-table) .pane {
+    background: var(--panel);
+    border: 1px solid var(--deep);
+    border-radius: 12px;
+  }
+  body:not(.at-table):not([data-show="move"]) .move-pane,
+  body:not(.at-table)[data-show="move"] .pane { display: none; }
+
+  /* The question box, a column wide. */
+  body:not(.at-table) .qbox { flex-direction: column; gap: 10px; flex-shrink: 0; }
+  .qbox-aside { max-width: 100%; padding-left: 0; border-left: 0; }
+  .outcome { flex-wrap: wrap; gap: 14px; }
+  .hand { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* -- The room: two seats, and who is watching --------------------------- */
