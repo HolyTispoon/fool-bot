@@ -60,7 +60,7 @@ from d12ball.rulebooks import BOOKS, DEFAULT_PAPER, book_bytes
 from d12ball.species_cards import SPECIES_TEAM
 from landing.capture import BOARD_CAPTURE
 from landing.covers import render_cover
-from landing.dice import DOOM, FORTUNE, render_die
+from landing.dice import ORANGE, PURPLE, TEAL, Die, render_die
 
 LANDING_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = LANDING_DIR.parent
@@ -233,28 +233,32 @@ DISCORD_MARK = (
     '46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg>'
 )
 
-# Prophetic Folly's picture, as the author reviewed it on the canvas: the
-# Fortune and Doom dice (landing/dice.py) side by side, Doom in front,
-# and the bot's six coins gathered round their feet, turned a little --
-# the fortune faces at Fortune's side and the doom faces at Doom's. Each
-# die is its render, the size it is drawn at and its top-left corner;
-# each coin its file in d12ball/images/emoji (one of which is named
-# with spaces), its centre, its width, how far it is turned, and whether
-# it lies behind the dice. Every position is in `FOLLY_STILL_SIZE`.
+# Prophetic Folly's picture: three pairs of Fortune and Doom dice
+# (landing/dice.py) -- orange and purple behind, teal in front -- with
+# the bot's six coins round them, turned a little, the fortune faces on
+# the Fortune side and the doom faces on the Doom side. The sketch the
+# author reviewed had one pair; the author asked for three
+# (2026-09-27). The layers are drawn back to front: a die is its
+# render, the size it is drawn at and its top-left corner; a coin its
+# file in d12ball/images/emoji (one of which is named with spaces), its
+# centre, its width and how far it is turned. Every position is in
+# `FOLLY_STILL_SIZE`.
 FOLLY_STILL_SIZE = (1600, 640)
 FOLLY_STILL_WIDTH = 1200
-FOLLY_DIE_PIXELS = 640
-FOLLY_DICE = (
-    (FORTUNE, 540, (384, 48)),
-    (DOOM, 520, (670, 92)),
-)
-FOLLY_COINS = (
-    ("3 bronze fortune.png", (465, 197), 150, 8, True),
-    ("1_gold_doom.png", (1128, 192), 150, -6, True),
-    ("3_gold_fortune.png", (420, 405), 160, -7, False),
-    ("1_silver_fortune.png", (560, 525), 150, 5, False),
-    ("3_silver_doom.png", (1180, 392), 160, 6, False),
-    ("1_bronze_doom.png", (1058, 530), 150, -5, False),
+FOLLY_DIE_PIXELS = 400
+FOLLY_STILL = (
+    (ORANGE.fortune, 330, (215, 0)),
+    (ORANGE.doom, 330, (430, 25)),
+    (PURPLE.fortune, 330, (840, 25)),
+    (PURPLE.doom, 330, (1055, 0)),
+    ("3 bronze fortune.png", (200, 330), 120, 8),
+    ("1_gold_doom.png", (1400, 330), 120, -6),
+    ("3_gold_fortune.png", (330, 470), 125, -7),
+    ("3_silver_doom.png", (1270, 470), 125, 6),
+    (TEAL.fortune, 390, (480, 215)),
+    (TEAL.doom, 390, (735, 240)),
+    ("1_silver_fortune.png", (540, 575), 120, 5),
+    ("1_bronze_doom.png", (1080, 580), 120, -5),
 )
 # The two coins at the foot of the box in the studio's hero.
 HERO_COINS = ("1_gold_fortune.png", "1_gold_doom.png")
@@ -480,22 +484,19 @@ def coin(filename: str, width: int, angle: float) -> Image.Image:
 
 
 def folly_still() -> Image.Image:
-    """Prophetic Folly's picture: `FOLLY_DICE` and `FOLLY_COINS`
-    composed on a transparent ground, which the card's panel shows
-    through."""
+    """Prophetic Folly's picture: `FOLLY_STILL`'s dice and coins,
+    composed back to front on a transparent ground, which the card's
+    panel shows through."""
     still = Image.new("RGBA", FOLLY_STILL_SIZE, (0, 0, 0, 0))
-
-    def lay(behind: bool) -> None:
-        for filename, (x, y), width, angle, under in FOLLY_COINS:
-            if under == behind:
-                piece = coin(filename, width, angle)
-                still.alpha_composite(piece, (x - piece.width // 2, y - piece.height // 2))
-
-    lay(behind=True)
-    for die, size, corner in FOLLY_DICE:
-        drawn = render_die(die, FOLLY_DIE_PIXELS)
-        still.alpha_composite(drawn.resize((size, size), Image.Resampling.LANCZOS), corner)
-    lay(behind=False)
+    for layer in FOLLY_STILL:
+        if isinstance(layer[0], Die):
+            die, size, corner = layer
+            drawn = render_die(die, FOLLY_DIE_PIXELS)
+            still.alpha_composite(drawn.resize((size, size), Image.Resampling.LANCZOS), corner)
+        else:
+            filename, (x, y), width, angle = layer
+            piece = coin(filename, width, angle)
+            still.alpha_composite(piece, (x - piece.width // 2, y - piece.height // 2))
     return still
 
 
