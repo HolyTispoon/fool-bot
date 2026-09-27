@@ -660,10 +660,13 @@ right, the sidebar.
 Rules across the head of one 380px panel, the one showing under them.
 A tab that is not showing gets a dot when something new arrives in it
 -- red for news, gold where it is this coach's move -- which goes when
-the tab is opened. It replaces the log and the chat stacked with a
-divider between them (the author's of 2026-09-26): with the teams and
-the rules beside them, four panels do not share one column, and a
-coach reads one of them at a time.
+the tab is opened; the gold is the phone's, on Move, since a wider
+screen has no Move tab and the question box is always in sight. It
+replaces the log and the chat stacked with a divider between them
+(the author's of 2026-09-26): with the teams and the rules beside
+them, four panels do not share one column, and a coach reads one of
+them at a time -- the author kept the log and the chat as separate
+tabs on the step's PR (2026-09-27).
 
 - **Teams** is both rosters as tables, `board.py`'s `rosters`: a row a
   player -- the field in the side's own order, then the bench, then
@@ -1532,7 +1535,9 @@ the tab and the Reading Room are handed.
   in a *(Law 6.4)* into a link to the heading the build gives that
   number -- so the book's citations open the Charter, in the tab or the
   Reading Room, and a number the Charter does not give stays words.
-- **No PDF anywhere** (the author, reviewing the redesign, 2026-09-26).
+- **No PDF anywhere** (the author, reviewing the redesign, 2026-09-26,
+  and on the step's PR: the Learn to Play shown in the page rather than
+  as a PDF is what was wanted).
   Step 11 of the earlier worksheet served both books as PDFs, set in
   memory, on the reasoning that an HTML Learn to Play would be a second
   layout of the book; the redesign settled the other way, because a
@@ -1545,7 +1550,9 @@ the tab and the Reading Room are handed.
 - **The References are the model's own data.** The cards are the
   printed faces the hand shows (`pictures.maneuver_card_png`, served at
   `/aids/cards/{key}.png`): the six basic ones always, and the six
-  gambits under them where the game's hexagon is the gambit one. The
+  gambits under them where the game's hexagon is the gambit one -- an
+  advanced game that plays them (the author, 2026-09-27), which is
+  `maneuver_reference_tier`'s answer, never `game.mode` read here. The
   roles table is `role_profiles` -- the role card's own numbers, its
   badge, and `short_ability`, the sheet's short column, never cut down
   here -- and the species table is `species.json`, the species card's
@@ -1554,7 +1561,8 @@ the tab and the Reading Room are handed.
 - **A refusal cites its Law.** Which Law says no is a reading of the
   rules, so it is the model's: `RuleRefusal.law`, the slug of the
   living-rules heading, set at the raise site (proposed on this step's
-  PR as a model change of its own; see
+  PR as a model change of its own, and accepted by the author there,
+  2026-09-27; see
   [model-discord-split.md](model-discord-split.md)). The server turns
   it into `refusal_law` -- the heading, its Charter number and title,
   and the Law it is under (`aids.citation`) -- beside the sentence, on

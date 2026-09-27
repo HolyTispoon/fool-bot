@@ -721,10 +721,13 @@ numbers, the Rules tab and the Reading Room at `/rules`, the Learn to
 Play read in the page with its citations linked, the References from
 the cards' own data, no PDF anywhere, and a refusal's Law linked into
 the Rules tab). The Law on a refusal needed the model to say it, so
-`RuleRefusal.law` was proposed as its own commit on the step's PR
+`RuleRefusal.law` was proposed as its own commit on the step's PR and
+accepted by the author there
 ([design/model-discord-split.md](design/model-discord-split.md)); it
 cites 21 raise sites and leaves the rest uncited rather than guessing.
-The divider between the log and the chat went with the tabs.
+The divider between the log and the chat went with the tabs, which the
+author kept separate; the References show the gambit cards in an
+advanced game that plays them.
 
 **Prompt.**
 

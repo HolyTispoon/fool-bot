@@ -845,7 +845,8 @@ in one call, which is what a web app wants.
     `validate()`'s invariants -- stay `ValueError`, because they are
     not the position refusing a choice.
   - **A refusal may cite its Law** (`RuleRefusal.law`, proposed on
-    step 10 of [../web-app-redesign.md](../web-app-redesign.md)): the
+    step 10 of [../web-app-redesign.md](../web-app-redesign.md) and
+    accepted by the author there, 2026-09-27): the
     slug of the heading in `docs/living-rules.md` that says no --
     the anchor the Charter's own links use, so a renumbering does not
     move it -- set at the raise site, where the rule is known, and
