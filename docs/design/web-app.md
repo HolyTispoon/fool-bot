@@ -353,8 +353,12 @@ lobby (the table's `name` setting), and the whole card opens it.
 **A dead room is cleared from its card** (the author, 2026-09-26, after
 the cache outage left rooms opened by people who saw nothing): a card
 in "Your rooms" carries **Close** while nothing has been played in it
-and **Abandon** once the game is under way, each behind the page's
-"Are you sure?" and each the room page's own route -- the listing's
+and **Abandon** once the game is under way, each the room page's own
+route. Abandon always asks "Are you sure?"; **Close asks only when
+somebody else holds a seat** (`close_asks`, `others_seated`: a person
+other than the reader, never the AI or a test game's one coach), on
+the card and on the table's "Close this room" alike -- the author,
+2026-09-26: a lobby with nobody else in it is nobody's loss -- the listing's
 `may_close` is `_may_close`, the same reading as the table's, and
 `may_abandon` is a seat in a game in progress, the room page's rule --
 so the front door offers exactly what the room does, and the route

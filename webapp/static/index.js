@@ -121,7 +121,9 @@ function wayOut(room) {
     onclick: async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (!confirm(question)) return;
+      /* Closing asks only when somebody else is sitting in the room
+         (`close_asks`); abandoning a game always does. */
+      if ((label !== "Close" || room.close_asks) && !confirm(question)) return;
       try {
         const response = await fetch(`/api/room/${room.id}${path}`, { method });
         if (!response.ok) refuse(await response.text());

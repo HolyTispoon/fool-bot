@@ -1676,6 +1676,29 @@ class RoomTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(playing["may_close"])
         self.assertTrue(playing["may_abandon"])
 
+    async def test_closing_asks_first_only_over_somebody_else_seated(
+        self,
+    ) -> None:
+        def asks(listed: dict, room: str) -> bool:
+            return next(
+                one for one in listed["mine"]["lobby"] if one["id"] == room
+            )["close_asks"]
+
+        alone = await self.open_room()
+        self.assertFalse(asks(await self.rooms(self.CREATOR), alone))
+        self.assertFalse((await self.arrive(alone, self.CREATOR))["table"]["close_asks"])
+
+        # The AI is nobody to warn.
+        response = await self.move(alone, self.CREATOR, "/seat/ai", {"seat": 2})
+        self.assertEqual(response.status, 200)
+        self.assertFalse(asks(await self.rooms(self.CREATOR), alone))
+
+        shared = await self.open_room()
+        await self.arrive(shared, self.SECOND)
+        self.assertTrue(asks(await self.rooms(self.CREATOR), shared))
+        self.assertTrue(asks(await self.rooms(self.SECOND), shared))
+        self.assertTrue((await self.arrive(shared, self.CREATOR))["table"]["close_asks"])
+
     async def test_a_room_closed_from_its_card_leaves_the_list(self) -> None:
         room = await self.open_room()
 

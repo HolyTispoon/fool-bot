@@ -652,6 +652,9 @@ class WebApp:
             # was played in, Abandon for a game under way -- the same
             # two routes the room's own page calls, which judge again.
             "may_close": self._may_close(game, coach),
+            # Whether Close asks "Are you sure?" first: only when it
+            # would close a room on somebody else sitting in it.
+            "close_asks": others_seated(game, coach),
             "may_abandon": (
                 coach is not None
                 and seat_of(game, coach.id) is not None
@@ -2183,6 +2186,7 @@ class WebApp:
                 "board_size": game.board_size,
             },
             "may_close": self._may_close(game, coach),
+            "close_asks": others_seated(game, coach),
         }
 
     def _idle(self, game: D12BallGame) -> bool:
@@ -2334,6 +2338,18 @@ class WebApp:
             "colour": None if team is None else TEAM_COLORS[team],
             "side": side,
         }
+
+
+def others_seated(game: D12BallGame, coach: Optional[Coach]) -> bool:
+    """Whether a person other than this reader holds a seat -- the AI
+    is nobody to warn, and neither is a test game's one coach in both
+    seats. What decides if closing the room asks first (the author,
+    2026-09-26)."""
+    reader = None if coach is None else coach.id
+    return any(
+        held is not None and held != reader and not game.ai_holds(number)
+        for number, held in ((1, game.player_1_id), (2, game.player_2_id))
+    )
 
 
 def seat_of(game: D12BallGame, coach_id: Optional[int]) -> Optional[int]:
