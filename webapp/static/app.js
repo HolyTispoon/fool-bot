@@ -2545,8 +2545,10 @@ function seatCard(seat, room) {
         }, "✕")
         : null),
     holder,
-    seatTeamLine(seat),
-    seat.teams.length ? drawTeams(seat) : null,
+    // The team pick opens once somebody holds the seat (the author,
+    // 2026-09-27).
+    seat.free ? null : seatTeamLine(seat),
+    seat.teams.length && !seat.free ? drawTeams(seat) : null,
     seatHint(seat, room, seated),
   );
   if (seat.free) {

@@ -416,8 +416,11 @@ its sideline.
 
 - **Two seat cards**: the label, the holder's name large (or "Empty
   seat · click to sit"), YOU and AI chips, the picked team's line, and
-  while team selection is open **both** seats' swatches -- the colour
-  teams and the species teams, a row each. **The teams are picked in
+  while team selection is open **both** held seats' swatches -- the
+  colour teams and the species teams, a row each. An empty seat draws
+  neither the team line nor the swatches: the pick opens once
+  somebody, or Dinky, holds the seat (the author, 2026-09-27), though
+  the server still sends its teams, as nobody may press them. **The teams are picked in
   the lobby, beside the seats, before Start** (the author, 2026-09-26,
   off the canvas; the record's `picks_teams_in_lobby`, which only a web
   room's record answers yes -- "A web room picks its teams in its
