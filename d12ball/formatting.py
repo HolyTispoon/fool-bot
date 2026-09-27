@@ -791,6 +791,21 @@ GAME_MODE_NAMES: dict[GameMode, str] = {
 }
 
 
+# What each mode is, in the author's words (2026-09-27) -- the pitch a
+# coach choosing a mode reads, on the web table and the Discord setup
+# screens alike.
+GAME_MODE_DEFINITIONS: dict[GameMode, str] = {
+    GameMode.TRAINING: (
+        "Symmetric abilities, fundamental rules, best way to learn the game"
+    ),
+    GameMode.BASIC: "Adding Species abilities for asymmetric game play",
+    GameMode.ADVANCED: (
+        "Individual players with unique abilities adding significant "
+        "complexity, variety, and chaos"
+    ),
+}
+
+
 def describe_game_mode(
     game: D12BallGame, mode: Optional[GameMode] = None,
 ) -> str:
@@ -804,6 +819,11 @@ def describe_game_mode(
     `species_abilities_apply` make. The model's, not a frontend's
     (it was the cog's until 2026-09-26), so the Discord setup screens
     and the web table define a mode in the same words.
+
+    A game that plays everything its mode deals is described by the
+    author's sentence for the mode (`GAME_MODE_DEFINITIONS`, the author,
+    2026-09-27); one whose record opts out of something is described by
+    what it does play, so the sentence never promises a module it lacks.
     """
     mode = GameMode(game.mode if mode is None else mode)
     gambits = mode == GameMode.ADVANCED and game.advanced_maneuvers
@@ -812,6 +832,13 @@ def describe_game_mode(
         and game.species_abilities
         and not game.tutorial
     )
+    whole = {
+        GameMode.TRAINING: True,
+        GameMode.BASIC: species,
+        GameMode.ADVANCED: gambits and species and not game.tutorial,
+    }[mode]
+    if whole:
+        return GAME_MODE_DEFINITIONS[mode]
     parts = [
         "a gambit on every rank" if gambits else "three maneuvers a side",
     ]
