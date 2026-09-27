@@ -147,6 +147,11 @@ class Rooms:
             room.names[coach_id] = name
             self.save()
 
+    def forget(self, game_id: str) -> None:
+        """A closed or deleted room's state goes with it."""
+        if self.rooms.pop(game_id, None) is not None:
+            self.save()
+
     def save(self) -> None:
         """Write the file, through a temporary one renamed over it.
         Never raises."""

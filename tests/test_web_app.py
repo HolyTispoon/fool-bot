@@ -37,6 +37,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from aiohttp import DummyCookieJar
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 from d12ball.components import MatchState, TeamSide
@@ -53,6 +54,7 @@ from gamelocks import GameLocks
 from webapp.present import CONTROLS, Viewer, controls_for, lit_line, render_text
 from webapp.chat import CHAT_LENGTH, WEB_CHAT_FILE, Chats
 from webapp.journal import WEB_JOURNAL_FILE, Entry
+from webapp.names import Names
 from webapp.rooms import WEB_ROOMS_FILE, Rooms
 from webapp.server import WebApp, _was_offered
 from prompt_fixtures import (
@@ -1290,6 +1292,17 @@ class IdentityTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(0 < coach.id <= identity.MAX_ID)
         self.assertEqual(identity.decode(identity.encode(coach)), coach)
 
+    def test_every_made_up_name_is_one_the_app_takes(self) -> None:
+        """The longest pair and its number still fit `NAME_LIMIT`, so a
+        guest's name is never one `clean_name` would refuse."""
+        longest = "_".join((
+            max(identity.GUEST_ADJECTIVES, key=len),
+            max(identity.GUEST_CREATURES, key=len),
+            "99999",
+        ))
+        self.assertEqual(identity.clean_name(longest), longest)
+        self.assertRegex(identity.guest_name(), r"^[a-z]+_[a-z]+_\d{5}$")
+
     def test_a_tampered_cookie_is_nobody(self) -> None:
         value = identity.encode(Coach(111, "Ann"))
         payload, signature = value.rsplit(".", 1)
@@ -1319,41 +1332,26 @@ class IdentityTests(unittest.IsolatedAsyncioTestCase):
                     identity.decode(f"{payload}.{identity._sign(payload)}"),
                 )
 
-    async def test_a_name_is_taken_and_a_rename_keeps_the_id(self) -> None:
+    async def test_a_first_visit_is_named_and_a_rename_keeps_the_id(self) -> None:
+        """Nobody is asked for a name: the first `GET /api/me` makes one
+        up and sets the cookie, and a rename after keeps the id."""
         web = WebApp(GameService(ENGINE, {}, save=lambda games: None), GameLocks())
         client = TestClient(TestServer(web.app))
         await client.start_server()
         self.addAsyncCleanup(client.close)
 
-        nobody = await client.get("/api/me")
-        self.assertIsNone(await nobody.json())
-        first = await (await client.post("/api/me", json={"name": "Ann"})).json()
+        guest = await (await client.get("/api/me")).json()
         again = await (await client.get("/api/me")).json()
         renamed = await (await client.post("/api/me", json={"name": "Bea"})).json()
 
-        self.assertEqual(again, first)
-        self.assertEqual(renamed, {"id": first["id"], "name": "Bea"})
+        self.assertRegex(guest["name"], r"^[a-z]+_[a-z]+_\d{5}$")
+        self.assertEqual(again, guest)
+        self.assertEqual(renamed, {"id": guest["id"], "name": "Bea"})
         for name in ("", "   ", "x" * 33, 7):
             with self.subTest(name):
                 refused = await client.post("/api/me", json={"name": name})
                 self.assertEqual(refused.status, 400)
                 self.assertTrue(await refused.text())
-
-    async def test_leaving_the_app_forgets_the_cookie(self) -> None:
-        """Nothing is stored, so leaving is only forgetting the cookie
-        -- a seat held under it is untouched, the way another device
-        already leaves it alone."""
-        web = WebApp(GameService(ENGINE, {}, save=lambda games: None), GameLocks())
-        client = TestClient(TestServer(web.app))
-        await client.start_server()
-        self.addAsyncCleanup(client.close)
-
-        await client.post("/api/me", json={"name": "Ann"})
-        self.assertIsNotNone(await (await client.get("/api/me")).json())
-
-        left = await client.delete("/api/me")
-        self.assertEqual(left.status, 200)
-        self.assertIsNone(await (await client.get("/api/me")).json())
 
     async def test_the_cookie_is_secure_when_the_tunnel_says_https(self) -> None:
         """Behind a tunnel the last hop is plain HTTP from this machine;
@@ -1364,15 +1362,18 @@ class IdentityTests(unittest.IsolatedAsyncioTestCase):
         await client.start_server()
         self.addAsyncCleanup(client.close)
 
-        for headers, secure in (
+        # A name each, since a browser whose Secure cookie the plain
+        # test client will not send back is somebody new, and no two
+        # people hold one name (webapp/names.py).
+        for number, (headers, secure) in enumerate((
             ({}, False),
             ({"X-Forwarded-Proto": "http"}, False),
             ({"X-Forwarded-Proto": "https"}, True),
             ({"X-Forwarded-Proto": "HTTPS, http"}, True),
-        ):
+        )):
             with self.subTest(headers):
                 response = await client.post(
-                    "/api/me", json={"name": "Ann"}, headers=headers,
+                    "/api/me", json={"name": f"Ann {number}"}, headers=headers,
                 )
                 cookie = response.cookies[identity.COOKIE]
                 self.assertEqual(bool(cookie["secure"]), secure)
@@ -1400,6 +1401,156 @@ class IdentityTests(unittest.IsolatedAsyncioTestCase):
                     transport=transport,
                 )
                 self.assertIs(identity.came_over_https(request), believed)
+
+
+class NameTests(unittest.IsolatedAsyncioTestCase):
+    """
+    No two people are called the same at once (webapp/names.py): a
+    made-up name is one nobody holds, a rename to somebody else's name
+    is refused, and a name reaches the seats its holder sits in.
+    """
+
+    ANN, BEA = 101, 202
+
+    async def asyncSetUp(self) -> None:
+        ENGINE.rng.seed(11)
+        self.games = {}
+        self.service = GameService(ENGINE, self.games, save=lambda games: None)
+        self.names = Names()
+        self.web = WebApp(self.service, GameLocks(), names=self.names)
+        # Every request says who it is in its own headers, so the
+        # client's jar keeps nothing a response sets.
+        self.client = TestClient(TestServer(self.web.app), cookie_jar=DummyCookieJar())
+        await self.client.start_server()
+        self.addAsyncCleanup(self.client.close)
+
+    async def rename(self, coach_id: int, name: str):
+        return await self.client.post(
+            "/api/me", json={"name": name}, headers=as_coach(coach_id),
+        )
+
+    async def test_a_name_somebody_holds_is_refused_whatever_its_case(self) -> None:
+        self.assertEqual((await self.rename(self.ANN, "Ann")).status, 200)
+
+        for name in ("Ann", "ann", "  ANN "):
+            with self.subTest(name):
+                refused = await self.rename(self.BEA, name)
+                self.assertEqual(refused.status, 409)
+                self.assertTrue(await refused.text())
+        self.assertEqual((await self.rename(self.ANN, "ann")).status, 200)
+        self.assertEqual(self.names.name_of(self.ANN), "ann")
+
+    async def test_a_rename_frees_the_old_name(self) -> None:
+        await self.rename(self.ANN, "Ann")
+        await self.rename(self.ANN, "Annie")
+
+        self.assertEqual((await self.rename(self.BEA, "Ann")).status, 200)
+
+    async def test_a_made_up_name_is_never_one_somebody_holds(self) -> None:
+        await self.rename(self.ANN, "brave_otter_12345")
+        drawn = iter(["brave_otter_12345", "calm_yeti_54321"])
+
+        with mock.patch.object(identity, "guest_name", lambda: next(drawn)):
+            guest = await (await self.client.get("/api/me")).json()
+
+        self.assertEqual(guest["name"], "calm_yeti_54321")
+
+    async def test_an_old_cookie_under_a_held_name_is_given_another(self) -> None:
+        """A cookie set before the names file knew its id keeps its name
+        when it is free, and is given a made-up one when it is not."""
+        await self.rename(self.ANN, "Ann")
+
+        kept = await self.client.get("/api/me", headers=as_coach(self.BEA, "Bea"))
+        clash = await self.client.get("/api/me", headers=as_coach(303, "Ann"))
+
+        self.assertEqual((await kept.json())["name"], "Bea")
+        clashed = await clash.json()
+        self.assertEqual(clashed["id"], 303)
+        self.assertNotEqual(clashed["name"].casefold(), "ann")
+        self.assertIn(identity.COOKIE, clash.cookies)
+
+    async def test_a_rename_reaches_the_seats(self) -> None:
+        game = self.service.create_game(
+            player_1_id=self.ANN, player_1_name="Ann", in_lobby=True,
+        )
+        await self.rename(self.ANN, "Annie")
+
+        self.assertEqual(self.games[game.game_id].player_1_name, "Annie")
+
+    async def test_deleting_my_games_erases_every_seat_i_hold_and_renames_me(self) -> None:
+        mine = self.service.create_game(
+            player_1_id=self.ANN, player_1_name="Ann", in_lobby=True,
+        )
+        played = self.service.create_game(
+            player_1_id=self.BEA, player_1_name="Bea", in_lobby=True,
+        )
+        self.service.take_seat(played.game_id, self.ANN, "Ann")
+        played.match_state = case("kickoff").match.to_dict()
+        theirs = self.service.create_game(
+            player_1_id=self.BEA, player_1_name="Bea", in_lobby=True,
+        )
+        self.web.chats.post(played.game_id, self.BEA, "Bea", "good game")
+        await self.rename(self.ANN, "Ann")
+
+        response = await self.client.delete(
+            "/api/me/games", headers=as_coach(self.ANN, "Ann"),
+        )
+
+        self.assertEqual(response.status, 200)
+        body = await response.json()
+        self.assertEqual(body["deleted"], 2)
+        self.assertEqual(body["coach"]["id"], self.ANN)
+        self.assertNotEqual(body["coach"]["name"], "Ann")
+        self.assertEqual(self.names.name_of(self.ANN), body["coach"]["name"])
+        self.assertEqual(list(self.games), [theirs.game_id])
+        self.assertNotIn(played.game_id, self.web.chats.chats)
+        gone = await self.client.get(
+            f"/api/game/{played.game_id}", headers=as_coach(self.BEA, "Bea"),
+        )
+        self.assertEqual(gone.status, 404)
+        # Ann's old name is free again.
+        self.assertEqual((await self.rename(self.BEA, "Ann")).status, 200)
+        self.assertNotIn(mine.game_id, self.games)
+
+    async def test_deleting_my_games_needs_a_name(self) -> None:
+        response = await self.client.delete("/api/me/games")
+
+        self.assertEqual(response.status, 401)
+
+
+class NamesFileTests(unittest.TestCase):
+    """The names file: kept across a restart under the same secret,
+    started afresh under another, and an entry dropped once no cookie
+    can still carry it."""
+
+    def test_the_file_round_trips(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "names.json"
+            names = Names(path)
+            names.claim(1, "Ann")
+
+            self.assertEqual(Names.load(path).name_of(1), "Ann")
+
+    def test_another_secret_starts_afresh(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "names.json"
+            Names(path).claim(1, "Ann")
+
+            with mock.patch.object(server.keys, "secret", lambda: b"another"):
+                self.assertIsNone(Names.load(path).name_of(1))
+
+    def test_an_entry_older_than_a_cookie_is_dropped(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "names.json"
+            Names(path, clock=lambda: 0.0).claim(1, "Ann")
+
+            soon = Names.load(path, clock=lambda: 10.0)
+            later = Names.load(
+                path, clock=lambda: identity.COOKIE_MAX_AGE + 10.0,
+            )
+
+            self.assertEqual(soon.name_of(1), "Ann")
+            self.assertIsNone(later.name_of(1))
 
 
 class RoomTests(unittest.IsolatedAsyncioTestCase):

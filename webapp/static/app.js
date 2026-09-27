@@ -114,34 +114,15 @@ async function roomMove(path, body, method = "POST") {
   }
 }
 
-/* Somebody the server does not know yet is asked for a name first. */
+/* Somebody the server does not know yet is given a name first
+   (`GET /api/me`, webapp/identity.py's `guest_name`), so the room seats
+   them under a cookie on their first sight of it. */
 async function whoAmI() {
   try {
-    const response = await fetch("/api/me");
-    if (response.ok && (await response.json())) return;
+    await fetch("/api/me");
   } catch (error) {
-    /* Asked for below, and the poll retries the rest. */
+    /* The poll retries the rest. */
   }
-  const dialog = el("name-dialog");
-  dialog.showModal();
-  dialog.addEventListener("cancel", (event) => event.preventDefault());
-  await new Promise((resolve) => {
-    el("name-form").addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const response = await fetch("/api/me", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: el("name-input").value }),
-      });
-      if (response.ok) {
-        dialog.close();
-        resolve();
-      } else {
-        el("name-error").textContent = await response.text();
-        el("name-error").hidden = false;
-      }
-    });
-  });
 }
 
 function cursors() {
@@ -151,6 +132,12 @@ function cursors() {
 async function poll() {
   try {
     const response = await api(`?${cursors()}`);
+    /* A game deleted under the page ("Delete all my games") is gone
+       for everybody in it: back to the front door. */
+    if (response.status === 404) {
+      location.href = "/";
+      return;
+    }
     if (response.ok && !busy) draw(await response.json());
   } catch (error) {
     /* A dropped connection is weather; the next poll picks it up. */

@@ -671,6 +671,22 @@ class D12BallGame:
             )
         raise RuleRefusal("That seat is held by somebody else.")
 
+    def rename_coach(self, user_id: int, user_name: Optional[str]) -> bool:
+        """
+        Call the seat(s) `user_id` holds by `user_name` -- a web
+        person's new name reaching the rooms they sit in, so a seat is
+        never named after somebody who is now called something else.
+        True when a seat changed.
+        """
+        changed = False
+        if self.player_1_id == user_id and self.player_1_name != user_name:
+            self.player_1_name = user_name
+            changed = True
+        if self.player_2_id == user_id and self.player_2_name != user_name:
+            self.player_2_name = user_name
+            changed = True
+        return changed
+
     def take_seat(
         self,
         user_id: int,

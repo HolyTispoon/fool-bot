@@ -3,16 +3,20 @@ Who is reading a web page: a name, an id, and a signed cookie.
 
 Discord answers this for the bot -- an interaction carries the account
 that clicked. A browser carries nothing, so the web app issues its own:
-on a first visit the page asks for a name, and the server answers with
-a `Coach` in a cookie signed under `keys.secret()`. Coming back with
+on a first visit the server makes up a name (`guest_name`,
+`bright_otter_48213`) and answers with a `Coach` in a cookie signed
+under `keys.secret()`; the reader may change the name after. Coming back with
 the cookie is being the same person; another device is another cookie,
 which is why a seat is left and taken again rather than shared
 (decision 1 of docs/web-app-next.md).
 
-**Nothing is stored.** The cookie is the whole record of who somebody
-is: the id and the name in it, and an HMAC that says this server wrote
-them. There is no table of coaches to migrate, back up or leak, and the
-game record holds the id in a seat the way it holds a Discord id. With
+**The cookie is who somebody is**: the id and the name in it, and an
+HMAC that says this server wrote them. There is no table of coaches to
+migrate, back up or leak, and the game record holds the id in a seat
+the way it holds a Discord id. The one thing kept beside it is which
+name each id holds right now (`webapp/names.py`), so that no two people
+are called the same at once; that file is the reading of a name, and
+the cookie's copy is only what it was when the cookie was set. With
 no `FOOLBOT_WEB_SECRET` set, the secret is made per process and every
 cookie dies with it, which is the safe default the links had.
 
@@ -53,6 +57,29 @@ NAME_LIMIT = 32
 MAX_ID = 2**53 - 1
 
 
+#: What a made-up name is built from: a kind word and a creature, so a
+#: stranger's name reads as a friendly one. Short enough that the
+#: longest pair and its number stay under `NAME_LIMIT`.
+GUEST_ADJECTIVES = (
+    "brave", "bright", "bold", "calm", "cheery", "clever", "cosmic",
+    "daring", "dapper", "eager", "fearless", "gallant", "gentle",
+    "glad", "golden", "happy", "hardy", "honest", "jolly", "keen",
+    "kind", "lively", "lucky", "merry", "mighty", "nimble", "noble",
+    "plucky", "proud", "quick", "radiant", "sharp", "shiny", "snappy",
+    "spry", "steady", "stellar", "sunny", "swift", "trusty", "valiant",
+    "wise", "witty", "zesty",
+)
+GUEST_CREATURES = (
+    "badger", "bear", "beaver", "bison", "falcon", "ferret", "fox",
+    "gecko", "heron", "ibex", "jaguar", "koala", "lemur", "lynx",
+    "moose", "narwhal", "newt", "ocelot", "otter", "owl", "panda",
+    "puffin", "raven", "stoat", "tapir", "tiger", "walrus", "wombat",
+    "basilisk", "centaur", "dragon", "dryad", "goblin", "golem",
+    "griffin", "hydra", "kraken", "phoenix", "pixie", "sphinx",
+    "sprite", "troll", "unicorn", "wyvern", "yeti",
+)
+
+
 class NameRefused(ValueError):
     """A name the web app will not take, with the sentence to show."""
 
@@ -78,16 +105,35 @@ def clean_name(raw: object) -> str:
     return name
 
 
-def issue(name: str) -> Coach:
+def guest_name() -> str:
     """
-    A new person, under `name`.
+    A name for somebody who has not given one: `adjective_creature_#####`,
+    the number always five digits. Drawn from `secrets` rather than the
+    engine's `rng`, which is the game's and is seeded by the tests; a
+    name is nothing the game draws. Whether somebody already holds it
+    is `webapp/names.py`'s question, which draws again when they do.
+    """
+    return "_".join((
+        secrets.choice(GUEST_ADJECTIVES),
+        secrets.choice(GUEST_CREATURES),
+        str(10000 + secrets.randbelow(90000)),
+    ))
 
-    The id is random rather than the next of a sequence because nothing
-    stores the last one: the cookie is the only place an id is written
-    down, so a counter would start again at every restart and hand out
-    ids that are already sitting in somebody's seat.
+
+def issue_id() -> int:
     """
-    return Coach(secrets.randbelow(MAX_ID) + 1, clean_name(name))
+    A new person's id. Random rather than the next of a sequence
+    because nothing stores the last one: the cookie is the only place
+    an id is written down, so a counter would start again at every
+    restart and hand out ids that are already sitting in somebody's
+    seat.
+    """
+    return secrets.randbelow(MAX_ID) + 1
+
+
+def issue(name: str) -> Coach:
+    """A new person, under `name`."""
+    return Coach(issue_id(), clean_name(name))
 
 
 def _sign(payload: str) -> str:
@@ -203,10 +249,3 @@ def set_cookie(
         secure=came_over_https(request),
         path="/",
     )
-
-
-def clear_cookie(response: web.StreamResponse) -> None:
-    """Leaving the app: forget the cookie. Nothing else is stored, so
-    this is the whole of it -- the next request is nobody until it
-    says a name again."""
-    response.del_cookie(COOKIE, path="/")

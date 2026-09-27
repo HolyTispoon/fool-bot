@@ -12,7 +12,7 @@
       <div class="topbar-title">
         <!-- Back to the front door: this reader's rooms, and where the
              name is changed or the app left (webapp/static/index.html). -->
-        <a href="/" class="back" title="Your rooms">&lsaquo; Rooms</a>
+        <a href="/" class="back" title="The Master Lobby: your rooms">&lsaquo; Master Lobby</a>
         <span class="topbar-divider" aria-hidden="true"></span>
         <!-- The room's number and its topic, on one baseline. -->
         <span class="room-title">
@@ -218,17 +218,6 @@
     <dialog id="viewer" class="viewer">
       <button type="button" class="viewer-close" id="viewer-close" aria-label="Close">×</button>
       <div id="viewer-body" class="viewer-body"></div>
-    </dialog>
-
-    <!-- Shown to somebody the page does not know yet: a name, and a
-         cookie with it (webapp/identity.py). -->
-    <dialog id="name-dialog" class="name-dialog">
-      <form id="name-form" method="dialog" autocomplete="off">
-        <label for="name-input" class="panel-label">What should the table call you?</label>
-        <input id="name-input" class="chat-input" maxlength="32" required />
-        <p id="name-error" class="quiet" hidden></p>
-        <div class="row"><button type="submit" class="btn">Take a seat</button></div>
-      </form>
     </dialog>
 
     <div id="peek" class="peek" hidden><img alt="" /></div>
