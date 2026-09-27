@@ -41,6 +41,7 @@ from aiohttp import DummyCookieJar
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 from d12ball.components import MatchState, TeamSide
+from d12ball.engine import SPREADABLE_NOTE
 from d12ball.render import TEAM_COLORS
 from d12ball.flow import FollowOnStep
 from d12ball.game import GameMode
@@ -2396,8 +2397,9 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(
                         set(state["prompt"]),
                         {
-                            "kind", "ask", "picture", "controls", "lit", "yours",
-                            "state", "reference", "hand", "shootout",
+                            "kind", "ask", "footnote", "picture", "controls",
+                            "lit", "yours", "state", "reference", "hand",
+                            "shootout",
                         },
                     )
                     self.assertNotIn("match", state)
@@ -3123,10 +3125,11 @@ class CoachingOnTheBoardTests(unittest.TestCase):
             and test(control)
         )
 
-    def test_the_lit_line_names_what_may_be_picked_up_once_each(self) -> None:
-        """Every bench player once with "comes on", every fielded player
-        once, and the window's allowance -- the options', not the page's
-        -- never a line per pair."""
+    def test_the_lit_line_names_no_player_to_pick_up(self) -> None:
+        """The board lights every player a move may start from and the
+        how-lines say what to do with them, so the lit line lists none
+        of them (the author, 2026-09-26): only the window's allowance,
+        the options' and not the page's."""
         fixture = case("setup coaching")
         prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
         offered = controls_for(
@@ -3138,11 +3141,30 @@ class CoachingOnTheBoardTests(unittest.TestCase):
                 ENGINE, fixture.game, fixture.match, prompt, Viewer(1), offered,
             )
         ]
-        options = prompt.options
-        bench = ", ".join(ENGINE.format_roster_player(one) for one in options.incoming_ids)
-        self.assertIn(f"{bench} \u00b7 comes on", lines)
-        self.assertIn(f"{options.allowance}.", lines)
-        self.assertEqual(len(lines), 3, lines)
+        self.assertEqual(lines, [f"{prompt.options.allowance}."])
+
+    def test_the_spreadable_note_is_split_off_the_ask(self) -> None:
+        """The reminder `prompts._window` appends is handed back apart,
+        for the box to say under the whistle; an ask without it is
+        handed back whole."""
+        fixture = case("setup coaching")
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        self.assertEqual(
+            present.split_footnote(
+                ENGINE, fixture.game, fixture.match, prompt, prompt.ask,
+            ),
+            (prompt.ask, ""),
+        )
+        with mock.patch.object(
+            ENGINE, "spreadable_note", return_value=SPREADABLE_NOTE,
+        ):
+            self.assertEqual(
+                present.split_footnote(
+                    ENGINE, fixture.game, fixture.match, prompt,
+                    f"{prompt.ask}\n{SPREADABLE_NOTE}",
+                ),
+                (prompt.ask, SPREADABLE_NOTE),
+            )
 
     def test_the_setup_reaches_kickoff_through_the_board(self) -> None:
         service = self.begun(build_game(), build_match())
