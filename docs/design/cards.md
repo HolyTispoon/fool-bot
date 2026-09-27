@@ -449,8 +449,9 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   numbered. **Synapse came later** (2026-09-27): its first d12 draft was not
   taken, and its ball became a die in a second pass -- the same solid seen
   corner-on, wearing its ball's bronze panels and teal lens, numbered in
-  teal-tinted numerals, with the kick's spark put back in front of it and a
-  corner reaching the cuff of the arm that touched the ball. Putting any of
+  teal-tinted numerals, with the kick's spark put back in front of it, and
+  turned so one of its flat sides lies flush against the end of the arm that
+  touched the ball. Putting any of
   these back to its painting is
   [docs/portrait-d12-revert.md](../portrait-d12-revert.md), portrait by
   portrait.

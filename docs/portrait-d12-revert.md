@@ -300,12 +300,13 @@ foreshortened one on its top face and sometimes a sliver at one side.
 
 - **Synapse**'s d12 was drafted during #370 and not taken; its ball became
   a d12 afterwards, in its own PR: **before** `b26371638600` (207,084) →
-  **after** `7595af70ee62` (207,894). Cyborg d12 (the ball's own bronze panels
-  and teal lens, dark teal seams), faces 12, 4, 8 with 3 and 7 on the sides.
+  **after** `a6f91bb6b8a1` (207,328). Cyborg d12 (the ball's own bronze panels
+  and teal lens, dark teal seams), faces 12, 8, 4 with 7 and 3 on the sides.
   The ball was taken out inside its painted circle (centre 42.5,230, radius
-  42) and the die set in at centre 44.5,231.5 with a corner reaching the arm's
-  cuff, which sits on the ball's rim and so was kept; the kick's spark was put
-  back over the die. Revert it as in steps 2-6: restore from `d6a320e` and
+  42). The arm's cuff ends on the ball's rim, so it was kept, and the die was
+  turned 23.6 degrees so one flat side of its outline lies along the rim's
+  tangent where the cuff ends (centre 46.2,228.3, reaching 43 px); the cuff
+  and the kick's spark were put back over the die. Revert it as in steps 2-6: restore from `d6a320e` and
   change the "Synapse came later" sentence in the `cards.md` note. No
   committed figure, the box cover or the sale sheet draws Synapse; it appears
   on its player card, in Discord, in the web app, and on the landing page's
