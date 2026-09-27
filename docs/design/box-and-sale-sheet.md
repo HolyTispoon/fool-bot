@@ -386,7 +386,8 @@ without a word.
 ## Every printed address is the game's own site's
 
 Both addresses on these panels are `d12ball.com`'s: `PAGE_URL` is the site
-itself and `SURVEY_URL` its `/survey`, which the site forwards to the form
+itself and `SURVEY_URL` its `/feedback` (the author's word, 2026-09-27),
+which the site forwards to the form
 behind it, `SURVEY_FORM_URL` (landing/build.py, `REDIRECTS`). Until the site
 went up (2026-09-27, the landing pages' step 5) they were the two Notion
 addresses. A printed card cannot be edited; a redirect can, so the form or
@@ -403,26 +404,27 @@ or a path that is neither the page nor a redirect. A dead address on a card
 is found by somebody holding the card, which is the worst place to find it.
 
 The shorter addresses also make simpler codes: at the same printed size the
-survey's modules went from 0.86mm to 1.39mm, which is what let the code
-shrink to 1.55in when the box moved onto the card (below) and still print
-at 1.19mm.
+survey's modules went from 0.86mm to about 1.4mm, which is what let the code
+shrink to 1.4in (`PLAYTEST_QR_INCHES`) when the box moved onto the card
+(below) and still print at 0.96mm.
 
-## The playtest card's back says what the landing page says
+## The playtest card's back is in the author's words only
 
-**Its words are the d12ball.com playtest panel's, and nothing else** (the
-author, 2026-09-27): the headline, the stage line and "Take the survey" --
-`PLAYTEST_HEADLINE`, `PLAYTEST_INTRO` and `SURVEY_CALL`, which the landing
-build reads too, so the two cannot drift -- plus the address and the
-publisher. It used to carry copy of its own (a heading, a paragraph and three
-survey prompts) and the Charter line in its foot; the author took all of it
-out, because a card and a page asking for the same thing in two voices is
-two voices. Beside the code is **the printed box cover**, so the card a table
-keeps looks like the box it came out of. The front is unchanged.
+**Two lines, both the author's (2026-09-27), and nothing else** but the
+address and the publisher: the headline, `PLAYTEST_HEADLINE`, which the
+d12ball.com playtest panel carries too and the landing build reads from
+here, so the two cannot drift; and `PLAYTEST_CARD_INTRO`, the card's own,
+because it sends the reader to the code below it -- which a web page has no
+code for. It used to carry copy written here (a heading, a paragraph, three
+survey prompts, a "Take the survey" over the code) and the Charter line in
+its foot; the author took all of it out. Beside the words and the code is
+**the printed box cover**, so the card a table keeps looks like the box it
+came out of. The front is unchanged.
 
 ## The survey code
 
 The playtest card's back carries a QR of `SURVEY_URL`,
-`https://d12ball.com/survey`, and the address is **printed under it as
+`https://d12ball.com/feedback`, and the address is **printed in its foot as
 well**: a code is one smudge away from being nothing, and
 a card whose only route to the survey is optical fails quietly. The URL has no
 spaces, so it is broken by `draw_hard_wrapped` -- `wrap_text` breaks on spaces
@@ -435,7 +437,7 @@ panel without a word.
   everyone who looks at the render, so check a change by scanning the
   printed card.
 - **`QR_MIN_MODULE_INCHES` is 0.4mm**, the floor a phone reads reliably off an
-  office printer. The card's own code comes out at 1.19mm; a longer URL makes
+  office printer. The card's own code comes out at 0.96mm; a longer URL makes
   a denser code at the same printed size, and the CLI reports the module size
   so an address that has quietly grown past what the card can carry shows
   there. Change the URL with `--survey-url`.

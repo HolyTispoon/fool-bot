@@ -113,7 +113,7 @@ PAGE_URL = "https://d12ball.com"
 # than a literal in the drawing code because it is the one thing on
 # the card that will be replaced without the card being redesigned,
 # and `scripts/render_box_art.py --survey-url` overrides it.
-SURVEY_URL = "https://d12ball.com/survey"
+SURVEY_URL = "https://d12ball.com/feedback"
 # The form behind `SURVEY_URL`, which the site forwards the printed
 # address to. Never printed: it is the author's Notion form, whose
 # address is not one anybody chose.
@@ -358,13 +358,15 @@ STRAPLINE = (
 # it.
 STAGE = "in playtesting"
 
-# The playtest copy: the author's, written for d12ball.com's playtest
-# panel (2026-09-27), and the only words on the playtest card's back
-# besides the address and the publisher (the author, 2026-09-27). One
-# copy, which the card and the page both read.
+# The playtest card's words, the author's (2026-09-27), and the only
+# ones on its back besides the address and the publisher. The headline
+# is d12ball.com's playtest panel's too, and this is its one copy; the
+# line under it is the card's own, since it points at the code.
 PLAYTEST_HEADLINE = "You liked it? Great! Didn't like it? Tell us why!"
-PLAYTEST_INTRO = f"{TITLE} is {STAGE} and we'd love your feedback."
-SURVEY_CALL = "Take the survey"
+PLAYTEST_CARD_INTRO = (
+    f"{TITLE} is {STAGE} and we'd love to hear your thoughts. "
+    "Scan the QR code below to give us your feedback."
+)
 
 def plain(markdown: str) -> str:
     """
@@ -2032,7 +2034,7 @@ def fan_cards(
 # board and the board is wider than it is tall.
 PLAYTEST_CARD_INCHES = (6.0, 4.0)
 # The survey code's printed side, which the CLI reports the module size of.
-PLAYTEST_QR_INCHES = 1.55
+PLAYTEST_QR_INCHES = 1.4
 # The smallest module a printed QR may be drawn at. 0.4mm is the
 # floor a phone camera reads reliably off an office printer at arm's
 # length; the card's own code comes out well above it, and a longer
@@ -2210,11 +2212,11 @@ def render_playtest_card_back(
     The back: the survey, as a code and as the address under it, beside
     the box.
 
-    **Its words are the landing page's playtest panel, and nothing
-    else** (the author, 2026-09-27): `PLAYTEST_HEADLINE`,
-    `PLAYTEST_INTRO` and `SURVEY_CALL` over the code. The picture is
-    the printed box cover, so the card a table takes home looks like
-    the box it came out of.
+    **Its words are the author's and nothing else** (2026-09-27):
+    `PLAYTEST_HEADLINE`, the landing page's too, and
+    `PLAYTEST_CARD_INTRO`, which sends the reader to the code below it.
+    The picture is the printed box cover, so the card a table takes home
+    looks like the box it came out of.
 
     The address is printed as well as encoded because a code is one
     smudge away from being nothing, and a card whose only route to the
@@ -2234,8 +2236,8 @@ def render_playtest_card_back(
         anchor="lm",
     )
 
-    # The box, and to its right the invitation and the code, both
-    # standing on the same floor.
+    # The box, and to its right the words with the code below them,
+    # both standing on the same floor.
     top = panel.y(0.92)
     floor = panel.y(height - margin - 0.5)
     cover = floor - top
@@ -2249,20 +2251,22 @@ def render_playtest_card_back(
 
     column = left + cover + inches(0.3)
     draw_wrapped(
-        sheet, column, top, right - column, PLAYTEST_INTRO, 0.15, PAPER_INK,
+        sheet, column, top, right - column, PLAYTEST_CARD_INTRO, 0.13,
+        PAPER_INK,
     )
 
-    # The code's frame, not the code, stands on the floor and the margin.
+    # The code's frame, not the code, stands on the floor, centred under
+    # the words it is pointed at by.
     qr_size = PLAYTEST_QR_INCHES
     frame = inches(0.08)
-    qr_left = right - frame - inches(qr_size)
+    qr_left = (column + right) / 2 - inches(qr_size) / 2
     qr_top = floor - frame - inches(qr_size)
     sheet.rect(
         (
-            qr_left - inches(0.08),
-            qr_top - inches(0.08),
-            qr_left + inches(qr_size) + inches(0.08),
-            qr_top + inches(qr_size) + inches(0.08),
+            qr_left - frame,
+            qr_top - frame,
+            qr_left + inches(qr_size) + frame,
+            qr_top + inches(qr_size) + frame,
         ),
         radius=inches(0.06),
         fill="#ffffff",
@@ -2270,16 +2274,6 @@ def render_playtest_card_back(
         width=max(1, round(inches(0.014))),
     )
     draw_qr(sheet, survey_url, qr_left, qr_top, qr_size)
-    # The call beside the code, centred on it.
-    call_size = 0.2
-    call_width = qr_left - frame - inches(0.25) - column
-    face = print_font(call_size, bold=True)
-    lines = wrap_text(sheet.draw, SURVEY_CALL.upper(), face, round(call_width))
-    step = inches(call_size * 1.3)
-    call_top = qr_top + inches(qr_size) / 2 - step * len(lines) / 2
-    for line in lines:
-        sheet.text((column, call_top), line, face, PAPER_INK)
-        call_top += step
 
     # The address the code carries, small but printed, and the
     # publisher, on one line under a rule.

@@ -83,10 +83,11 @@ where it is the author's call: the contact address, the Discord invite, the stud
 (quoted from its Notion page as written), the game's overview line (`OVERVIEW`,
 its Notion page's, which both sites carry), Prophetic Folly's words and
 address, and each site's origin. The stage word (`STAGE`, "in playtesting",
-2026-09-27) and the playtest panel's words (`PLAYTEST_HEADLINE`,
-`PLAYTEST_INTRO`, `SURVEY_CALL`) are `box_art`'s instead, because the
-playtest card prints them too: one copy, which the card and the page both
-read.
+2026-09-27) and the playtest panel's headline (`PLAYTEST_HEADLINE`) are
+`box_art`'s instead, because the playtest card prints them too: one copy,
+which the card and the page both read. The panel's line under it and its
+"Take the survey" button are the page's own; the card words its line
+differently, since it points at a code the page does not have.
 
 ## The night palette, because a page is a screen
 
@@ -274,7 +275,7 @@ the build as Cloudflare Pages' `_redirects` file:
   the page.
 - `/kit`, `/kit-players-1` and `/kit-players-2` -- the print-and-play kit's
   three zips, likewise.
-- `/survey` -- `box_art.SURVEY_FORM_URL`, read rather than copied. The
+- `/feedback` -- `box_art.SURVEY_FORM_URL`, read rather than copied. The
   playtest card prints `box_art.SURVEY_URL`, which is this address, so a
   form that moves is a one-line change here and no printed card is
   reprinted.
@@ -475,7 +476,7 @@ config file, not a rewrite.
    setting made it unnecessary.
 9. **Check from a phone off the home Wi-Fi**: both bare domains load;
    `www.` redirects to the bare one; `/play` reaches the app (once the
-   tunnel is up); `/survey` reaches the form; `/rules` and `/learn` open
+   tunnel is up); `/feedback` reaches the form; `/rules` and `/learn` open
    the books; `/kit`, `/kit-players-1` and `/kit-players-2` download; a
    link to each site pasted in a Discord message previews with the Open
    Graph card. And scan the sale sheet's and the playtest card's codes off
