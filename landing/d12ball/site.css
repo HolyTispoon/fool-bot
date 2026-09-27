@@ -1,0 +1,41 @@
+/* d12ball.com's own layout, over base.css. */
+
+.hero-art { position: relative; }
+/* The banner is 5:2; past 1400px wide it is cropped top and bottom
+   rather than grown, so the copy stays on the first screen. */
+.hero-art img {
+  width: 100%;
+  height: min(40vw, 560px);
+  object-fit: cover;
+}
+/* The banner fades into the ground it sits on, so the copy under it
+   reads as the same picture rather than a strip beneath one. */
+.hero-art::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 35%;
+  background: linear-gradient(to bottom, transparent, var(--ground));
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 8px;
+  padding-bottom: 40px;
+}
+.hero-copy h1 {
+  margin: 0;
+  max-width: 980px;
+  font-size: clamp(26px, 4vw, 40px);
+  line-height: 1.18;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+@media (max-width: 519px) {
+  .actions { flex-direction: column; }
+  .actions .button { width: 100%; }
+}
+@media (min-width: 720px) {
+  .hero-copy { padding-bottom: 56px; }
+}

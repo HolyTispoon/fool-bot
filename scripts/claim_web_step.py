@@ -5,12 +5,15 @@ Claim a step of a web app worksheet before starting work on it.
     python3 scripts/claim_web_step.py 3 --who "Tomer"
     python3 scripts/claim_web_step.py 3 --release
     python3 scripts/claim_web_step.py --series redesign 3
+    python3 scripts/claim_web_step.py --series landing 2
 
-Two series share the one script: `web` (the default) claims a step of
+Three series share the one script: `web` (the default) claims a step of
 docs/web-app-next.md as the branch `web-step-<n>` for a PR titled
 `Web app step <n>: ...`; `redesign` claims a step of
 docs/web-app-redesign.md as `redesign-step-<n>` for a PR titled
-`Redesign step <n>: ...`. Everything below reads the same for both.
+`Redesign step <n>: ...`; `landing` claims a step of
+docs/landing-pages.md as `landing-step-<n>` for a PR titled
+`Landing step <n>: ...`. Everything below reads the same for all three.
 
 A claim is the branch `web-step-<n>` on origin, holding one empty commit
 on top of origin/main that names who claimed it. It is created with
@@ -40,6 +43,7 @@ SERIES = {
     # name: (worksheet, branch prefix, PR title prefix)
     "web": ("docs/web-app-next.md", "web-step", "Web app step"),
     "redesign": ("docs/web-app-redesign.md", "redesign-step", "Redesign step"),
+    "landing": ("docs/landing-pages.md", "landing-step", "Landing step"),
 }
 WORKSHEET, BRANCH, TITLE = SERIES["web"]
 
@@ -154,7 +158,11 @@ def main() -> int:
     parser.add_argument("--release", action="store_true")
     parser.add_argument(
         "--series", choices=sorted(SERIES), default="web",
-        help="which worksheet's steps: web (docs/web-app-next.md, the default) or redesign (docs/web-app-redesign.md)",
+        help=(
+            "which worksheet's steps: web (docs/web-app-next.md, the "
+            "default), redesign (docs/web-app-redesign.md) or landing "
+            "(docs/landing-pages.md)"
+        ),
     )
     options = parser.parse_args()
     global WORKSHEET, BRANCH, TITLE
