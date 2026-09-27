@@ -1,20 +1,24 @@
 """
-The reading room: the rules, the two rulebooks and the player aids, as
-the page is handed them (step 11 of docs/web-app-next.md).
+The reading room: the rules, the Learn to Play and the player aids, as
+the page is handed them (step 11 of docs/web-app-next.md, redrawn as
+the Rules tab and the Reading Room in step 10 of
+docs/web-app-redesign.md).
 
 Everything here is something the model already draws or says; what the
 web app adds is a place to open it. The rules are `rules_doc`'s
 sections -- the same `RulesDocument` `/d12ball rules_search` answers
 from -- with the Charter's numbers the file carries, the ones
-`rulebooks.renumber` writes and the Learn to Play cites. The books are
-`rulebooks.book_bytes`, the PDF `scripts/build_rulebooks.py` writes.
-The aids are the pictures the reference commands post, and which of
-them a game gets is the engine's answer, never `game.mode` read here
--- docs/design/web-app.md, "The rules and the player aids".
+`rulebooks.renumber` writes and the Learn to Play cites, and grouped by
+Law. The Learn to Play is the book's own markdown read by the books'
+own parser, with its figures. The aids are the pictures and the words the reference
+commands post, and which of them a game gets is the engine's answer,
+never `game.mode` read here -- docs/design/web-app.md, "The rules and
+the player aids".
 
 No rule is decided in this file, and no second copy of the rules text
 is kept: the page's HTML is rendered from the living rules each time
-the file changes.
+the file changes. **No PDF is served** (the author, reviewing the
+redesign, 2026-09-26): the books are read in the page.
 """
 
 from __future__ import annotations
@@ -32,19 +36,23 @@ from d12ball.components import (
     MANEUVER_TIER_GAMBIT,
     MANEUVER_TIER_WORDS,
     MANEUVER_TIERS,
+    SPECIES_ORDER,
     ManeuverCatalog,
     PlayerCatalog,
+    PlayerRole,
     load_species_abilities,
 )
 from d12ball.engine import RulesEngine
+from d12ball.formatting import role_brackets
 from d12ball.game import COLOR_TEAMS, SPECIES_TEAMS, D12BallGame, Team, team_display_name
 from d12ball.render import TEAM_COLORS, render_maneuver_reference_image
 from d12ball.role_cards import render_role_reference
 from d12ball.rules_doc import HEADING_PATTERN, RulesDocument
-from d12ball.species_cards import REFERENCE_FACES, render_species_reference_face
-
-#: The two books a page may open, in the order it lists them.
-BOOK_NAMES = ("charter", "learn-to-play")
+from d12ball.species_cards import (
+    REFERENCE_FACES,
+    SPECIES_TEAM,
+    render_species_reference_face,
+)
 
 #: Where the Charter's one figure, and every other the books carry, is
 #: kept -- committed and regenerated whole (docs/design/rulebooks.md).
@@ -71,6 +79,19 @@ class RulesPage:
     title: str
     intro: str
     sections: tuple[dict, ...]
+
+
+def charter_numbers(document: RulesDocument) -> dict[str, str]:
+    """
+    Every heading's number as the Charter's build gives it -- a Law's,
+    a section's, and an Appendix's letter (`Appendix B`) -- by the slug
+    of its name without the number: `rulebooks.number_blocks` over the
+    file with the numbers `renumber` wrote taken out, which is the text
+    the book is built from. `rules_doc` names a section by that same
+    slug, so the two agree however often the file is renumbered.
+    """
+    blocks = rulebooks.parse_markdown(rulebooks.unnumber(document.text))
+    return rulebooks.number_blocks(blocks).headings
 
 
 def page_anchors(document: RulesDocument) -> dict[str, str]:
@@ -304,42 +325,197 @@ def figure_path(name: str) -> Optional[Path]:
     return FIGURES_DIR / name if name in figure_names() else None
 
 
-# -- The books ----------------------------------------------------------
+# -- The Charter, by Law ------------------------------------------------
 
 
-def book_source(name: str) -> Optional[Path]:
-    book = rulebooks.BOOKS.get(name)
-    return None if book is None else book.source
+def _title_html(title: str) -> str:
+    """A heading's own words as HTML: its inline markup, no links."""
+    return inline_html(title, lambda text, target: text)
 
 
-def book_stamp(name: str) -> Optional[int]:
-    """What a set book is kept against: its source's mtime, so an edit
-    to the rules is served without a restart."""
-    source = book_source(name)
-    if source is None:
-        return None
-    try:
-        return source.stat().st_mtime_ns
-    except OSError:
-        return None
-
-
-def book_pdf(name: str) -> bytes:
-    """One book, set in memory on letter paper -- the PDF
-    `scripts/build_rulebooks.py` writes to `print/`, and never
-    written there from here."""
-    return rulebooks.book_bytes(rulebooks.BOOKS[name])
-
-
-def books() -> list[dict]:
-    return [
-        {
-            "name": name,
-            "title": rulebooks.BOOKS[name].title,
-            "url": f"/books/{name}.pdf",
+def charter(document: RulesDocument) -> dict:
+    """
+    The living rules as the Rules tab and the Reading Room list them:
+    the 21 Laws by their headings, each with its own text and its
+    sections, then the appendices -- `rules_page`'s sections grouped by
+    the Charter's own numbering, so what is a Law is what the build
+    numbers as one and nothing the page decides. A Part heading is the
+    `part` of the Laws under it; a heading below a section is set in
+    that section's text, as the book sets it; what comes before the
+    first Part (how to read the document) is `front`, and the
+    Appendices, which the Charter letters rather than numbers, are
+    `appendices` with their letter as their `label`.
+    """
+    held = _CHARTERS.get(id(document))
+    if held is not None and held[0] is document:
+        return held[1]
+    page = cached_rules_page(document)
+    numbers = charter_numbers(document)
+    laws: list[dict] = []
+    front: list[dict] = []
+    appendices: list[dict] = []
+    part: Optional[str] = None
+    law: Optional[dict] = None
+    section: Optional[dict] = None
+    for one in page.sections:
+        entry = {
+            "slug": one["slug"],
+            "number": one["number"],
+            "title": _title_html(one["title"]),
+            "html": one["html"],
         }
-        for name in BOOK_NAMES
-    ]
+        if one["level"] == 2:
+            section = None
+            label = numbers.get(one["slug"], "")
+            if one["number"] is not None:
+                law = {**entry, "part": part, "sections": []}
+                laws.append(law)
+            elif label.startswith("Appendix"):
+                law = {**entry, "label": label, "sections": []}
+                appendices.append(law)
+            elif one["title"].startswith("Part "):
+                part = _title_html(one["title"])
+                law = None
+            else:
+                law = {**entry, "sections": []}
+                front.append(law)
+        elif one["level"] == 3 and law is not None:
+            section = entry
+            law["sections"].append(section)
+        elif law is not None:
+            # A heading under a section is part of that section's text.
+            held = section if section is not None else law
+            level = min(max(one["level"], 4), 6)
+            held["html"] += (
+                f'<h{level} id="{html.escape(one["slug"])}">'
+                f'{entry["title"]}</h{level}><div>{one["html"]}</div>'
+            )
+    found = {
+        "title": html.escape(page.title),
+        "intro": page.intro,
+        "front": front,
+        "laws": laws,
+        "appendices": appendices,
+    }
+    # Once per parse, as `cached_rules_page`: `rules_doc` hands back a
+    # new document when the file changes.
+    _CHARTERS.clear()
+    _CHARTERS[id(document)] = (document, found)
+    return found
+
+
+_CHARTERS: dict[int, tuple[RulesDocument, dict]] = {}
+
+
+def citation(document: RulesDocument, slug: Optional[str]) -> Optional[dict]:
+    """
+    Where a refusal's Law points, as the page links it: the heading the
+    model named (`RuleRefusal.law`), its Charter number and its title,
+    and the Law it is under. `None` for no citation, and for a slug the
+    rules no longer have -- a link to nowhere is worse than none, and
+    `tests/test_rule_refusal_laws.py` fails first.
+    """
+    if not slug:
+        return None
+    found = charter(document)
+    for law in (*found["laws"], *found["appendices"], *found["front"]):
+        for one in (law, *law["sections"]):
+            if one["slug"] == slug:
+                return {
+                    "slug": slug,
+                    "number": one["number"],
+                    "title": one["title"],
+                    "law": law["slug"],
+                    "law_number": law["number"],
+                }
+    return None
+
+
+# -- The Learn to Play, in the page ------------------------------------------
+
+#: A Law the Learn to Play cites, as it cites it: *(Law 6.4)*, or several
+#: at once, *(Law 2.1, 2.2)*.
+LAW_CITE = re.compile(r"\(Law ((?:\d+(?:\.\d+)*)(?:, \d+(?:\.\d+)*)*)\)")
+CITED_NUMBER = re.compile(r"\d+(?:\.\d+)*")
+
+
+def _cite_laws(markup: str, slugs: dict[str, str]) -> str:
+    """Each number of a *(Law 6.4)* as a link to that heading in the
+    Charter, by the number the build gives it; a number the Charter
+    does not give stays words."""
+
+    def link(number: re.Match) -> str:
+        slug = slugs.get(number.group(0))
+        if slug is None:
+            return number.group(0)
+        return (
+            f'<a href="/rules#{html.escape(slug)}" data-rule="{html.escape(slug)}">'
+            f"{number.group(0)}</a>"
+        )
+
+    def cite(found: re.Match) -> str:
+        return f"(Law {CITED_NUMBER.sub(link, found.group(1))})"
+
+    return LAW_CITE.sub(cite, markup)
+
+
+def learn_to_play(document: RulesDocument) -> dict:
+    """
+    `docs/learn-to-play.md` as the page reads it: the book's own
+    markdown, read by `rulebooks.parse_markdown` -- the books' subset,
+    which raises on a line outside it -- with its figures served from
+    the same folder the Charter's is, and every *(Law 6.4)* it cites a
+    link into the Charter by the number the build gives. `contents` is
+    its chapters, the level-2 headings, for the page to jump between.
+    """
+    source = rulebooks.BOOKS["learn-to-play"].source
+    if source is None:
+        raise OSError("docs/learn-to-play.md is missing from this checkout")
+    text = source.read_text(encoding="utf-8")
+    numbers = charter_numbers(document)
+    slugs = {number: slug for slug, number in numbers.items()}
+    link = _link_resolver(page_anchors(document))
+    title = rulebooks.BOOKS["learn-to-play"].title
+    parts: list[str] = []
+    contents: list[dict] = []
+    for block in rulebooks.parse_markdown(text):
+        if isinstance(block, rulebooks.Heading):
+            if block.level == 1:
+                title = block.text
+                continue
+            words = inline_html(block.text, link)
+            if block.level == 2:
+                contents.append({"slug": block.slug, "title": words})
+            level = min(block.level, 6)
+            parts.append(
+                f'<h{level} id="{html.escape(block.slug)}">{words}</h{level}>'
+            )
+            continue
+        parts.append(_block_html(block, link))
+    return {
+        "title": html.escape(title),
+        "contents": contents,
+        "html": _cite_laws("".join(parts), slugs),
+    }
+
+
+_LEARN: dict[str, tuple[tuple, dict]] = {}
+
+
+def cached_learn_to_play(document: RulesDocument) -> dict:
+    """`learn_to_play`, again only when the book or the rules it cites
+    have changed -- its source's mtime and the parse of the rules."""
+    source = rulebooks.BOOKS["learn-to-play"].source
+    try:
+        stamp = (source.stat().st_mtime_ns if source else None, id(document))
+    except OSError:
+        stamp = (None, id(document))
+    held = _LEARN.get("book")
+    if held is not None and held[0] == stamp:
+        return held[1]
+    book = learn_to_play(document)
+    _LEARN["book"] = (stamp, book)
+    return book
 
 
 # -- The aids' pictures --------------------------------------------------
@@ -392,6 +568,96 @@ def _species() -> list[dict]:
     ]
 
 
+def maneuver_cards(catalog: ManeuverCatalog, tiers: Sequence[str]) -> list[dict]:
+    """
+    The maneuver cards themselves, as the References show them: the
+    printed face `pictures.maneuver_card_png` draws for the hand, in
+    the catalog's order -- the offense's by rank, then the defense's --
+    a row per tier asked for. The six basic cards everywhere; the six
+    gambits under them where the game's hexagon is the gambit one.
+    """
+    return [
+        {
+            "tier": tier,
+            "cards": [
+                {
+                    "key": maneuver.key,
+                    "name": maneuver.name,
+                    "side": side,
+                    "url": f"/aids/cards/{maneuver.key}.png",
+                }
+                for side in ("offense", "defense")
+                for maneuver in catalog.side(side)
+                if maneuver.tier == tier
+            ],
+        }
+        for tier in tiers
+    ]
+
+
+def valid_card(catalog: ManeuverCatalog, key: str) -> Optional[bool]:
+    """Whether `key` is an offense card (True), a defense card (False),
+    or not a card at all (None)."""
+    if any(one.key == key for one in catalog.offense):
+        return True
+    if any(one.key == key for one in catalog.defense):
+        return False
+    return None
+
+
+def roles(catalog: PlayerCatalog) -> list[dict]:
+    """
+    The six roles as a table, from the numbers the role card is drawn
+    from (`role_profiles`): the role's badge (the emoji the bot draws
+    it with), its name, its two skills and its ability in the sheet's
+    own short column (`short_ability`, never cut down here).
+    """
+    rows = []
+    for role in PlayerRole:
+        profile = catalog.role_profiles.get(role)
+        if profile is None:
+            continue
+        rows.append(
+            {
+                "role": role.value,
+                "name": role.value.title(),
+                "badge": f"/emoji/role_{role.value}.png",
+                "letters": role_brackets(role),
+                "offense": profile.offense,
+                "defense": profile.defense,
+                "ability": profile.short_ability,
+            }
+        )
+    return rows
+
+
+def species_rows() -> list[dict]:
+    """
+    The four species abilities as a table, from `species.json` -- the
+    same data the species card is drawn from: the species team in its
+    colour with the coloured icon, the ability's name and its short
+    wording.
+    """
+    abilities = load_species_abilities()
+    rows = []
+    for key in SPECIES_ORDER:
+        ability = abilities.get(key)
+        if ability is None:
+            continue
+        team = SPECIES_TEAM[key]
+        rows.append(
+            {
+                "key": key,
+                "team": team_display_name(team),
+                "colour": TEAM_COLORS[team],
+                "icon": f"/species/{key}_color.png",
+                "name": ability["name"],
+                "ability": ability.get("ability_short") or ability["ability"],
+            }
+        )
+    return rows
+
+
 def team_card_url(team: Team, card_id: str, face: str) -> str:
     return f"/aids/team/{team.value}/{card_id}.png?face={face}"
 
@@ -418,14 +684,16 @@ def _team(catalog: PlayerCatalog, team: Team, faces: Sequence[str]) -> dict:
 
 def everything(engine: RulesEngine) -> dict:
     """
-    The front door's reading room, with no game to ask: both hexagons
-    named by tier, the species card, the role card, every team with
-    both faces offered, the rules and the books.
+    The Reading Room's aids, with no game to ask: both hexagons named
+    by tier, all twelve cards, the role table and card, the species
+    table and card, every team with both faces offered, and the rules.
     """
     catalog = engine.player_catalog
     return {
         "rules": "/rules",
-        "books": books(),
+        "maneuver_cards": maneuver_cards(engine.maneuver_catalog, MANEUVER_TIERS),
+        "role_rows": roles(catalog),
+        "species_rows": species_rows(),
         "maneuvers": [_maneuver(tier) for tier in MANEUVER_TIERS],
         "roles": "/aids/roles.png",
         "species": _species(),
@@ -472,7 +740,16 @@ def for_game(
         "species_abilities": species,
         "advanced_cards": advanced,
         "rules": "/rules",
-        "books": books(),
+        # The References in the Rules tab: the cards at the game's
+        # tier, the six basic ones always, the role table, and the
+        # species table only where the game plays them.
+        "maneuver_cards": maneuver_cards(
+            engine.maneuver_catalog,
+            (MANEUVER_TIER_BASIC,) if tier == MANEUVER_TIER_BASIC
+            else (MANEUVER_TIER_BASIC, tier),
+        ),
+        "role_rows": roles(engine.player_catalog),
+        "species_rows": species_rows() if species else [],
         "maneuvers": [_maneuver(tier)],
         "roles": "/aids/roles.png",
         "species": _species() if species else [],
@@ -487,65 +764,163 @@ def valid_tier(tier: str) -> bool:
     return tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
 
 
-# -- The rules as a page ---------------------------------------------------
+# -- The Reading Room -------------------------------------------------------
 
 
-def rules_html(page: RulesPage) -> str:
-    """
-    `/rules`: the Charter's text on a page of its own, in the room's
-    colours, with its contents and a search box over `/api/rules`. The
-    sections are already HTML (`rules_page`); every title is escaped
-    here.
-    """
-    contents = "".join(
-        f'<li class="level-{section["level"]}"><a href="#{section["slug"]}">'
-        f'{_numbered(section)}</a></li>'
-        for section in page.sections
-        if section["level"] <= 3
+def _law_heading(law: dict) -> str:
+    # An appendix's title already carries its letter.
+    number = law.get("number")
+    mark = f'<span class="law-mark">Law {number}</span>' if number else ""
+    return f"<h2>{mark}{law['title']}</h2>"
+
+
+def _law_html(law: dict) -> str:
+    """One Law as the Reading Room sets it: its heading, its own text,
+    and each section under its number."""
+    part = (
+        f'<div class="law-part">{law["part"]}</div>' if law.get("part") else ""
     )
-    body = "".join(
-        f'<section class="rules-section level-{section["level"]}" '
-        f'id="{section["slug"]}">'
-        f'<h{min(section["level"], 6)}>{_numbered(section)}</h{min(section["level"], 6)}>'
-        f'{section["html"]}</section>'
-        for section in page.sections
+    sections = "".join(
+        f'<section class="rules-section" id="{html.escape(one["slug"])}">'
+        f'<h3>{_numbered_mark(one["number"])}{one["title"]}</h3>{one["html"]}'
+        f"</section>"
+        for one in law["sections"]
     )
-    title = html.escape(page.title)
+    return (
+        f'<article class="law" id="{html.escape(law["slug"])}">{part}'
+        f'{_law_heading(law)}{law["html"]}{sections}</article>'
+    )
+
+
+def _numbered_mark(number: Optional[str]) -> str:
+    return f'<span class="rules-number">{number}</span>' if number else ""
+
+
+def _contents_html(found: dict) -> str:
+    rows = [
+        f'<li><a href="#{html.escape(law["slug"])}" data-rule="{html.escape(law["slug"])}">'
+        f'<span class="toc-number">{law["number"]}</span>'
+        f'<span>{law["title"]}</span></a></li>'
+        for law in found["laws"]
+    ]
+    rows += [
+        f'<li class="appendix"><a href="#{html.escape(law["slug"])}" data-rule="{html.escape(law["slug"])}">'
+        f'<span class="toc-number"></span><span>{law["title"]}</span></a></li>'
+        for law in found["appendices"]
+    ]
+    return "".join(rows)
+
+
+def references_html(offered: dict) -> str:
+    """
+    The References column: the maneuver cards as the model draws them,
+    the roles table and the species table -- the Rules tab draws the
+    same three from the same dict (`webapp/static/aids.js`).
+    """
+    cards = "".join(
+        '<div class="ref-cards">'
+        + "".join(
+            f'<a class="ref-card" href="{one["url"]}?size=full" target="_blank" rel="noopener" '
+            f'title="{html.escape(one["name"])}"><img src="{one["url"]}" '
+            f'alt="{html.escape(one["name"])}" loading="lazy"></a>'
+            for one in row["cards"]
+        )
+        + "</div>"
+        for row in offered["maneuver_cards"]
+    )
+    roles = "".join(
+        f'<tr><td><img class="emoji" src="{one["badge"]}" alt="{html.escape(one["letters"])}"></td>'
+        f'<td>{html.escape(one["name"])}</td>'
+        f'<td class="num">{one["offense"]}</td><td class="num">{one["defense"]}</td>'
+        f'<td class="ability">{html.escape(one["ability"])}</td></tr>'
+        for one in offered["role_rows"]
+    )
+    species = "".join(
+        f'<tr><td><img class="emoji" src="{one["icon"]}" alt=""></td>'
+        f'<td><span class="species-team" style="color:{one["colour"]}">'
+        f'{html.escape(one["team"])}</span>'
+        f'<span class="ability-name">{html.escape(one["name"])}</span></td>'
+        f'<td class="ability">{html.escape(one["ability"])}</td></tr>'
+        for one in offered["species_rows"]
+    )
+    return (
+        '<div class="panel-label">The cards</div>'
+        f"{cards}"
+        '<div class="panel-label">Roles</div>'
+        '<table class="ref-table"><tr><th></th><th>Role</th><th>OFF</th><th>DEF</th><th>Ability</th></tr>'
+        f"{roles}</table>"
+        + (
+            '<div class="panel-label">Species</div>'
+            '<table class="ref-table"><tr><th></th><th>Species</th><th>Ability</th></tr>'
+            f"{species}</table>"
+            if species else ""
+        )
+    )
+
+
+def rules_html(document: RulesDocument, offered: dict) -> str:
+    """
+    `/rules`, the Reading Room (step 10 of docs/web-app-redesign.md):
+    the Laws down the left, the Law text in the middle, the References
+    on the right, with a search over `/api/rules` and chips for the
+    Learn to Play and the rosters, which `aids.js` fetches. The Charter
+    and the References are set here, so the page reads without a
+    script; every title is escaped, and the text is `rules_page`'s.
+    """
+    found = charter(document)
+    laws = "".join(
+        _law_html(law)
+        for law in (*found["front"], *found["laws"], *found["appendices"])
+    )
     return f"""<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
-    <title>{title} · D12 Ball</title>
+    <title>The Reading Room · D12 Ball</title>
     <link rel="stylesheet" href="/static/app.css" />
   </head>
-  <body class="front rules-page">
-    <main class="rules panel">
-      <p class="quiet"><a href="/" class="linkish">&lsaquo; D12 Ball</a>
-        · <a href="/books/charter.pdf" class="linkish" target="_blank" rel="noopener">The Charter as a PDF</a>
-        · <a href="/books/learn-to-play.pdf" class="linkish" target="_blank" rel="noopener">Learn to Play</a></p>
-      <h1>{title}</h1>
-      <form class="rules-search" role="search" data-rules-search>
-        <input class="chat-input" type="search" placeholder="Search the rules"
-               aria-label="Search the rules" autocomplete="off" />
-        <ol class="rules-results" hidden></ol>
-      </form>
-      {page.intro}
-      <nav class="rules-contents" aria-label="Contents">
-        <div class="panel-label">Contents</div>
-        <ol>{contents}</ol>
+  <body class="reading-room" data-view="charter">
+    <header class="topbar room-bar">
+      <div class="topbar-title">
+        <a href="/" class="back" data-back>&lsaquo; D12 Ball</a>
+        <span class="topbar-divider" aria-hidden="true"></span>
+        <span class="reading-title">The Reading Room</span>
+      </div>
+      <div class="topbar-end">
+        <form class="rules-search" role="search" data-rules-search>
+          <input class="search-input" type="search"
+                 placeholder="Search everything: High Pass, own goal, Volatile…"
+                 aria-label="Search the rules" autocomplete="off" />
+          <ol class="rules-results" hidden></ol>
+        </form>
+        <nav class="chips" aria-label="Read">
+          <button type="button" class="chip-tab" data-view="charter">The Charter</button>
+          <button type="button" class="chip-tab" data-view="learn">Learn to Play</button>
+          <button type="button" class="chip-tab" data-view="references">References</button>
+          <button type="button" class="chip-tab" data-view="rosters">Rosters</button>
+        </nav>
+      </div>
+    </header>
+    <div class="reading">
+      <nav class="reading-contents" aria-label="The Laws">
+        <ol>{_contents_html(found)}</ol>
       </nav>
-      {body}
-    </main>
+      <main class="reading-text rules">
+        <section class="reading-view" data-for="charter">
+          <div class="law-eyebrow">{found["title"]}</div>
+          <div class="rules-intro">{found["intro"]}</div>
+          {laws}
+        </section>
+        <section class="reading-view" data-for="learn" hidden></section>
+        <section class="reading-view" data-for="rosters" hidden></section>
+      </main>
+      <aside class="reading-refs" id="references" aria-label="References">
+        {references_html(offered)}
+      </aside>
+    </div>
     <script src="/static/aids.js"></script>
   </body>
 </html>
 """
-
-
-def _numbered(section: dict) -> str:
-    title = inline_html(section["title"], lambda text, target: text)
-    if section["number"] is None:
-        return title
-    return f'<span class="rules-number">{section["number"]}</span> {title}'

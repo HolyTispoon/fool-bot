@@ -24,7 +24,23 @@ class RuleRefusal(ValueError):
     a refusal as one still does; what changed is what the model's own
     door catches. Defined here, the leaf of the model, because the
     record refuses too; `d12ball.components` re-exports it.
+
+    **`law` is which part of the Charter says no**, where one does: the
+    slug of a heading in `docs/living-rules.md` -- the anchor the
+    Charter's own links use (`#how-many-substitutions`), which is what
+    the build numbers, so it survives a renumbering -- set at the raise
+    site, where the rule is known (step 10 of
+    docs/web-app-redesign.md). It is optional: a refusal that is a
+    stale click, a lobby's bookkeeping or a sentence built elsewhere
+    cites nothing rather than guessing. A frontend links it to the
+    rules; it never words the refusal, and it is never read to decide
+    anything. `tests/test_rule_refusal_laws.py` holds every slug to a
+    heading the living rules have.
     """
+
+    def __init__(self, *args: object, law: Optional[str] = None) -> None:
+        super().__init__(*args)
+        self.law = law
 
 
 class Team(str, Enum):
@@ -1170,7 +1186,10 @@ class D12BallGame:
             raise RuleRefusal("The coin must be flipped first.")
 
         if self.coin_winner_player_number != player_number:
-            raise RuleRefusal("Only the coin-toss winner can choose.")
+            raise RuleRefusal(
+                "Only the coin-toss winner can choose.",
+                law="winning-the-toss",
+            )
 
         if self.home_and_visiting_selected:
             raise RuleRefusal("Home and visiting teams are already assigned.")

@@ -305,7 +305,10 @@ def fly_step(
         }
         key = (Zone(target[0]), target[1])
         if key not in costs:
-            raise RuleRefusal("That is not a space they can fly to.")
+            raise RuleRefusal(
+                "That is not a space they can fly to.",
+                law="telekinetics",
+            )
         match.pending_fly.pop(0)
         match.move_meeple(player_id, *key)
         match.run_back_flown.append(player_id)

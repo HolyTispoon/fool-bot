@@ -114,7 +114,7 @@ kept so every cross-reference by step number still reads.
 | ~~7~~ | ~~The shootout order~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The shootout order in the box") | medium |
 | ~~8~~ | ~~The bench~~ -- folded into step 6 | -- |
 | ~~9~~ | ~~The front door and the table~~ -- landed; what it settled is in docs/design/web-app.md, "The room's table" ("The front door is row 1 of the design canvas", "The two ticks", "Its shape is row 1 of the design canvas") | large |
-| 10 | The sidebar tabs and the reading room | large |
+| ~~10~~ | ~~The sidebar tabs and the reading room~~ -- landed; what it settled is in docs/design/web-app.md, "The page" ("The sidebar is four tabs", the log's kinds) and "The rules and the player aids" | large |
 | 11 | The phone | medium |
 | ~~12~~ | ~~Full time~~ -- folded into step 5 | -- |
 | -- | Later, and not now | -- |
@@ -710,6 +710,24 @@ kicked coach's confirm.
 ---
 
 ### 10. The sidebar tabs and the reading room
+
+**Landed** (2026-09-27). What it settled is in
+[design/web-app.md](design/web-app.md): "The page" ("The sidebar is
+four tabs" -- Log, Chat, Teams, Rules, with the dots; the Teams tab as
+`board.py`'s `rosters`; the log's edge by kind and the minute heading,
+read off facts the journal keeps rather than the words) and "The rules
+and the player aids" (the Charter grouped by the Laws the build
+numbers, the Rules tab and the Reading Room at `/rules`, the Learn to
+Play read in the page with its citations linked, the References from
+the cards' own data, no PDF anywhere, and a refusal's Law linked into
+the Rules tab). The Law on a refusal needed the model to say it, so
+`RuleRefusal.law` was proposed as its own commit on the step's PR and
+accepted by the author there
+([design/model-discord-split.md](design/model-discord-split.md)); it
+cites 21 raise sites and leaves the rest uncited rather than guessing.
+The divider between the log and the chat went with the tabs, which the
+author kept separate; the References show the gambit cards in an
+advanced game that plays them.
 
 **Prompt.**
 

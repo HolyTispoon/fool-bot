@@ -601,10 +601,16 @@ class Refusal:
     twice. It is `None` for the one refusal that has no question to
     point at: the bot owes a step of its own (`STEP_OWED`), and
     nothing is asked of anybody until it has run.
+
+    `law` is the Charter heading the refusal cites, where the
+    `RuleRefusal` it came from named one (`RuleRefusal.law`); the
+    driver's own refusals -- a stale click, a question not asked --
+    cite none, since no Law says them.
     """
 
     reason: str
     waiting_on: Optional[PendingPrompt]
+    law: Optional[str] = None
 
 
 #: What a click on a prompt the position has moved on from is told,
@@ -667,9 +673,10 @@ STEP_OWED = (
 )
 
 
-def _refuse(reason: str) -> None:
-    """A refusal from inside an answer: `answer` turns it into one."""
-    raise RuleRefusal(reason)
+def _refuse(reason: str, law: Optional[str] = None) -> None:
+    """A refusal from inside an answer: `answer` turns it into one.
+    `law` is the Charter heading it cites, where one says it."""
+    raise RuleRefusal(reason, law=law)
 
 
 def _rail(railed, chosen) -> None:
@@ -765,7 +772,10 @@ def _answer_ball_recovery(
     rather than an answer.
     """
     if player_id not in prompt.options.player_ids:
-        _refuse("That player cannot pick the ball up from here.")
+        _refuse(
+            "That player cannot pick the ball up from here.",
+            law="picking-the-ball-up",
+        )
     return StepResult(
         next=FollowOn(
             FollowOnStep.APPLY_BALL_RECOVERY, {"player_id": player_id},
@@ -809,7 +819,10 @@ def _answer_loose_ball_pick(
             engine, game, match, skill_type=prompt.skill_type,
         )
     if player_id not in prompt.options.player_ids:
-        _refuse("That player cannot be sent after the ball from here.")
+        _refuse(
+            "That player cannot be sent after the ball from here.",
+            law="the-two-nearest",
+        )
     return arrivals.choose_loose_ball_contestant(
         engine,
         game,
@@ -1989,7 +2002,7 @@ def answer(
         # the sentence already written. See
         # `loose_ball_decline_refusal`, which is the same answer asked
         # without applying anything.
-        return Refusal(str(refused), waiting_on=waiting)
+        return Refusal(str(refused), waiting_on=waiting, law=refused.law)
 
     if isinstance(answered, tuple):
         detail, result = answered

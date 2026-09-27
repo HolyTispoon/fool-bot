@@ -206,10 +206,6 @@ class WebApp:
         self._boards: dict[tuple, bytes] = {}
         self._cards: dict[tuple, bytes] = {}
         self._dice: dict[tuple, bytes] = {}
-        #: Each book as last set, against its source's mtime, and one
-        #: lock a book so two pages asking at once set it once.
-        self._books: dict[str, tuple[int, bytes]] = {}
-        self._book_locks: dict[str, asyncio.Lock] = {}
         self._runner: Optional[web.AppRunner] = None
         self.app = web.Application()
         self.app.add_routes(
@@ -259,13 +255,18 @@ class WebApp:
                 ),
                 web.get("/api/game/{game_id}/goal/{side}.png", self.goal),
                 web.get("/api/room/{game_id}/log.txt", self.log_text),
-                # The reading room (step 11): the rules, the books and
-                # the player aids, read-only and open to anybody.
+                # The Reading Room and the Rules tab (step 11 of
+                # docs/web-app-next.md, redrawn in step 10 of
+                # docs/web-app-redesign.md): the rules, the Learn to Play
+                # and the player aids, read-only and open to anybody.
+                # No PDF anywhere.
                 web.get("/rules", self.rules_page),
                 web.get("/api/rules", self.rules_search),
+                web.get("/api/rules/charter", self.rules_charter),
+                web.get("/api/rules/learn", self.rules_learn),
                 web.get("/rules/figures/{name}", self.rules_figure),
-                web.get("/books/{name}.pdf", self.book),
                 web.get("/api/aids", self.all_aids),
+                web.get("/aids/cards/{key}.png", self.card_aid),
                 web.get("/aids/maneuvers/{tier}.png", self.maneuver_aid),
                 web.get("/aids/roles.png", self.roles_aid),
                 web.get("/aids/species/{number}.png", self.species_aid),
@@ -689,6 +690,7 @@ class WebApp:
                             coach=coach,
                         ),
                         "refusal": str(refusal),
+                        "refusal_law": await self._citation(refusal.law),
                     },
                     status=409,
                 )
@@ -841,6 +843,7 @@ class WebApp:
                             coach=coach,
                         ),
                         "refusal": str(refusal),
+                        "refusal_law": await self._citation(refusal.law),
                     },
                     status=409,
                 )
@@ -931,7 +934,11 @@ class WebApp:
             finally:
                 self._answering.pop(game.game_id, None)
             state = self._state(game, viewer, **_cursors(request))
-        state["refusal"] = result.to_dict()["refusal"]
+        written = result.to_dict()
+        state["refusal"] = written["refusal"]
+        # The Law the refusal cites, where the model named one
+        # (`RuleRefusal.law`), as the Rules tab links it.
+        state["refusal_law"] = await self._citation(written["refusal_law"])
         return web.json_response(state)
 
     async def resume(self, request: web.Request) -> web.Response:
@@ -1372,12 +1379,47 @@ class WebApp:
                 text="The rules document is missing from this checkout.",
             )
 
+    async def _citation(self, slug: Optional[str]) -> Optional[dict]:
+        """
+        A refusal's Law as the page links it (`aids.citation`), or
+        `None`. A rules file that cannot be read costs the link and
+        never the answer: the refusal is still said.
+        """
+        if not slug:
+            return None
+        try:
+            document = await asyncio.to_thread(load_rules_document)
+        except OSError:
+            return None
+        return await asyncio.to_thread(aids.citation, document, slug)
+
     async def rules_page(self, request: web.Request) -> web.Response:
-        """The Charter's text, one section per `RulesSection`, each
-        headed with its Charter number (`webapp/aids.py`)."""
+        """The Reading Room: the Laws, the Law text and the References,
+        the Charter headed with its numbers (`webapp/aids.py`)."""
         document = await self._rules()
-        page = await asyncio.to_thread(aids.cached_rules_page, document)
-        return web.Response(text=aids.rules_html(page), content_type="text/html")
+        offered = aids.everything(self.engine)
+        text = await asyncio.to_thread(aids.rules_html, document, offered)
+        return web.Response(text=text, content_type="text/html")
+
+    async def rules_charter(self, request: web.Request) -> web.Response:
+        """The living rules by Law, as the Rules tab lists them."""
+        document = await self._rules()
+        found = await asyncio.to_thread(aids.charter, document)
+        return web.json_response(found)
+
+    async def rules_learn(self, request: web.Request) -> web.Response:
+        """The Learn to Play, in the page: the book's own markdown with
+        its figures and its Law citations linked. A missing book is an
+        ERROR and a 503, as the rules are."""
+        document = await self._rules()
+        try:
+            book = await asyncio.to_thread(aids.cached_learn_to_play, document)
+        except OSError as error:
+            LOGGER.error("Could not read the Learn to Play: %s", error)
+            raise web.HTTPServiceUnavailable(
+                text="The Learn to Play is missing from this checkout.",
+            )
+        return web.json_response(book)
 
     async def rules_search(self, request: web.Request) -> web.Response:
         """`RulesDocument.search`, the answer `/d12ball rules_search`
@@ -1396,41 +1438,28 @@ class WebApp:
             path, headers={"Cache-Control": f"public, max-age={CARD_MAX_AGE}"},
         )
 
-    async def book(self, request: web.Request) -> web.Response:
-        """
-        One rulebook as a PDF, set in this process and held in memory
-        against its source's mtime -- never written to `print/`. Served
-        inline, so a browser opens it in a tab.
-        """
-        name = request.match_info["name"]
-        if name not in aids.BOOK_NAMES:
-            raise web.HTTPNotFound()
-        stamp = aids.book_stamp(name)
-        if stamp is None:
-            LOGGER.error("The %s has no source in this checkout.", name)
-            raise web.HTTPServiceUnavailable(
-                text="That book's source is missing from this checkout.",
-            )
-        lock = self._book_locks.setdefault(name, asyncio.Lock())
-        async with lock:
-            held = self._books.get(name)
-            if held is None or held[0] != stamp:
-                pdf = await asyncio.to_thread(aids.book_pdf, name)
-                held = (stamp, pdf)
-                self._books[name] = held
-        return web.Response(
-            body=held[1],
-            content_type="application/pdf",
-            headers={
-                "Content-Disposition": f'inline; filename="{name}.pdf"',
-                "Cache-Control": "no-cache",
-            },
-        )
-
     async def all_aids(self, request: web.Request) -> web.Response:
         """The front door's reading room: every aid, with no game to
         ask which."""
         return web.json_response(aids.everything(self.engine))
+
+    async def card_aid(self, request: web.Request) -> web.Response:
+        """One maneuver card, the printed face the hand shows
+        (`pictures.maneuver_card_png`), for the References."""
+        key = request.match_info["key"]
+        offense = aids.valid_card(self.engine.maneuver_catalog, key)
+        if offense is None:
+            raise web.HTTPNotFound()
+        size = request.query.get("size", "small")
+        if size not in pictures.CARD_WIDTHS:
+            raise web.HTTPBadRequest(text="A size is small or full.")
+        return await self._card(
+            ("aid", "card", key, size),
+            lambda: pictures.maneuver_card_png(
+                self.engine.maneuver_catalog, self.engine.player_catalog,
+                key, offense=offense, size=size,
+            ),
+        )
 
     async def maneuver_aid(self, request: web.Request) -> web.Response:
         tier = request.match_info["tier"]

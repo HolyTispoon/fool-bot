@@ -21,9 +21,6 @@
         </span>
       </div>
       <div class="topbar-end">
-        <!-- The reading room: the rules, the books and the aids this
-             game plays (webapp/static/aids.js). -->
-        <button type="button" class="btn aids-button" id="open-aids">Rules &amp; aids</button>
         <!-- Who this reader is here, as one pill: the seat before the
              toss, the side and its team after it, or watching. -->
         <span id="you" class="you-pill"></span>
@@ -39,6 +36,8 @@
         <button type="button" class="tab" role="tab" data-show="move">Move</button>
         <button type="button" class="tab" role="tab" data-show="log">Log</button>
         <button type="button" class="tab" role="tab" data-show="chat">Chat</button>
+        <button type="button" class="tab" role="tab" data-show="teams">Teams</button>
+        <button type="button" class="tab" role="tab" data-show="rules">Rules</button>
       </nav>
 
       <main class="main">
@@ -74,6 +73,9 @@
                  moved into whichever box is up (app.js, showRefusal). -->
             <div id="refusal" class="refusal" role="alert" hidden>
               <p id="refusal-text"></p>
+              <!-- The Law the model says the refusal comes from, where it
+                   names one (`RuleRefusal.law`), opened in the Rules tab. -->
+              <p id="refusal-law" class="refusal-law" hidden></p>
               <button type="button" class="btn small" id="dismiss">Dismiss</button>
             </div>
             <!-- The outcome, large and first: the dice just rolled, and
@@ -161,9 +163,18 @@
         </section>
       </main>
 
-      <aside class="sidebar">
-        <section class="panel log-panel" data-tab="log" aria-label="Game log">
-          <div class="panel-label">Game log</div>
+      <!-- The sidebar's four tabs (step 10 of docs/web-app-redesign.md):
+           the log, the chat, both teams and the rules. A dot marks a
+           tab that is not showing when something new arrives in it. -->
+      <aside class="sidebar" id="sidebar" data-pane="log">
+        <nav class="side-tabs" role="tablist" aria-label="The sidebar">
+          <button type="button" class="side-tab" role="tab" data-pane="log">Log</button>
+          <button type="button" class="side-tab" role="tab" data-pane="chat">Chat</button>
+          <button type="button" class="side-tab" role="tab" data-pane="teams">Teams</button>
+          <button type="button" class="side-tab" role="tab" data-pane="rules">Rules</button>
+        </nav>
+
+        <section class="pane log-panel" data-tab="log" data-pane-for="log" aria-label="Game log">
           <div id="journal" class="journal" role="log" aria-live="polite">
             <p class="quiet" id="journal-empty">
               What is said in the game shows up here from the moment this
@@ -172,20 +183,7 @@
           </div>
         </section>
 
-        <!-- Dragged to share the column between the log and the chat.
-             Not on a phone, where a tab shows one of them at a time. -->
-        <div
-          id="split"
-          class="split"
-          role="separator"
-          aria-orientation="horizontal"
-          aria-controls="journal chat"
-          aria-label="Resize the game log and the chat"
-          tabindex="0"
-        ></div>
-
-        <section class="panel chat-panel" data-tab="chat" aria-label="Chat">
-          <div class="panel-label">Chat</div>
+        <section class="pane chat-panel" data-tab="chat" data-pane-for="chat" aria-label="Chat">
           <div id="chat" class="chat" role="log" aria-live="polite">
             <p class="quiet" id="chat-empty">Nobody has said anything yet.</p>
           </div>
@@ -199,6 +197,20 @@
             />
             <button type="submit" class="btn chat-send">Send</button>
           </form>
+        </section>
+
+        <!-- Both rosters as tables, `board.py`'s rows: hover a row for
+             the card. -->
+        <section class="pane teams-panel" data-tab="teams" data-pane-for="teams" aria-label="Teams">
+          <div id="rosters" class="rosters">
+            <p class="quiet">The teams are drawn here once the game kicks off.</p>
+          </div>
+        </section>
+
+        <!-- The Charter in the page, the Learn to Play and the References
+             (webapp/static/aids.js). -->
+        <section class="pane rules-panel" data-tab="rules" data-pane-for="rules" aria-label="Rules">
+          <div id="rules-tab" class="rules-tab"></div>
         </section>
       </aside>
     </div>
