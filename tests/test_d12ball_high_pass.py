@@ -198,7 +198,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         for occupant in list(
             match.board.spaces[match.ball.zone][match.ball.space_index]
         ):
-            match.move_meeple(occupant, Zone.HOME_GOAL, 0)
+            match.move_meeple(occupant, Zone.HOME_ZONE, 0)
         match.begin_loose_ball(2)
         game.match_state = match.to_dict()
         self.assertEqual(contest_noun(match), "loose ball")
@@ -935,7 +935,7 @@ class DinkyAimsAtSomebodyTests(unittest.TestCase):
     def test_it_takes_the_furthest_pass_that_reaches_a_teammate(
         self,
     ) -> None:
-        match = self.build(Zone.HOME_GOAL, 0)  # flat 0
+        match = self.build(Zone.HOME_ZONE, 0)  # flat 0
         mate = match.home.field_players[1]
         match.board.place_meeple(mate, Zone.MIDFIELD, 0)  # flat 2
         self.assertEqual(
@@ -947,7 +947,7 @@ class DinkyAimsAtSomebodyTests(unittest.TestCase):
         )
 
     def test_the_furthest_of_several_reachable_teammates_wins(self) -> None:
-        match = self.build(Zone.HOME_GOAL, 0)
+        match = self.build(Zone.HOME_ZONE, 0)
         near, far = match.home.field_players[1], match.home.field_players[2]
         match.board.place_meeple(near, Zone.MIDFIELD, 0)   # flat 2
         match.board.place_meeple(far, Zone.MIDFIELD, 1)    # flat 3
@@ -959,7 +959,7 @@ class DinkyAimsAtSomebodyTests(unittest.TestCase):
     def test_with_nobody_reachable_it_still_throws_the_longest(self) -> None:
         # Not a rule, a fallback: the maneuver has been chosen and a
         # distance has to come back, so it keeps the old answer.
-        match = self.build(Zone.HOME_GOAL, 0)
+        match = self.build(Zone.HOME_ZONE, 0)
 
         self.assertEqual(
             self.chosen_distance(match, [2, 3, 4]), 4,
@@ -968,7 +968,7 @@ class DinkyAimsAtSomebodyTests(unittest.TestCase):
     def test_the_passer_is_not_a_teammate_to_aim_at(self) -> None:
         # A pass clamped back onto the passer reaches nobody, and the
         # lookahead has to say so or Dinky would aim at itself.
-        match = self.build(Zone.HOME_GOAL, 0)
+        match = self.build(Zone.HOME_ZONE, 0)
         self.assertEqual(
             match.high_pass_receivers_at(TeamSide.HOME, 0), [],
         )

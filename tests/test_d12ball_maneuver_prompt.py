@@ -309,7 +309,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             # MatchState.challenge_candidates) -- and the kickoff space
             # has one standing on it. Clear them out first.
             for player_id in match.automatic_challengers():
-                match.move_meeple(player_id, Zone.VISITORS_GOAL, 0)
+                match.move_meeple(player_id, Zone.VISITORS_ZONE, 0)
         challenger = next(
             player_id
             for player_id in match.challenge_candidates()

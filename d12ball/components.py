@@ -24,9 +24,19 @@ SPECIES_FILE = DATA_FOLDER / "species.json"
 
 
 class Zone(str, Enum):
-    HOME_GOAL = "home_goal"
+    """
+    The three zones of the field that hold spaces, left to right: the
+    Home Zone (the Home Third on board 9), midfield and the Visitors
+    Zone (the Visitors Third). **The values are the old names** --
+    `home_goal` and `visitors_goal`, from before the goal zones beyond
+    each end were named (Law 2.1) -- and they stay, because every saved
+    game and `basic_rules.json` holds them. The goal zones themselves
+    hold no spaces and are not members.
+    """
+
+    HOME_ZONE = "home_goal"
     MIDFIELD = "midfield"
-    VISITORS_GOAL = "visitors_goal"
+    VISITORS_ZONE = "visitors_goal"
 
 
 class PlayerRole(str, Enum):
@@ -1440,14 +1450,14 @@ def setup_space_order(
     Which space each of a zone's cards starts on, in the order the
     coach assigned them.
 
-    **A goal zone spreads its cards over its whole depth**: the first
+    **An outer zone spreads its cards over its whole depth**: the first
     stands on that side's own end of the zone, the last on the far
     end, and any in between are spaced evenly. A zone no deeper than
     it is full comes out exactly as packing it would -- which is every
-    goal zone on board 7 -- so this is only ever visible on
+    outer zone on board 7 -- so this is only ever visible on
     board 9, where the three-space zones would otherwise bunch each
     pair against one edge and leave the third space empty. There it
-    puts the home Defender on H3 and the home Striker on V3.
+    puts the home Defender on space 3 and the home Striker on space 9.
 
     **Midfield is packed outward from that side's own end instead**,
     because the kickoff space is in it: the side kicking off has to
@@ -1497,7 +1507,7 @@ def formation_stack_space(
     instead, which asks them for the space.
 
     It does not take a side. Every midfield in the ruleset is three
-    spaces deep, so a two-space zone is always a goal zone and the two
+    spaces deep, so a two-space zone is always an outer zone and the two
     coaches read it the same way.
     """
     zone = Zone(zone)
@@ -1505,7 +1515,7 @@ def formation_stack_space(
         return zone_spaces // 2
     if zone_spaces < 2:
         return 0
-    if zone == Zone.HOME_GOAL:
+    if zone == Zone.HOME_ZONE:
         return zone_spaces - 1
     return 0
 
@@ -2442,9 +2452,9 @@ class MatchState:
         to the goal belonging to the team that does not have possession.
         """
         opponent_goal_zone = (
-            Zone.VISITORS_GOAL
+            Zone.VISITORS_ZONE
             if self.ball.possession == TeamSide.HOME
-            else Zone.HOME_GOAL
+            else Zone.HOME_ZONE
         )
         if self.ball.zone != opponent_goal_zone:
             return False
@@ -2452,7 +2462,7 @@ class MatchState:
         final_space = len(self.board.spaces[opponent_goal_zone]) - 1
         closest_space = (
             final_space
-            if opponent_goal_zone == Zone.VISITORS_GOAL
+            if opponent_goal_zone == Zone.VISITORS_ZONE
             else 0
         )
         return self.ball.space_index == closest_space
@@ -2693,9 +2703,9 @@ class MatchState:
         attempt restarts play for the team that just defended it.
         """
         side = TeamSide(side)
-        goal_zone = Zone.HOME_GOAL if side == TeamSide.HOME else Zone.VISITORS_GOAL
+        goal_zone = Zone.HOME_ZONE if side == TeamSide.HOME else Zone.VISITORS_ZONE
         final_space = len(self.board.spaces[goal_zone]) - 1
-        closest_space = final_space if goal_zone == Zone.VISITORS_GOAL else 0
+        closest_space = final_space if goal_zone == Zone.VISITORS_ZONE else 0
         return goal_zone, closest_space
 
     def defending_side(self) -> TeamSide:
@@ -3538,7 +3548,7 @@ class MatchState:
         self, player_id: str, side: TeamSide,
     ) -> int:
         """
-        How far `player_id` is from the last space of the goal zone
+        How far `player_id` is from the last space before the goal
         `side` attacks -- what a Dribble Burst runs, and what it is
         charged a token a space for.
 
@@ -4909,7 +4919,7 @@ class MatchState:
         positions, without touching either one's zone assignment.
 
         This is what actually resolves a formation swap on a
-        fully-packed zone -- a goal zone under 2-2-2 on board 7, where
+        fully-packed zone -- an outer zone under 2-2-2 on board 7, where
         two cards fill two spaces. Reassigning two players' zones
         (swap_field_positions) can leave each one's *new* zone still
         fully occupied by whoever hasn't moved yet, with no open space
@@ -5707,15 +5717,15 @@ def zone_for_area(side: TeamSide, area: str) -> Zone:
         return Zone.MIDFIELD
     if area == "own_goal":
         return (
-            Zone.HOME_GOAL
+            Zone.HOME_ZONE
             if side == TeamSide.HOME
-            else Zone.VISITORS_GOAL
+            else Zone.VISITORS_ZONE
         )
     if area == "opponent_goal":
         return (
-            Zone.VISITORS_GOAL
+            Zone.VISITORS_ZONE
             if side == TeamSide.HOME
-            else Zone.HOME_GOAL
+            else Zone.HOME_ZONE
         )
     raise ValueError(f"Unknown setup area: {area}")
 

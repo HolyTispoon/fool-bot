@@ -124,15 +124,15 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         the old code was four messages and four board uploads.
         """
         movers = [
-            *match.visiting.zones[Zone.HOME_GOAL],
+            *match.visiting.zones[Zone.HOME_ZONE],
             *match.visiting.zones[Zone.MIDFIELD],
         ]
         for index, player_id in enumerate(movers):
             match.board.remove_meeple(player_id)
             match.board.place_meeple(
                 player_id,
-                Zone.VISITORS_GOAL,
-                index % len(match.board.spaces[Zone.VISITORS_GOAL]),
+                Zone.VISITORS_ZONE,
+                index % len(match.board.spaces[Zone.VISITORS_ZONE]),
             )
         return movers
 
@@ -218,7 +218,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         """
         player_id = match.home.zones[Zone.MIDFIELD][0]
         match.board.remove_meeple(player_id)
-        match.board.place_meeple(player_id, Zone.VISITORS_GOAL, 0)
+        match.board.place_meeple(player_id, Zone.VISITORS_ZONE, 0)
         return player_id
 
     def stack_the_home_midfield(self, match: MatchState) -> list[str]:

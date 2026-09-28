@@ -46,9 +46,9 @@ FLAT_SPACE_NUMBERING = True
 # off. `formatting.ZONE_LETTERS` and `render.ZONE_CODES` are the two
 # that spell them; neither is touched by this module.
 DEFAULT_BOARD_ZONES = {
-    Zone.HOME_GOAL: 2,
+    Zone.HOME_ZONE: 2,
     Zone.MIDFIELD: 3,
-    Zone.VISITORS_GOAL: 2,
+    Zone.VISITORS_ZONE: 2,
 }
 
 

@@ -416,7 +416,7 @@ class TutorialOpeningTests(unittest.TestCase):
         match = self.deal()
         striker = fielded(match, PlayerRole.STRIKER)
         zone, space_index = match.board.meeple_position(striker)
-        self.assertEqual((zone, space_index), (Zone.VISITORS_GOAL, 1))
+        self.assertEqual((zone, space_index), (Zone.VISITORS_ZONE, 1))
         self.assertTrue(
             match.board.is_in_shooting_range(
                 TeamSide.HOME, match.board.flat_index(zone, space_index),
@@ -431,7 +431,7 @@ class TutorialOpeningTests(unittest.TestCase):
         # quotes. A second card behind them would add half again and
         # the note would be wrong.
         match = self.deal()
-        landing = match.board.spaces[Zone.VISITORS_GOAL][1]
+        landing = match.board.spaces[Zone.VISITORS_ZONE][1]
         dinky = set(match.setup_for_side(TeamSide.VISITING).field_players)
         self.assertEqual(len(set(landing) & dinky), 1)
 

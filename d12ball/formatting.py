@@ -50,9 +50,9 @@ ROLE_INITIALS = {
 
 # Matches the H1/M1/V1-style space labels drawn on the board in render.py.
 ZONE_LETTERS = {
-    Zone.HOME_GOAL: "H",
+    Zone.HOME_ZONE: "H",
     Zone.MIDFIELD: "M",
-    Zone.VISITORS_GOAL: "V",
+    Zone.VISITORS_ZONE: "V",
 }
 
 BENCH_DESTINATIONS = ("bench", "back_bench")
@@ -144,7 +144,7 @@ def zone_display_name(zone: Zone, board_size: int) -> str:
     """
     if zone is Zone.MIDFIELD:
         return "Midfield"
-    side = "Home" if zone is Zone.HOME_GOAL else "Visitors"
+    side = "Home" if zone is Zone.HOME_ZONE else "Visitors"
     return f"{side} {OUTER_ZONE_WORD_BY_BOARD_SIZE[board_size]}"
 
 

@@ -554,9 +554,9 @@ _EXPERIMENT_SPACE_CODE = re.compile(r"\b([HMV])([1-3])\b")
 _EXPERIMENT_SPACE_RANGE = re.compile(r"\b([HMV])([1-3])-([HMV])([1-3])\b")
 
 _EXPERIMENT_ZONES = {
-    "H": Zone.HOME_GOAL,
+    "H": Zone.HOME_ZONE,
     "M": Zone.MIDFIELD,
-    "V": Zone.VISITORS_GOAL,
+    "V": Zone.VISITORS_ZONE,
 }
 
 

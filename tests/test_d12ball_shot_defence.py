@@ -182,10 +182,10 @@ class InterveningDefenderTests(unittest.TestCase):
     def test_a_shot_at_an_empty_path_faces_nobody(self) -> None:
         cog = build_cog()
         match = self.build_match()
-        match.ball.zone = Zone.VISITORS_GOAL
+        match.ball.zone = Zone.VISITORS_ZONE
         match.ball.space_index = 1
         for player_id in list(match.visiting.field_players):
-            match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+            match.move_meeple(player_id, Zone.HOME_ZONE, 0)
 
         self.assertEqual(cog.engine.intervening_defenders(match), [])
 

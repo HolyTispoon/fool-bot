@@ -201,7 +201,7 @@ def plain_forward() -> LowPassFixture:
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
-        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_space=(Zone.VISITORS_ZONE, 0),
         ball_speed=2,
     )
 
@@ -285,7 +285,7 @@ def stacked_destination() -> LowPassFixture:
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=second,
-        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_space=(Zone.VISITORS_ZONE, 0),
         ball_speed=2,
     )
 
@@ -323,7 +323,7 @@ def winger_set_up() -> LowPassFixture:
         follow_on=SCORING_CHOICE,
         follow_on_kwargs={"distance_moved": 1, "shooter_id": receiver},
         carrier_id=receiver,
-        ball_space=(Zone.VISITORS_GOAL, 1),
+        ball_space=(Zone.VISITORS_ZONE, 1),
         ball_speed=2,
     )
 
@@ -395,7 +395,7 @@ def skilled_pass() -> LowPassFixture:
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
-        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_space=(Zone.VISITORS_ZONE, 0),
         ball_speed=7,
     )
 
@@ -435,7 +435,7 @@ def double_team_cost() -> LowPassFixture:
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
-        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_space=(Zone.VISITORS_ZONE, 0),
         ball_speed=2,
     )
 
@@ -469,7 +469,7 @@ def skilled_pass_at_full_reach() -> LowPassFixture:
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
-        ball_space=(Zone.VISITORS_GOAL, 1),
+        ball_space=(Zone.VISITORS_ZONE, 1),
         ball_speed=4,
     )
 
@@ -498,7 +498,7 @@ def skilled_pass_backward() -> LowPassFixture:
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
-        ball_space=(Zone.HOME_GOAL, 0),
+        ball_space=(Zone.HOME_ZONE, 0),
         ball_speed=4,
     )
 
@@ -565,7 +565,7 @@ def skilled_pass_winger_set_up() -> LowPassFixture:
         follow_on=SCORING_CHOICE,
         follow_on_kwargs={"distance_moved": 1, "shooter_id": receiver},
         carrier_id=receiver,
-        ball_space=(Zone.VISITORS_GOAL, 1),
+        ball_space=(Zone.VISITORS_ZONE, 1),
         ball_speed=4,
     )
 
@@ -593,7 +593,7 @@ def skilled_pass_at_the_speed_cap() -> LowPassFixture:
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
-        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_space=(Zone.VISITORS_ZONE, 0),
         ball_speed=12,
     )
 
@@ -628,7 +628,7 @@ def skilled_pass_contested_without_a_cost() -> LowPassFixture:
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
-        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_space=(Zone.VISITORS_ZONE, 0),
         ball_speed=4,
     )
 
@@ -665,7 +665,7 @@ def skilled_pass_double_team_cost() -> LowPassFixture:
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
-        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_space=(Zone.VISITORS_ZONE, 0),
         ball_speed=4,
     )
 
@@ -698,7 +698,7 @@ def stale_receiver_pick() -> LowPassFixture:
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=standing_there,
-        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_space=(Zone.VISITORS_ZONE, 0),
         ball_speed=2,
     )
 

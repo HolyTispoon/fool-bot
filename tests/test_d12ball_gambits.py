@@ -179,8 +179,8 @@ def clear_the_defense_off_the_ball(match: MatchState) -> None:
         if player_id in match.visiting.field_players:
             match.move_meeple(
                 player_id,
-                Zone.VISITORS_GOAL,
-                match.board.layout.zone_spaces[Zone.VISITORS_GOAL] - 1,
+                Zone.VISITORS_ZONE,
+                match.board.layout.zone_spaces[Zone.VISITORS_ZONE] - 1,
             )
 
 
@@ -1583,7 +1583,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build("setup_pass", "steal", board_size=9)
         for player_id in list(match.home.field_players):
             if player_id != match.active_player_id:
-                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+                match.move_meeple(player_id, Zone.HOME_ZONE, 0)
 
         self.assertEqual(cog.engine.setup_pass_distances(match), [1, 3])
 
@@ -1598,7 +1598,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build("setup_pass", "steal", board_size=9)
         for player_id in list(match.home.field_players):
             if player_id != match.active_player_id:
-                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+                match.move_meeple(player_id, Zone.HOME_ZONE, 0)
         start = self.flat(match)
         cog.begin_loose_ball = mock.AsyncMock()
 
@@ -1670,7 +1670,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
             match.board.spaces[match.ball.zone][match.ball.space_index]
         ):
             if player_id != match.active_player_id:
-                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+                match.move_meeple(player_id, Zone.HOME_ZONE, 0)
 
         self.assertNotIn(0, cog.engine.setup_pass_distances(match))
 
@@ -1793,10 +1793,10 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build("setup_pass", "steal")
         for player_id in list(match.home.field_players):
             if player_id != match.active_player_id:
-                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+                match.move_meeple(player_id, Zone.HOME_ZONE, 0)
         match.move_meeple(
-            match.active_player_id, Zone.VISITORS_GOAL,
-            match.board.layout.zone_spaces[Zone.VISITORS_GOAL] - 1,
+            match.active_player_id, Zone.VISITORS_ZONE,
+            match.board.layout.zone_spaces[Zone.VISITORS_ZONE] - 1,
         )
         match.set_ball_space(
             *match.board.meeple_position(match.active_player_id)

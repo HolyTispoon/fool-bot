@@ -504,7 +504,7 @@ def run_back_space() -> PromptFixture:
     take_the_ball(match)
     stray = match.home.zones[Zone.MIDFIELD][0]
     match.board.remove_meeple(stray)
-    match.board.place_meeple(stray, Zone.VISITORS_GOAL, 0)
+    match.board.place_meeple(stray, Zone.VISITORS_ZONE, 0)
     match.pending_run_back = True
     game = build_game()
     _, candidates = ENGINE.next_run_back_step(game, match)
@@ -550,7 +550,7 @@ def _nobody_on_the_ball(match: MatchState) -> None:
     for player_id in list(match.board.spaces[match.ball.zone][
         match.ball.space_index
     ]):
-        match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+        match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
 
 
 def ball_recovery() -> PromptFixture:
@@ -854,10 +854,10 @@ def dribble_burst_with_nothing_to_ask() -> PromptFixture:
     # like a Deflect.
     fixture = _settled("dribble_burst", "deflect")
     match = fixture.match
-    last = match.board.layout.zone_spaces[Zone.VISITORS_GOAL] - 1
+    last = match.board.layout.zone_spaces[Zone.VISITORS_ZONE] - 1
     match.board.remove_meeple(match.active_player_id)
-    match.board.place_meeple(match.active_player_id, Zone.VISITORS_GOAL, last)
-    match.ball.zone = Zone.VISITORS_GOAL
+    match.board.place_meeple(match.active_player_id, Zone.VISITORS_ZONE, last)
+    match.ball.zone = Zone.VISITORS_ZONE
     match.ball.space_index = last
     fixture.ask = ""
     return fixture

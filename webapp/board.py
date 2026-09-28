@@ -63,14 +63,14 @@ from d12ball.render import (
 )
 
 #: The field left to right, which is the order the bot draws it in.
-ZONES = (Zone.HOME_GOAL, Zone.MIDFIELD, Zone.VISITORS_GOAL)
+ZONES = (Zone.HOME_ZONE, Zone.MIDFIELD, Zone.VISITORS_ZONE)
 
 #: Which end of the field each side defends, as `ZONES` draws it: the
 #: table's miniature field puts home and visiting at those ends, so
 #: "click the goal you want to defend" is the same goal the board draws.
 DEFENDED_ENDS = {
-    "home": "left" if ZONES[0] is Zone.HOME_GOAL else "right",
-    "visiting": "right" if ZONES[0] is Zone.HOME_GOAL else "left",
+    "home": "left" if ZONES[0] is Zone.HOME_ZONE else "right",
+    "visiting": "right" if ZONES[0] is Zone.HOME_ZONE else "left",
 }
 
 #: How wide the page draws a meeple on the field, in CSS pixels at the
@@ -550,9 +550,9 @@ def side_colour(match: MatchState, side: TeamSide) -> str:
 
 def _defender_colour(match: MatchState, zone: Zone) -> Optional[str]:
     """The colour of the side whose goal an end zone is in front of."""
-    if zone == Zone.HOME_GOAL:
+    if zone == Zone.HOME_ZONE:
         return TEAM_COLORS[match.home.team]
-    if zone == Zone.VISITORS_GOAL:
+    if zone == Zone.VISITORS_ZONE:
         return TEAM_COLORS[match.visiting.team]
     return None
 

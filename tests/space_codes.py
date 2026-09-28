@@ -20,9 +20,9 @@ from d12ball.formatting import space_label
 
 
 ZONES_BY_LETTER = {
-    "H": Zone.HOME_GOAL,
+    "H": Zone.HOME_ZONE,
     "M": Zone.MIDFIELD,
-    "V": Zone.VISITORS_GOAL,
+    "V": Zone.VISITORS_ZONE,
 }
 
 

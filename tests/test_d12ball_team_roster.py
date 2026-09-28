@@ -118,7 +118,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
 
         # Swap the two home-goal meeples' spaces; the roster follows
         # the board, so the listing order swaps with them.
-        zone = Zone.HOME_GOAL
+        zone = Zone.HOME_ZONE
         first, second = (
             player_id
             for player_id in match.home.field_players
@@ -142,7 +142,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
         cog = build_cog()
         match = self.build_match()
 
-        player_id = match.home.zones[Zone.HOME_GOAL][0]
+        player_id = match.home.zones[Zone.HOME_ZONE][0]
         match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
 
         places = dict(cog.engine.roster_places(match, match.home))

@@ -2341,9 +2341,9 @@ class CommandsMixin:
         options = [
             (value, destination_display_name(value, board_size))
             for value in (
-                Zone.HOME_GOAL.value,
+                Zone.HOME_ZONE.value,
                 Zone.MIDFIELD.value,
-                Zone.VISITORS_GOAL.value,
+                Zone.VISITORS_ZONE.value,
                 *BENCH_DESTINATIONS,
             )
         ]
@@ -2468,9 +2468,9 @@ class CommandsMixin:
             )
             for setup in (match.home, match.visiting)
             for target in (
-                Zone.HOME_GOAL.value,
+                Zone.HOME_ZONE.value,
                 Zone.MIDFIELD.value,
-                Zone.VISITORS_GOAL.value,
+                Zone.VISITORS_ZONE.value,
                 *BENCH_DESTINATIONS,
             )
         ]

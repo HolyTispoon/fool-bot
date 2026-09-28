@@ -185,9 +185,9 @@ def high_contrast_ink(color: str) -> str:
 
 
 ZONE_COLORS = {
-    Zone.HOME_GOAL: "#3b4859",
+    Zone.HOME_ZONE: "#3b4859",
     Zone.MIDFIELD: "#46554e",
-    Zone.VISITORS_GOAL: "#5b4d46",
+    Zone.VISITORS_ZONE: "#5b4d46",
 }
 def zone_labels(board_size: int) -> dict[Zone, str]:
     """
@@ -200,17 +200,17 @@ def zone_labels(board_size: int) -> dict[Zone, str]:
     """
     outer = "THIRD" if board_size == 9 else "ZONE"
     return {
-        Zone.HOME_GOAL: f"HOME {outer}",
+        Zone.HOME_ZONE: f"HOME {outer}",
         Zone.MIDFIELD: "MIDFIELD",
-        Zone.VISITORS_GOAL: f"VISITORS {outer}",
+        Zone.VISITORS_ZONE: f"VISITORS {outer}",
     }
 # The H1/M1/V1 space codes written in the corner of every space. Kept
 # in step with ZONE_LETTERS in cogs/d12ball_helpers.py, which is where
 # the same codes are built for button labels and prompts.
 ZONE_CODES = {
-    Zone.HOME_GOAL: "H",
+    Zone.HOME_ZONE: "H",
     Zone.MIDFIELD: "M",
-    Zone.VISITORS_GOAL: "V",
+    Zone.VISITORS_ZONE: "V",
 }
 
 
@@ -1822,8 +1822,8 @@ def draw_shooting_range_band(
     space_width = (right - left) / match.board.layout.board_size
     outer = zone_labels(match.board.layout.board_size)
     labels = {
-        1: f"{outer[Zone.HOME_GOAL]} - SHOOTING RANGE",
-        -1: f"{outer[Zone.VISITORS_GOAL]} - SHOOTING RANGE",
+        1: f"{outer[Zone.HOME_ZONE]} - SHOOTING RANGE",
+        -1: f"{outer[Zone.VISITORS_ZONE]} - SHOOTING RANGE",
     }
 
     for side, first, last in shooting_range_bands(match):

@@ -70,7 +70,7 @@ ANNOTATION_BAND = 240
 NOTE_LINE_HEIGHT = 46
 NOTE_MARGIN = 40
 
-ZONE_LETTERS = {"H": Zone.HOME_GOAL, "M": Zone.MIDFIELD, "V": Zone.VISITORS_GOAL}
+ZONE_LETTERS = {"H": Zone.HOME_ZONE, "M": Zone.MIDFIELD, "V": Zone.VISITORS_ZONE}
 
 
 def parse_space(code: str) -> tuple[Zone, int]:

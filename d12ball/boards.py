@@ -37,8 +37,8 @@ printed anywhere here.
 
 **Zones keep their real names on the field board**, which is where a
 card's zone is assigned now -- not the team board, which used to carry
-that too. A coach's own goal is the home goal for one of them and the
-visitors goal for the other, and the same field board is read by both,
+that too. A coach's own goal is the Home Goal for one of them and the
+Visitors Goal for the other, and the same field board is read by both,
 so the areas are labelled HOME ZONE / MIDFIELD / VISITORS ZONE exactly
 as the bot's coaching image labels them -- HOME THIRD / VISITORS THIRD
 on the 9-space board, the only one where the three areas (H/M/V) are
@@ -165,9 +165,9 @@ CARDS_PER_AREA = 3
 # screen; the same three hues at print weight keep a coach reading one
 # board as the other.
 ZONE_TINTS = {
-    Zone.HOME_GOAL: "#dde5f1",
+    Zone.HOME_ZONE: "#dde5f1",
     Zone.MIDFIELD: "#dfe9e0",
-    Zone.VISITORS_GOAL: "#f1e4d9",
+    Zone.VISITORS_ZONE: "#f1e4d9",
 }
 
 # The clock is one running count over both periods, and all three
@@ -819,7 +819,7 @@ def draw_attack_directions(
 ) -> None:
     """
     Which way each side is playing, over the half of the field it is
-    playing into. Home attacks the visitors goal, so its arrow runs to
+    playing into. Home attacks the Visitors Goal, so its arrow runs to
     the right and sits on the right of the board; the visitors' is the
     mirror of it.
     """
@@ -941,7 +941,7 @@ def kickoff_marks(layout: BoardLayout) -> dict[int, list[TeamSide]]:
     `kickoff_space_index` is that rule; this only places its answer on
     the whole board.
     """
-    before_midfield = layout.zone_spaces[Zone.HOME_GOAL]
+    before_midfield = layout.zone_spaces[Zone.HOME_ZONE]
     marks: dict[int, list[TeamSide]] = {}
     for side in TeamSide:
         flat = before_midfield + kickoff_space_index(
@@ -1358,8 +1358,8 @@ def draw_shooting_ranges(
     """
     outer = zone_labels(board.layout.board_size)
     labels = {
-        -1: f"{outer[Zone.VISITORS_GOAL]} - SHOOTING RANGE",
-        1: f"{outer[Zone.HOME_GOAL]} - SHOOTING RANGE",
+        -1: f"{outer[Zone.VISITORS_ZONE]} - SHOOTING RANGE",
+        1: f"{outer[Zone.HOME_ZONE]} - SHOOTING RANGE",
     }
     top = geometry.range_top
     bottom = geometry.range_bottom

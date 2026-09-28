@@ -753,7 +753,7 @@ class HalftimeEngineTests(unittest.TestCase):
         # in windows where the ball is elsewhere entirely.
         match = self.build_match()
         kickoff = match.kickoff_space_for(TeamSide.VISITING)
-        match.set_ball_space(Zone.HOME_GOAL, 0)
+        match.set_ball_space(Zone.HOME_ZONE, 0)
 
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.VISITING))
