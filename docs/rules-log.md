@@ -169,7 +169,15 @@ nobody named as holding it (Law 10.1: a Deflect, a pass that reaches nobody, a C
 Cross), the space settles it as it always has: a lone Telekinetic simply has it, one among
 teammates is their coach's pick, and one beside an opponent contests for it. **The High Pass
 contest is the same case**: the receiver has caught it but not kept it (10.4.1), so neither they
-nor a Telekinetic beside them may Smooth their way out of the contest. Written into 20.4.11,
+nor a Telekinetic beside them may Smooth their way out of the contest.
+
+**But a contest won is a ball held.** The author, on the same day: *"a player with smooth
+cannot avoid a contest but if a teammate wins a contest, the player with smooth can take over
+to handle the ball if they're sharing space."* So once a teammate wins a contest -- a loose
+ball, a shared landing space or a High Pass contest -- a Telekinetic on their space is offered
+the Smooth, after the contest's own injury checks. Not after a ball one side simply picked up
+with nobody contesting it: their coach chose who took it, so the offer would change nothing,
+which is where this entry started. Written into 20.4.11,
 with "a contest" taken out of 20.4.12's list of what a Smooth pre-empts and the species table's
 summary reworded. No number moved.
 
@@ -177,7 +185,9 @@ It is 20.4.11's own sentence -- *taking it over means taking it off somebody* --
 more: with nobody holding the ball there is nobody to take it off. Implemented as one early
 return in `RulesEngine.smooth_candidates` when `match.ball_carrier_id` is unset; every effect
 that hands the ball to somebody sets the carrier before the arrival gate is asked, so an unset
-carrier is exactly an unheld ball.
+carrier is exactly an unheld ball. The offer after a contest is
+`RulesEngine.smooth_candidates_after_contest`, asked by the injury queue as the contest hands
+on, off a `smooth_owed` key on the contest's resume.
 
 **Upstream.** The sheet's short text (*"teammate sharing space may handover ball handling"*)
 already says this. Its long text, *"the ball moves to your space"*, reads wider than the ruling
