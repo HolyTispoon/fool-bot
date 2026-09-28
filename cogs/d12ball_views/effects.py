@@ -877,9 +877,10 @@ class DribbleBurstChoiceView(SafeView):
     **Every button carries its price**, because the exhaustion is a
     token a space and that is the whole of what makes the shorter runs
     worth offering -- the same reasoning as RunBackChoiceView's
-    `M2 (4 spaces)` labels, where the distance *is* the cost.
+    `Space 4 (2 away)` labels, where the distance *is* the cost.
 
-    A handler already on the last space of the field never sees this:
+    A handler already on the last space before the goal zone never
+    sees this:
     resolve_dribble_burst applies a run of 0 without a prompt.
     """
 

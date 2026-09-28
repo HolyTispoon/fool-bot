@@ -2966,7 +2966,7 @@ class RulesEngine:
         self, game: D12BallGame, match: MatchState, distance: int,
     ) -> str:
         """
-        Where a burst of `distance` lands and what it costs -- "M3,
+        Where a burst of `distance` lands and what it costs -- "space 5,
         2 exhaustion" -- for the button offering it. The cost is named
         by what it is ("drain" for a Cyborg, `token_word_and_mark`),
         never as bare "tokens": the board carries other tokens too. Naming the destination
@@ -4189,7 +4189,7 @@ class RulesEngine:
         how far off each one is -- the question the buttons underneath
         ask, said once as a sentence.
 
-        It reads as the offer it is ("M2 (1 space away) or M3 (2 spaces
+        It reads as the offer it is ("space 4 (1 away) or space 5 (2
         away)") rather than as a list with a rule under it. The
         "Options:" heading labelled something already sitting in front
         of the coach, and the token-a-space clause restated a price the

@@ -229,3 +229,38 @@ The subject is spelled out for a related reason: "It comes down on an empty
 space" followed a sentence about a maneuver, so the pronoun read as the
 maneuver. Nothing in a result message should have to be resolved backwards
 through the message above it.
+
+## Naming a space
+
+**A space is named by its number from the home end** -- 1 to 7, or 1 to 9
+(Law 2.1.3). It began on 2026-09-23 as an experiment behind a switch, with the
+rules still naming spaces `H1`/`M2`/`V1`; the author kept it on 2026-09-28,
+and the switch and the letter form went. `d12ball/space_numbering.py`'s
+`flat_space_number` is the one answer, and it takes the board because the
+number counts the spaces of the zones to its left, which differ by board size.
+The model still holds a position as `(zone, space_index)`: the number is a
+name, never a rule, and nothing saved changed.
+
+- **In text a space is "space 4", never a bare "4"** (the author, 2026-09-25).
+  A bare number sat beside counts, distances, minutes and scores and could be
+  read as any of them: "Ball is now 3, ... Time has advanced 1, now at 37",
+  "2 spaces (4-Sizzifizik [PM])", "Advance 2 spaces (6)", "runs back to 3."
+  (which read as a distance, on a move charged by the space). So
+  `formatting.space_label` returns "space 4" everywhere a space is *written*
+  -- sentences, buttons, selects, image captions, the web app -- and only a
+  space's corner on the board image carries the bare number
+  (`render.space_code`), where nothing else is a number.
+- **It is lowercase** because it is mostly named mid-sentence;
+  `formatting.capitalized` raises it where it opens a label or a caption.
+- **The pieces that compose it with something else follow it**: a run back
+  reads "Space 4 (2 away)" on the button and "space 4 (2 away)" in the
+  sentence (`travel_space_label` / `travel_space_phrase`), a High Pass
+  "2 spaces (space 4, Sizzifizik [PM])", and a range "spaces 1-2" rather than
+  "space 1-space 2".
+- **The zone is still spelled out beside it** wherever it was before
+  ("**space 4** (Midfield)"), and the zones keep their names: the Home Zone,
+  midfield and the Visitors Zone (Thirds on board 9). The goal zones beyond
+  each end hold no spaces and never shift a number.
+- **A test may still spell a space `M2`** through `tests/space_codes.py`'s
+  `code`, because the letter form says which zone without counting and is the
+  same on both boards; what it checks is the bot's name for that space.

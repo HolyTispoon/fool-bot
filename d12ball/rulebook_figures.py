@@ -74,7 +74,9 @@ ZONE_LETTERS = {"H": Zone.HOME_ZONE, "M": Zone.MIDFIELD, "V": Zone.VISITORS_ZONE
 
 
 def parse_space(code: str) -> tuple[Zone, int]:
-    """`M2` -> (Zone.MIDFIELD, 1): the codes the living rules use."""
+    """`M2` -> (Zone.MIDFIELD, 1): a figure's own shorthand for a space,
+    which says the zone and is the same on both boards. What a figure
+    prints is the space's number, which the renderer draws."""
     return ZONE_LETTERS[code[0].upper()], int(code[1:]) - 1
 
 
@@ -279,15 +281,16 @@ def kickoff_figure(catalog: PlayerCatalog) -> Image.Image:
             Arrow("M1", "M3", "Home attacks this way", row=1),
         ],
         notes=[
-            "Home Zone (H1-H2), Midfield (M1-M3) and Visitors Zone (V1-V2). "
-            "Purple is home and attacks to the right; teal is the visitors and attacks to the left.",
+            "Home Zone (spaces 1-2), Midfield (spaces 3-5) and Visitors Zone (spaces 6-7), with a goal "
+            "zone beyond each end that only the ball reaches. Purple is home and attacks the Visitors "
+            "Goal on the right; teal is the visitors and attacks the Home Goal on the left.",
             "The kickoff space, with the ball on it. Both sides start in 2-2-2: two players in each zone, "
             "and the ball at speed 1 in home's hands.",
             "A meeple stands for a player card. The letters are the role (SK = Striker, FB = Fullback, "
             "DD = Defender, MF = Midfielder, PM = Playmaker, WG = Winger). The card itself, on the team board, "
             "carries the two skills: offensive and defensive, which always total 7.",
-            "The dashed edge under the field is shooting range: home may shoot from M3 onward, "
-            "the visitors from M1 back. The middle space belongs to neither.",
+            "The dashed edge under the field is shooting range: home may shoot from space 5 onward, "
+            "the visitors from space 3 back. The middle space belongs to neither.",
         ],
     )
     return scaled(sketch.render(catalog))
@@ -318,9 +321,9 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         markers=[Marker("V1", 1)],
         notes=[
             "Home played Dribble Advance and the visitors played Deflect. Dribble Advance beats Deflect on rank "
-            "alone, so nothing was rolled. The Playmaker carried the ball from M2 to V1 - two spaces, "
+            "alone, so nothing was rolled. The Playmaker carried the ball from space 4 to space 6 - two spaces, "
             "the Playmaker's own ability - and set its speed.",
-            "V1 is inside home's shooting range, so next turn a shot would be offered.",
+            "Space 6 is inside home's shooting range, so next turn a shot would be offered.",
         ],
     ))
 
@@ -337,16 +340,16 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         match=MatchState.from_dict(match.to_dict(), load_basic_ruleset()),
         arrows=[
             Arrow("V1", "M3", "Deflect: ball back 1"),
-            Arrow("V1", "M2", "Run back, 1 token", row=1),
+            Arrow("V1", "M2", "Run back, 2 tokens", row=1),
         ],
         markers=[Marker("M3", 1), Marker("M2", 2)],
         notes=[
             "Low Pass and Deflect are both rank 1, so they tie and go to a skill test: d12 + offensive skill "
             "against d12 + defensive skill, and a token to each. The visitors won it, and their Deflect knocked "
-            "the ball back one space to M3 - where their Midfielder was already standing. A ball that lands on "
+            "the ball back one space to space 5 - where their Midfielder was already standing. A ball that lands on "
             "one side's player is simply theirs: no roll, and never loose.",
-            "That is a turnover, so everybody outside their own zone runs back. Home's Playmaker walks from V1 "
-            "to M2 and exhausts 1 for the space.",
+            "That is a turnover, so everybody outside their own zone runs back. Home's Playmaker walks from space 6 "
+            "to space 4 and exhausts 2, one for each space.",
         ],
     ))
 
@@ -366,9 +369,9 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         ],
         markers=[Marker("V1", 1)],
         notes=[
-            "Nobody of home's was standing on the ball at M3, so home sent the nearest player to it - the "
-            "Playmaker from M2, one token for the one space. The visitors played Dribble Advance and home "
-            "played Pressure, which beats it: the handler and the ball are shoved back one space to V1, "
+            "Nobody of home's was standing on the ball at space 5, so home sent the nearest player to it - the "
+            "Playmaker from space 4, one token for the one space. The visitors played Dribble Advance and home "
+            "played Pressure, which beats it: the handler and the ball are shoved back one space to space 6, "
             "and the challenger moves forward onto them. Possession does not change.",
         ],
     ))
@@ -392,8 +395,8 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         markers=[Marker("M3", 1)],
         notes=[
             "The visitors played Low Pass and home played Steal, which beats it. Possession flips and the "
-            "ball's speed resets to 1; the stealer carries it one space back toward their own goal, to M3. "
-            "Then everyone outside their own zone runs back - the visitors' Midfielder to M3, two tokens - "
+            "ball's speed resets to 1; the stealer carries it one space back toward their own goal, to space 5. "
+            "Then everyone outside their own zone runs back - the visitors' Midfielder to space 5, two tokens - "
             "and the stealer sets the ball's speed by up to their defensive skill: 1 + 3 = 4, worth +2 on a shot.",
         ],
     ))
@@ -441,9 +444,9 @@ def score_attempt_figure(catalog: PlayerCatalog) -> Image.Image:
         markers=[Marker("M3", 1), Marker("V1", 2), Marker("V2", 2, offset=0), Marker("M2", 3)],
         notes=[
             "On the ball: the visitors' Midfielder adds their whole defensive skill, 4.",
-            "Between the ball and the goal: the Defender on V1 adds half of 5, rounded up to 3, and the "
-            "Fullback on V2 adds half of 6, which is 3. Halving is per player, so the two add 6 together.",
-            "Behind the ball: the Playmaker on M2 adds nothing. The attack is d12 + 4 (skill) + 2 (speed 4) "
+            "Between the ball and the goal: the Defender on space 6 adds half of 5, rounded up to 3, and the "
+            "Fullback on space 7 adds half of 6, which is 3. Halving is per player, so the two add 6 together.",
+            "Behind the ball: the Playmaker on space 4 adds nothing. The attack is d12 + 4 (skill) + 2 (speed 4) "
             "against d12 + 10, and equal totals score - so this is a shot to think twice about.",
         ],
     )

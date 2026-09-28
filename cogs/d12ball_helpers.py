@@ -32,7 +32,6 @@ from d12ball.formatting import (
     AI_OPPONENT_NAMES,
     HIGH_PASS_CONTEST_HEADLINE,
     BENCH_DESTINATIONS,
-    ZONE_LETTERS,
     address_coach,
     ball_location_line,
     build_full_time_summary,
@@ -86,9 +85,8 @@ CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)(?:-.*)?$")
 CHANNEL_NAME_MAX_LENGTH = 100
 PBD_GAMES_CATEGORY_NAME = "PBD Games"
 PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
-# ZONE_LETTERS and BENCH_DESTINATIONS are imported above from
-# d12ball.formatting, which is also where space_label -- the reader
-# of ZONE_LETTERS -- now lives. ROLE_INITIALS is not re-exported:
+# BENCH_DESTINATIONS is imported above from d12ball.formatting, which
+# is also where space_label now lives. ROLE_INITIALS is not re-exported:
 # `role_brackets` is its one reader outside the drawing modules,
 # and `player_with_role` is the only thing that should be building
 # a name out of it -- see "Naming a player" in docs/design/naming-and-wording.md.
@@ -904,7 +902,8 @@ class DiscordTokens:
 
 def space_choices(match: MatchState) -> list[tuple[str, str]]:
     """
-    (value, label) pairs for every board space, e.g. ("home_goal:0", "H1").
+    (value, label) pairs for every board space, e.g. ("home_goal:0",
+    "Space 1") -- the value keeps the zone's saved name.
     """
     return [
         (

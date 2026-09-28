@@ -30,10 +30,7 @@ from d12ball.components import (
     Zone,
 )
 from d12ball import tokens
-from d12ball.space_numbering import (
-    FLAT_SPACE_NUMBERING,
-    flat_space_number,
-)
+from d12ball.space_numbering import flat_space_number
 from d12ball.game import (
     AIOpponent, D12BallGame, GameMode, Team, team_display_name,
 )
@@ -46,13 +43,6 @@ ROLE_INITIALS = {
     "playmaker": "PM",
     "winger": "WG",
     "striker": "SK",
-}
-
-# Matches the H1/M1/V1-style space labels drawn on the board in render.py.
-ZONE_LETTERS = {
-    Zone.HOME_ZONE: "H",
-    Zone.MIDFIELD: "M",
-    Zone.VISITORS_ZONE: "V",
 }
 
 BENCH_DESTINATIONS = ("bench", "back_bench")
@@ -160,8 +150,8 @@ def format_team_side_label(setup) -> str:
 
 def space_label(zone: Zone, space_index: int, board=None) -> str:
     """
-    What a space is called in a sentence or on a button -- "H1", or
-    "space 1" while the numbering experiment is on.
+    What a space is called in a sentence or on a button -- "space 4",
+    its number counted from the home end (Law 2.1.3).
 
     The word goes with the number because a bare number sits beside
     counts, distances, minutes and scores everywhere a space is named
@@ -172,21 +162,17 @@ def space_label(zone: Zone, space_index: int, board=None) -> str:
     `capitalized`.
 
     `board` is the live `BoardState` (or a bare `BoardLayout` where
-    there is no game, as on the printed sheets), and it is read only
-    by the experiment, which needs the zone sizes to count across
-    them -- see `d12ball/space_numbering.py`. Passing nothing gives
-    the 7-space board's numbering. **Drop the parameter when the
-    experiment is reverted**; the letter form never needed it.
+    there is no game, as on the printed sheets): the number counts the
+    spaces of the zones to its left, which differ by board size -- see
+    `d12ball/space_numbering.py`. Passing nothing gives the 7-space
+    board's numbering.
     """
-    if FLAT_SPACE_NUMBERING:
-        return f"space {flat_space_number(zone, space_index, board)}"
-    return f"{ZONE_LETTERS[zone]}{space_index + 1}"
+    return f"space {flat_space_number(zone, space_index, board)}"
 
 
 def capitalized(text: str) -> str:
     """`text` with its first letter raised -- for a label or a sentence
-    that opens on a space's name ("space 4 - free"). A no-op on the
-    letter form, which is already a capital."""
+    that opens on a space's name ("space 4 - free")."""
     return text[:1].upper() + text[1:]
 
 
@@ -197,19 +183,14 @@ def travel_space_label(
     board=None,
 ) -> str:
     """
-    A destination with what reaching it costs -- "H1 (2 spaces)".
+    A destination with what reaching it costs -- "Space 1 (2 away)".
 
     A run back is charged a token a space, so the distance *is* the
     price, and a coach picking between the spaces of a zone is picking
     between prices. The number is on the button as well as in the
     sentence beside it, because the button is the thing being pressed.
     """
-    if FLAT_SPACE_NUMBERING:
-        return capitalized(
-            f"{space_label(zone, space_index, board)} ({distance} away)"
-        )
-    unit = "space" if distance == 1 else "spaces"
-    return f"{space_label(zone, space_index, board)} ({distance} {unit})"
+    return capitalized(travel_space_phrase(zone, space_index, distance, board))
 
 
 def travel_space_phrase(
@@ -220,31 +201,19 @@ def travel_space_phrase(
 ) -> str:
     """
     The same destination and the same price, worded for a sentence
-    rather than for a button -- "H1 (2 spaces away)".
+    rather than for a button -- "space 4 (3 away)". Both are built from
+    the same `distance`, so what the sentence offers and what the
+    button charges cannot drift apart; the button capitalises it.
 
-    The two differ by that one word and deliberately. A button is a
-    label, so it is as short as it can be and still name the price; the
-    line above the buttons is read as prose, and "2 spaces" there reads
-    as a quantity of spaces rather than as a distance. Both are built
-    from the same `distance`, so what the sentence offers and what the
-    button charges cannot drift apart.
-
-    Under the flat numbering both read "space 4 (3 away)": a bare
-    number beside a count of spaces ("4 (3 spaces)") is two numbers
-    with nothing to say which is the space, so the word goes on the
-    space and the count keeps only "away". The button capitalises it.
+    A bare number beside a count of spaces ("4 (3 spaces)") is two
+    numbers with nothing to say which is the space, so the word goes on
+    the space and the count keeps only "away".
     """
-    if FLAT_SPACE_NUMBERING:
-        return f"{space_label(zone, space_index, board)} ({distance} away)"
-    unit = "space" if distance == 1 else "spaces"
-    return (
-        f"{space_label(zone, space_index, board)} "
-        f"({distance} {unit} away)"
-    )
+    return f"{space_label(zone, space_index, board)} ({distance} away)"
 
 
 def ball_space_label(match: MatchState) -> str:
-    """Where the ball is standing, as a space code -- e.g. "M2"."""
+    """Where the ball is standing, as a space's name -- e.g. "space 4"."""
     return space_label(
         match.ball.zone, match.ball.space_index, match.board,
     )
@@ -503,9 +472,9 @@ HIGH_PASS_CONTEST_HEADLINE = (
 def ball_space_phrase(match: MatchState) -> str:
     """
     Where the ball is, as a phrase a sentence can be built around --
-    "**M2** (Midfield)".
+    "**space 4** (Midfield)".
 
-    The zone is spelled out beside the space code because "M2" alone
+    The zone is spelled out beside the space because "space 4" alone
     means nothing to anyone who is not already looking at the board.
     This is the half `ball_location_line` puts a sentence around, split
     out so a caller with a sentence of its own does not have to

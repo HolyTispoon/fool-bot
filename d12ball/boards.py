@@ -1109,7 +1109,7 @@ def draw_field_end_zone(
     the same direction.
 
     **The block below, from the "O"'s slot through the ball placement,
-    moves as one unit or not at all -- see "End zones" in
+    moves as one unit or not at all -- see "Goal zones" in
     docs/design/printed-boards.md.** Its coordinate math was verified
     empirically against Pillow's actual `rotate(90)`/`rotate(270)`
     output, not derived on paper; a sign error in it is silent, not a
