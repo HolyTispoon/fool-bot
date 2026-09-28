@@ -350,32 +350,127 @@ function drawTopic(state) {
   }, h("span", { class: "topic-text" }, state.game.topic), h("span", { class: "topic-pencil", "aria-hidden": "true" }, "✎")));
 }
 
+/* What the reader is here, in words -- the pill's, for the menu's head. */
+let youAre = "";
 function drawHeader(state) {
   el("channel").textContent = `pbw${state.game.number}`;
   drawTopic(state);
   const you = el("you");
   const room = state.room;
   const mine = room.seats.find((seat) => seat.yours);
+  const me = state.you.coach;
+  /* The reader's name first, then what they are here. */
+  const name = me ? [h("strong", { class: "pill-name" }, me.name), h("span", { class: "pill-sep" }, " · ")] : [];
   you.style.removeProperty("--pill-edge");
   if (room.role === "home" || room.role === "visiting") {
     const coach = state.game.coaches.find((one) => one.player_number === mine.number);
-    /* The lead words and the team's name are what a phone's top bar
-       leaves out: the seat and the team's emoji say it. */
+    /* The team's name is what a phone's top bar leaves out: the
+       team's emoji and the pill's edge say it. */
     you.replaceChildren(
-      h("span", { class: "pill-lead" }, "You are the "),
-      h("strong", {}, room.role === "home" ? "Home coach" : "Visitors coach"),
-      coach && coach.team ? h("span", { class: "pill-lead" }, " · ") : "",
+      ...name,
+      h("span", { class: "pill-seat" }, room.role === "home" ? "Home" : "Visitors", h("span", { class: "pill-long" }, " coach")),
+      coach && coach.team ? h("span", { class: "pill-sep pill-team" }, " · ") : "",
       coach && coach.team ? teamEmoji(coach.team_key, coach.team) : "",
       coach && coach.team ? h("strong", { class: "pill-team" }, coach.team) : "",
+      h("span", { class: "pill-caret", "aria-hidden": "true" }, "▾"),
     );
     if (coach && coach.colour) you.style.setProperty("--pill-edge", coach.colour);
+    youAre = [room.role === "home" ? "Home coach" : "Visitors coach", coach && coach.team].filter(Boolean).join(" · ");
   } else if (mine) {
-    you.replaceChildren(h("span", { class: "pill-lead" }, "You are "), h("strong", {}, mine.label));
+    youAre = mine.label;
+    you.replaceChildren(...name, h("span", { class: "pill-seat" }, mine.label),
+      h("span", { class: "pill-caret", "aria-hidden": "true" }, "▾"));
     you.style.setProperty("--pill-edge", GOLD);
   } else {
-    you.replaceChildren(h("span", { class: "pill-lead" }, "You are an "), "observer");
+    youAre = "Observer";
+    you.replaceChildren(...name, h("span", { class: "pill-seat" }, "Observer"),
+      h("span", { class: "pill-caret", "aria-hidden": "true" }, "▾"));
   }
   el("take-free-seat").hidden = Boolean(mine) || !room.seats.some((seat) => seat.free);
+  if (!el("you-menu").hidden) drawYouMenu(state);
+}
+
+/* The pill's menu (the author, 2026-09-27): everything the reader may
+   do to the room from anywhere in it -- take the free seat or leave
+   theirs, take a seat over as an admin who is watching (somebody's
+   own seat, from another device), kick the other seat, the admin role,
+   the link, and the way out (Close before kickoff, Abandon after).
+   Which of them is offered is the server's (`room.may_leave`,
+   `room.take_over`, `room.may_abandon`, the table's `may_close`);
+   each route judges again, and the record refuses with its sentence. */
+function drawYouMenu(state) {
+  const room = state.room;
+  const me = state.you.coach;
+  const mine = room.seats.find((seat) => seat.yours);
+  const item = (label, onclick, { danger = false, note = null } = {}) => h("button", {
+    type: "button",
+    class: `menu-item${danger ? " danger" : ""}`,
+    onclick: (event) => { closeYouMenu(); onclick(event); },
+  }, label, note ? h("span", { class: "menu-note" }, note) : null);
+  const held = (seat) => (seat.ai ? `${seat.name} (AI)` : seat.name);
+  const items = [];
+  if (!mine) {
+    const free = room.seats.find((seat) => seat.free);
+    if (free) items.push(item(`Take the free seat · ${free.label}`, () => roomMove("/seat/take", { seat: free.number })));
+    for (const number of room.take_over) {
+      const seat = room.seats.find((one) => one.number === number);
+      items.push(item(`Take over ${seat.label}`, () => {
+        if (confirm(`Are you sure? ${held(seat)} will lose ${seat.label}, and you will hold it.`)) {
+          roomMove("/seat/takeover", { seat: number });
+        }
+      }, { note: `from ${held(seat)}` }));
+    }
+  }
+  if (room.may_leave) {
+    items.push(item("Leave your seat", () => {
+      /* Mid-game the side waits, empty, for whoever takes it. */
+      if (!state.scoreboard || confirm(`Leave ${mine.label}? Your side waits for whoever takes the seat.`)) {
+        roomMove("/seat/leave");
+      }
+    }));
+  }
+  for (const seat of room.seats) {
+    if (seat.yours || !mayKick(seat, room)) continue;
+    items.push(item(`Kick ${held(seat)}`, () => kickSeat(seat), { note: seat.label }));
+  }
+  for (const number of room.ai_seats) {
+    const seat = room.seats.find((one) => one.number === number);
+    items.push(item("Put Dinky in the empty seat", () => roomMove("/seat/ai", { seat: number }), { note: seat.label }));
+  }
+  if (!mine && !room.admin && room.seats.some((seat) => seat.name)) {
+    items.push(h("p", { class: "menu-hint quiet" },
+      "Seated on another device? Become admin here, then take your seat over."));
+  }
+  items.push(h("div", { class: "me-divider", "aria-hidden": "true" }));
+  items.push(room.admin
+    ? item("Give up admin", dropAdmin)
+    : item("Become admin", becomeAdmin));
+  items.push(item("Copy the room's link", copyLink));
+  const table = state.table;
+  if (table && table.may_close) {
+    items.push(item("Close this room", () => {
+      if (!table.close_asks || confirm("Close this room? Nothing has been played in it.")) roomMove("", {}, "DELETE");
+    }, { danger: true }));
+  }
+  if (room.may_abandon) items.push(item("Abandon the game", abandonGame, { danger: true }));
+  el("you-menu").replaceChildren(
+    h("div", { class: "menu-head" },
+      h("strong", {}, me ? me.name : "You"),
+      h("span", { class: "quiet" }, youAre, room.admin ? " · admin" : "")),
+    ...items,
+  );
+}
+
+function openYouMenu() {
+  if (!current) return;
+  el("you-menu").hidden = false;
+  el("you").setAttribute("aria-expanded", "true");
+  drawYouMenu(current);
+}
+
+function closeYouMenu() {
+  el("you-menu").hidden = true;
+  el("you").setAttribute("aria-expanded", "false");
 }
 
 // -- The room -------------------------------------------------------------
@@ -431,7 +526,7 @@ function drawRoom(state) {
      record refuses one that is, and the route refuses anybody unseated,
      an admin included). Before kickoff the table's "Close this room" is
      the one way out, so the two are never offered together. */
-  el("abandon").hidden = !(seated && state.scoreboard && state.game.status !== "finished");
+  el("abandon").hidden = !room.may_abandon;
 }
 
 // -- A finished game's numbers --------------------------------------------
@@ -3250,7 +3345,10 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     press(keyed[0]);
   } else if (event.key === "Escape") {
-    if (draftedAny()) {
+    if (!el("you-menu").hidden) {
+      closeYouMenu();
+      el("you").focus();
+    } else if (draftedAny()) {
       clearDrafts();
     } else if (picked) {
       pick(null);
@@ -3262,10 +3360,15 @@ document.addEventListener("keydown", (event) => {
     }
   }
 });
-el("abandon").addEventListener("click", () => {
+function abandonGame() {
   if (confirm("Are you sure? The game ends here with no result. The room, its board and its log are kept.")) {
     roomMove("/abandon");
   }
+}
+el("abandon").addEventListener("click", abandonGame);
+el("you").addEventListener("click", () => (el("you-menu").hidden ? openYouMenu() : closeYouMenu()));
+document.addEventListener("click", (event) => {
+  if (!el("you-menu").hidden && !el("you-menu").contains(event.target) && !el("you").contains(event.target)) closeYouMenu();
 });
 function becomeAdmin() {
   if (confirm("Take the admin role for this room?")) roomMove("/admin");

@@ -13,7 +13,7 @@
       <div class="topbar-title">
         <!-- Back to the front door: this reader's rooms, and where the
              name is changed or the app left (webapp/static/index.html). -->
-        <a href="/" class="back" title="The Master Lobby: your rooms">&lsaquo; Master Lobby</a>
+        <a href="/" class="back" title="The Master Lobby: your rooms">&lsaquo; <span class="back-master">Master </span>Lobby</a>
         <span class="topbar-divider" aria-hidden="true"></span>
         <!-- The room's number and its topic, on one baseline. -->
         <span class="room-title">
@@ -21,11 +21,16 @@
           <span id="topic" class="topic"></span>
         </span>
       </div>
-      <div class="topbar-end">
-        <!-- Who this reader is here, as one pill: the seat before the
-             toss, the side and its team after it, or watching. -->
-        <span id="you" class="you-pill"></span>
+      <div class="topbar-end me">
         <button type="button" class="btn small" id="take-free-seat" hidden>Take the free seat</button>
+        <!-- Who this reader is here, as one pill: their name, and the
+             seat before the toss, the side and its team after it, or
+             watching. A click opens the room's menu under it -- the
+             seat left or taken over, a kick, the admin role, the game
+             abandoned (app.js, drawYouMenu). -->
+        <button type="button" id="you" class="you-pill" title="You in this room"
+                aria-haspopup="true" aria-expanded="false" aria-controls="you-menu"></button>
+        <div id="you-menu" class="me-menu panel you-menu" hidden></div>
       </div>
     </header>
 

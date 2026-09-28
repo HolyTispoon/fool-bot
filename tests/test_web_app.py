@@ -2074,6 +2074,74 @@ class RoomTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(state["prompt"]["kind"], before.value)
         self.assertTrue(state["entries"])
 
+    async def test_a_coach_on_another_device_takes_their_seat_over(self) -> None:
+        """The author, 2026-09-27: seated in a game on one device, the
+        same person opens it on another -- a stranger to the room, who
+        watches. They see it in the Master Lobby's full rooms, become
+        its admin, and take the seat over in one move; nobody else may."""
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        self.kick_off(room)
+
+        listed = await self.rooms(self.PHONE)
+        self.assertEqual(listed["open"], [])
+        self.assertEqual([one["id"] for one in listed["full"]], [room])
+        watching = await self.arrive(room, self.PHONE)
+        self.assertEqual(watching["room"]["role"], "observer")
+        self.assertEqual(watching["room"]["take_over"], [])
+
+        refused = await self.move(room, self.PHONE, "/seat/takeover", {"seat": 1})
+        self.assertEqual(refused.status, 403)
+        self.assertEqual(self.games[room].player_1_id, self.CREATOR)
+
+        made = await self.move(room, self.PHONE, "/admin")
+        self.assertEqual((await made.json())["room"]["take_over"], [1, 2])
+        taken = await self.move(room, self.PHONE, "/seat/takeover", {"seat": 1})
+        state = await taken.json()
+
+        self.assertEqual(taken.status, 200)
+        self.assertEqual(state["you"]["player_number"], 1)
+        self.assertEqual(state["room"]["take_over"], [])
+        self.assertTrue(state["room"]["may_leave"])
+        self.assertTrue(state["room"]["may_abandon"])
+        self.assertEqual(self.games[room].player_2_id, self.SECOND)
+        # The seat's old holder watches now, and finds the room among
+        # the full ones rather than their own.
+        self.assertEqual(
+            [one["id"] for one in (await self.rooms(self.CREATOR))["full"]], [room],
+        )
+
+        # A seated admin takes nothing over: they would hold two seats.
+        await self.move(room, self.SECOND, "/admin")
+        twice = await self.move(room, self.SECOND, "/seat/takeover", {"seat": 1})
+        self.assertEqual(twice.status, 409)
+
+    async def test_a_seat_is_left_from_the_master_lobby(self) -> None:
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        self.kick_off(room)
+
+        card = (await self.rooms(self.SECOND))["mine"]["in_progress"][0]
+        self.assertTrue(card["may_leave"])
+        left = await self.move(room, self.SECOND, "/seat/leave")
+
+        self.assertEqual(left.status, 200)
+        self.assertIsNone(self.games[room].player_2_id)
+        listed = await self.rooms(self.SECOND)
+        self.assertEqual([one["id"] for one in listed["open"]], [room])
+
+    async def test_a_finished_room_is_its_coaches_alone(self) -> None:
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        self.kick_off(room)
+        self.service.abandon(room)
+
+        stranger = await self.rooms(self.THIRD)
+        coach = await self.rooms(self.SECOND)
+
+        self.assertEqual((stranger["open"], stranger["full"]), ([], []))
+        self.assertFalse(coach["mine"]["finished"][0]["may_leave"])
+
     async def test_an_admin_gives_the_role_up(self) -> None:
         room = await self.open_room()
         made = await self.move(room, self.CREATOR, "/admin")

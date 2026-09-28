@@ -1384,7 +1384,22 @@ button.goal { display: block; }
   .topbar-title, .room-title, .topic { min-width: 0; overflow: hidden; }
   .topic .topic-field { width: 150px; }
   .you-pill { padding: 4px 10px; font-size: 12px; gap: 6px; }
-  .you-pill .pill-lead, .you-pill .pill-team { display: none; }
+  button.you-pill { font-size: 12px; }
+  .you-pill .pill-team, .you-pill .pill-long { display: none; }
+  /* The name truncates but never vanishes; the title gives way first. */
+  .you-pill .pill-name { flex: 0 1 auto; min-width: 3.5em; max-width: 26vw; }
+  .you-pill { padding: 4px 8px; gap: 4px; }
+  /* The bar is the room's number, its topic and the pill; the free
+     seat is in the pill's menu. */
+  #take-free-seat { display: none; }
+  .topbar { gap: 8px; }
+  /* The title takes what the pill leaves -- at least half the bar, so
+     the room's number and a stub of its topic stay: before kickoff the
+     topic is where the game is renamed, so it is cut short and never
+     cut away. */
+  .topbar-title { flex: 1 1 0; }
+  .topbar-title .room-title { flex: 1 1 auto; }
+  .topbar-end.me { flex: 0 1 auto; min-width: 0; max-width: 48%; }
 
   .board-panel { order: 2; flex: none; padding: 0; background: none; border: 0; }
   .benches { margin-top: 6px; gap: 6px; padding: 6px; flex-direction: column; }
@@ -1451,6 +1466,7 @@ button.goal { display: block; }
 @media (max-width: 960px) and (orientation: portrait) {
   :root { --topbar: 44px; }
   .topbar { padding: 0 12px; background: var(--deep); border-bottom-color: var(--line); }
+  .back-master { display: none; }
 
   /* One line: the teams and the score, the minute and the half, and
      the ball's d12 beside the side that has it. The coaches, the track
@@ -1611,6 +1627,7 @@ button.goal { display: block; }
      and scrolls in itself: the log opens on its latest lines. */
   .pane { flex: none; height: calc(100dvh - var(--topbar) - 56px); overflow-y: auto; }
   .topbar-title .back { font-size: 13px; }
+  .back-master { display: none; }
 
   /* The jumbotron, laid over the middle of the top bar as one line. */
   .jumbotron {
@@ -2019,6 +2036,37 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
   white-space: nowrap;
 }
 .you-pill strong { color: var(--strong); font-weight: 700; }
+/* The pill is the room menu's button: the reader's name, what they are
+   here, and a caret. The name gives way first on a narrow bar. */
+button.you-pill { font: inherit; font-size: 13px; cursor: pointer; max-width: 100%; min-width: 0; }
+button.you-pill:hover { background: var(--field); }
+button.you-pill:focus-visible { outline: 2px solid var(--link); }
+.you-pill .pill-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.you-pill .pill-seat, .you-pill .emoji, .you-pill .pill-caret { flex: none; }
+.you-pill .pill-sep { white-space: pre; flex: none; }
+.you-pill .pill-caret { color: var(--muted); font-size: 11px; margin-left: 2px; }
+.you-menu { gap: 2px; padding: 8px; width: min(320px, calc(100vw - 24px)); }
+.you-menu .menu-head {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 10px 10px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--deep);
+  overflow-wrap: anywhere;
+}
+.you-menu .menu-head strong { color: var(--strong); }
+.you-menu .me-divider { margin: 6px 0; }
+.menu-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; padding: 8px 10px; border: 0; border-radius: 6px;
+  background: none; color: var(--text); font: inherit; font-size: 14px;
+  text-align: left; cursor: pointer;
+}
+.menu-item:hover, .menu-item:focus-visible { background: var(--field); color: var(--strong); outline: none; }
+.menu-item.danger { color: var(--red); }
+.menu-item.danger:hover, .menu-item.danger:focus-visible { background: var(--red); color: var(--strong); }
+.menu-note { color: var(--faint); font-size: 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-item { overflow-wrap: anywhere; }
+.menu-item:hover .menu-note { color: var(--muted); }
+.menu-hint { margin: 4px 10px; font-size: 12px; }
 
 @media (max-width: 960px) {
   .seat-cards { flex-direction: column; }
@@ -2149,6 +2197,9 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
 .room-card:hover, .room-card:focus-visible { border-color: var(--muted); }
 .room-card.your-move { border-color: var(--gold); }
 .card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+/* A card's links stay one word each; on a phone they wrap as a row. */
+.card-head { flex-wrap: wrap; row-gap: 4px; }
+.card-head .linkish { white-space: nowrap; }
 .card-number { font-family: "Goal", sans-serif; font-size: 17px; color: var(--strong); white-space: nowrap; }
 .card-number .hash { font-size: inherit; color: var(--muted); }
 .card-topic { font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
