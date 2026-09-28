@@ -517,8 +517,11 @@ from one is a 403.
 **Its shape is row 1 of the design canvas** (step 9 of
 [../web-app-redesign.md](../web-app-redesign.md)). Before kickoff the
 jumbotron and the board give way to it, since there is no match to
-draw yet, and the in-game room panel gives way to its seat cards and
-its sideline.
+draw yet, and its seat cards and its sideline are the room. After
+kickoff there is no room panel: the jumbotron names each side's coach,
+the pill's menu holds every move on the room, and its head says how
+many are watching (the author, 2026-09-28 -- the panel above the
+benches only repeated the menu).
 
 - **Two seat cards**: the label, the holder's name large (or "Empty
   seat · click to sit"), YOU and AI chips, the picked team's line, and
