@@ -36,9 +36,10 @@ frontend's to decide (principle 8):
   two things on the board, the one picked up (`first`) and the one it
   is put on (`place`), so the pair is the page's way of choosing a
   control the options listed, never a move of its own.
-- **A prompt carries its picture** where the cog posts a matchup with
-  the same question (`PROMPT_PICTURES`) -- the shot and the challenge.
-  The kind is the key; the drawing is `webapp/pictures.py`'s.
+- **A prompt carries its situation** where the cog posts a matchup
+  with the same question (`SITUATIONS`) -- the shot and the challenge
+  -- as the brief's words and the players' portraits for the page to
+  lay out, where the cog posts a PNG. The kind is the key.
 - **What a coach may not see is not sent.** A maneuver pick and a
   shootout order are secret (the model says so in the ask itself), so
   the rows for a side this viewer does not coach are left out of the
@@ -50,12 +51,14 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 from d12ball import stats, tokens
 from d12ball.components import (
     MANEUVER_TIER_GAMBIT,
+    SPECIES_CYBORG,
+    SPECIES_FIRE_DEMON,
     MatchState,
     PlayerRole,
     TeamSide,
@@ -65,6 +68,7 @@ from d12ball.engine import RulesEngine
 from d12ball.formatting import (
     capitalized,
     coach_name,
+    player_with_role,
     role_brackets,
     space_label,
     travel_space_label,
@@ -78,7 +82,24 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball.prompts import PendingPrompt, PromptKind, asked_sides
-from webapp import pictures
+from d12ball.dice_brief import (
+    challenge_side,
+    maneuver_challenge_brief,
+    score_attempt_brief,
+)
+from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
+from d12ball.personal_abilities import PersonalAbility
+from d12ball.player_cards import species_ability
+from d12ball.render import (
+    CHALLENGE_BAND_FULL,
+    CHALLENGE_BAND_HALF,
+    CHALLENGE_TITLE,
+    SCORE_ATTEMPT_TITLE,
+    SCORE_ATTEMPT_UNDEFENDED,
+    TEAM_COLORS,
+    ChallengeSide,
+    zone_labels,
+)
 
 
 #: What the page calls each of a turn's three actions, and each of the
@@ -2136,37 +2157,811 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
 }
 
 
-#: The picture a prompt is asked over, by its kind: the two matchups
-#: the cog posts with the same question -- the shot's composition over
-#: its roll (`D12Ball.begin_score_attempt`), and the challenge over the
-#: maneuver pick, which on Discord sits directly on top of it
-#: (`announce_maneuver_challenge`). A kind not here has no picture.
-#:
-#: **Deliberately not the field strip or the coach's half-field**
-#: (the author, 2026-09-26): the page's board is beside the prompt, so
-#: a coach can see the field. And nothing here goes in the log.
-#:
-#: Each is the position's picture and holds nobody's hand, so it is
-#: the same for a coach and an observer.
-PROMPT_PICTURES: Mapping[PromptKind, Callable[..., bytes]] = {
-    PromptKind.SCORE_ATTEMPT: pictures.score_attempt_png,
-    PromptKind.MANEUVER_ACTION: pictures.challenge_png,
+# -- The situation ----------------------------------------------------------
+#
+# The matchup a question is asked over, where the cog posts one with it:
+# the shot's composition over its roll (`D12Ball.begin_score_attempt`),
+# and the challenge over the maneuver pick (`announce_maneuver_challenge`).
+# On Discord each is a PNG. **The page draws it itself** (the author,
+# 2026-09-28): the same brief the PNG is drawn from --
+# `dice_brief.maneuver_challenge_brief` and `score_attempt_brief` -- as
+# words and portraits on the page's own background, in a window of its
+# own above the question box. The numbers are the brief's and so the
+# game's; how they are laid out, like the PNG's, is the frontend's.
+#
+# **Deliberately not the field strip or the coach's half-field**
+# (the author, 2026-09-26): the page's board is beside the prompt, so
+# a coach can see the field. And nothing here goes in the log.
+#
+# Each is the position's and holds nobody's hand, so it is the same for
+# a coach and an observer.
+
+
+@dataclass(frozen=True)
+class Bearing:
+    """
+    What bears on one part of a roll -- the player rolling a skill test's
+    attack, a shot's wall, the one rolling an injury check: the species
+    whose ability reaches it, the personal abilities that act on it, and
+    the skill it adds, if any. **Which reminder goes with which roll,
+    never whether an ability fires**: whether a player holds one is
+    `has_species_ability` / `has_personal_ability`, asked below.
+    """
+
+    species: tuple[str, ...] = ()
+    personal: frozenset = frozenset()
+    skill: Optional[str] = None
+
+
+def _situation_player(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    side: Optional[ChallengeSide],
+    bearing: Bearing = Bearing(),
+) -> dict:
+    """One portrait in the situation: who, what they add, whether it is
+    half of their skill (a shot's defender off the ball) -- the last
+    three `None` for a roll nobody contests -- and the abilities that
+    bear on it (`_abilities`)."""
+    return {
+        "id": player_id,
+        "label": render_text(
+            game,
+            engine.format_player_label(
+                match, engine.get_player_definition(player_id),
+            ),
+        ),
+        # Plain, for the line that says whose an ability is in a wall.
+        "short": player_with_role(engine.get_player_definition(player_id)),
+        "portrait": f"/api/game/{game.game_id}/portrait/{player_id}.png",
+        "value": None if side is None else side.value,
+        "skill": None if side is None else side.skill,
+        "halved": False if side is None else side.halved,
+        "abilities": _abilities(engine, game, player_id, bearing),
+    }
+
+
+#: The personal abilities any roll a Cyborg makes can carry: Voltus's
+#: cheap Overdrive and Gearclaw's Boost, spent on the die (Law 21).
+_ON_THE_DIE = frozenset({
+    PersonalAbility.CHEAP_OVERDRIVE, PersonalAbility.BOOST,
+})
+#: The ignites a Fire Demon's own die can carry in a skill test and on
+#: a shot -- Blazebulk's, Sizzifizik's, Brightburn's burn (Law 21).
+_IGNITES = frozenset({
+    PersonalAbility.ALWAYS_BLAZES, PersonalAbility.WIDE_IGNITION,
+    PersonalAbility.BRIGHT_BURN,
+})
+
+#: What bears on each part of each roll the situation is asked over
+#: (the author, 2026-09-28: only what applies to the roll). Volatile
+#: reaches a skill test and the shooter's die, never an injury check or
+#: an own-goal roll (Law 20.2.3); Overdrive any d12 a Cyborg rolls (Law
+#: 20.3.5). A personal ability is here where it changes the roll's
+#: number, whether it is rolled, or what winning it means -- and on the
+#: maneuver challenge also what a maneuver does once it has won, since
+#: the coach is choosing one there (the author, 2026-09-28): Emberdash's
+#: dribble, Vorix's set-up and Acidel's pressure, each on the attack
+#: alone. Quantor's run on is never here: it is for a teammate's pass,
+#: so it does not apply to a roll Quantor is in (the author,
+#: 2026-09-28). Bulwark's drain threshold applies to every roll he is
+#: in (`ALWAYS_BEARS`). Zorch
+#: adds the speed modifier to every roll but the shot, which adds it
+#: already (`speed_roll_bonus`). Merge is not here: it is a number
+#: another player adds, the model's own line in the side's modifiers
+#: (`merge_bonus`); and a Mind Pull is the Telekinetics' ability
+#: already, which the window says.
+#: The personal abilities named on every roll the player is in: Bulwark
+#: is only Drained at 10, which is what his tokens mean on any of them
+#: (the author, 2026-09-28).
+ALWAYS_BEARS = frozenset({PersonalAbility.HIGH_DRAIN_THRESHOLD})
+
+BEARINGS: Mapping[str, Bearing] = {
+    "skill_test_attack": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {
+            PersonalAbility.OVERDRIVE_UPGRADE,
+            PersonalAbility.OFFENSIVE_GAMBITS,
+            PersonalAbility.FORCES_THE_TEST,
+            PersonalAbility.DEFENSIVE_THROW,
+            PersonalAbility.SPEED_ROLLS,
+            # What an attacking card does once won -- the dribble, the
+            # High Pass, the Pressure into the goal zone -- since the
+            # coach is choosing it (the author, 2026-09-28).
+            PersonalAbility.FREE_BURST,
+            PersonalAbility.LONG_SET_UP,
+            PersonalAbility.PRESSURE_SHOT,
+        },
+        "offense",
+    ),
+    "skill_test_defence": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {
+            PersonalAbility.OVERDRIVE_UPGRADE,
+            PersonalAbility.DEFENSIVE_GAMBITS,
+            PersonalAbility.FORCES_THE_TEST,
+            PersonalAbility.SPEED_ROLLS,
+        },
+        "defense",
+    ),
+    # A contest for the ball -- a loose ball's, or a long High Pass's:
+    # the same dice as a skill test's, and Slitheron's win without one
+    # is the reason there was no roll when a contest is skipped.
+    "contest_attack": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {
+            PersonalAbility.SPEED_ROLLS, PersonalAbility.WINS_CONTESTS,
+        },
+        "offense",
+    ),
+    "contest_defence": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {
+            PersonalAbility.SPEED_ROLLS, PersonalAbility.WINS_CONTESTS,
+        },
+        "defense",
+    ),
+    # A scoring opportunity offered off a pass: whatever bears on the
+    # shot, and the ability that offered it (Zytheris).
+    "set_up": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {
+            PersonalAbility.CLEAR_SHOT, PersonalAbility.SHOOTS_OFF_ANY_PASS,
+        },
+        "offense",
+    ),
+    "shot_attack": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {PersonalAbility.CLEAR_SHOT},
+        "offense",
+    ),
+    "shot_defence": Bearing(
+        (), frozenset({PersonalAbility.FULL_BLOCK}), "defense",
+    ),
+    "injury": Bearing(
+        (SPECIES_CYBORG,),
+        _ON_THE_DIE | {
+            PersonalAbility.INJURY_IGNITION, PersonalAbility.SPEED_ROLLS,
+        },
+    ),
+    "own_goal": Bearing(
+        (SPECIES_CYBORG,),
+        _ON_THE_DIE | {
+            PersonalAbility.DEFENSIVE_THROW, PersonalAbility.SPEED_ROLLS,
+        },
+        "offense",
+    ),
+    "mind_pull": Bearing(
+        (),
+        frozenset({
+            PersonalAbility.STRONG_PULL, PersonalAbility.FREE_PULL,
+            PersonalAbility.ADJACENT_PULL,
+        }),
+    ),
 }
 
 
-def prompt_picture_key(
-    prompt: Optional[PendingPrompt], match: Optional[MatchState],
-) -> Optional[str]:
+def _abilities(
+    engine: RulesEngine,
+    game: D12BallGame,
+    player_id: str,
+    bearing: Bearing,
+) -> list[dict]:
     """
-    What a prompt's picture depends on beyond the position, for its
-    URL, or `None` where the prompt has none: the kind, and for the
-    maneuver pick the challenger -- the picture is of them, and an
-    uncontested maneuver has nobody to draw.
+    What a player brings to this roll beyond their skill (the author,
+    2026-09-28): their species' ability where it reaches the roll and
+    the game plays it, in the sheet's own short words (`species.json`,
+    never shortened here), and in an advanced game their personal
+    ability where it applies to the roll (`_personal_bears`), as the
+    advanced face of their card prints it (`personal_ability_text`).
     """
-    if prompt is None or match is None or prompt.kind not in PROMPT_PICTURES:
+    notes = []
+    for kind in bearing.species:
+        if not engine.has_species_ability(game, player_id, kind):
+            continue
+        entry = species_ability(kind)
+        if entry.get("ability_short"):
+            notes.append({
+                "kind": "species",
+                "species": kind,
+                "name": entry.get("name", ""),
+                "text": entry["ability_short"],
+            })
+    personal = engine.personal_ability_text(game, player_id)
+    if personal and _personal_bears(engine, game, player_id, bearing):
+        # "Special ability", the author's word for it on the page
+        # (2026-09-28); the Law calls it a personal ability.
+        notes.append({
+            "kind": "personal", "name": "Special ability", "text": personal,
+        })
+    return notes
+
+
+def _personal_bears(
+    engine: RulesEngine,
+    game: D12BallGame,
+    player_id: str,
+    bearing: Bearing,
+) -> bool:
+    """Whether a player's personal line applies to this roll: an ability
+    the bearing names, or -- for the players whose line is an advanced
+    skill score ("High defensive skill.") -- a raised score in the skill
+    this roll adds, read as the game plays it against the role's."""
+    if any(
+        engine.has_personal_ability(game, player_id, ability)
+        for ability in bearing.personal | ALWAYS_BEARS
+    ):
+        return True
+    if bearing.skill is None:
+        return False
+    return (
+        engine.skills(game, player_id).of(bearing.skill)
+        != engine.skills(None, player_id).of(bearing.skill)
+    )
+
+
+def _merged(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    side: dict,
+    team_side: TeamSide,
+    rolling: Sequence[str],
+    skill: str,
+) -> dict:
+    """A side with what its Oozes on the ball add by Merge (Law 20.5),
+    in `merge_bonus`'s own lines -- the ones the dice list it under."""
+    _, lines, _ = engine.merge_bonus(game, match, team_side, rolling, skill)
+    side["modifiers"] = [*side["modifiers"], *lines]
+    return side
+
+
+def _situation_side(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    team: Team,
+    players: Sequence[tuple[str, ChallengeSide]],
+    with_ability: bool,
+    empty: str = "",
+    bearing: Bearing = Bearing(),
+) -> dict:
+    """
+    One side of the matchup, worded as the PNG words it
+    (`render.group_text_lines`): one player reads as themselves -- the
+    skill they roll on, any modifier this attempt earns, their ability
+    -- and several as a wall, their contributions added up, because
+    that sum is the only number the roll uses.
+    """
+    sides = [side for _, side in players]
+    if not sides:
+        skill = ""
+    elif len(sides) == 1:
+        only = sides[0]
+        halved_from = f" (half of {only.skill})" if only.halved else ""
+        skill = f"{only.skill_name} skill +{only.value}{halved_from}"
+    else:
+        terms = " + ".join(str(side.value) for side in sides)
+        skill = (
+            f"{sides[0].skill_name} skill: {terms}"
+            f" = {sum(side.value for side in sides)}"
+        )
+    return {
+        "team": team_display_name(team),
+        "colour": TEAM_COLORS[team],
+        "players": [
+            _situation_player(engine, game, match, player_id, side, bearing)
+            for player_id, side in players
+        ],
+        "skill": skill,
+        "modifiers": list(sides[0].modifiers) if len(sides) == 1 else [],
+        "ability": (
+            sides[0].ability
+            if with_ability and len(sides) == 1 and sides[0].ability
+            else None
+        ),
+        # What a wall's two badges mean, in the PNG's own band labels
+        # (`render.CHALLENGE_BAND_FULL`, `CHALLENGE_BAND_HALF`): those
+        # the wall has, whole skills first.
+        "bands": [
+            {"halved": halved, "text": text}
+            for halved, text in (
+                (False, CHALLENGE_BAND_FULL[0]), (True, CHALLENGE_BAND_HALF[0]),
+            )
+            if len(sides) > 1 and any(side.halved == halved for side in sides)
+        ],
+        "empty": empty if not sides else None,
+    }
+
+
+def _where(match: MatchState, zone: Zone, space_index: int) -> str:
+    """A space as the matchup images caption it: "Space 4 — Midfield"
+    (`dice_brief.maneuver_challenge_brief`)."""
+    return capitalized(
+        f"{space_label(zone, space_index, match.board)}"
+        f" — {zone_labels(match.board.layout.board_size)[zone].title()}"
+    )
+
+
+def _player_where(match: MatchState, player_id: str) -> str:
+    zone, space_index = match.board.meeple_position(player_id)
+    return _where(match, Zone(zone), space_index)
+
+
+def _roller(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    line: str,
+    modifiers: Sequence[str] = (),
+    bearing: Bearing = Bearing(),
+) -> dict:
+    """
+    The one side of a roll nobody rolls against -- an injury check, an
+    own-goal roll, a Mind Pull: who rolls, the line that says what they
+    bring to it, and anything declared on it (an Overdrive, a Boost,
+    Zorch's speed), in the shape `_situation_side` hands a matchup's.
+    """
+    team = match.team_for_player(player_id)
+    return {
+        "team": team_display_name(team),
+        "colour": TEAM_COLORS[team],
+        "players": [
+            _situation_player(
+                engine, game, match, player_id, None, bearing,
+            ),
+        ],
+        "skill": line,
+        "modifiers": list(modifiers),
+        "ability": None,
+        "bands": [],
+        "empty": None,
+    }
+
+
+def _declared(
+    engine: RulesEngine, game: D12BallGame, match: MatchState, player_id: str,
+) -> tuple[int, list[str]]:
+    """What is already added to this player's next roll, and the lines
+    the dice list it under -- `overdrive_details` and Zorch's
+    `speed_roll_bonus`, the two every one of these rolls adds."""
+    speed, speed_line = engine.speed_roll_bonus(game, match, player_id)
+    return (
+        match.overdrive_modifier(player_id) + speed,
+        [*engine.overdrive_details(match, player_id), *filter(None, [speed_line])],
+    )
+
+
+def _roll(
+    dice: int, target: int, added: int, rule: str, otherwise: str,
+) -> dict:
+    """
+    What a roll needs, for the die the page draws beside the roller:
+    how many d12 (the higher kept of two), the lowest total that does
+    it, the face that total asks of the die once everything declared
+    is added -- `face`, clamped to a die's faces -- and what each way
+    it goes means.
+    """
+    face = target - added
+    return {
+        "dice": dice,
+        "target": target,
+        "face": min(max(face, 1), 12),
+        "certain": face <= 1,
+        "impossible": face > 12,
+        "rule": rule,
+        "otherwise": otherwise,
+    }
+
+
+def _injury_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    An injury check (Law 15.3): the player, the tokens they carry, and
+    the total that beats them -- `injury_test_target`, the number the
+    check compares against. A Cyborg's is a damage test, over drain
+    tokens, and what it risks is Damaged.
+    """
+    player_id = prompt.player_id
+    if player_id is None:
         return None
-    if prompt.kind is PromptKind.MANEUVER_ACTION:
-        if match.challenger_id is None:
-            return None
-        return f"{prompt.kind.value}.{match.challenger_id}"
-    return prompt.kind.value
+    carried = match.exhaustion.get(player_id, 0)
+    token_noun, _ = engine.token_word_and_mark(game, player_id)
+    injured_word, _ = engine.injured_word_and_mark(game, player_id)
+    added, modifiers = _declared(engine, game, match, player_id)
+    target = engine.injury_test_target(match, player_id)
+    tokens_word = "token" if carried == 1 else "tokens"
+    return {
+        "title": engine.injury_test_name(game, player_id).upper(),
+        "where": _player_where(match, player_id),
+        "sides": [
+            _roller(
+                engine, game, match, player_id,
+                f"Carries {carried} {token_noun} {tokens_word}",
+                modifiers, BEARINGS["injury"],
+            ),
+        ],
+        "roll": _roll(
+            1, target, added,
+            f"One d12. Safe on a total of {target} or more: higher than"
+            f" their {carried} {tokens_word}.",
+            f"Anything lower and they are {injured_word}.",
+        ),
+    }
+
+
+def _own_goal_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    The own-goal roll (Law 11.2): the handler with nowhere left to be
+    pushed, what they add -- `attacking_skill`'s own-goal reading and
+    its name, Umbrik's defensive skill included -- and
+    `OWN_GOAL_SAFE_TOTAL`.
+    """
+    player_id = match.active_player_id
+    if player_id is None:
+        return None
+    skill = engine.attacking_skill(game, match, player_id, "own_goal")
+    # Umbrik's is his defensive skill (Law 21), named as the one added.
+    skill_name = engine.attacking_skill_name(
+        game, match, player_id, "own_goal",
+    )
+    added, modifiers = _declared(engine, game, match, player_id)
+    against = Team(match.setup_for_side(match.defending_side()).team)
+    return {
+        "title": "Own goal risk",
+        "where": _where(match, match.ball.zone, match.ball.space_index),
+        "sides": [
+            _roller(
+                engine, game, match, player_id,
+                f"{skill_name} skill {skill:+d}", modifiers,
+                # Umbrik adds his defensive skill here (Law 21).
+                replace(BEARINGS["own_goal"], skill=(
+                    "defense" if skill_name == "Defensive" else "offense"
+                )),
+            ),
+        ],
+        "roll": _roll(
+            2, OWN_GOAL_SAFE_TOTAL, skill + added,
+            f"Two d12, the higher kept, plus their skill. A total of"
+            f" {OWN_GOAL_SAFE_TOTAL} or more avoids it.",
+            f"Under {OWN_GOAL_SAFE_TOTAL} and the goal counts for"
+            f" {team_display_name(against)}.",
+        ),
+    }
+
+
+def _mind_pull_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    A Mind Pull on offer (Law 20.4): the Telekinetic, what it costs --
+    `mind_pull_cost`, paid pull or miss -- and `mind_pull_minimum`.
+    Nothing declared reaches it, so the face is the total.
+    """
+    player_id = prompt.player_id
+    if player_id is None:
+        return None
+    cost = engine.mind_pull_cost(game, player_id)
+    token_noun, _ = engine.token_word_and_mark(game, player_id)
+    minimum = engine.mind_pull_minimum(game, player_id)
+    return {
+        "title": "Mind Pull",
+        "where": _player_where(match, player_id),
+        "sides": [
+            _roller(
+                engine, game, match, player_id,
+                (
+                    f"Costs {cost} {token_noun} "
+                    f"{'token' if cost == 1 else 'tokens'}, pull or miss"
+                    if cost else "Costs no token"
+                ),
+                bearing=BEARINGS["mind_pull"],
+            ),
+        ],
+        "roll": _roll(
+            1, minimum, 0,
+            f"One d12. {minimum} or more pulls the ball in: it stops on"
+            " their space and their side has it.",
+            "Anything lower and the ball goes on past them.",
+        ),
+    }
+
+
+def _notes(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_ids: Sequence[Optional[str]],
+) -> list[dict]:
+    """
+    A special ability that bears on the situation from somebody who is
+    not rolling -- Quantor waiting on a teammate's pass, Glompex offered
+    the step onto the ball -- said under the row with whose it is, as
+    the advanced face of their card prints it (`personal_ability_text`).
+    """
+    notes = []
+    for player_id in player_ids:
+        if player_id is None:
+            continue
+        text = engine.personal_ability_text(game, player_id)
+        if not text:
+            continue
+        notes.append({
+            "id": player_id,
+            "short": player_with_role(engine.get_player_definition(player_id)),
+            "colour": TEAM_COLORS[match.team_for_player(player_id)],
+            "name": "Special ability",
+            "text": text,
+        })
+    return notes
+
+
+def _join_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    Glompex's offer (Law 21), made before the cards are chosen: the
+    challenge he would step into, and his ability said under it. Once
+    he has stepped on, the challenge names what he adds by Merge, so
+    the maneuver pick does not repeat him (the author, 2026-09-28).
+    """
+    challenge = _challenge_situation(engine, game, match, prompt)
+    if challenge is None:
+        return None
+    challenge["notes"] = [
+        *_notes(engine, game, match, [prompt.player_id]),
+        *challenge["notes"],
+    ]
+    return challenge
+
+
+def _challenge_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """The player on the ball against the challenger the position
+    holds -- `match.challenger_id`, set when a challenger is sent and
+    cleared by `reset_maneuver`, so an uncontested maneuver has none."""
+    challenger = match.challenger_id
+    if challenger is None:
+        return None
+    attacker = match.active_player_id
+    offense, defense, where = maneuver_challenge_brief(
+        engine, match, challenger, game,
+    )
+    # Both roll if the cards tie, and an Ooze on the ball who is
+    # neither adds by Merge -- as `skill_test_step` asks it.
+    rolling = (attacker, challenger)
+    return {
+        "title": CHALLENGE_TITLE,
+        "where": where,
+        "sides": [
+            _merged(
+                engine, game, match,
+                _situation_side(
+                    engine, game, match, match.team_for_player(attacker),
+                    [(attacker, offense)], with_ability=True,
+                    bearing=BEARINGS["skill_test_attack"],
+                ),
+                match.ball.possession, rolling, "offense",
+            ),
+            _merged(
+                engine, game, match,
+                _situation_side(
+                    engine, game, match, match.team_for_player(challenger),
+                    [(challenger, defense)], with_ability=True,
+                    bearing=BEARINGS["skill_test_defence"],
+                ),
+                match.defending_side(), rolling, "defense",
+            ),
+        ],
+        "roll": None,
+        # Quantor may run onto any teammate's High Pass or Set-up Pass,
+        # so while a teammate is on the ball and he is on the field the
+        # coach choosing the card is told (the author, 2026-09-28).
+        "notes": _notes(
+            engine, game, match,
+            [engine.pass_runner_on_field(game, match)],
+        ),
+    }
+
+
+def _shot_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> dict:
+    """The shooter with the modifiers this attempt earns, and every
+    defender between them and the goal as one wall -- or nobody. No
+    ability on either side, as the PNG leaves them off
+    (`render.render_score_attempt`)."""
+    shooter, defenders, where = score_attempt_brief(engine, match, game)
+    defender_ids = [
+        defender.player.player_id
+        for defender in engine.intervening_defenders(match, game)
+    ]
+    return {
+        "title": SCORE_ATTEMPT_TITLE,
+        "where": where,
+        "sides": [
+            # Merge in a shot is the attack alone (Law 20.5.2), as
+            # `score_attempt_step` asks it.
+            _merged(
+                engine, game, match,
+                _situation_side(
+                    engine, game, match,
+                    match.team_for_player(match.active_player_id),
+                    [(match.active_player_id, shooter)], with_ability=False,
+                    bearing=BEARINGS["shot_attack"],
+                ),
+                match.ball.possession, (match.active_player_id,), "offense",
+            ),
+            _situation_side(
+                engine, game, match,
+                Team(match.setup_for_side(match.defending_side()).team),
+                list(zip(defender_ids, defenders)), with_ability=False,
+                empty=SCORE_ATTEMPT_UNDEFENDED,
+                bearing=BEARINGS["shot_defence"],
+            ),
+        ],
+        "roll": None,
+    }
+
+
+def _contest_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    A contest for the ball about to be rolled (Law 10) -- a loose
+    ball's, or a long High Pass's (Law 10.4): the two sent, each with
+    what the roll adds for them, as `score_loose_ball` adds it. The
+    side on the ball adds offensive skill and the other defensive,
+    nothing for an injured contestant; the thrower's side of a High
+    Pass contest adds the ball speed modifier, signed; Zorch his own
+    elsewhere; Merge on both sides; and whatever Overdrive or Boost is
+    already declared.
+    """
+    offense_id = match.loose_ball_offense_player
+    defense_id = match.loose_ball_defense_player
+    if offense_id is None or defense_id is None:
+        return None
+    high_pass = match.pending_loose_ball_is_high_pass
+    rolling = (offense_id, defense_id)
+
+    def contestant(player_id, attacking, bearing, team_side, skill_kind):
+        side = _situation_side(
+            engine, game, match, match.team_for_player(player_id),
+            [(player_id, challenge_side(
+                engine, player_id, match.team_for_player(player_id),
+                attacking=attacking, game=game,
+            ))],
+            with_ability=False, bearing=bearing,
+        )
+        if player_id in match.injured:
+            # An injured contestant adds no skill of their own (Law
+            # 15.4); the die and everything else still count.
+            side["skill"] = (
+                f"{'Offensive' if attacking else 'Defensive'} skill +0 "
+                "(injured)"
+            )
+        extra = list(engine.overdrive_details(match, player_id))
+        if attacking and high_pass:
+            extra.append(
+                f"{match.ball_speed_modifier():+d} ball speed modifier",
+            )
+        else:
+            _, speed_line = engine.speed_roll_bonus(game, match, player_id)
+            extra.extend(filter(None, [speed_line]))
+        side["modifiers"] = [*side["modifiers"], *extra]
+        return _merged(
+            engine, game, match, side, team_side, rolling, skill_kind,
+        )
+
+    return {
+        "title": "High Pass contest" if high_pass else "Contest for the ball",
+        "where": _where(match, match.ball.zone, match.ball.space_index),
+        "sides": [
+            contestant(
+                offense_id, True, BEARINGS["contest_attack"],
+                match.ball.possession, "offense",
+            ),
+            contestant(
+                defense_id, False, BEARINGS["contest_defence"],
+                match.defending_side(), "defense",
+            ),
+        ],
+        "roll": None,
+    }
+
+
+def _set_up_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    A scoring opportunity offered off a pass, where it is Zytheris's
+    special ability that offered it (Law 21; the author, 2026-09-28):
+    the shooter, with the ability named. Any other set-up -- a Winger's,
+    a High Pass reaching the goal -- is the ask's to say and has none.
+    """
+    shooter = prompt.player_id
+    if shooter is None or not engine.has_personal_ability(
+        game, shooter, PersonalAbility.SHOOTS_OFF_ANY_PASS,
+    ):
+        return None
+    skill = engine.skills(game, shooter).offense
+    return {
+        "title": "Scoring opportunity",
+        "where": _player_where(match, shooter),
+        "sides": [
+            _roller(
+                engine, game, match, shooter,
+                f"Offensive skill {skill:+d}", (), BEARINGS["set_up"],
+            ),
+        ],
+        "roll": None,
+    }
+
+
+#: The situation a prompt is asked over, by its kind: the two matchups,
+#: and the three rolls a player makes alone -- the injury check, the
+#: own-goal roll and the Mind Pull on offer (the author, 2026-09-28). A
+#: kind not here has none.
+SITUATIONS: Mapping[
+    PromptKind,
+    Callable[
+        [RulesEngine, D12BallGame, MatchState, PendingPrompt],
+        Optional[dict],
+    ],
+] = {
+    PromptKind.SCORE_ATTEMPT: _shot_situation,
+    PromptKind.MANEUVER_ACTION: _challenge_situation,
+    PromptKind.JOIN_THE_BALL: _join_situation,
+    PromptKind.LOOSE_BALL_SKILL_TEST: _contest_situation,
+    PromptKind.SET_UP_ATTEMPT: _set_up_situation,
+    PromptKind.INJURY_TEST: _injury_situation,
+    PromptKind.OWN_GOAL_ROLL: _own_goal_situation,
+    PromptKind.MIND_PULL: _mind_pull_situation,
+}
+
+
+def situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: Optional[MatchState],
+    prompt: Optional[PendingPrompt],
+) -> Optional[dict]:
+    """The matchup `prompt` is asked over, as the page draws it, or
+    `None` where it has none."""
+    if prompt is None or match is None or prompt.kind not in SITUATIONS:
+        return None
+    found = SITUATIONS[prompt.kind](engine, game, match, prompt)
+    if found is not None:
+        found.setdefault("notes", [])
+    return found

@@ -1216,6 +1216,16 @@ class RulesEngine:
                 candidates.append(player_id)
         return candidates
 
+    def injury_test_target(self, match: MatchState, player_id: str) -> int:
+        """
+        The lowest total an injury check is safe on (Law 15.3): a roll
+        **higher** than the tokens the player carries now, so one more
+        than them. Read at the roll, after anything the roll itself
+        moved (Kindlefinger's token), and ahead of it by a frontend
+        saying what the check needs.
+        """
+        return match.exhaustion.get(player_id, 0) + 1
+
     def mind_pull_cost(self, game: D12BallGame, player_id: str) -> int:
         """The tokens a Mind Pull costs: 1, or Quillon's none (Law 21)."""
         if self.has_personal_ability(
@@ -2402,15 +2412,43 @@ class RulesEngine:
         contest for the ball).
         """
         skills = self.skills(game, player_id)
+        if self._attacks_on_defense(game, match, player_id, roll):
+            return skills.defense
+        return skills.offense
+
+    def attacking_skill_name(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        player_id: str,
+        roll: str,
+    ) -> str:
+        """
+        Which skill `attacking_skill` hands back, as a word for the
+        line that adds it: "Offensive", or "Defensive" for **Umbrik**
+        where his Law 21 ability swaps it in -- asked beside the number
+        so a sentence never names one skill and adds the other.
+        """
+        if self._attacks_on_defense(game, match, player_id, roll):
+            return "Defensive"
+        return "Offensive"
+
+    def _attacks_on_defense(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        player_id: str,
+        roll: str,
+    ) -> bool:
+        """Umbrik's swap (Law 21): his defensive skill on the attack in
+        an own-goal roll and a skill test over his own High Pass."""
         if not self.has_personal_ability(
             game, player_id, PersonalAbility.DEFENSIVE_THROW,
         ):
-            return skills.offense
-        defensive = (
-            roll == "own_goal"
-            or (roll == "skill_test" and match.offense_maneuver == "high_pass")
+            return False
+        return roll == "own_goal" or (
+            roll == "skill_test" and match.offense_maneuver == "high_pass"
         )
-        return skills.defense if defensive else skills.offense
 
     def re_roll_tokens(
         self, game: D12BallGame, player_id: Optional[str],
@@ -2849,6 +2887,34 @@ class RulesEngine:
             return 0
         return distance
 
+    def pass_runner_on_field(
+        self, game: Optional[D12BallGame], match: MatchState,
+    ) -> Optional[str]:
+        """
+        **Quantor** (Law 21): the player of the side on the ball who
+        could run onto a teammate's High Pass or Setup Pass, whichever
+        distance it goes -- never the handler, who is the one passing,
+        and never an injured player -- or `None`. `pass_runner` narrows
+        it to the distances a pass is offered; a frontend saying the
+        ability is there before the cards are chosen asks this.
+        """
+        if game is None or not self.personal_abilities_apply(game):
+            return None
+        return next(
+            (
+                player_id
+                for player_id in match.setup_for_side(
+                    match.ball.possession,
+                ).field_players
+                if player_id != match.active_player_id
+                and player_id not in match.injured
+                and self.has_personal_ability(
+                    game, player_id, PersonalAbility.RUN_ON,
+                )
+            ),
+            None,
+        )
+
     def pass_runner(
         self,
         game: Optional[D12BallGame],
@@ -2868,23 +2934,10 @@ class RulesEngine:
         new. Carried on the prompt's options, so the button, the refusal
         and the web app read one answer.
         """
-        if game is None or not self.personal_abilities_apply(game):
-            return None, ()
-        side = match.ball.possession
-        runner = next(
-            (
-                player_id
-                for player_id in match.setup_for_side(side).field_players
-                if player_id != match.active_player_id
-                and player_id not in match.injured
-                and self.has_personal_ability(
-                    game, player_id, PersonalAbility.RUN_ON,
-                )
-            ),
-            None,
-        )
+        runner = self.pass_runner_on_field(game, match)
         if runner is None:
             return None, ()
+        side = match.ball.possession
         # A Setup Pass only offers distances on the field already, so
         # the test only ever removes an overshooting High Pass; it is
         # asked of both so a Setup Pass that grew one could not slip by.

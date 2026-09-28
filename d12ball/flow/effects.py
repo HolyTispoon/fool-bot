@@ -236,9 +236,12 @@ def receives_the_ball(
     ) and match.ball.speed != INFERNO_BALL_SPEED:
         match.ball.speed = INFERNO_BALL_SPEED
         player = engine.get_player_definition(holder)
+        # Said as the special ability it is (the author, 2026-09-28): a
+        # speed that jumps with no card behind it reads as a mistake.
         lines.append(
             f"The ball comes to {engine.format_player_label(match, player)}"
-            f" -- ball speed **{INFERNO_BALL_SPEED}**."
+            f" -- their special ability sets ball speed to "
+            f"**{INFERNO_BALL_SPEED}**."
         )
     if engine.has_personal_ability(
         game, holder, PersonalAbility.CHARGES_ON_THE_BALL,
@@ -252,7 +255,8 @@ def receives_the_ball(
             player = engine.get_player_definition(holder)
             lines.append(
                 f"{engine.format_player_label(match, player)} takes the "
-                f"ball -- **Charge-up** clears {removed} drain."
+                f"ball -- their special ability, **Charge-up**, clears "
+                f"{removed} drain."
             )
     return lines
 
@@ -371,8 +375,8 @@ def low_pass_step(
                 f"{engine.format_player_label(match, handler)}'s Winger "
                 "ability can turn this into a scoring opportunity!"
                 if handler.role == PlayerRole.WINGER
-                else f"{engine.format_player_label(match, receiver)} "
-                "can turn this into a scoring opportunity!"
+                else f"{engine.format_player_label(match, receiver)}'s "
+                "special ability can turn this into a scoring opportunity!"
             ),
         ],
         board_changed=True,
@@ -1135,6 +1139,11 @@ class OwnGoalRoll:
 #: The two headings an own-goal roll is announced under, in its line
 #: and its `Headline` alike.
 OWN_GOAL_AVOIDED = "Own goal avoided!"
+
+#: The lowest total that avoids an own goal (Law 11.2): the higher of
+#: two d12 plus the handler's offensive skill. Named so the roll and a
+#: frontend saying what it needs read the one number.
+OWN_GOAL_SAFE_TOTAL = 7
 OWN_GOAL = "Own goal!"
 
 
@@ -1169,6 +1178,9 @@ def own_goal_roll_step(
     offense_skill = engine.attacking_skill(
         game, match, offense_player.player_id, "own_goal",
     )
+    skill_name = engine.attacking_skill_name(
+        game, match, offense_player.player_id, "own_goal",
+    )
 
     rolls = tuple(scripted_or_random(engine, game, "own_goal", 2))
     # **Volatile does not reach this roll** (the author, 2026-09-23),
@@ -1185,7 +1197,9 @@ def own_goal_roll_step(
     speed, speed_line = engine.speed_roll_bonus(
         game, match, offense_player.player_id,
     )
-    safe = max(rolls) + offense_skill + overdrive + speed >= 7
+    safe = (
+        max(rolls) + offense_skill + overdrive + speed >= OWN_GOAL_SAFE_TOTAL
+    )
 
     # Logged ahead of `apply_own_goal_outcome`, which is what concedes
     # the goal, so the risk sits above the goal it sometimes produced.
@@ -1212,7 +1226,7 @@ def own_goal_roll_step(
     arithmetic = (
         f"{engine.format_player_label(match, offense_player)} "
         f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
-        f"is {taken}, + {offense_skill} (offensive skill)"
+        f"is {taken}, + {offense_skill} ({skill_name.lower()} skill)"
     )
     for line in overdrive_details:
         arithmetic += f", {line}"
@@ -1229,8 +1243,9 @@ def own_goal_roll_step(
         working=(
             f"{arithmetic}. "
             + (
-                f"**{total}** is 7 or more: safe."
-                if safe else f"**{total}** is under 7: an own goal."
+                f"**{total}** is {OWN_GOAL_SAFE_TOTAL} or more: safe."
+                if safe
+                else f"**{total}** is under {OWN_GOAL_SAFE_TOTAL}: an own goal."
             )
         ),
     )

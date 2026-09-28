@@ -924,6 +924,23 @@ class UmbrikTests(unittest.TestCase):
             self.match.pending_loose_ball_is_high_pass = True
             self.assertEqual(self.asked("contest"), self.skills.offense)
 
+    def named(self, roll: str) -> str:
+        return ENGINE.attacking_skill_name(
+            self.game, self.match, self.player, roll,
+        )
+
+    def test_the_skill_is_named_as_the_one_added(self) -> None:
+        # A line that names one skill and adds the other would be a
+        # coach reading the wrong number (the author, 2026-09-28).
+        self.match.offense_maneuver = "high_pass"
+        self.assertEqual(self.named("own_goal"), "Offensive")
+        with holding(self.player, PersonalAbility.DEFENSIVE_THROW):
+            self.assertEqual(self.named("own_goal"), "Defensive")
+            self.assertEqual(self.named("skill_test"), "Defensive")
+            self.assertEqual(self.named("contest"), "Offensive")
+            self.match.offense_maneuver = "low_pass"
+            self.assertEqual(self.named("skill_test"), "Offensive")
+
 
 class KindlefingerTests(unittest.TestCase):
     """Kindlefinger's injury check ignites (Law 21)."""
@@ -1033,6 +1050,8 @@ class SlitheronFlowTests(unittest.TestCase):
         self.assertEqual(match.ball.possession, TeamSide.VISITING)
         self.assertFalse(match.pending_loose_ball)
         self.assertIn("without a roll", result.narration[0])
+        # Why, as the special ability it is (the author, 2026-09-28).
+        self.assertIn("special ability", result.narration[0])
 
 
 class KindlefingerFlowTests(unittest.TestCase):
@@ -1323,8 +1342,10 @@ class BallComesToTests(unittest.TestCase):
 
     def test_inferno_lights_the_ball(self) -> None:
         with holding(self.player, PersonalAbility.LIGHTS_THE_BALL):
-            self.assertTrue(self.comes())
+            said = self.comes()
         self.assertEqual(self.match.ball.speed, INFERNO_BALL_SPEED)
+        # Said as the special ability it is (the author, 2026-09-28).
+        self.assertIn("special ability", said[0])
 
     def test_only_when_it_comes_to_them(self) -> None:
         self.match.set_ball_carrier(self.player)
@@ -1365,8 +1386,9 @@ class BallComesToTests(unittest.TestCase):
     def test_pulsar_charges_up(self) -> None:
         self.match.exhaustion[self.player] = 2
         with holding(self.player, PersonalAbility.CHARGES_ON_THE_BALL):
-            self.assertTrue(self.comes())
+            said = self.comes()
         self.assertEqual(self.match.exhaustion[self.player], 1)
+        self.assertIn("special ability", said[0])
 
 
 class GlompexTests(unittest.TestCase):

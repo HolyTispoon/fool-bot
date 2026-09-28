@@ -1696,7 +1696,7 @@ function drawJournal(state) {
        words read for them. */
     const block = h("div", { class: `entry kind-${entry.kind || "line"}` });
     /* Words only: the log draws no picture (2026-09-26, the author).
-       A question's picture is in the question area, and goes with it. */
+       A question's situation is above the question box, and goes with it. */
     for (const line of entry.lines) block.append(h("p", { html: line }));
     journal.append(block);
   }
@@ -1783,6 +1783,7 @@ function drawPrompt(state) {
   picked = null;
   if (!state.prompt) {
     box.hidden = true;
+    drawSituation(null);
     return;
   }
   box.hidden = false;
@@ -1793,7 +1794,7 @@ function drawPrompt(state) {
   box.dataset.state = state.prompt.state;
   el("prompt-state").textContent = boxTag(state.prompt);
   el("ask").innerHTML = state.prompt.ask;
-  drawPicture(state.prompt);
+  drawSituation(state.prompt);
   drawReference(state.prompt);
   drawControls(state.prompt);
 }
@@ -1881,21 +1882,133 @@ function drawOutcome() {
     && el("outcome-headline").hidden;
 }
 
-/* The picture the prompt is asked over, where the cog posts one with
-   the same question -- the shot, or the challenge over the maneuver
-   pick -- or none. Its URL changes when the position or the question does,
-   so an unchanged one is left alone rather than reloaded. */
-function drawPicture(prompt) {
-  const image = el("prompt-picture");
-  const aside = el("prompt-aside");
-  if (!prompt.picture) {
-    aside.hidden = true;
-    image.removeAttribute("src");
-    return;
+/* The situation the prompt is asked over -- the challenge over the
+   maneuver pick, the shot over its roll -- or none: in a window of its
+   own above the question box, drawn here in words and portraits on the
+   page's background rather than as the bot's PNG. The words are the
+   server's (`present.situation`); the page only lays them out. */
+function drawSituation(prompt) {
+  const box = el("situation");
+  const situation = prompt ? prompt.situation : null;
+  box.replaceChildren();
+  box.hidden = !situation;
+  if (!situation) return;
+  const [first, second] = situation.sides;
+  /* `append` is the DOM's, which writes a null as the word "null":
+     the rows that are not there are left out first. */
+  box.append(...[
+    h("div", { class: "situation-head" },
+      h("span", { class: "situation-title" }, situation.title),
+      h("span", { class: "situation-where" }, situation.where)),
+    second
+      ? h("div", { class: "situation-row" },
+        situationSide(first),
+        h("div", { class: "situation-vs", "aria-hidden": "true" }, "vs"),
+        situationSide(second))
+      : !situation.roll
+        ? h("div", { class: "situation-row single" }, situationSide(first))
+        : h("div", { class: "situation-row" },
+        situationSide(first),
+        h("div", { class: "situation-vs arrow", "aria-hidden": "true" }, "\u2192"),
+        situationRoll(situation.roll, first.colour)),
+    situation.notes.length
+      ? h("div", { class: "situation-notes-row" },
+        situation.notes.map((note) => h("div", {
+          class: "situation-ability-line personal", style: `--side: ${note.colour}`,
+        }, h("strong", {}, `${note.short} · ${note.name}`), " ", note.text)))
+      : null,
+  ].filter(Boolean));
+}
+
+/* What a roll nobody contests needs -- an injury check, an own-goal
+   roll, a Mind Pull: the dice drawn with the face they have to show once
+   everything declared is added, beside what each way it goes means.
+   The numbers and the words are the server's. */
+function situationRoll(roll, colour) {
+  const mark = roll.certain ? "any" : roll.impossible ? "13+" : `${roll.face}+`;
+  const dice = [];
+  for (let i = 0; i < roll.dice; i += 1) {
+    /* The second of two is the one that may be dropped: an outline. */
+    dice.push(i === 0
+      ? die(mark, { size: 44, fill: colour, ink: inkOn(colour), font: mark.length > 2 ? 15 : 20 })
+      : die("", { size: 44, fill: "none", ink: colour, font: 32 }));
   }
-  if (image.getAttribute("src") !== prompt.picture) image.src = prompt.picture;
-  image.alt = prompt.kind === "score_attempt" ? "The shot" : "The challenge";
-  aside.hidden = false;
+  return h("div", { class: "situation-side", style: `--side: ${colour}` },
+    h("div", { class: "situation-dice" }, dice),
+    h("div", { class: "situation-words" },
+      h("div", { class: "situation-team" }, roll.dice > 1 ? "Needs, on the higher die" : "Needs"),
+      h("div", { class: "situation-rule" }, roll.rule),
+      h("div", { class: "situation-otherwise" }, roll.otherwise),
+    ),
+  );
+}
+
+/* White or near-black, whichever reads on a team's colour: the die is
+   filled with it, and Slime's green takes dark ink where Purple's
+   takes white. */
+function inkOn(hex) {
+  const [r, g, b] = [1, 3, 5].map((at) => {
+    const c = parseInt(hex.slice(at, at + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#1e1f22" : "#ffffff";
+}
+
+/* One side of the situation: the portraits (a badge on each when a
+   wall's numbers are added up) beside the team, who they are, the skill
+   they bring, and on one muted line the modifiers and the ability. */
+function situationSide(side) {
+  const wall = side.players.length > 1;
+  const notes = [
+    ...side.modifiers.map((modifier) => h("span", {}, modifier)),
+    side.ability ? h("span", { class: "situation-ability" }, side.ability) : null,
+  ].filter(Boolean);
+  return h("div", { class: wall ? "situation-side wall" : "situation-side", style: `--side: ${side.colour}` },
+    side.players.length
+      ? h("div", { class: wall ? "situation-portraits wall" : "situation-portraits" },
+        side.players.map((player) => h("div", { class: "situation-portrait" },
+          h("img", { src: player.portrait, alt: "", loading: "lazy" }),
+          wall ? h("span", {
+            class: player.halved ? "situation-badge halved" : "situation-badge",
+            title: player.halved ? `Half of ${player.skill}` : null,
+          }, String(player.value)) : null)))
+      : null,
+    h("div", { class: "situation-words" },
+      h("div", { class: "situation-team" }, side.team),
+      side.players.length
+        ? h("div", { class: "situation-names" },
+          side.players.map((player) => h("span", { class: "situation-name", html: player.label })))
+        : null,
+      side.empty ? h("div", { class: "situation-empty" }, side.empty) : null,
+      side.skill ? h("div", { class: "situation-skill" }, side.skill) : null,
+      side.bands.length
+        ? h("div", { class: "situation-bands" },
+          side.bands.map((band) => h("span", { class: "situation-band" },
+            h("span", { class: band.halved ? "situation-dot halved" : "situation-dot", "aria-hidden": "true" }),
+            band.text)))
+        : null,
+      notes.length
+        ? h("div", { class: "situation-notes" },
+          notes.flatMap((note, i) => (i ? [" · ", note] : [note])))
+        : null,
+      side.players.flatMap((player) => player.abilities.map((ability) =>
+        situationAbility(ability, wall ? player.short : null))),
+    ),
+  );
+}
+
+/* One ability a player brings to the roll: a species' (Volatile,
+   Lithium Powered) with its icon, or in an advanced game their own --
+   the sheet's words, as the server hands them. In a wall, whose it is. */
+function situationAbility(ability, whose) {
+  return h("div", { class: `situation-ability-line ${ability.kind}` },
+    ability.species
+      ? h("img", { class: "situation-species", src: `/species/${ability.species}_color.png`, alt: "" })
+      : null,
+    h("strong", {}, whose ? `${whose} · ${ability.name}` : ability.name),
+    " ",
+    ability.text,
+  );
 }
 
 /* The words under the maneuver pick's hand: the cards' shared back at

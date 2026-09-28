@@ -8,9 +8,8 @@ card on the board is `render.draw_card`, and the printed card it
 opens as is `player_cards.render_player_card` (its advanced face,
 `render_player_card_back`, in an advanced game),
 a maneuver card is `cards.render_maneuver_card`, a roll is the die
-the matching roll view on Discord posts (`dice_png`), a prompt's
-picture is the matchup the cog posts with the same question
-(`score_attempt_png`, `challenge_png`), and the role badges,
+the matching roll view on Discord posts (`dice_png`), a portrait is
+the painting the matchup images draw (`portrait_png`), and the role badges,
 team marks and condition marks are the PNGs the bot uploads as its
 application emoji. A page that drew its own card would be a third
 layout to keep right beside the printed one and the board's -- see
@@ -38,30 +37,25 @@ from d12ball.components import (
     MatchState,
     PlayerCatalog,
 )
-from d12ball.dice_brief import (
-    maneuver_challenge_brief,
-    render_contest_dice,
-    score_attempt_brief,
-)
+from d12ball.dice_brief import render_contest_dice
 from d12ball.engine import RulesEngine
 from d12ball.flow.turn import injured_word_and_emoji
 from d12ball.game import D12BallGame, Team, team_display_name
 from d12ball.player_cards import render_player_card, render_player_card_back
-from d12ball.prompts import PendingPrompt
 from d12ball.render import (
     BOARD_BOTTOM,
     BOARD_TOP,
     CARD_SIZE,
     GOAL_ZONE_WIDTH,
+    PLAYER_IMAGES_DIR,
     TEAM_COLORS,
     card_profile,
     draw_card,
     draw_end_zone,
+    load_player_portrait,
     render_injury_test_die,
-    render_maneuver_challenge,
     render_mind_pull_die,
     render_own_goal_dice,
-    render_score_attempt,
 )
 
 #: The bot's emoji, as it uploads them (docs/design/teams-and-players.md,
@@ -357,38 +351,30 @@ def dice_png(
     return DICE[shape](engine, game, match, detail).getvalue()
 
 
-# -- The prompt's pictures --------------------------------------------------
+# -- The portraits --------------------------------------------------------
 #
-# The two matchups a coach looks at while choosing -- the shot over
-# its roll, the challenge over the maneuver pick -- each drawn by the
-# function the cog calls, off the same brief. Which kind gets which is
-# `webapp.present.PROMPT_PICTURES`.
+# The paintings the matchup images draw, for the page's situation
+# window over the maneuver pick and the shot (`present.situation`),
+# which lays the brief out itself rather than serving the PNG.
+
+#: The box a portrait is fitted into: twice the size the page draws
+#: one at, so it stays sharp on a dense screen.
+PORTRAIT_BOX = 240
 
 
-def score_attempt_png(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    prompt: PendingPrompt,
-) -> bytes:
-    """What the shot is made of, as `D12Ball.build_score_attempt_file`
-    draws it above the roll."""
-    shooter, defenders, location = score_attempt_brief(engine, match, game)
-    return render_score_attempt(shooter, defenders, location).getvalue()
+def has_portrait(name: str) -> bool:
+    """Whether a player has a painting to serve."""
+    return (PLAYER_IMAGES_DIR / f"{name}.png").is_file()
 
 
-
-def challenge_png(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    prompt: PendingPrompt,
-) -> bytes:
-    """The matchup the maneuver pick is made over, as
-    `D12Ball.build_maneuver_challenge_file` draws it under the walk-in:
-    the player on the ball against the challenger the position holds.
-    Only asked where there is one (`present.prompt_picture_key`)."""
-    offense, defense, location = maneuver_challenge_brief(
-        engine, match, match.challenger_id, game,
-    )
-    return render_maneuver_challenge(offense, defense, location).getvalue()
+def portrait_png(name: str) -> bytes:
+    """
+    A player's portrait, `render.load_player_portrait`'s, fitted into
+    `PORTRAIT_BOX` with its transparency kept: it stands on the page's
+    background, as it stands on the matchup image's.
+    """
+    portrait = load_player_portrait(name).copy()
+    portrait.thumbnail((PORTRAIT_BOX, PORTRAIT_BOX), Image.LANCZOS)
+    out = BytesIO()
+    portrait.save(out, format="PNG", optimize=True)
+    return out.getvalue()
