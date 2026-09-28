@@ -350,7 +350,6 @@ class WebApp:
                 web.get("/api/rules/learn", self.rules_learn),
                 web.get("/rules/figures/{name}", self.rules_figure),
                 web.get("/api/aids", self.all_aids),
-                web.get("/aids/cards/{key}.png", self.card_aid),
                 web.get("/aids/maneuvers/{tier}.png", self.maneuver_aid),
                 web.get("/aids/roles.png", self.roles_aid),
                 web.get("/aids/species/{number}.png", self.species_aid),
@@ -1667,24 +1666,6 @@ class WebApp:
         ask which."""
         return web.json_response(aids.everything(self.engine))
 
-    async def card_aid(self, request: web.Request) -> web.Response:
-        """One maneuver card, the printed face the hand shows
-        (`pictures.maneuver_card_png`), for the References."""
-        key = request.match_info["key"]
-        offense = aids.valid_card(self.engine.maneuver_catalog, key)
-        if offense is None:
-            raise web.HTTPNotFound()
-        size = request.query.get("size", "small")
-        if size not in pictures.CARD_WIDTHS:
-            raise web.HTTPBadRequest(text="A size is small or full.")
-        return await self._card(
-            ("aid", "card", key, size),
-            lambda: pictures.maneuver_card_png(
-                self.engine.maneuver_catalog, self.engine.player_catalog,
-                key, offense=offense, size=size,
-            ),
-        )
-
     async def maneuver_aid(self, request: web.Request) -> web.Response:
         tier = request.match_info["tier"]
         if not aids.valid_tier(tier):
@@ -1976,8 +1957,7 @@ class WebApp:
                 # The maneuver pick's rank reference: the cards' shared
                 # back at the game's tier, which carries the defeat
                 # cycle, shown while the pointer is on the words under
-                # the hand (the author, 2026-09-27). The fuller
-                # reference, the hexagon, is in the Rules tab.
+                # the hand (the author, 2026-09-27).
                 "reference": (
                     f"/api/game/{game.game_id}/maneuver-back.png?size=full"
                     if prompt.kind is PromptKind.MANEUVER_ACTION else None

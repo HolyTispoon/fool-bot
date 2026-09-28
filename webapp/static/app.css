@@ -767,7 +767,6 @@ select {
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.jumbo-arrow { font-size: 14px; color: var(--muted); }
 .jumbo-coach {
   font-size: 12px;
   color: var(--muted);
@@ -785,6 +784,7 @@ select {
   font-weight: 800;
   color: var(--gold);
 }
+.jumbo-ball.idle { visibility: hidden; }
 .jumbo-score { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 120px; }
 .jumbo-goals {
   font-family: "Goal", "Board", sans-serif;
@@ -1486,10 +1486,10 @@ button.goal { display: block; }
   .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
   .jumbo-score { order: 2; min-width: 0; }
   .jumbo-team { font-size: 13px; letter-spacing: 0.3px; }
-  .jumbo-arrow { font-size: inherit; color: inherit; }
   .jumbo-goals { font-size: 24px; }
   .jumbo-coach, .jumbo-brand, .jumbo-rule, .jumbo-track, .jumbo-marks, .jumbo-tiles { display: none; }
   .jumbo-ball { font-size: 0; gap: 0; }
+  .jumbo-ball.idle { display: none; }
   .jumbo-clock { flex: none; min-width: 0; gap: 0; align-items: flex-end; }
   /* The minute over the half, so the teams keep the width. */
   .jumbo-time { flex-direction: column; align-items: flex-end; gap: 1px; flex-wrap: nowrap; white-space: nowrap; }
@@ -1667,11 +1667,11 @@ button.goal { display: block; }
   .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
   .jumbo-score { order: 2; min-width: 0; }
   .jumbo-team { font-size: 15px; }
-  .jumbo-arrow { font-size: inherit; color: inherit; }
   .jumbo-goals { font-size: 22px; }
   .jumbo-coach, .jumbo-brand, .jumbo-track, .jumbo-marks, .jumbo-note { display: none; }
   .jumbo-rule { align-self: center; height: 18px; }
   .jumbo-ball { font-size: 0; gap: 0; }
+  .jumbo-ball.idle { display: none; }
   .jumbo-clock { flex: none; min-width: 0; flex-direction: row; align-items: center; gap: 8px; }
   .jumbo-time { flex-wrap: nowrap; white-space: nowrap; gap: 6px; }
   .jumbo-minute { font-size: 18px; }
@@ -2375,14 +2375,8 @@ body.front .front-door.stats-door {
 .learn-contents { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .learn { font-size: 14px; }
 
-/* The References: the cards, the roles and the species. */
+/* The References: the maneuvers, the roles and the species. */
 .references { display: flex; flex-direction: column; gap: 8px; }
-.ref-cards { display: flex; flex-wrap: wrap; gap: 6px; }
-.ref-card img { width: 74px; height: auto; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); }
-.ref-card:hover img, .ref-card:focus-visible img { outline: 2px solid var(--gold); }
-.ref-hexagon { margin: 0; display: flex; flex-direction: column; gap: 4px; }
-.ref-hexagon img { display: block; width: 100%; height: auto; border-radius: 10px; }
-.ref-hexagon figcaption { font-size: 12px; color: var(--muted); }
 .ref-table { border-collapse: collapse; font-size: 12px; width: 100%; }
 .ref-table th { color: var(--muted); font-size: 10px; font-weight: 800; text-align: left; padding: 2px 4px; }
 .ref-table td { padding: 3px 4px; vertical-align: middle; }
@@ -2393,6 +2387,10 @@ body.front .front-door.stats-door {
 .ref-table .ability-name { display: block; font-weight: 700; color: var(--strong); white-space: nowrap; }
 .ref-table .species-team { display: block; font-weight: 700; white-space: nowrap; }
 .ref-table td { vertical-align: top; }
+.maneuver-table .tier-tag { display: inline-block; margin-top: 1px; padding: 0 4px; border-radius: 3px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); }
+.maneuver-table .maneuver-time { display: block; color: var(--muted); font-size: 10px; white-space: nowrap; }
+.maneuver-table .beats { color: var(--text); font-size: 11px; }
+.maneuver-table + .maneuver-table { margin-top: 6px; }
 
 /* The refusal's Law, under its sentence: the strip wraps so the
    citation takes a line of its own before Dismiss. */

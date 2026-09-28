@@ -77,6 +77,7 @@ asyncio.run(serve(
     chat_file=folder / "chat.json",
     journal_file=folder / "journal.json",
     names_file=folder / "names.json",
+    secret_file=folder / "secret",
 ))
 """
 

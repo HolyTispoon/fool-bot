@@ -590,25 +590,24 @@ function drawJumbotron(state) {
     const team = j ? j[where] : null;
     const coach = coachOn(where);
     const name = team ? team.name : coach && coach.team ? coach.team : "--";
-    const arrow = where === "home" ? "▶" : "◀";
     return h(
       "div",
       { class: `jumbo-side ${where}` },
       h(
         "div",
         { class: "jumbo-team", style: team ? `color: ${team.colour}` : null },
-        name, " ", h("span", { class: "jumbo-arrow" }, arrow),
+        name,
       ),
       h(
         "div",
         { class: "jumbo-coach" },
         where === "home" ? "Home" : "Visitors",
-        coach ? [" · coached by ", h("b", {}, coach.name)] : "",
+        coach ? [" · ", h("b", {}, coach.name)] : "",
       ),
-      team && team.possession
-        ? h("div", { class: "jumbo-ball" },
-          die(String(j.speed), { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL")
-        : null,
+      /* Drawn on both sides and hidden on the one without the ball, so
+         the two columns are one height and their rows line up. */
+      h("div", { class: `jumbo-ball${team && team.possession ? "" : " idle"}` },
+        die(j ? String(j.speed) : "", { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL"),
     );
   };
 
@@ -1874,7 +1873,7 @@ function drawPicture(prompt) {
    the game's tier (the server's `reference`), as the hover card, while
    the pointer is on them or after a press and hold (the author,
    2026-09-27). The back is one picture a game, so the hover card is
-   put on once; the hexagon is the Rules tab's References. */
+   put on once. */
 let referenceHover = false;
 function drawReference(prompt) {
   el("reference").hidden = !prompt.reference;
@@ -3563,10 +3562,8 @@ function rosterRow(row) {
 // -- The Rules tab -------------------------------------------------------------
 
 /* The Charter, the Learn to Play and the References
-   (webapp/static/aids.js), with the room's hover card for a card. */
-const rulesTab = window.D12Rules.mountTab(el("rules-tab"), {
-  hover: (node, url) => hoverCard(node, url),
-});
+   (webapp/static/aids.js). */
+const rulesTab = window.D12Rules.mountTab(el("rules-tab"));
 
 /* A refusal's Law, opened where the reader is: the Rules tab. */
 function openRule(slug) {

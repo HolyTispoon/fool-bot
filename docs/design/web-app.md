@@ -909,6 +909,32 @@ two shapes, by which way it is held:
 - The top bar is the room's number and the seat, the team's emoji for
   its name.
 
+**Three ways to look at the game: desktop, iPad, phone** (the author,
+2026-09-28). The page has three layouts, each its own block in
+`app.css`, and a change to it is looked at, and shown to the author,
+in all three -- never one, since a change that is right on the desktop
+can crowd the phone's one line or push the tablet's column under the
+fold, and nothing in the suite sees any of it:
+
+| View | What the page reads | What it gets |
+| --- | --- | --- |
+| **Desktop** | wider than 960px, where the iPad's query does not hold | the stacked page: jumbotron, field, question box, the sidebar's four tabs |
+| **iPad** | 961px to 1400px on its side with a coarse pointer (`TABLET`) | two columns: the desktop field on the left, the phone's tabs on the right |
+| **Phone** | 960px and under (`phone()`), upright (`UPRIGHT`) | one screen: the narrow field, the bottom sheet, the tab bar |
+
+An iPad held upright is 960px or under and gets the phone's layout, and
+a phone on its side has a shape of its own (below); the three above are
+the ones every change is shown on. `scripts/capture_web_views.py`
+takes them: a kickoff game staged the way the landing page's board
+capture stages one (`landing/capture.py`), or a saved web game with
+`--games-file` and `--game`, opened as an observer in headless Chrome
+at 1440x900, 1180x820 with touch, and 390x844 with touch, one PNG each
+(`--selector` for one element, the jumbotron say). It reads back which
+layout the page chose and fails a view that fell into the wrong one,
+so a picture labelled "ipad" is the tablet's layout and not the
+desktop's at that width. As an observer nothing is lit for the reader;
+a change to what a coach is asked is looked at by playing it.
+
 **A tablet on its side is a third shape: two columns** (2026-09-27).
 A touch screen held on its side and wider than a phone -- 961px to
 1400px across with a coarse pointer anywhere (`any-pointer: coarse`):
@@ -947,9 +973,13 @@ the coach is looking at it.
 - **The jumbotron is one bar across the top of the play area**
   (2026-09-26, step 2 of [../web-app-redesign.md](../web-app-redesign.md),
   replacing the panel at the head of the sidebar). Each team in its
-  colour with an arrow for the way it attacks, "Home · coached by ..."
-  under it and a gold BALL mark while it has possession, its d12
-  showing the ball's speed as the field's does; the score with D12 BALL
+  colour, "Home · <coach>" under it and a gold BALL mark while it has
+  possession, its d12 showing the ball's speed as the field's does --
+  the mark is drawn on both sides and hidden on the one without the
+  ball, so the two columns are one height and the names and the
+  Home/Visitors lines sit on the same rows (the author, 2026-09-28,
+  who also dropped the arrow for the way each team attacks and the
+  "coached by" before the name); the score with D12 BALL
   under it; then the clock -- the minute in the board's yellow
   beside the half, a thirty-segment track to the second half's last
   minute with the first half's marked, a red LAST POSSESSION chip, and
@@ -958,8 +988,7 @@ the coach is looking at it.
   `shootout_score_line` reports them, since the scoreboard carries them
   too) -- and under it a time-out tile per team. Where the step's
   prompt and the design canvas differed in the small things (the
-  canvas's upper-case names, its arrow after the visitors' name too,
-  its tiles in a row under the clock), the canvas was followed. **Every value is the match's,
+  canvas's upper-case names, its tiles in a row under the clock), the canvas was followed. **Every value is the match's,
   read by `board.jumbotron`**: possession is `ball.possession`, a tile's
   held or spent is `may_take_time_out` (the half's own count, which
   halftime clears), the track's length and its halftime mark are the
@@ -1829,10 +1858,17 @@ the tab and the Reading Room are handed.
   has none of its own: it is the book's markdown in the page's type,
   with the book's figures, and the printed layout stays
   `rulebooks.py`'s alone (`scripts/build_rulebooks.py` is unchanged).
-- **The References are the model's own data.** The cards are the
-  printed faces the hand shows (`pictures.maneuver_card_png`, served at
-  `/aids/cards/{key}.png`): the six basic ones always, and the six
-  gambits under them where the game's hexagon is the gambit one -- an
+- **The References are the model's own data.** The maneuvers are a
+  table, two of them -- the offense's and the defense's -- set like the
+  roles table, in place of the printed card faces they used to be (the
+  author, 2026-09-28). Each row is the card's own data from
+  `maneuvers.json`: its name, its time, its effect in the sheet's
+  words, and the opposing cards its rank beats, read off
+  `defeats_rank` -- both of that rank's cards where both tiers are
+  shown, because rank alone decides. It has no die range: a maneuver
+  has none (the author, 2026-09-28), whatever the import still writes
+  into `die_values`. The six basic ones always, and the six gambits
+  among them where the game's hexagon is the gambit one -- an
   advanced game that plays them (the author, 2026-09-27), which is
   `maneuver_reference_tier`'s answer, never `game.mode` read here. The
   roles table is `role_profiles` -- the role card's own numbers, its
@@ -1854,7 +1890,7 @@ the tab and the Reading Room are handed.
   maps no sentence to a Law.**
 
 **Which aids a room gets is the model's.** The room's state carries
-`aids`: the cards at the game's tier and the hexagon at
+`aids`: the maneuvers table and the hexagon at
 `RulesEngine.maneuver_reference_tier(game)`, the species table and card
 only where `species_abilities_apply(game)`, the team cards in the face
 `personal_abilities_apply(game)` says the game holds, and the three
@@ -1863,25 +1899,27 @@ answers themselves, so `app.js` decides none of them and never reads
 observer's seat 1's); a room no longer draws them as a gallery, since
 the Teams tab is the rosters and a row's hover card is the card in the
 face the game plays. In the Reading Room, with no game to ask, `GET
-/api/aids` offers all of it: all twelve cards, both hexagons named by
+/api/aids` offers all of it: all twelve maneuvers, both hexagons named by
 tier, the species table, every team with both faces (the ROSTERS
 chip). Every picture is the one the reference command posts, drawn by
 the same function (`render_maneuver_reference_image`,
 `render_role_reference`, `player_cards`), in a worker thread and kept
-with the cards; the References draw the role and species *tables*
-from the data those cards are drawn from, as the canvas has it, and
-the role card and the two `species_cards.REFERENCE_FACES` stay served
-at their routes for a link.
+with the cards; the References draw the maneuver, role and species
+*tables* from the data those cards are drawn from, as the canvas has it, and
+the hexagon, the role card and the two `species_cards.REFERENCE_FACES`
+stay served at their routes for a link.
 The maneuver pick carries `reference`, the cards' shared back at the
 game's tier (`GET /api/game/{id}/maneuver-back.png`), which carries the
 defeat cycle: the page writes "Maneuver rank reference" under the hand
 and shows the back as the hover card while the pointer is on the words,
 or after a press and hold -- never a picture inline, since the question
-box already carries the challenge over the hand (step 8). **The fuller
-reference, the hexagon, is the References'** (the author, 2026-09-27),
-under the cards: `aids.maneuvers`, the one at the game's tier in a room
-and both, named, in the Reading Room. The pick used to link to the
-hexagon; that link is gone.
+box already carries the challenge over the hand (step 8). The pick
+used to link to the hexagon; that link is gone. The hexagon was then
+drawn in the Rules tab's References, under the cards (the author,
+2026-09-27), and taken out again once the maneuvers became a table
+(the author, 2026-09-28): the page draws it nowhere now, and
+`aids.maneuvers` -- the one at the game's tier in a room, both, named,
+in the Reading Room -- names it only for its route.
 
 **Why the two choices moved below the cog.** Which hexagon a game gets
 was `D12Ball.reference_tier`, and which two species faces a screen
