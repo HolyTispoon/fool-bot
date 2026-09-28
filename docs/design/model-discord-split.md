@@ -131,8 +131,8 @@ move had no rules risk to weigh against it.
   one of them cost a persisted field.** `SET_UP_ATTEMPT` and
   `SHOOTER_CHOICE` were `FollowOnStep`s rather than kinds because the
   view carried what match state did not hold: by the time the offer is
-  put, an overshot High Pass and an ordinary 2-space one have left the
-  match in the same position, so `distance_moved` and
+  put, a High Pass into the goal zone and an ordinary 2-space one have
+  left the match in the same position, so `distance_moved` and
   `contest_on_decline` existed only on the view. A game that went down
   inside either came back to the maneuver's *first-stage distance
   choice* -- `effect_choice_prompt` said so, and it was the last known
@@ -426,7 +426,7 @@ with Low Pass already, as the same step under a different `key=`.
   steal owes the ball-speed choice but reaches it through
   `finish_run_back`, so the step names `BEGIN_RUN_BACK` and lets
   `speed_choice_after=True` carry the question. The Intercept that
-  runs out of field names `BEGIN_SHOOTER_CHOICE` instead, and drops
+  reaches the goal zone names `BEGIN_SHOOTER_CHOICE` instead, and drops
   the speed choice with the run back.
   - **A follow-on's arguments arrive by keyword.**
     `dispatch_step_result` calls
@@ -451,25 +451,25 @@ with Low Pass already, as the same step under a different `key=`.
     resolves where a defender was sent, so `match.challenger_id` is
     always set in `steal_step` and "contested and unchallenged" is
     one half only in a defense rank's bot stop.
-  - **The overshoot's extra paragraph is one narration block, not
-    two.** The blocks are joined on a single space and that paragraph
-    is separated by a blank line, so a second block would have put a
-    stray space in front of its newlines. It rides inside the
+  - **The extra paragraph a ball into the goal zone earns is one
+    narration block, not two.** The blocks are joined on a single space
+    and that paragraph is separated by a blank line, so a second block
+    would have put a stray space in front of its newlines. It rides inside the
     turnover's own block, the way a beaten Clear's cost rides inside
     the dribble's.
   - **One ordering was left open rather than settled.** An Intercept
-    that overshoots returns before the Pinpoint cost is read, so
-    it collects none; the behaviour is lifted exactly as it stood and
+    that reaches the goal zone returns before the Pinpoint cost is
+    read, so it collects none; the behaviour is lifted exactly as it stood and
     the question is in PR #233, deliberately unpinned by any fixture
     -- the same way rank D1's two questions were left in PR #232.
 - **Rank D3 was the first follow-on to post a prompt of its own,
   and that is where `lead_in` stopped being free.** `pressure_step`
   is a Pressure and a Double Team both -- the push and the partner
   are the whole of the difference, so they are one function and a
-  `key` -- and the branch that overshoots toward a side's own goal
-  ends on `BEGIN_OWN_GOAL_ROLL`. `begin_own_goal_roll` took no
+  `key` -- and the branch that sends the ball into a side's own goal
+  zone ends on `BEGIN_OWN_GOAL_ROLL`. `begin_own_goal_roll` took no
   `lead_in`, because the old branch posted the shove as a message and
-  *then* asked for the roll, so an overshooting Pressure cost two
+  *then* asked for the roll, so a Pressure into the goal zone cost two
   messages where every other resolved maneuver costs one.
   - **The method grew the parameter rather than the step posting
     around it.** The narration rides above the prompt with a blank

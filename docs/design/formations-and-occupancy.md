@@ -15,7 +15,7 @@ shape in `basic_rules.json` lists the boards it may be picked on, and leaving
 it out means every board. It is not "a shape that would stack is refused" --
 a shape too deep for a zone would be offered anyway, and dealt stacking; that
 is what 2-3-1 and 1-3-2 did on the six-space board until it was withdrawn
-(2026-09-22 in the rules log). 3-2-1 and 1-2-3 need a goal zone three deep,
+(2026-09-22 in the rules log). 3-2-1 and 1-2-3 need an outer zone three deep,
 and being board 9's alone is the author's call (2026-08-12 in the rules
 log). `BasicRuleset.formations_for_board`
 is the only reading of it -- `D12Ball.available_formations` for a match, which
@@ -27,26 +27,27 @@ is what lets the printed team board list the names and nothing else.
 
 **No shape either board plays stacks.** Three in midfield fits board 7 and
 board 9 one card a space, and board 9's own two shapes put three in a
-three-space goal zone. The six-space board, whose midfield had two spaces, was
+three-space outer zone. The six-space board, whose midfield had two spaces, was
 the one that made 2-3-1 and 1-3-2 overfill a zone, and it went on 2026-09-22.
 So the occupancy machinery below is now exercised by `/coach` alone -- a stack
 is an arrangement a coach builds with space positioning, not one a deal hands
 them. `formation_stack_space` stays because the stacking rule is the re-deal's
 and a future shape or board would need it.
 
-**The deal spreads a goal zone's pair and packs midfield**, which is
+**The deal spreads an outer zone's pair and packs midfield**, which is
 `setup_space_order` and only ever visible on board 9 -- the one board whose
-zones are deeper than 2-2-2 fills them. A goal zone's two cards take its two
-end spaces and midfield clumps toward that side's own goal, so home deals H1,
-H3, M1, M2, V1, V3 (see "Setup" in the living rules, and the 2026-08-12 entry
-in the rules log). The clumped half is not an oversight: the kickoff space is
-in midfield and **every** arrangement has to cover its own side's (2026-08-16,
-and before that only the side kicking off), so spreading two cards over a
-three-space midfield would empty the middle and hold the coach in the window
-(`coaching_finish_refusal`). That is why the function takes the zone. Packing
-from a side's own end is what makes the deal and all five formations satisfy
-that rule for free. **This is the standard deal only**; a formation change re-deals through
-`formation_space_order`, which packs and then stacks.
+zones are deeper than 2-2-2 fills them. An outer zone's two cards take its two
+end spaces and midfield clumps toward that side's own goal, so home deals
+spaces 1, 3, 4, 5, 7 and 9 (see "Setup" in the living rules, and the
+2026-08-12 entry in the rules log). The clumped half is not an oversight: the
+kickoff space is in midfield and **every** arrangement has to cover its own
+side's (2026-08-16, and before that only the side kicking off), so spreading
+two cards over a three-space midfield would empty the middle and hold the coach
+in the window (`coaching_finish_refusal`). That is why the function takes the
+zone. Packing from a side's own end is what makes the deal and all five
+formations satisfy that rule for free. **This is the standard deal only**; a
+formation change re-deals through `formation_space_order`, which packs and then
+stacks.
 
 - **The shapes live in two places on purpose.** `Formation` in `d12ball/game.py`
   names them; the counts and the boards they are played on are in
@@ -72,11 +73,11 @@ that rule for free. **This is the standard deal only**; a formation change re-de
   still how a shape is read from a coach's own end.
 - **`formation_stack_space` no longer takes a side.** A surplus goes on the
   middle space of a three-space zone, or the centre-nearer space of a
-  two-space one, which for a goal zone is the space facing midfield. The one
+  two-space one, which for an outer zone is the space facing midfield. The one
   zone where that was a judgement call was the six-space board's midfield,
   whose two spaces straddled the centre: the tie was broken toward the coach's
   own goal, which is why the function took a side at all. Every midfield in
-  the ruleset is three spaces deep now, so a two-space zone is always a goal
+  the ruleset is three spaces deep now, so a two-space zone is always an outer
   zone and both coaches read it the same way.
 - **A Low Pass into a stack asks who receives it.** Several teammates on one
   space is an ordinary arrangement, and the receiver is what a Winger's

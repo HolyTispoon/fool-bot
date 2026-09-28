@@ -105,7 +105,8 @@ Most of the work is done, and was done for the print-and-play kit
   a grid, and `player_cards` already builds a front sheet and a
   row-reversed back sheet per team for duplex printing. TTS slices a
   sheet on a uniform grid, which this nearly is.
-- **Stable space names.** `render.space_code` gives H1, M2, V3; the
+- **Stable space names.** `render.space_code` gives each space's number
+  from the home end, 1 to 7 or 1 to 9 (Law 2.1.3); the
   builder labels snap points with them and the scripts remember an
   arrangement as a list of them, so an arrangement in the module reads
   like one in a Discord message.

@@ -423,7 +423,7 @@ def intercept_with_no_field_left() -> StealFixture:
         challenger_id=challenger,
         narration=(
             turnover_text(match, "intercept", challenger, 0)
-            + "\n\nThere is no field left ahead of them -- "
+            + "\n\nThe ball reaches the goal zone ahead of them -- "
             "a scoring opportunity!"
         ),
         follow_on=SHOOTER_CHOICE,

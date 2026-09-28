@@ -65,33 +65,37 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 2.1 The field
 
-**2.1.1** The field is a row of spaces divided into three zones, left to right: the home goal, midfield, and the visitors goal. A game is played on a board of 7 or 9 spaces.
+**2.1.1** The field is five zones, left to right: the **Home Goal**, the **Home Zone**, **midfield**, the **Visitors Zone** and the **Visitors Goal**. The three in the middle are a row of spaces, and a game is played on a board of 7 or 9 of them.
 
-| Board | Home goal | Midfield | Visitors goal |
-| --- | ---: | ---: | ---: |
-| 7 (default) | 2 | 3 | 2 |
-| 9 | 3 | 3 | 3 |
+| Board | Home Goal | Home Zone | Midfield | Visitors Zone | Visitors Goal |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 7 (default) | -- | 1-2 | 3-5 | 6-7 | -- |
+| 9 | -- | 1-3 | 4-6 | 7-9 | -- |
 
-**2.1.2** On the board itself, the two outer zones are labelled **Home Zone** and **Visitors Zone** -- **Home Third** and **Visitors Third** on the 9-space board, the only one where all three zones are equal.
+**2.1.2** On the 9-space board, the only one where the three zones with spaces are equal, the Home Zone and the Visitors Zone are called the **Home Third** and the **Visitors Third**. Everything this Charter says of the Home Zone and the Visitors Zone it says of the two Thirds on that board, and together they are the two **outer zones**.
 
-**2.1.3** A space is named by its zone's letter and its position counted from the home end: H1 and H2 are the home goal on board 7, M1 to M3 its midfield, V1 and V2 the visitors goal.
+**2.1.3** A space is named by its number, counted from the home end: on board 7, spaces 1 and 2 are the Home Zone, 3 to 5 midfield and 6 and 7 the Visitors Zone.
 
-**2.1.4** A space belongs to nobody. Any number of meeples from either team may stand on one, and distances are counted in spaces straight across the zone boundaries.
+**2.1.4** The Home Goal and the Visitors Goal are the two **goal zones**, one beyond each end of the row: the Home Goal before space 1 and the Visitors Goal after the last space, 7 or 9. A goal zone has no spaces, and no meeple is ever placed in one or moved into one.
+
+**2.1.5** **Only the ball reaches a goal zone.** A ball sent further than the spaces left in front of it **reaches the goal zone** at that end, and comes to rest on the last space before it. That space is the end of the row, and the goal zone is what a rule names when the ball would have gone beyond it.
+
+**2.1.6** A space belongs to nobody. Any number of meeples from either team may stand on one, and distances are counted in spaces straight across the zone boundaries.
 
 ### 2.2 Forward and back
 
-**2.2.1** The home team attacks the visitors goal and the visiting team attacks the home goal.
+**2.2.1** The home team attacks the Visitors Goal and the visiting team attacks the Home Goal.
 
 **2.2.2** **Forward** means toward the goal a team is attacking and **back** means toward the goal it is defending. The two words point opposite ways for the two sides, and every rule in this document is written from the point of view of the team it applies to.
 
 ### 2.3 Shooting range
 
-**2.3.1** A team may only shoot from within its **shooting range**, which is the far part of the field measured from the middle of the board. It is not a zone: it takes in the goal zone a team attacks and cuts partway across midfield.
+**2.3.1** A team may only shoot from within its **shooting range**, which is the far part of the field measured from the middle of the board. It is not a zone: it takes in the outer zone before the goal a team attacks and cuts partway across midfield.
 
 | Board | The visitors may shoot from | Neither | Home may shoot from |
 | --- | --- | --- | --- |
-| 7 | H1, H2, M1 | M2 | M3, V1, V2 |
-| 9 | H1, H2, H3, M1 | M2 | M3, V1, V2, V3 |
+| 7 | 1, 2, 3 | 4 | 5, 6, 7 |
+| 9 | 1, 2, 3, 4 | 5 | 6, 7, 8, 9 |
 
 **2.3.2** Both boards have an odd number of spaces, so both have a true middle space, and that space is in neither team's range.
 
@@ -180,9 +184,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 3.2 The standard deal
 
-**3.2.1** Both sides are dealt into **2-2-2** by role: the Fullback and one Defender in their own goal, the Midfielder and one Playmaker in midfield, the Winger and one Striker in the goal they attack. The remaining Defender, Playmaker and Striker start on the bench.
+**3.2.1** Both sides are dealt into **2-2-2** by role: the Fullback and one Defender in the outer zone before their own goal, the Midfielder and one Playmaker in midfield, the Winger and one Striker in the outer zone before the goal they attack. The remaining Defender, Playmaker and Striker start on the bench.
 
-**3.2.2** A goal zone's two cards take the two ends of the zone, and midfield packs from that side's own end outward. On board 7 that comes out the same as filling each zone in order. It is only visible on board 9, whose zones are three spaces deep: home deals to H1, H3, M1, M2, V1 and V3, and the visitors deal the mirror of it.
+**3.2.2** An outer zone's two cards take the two ends of the zone, and midfield packs from that side's own end outward. On board 7 that comes out the same as filling each zone in order. It is only visible on board 9, whose zones are three spaces deep: home deals to spaces 1, 3, 4, 5, 7 and 9, and the visitors deal the mirror of it.
 
 *Note.* Midfield packs rather than spreads because the kickoff space is in it. Every arrangement has to cover its own side's kickoff space, and packing from a side's own end reaches that space on every board.
 
@@ -285,7 +289,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **5.5.2** A goal restarts from the conceding side's own kickoff space with them in possession. Every arrangement is required to cover that space, so nothing further is owed.
 
-**5.5.3** A miss gives the ball to the side that just defended it, on the space closest to their own goal, which carries no such guarantee: if nobody of theirs is standing there once the reset settles, they [pick it up](#106-picking-the-ball-up) (10.6) exactly as after an out-of-bounds ball.
+**5.5.3** A miss gives the ball to the side that just defended it, on the last space before their own goal, which carries no such guarantee: if nobody of theirs is standing there once the reset settles, they [pick it up](#106-picking-the-ball-up) (10.6) exactly as after an out-of-bounds ball.
 
 ## 6. Maneuvers
 
@@ -338,7 +342,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.5.2** The ball goes to a teammate, and there are at most three destinations to choose between: the nearest teammate up to 2 spaces ahead of the ball, the nearest teammate up to 2 spaces behind it, and a teammate standing on the ball's own space. A nearer teammate blocks a farther one in the same direction, so the choice is between directions rather than distances. Where several teammates are standing on the destination, the passer chooses which of them receives it.
 
-**6.5.3** A pass has to reach a different player -- the handler cannot pass to themselves -- and a pass across a shared space also sends the passer 1 space forward if there is field to move into.
+**6.5.3** A pass has to reach a different player -- the handler cannot pass to themselves -- and a pass across a shared space also sends the passer 1 space forward if there is a space in front of them to move into.
 
 **6.5.4** Ball speed rises by 1, to a maximum of 12. The ball is left with the receiver.
 
@@ -360,7 +364,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.7.1** **Rank O3. Costs 2 space minutes. Beats Steal, loses to Deflect.**
 
-**6.7.2** The ball is thrown 2 or 3 spaces forward, and a Fullback may throw it 4. Only distances that land on a space the field actually has are offered, and a distance is dropped when a shorter one already reaches the space it would land on -- the longer throw would be the same pass at a disadvantage.
+**6.7.2** The ball is thrown 2 or 3 spaces forward, and a Fullback may throw it 4. Only distances that land on a space short of the goal zone are offered, and a distance is dropped when a shorter one already reaches the space it would land on -- the longer throw would be the same pass at a disadvantage.
 
 | The throw | What happens |
 | --- | --- |
@@ -370,9 +374,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.7.3** A 2-space pass that lands short of shooting range is still received. The range rule takes away the shot, not the catch.
 
-**6.7.4** **An overshoot** is a throw that runs out of field. With the ball 0 or 1 spaces from the end, every distance lands on the same last space, so nothing is offered and the throw overshoots before anyone chooses. An overshoot onto a teammate offers that receiver the scoring opportunity **or** the High Pass contest: they are two halves of one choice, declining the shot means taking the contest, and the ball speed modifier counts **against** them either way.
+**6.7.4** A throw longer than the spaces left in front of the ball **reaches the goal zone**, and comes to rest on the last space before it. With the ball 0 or 1 spaces from that last space, every distance reaches the goal zone and comes to rest on the same space, so nothing is offered and the throw reaches the goal zone before anyone chooses. A throw that reaches the goal zone with a teammate on that last space offers that receiver the scoring opportunity **or** the High Pass contest: they are two halves of one choice, declining the shot means taking the contest, and the ball speed modifier counts **against** them either way.
 
-**6.7.5** **A passer never receives their own pass.** Thrown from the last space the ball comes straight back down where it was, and a teammate sharing that space receives it and is offered the choice above.
+**6.7.5** **A passer never receives their own pass.** Thrown from the last space, the ball reaches the goal zone and comes back to rest where it was, and a teammate sharing that space receives it and is offered the choice above.
 
 **6.7.6** With no other teammate on that last space, there is nowhere left to throw it and nobody to throw it to: the ball goes [out of play](#105-out-of-bounds) (10.5), the other team gains possession, and the gaining side sends somebody to pick it up. The throw still costs its 2 minutes.
 
@@ -386,7 +390,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.8.4** A Deflect turns nothing over by itself, and settles nothing either: it knocks the ball out of anybody's possession, so what happens next depends on who, if anyone, is standing where it lands. That is [the ordinary three-way rule](#101-where-the-ball-comes-to-rest) (10.1): nobody there and it is loose, one side there and it is theirs, both there and they contest it on the spot.
 
-**6.8.5** The one exception is a deflection that runs out of field **and** comes to rest on the space of the player who played the Deflect: rather than being contested, that player gets a [scoring opportunity](#8-scoring-opportunities) (8). **Only the player who played the Deflect may take it**, even with teammates standing on the same space. Possession flips for it and speed resets, and it is the shot that follows -- goal or miss -- that makes the new play. A deflection that runs out of field and comes to rest anywhere else sets up nothing, and lands by the ordinary rule above.
+**6.8.5** The one exception is a deflection that reaches the goal zone **while** the player who played the Deflect is standing on the last space before it: rather than being contested, that player gets a [scoring opportunity](#8-scoring-opportunities) (8). **Only the player who played the Deflect may take it**, even with teammates standing on the same space. Possession flips for it and speed resets, and it is the shot that follows -- goal or miss -- that makes the new play. A deflection that reaches the goal zone while that player is standing anywhere else sets up nothing, and lands by the ordinary rule above.
 
 ### 6.9 Steal
 
@@ -404,9 +408,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.10.2** The handler and the ball go 1 space back, toward the goal the offense is defending, and the challenger moves 1 space forward onto the same space. Possession does not change, and the ball is left with the handler.
 
-**6.10.3** Where the handler is already standing on the space closest to their own goal there is nowhere to push them, and the pressure risks an [own goal](#11-own-goal) (11) instead.
+**6.10.3** Where the handler is already standing on the last space before their own goal there is nowhere to push them: the ball reaches their own goal zone, and the pressure risks an [own goal](#11-own-goal) (11) instead.
 
-**6.10.4** *Defender:* a won Pressure also steals the ball -- unless the push overshot into an own-goal roll, which takes priority whichever way it goes.
+**6.10.4** *Defender:* a won Pressure also steals the ball -- unless the push reached their own goal zone and became an own-goal roll, which takes priority whichever way it goes.
 
 ## 7. Ball speed
 
@@ -432,9 +436,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **7.4.2** The ball [where it came to rest](#101-where-the-ball-comes-to-rest) (10.1) belongs to nobody yet, so neither contestant adds it there.
 
-### 7.5 The overshoot
+### 7.5 A High Pass that reaches the goal zone
 
-**7.5.1** An overshot High Pass turns the sign around: the modifier counts against the shot it sets up and against the contest behind it.
+**7.5.1** A High Pass that reaches the goal zone turns the sign around: the modifier counts against the shot it sets up and against the contest behind it.
 
 ## 8. Scoring opportunities
 
@@ -451,9 +455,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | Set up by | Who shoots |
 | --- | --- |
 | A received 2-space High Pass | The receiver |
-| An overshot High Pass onto a teammate | The receiver |
+| A High Pass that reaches the goal zone, with a teammate on the last space | The receiver |
 | A Winger's completed Low Pass | The receiver |
-| An overshot Deflect | The player who played the Deflect, and only if the ball comes to rest on their space |
+| A Deflect that reaches the goal zone | The player who played the Deflect, and only if they are standing on the last space before it |
 
 ### 8.3 The shooter
 
@@ -463,7 +467,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **8.4.1** Declining costs nothing and the maneuver resolves as it otherwise would have.
 
-**8.4.2** The one exception is an overshot High Pass, where declining the shot means taking the [High Pass contest](#104-the-high-pass-contest) (10.4) instead.
+**8.4.2** The one exception is a High Pass that reached the goal zone, where declining the shot means taking the [High Pass contest](#104-the-high-pass-contest) (10.4) instead.
 
 ### 8.5 The cost in time
 
@@ -481,7 +485,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **9.2.1** A coach may send either of their two nearest players to the space: the nearest one in front of it and the nearest one behind it, counted in spaces along the field.
 
-**9.2.2** Where the ball is on the space at the end of the field, there is nobody beyond it, and the nearest in front is the only one offered.
+**9.2.2** Where the ball is on the last space before a goal zone, there is nobody beyond it, and the nearest in front is the only one offered.
 
 **9.2.3** Where two or more are tied for nearest on one side, all of them are offered and the coach chooses between them.
 
@@ -533,13 +537,13 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 10.4 The High Pass contest
 
-**10.4.1** A High Pass of 3 spaces or more onto a teammate is caught, but not kept: the receiver has to win a contest to keep it, and the receiver standing on the ball is their side's contestant. An overshot pass whose set-up was declined comes to the same place. A pass of 2 does not -- a teammate there simply receives it and possession does not change, exactly as with a [Low Pass](#65-low-pass) (6.5).
+**10.4.1** A High Pass of 3 spaces or more onto a teammate is caught, but not kept: the receiver has to win a contest to keep it, and the receiver standing on the ball is their side's contestant. A pass that reached the goal zone and whose set-up was declined comes to the same place. A pass of 2 does not -- a teammate there simply receives it and possession does not change, exactly as with a [Low Pass](#65-low-pass) (6.5).
 
 **10.4.2** **A High Pass is the one exemption to [where the ball comes to rest](#101-where-the-ball-comes-to-rest) (10.1).** A landing space holding only one side's players may still be contested by the other, who [send a player](#9-sending-a-player) (9) after it exactly as they would to an empty space. Every other way the ball comes to rest is settled by whoever is already standing there.
 
 *Note.* The ball is high in the air, which gives players time to run towards it.
 
-**10.4.3** Otherwise it is [the contest](#102-the-contest) (10.2) above, with one difference: the side that threw the pass adds the [ball speed modifier](#7-ball-speed) (7), and adds it against themselves if the pass overshot.
+**10.4.3** Otherwise it is [the contest](#102-the-contest) (10.2) above, with one difference: the side that threw the pass adds the [ball speed modifier](#7-ball-speed) (7), and adds it against themselves if the pass reached the goal zone.
 
 **10.4.4** A pass that reaches nobody carries no modifier. It is not this contest at a disadvantage; the ball is simply loose on an empty space, and there is no receiver for the throw to have favoured.
 
@@ -555,7 +559,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **10.6.1** An out-of-bounds ball, a [missed shot](#5-score-attempt) (5), an [avoided own goal](#11-own-goal) (11) and a [time out](#13-time-out) (13) can all leave the ball on a space nobody of the gaining or keeping side is standing on. Once everything else has settled, that side [sends a player](#9-sending-a-player) (9) to the ball's space -- unless one of theirs is already standing there, which settles it for nothing.
 
-**10.6.2** **Every pickup is the same**, whichever of the four left it owed. The coach of the side with the ball is offered the [two nearest](#92-the-two-nearest) (9.2) -- the nearest in front of the ball and the nearest behind it, only the one in front where the ball is at the end of the field, and every player tied for nearest -- and **must send one of them**: a pickup cannot be declined. The player sent exhausts 1 for every space they travel, **after a time out as after anything else**.
+**10.6.2** **Every pickup is the same**, whichever of the four left it owed. The coach of the side with the ball is offered the [two nearest](#92-the-two-nearest) (9.2) -- the nearest in front of the ball and the nearest behind it, only the one in front where the ball is on the last space before a goal zone, and every player tied for nearest -- and **must send one of them**: a pickup cannot be declined. The player sent exhausts 1 for every space they travel, **after a time out as after anything else**.
 
 **10.6.3** A pickup is a placement rather than a contest: nobody rolls for it, nobody may contest it, and the ball is left with nobody in particular afterwards.
 
@@ -567,7 +571,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 11.1 When it is risked
 
-**11.1.1** Only a Pressure that runs out of field risks an own goal: the handler is already on the space closest to their own goal, and there is nowhere left to push them back to.
+**11.1.1** Only a Pressure whose push reaches the handler's own goal zone risks an own goal: there is nowhere left to push them back to.
 
 ### 11.2 The own-goal roll
 
@@ -724,7 +728,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **14.7.1**
 
-| Formation | Own goal | Midfield | The goal they attack | Boards |
+| Formation | Outer zone before their own goal | Midfield | Outer zone before the goal they attack | Boards |
 | --- | ---: | ---: | ---: | --- |
 | 2-2-2 | 2 | 2 | 2 | 7, 9 |
 | 2-3-1 | 2 | 3 | 1 | 7, 9 |
@@ -826,7 +830,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | A time out | 1 |
 | Running back, resetting, a pickup, a contest, any roll, a Coaching Choice | 0 |
 
-**16.2.2** A maneuver's cost is flat. It does not depend on how far the ball or a player actually moved, or on whether the move was cut short by the end of the field.
+**16.2.2** A maneuver's cost is flat. It does not depend on how far the ball or a player actually moved, or on whether the ball reached a goal zone and came to rest short of the distance chosen.
 
 **16.2.3** **The maneuver charged is the one that resolves.** A beaten card costs nothing of its own: a High Pass beaten by a Deflect costs the Deflect's 1, not the High Pass's 2.
 
@@ -1006,7 +1010,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.6.1** **Rank O2. Costs 1 space minute. Beats Deflect and Clear, loses to Pressure and Double Team.**
 
-**19.6.2** The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler **exhausts 1 per space travelled**. A handler nearer the end of the field than their run may go only as far as the field goes.
+**19.6.2** The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler **exhausts 1 per space travelled**. A handler nearer the goal zone than their run may go only as far as the last space before it.
 
 *Note.* It is the only maneuver that charges by distance, which is what makes the shorter runs worth taking.
 
@@ -1022,13 +1026,13 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.7.2** Two steps, in this order. The passer first changes the ball's speed by up to their offensive skill, in either direction. They then pick the ball out **0, 1 or 3 spaces** ahead. A teammate standing where it lands receives it and takes a [scoring opportunity](#8-scoring-opportunities) (8), with the speed they just set counting for it.
 
-**19.7.3** **Every distance that fits on the field may be picked**, whether or not anybody of the passing side is standing there. `0` is the one exception: it means a teammate sharing the passer's own space -- a passer never receives their own pass -- so it may only be picked while somebody else is standing there.
+**19.7.3** **Every distance that lands on a space short of the goal zone may be picked**, whether or not anybody of the passing side is standing there. `0` is the one exception: it means a teammate sharing the passer's own space -- a passer never receives their own pass -- so it may only be picked while somebody else is standing there.
 
 **19.7.4** *Fullback:* may also set up at 4 spaces.
 
 **19.7.5** **A pass that lands on nobody is still a pass.** With no teammate where it lands there is no set-up, but the ball has been thrown all the same and it settles where it stops, exactly as a [Deflect](#68-deflect) (6.8)'s does: [loose](#101-where-the-ball-comes-to-rest) (10.1) if the space is empty, and the other side's outright and uncontested if they are standing there. A space both sides are standing on is a teammate standing on it, so it is the set-up above rather than a contest.
 
-**19.7.6** **A Cross cannot overshoot**, so the only way it runs [out of play](#105-out-of-bounds) (10.5) is having nowhere to pick it out to at all: the passer standing on the very last space of the field, where even 1 space runs off the end, with no teammate beside them to take it at `0`. Then the other team gains possession, both sides reset, and the gaining side sends somebody to pick the ball up.
+**19.7.6** **A Cross never reaches the goal zone**, so the only way it runs [out of play](#105-out-of-bounds) (10.5) is having nowhere to pick it out to at all: the passer standing on the last space before the goal zone, where even 1 space would reach it, with no teammate beside them to take it at `0`. Then the other team gains possession, both sides reset, and the gaining side sends somebody to pick the ball up.
 
 **19.7.7** *Failed gambit:* **the ball goes back once, and the coach who beat the pass chooses how far.** The card that beat it resolves at a chosen distance instead of its own:
 
@@ -1036,7 +1040,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 - **b.** beaten by a **Clear**, 2, 3 or 4 spaces back;
 - **c.** a *Fullback* who beat it adds 1 to each: 2, 3 or 4 for a Deflect, 3, 4 or 5 for a Clear.
 
-**19.7.8** Ball speed drops as that card's own does -- by 1 for a Deflect, by 3 for a Clear -- and the ball lands exactly as a [Deflect](#68-deflect) (6.8)'s does: loose if the space it stops on is empty, uncontested if only one side is there, a forced contest if both are. **Of the distances that run out of field only the shortest is offered**, since every longer one stops on the same last space. A ball that runs out of field is a [scoring opportunity](#8-scoring-opportunities) (8) for the player who beat the pass when they are standing on that last space -- the one closest to the goal their team attacks -- and for nobody else, exactly as an [overshot Deflect](#68-deflect) (6.8)'s is. One that runs out of field while they are standing anywhere else sets up nothing.
+**19.7.8** Ball speed drops as that card's own does -- by 1 for a Deflect, by 3 for a Clear -- and the ball lands exactly as a [Deflect](#68-deflect) (6.8)'s does: loose if the space it stops on is empty, uncontested if only one side is there, a forced contest if both are. **Of the distances that reach the goal zone only the shortest is offered**, since every longer one comes to rest on the same last space. A ball that reaches the goal zone is a [scoring opportunity](#8-scoring-opportunities) (8) for the player who beat the pass when they are standing on that last space -- the one before the goal their team attacks -- and for nobody else, exactly as a [Deflect](#68-deflect) (6.8)'s is. One that reaches it while they are standing anywhere else sets up nothing.
 
 ### 19.8 Clear
 
@@ -1044,7 +1048,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.8.2** A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves.
 
-**19.8.3** It lands exactly where a Deflect's does -- [loose](#101-where-the-ball-comes-to-rest) (10.1) if the space is empty, uncontested if only one side is there, a forced contest if both are -- including the deflection that runs out of field onto the player who played it, which offers that player -- and only that player -- a [scoring opportunity](#8-scoring-opportunities) (8) exactly as a Deflect's does. A Clear can run out of field from further out than a Deflect can, and one that leaves the player who played it behind sets up nothing.
+**19.8.3** It lands exactly where a Deflect's does -- [loose](#101-where-the-ball-comes-to-rest) (10.1) if the space is empty, uncontested if only one side is there, a forced contest if both are -- including the deflection that reaches the goal zone with the player who played it on the last space before it, which offers that player -- and only that player -- a [scoring opportunity](#8-scoring-opportunities) (8) exactly as a Deflect's does. A Clear can reach the goal zone from further out than a Deflect can, and one that reaches it with the player who played it anywhere else sets up nothing.
 
 **19.8.4** *Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 -- a Fullback's extra space is distance, not speed, exactly as it is on a Deflect.
 
@@ -1064,7 +1068,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.9.5** Once everyone has run back, the interceptor changes the ball's speed by up to their defensive skill. The ball is left with the interceptor, who therefore does not run back.
 
-**19.9.6** Where the interceptor is already on the last space that way there is nowhere to carry it, and the interception is a [scoring opportunity](#8-scoring-opportunities) (8) for them instead.
+**19.9.6** Where the interceptor is already on the last space before the goal they attack, the ball reaches that goal zone: there is nowhere to carry it, and the interception is a [scoring opportunity](#8-scoring-opportunities) (8) for them instead.
 
 **19.9.7** *Failed gambit:* a [High Pass contest](#104-the-high-pass-contest) (10.4) the pass would have owed is not held -- the receiver simply keeps the ball.
 
@@ -1074,7 +1078,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.10.2** A Pressure at two spaces, with help. The handler and the ball go **2 spaces back**, and the challenger **and the defending player nearest the space the play started from** both move onto the handler's space -- free of exhaustion, however far they came.
 
-**19.10.3** Possession does not change and the ball is left with the handler. Where the handler is already on the space closest to their own goal there is nowhere to push them, and it risks an [own goal](#11-own-goal) (11) as a Pressure does. A Defender's steal applies as it does on a won Pressure.
+**19.10.3** Possession does not change and the ball is left with the handler. Where the push of 2 reaches the handler's own goal zone -- the handler on the last space before it, or on the space next to that -- it risks an [own goal](#11-own-goal) (11) as a Pressure does. A Defender's steal applies as it does on a won Pressure.
 
 **19.10.4** **On the defending side's next maneuver both of those players challenge**, and the skill test adds **both** of their defensive skills. It lasts until a [new play](#125-resetting-after-a-new-play) (12.5), which is the only thing that ends it.
 
@@ -1143,7 +1147,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.4.3** The ball's own starting space does not count as "moved to" -- only a ball changing spaces can be pulled, and only the opposing team's ball.
 
-**20.4.4** **Whoever the movement itself moved is not offered a pull, or a Smooth.** The ball has to move to or through a space the player was *already standing on* and stayed on: a player the maneuver carried never had it move to them, because they and it arrived together. So the challenger a [Pressure](#610-pressure) (6.10) brings forward onto the ball is owed nothing for it, nor is a [Double Team](#1910-double-team) (19.10)'s partner, nor the handler either card shoves back, nor the handler of a [dribble](#66-dribble) (6.6) who moves with the ball by definition. A player shoved nowhere -- already against their own goal, with the push clamped to nothing -- has not been carried, and is offered whatever they would have been offered standing still.
+**20.4.4** **Whoever the movement itself moved is not offered a pull, or a Smooth.** The ball has to move to or through a space the player was *already standing on* and stayed on: a player the maneuver carried never had it move to them, because they and it arrived together. So the challenger a [Pressure](#610-pressure) (6.10) brings forward onto the ball is owed nothing for it, nor is a [Double Team](#1910-double-team) (19.10)'s partner, nor the handler either card shoves back, nor the handler of a [dribble](#66-dribble) (6.6) who moves with the ball by definition. A player shoved nowhere -- already on the last space before their own goal, with the ball pushed into the goal zone -- has not been carried, and is offered whatever they would have been offered standing still.
 
 **20.4.5** **One roll per Telekinetic per ball movement.** Where the ball's path crosses two Telekinetics, each may try in the order the ball reaches them; the first to succeed stops the ball there and the rest get no roll.
 
@@ -1263,7 +1267,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.6.5** **Shpritz may Smooth.** Shpritz has the Telekinetics' [Smooth](#204-mind-pull-telekinetic) (20.4), and takes their own side's ball over exactly as a Telekinetic does. Shpritz has no Mind Pull.
 
-**21.6.6** **Zorch rolls with the ball.** Zorch adds the [ball speed modifier](#7-ball-speed) (7) to every roll they make: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2), an [injury check](#153-the-injury-check) (15.3) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Pass contest](#104-the-high-pass-contest) (10.4) -- it is added once, not twice, and an [overshoot](#75-the-overshoot) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so the modifier is 0. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
+**21.6.6** **Zorch rolls with the ball.** Zorch adds the [ball speed modifier](#7-ball-speed) (7) to every roll they make: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2), an [injury check](#153-the-injury-check) (15.3) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Pass contest](#104-the-high-pass-contest) (10.4) -- it is added once, not twice, and a [High Pass that reaches the goal zone](#75-a-high-pass-that-reaches-the-goal-zone) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so the modifier is 0. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
 
 **21.6.7** **Acidel turns a pressure into a shot.** When Acidel is the challenger whose won [Pressure](#610-pressure) (6.10) or [Double Team](#1910-double-team) (19.10) would risk an [own goal](#11-own-goal) (11), there is no own-goal roll: Acidel's side takes the ball, at speed 1, and Acidel has a [scoring opportunity](#8-scoring-opportunities) (8) from that space. Declining it leaves Acidel's side holding the ball where it stands.
 
@@ -1311,6 +1315,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Exhausted | [Becoming Exhausted](#152-becoming-exhausted) (15.2) |
 | Exhaustion token | [The ball, the dice and the tokens](#27-the-ball-the-dice-and-the-tokens) (2.7); [gaining tokens](#151-gaining-tokens) (15.1) |
 | Gambit, making a gambit | [An advanced maneuver is the advanced version of its rank](#191-an-advanced-maneuver-is-the-advanced-version-of-its-rank) (19.1); successful and failed in [successful and failed gambits](#194-successful-and-failed-gambits) (19.4) |
+| Goal zone, Home Goal, Visitors Goal, reaching the goal zone | [The field](#21-the-field) (2.1) |
 | Handler | [Choosing the handler](#42-choosing-the-handler) (4.2) |
 | Injured | [Playing injured](#154-playing-injured) (15.4) |
 | Kickoff space | [The kickoff space](#24-the-kickoff-space) (2.4) |
@@ -1319,7 +1324,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Modifier (ball speed) | [The speed and its modifier](#71-the-speed-and-its-modifier) (7.1) |
 | New play, steal | [Turnovers](#12-turnovers) (12) |
 | Offensive skill, defensive skill | [Players and roles](#26-players-and-roles) (2.6) |
-| Overshoot | [High Pass](#67-high-pass) (6.7) |
+| Outer zone, Home Zone, Visitors Zone, Home Third, Visitors Third | [The field](#21-the-field) (2.1) |
 | Personal ability | [Whose they are](#211-whose-they-are) (21.1) |
 | Sending a player | [Sending a player](#9-sending-a-player) (9) |
 | Set-up, scoring opportunity | [Scoring opportunities](#8-scoring-opportunities) (8) |
@@ -1332,7 +1337,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ## Appendix C. The boards
 
-The two boards at kickoff, with the standard deal on each: their zones, their shooting ranges and their kickoff spaces. The 9-space board is the one where the deal is not obvious -- home deals to H1, H3, M1, M2, V1 and V3, and the visitors deal the mirror of it.
+The two boards at kickoff, with the standard deal on each: their zones, their shooting ranges and their kickoff spaces. The 9-space board is the one where the deal is not obvious -- home deals to spaces 1, 3, 4, 5, 7 and 9, and the visitors deal the mirror of it.
 
 ![The two boards at kickoff](rulebooks/figures/fig-16-the-boards.png)
 

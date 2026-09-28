@@ -1157,8 +1157,8 @@ button.goal { display: block; }
   transform: translateX(-50%);
   z-index: 2;
 }
-/* The ✕ a pass is put out of play at, past the end: clicked, or the
-   ball dropped on it. */
+/* The ✕ a pass is put out of play at, on the goal zone: clicked, or
+   the ball dropped on it. */
 .goal.out-lit { overflow: visible; }
 .out-mark {
   position: absolute;
@@ -1210,7 +1210,7 @@ button.goal { display: block; }
 .goal-word .die { flex: none; }
 
 /* A space: two lanes, the visitors' in the top half against the right
-   edge and home's in the bottom half against the left. An end zone's
+   edge and home's in the bottom half against the left. An outer zone's
    spaces carry the defending side's colour faintly; midfield is the
    panel grey. It clips: nothing leaves the space it stands on. */
 .space {

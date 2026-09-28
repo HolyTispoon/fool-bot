@@ -184,8 +184,8 @@ class PendingPrompt:
     #: is put, which is why it is on the match -- see
     #: `MatchState.pending_scoring_opportunity`.
     distance_moved: int = 1
-    #: SET_UP_ATTEMPT: an overshoot is a shot or a contest, both at the
-    #: same disadvantage, so declining lands in the long-pass contest
+    #: SET_UP_ATTEMPT: a High Pass into the goal zone is a shot or a
+    #: contest, both at the same disadvantage, so declining lands in the long-pass contest
     #: rather than settling the ball (2026-08-10).
     contest_on_decline: bool = False
     #: **What may be chosen**, as the dataclass this kind's options
@@ -429,12 +429,12 @@ class DistanceOptions:
     #: measure, and no frontend decides which way a kind moves. Empty
     #: where there is nobody to move (a dribble with no handler).
     landings: tuple[tuple[Zone, int], ...] = ()
-    #: SETUP_PASS_PUSH_BACK: the one distance that runs the ball out of
-    #: field, or `None`. It lands on the same last space as the longest
-    #: distance that does not, so a label reading only `landings` would
+    #: SETUP_PASS_PUSH_BACK: the one distance that sends the ball into
+    #: the goal zone, or `None`. It comes to rest on the same last space
+    #: as the longest distance that does not, so a label reading only `landings` would
     #: offer the same space twice; it is a different move, the beating
     #: player's shot where they stand there (Law 19.7.8).
-    overshoot: Optional[int] = None
+    goal_zone: Optional[int] = None
 
     def landing(self, distance: int) -> Optional[tuple[Zone, int]]:
         """The space `distance` lands on, or `None` where the prompt
@@ -451,7 +451,7 @@ class DistanceOptions:
             "may_pass_out": self.may_pass_out,
             "runner_id": self.runner_id,
             "runner_distances": list(self.runner_distances),
-            "overshoot": self.overshoot,
+            "goal_zone": self.goal_zone,
             "landings": [
                 {"zone": Zone(zone).value, "space_index": space_index}
                 for zone, space_index in self.landings
@@ -1398,7 +1398,7 @@ def effect_choice_prompt(
         # beat it has won but not yet moved the ball, because its
         # coach chooses how far (Law 19.7.7). Once the ball has moved
         # and the loose ball begins the `pending_loose_ball` branch
-        # above answers instead, and an overshoot into a shot is the
+        # above answers instead, and the goal zone's shot is the
         # scoring opportunity's.
         #
         # A game saved at this prompt before 2026-09-27 had already
@@ -2557,7 +2557,7 @@ def _push_back_options(
     return DistanceOptions(
         distances,
         landings=_ball_landings(match, distances, direction=-1),
-        overshoot=engine.setup_pass_push_back_overshoot(match, distances),
+        goal_zone=engine.setup_pass_push_back_to_goal_zone(match, distances),
     )
 
 

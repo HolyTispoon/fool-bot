@@ -156,7 +156,7 @@ def check_for_mind_pull(
     directly, and the High Pass contest, which comes through it),
     `offer_scoring_attempt_choice` (a set-up), `begin_run_back` (a
     turnover a maneuver settles for itself) and `begin_own_goal_roll`
-    (a shove that overshot). See "Mind Pull, and the arrival gate" in
+    (a shove into the goal zone). See "Mind Pull, and the arrival gate" in
     docs/design/species-abilities.md for what each of the last two
     catches that the first three do not.
 
@@ -581,16 +581,17 @@ def offer_scoring_attempt_choice(
     """
     Offer the offense a chance to attempt a scoring-opportunity shot
     instead of letting a maneuver resolve normally -- used by a High
-    Pass's 2-space pass, a High Pass that overshoots, and a Winger's
-    Low Pass.
+    Pass's 2-space pass, a High Pass that reaches the goal zone, and a
+    Winger's Low Pass.
 
     Declining nearly always resolves the maneuver as a normal pass; a
     2-space High Pass stopped forcing a contest instead on 2026-08-07.
-    `contest_on_decline` is the one exception: an overshoot is a shot
-    or a contest, both at the same disadvantage, so declining lands in
+    `contest_on_decline` is the one exception: a pass into the goal
+    zone is a shot or a contest, both at the same disadvantage, so declining lands in
     the contest rather than settling the ball (2026-08-10). It is
     passed rather than derived because by the time this runs, an
-    overshot pass and an ordinary 2-space one have left the match in
+    pass into the goal zone and an ordinary 2-space one have left the
+    match in
     the same state.
     """
     # **A scoring opportunity is an arrival too**, and one the rules
@@ -652,7 +653,7 @@ def decline_scoring_attempt(
     Let go of a scoring opportunity: the maneuver that offered it
     resolves as it otherwise would have.
 
-    For an overshot High Pass that is the long-pass contest, not a
+    For a High Pass into the goal zone that is the long-pass contest, not a
     settled ball -- the shot and the contest are the two halves of one
     choice. See `offer_scoring_attempt_choice`.
 
@@ -697,8 +698,9 @@ def begin_high_pass_contest(
     which `is_high_pass` carries.
 
     Two paths reach it, and callers of both have already found the
-    receiver on the landing space: an unclamped pass of 3 or 4, and an
-    overshoot whose set-up the coach declined (2026-08-10). The second
+    receiver on the landing space: a pass of 3 or 4 that lands short
+    of the goal zone, and one into it whose set-up the coach declined
+    (2026-08-10). The second
     still carries `pending_high_pass_overshoot`, so the contest is
     rolled with the ball speed modifier against the receiver rather
     than for them.
@@ -1246,7 +1248,8 @@ def begin_own_goal_roll(
     is a no-op the second time.
 
     **Only a Double Team can arrive with a path.** A plain Pressure
-    overshoots only from the space closest to the offense's own goal,
+    reaches the goal zone only from the last space before the
+    offense's own goal,
     where the handler does not move and `ball_path_to` answers empty
     for a move that goes nowhere.
     """

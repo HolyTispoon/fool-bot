@@ -24,7 +24,7 @@ partner it brings in, Deflect and Clear by the distance and the speed
 drop. The dribbles needed two, because they have different costs
 rather than different signs -- and so does rank O3, whose two cards
 share a landing space and nothing else: a High Pass throws forward and
-may overshoot, a Cross picks the ball out and cannot, and the
+may reach the goal zone, a Cross picks the ball out and never does, and the
 Cross is two steps because its speed choice comes first.
 
 **Nothing here saves.** The caller persists once, immediately after the
@@ -100,8 +100,8 @@ def send_low_pass(
     )
     # A pass across a shared space sends the passer a space forward
     # (2026-08-07) -- the ball hasn't gone anywhere, so this is what
-    # the maneuver buys. Clamped at the far end of the field, where
-    # there is nowhere to run to.
+    # the maneuver buys. Clamped at the last space, since no meeple
+    # ever moves into a goal zone (Law 2.1.4).
     passer_advance = (
         match.move_player_relative(match.active_player_id, offense_side, 1)
         if distance == 0
@@ -430,8 +430,8 @@ def dribble_advance_step(
     `resolve_dribble_advance`'s, above the seam.
 
     `distance` is what was chosen; `actual_distance` is what the move
-    came to, since `move_player_relative` clamps at the end of the
-    field. The wording reads the second, because what a coach watched
+    came to, since `move_player_relative` clamps at the last space
+    before the goal zone. The wording reads the second, because what a coach watched
     is where the handler actually got to.
 
     It takes the `game` for the exhaustion a beaten Clear is charged
@@ -553,14 +553,14 @@ def dribble_burst_step(
             f"the way{ability_note}."
         )
     else:
-        # The handler was already on the last space of the field, so
-        # the burst had nowhere to go -- said plainly rather than
-        # reported as a run of 0 spaces, which is the same call
-        # `apply_high_pass` makes for a clamped throw.
+        # The handler was already on the last space before the goal
+        # zone, so the burst had nowhere to go -- said plainly rather
+        # than reported as a run of 0 spaces, which is the same call
+        # `throw_high_pass` makes for a throw from the last space.
         content = (
             f"**{engine.maneuver_name('dribble_burst')}:** "
-            f"{handler_label} is already as far "
-            "forward as the field goes, so the ball stays where it is."
+            f"{handler_label} is already on the last space before the "
+            "goal zone, so the ball stays where it is."
         )
     # Worth saying only for Emberdash: everybody else, Playmaker
     # included, pays the plain token-a-space cost.
@@ -594,7 +594,7 @@ def take_ball_by_steal(
 ) -> tuple[bool, int]:
     """
     Turn the ball over and carry it off, returning whether the carry
-    ran out of field and how far it actually went.
+    reached the goal zone and how far it actually went.
 
     The turnover happens first, then both the interceptor and the
     ball move -- relative to the *new* possessing side, not the old
@@ -609,17 +609,16 @@ def take_ball_by_steal(
     # value, not whatever the speed was before the steal.
     match.ball.speed = 1
 
-    # Intercept moving forward can run out of field, which a Steal
+    # Intercept moving forward can reach the goal zone, which a Steal
     # falling back never can: the ball was in play, so there is
     # always a space behind it. Read before the move, the way every
-    # other overshoot is.
+    # other reading of the goal zone is.
     origin_flat = match.board.flat_index(
         *match.board.meeple_position(challenger_id)
     )
-    target_flat = match.relative_flat_index(
+    reaches_goal_zone = match.goal_zone_reached(
         origin_flat, new_possession_side, direction,
-    )
-    overshot = abs(target_flat - origin_flat) < 1
+    ) is not None
 
     actual_distance = match.move_player_relative(
         challenger_id, new_possession_side, direction,
@@ -630,7 +629,7 @@ def take_ball_by_steal(
     # player the run back exempts.
     match.set_ball_carrier(challenger_id)
 
-    return overshot, actual_distance
+    return reaches_goal_zone, actual_distance
 
 
 def steal_result_text(
@@ -691,7 +690,7 @@ def steal_step(
     # goal they now attack for an Intercept.
     direction = 1 if key == "intercept" else -1
 
-    overshot, actual_distance = take_ball_by_steal(
+    reaches_goal_zone, actual_distance = take_ball_by_steal(
         match, challenger_id, new_possession_side, direction,
     )
     content, headline = steal_result_text(
@@ -701,14 +700,15 @@ def steal_step(
     # Both endings below have moved a meeple and the ball with it, so
     # `board_changed` is True either way -- which is exactly where
     # `refresh_match_image` sat in the cog, on both paths.
-    if key == "intercept" and overshot:
-        # **The interceptor was already on the last space toward
-        # the goal they now attack, so there is nowhere to carry
-        # it: it is a scoring opportunity instead** (the author,
+    if key == "intercept" and reaches_goal_zone:
+        # **The interceptor was already on the last space before
+        # the goal they now attack, so the ball reaches the goal
+        # zone and there is nowhere to carry it: it is a scoring
+        # opportunity instead** (the author,
         # 2026-08-19).
         #
-        # Straight to the shot, the same as a deflection's
-        # overshoot and for the same reason: the run back and the
+        # Straight to the shot, the same as a deflection that
+        # reaches the goal zone and for the same reason: the run back and the
         # speed step both belong after a turnover that left the
         # play running, and this one has not. That drops
         # Intercept's own speed-manipulation step, which is the one
@@ -716,14 +716,14 @@ def steal_step(
         # already reads the ball speed the turnover reset.
         #
         # It returns **before** the cost below, exactly as the cog
-        # did: an Intercept that overshoots collects no beaten
+        # did: an Intercept that reaches the goal zone collects no beaten
         # Pinpoint. Preserved rather than corrected, because
         # whether that is the rule is the author's to say -- see the
         # questions on the pull request for rank D2.
         return StepResult(
             narration=[
                 content
-                + "\n\nThere is no field left ahead of them -- "
+                + "\n\nThe ball reaches the goal zone ahead of them -- "
                 "a scoring opportunity!"
             ],
             headlines=(headline,),
@@ -774,8 +774,8 @@ def shove_pressured_handler(
     (and a Double Team's partner) onto the space they left.
 
     Returns how far the handler actually moved, which is less than
-    `push` only when they were already against their own goal -- the
-    caller reads that as the overshoot.
+    `push` only when the push reaches their own goal zone -- which the
+    caller has already read, before anything moved.
     """
     offense_side = match.ball.possession
 
@@ -800,7 +800,7 @@ def shove_pressured_handler(
 
     # Losing to a pressure does not lose the ball: the handler was
     # shoved back still holding it, so they take the next turn.
-    # Set before the caller's overshoot branch, because an own goal
+    # Set before the caller's goal-zone branch, because an own goal
     # avoided is the same thing -- pressured, and still holding it.
     # The Defender's steal moves the carry to the Defender, and a
     # conceded own goal is a new play, which clears it.
@@ -926,8 +926,8 @@ def pressure_step(
     player who plays it.
 
     It reads the game record for one thing only: whether the
-    challenger is Acidel, whose overshot pressure is a shot rather than
-    an own-goal roll (Law 21).
+    challenger is Acidel, whose pressure into the goal zone is a shot
+    rather than an own-goal roll (Law 21).
     """
     offense_side = match.ball.possession
     defense_side = match.defending_side()
@@ -935,16 +935,10 @@ def pressure_step(
     push = 2 if key == "double_team" else 1
 
     # Own-goal risk: a pressure is the only thing that threatens
-    # one, and only when the ball-holder is already at the space
-    # closest to their own goal, i.e. pushing them back further
-    # isn't possible.
-    origin_flat = match.board.flat_index(
-        match.ball.zone, match.ball.space_index,
-    )
-    target_flat = match.relative_flat_index(
-        origin_flat, offense_side, -push,
-    )
-    overshot = abs(target_flat - origin_flat) < push
+    # one, and only when its push reaches the handler's own goal zone
+    # (Law 11.1) -- the handler already on the last space before it,
+    # or for a Double Team's push of 2 on the space next to that.
+    reaches_goal_zone = match.ball_reaches_goal_zone(offense_side, -push)
 
     # **Read before anything moves.** The card says "the teammate
     # closest to the space where the play started", and the play
@@ -968,13 +962,13 @@ def pressure_step(
     # nowhere to go walks the challenger onto the handler's space.
     # So `board_changed` is True throughout, which is where
     # `refresh_match_image` sat in the cog on both paths.
-    if overshot and engine.has_personal_ability(
+    if reaches_goal_zone and engine.has_personal_ability(
         game, match.challenger_id, PersonalAbility.PRESSURE_SHOT,
     ):
         # **Acidel's personal ability** (Law 21): "a scoring
         # opportunity replaces the own goal" (the author, 2026-09-25).
         # The shove walked Acidel onto the handler's space, so the ball
-        # is taken there -- the Intercept overshoot's shape in
+        # is taken there -- the Intercept's goal-zone shape in
         # `steal_step`: possession, speed 1, straight to the shot.
         challenger_id = match.challenger_id
         match.ball.possession = defense_side
@@ -985,7 +979,7 @@ def pressure_step(
         return StepResult(
             narration=[
                 content
-                + "\n\nThat overshoots toward their own goal -- and "
+                + "\n\nThe ball reaches their own goal zone -- and "
                 f"{engine.format_player_label(match, acidel)} takes the "
                 "ball for a scoring opportunity!"
             ],
@@ -996,7 +990,7 @@ def pressure_step(
             ),
         )
 
-    if overshot:
+    if reaches_goal_zone:
         # An own goal takes priority over the Defender's steal
         # ability: if it's conceded, the point is already over, and
         # stealing a ball that was just kicked off from the restart
@@ -1007,11 +1001,11 @@ def pressure_step(
         # not a second one: the blocks are joined on a single space
         # and this paragraph is separated by a blank line, so a
         # block of its own would put a stray space in front of its
-        # newlines -- the same reason the Intercept overshoot's
+        # newlines -- the same reason the Intercept's goal-zone
         # sentence rides inside the turnover's.
         return StepResult(
             narration=[
-                content + "\n\nThat overshoots toward their own goal!"
+                content + "\n\nThe ball reaches their own goal zone!"
             ],
             board_changed=True,
             next=FollowOn(
@@ -1024,8 +1018,8 @@ def pressure_step(
     )
     content += turnover_text
 
-    # Fixed 1 space minute per the rules table, independent of
-    # clamping, same reasoning as a deflection.
+    # Fixed 1 space minute per the rules table, whether or not the
+    # push reached the goal zone, same reasoning as a deflection.
     if burst_cost:
         # The defense has the ball and the speed step the cost
         # granted them, which is the steal's shape: run everyone
@@ -1073,9 +1067,9 @@ def apply_own_goal_outcome(
     if safe:
         # A new play resets speed same as any other -- see
         # begin_run_back -- and nothing else on this path would,
-        # since Pressure's overshoot branch never touches it.
+        # since Pressure's goal-zone branch never touches it.
         match.ball.speed = 1
-        # The ball stays exactly where the overshot Pressure left
+        # The ball stays exactly where the Pressure into the goal zone left
         # it, with no coverage guarantee at all -- not even the
         # standard deal's, since that position is wherever the play
         # happened to reach. So, since 2026-08-24, this owes the
@@ -1325,29 +1319,25 @@ def knock_ball_back(
 ) -> tuple[bool, int]:
     """
     Drive the ball back toward the offense's own goal and take the
-    speed off it. Returns whether it ran out of field and how far it
-    actually went.
+    speed off it. Returns whether it reached the goal zone and how far
+    it actually went.
 
-    The overshoot is read before the ball moves, the way every other
-    overshoot in the game is. It no longer risks an own goal -- only
+    The goal zone is read before the ball moves, the way every other
+    reading of it is. Reaching it no longer risks an own goal -- only
     Pressure does -- it sets up a scoring opportunity for the defense
     instead, who are now the side standing next to the goal the ball
     just reached.
     """
-    origin_flat = match.board.flat_index(
-        match.ball.zone, match.ball.space_index,
+    reaches_goal_zone = match.ball_reaches_goal_zone(
+        offense_side, -deflect_distance,
     )
-    target_flat = match.relative_flat_index(
-        origin_flat, offense_side, -deflect_distance,
-    )
-    overshot = abs(target_flat - origin_flat) < deflect_distance
 
     actual_distance = match.move_ball_relative(
         offense_side, -deflect_distance,
     )
     match.ball.speed = max(1, match.ball.speed - speed_drop)
 
-    return overshot, actual_distance
+    return reaches_goal_zone, actual_distance
 
 
 def deflection_step(
@@ -1385,7 +1375,7 @@ def deflection_step(
         defender, key,
     )
 
-    overshot, actual_distance = knock_ball_back(
+    reaches_goal_zone, actual_distance = knock_ball_back(
         match, offense_side, deflect_distance, speed_drop,
     )
 
@@ -1396,18 +1386,19 @@ def deflection_step(
         f"{space_word} back{ability_note}. Ball speed is now "
         f"{match.ball.speed}."
     )
-    return deflection_lands(engine, match, content, overshot)
+    return deflection_lands(engine, match, content, reaches_goal_zone)
 
 
 def deflection_lands(
     engine: RulesEngine,
     match: MatchState,
     content: str,
-    overshot: bool,
+    reaches_goal_zone: bool,
 ) -> StepResult:
     """
     Where a deflection's ball comes to rest decides what happens next:
-    the challenger's shot off an overshoot, or a loose ball settled by
+    the challenger's shot where it reached the goal zone, or a loose
+    ball settled by
     who is standing there. Shared by a deflection at the card's own
     distance and by one at the distance a failed Cross gambit let
     its coach choose (`setup_pass_push_back_step`), which land alike.
@@ -1427,8 +1418,8 @@ def deflection_lands(
     # and should redraw on all three.
 
     # A shot has to be within shooting range, and this one always is:
-    # an overshoot means the ball reached the space closest to the
-    # offense's own goal, which is as deep into the deflecting team's
+    # reaching the goal zone leaves the ball on the last space before
+    # the offense's own goal, which is as deep into the deflecting team's
     # range as the field goes. So this asks
     # scoring_opportunity_candidates with no range check over it -- the
     # check could never fail here, and a branch that cannot be taken
@@ -1437,12 +1428,12 @@ def deflection_lands(
     # **Only the challenger shoots** -- the player who played the card,
     # and only if the ball came to rest on their own space. A teammate
     # who happens to be standing there as well is not offered it (the
-    # author, 2026-09-26), so an overshot deflection never asks who
-    # shoots. A Clear that runs past its challenger onto a space they
-    # are not standing on sets up nothing, and lands like any other
+    # author, 2026-09-26), so a deflection into the goal zone never
+    # asks who shoots. A Clear that reaches the goal zone with its
+    # challenger anywhere but that last space sets up nothing, and lands like any other
     # deflection below.
     candidates = []
-    if overshot and match.challenger_id in (
+    if reaches_goal_zone and match.challenger_id in (
         engine.scoring_opportunity_candidates(match, defense_side)
     ):
         candidates = [match.challenger_id]
@@ -1457,7 +1448,7 @@ def deflection_lands(
         return StepResult(
             narration=[
                 content,
-                "That overshoots the field -- a scoring opportunity!",
+                "The ball reaches the goal zone -- a scoring opportunity!",
             ],
             board_changed=True,
             next=FollowOn(
@@ -1481,7 +1472,7 @@ def deflection_lands(
     #
     # A deflection's time cost is a fixed 1 space minute per the rules
     # table, not "distance traveled" like Low/High Pass, so this
-    # doesn't shrink if the move was clamped at the edge (or grow with
+    # doesn't shrink if the ball reached the goal zone (or grow with
     # the Fullback's extra distance, or Clear's, or a chosen one).
     return StepResult(
         narration=[content],
@@ -1501,19 +1492,21 @@ def throw_high_pass(
     """
     Put the ball in the air and say what that looked like.
 
-    Returns whether the throw overshot, how far the ball actually
-    travelled, and the line every branch of the pass opens with.
-    The overshoot is read **before** the ball moves, the same way
-    Deflect reads its own and by the same test, so a pass that
-    could not move the ball at all is an overshoot like any other
-    -- which is the whole reason this is one function and not the
+    Returns whether the throw reached the goal zone, how far the
+    ball actually travelled, and the line every branch of the pass
+    opens with. The goal zone is read **before** the ball moves, the
+    same way Deflect reads it and by the same test, so a pass that
+    could not move the ball at all reaches the goal zone like any
+    other -- which is the whole reason this is one function and not the
     caller's first three statements.
     """
     # Role ability -- Fullback: can choose to pass up to 4 spaces
     # instead of the usual 2-3 max (see HighPassChoiceView).
     fullback_bonus = handler.role == PlayerRole.FULLBACK and distance == 4
 
-    overshot = match.high_pass_overshoots(offense_side, distance)
+    reaches_goal_zone = match.high_pass_reaches_goal_zone(
+        offense_side, distance,
+    )
 
     actual_distance = match.move_ball_relative(offense_side, distance)
 
@@ -1525,16 +1518,16 @@ def throw_high_pass(
             f"{space_word} forward{ability_note}."
         )
     else:
-        # Thrown from the final space, so the clamp leaves the ball
-        # exactly where it was. Worth saying in words rather than
+        # Thrown from the last space, so the ball reaches the goal
+        # zone and comes to rest exactly where it was. Worth saying in words rather than
         # as "moves 0 spaces forward", which reads as a bug -- and
         # a coach sees it now that the passer cannot shoot off it.
         content = (
-            "**High Pass:** the ball is thrown up from the last space "
-            "and comes straight back down on it."
+            "**High Pass:** the ball is thrown from the last space into "
+            "the goal zone and comes straight back down on it."
         )
 
-    return overshot, actual_distance, content
+    return reaches_goal_zone, actual_distance, content
 
 
 def send_ball_out_of_play(match: MatchState) -> str:
@@ -1616,9 +1609,10 @@ def high_pass_step(
     landed, whether the ball got there at all, and whether the space
     is inside the passing side's shooting range -- and the six answers
     are six different endings. The order they are asked in carries the
-    rules: an overshoot's set-up subsumes the ordinary one, a pass of
-    2 is never made to win a contest, and a throw the field clamped to
-    nothing goes out rather than staying with the passer.
+    rules: the goal zone's set-up subsumes the ordinary one, a pass of
+    2 is never made to win a contest, and a throw from the last space
+    that reaches the goal zone with nobody there goes out rather than
+    staying with the passer.
 
     It reads nothing off the game record but the personal abilities
     -- the gambit's cost is an engine question and nothing here
@@ -1630,7 +1624,7 @@ def high_pass_step(
     offense_side = match.ball.possession
     handler = engine.get_player_definition(match.active_player_id)
 
-    overshot, actual_distance, content = throw_high_pass(
+    reaches_goal_zone, actual_distance, content = throw_high_pass(
         match, offense_side, distance, handler,
     )
 
@@ -1662,9 +1656,9 @@ def high_pass_step(
     # pinned board), because it is a rate-limit economy and rate
     # limits are the frontend's -- principle 8 in CLAUDE.md.
 
-    # An overshoot sets up a scoring opportunity whatever distance
-    # was asked for (2026-08-10), on the space closest to the goal
-    # -- which is where the clamp has just put the ball. The shot
+    # Reaching the goal zone sets up a scoring opportunity whatever
+    # distance was asked for (2026-08-10), on the last space before
+    # it -- which is where the ball has just come to rest. The shot
     # is always legal there, as deep into the offense's own
     # shooting range as the field goes, so no range check: it could
     # never fail here, and a branch that cannot be taken reads as
@@ -1672,15 +1666,15 @@ def high_pass_step(
     # below, which it subsumes -- the same shot is offered, but
     # with the modifier the other way round and a contest behind
     # it.
-    if overshot and receiver_candidates:
-        return offer_overshoot_set_up(
+    if reaches_goal_zone and receiver_candidates:
+        return offer_goal_zone_set_up(
             match,
             shooter_id=receiver_candidates[0],
             distance_moved=distance_moved,
             lead_in=content,
         )
     # Nobody the pass could reach on the landing space leaves
-    # nothing to set up, so an overshoot falls through to the
+    # nothing to set up, so the goal zone falls through to the
     # ordinary paths below: a loose ball, a clean turnover, or --
     # the case the passer exclusion opened (2026-08-12) -- the
     # passer keeping a ball that never left them.
@@ -1688,8 +1682,8 @@ def high_pass_step(
     # A pass of 2 is received cleanly: no contest at all
     # (2026-08-07), and it may set up a scoring opportunity for
     # whoever it lands on -- unlike the old fixed-2 High Pass,
-    # this no longer requires overshooting the field. A longer
-    # pass never offers it, whether or not it happens to overshoot.
+    # this no longer requires reaching the goal zone. A longer
+    # pass never offers it, whether or not it reaches the goal zone.
     #
     # A set-up's shot is an ordinary score attempt and obeys the
     # same rule about where a shot may be taken from: what the
@@ -1707,7 +1701,7 @@ def high_pass_step(
     # contest a pass of 3 otherwise owes.
     vorix = (
         distance == VORIX_PASS_DISTANCE
-        and not overshot
+        and not reaches_goal_zone
         and receiver_candidates
         and engine.has_personal_ability(
             game, match.active_player_id, PersonalAbility.LONG_SET_UP,
@@ -1753,7 +1747,7 @@ def high_pass_step(
     # wasn't a 2). If the pass reached nobody, this isn't the High
     # Pass "receiver must win a skill test" contest at all -- it's
     # a plain loose ball, exactly like any other maneuver that
-    # overshoots into empty territory.
+    # lands on an empty space.
 
     # A 2-space pass that found its receiver but not shooting range
     # is just a pass: it was received cleanly, and the only thing
@@ -1771,11 +1765,12 @@ def high_pass_step(
     if not receiver_candidates:
         # **A passer never receives their own pass, and since
         # 2026-08-24 that is no longer a free ride.** The exclusion
-        # above can only bite when the field clamped the throw to 0
-        # spaces -- a High Pass moves the ball, not the handler, so
+        # above can only bite when a throw from the last space reached
+        # the goal zone and came back down on it -- a High Pass moves
+        # the ball, not the handler, so
         # that is the only way the passer is still standing where
         # it lands. With nobody else there either, this is a throw
-        # with nowhere to go: there was no field left to put it on
+        # with nowhere to go: there was no space left to put it on
         # and no teammate to put it to, so it goes out exactly as a
         # Cross with no legal destination does, rather than
         # quietly staying with the passer. `actual_distance` (not
@@ -1820,7 +1815,7 @@ def high_pass_step(
     # **Intercept's cost**: beaten by a High Pass, the reception is
     # not contested -- the receiver simply keeps it. It is the one
     # of the six costs that can be inert, and this is the only
-    # branch it is not: a pass of 2, an overshoot's set-up and a
+    # branch it is not: a pass of 2, the goal zone's set-up and a
     # pass reaching nobody have all already returned above, and
     # none of them had a contest to skip.
     if engine.gambit_cost(match, "high_pass") == "intercept":
@@ -1880,7 +1875,7 @@ def complete_high_pass_reception(
     )
 
 
-def offer_overshoot_set_up(
+def offer_goal_zone_set_up(
     match: MatchState,
     *,
     shooter_id: str,
@@ -1888,21 +1883,22 @@ def offer_overshoot_set_up(
     lead_in: str,
 ) -> StepResult:
     """
-    The scoring opportunity a High Pass that ran out of field sets
-    up (2026-08-10) -- see "High Pass" in the living rules.
+    The scoring opportunity a High Pass that reached the goal zone
+    sets up (2026-08-10) -- see "High Pass" in the living rules.
 
     The pass arrived faster than the receiver could settle it, so
-    `pending_high_pass_overshoot` turns the ball speed modifier
-    around for everything the overshoot leads to: this shot, and
+    `pending_high_pass_overshoot` (the saved key keeps the old word)
+    turns the ball speed modifier around for everything it leads
+    to: this shot, and
     the long-pass contest behind it. It is set before either is
     offered, and cleared with the rest of the turn by
     reset_maneuver.
 
-    **The two are one choice, not an offer and a fallback.** An
-    overshoot is a shot at a disadvantage or a contest to keep the
+    **The two are one choice, not an offer and a fallback.** A pass
+    into the goal zone is a shot at a disadvantage or a contest to keep the
     ball, both paying the modifier, so declining always lands in
     the contest -- there is no distance here that resolves as a
-    settled pass. A distance of 2 could only overshoot from a
+    settled pass. A distance of 2 could only reach it from a
     position where no distance was ever offered (see
     `D12Ball.resolve_high_pass`), so the ordinary "a pass of 2 is
     received, full stop" rule and this one never meet.
@@ -1927,7 +1923,7 @@ def offer_overshoot_set_up(
     return StepResult(
         narration=[
             lead_in,
-            "That overshoots the field -- a scoring "
+            "The ball reaches the goal zone -- a scoring "
             f"opportunity!{speed_note}",
         ],
         board_changed=True,
@@ -2016,8 +2012,8 @@ def setup_pass_step(
         if actual_distance == 0:
             # Only reachable from a stale click: 0 is offered only
             # while a teammate shares the passer's space, and every
-            # other distance is offered only where it fits on the
-            # field, so nothing legal clamps to a standing still.
+            # other distance is offered only where it lands short of
+            # the goal zone, so nothing legal comes to a standstill.
             # A ball that never left the passer is the High Pass's
             # own 0-space case -- nowhere to throw it and nobody to
             # throw it to -- so it goes out rather than settling
@@ -2084,10 +2080,10 @@ def setup_pass_out_step(
     engine: RulesEngine, match: MatchState,
 ) -> StepResult:
     """
-    **Cross cannot overshoot**, so the only way it runs out of
-    play is having nowhere to throw it at all: the passer on the very
-    last space of the field -- the one position from which even 1
-    space runs off the end -- with no teammate beside them to take it
+    **Cross never reaches the goal zone**, so the only way it runs
+    out of play is having nowhere to throw it at all: the passer on the
+    last space before the goal zone -- the one position from which even
+    1 space would reach it -- with no teammate beside them to take it
     at 0. Then the other team gains possession: a new play, both sides
     reset, and the gaining side sends the nearest player to fetch the
     ball -- the out-of-bounds outcome the game already has.
@@ -2147,7 +2143,7 @@ def take_smooth_step(
     **The arrival it pre-empted does not happen.** That is the rule the
     pull already follows -- what the movement was going to lead to is
     exactly what taking the ball early takes away -- and it is what
-    makes an overshot Double Team safe: the own-goal roll the shove was
+    makes a Double Team into the goal zone safe: the own-goal roll the shove was
     about to ask for is never asked, because the ball is no longer
     sitting on the handler who would have rolled it (the author,
     2026-09-20). What it does not drop is the clock: the maneuver that
@@ -2301,7 +2297,7 @@ def setup_pass_push_back_step(
     )
     defender = engine.get_player_definition(match.challenger_id)
     _, speed_drop, _ = deflection_numbers(defender, key)
-    overshot, actual_distance = knock_ball_back(
+    reaches_goal_zone, actual_distance = knock_ball_back(
         match, match.ball.possession, distance, speed_drop,
     )
     space_word = "space" if actual_distance == 1 else "spaces"
@@ -2311,7 +2307,7 @@ def setup_pass_push_back_step(
         f"ball moves {actual_distance} {space_word} back. Ball speed is "
         f"now {match.ball.speed}."
     )
-    return deflection_lands(engine, match, content, overshot)
+    return deflection_lands(engine, match, content, reaches_goal_zone)
 
 
 # -- Offering an effect's choice --------------------------------------
@@ -2497,13 +2493,14 @@ def offer_high_pass(
     """
     A won High Pass: how far to throw.
 
-    There is nothing to choose when even the shortest pass runs out of
-    field -- 2, 3 and 4 all land on the space closest to the goal, so
-    the pass is an overshoot before anyone picks anything (2026-08-10).
+    There is nothing to choose when even the shortest pass reaches the
+    goal zone -- 2, 3 and 4 all come to rest on the last space before
+    it, so the pass reaches the goal zone before anyone picks anything
+    (2026-08-10).
     The prompt is skipped rather than answered: asking would be putting
     one answer up three times, and a Fullback's 4 is no less moot than
     the 2. The distance handed on is the minimum, which is what the
-    clock charges once the clamp has had its say.
+    clock charges once the ball has come to rest.
     """
     distances = engine.high_pass_distance_options(match)
     if not distances:
@@ -2542,9 +2539,9 @@ def offer_setup_pass_distance(
     since a passer never receives their own pass (2026-08-12), so it is
     on the menu only while somebody else is standing there.
 
-    **Cross cannot overshoot**, so the one way it goes out is
-    having nowhere to throw it at all: the passer on the last space of
-    the field with no teammate beside them. That is the existing
+    **Cross never reaches the goal zone**, so the one way it goes out
+    is having nowhere to throw it at all: the passer on the last space
+    before the goal zone with no teammate beside them. That is the existing
     out-of-bounds outcome -- `setup_pass_out_step`.
     """
     distances = engine.setup_pass_distances(match)

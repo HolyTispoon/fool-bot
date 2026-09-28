@@ -369,11 +369,11 @@ class FieldTests(unittest.TestCase):
         }
         self.assertIsNone(colours[Zone.MIDFIELD.value])
         self.assertEqual(
-            colours[Zone.HOME_GOAL.value],
+            colours[Zone.HOME_ZONE.value],
             self.layout["jumbotron"]["home"]["colour"],
         )
         self.assertEqual(
-            colours[Zone.VISITORS_GOAL.value],
+            colours[Zone.VISITORS_ZONE.value],
             self.layout["jumbotron"]["visiting"]["colour"],
         )
 

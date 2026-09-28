@@ -126,13 +126,13 @@ sheet and a rows sheet. See below.
   with a letter sheet of rows; see "Printing a board on small sheets".
 - **Zones keep their real names on the field board's own assignment rows**,
   not the team board any more -- see "The zone-assignment rows". A coach's own
-  goal is the home goal for one of them and the visitors goal for the other,
+  goal is the Home Goal for one of them and the Visitors Goal for the other,
   and the field board is read by both, so the areas read HOME ZONE / MIDFIELD
   / VISITORS ZONE exactly as the bot's coaching image does -- HOME THIRD /
   VISITORS THIRD on the 9-space board, the only one where the three areas
   (H/M/V) are all equal (see "The field" in the living rules, and the
   2026-08-24 entry in the rules log; not to be confused with `FONT_GOAL_ZONE`,
-  which labels the actual goal beyond the edge of the board). The team board's
+  which labels the goal zone beyond the edge of the board). The team board's
   own formation strip is relative -- a shape is read from a coach's own goal --
   and no longer says so on the board: the author took "read from your own
   goal" off it (2026-09-28), since the standard formation printed under it
@@ -376,7 +376,7 @@ print-and-play kit's README says how to print and tape each.
   somewhere a seam is harmless -- never across the header, a zone-assignment
   row or the strip's own labels.
   The strip is the safe place because it is tints and outlines -- its zone
-  names and space codes are all hung from its top, which is what
+  names and space numbers are all hung from its top, which is what
   `FieldGeometry.strip_label_bottom` measures. That measurement moved onto the
   geometry from inside `draw_field_strip` for this: a band measured twice is
   the fault the team board's footer records below.
@@ -470,11 +470,12 @@ and each point is a fault the board it replaced actually had.
   A dashed line down the middle of the sheet is the one mark on it that
   belongs to the page rather than to either coach.
 
-## End zones
+## Goal zones
 
-`draw_end_zone` gives each goal its own zone, American-football style, beyond
-H1 and beyond the board's last V space -- not squeezed into either one's own
-space, because both are already full of meeples under the standard deal (see
+`draw_end_zone` draws each goal zone, American-football style, beyond space 1
+and beyond the board's last space (see "The field" in the living rules) -- not
+squeezed into either one's own space, because both are already full of
+meeples under the standard deal (see
 "Formations and occupancy" in [formations-and-occupancy.md](formations-and-occupancy.md)). It is drawn in the margin between the board and
 the canvas edge, so `GOAL_ZONE_WIDTH` is whatever that margin leaves once
 `GOAL_ZONE_EDGE_MARGIN` (to the canvas edge) and `GOAL_ZONE_GAP` (to the
@@ -482,14 +483,14 @@ board's own outline) are taken out -- there is no spare canvas to grow it
 into without widening the board itself.
 
 - **"GOAL" runs the zone's length in the defending team's own color** --
-  the home team's to the left of H1, the visitors' to the right of the
-  board's last V space -- rotated 90°, the way a real end zone's lettering
+  the home team's to the left of space 1, the visitors' to the right of the
+  board's last space -- rotated 90°, the way a real end zone's lettering
   reads sideways on a field running left to right. Letters are spaced apart
   by `GOAL_ZONE_LETTER_SPACING`, on top of the font's own advance, because a
   four-letter word at a font size that fits the zone's width reads as a
   small cluster rather than something that fills a tall zone.
-- **The visitors' end zone is rotated a further 180°** (`angle=270` on
-  `draw_end_zone`, the author's call) from the home end zone's -- a real
+- **The Visitors Goal is rotated a further 180°** (`angle=270` on
+  `draw_end_zone`, the author's call) from the Home Goal's -- a real
   field's two ends face opposite directions rather than both reading the
   same way. The coordinate math for where the "O" (and the ball standing in
   for it) lands after rotation was verified empirically against Pillow's
@@ -504,16 +505,16 @@ into without widening the board itself.
   The "12" on it is rotated the same angle as the word, so it reads in the
   same orientation rather than sideways against it.
 - **The jumbotron and both team boards now span the field's full width,
-  end zones included** (`FIELD_FAR_LEFT`/`FIELD_FAR_RIGHT`, `JUMBOTRON_LEFT`/
+  goal zones included** (`FIELD_FAR_LEFT`/`FIELD_FAR_RIGHT`, `JUMBOTRON_LEFT`/
   `JUMBOTRON_RIGHT`), rather than stopping at the board's own edge and
-  leaving the end zones looking like they belong to nobody.
+  leaving the goal zones looking like they belong to nobody.
 - **`BENCH`/`BACK BENCH` position off the team name's own measured width**,
   not a fixed offset -- a species team's name (`Fire Demons`, `Telekinetics`)
   is wider than a color team's and was landing underneath "BENCH" rather
   than beside it. `TEAM_BOARD_BENCH_MIN_X`/`TEAM_BOARD_BACK_BENCH_MIN_X` are
   what a short name already left in place, so nothing shifts for the common
   case.
-- **The printed field board carries its own end zones now**, `draw_field_end_zones`
+- **The printed field board carries its own goal zones now**, `draw_field_end_zones`
   in `boards.py` -- the print counterpart of `draw_end_zone`, not a second
   drawing of the same pixels: it is a different rendering stack (`Sheet`
   rather than a raw canvas) at a different resolution (300dpi rather than the
@@ -522,17 +523,17 @@ into without widening the board itself.
   `strip_left`/`strip_right`, reserving `end_zone_width` plus a gap on each
   side for it; `left`/`right` stay the full content width for the header, the
   direction arrows and the shooting-range bracket, which read the wide pair
-  same as the bot's own jumbotron and team boards span its end zones. **It is
+  same as the bot's own jumbotron and team boards span its goal zones. **It is
   drawn in ink, not a team's colour** -- the field board is a template for the
   tabletop game with no match to read a team from, unlike the bot's own board,
   which always has one.
   - **`END_ZONE_INCHES` is a trade against the spaces.** The strip divides
-    an 11in width, so every inch an end zone takes is an inch a space cannot
-    have. The author asked for more room for the goals (2026-09-28), and it
+    an 11in width, so every inch a goal zone takes is an inch a space cannot
+    have. The author asked for more room for the goal zones (2026-09-28), and it
     went from a third of an inch to 0.45in, paid for mostly by the margin:
     the board now runs to `FIELD_EDGE_INCHES` of the sheet's edge, the least
     a home printer leaves, rather than 0.31in. A 9-space board's space is
-    1.05in wide and a 7-space board's 1.35in. Don't grow the end zones
+    1.05in wide and a 7-space board's 1.35in. Don't grow the goal zones
     further without checking that a space is still big enough to stand
     meeples on -- a width floor of 1.0in, not the 1.5in a landscape sheet
     could promise.

@@ -1599,12 +1599,12 @@ def _answer_high_pass_choice(
 ) -> StepResult:
     """
     A won High Pass, thrown as far as the coach chose -- one of the
-    distances that fit on the field, and the tutorial's where it rails
+    distances that land short of the goal zone, and the tutorial's where it rails
     one. `runner` is Quantor running onto it (`_run_onto`).
     """
     if distance not in prompt.options.distances:
         _refuse(
-            f"A {distance}-space pass runs off the end of the field "
+            f"A {distance}-space pass would reach the goal zone "
             "from where the ball is now."
         )
     _rail(prompt.options.railed, distance)

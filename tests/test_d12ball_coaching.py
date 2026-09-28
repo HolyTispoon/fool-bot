@@ -156,15 +156,15 @@ class CoachingModelTests(unittest.TestCase):
     def test_exchanging_two_players_moves_their_meeples_too(self) -> None:
         match = self.build_match()
         setup = match.home
-        first = setup.zones[Zone.HOME_GOAL][0]
-        second = setup.zones[Zone.VISITORS_GOAL][0]
+        first = setup.zones[Zone.HOME_ZONE][0]
+        second = setup.zones[Zone.VISITORS_ZONE][0]
         first_position = match.board.meeple_position(first)
         second_position = match.board.meeple_position(second)
 
         match.exchange_field_players(TeamSide.HOME, first, second)
 
-        self.assertEqual(setup.assigned_zone(first), Zone.VISITORS_GOAL)
-        self.assertEqual(setup.assigned_zone(second), Zone.HOME_GOAL)
+        self.assertEqual(setup.assigned_zone(first), Zone.VISITORS_ZONE)
+        self.assertEqual(setup.assigned_zone(second), Zone.HOME_ZONE)
         self.assertEqual(
             match.board.meeple_position(first), second_position,
         )
@@ -176,7 +176,7 @@ class CoachingModelTests(unittest.TestCase):
         match = self.build_match()
         setup = match.home
         first = setup.zones[Zone.MIDFIELD][0]
-        second = setup.zones[Zone.HOME_GOAL][1]
+        second = setup.zones[Zone.HOME_ZONE][1]
 
         match.exchange_field_players(TeamSide.HOME, first, second)
 
@@ -191,7 +191,7 @@ class CoachingModelTests(unittest.TestCase):
         # the deal spreads them to the ends, so the middle space is
         # always free to step onto.
         match = self.build_match(board_size=9)
-        player_id = match.home.zones[Zone.HOME_GOAL][0]
+        player_id = match.home.zones[Zone.HOME_ZONE][0]
 
         self.assertEqual(
             match.positioning_swap_candidates(TeamSide.HOME, player_id, 1),
@@ -201,12 +201,12 @@ class CoachingModelTests(unittest.TestCase):
 
         self.assertIsNone(partner)
         self.assertEqual(
-            match.board.meeple_position(player_id), (Zone.HOME_GOAL, 1),
+            match.board.meeple_position(player_id), (Zone.HOME_ZONE, 1),
         )
 
     def test_a_sole_occupant_moving_onto_a_teammate_trades(self) -> None:
         match = self.build_match()
-        first, second = match.home.zones[Zone.HOME_GOAL]
+        first, second = match.home.zones[Zone.HOME_ZONE]
         first_position = match.board.meeple_position(first)
         second_position = match.board.meeple_position(second)
 
@@ -231,13 +231,13 @@ class CoachingModelTests(unittest.TestCase):
         match = self.build_match()
         setup = match.home
         extra = setup.zones[Zone.MIDFIELD].pop()
-        setup.zones[Zone.HOME_GOAL].append(extra)
+        setup.zones[Zone.HOME_ZONE].append(extra)
         match.board.remove_meeple(extra)
-        match.board.place_meeple(extra, Zone.HOME_GOAL, 0)
+        match.board.place_meeple(extra, Zone.HOME_ZONE, 0)
 
         mover = extra
         origin = match.board.meeple_position(mover)
-        self.assertEqual(origin, (Zone.HOME_GOAL, 0))
+        self.assertEqual(origin, (Zone.HOME_ZONE, 0))
         target = 1 - origin[1]
 
         self.assertEqual(
@@ -248,7 +248,7 @@ class CoachingModelTests(unittest.TestCase):
 
         self.assertIsNone(partner)
         self.assertEqual(
-            match.board.meeple_position(mover), (Zone.HOME_GOAL, target),
+            match.board.meeple_position(mover), (Zone.HOME_ZONE, target),
         )
 
     def test_more_than_one_on_the_target_has_to_be_picked_between(
@@ -304,7 +304,7 @@ class CoachingModelTests(unittest.TestCase):
         self,
     ) -> None:
         match = self.build_match()
-        player_id = match.home.zones[Zone.HOME_GOAL][0]
+        player_id = match.home.zones[Zone.HOME_ZONE][0]
 
         # Home goal has two spaces on board 7, so index 2 is not one.
         with self.assertRaises(ValueError):
@@ -316,18 +316,18 @@ class CoachingModelTests(unittest.TestCase):
         match = self.build_match()
         players = list(match.home.field_players)
         placement = [
-            (players[0], Zone.HOME_GOAL, 0),
-            (players[1], Zone.HOME_GOAL, 1),
+            (players[0], Zone.HOME_ZONE, 0),
+            (players[1], Zone.HOME_ZONE, 1),
             (players[2], Zone.MIDFIELD, 0),
             (players[3], Zone.MIDFIELD, 1),
             (players[4], Zone.MIDFIELD, 2),
-            (players[5], Zone.VISITORS_GOAL, 0),
+            (players[5], Zone.VISITORS_ZONE, 0),
         ]
 
         match.deploy_side(TeamSide.HOME, placement)
 
         self.assertEqual(len(match.home.zones[Zone.MIDFIELD]), 3)
-        self.assertEqual(len(match.home.zones[Zone.VISITORS_GOAL]), 1)
+        self.assertEqual(len(match.home.zones[Zone.VISITORS_ZONE]), 1)
         for player_id, zone, space_index in placement:
             self.assertEqual(
                 match.home.assigned_zone(player_id), zone,
@@ -343,13 +343,13 @@ class CoachingModelTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             match.deploy_side(
                 TeamSide.HOME,
-                [(players[0], Zone.HOME_GOAL, 0)],
+                [(players[0], Zone.HOME_ZONE, 0)],
             )
 
         with self.assertRaises(ValueError):
             match.deploy_side(
                 TeamSide.HOME,
-                [(players[0], Zone.HOME_GOAL, index) for index in range(6)],
+                [(players[0], Zone.HOME_ZONE, index) for index in range(6)],
             )
 
 

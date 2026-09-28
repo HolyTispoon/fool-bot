@@ -159,7 +159,7 @@ You chose **Steal**.
 ## **High Pass** wins!
 Time has advanced 2, now at 08.
 --- message
-**High Pass:** the ball moves 1 space forward. That overshoots the field -- a scoring opportunity!
+**High Pass:** the ball moves 1 space forward. The ball reaches the goal zone -- a scoring opportunity!
 --- message
 🟣 Tachyon [SK] takes the shot off the set-up.
 --- message
@@ -394,7 +394,7 @@ Dinky AI, 🟣 Tachyon [SK] is exhausted and owes an injury test: a d12 that has
 --- message
 **Pressure:** 🟠 Goopkeeper [FB] and the ball go back 0 spaces. 🟣 Tachyon [SK] moves forward.
 
-That overshoots toward their own goal!
+The ball reaches their own goal zone!
 
 **Own goal risk!** <@111>, 🟠 Goopkeeper [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (1). A total of 7 or more and the own goal is avoided.
 === press 33: OwnGoalRollView -> 'Roll for the own goal'
@@ -583,7 +583,7 @@ Time has advanced 1, now at 20.
 --- message
 **Pressure:** 🟣 Hellguard [FB] and the ball go back 0 spaces. 🟠 Voltus [DD] moves forward.
 
-That overshoots toward their own goal!
+The ball reaches their own goal zone!
 
 **Own goal risk!** Dinky AI, 🟣 Hellguard [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (1). A total of 7 or more and the own goal is avoided.
 === press 49: OwnGoalRollView -> 'Roll for the own goal'

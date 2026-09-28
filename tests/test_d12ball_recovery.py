@@ -245,7 +245,7 @@ class PendingTurnViewTests(unittest.TestCase):
         for player_id in list(
             match.board.spaces[match.ball.zone][match.ball.space_index],
         ):
-            match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
         match.pending_ball_recovery = True
 
         view, ask = cog.pending_turn_view("g1", match)
@@ -258,7 +258,7 @@ class PendingTurnViewTests(unittest.TestCase):
         match.active_player_id = match.eligible_ball_handlers()[0]
         stray = match.home.zones[Zone.MIDFIELD][0]
         match.board.remove_meeple(stray)
-        match.board.place_meeple(stray, Zone.VISITORS_GOAL, 0)
+        match.board.place_meeple(stray, Zone.VISITORS_ZONE, 0)
         match.pending_run_back = True
 
         view, ask = cog.pending_turn_view("g1", match)
@@ -475,7 +475,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         for player_id in list(
             match.board.spaces[match.ball.zone][match.ball.space_index],
         ):
-            match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
         match.pending_ball_recovery = True
         game.match_state = match.to_dict()
         cog.present = mock.AsyncMock()

@@ -198,7 +198,7 @@ class TurnHandlerCandidateTests(unittest.TestCase):
         _, _, match, handler, teammate = self.build()
         match.set_ball_carrier(teammate)
         match.board.remove_meeple(teammate)
-        match.board.place_meeple(teammate, Zone.HOME_GOAL, 0)
+        match.board.place_meeple(teammate, Zone.HOME_ZONE, 0)
 
         self.assertEqual(match.turn_handler_candidates(), [handler])
         match.select_ball_handler(handler)
@@ -656,7 +656,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
         winner = next(
             player_id
             for player_id in setup.field_players
-            if setup.assigned_zone(player_id) == Zone.VISITORS_GOAL
+            if setup.assigned_zone(player_id) == Zone.VISITORS_ZONE
         )
         match.board.remove_meeple(winner)
         match.board.place_meeple(winner, Zone.MIDFIELD, 1)

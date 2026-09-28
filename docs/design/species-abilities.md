@@ -174,14 +174,14 @@ their own (below).
   - *Quantor* runs onto a teammate's pass. It is **an answer to the
     pass's own distance prompt, not a prompt of its own**:
     `RulesEngine.pass_runner` puts the runner and the distances they may
-    run onto on `DistanceOptions` (never the passer, never an overshoot,
-    which has no target space), the answer carries `runner=True`, and
-    `driver._run_onto` moves them (`effects.run_onto_pass`, which drains
-    3 and marks them as moved with the ball, so no Mind Pull or Smooth is
-    offered them) before the throw, which then takes them as its
-    receiver. A second prompt would have needed a saved field for "a
-    pass is waiting on a runner" and a branch in `pending` for it; this
-    needed neither.
+    run onto on `DistanceOptions` (never the passer, never a pass into
+    the goal zone, which has no target space), the answer carries
+    `runner=True`, and `driver._run_onto` moves them
+    (`effects.run_onto_pass`, which drains 3 and marks them as moved
+    with the ball, so no Mind Pull or Smooth is offered them) before the
+    throw, which then takes them as its receiver. A second prompt would
+    have needed a saved field for "a pass is waiting on a runner" and a
+    branch in `pending` for it; this needed neither.
   - *Boost* is Overdrive's shape at drain 1 for +3: its own list on the
     match (`pending_boost`, a saved field whose absence reads as
     nobody), its own `boost` answer on all six roll prompts beside
@@ -205,10 +205,10 @@ their own (below).
   - *Goopkeeper* is `ShotDefender.full_block`, set by
     `intervening_defenders`; `halved` is what the dice line and the
     shot image both read.
-  - *Acidel* is a branch in `pressure_step`, the Intercept overshoot's
-    shape: possession, speed 1, straight to the shot. A shot walked
-    back and declined leaves the ball with Acidel's side, because there
-    is no own-goal roll left to fall back to.
+  - *Acidel* is a branch in `pressure_step`, the shape of an Intercept
+    that reaches the goal zone: possession, speed 1, straight to the
+    shot. A shot walked back and declined leaves the ball with Acidel's
+    side, because there is no own-goal roll left to fall back to.
   - *The score attempt's wall* -- `intervening_defenders` is the one
     reading, so both frontends' pictures and the roll agree. Goopkeeper
     counts as on the ball between the ball and the goal (`full_block`;
@@ -229,7 +229,8 @@ their own (below).
     to Zorch's side (a Steal or Intercept, the thrower's side of a High
     Pass contest, the shot) it does not, because Zorch adds it once.
     It is `ball.speed // 2`, never `ball_speed_modifier()`'s signed
-    value -- an overshoot is the pass's penalty, not Zorch's. **Scorchit's test is their coach's choice** --
+    value -- the sign a High Pass into the goal zone pays is the pass's
+    penalty, not Zorch's. **Scorchit's test is their coach's choice** --
     "may force" (the author, 2026-09-26) -- so it is a prompt,
     `FORCE_TEST`, put up by `resolve_maneuver` at the reveal where
     `force_test_offer` names them, and the yes is **saved**
@@ -779,7 +780,10 @@ people, and **not** who was displaced.
 
 **Merge is a sum, not a pick.** "Every such Ooze adds -- two of them add
 twice", so `RulesEngine.merge_bonus` totals them and returns the detail lines
-with it.
+with it. Who adds what is `merge_contributions`, `(player_id, value)` apiece,
+which `merge_bonus` is built on -- one reading, for the caller that names each
+Ooze with their role rather than totalling them (the Discord caption over a
+challenge image Glompex's offer held back, in [game-service.md](game-service.md)).
 
 - **The skill is the side of the contest, not anything about the Ooze** --
   offensive on the attacking side, defensive on the defending one -- so the
@@ -907,14 +911,14 @@ split is the whole design.
   arrival: `finish_maneuver_resolution` (the tail of every ordinary path,
   receptions included), `begin_loose_ball` (a Deflect, which calls it
   directly, and the High Pass contest, which comes through it),
-  `offer_scoring_attempt_choice` (a set-up), `begin_run_back` (a
-  turnover a maneuver settles for itself -- Steal, Intercept, a Defender's
-  pressure steal, an own goal avoided -- and hands straight to run-back
-  without passing through any of the other three), and
-  `begin_own_goal_roll` (the shove that overshot into an own-goal risk). Between them they are every one of the four things
-  the rules say a pull pre-empts, plus the two the first three don't reach
-  on their own: a steal's own carry, and a shove that ends in an own-goal
-  roll.
+  `offer_scoring_attempt_choice` (a set-up), `begin_run_back` (a turnover a
+  maneuver settles for itself -- Steal, Intercept, a Defender's pressure
+  steal, an own goal avoided -- and hands straight to run-back without
+  passing through any of the other three), and `begin_own_goal_roll` (the
+  shove that sent the ball into the offense's own goal zone, and so into an
+  own-goal risk). Between them they are every one of the four things the
+  rules say a pull pre-empts, plus the two the first three don't reach on
+  their own: a steal's own carry, and a shove that ends in an own-goal roll.
   - **The fourth was missing until 2026-09-20** (the author, from a bot
     transcript): Steal/Intercept, a Defender's pressure steal, and an own
     goal avoided all move the ball with `set_ball_space` and then call
@@ -935,29 +939,31 @@ split is the whole design.
     is reached, so this reading is a no-op there, the same as the existing
     "second gate reached with the path already spent" case.
   - **The fifth was missing until 2026-09-20 as well**, and for a reason
-    the fourth did not cover: an overshot shove is neither a settling nor
-    a turnover. `shove_pressured_handler` drives the ball back through
-    `set_ball_space` like every other effect, so the shove has a path;
-    `apply_pressure` then handed straight to `begin_own_goal_roll`
-    without reading it. That put the pull in the wrong place **both**
-    ways the roll can go. An own goal *avoided* eventually reaches
-    `begin_run_back` with the path still intact, so the offer did come --
-    after the roll, which is too late for "a pull that lands pre-empts
-    whatever the movement would have led to", and after the handler had
-    already paid the roll's exhaustion token. An own goal *conceded* never
-    reaches it at all: `restart_after_goal` clears `last_ball_path` on the
-    way to the kickoff, exactly as it should, and the pull was simply lost.
-    Gating before `begin_own_goal_roll` is what makes the own-goal risk
-    one of the things a pull can pre-empt rather than a hole beside them.
-    - **Only a Double Team can reach the branch with a path at all.** The
-      overshoot is read before anything moves, as `abs(target - origin) <
-      push`, so a 1-space Pressure overshoots only from the space closest
-      to the offense's own goal -- where the handler does not move, and
-      `ball_path_to` answers empty for a move that goes nowhere. A Double
-      Team pushing 2 from one space short of it shoves them a real space
-      and clamps on the second. So the gate is a no-op for the ordinary
-      Pressure and is asked there anyway, the way every other arrival asks
-      it rather than deciding for itself that it has nothing to offer.
+    the fourth did not cover: a shove that sends the ball into the goal
+    zone is neither a settling nor a turnover. `shove_pressured_handler`
+    drives the ball back through `set_ball_space` like every other effect,
+    so the shove has a path; `apply_pressure` then handed straight to
+    `begin_own_goal_roll` without reading it. That put the pull in the
+    wrong place **both** ways the roll can go. An own goal *avoided*
+    eventually reaches `begin_run_back` with the path still intact, so the
+    offer did come -- after the roll, which is too late for "a pull that
+    lands pre-empts whatever the movement would have led to", and after
+    the handler had already paid the roll's exhaustion token. An own goal
+    *conceded* never reaches it at all: `restart_after_goal` clears
+    `last_ball_path` on the way to the kickoff, exactly as it should, and
+    the pull was simply lost. Gating before `begin_own_goal_roll` is what
+    makes the own-goal risk one of the things a pull can pre-empt rather
+    than a hole beside them.
+    - **Only a Double Team can reach the branch with a path at all.**
+      Reaching the goal zone is read before anything moves, by
+      `MatchState.ball_reaches_goal_zone`, so a 1-space Pressure reaches
+      it only from the space closest to the offense's own goal -- where
+      the handler does not move, and `ball_path_to` answers empty for a
+      move that goes nowhere. A Double Team pushing 2 from one space short
+      of it shoves them a real space and clamps on the second. So the gate
+      is a no-op for the ordinary Pressure and is asked there anyway, the
+      way every other arrival asks it rather than deciding for itself that
+      it has nothing to offer.
     - **It gates inside `begin_own_goal_roll`, not at the call site.**
       The Phase 3d lift made Pressure and Double Team a pure
       `pressure_step` that returns

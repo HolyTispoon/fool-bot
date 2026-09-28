@@ -38,6 +38,7 @@ from d12ball.components import (
     SECOND_HALF_START_MINUTE,
     CoachingOccasion,
     AssignmentEdge,
+    GoalZone,
     AttackDirection,
     BoardState,
     MatchPeriod,
@@ -306,7 +307,7 @@ class D12BallComponentTests(unittest.TestCase):
         # forward. Asking for the roles is asking for the rule -- the
         # names filling them are the author's to revise.
         self.assertEqual(
-            roles(setup.zones[Zone.HOME_GOAL]),
+            roles(setup.zones[Zone.HOME_ZONE]),
             self.rules.standard_setup["own_goal"],
         )
         self.assertEqual(
@@ -314,7 +315,7 @@ class D12BallComponentTests(unittest.TestCase):
             self.rules.standard_setup["midfield"],
         )
         self.assertEqual(
-            roles(setup.zones[Zone.VISITORS_GOAL]),
+            roles(setup.zones[Zone.VISITORS_ZONE]),
             self.rules.standard_setup["opponent_goal"],
         )
 
@@ -351,7 +352,7 @@ class D12BallComponentTests(unittest.TestCase):
         # a visiting coach's own goal is the visitors goal zone, and
         # the one they attack is the home goal.
         self.assertEqual(
-            roles(setup.zones[Zone.VISITORS_GOAL]),
+            roles(setup.zones[Zone.VISITORS_ZONE]),
             self.rules.standard_setup["own_goal"],
         )
         self.assertEqual(
@@ -359,7 +360,7 @@ class D12BallComponentTests(unittest.TestCase):
             self.rules.standard_setup["midfield"],
         )
         self.assertEqual(
-            roles(setup.zones[Zone.HOME_GOAL]),
+            roles(setup.zones[Zone.HOME_ZONE]),
             self.rules.standard_setup["opponent_goal"],
         )
         self.assertEqual(setup.assignment_edge, AssignmentEdge.ABOVE)
@@ -418,15 +419,15 @@ class D12BallComponentTests(unittest.TestCase):
         # goal (setup_space_order). Named by role, since which card
         # fills a role is the author's to revise.
         expected = {
-            (TeamSide.HOME, PlayerRole.FULLBACK): (Zone.HOME_GOAL, 0),
-            (TeamSide.HOME, PlayerRole.DEFENDER): (Zone.HOME_GOAL, 1),
+            (TeamSide.HOME, PlayerRole.FULLBACK): (Zone.HOME_ZONE, 0),
+            (TeamSide.HOME, PlayerRole.DEFENDER): (Zone.HOME_ZONE, 1),
             (TeamSide.HOME, PlayerRole.MIDFIELDER): (Zone.MIDFIELD, 0),
             (TeamSide.HOME, PlayerRole.PLAYMAKER): (Zone.MIDFIELD, 1),
-            (TeamSide.HOME, PlayerRole.STRIKER): (Zone.VISITORS_GOAL, 1),
-            (TeamSide.VISITING, PlayerRole.FULLBACK): (Zone.VISITORS_GOAL, 1),
+            (TeamSide.HOME, PlayerRole.STRIKER): (Zone.VISITORS_ZONE, 1),
+            (TeamSide.VISITING, PlayerRole.FULLBACK): (Zone.VISITORS_ZONE, 1),
             (TeamSide.VISITING, PlayerRole.MIDFIELDER): (Zone.MIDFIELD, 2),
             (TeamSide.VISITING, PlayerRole.PLAYMAKER): (Zone.MIDFIELD, 1),
-            (TeamSide.VISITING, PlayerRole.STRIKER): (Zone.HOME_GOAL, 0),
+            (TeamSide.VISITING, PlayerRole.STRIKER): (Zone.HOME_ZONE, 0),
         }
         for (side, role), position in expected.items():
             with self.subTest(side=side, role=role):
@@ -562,7 +563,7 @@ class D12BallComponentTests(unittest.TestCase):
 
         # The player coming on inherits both the zone assignment and
         # the space, so a substitution never moves anyone by itself.
-        self.assertIn(incoming, match.home.zones[Zone.HOME_GOAL])
+        self.assertIn(incoming, match.home.zones[Zone.HOME_ZONE])
         self.assertEqual(match.board.meeple_position(incoming), position)
         self.assertIsNone(match.board.meeple_position(outgoing))
         match.validate(self.catalog)
@@ -709,9 +710,9 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertEqual(match.board.meeple_position(first), first_position)
         self.assertEqual(match.board.meeple_position(second), second_position)
         self.assertEqual(
-            match.home.assigned_zone(first), Zone.VISITORS_GOAL,
+            match.home.assigned_zone(first), Zone.VISITORS_ZONE,
         )
-        self.assertEqual(match.home.assigned_zone(second), Zone.HOME_GOAL)
+        self.assertEqual(match.home.assigned_zone(second), Zone.HOME_ZONE)
         self.assertTrue(
             all(len(match.home.zones[zone]) == 2 for zone in Zone)
         )
@@ -914,13 +915,13 @@ class D12BallComponentTests(unittest.TestCase):
         self,
     ) -> None:
         match = self.standard_match()
-        stray = match.home.zones[Zone.HOME_GOAL][0]
+        stray = match.home.zones[Zone.HOME_ZONE][0]
         home = match.board.meeple_position(stray)
         self.assertEqual(
             match.assigned_positions[stray], [home[0].value, home[1]],
         )
 
-        match.board.place_meeple(stray, Zone.VISITORS_GOAL, 0)
+        match.board.place_meeple(stray, Zone.VISITORS_ZONE, 0)
         moved = match.restore_assigned_positions(TeamSide.HOME)
 
         self.assertEqual(moved, [(stray, home[0], home[1])])
@@ -946,7 +947,7 @@ class D12BallComponentTests(unittest.TestCase):
         # arrangement. A run back is a scramble the coach was forced
         # into, so the shape they chose has to survive it.
         match = self.standard_match()
-        stray, teammate = match.home.zones[Zone.HOME_GOAL][:2]
+        stray, teammate = match.home.zones[Zone.HOME_ZONE][:2]
         home = match.board.meeple_position(stray)
         other_space = match.board.meeple_position(teammate)[1]
 
@@ -954,7 +955,7 @@ class D12BallComponentTests(unittest.TestCase):
         # space and can put the stray on the wrong one.
         match.board.place_meeple(stray, Zone.MIDFIELD, 0)
         match.board.place_meeple(teammate, Zone.MIDFIELD, 0)
-        match.run_back_player(stray, Zone.HOME_GOAL, other_space)
+        match.run_back_player(stray, Zone.HOME_ZONE, other_space)
 
         self.assertEqual(
             match.assigned_positions[stray], [home[0].value, home[1]],
@@ -964,7 +965,7 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_the_saved_arrangement_round_trips(self) -> None:
         match = self.standard_match()
-        stray = match.home.zones[Zone.HOME_GOAL][0]
+        stray = match.home.zones[Zone.HOME_ZONE][0]
         match.board.place_meeple(stray, Zone.MIDFIELD, 0)
         match.set_assigned_positions(TeamSide.HOME)
 
@@ -2095,7 +2096,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
 
     def test_an_empty_path_leaves_the_defence_with_no_skill(self) -> None:
         match = self.build_match(7)
-        match.ball.zone = Zone.VISITORS_GOAL
+        match.ball.zone = Zone.VISITORS_ZONE
         match.ball.space_index = 1
 
         fullback_id = next(
@@ -2104,7 +2105,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
             if self.catalog.player_by_id(player_id).role
             == PlayerRole.FULLBACK
         )
-        match.move_meeple(fullback_id, Zone.HOME_GOAL, 0)
+        match.move_meeple(fullback_id, Zone.HOME_ZONE, 0)
 
         self.assertEqual(match.defenders_between_ball_and_goal(), [])
         self.assertEqual(match.spaces_to_goal(), 1)
@@ -2112,7 +2113,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
 
     def test_is_ball_at_scoring_space(self) -> None:
         match = self.build_match(7)
-        match.ball.zone = Zone.HOME_GOAL
+        match.ball.zone = Zone.HOME_ZONE
         match.ball.space_index = 0
         match.ball.possession = TeamSide.HOME
         self.assertFalse(match.is_ball_at_scoring_space())
@@ -2128,13 +2129,13 @@ class D12BallScoreAttemptTests(unittest.TestCase):
 
             self.assertEqual(
                 match.own_goal_restart_space(TeamSide.HOME),
-                (Zone.HOME_GOAL, 0),
+                (Zone.HOME_ZONE, 0),
             )
             self.assertEqual(
                 match.own_goal_restart_space(TeamSide.VISITING),
                 (
-                    Zone.VISITORS_GOAL,
-                    len(match.board.spaces[Zone.VISITORS_GOAL]) - 1,
+                    Zone.VISITORS_ZONE,
+                    len(match.board.spaces[Zone.VISITORS_ZONE]) - 1,
                 ),
             )
 
@@ -2261,7 +2262,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         # equidistant from 0 and 2 -- move `far` further out so the
         # ordering is unambiguous.
         match.board.remove_meeple(far)
-        match.board.place_meeple(far, Zone.HOME_GOAL, 0)
+        match.board.place_meeple(far, Zone.HOME_ZONE, 0)
 
         candidates = match.kickoff_fill_candidates()
         self.assertEqual(candidates[0], near)
@@ -2291,7 +2292,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
     def test_fill_kickoff_rejects_a_player_outside_midfield(self) -> None:
         match = self.build_match(7)
         match.restart_after_goal(TeamSide.HOME)
-        outsider = match.home.zones[Zone.HOME_GOAL][0]
+        outsider = match.home.zones[Zone.HOME_ZONE][0]
 
         with self.assertRaises(ValueError):
             match.fill_kickoff(outsider)
@@ -2404,10 +2405,10 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         match.board.remove_meeple(
             fielded(match, PlayerRole.DEFENDER, TeamSide.VISITING),
         )
-        self.assertEqual(match.board.spaces[Zone.VISITORS_GOAL][0], [])
+        self.assertEqual(match.board.spaces[Zone.VISITORS_ZONE][0], [])
 
-        match.set_ball_space(Zone.VISITORS_GOAL, 0)
-        self.assertEqual(match.ball.zone, Zone.VISITORS_GOAL)
+        match.set_ball_space(Zone.VISITORS_ZONE, 0)
+        self.assertEqual(match.ball.zone, Zone.VISITORS_ZONE)
         self.assertEqual(match.ball.space_index, 0)
         # Possession is untouched -- callers apply a turnover separately.
         self.assertEqual(match.ball.possession, TeamSide.HOME)
@@ -2419,7 +2420,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         home_midfielder = match.home.zones[Zone.MIDFIELD][0]
 
         # Walk them out to the visitors' goal zone.
-        match.move_meeple(home_midfielder, Zone.VISITORS_GOAL, 0)
+        match.move_meeple(home_midfielder, Zone.VISITORS_ZONE, 0)
         self.assertIn(home_midfielder, match.displaced_players(TeamSide.HOME))
 
         open_spaces = match.open_spaces_in_zone(TeamSide.HOME, Zone.MIDFIELD)
@@ -2450,10 +2451,10 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         match = self.build_match(7)
         home_midfielder = match.home.zones[Zone.MIDFIELD][0]
         other_home_midfielder = match.home.zones[Zone.MIDFIELD][1]
-        match.move_meeple(home_midfielder, Zone.VISITORS_GOAL, 0)
+        match.move_meeple(home_midfielder, Zone.VISITORS_ZONE, 0)
 
         with self.assertRaises(ValueError):
-            match.run_back_player(home_midfielder, Zone.HOME_GOAL, 0)
+            match.run_back_player(home_midfielder, Zone.HOME_ZONE, 0)
 
         occupied_space = match.board.meeple_position(
             other_home_midfielder
@@ -2548,14 +2549,14 @@ class D12BallScoreAttemptTests(unittest.TestCase):
 
     def test_move_ball_relative_clamps_at_the_board_edge(self) -> None:
         match = self.build_match(7)
-        match.ball.zone = Zone.VISITORS_GOAL
+        match.ball.zone = Zone.VISITORS_ZONE
         match.ball.space_index = 1  # the last space, flat index 6
 
         distance = match.move_ball_relative(TeamSide.HOME, 5)
         self.assertEqual(distance, 0)
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
-            (Zone.VISITORS_GOAL, 1),
+            (Zone.VISITORS_ZONE, 1),
         )
 
     def test_move_player_relative_moves_the_meeple_only(self) -> None:
@@ -3270,7 +3271,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         """
         for player_id in list(match.board.spaces[zone][space_index]):
             if player_id in match.home.field_players:
-                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+                match.move_meeple(player_id, Zone.HOME_ZONE, 0)
 
     def player_with_role(
         self, match: MatchState, side: TeamSide, role: PlayerRole,
@@ -3290,7 +3291,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         handler = home_players[3]
         visitor = match.visiting.field_players[0]
 
-        match.move_meeple(behind, Zone.HOME_GOAL, 2)  # flat 2 (distance -2)
+        match.move_meeple(behind, Zone.HOME_ZONE, 2)  # flat 2 (distance -2)
         # The handler and one teammate share the ball's space, so
         # distance 0 has someone other than the passer to reach.
         match.move_meeple(handler, Zone.MIDFIELD, 1)  # flat 4, ball here
@@ -3298,7 +3299,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # flat 3 (distance -1) and flat 5 (distance +1, opponent only)
         # are deliberately left without a home teammate.
         match.move_meeple(visitor, Zone.MIDFIELD, 2)
-        match.move_meeple(ahead, Zone.VISITORS_GOAL, 0)  # flat 6 (distance +2)
+        match.move_meeple(ahead, Zone.VISITORS_ZONE, 0)  # flat 6 (distance +2)
 
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.MIDFIELD, 1)
@@ -3322,11 +3323,11 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         near_ahead, far_ahead = home_players[2], home_players[3]
         handler = home_players[4]
 
-        match.move_meeple(far_behind, Zone.HOME_GOAL, 2)  # distance -2
+        match.move_meeple(far_behind, Zone.HOME_ZONE, 2)  # distance -2
         match.move_meeple(near_behind, Zone.MIDFIELD, 0)  # distance -1
         match.move_meeple(handler, Zone.MIDFIELD, 1)
         match.move_meeple(near_ahead, Zone.MIDFIELD, 2)  # distance +1
-        match.move_meeple(far_ahead, Zone.VISITORS_GOAL, 0)  # distance +2
+        match.move_meeple(far_ahead, Zone.VISITORS_ZONE, 0)  # distance +2
 
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.MIDFIELD, 1)
@@ -3393,10 +3394,10 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match = self.build_match()
         self.clear_board(match)
         handler, sharing = match.home.field_players[:2]
-        match.move_meeple(handler, Zone.HOME_GOAL, 0)  # the board's own edge
-        match.move_meeple(sharing, Zone.HOME_GOAL, 0)
+        match.move_meeple(handler, Zone.HOME_ZONE, 0)  # the board's own edge
+        match.move_meeple(sharing, Zone.HOME_ZONE, 0)
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.HOME_GOAL, 0)
+        match.set_ball_space(Zone.HOME_ZONE, 0)
         match.active_player_id = handler
 
         cog = self.build_cog()
@@ -3503,7 +3504,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.HOME_GOAL, 0)
+        match.set_ball_space(Zone.HOME_ZONE, 0)
         match.ball.speed = 3
 
         interaction = SimpleNamespace()
@@ -3512,7 +3513,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             await apply_low_pass(cog, interaction, game, match, 2)
 
         self.assertEqual(
-            (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
+            (match.ball.zone, match.ball.space_index), (Zone.HOME_ZONE, 2),
         )
         self.assertEqual(match.ball.speed, 4)
         cog.offer_scoring_attempt_choice.assert_not_awaited()
@@ -3715,9 +3716,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match = self.build_match()
         self.clear_board(match)
         handler = match.home.field_players[0]
-        match.move_meeple(handler, Zone.VISITORS_GOAL, 2)
+        match.move_meeple(handler, Zone.VISITORS_ZONE, 2)
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.VISITORS_GOAL, 2)  # the board's own edge
+        match.set_ball_space(Zone.VISITORS_ZONE, 2)  # the board's own edge
         match.active_player_id = handler
 
         interaction = SimpleNamespace(followup=SimpleNamespace(
@@ -3729,7 +3730,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
-            (Zone.VISITORS_GOAL, 2),
+            (Zone.VISITORS_ZONE, 2),
         )
         cog.begin_loose_ball.assert_awaited_once()
         _, kwargs = cog.begin_loose_ball.await_args
@@ -3751,10 +3752,10 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 2 overshoots
+        match.set_ball_space(Zone.VISITORS_ZONE, 1)  # flat 7, 2 overshoots
         shooter = match.home.field_players[0]
-        self.clear_offense_from(match, Zone.VISITORS_GOAL, 2)
-        match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)  # flat 8, landing
+        self.clear_offense_from(match, Zone.VISITORS_ZONE, 2)
+        match.move_meeple(shooter, Zone.VISITORS_ZONE, 2)  # flat 8, landing
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -3763,7 +3764,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
-            (Zone.VISITORS_GOAL, 2),
+            (Zone.VISITORS_ZONE, 2),
         )
         cog.offer_scoring_attempt_choice.assert_awaited_once()
         _, kwargs = cog.offer_scoring_attempt_choice.await_args
@@ -3787,7 +3788,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.HOME_GOAL, 0)  # flat 0, plenty of room,
+        match.set_ball_space(Zone.HOME_ZONE, 0)  # flat 0, plenty of room,
         # and nobody is standing on the landing space (flat 2).
 
         interaction = SimpleNamespace()
@@ -3796,7 +3797,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             await apply_high_pass(cog, interaction, game, match, 2)
 
         self.assertEqual(
-            (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
+            (match.ball.zone, match.ball.space_index), (Zone.HOME_ZONE, 2),
         )
         cog.offer_scoring_attempt_choice.assert_not_awaited()
         cog.begin_loose_ball.assert_not_awaited()
@@ -3839,8 +3840,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         defender_on_space = self.player_with_role(
             match, TeamSide.VISITING, PlayerRole.DEFENDER,
         )
-        match.move_meeple(receiver, Zone.VISITORS_GOAL, 1)
-        match.move_meeple(defender_on_space, Zone.VISITORS_GOAL, 1)
+        match.move_meeple(receiver, Zone.VISITORS_ZONE, 1)
+        match.move_meeple(defender_on_space, Zone.VISITORS_ZONE, 1)
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -3849,7 +3850,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
-            (Zone.VISITORS_GOAL, 1),
+            (Zone.VISITORS_ZONE, 1),
         )
         cog.offer_scoring_attempt_choice.assert_not_awaited()
         self.assertFalse(match.pending_high_pass_overshoot)
@@ -3894,8 +3895,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         shooter = match.home.field_players[0]
         # flat 6, the landing space: the visitors' half, two short of
         # the edge. The standard setup already has someone there.
-        self.clear_offense_from(match, Zone.VISITORS_GOAL, 0)
-        match.move_meeple(shooter, Zone.VISITORS_GOAL, 0)
+        self.clear_offense_from(match, Zone.VISITORS_ZONE, 0)
+        match.move_meeple(shooter, Zone.VISITORS_ZONE, 0)
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -3904,7 +3905,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
-            (Zone.VISITORS_GOAL, 0),
+            (Zone.VISITORS_ZONE, 0),
         )
         cog.begin_loose_ball.assert_not_awaited()
         cog.offer_scoring_attempt_choice.assert_awaited_once()
@@ -3927,11 +3928,11 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 3 overshoots
+        match.set_ball_space(Zone.VISITORS_ZONE, 1)  # flat 7, 3 overshoots
         match.ball.speed = 4  # a +2 modifier, so the sign is visible
         shooter = match.home.field_players[0]
-        self.clear_offense_from(match, Zone.VISITORS_GOAL, 2)
-        match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)  # flat 8, landing
+        self.clear_offense_from(match, Zone.VISITORS_ZONE, 2)
+        match.move_meeple(shooter, Zone.VISITORS_ZONE, 2)  # flat 8, landing
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -3940,7 +3941,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             (match.ball.zone, match.ball.space_index),
-            (Zone.VISITORS_GOAL, 2),
+            (Zone.VISITORS_ZONE, 2),
         )
         cog.begin_loose_ball.assert_not_awaited()
         cog.offer_scoring_attempt_choice.assert_awaited_once()
@@ -3980,7 +3981,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             return_value=StepResult(),
         ) as throw:
             for space_index in (1, 2):  # flat 7 and flat 8: 1 away, then 0
-                match.set_ball_space(Zone.VISITORS_GOAL, space_index)
+                match.set_ball_space(Zone.VISITORS_ZONE, space_index)
                 self.assertTrue(match.high_pass_distance_is_moot(TeamSide.HOME))
                 offer_high_pass(cog.engine, game, match)
 
@@ -3989,6 +3990,40 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(call.args[-1], 2)
         cog.engine.side_controlled_by_ai.assert_not_called()
 
+    def test_a_move_past_the_last_space_reaches_that_end_s_goal_zone(
+        self,
+    ) -> None:
+        # Law 2.1.5: the goal zones hold no spaces, so a move longer
+        # than the spaces left in front of it reaches the goal zone at
+        # that end -- named by the end, whichever side is moving and
+        # whichever way. `relative_flat_index` clamps the same move to
+        # the last space, and the two answer together for every move.
+        match = self.build_match()
+        last = match.board.layout.board_size - 1
+        self.assertIs(
+            match.goal_zone_reached(last, TeamSide.HOME, 1),
+            GoalZone.VISITORS_GOAL,
+        )
+        self.assertIs(
+            match.goal_zone_reached(0, TeamSide.HOME, -1),
+            GoalZone.HOME_GOAL,
+        )
+        self.assertIs(
+            match.goal_zone_reached(0, TeamSide.VISITING, 1),
+            GoalZone.HOME_GOAL,
+        )
+        self.assertIsNone(match.goal_zone_reached(last, TeamSide.HOME, 0))
+        self.assertIs(GoalZone.HOME_GOAL.defended_by, TeamSide.HOME)
+        for side, origin, spaces in itertools.product(
+            TeamSide, range(last + 1), range(-5, 6),
+        ):
+            clamped = match.relative_flat_index(origin, side, spaces)
+            self.assertEqual(
+                match.goal_zone_reached(origin, side, spaces) is not None,
+                abs(clamped - origin) < abs(spaces),
+                (side, origin, spaces),
+            )
+
     def test_a_high_pass_distance_two_spaces_out_is_a_real_choice(
         self,
     ) -> None:
@@ -3996,17 +4031,17 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # a 3 or a 4 overshoots, so the coach is asked.
         match = self.build_match()
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.VISITORS_GOAL, 0)  # flat 6 of 0..8
+        match.set_ball_space(Zone.VISITORS_ZONE, 0)  # flat 6 of 0..8
         self.assertFalse(match.high_pass_distance_is_moot(TeamSide.HOME))
-        self.assertFalse(match.high_pass_overshoots(TeamSide.HOME, 2))
-        self.assertTrue(match.high_pass_overshoots(TeamSide.HOME, 3))
+        self.assertFalse(match.high_pass_reaches_goal_zone(TeamSide.HOME, 2))
+        self.assertTrue(match.high_pass_reaches_goal_zone(TeamSide.HOME, 3))
 
         # And the same reading from the other end of the board, where
         # the attack direction is reversed.
         match.ball.possession = TeamSide.VISITING
-        match.set_ball_space(Zone.HOME_GOAL, 1)  # flat 1, 1 away
+        match.set_ball_space(Zone.HOME_ZONE, 1)  # flat 1, 1 away
         self.assertTrue(match.high_pass_distance_is_moot(TeamSide.VISITING))
-        match.set_ball_space(Zone.HOME_GOAL, 2)  # flat 2, 2 away
+        match.set_ball_space(Zone.HOME_ZONE, 2)  # flat 2, 2 away
         self.assertFalse(match.high_pass_distance_is_moot(TeamSide.VISITING))
 
     def test_a_distance_that_runs_off_the_field_is_not_on_offer(self) -> None:
@@ -4022,9 +4057,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         for space, expected_3, expected_4 in (
             ((Zone.MIDFIELD, 1), [2, 3], [2, 3, 4]),      # flat 4, 4 away
             ((Zone.MIDFIELD, 2), [2, 3], [2, 3]),         # flat 5, 3 away
-            ((Zone.VISITORS_GOAL, 0), [2], [2]),          # flat 6, 2 away
-            ((Zone.VISITORS_GOAL, 1), [], []),            # flat 7, 1 away
-            ((Zone.VISITORS_GOAL, 2), [], []),            # flat 8, at the end
+            ((Zone.VISITORS_ZONE, 0), [2], [2]),          # flat 6, 2 away
+            ((Zone.VISITORS_ZONE, 1), [], []),            # flat 7, 1 away
+            ((Zone.VISITORS_ZONE, 2), [], []),            # flat 8, at the end
         ):
             with self.subTest(space=space):
                 match.set_ball_space(*space)
@@ -4081,10 +4116,10 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 2 overshoots
+        match.set_ball_space(Zone.VISITORS_ZONE, 1)  # flat 7, 2 overshoots
         shooter = match.home.field_players[0]
-        self.clear_offense_from(match, Zone.VISITORS_GOAL, 2)
-        match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)  # flat 8, landing
+        self.clear_offense_from(match, Zone.VISITORS_ZONE, 2)
+        match.move_meeple(shooter, Zone.VISITORS_ZONE, 2)  # flat 8, landing
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -4113,9 +4148,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 3 overshoots
+        match.set_ball_space(Zone.VISITORS_ZONE, 1)  # flat 7, 3 overshoots
         # Leave only the visiting card the deal puts on flat 8.
-        self.clear_offense_from(match, Zone.VISITORS_GOAL, 2)
+        self.clear_offense_from(match, Zone.VISITORS_ZONE, 2)
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -4136,7 +4171,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.HOME_GOAL, 0)  # flat 0, no overshoot at 4
+        match.set_ball_space(Zone.HOME_ZONE, 0)  # flat 0, no overshoot at 4
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -4170,9 +4205,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             await resolve_deflect(cog, interaction, game, match)
 
         # HOME attacks left-to-right, so "back" is toward lower flat
-        # indices: flat 4 - 2 = flat 2, HOME_GOAL space 2.
+        # indices: flat 4 - 2 = flat 2, HOME_ZONE space 2.
         self.assertEqual(
-            (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
+            (match.ball.zone, match.ball.space_index), (Zone.HOME_ZONE, 2),
         )
         # A Deflect knocks the ball out of possession, so it goes
         # straight to the contest rather than through the loose-ball
