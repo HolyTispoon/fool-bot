@@ -44,9 +44,9 @@ basic sentence until the author says how it should show them.
 A coach playing advanced mode today gets the gambits, the species abilities and the roster
 they already know.
 
-### Setup Pass × Intercept may be inert
+### Cross × Intercept may be inert
 
-Intercept's cost removes a High Pass reception's contest, but a Setup Pass that beat it
+Intercept's cost removes a High Pass reception's contest, but a Cross that beat it
 produces a **set-up**, not a contested reception. There is nothing there to skip, so the cost
 does nothing in that one cell. It is written that way deliberately rather than special-cased —
 worth a look in play, in case the author wants something else to happen there.
@@ -59,7 +59,7 @@ Neither blocked anything, and both are visible in play:
   2026-08-19). The build takes that straight to the shot, the way a deflection's overshoot
   does — which skips Intercept's own speed-manipulation step, since there is no run back to
   hang it off. The shot still reads the speed the turnover reset.
-- **Setup Pass's cost applies after the deflection that beat it**, so the ball goes back 3 (or
+- **Cross's cost applies after the deflection that beat it**, so the ball goes back 3 (or
   1) and *then* a further 1–3 at the winning coach's choice. Where the deflection already
   overshot into a scoring opportunity, the shot happens and the push-back does not: the ball is
   already as far back as the field goes.
@@ -80,13 +80,13 @@ changing any of it should know these are load-bearing.
 - **The importer stopped validating one die face per side.** A gambit reuses its
   counterpart's faces. The die has been off the rules since 2026-08-17.
 - **`pending_effect_continuation`** is what lets an effect reach past its own maneuver. Two do:
-  Setup Pass sets the speed and *then* picks the pass out, and a beaten Skilled Pass hands the
+  Cross sets the speed and *then* picks the pass out, and a beaten Pinpoint hands the
   defense a Low Pass once the steal has settled. A speed choice had always been the last human
   step of an effect.
 - **`pending_double_team`** carries a won Double Team into the following maneuver, where both
   defenders add their defensive skill. A new play clears it, which is the only thing the card
   says ends it.
-- **A fourth `new_play=True` call site**: a Setup Pass that finds nobody goes out of play.
+- **A fourth `new_play=True` call site**: a Cross that finds nobody goes out of play.
   CLAUDE.md used to pin the count at three.
 - **One back for all twelve printed cards**, since a coach in advanced mode holds both tiers
   and must not show which they are reading. Each node of the hexagon carries the two cards on

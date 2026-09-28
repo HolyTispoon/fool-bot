@@ -355,8 +355,8 @@ def score_skill_test(
     # neither contradicts what the gambit does. When the +3 moved off
     # Pressure onto Steal (the author, 2026-09-27) it went with the
     # rank, onto Intercept and off Double Team. The three that *do*
-    # contradict -- the Fullback on Clear, the Playmaker on Dribble
-    # Burst, the Fullback's pass distance on Setup Pass -- are the
+    # contradict -- the Fullback on Clear, the Playmaker on
+    # Burst, the Fullback's pass distance on Cross -- are the
     # author's to settle and are deliberately not inherited anywhere;
     # see "Still open" in docs/gambit-matrix.md.
     if (

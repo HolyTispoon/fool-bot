@@ -6,7 +6,7 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 
 `d12ball/cards.py` draws the twelve maneuvers as cards. They exist because the
 selection d6 they replaced made a coach hold the rules in their head: the die
-said "3-4" and the coach had to remember that was Dribble Advance if they had
+said "3-4" and the coach had to remember that was Dribble if they had
 the ball and Steal Intercept if they did not, what it beat, and which role
 changed it. The cards won outright on 2026-08-17 -- the die is off the rules
 altogether now.
@@ -133,7 +133,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   - **Losing it must not lose the pick**, which is already up and clickable by
     then, so the send is wrapped the way `add_full_image_button`'s is.
   - **Every distance prompt carries one too**, as an attachment on the prompt
-    rather than a message of its own -- the High Pass, the Setup Pass, both
+    rather than a message of its own -- the High Pass, the Cross, both
     dribbles, the Low Pass and the run back. There is no second image on those
     messages for Discord to lay it out beside, and riding on the prompt is
     what lets the click take it away again. See
@@ -170,9 +170,10 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   effect; a gambit lists none** (the author, 2026-09-28). The rows are
   `role_abilities`: the roles whose sentence names the maneuver, matched on
   whole words, then `EXTRA_ROLES` (the Striker on High Pass) and
-  `EXTRA_NOTES` (the ball speed modifier on Steal, Law 6.4; the Playmaker's
-  extra space on Dribble Advance, since its sentence names "Dribble
-  maneuvers" rather than either card). They sit in a grey box under the
+  `EXTRA_NOTES` (the ball speed modifier on Steal, Law 6.4). The Playmaker's
+  extra space was a note there too while its sentence said "Dribble
+  maneuvers" and named neither card; since the 2026-09-28 renames it says
+  "Dribble and Burst" and is matched like the rest. They sit in a grey box under the
   sentence, each behind its role in bold, with no heading -- the role names
   are the labels -- one step smaller than the effect text. The same day
   they were first taken off every card as an "ABILITIES IN PLAY" band along
@@ -197,7 +198,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     sheet, so a field added to it survives until the next import and no
     longer.
   - **What the gambits no longer print** is what the band used to carry for
-    them: the Fullback on Clear and Setup Pass, the Playmaker on Dribble
+    them: the Fullback on Clear and Cross, the Playmaker on
     Burst, the ball speed modifier on Intercept, and the "CARDS" line.
 - **The time cost is a pill in the header's right-hand corner, on every
   card** (the author, 2026-09-28): "TIME · 1", the number alone
@@ -212,8 +213,8 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   applied. `gambit_effect_parts` cuts it at the failure label: the first
   box, outlined in the card's colour, is what the gambit does when it
   succeeds; the second, on grey, is what its side pays when it fails. The
-  third says what a tie on the cards resolves as -- "Resolves as Dribble
-  Advance:" and that basic card's own effect, whole, looked up by
+  third says what a tie on the cards resolves as -- "Resolves as
+  Dribble:" and that basic card's own effect, whole, looked up by
   `catalog.counterpart`. Law 19.4 is when each applies: won on the cards,
   lost on the cards, tied. `gambit_effect_boxes` is the list.
   - **Both halves are the sheet's own words.** Only the labels go, since
@@ -242,7 +243,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   which is the only position from which every basic maneuver fits: a High Pass
   of 4 lands on the last space and a Fullback's Deflect of 2 on the
   first. **A gambit is drawn on the nine-space board** with the ball on
-  the fourth, because Clear drives the ball back 3 and Dribble Burst runs it 4
+  the fourth, because Clear drives the ball back 3 and Burst runs it 4
   forward -- 4 either way once a Fullback is near a Clear, which the seven-space
   strip has no room for. `STRIP_GEOMETRY` is the pair, per tier, and the nine-space board is a
   real board rather than a strip invented to fit.

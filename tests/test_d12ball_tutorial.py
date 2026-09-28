@@ -225,9 +225,9 @@ class TutorialScriptTests(unittest.TestCase):
         # the tie, and the only beat whose outcome the ranking does not
         # settle -- its dice do, which is what `rolls` is for.
         expected = {
-            1: "offense",   # Dribble Advance over Deflect
+            1: "offense",   # Dribble over Deflect
             2: "tie",       # Low Pass and Deflect, both rank 1
-            3: "defense",   # the coach's Pressure over Dribble Advance
+            3: "defense",   # the coach's Pressure over Dribble
             4: "defense",   # the coach's Steal Intercept over Low Pass
             5: "offense",   # High Pass over Steal Intercept
         }
@@ -670,7 +670,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         # The one button removed from that prompt. Beat 2 no longer
         # leaves a defeated contestant standing on the ball for beat 3's
         # challenge to fall to automatically, so the coach has to send
-        # somebody -- and declining would leave Dinky's Dribble Advance
+        # somebody -- and declining would leave Dinky's Dribble
         # nothing to defend against.
         _, _, log = await self.play()
 

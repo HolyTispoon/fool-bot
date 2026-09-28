@@ -333,7 +333,7 @@ def winger_set_up() -> LowPassFixture:
 
 def free_pass_off_a_beaten_skilled_pass() -> LowPassFixture:
     """
-    **Skilled Pass's cost**: the defense stole the ball and now plays
+    **Pinpoint's cost**: the defense stole the ball and now plays
     an unopposed Low Pass with it. Applying the pass is what spends the
     continuation, and the clock was already charged on the steal that
     produced it -- so this is the one branch that moves no space
@@ -374,7 +374,7 @@ def free_pass_off_a_beaten_skilled_pass() -> LowPassFixture:
 
 def skilled_pass() -> LowPassFixture:
     """
-    Skilled Pass is a Low Pass with three times the speed bonus and a
+    Pinpoint is a Low Pass with three times the speed bonus and a
     space more reach, resolved by the same function -- so what is
     pinned here is the name on the banner and the +3.
     """
@@ -390,7 +390,7 @@ def skilled_pass() -> LowPassFixture:
         receiver_id=receiver,
         key="skilled_pass",
         narration=(
-            "**Skilled Pass:** the ball moves 2 spaces forward. "
+            "**Pinpoint:** the ball moves 2 spaces forward. "
             "Ball speed is now 7."
         ),
         follow_on_kwargs={"distance_moved": 1},
@@ -440,7 +440,7 @@ def double_team_cost() -> LowPassFixture:
     )
 
 
-# -- Skilled Pass's own branches ---------------------------------------
+# -- Pinpoint's own branches ---------------------------------------
 
 
 def skilled_pass_at_full_reach() -> LowPassFixture:
@@ -449,7 +449,7 @@ def skilled_pass_at_full_reach() -> LowPassFixture:
     Pass: `SKILLED_PASS_REACH` is 3 and a Low Pass stops at 2. The
     step itself never checks the reach -- `pass_candidates` decides
     what was on the menu -- so what this pins is that a distance only
-    Skilled Pass can offer travels through the shared function
+    Pinpoint can offer travels through the shared function
     unchanged.
     """
     match = build_match()
@@ -464,7 +464,7 @@ def skilled_pass_at_full_reach() -> LowPassFixture:
         receiver_id=receiver,
         key="skilled_pass",
         narration=(
-            "**Skilled Pass:** the ball moves 3 spaces forward. "
+            "**Pinpoint:** the ball moves 3 spaces forward. "
             "Ball speed is now 4."
         ),
         follow_on_kwargs={"distance_moved": 1},
@@ -493,7 +493,7 @@ def skilled_pass_backward() -> LowPassFixture:
         receiver_id=receiver,
         key="skilled_pass",
         narration=(
-            "**Skilled Pass:** the ball moves 3 spaces backward. "
+            "**Pinpoint:** the ball moves 3 spaces backward. "
             "Ball speed is now 4."
         ),
         follow_on_kwargs={"distance_moved": 1},
@@ -505,7 +505,7 @@ def skilled_pass_backward() -> LowPassFixture:
 
 def skilled_pass_across_a_shared_space() -> LowPassFixture:
     """
-    A Skilled Pass of 0 is a Low Pass of 0 -- the ball does not
+    A Pinpoint of 0 is a Low Pass of 0 -- the ball does not
     travel, the passer steps forward, and only the banner and the
     bonus tell the two apart. The branch that words the pass by what
     the *passer* did is shared, so it is worth holding both cards to
@@ -523,7 +523,7 @@ def skilled_pass_across_a_shared_space() -> LowPassFixture:
         receiver_id=receiver,
         key="skilled_pass",
         narration=(
-            "**Skilled Pass:** the ball goes to a teammate in the same "
+            "**Pinpoint:** the ball goes to a teammate in the same "
             f"space, and {label(match, handler)} moves a space forward. "
             "Ball speed is now 4."
         ),
@@ -538,7 +538,7 @@ def skilled_pass_winger_set_up() -> LowPassFixture:
     """
     The Winger's set-up is the one branch that ends somewhere other
     than `finish_maneuver_resolution`, and it is read off the passer's
-    role rather than off the card -- so a Skilled Pass reaches it on
+    role rather than off the card -- so a Pinpoint reaches it on
     exactly the same terms a Low Pass does.
     """
     match = build_match()
@@ -557,7 +557,7 @@ def skilled_pass_winger_set_up() -> LowPassFixture:
         receiver_id=receiver,
         key="skilled_pass",
         narration=(
-            "**Skilled Pass:** the ball moves 1 space forward. "
+            "**Pinpoint:** the ball moves 1 space forward. "
             "Ball speed is now 4. "
             f"{label(match, winger)}'s Winger ability can turn this "
             "into a scoring opportunity!"
@@ -588,7 +588,7 @@ def skilled_pass_at_the_speed_cap() -> LowPassFixture:
         receiver_id=receiver,
         key="skilled_pass",
         narration=(
-            "**Skilled Pass:** the ball moves 2 spaces forward. "
+            "**Pinpoint:** the ball moves 2 spaces forward. "
             "Ball speed is now 12."
         ),
         follow_on_kwargs={"distance_moved": 1},
@@ -623,7 +623,7 @@ def skilled_pass_contested_without_a_cost() -> LowPassFixture:
         receiver_id=receiver,
         key="skilled_pass",
         narration=(
-            "**Skilled Pass:** the ball moves 2 spaces forward. "
+            "**Pinpoint:** the ball moves 2 spaces forward. "
             "Ball speed is now 4."
         ),
         follow_on_kwargs={"distance_moved": 1},
@@ -635,7 +635,7 @@ def skilled_pass_contested_without_a_cost() -> LowPassFixture:
 
 def skilled_pass_double_team_cost() -> LowPassFixture:
     """
-    **Double Team's cost**, collected by a Skilled Pass rather than a
+    **Double Team's cost**, collected by a Pinpoint rather than a
     Low Pass. `gambit_cost(match, key)` is asked with whichever card
     is resolving, so this is the branch that proves the cost rides on
     the `key=` parameter and not on the function's name.
@@ -657,7 +657,7 @@ def skilled_pass_double_team_cost() -> LowPassFixture:
         receiver_id=receiver,
         key="skilled_pass",
         narration=(
-            "**Skilled Pass:** the ball moves 2 spaces forward. "
+            "**Pinpoint:** the ball moves 2 spaces forward. "
             "Ball speed is now 4."
             "\n\n**Double Team** was beaten -- "
             f"{label(match, challenger)} and {label(match, partner)} "
@@ -734,7 +734,7 @@ def nobody_on_the_landing_space() -> LowPassFixture:
 
 def free_pass_across_a_shared_space() -> LowPassFixture:
     """
-    The unopposed pass **Skilled Pass's cost** hands the defense,
+    The unopposed pass **Pinpoint's cost** hands the defense,
     played across a shared space: it charges no space minute (the
     clock was spent on the steal that produced it) and still steps the
     passer forward, because that step is what a pass of 0 buys rather

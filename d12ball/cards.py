@@ -423,7 +423,7 @@ def fitted_title(
 ) -> tuple[list[str], ImageFont.ImageFont]:
     """
     The largest title that fits the header, on one line if it can and
-    two if it cannot. "Steal Intercept" and "Dribble Advance" are the
+    two if it cannot. "Steal Intercept" and "Dribble" are the
     long ones and both break cleanly at their space.
 
     `max_size` is lower on a gambit's card, which carries a
@@ -456,14 +456,12 @@ BALL_SPEED_NOTE = (
     "The defender adds the ball speed modifier to this skill test.",
 )
 # **Abilities that reach a card their sentence does not name**
-# (the author, 2026-09-26). The Playmaker's sentence names "Dribble
-# maneuvers" rather than either card, so neither matches it, and the
-# card says what the ability does there instead.
+# (the author, 2026-09-26). The Playmaker's had a row here while its
+# sentence said "Dribble maneuvers" and named neither card; since the
+# 2026-09-28 renames it says "Dribble and Burst", names the card, and
+# is matched like every other.
 EXTRA_NOTES: dict[str, tuple[tuple[str, str], ...]] = {
     "steal": (BALL_SPEED_NOTE,),
-    "dribble_advance": (
-        ("PLAYMAKER", "May advance an additional space."),
-    ),
 }
 
 
@@ -612,7 +610,7 @@ STRIP_MOVES: dict[str, tuple[Move, ...]] = {
         Move(3, "any teammate ahead", "offense", caption_at=2.4),
         Move(-3, "or behind", "offense"),
     ),
-    # Two arcs for a range, the way Dribble Advance draws its own: the
+    # Two arcs for a range, the way Dribble draws its own: the
     # near one carries what the run costs and the far one the bound
     # the coach picks up to. Both solid -- the whole 1-to-4 range is a
     # choice any handler has, not a role's variant.
@@ -684,12 +682,12 @@ STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
 # the third space, which is the only position from which every basic
 # maneuver fits**: a High Pass of 4 lands on the last space and a
 # Fullback's Deflect of 2 on the first. The gambits do not fit
-# it -- a Fullback's Clear drives the ball back 4 and a Dribble Burst
+# it -- a Fullback's Clear drives the ball back 4 and a Burst
 # runs it 4 forward -- so they are drawn on the **nine-space board**,
 # which is a real board and not a made-up strip, with the ball in the
 # middle. That gives 4 either way, which is exactly the range the six
 # gambits need once the Fullback is allowed near a Clear and a
-# Setup Pass: before that ruling the ball sat a space back and a
+# Cross: before that ruling the ball sat a space back and a
 # Fullback's clearance ran off the end of the panel.
 STRIP_GEOMETRY: dict[str, tuple[int, int]] = {
     MANEUVER_TIER_BASIC: (7, 2),
@@ -1295,7 +1293,7 @@ def draw_card_header(
     but a coach who has just picked the card up reads the header
     first, and rank alone asks them to infer the relation rather than
     read it. So the header states it outright: "ADVANCED {name}" --
-    "ADVANCED DRIBBLE ADVANCE" (the author, 2026-09-28; it read
+    "ADVANCED DRIBBLE" (the author, 2026-09-28; it read
     "ADVANCED VERSION OF", the living rules' gambit table's phrase).
     """
     # Header: the rank badge and the name, in a band whose top corners
@@ -2263,7 +2261,7 @@ def render_maneuver_card_back(
 
     # **One size for all six nodes, and it is the tightest of them.**
     # Sized independently they read as six different alphabets: "Low
-    # Pass" over "Skilled Pass" has short words and grows to fill the
+    # Pass" over "Pinpoint" has short words and grows to fill the
     # circle, where "Pressure" over "Double Team" is held back by
     # "Pressure" alone -- a spread of a third at the same radius.
     #

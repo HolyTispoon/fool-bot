@@ -90,7 +90,7 @@ invariants read as ordinary cog surface among 223 methods.
   it -- `announce_board_update` or `post_new_play_board`, each of which
   brings the persistent message in line from the same render.
   `PROMPTS_DRAWN_LATER` is the same economy for the one *prompt* whose
-  answer draws a beat later, Setup Pass's push back. Until then the same
+  answer draws a beat later, Cross's push back. Until then the same
   answer was a set of follow-ons, `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, read
   off `StepResult.next`; the bullets below were written against it and
   the reasoning has not moved.
@@ -101,11 +101,11 @@ invariants read as ordinary cog surface among 223 methods.
     means each caller inherits it rather than deciding it again, which is
     how the two paths that opted out of `restrict_to_occupants` survived,
     one floor up in this same flow.
-  - **Setup Pass's push back is skipped one step removed**
+  - **Cross's push back is skipped one step removed**
     (`PROMPTS_DRAWN_LATER`), because every answer ends in a picture of
     its own: `begin_loose_ball`, or the challenger's shot where the ball
     ran out of field onto them. Since 2026-09-27 the question comes
-    before the ball moves at all (a failed Setup Pass gambit is one move
+    before the ball moves at all (a failed Cross gambit is one move
     of the beating coach's choosing, Law 19.7.7), so the board reaches
     the channel once, after the answer, rather than in front of a
     question whose answer moves the ball.

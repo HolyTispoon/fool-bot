@@ -88,7 +88,7 @@ class HalfFieldPromptTests(unittest.IsolatedAsyncioTestCase):
     def build(self, role: PlayerRole = PlayerRole.PLAYMAKER):
         """
         A home attack in midfield, with `role` on the ball. Advanced,
-        so the Setup Pass and Dribble Burst prompts are reachable at
+        so the Cross and Burst prompts are reachable at
         all; two humans, so nothing routes to Dinky.
         """
         cog = build_cog()
@@ -176,7 +176,7 @@ class HalfFieldPromptTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(view, LowPassChoiceView)
         # Which card is being resolved is the prompt's, not the view's:
         # the step names it, and the destinations offered are the
-        # Skilled Pass's reach.
+        # Pinpoint's reach.
         self.assertEqual(
             offer_low_pass(cog.engine, game, match, key="skilled_pass")
             .next.maneuver_key,

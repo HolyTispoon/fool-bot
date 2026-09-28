@@ -419,7 +419,7 @@ class RulesEngine:
 
         `RulesEngine.apply_exhaustion` forwards to this so no call site
         moved. It came down here with rank O2 of the model/Discord
-        split: a Dribble Burst charges a token a space and a beaten
+        split: a Burst charges a token a space and a beaten
         Clear charges two, and a flow step that cannot word what it
         charged would have to hand the sentence back to the cog to
         write.
@@ -1823,11 +1823,11 @@ class RulesEngine:
     def maneuver_clock_cost(self, match: MatchState, winner_key: str) -> int:
         """
         What the clock is charged when `winner_key` wins (Law 16.2):
-        2 for a High Pass or a Setup Pass, 1 for every other maneuver.
+        2 for a High Pass or a Cross, 1 for every other maneuver.
 
         **It is the card that resolves**, `resolving_maneuver`'s answer,
         and never the loser's (Law 16.2.3): a High Pass beaten by a
-        Deflect costs the Deflect's 1. A High Pass and a Setup Pass are
+        Deflect costs the Deflect's 1. A High Pass and a Cross are
         the one rank, so a tier raised or lowered on the dice never
         changes the answer -- asking the resolving card is only the
         honest question.
@@ -2203,7 +2203,7 @@ class RulesEngine:
             else (match.challenger_id, match.active_player_id)
         )
         # **The handler can change after the cards resolve** -- the
-        # stealer takes the free Low Pass a beaten Skilled Pass owes, a
+        # stealer takes the free Low Pass a beaten Pinpoint owes, a
         # shooter takes a set-up -- so the two ids can come to name one
         # player. That is a maneuver already settled, and nothing here
         # is owed.
@@ -2554,7 +2554,7 @@ class RulesEngine:
 
     def setup_pass_distances(self, match: MatchState) -> list[int]:
         """
-        Which of Setup Pass's distances -- 0, 1 and 3, plus 4 for a
+        Which of Cross's distances -- 0, 1 and 3, plus 4 for a
         Fullback -- the passer may pick out.
 
         **A distance is offered because it fits on the field, not
@@ -2577,7 +2577,7 @@ class RulesEngine:
         `D12Ball.apply_setup_pass_out`. That needs the passer on the
         very last space of the field -- the only position from which
         even 1 runs off the end -- with no teammate beside them, which
-        is the whole of when a Setup Pass can go out of play.
+        is the whole of when a Cross can go out of play.
 
         **The Fullback's ability is +1 distance, and that is what it
         inherits** (the author, 2026-08-19). Its sentence reads "High
@@ -2670,8 +2670,8 @@ class RulesEngine:
 
     def pass_speed_bonus(self, maneuver_key: str) -> int:
         """
-        What a pass adds to ball speed: Low Pass's +1, or Skilled
-        Pass's +3. Both are capped at 12 by the caller, the way every
+        What a pass adds to ball speed: Low Pass's +1, or
+        Pinpoint's +3. Both are capped at 12 by the caller, the way every
         speed change is.
         """
         return 3 if maneuver_key == "skilled_pass" else 1
@@ -2681,7 +2681,7 @@ class RulesEngine:
         match: MatchState,
     ) -> list[tuple[int, str]]:
         """
-        Skilled Pass's destinations: **any** teammate within
+        Pinpoint's destinations: **any** teammate within
         `SKILLED_PASS_REACH` spaces either way, as (distance,
         receiver) pairs ordered back-to-front, rather than the nearest
         one each way within two spaces.
@@ -2709,7 +2709,7 @@ class RulesEngine:
 
     def dribble_burst_distances(self, match: MatchState) -> list[int]:
         """
-        How far a Dribble Burst may be run: 1 up to
+        How far a Burst may be run: 1 up to
         `DRIBBLE_BURST_MAX_DISTANCE`, one more for a Playmaker, cut
         short by the field. It is the coach's pick, and it is charged
         a token a space -- which is what makes the shorter runs worth
@@ -2749,7 +2749,7 @@ class RulesEngine:
     ) -> list[tuple[int, str]]:
         """
         The destinations the pass being resolved actually offers --
-        Skilled Pass's any-teammate-within-3, or a Low Pass's nearest
+        Pinpoint's any-teammate-within-3, or a Low Pass's nearest
         each way. Asked in one place so the buttons, the AI and the
         click that answers cannot disagree about what was on offer.
         """
@@ -2820,7 +2820,7 @@ class RulesEngine:
     def pass_ability_note(self, distance: int) -> str:
         """
         " (Fullback ability)" for the one distance only a Fullback's
-        reach puts on a High Pass or Setup Pass menu, else "". Which
+        reach puts on a High Pass or Cross menu, else "". Which
         distance that is, is a rule (`high_pass_distance_options`,
         `setup_pass_distances`), so the menu asks here rather than
         knowing the number.
@@ -2834,7 +2834,7 @@ class RulesEngine:
         game: Optional[D12BallGame] = None,
     ) -> int:
         """
-        What a Dribble Burst of `distance` charges the handler: a token
+        What a Burst of `distance` charges the handler: a token
         a space. Nothing at all for Emberdash (Law 21). The step
         charges this and the menu prices its buttons by it.
 
@@ -2857,7 +2857,7 @@ class RulesEngine:
     ) -> tuple[Optional[str], tuple[int, ...]]:
         """
         **Quantor** (Law 21): the passing side's player who may drain 3
-        to run onto a teammate's High Pass or Setup Pass, and the
+        to run onto a teammate's High Pass or Cross, and the
         distances they may run onto -- or `(None, ())`.
 
         Never the passer, never an injured player, and only a distance
@@ -2885,9 +2885,9 @@ class RulesEngine:
         )
         if runner is None:
             return None, ()
-        # A Setup Pass only offers distances on the field already, so
+        # A Cross only offers distances on the field already, so
         # the test only ever removes an overshooting High Pass; it is
-        # asked of both so a Setup Pass that grew one could not slip by.
+        # asked of both so a Cross that grew one could not slip by.
         reachable = tuple(
             distance
             for distance in distances
@@ -2899,7 +2899,7 @@ class RulesEngine:
         self, game: Optional[D12BallGame], match: MatchState,
     ) -> tuple[int, ...]:
         """
-        How far a Playmaker's Dribble Advance may go: up to 2, or
+        How far a Playmaker's Dribble may go: up to 2, or
         Emberdash's 3 (Law 21). Everybody else advances 1 and is not
         asked (`offer_dribble_advance`).
         """
@@ -2934,7 +2934,7 @@ class RulesEngine:
         self, match: MatchState, key: str,
     ) -> tuple[int, ...]:
         """
-        **A failed Setup Pass gambit's distances** (Law 19.7.7), before
+        **A failed Cross gambit's distances** (Law 19.7.7), before
         the field has its say: 1, 2 or 3 back for the Deflect that beat
         it and 2, 3 or 4 for a Clear, each one more where the challenger
         is a Fullback -- the same space further the Fullback adds to any
@@ -2953,7 +2953,7 @@ class RulesEngine:
         self, game: D12BallGame, match: MatchState,
     ) -> list[int]:
         """
-        How far back the coach who beat a Setup Pass may send the ball
+        How far back the coach who beat a Cross may send the ball
         -- its **failed gambit**, which since 2026-09-27 is the one move
         the beating card makes rather than a push on top of it (Law
         19.7.7-19.7.8). Asked before the ball has moved.
@@ -2993,7 +2993,7 @@ class RulesEngine:
     def setup_pass_push_back_overshoot(
         self, match: MatchState, distances,
     ) -> Optional[int]:
-        """Which of a failed Setup Pass gambit's `distances` runs the
+        """Which of a failed Cross gambit's `distances` runs the
         ball out of field -- the last, where any does -- or None."""
         if not distances:
             return None
@@ -3020,8 +3020,8 @@ class RulesEngine:
         The ball speeds a player's speed manipulation may set: every
         speed within their skill of the current one, clamped to the
         ball's range, ascending. `skill_type` says which of their two
-        skills is the reach -- the offense's on a dribble or a Setup
-        Pass, the defense's on a steal.
+        skills is the reach -- the offense's on a dribble or a
+        Cross, the defense's on a steal.
 
         **One computation**, since step 6 of
         docs/architecture-migration.md: it used to be written in the
@@ -3828,7 +3828,7 @@ class RulesEngine:
 
         **The space is named either way.** A pass nobody is standing
         under still lands somewhere, and where it lands is what decides
-        whether it comes back -- a Setup Pass into an empty space is
+        whether it comes back -- a Cross into an empty space is
         loose and one into a space only the defense holds is simply
         theirs, so "no teammate" on its own withholds the half of the
         answer the coach is weighing.

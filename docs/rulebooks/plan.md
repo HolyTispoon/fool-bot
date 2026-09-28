@@ -126,7 +126,7 @@ The conventions:
   and never mention a gambit or a species. Part II opens with the one
   Law that says what advanced mode switches on, then the gambits, then
   the species. Everywhere training mode has an exception in advanced
-  mode (the Cyborg's threshold, the Dribble Burst's speed), the basic
+  mode (the Cyborg's threshold, the Burst's speed), the basic
   Law states the basic rule and Part II states the exception -- not the
   other way round, which is how the living rules read today in three
   places.

@@ -35,14 +35,14 @@ Out of shooting range. Maneuver, or take a time out:
 A maneuver is a fight for the ball between two players, and both sides pick a card **secretly and at the same time**. Your hand holds three:
 
 - **Low Pass** -- ball to the nearest teammate ahead or behind, up to 2 spaces. Ball speed +1.
-- **Dribble Advance** -- your player *and* the ball move forward, and you may change the ball's speed.
+- **Dribble** -- your player *and* the ball move forward, and you may change the ball's speed.
 - **High Pass** -- the ball flies 2 or more spaces forward.
 
 Which card wins is not a roll. The six form a **cycle**, like rock-paper-scissors with six hands: each beats one of the other side's, ties with one, and loses to one. The Maneuver Reference button draws the whole thing, and you can open it whenever you like.
 
 Dinky's playmaker is standing on the ball, so they are the one challenging you.
 
-**Pick Dribble Advance.** It beats Deflect, which is what Dinky has played, and it is the card that carries the ball up the field.
+**Pick Dribble.** It beats Deflect, which is what Dinky has played, and it is the card that carries the ball up the field.
 --- board changed
 === action 4: TUTORIAL_CONTINUE '' {}
 --- group action MANEUVER_ACTION ''
@@ -53,16 +53,16 @@ Dinky's playmaker is standing on the ball, so they are the one challenging you.
 --- answer
 {team:orange} Player 1 has picked their maneuver.
 --- narration
-{team:orange} Player 1 chose **Dribble Advance**.
+{team:orange} Player 1 chose **Dribble**.
 {team:purple} Dinky AI chose **Deflect**.
 
-## **Dribble Advance** wins!
+## **Dribble** wins!
 Time has advanced 1, now at 01.
 --- prompt DRIBBLE_ADVANCE_CHOICE
-{team:orange} {coach:1}, choose your Dribble Advance distance (Playmaker ability):
+{team:orange} {coach:1}, choose your Dribble distance (Playmaker ability):
 === action 6: DRIBBLE_ADVANCE_CHOICE '' {"distance": 2}
 --- answer
-**Dribble Advance:** {team:orange} Sizzifizik {role:playmaker:orange} and the ball move forward 2 spaces (Playmaker ability).
+**Dribble:** {team:orange} Sizzifizik {role:playmaker:orange} and the ball move forward 2 spaces (Playmaker ability).
 --- prompt TUTORIAL_CONTINUE
 ### Ball speed
 You get a choice here too: the ball's own speed, up to your player's skill. It cuts both ways -- a faster ball adds to *your* next score attempt, but it adds just as much to a defense stealing it off you with Steal. We will come back to it properly in a few turns, when it actually matters. This turn it does not: the turnover in beat 2 resets it to 1 regardless, so **pick whatever you like.**
@@ -77,9 +77,9 @@ Ball speed is now **3**.
 Ball is now in space 6, Orange (Home) has possession.
 
 ## 2. Every role has an ability
-Dribble Advance beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from space 4 to **space 6**.
+Dribble beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from space 4 to **space 6**.
 
-Moving forward two spaces is not the ordinary move. A dribble advances typically moves the playerone space. But your **Playmaker** is a skilled dribbler and can move up to two: that is the Playmaker role ability. **Every player has a role and every role has an ability**, printed on their card and worth reading before you pick a maneuver -- the Fullback throws a longer High Pass, the Midfielder gets +3 on a Low Pass or Steal test, the Defender steals the ball off a won Pressure. Two commands list them whenever you want: **`/d12ball role_abilities_reference`** for all six, and **`/d12ball team_roster`** gives you a list of your team with their roles.
+Moving forward two spaces is not the ordinary move. A Dribble typically moves the player one space. But your **Playmaker** is a skilled dribbler and can move up to two: that is the Playmaker role ability. **Every player has a role and every role has an ability**, printed on their card and worth reading before you pick a maneuver -- the Fullback throws a longer High Pass, the Midfielder gets +3 on a Low Pass or Steal test, the Defender steals the ball off a won Pressure. Two commands list them whenever you want: **`/d12ball role_abilities_reference`** for all six, and **`/d12ball team_roster`** gives you a list of your team with their roles.
 
 You are on space 6 now, which is inside your shooting range, so the **Shoot** button has appeared. It is greyed out here, and it would be a poor shot anyway: your playmaker's offensive skill is 4, Dinky's defender is standing on the ball and their fullback is behind them -- roughly d12+4 against d12+8. We will make a much better one shortly.
 
@@ -170,7 +170,7 @@ Defending, your hand is the other half of the cycle:
 - **Steal** -- takes the ball outright. A turnover.
 - **Pressure** -- drives the handler and the ball back a space and moves your challenger forward onto them. Push a handler past their own goal line with it and they have an **own goal** to roll for.
 
-**Pick Pressure.** Dinky is dribbling, and Pressure beats Dribble Advance -- so instead of losing a space you will take one off them.
+**Pick Pressure.** Dinky is dribbling, and Pressure beats Dribble -- so instead of losing a space you will take one off them.
 --- board changed
 === action 17: TUTORIAL_CONTINUE '' {}
 --- group action MANEUVER_ACTION ''
@@ -181,7 +181,7 @@ Defending, your hand is the other half of the cycle:
 --- answer
 {team:orange} Player 1 has picked their maneuver.
 --- prompt TUTORIAL_CONTINUE
-{team:purple} Dinky AI chose **Dribble Advance**.
+{team:purple} Dinky AI chose **Dribble**.
 {team:orange} Player 1 chose **Pressure**.
 
 ## **Pressure** wins!

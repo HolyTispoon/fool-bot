@@ -324,7 +324,7 @@ class LowPassRestartTests(unittest.TestCase):
     receiver is picked before the pass is applied -- so what a restart
     can land in the middle of is the choice **before** the step runs.
     The thing worth asserting there is the one the two cards share:
-    `key` is what tells a Skilled Pass from a Low Pass all the way
+    `key` is what tells a Pinpoint from a Low Pass all the way
     down to `low_pass_step`, and it is not a field on the match. It is
     read back out of `offense_maneuver` (or, for the free pass, out of
     `pending_effect_continuation`), so a save round trip is the whole

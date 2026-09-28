@@ -301,12 +301,12 @@ class DinkyAI(AIStrategy):
         away. Still maximizing within that, and never chasing the
         2-space scoring-opportunity option for its own sake.
 
-        **Setup Pass is answered from here as well** (2026-08-25): a
-        Setup Pass that lands on nobody leaves the ball lying there
+        **Cross is answered from here as well** (2026-08-25): a
+        Cross that lands on nobody leaves the ball lying there
         for the other side exactly as a High Pass does. Its 0 counts
         as reaching somebody only when a teammate shares the passer's
         space, which is what `high_pass_receivers_at` already says. A
-        Setup Pass with nowhere to go at all is the card's one way
+        Cross with nowhere to go at all is the card's one way
         out of play, and the answer then names no distance.
         """
         distances = options.distances
@@ -326,7 +326,7 @@ class DinkyAI(AIStrategy):
     def _farthest(self, prompt, game, match, side, options) -> Action:
         """
         Always the full distance on offer: a Playmaker's 2-space
-        Dribble Advance, the whole Dribble Burst, the push back as far
+        Dribble, the whole Burst, the push back as far
         as it goes, the ball as fast as this player can set it.
 
         The burst is a token a space, so a shorter one is a real option

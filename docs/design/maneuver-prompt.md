@@ -105,7 +105,7 @@ extra click bought a round trip and nothing else.
 handler go, and who ends up with it -- and all of them are posted over
 [the field strip](board-image.md#working-on-the-board-image).
 `D12Ball.send_field_prompt` is the funnel for five of them: the Low Pass and
-Skilled Pass destination (`LowPassChoiceView`), the High Pass and Setup Pass
+Pinpoint destination (`LowPassChoiceView`), the High Pass and Cross
 distance, and both dribbles' run. The sixth is the run back, which asks the
 same question either side of a turnover and carries the same picture through
 `send_run_back_prompt` -- see
@@ -128,7 +128,7 @@ same question either side of a turnover and carries the same picture through
   differ from the board both of them are already looking at.
   - This was got backwards once: the first build of these prompts used
     `render_coaching_image` and gave `render_coaching_image` a `show_ball` to
-    make it fit, which also took the strip *off* the High Pass and Setup Pass
+    make it fit, which also took the strip *off* the High Pass and Cross
     prompts that already had it. The half-field is the Coaching Choice's and
     nothing else's; `coaching_file` says so.
 - **One attachment, on the prompt rather than beside it.** Discord lays two

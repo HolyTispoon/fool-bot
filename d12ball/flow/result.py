@@ -57,7 +57,7 @@ class FollowOnStep(Enum):
     #: A set-up -- the offense is offered a scoring attempt instead of
     #: letting the maneuver resolve normally.
     OFFER_SCORING_ATTEMPT_CHOICE = auto()
-    #: The ball-speed manipulation a Dribble Advance ends on (a burst
+    #: The ball-speed manipulation a Dribble ends on (a burst
     #: sets 12 and asks nothing): always the last choice in an effect,
     #: and it leads into `finish_maneuver_resolution` itself once
     #: answered. A step rather than a bare prompt because whether
@@ -91,7 +91,7 @@ class FollowOnStep(Enum):
     #: would otherwise draw the same board twice for one click skips
     #: its own write, which is its business (principle 8).
     BEGIN_LOOSE_BALL = auto()
-    #: **Setup Pass's cost**: beaten by a deflection, the coach who
+    #: **Cross's cost**: beaten by a deflection, the coach who
     #: beat it drives the ball a further 1, 2 or 3 spaces back, and it
     #: is loose where it stops. A step rather than a bare prompt
     #: because whether anybody is asked at all is decided here: a ball
@@ -156,7 +156,7 @@ class FollowOnStep(Enum):
     RESOLVE_MANEUVER = auto()
     BEGIN_EFFECT_RESOLUTION = auto()
     #: What a gambit's effect still owes once its last prompt has been
-    #: answered -- Skilled Pass's free Low Pass, Setup Pass's scoring
+    #: answered -- Pinpoint's free Low Pass, Cross's scoring
     #: opportunity. `speed_choice_step` reads whether a continuation is
     #: outstanding, which is a rule, and the two prompts it dispatches
     #: to are effect menus the frontend builds. See

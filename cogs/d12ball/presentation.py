@@ -600,7 +600,7 @@ class PresentationMixin:
 
         **Six prompts ask a version of one question** -- how far does
         the ball or its handler go, and who ends up with it: the Low
-        Pass and Skilled Pass destination, the High Pass and Setup Pass
+        Pass and Pinpoint destination, the High Pass and Cross
         distance, both dribbles' run, and (through its own sender) the
         run back. Every one is answered by reading where everybody is
         standing relative to the ball, and by the time a maneuver has

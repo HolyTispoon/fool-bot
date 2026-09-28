@@ -91,7 +91,7 @@ def begin_run_back(
     never time) is done.
 
     `speed_reset` is `announce_run_back`'s own note, and only ever
-    False for Dribble Burst's cost: every caller has already set
+    False for Burst's cost: every caller has already set
     `match.ball.speed` to whatever it should read by the time this
     runs, so this is wording, not state.
 
@@ -411,7 +411,7 @@ def announce_run_back(
     prefix = f"{lead_in}\n\n" if lead_in else ""
     # Speed manipulation (Steal) always happens after run-back now, so
     # a turnover's ball speed is still at its reset value of 1 here --
-    # except Dribble Burst's cost, whose caller passes
+    # except Burst's cost, whose caller passes
     # speed_reset=False because the ball kept the burst's own speed
     # instead, and that is already said in the lead-in this note would
     # otherwise contradict.

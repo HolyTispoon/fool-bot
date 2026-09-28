@@ -789,7 +789,7 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         # 2026-08-24: a throw with nowhere left to put it and nobody to
         # put it to is no longer a free ride for the passer -- it goes
-        # out exactly as a Setup Pass with no legal destination does.
+        # out exactly as a Cross with no legal destination does.
         # See apply_high_pass_out.
         cog, game, match, passer, _ = self.build_last_space_pass(
             teammate=False,

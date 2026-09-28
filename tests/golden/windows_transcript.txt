@@ -37,24 +37,24 @@ Out of shooting range, and no time out available. Maneuver:
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 5: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 5: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Dribble Advance**.
+🟠 Player 1 chose **Dribble**.
 🟣 Dinky AI chose **Deflect**.
 
-## **Dribble Advance** wins!
+## **Dribble** wins!
 Time has advanced 1, now at 02.
 --- message
-🟠 <@111>, choose your Dribble Advance distance (Playmaker ability):
+🟠 <@111>, choose your Dribble distance (Playmaker ability):
 === press 6: DribbleAdvanceChoiceView -> 'Advance 2 spaces (space 6)'
 --- message
 Chose **2 spaces**.
 --- message
-**Dribble Advance:** 🟠 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+**Dribble:** 🟠 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
 
 <@111>, manipulate the ball's speed (up to 4):
 === press 7: SpeedDeltaChoiceView -> '2 (+1)'
@@ -225,13 +225,13 @@ Emberdash has moved 1 space.
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 20: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 20: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Dribble Advance**.
+🟠 Player 1 chose **Dribble**.
 🟣 Dinky AI chose **Pressure**.
 
 ## **Pressure** wins!
@@ -309,13 +309,13 @@ You chose **Deflect**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **Dribble Advance**.
+🟣 Dinky AI chose **Dribble**.
 🟠 Player 1 chose **Deflect**.
 
-## **Dribble Advance** wins!
+## **Dribble** wins!
 Time has advanced 1, now at 14.
 --- message
-**Dribble Advance:** 🟣 Quantor [WG] and the ball move forward 1 space.
+**Dribble:** 🟣 Quantor [WG] and the ball move forward 1 space.
 --- message
 Ball speed is now **10**.
 --- message
@@ -460,7 +460,7 @@ You chose **Pressure**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **Dribble Advance**.
+🟣 Dinky AI chose **Dribble**.
 🟠 Player 1 chose **Pressure**.
 
 ## **Pressure** wins!
@@ -521,19 +521,19 @@ Choose an action:
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 44: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 44: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Dribble Advance**.
+🟠 Player 1 chose **Dribble**.
 🟣 Dinky AI chose **Deflect**.
 
-## **Dribble Advance** wins!
+## **Dribble** wins!
 Time has advanced 1, now at 18.
 --- message
-**Dribble Advance:** 🟠 Flickerwing [WG] and the ball move forward 1 space.
+**Dribble:** 🟠 Flickerwing [WG] and the ball move forward 1 space.
 
 <@111>, manipulate the ball's speed (up to 5):
 === press 45: SpeedDeltaChoiceView -> '3 (+2)'
@@ -575,7 +575,7 @@ You chose **Pressure**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **Dribble Advance**.
+🟣 Dinky AI chose **Dribble**.
 🟠 Player 1 chose **Pressure**.
 
 ## **Pressure** wins!
@@ -685,13 +685,13 @@ You chose **Deflect**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **Dribble Advance**.
+🟣 Dinky AI chose **Dribble**.
 🟠 Player 1 chose **Deflect**.
 
-## **Dribble Advance** wins!
+## **Dribble** wins!
 Time has advanced 1, now at 25.
 --- message
-**Dribble Advance:** 🟣 Emberdash [PM] and the ball move forward 2 spaces (Playmaker ability).
+**Dribble:** 🟣 Emberdash [PM] and the ball move forward 2 spaces (Playmaker ability).
 --- message
 Ball speed is now **6**.
 --- message
@@ -768,16 +768,16 @@ Out of shooting range, and no time out available. Maneuver:
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 62: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 62: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Dribble Advance**.
+🟠 Player 1 chose **Dribble**.
 🟣 Dinky AI chose **Steal**.
 
-**Dribble Advance** ties with **Steal** — skill test!
+**Dribble** ties with **Steal** — skill test!
 
 🟠 Goopkeeper [FB]: offense skill 1
 🟣 Zytheris [SK]: defense skill 1
@@ -788,10 +788,10 @@ You chose **Dribble Advance**.
 Either player can roll:
 === press 63: SkillTestView -> 'Roll the skill test'
 --- message
-## **Dribble Advance** wins the skill test!
+## **Dribble** wins the skill test!
 Time has advanced 1, now at 28.
 --- message
-**Dribble Advance:** 🟠 Goopkeeper [FB] and the ball move forward 1 space.
+**Dribble:** 🟠 Goopkeeper [FB] and the ball move forward 1 space.
 
 <@111>, manipulate the ball's speed (up to 1):
 === press 64: SpeedDeltaChoiceView -> '2 (+1)'
@@ -872,19 +872,19 @@ Emberdash has moved 1 space.
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 71: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 71: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Dribble Advance**.
+🟠 Player 1 chose **Dribble**.
 🟣 Dinky AI chose **Deflect**.
 
-## **Dribble Advance** wins!
+## **Dribble** wins!
 Time has advanced 1, now at 32.
 --- message
-**Dribble Advance:** 🟠 Spectra [MF] and the ball move forward 1 space.
+**Dribble:** 🟠 Spectra [MF] and the ball move forward 1 space.
 
 <@111>, manipulate the ball's speed (up to 3):
 === press 72: SpeedDeltaChoiceView -> '4 (+3)'
@@ -906,13 +906,13 @@ Glompex has moved 1 space.
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 74: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 74: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Dribble Advance**.
+🟠 Player 1 chose **Dribble**.
 🟣 Dinky AI chose **Pressure**.
 
 ## **Pressure** wins!
@@ -966,19 +966,19 @@ Out of shooting range, and no time out available. Maneuver:
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 80: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 80: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Dribble Advance**.
+🟠 Player 1 chose **Dribble**.
 🟣 Dinky AI chose **Deflect**.
 
-## **Dribble Advance** wins!
+## **Dribble** wins!
 Time has advanced 1, now at 35.
 --- message
-**Dribble Advance:** 🟠 Goopkeeper [FB] and the ball move forward 1 space.
+**Dribble:** 🟠 Goopkeeper [FB] and the ball move forward 1 space.
 
 <@111>, manipulate the ball's speed (up to 1):
 === press 81: SpeedDeltaChoiceView -> '6 (+1)'
@@ -997,13 +997,13 @@ Out of shooting range, and no time out available. Maneuver:
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 83: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 83: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Dribble Advance**.
+🟠 Player 1 chose **Dribble**.
 🟣 Dinky AI chose **Pressure**.
 
 ## **Pressure** wins!
@@ -1088,19 +1088,19 @@ Out of shooting range, and no time out available. Maneuver:
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 92: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 92: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Dribble Advance**.
+🟠 Player 1 chose **Dribble**.
 🟣 Dinky AI chose **Deflect**.
 
-## **Dribble Advance** wins!
+## **Dribble** wins!
 Time has advanced 1, now at 39.
 --- message
-**Dribble Advance:** 🟠 Goopkeeper [FB] and the ball move forward 1 space.
+**Dribble:** 🟠 Goopkeeper [FB] and the ball move forward 1 space.
 
 <@111>, manipulate the ball's speed (up to 1):
 === press 93: SpeedDeltaChoiceView -> '9 (+1)'
@@ -1119,13 +1119,13 @@ Out of shooting range, and no time out available. Maneuver:
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 95: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 95: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟠 Player 1 chose **Dribble Advance**.
+🟠 Player 1 chose **Dribble**.
 🟣 Dinky AI chose **Pressure**.
 
 ## **Pressure** wins!
