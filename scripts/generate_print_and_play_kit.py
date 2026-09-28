@@ -8,13 +8,16 @@
 This is the thing to hand somebody before a meetup, a playtest table or
 a con booth: every printable component in one folder (or one zip),
 built fresh from whatever the bot itself plays. **It is the print
-version of the game, as print sheets only**: each card set is one
-sheet (two for a team: its cards' standard sides and their advanced
-sides, printed duplex), never a PNG per card, and the player cards are
-all four colour teams' -- the print game has no cards for the species
-teams; a colour team's card carries its player's special ability on
-its advanced side (the author, 2026-09-27). The species and role reference cards share
-one sheet, and the condition tokens have two sheets of their own, printed duplex. **It
+version of the game, as print sheets only**, never a PNG per card, and
+every card is printed double-sided: a front sheet and a back sheet,
+printed duplex. A team's two are its cards' standard sides and their
+advanced sides, and the player cards are all four colour teams' -- the
+print game has no cards for the species teams; a colour team's card
+carries its player's special ability on its advanced side (the author,
+2026-09-27). The maneuvers are two pairs, the six basic cards on the
+standard back and the six advanced on the advanced one; the species and
+role reference cards share one pair; the condition tokens have their
+own (the author, 2026-09-28). **It
 draws nothing on its own** -- it runs `render_maneuver_cards.py`,
 `render_player_cards.py`, `render_reference_cards.py`,
 `render_token_sheet.py`, `render_boards.py` and `build_rulebooks.py`, the same scripts a
@@ -46,6 +49,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.boards import DEFAULT_PAPER, PAPERS  # noqa: E402
+from d12ball.cards import DUPLEX_COLUMNS  # noqa: E402
 from d12ball.components import load_player_catalog  # noqa: E402
 from d12ball.game import COLOR_TEAMS, team_display_name  # noqa: E402
 from d12ball.token_sheet import TOKEN_COUNTS  # noqa: E402
@@ -76,10 +80,20 @@ rather than trusting an old copy.
 ## What's in the box
 
 Every card set comes as print sheets, ready for a home or copy-shop
-printer, {sheet_columns} cards to a row.
+printer, {sheet_columns} cards to a row, and every card is double-sided:
+each set is a front sheet and a back sheet. Print the pair duplex
+(flip on the long edge) and each card comes out with its back behind
+it -- a back sheet's rows are laid out reversed so they land back to
+back.
 
-- **maneuver-cards/print-sheet.png** -- the twelve maneuver cards (six
-  basic, six gambits) and their shared back.
+- **maneuver-cards/** -- the twelve maneuver cards, as two pairs of
+  sheets, six cards a sheet. `basic-front-sheet.png` is the six basic
+  maneuvers and `basic-back-sheet.png` the standard back, with one
+  maneuver on each point of the hexagon: the only cards a standard
+  game plays. `advanced-front-sheet.png` is the six advanced maneuvers
+  (the cards a gambit is played with) and `advanced-back-sheet.png`
+  the advanced back, whose hexagon names both tiers on every point.
+  Each sheet's top row is the offense and its bottom row the defense.
 - **player-cards/** -- all {team_count} colour teams ({team_names}),
   {players_per_team} players a team, two print sheets a team. Every player
   card is double-sided, and both sides carry the player's role, skills
@@ -88,16 +102,12 @@ printer, {sheet_columns} cards to a row.
   player's special ability in its place, and for a few players higher
   skills.
   `<team>-sheet.png` is the standard sides and
-  `<team>-advanced-sheet.png` the advanced sides. Print a team's two
-  sheets duplex (flip on the long edge) and every card comes out with
-  its standard side on one face and its advanced side on the other --
-  the advanced sheet's rows are laid out reversed so they land back to
-  back (`duplex_order` in `d12ball/player_cards.py`).
-- **reference-cards/print-sheet.png** -- the reference cards: the
-  three double-sided species-ability cards (every pairing of the four
-  species appears on one face) and the double-sided role-ability card
-  (the six basic roles). Each card's front is printed beside its back:
-  cut the two out together and glue them back to back.
+  `<team>-advanced-sheet.png` the advanced sides, printed as a pair.
+- **reference-cards/** -- the reference cards: the three double-sided
+  species-ability cards (every pairing of the four species appears on
+  one face) and the double-sided role-ability card (the six basic
+  roles). `front-sheet.png` is each card's front and `back-sheet.png`
+  its back, printed as a pair.
 - **tokens/** -- the condition tokens, double-sided, on one piece of
   letter paper: {token_counts}. `front-sheet.png` is every token's
   front and `back-sheet.png` its back. Print the two duplex (flip on
@@ -175,7 +185,7 @@ def write_readme(out_dir: Path, paper: str, players_per_team: int) -> None:
     width, height = PAPERS[paper]
     readme = README_TEMPLATE.format(
         generated=date.today().isoformat(),
-        sheet_columns=4,
+        sheet_columns=DUPLEX_COLUMNS,
         team_count=len(COLOR_TEAMS),
         team_names=", ".join(team_display_name(team) for team in COLOR_TEAMS),
         token_counts=", ".join(

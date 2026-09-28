@@ -49,6 +49,7 @@ from d12ball.cards import (
     CARD_HEIGHT,
     CARD_WIDTH,
     CORNER,
+    DUPLEX_COLUMNS,
     EDGE_WIDTH,
     FRAME,
     INK,
@@ -57,6 +58,7 @@ from d12ball.cards import (
     PANEL_COLOR,
     PANEL_EDGE,
     Pen,
+    duplex_order,
     fitted_bold_font,
     font,
     line_height,
@@ -758,35 +760,8 @@ def render_player_card_back(
 
 # A team is nine players, so a team's sheet is three across and three
 # down: nine cards to a page, which is what a poker-sized card and an
-# A4 or letter sheet come out at. The maneuvers print four across
-# because there are seven of them, not because four is the number.
-TEAM_SHEET_COLUMNS = 3
-
-
-def duplex_order(
-    cards: list[Image.Image], columns: int = TEAM_SHEET_COLUMNS
-) -> list[Image.Image]:
-    """
-    The backs in the order a duplex printer wants them: each row
-    reversed, and the rows themselves left alone.
-
-    A sheet printed on both sides comes out of the printer flipped
-    about the paper's long edge, so the leftmost cell of a row on the
-    front is the rightmost cell of that row on the back. Reversing
-    every row is the whole of the correction -- a maneuver deck never
-    needed it because all thirteen of its backs are the same picture,
-    where every one of these is a different player and landing the
-    wrong one behind a card is not something a print run recovers
-    from.
-
-    A short last row is reversed as it stands, which is right:
-    `print_sheet` pads a short row at its *end*, so on the back that
-    padding lands at the start of the row and the cards keep their
-    columns. A team is nine cards three across, so this does not come
-    up today.
-    """
-    rows = [
-        cards[start:start + columns]
-        for start in range(0, len(cards), columns)
-    ]
-    return [card for row in rows for card in reversed(row)]
+# A4 or letter sheet come out at. It is printed duplex, so it is the
+# duplex width; `duplex_order` (in `cards.py`, beside `print_sheet`,
+# since the maneuver and reference sheets print duplex too) is imported
+# here so the name a team's sheet was built with still answers.
+TEAM_SHEET_COLUMNS = DUPLEX_COLUMNS

@@ -12,14 +12,15 @@ changed it. The cards won outright on 2026-08-17 -- the die is off the rules
 altogether now.
 
 **One layout serves two things, on purpose.** `render_maneuver_card` is the
-print-ready face for the tabletop game -- 2.5 x 3.5in at 300dpi, plus one
-shared back -- and `render_maneuver_hands` puts every hand in play side by
+print-ready face for the tabletop game -- 2.5 x 3.5in at 300dpi, with a back
+a tier ([the kit](#the-print-and-play-kit)) -- and `render_maneuver_hands`
+puts every hand in play side by
 side, which is what rides on the maneuver prompt. A coach who has played at the
 table and a coach playing by Discord should be reading the same card, so neither
 gets a design of its own.
 
 ```bash
-python3 scripts/render_maneuver_cards.py --sheet  # d12ball/print/maneuver-cards/print-sheet.png
+python3 scripts/render_maneuver_cards.py --sheet  # d12ball/print/maneuver-cards/<tier>-{front,back}-sheet.png
 python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
 python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot sends
 ```
@@ -352,7 +353,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 - **`print_sheet` is an exact grid, because splitters cut by dividing.**
   Every cell is one card plus `SHEET_MARGIN_X` either side and
   `SHEET_MARGIN_Y` above and below, the sheet is `SHEET_COLUMNS` cells wide
-  and whole rows deep, and a short last row is padded with spare backs. So
+  and whole rows deep, and a short last row is padded with blank cells. So
   dividing the image into quarters across gives a card dead centre in each
   piece. The old `contact_sheet` put a gutter between the cards *and* around
   the outside, which made a quarter of its width a card plus a quarter of a
@@ -526,9 +527,9 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   supersampling is there because Pillow does not antialias the shapes the cards
   are drawn out of; a photograph put through it would be resampled twice for
   nothing.
-- **A team sheet is three across**, not the maneuvers' four: a team is nine
-  players, and nine poker cards in a 3x3 come out at about 8 x 11 inches --
-  a page. Print it at 100% on A4, or borderless on letter, or the cards come
+- **A team sheet is three across**, `DUPLEX_COLUMNS`, like every sheet printed
+  on both sides: a team is nine players, and nine poker cards in a 3x3 come
+  out at about 8 x 11 inches -- a page. Print it at 100% on A4, or borderless on letter, or the cards come
   off the printer undersized.
 - **The header is the name, the role under it, and the team's emoji in the
   right-hand corner** (the author, 2026-09-27). It used to carry the role's
@@ -595,12 +596,16 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     would push the portrait under the floor, so look at the backs after one.
   - **`duplex_order` reverses every row of the back sheet.** A duplex print
     comes out flipped about the paper's long edge, so the leftmost cell of a
-    row on the front is the rightmost on the back. A maneuver deck never
-    needed this because all thirteen of its backs are the same picture; every
-    one of these is a different player, and a run that lands the wrong back
-    behind a front is not one you recover from. `print_sheet` pads a short row
-    at its *end*, which is why reversing the row as it stands keeps the
-    columns.
+    row on the front is the rightmost on the back. Every one of these backs is
+    a different player, and a run that lands the wrong back behind a front is
+    not one you recover from. It lives in `cards.py` beside `print_sheet`,
+    since the maneuver and reference sheets print duplex too
+    ([the kit](#the-print-and-play-kit)). **A short last row is padded to
+    full width before it is reversed**: `print_sheet` pads the front's short
+    row at its end, so the backs of its cards belong at the far end of the
+    back's row. Until 2026-09-28 it reversed the short row as it stood, which
+    put those backs behind the wrong cells -- a team's nine never had a short
+    row, so it first mattered for the four reference cards.
 
 ## The species cards
 
@@ -951,9 +956,10 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
 ```
 
 - **It draws nothing itself.** It runs `render_maneuver_cards.py`,
-  `render_player_cards.py`, `render_species_cards.py` and
-  `render_boards.py` in turn -- the same four scripts a developer
-  already reaches for one at a time -- and is only their sum into one
+  `render_player_cards.py`, `render_reference_cards.py`,
+  `render_token_sheet.py`, `render_boards.py` and `build_rulebooks.py`
+  in turn -- the same scripts a developer already reaches for one at a
+  time -- and is only their sum into one
   folder. So a rules change, an import or an art fix reaches the kit
   exactly the way it reaches each script on its own, by re-running it;
   there is nothing in the kit script itself for a future rule to drift
@@ -966,18 +972,33 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   component wants, and what a table still has to bring that nothing here
   prints (a d12 a side, meeples).
 - **It is the print version of the game, as print sheets only** (the
-  author, 2026-09-27): each card set is its sheet -- two for a team,
-  its cards' standard sides and their advanced sides in duplex order,
-  so each printed card is standard on one face and advanced on the
-  other -- and never a PNG per card, and the player cards are all four
-  colour teams'. The printed game has no species-team cards; a colour
-  team's card carries its species on its advanced side. The kit's
-  README says so in those words.
-- **The reference cards share one sheet, and the tokens have their own**
-  (the author, 2026-09-27). `render_reference_cards.py` lays the three
-  species cards and the role card out together, each front beside its
-  back for cutting and gluing -- eight faces, two full rows, so nothing
-  is padded. `render_token_sheet.py` is the condition tokens as a front sheet and a
+  author, 2026-09-27), never a PNG per card, **and every card is printed
+  double-sided** (2026-09-28): each set is a front sheet and a back sheet,
+  three across (`DUPLEX_COLUMNS`), the back in `duplex_order`, printed
+  duplex. A team's pair is its cards' standard sides and their advanced
+  sides, so each printed card is standard on one face and advanced on
+  the other, and the player cards are all four colour teams'. The
+  printed game has no species-team cards; a colour team's card carries
+  its player's special ability on its advanced side.
+- **The maneuvers are two pairs, a tier each** (the author, 2026-09-28):
+  the six basic cards over six of the standard back, and the six
+  advanced over six of the advanced back -- `render_maneuver_card_back`'s
+  two tiers, one name a node against both tiers a node. Six a sheet is a
+  tier exactly, offense on the top row and defense on the bottom, so
+  nothing is padded; it used to be one four-across sheet of all twelve
+  faces and the advanced back, padded out with spare backs and printed
+  one-sided. A standard game plays the basic pair alone, so its hexagon
+  is the one that names only its six. **In an advanced game a held
+  card's back says its tier**, where the bot's one back for all twelve
+  keeps it hidden (see `render_maneuver_card_back`); that is the
+  author's call for the printed deck.
+- **The reference cards share one pair, and the tokens have their own**
+  (the author, 2026-09-27; as a pair, 2026-09-28).
+  `render_reference_cards.py` puts the three species cards' and the role
+  card's fronts on one sheet and their backs on the other -- four cards,
+  a row of three and one, which is the short row `duplex_order` pads
+  before it reverses. They were one sheet of eight faces, each front
+  beside its back, cut out and glued. `render_token_sheet.py` is the condition tokens as a front sheet and a
   back sheet printed duplex ([printed-tokens.md](printed-tokens.md), "Paper tokens"). So the
   kit prints everything a table needs but the meeples and the dice. The three card scripts take
   `--sheets-only` for this, and the kit passes it and a `--team` per

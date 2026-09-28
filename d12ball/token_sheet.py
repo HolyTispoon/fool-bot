@@ -11,8 +11,8 @@ the two are printed on the two sides of one piece of paper.
 A duplex printer flips the paper about its long edge, so the back sheet
 is the front sheet mirrored left to right -- each token's back sits at
 its front's position reflected about the page's centre line, which is
-the same correction `player_cards.duplex_order` makes for the player
-cards. Each face also carries a thin black margin beyond its own edge
+the same correction `cards.duplex_order` makes for the card sheets.
+Each face also carries a thin black margin beyond its own edge
 (`BLEED_INCHES`), so the two sides coming out of register by a little
 leaves black at the cut rather than white paper. No words: a token is
 its own art, as a silo is.

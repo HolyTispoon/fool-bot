@@ -16,7 +16,7 @@ the cards by re-running this.
 player's advanced version -- the same card with the keyword of their
 species ability beside their role ability. `--sheet` writes the backs
 as a sheet of their own, with every row reversed so a duplex print
-lands each back behind its own front; see `duplex_order`. Pass
+lands each back behind its own front; see `cards.duplex_order`. Pass
 `--fronts-only` for the one-sided run these used to be.
 
 What the back is still waiting on is an advanced *role* ability: the
