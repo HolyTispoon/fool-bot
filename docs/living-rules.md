@@ -25,7 +25,7 @@ This document is the final authority on the rules of D12 Ball. It states each ru
   - [Law 17. Extreme shootout](#17-extreme-shootout)
 - Part II -- Standard and advanced mode
   - [Law 18. The three modes](#18-the-three-modes)
-  - [Law 19. Gambits](#19-gambits)
+  - [Law 19. Advanced maneuvers and gambits](#19-advanced-maneuvers-and-gambits)
   - [Law 20. Species abilities](#20-species-abilities)
   - [Law 21. Personal abilities](#21-personal-abilities)
 - [Appendix A. Quick reference](#appendix-a-quick-reference)
@@ -39,7 +39,7 @@ The Charter is divided into **Laws**, each Law into **sections**, and each secti
 
 **Precedence.** Where the Charter and any other statement of the rules disagree, the Charter is right: it wins over the Learn to Play, over the text printed on a card or a board, and over the bot. Where the Learn to Play simplifies, it says so and names the Law it simplifies.
 
-**Training, standard and advanced mode.** Laws 1 to 17 are the whole of the game in training mode. Part II is what the other two modes add and change: [Law 18](#18-the-three-modes) says which mode plays what, [Law 19](#19-gambits) is the gambits, [Law 20](#20-species-abilities) the species abilities and [Law 21](#21-personal-abilities) the personal abilities. A rule in Part II wins over a rule in Part I for a game playing the module it belongs to, and applies nowhere else.
+**Training, standard and advanced mode.** Laws 1 to 17 are the whole of the game in training mode. Part II is what the other two modes add and change: [Law 18](#18-the-three-modes) says which mode plays what, [Law 19](#19-advanced-maneuvers-and-gambits) is the advanced maneuvers and the gambits made with them, [Law 20](#20-species-abilities) the species abilities and [Law 21](#21-personal-abilities) the personal abilities. A rule in Part II wins over a rule in Part I for a game playing the module it belongs to, and applies nowhere else.
 
 **Defined terms** are in bold where they are defined, and every one is listed in [Appendix B](#appendix-b-glossary) with the paragraph that defines it.
 
@@ -134,7 +134,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.7.2** Every roll in the game is a d12: one each for a skill test or a score attempt, and two for an own-goal roll.
 
-**2.7.3** Maneuvers are chosen in secret from the six maneuver cards -- twelve in a game played with [gambits](#19-gambits) (19).
+**2.7.3** Maneuvers are chosen in secret from the six maneuver cards -- twelve in a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19).
 
 **2.7.4** A player's **exhaustion tokens** sit on their card. A player carrying more tokens than their defensive skill is **Exhausted**; a player who fails an injury check is **Injured** -- see [Law 15](#15-exhaustion-and-injury).
 
@@ -166,7 +166,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.8.13** **Exhausted** and **Injured** are the two conditions a player can be in -- see [Law 15](#15-exhaustion-and-injury). In standard and advanced mode a Cyborg's own words for them are Drained and Damaged -- see [Lithium Powered](#203-lithium-powered-cyborg) (20.3).
 
-**2.8.14** **Behind** is the condition under which a coach holds gambits in advanced mode -- see [who may play a gambit](#193-who-may-play-a-gambit) (19.3).
+**2.8.14** **Behind** is the condition under which a coach may make gambits in advanced mode -- see [who may make a gambit](#193-who-may-make-a-gambit) (19.3).
 
 ## 3. Setting up a game
 
@@ -303,7 +303,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.2.1** Both coaches secretly choose one of their maneuvers and reveal together.
 
-**6.2.2** The offense chooses from Low Pass, Dribble Advance and High Pass; the defense from Deflect, Steal and Pressure. In a game played with [gambits](#19-gambits) (19) a coach who may play one chooses from six -- see [Law 19](#19-gambits).
+**6.2.2** The offense chooses from Low Pass, Dribble Advance and High Pass; the defense from Deflect, Steal and Pressure. In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) a coach who may make a gambit chooses from six -- see [Law 19](#19-advanced-maneuvers-and-gambits).
 
 ### 6.3 Who wins
 
@@ -900,7 +900,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 - **a.** **Training mode** is Part I and nothing else. Species is only a name on the card, and every player follows the standard rules. The tutorial is a training game.
 - **b.** **Standard mode** adds the [species abilities](#20-species-abilities) (20).
-- **c.** **Advanced mode** adds the [gambits](#19-gambits) (19) and the [personal abilities](#21-personal-abilities) (21) to standard mode.
+- **c.** **Advanced mode** adds the [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) and the [personal abilities](#21-personal-abilities) (21) to standard mode.
 
 ### 18.2 Part II wins in its own mode
 
@@ -912,11 +912,12 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 | Part I says | Part II says instead | Module |
 | --- | --- | --- |
-| Every turnover resets ball speed to 1 ([Law 7](#73-turnovers-reset-it) (7.3)) | A beaten Dribble Burst hands the ball over at the speed the burst put into it ([Dribble Burst](#196-dribble-burst) (19.6)) | Gambits |
-| A defense adds the speed modifier when contesting with Steal ([Law 6](#64-the-skill-test) (6.4)) | With Intercept too ([Intercept](#199-intercept) (19.9)) | Gambits |
-| A Midfielder adds 3 for their own Low Pass or Steal ([Law 6](#64-the-skill-test) (6.4)) | For their own Skilled Pass or Intercept too ([Skilled Pass](#195-skilled-pass) (19.5), [Intercept](#199-intercept) (19.9)) | Gambits |
-| The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | Under a Double Team it adds both defenders' ([Double Team](#1910-double-team) (19.10)) | Gambits |
-| A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | A coach who is behind chooses from six, against a challenge ([Law 19](#19-gambits)) | Gambits |
+| Every turnover resets ball speed to 1 ([Law 7](#73-turnovers-reset-it) (7.3)) | A beaten Dribble Burst hands the ball over at the speed the burst put into it ([Dribble Burst](#196-dribble-burst) (19.6)) | Advanced maneuvers |
+| A defense adds the speed modifier when contesting with Steal ([Law 6](#64-the-skill-test) (6.4)) | With Intercept too ([Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
+| A Midfielder adds 3 for their own Low Pass or Steal ([Law 6](#64-the-skill-test) (6.4)) | For their own Skilled Pass or Intercept too ([Skilled Pass](#195-skilled-pass) (19.5), [Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
+| The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | Under a Double Team it adds both defenders' ([Double Team](#1910-double-team) (19.10)) | Advanced maneuvers |
+| A Deflect moves the ball 1 space back ([Law 6](#68-deflect) (6.8)) | Beating a Setup Pass, 1, 2 or 3 spaces, the deflecting coach's choice ([Setup Pass](#197-setup-pass) (19.7)) | Advanced maneuvers |
+| A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | A coach who is behind chooses from six, against a challenge ([Law 19](#19-advanced-maneuvers-and-gambits)) | Advanced maneuvers |
 | A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#26-players-and-roles) (2.6)) | A player's advanced skill replaces their role's ([Advanced skills](#212-advanced-skills) (21.2)) | Personal |
 | A player is Exhausted when tokens exceed defensive skill ([Law 15](#152-becoming-exhausted) (15.2)) | A Cyborg is Drained at 7 or more, whatever their skill ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
 | A player who fails an injury check is Injured ([Law 15](#153-the-injury-check) (15.3)) | A Cyborg's check is a damage test, and failing it makes them Damaged -- the same check and condition under their own words ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
@@ -925,15 +926,15 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | A skill test is rolled by two players ([Law 6](#64-the-skill-test) (6.4)) | An Ooze on the space who is not rolling adds to their side ([Slimey](#205-slimey-ooze) (20.5)) | Species |
 | Coverage counts every meeple ([Law 2](#25-occupancy) (2.5)) | An Ooze counts as 0 ([Slimey](#205-slimey-ooze) (20.5)) | Species |
 
-## 19. Gambits
+## 19. Advanced maneuvers and gambits
 
-### 19.1 A gambit is the advanced version of its rank
+### 19.1 An advanced maneuver is the advanced version of its rank
 
-**19.1.1** Advanced mode adds a **gambit** to every rank. A gambit does what the basic maneuver on its rank does, plus something more -- and costs the coach who played it something when it is beaten.
+**19.1.1** Advanced mode adds an **advanced maneuver** to every rank. Playing one is **making a gambit**. An advanced maneuver does what the basic maneuver on its rank does, plus something more when the gambit succeeds -- and costs the coach who made it something when the gambit fails.
 
-**19.1.2** **A gambit is the advanced version of the basic maneuver on its rank.** Double Team *is* Pressure, advanced: it beats what Pressure beats, loses to what Pressure loses to, ties Pressure itself, and where the cards tie it resolves as Pressure. Rank alone decides who wins, so [the cycle](#63-who-wins) (6.3) is unchanged and the table below is the whole of what a coach has to learn about matchups.
+**19.1.2** **An advanced maneuver is the advanced version of the basic maneuver on its rank.** Double Team *is* Pressure, advanced: it beats what Pressure beats, loses to what Pressure loses to, ties Pressure itself, and where the cards tie it resolves as Pressure. Rank alone decides who wins, so [the cycle](#63-who-wins) (6.3) is unchanged and the table below is the whole of what a coach has to learn about matchups.
 
-| Gambit | Rank | Advanced version of |
+| Advanced maneuver | Rank | Advanced version of |
 | --- | --- | --- |
 | Skilled Pass | O1 | Low Pass |
 | Dribble Burst | O2 | Dribble Advance |
@@ -944,38 +945,40 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.2 Only against a challenge
 
-**19.2.1** **A gambit can only be played against a challenge.** Where the defense sends nobody, the offense plays a basic maneuver -- so declining a challenge is a defensive weapon as well as a saving.
+**19.2.1** **A gambit can only be made against a challenge.** Where the defense sends nobody, the offense plays a basic maneuver -- so declining a challenge is a defensive weapon as well as a saving.
 
-**19.2.2** A coach who [may play a gambit](#193-who-may-play-a-gambit) (19.3) chooses from six cards instead of three -- but only when the maneuver is challenged. An unchallenged maneuver is always played with a basic card.
+**19.2.2** A coach who [may make a gambit](#193-who-may-make-a-gambit) (19.3) chooses from six cards instead of three -- but only when the maneuver is challenged. An unchallenged maneuver is always played with a basic card.
 
-### 19.3 Who may play a gambit
+### 19.3 Who may make a gambit
 
-**19.3.1** A coach holds their gambits only while their team is **behind**, which is one of two things:
+**19.3.1** A coach may make gambits only while their team is **behind**, which is one of two things:
 
 - **a.** their team has **scored fewer goals** than the other team;
 - **b.** their team **fields more Exhausted-or-Injured players** than the other team. Only the six on the field count, and a Cyborg's [Drained](#203-lithium-powered-cyborg) (20.3) and [Damaged](#203-lithium-powered-cyborg) (20.3) are Exhausted and Injured under their own words.
 
-**19.3.2** It is read when the maneuvers are chosen, off the scoreboard and off the field, so **who is holding gambits is public knowledge**: neither coach learns anything from it the other cannot see for themselves.
+**19.3.2** It is read when the maneuvers are chosen, off the scoreboard and off the field, so **who may make a gambit is public knowledge**: neither coach learns anything from it the other cannot see for themselves.
 
 **19.3.3** Both coaches may hold them at once -- one trailing while the other is the more hurt -- and a coach neither is true of chooses from the basic three.
 
-### 19.4 When a gambit's effect fires
+### 19.4 Successful and failed gambits
 
-**19.4.1** **The cards decide, not the dice -- and they decide about each card separately.**
+**19.4.1** **Rank decides, not the dice -- and it decides about each card separately.** A gambit **succeeds** when the advanced maneuver wins on rank -- on the cards, before any die is rolled -- and **fails** when it loses on rank.
 
-| A gambit | Carries |
-| --- | --- |
-| **Won on the cards** | Its **benefit**, when it is the maneuver that resolves. |
-| **Lost on the cards** | Its **cost**, paid by the side that played it. |
-| Tied on the cards | Neither. The winner of the skill test resolves the **basic** maneuver on their rank instead. |
+| A gambit that | Is | Carries |
+| --- | --- | --- |
+| **Won on rank** | **Successful** | Its **successful outcome**, when it is the maneuver that resolves. |
+| **Lost on rank** | **Failed** | Its **failed outcome**, against the side that made it. |
+| Tied on rank | Neither | Nothing. The winner of the skill test resolves the **basic** maneuver on their rank instead. |
 
 **19.4.2** A tie is the commonest case where nothing fires, but it is not the test. What matters is what the cards said about **that card**. Everything below follows from it:
 
-- **a.** an [injured](#154-playing-injured) (15.4) participant's automatic loss of a tie carries nothing -- nobody won or lost on the cards; the injury only settled it without a roll;
-- **b.** where the cards were decisive and the card-winner also wins the skill test their injury forced, both effects land where the cards put them: their benefit, and the loser's cost;
-- **c.** where the card-winner is injured and *loses* that skill test, neither fires: the card now resolving lost on the cards, so it resolves as the basic maneuver on its rank, and the card that won on the cards is not paying a cost for a matchup it won.
+- **a.** an [injured](#154-playing-injured) (15.4) participant's automatic loss of a tie carries nothing -- nobody won or lost on the cards, so no gambit succeeded or failed; the injury only settled it without a roll;
+- **b.** where the cards were decisive and the card-winner also wins the skill test their injury forced, both outcomes land where the cards put them: the successful gambit's, and the failed one's;
+- **c.** where the card-winner is injured and *loses* that skill test, neither fires: the card now resolving lost on the cards, so it resolves as the basic maneuver on its rank, and the card that won on the cards is not a failed gambit for a matchup it won.
 
-*Note.* Twenty-four of the thirty-six pairings are decisive; twelve are ties and carry nothing either way.
+**19.4.3** In each section below, what the advanced maneuver does is its successful outcome, and the paragraph headed *Failed gambit* is its failed outcome.
+
+*Note.* Twenty-four of the thirty-six pairings are decisive; twelve are ties and make no gambit succeed or fail.
 
 ### 19.5 Skilled Pass
 
@@ -987,7 +990,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.5.4** *Midfielder:* adds 3 to the skill test for their own Skilled Pass, as for a Low Pass.
 
-**19.5.5** *Beaten:* the defender who took the ball plays an unopposed Low Pass with it, once everyone has run back and the ball's speed is set. It costs the defense no clock -- the steal has already been charged.
+**19.5.5** *Failed gambit:* the defender who took the ball plays an unopposed Low Pass with it, once everyone has run back and the ball's speed is set. It costs the defense no clock -- the steal has already been charged.
 
 ### 19.6 Dribble Burst
 
@@ -1001,7 +1004,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.6.4** The ball is left with the handler **at speed 12** -- not a choice, and not bounded by anybody's skill.
 
-**19.6.5** *Beaten:* possession is lost, and the ball **keeps the speed the burst put into it** rather than resetting to 1 -- the one exception to [every turnover resetting it](#73-turnovers-reset-it) (7.3). The defense then changes that speed by up to the challenger's defensive skill, as a steal's would.
+**19.6.5** *Failed gambit:* possession is lost, and the ball **keeps the speed the burst put into it** rather than resetting to 1 -- the one exception to [every turnover resetting it](#73-turnovers-reset-it) (7.3). The defense then changes that speed by up to the challenger's defensive skill, as a steal's would.
 
 ### 19.7 Setup Pass
 
@@ -1017,7 +1020,13 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.7.6** **A Setup Pass cannot overshoot**, so the only way it runs [out of play](#105-out-of-bounds) (10.5) is having nowhere to pick it out to at all: the passer standing on the very last space of the field, where even 1 space runs off the end, with no teammate beside them to take it at `0`. Then the other team gains possession, both sides reset, and the gaining side sends somebody to pick the ball up.
 
-**19.7.7** *Beaten:* the coach who beat it drives the ball a further 1, 2 or 3 spaces back, their choice, and it lands exactly as a [Deflect](#68-deflect) (6.8)'s does -- loose if the space it stops on is empty, uncontested if only one side is there, a forced contest if both are.
+**19.7.7** *Failed gambit:* **the ball goes back once, and the coach who beat the pass chooses how far.** The card that beat it resolves at a chosen distance instead of its own:
+
+- **a.** beaten by a **Deflect**, 1, 2 or 3 spaces back;
+- **b.** beaten by a **Clear**, 2, 3 or 4 spaces back;
+- **c.** a *Fullback* who beat it adds 1 to each: 2, 3 or 4 for a Deflect, 3, 4 or 5 for a Clear.
+
+**19.7.8** Ball speed drops as that card's own does -- by 1 for a Deflect, by 3 for a Clear -- and the ball lands exactly as a [Deflect](#68-deflect) (6.8)'s does: loose if the space it stops on is empty, uncontested if only one side is there, a forced contest if both are. **Of the distances that run out of field only the shortest is offered**, since every longer one stops on the same last space. A ball that runs out of field is a [scoring opportunity](#8-scoring-opportunities) (8) for the player who beat the pass when they are standing on that last space -- the one closest to the goal their team attacks -- and for nobody else, exactly as an [overshot Deflect](#68-deflect) (6.8)'s is. One that runs out of field while they are standing anywhere else sets up nothing.
 
 ### 19.8 Clear
 
@@ -1029,7 +1038,9 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.8.4** *Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 -- a Fullback's extra space is distance, not speed, exactly as it is on a Deflect.
 
-**19.8.5** *Beaten:* the defender who played it **exhausts 2**.
+**19.8.5** **Against a Setup Pass the distance is a choice.** A Clear that beats a Setup Pass goes back 2, 3 or 4 spaces -- 3, 4 or 5 for a Fullback -- the clearing coach's choice, and nothing further: that choice is the Setup Pass's [failed gambit](#197-setup-pass) (19.7). The speed drop, the landing and the scoring opportunity are as above.
+
+**19.8.6** *Failed gambit:* the defender who played it **exhausts 2**.
 
 ### 19.9 Intercept
 
@@ -1045,7 +1056,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.9.6** Where the interceptor is already on the last space that way there is nowhere to carry it, and the interception is a [scoring opportunity](#8-scoring-opportunities) (8) for them instead.
 
-**19.9.7** *Beaten:* a [High Pass contest](#104-the-high-pass-contest) (10.4) the pass would have owed is not held -- the receiver simply keeps the ball.
+**19.9.7** *Failed gambit:* a [High Pass contest](#104-the-high-pass-contest) (10.4) the pass would have owed is not held -- the receiver simply keeps the ball.
 
 ### 19.10 Double Team
 
@@ -1057,7 +1068,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.10.4** **On the defending side's next maneuver both of those players challenge**, and the skill test adds **both** of their defensive skills. It lasts until a [new play](#125-resetting-after-a-new-play) (12.5), which is the only thing that ends it.
 
-**19.10.5** *Beaten:* the challenger and that same nearest teammate each move 1 space forward, away from their own goal. Neither exhausts for it.
+**19.10.5** *Failed gambit:* the challenger and that same nearest teammate each move 1 space forward, away from their own goal. Neither exhausts for it.
 
 ## 20. Species abilities
 
@@ -1080,15 +1091,15 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.2.4** **In a maneuver skill test the blaze or burn can decide a tier.** Four cases, one for each way an ignite can land:
 
-- **a.** **A blaze that wins** resolves that side's maneuver as **its advanced version -- the gambit on its rank** -- even where the [cards would have resolved the basic maneuver](#194-when-a-gambits-effect-fires) (19.4), and whether or not that coach [may play a gambit](#193-who-may-play-a-gambit) (19.3) this turn. A maneuver already resolving as a gambit gains nothing more.
+- **a.** **A blaze that wins** resolves that side's maneuver as **its advanced version -- the advanced maneuver on its rank, with its successful outcome** -- even where the [cards would have resolved the basic maneuver](#194-successful-and-failed-gambits) (19.4), and whether or not that coach [may make a gambit](#193-who-may-make-a-gambit) (19.3) this turn. A maneuver already resolving as an advanced maneuver gains nothing more.
 - **b.** **A burn that loses** resolves the *opponent's* maneuver as its advanced version, the same way.
 - **c.** **A blaze that loses** and **a burn that wins** change nothing but the number.
 
-**20.2.5** **An ignite never decides a [gambit's cost](#194-when-a-gambits-effect-fires) (19.4).** A player who loses the skill test pays their own gambit's cost exactly where they would have without the ignite, whichever way it went.
+**20.2.5** **An ignite never decides a [failed gambit](#194-successful-and-failed-gambits) (19.4).** A player who loses the skill test takes their own failed gambit's outcome exactly where they would have without the ignite, whichever way it went.
 
-*Note.* A blaze that wins is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as a gambit on its own, so even a player who *did* play the gambit gets it resolving as one for the first time. A burn that wins won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
+*Note.* A blaze that wins is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as an advanced maneuver on its own, so even a player who *did* make the gambit gets it resolving as one for the first time. A burn that wins won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
 
-**20.2.6** Outside a maneuver skill test -- or in standard mode, which plays the species abilities without the [gambits](#19-gambits) (19) -- there is no tier to change, and the blaze or burn is only the number.
+**20.2.6** Outside a maneuver skill test -- or in standard mode, which plays the species abilities without the [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) -- there is no tier to change, and the blaze or burn is only the number.
 
 ### 20.3 Lithium Powered (Cyborg)
 
@@ -1194,7 +1205,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.3.7** **Kindlefinger's injury check can ignite.** Kindlefinger's die in an [injury check](#153-the-injury-check) (15.3) ignites on a natural 6 or 7 exactly as a [Volatile](#202-volatile-fire-demon) (20.2) roll does, and the blaze or burn is added to or subtracted from the check. A blaze also clears 1 token from Kindlefinger and on a burn they exhaust 1, **before** the check is compared with their tokens -- so the token can decide it, as the tokens a skill test charges count toward the check that follows it.
 
-**21.3.8** **Scorchit may force the test.** When Scorchit's maneuver loses on the cards, their coach may send it to a [skill test](#64-the-skill-test) (6.4) anyway, once the cards are revealed and before anything resolves. Entering it, Scorchit exhausts 2 and their opponent nothing; a tie is rolled again and each exhausts 1, as always. The higher total wins and their maneuver resolves. A gambit's effect still follows the cards, as it does after a test an [injury](#154-playing-injured) (15.4) forced: if the card that won on the cards also wins the test, its benefit and Scorchit's cost both land; if Scorchit wins the test, neither fires and Scorchit's card resolves as the basic maneuver on its rank. Where the winner on the cards is injured, the test is the one their injury already forces, and costs its usual token each.
+**21.3.8** **Scorchit may force the test.** When Scorchit's maneuver loses on the cards, their coach may send it to a [skill test](#64-the-skill-test) (6.4) anyway, once the cards are revealed and before anything resolves. Entering it, Scorchit exhausts 2 and their opponent nothing; a tie is rolled again and each exhausts 1, as always. The higher total wins and their maneuver resolves. Whether a gambit succeeded or failed still follows the cards, as it does after a test an [injury](#154-playing-injured) (15.4) forced: if the card that won on the cards also wins the test, its successful outcome and the outcome of Scorchit's failed gambit both land; if Scorchit wins the test, neither fires and Scorchit's card resolves as the basic maneuver on its rank. Where the winner on the cards is injured, the test is the one their injury already forces, and costs its usual token each.
 
 ### 21.4 Cyborgs
 
@@ -1210,7 +1221,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.4.6** **Pulsar charges up on the ball.** Whenever Pulsar receives the ball, as Inferno does, they clear 1 drain, never below zero.
 
-**21.4.7** **Synapse's Overdrive decides a tier.** When Synapse wins a maneuver skill test on a roll they Overdrove, their maneuver resolves as its advanced version -- the gambit on its rank -- whether or not their coach [may play a gambit](#193-who-may-play-a-gambit) (19.3) this turn, exactly as a [blaze that wins](#202-volatile-fire-demon) (20.2) does. A maneuver already resolving as a gambit gains nothing more.
+**21.4.7** **Synapse's Overdrive decides a tier.** When Synapse wins a maneuver skill test on a roll they Overdrove, their maneuver resolves as its advanced version -- the advanced maneuver on its rank, with its successful outcome -- whether or not their coach [may make a gambit](#193-who-may-make-a-gambit) (19.3) this turn, exactly as a [blaze that wins](#202-volatile-fire-demon) (20.2) does. A maneuver already resolving as an advanced maneuver gains nothing more.
 
 ### 21.5 Telekinetics
 
@@ -1220,7 +1231,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.5.3** **Spectra pulls harder.** Spectra's Mind Pull succeeds on 9 or more.
 
-**21.5.4** **Dravox and Hexis play their gambits on the dice.** When Dravox wins a maneuver skill test with a defensive gambit they played, or Hexis with an offensive one, it resolves as the gambit -- where a card that did not win on the cards [would otherwise resolve as its basic maneuver](#194-when-a-gambits-effect-fires) (19.4). A basic card they played is not upgraded.
+**21.5.4** **Dravox and Hexis make their gambits on the dice.** When Dravox wins a maneuver skill test with a defensive advanced maneuver they played, or Hexis with an offensive one, it resolves as the advanced maneuver, with its successful outcome -- where a card that did not win on the cards [would otherwise resolve as its basic maneuver](#194-successful-and-failed-gambits) (19.4). A basic card they played is not upgraded.
 
 **21.5.5** **Umbrik plays the long ball on defense.** Umbrik adds their defensive skill rather than their offensive skill to an [own-goal roll](#11-own-goal) (11) and to a maneuver skill test over their own [High Pass](#67-high-pass) (6.7). A [High Pass contest](#104-the-high-pass-contest) (10.4) they receive in is played on their offensive skill as usual.
 
@@ -1264,7 +1275,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 | Species | Ability |
 | --- | --- |
-| Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's gambit), and a burn that loses upgrades the opponent's. |
+| Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's advanced maneuver), and a burn that loses upgrades the opponent's. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: once per roll, drain 3 for +5, declared before it. Charge-up: -1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: exhaust 1, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball comes to rest on your space -- take it over, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
@@ -1273,10 +1284,11 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 | Term | Defined in |
 | --- | --- |
+| Advanced maneuver | [An advanced maneuver is the advanced version of its rank](#191-an-advanced-maneuver-is-the-advanced-version-of-its-rank) (19.1) |
 | Advanced skill | [Advanced skills](#212-advanced-skills) (21.2) |
 | Arrangement | [Definitions](#28-definitions) (2.8); settled in [finishing a Coaching Choice](#148-finishing-a-coaching-choice) (14.8) |
 | Back, forward | [Forward and back](#22-forward-and-back) (2.2) |
-| Behind | [Who may play a gambit](#193-who-may-play-a-gambit) (19.3) |
+| Behind | [Who may make a gambit](#193-who-may-make-a-gambit) (19.3) |
 | Blaze, burn | [Volatile (Fire Demon)](#202-volatile-fire-demon) (20.2) |
 | Boost | [Cyborgs](#214-cyborgs) (21.4) |
 | Card, meeple | [Definitions](#28-definitions) (2.8) |
@@ -1288,7 +1300,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Dead ball, live ball | [Definitions](#28-definitions) (2.8) |
 | Exhausted | [Becoming Exhausted](#152-becoming-exhausted) (15.2) |
 | Exhaustion token | [The ball, the dice and the tokens](#27-the-ball-the-dice-and-the-tokens) (2.7); [gaining tokens](#151-gaining-tokens) (15.1) |
-| Gambit | [A gambit is the advanced version of its rank](#191-a-gambit-is-the-advanced-version-of-its-rank) (19.1) |
+| Gambit, making a gambit | [An advanced maneuver is the advanced version of its rank](#191-an-advanced-maneuver-is-the-advanced-version-of-its-rank) (19.1); successful and failed in [successful and failed gambits](#194-successful-and-failed-gambits) (19.4) |
 | Handler | [Choosing the handler](#42-choosing-the-handler) (4.2) |
 | Injured | [Playing injured](#154-playing-injured) (15.4) |
 | Kickoff space | [The kickoff space](#24-the-kickoff-space) (2.4) |

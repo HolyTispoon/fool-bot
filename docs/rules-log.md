@@ -154,6 +154,46 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-27 (end of day) -- author, the gambit is the play, not the card; a beaten Setup Pass goes back once
+
+The author: *"instead of calling Advanced maneuvers Gambits, we'll now call their special
+outcomes gambits ... Using an advanced maneuver should be referred to as 'making a gambit' - a
+successful gambit means that the advanced maneuver won by rank, a failed gambit means that the
+advanced maneuver lost on rank."* Law 19 is now "Advanced maneuvers and gambits".
+
+- **The six cards are advanced maneuvers again** -- their name until 2026-09-20 -- and
+  **playing one is making a gambit**. Nothing about who may play one, when, or what each does
+  changes: "may play a gambit" is "may make a gambit" (19.3), a gambit is still made only
+  against a challenge (19.2), and a coach who is behind still chooses from six.
+- **A gambit succeeds or fails on rank.** What 19.4 called a gambit's *benefit* is the
+  **successful** gambit's outcome, and its *cost* -- every "*Beaten:*" paragraph -- is the
+  **failed** gambit's (the author: Setup Pass's *"successful gambit outcome is to set up a
+  scoring opportunity at 0,1,3 and its failed gambit outcome is opponents pick 1-2-3 spaces
+  back"*). A tie on rank is neither, as it always carried neither. Volatile, Scorchit, Synapse,
+  Dravox and Hexis are reworded in the same terms and play as they did.
+
+And a correction to the Setup Pass's failed gambit, which until now drove the ball back twice
+-- the Deflect's or Clear's own distance, then a further 1, 2 or 3 of the beating coach's
+choosing, never past the end of the field:
+
+- **Beaten by a Deflect**, *"the ball moves back only once - either 1,2, or 3 as chosen by the
+  deflecting player. If overshoots the goal may set up a scoring opportunity."*
+- **Beaten by a Clear**, *"the ball should no longer bounce back twice. the coach who won with
+  clear chooses if the ball goes back 2,3,4 - and overshoot sets up a scoring opportunity."*
+- Asked on this change, the author settled four readings:
+  - **A Fullback still gets their +1**: 2, 3 or 4 on a Deflect, 3, 4 or 5 on a Clear. Read as
+    the same one space further the Fullback always adds to a deflection (6.8, 19.8), so each
+    distance moves up by one.
+  - **The shot is the overshot Deflect's** (2026-09-26): only the player who beat the pass
+    shoots, and only when standing on the last space, the one closest to the goal they attack.
+  - **Of the distances that run out of field, only the shortest is offered** -- every longer one
+    stops on the same last space. So an overshoot is a choice the coach makes, where the old
+    push never ran off the end at all.
+  - **A Deflect a blaze or Synapse's Overdrive resolves as a Clear** takes the Clear's 2, 3 or 4.
+- The speed drop is the beating card's own, 1 or 3, and the ball lands as a Deflect's does.
+  Law 19.7.7-19.7.8 has the rule, Clear gains 19.8.5 pointing at it, and Part II's table in
+  18.3 lists it against the Deflect in Part I.
+
 ### 2026-09-27 (last) -- author, Setup Pass costs a High Pass's 2 in the clock table too
 
 The author: *"Setup pass should cost 2 always like High pass"*, and *"Setup pass is a kind of
@@ -3109,7 +3149,8 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Two 15-minute periods, each clocked 0 to 15 | One running clock: 00-15 in the first half, 16-30 in the second, and it keeps counting past a period's last minute for as long as last possession runs |
 | The maneuvers sheet has a "Die value" column, and the component data two head-coach d6s | Maneuvers are chosen from the cards; the selection dice are not part of the rules at all (2026-08-17). The column and `head_coach_dice` are still imported, so a fresh pull rewrites them |
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
-| The maneuvers sheet's `Mode` column reads `basic` / `advanced` | A gambit, on the rank of a basic maneuver. The importer keeps the sheet's word as the tier value, so a fresh pull rewrites it unchanged |
+| Setup Pass: "If defeated, opponent picks 1-2-3 spaces back" (the `maneuvers` tab), which the bot read as a push on top of the Deflect's or Clear's own | The ball goes back once, the beating coach's choice: 1, 2 or 3 for a Deflect, 2, 3 or 4 for a Clear, each 1 more for a Fullback (2026-09-27) |
+| Dravox and Hexis: "Resolves defensive (offensive) gambit's bonuses"; Synapse: "resolve maneuver as a gambit" (the `advanced_abilities` tab) | The card is an advanced maneuver and playing it is making a gambit; what those three resolve is the advanced maneuver's successful outcome (2026-09-27) |
 | Smooth: "the ball moves to or through your space" (the `spec_abilities` tab, and so `species.json` and the printed species cards) | Only where the ball comes to rest -- a Telekinetic it passes through is offered nothing (2026-09-24) |
 
 ---

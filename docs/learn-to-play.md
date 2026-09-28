@@ -11,7 +11,7 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 - **The jumbotron**: the clock, the score, and the piles the tokens come from.
 - **Two team boards**, one a coach: the bench, the back bench, and a reminder of the six maneuvers.
 - **Eighteen player cards**, nine a team, and a meeple for each.
-- **Twelve maneuver cards.** Six are the basic cards this book teaches; the six with the gambit band are advanced mode's and stay in the box for now.
+- **Twelve maneuver cards.** Six are the basic cards this book teaches; the six advanced maneuvers are advanced mode's and stay in the box for now.
 - **The ball**: a d12. **Four more d12s** for rolling.
 - **Exhaustion tokens**, and the two condition markers, Exhausted and Injured.
 - **The coin**, for the toss.
@@ -160,11 +160,11 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 
 ## Appendix: standard and advanced mode
 
-Standard mode adds the species abilities to everything in this book. Advanced mode adds the gambits and the players' personal abilities to standard mode. Everything here is Part II of the Charter, Laws 18 to 21.
+Standard mode adds the species abilities to everything in this book. Advanced mode adds the advanced maneuvers and the players' personal abilities to standard mode. Everything here is Part II of the Charter, Laws 18 to 21.
 
 ![Figure 14 - The twelve cards on the cycle](rulebooks/figures/fig-14-the-gambits.png)
 
-**Gambits (advanced).** Every rank gets a second card, the **gambit**: the same maneuver, bigger, and with a price when it is beaten. Skilled Pass reaches any teammate within 3; Dribble Burst runs up to 4; Setup Pass sets up a shot; Clear knocks the ball back 3; Intercept steals forward; Double Team pushes 2 with help. A gambit is the advanced version of the basic card on its rank, so the cycle does not change. You hold your gambits only while your team is **behind** -- fewer goals, or more Exhausted-or-Injured players on the field -- and a gambit can only be played against a challenge. *(Law 19)*
+**Advanced maneuvers and gambits (advanced).** Every rank gets a second card, the **advanced maneuver**: the same maneuver, bigger. Playing one is **making a gambit**. Win on rank and the gambit succeeds; lose on rank and it fails, and a failed gambit has a price. Skilled Pass reaches any teammate within 3; Dribble Burst runs up to 4; Setup Pass sets up a shot; Clear knocks the ball back 3; Intercept steals forward; Double Team pushes 2 with help. An advanced maneuver is the advanced version of the basic card on its rank, so the cycle does not change. You may make gambits only while your team is **behind** -- fewer goals, or more Exhausted-or-Injured players on the field -- and only against a challenge. *(Law 19)*
 
 ![Figure 15 - The four species](rulebooks/figures/fig-15-the-species.png)
 
