@@ -1373,7 +1373,14 @@ class PlayerDecisionView(SafeView):
             content=result.answer[0],
             view=None,
         )
-        await self.cog.present(interaction, game, result)
+        await self.cog.present(
+            interaction,
+            game,
+            result,
+            # Glompex's offer held the challenge image back; it goes up
+            # under the answer once no offer is left (`present`).
+            challenge_owed=self.KIND is PromptKind.JOIN_THE_BALL,
+        )
 
     async def accept(self, interaction: discord.Interaction) -> None:
         await self.answer(interaction, self.YES)

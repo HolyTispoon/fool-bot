@@ -254,6 +254,22 @@ class PresentationMixin:
         the maneuver prompt, which is the message a coach is reading it
         for.
         """
+        await self.post_walk_in(interaction, walk_in_text)
+        await send_new_prompt(
+            interaction,
+            file=await self.build_maneuver_challenge_file(
+                match, defender_id, game,
+            ),
+        )
+
+    async def post_walk_in(
+        self,
+        interaction: discord.Interaction,
+        walk_in_text: str,
+    ) -> None:
+        """The challenger's walk-in, pinging nobody; nothing for a
+        walk-in that says nothing. Alone where Glompex's offer holds the
+        image back (`challenge_placement`)."""
         if walk_in_text:
             await send_new_prompt(
                 interaction,
@@ -262,12 +278,6 @@ class PresentationMixin:
                     users=False, roles=False, everyone=False,
                 ),
             )
-        await send_new_prompt(
-            interaction,
-            file=await self.build_maneuver_challenge_file(
-                match, defender_id, game,
-            ),
-        )
 
     async def drop_turn_prompt(
         self,

@@ -416,6 +416,74 @@ PARAMETERISED_PROMPT_KINDS = frozenset({
 })
 
 
+def _answers_join(group: Narration) -> bool:
+    """Whether a group is Glompex's offer, or the AI's answer to it."""
+    return group.prompt is PromptKind.JOIN_THE_BALL or (
+        group.action is not None
+        and group.action.kind is PromptKind.JOIN_THE_BALL
+    )
+
+
+def challenge_placement(
+    result: GameResult,
+    owed: bool,
+) -> tuple[Optional[int], Optional[int], Optional[str]]:
+    """
+    Where the challenge image goes in a result, as `(held, after,
+    challenger_id)`: the walk-in group posted without it, the group it
+    is posted after (-1 for before them all), and whose matchup it is.
+    `None` for the first two where it is not this result's to move or
+    to post, and `(None, None, None)` for every result without Glompex
+    in it, whose walk-in carries the image as `post_group` draws it.
+
+    **Glompex is offered the ball's space before the cards** (Law 21),
+    and the image is what the coaches pick their cards over, so while
+    an offer is outstanding the image waits (the author, 2026-09-28):
+    the walk-in goes up alone, and the image goes up once the last
+    offer is answered -- after an AI's answer in the same result, or
+    in front of everything in the result a coach's answer came back
+    with (`owed`). Never while an offer is still up.
+
+    The challenger is the walk-in's where the walk-in is in this
+    result, and otherwise the match's: a result that answers the last
+    offer stops on the cards, so the challenger is still the one in
+    place.
+    """
+    groups = result.groups
+    offer_up = (
+        result.prompt is not None
+        and result.prompt.kind is PromptKind.JOIN_THE_BALL
+    )
+    joins = [index for index, group in enumerate(groups) if _answers_join(group)]
+    walk_in = next(
+        (
+            index for index, group in enumerate(groups)
+            if group.step is FollowOnStep.AUTO_RESOLVE_CHALLENGER
+        ),
+        None,
+    )
+    held = (
+        walk_in
+        if walk_in is not None
+        and (offer_up or any(index > walk_in for index in joins))
+        else None
+    )
+    if held is None and not joins and not owed:
+        return None, None, None
+
+    if walk_in is not None:
+        challenger_id = groups[walk_in].arguments["challenger_id"]
+    elif result.match is not None:
+        challenger_id = result.match.challenger_id
+    else:
+        challenger_id = None
+    after = (
+        None if offer_up or challenger_id is None
+        else max(joins, default=-1)
+    )
+    return held, after, challenger_id
+
+
 class CoreMixin:
     """
     The cog's own machinery, and the spine of a turn.
@@ -1434,12 +1502,18 @@ class CoreMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
         result: GameResult,
+        *,
+        challenge_owed: bool = False,
     ) -> None:
         """
         Turn a `GameResult` into Discord: write the board once if it
         moved, post each group as the messages its step earns, draw
         each picture from the position the service took at that stop,
         and put up what is asked through `render_prompt`.
+
+        **The challenge image waits out Glompex's offer** (Law 21):
+        see `challenge_placement`. `challenge_owed` is a coach's answer
+        to that offer, whose walk-in went up in an earlier result.
 
         **It saves nothing.** The service wrote the match once, before
         this was called, which is the ordering principle 9 is about: a
@@ -1464,12 +1538,29 @@ class CoreMixin:
             prompt is not None and prompt.kind in PROMPTS_DRAWN_LATER
         )
 
+        held, image_after, challenger_id = challenge_placement(
+            result, challenge_owed,
+        )
+
+        async def post_challenge_image() -> None:
+            await self.announce_maneuver_challenge(
+                interaction, result.match, challenger_id, "", game,
+            )
+
+        if image_after == -1:
+            await post_challenge_image()
         for index, group in enumerate(groups):
             if write_owed and index == last_drawn + 1:
                 await self.refresh_match_image(interaction, game)
-            await self.post_group(
-                interaction, game, result.match, group, list(group.lines),
-            )
+            if index == held:
+                # The walk-in alone: its picture waits for the offer.
+                await self.post_walk_in(interaction, " ".join(group.lines))
+            else:
+                await self.post_group(
+                    interaction, game, result.match, group, list(group.lines),
+                )
+            if index == image_after:
+                await post_challenge_image()
 
         if write_owed and len(groups) == last_drawn + 1:
             await self.refresh_match_image(interaction, game)
