@@ -273,7 +273,9 @@ class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
     The score attempt's own flat clock cost (2026-08-16), and how it
     stacks with the maneuver that offered a set-up rather than
     replacing it -- see `MatchState.pending_shot_setup_cost` and
-    "When a maneuver includes a setup" in docs/rules-log.md.
+    "When a maneuver includes a setup" in docs/rules-log.md. Since
+    2026-09-28 the maneuver's share is charged when its winner is
+    decided and the shot's once the shot has resolved (Law 16.2.5).
     """
 
     @classmethod
@@ -296,12 +298,32 @@ class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
         _, kwargs = cog.begin_run_back.call_args
         self.assertEqual(kwargs["distance_moved"], 1)
 
-    async def test_a_setup_shot_stacks_on_top_of_the_makers_cost(
+    async def test_a_setup_shot_adds_its_minute_to_the_makers_cost(
         self,
     ) -> None:
-        # A High Pass's own flat cost is 2; taking the set-up shot it
-        # offers costs that plus the shot's own 1, not one or the
-        # other.
+        # A High Pass's own flat cost is 2, charged when it won; taking
+        # the set-up shot it offers adds the shot's own 1 once the shot
+        # resolves -- 3 in all, not one or the other.
+        cog = build_cog()
+        game, match = self.build_shot(cog, [])
+        match.scoreboard.time = 2
+        match.clock_charged = True
+        match.pending_shot_is_set_up = True
+        match.pending_shot_setup_cost = 2
+        game.match_state = match.to_dict()
+
+        await self.roll(cog, game, [1, 1])
+
+        live = cog.begin_run_back.call_args.args[-1]
+        self.assertEqual(live.scoreboard.time, 3)
+        _, kwargs = cog.begin_run_back.call_args
+        self.assertEqual(kwargs["distance_moved"], 1)
+
+    async def test_a_setup_shot_saved_before_the_maker_was_charged(
+        self,
+    ) -> None:
+        # A game saved at the offer under the old rule never charged
+        # the High Pass, so its shot charges the two stacked.
         cog = build_cog()
         game, match = self.build_shot(cog, [])
         match.pending_shot_is_set_up = True

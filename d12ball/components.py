@@ -888,6 +888,15 @@ SETUP_PASS_DISTANCES = (0, 1, 3)
 # Pass from 3 to 4 and a Clear from 3 to 4 (the author, 2026-08-19).
 SETUP_PASS_FULLBACK_DISTANCE = 4
 SETUP_PASS_CLOCK_COST = 2
+# What a maneuver costs on the clock (Law 16.2.1): a flat space minute,
+# and two for a High Pass and for the Setup Pass it is the advanced
+# version of. `RulesEngine.maneuver_clock_cost` is the one reading; the
+# printed cards say the same in words, and a test holds the two
+# together.
+MANEUVER_CLOCK_COST = 1
+HIGH_PASS_CLOCK_COST = 2
+# A time out's (Law 13.4.1), charged the moment it is called.
+TIME_OUT_CLOCK_COST = 1
 # How far a Skilled Pass reaches, either way. The card was Precise
 # Pass and read "any teammate", which on the nine-space board is a
 # pass across the whole field; the author bounded it at 3 and renamed
@@ -1675,6 +1684,7 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     ),
     SavedField("pending_shot_is_set_up", default=False),
     SavedField("pending_shot_setup_cost", default=0),
+    SavedField("clock_charged", default=False),
     SavedField("pending_high_pass_overshoot", default=False),
     SavedField("pending_own_goal", default=False),
     SavedField("pending_own_goal_distance", default=1),
@@ -2038,10 +2048,25 @@ class MatchState:
     pending_shot_is_set_up: bool = False
     # The base clock cost of the maneuver that offered a pending set-up
     # shot -- 0 for an ordinary shot, otherwise the maneuver's own flat
-    # cost (1, or 2 for a High Pass), so ScoreAttemptView.roll can add
-    # the shot's own extra minute on top of it rather than replacing it.
-    # See "When a maneuver includes a setup" and start_set_up_shot.
+    # cost (1, or 2 for a High Pass). **Charged only by a game saved
+    # before 2026-09-28**, whose maneuver had not been charged yet when
+    # the shot was offered: since then the maneuver is charged the
+    # moment its winner is decided, `clock_charged` says so, and the
+    # shot adds only its own minute -- see `settle_score_attempt`.
     pending_shot_setup_cost: int = 0
+    # **Whether this turn's action has had its clock charged** (Law
+    # 16.2.4, 2026-09-28). The cost is charged the moment the outcome
+    # is decided -- a maneuver's winner known, a shot resolved, a time
+    # out called -- and everything the action leads to happens on the
+    # clock as it then stands. What this flag is for is the finish:
+    # `finish_maneuver_resolution` charges nothing when it is up.
+    # Persisted because the decision and the finish are often prompts
+    # apart. Absent from an older save, which reads as False -- the
+    # right answer for a game saved mid-action under the old rule,
+    # whose decision was never charged, so its finish charges the cost
+    # it carried the old way. `reset_maneuver` clears it with the rest
+    # of the turn. See docs/design/clock-and-records.md.
+    clock_charged: bool = False
     # A High Pass was clamped short of the distance thrown, so the
     # ball speed modifier is paid the other way round for whatever
     # that overshoot leads to -- the set-up's shot, or the long-pass
@@ -2910,9 +2935,13 @@ class MatchState:
         that can disagree about what a match did -- the same reason
         `record_goal` below is the only writer of the goal log.
 
-        The stamp is the clock at the moment of the event, before
-        whatever it costs is charged, so the log reads as the minute
-        something happened rather than the minute play restarted.
+        The stamp is the clock at the moment of the event, so the log
+        reads as the minute something happened rather than the minute
+        play restarted. An action's cost is charged the moment its
+        outcome is decided (Law 16.2.4): an event logged before that --
+        the turn action, the shot -- is stamped without it, and one
+        logged after -- the maneuver's own record, anything its effect
+        logs -- with it.
         """
         event = MatchEvent(
             kind=kind,
@@ -3132,16 +3161,32 @@ class MatchState:
         self.ball.possession = defending_side
         self.ball.speed = 1
 
-    def advance_time(self, minutes: int) -> bool:
+    def advance_time(self, minutes: int) -> None:
         """
         Advance the clock by `minutes` space minutes. It has no ceiling:
         every turn of a last possession is charged like any other, so a
         period ends on the minute its last turnover falls on rather than
         on its last minute.
 
-        Returns True only the moment this call first reaches the
-        period's last minute (entering last possession), so callers can
-        react to it once.
+        **It does not declare last possession**, and since 2026-09-28
+        that is a separate question on purpose. The clock is charged the
+        moment an action's outcome is decided (Law 16.2.4), which can be
+        the middle of that action; last possession is declared once the
+        action has finished (Law 4.4.4, 16.3.1), which is
+        `declare_last_possession`. Raising the flag here would have the
+        declaring maneuver's own turnover end the period.
+        """
+        if minutes <= 0:
+            return
+        self.scoreboard.time += minutes
+
+    def declare_last_possession(self) -> bool:
+        """
+        Raise last possession if the clock has reached the period's
+        last minute, at the end of the action that took it there.
+
+        Returns True only on the call that raises it, so callers can
+        announce it once.
 
         **"The clock has reached the last minute" and "last possession
         is live" are two facts, not one.** They were one while the clock
@@ -3150,9 +3195,6 @@ class MatchState:
         The flag alone ends the period now -- on the first turnover
         under it -- and the clock is nobody's signal for it.
         """
-        if minutes <= 0:
-            return False
-        self.scoreboard.time += minutes
         if self.scoreboard.last_possession:
             return False
         if self.scoreboard.time >= self.scoreboard.last_minute:
@@ -3648,6 +3690,7 @@ class MatchState:
         self.pending_scoring_opportunity = None
         self.pending_shot_is_set_up = False
         self.pending_shot_setup_cost = 0
+        self.clock_charged = False
         self.pending_high_pass_overshoot = False
         self.pending_own_goal = False
         self.pending_own_goal_distance = 1

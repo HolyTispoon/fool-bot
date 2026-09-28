@@ -2314,20 +2314,27 @@ class D12BallScoreAttemptTests(unittest.TestCase):
     ) -> None:
         match = self.build_match(7)
 
-        self.assertFalse(match.advance_time(3))
+        match.advance_time(3)
         self.assertEqual(match.scoreboard.time, 3)
+        self.assertFalse(match.declare_last_possession())
         self.assertFalse(match.scoreboard.last_possession)
 
-        self.assertTrue(match.advance_time(20))
+        # Reaching the last minute moves the number and nothing else:
+        # last possession is declared once the action that got there
+        # has finished (Law 16.3.1), which is a separate call.
+        match.advance_time(20)
         self.assertEqual(match.scoreboard.time, 23)
+        self.assertFalse(match.scoreboard.last_possession)
+        self.assertTrue(match.declare_last_possession())
         self.assertTrue(match.scoreboard.last_possession)
 
         # The clock does not stop there: last possession is charged
         # like any other play, and only the flag ends the period. What
         # does not happen twice is the flag being *raised*, which is
         # what the return value is for.
-        self.assertFalse(match.advance_time(5))
+        match.advance_time(5)
         self.assertEqual(match.scoreboard.time, 28)
+        self.assertFalse(match.declare_last_possession())
         self.assertTrue(match.scoreboard.last_possession)
 
     def test_the_second_half_has_a_last_minute_of_its_own(self) -> None:
@@ -2341,9 +2348,11 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         match.scoreboard.time = SECOND_HALF_START_MINUTE
 
         self.assertEqual(match.scoreboard.last_minute, 30)
-        self.assertFalse(match.advance_time(10))
+        match.advance_time(10)
+        self.assertFalse(match.declare_last_possession())
         self.assertFalse(match.scoreboard.last_possession)
-        self.assertTrue(match.advance_time(5))
+        match.advance_time(5)
+        self.assertTrue(match.declare_last_possession())
         self.assertTrue(match.scoreboard.last_possession)
 
     def test_a_saved_clock_past_the_last_minute_still_loads(self) -> None:

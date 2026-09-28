@@ -102,6 +102,7 @@
     }
   },
   "challenger_id": null,
+  "clock_charged": false,
   "defense_maneuver": null,
   "events": [
     {
@@ -135,7 +136,7 @@
       "period": "first_half",
       "player_id": "sizzifizik_playmaker",
       "side": "home",
-      "time": 1
+      "time": 2
     },
     {
       "details": {
@@ -215,7 +216,7 @@
       "period": "first_half",
       "player_id": "emberdash_playmaker",
       "side": "visiting",
-      "time": 3
+      "time": 4
     },
     {
       "details": {
@@ -240,7 +241,7 @@
       "period": "first_half",
       "player_id": "glompex_midfielder",
       "side": "visiting",
-      "time": 4
+      "time": 6
     },
     {
       "details": {
@@ -268,7 +269,7 @@
       "period": "first_half",
       "player_id": "quantor_winger",
       "side": "visiting",
-      "time": 6
+      "time": 8
     },
     {
       "details": {
@@ -283,7 +284,7 @@
       "period": "first_half",
       "player_id": "tachyon_striker",
       "side": "visiting",
-      "time": 6
+      "time": 8
     },
     {
       "details": {
@@ -294,7 +295,7 @@
       "period": "first_half",
       "player_id": "tachyon_striker",
       "side": "visiting",
-      "time": 6
+      "time": 8
     },
     {
       "details": {
@@ -319,7 +320,7 @@
       "period": "first_half",
       "player_id": "sizzifizik_playmaker",
       "side": "home",
-      "time": 9
+      "time": 10
     },
     {
       "details": {
@@ -347,7 +348,7 @@
       "period": "first_half",
       "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 10
+      "time": 11
     },
     {
       "details": {
@@ -375,7 +376,7 @@
       "period": "first_half",
       "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 11
+      "time": 12
     },
     {
       "details": {
@@ -400,7 +401,7 @@
       "period": "first_half",
       "player_id": "emberdash_playmaker",
       "side": "visiting",
-      "time": 12
+      "time": 13
     },
     {
       "details": {
@@ -425,7 +426,7 @@
       "period": "first_half",
       "player_id": "quantor_winger",
       "side": "visiting",
-      "time": 13
+      "time": 14
     },
     {
       "details": {
@@ -492,7 +493,7 @@
       "period": "first_half",
       "player_id": "tachyon_striker",
       "side": "visiting",
-      "time": 15
+      "time": 16
     },
     {
       "details": {
@@ -506,7 +507,7 @@
       "period": "first_half",
       "player_id": "goopkeeper_fullback",
       "side": "home",
-      "time": 15
+      "time": 16
     },
     {
       "details": {
@@ -521,7 +522,7 @@
       "period": "first_half",
       "player_id": "goopkeeper_fullback",
       "side": "home",
-      "time": 15
+      "time": 16
     },
     {
       "details": {
@@ -546,7 +547,7 @@
       "period": "second_half",
       "player_id": "emberdash_playmaker",
       "side": "visiting",
-      "time": 15
+      "time": 16
     },
     {
       "details": {
@@ -576,7 +577,7 @@
       "period": "second_half",
       "player_id": "emberdash_playmaker",
       "side": "visiting",
-      "time": 16
+      "time": 17
     },
     {
       "details": {
@@ -601,7 +602,7 @@
       "period": "second_half",
       "player_id": "flickerwing_winger",
       "side": "home",
-      "time": 17
+      "time": 18
     },
     {
       "details": {
@@ -655,7 +656,7 @@
       "period": "second_half",
       "player_id": "hellguard_fullback",
       "side": "visiting",
-      "time": 19
+      "time": 20
     },
     {
       "details": {
@@ -670,7 +671,7 @@
       "period": "second_half",
       "player_id": "hellguard_fullback",
       "side": "visiting",
-      "time": 19
+      "time": 20
     },
     {
       "details": {
@@ -695,7 +696,7 @@
       "period": "second_half",
       "player_id": "hellguard_fullback",
       "side": "visiting",
-      "time": 20
+      "time": 22
     },
     {
       "details": {
@@ -720,7 +721,7 @@
       "period": "second_half",
       "player_id": "emberdash_playmaker",
       "side": "visiting",
-      "time": 22
+      "time": 23
     },
     {
       "details": {
@@ -748,7 +749,7 @@
       "period": "second_half",
       "player_id": "glompex_midfielder",
       "side": "visiting",
-      "time": 23
+      "time": 24
     },
     {
       "details": {
@@ -773,7 +774,7 @@
       "period": "second_half",
       "player_id": "emberdash_playmaker",
       "side": "visiting",
-      "time": 24
+      "time": 25
     },
     {
       "details": {
@@ -803,7 +804,7 @@
       "period": "second_half",
       "player_id": "emberdash_playmaker",
       "side": "visiting",
-      "time": 25
+      "time": 26
     },
     {
       "details": {},
@@ -854,7 +855,7 @@
       "period": "second_half",
       "player_id": "goopkeeper_fullback",
       "side": "home",
-      "time": 27
+      "time": 28
     },
     {
       "details": {
@@ -879,7 +880,7 @@
       "period": "second_half",
       "player_id": "goopkeeper_fullback",
       "side": "home",
-      "time": 28
+      "time": 30
     },
     {
       "details": {
@@ -904,7 +905,7 @@
       "period": "second_half",
       "player_id": "sizzifizik_playmaker",
       "side": "home",
-      "time": 30
+      "time": 31
     },
     {
       "details": {
@@ -932,7 +933,7 @@
       "period": "second_half",
       "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 31
+      "time": 32
     },
     {
       "details": {
@@ -960,7 +961,7 @@
       "period": "second_half",
       "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 32
+      "time": 33
     },
     {
       "details": {
@@ -985,7 +986,7 @@
       "period": "second_half",
       "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 33
+      "time": 34
     },
     {
       "details": {
@@ -1010,7 +1011,7 @@
       "period": "second_half",
       "player_id": "goopkeeper_fullback",
       "side": "home",
-      "time": 34
+      "time": 35
     },
     {
       "details": {
@@ -1035,7 +1036,7 @@
       "period": "second_half",
       "player_id": "goopkeeper_fullback",
       "side": "home",
-      "time": 35
+      "time": 36
     },
     {
       "details": {
@@ -1060,7 +1061,7 @@
       "period": "second_half",
       "player_id": "goopkeeper_fullback",
       "side": "home",
-      "time": 36
+      "time": 37
     },
     {
       "details": {
@@ -1085,7 +1086,7 @@
       "period": "second_half",
       "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 37
+      "time": 38
     },
     {
       "details": {
@@ -1110,7 +1111,7 @@
       "period": "second_half",
       "player_id": "goopkeeper_fullback",
       "side": "home",
-      "time": 38
+      "time": 39
     },
     {
       "details": {
@@ -1135,7 +1136,7 @@
       "period": "second_half",
       "player_id": "goopkeeper_fullback",
       "side": "home",
-      "time": 39
+      "time": 40
     },
     {
       "details": {
@@ -1160,7 +1161,7 @@
       "period": "second_half",
       "player_id": "goopkeeper_fullback",
       "side": "home",
-      "time": 40
+      "time": 41
     },
     {
       "details": {
@@ -1171,7 +1172,7 @@
       "period": "second_half",
       "player_id": "dravox_defender",
       "side": "visiting",
-      "time": 40
+      "time": 41
     },
     {
       "details": {
@@ -1182,7 +1183,7 @@
       "period": "second_half",
       "player_id": "zytheris_striker",
       "side": "visiting",
-      "time": 40
+      "time": 41
     },
     {
       "details": {
@@ -1193,7 +1194,7 @@
       "period": "second_half",
       "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 40
+      "time": 41
     },
     {
       "details": {
@@ -1204,7 +1205,7 @@
       "period": "second_half",
       "player_id": "hellguard_fullback",
       "side": "visiting",
-      "time": 40
+      "time": 41
     },
     {
       "details": {
@@ -1215,7 +1216,7 @@
       "period": "second_half",
       "player_id": "voltus_defender",
       "side": "home",
-      "time": 40
+      "time": 41
     },
     {
       "details": {
@@ -1226,7 +1227,7 @@
       "period": "second_half",
       "player_id": "flickerwing_winger",
       "side": "home",
-      "time": 40
+      "time": 41
     },
     {
       "details": {
@@ -1237,7 +1238,7 @@
       "period": "second_half",
       "player_id": "flickerwing_winger",
       "side": "home",
-      "time": 40
+      "time": 41
     }
   ],
   "exhausted": [
@@ -1268,7 +1269,7 @@
       "player_id": "tachyon_striker",
       "shootout": false,
       "side": "visiting",
-      "time": 6
+      "time": 8
     },
     {
       "own_goal": false,
@@ -1276,7 +1277,7 @@
       "player_id": "dravox_defender",
       "shootout": true,
       "side": "visiting",
-      "time": 40
+      "time": 41
     },
     {
       "own_goal": false,
@@ -1284,7 +1285,7 @@
       "player_id": "zytheris_striker",
       "shootout": true,
       "side": "visiting",
-      "time": 40
+      "time": 41
     },
     {
       "own_goal": false,
@@ -1292,7 +1293,7 @@
       "player_id": "spectra_midfielder",
       "shootout": true,
       "side": "home",
-      "time": 40
+      "time": 41
     },
     {
       "own_goal": false,
@@ -1300,7 +1301,7 @@
       "player_id": "hellguard_fullback",
       "shootout": true,
       "side": "visiting",
-      "time": 40
+      "time": 41
     },
     {
       "own_goal": false,
@@ -1308,7 +1309,7 @@
       "player_id": "voltus_defender",
       "shootout": true,
       "side": "home",
-      "time": 40
+      "time": 41
     },
     {
       "own_goal": false,
@@ -1316,7 +1317,7 @@
       "player_id": "flickerwing_winger",
       "shootout": true,
       "side": "home",
-      "time": 40
+      "time": 41
     },
     {
       "own_goal": false,
@@ -1324,7 +1325,7 @@
       "player_id": "flickerwing_winger",
       "shootout": true,
       "side": "home",
-      "time": 40
+      "time": 41
     }
   ],
   "half_substitutions_used": {},
@@ -1424,7 +1425,7 @@
     "home_score": 5,
     "last_possession": true,
     "period": "second_half",
-    "time": 40,
+    "time": 41,
     "visiting_score": 4
   },
   "shootout_goals": {

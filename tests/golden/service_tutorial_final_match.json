@@ -95,6 +95,7 @@
     }
   },
   "challenger_id": "sizzifizik_playmaker",
+  "clock_charged": false,
   "defense_maneuver": null,
   "events": [
     {
@@ -120,7 +121,7 @@
       "period": "first_half",
       "player_id": "sizzifizik_playmaker",
       "side": "home",
-      "time": 0
+      "time": 1
     },
     {
       "details": {
@@ -163,7 +164,7 @@
       "period": "first_half",
       "player_id": "sizzifizik_playmaker",
       "side": "home",
-      "time": 1
+      "time": 2
     },
     {
       "details": {
@@ -191,7 +192,7 @@
       "period": "first_half",
       "player_id": "glompex_midfielder",
       "side": "visiting",
-      "time": 2
+      "time": 3
     },
     {
       "details": {
@@ -219,7 +220,7 @@
       "period": "first_half",
       "player_id": "glompex_midfielder",
       "side": "visiting",
-      "time": 3
+      "time": 4
     },
     {
       "details": {
@@ -248,7 +249,7 @@
       "period": "first_half",
       "player_id": "sizzifizik_playmaker",
       "side": "home",
-      "time": 4
+      "time": 6
     },
     {
       "details": {
@@ -263,7 +264,7 @@
       "period": "first_half",
       "player_id": "acidel_striker",
       "side": "home",
-      "time": 4
+      "time": 6
     },
     {
       "details": {
@@ -274,7 +275,7 @@
       "period": "first_half",
       "player_id": "acidel_striker",
       "side": "home",
-      "time": 4
+      "time": 6
     },
     {
       "details": {
@@ -305,7 +306,7 @@
       "player_id": "acidel_striker",
       "shootout": false,
       "side": "home",
-      "time": 4
+      "time": 6
     }
   ],
   "half_substitutions_used": {},

@@ -86,6 +86,68 @@ rules, and the 2026-08-15 entry in the rules log for the author's reasoning.
   is its *own* band's last -- the second half's 15 is a plain cell, and a
   `minute in (15, 30)` test would have bordered it.
 
+## When the clock advances
+
+Since 2026-09-28 an action's cost is charged **the moment its outcome is
+decided** (Law 16.2.4), not at the end of everything it leads to. Until then
+the one place the clock moved was `finish_maneuver_resolution`, with the cost
+threaded there as `distance_moved` through every effect, run back, loose ball
+and injury queue. [`d12ball/flow/clock.py`](../../d12ball/flow/clock.py) is
+the charge now, and the sites that call it are the decisions:
+
+| Action | Charged in | By |
+| --- | --- | --- |
+| A maneuver won on the cards | `resolve_maneuver` | `charge_maneuver_clock` |
+| A maneuver with no challenger | `resolve_maneuver`, as it "succeeds" | `charge_maneuver_clock` |
+| Scorchit letting the cards stand | `force_test_step` | `charge_maneuver_clock` |
+| A won skill test | `skill_test_step`, on the winning roll, before its injury checks | `charge_maneuver_clock` |
+| A score attempt | `settle_score_attempt`, after the goal is logged, before the restart | `charge_clock` |
+| A time out | `begin_time_out`, after `call_time_out` | `charge_clock` |
+
+- **The cost is the card that resolves**, `RulesEngine.maneuver_clock_cost`
+  over `resolving_maneuver` (Law 16.2.3): a beaten High Pass costs the
+  Deflect's 1. That was already the behaviour -- each effect named its own
+  card's cost -- and until now it lived only in the rules log. The numbers
+  are constants in `components.py` (`MANEUVER_CLOCK_COST`,
+  `HIGH_PASS_CLOCK_COST`, `SETUP_PASS_CLOCK_COST`, `TIME_OUT_CLOCK_COST`);
+  the maneuver data only prints them in words, and
+  `tests/test_d12ball_clock_timing.py` holds the two together.
+- **`MatchState.clock_charged` says the charge has been made**, persisted
+  because the decision and the finish are often prompts apart, and cleared by
+  `reset_maneuver` and again at `start_turn`. `charge_maneuver_clock` charges
+  only while it is down, which is what lets `begin_effect_resolution` ask
+  again as a backstop behind every decision. `charge_clock` always charges:
+  a set-up shot is the one action charged twice, the maneuver's cost at its
+  decision and the shot's minute once the shot resolves.
+- **Last possession is declared at the finish, not at the charge.**
+  `advance_time` only moves the number; `declare_last_possession` raises the
+  flag, and `finish_maneuver_resolution` asks it once the action is done (Law
+  4.4.4, 16.3.1). Raising it at the charge would have `begin_run_back` end
+  the period on the declaring maneuver's own turnover. So the clock can read
+  15 in the middle of the maneuver that got there, and nothing reads the
+  number as the flag.
+- **The turnover that ends a period is on the clock now.** `begin_run_back`
+  ends the period on a turnover under last possession before the finish is
+  ever reached, so under the old timing that last maneuver or shot was never
+  charged and the whistle named the minute before it -- against Law 16.3.4.
+  The 2026-08-16 entry had patched the same hole for ceding alone.
+- **The legacy fallback is the finish's own old charge.** A game saved
+  between a decision and its finish under the old rule reads `clock_charged`
+  as False (the saved field's default), and the finish charges the
+  `distance_moved` it carried, exactly as it always did; a set-up shot saved
+  at its offer charges `pending_shot_setup_cost` with its own minute. That is
+  the only reason `distance_moved`, `pending_run_back_distance`,
+  `pending_own_goal_distance`, `pending_loose_ball_distance` and the resume
+  dicts still carry a cost. They stay until no half-finished game can
+  predate 2026-09-28; removing them is removing a saved key. The whole-game
+  test in `tests/test_d12ball_clock_timing.py` plays eight seeds and asserts
+  no finish is ever reached uncharged, which is what says the fallback is
+  only ever a legacy save's.
+- **A forced turn reset after a decision keeps the charge.** Under the old
+  timing nothing was on the clock until the finish, so `/d12ball resume
+  force` threw no minutes away; now it leaves the discarded action's minutes
+  charged. `/d12ball time` is the way to take them back, if wanted.
+
 ## The goal log
 
 Every goal of the game, in the order it was scored: who put it in, who it
@@ -118,9 +180,11 @@ which is the whole reason this exists.
   first half's overrun always marked, an unmarked number can only be read one
   way.
 - **The stamp is the clock as the ball crosses the line**, taken before the
-  action's own cost is charged -- a shot's clock cost is spent later, in
-  `finish_maneuver_resolution`, so recording it after would report the minute
-  play restarted.
+  shot's own minute is charged -- `settle_score_attempt` logs the goal first
+  and charges the shot just after it (Law 16.2.5), so recording it after would
+  report the minute play restarted. A goal off a set-up already carries the
+  maneuver's cost, which was charged when that maneuver won, and an own goal
+  its Pressure's.
 - **A shootout goal is logged and flagged.** It is a goal and goes on the
   scoreboard like any other, but it has no minute and no run of play, so
   `build_goal_log` lists those apart rather than stamping six goals with

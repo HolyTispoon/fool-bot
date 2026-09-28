@@ -139,10 +139,12 @@ def sent_texts(interaction: SimpleNamespace) -> list[str]:
 
 class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
     """
-    finish_maneuver_resolution's clock handling: reaching the period's
-    last minute declares last possession, the clock keeps counting past
-    it, and only a turnover under a last possession that was already in
-    force ends the period.
+    finish_maneuver_resolution's last-possession handling: a clock
+    that has reached the period's last minute declares last possession,
+    the clock keeps counting past it, and only a turnover under a last
+    possession that was already in force ends the period. The clock
+    itself was charged when the action's outcome was decided (Law
+    16.2.4), so each position stands with it already charged.
     """
 
     @classmethod
@@ -175,7 +177,8 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         cog.end_period = mock.AsyncMock()
         game = build_game()
         match = self.build_match()
-        match.scoreboard.time = 14
+        match.scoreboard.time = 15
+        match.clock_charged = True
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
@@ -220,13 +223,15 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         The clock used to stop dead at 15, which is how last possession
         was recorded at all. It is a flag now, and the minutes a last
         possession takes are charged like any other -- so a first half
-        genuinely ends at 19.
+        genuinely ends at 19. Here four of them were charged at the
+        decision, and the finish leaves them be.
         """
         cog = build_cog()
         cog.end_period = mock.AsyncMock()
         game = build_game()
         match = self.build_match()
-        match.scoreboard.time = 15
+        match.scoreboard.time = 19
+        match.clock_charged = True
         match.scoreboard.last_possession = True
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game

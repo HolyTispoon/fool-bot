@@ -74,17 +74,26 @@ class SpineFixture(unittest.TestCase):
 class FinishManeuverResolutionTests(SpineFixture):
     """The tail of every ordinary path."""
 
-    def test_the_clock_advances_and_the_turn_is_handed_back(self) -> None:
+    def test_the_turn_is_handed_back_on_the_clock_as_it_stands(
+        self,
+    ) -> None:
+        """
+        The clock was charged when the outcome was decided (Law
+        16.2.4), so the finish adds nothing and says nothing of it. The
+        old charge here is only a legacy save's -- see
+        tests/test_d12ball_clock_timing.py.
+        """
+        self.match.clock_charged = True
         before = self.match.scoreboard.time
         result = finish_maneuver_resolution(
             self.engine, self.game, self.match, distance_moved=2,
         )
-        self.assertEqual(self.match.scoreboard.time, before + 2)
+        self.assertEqual(self.match.scoreboard.time, before)
         self.assertEqual(
             self.follow_on(result), FollowOnStep.SEND_TURN_PROMPT,
         )
         self.assertTrue(result.board_changed)
-        self.assertIn("Time has advanced 2", result.narration[-1])
+        self.assertNotIn("Time has advanced", result.narration[-1])
 
     def test_the_maneuver_state_is_cleared(self) -> None:
         """
@@ -133,7 +142,9 @@ class FinishManeuverResolutionTests(SpineFixture):
         comes out of that maneuver with the ball plays it out, and only
         loses the period when *they* lose the ball.
         """
-        self.match.scoreboard.time = self.match.scoreboard.last_minute - 1
+        # Charged at its decision, onto the last minute.
+        self.match.scoreboard.time = self.match.scoreboard.last_minute
+        self.match.clock_charged = True
         result = finish_maneuver_resolution(
             self.engine, self.game, self.match, turnover_occurred=True,
         )

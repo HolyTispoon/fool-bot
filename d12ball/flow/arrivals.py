@@ -43,6 +43,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.wire import jsonable
+from d12ball.flow.clock import charge_clock
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow import injuries
 from d12ball.flow.rolls import after_the_contest, settle_loose_ball_winner
@@ -475,10 +476,18 @@ def finish_maneuver_resolution(
 ) -> StepResult:
     """
     The tail of every maneuver-effect path once movement, speed, any
-    turnover, and run-back are all settled: advance the clock, end the
-    period if this turnover closes out last possession, clear the
-    maneuver state, and hand the offensive choice back to whoever now
-    has the ball.
+    turnover, and run-back are all settled: declare last possession if
+    the clock has reached the last minute, end the period if this
+    turnover closes out last possession, clear the maneuver state, and
+    hand the offensive choice back to whoever now has the ball.
+
+    **The clock is not charged here any more** (Law 16.2.4,
+    2026-09-28): it was charged the moment the action's outcome was
+    decided, and `match.clock_charged` says so. `distance_moved` is
+    charged only when that flag is down, which is a game saved in the
+    middle of an action under the old rule -- its decision was never
+    charged, so its finish charges the cost it carried the old way.
+    Everything that threads `distance_moved` here is that fallback's.
 
     The maneuver that reaches the period's last minute never ends it,
     even when it is itself a turnover: last possession is the
@@ -520,7 +529,13 @@ def finish_maneuver_resolution(
         return loose
 
     narration: list[str] = []
-    entered_last_possession = match.advance_time(distance_moved)
+    # A game saved mid-action before 2026-09-28: see the docstring.
+    legacy_clock = (
+        ""
+        if match.clock_charged
+        else charge_clock(match, distance_moved)
+    )
+    entered_last_possession = match.declare_last_possession()
     if entered_last_possession:
         prefix = f"{lead_in}\n\n" if lead_in else ""
         possessing_side = format_team_side_label(
@@ -538,7 +553,7 @@ def finish_maneuver_resolution(
         # on it: from here every turn is charged as usual and only the
         # turnover ends the period.
         narration.append(
-            f"{prefix}The clock reaches "
+            f"{prefix}The clock has reached "
             f"{match.scoreboard.last_minute:02d} -- this is now "
             f"**last possession**. {body} The clock keeps running."
         )
@@ -562,18 +577,14 @@ def finish_maneuver_resolution(
     match.reset_maneuver()
 
     prefix = f"{lead_in}\n\n" if lead_in else ""
-    # Every maneuver costs at least its flat space minute (2026-08-16),
-    # ceding included, so there is no longer a zero-cost turn to word
-    # specially here.
-    clock = (
-        f"Time has advanced {distance_moved}, now "
-        f"at {match.scoreboard.time:02d}."
-    )
+    # The clock was said when it was charged, the moment the outcome
+    # was decided; only a legacy finish charges, and so says it, here.
+    clock = f" {legacy_clock}" if legacy_clock else ""
     narration.append(
         f"{prefix}Ball is now in "
         f"{ball_space_label(match)}, "
         f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
-        f"has possession. {clock}"
+        f"has possession.{clock}"
     )
     return StepResult(
         narration=narration,
