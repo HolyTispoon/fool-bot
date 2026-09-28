@@ -247,13 +247,76 @@ class PresentationMixin:
         defender_id: str,
         walk_in_text: str,
         game: Optional[D12BallGame] = None,
+        caption: str = "",
     ) -> None:
         """
         Post the matchup image, with the challenger's walk-in above it
         rather than below: the image is meant to sit directly on top of
         the maneuver prompt, which is the message a coach is reading it
-        for.
+        for. `caption` is the image message's own text, where it has
+        one (`challenge_caption`).
         """
+        await self.post_walk_in(interaction, walk_in_text)
+        image = await self.build_maneuver_challenge_file(
+            match, defender_id, game,
+        )
+        if not caption:
+            await send_new_prompt(interaction, file=image)
+            return
+        await send_new_prompt(
+            interaction,
+            caption,
+            file=image,
+            allowed_mentions=discord.AllowedMentions(
+                users=False, roles=False, everyone=False,
+            ),
+        )
+
+    def challenge_caption(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        challenger_id: str,
+    ) -> str:
+        """
+        The caption on a challenge image that Glompex's offer held back
+        (the author, 2026-09-28): the two players, then each Ooze on the
+        ball's space who adds by Merge (Law 20.5) and what they add, a
+        line apiece. The image draws the two and not the Oozes beside
+        them, and whoever just stepped on is the reason it waited.
+
+        Who Merges is `RulesEngine.merge_contributions`, asked the way
+        the skill test asks it: offense for the side on the ball,
+        defense for the other, with the two contesting players struck
+        out.
+        """
+        handler_id = match.active_player_id
+        rolling = (handler_id, challenger_id)
+        lines = [
+            f"{self.player_id_label(match, handler_id)} against "
+            f"{self.player_id_label(match, challenger_id)}"
+        ]
+        for side, skill in (
+            (match.ball.possession, "offense"),
+            (match.defending_side(), "defense"),
+        ):
+            lines.extend(
+                f"{self.player_id_label(match, player_id)} Merges in "
+                f"+{value}"
+                for player_id, value in self.engine.merge_contributions(
+                    game, match, side, rolling, skill,
+                )
+            )
+        return "\n".join(lines)
+
+    async def post_walk_in(
+        self,
+        interaction: discord.Interaction,
+        walk_in_text: str,
+    ) -> None:
+        """The challenger's walk-in, pinging nobody; nothing for a
+        walk-in that says nothing. Alone where Glompex's offer holds the
+        image back (`challenge_placement`)."""
         if walk_in_text:
             await send_new_prompt(
                 interaction,
@@ -262,12 +325,6 @@ class PresentationMixin:
                     users=False, roles=False, everyone=False,
                 ),
             )
-        await send_new_prompt(
-            interaction,
-            file=await self.build_maneuver_challenge_file(
-                match, defender_id, game,
-            ),
-        )
 
     async def drop_turn_prompt(
         self,
