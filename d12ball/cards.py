@@ -48,6 +48,7 @@ from d12ball.render import (
     arrowhead_triangle,
     draw_dashed_line,
     load_font,
+    load_rank_font,
     wrap_text,
 )
 
@@ -193,12 +194,11 @@ def font(size: int, bold: bool = False) -> ImageFont.ImageFont:
 def rank_font(size: int) -> ImageFont.ImageFont:
     """
     The face a rank -- O1, D2 -- is drawn in, wherever a card draws one:
-    the header's badge, the matchup band and the back's hexagon. Roboto
-    Slab Bold, the card's own (the author, 2026-09-28): Montserrat
-    ExtraBold was tried for a rounder O and read as the wrong font
-    beside everything else on the card.
+    the header's badge, the matchup band and the back's hexagon. Jost
+    Bold, whose O is a full circle beside a narrow zero; see
+    `render.load_rank_font`.
     """
-    return font(size, bold=True)
+    return load_rank_font(size * SUPERSAMPLE)
 
 
 def px(value: float) -> float:

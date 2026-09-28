@@ -289,6 +289,32 @@ def load_goal_zone_font(size: int) -> ImageFont.ImageFont:
     return load_font(size, bold=True)
 
 
+def load_rank_font(size: int) -> ImageFont.ImageFont:
+    """
+    Jost Bold, for a maneuver's rank -- O1, D2 -- and nothing else
+    (the author, 2026-09-28). Roboto Slab's O is the width of its 0, so
+    "O1" can read as "01"; Jost's O is a full circle. Montserrat
+    ExtraBold was tried first and read as too heavy beside the slab.
+    The file is the variable font's 700 instance, cut with fontTools.
+    Over the same bundled-path-first chain as `load_goal_zone_font`,
+    falling back to Roboto Slab Bold the same way.
+    """
+    bundled = FONT_DIR / "Jost-Bold.ttf"
+    for candidate in (str(bundled), "Jost-Bold.ttf"):
+        try:
+            return ImageFont.truetype(candidate, size)
+        except OSError:
+            continue
+
+    LOGGER.warning(
+        "No scalable Jost font found for size %d; falling back to the "
+        "bundled Roboto Slab Bold. Expected a bundled font at %s.",
+        size,
+        bundled,
+    )
+    return load_font(size, bold=True)
+
+
 FONT_TITLE = load_font(50, bold=True)
 FONT_HEADING = load_font(40, bold=True)
 FONT_BODY = load_font(32)
