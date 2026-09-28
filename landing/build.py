@@ -98,6 +98,14 @@ STUDIO_PARAGRAPH = (
 )
 STUDIO_EMPHASIS = ("capture a slice of the human experience", "mechanics to match the theme")
 
+# The line under the title in the hero's banner, the author's, in
+# italics (2026-09-28). The strapline is the headline right under the banner,
+# so the banner says something else rather than the same sentence twice.
+HERO_SUBTITLE = (
+    "Imaginary fantasy creatures run across a pretend field, trying to "
+    "score make-believe goals"
+)
+
 # D12 Ball's overview, the line from the game's Notion page, as written.
 # The d12ball page opens "What it is" with it after the title; the
 # studio's card for the game carries it as a sentence of its own.
@@ -336,9 +344,12 @@ def species_face(species: str):
 
 @lru_cache(maxsize=None)
 def night_banner() -> Image.Image:
+    # The hero's own headline is the strapline, set under the banner,
+    # so the banner carries the page's subtitle instead of saying it twice.
     catalog, rules, facts = game()
     return render_banner(
         facts=facts, catalog=catalog, rules=rules, palette=NIGHT_COVER,
+        subtitle=HERO_SUBTITLE, subtitle_italic=True,
     ).convert("RGB")
 
 
