@@ -633,7 +633,7 @@ function drawBoard(state) {
   el("benches").replaceChildren();
   el("sheet-benches").replaceChildren();
   el("sheet-benches").hidden = !(narrow && layout);
-  drawLitRepeat(layout);
+  drawLitRepeat(layout, state.prompt);
   if (!layout) return;
   box.append(stage(layout, { live: true, narrow }));
   watchFit(box);
@@ -651,11 +651,16 @@ UPRIGHT.addEventListener("change", () => {
    board, at the desktop's size with its name and its chip, so nothing
    needs zooming to answer. It is `lit` read again -- the same controls
    the field lights, each pressed the same way -- so nothing is on it
-   that is not lit on the field, and nothing lit is missing from it. */
-function drawLitRepeat(layout) {
+   that is not lit on the field, and nothing lit is missing from it.
+   Not in a Coaching Choice's hub, where every player is lit to pick
+   up: it is answered by clicking the meeples on the field or dragging
+   them between the field and the bench, and nine meeples repeated
+   over its controls only pushed them down (the author, 2026-09-28). */
+function drawLitRepeat(layout, prompt) {
   const box = el("lit-repeat");
   box.replaceChildren();
-  const items = layout && lit ? litItems(layout) : [];
+  const hub = Boolean(prompt && prompt.kind === "coaching_hub");
+  const items = layout && lit && !hub ? litItems(layout) : [];
   box.hidden = !items.length;
   if (!items.length) return;
   box.append(h("span", { class: "repeat-label" }, "LIT ON THE FIELD"), ...items);

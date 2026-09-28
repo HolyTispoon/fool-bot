@@ -835,7 +835,13 @@ two shapes, by which way it is held:
   in a Coaching Choice, to put back. It is `readLit`'s index read a
   second time, each entry pressed exactly as its object on the field
   is, so nothing is on the sheet that is not lit on the field and
-  nothing lit is missing from it. The sideline is on the sheet too,
+  nothing lit is missing from it -- **except in a Coaching Choice's
+  hub**, where every player is lit to pick up: repeated, that was nine
+  meeples above the substitution and swap controls, and the hub is
+  answered on the field -- a click on a meeple, or a drag between the
+  field and the bench -- so the sheet repeats nothing there (the
+  author, 2026-09-28). The Coaching Offer lights only the bench tile
+  and keeps its repeat. The sideline is on the sheet too,
   under the question, since the narrow field has no room under it.
   The compact jumbotron is one line: the teams, the score, the ball's
   d12 beside the side that has it, the minute over the half; the
