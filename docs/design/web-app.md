@@ -860,6 +860,32 @@ two shapes, by which way it is held:
 - The top bar is the room's number and the seat, the team's emoji for
   its name.
 
+**Three ways to look at the game: desktop, iPad, phone** (the author,
+2026-09-28). The page has three layouts, each its own block in
+`app.css`, and a change to it is looked at, and shown to the author,
+in all three -- never one, since a change that is right on the desktop
+can crowd the phone's one line or push the tablet's column under the
+fold, and nothing in the suite sees any of it:
+
+| View | What the page reads | What it gets |
+| --- | --- | --- |
+| **Desktop** | wider than 960px, where the iPad's query does not hold | the stacked page: jumbotron, field, question box, the sidebar's four tabs |
+| **iPad** | 961px to 1400px on its side with a coarse pointer (`TABLET`) | two columns: the desktop field on the left, the phone's tabs on the right |
+| **Phone** | 960px and under (`phone()`), upright (`UPRIGHT`) | one screen: the narrow field, the bottom sheet, the tab bar |
+
+An iPad held upright is 960px or under and gets the phone's layout, and
+a phone on its side has a shape of its own (below); the three above are
+the ones every change is shown on. `scripts/capture_web_views.py`
+takes them: a kickoff game staged the way the landing page's board
+capture stages one (`landing/capture.py`), or a saved web game with
+`--games-file` and `--game`, opened as an observer in headless Chrome
+at 1440x900, 1180x820 with touch, and 390x844 with touch, one PNG each
+(`--selector` for one element, the jumbotron say). It reads back which
+layout the page chose and fails a view that fell into the wrong one,
+so a picture labelled "ipad" is the tablet's layout and not the
+desktop's at that width. As an observer nothing is lit for the reader;
+a change to what a coach is asked is looked at by playing it.
+
 **A tablet on its side is a third shape: two columns** (2026-09-27).
 A touch screen held on its side and wider than a phone -- 961px to
 1400px across with a coarse pointer anywhere (`any-pointer: coarse`):

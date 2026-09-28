@@ -198,6 +198,9 @@ Hard rules for every step of this redesign:
 - The design is the canvas at https://claude.ai/artifact/Mq7Mw592x9WYKjrN3Muo9V.
   Match it; where the prompt below and the canvas disagree, the prompt
   wins, and say so in the PR.
+- Look at the page on all three of its screens -- desktop, iPad and
+  phone (python3 scripts/capture_web_views.py --out <dir>) -- and put
+  all three pictures in the PR, never one.
 - Keep the map and the design docs current: update docs/design/web-app.md
   in the same commit for any decision this step settles, with the
   reasoning. Do not touch docs/living-rules.md.
