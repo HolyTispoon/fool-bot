@@ -1173,6 +1173,9 @@ def own_goal_roll_step(
     offense_skill = engine.attacking_skill(
         game, match, offense_player.player_id, "own_goal",
     )
+    skill_name = engine.attacking_skill_name(
+        game, match, offense_player.player_id, "own_goal",
+    )
 
     rolls = tuple(scripted_or_random(engine, game, "own_goal", 2))
     # **Volatile does not reach this roll** (the author, 2026-09-23),
@@ -1218,7 +1221,7 @@ def own_goal_roll_step(
     arithmetic = (
         f"{engine.format_player_label(match, offense_player)} "
         f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
-        f"is {taken}, + {offense_skill} (offensive skill)"
+        f"is {taken}, + {offense_skill} ({skill_name.lower()} skill)"
     )
     for line in overdrive_details:
         arithmetic += f", {line}"

@@ -248,6 +248,11 @@ their own (below).
     defensive on the first two only; the High Pass contest stays
     offensive (the author, 2026-09-26), and the contest sites still ask
     here so every attacking roll reads one place.
+    `attacking_skill_name` is the word for the same answer, over the
+    same reading, so a line never names one skill and adds the other:
+    the own-goal arithmetic, the skill test's detail line and the web
+    app's situation window all say "defensive" where Umbrik's is the
+    one added (the author, 2026-09-28).
   - *Kindlefinger* -- `injury_ignite` and `settle_injury_ignite`, the
     token moved before the check is compared (the author, 2026-09-26). The
     ignite is `ignite`'s own, so its die and sentence are Volatile's;

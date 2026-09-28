@@ -924,6 +924,23 @@ class UmbrikTests(unittest.TestCase):
             self.match.pending_loose_ball_is_high_pass = True
             self.assertEqual(self.asked("contest"), self.skills.offense)
 
+    def named(self, roll: str) -> str:
+        return ENGINE.attacking_skill_name(
+            self.game, self.match, self.player, roll,
+        )
+
+    def test_the_skill_is_named_as_the_one_added(self) -> None:
+        # A line that names one skill and adds the other would be a
+        # coach reading the wrong number (the author, 2026-09-28).
+        self.match.offense_maneuver = "high_pass"
+        self.assertEqual(self.named("own_goal"), "Offensive")
+        with holding(self.player, PersonalAbility.DEFENSIVE_THROW):
+            self.assertEqual(self.named("own_goal"), "Defensive")
+            self.assertEqual(self.named("skill_test"), "Defensive")
+            self.assertEqual(self.named("contest"), "Offensive")
+            self.match.offense_maneuver = "low_pass"
+            self.assertEqual(self.named("skill_test"), "Offensive")
+
 
 class KindlefingerTests(unittest.TestCase):
     """Kindlefinger's injury check ignites (Law 21)."""

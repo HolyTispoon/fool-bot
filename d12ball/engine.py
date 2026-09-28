@@ -2390,15 +2390,43 @@ class RulesEngine:
         contest for the ball).
         """
         skills = self.skills(game, player_id)
+        if self._attacks_on_defense(game, match, player_id, roll):
+            return skills.defense
+        return skills.offense
+
+    def attacking_skill_name(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        player_id: str,
+        roll: str,
+    ) -> str:
+        """
+        Which skill `attacking_skill` hands back, as a word for the
+        line that adds it: "Offensive", or "Defensive" for **Umbrik**
+        where his Law 21 ability swaps it in -- asked beside the number
+        so a sentence never names one skill and adds the other.
+        """
+        if self._attacks_on_defense(game, match, player_id, roll):
+            return "Defensive"
+        return "Offensive"
+
+    def _attacks_on_defense(
+        self,
+        game: Optional[D12BallGame],
+        match: MatchState,
+        player_id: str,
+        roll: str,
+    ) -> bool:
+        """Umbrik's swap (Law 21): his defensive skill on the attack in
+        an own-goal roll and a skill test over his own High Pass."""
         if not self.has_personal_ability(
             game, player_id, PersonalAbility.DEFENSIVE_THROW,
         ):
-            return skills.offense
-        defensive = (
-            roll == "own_goal"
-            or (roll == "skill_test" and match.offense_maneuver == "high_pass")
+            return False
+        return roll == "own_goal" or (
+            roll == "skill_test" and match.offense_maneuver == "high_pass"
         )
-        return skills.defense if defensive else skills.offense
 
     def re_roll_tokens(
         self, game: D12BallGame, player_id: Optional[str],
