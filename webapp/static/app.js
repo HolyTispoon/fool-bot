@@ -1981,7 +1981,23 @@ function situationSide(side) {
         ? h("div", { class: "situation-notes" },
           notes.flatMap((note, i) => (i ? [" · ", note] : [note])))
         : null,
+      side.players.flatMap((player) => player.abilities.map((ability) =>
+        situationAbility(ability, wall ? player.short : null))),
     ),
+  );
+}
+
+/* One ability a player brings to the roll: a species' (Volatile,
+   Lithium Powered) with its icon, or in an advanced game their own --
+   the sheet's words, as the server hands them. In a wall, whose it is. */
+function situationAbility(ability, whose) {
+  return h("div", { class: `situation-ability-line ${ability.kind}` },
+    ability.species
+      ? h("img", { class: "situation-species", src: `/species/${ability.species}_color.png`, alt: "" })
+      : null,
+    h("strong", {}, whose ? `${whose} · ${ability.name}` : ability.name),
+    " ",
+    ability.text,
   );
 }
 

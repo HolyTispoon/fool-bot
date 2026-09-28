@@ -1645,6 +1645,27 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   nothing could fail and "13+" where only a modifier drawn at the roll
   (an ignite) could save it. An own-goal roll with nobody on the ball,
   a position no game reaches, has none.
+- **It names the abilities that bear on the roll** (the author,
+  2026-09-28), each on a muted line under the player's words:
+  - **a species' ability where it reaches the roll**, in the sheet's
+    own short words (`species.json`'s `ability_short`, never cut
+    here), with the species' coloured icon: Volatile on whoever rolls
+    a skill test and on the shooter (Law 20.2.3 -- never an injury
+    check or an own-goal roll), Lithium Powered on any roll a Cyborg
+    makes (Law 20.3.5). Whether the player has it is
+    `has_species_ability`, so a training game shows none;
+    `present.ROLL_SPECIES` says only which reminder goes with which
+    roll. Mind Pull is not repeated on its own window, and Slimey is
+    not shown on an Ooze who is rolling, since Merge is what the
+    *other* Oozes on the ball add;
+  - **Merge as the number it adds**: `merge_bonus`'s own lines ("+6
+    Acidel (Merge)") in the side's modifiers, attack and defence in a
+    skill test and the attack alone in a shot (Law 20.5), so the
+    window's numbers are the dice's;
+  - **in an advanced game, every player's personal ability** --
+    the rollers', the wall's, the Telekinetic's -- as the advanced face
+    of their card prints it (`personal_ability_text`), prefixed with
+    who it belongs to in a wall.
 - **It is a strip, not a panel** (the author, 2026-09-28: "takes too
   much space ... no need for the black background"). Nothing sits
   behind it: the title and the space on one line, then each side as a

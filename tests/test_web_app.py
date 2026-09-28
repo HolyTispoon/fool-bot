@@ -1410,6 +1410,103 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                 (roller,) = got["sides"]
                 self.assertEqual(roller["skill"], f"{word} skill {skill:+d}")
 
+    def situation_in(self, name: str, mode, stage=lambda match: None):
+        from d12ball.prompts import pending
+        from webapp.present import situation
+
+        fixture = case(name)
+        fixture.game.mode = mode
+        stage(fixture.match)
+        return fixture, situation(
+            ENGINE, fixture.game, fixture.match,
+            pending(ENGINE, fixture.game, fixture.match),
+        )
+
+    def test_the_species_abilities_that_bear_on_the_roll_are_named(
+        self,
+    ) -> None:
+        # Volatile and Lithium Powered on whoever rolls a skill test,
+        # Lithium Powered alone on an injury check or an own-goal roll
+        # (Laws 20.2.3, 20.3.5) -- and in no game that does not play
+        # the species abilities (the author, 2026-09-28).
+        from d12ball.components import SPECIES_CYBORG, SPECIES_FIRE_DEMON
+        from d12ball.player_cards import species_ability
+
+        rolls = (
+            ("maneuver picks", (SPECIES_FIRE_DEMON, SPECIES_CYBORG)),
+            ("injury test", (SPECIES_CYBORG,)),
+        )
+        for name, bearing in rolls:
+            for mode in (GameMode.TRAINING, GameMode.STANDARD):
+                with self.subTest(name=name, mode=mode):
+                    fixture, got = self.situation_in(name, mode)
+                    for side in got["sides"]:
+                        for player in side["players"]:
+                            named = [
+                                note["name"] for note in player["abilities"]
+                                if note["kind"] == "species"
+                            ]
+                            self.assertEqual(named, [
+                                species_ability(kind)["name"]
+                                for kind in bearing
+                                if ENGINE.has_species_ability(
+                                    fixture.game, player["id"], kind,
+                                )
+                            ])
+
+    def test_merge_is_the_model_s_own_line_in_the_modifiers(self) -> None:
+        # An Ooze of each side stood on the ball, neither rolling: what
+        # each adds is `merge_bonus`'s line, as the dice list it.
+        from d12ball.components import SPECIES_OOZE
+
+        def oozes_on_the_ball(match):
+            for setup in (match.home, match.visiting):
+                ooze = next(
+                    player_id for player_id in setup.field_players
+                    if ENGINE.species_of(player_id) == SPECIES_OOZE
+                    and player_id not in (
+                        match.active_player_id, match.challenger_id,
+                    )
+                )
+                match.move_meeple(
+                    ooze, match.ball.zone, match.ball.space_index,
+                )
+
+        fixture, got = self.situation_in(
+            "maneuver picks", GameMode.STANDARD, oozes_on_the_ball,
+        )
+        match, game = fixture.match, fixture.game
+        rolling = (match.active_player_id, match.challenger_id)
+        attack, defence = got["sides"]
+        for side, team_side, skill in (
+            (attack, match.ball.possession, "offense"),
+            (defence, match.defending_side(), "defense"),
+        ):
+            _, lines, _ = ENGINE.merge_bonus(
+                game, match, team_side, rolling, skill,
+            )
+            self.assertTrue(lines)
+            self.assertEqual(side["modifiers"][-len(lines):], lines)
+
+    def test_personal_abilities_are_named_in_an_advanced_game_only(
+        self,
+    ) -> None:
+        for mode in (GameMode.STANDARD, GameMode.ADVANCED):
+            with self.subTest(mode):
+                fixture, got = self.situation_in("score attempt", mode)
+                for side in got["sides"]:
+                    for player in side["players"]:
+                        personal = [
+                            note["text"] for note in player["abilities"]
+                            if note["kind"] == "personal"
+                        ]
+                        text = ENGINE.personal_ability_text(
+                            fixture.game, player["id"],
+                        )
+                        self.assertEqual(personal, [text] if text else [])
+                        if mode is GameMode.STANDARD:
+                            self.assertEqual(personal, [])
+
     async def test_a_mind_pull_needs_its_minimum_and_costs_its_token(
         self,
     ) -> None:

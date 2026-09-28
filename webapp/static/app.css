@@ -464,6 +464,11 @@ img { display: block; }
 /* The modifiers and the ability on one muted line, a dot between. */
 .situation-notes { font-size: 12.5px; color: var(--muted); }
 .situation-notes .situation-ability { font-style: italic; }
+/* An ability the player brings to the roll, one muted line each: the
+   species icon in front of a species' own, the name in bold. */
+.situation-ability-line { font-size: 12px; line-height: 1.35; color: var(--muted); }
+.situation-ability-line strong { color: var(--text); font-weight: 700; }
+.situation-species { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
 .situation-dice { display: flex; flex: none; gap: 4px; }
 .situation-dice .die { width: 44px; height: 44px; }
 .situation-rule { font-family: "Board", serif; font-size: 13px; font-weight: 700; color: var(--strong); }

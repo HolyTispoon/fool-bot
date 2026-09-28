@@ -57,6 +57,8 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 from d12ball import stats, tokens
 from d12ball.components import (
     MANEUVER_TIER_GAMBIT,
+    SPECIES_CYBORG,
+    SPECIES_FIRE_DEMON,
     MatchState,
     PlayerRole,
     TeamSide,
@@ -66,6 +68,7 @@ from d12ball.engine import RulesEngine
 from d12ball.formatting import (
     capitalized,
     coach_name,
+    player_with_role,
     role_brackets,
     space_label,
     travel_space_label,
@@ -81,6 +84,7 @@ from d12ball.game import (
 from d12ball.prompts import PendingPrompt, PromptKind, asked_sides
 from d12ball.dice_brief import maneuver_challenge_brief, score_attempt_brief
 from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
+from d12ball.player_cards import species_ability
 from d12ball.render import (
     CHALLENGE_BAND_FULL,
     CHALLENGE_BAND_HALF,
@@ -2174,10 +2178,12 @@ def _situation_player(
     match: MatchState,
     player_id: str,
     side: Optional[ChallengeSide],
+    species: Sequence[str] = (),
 ) -> dict:
-    """One portrait in the situation: who, what they add, and whether
-    it is half of their skill (a shot's defender off the ball) -- the
-    last three `None` for a roll nobody contests."""
+    """One portrait in the situation: who, what they add, whether it is
+    half of their skill (a shot's defender off the ball) -- the last
+    three `None` for a roll nobody contests -- and the abilities that
+    bear on it (`_abilities`)."""
     return {
         "id": player_id,
         "label": render_text(
@@ -2186,11 +2192,80 @@ def _situation_player(
                 match, engine.get_player_definition(player_id),
             ),
         ),
+        # Plain, for the line that says whose an ability is in a wall.
+        "short": player_with_role(engine.get_player_definition(player_id)),
         "portrait": f"/api/game/{game.game_id}/portrait/{player_id}.png",
         "value": None if side is None else side.value,
         "skill": None if side is None else side.skill,
         "halved": False if side is None else side.halved,
+        "abilities": _abilities(engine, game, player_id, species),
     }
+
+
+#: The species abilities that bear on each roll the situation is asked
+#: over, for whoever rolls it. **Which reminder goes with which roll,
+#: never whether the ability fires** -- that is `has_species_ability`'s,
+#: asked for every player below: Volatile reaches a skill test and the
+#: shooter's die and never an injury check or an own-goal roll (Law
+#: 20.2.3), Overdrive any d12 a Cyborg rolls (Law 20.3.5). Merge is not
+#: here: it is a number another player adds, so it is the model's own
+#: line in the side's modifiers (`RulesEngine.merge_bonus`). A Mind Pull
+#: is the Telekinetics' ability already, and the window says it.
+ROLL_SPECIES: Mapping[str, tuple[str, ...]] = {
+    "skill_test": (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+    "shot": (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+    "injury": (SPECIES_CYBORG,),
+    "own_goal": (SPECIES_CYBORG,),
+    "mind_pull": (),
+}
+
+
+def _abilities(
+    engine: RulesEngine,
+    game: D12BallGame,
+    player_id: str,
+    species: Sequence[str],
+) -> list[dict]:
+    """
+    What a player brings to this roll beyond their skill (the author,
+    2026-09-28): their species' ability where it bears on the roll and
+    the game plays it (`has_species_ability`), in the sheet's own short
+    words (`species.json`, never shortened here), and in an advanced
+    game their personal ability, as the advanced face of their card
+    prints it (`personal_ability_text`).
+    """
+    notes = []
+    for kind in species:
+        if not engine.has_species_ability(game, player_id, kind):
+            continue
+        entry = species_ability(kind)
+        if entry.get("ability_short"):
+            notes.append({
+                "kind": "species",
+                "species": kind,
+                "name": entry.get("name", ""),
+                "text": entry["ability_short"],
+            })
+    personal = engine.personal_ability_text(game, player_id)
+    if personal:
+        notes.append({"kind": "personal", "name": "Personal", "text": personal})
+    return notes
+
+
+def _merged(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    side: dict,
+    team_side: TeamSide,
+    rolling: Sequence[str],
+    skill: str,
+) -> dict:
+    """A side with what its Oozes on the ball add by Merge (Law 20.5),
+    in `merge_bonus`'s own lines -- the ones the dice list it under."""
+    _, lines, _ = engine.merge_bonus(game, match, team_side, rolling, skill)
+    side["modifiers"] = [*side["modifiers"], *lines]
+    return side
 
 
 def _situation_side(
@@ -2201,6 +2276,7 @@ def _situation_side(
     players: Sequence[tuple[str, ChallengeSide]],
     with_ability: bool,
     empty: str = "",
+    species: Sequence[str] = (),
 ) -> dict:
     """
     One side of the matchup, worded as the PNG words it
@@ -2226,7 +2302,7 @@ def _situation_side(
         "team": team_display_name(team),
         "colour": TEAM_COLORS[team],
         "players": [
-            _situation_player(engine, game, match, player_id, side)
+            _situation_player(engine, game, match, player_id, side, species)
             for player_id, side in players
         ],
         "skill": skill,
@@ -2271,6 +2347,7 @@ def _roller(
     player_id: str,
     line: str,
     modifiers: Sequence[str] = (),
+    species: Sequence[str] = (),
 ) -> dict:
     """
     The one side of a roll nobody rolls against -- an injury check, an
@@ -2283,7 +2360,9 @@ def _roller(
         "team": team_display_name(team),
         "colour": TEAM_COLORS[team],
         "players": [
-            _situation_player(engine, game, match, player_id, None),
+            _situation_player(
+                engine, game, match, player_id, None, species,
+            ),
         ],
         "skill": line,
         "modifiers": list(modifiers),
@@ -2356,7 +2435,7 @@ def _injury_situation(
             _roller(
                 engine, game, match, player_id,
                 f"Carries {carried} {token_noun} {tokens_word}",
-                modifiers,
+                modifiers, ROLL_SPECIES["injury"],
             ),
         ],
         "roll": _roll(
@@ -2397,6 +2476,7 @@ def _own_goal_situation(
             _roller(
                 engine, game, match, player_id,
                 f"{skill_name} skill {skill:+d}", modifiers,
+                ROLL_SPECIES["own_goal"],
             ),
         ],
         "roll": _roll(
@@ -2464,17 +2544,30 @@ def _challenge_situation(
     offense, defense, where = maneuver_challenge_brief(
         engine, match, challenger, game,
     )
+    # Both roll if the cards tie, and an Ooze on the ball who is
+    # neither adds by Merge -- as `skill_test_step` asks it.
+    rolling = (attacker, challenger)
     return {
         "title": CHALLENGE_TITLE,
         "where": where,
         "sides": [
-            _situation_side(
-                engine, game, match, match.team_for_player(attacker),
-                [(attacker, offense)], with_ability=True,
+            _merged(
+                engine, game, match,
+                _situation_side(
+                    engine, game, match, match.team_for_player(attacker),
+                    [(attacker, offense)], with_ability=True,
+                    species=ROLL_SPECIES["skill_test"],
+                ),
+                match.ball.possession, rolling, "offense",
             ),
-            _situation_side(
-                engine, game, match, match.team_for_player(challenger),
-                [(challenger, defense)], with_ability=True,
+            _merged(
+                engine, game, match,
+                _situation_side(
+                    engine, game, match, match.team_for_player(challenger),
+                    [(challenger, defense)], with_ability=True,
+                    species=ROLL_SPECIES["skill_test"],
+                ),
+                match.defending_side(), rolling, "defense",
             ),
         ],
         "roll": None,
@@ -2500,10 +2593,17 @@ def _shot_situation(
         "title": SCORE_ATTEMPT_TITLE,
         "where": where,
         "sides": [
-            _situation_side(
+            # Merge in a shot is the attack alone (Law 20.5.2), as
+            # `score_attempt_step` asks it.
+            _merged(
                 engine, game, match,
-                match.team_for_player(match.active_player_id),
-                [(match.active_player_id, shooter)], with_ability=False,
+                _situation_side(
+                    engine, game, match,
+                    match.team_for_player(match.active_player_id),
+                    [(match.active_player_id, shooter)], with_ability=False,
+                    species=ROLL_SPECIES["shot"],
+                ),
+                match.ball.possession, (match.active_player_id,), "offense",
             ),
             _situation_side(
                 engine, game, match,
