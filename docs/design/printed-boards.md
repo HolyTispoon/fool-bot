@@ -23,7 +23,8 @@ python3 scripts/render_boards.py --no-halves           # tabloid sheets only
 python3 scripts/render_boards.py --jumbotron-paper a4  # its own sheet size
 ```
 
-The field board comes out three times, whole and as two halves. See below.
+The field board comes out five times: whole, as two halves, and as a field
+sheet and a rows sheet. See below.
 
 - **They follow `cards.py`, not `render.py`.** The palette is the maneuver
   cards' -- dark ink on a light face -- because a print goes on paper and the
@@ -121,8 +122,8 @@ The field board comes out three times, whole and as two halves. See below.
   9-space boards; `--board-size` narrows it to one. The sizes come from
   `rules.board_layouts`, so a fourth layout added upstream is printed without
   the script being touched. **Each comes out three ways** -- whole on the
-  tabloid sheet and as its own two letter halves; see "Printing a board on
-  two small sheets".
+  tabloid sheet, as its own two letter halves, and as a letter field sheet
+  with a letter sheet of rows; see "Printing a board on small sheets".
 - **Zones keep their real names on the field board's own assignment rows**,
   not the team board any more -- see "The zone-assignment rows". A coach's own
   goal is the home goal for one of them and the visitors goal for the other,
@@ -311,14 +312,40 @@ halves (above).
   score cell 0.79 x 0.82 where eleven of them used to be thirteen at 1.05 x
   0.91; both stay above `MIN_TOKEN_INCHES`.
 
-## Printing a board on two small sheets
+## Printing a board on small sheets
 
 `render_field_board_halves` writes the field board a second way: two letter
 sheets, `field-board-7-top.png` and `field-board-7-bottom.png`, which taped
-along the cut are the tabloid board. So a print run comes out with two
-ledger-size field boards and four letter-size halves, and a house with a
-letter printer and no tabloid one can still put the real board on the table.
-`--no-halves` leaves them out.
+along the cut are the tabloid board. `render_field_board_pieces` writes it a
+third way (the author, 2026-09-28): `field-board-7-field.png`, the field
+whole on one letter sheet landscape, and `field-board-7-rows.png`, the two
+zone-assignment rows on another, cut apart on its dashed line and taped
+above and below the field. So a print run comes out with two ledger-size
+field boards and eight letter sheets, and a house with a letter printer and
+no tabloid one can still put the real board on the table -- with the field in
+one piece, if it takes the second way. `--no-halves` leaves both out. The
+print-and-play kit's README says how to print and tape each.
+
+- **The field sheet and the rows are a cut of the finished board too, on its
+  quarters.** The halves put their seam across the strip, a little under half
+  way down a space, because only the middle of the sheet cuts into two
+  letter sheets. The pieces cut at a quarter and three quarters instead: the
+  middle half is a letter sheet on its own, and the two outer quarters
+  together are a second. For that to cut nothing, `FieldGeometry.for_sheet`
+  lays the board out on its quarters: each zone row in an outer quarter, and
+  the header, arrows, strip, goals and shooting ranges in the middle two.
+  Each band keeps `FIELD_EDGE_INCHES` clear of the edges that become a
+  sheet's edge, because a home printer cannot print there.
+  - **A row is a card and its label, and it only just fits.** A quarter of
+    tabloid is 4.25in; a row is `FIELD_EDGE_INCHES` (0.25) outside, the
+    card's 3.5, and a `ZONE_LABEL_INCHES` (0.36) label band -- 4.11in. The
+    label band is what was trimmed for it (it was about 0.6in), with the
+    zone name and caption centred on one line. A3's quarter is 4.13in, which
+    still holds it. A bigger label, a bigger margin, or a paper with a shorter
+    quarter will push a row past the cut, and the crop is silent -- look at
+    the rows sheet after changing any of them.
+  - **The rows sheet carries a dashed cut line on its seam**, like the team
+    board's two-up page; the field sheet needs none, being a whole sheet.
 
 - **A half is a cut of the finished picture, never a second layout.**
   `halve_sheet` crops the rendered board in two and that is the whole of it.
@@ -500,13 +527,16 @@ into without widening the board itself.
   drawn in ink, not a team's colour** -- the field board is a template for the
   tabletop game with no match to read a team from, unlike the bot's own board,
   which always has one.
-  - **`end_zone_width` is a tight fit, not a generous one**, and tighter still
-    since the field board went portrait to make room for the zone-assignment
-    rows (below): the strip now divides an 11in width instead of a 17in one,
-    so every inch an end zone takes is an inch a space cannot have. Don't grow
-    it without checking that a space is still big enough to stand meeples on
-    -- a width floor of 1.0in now, not the 1.5in a landscape sheet could
-    promise.
+  - **`END_ZONE_INCHES` is a trade against the spaces.** The strip divides
+    an 11in width, so every inch an end zone takes is an inch a space cannot
+    have. The author asked for more room for the goals (2026-09-28), and it
+    went from a third of an inch to 0.45in, paid for mostly by the margin:
+    the board now runs to `FIELD_EDGE_INCHES` of the sheet's edge, the least
+    a home printer leaves, rather than 0.31in. A 9-space board's space is
+    1.05in wide and a 7-space board's 1.35in. Don't grow the end zones
+    further without checking that a space is still big enough to stand
+    meeples on -- a width floor of 1.0in, not the 1.5in a landscape sheet
+    could promise.
 
 ## The zone-assignment rows
 
@@ -521,7 +551,7 @@ and `draw_zone_assignment_cell` in `boards.py` draw them; `FieldGeometry`'s
   landscape.** A zone row needs a real 3.5in card's worth of height, twice
   over (once for each coach), which the sheet's 17in length holds without
   crowding the strip; the strip's own spaces pay for it instead, coming out
-  under an inch wide on the 9-space board rather than the 1.5in two meeples
+  just over an inch wide on the 9-space board rather than the 1.5in two meeples
   side by side would ask for on a landscape sheet. The author's own call,
   made knowing that cost -- see `FieldGeometry`'s own docstring.
 - **The visiting row is rotated 180 degrees cell by cell, not the row
@@ -550,3 +580,10 @@ and `draw_zone_assignment_cell` in `boards.py` draw them; `FieldGeometry`'s
   landscape sheet, which the portrait sheet always is. Both are wrapped to
   the sheet's own content width and stacked in one left-aligned column now,
   which cannot overlap regardless of paper size or how long the wording runs.
+  **The header has one note now**, the two periods and who kicks off each.
+  "The clock, the score and the token supplies are kept on the jumbotron
+  board" came off (the author, 2026-09-28), and so did "shoot only from here"
+  under each shooting-range bracket, whose label already names it. The header
+  band and the bracket band are measured from what is in them
+  (`FIELD_NOTE_TOP`, `FIELD_NOTE_LEADING`), and the strip got the height
+  they gave up.

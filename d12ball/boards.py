@@ -149,6 +149,29 @@ HALF_PAPERS: dict[str, str] = {
     "a3": "a4",
 }
 
+# **The field board is cut into quarters, not only halves** (the
+# author, 2026-09-28). Its middle half -- title, arrows, strip, goals
+# and the shooting ranges -- is exactly one sheet of the paper below,
+# and each zone-assignment row exactly a quarter of the sheet, so the
+# board prints a second way on the small paper: the field whole on one
+# sheet with no seam across it, and the two rows on another, cut apart
+# and taped above and below. See `render_field_board_pieces` and
+# "Printing a board on small sheets" in docs/design/printed-boards.md.
+#
+# What every band keeps clear of a cut, in inches: a home printer
+# cannot print to the edge of a sheet, and every cut here is the edge
+# of some sheet. It is also the outer margin, for the same reason.
+FIELD_EDGE_INCHES = 0.25
+# The zone name's band over a zone row's cards. A row is this, a card
+# (`CARD_INCHES`), and `FIELD_EDGE_INCHES`, inside a quarter of the
+# sheet -- 4.11 of tabloid's 4.25in -- which is what sizes it.
+ZONE_LABEL_INCHES = 0.36
+# The goal zone beyond each end of the strip. It was a third of an
+# inch, set when the margins beside it were wider; the author asked for
+# more room for the goals (2026-09-28), and it is bought partly from
+# the margin and partly from the spaces.
+END_ZONE_INCHES = 0.45
+
 # Poker size, the maneuver cards' own -- the player cards share their
 # proportions with it on the bot's board (CARD_SIZE is 110 x 154), so
 # the areas that hold them are cut for it.
@@ -580,11 +603,16 @@ class FieldGeometry:
     **The sheet is portrait (11 x 17), not landscape, and the strip
     still runs left to right across the narrower dimension.** That is
     the author's own call, made knowing what it costs: a 9-space
-    board's spaces come out under an inch wide, well short of the
+    board's spaces come out just over an inch wide, short of the
     1.5in floor two meeples side by side would ask for elsewhere on
     this file, but it is what leaves the 17in length for the two zone-
     assignment rows above and below the strip -- see `zone_row_*`, and
     "The zone-assignment rows" below.
+
+    **The bands sit on the sheet's quarters** -- a row in each outer
+    quarter and the field in the middle two -- so the board cuts into
+    a small-paper field sheet and two rows without a cut crossing
+    anything; see `render_field_board_pieces`.
     """
 
     left: float
@@ -609,47 +637,55 @@ class FieldGeometry:
 
     @classmethod
     def for_sheet(cls, sheet: Sheet, layout: BoardLayout) -> "FieldGeometry":
-        margin = sheet.u(28)
-        left = margin
-        right = sheet.width - margin
-        top = margin
-        bottom = sheet.height - margin
+        # **The full width of the sheet, less what a printer cannot
+        # reach** -- 11in on tabloid, which is also a letter sheet's
+        # length, so the field sheet of the small-paper pieces is this
+        # same width to the pixel.
+        edge = FIELD_EDGE_INCHES * PRINT_DPI
+        left = edge
+        right = sheet.width - edge
 
         # The end zone beyond each end of the strip, and the gap to its
         # own outline -- the print counterpart of `GOAL_ZONE_WIDTH` and
-        # `GOAL_ZONE_GAP` in render.py, sized as a share of the sheet
-        # rather than a fixed pixel count so it scales with paper size
-        # the way every other measurement here does. Narrower than a
-        # landscape sheet would carry -- the portrait sheet gives the
-        # strip only its own 11in width to divide among spaces, and an
-        # end zone eats into that the same as a margin does.
+        # `GOAL_ZONE_GAP` in render.py, in inches since the sheet's
+        # width is the one thing every paper this board prints on
+        # shares.
         end_zone_gap = sheet.u(6)
-        end_zone_width = sheet.u(30)
+        end_zone_width = END_ZONE_INCHES * PRINT_DPI
         strip_left = left + end_zone_width + end_zone_gap
         strip_right = right - end_zone_width - end_zone_gap
 
+        # **Four bands on the quarters of the sheet**: the visiting
+        # row, the field (two quarters) and the home row -- which is
+        # what lets the board be cut into a field sheet and two rows
+        # (see `FIELD_EDGE_INCHES`). Each band keeps `edge` clear of
+        # its own outer edge; a row's other edge is its label band's,
+        # and what is left of the quarter lies between them.
+        quarter = sheet.height // 4
         # A zone-assignment row is a card row, full stop -- it holds a
         # real 2.5 x 3.5in card at its own printed size (`CARD_INCHES`),
         # the same size a card is everywhere else in this codebase, plus
         # a label band across its own top for the zone's name and the
         # "cards assigned to this zone" caption.
-        zone_row_gap = sheet.u(14)
-        zone_label_height = sheet.u(56)
-        zone_row_height = CARD_INCHES[1] * PRINT_DPI + zone_label_height
+        zone_row_height = (CARD_INCHES[1] + ZONE_LABEL_INCHES) * PRINT_DPI
 
-        visiting_zone_top = top
+        visiting_zone_top = edge
         visiting_zone_bottom = visiting_zone_top + zone_row_height
-        home_zone_bottom = bottom
+        home_zone_bottom = sheet.height - edge
         home_zone_top = home_zone_bottom - zone_row_height
 
-        content_top = visiting_zone_bottom + zone_row_gap
-        content_bottom = home_zone_top - zone_row_gap
+        content_top = quarter + edge
+        content_bottom = sheet.height - quarter - edge
         content = content_bottom - content_top
 
+        # The header is its type: the title, the subtitle, and one
+        # line of note (see `draw_field_header`). The shooting-range
+        # band is one line of label since "shoot only from here" came
+        # off it. The strip takes the rest.
         gap = content * 0.02
-        header = content * 0.16
+        header = sheet.u(FIELD_NOTE_TOP + FIELD_NOTE_LEADING)
         direction = content * 0.05
-        ranges = content * 0.075
+        ranges = sheet.u(44)
         strip = content - header - direction - ranges - 3 * gap
 
         header_bottom = content_top + header
@@ -783,6 +819,63 @@ def render_field_board_halves(
     return (add_bleed(top), add_bleed(bottom)) if bleed else (top, bottom)
 
 
+def render_field_board_pieces(
+    rules: BasicRuleset,
+    board_size: int = 7,
+    paper: str = DEFAULT_PAPER,
+    bleed: bool = False,
+) -> tuple[Image.Image, Image.Image]:
+    """
+    **The same field board as a field sheet and a sheet of rows** --
+    the second way it prints on the paper below (the author,
+    2026-09-28), beside `render_field_board_halves`.
+
+    The halves put a seam across the strip. These keep the field whole:
+    the first sheet is the board's middle half -- title, arrows, the
+    strip, the goals and the shooting ranges -- on one sheet of the
+    small paper, landscape, the field running along its long side. The
+    second is the two zone-assignment rows, the visiting row over the
+    home row, with a dashed line between them: cut there, and tape the
+    visiting row along the field sheet's top edge and the home row
+    along its bottom. Taped, the three are `render_field_board`'s board.
+
+    **It is a cut of the finished board, never a second layout**, for
+    the reason the halves are: a space is the width the whole board's
+    arithmetic gives it. The cuts fall on the quarters of the sheet,
+    which `FieldGeometry.for_sheet` lays every band out around, so no
+    cut crosses anything drawn.
+    """
+    board = render_field_board(rules, board_size, paper=paper)
+    width, height = board.size
+    quarter = height // 4
+    field = board.crop((0, quarter, width, height - quarter))
+
+    rows = Sheet(width, 2 * quarter)
+    rows.image.paste(board.crop((0, 0, width, quarter)), (0, 0))
+    rows.image.paste(
+        board.crop((0, height - quarter, width, height)), (0, quarter)
+    )
+    draw_dashed_line(
+        rows.draw,
+        0,
+        quarter,
+        width,
+        quarter,
+        fill=PAPER_EDGE,
+        width=max(1, round(TEAM_CUT_INCHES * PRINT_DPI)),
+        dash_length=round(0.10 * PRINT_DPI),
+        gap_length=round(0.08 * PRINT_DPI),
+    )
+    pieces = (field, rows.image)
+    return tuple(add_bleed(piece) for piece in pieces) if bleed else pieces
+
+
+# Where the header's note sits under the title, and the line it takes:
+# the header band is measured from these (`FieldGeometry.for_sheet`).
+FIELD_NOTE_TOP = 84
+FIELD_NOTE_LEADING = 24
+
+
 def draw_field_header(
     sheet: Sheet,
     geometry: FieldGeometry,
@@ -809,18 +902,22 @@ def draw_field_header(
         MUTED,
     )
 
-    note_font = sheet.font(15)
-    y = top + sheet.u(84)
-    for note in (
+    # One note. The second -- that the clock, the score and the token
+    # supplies are kept on the jumbotron -- came off (the author,
+    # 2026-09-28): the jumbotron is on the table beside it and says so
+    # itself. The note has to fit one line, since the band is measured
+    # for one (`FieldGeometry.for_sheet`), so it is fitted, not wrapped.
+    note = (
         f"Two periods on one running clock, 00-{HALFTIME_MINUTE} and "
         f"{SECOND_HALF_START_MINUTE}-{CLOCK_MINUTES}. Home kicks off the "
-        "first, the visitors the second.",
-        "The clock, the score and the token supplies are kept on the "
-        "jumbotron board.",
-    ):
-        for line in wrap_text(sheet.draw, note, note_font, width):
-            sheet.text((left, y), line, note_font, MUTED)
-            y += sheet.u(21)
+        "first, the visitors the second."
+    )
+    sheet.text(
+        (left, top + sheet.u(FIELD_NOTE_TOP)),
+        note,
+        sheet.fitted_font(note, width, 15),
+        MUTED,
+    )
 
 
 def draw_attack_directions(
@@ -1281,9 +1378,16 @@ def draw_zone_assignment_cell(
     cell = Image.new("RGB", (width, height), PAPER)
     draw = ImageDraw.Draw(cell)
 
+    # The label band is `ZONE_LABEL_INCHES`, and the name and the
+    # caption are centred in it on one line.
+    label_height = ZONE_LABEL_INCHES * PRINT_DPI
+    label_middle = label_height / 2
     label = zone_labels(board_size)[zone]
-    label_font = sheet.fitted_font(label, width * 0.5, 21, bold=True)
-    draw.text((sheet.u(6), sheet.u(8)), label, font=label_font, fill=INK)
+    label_font = sheet.fitted_font(label, width * 0.5, 19, bold=True)
+    draw.text(
+        (sheet.u(6), label_middle), label, font=label_font, fill=INK,
+        anchor="lm",
+    )
 
     # The caption only fits next to a short zone name (MIDFIELD's own
     # width, mostly) -- HOME ZONE/THIRD and VISITORS ZONE/THIRD are
@@ -1296,10 +1400,10 @@ def draw_zone_assignment_cell(
     caption_width = draw.textlength(caption, font=caption_font)
     if caption_x + caption_width <= width - sheet.u(6):
         draw.text(
-            (caption_x, sheet.u(15)), caption, font=caption_font, fill=MUTED,
+            (caption_x, label_middle), caption, font=caption_font,
+            fill=MUTED, anchor="lm",
         )
 
-    label_height = sheet.u(56)
     box = (0, label_height, width, height)
     draw.rounded_rectangle(
         box,
@@ -1407,20 +1511,14 @@ def draw_shooting_ranges(
             width=sheet.u(1.6),
         )
         label = labels[side]
+        # The label alone: "shoot only from here" under it came off (the
+        # author, 2026-09-28) -- a bracket named SHOOTING RANGE already
+        # says where a shot is taken from.
         sheet.text(
-            ((left + right) / 2, (top + bottom) / 2 - sheet.u(11)),
+            ((left + right) / 2, (top + bottom) / 2),
             label,
             sheet.fitted_font(label, (right - left) * 0.92, 17, bold=True),
             INK,
-            anchor="mm",
-        )
-        sheet.text(
-            ((left + right) / 2, (top + bottom) / 2 + sheet.u(13)),
-            "shoot only from here",
-            sheet.fitted_font(
-                "shoot only from here", (right - left) * 0.92, 13,
-            ),
-            MUTED,
             anchor="mm",
         )
 
