@@ -18,90 +18,25 @@
 const input = document.getElementById("name-input");
 const error = document.getElementById("name-error");
 
-/* Where a room stands, as its card's chip says it. */
-const STANDING = {
-  lobby: "In the lobby",
-  setup: "Setting up",
-  in_progress: "Playing",
-  finished: "Finished",
-};
-
-function h(tag, attrs, ...children) {
-  const node = document.createElement(tag);
-  for (const [name, value] of Object.entries(attrs || {})) {
-    if (value === null || value === undefined || value === false) continue;
-    if (name.startsWith("on")) node.addEventListener(name.slice(2), value);
-    else if (name === "class") node.className = value;
-    else node.setAttribute(name, value === true ? "" : value);
-  }
-  for (const child of children.flat()) {
-    if (child === null || child === undefined || child === false) continue;
-    node.append(child instanceof Node ? child : String(child));
-  }
-  return node;
-}
-
 function refuse(text) {
   error.textContent = text;
   error.hidden = false;
 }
 
-/* A seat on a card: the team's dot (a dashed ring before a team is
-   picked), the seat's name and who holds it. */
-function seatLine(seat) {
-  const dot = seat.colour
-    ? h("span", { class: "team-dot", style: `background: ${seat.colour}`, title: seat.team })
-    : h("span", { class: "team-dot none" });
-  return h("span", { class: "card-seat" }, dot, `${seat.label}: `,
-    seat.name ? h("b", {}, seat.name) : h("b", { class: "free" }, "free"));
-}
-
-/* What the room is called on its card: its name, or the two teams
-   once both are picked. */
-function topic(room) {
-  if (room.name) return room.name;
-  const teams = room.seats.map((seat) => seat.team).filter(Boolean);
-  return teams.length === 2 ? `${teams[0]} v ${teams[1]}` : "";
-}
-
-/* The card's right-hand line: the mode and the board, the clock (or
-   the result) once there is a match, and who is watching. */
-function facts(room) {
-  const parts = [room.mode, `${room.board_size} spaces`];
-  if (room.tutorial) parts.push("tutorial");
-  if (room.clock) parts.push(room.clock);
-  else if (room.observers) parts.push(`${room.observers} watching`);
-  return parts.join(" · ");
-}
-
-function roomCard(room, { renamable = false } = {}) {
-  const standing = room.abandoned ? "abandoned" : room.status;
-  const card = h(
-    "a",
-    { class: `room-card${room.your_move ? " your-move" : ""}`, href: room.url },
-    h("div", { class: "card-head" },
-      h("span", { class: "card-number" }, h("span", { class: "hash" }, "#"), `pbw${room.number}`),
-      h("span", { class: "card-topic" }, topic(room)),
-      h("span", { class: "grow" }),
-      h("span", { class: `status-chip ${standing}` },
-        room.abandoned ? "Abandoned" : STANDING[room.status] || room.status)),
-    h("div", { class: "card-seats" },
-      room.seats.map(seatLine),
-      h("span", { class: "grow" }),
-      h("span", { class: "card-facts" }, facts(room))),
-  );
-  if (renamable && room.status === "lobby") {
-    card.querySelector(".card-head").append(h("button", {
+/* A card on the Master Lobby: the shared card (rooms.js) with what the
+   reader may do to it from here -- rename a lobby of theirs, leave
+   their seat, and the way out. */
+function frontCard(room, { renamable = false } = {}) {
+  return roomCard(room, [
+    renamable && room.status === "lobby" ? h("button", {
       type: "button",
       class: "linkish",
       title: "Name this room",
       onclick: (event) => { event.preventDefault(); event.stopPropagation(); renameRoom(room); },
-    }, "Name"));
-  }
-  if (room.may_leave) card.querySelector(".card-head").append(leaveSeat(room));
-  const out = wayOut(room);
-  if (out) card.querySelector(".card-head").append(out);
-  return card;
+    }, "Name") : null,
+    room.may_leave ? leaveSeat(room) : null,
+    wayOut(room),
+  ]);
 }
 
 /* The reader's seat left from outside the room -- the route the
@@ -191,18 +126,25 @@ async function listRooms() {
     const response = await fetch("/api/rooms");
     if (!response.ok) return;
     const rooms = await response.json();
-    const mine = Object.keys(STANDING).flatMap((status) => rooms.mine[status] || []);
-    mineCount = mine.length;
+    /* The rooms still going, then the finished ones in a list of
+       their own, which stay until "Delete all my games". */
+    const mine = ["lobby", "setup", "in_progress"].flatMap((status) => rooms.mine[status] || []);
+    const finished = rooms.mine.finished || [];
+    mineCount = mine.length + finished.length;
     document.getElementById("mine-list").replaceChildren(
-      ...mine.map((room) => roomCard(room, { renamable: true })),
+      ...mine.map((room) => frontCard(room, { renamable: true })),
     );
     document.getElementById("mine").hidden = !mine.length;
     const full = rooms.full || [];
-    document.getElementById("open-list").replaceChildren(...rooms.open.map((room) => roomCard(room)));
+    document.getElementById("open-list").replaceChildren(...rooms.open.map((room) => frontCard(room)));
     document.getElementById("open").hidden = !rooms.open.length;
-    document.getElementById("full-list").replaceChildren(...full.map((room) => roomCard(room)));
+    document.getElementById("full-list").replaceChildren(...full.map((room) => frontCard(room)));
     document.getElementById("full").hidden = !full.length;
-    document.getElementById("no-rooms").hidden = Boolean(mine.length || rooms.open.length || full.length);
+    document.getElementById("finished-list").replaceChildren(...finished.map((room) => frontCard(room)));
+    document.getElementById("finished").hidden = !finished.length;
+    document.getElementById("no-rooms").hidden = Boolean(
+      mine.length || rooms.open.length || full.length || finished.length,
+    );
   } catch (failure) {
     /* The lists are a convenience; the new room still works. */
   }

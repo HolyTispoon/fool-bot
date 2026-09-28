@@ -58,7 +58,9 @@ from webapp.chat import CHAT_LENGTH, WEB_CHAT_FILE, Chats
 from webapp.journal import WEB_JOURNAL_FILE, Entry
 from webapp.names import Names
 from webapp.rooms import WEB_ROOMS_FILE, Rooms
-from webapp.server import OPEN_ROOM_IDLE, WebApp, _was_offered
+from webapp.server import (
+    ABANDON_IDLE, OPEN_ROOM_IDLE, UNPLAYED_ROOM_IDLE, WebApp, _was_offered,
+)
 from prompt_fixtures import (
     CASES,
     ENGINE,
@@ -2650,6 +2652,118 @@ class RoomTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((stranger["open"], stranger["full"]), ([], []))
         self.assertFalse(coach["mine"]["finished"][0]["may_leave"])
 
+    def at(self, seconds: float) -> None:
+        """The web app's clock, set."""
+        self.web.clock = lambda: seconds
+
+    async def test_a_game_nothing_happens_in_for_fourteen_days_is_abandoned(
+        self,
+    ) -> None:
+        """The author, 2026-09-27: a game that has started, with no
+        move since, counts as abandoned and goes to the archive -- and
+        stays in its coaches' finished games."""
+        self.at(1_000_000.0)
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        self.kick_off(room)
+        # Looking is not activity: a page left open does not keep it.
+        self.at(1_000_000.0 + ABANDON_IDLE - 10)
+        await self.arrive(room, self.CREATOR)
+        self.assertEqual(await self.web.sweep_idle(), {"deleted": [], "abandoned": []})
+
+        self.at(1_000_000.0 + ABANDON_IDLE + 10)
+        self.assertEqual(
+            await self.web.sweep_idle(), {"deleted": [], "abandoned": [room]},
+        )
+
+        game = self.games[room]
+        self.assertTrue(game.is_finished and game.abandoned)
+        self.assertEqual(
+            [one["id"] for one in (await self.rooms(self.CREATOR))["mine"]["finished"]],
+            [room],
+        )
+        archive = await (
+            await self.client.get("/api/archive", headers=as_coach(self.THIRD))
+        ).json()
+        self.assertEqual([one["id"] for one in archive["games"]], [room])
+        self.assertTrue(archive["games"][0]["abandoned"])
+        self.assertFalse(archive["games"][0]["yours"])
+        # The sweep does not touch it again.
+        self.assertEqual(await self.web.sweep_idle(), {"deleted": [], "abandoned": []})
+
+    async def test_a_room_nothing_was_played_in_is_deleted_after_a_day(
+        self,
+    ) -> None:
+        """The author, 2026-09-27: deleted, not abandoned -- as its own
+        Close would -- with everything the web app kept about it, while
+        a game under way keeps its fourteen days."""
+        self.at(0.0)
+        lobby = await self.open_room()
+        await self.client.post(
+            f"/api/room/{lobby}/chat", headers=as_coach(self.CREATOR),
+            json={"text": "anyone?"},
+        )
+        playing = await self.open_room()
+        self.kick_off(playing)
+        self.at(UNPLAYED_ROOM_IDLE)
+        self.assertEqual(await self.web.sweep_idle(), {"deleted": [], "abandoned": []})
+
+        self.at(UNPLAYED_ROOM_IDLE + 10)
+
+        self.assertEqual(
+            await self.web.sweep_idle(), {"deleted": [lobby], "abandoned": []},
+        )
+        self.assertNotIn(lobby, self.games)
+        self.assertNotIn(lobby, self.web.rooms.rooms)
+        self.assertEqual(self.web.chats.chat(lobby).latest, 0)
+        self.assertFalse(self.games[playing].is_finished)
+        self.assertEqual((await self.rooms(self.CREATOR))["mine"]["finished"], [])
+
+    async def test_a_move_or_a_word_keeps_a_game_off_the_sweep(self) -> None:
+        self.at(0.0)
+        room = await self.open_room()
+        await self.arrive(room, self.SECOND)
+        self.kick_off(room)
+        self.at(ABANDON_IDLE - 100)
+        said = await self.client.post(
+            f"/api/room/{room}/chat", headers=as_coach(self.SECOND),
+            json={"text": "still here"},
+        )
+        self.assertEqual(said.status, 200)
+
+        self.at(ABANDON_IDLE + 100)
+
+        self.assertEqual(await self.web.sweep_idle(), {"deleted": [], "abandoned": []})
+        self.assertFalse(self.games[room].is_finished)
+
+    async def test_a_room_from_before_activity_was_kept_gets_its_window(
+        self,
+    ) -> None:
+        room = await self.open_room()
+        self.web.rooms.room(room).active_at = None
+        self.at(10 * ABANDON_IDLE)
+
+        self.assertEqual(await self.web.sweep_idle(), {"deleted": [], "abandoned": []})
+        self.assertEqual(self.web.rooms.room(room).active_at, 10 * ABANDON_IDLE)
+        self.assertIn(room, self.games)
+        self.assertFalse(self.games[room].is_finished)
+
+    async def test_the_archive_is_every_game_that_is_over(self) -> None:
+        playing = await self.open_room()
+        await self.arrive(playing, self.SECOND)
+        self.kick_off(playing)
+        played = await self.open_room()
+        self.service.abandon(played)
+
+        archive = await (
+            await self.client.get("/api/archive", headers=as_coach(self.CREATOR))
+        ).json()
+        page = await self.client.get("/archive")
+
+        self.assertEqual([one["id"] for one in archive["games"]], [played])
+        self.assertTrue(archive["games"][0]["yours"])
+        self.assertEqual(page.status, 200)
+
     async def test_an_admin_gives_the_role_up(self) -> None:
         room = await self.open_room()
         made = await self.move(room, self.CREATOR, "/admin")
@@ -2755,6 +2869,25 @@ class RoomTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(page.status, 200)
         self.assertEqual(state["you"]["player_number"], 2)
         self.assertTrue(state["room"]["admin"])
+
+    def test_a_room_s_activity_survives_a_restart_and_an_old_file_has_none(
+        self,
+    ) -> None:
+        """The idle sweep counts from the rooms file's `active_at`, so
+        it outlives the process; a file from before it reads as None,
+        and a touch inside `ACTIVE_GRAIN` writes nothing."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rooms.json"
+            path.write_text(json.dumps({"old": {"admins": [], "seen": [4]}}))
+            rooms = Rooms.load(path, ["old"])
+            self.assertIsNone(rooms.room("old").active_at)
+
+            rooms.touch("old", 1000.0)
+            written = path.read_text()
+            rooms.touch("old", 1030.0)
+
+            self.assertEqual(path.read_text(), written)
+            self.assertEqual(Rooms.load(path, ["old"]).room("old").active_at, 1000.0)
 
     def test_a_room_the_games_file_has_lost_is_dropped(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
