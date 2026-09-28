@@ -154,6 +154,15 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-28 (later) -- author and sheet, Hellguard's advanced offense is 1
+
+The author: *"Hellguard's advanced offensive skill is now 1"*, and the sheet is updated to
+match. Re-imported, the player cards tab's `OskillA` for Hellguard reads 1, the fullback's own
+offense, so the import no longer carries an advanced offense for him and he keeps his role's
+([Law 21.2.1](living-rules.md#212-advanced-skills)). The Law 21.2 table reads 1 where it read 0;
+his advanced defense stays 8. In an advanced game he now adds 1 wherever he rolls on offense --
+the own-goal roll is where the advanced golden meets it.
+
 ### 2026-09-28 -- author, the clock advances when an action's outcome is decided
 
 The author, in a Claude Code session: *"When a maneuver resolution decides which side wins - either
