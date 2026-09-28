@@ -93,7 +93,7 @@ GAME_ID = "g1"
 FINISH = "FINISH_MANEUVER_RESOLUTION"
 
 #: The tail of a turnover -- a Defender's steal on a won pressure, or
-#: the possession a beaten Dribble Burst hands over.
+#: the possession a beaten Burst hands over.
 RUN_BACK = "BEGIN_RUN_BACK"
 
 #: The overshoot's ending instead: there was nowhere left to push the
@@ -330,14 +330,14 @@ def defender_steal_text(match: MatchState, challenger: str) -> str:
 
 def burst_cost_text(match: MatchState, speed: int) -> str:
     """
-    **Dribble Burst's cost**: the offense loses possession *and* the
+    **Burst's cost**: the offense loses possession *and* the
     ball keeps the speed the burst put into it -- the first exception
     to "every turnover resets ball speed to 1", which is why the
     number is in the sentence.
     """
     return (
         "\n\n# Turnover!\n"
-        "**Dribble Burst** was beaten -- "
+        "**Burst** was beaten -- "
         f"{defense_label(match)} "
         "take the ball, and it keeps the speed the burst put into "
         f"it ({speed})."
@@ -443,7 +443,7 @@ def pressure_that_overshoots() -> PressureFixture:
 
 def pressure_beats_a_dribble_burst() -> PressureFixture:
     """
-    **Dribble Burst's cost**, charged inside the pressure that beat
+    **Burst's cost**, charged inside the pressure that beat
     it: the offense loses the ball *and* the defense keeps the speed
     the burst put into it, then sets it themselves once everyone is
     back. Nothing else in the game turns the ball over without

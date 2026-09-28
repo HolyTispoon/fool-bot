@@ -127,7 +127,7 @@ position, which is what the choice usually turns on.
       moved onto the engine to read both dicts off itself, with
       `D12Ball.player_label` forwarding to it so no call site moved.
     - **`RulesEngine.condition_emojis` was the third and last of them
-      (2026-09-20), with rank O2 of the split.** A Dribble Burst
+      (2026-09-20), with rank O2 of the split.** A Burst
       charges a token a space and a beaten Clear charges two, and both
       sentences are written by `describe_exhaustion_gain` -- so a flow
       step that charges exhaustion would have had to hand its own

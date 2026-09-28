@@ -55,7 +55,7 @@ class DribbleAdvanceDestinationTests(unittest.TestCase):
         match.ball.possession = side
         match.set_ball_space(zone, space)
 
-        # The won Dribble Advance the view is asked on, since a view
+        # The won Dribble the view is asked on, since a view
         # builds its buttons from what the chain says the match is
         # waiting on: a challenger sent, both cards picked, the
         # Playmaker's card winning.

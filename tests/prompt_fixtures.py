@@ -796,7 +796,7 @@ def setup_pass_speed_choice() -> PromptFixture:
 
 
 def dribble_advance_choice() -> PromptFixture:
-    # A Playmaker's Dribble Advance asks a distance first; the standard
+    # A Playmaker's Dribble asks a distance first; the standard
     # deal's first eligible handler is the Playmaker.
     fixture = _settled("dribble_advance", "deflect")
     assert ENGINE.get_player_definition(
@@ -901,7 +901,7 @@ def skill_test_settled_a_tie() -> PromptFixture:
 
 
 def setup_pass_push_back() -> PromptFixture:
-    # Setup Pass beaten by a Deflect, the deflection played and the
+    # Cross beaten by a Deflect, the deflection played and the
     # ball not yet loose: the coach who won is owed the push back.
     fixture = _settled("setup_pass", "deflect")
     return fixture

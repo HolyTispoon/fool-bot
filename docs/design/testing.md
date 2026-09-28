@@ -184,7 +184,7 @@ fielded rather than who.
   initials are what is under test, and the card standing there is not. The
   space goes in by lookup too -- `tests/space_codes.py`'s `code` turns the
   zone-and-index a test reads most easily into the number the bot names it
-  by on that board (`space 6` for `V2` on board 7, `space 8` on board 9).
+  by on that board (`space 7` for `V2` on board 7, `space 8` on board 9).
 - **A tie broken on roster order is read off the roster, never written down.**
   `test_dinky_breaks_a_role_tie_on_bench_order` asks the bench which of the
   two tied roles it lists first, because the rule is "bench order decides" --

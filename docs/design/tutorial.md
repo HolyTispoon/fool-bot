@@ -172,9 +172,9 @@ previous turn produced -- these are outcomes, not settings:
 
 | # | Coach plays | Dinky plays | Result |
 | --- | --- | --- | --- |
-| 1 | Dribble Advance | Deflect | Decisive win, the Playmaker's own 2 spaces: space 4 → space 6 |
+| 1 | Dribble | Deflect | Decisive win, the Playmaker's own 2 spaces: space 4 → space 6 |
 | 2 | Low Pass | Deflect | Rank 1 both: a tie, a skill test the coach loses, the ball knocked to space 5 -- right onto Dinky's own midfielder, who keeps it uncontested |
-| 3 | Pressure | Dribble Advance | The coach sends a challenger to space 5, then defends and wins: Dinky driven back to space 6 |
+| 3 | Pressure | Dribble | The coach sends a challenger to space 5, then defends and wins: Dinky driven back to space 6 |
 | 4 | Steal Intercept | Low Pass | Turnover, the ball back to space 5, the run back, and the speed crank |
 | 5 | High Pass | Steal Intercept | 2 spaces onto the striker on space 7 -- a scoring opportunity, a set-up shot, and a goal |
 

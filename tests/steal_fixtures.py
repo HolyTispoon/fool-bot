@@ -120,7 +120,7 @@ class StealFixture:
     #: Every turnover drops the ball back to speed 1.
     ball_speed: int = 1
     #: `pending_effect_continuation` afterwards. Always None since
-    #: Phase 6: the unopposed Low Pass a beaten Skilled Pass owes the
+    #: Phase 6: the unopposed Low Pass a beaten Pinpoint owes the
     #: defense is *said* by the steal and recorded when the speed
     #: choice behind the run back is answered (`speed_choice_step`),
     #: because the record is what `effect_choice_prompt` reads first
@@ -269,12 +269,12 @@ def turnover_text(
     )
 
 
-#: What a beaten Skilled Pass says: the defense is owed an unopposed
+#: What a beaten Pinpoint says: the defense is owed an unopposed
 #: Low Pass, played once the steal is finished -- the run back and the
 #: speed choice both come first, and the speed choice is what records
 #: it. See `pending_effect_continuation` in docs/design/maneuvers.md.
 SKILLED_PASS_NOTE = (
-    "\n\n**Skilled Pass** was beaten -- the defense gets an "
+    "\n\n**Pinpoint** was beaten -- the defense gets an "
     "unopposed Low Pass once everyone is back in position."
 )
 
@@ -331,7 +331,7 @@ def steal_with_nowhere_to_fall_back() -> StealFixture:
 
 def steal_beats_a_skilled_pass() -> StealFixture:
     """
-    **Skilled Pass's cost**, charged inside the steal that beat it:
+    **Pinpoint's cost**, charged inside the steal that beat it:
     the defense is owed an unopposed Low Pass, recorded on the match
     and said at the end of the steal's own message rather than played
     here -- the run back and the speed choice both come first.

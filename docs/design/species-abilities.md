@@ -237,7 +237,7 @@ their own (below).
     (`forced_test_player`), which `settled_maneuver_winner` reads
     beside the injury. Saved rather than re-read off the cards because
     the handler can change after they resolve -- the stealer taking the
-    free Low Pass a beaten Skilled Pass owes -- and a re-reading then
+    free Low Pass a beaten Pinpoint owes -- and a re-reading then
     named Scorchit as winner and loser at once, which the advanced
     golden's seed sweep found. The injury-forced test is the model, and
     the gambits need nothing of their own because `gambit_cost_applies`
@@ -714,7 +714,7 @@ words both).
   those are saved or shared with the web app and name the mechanic, not what
   a coach reads.
 - **The verb is only for gaining.** `describe_exhaustion_gain`, Overdrive's
-  line and button, and the Dribble Burst prompt say *drain N*; a line that
+  line and button, and the Burst prompt say *drain N*; a line that
   *removes* drain (Charge-up, halftime) or counts it (the check's target)
   still says drain tokens, because "drains 1" there would read as the
   opposite of what happened.
@@ -1048,7 +1048,7 @@ either.
 - **Three placements are restarts and no others.** `restart_after_goal` (an
   ordinary goal and a conceded own goal), `restart_after_missed_score`, and
   the second-half kickoff in `end_period`. Every other dead-ball path in the
-  game -- an out-of-bounds Setup Pass or High Pass, an avoided own goal --
+  game -- an out-of-bounds Cross or High Pass, an avoided own goal --
   leaves the ball where it lies and moves it not at all, so there is nothing
   to record either way.
 
@@ -1144,7 +1144,7 @@ ball. Three consequences, and each one deleted code rather than adding it:
   is once again the only one, because the case it distinguished now happens
   a step earlier, in a message of its own.
 - **The three cases the rules used to list for Slip in** (a dribble onto a
-  teammate, a handler shoved back onto one, a Setup Pass received into a
+  teammate, a handler shoved back onto one, a Cross received into a
   group) stopped needing a list. They are three movements that end on a
   Telekinetic, and the path sees all three the same way.
 
@@ -1176,7 +1176,7 @@ that spends a token on a 1-in-6, or one that simply takes the ball.
   definition, and the pull is only ever offered to the side that is not.
   - **It needed no new state**, which is why it is one `continue`: every
     effect that completes a delivery sets the carrier *before* the arrival
-    gate is asked (`send_low_pass`, the Setup Pass, the two High Pass set-up
+    gate is asked (`send_low_pass`, the Cross, the two High Pass set-up
     branches, the steal and the intercept), and `select_ball_handler` clears
     it at the top of the turn, so nothing stale reaches the gate.
   - **What it does not take away is the whole point of the ability**: a

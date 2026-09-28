@@ -438,7 +438,7 @@ Play now; there is no Books entry.
       sides reveal their choice simultaneously."
    3. "Resolution", over the High Pass card: "The maneuvers relate to
       each other in a rock-paper-scissors cycle of priority: a low
-      pass beats pressure, which beats dribble advance, and so forth.
+      pass beats pressure, which beats a dribble, and so forth.
       In case of a tie in rank, players engage in an exhausting skill
       test, rolling d12s until one side gains the upper hand, or
       tentacle!"

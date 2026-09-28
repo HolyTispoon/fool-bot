@@ -37,6 +37,7 @@ from d12ball import rulebooks
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
+    MANEUVER_TIER_WORDS,
     MANEUVER_TIERS,
 )
 from d12ball.game import GameMode
@@ -368,6 +369,15 @@ class ReferenceTests(Harness):
             row for row in both[0]["rows"] if row["key"] == "low_pass"
         )
         self.assertEqual(len(low_pass["beats"].split(" / ")), 2)
+        # An advanced card's tag is the tier's word, not "gambit".
+        for row in both[0]["rows"] + both[1]["rows"]:
+            with self.subTest(tag=row["key"]):
+                self.assertEqual(
+                    row["tier_word"],
+                    MANEUVER_TIER_WORDS[catalog.definition(row["key"]).tier],
+                )
+                if row["gambit"]:
+                    self.assertEqual(row["tier_word"], "advanced")
 
     def test_the_tables_are_the_cards_own_data(self) -> None:
         roles = aids.roles(ENGINE.player_catalog)

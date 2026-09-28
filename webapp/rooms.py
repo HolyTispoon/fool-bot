@@ -20,6 +20,15 @@ seen who hold no seat are the room's observers, and the table's
 sideline names them by what their cookie last called them (`names`) --
 a name, never who somebody is, which is still the cookie's alone.
 
+"Active" is when something last happened in the room -- a move on the
+game, its table or its seats, a room opened, a line of chat -- and not
+when somebody last looked at it: a room left open in a tab is not a
+game being played. A room with no activity for fourteen days is
+abandoned (`webapp/server.py`, `ABANDON_IDLE`; the author, 2026-09-27),
+so the time has to outlive a restart, and it is this file's because it
+is not a fact about the game either. It is written at most once a
+minute (`ACTIVE_GRAIN`): the sweep counts in days.
+
 A write that fails is logged and swallowed, as `save_games` swallows
 its own (docs/design/gotchas.md, "the swallowed save"): losing who is
 admin is a nuisance, and failing somebody's click over it is worse. A
@@ -42,6 +51,11 @@ LOGGER = logging.getLogger(__name__)
 #: The web app's rooms, beside its games: its own file, never the save.
 WEB_ROOMS_FILE = DATA_FOLDER / "d12ball_web_rooms.json"
 
+#: How stale a room's recorded activity may get before it is written
+#: again, in seconds: the sweep counts in days, and a click should not
+#: cost a file write.
+ACTIVE_GRAIN = 60
+
 
 @dataclass
 class Room:
@@ -50,13 +64,19 @@ class Room:
     # What each of the seen was last called, for the table's sideline:
     # the name their cookie carried the last time they opened the room.
     names: dict[int, str] = field(default_factory=dict)
+    # When something last happened in the room (seconds since the
+    # epoch), or None for a room written before this was kept.
+    active_at: Optional[float] = None
 
     def to_dict(self) -> dict:
-        return {
+        data = {
             "admins": sorted(self.admins),
             "seen": sorted(self.seen),
             "names": {str(one): name for one, name in sorted(self.names.items())},
         }
+        if self.active_at is not None:
+            data["active_at"] = self.active_at
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "Room":
@@ -67,6 +87,10 @@ class Room:
                 int(one): str(name)
                 for one, name in (data.get("names") or {}).items()
             },
+            active_at=(
+                None if data.get("active_at") is None
+                else float(data["active_at"])
+            ),
         )
 
 
@@ -145,6 +169,14 @@ class Rooms:
         room = self.room(game_id)
         if room.names.get(coach_id) != name:
             room.names[coach_id] = name
+            self.save()
+
+    def touch(self, game_id: str, at: float) -> None:
+        """Something happened in the room at `at`; written only when
+        the time kept is `ACTIVE_GRAIN` or more behind it."""
+        room = self.room(game_id)
+        if room.active_at is None or at - room.active_at >= ACTIVE_GRAIN:
+            room.active_at = at
             self.save()
 
     def forget(self, game_id: str) -> None:

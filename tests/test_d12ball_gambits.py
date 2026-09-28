@@ -126,7 +126,7 @@ def loose_ball_distance(call) -> int:
     read through the real method's signature rather than off
     `call.args`.
 
-    A Setup Pass that lands on nobody reaches it as a `FollowOn` since
+    A Cross that lands on nobody reaches it as a `FollowOn` since
     rank O3 of docs/design/model-discord-split.md, and `dispatch_step_result`
     passes a follow-on's arguments **by keyword** -- so an argument the
     cog used to hand over positionally now arrives named. Binding the
@@ -877,7 +877,7 @@ class OutrightRuleTests(GambitHarness, unittest.TestCase):
         **The case the old reading got wrong.** The cards went to the
         offense, the injury forced a test, and the *defense* won it.
         Double Team never won on the cards, so it resolves basic; and
-        Skilled Pass never lost on them, so it owes nothing -- where
+        Pinpoint never lost on them, so it owes nothing -- where
         "the cards were decisive" charged the side that had actually
         won the matchup.
         """
@@ -1239,7 +1239,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     ) -> None:
         """
         Since 2026-09-26 the ability is an additional space, same as
-        the Dribble Advance's -- no longer a token off the cost (that
+        the Dribble's -- no longer a token off the cost (that
         reading held from 2026-08-19 to 2026-08-26). A Playmaker's run
         is charged the same token a space as anybody else's.
         """
@@ -1328,8 +1328,8 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     async def test_the_basic_dribble_also_charges_clears_cost(self) -> None:
         """
         A cost is the *loser's*, so it does not care which card beat
-        it: Clear pays the same 2 whether it lost to Dribble Burst or
-        to an ordinary Dribble Advance.
+        it: Clear pays the same 2 whether it lost to Burst or
+        to an ordinary Dribble.
         """
         cog, game, match = self.build("dribble_advance", "clear")
         defender = match.challenger_id
@@ -1348,7 +1348,7 @@ class ClearTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         # Against the *basic* High Pass, so nothing but Clear's own
-        # benefit is in force -- Setup Pass would add its cost on top.
+        # benefit is in force -- Cross would add its cost on top.
         cog, game, match = self.build("high_pass", "clear", board_size=9)
         match.ball.speed = 8
         start = self.flat(match)
@@ -1578,7 +1578,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         The whole of the change: picking the ball out into empty space
         is a bad choice a coach may make, not a choice the menu takes
         away. Before this, a passer with nobody 1 or 3 ahead of them
-        had no Setup Pass at all.
+        had no Cross at all.
         """
         cog, game, match = self.build("setup_pass", "steal", board_size=9)
         for player_id in list(match.home.field_players):
@@ -1729,7 +1729,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         The window is wide -- a coach may take hours over the second
         prompt -- so the continuation has to outlive its dispatch and
         `build_effect_choice_view` has to read it. Reading the winner
-        instead would put Setup Pass's *speed* choice back up, and let
+        instead would put Cross's *speed* choice back up, and let
         a coach set the speed twice. And before the speed is chosen,
         the speed choice is exactly what comes back.
         """
@@ -1783,7 +1783,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
 
     async def test_it_cannot_overshoot_and_goes_out_instead(self) -> None:
         """
-        The one position a Setup Pass goes out from, since 2026-08-25:
+        The one position a Cross goes out from, since 2026-08-25:
         the passer on the very last space of the field -- where even 1
         runs off the end -- with no teammate beside them to take it at
         0. Then it runs out of play, the other team gains possession,
@@ -2000,7 +2000,7 @@ class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
 
     async def test_a_basic_dribble_loses_the_ball_at_speed_one(self) -> None:
         """
-        The exception is Dribble Burst's cost and nothing else: a
+        The exception is Burst's cost and nothing else: a
         Defender's steal on a won Pressure still resets.
         """
         cog, game, match = self.build("dribble_advance", "pressure")

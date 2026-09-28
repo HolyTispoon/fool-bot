@@ -16,6 +16,20 @@ basic D2 card from "Steal Intercept" to "Steal" on 2026-08-18 -- which
 under names would have silently broken a dozen comparisons, five
 tutorial rails and every game saved mid-turn.
 
+- **A renamed card may keep its key.** A key is the slug of the name,
+  so a rename usually moves it, as Steal's did. The author renamed four
+  cards at once on 2026-09-28 -- Dribble Advance, Skilled Pass, Dribble
+  Burst and Setup Pass became Dribble, Pinpoint, Burst and Cross -- and
+  moving their keys would have rewritten some six hundred references,
+  every golden's saved position and every game saved mid-turn, for a
+  string no player reads. `PINNED_MANEUVER_KEYS` holds the four old
+  keys against the new slugs, and `maneuver_key` reads it, so the
+  importer writes `dribble_advance` beside the name "Dribble". That is
+  why the code's identifiers still say `dribble_burst_distances` and
+  `setup_pass`: they name the key, and the key is the card's identity.
+  The table does not die out the way the legacy one does. A future
+  rename can go either way; the question is only what moving the key
+  would cost.
 - **`legacy_maneuver_key` translates a game saved before the keys.**
   Almost every name slugs straight to its key, so only the one that
   does not is written down. Same tolerant shape as `player_board` and
@@ -32,11 +46,13 @@ tutorial rails and every game saved mid-turn.
   decides** who wins (the author, 2026-08-18). Naming one of the two
   would be naming half a relation. `ManeuverCatalog.counterpart` is
   the pairing, looked up by rank rather than tabulated.
-- **The importer resolves the sheet's `Defeats` name into that rank**,
+- **The importer resolves the sheet's `Defeats` names into that rank**,
   so the cycle is still data rather than something written into the
-  code. It carries one alias -- the sheet renamed the row without
-  rewriting its own four references to it -- which can be dropped once
-  upstream catches up.
+  code. A basic row names one card and, since 2026-09-28, an advanced
+  row names both on the rank it beats (`Pressure, Double Team`); the
+  importer refuses a cell whose cards sit on two ranks.
+  `LEGACY_MANEUVER_NAMES` is for a rename the sheet has not caught up
+  with in its own references, and is empty while it has.
 
 ## Gambits
 
@@ -62,7 +78,9 @@ and gambits" in the living rules; what is left open is in
 `Mode` column, and since 2026-09-27 the rules' word agrees with it
 again. `MANEUVER_TIER_WORDS` is the one table between the value and
 anything a person reads -- the card's corner label (ADVANCED
-MANEUVER), the web page's hexagon and the reference image's filename.
+MANEUVER), the web page's hexagon, the References' tag on an advanced card
+(`tier_word`, which said "Gambit" until 2026-09-28) and the reference
+image's filename.
 Unlike `legacy_maneuver_key` above, this pair is not a migration
 waiting to die: don't "fix" the value.
 
@@ -192,7 +210,7 @@ once -- one trailing while the other is the more hurt.
     answered for itself inside it; it answers the prompt through the
     service now). Nothing either card says changed.
     - **The burst no longer ends there.** Since 2026-09-20 a won
-      Dribble Burst leaves the ball at exactly 12 -- the author:
+      Burst leaves the ball at exactly 12 -- the author:
       "precisely 12, not any number" -- so there is no speed to ask
       and `dribble_burst_step` sets it, says "Ball speed is now
       **12**." where it changed (a ball already at 12 gets no line),
@@ -214,7 +232,7 @@ once -- one trailing while the other is the more hurt.
   - **Both steals followed them (rank D2).** `steal_step` is the
     whole of a Steal and of an Intercept -- the two differ by the
     sign of the carry and nothing else, so they are one function and
-    a `direction`, the way Low Pass and Skilled Pass are one function
+    a `direction`, the way Low Pass and Pinpoint are one function
     and a `key`. `take_ball_by_steal` and `steal_result_text` went
     with it as free functions, and `D12Ball.apply_steal` is four
     lines around it. Nothing either card says changed.
@@ -229,7 +247,7 @@ once -- one trailing while the other is the more hurt.
       `begin_run_back` and `begin_shooter_choice` themselves did not
       move.
     - **Two persists became one, and nothing was being lost.**
-      `take_ball_by_steal` saved inside itself and the Skilled Pass
+      `take_ball_by_steal` saved inside itself and the Pinpoint
       cost branch saved again on top of it, so one branch wrote the
       file twice and the other once; both writes already carried
       everything. Unlike the beaten Clear above, this is the rule
@@ -237,7 +255,7 @@ once -- one trailing while the other is the more hurt.
       alike in a diff.
     - **One ordering is open.** An Intercept that reaches the goal zone
       returns before `gambit_cost` is read, so it collects no beaten
-      Skilled Pass. Whether that is the rule (nobody goes back in
+      Pinpoint. Whether that is the rule (nobody goes back in
       position, so the free pass has no moment) or an oversight is
       the author's; the behaviour is preserved exactly and the
       question is written out in PR #233.
@@ -292,7 +310,7 @@ once -- one trailing while the other is the more hurt.
     - **The goal-zone branch's ordering is unchanged and now pinned.** A
       deflection that reaches the goal zone and finds a defender standing
       where the ball stopped turns into a scoring opportunity, and the
-      Setup Pass cost is **not** asked on that branch -- the ball is
+      Cross cost is **not** asked on that branch -- the ball is
       already as far back as it goes. One that comes to rest on an empty
       space is an ordinary loose ball. Neither was asserted anywhere before
       the rank's fixtures.
@@ -300,7 +318,7 @@ once -- one trailing while the other is the more hurt.
       of four. `knock_ball_back` saved the moved ball and the shot
       branch saved again over the turnover it then applied; nothing
       between them mutates the match, so both wrote the same state.
-- **A failed Setup Pass gambit is the beating card's one move, asked
+- **A failed Cross gambit is the beating card's one move, asked
   first** (the author, 2026-09-27). Until then a Deflect or Clear moved
   the ball its own distance and the coach who played it pushed it "a
   further" 1, 2 or 3, never into the goal zone. Now `deflection_step`
@@ -324,15 +342,15 @@ once -- one trailing while the other is the more hurt.
   card that was beaten and the winner's handler asks it: Clear's 2
   exhaustion and Double Team's shove are charged by the card that beat
   them, Intercept's uncontested reception is a branch of the High
-  Pass, and Dribble Burst's is the first exception to "every turnover
+  Pass, and Burst's is the first exception to "every turnover
   resets ball speed to 1". A generic "and then pay the cost" step
   would have to know where inside each effect it belonged, which is
   the thing the handler already knows.
 - **`pending_effect_continuation` is what lets an effect reach past
   its own maneuver**, as `{"kind": ...}` -- the same shape
   `pending_injury_resume` uses and for the same reason. Two need it:
-  Setup Pass sets the ball's speed and *then* picks the pass out, and a
-  beaten Skilled Pass hands the defense an unopposed Low Pass once the
+  Cross sets the ball's speed and *then* picks the pass out, and a
+  beaten Pinpoint hands the defense an unopposed Low Pass once the
   steal has settled. A speed choice had always been the *last* human
   step of an effect, leading straight into
   `finish_maneuver_resolution`; `continue_effect` is the branch.
@@ -364,7 +382,7 @@ once -- one trailing while the other is the more hurt.
   caller reads it before the pass moves the ball and passes it in,
   which is why `pay_double_team_cost` takes a partner rather than
   looking one up.
-- **A Setup Pass is gated on the field, not on the roster** (the
+- **A Cross is gated on the field, not on the roster** (the
   author, 2026-08-25). `RulesEngine.setup_pass_distances` offers 1 and
   3 -- and a Fullback's 4 -- whenever the space they land on is on the
   board, and **0 alone still needs a teammate**, since it means one
@@ -378,7 +396,7 @@ once -- one trailing while the other is the more hurt.
     there -- see [Where the ball comes to rest](loose-balls.md#where-the-ball-comes-to-rest).
     It pays `SETUP_PASS_CLOCK_COST` there, the card's flat 2 minutes,
     however far the ball actually travelled.
-  - **That leaves one position a Setup Pass goes out from, and it is
+  - **That leaves one position a Cross goes out from, and it is
     still a fourth `new_play=True` call site.** The card cannot
     reach the goal zone, so `setup_pass_out_step` is reached only where
     nothing is on the menu at all: the passer on the last space before
@@ -399,8 +417,8 @@ once -- one trailing while the other is the more hurt.
   "may advance 2" was no bonus at all on a run to the last space before the
   goal zone. The author settled all three on 2026-08-19 -- **the Fullback's
   ability is +1 distance** (High Pass 3->4, Deflect 1->2, Clear
-  3->4, Setup Pass gains a 4), and **the Playmaker's is one exhaustion
-  token off a Dribble Burst**, kept on 2026-08-26 once the burst was
+  3->4, Cross gains a 4), and **the Playmaker's is one exhaustion
+  token off a Burst**, kept on 2026-08-26 once the burst was
   bounded (below). The Midfielder's +3 and the rank-D2 ball speed
   modifier were already uniform and needed no ruling.
   - **The Playmaker's moved back onto the space on 2026-09-26**, and
@@ -411,7 +429,7 @@ once -- one trailing while the other is the more hurt.
     `role_abilities`' needle any more; both `dribble_advance` and
     `dribble_burst` carry a hand-written `EXTRA_NOTES` row in
     `d12ball/cards.py` instead of the one `dribble_burst` used to. The
-    2026-08-26 reading (below) is superseded: a Playmaker's Dribble
+    2026-08-26 reading (below) is superseded: a Playmaker's
     Burst now runs up to 5, `dribble_burst_distances`' own +1, charged
     the plain token a space `dribble_burst_cost` charges everybody --
     no more discount named beside the run.

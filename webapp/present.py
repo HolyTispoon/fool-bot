@@ -1213,11 +1213,11 @@ def _run_back_space(asked: Asked) -> list:
 
 def _distance(asked: Asked) -> list:
     """
-    Every prompt that asks how far, and the push back a failed Setup
-    Pass gambit owes: each distance lights the space it lands on
+    Every prompt that asks how far, and the push back a failed
+    Cross gambit owes: each distance lights the space it lands on
     (`DistanceOptions.landings`), with a chip saying what landing there
     means -- the push back into the goal zone lights the ✕ on that goal
-    zone instead. A Setup Pass with nowhere to go is put out of play at
+    zone instead. A Cross with nowhere to go is put out of play at
     the ✕ on the far goal zone; Quantor's run onto the pass is a second chip
     on the same spaces.
     """
@@ -1253,7 +1253,7 @@ def _distance(asked: Asked) -> list:
             )
         )
     if options["may_pass_out"]:
-        # A Setup Pass with nowhere to go is the card's one way out of
+        # A Cross with nowhere to go is the card's one way out of
         # play, and it is the absence of a distance rather than a
         # choice -- the driver reads it the same way.
         controls = [
@@ -2777,7 +2777,7 @@ def _challenge_situation(
             ),
         ],
         "roll": None,
-        # Quantor may run onto any teammate's High Pass or Set-up Pass,
+        # Quantor may run onto any teammate's High Pass or Cross,
         # so while a teammate is on the ball and he is on the field the
         # coach choosing the card is told (the author, 2026-09-28).
         "notes": _notes(

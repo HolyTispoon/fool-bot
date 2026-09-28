@@ -1442,7 +1442,7 @@ def take_scoring_opportunity(
     Take the scoring opportunity: this player shoots.
 
     `maneuver_cost` is the flat cost of the maneuver that offered the
-    set-up -- 2 for a High Pass and for a Setup Pass, the advanced
+    set-up -- 2 for a High Pass and for a Cross, the advanced
     High Pass (`SETUP_PASS_CLOCK_COST`), and 1 for everything else,
     which is why it defaults to 1. Stored
     so the score attempt can charge it on top of the shot's own extra

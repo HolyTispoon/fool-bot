@@ -124,7 +124,7 @@ class DeflectionStepTests(unittest.TestCase):
         The model's answer, and it is the same on all three endings:
         every deflection drives the ball back, or takes speed off it,
         or both. What differs is only what the **frontend** does with
-        that, which is the next test down. A failed Setup Pass gambit
+        that, which is the next test down. A failed Cross gambit
         is the exception, and says so: nothing moves until its coach
         has chosen how far.
         """
@@ -430,7 +430,7 @@ def failed_setup_pass(
     role: PlayerRole = PlayerRole.MIDFIELDER,
     back_from_own_goal=None,
 ):
-    """A Setup Pass that `key` has just beaten, and the challenger who
+    """A Cross that `key` has just beaten, and the challenger who
     played it -- nothing moved yet."""
     match, _, challenger = stand_a_deflection(
         BEATEN_ADVANCED, key, role=role,
@@ -445,7 +445,7 @@ def flat(match) -> int:
 
 class FailedSetupPassGambitTests(unittest.TestCase):
     """
-    **A failed Setup Pass gambit** (Law 19.7.7-19.7.8, the author,
+    **A failed Cross gambit** (Law 19.7.7-19.7.8, the author,
     2026-09-27): the card that beat the pass moves the ball back once,
     as far as its coach chooses -- 1, 2 or 3 for a Deflect, 2, 3 or 4
     for a Clear, one more each for a Fullback -- and it lands as any

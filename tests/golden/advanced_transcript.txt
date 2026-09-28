@@ -9,16 +9,16 @@ Out of shooting range. Maneuver, or take a time out:
 🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 2: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 2: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **Dribble Advance**.
+🔮 Player 1 chose **Dribble**.
 🔥 Dinky AI chose **Steal**.
 
-**Dribble Advance** ties with **Steal** — skill test!
+**Dribble** ties with **Steal** — skill test!
 
 🔮 Quillon [PM]: offense skill 4
 🔥 Sizzifizik [PM]: defense skill 3
@@ -29,15 +29,15 @@ You chose **Dribble Advance**.
 Either player can roll:
 === press 3: SkillTestView -> 'Roll the skill test'
 --- message
-## **Dribble Advance** wins the skill test!
+## **Dribble** wins the skill test!
 Time has advanced 1, now at 01.
 --- message
-🔮 <@111>, choose your Dribble Advance distance (Playmaker ability):
+🔮 <@111>, choose your Dribble distance (Playmaker ability):
 === press 4: DribbleAdvanceChoiceView -> 'Advance 2 spaces (space 6)'
 --- message
 Chose **2 spaces**.
 --- message
-**Dribble Advance:** 🔮 Quillon [PM] and the ball move forward 2 spaces (Playmaker ability).
+**Dribble:** 🔮 Quillon [PM] and the ball move forward 2 spaces (Playmaker ability).
 
 <@111>, manipulate the ball's speed (up to 4):
 === press 5: SpeedDeltaChoiceView -> '5 (+4)'
@@ -61,13 +61,13 @@ Choose an action:
 🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 8: ManeuverActionPromptView -> 'Dribble Advance'
+=== press 8: ManeuverActionPromptView -> 'Dribble'
 --- message
-You chose **Dribble Advance**.
+You chose **Dribble**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **Dribble Advance**.
+🔮 Player 1 chose **Dribble**.
 🔥 Dinky AI chose **Pressure**.
 
 ## **Pressure** wins!
@@ -109,7 +109,7 @@ You chose **Pressure**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **Dribble Advance**.
+🔥 Dinky AI chose **Dribble**.
 🔮 Player 1 chose **Pressure**.
 
 ## **Pressure** wins!
@@ -232,7 +232,7 @@ You chose **Double Team**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **Dribble Advance**.
+🔥 Dinky AI chose **Dribble**.
 🔮 Player 1 chose **Double Team**.
 
 ## **Double Team** wins!
@@ -242,10 +242,10 @@ Time has advanced 1, now at 07.
 
 The ball reaches their own goal zone!
 
-**Own goal risk!** Dinky AI, 🔥 Hellguard [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (0). A total of 7 or more and the own goal is avoided.
+**Own goal risk!** Dinky AI, 🔥 Hellguard [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (1). A total of 7 or more and the own goal is avoided.
 === press 25: OwnGoalRollView -> 'Roll for the own goal'
 --- message
-**Own goal risk!** 🔥 Hellguard [FB] rolls at an advantage: higher of 3/12 is 12, + 0 (offensive skill) = 12
+**Own goal risk!** 🔥 Hellguard [FB] rolls at an advantage: higher of 3/12 is 12, + 1 (offensive skill) = 13
 --- message
 ## Own goal avoided!
 
@@ -313,13 +313,13 @@ You chose **Deflect**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **Dribble Advance**.
+🔥 Dinky AI chose **Dribble**.
 🔮 Player 1 chose **Deflect**.
 
-## **Dribble Advance** wins!
+## **Dribble** wins!
 Time has advanced 1, now at 10.
 --- message
-**Dribble Advance:** 🔥 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+**Dribble:** 🔥 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
 --- message
 Ball speed is now **5**.
 --- message
@@ -348,10 +348,10 @@ You chose **Intercept**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **Dribble Advance**.
+🔥 Dinky AI chose **Dribble**.
 🔮 Player 1 chose **Intercept**.
 
-**Dribble Advance** ties with **Intercept** — skill test!
+**Dribble** ties with **Intercept** — skill test!
 
 🔥 Sizzifizik [PM]: offense skill 4
 🔮 Dravox [DD]: defense skill 5
@@ -406,13 +406,13 @@ Out of shooting range. Maneuver, or take a time out:
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 may make a gambit this maneuver.
-=== press 40: ManeuverActionPromptView -> 'Dribble Burst'
+=== press 40: ManeuverActionPromptView -> 'Burst'
 --- message
-You chose **Dribble Burst**.
+You chose **Burst**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **Dribble Burst**.
+🔮 Player 1 chose **Burst**.
 🔥 Dinky AI chose **Pressure**.
 
 ## **Pressure** wins!
@@ -428,7 +428,7 @@ The ball slips past them.
 **Pressure:** 🔮 Dravox [DD] and the ball go back 1 space. 🔥 Sizzifizik [PM] moves forward.
 
 # Turnover!
-**Dribble Burst** was beaten -- Fire Demons (Visiting) take the ball, and it keeps the speed the burst put into it (2).
+**Burst** was beaten -- Fire Demons (Visiting) take the ball, and it keeps the speed the burst put into it (2).
 
 <@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
 === press 42: FlyView -> 'Stay'
@@ -453,13 +453,13 @@ You chose **Deflect**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **Dribble Advance**.
+🔥 Dinky AI chose **Dribble**.
 🔮 Player 1 chose **Deflect**.
 
-## **Dribble Advance** wins!
+## **Dribble** wins!
 Time has advanced 1, now at 13.
 --- message
-**Dribble Advance:** 🔥 Sizzifizik [PM] and the ball move forward 1 space (Playmaker ability).
+**Dribble:** 🔥 Sizzifizik [PM] and the ball move forward 1 space (Playmaker ability).
 --- message
 Ball speed is now **9**.
 --- message
@@ -504,19 +504,19 @@ Out of shooting range. Maneuver, or take a time out:
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 may make a gambit this maneuver.
-=== press 48: ManeuverActionPromptView -> 'Setup Pass'
+=== press 48: ManeuverActionPromptView -> 'Cross'
 --- message
-You chose **Setup Pass**.
+You chose **Cross**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **Setup Pass**.
+🔮 Player 1 chose **Cross**.
 🔥 Dinky AI chose **Deflect**.
 
 ## **Deflect** wins!
 Time has advanced 1, now at 15. The clock has reached 15: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
 --- message
-**Deflect** beat the **Setup Pass**: the ball moves 0 spaces back. Ball speed is now 1. The ball reaches the goal zone -- a scoring opportunity!
+**Deflect** beat the **Cross**: the ball moves 0 spaces back. Ball speed is now 1. The ball reaches the goal zone -- a scoring opportunity!
 --- message
 🔥 Brightburn [SK] takes the shot off the set-up.
 --- message
@@ -557,16 +557,16 @@ Out of shooting range, and no time out available. Maneuver:
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 may make a gambit this maneuver.
-=== press 52: ManeuverActionPromptView -> 'Dribble Burst'
+=== press 52: ManeuverActionPromptView -> 'Burst'
 --- message
-You chose **Dribble Burst**.
+You chose **Burst**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **Dribble Burst**.
+🔮 Player 1 chose **Burst**.
 🔥 Dinky AI chose **Steal**.
 
-**Dribble Burst** ties with **Steal** — skill test!
+**Burst** ties with **Steal** — skill test!
 
 🔮 Quillon [PM]: offense skill 4
 🔥 Sizzifizik [PM]: defense skill 3
@@ -694,19 +694,19 @@ Out of shooting range. Maneuver, or take a time out:
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 may make a gambit this maneuver.
-=== press 64: ManeuverActionPromptView -> 'Dribble Burst'
+=== press 64: ManeuverActionPromptView -> 'Burst'
 --- message
-You chose **Dribble Burst**.
+You chose **Burst**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **Dribble Burst**.
+🔮 Player 1 chose **Burst**.
 🔥 Dinky AI chose **Deflect**.
 
-## **Dribble Burst** wins!
+## **Burst** wins!
 Time has advanced 1, now at 18.
 --- message
-🔮 <@111>, choose your Dribble Burst distance (exhaust 1 a space):
+🔮 <@111>, choose your Burst distance (exhaust 1 a space):
 === press 65: DribbleBurstChoiceView -> '1 space (space 2, 1 exhaustion)'
 --- message
 Chose **1 space**.
@@ -716,7 +716,7 @@ Chose **1 space**.
 --- message
 🔮 Dravox [DD] lets it run.
 --- message
-**Dribble Burst:** 🔮 Umbrik [FB] bursts 1 space forward, past everyone in the way.
+**Burst:** 🔮 Umbrik [FB] bursts 1 space forward, past everyone in the way.
 🔮 Umbrik [FB] exhausts 1 😮‍💨 (now 1 total). Ball speed is now **12**.
 
 Ball is now in space 2, Telekinetics (Home) has possession.
@@ -733,13 +733,13 @@ Out of shooting range. Maneuver, or take a time out:
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 may make a gambit this maneuver.
-=== press 68: ManeuverActionPromptView -> 'Skilled Pass'
+=== press 68: ManeuverActionPromptView -> 'Pinpoint'
 --- message
-You chose **Skilled Pass**.
+You chose **Pinpoint**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **Skilled Pass**.
+🔮 Player 1 chose **Pinpoint**.
 🔥 Dinky AI chose **Steal**.
 
 ## **Steal** wins!
@@ -756,7 +756,7 @@ The ball slips past them.
 # Turnover!
 🔥 Flickerwing [WG] steals the ball. Fire Demons (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
 
-**Skilled Pass** was beaten -- the defense gets an unopposed Low Pass once everyone is back in position.
+**Pinpoint** was beaten -- the defense gets an unopposed Low Pass once everyone is back in position.
 
 <@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
 === press 70: FlyView -> 'Stay'
@@ -831,29 +831,29 @@ Out of shooting range. Maneuver, or take a time out:
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 may make a gambit this maneuver.
-=== press 78: ManeuverActionPromptView -> 'Setup Pass'
+=== press 78: ManeuverActionPromptView -> 'Cross'
 --- message
-You chose **Setup Pass**.
+You chose **Cross**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **Setup Pass**.
+🔮 Player 1 chose **Cross**.
 🔥 Dinky AI chose **Steal**.
 
-## **Setup Pass** wins!
+## **Cross** wins!
 Time has advanced 2, now at 22.
 --- message
-**Setup Pass:** 🔮 Quillon [PM] sets the ball's speed before picking out the pass.
+**Cross:** 🔮 Quillon [PM] sets the ball's speed before picking out the pass.
 
 <@111>, manipulate the ball's speed (up to 4):
 === press 79: SpeedDeltaChoiceView -> '4 (+3)'
 --- message
 Ball speed is now **4**.
 --- message
-🔮 <@111>, choose where your **Setup Pass** lands:
+🔮 <@111>, choose where your **Cross** lands:
 === press 80: SetupPassChoiceView -> '3 spaces (space 7, no teammate)'
 --- message
-**🔮 Coach** picks out a **Setup Pass** of 3.
+**🔮 Coach** picks out a **Cross** of 3.
 --- message
 # Turnover!
 🔥 Hellguard [FB] picks up the ball. Fire Demons (Visiting) now has possession.
@@ -911,13 +911,13 @@ Choose an action:
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 may make a gambit this maneuver.
-=== press 86: ManeuverActionPromptView -> 'Skilled Pass'
+=== press 86: ManeuverActionPromptView -> 'Pinpoint'
 --- message
-You chose **Skilled Pass**.
+You chose **Pinpoint**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **Skilled Pass**.
+🔮 Player 1 chose **Pinpoint**.
 🔥 Dinky AI chose **Steal**.
 
 ## **Steal** wins!
@@ -958,16 +958,16 @@ Choose an action:
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 may make a gambit this maneuver.
-=== press 90: ManeuverActionPromptView -> 'Setup Pass'
+=== press 90: ManeuverActionPromptView -> 'Cross'
 --- message
-You chose **Setup Pass**.
+You chose **Cross**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **Setup Pass**.
+🔮 Player 1 chose **Cross**.
 🔥 Dinky AI chose **Pressure**.
 
-**Setup Pass** ties with **Pressure** — skill test!
+**Cross** ties with **Pressure** — skill test!
 
 🔮 Noxar [SK]: offense skill 6
 🔥 Hellguard [FB]: defense skill 8

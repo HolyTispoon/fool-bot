@@ -1,5 +1,5 @@
 """
-What the cog's High Pass and Setup Pass say and do next, recorded off
+What the cog's High Pass and Cross say and do next, recorded off
 the old code.
 
 This is the equivalence half of rank O3 of Phase 3 of
@@ -20,8 +20,8 @@ same shape.
 
 **The refresh is recorded, not assumed.** Three branches of this rank
 hand over to a step that draws its own board -- the two passes that
-run out of play, where a new play posts and pins one, and the Setup
-Pass that lands on nobody, where the loose ball is announced with the
+run out of play, where a new play posts and pins one, and the
+Cross that lands on nobody, where the loose ball is announced with the
 board under it -- and in a real game the dispatcher writes no board in
 front of those, by reading what the *next* step reports (its
 `new_play`, its own `board_changed`), which the recorder standing in
@@ -163,7 +163,7 @@ def posted_messages(interaction) -> list[str]:
 async def drive(cog, fixture, interaction) -> None:
     """
     The fixture's own entry point, which for this rank is one of four:
-    a High Pass, a Setup Pass's speed half, its destination half, or
+    a High Pass, a Cross's speed half, its destination half, or
     the dead end its menu falls to when it has no distance to offer.
     """
     args = (interaction, fixture.game, fixture.match)

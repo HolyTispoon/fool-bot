@@ -154,7 +154,7 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-09-28 (later) -- author, the goal zones are part of the field; spaces are numbered
+### 2026-09-28 (goal zones) -- author, the goal zones are part of the field; spaces are numbered
 
 The author, in a Claude Code session: *"in defining zones, include the goal zones as part of the
 field. There are two goal zones - to the left of 1 and to the right of whatever is the last
@@ -169,7 +169,7 @@ before it, exactly where an overshoot left it. **No change to play.**
   reaches one (2.1.4-2.1.5). "Overshoots", "runs out of field" and "off the end of the field"
   are now "reaches the goal zone" everywhere -- the High Pass (6.7), the Deflect (6.8) and the
   Clear (19.8), the Pressure and its own-goal roll (6.10, 11.1), the Intercept (19.9), the
-  Double Team (19.10), the Setup Pass and its push back (19.7), and the clock (16.2.2). Section
+  Double Team (19.10), the Cross and its push back (19.7), and the clock (16.2.2). Section
   7.5 is renamed *A High Pass that reaches the goal zone*, and the glossary's *Overshoot* row
   becomes *Goal zone*.
 - **"Home goal" and "visitors goal" mean only the goal zones.** The author: *"the zone that has
@@ -197,6 +197,42 @@ which is what the tutorial it follows does. Corrected.
 
 **Upstream still says "overshoots"** on four maneuver cards (Deflect, Clear, Pressure, Double
 Team), so they are a new row in "Where upstream is behind".
+
+### 2026-09-28 (later) -- author and sheet, Hellguard's advanced offense is 1
+
+The author: *"Hellguard's advanced offensive skill is now 1"*, and the sheet is updated to
+match. Re-imported, the player cards tab's `OskillA` for Hellguard reads 1, the fullback's own
+offense, so the import no longer carries an advanced offense for him and he keeps his role's
+([Law 21.2.1](living-rules.md#212-advanced-skills)). The Law 21.2 table reads 1 where it read 0;
+his advanced defense stays 8. In an advanced game he now adds 1 wherever he rolls on offense --
+the own-goal roll is where the advanced golden meets it.
+
+### 2026-09-28 (renames) -- author and sheet, four maneuvers renamed: Dribble, Pinpoint, Burst, Cross
+
+The author, in a Claude Code session: *"I am changing the names of some maneuvers: Dribble
+advance -> Dribble, Skilled pass -> Pinpoint, Dribble Burst -> Burst, Setup pass -> Cross"*,
+and the sheet changed first. **No change to play** -- a card's name, and nothing it does.
+
+| Rank | Was | Now |
+| --- | --- | --- |
+| O2 basic | Dribble Advance | **Dribble** |
+| O1 advanced | Skilled Pass | **Pinpoint** |
+| O2 advanced | Dribble Burst | **Burst** |
+| O3 advanced | Setup Pass | **Cross** |
+
+- **The Charter and the Learn to Play** say the new names throughout, the headings of 6.6,
+  19.5, 19.6 and 19.7 with them (the anchors move with the headings; no number moves).
+- **The Playmaker's ability** was *"when resolving Dribble maneuvers"*, which named both cards
+  while both were Dribbles; it now reads *"when resolving Dribble and Burst"* on the sheet, and
+  *"a Dribble or a Burst"* in the Charter's role table.
+- **The sheet** re-imported with it: Clear's effect says *"vs Cross"*, Emberdash's ability is
+  *"Dribble up to 3, Burst with no exhaustion."* and Quantor's *"Before resolving High Pass or
+  Cross"*. Every `Defeats` cell names the new cards, and an advanced row now names **both**
+  cards on the rank it beats (*"Pressure, Double Team"*); the importer reads that as one rank
+  and refuses two. `maneuvers.json` steps to data_version 14.
+- **The keys stay** -- `dribble_advance`, `skilled_pass`, `dribble_burst`, `setup_pass` -- so
+  no saved game and no dispatch table moves; `PINNED_MANEUVER_KEYS` is why
+  ([maneuvers.md](design/maneuvers.md)).
 
 ### 2026-09-28 -- author, the clock advances when an action's outcome is decided
 

@@ -40,7 +40,7 @@ were already pure decisions over match state that happened to end in a
 
 **One kind per view class.** A prompt built with different arguments
 for different situations is one kind carrying the difference in its
-parameters, not several -- `SPEED_DELTA_CHOICE` is Setup Pass's, the
+parameters, not several -- `SPEED_DELTA_CHOICE` is Cross's, the
 dribbles' and Steal/Intercept's, told apart by `maneuver_key`, and
 `LOW_PASS_CHOICE` is the plain one and the free one, told apart by
 `free`. That is the rule the cog's mapping table is a table under.
@@ -146,7 +146,7 @@ class PromptKind(Enum):
     SPEED_DELTA_CHOICE = "speed_delta_choice"
     DRIBBLE_ADVANCE_CHOICE = "dribble_advance_choice"
     DRIBBLE_BURST_CHOICE = "dribble_burst_choice"
-    # Setup Pass's cost, once a deflection has beaten it: how much
+    # Cross's cost, once a deflection has beaten it: how much
     # further back the coach who won drives the ball. A kind since
     # Phase 6; until then the view had no kind at all, so a restart
     # in that window fell through to the turn prompt.
@@ -405,8 +405,8 @@ class SpaceOptions:
 @dataclass(frozen=True)
 class DistanceOptions:
     """
-    How far: a High Pass, a Setup Pass, a Dribble Advance, a Dribble
-    Burst, the push back a beaten Setup Pass owes. `railed` is the one
+    How far: a High Pass, a Cross, a Dribble, a
+    Burst, the push back a beaten Cross owes. `railed` is the one
     distance the tutorial allows, or `None`.
     """
 
@@ -1271,7 +1271,7 @@ def effect_choice_prompt(
     except in a narrow crash window, which falls back to
     `PromptKind.PLAYER_ACTION`.
 
-    A Playmaker's Dribble Advance has two possible pending prompts
+    A Playmaker's Dribble has two possible pending prompts
     (distance, then speed) with nothing in match state to tell them
     apart, so a restart in that narrow window guesses the first one --
     the same class of crash-window gap as the unrecognized-winner case
@@ -1285,8 +1285,8 @@ def effect_choice_prompt(
     """
     # **An effect continuation is read first**, because it says the
     # effect is already past the prompt its winner would restore.
-    # Setup Pass's speed choice has been answered by the time one
-    # is set, and a beaten Skilled Pass's Low Pass belongs to the
+    # Cross's speed choice has been answered by the time one
+    # is set, and a beaten Pinpoint's Low Pass belongs to the
     # *defense* -- reading the winner there would put the steal's
     # speed choice back up and let a coach answer it twice. See
     # `continue_effect` for why the field outlives its dispatch.
@@ -1341,7 +1341,7 @@ def effect_choice_prompt(
             return PendingPrompt(
                 PromptKind.DRIBBLE_ADVANCE_CHOICE, EFFECT_ASK,
             )
-        # A Dribble Burst asks a distance of everybody, not only a
+        # A Burst asks a distance of everybody, not only a
         # Playmaker, and asks nothing else: the ball is left at 12
         # rather than offered to the handler (the author, 2026-09-20).
         # So a handler already on the last space of the field has
@@ -1362,7 +1362,7 @@ def effect_choice_prompt(
         and engine.gambit_cost(match, winner_key) == "dribble_burst"
     ):
         # The defense's speed step after a steal -- the card's own,
-        # or **Dribble Burst's cost**: beaten by a pressure, the
+        # or **Burst's cost**: beaten by a pressure, the
         # defense takes the ball at the speed the burst put into it
         # and gets the same step once everyone is back in position
         # (`apply_pressure_turnover`). The run back answers ahead of
@@ -1394,7 +1394,7 @@ def effect_choice_prompt(
         and not match.pending_loose_ball
         and match.pending_scoring_opportunity is None
     ):
-        # **A failed Setup Pass gambit**, still owed: the card that
+        # **A failed Cross gambit**, still owed: the card that
         # beat it has won but not yet moved the ball, because its
         # coach chooses how far (Law 19.7.7). Once the ball has moved
         # and the loose ball begins the `pending_loose_ball` branch
@@ -1564,7 +1564,7 @@ PLAYERS_OWN_QUESTIONS = frozenset({
 })
 
 #: The two questions put to the defense: who challenges, and how far
-#: back a beaten Setup Pass goes.
+#: back a beaten Cross goes.
 DEFENSES_QUESTIONS = frozenset({
     PromptKind.MANEUVER_CHALLENGE,
     PromptKind.SETUP_PASS_PUSH_BACK,

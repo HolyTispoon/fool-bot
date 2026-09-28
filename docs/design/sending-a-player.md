@@ -64,7 +64,7 @@ rather than borrowing it -- see
   branch and `run_own_goal_roll`'s avoided branch now both set
   `pending_ball_recovery = True` the moment the restart is decided -- the
   same pattern `apply_setup_pass_out` already used for an out-of-bounds
-  Setup Pass -- so `begin_ball_recovery` asks the restarting side once the
+  Cross -- so `begin_ball_recovery` asks the restarting side once the
   reset has settled, and asks nobody at all when the reset already covers the
   space, which the standard deal and every formation usually do.
 - **Every pickup is one rule, and it is never declined** (the author,

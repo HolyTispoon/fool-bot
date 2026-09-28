@@ -916,7 +916,7 @@ class BasicRuleset:
 # always been played; the gambit tier is the second set the 2026-08-17
 # ruling added, one card per basic card at the same rank -- see
 # "Gambits" in docs/living-rules.md.
-# Setup Pass's three distances, and its clock cost. It is High Pass's
+# Cross's three distances, and its clock cost. It is High Pass's
 # rank and carries High Pass's two space minutes; 0 is a teammate
 # sharing the passer's own space.
 SETUP_PASS_DISTANCES = (0, 1, 3)
@@ -925,7 +925,7 @@ SETUP_PASS_DISTANCES = (0, 1, 3)
 SETUP_PASS_FULLBACK_DISTANCE = 4
 SETUP_PASS_CLOCK_COST = 2
 # What a maneuver costs on the clock (Law 16.2.1): a flat space minute,
-# and two for a High Pass and for the Setup Pass it is the advanced
+# and two for a High Pass and for the Cross it is the advanced
 # version of. `RulesEngine.maneuver_clock_cost` is the one reading; the
 # printed cards say the same in words, and a test holds the two
 # together.
@@ -933,21 +933,21 @@ MANEUVER_CLOCK_COST = 1
 HIGH_PASS_CLOCK_COST = 2
 # A time out's (Law 13.4.1), charged the moment it is called.
 TIME_OUT_CLOCK_COST = 1
-# How far a Skilled Pass reaches, either way. The card was Precise
+# How far a Pinpoint reaches, either way. The card was Precise
 # Pass and read "any teammate", which on the nine-space board is a
 # pass across the whole field; the author bounded it at 3 and renamed
 # it on 2026-08-26. A distance that would reach the goal zone is
 # dropped by `RulesEngine.low_pass_receivers`, so this is a reach and
 # not a promise that all seven destinations exist.
 SKILLED_PASS_REACH = 3
-# How far a Dribble Burst runs, at most -- the coach picks 1 up to
+# How far a Burst runs, at most -- the coach picks 1 up to
 # this, or as far as the field allows if that is shorter. It used to
 # be a run to the last space of the goal they attack, which was no
 # choice at all; the author bounded it on 2026-08-26 and the pick is
 # what the exhaustion is charged against.
 DRIBBLE_BURST_MAX_DISTANCE = 4
 # The ball's speed runs 1 to this. It is the one number a speed choice
-# is clamped to, and since 2026-09-20 also what a won Dribble Burst
+# is clamped to, and since 2026-09-20 also what a won Burst
 # leaves the ball at -- see `dribble_burst_step`.
 BALL_SPEED_MAX = 12
 
@@ -989,8 +989,30 @@ def maneuver_key(name: str) -> str:
     "Steal" on 2026-08-18, when the D2 gambit became
     "Intercept", and that is exactly the change that would have
     silently broken every one of them.
+
+    A card in `PINNED_MANEUVER_KEYS` keeps the key its old name gave it.
     """
-    return re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
+    slug = re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
+    return PINNED_MANEUVER_KEYS.get(slug, slug)
+
+
+# **A renamed card that keeps its key.** A key is the slug of the
+# printed name, and a rename usually moves it -- `LEGACY_MANEUVER_KEYS`
+# below is what that leaves behind. The author renamed four cards at
+# once on 2026-09-28 (Dribble Advance, Skilled Pass, Dribble Burst and
+# Setup Pass became Dribble, Pinpoint, Burst and Cross), and moving
+# their keys would have rewritten some six hundred references, every
+# golden's saved position and every game saved mid-turn, for a string
+# no player reads. So the key stays and only the name moves: the
+# importer writes these keys into `maneuvers.json`, and what a person
+# reads is still `RulesEngine.maneuver_name`. Unlike the legacy table
+# this one never dies out -- it is the card's identity.
+PINNED_MANEUVER_KEYS = {
+    "dribble": "dribble_advance",
+    "pinpoint": "skilled_pass",
+    "burst": "dribble_burst",
+    "cross": "setup_pass",
+}
 
 
 # **What a rename leaves behind**, which is the one thing a key cannot
@@ -2039,8 +2061,8 @@ class MatchState:
     # nearly always.
     #
     # Two of the gambits' effects reach past their own maneuver.
-    # Setup Pass adjusts ball speed and *then* sets up a scoring
-    # opportunity; Skilled Pass, when it is beaten, hands the defense
+    # Cross adjusts ball speed and *then* sets up a scoring
+    # opportunity; Pinpoint, when it is beaten, hands the defense
     # an unopposed Low Pass once the steal has settled. Both sit behind
     # a speed choice, which is the last human step of an effect and has
     # always led straight into `finish_maneuver_resolution`. Rather
@@ -3574,7 +3596,7 @@ class MatchState:
     ) -> int:
         """
         How far `player_id` is from the last space before the goal
-        `side` attacks -- what a Dribble Burst runs, and what it is
+        `side` attacks -- what a Burst runs, and what it is
         charged a token a space for.
 
         Measured off the board rather than off the zone, because "the
@@ -4010,7 +4032,7 @@ class MatchState:
         afterwards, and clamped to the field the same way.
 
         A coach choosing a distance is choosing a space, and "1 or 2"
-        says nothing about which; the Playmaker's Dribble Advance menu
+        says nothing about which; the Playmaker's Dribble menu
         labels its buttons from this. None when the player has no
         meeple on the field, which the move raises on.
         """

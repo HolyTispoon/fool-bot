@@ -60,7 +60,7 @@ move had no rules risk to weigh against it.
   over its 25 `return`s, plus the 9 the three folded-in builders add (6 effect
   prompts, 2 run-back, 1 loose-ball). A view built with different arguments for
   different situations is **one** kind carrying the difference in its
-  parameters -- `SPEED_DELTA_CHOICE` is Setup Pass's, the dribbles' and
+  parameters -- `SPEED_DELTA_CHOICE` is Cross's, the dribbles' and
   Steal/Intercept's with `maneuver_key` telling them apart, and
   `LOW_PASS_CHOICE` is the plain and the free one with `free`. The alternative,
   a kind per situation, makes the cog's table a second copy of the chain's
@@ -97,7 +97,7 @@ move had no rules risk to weigh against it.
   on the pickup), the run back's zone and price (`SpaceOptions.zone`,
   `.distances`), the zone a meeple is moved within
   (`RepositionOptions.zone`), which side of the board a hand is
-  (`ManeuverHand.team_side`), and that an empty Setup Pass menu is a
+  (`ManeuverHand.team_side`), and that an empty Cross menu is a
   pass out of play (`DistanceOptions.may_pass_out`). Each was measured
   by the Discord view and again by the web page off the match, which
   is the second reading CLAUDE.md forbids -- "a distance computed in a
@@ -177,7 +177,7 @@ move had no rules risk to weigh against it.
   back rather than a stale prompt off the last turn. Both read the
   *game* record rather than the match, which is why `pending_prompt`
   has always taken the game. The third, `SETUP_PASS_PUSH_BACK`, is
-  the push back Setup Pass's cost offers, which was a follow-on
+  the push back Cross's cost offers, which was a follow-on
   until the offer became a step the driver runs and its answer a
   prompt like the other six effect choices.
 - **A prompt is asserted to survive a save and a load**, every kind of
@@ -208,7 +208,7 @@ rank D3 the two pressures, rank D1 the two deflections and rank O3 the
 two passes -- so **`effects.py` holds all twelve cards, as nine
 functions** (five of the cards are their rank-mate parameterised) and
 `cogs/d12ball/effects.py` holds none of them. Rank O1
-landed in between and moved none of them: Skilled Pass had come across
+landed in between and moved none of them: Pinpoint had come across
 with Low Pass already, as the same step under a different `key=`.
 
 - **Phase 4 made it five modules, and widened what `FollowOn` means.**
@@ -298,8 +298,8 @@ with Low Pass already, as the same step under a different `key=`.
 - **Low Pass was the slice because it is not a toy.** Mid-sized, with a
   role-ability branch (the Winger's set-up, the one path that ends
   somewhere other than `finish_maneuver_resolution`), a continuation
-  (the free pass a beaten Skilled Pass hands the defense), a shared
-  function with Skilled Pass, and an advanced cost charged in the middle
+  (the free pass a beaten Pinpoint hands the defense), a shared
+  function with Pinpoint, and an advanced cost charged in the middle
   of its own sentence. A slice with one branch would have settled
   nothing.
 - **`FollowOn` was transitional and the enum was the record; now the
@@ -390,15 +390,15 @@ with Low Pass already, as the same step under a different `key=`.
   `tests/test_d12ball_dribble_flow.py` is rank O2's copy of the same
   three files, ten branches over the two cards.
 - **A rank can also turn out to be empty, and O1 did.** Phase 2 cut
-  the slice on Low Pass, and Skilled Pass is that same card
+  the slice on Low Pass, and Pinpoint is that same card
   parameterised -- `low_pass_step(key="skilled_pass")`, with the
   `key=` threaded from `resolve_skilled_pass` through
   `apply_low_pass`. So rank O1 moved no code at all; the `self.persist`
   count in `cogs/` did not change, and neither did the golden
   transcript. What it added is the evidence Phase 2 had no reason to
   write: ten more fixtures in the shared table, all on branches the
-  golden cannot see (the tutorial plays a Low Pass and never a Skilled
-  Pass), and the one assertion a fixture table cannot make -- that
+  golden cannot see (the tutorial plays a Low Pass and never a
+  Pinpoint), and the one assertion a fixture table cannot make -- that
   `key` survives a save. It is not a field on the match: a restart
   mid-effect reads the card back out of `offense_maneuver`, or out of
   `pending_effect_continuation` for the free pass, so the round trip
@@ -420,7 +420,7 @@ with Low Pass already, as the same step under a different `key=`.
 - **Rank D2 was the first hand-off into the spine, and it cost two
   members.** `steal_step` is a Steal and an Intercept both -- the
   cards differ by the sign of the carry and nothing else, so they are
-  one function and a `direction`, the way Low Pass and Skilled Pass
+  one function and a `direction`, the way Low Pass and Pinpoint
   are one function and a `key`. What it ends on is not
   `OFFER_SPEED_CHOICE`, which rank O2 had expected it to inherit: a
   steal owes the ball-speed choice but reaches it through
@@ -441,7 +441,7 @@ with Low Pass already, as the same step under a different `key=`.
     tables.
   - **Step-then-save is not always a fix.** Rank O2's beaten Clear
     was a write being lost; D2's two persists -- one inside
-    `take_ball_by_steal`, one in the Skilled Pass cost branch on top
+    `take_ball_by_steal`, one in the Pinpoint cost branch on top
     of it -- both already carried everything, so collapsing them
     changed the number of writes and nothing else. Both read alike in
     a diff, which is why a rank should say which of the two it found.
@@ -458,7 +458,7 @@ with Low Pass already, as the same step under a different `key=`.
     turnover's own block, the way a beaten Clear's cost rides inside
     the dribble's.
   - **One ordering was left open rather than settled.** An Intercept
-    that reaches the goal zone returns before the Skilled Pass cost is
+    that reaches the goal zone returns before the Pinpoint cost is
     read, so it collects none; the behaviour is lifted exactly as it stood and
     the question is in PR #233, deliberately unpinned by any fixture
     -- the same way rank D1's two questions were left in PR #232.
@@ -601,7 +601,7 @@ with Low Pass already, as the same step under a different `key=`.
   - **Step-then-save was the rule rather than a fix**, the fourth
     time of five. Every branch of both cards already persisted after
     its own mutations, and the one branch that persisted nowhere of
-    its own (a Setup Pass landing on nobody) reached
+    its own (a Cross landing on nobody) reached
     `begin_loose_ball`, whose two arrival gates persist before
     returning. `self.persist` in `cogs/` went 95 -> 91: eight left
     the steps, four arrived in the wrappers.
@@ -707,7 +707,7 @@ the cog still had a table of its own say so.
   `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, which said "do not write a board
   in front of this step"; that suppression is `stop_draws_the_board`
   now, read off the stop, plus `PROMPTS_DRAWN_LATER` for the one
-  prompt (Setup Pass's push back) whose answer draws the board a beat
+  prompt (Cross's push back) whose answer draws the board a beat
   later.
 - **`own_message` is where the carrying stops, and it is what let the
   second batch of steps into the loop.** Until Phase 6's second
@@ -888,7 +888,7 @@ step, or an adapter's own `_refuse`.
 
 Measured on the shared fixtures through `apply` with no cog imported,
 the third increment found that *some* adapters refused before they
-mutated and some did not: a Dribble Burst offering 1, 2 or 3 accepted
+mutated and some did not: a Burst offering 1, 2 or 3 accepted
 6 and moved the meeple, `PLAYER_ACTION` was answerable in the middle
 of a cascade, `take_scoring_opportunity` cleared the opportunity
 before raising on an unknown id, and a run back could not be completed

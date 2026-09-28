@@ -213,7 +213,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "time**. Your hand holds three:\n\n"
             "- **Low Pass** -- ball to the nearest teammate ahead or "
             "behind, up to 2 spaces. Ball speed +1.\n"
-            "- **Dribble Advance** -- your player *and* the ball move "
+            "- **Dribble** -- your player *and* the ball move "
             "forward, and you may change the ball's speed.\n"
             "- **High Pass** -- the ball flies 2 or more spaces "
             "forward.\n\n"
@@ -224,7 +224,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "can open it whenever you like.\n\n"
             "Dinky's playmaker is standing on the ball, so they are the "
             "one challenging you.\n\n"
-            "**Pick Dribble Advance.** It beats Deflect, which is "
+            "**Pick Dribble.** It beats Deflect, which is "
             "what Dinky has played, and it is the card that carries the "
             "ball up the field."
         ),
@@ -254,12 +254,12 @@ BEATS: tuple[TutorialBeat, ...] = (
         title="Roles, abilities, and a tie",
         lesson=(
             "## 2. Every role has an ability\n"
-            "Dribble Advance beat Deflect outright -- no dice, "
+            "Dribble beat Deflect outright -- no dice, "
             "because the cycle had already settled it -- and your "
             "playmaker carried the ball **two** spaces, from space 4 to "
             "**space 6**.\n\n"
             "Moving forward two spaces is not the ordinary move. "
-            "A dribble advances typically moves the playerone "
+            "A Dribble typically moves the player one "
             "space. But your **Playmaker** is a skilled dribbler and "
             "can move up to two: that is "
             "the Playmaker role ability. **Every player has a role and every "
@@ -348,7 +348,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "the ball back into a handler's own goal zone with it and "
             "they have an **own goal** to roll for.\n\n"
             "**Pick Pressure.** Dinky is dribbling, and Pressure beats "
-            "Dribble Advance -- so instead of losing a space you will "
+            "Dribble -- so instead of losing a space you will "
             "take one off them."
         ),
         player_has_ball=False,

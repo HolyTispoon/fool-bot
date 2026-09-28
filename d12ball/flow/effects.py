@@ -18,14 +18,14 @@ which side of the seam a function has ended up on, and it is
 greppable.
 
 **A rank's two cards are one function wherever they differ by a
-parameter**: Low Pass and Skilled Pass by `key`, Steal and Intercept
+parameter**: Low Pass and Pinpoint by `key`, Steal and Intercept
 by the sign of the carry, Pressure and Double Team by the push and the
 partner it brings in, Deflect and Clear by the distance and the speed
 drop. The dribbles needed two, because they have different costs
 rather than different signs -- and so does rank O3, whose two cards
 share a landing space and nothing else: a High Pass throws forward and
-may reach the goal zone, a Setup Pass picks the ball out and never does, and the
-Setup Pass is two steps because its speed choice comes first.
+may reach the goal zone, a Cross picks the ball out and never does, and the
+Cross is two steps because its speed choice comes first.
 
 **Nothing here saves.** The caller persists once, immediately after the
 step and before dispatching whatever comes next -- see
@@ -271,16 +271,16 @@ def low_pass_step(
     game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
-    Play a won Low Pass -- or a Skilled Pass, which is the same card
-    with more reach and a bigger bonus, or the unopposed pass Skilled
-    Pass's own cost hands the defense.
+    Play a won Low Pass -- or a Pinpoint, which is the same card
+    with more reach and a bigger bonus, or the unopposed pass
+    Pinpoint's own cost hands the defense.
 
     `free` marks that last one: it is not this side's maneuver, so it
     charges no clock, and applying it is what spends the continuation
     that recorded it.
     """
     name = engine.maneuver_name(key)
-    # A pass granted by Skilled Pass's cost is a continuation, and
+    # A pass granted by Pinpoint's cost is a continuation, and
     # applying it is what spends it -- see `continue_effect`.
     if free:
         match.pending_effect_continuation = None
@@ -325,7 +325,7 @@ def low_pass_step(
     content += pay_double_team_cost(engine, match, key, double_team_partner)
     # Low Pass's own cost is a flat 1 space minute regardless of
     # distance (2026-08-16), the same as every maneuver but High
-    # Pass. A pass granted by Skilled Pass's cost is not this
+    # Pass. A pass granted by Pinpoint's cost is not this
     # side's maneuver and charges nothing: the clock was already
     # spent on the steal that produced it.
     distance_moved = 0 if free else 1
@@ -420,7 +420,7 @@ def dribble_advance_step(
     distance: int,
 ) -> StepResult:
     """
-    Play a won Dribble Advance: the handler carries the ball forward
+    Play a won Dribble: the handler carries the ball forward
     and keeps it, then manipulates ball speed the way every dribble
     ends.
 
@@ -462,7 +462,7 @@ def dribble_advance_step(
         else ""
     )
     content = (
-        f"**Dribble Advance:** "
+        f"**{engine.maneuver_name('dribble_advance')}:** "
         f"{engine.format_player_label(match, handler)} and the "
         f"ball move forward {actual_distance} {space_word}"
         f"{ability_note}."
@@ -492,10 +492,10 @@ def dribble_burst_step(
     distance: int,
 ) -> StepResult:
     """
-    Play a won Dribble Burst: the handler carries the ball up to
+    Play a won Burst: the handler carries the ball up to
     `DRIBBLE_BURST_MAX_DISTANCE` spaces forward (one more for a
     Playmaker), defenders no obstacle, at a token a space -- and the
-    ball is left at speed `BALL_SPEED_MAX`, where a Dribble Advance
+    ball is left at speed `BALL_SPEED_MAX`, where a Dribble
     offers the handler a change of up to oSkill (the author,
     2026-09-20: "precisely 12, not any number"). Nothing is asked, so
     unlike the advance the burst ends on the maneuver's tail rather
@@ -547,7 +547,8 @@ def dribble_burst_step(
     )
     if actual_distance:
         content = (
-            f"**Dribble Burst:** {handler_label} bursts "
+            f"**{engine.maneuver_name('dribble_burst')}:** "
+            f"{handler_label} bursts "
             f"{actual_distance} {space_word} forward, past everyone in "
             f"the way{ability_note}."
         )
@@ -557,9 +558,9 @@ def dribble_burst_step(
         # than reported as a run of 0 spaces, which is the same call
         # `throw_high_pass` makes for a throw from the last space.
         content = (
-            f"**Dribble Burst:** {handler_label} is already on the "
-            "last space before the goal zone, so the ball stays where "
-            "it is."
+            f"**{engine.maneuver_name('dribble_burst')}:** "
+            f"{handler_label} is already on the last space before the "
+            "goal zone, so the ball stays where it is."
         )
     # Worth saying only for Emberdash: everybody else, Playmaker
     # included, pays the plain token-a-space cost.
@@ -716,7 +717,7 @@ def steal_step(
         #
         # It returns **before** the cost below, exactly as the cog
         # did: an Intercept that reaches the goal zone collects no beaten
-        # Skilled Pass. Preserved rather than corrected, because
+        # Pinpoint. Preserved rather than corrected, because
         # whether that is the rule is the author's to say -- see the
         # questions on the pull request for rank D2.
         return StepResult(
@@ -733,7 +734,7 @@ def steal_step(
             ),
         )
 
-    # **Skilled Pass's cost**: beaten by a steal, the passing side
+    # **Pinpoint's cost**: beaten by a steal, the passing side
     # hands the defender an unopposed Low Pass once the steal has
     # settled. It is said here and played later, because the steal is
     # not finished: the run back and then the speed choice both come
@@ -744,7 +745,8 @@ def steal_step(
     # `pending_effect_continuation`.
     if engine.gambit_cost(match, key) == "skilled_pass":
         content += (
-            "\n\n**Skilled Pass** was beaten -- the defense gets an "
+            f"\n\n**{engine.maneuver_name('skilled_pass')}** was beaten "
+            "-- the defense gets an "
             "unopposed Low Pass once everyone is back in position."
         )
 
@@ -856,7 +858,7 @@ def apply_pressure_turnover(
     """
     Whether the pressure also took the ball, and what to say about
     it. Returns the text to append, and the two facts the caller
-    dispatches on: a Dribble Burst cost paid, and a Defender's
+    dispatches on: a Burst cost paid, and a Defender's
     steal.
 
     The two are exclusive and in that order -- a burst cost already
@@ -866,7 +868,7 @@ def apply_pressure_turnover(
     defender = engine.get_player_definition(match.challenger_id)
     content = ""
 
-    # **Dribble Burst's cost**: beaten by a pressure, the offense
+    # **Burst's cost**: beaten by a pressure, the offense
     # loses possession *and* the ball keeps whatever speed it was
     # carrying while the defense manipulates it. Neither of those
     # is something a pressure does on its own -- a turnover is the
@@ -881,7 +883,7 @@ def apply_pressure_turnover(
         match.set_ball_carrier(match.challenger_id)
         content += (
             "\n\n# Turnover!\n"
-            "**Dribble Burst** was beaten -- "
+            f"**{engine.maneuver_name('dribble_burst')}** was beaten -- "
             f"{format_team_side_label(match.setup_for_side(defense_side))} "
             "take the ball, and it keeps the speed the burst put into "
             f"it ({match.ball.speed})."
@@ -917,7 +919,7 @@ def pressure_step(
     exhaustion, and the one card whose effect lands on the
     *following* maneuver. The two differ by the push and by that
     partner, so they are one function and a `key`, the way Low Pass
-    and Skilled Pass are.
+    and Pinpoint are.
 
     Rank D3 has no unchallenged branch: a defense card only resolves
     where a defender was sent, so `match.challenger_id` is always the
@@ -1354,7 +1356,7 @@ def deflection_step(
     where the ball is lying when the question is asked
     (`deflection_lands`).
     """
-    # **A failed Setup Pass gambit**: the card that beat it moves the
+    # **A failed Cross gambit**: the card that beat it moves the
     # ball once, as far as the coach who played it chooses (Law
     # 19.7.7, the author, 2026-09-27) -- so the ball is not moved
     # here, and the choice is asked first. Until then it was knocked
@@ -1398,7 +1400,7 @@ def deflection_lands(
     the challenger's shot where it reached the goal zone, or a loose
     ball settled by
     who is standing there. Shared by a deflection at the card's own
-    distance and by one at the distance a failed Setup Pass gambit let
+    distance and by one at the distance a failed Cross gambit let
     its coach choose (`setup_pass_push_back_step`), which land alike.
     """
     defense_side = match.defending_side()
@@ -1535,7 +1537,7 @@ def send_ball_out_of_play(match: MatchState) -> str:
     pickup. Returns that side, worded.
 
     Both passes of rank O3 reach this and nothing else does -- a High
-    Pass with nowhere left to throw it, and a Setup Pass with nowhere
+    Pass with nowhere left to throw it, and a Cross with nowhere
     to pick it out to. They say different things about how they got
     here, which is why the sentence is each branch's and only the
     state is shared. See `d12ball.flow.turnovers.begin_run_back`'s `new_play`: this
@@ -1770,7 +1772,7 @@ def high_pass_step(
         # it lands. With nobody else there either, this is a throw
         # with nowhere to go: there was no space left to put it on
         # and no teammate to put it to, so it goes out exactly as a
-        # Setup Pass with no legal destination does, rather than
+        # Cross with no legal destination does, rather than
         # quietly staying with the passer. `actual_distance` (not
         # `distance`) is the test, because that's what tells the
         # ball genuinely didn't move from a real empty destination
@@ -1941,7 +1943,7 @@ def setup_pass_speed_step(
     match: MatchState,
 ) -> StepResult:
     """
-    Setup Pass, the High Pass gambit, in its first half: **adjust ball
+    Cross, the High Pass gambit, in its first half: **adjust ball
     speed up to the passer's offensive skill, and then** pick the pass
     out.
 
@@ -1965,7 +1967,7 @@ def setup_pass_speed_step(
     passer = engine.get_player_definition(match.active_player_id)
     return StepResult(
         narration=[
-            "**Setup Pass:** "
+            f"**{engine.maneuver_name('setup_pass')}:** "
             f"{engine.format_player_label(match, passer)} "
             "sets the ball's speed before picking out the pass."
         ],
@@ -1988,7 +1990,7 @@ def setup_pass_step(
     game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
-    Setup Pass's second half: the ball goes 0, 1 or 3 spaces, and a
+    Cross's second half: the ball goes 0, 1 or 3 spaces, and a
     teammate standing where it lands takes a scoring opportunity.
 
     **Every distance that fits on the field is offered**, whether or
@@ -2016,7 +2018,7 @@ def setup_pass_step(
             # own 0-space case -- nowhere to throw it and nobody to
             # throw it to -- so it goes out rather than settling
             # under the passer's own feet.
-            return setup_pass_out_step(match)
+            return setup_pass_out_step(engine, match)
 
         # **A pass that lands on nobody is still a pass**
         # (2026-08-25). The card is a set-up, but missing the
@@ -2034,7 +2036,8 @@ def setup_pass_step(
         space_word = "space" if actual_distance == 1 else "spaces"
         return StepResult(
             narration=[
-                "**Setup Pass:** the ball is picked out "
+                f"**{engine.maneuver_name('setup_pass')}:** "
+                "the ball is picked out "
                 f"{actual_distance} {space_word} forward, with nobody "
                 "there to set up."
             ],
@@ -2057,7 +2060,8 @@ def setup_pass_step(
     )
     return StepResult(
         narration=[
-            f"**Setup Pass:** the ball {movement} to "
+            f"**{engine.maneuver_name('setup_pass')}:** "
+            f"the ball {movement} to "
             f"{engine.format_player_label(match, receiver)} "
             f"-- a scoring opportunity! Ball speed is {match.ball.speed}."
         ],
@@ -2072,13 +2076,15 @@ def setup_pass_step(
     )
 
 
-def setup_pass_out_step(match: MatchState) -> StepResult:
+def setup_pass_out_step(
+    engine: RulesEngine, match: MatchState,
+) -> StepResult:
     """
-    **Setup Pass never reaches the goal zone**, so the only way it
-    runs out of play is having nowhere to throw it at all: the passer
-    on the last space before the goal zone -- the one position from
-    which even 1 space would reach it -- with no teammate beside them
-    to take it at 0. Then the other team gains possession: a new play, both sides
+    **Cross never reaches the goal zone**, so the only way it runs
+    out of play is having nowhere to throw it at all: the passer on the
+    last space before the goal zone -- the one position from which even
+    1 space would reach it -- with no teammate beside them to take it
+    at 0. Then the other team gains possession: a new play, both sides
     reset, and the gaining side sends the nearest player to fetch the
     ball -- the out-of-bounds outcome the game already has.
 
@@ -2094,7 +2100,8 @@ def setup_pass_out_step(match: MatchState) -> StepResult:
     gaining = send_ball_out_of_play(match)
     return StepResult(
         narration=[
-            "**Setup Pass:** there is nobody to pick the ball out to, "
+            f"**{engine.maneuver_name('setup_pass')}:** "
+            "there is nobody to pick the ball out to, "
             f"so it runs out of play. {gaining} gain possession."
         ],
         board_changed=True,
@@ -2215,8 +2222,8 @@ def speed_choice_step(
     Set the ball speed a maneuver's last human choice asks for.
 
     A gambit's effect can reach past its own maneuver, and a speed
-    choice is the last human step of the two that do -- Setup Pass's
-    own pass, and the unopposed Low Pass a beaten Skilled Pass hands
+    choice is the last human step of the two that do -- Cross's
+    own pass, and the unopposed Low Pass a beaten Pinpoint hands
     the side that stole it. **What is still owed is written down
     here**, at the moment the effect has nothing left in front of it,
     and run instead of the ordinary tail. Written here rather than by
@@ -2277,7 +2284,7 @@ def setup_pass_push_back_step(
     distance: int,
 ) -> StepResult:
     """
-    **A failed Setup Pass gambit**, spent: the Deflect or Clear that
+    **A failed Cross gambit**, spent: the Deflect or Clear that
     beat it moves the ball back the distance its coach chose, once
     (Law 19.7.7, the author, 2026-09-27), and it lands as any
     deflection does (`deflection_lands`) -- a shot where it ran out of
@@ -2295,7 +2302,8 @@ def setup_pass_push_back_step(
     )
     space_word = "space" if actual_distance == 1 else "spaces"
     content = (
-        f"**{engine.maneuver_name(key)}** beat the **Setup Pass**: the "
+        f"**{engine.maneuver_name(key)}** beat the "
+        f"**{engine.maneuver_name('setup_pass')}**: the "
         f"ball moves {actual_distance} {space_word} back. Ball speed is "
         f"now {match.ball.speed}."
     )
@@ -2337,15 +2345,15 @@ def offer_low_pass(
     lead_in: str = "",
 ) -> StepResult:
     """
-    A won Low Pass or Skilled Pass: who it can reach, and whether
+    A won Low Pass or Pinpoint: who it can reach, and whether
     anybody chooses.
 
-    Skilled Pass is a Low Pass with the nearest-each-way rule taken
+    Pinpoint is a Low Pass with the nearest-each-way rule taken
     off, a space more reach, and the speed bonus tripled; every other
     thing about it is a Low Pass's, which is why the two share one
-    function. `free` marks the unopposed Low Pass **Skilled Pass's
+    function. `free` marks the unopposed Low Pass **Pinpoint's
     cost** hands the defense: it is not this side's maneuver, so it
-    charges no further clock and cannot be a Skilled Pass.
+    charges no further clock and cannot be a Pinpoint.
 
     A handler with no teammate in reach has won the maneuver and has
     nowhere to put the ball: it goes a space forward and is loose, and
@@ -2407,7 +2415,7 @@ def offer_dribble_advance(
     lead_in: str = "",
 ) -> StepResult:
     """
-    A won Dribble Advance. Role ability -- Playmaker: may advance 2
+    A won Dribble. Role ability -- Playmaker: may advance 2
     spaces instead of the usual 1. Everyone else has no choice to make
     here, so they skip straight to applying the fixed 1-space advance.
     """
@@ -2422,7 +2430,8 @@ def offer_dribble_advance(
         next=PendingPrompt(
             PromptKind.DRIBBLE_ADVANCE_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose your "
-            "Dribble Advance distance (Playmaker ability):",
+            f"{engine.maneuver_name('dribble_advance')} "
+            "distance (Playmaker ability):",
         ),
     )
 
@@ -2434,7 +2443,7 @@ def offer_dribble_burst(
     lead_in: str = "",
 ) -> StepResult:
     """
-    A won Dribble Burst: how far, at a token a space -- see
+    A won Burst: how far, at a token a space -- see
     `dribble_burst_step` for the card, and `RulesEngine.dribble_burst_distances`
     for what is offered.
 
@@ -2470,7 +2479,7 @@ def offer_dribble_burst(
         next=PendingPrompt(
             PromptKind.DRIBBLE_BURST_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose your "
-            f"Dribble Burst distance{price}:",
+            f"{engine.maneuver_name('dribble_burst')} distance{price}:",
         ),
     )
 
@@ -2519,7 +2528,7 @@ def offer_setup_pass_distance(
     lead_in: str = "",
 ) -> StepResult:
     """
-    The second half of Setup Pass: 0, 1 or 3 spaces, and a teammate
+    The second half of Cross: 0, 1 or 3 spaces, and a teammate
     standing where it lands takes a scoring opportunity.
 
     **Every distance that fits on the field is offered**, whether or
@@ -2530,22 +2539,22 @@ def offer_setup_pass_distance(
     since a passer never receives their own pass (2026-08-12), so it is
     on the menu only while somebody else is standing there.
 
-    **Setup Pass never reaches the goal zone**, so the one way it goes
-    out is having nowhere to throw it at all: the passer on the last
-    space before the goal zone with no teammate beside them. That is the existing
+    **Cross never reaches the goal zone**, so the one way it goes out
+    is having nowhere to throw it at all: the passer on the last space
+    before the goal zone with no teammate beside them. That is the existing
     out-of-bounds outcome -- `setup_pass_out_step`.
     """
     distances = engine.setup_pass_distances(match)
 
     if not distances:
-        return _with_lead_in(setup_pass_out_step(match), lead_in)
+        return _with_lead_in(setup_pass_out_step(engine, match), lead_in)
 
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.SETUP_PASS_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose where "
-            "your **Setup Pass** lands:",
+            f"your **{engine.maneuver_name('setup_pass')}** lands:",
         ),
     )
 
@@ -2557,7 +2566,7 @@ def offer_setup_pass_push_back(
     lead_in: str = "",
 ) -> StepResult:
     """
-    **A failed Setup Pass gambit**: the coach whose Deflect or Clear
+    **A failed Cross gambit**: the coach whose Deflect or Clear
     beat it chooses how far back the ball goes -- 1, 2 or 3 for a
     Deflect, 2, 3 or 4 for a Clear, one more each for a Fullback
     (`RulesEngine.setup_pass_push_back_distances`).
@@ -2588,7 +2597,8 @@ def offer_setup_pass_push_back(
         narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.SETUP_PASS_PUSH_BACK,
-            f"{mention}, your **{name}** beat the **Setup Pass** -- how "
+            f"{mention}, your **{name}** beat the "
+            f"**{engine.maneuver_name('setup_pass')}** -- how "
             "far back does the ball go?",
         ),
     )
@@ -2763,7 +2773,7 @@ def continue_effect(
     continuation = match.pending_effect_continuation or {}
 
     if continuation.get("kind") == "free_low_pass":
-        # **Skilled Pass's cost.** The defense stole the ball and now
+        # **Pinpoint's cost.** The defense stole the ball and now
         # plays a Low Pass with it, unopposed. The passer is whoever
         # took it -- named when the cost was recorded, and re-derived
         # from the ball if a run back has moved things since.
@@ -2779,7 +2789,7 @@ def continue_effect(
             )
 
     if continuation.get("kind") == "setup_pass_shot":
-        # **Setup Pass's benefit**, second half: the speed is set, and
+        # **Cross's benefit**, second half: the speed is set, and
         # now the scoring opportunity is set up.
         return offer_setup_pass_distance(engine, game, match, lead_in=lead_in)
 

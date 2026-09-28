@@ -92,7 +92,7 @@ came to be asked before it (2026-09-24), which changed which offers the
 game makes. And when advanced mode took on the personal abilities and
 the advanced skill scores (Law 21, 2026-09-25): Hellguard's 8 and the
 Fire Demons' own ignites change the game from the first skill test, and
-seed 11 stopped reaching the Setup Pass choice and Clear. And again the
+seed 11 stopped reaching the Cross choice and Clear. And again the
 same day, when the sheet gave Dravox, Hexis and Emberdash abilities of
 their own and Spectra's changed (seed 226 to 69). And when the sheet gave
 thirteen more players abilities of their own (2026-09-26): Zenith's Fly
@@ -409,8 +409,8 @@ class AdvancedGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
         cover a tenth of `d12ball/flow/effects.py`.
         """
         for card in (
-            "Low Pass", "Skilled Pass", "High Pass", "Setup Pass",
-            "Dribble Advance", "Dribble Burst", "Deflect", "Clear",
+            "Low Pass", "Pinpoint", "High Pass", "Cross",
+            "Dribble", "Burst", "Deflect", "Clear",
             "Steal", "Intercept", "Pressure", "Double Team",
         ):
             self.assertIn(
