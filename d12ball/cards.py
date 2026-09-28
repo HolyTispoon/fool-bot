@@ -2647,7 +2647,7 @@ def duplex_order(
     (`print_sheet` pads at the end), so their backs belong in the
     rightmost; reversing the row as it stood and letting `print_sheet`
     pad it would put them on the left again, behind the wrong cells.
-    Four reference cards three across is the case that meets it.
+    Four reference cards three across was the case that met it.
     """
     blank = Image.new(cards[0].mode, cards[0].size, CARD_FACE)
     padded = list(cards) + [blank] * (-len(cards) % columns)

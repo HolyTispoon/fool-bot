@@ -994,11 +994,16 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   author's call for the printed deck.
 - **The reference cards share one pair, and the tokens have their own**
   (the author, 2026-09-27; as a pair, 2026-09-28).
-  `render_reference_cards.py` puts the three species cards' and the role
-  card's fronts on one sheet and their backs on the other -- four cards,
-  a row of three and one, which is the short row `duplex_order` pads
-  before it reverses. They were one sheet of eight faces, each front
-  beside its back, cut out and glued. `render_token_sheet.py` is the condition tokens as a front sheet and a
+  `render_reference_cards.py` puts the species cards' and the role
+  cards' fronts on one sheet and their backs on the other -- six cards,
+  two full rows: the three species cards, a fourth that is the first
+  turned over (Mind Pull and Slimey on its front, Volatile and Lithium
+  powered on its back), and the role card twice (the author,
+  2026-09-28; the sheet had been four cards, a row of three and one,
+  which left two cells blank). The extra cards are the kit's alone:
+  `CARD_FACES` is still three cards, and `render_species_cards.py` and
+  `render_role_cards.py` still render one of each. They were one sheet
+  of eight faces, each front beside its back, cut out and glued. `render_token_sheet.py` is the condition tokens as a front sheet and a
   back sheet printed duplex ([printed-tokens.md](printed-tokens.md), "Paper tokens"). So the
   kit prints everything a table needs but the meeples and the dice. The three card scripts take
   `--sheets-only` for this, and the kit passes it and a `--team` per

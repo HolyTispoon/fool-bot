@@ -105,8 +105,8 @@ back.
   `<team>-advanced-sheet.png` the advanced sides, printed as a pair.
 - **reference-cards/** -- the reference cards: the three double-sided
   species-ability cards (every pairing of the four species appears on
-  one face) and the double-sided role-ability card (the six basic
-  roles). `front-sheet.png` is each card's front and `back-sheet.png`
+  one face), a fourth that is the first turned over, and two copies of
+  the double-sided role-ability card (the six basic roles). `front-sheet.png` is each card's front and `back-sheet.png`
   its back, printed as a pair.
 - **tokens/** -- the condition tokens, double-sided, on one piece of
   letter paper: {token_counts}. `front-sheet.png` is every token's
