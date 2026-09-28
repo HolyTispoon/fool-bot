@@ -447,21 +447,20 @@ and each point is a fault the board it replaced actually had.
   real card (it is drawn at 300dpi and printing it larger would only soften
   it), and the two benches divide what is left. Equal thirds left a band of
   empty board beside the picture.
-- **A bench's guide is three cards stacked, cascaded, and under poker size.**
+- **A bench's guide is three cards stacked sideways, and under poker size.**
   A bench holds three cards, and the guide draws them the way they lie: each
-  card `TEAM_BENCH_CASCADE` of its height below the one behind it, which is
-  the header band a player card prints its name and role in, so all three
-  benched players stay readable. A card behind shows only its top edge and
-  the short sides down to the card in front of it -- no line crosses a card's
-  face. It replaced a single outline (the author, 2026-09-28: the lines should
-  make sense for three cards stacked), which said nothing about there being
-  three. Side by side does not fit, and neither does a cascade at life size:
-  half a letter sheet does not leave the height of three cascaded poker cards
-  between a legible header, two legible cell labels and a footer, and the
-  author's call was legible over life-size, so the guide is a card's
-  proportions at the height the row has and a bench stacks on the area,
-  overhanging it. `card_slot_inches` reports one card of the cascade and the
-  CLI says so in as many words.
+  card `TEAM_BENCH_CASCADE` (a fifth) of its width to the right of the one
+  behind it, so the left edge of every card shows (the author, 2026-09-28).
+  A card behind shows only its left edge and its top and bottom edges out to
+  the card in front of it -- no line crosses a card's face. It replaced a
+  single outline, which said nothing about there being three, and then a
+  first cut that stacked the three downward. Side by side without overlapping
+  does not fit, and neither does the stack at life size: a bench column is
+  two and a half inches wide on half a letter sheet, and the author's call
+  was legible over life-size, so the guide is a card's proportions at what
+  the column and the row leave, and a bench stacks on the area, overhanging
+  it. `card_slot_inches` reports one card of the stack and the CLI says so in
+  as many words.
 - **The footer is three lines: the formation strip, the standard formation
   and one reminder.** The d12 badge and "every roll in the game is a d12"
   came off it (the author, 2026-09-28), as did "read from your own goal" on

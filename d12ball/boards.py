@@ -2329,13 +2329,12 @@ TEAM_FOOTER_LINE_GAP_INCHES = 0.05
 # what it heads than body copy does to the next line of itself.
 TEAM_TITLE_LEADING = 1.15
 TEAM_LINE_LEADING = 1.4
-# A bench is three cards stacked, and the guide draws them cascaded:
-# each card sits this share of its own height below the one behind it,
-# which is the header band a player card prints its name and role in
-# (`player_cards.py`), so a coach reads all three benched players
+# A bench is three cards stacked sideways (the author, 2026-09-28): each
+# card sits this share of its own width to the right of the one behind
+# it, so the left edge of every card shows and a coach counts three
 # without lifting one.
 TEAM_BENCH_CARDS = 3
-TEAM_BENCH_CASCADE = 0.16
+TEAM_BENCH_CASCADE = 0.2
 # The dashed line down the seam of the two-up page. It is on the seam
 # and so on the edge of both boards, which is the one place a mark
 # belongs on a sheet that is about to be cut in half.
@@ -2416,13 +2415,13 @@ class TeamBoardGeometry:
     band is the bug this layout replaced.
 
     `slot` is one card of the cascade drawn inside a bench -- three of
-    them, each `TEAM_BENCH_CASCADE` of a card below the last -- capped
+    them, each `TEAM_BENCH_CASCADE` of a card right of the last -- capped
     at a real poker card so a bigger sheet gives a roomier area rather
     than an outsized guide. `card_slot_inches` reports it, and at half a
-    letter sheet it comes out under a poker card: the head, the footer
-    and two legible cell labels do not leave the height of three
-    cascaded cards between them, and the author's call was legible over
-    life-size. A coach stacks their bench on the area the way the guide
+    letter sheet it comes out under a poker card: a bench column is not
+    the width of three cascaded cards, nor the row a card's height,
+    once the head, the footer and two legible cell labels are paid for,
+    and the author's call was legible over life-size. A coach stacks their bench on the area the way the guide
     shows, overhanging it.
     """
 
@@ -2522,14 +2521,18 @@ class TeamBoardGeometry:
             (right - reference_width, right),
         )
 
-        # The cascade is one card's height plus an offset per card
-        # behind it, so the card is what is left of the area over that.
+        # The cascade is one card's width plus an offset per card
+        # behind it, so the card is what is left of the column over
+        # that -- or of the row's height, whichever binds first.
         padding = inches(TEAM_AREA_PADDING_INCHES)
         cascade = 1 + (TEAM_BENCH_CARDS - 1) * TEAM_BENCH_CASCADE
         slot_height = min(
-            (area_bottom - area_top - 2 * padding) / cascade,
+            area_bottom - area_top - 2 * padding,
             inches(CARD_INCHES[1]),
-            (bench_width - 2 * padding) * CARD_INCHES[1] / CARD_INCHES[0],
+            (bench_width - 2 * padding)
+            / cascade
+            * CARD_INCHES[1]
+            / CARD_INCHES[0],
         )
         slot_width = slot_height * CARD_INCHES[0] / CARD_INCHES[1]
 
@@ -2802,17 +2805,17 @@ def draw_card_area(
 ) -> None:
     """
     One area a coach's cards sit in, with **three cards dashed inside
-    it, cascaded** -- the stack a bench is.
+    it, stacked sideways** -- the stack a bench is.
 
-    Each card sits `TEAM_BENCH_CASCADE` of a card below the one behind
-    it, which is the header band a player card prints its name and role
-    in, so the guide shows where each card goes and that all three
-    names stay readable. A card behind is drawn only where the one in
-    front leaves it showing: its outline and its header, never a line
-    across the front card's face. Side by side does not fit -- half a
-    letter sheet gives a column two and a half inches wide, one card --
-    and a single outline, which is what this replaced, said nothing
-    about there being three.
+    Each card sits `TEAM_BENCH_CASCADE` of a card to the right of the
+    one behind it (the author, 2026-09-28, over a first cut that
+    stacked them downward). A card behind is drawn only where the one
+    in front leaves it showing -- its top, left and bottom edges out to
+    where the next card covers it -- never a line across the front
+    card's face. Side by side without overlapping does not fit: half a
+    letter sheet gives a column two and a half inches wide. A single
+    outline, which is what this replaced, said nothing about there
+    being three.
     """
     left, right = geometry.columns[column]
     draw_cell_label(sheet, geometry, column, title, caption)
@@ -2827,30 +2830,30 @@ def draw_card_area(
     )
 
     slot_width, slot_height = geometry.slot
-    step = slot_height * TEAM_BENCH_CASCADE
-    stack_height = slot_height + (TEAM_BENCH_CARDS - 1) * step
-    slot_left = (left + right - slot_width) / 2
-    stack_top = (area[1] + area[3] - stack_height) / 2
+    step = slot_width * TEAM_BENCH_CASCADE
+    stack_width = slot_width + (TEAM_BENCH_CARDS - 1) * step
+    stack_left = (left + right - stack_width) / 2
+    top = (area[1] + area[3] - slot_height) / 2
+    bottom = top + slot_height
     line = max(1, round(0.01 * PRINT_DPI))
     dash = 0.055 * PRINT_DPI
     for index in range(TEAM_BENCH_CARDS):
-        top = stack_top + index * step
-        front = index == TEAM_BENCH_CARDS - 1
-        # A card behind shows only its header band: its top edge and
-        # the two short sides down to where the next card covers it.
-        bottom = top + slot_height if front else top + step
-        if front:
+        card_left = stack_left + index * step
+        if index == TEAM_BENCH_CARDS - 1:
             sheet.dashed_rect(
-                (slot_left, top, slot_left + slot_width, bottom),
+                (card_left, top, card_left + slot_width, bottom),
                 outline=PAPER_EDGE,
                 width=line,
                 dash=dash,
             )
             continue
+        # A card behind shows only its left strip: its left edge, and
+        # its top and bottom edges out to where the next card covers it.
+        covered = card_left + step
         for x0, y0, x1, y1 in (
-            (slot_left, top, slot_left + slot_width, top),
-            (slot_left, top, slot_left, bottom),
-            (slot_left + slot_width, top, slot_left + slot_width, bottom),
+            (card_left, top, card_left, bottom),
+            (card_left, top, covered, top),
+            (card_left, bottom, covered, bottom),
         ):
             draw_dashed_line(
                 sheet.draw,
