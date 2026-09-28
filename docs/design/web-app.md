@@ -898,9 +898,13 @@ the coach is looking at it.
 - **The jumbotron is one bar across the top of the play area**
   (2026-09-26, step 2 of [../web-app-redesign.md](../web-app-redesign.md),
   replacing the panel at the head of the sidebar). Each team in its
-  colour with an arrow for the way it attacks, "Home · <coach>"
-  under it and a gold BALL mark while it has possession, its d12
-  showing the ball's speed as the field's does; the score with D12 BALL
+  colour, "Home · <coach>" under it and a gold BALL mark while it has
+  possession, its d12 showing the ball's speed as the field's does --
+  the mark is drawn on both sides and hidden on the one without the
+  ball, so the two columns are one height and the names and the
+  Home/Visitors lines sit on the same rows (the author, 2026-09-28,
+  who also dropped the arrow for the way each team attacks and the
+  "coached by" before the name); the score with D12 BALL
   under it; then the clock -- the minute in the board's yellow
   beside the half, a thirty-segment track to the second half's last
   minute with the first half's marked, a red LAST POSSESSION chip, and
@@ -909,8 +913,7 @@ the coach is looking at it.
   `shootout_score_line` reports them, since the scoreboard carries them
   too) -- and under it a time-out tile per team. Where the step's
   prompt and the design canvas differed in the small things (the
-  canvas's upper-case names, its arrow after the visitors' name too,
-  its tiles in a row under the clock), the canvas was followed. **Every value is the match's,
+  canvas's upper-case names, its tiles in a row under the clock), the canvas was followed. **Every value is the match's,
   read by `board.jumbotron`**: possession is `ball.possession`, a tile's
   held or spent is `may_take_time_out` (the half's own count, which
   halftime clears), the track's length and its halftime mark are the
