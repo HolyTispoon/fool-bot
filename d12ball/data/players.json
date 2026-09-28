@@ -150,7 +150,6 @@
       "stat_overrides": {},
       "advanced_ability": "High defensive skill.",
       "advanced_skills": {
-        "offense": 0,
         "defense": 8
       }
     },

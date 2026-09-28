@@ -1195,7 +1195,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | --- | ---: | ---: |
 | Flux (Defender, Cyborg) | 5 | 5 |
 | Gurgoth (Defender, Ooze) | 5 | 6 |
-| Hellguard (Fullback, Fire Demon) | 0 | 8 |
+| Hellguard (Fullback, Fire Demon) | 1 | 8 |
 | Ozul (Playmaker, Ooze) | 6 | 5 |
 | Tachyon (Striker, Cyborg) | 6 | 4 |
 
