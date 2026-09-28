@@ -194,9 +194,9 @@ def font(size: int, bold: bool = False) -> ImageFont.ImageFont:
 def rank_font(size: int) -> ImageFont.ImageFont:
     """
     The face a rank -- O1, D2 -- is drawn in, wherever a card draws one:
-    the header's badge, the matchup band and the back's hexagon. Jost
-    Bold, whose O is a full circle beside a narrow zero; see
-    `render.load_rank_font`.
+    the header's badge, the matchup band and the back's hexagon.
+    Montserrat ExtraBold, whose O is a full circle beside a narrow oval
+    zero; see `render.load_rank_font`.
     """
     return load_rank_font(size * SUPERSAMPLE)
 

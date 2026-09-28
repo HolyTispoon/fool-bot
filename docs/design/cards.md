@@ -215,17 +215,17 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   - **All three boxes share one searched size**, so none reads as the more
     important, and the boxes sit close together, since the room between them
     is room the text does not get.
-- **The rank is set in Jost Bold** (the author, 2026-09-28), in the
-  header's badge, the matchup band and the back's hexagon -- `cards.rank_font`
-  over `render.load_rank_font`. Roboto Slab's O is the width of its 0, so
-  "O1" can read as "01"; Jost's O is a full circle. Nine faces were compared
-  side by side the same day. Montserrat ExtraBold went in first and was read
-  as the wrong font beside the slab, the rank went back to Roboto Slab Bold,
-  and Jost, lighter than Montserrat, was tried next. The file is the
-  Google Fonts variable Jost's 700 instance, cut with fontTools'
-  `instantiateVariableFont` (as `scripts/build_bundled_fonts.py` cuts Roboto
-  Slab), bundled under the OFL beside it. The ranks drawn outside `cards.py`
-  -- the bot's reference hexagon, the team board -- are still Roboto Slab.
+- **The rank is set in Montserrat ExtraBold** (the author, 2026-09-28), in
+  the header's badge, the matchup band and the back's hexagon --
+  `cards.rank_font` over `render.load_rank_font`. Roboto Slab's O is the
+  width of its 0, so "O1" can read as "01"; Montserrat's O is a full circle
+  beside a narrow oval zero. Nine faces were compared side by side on the
+  review canvas. The same day the rank went to Montserrat, back to Roboto
+  Slab Bold, to Jost Bold (a lighter geometric sans), and back to
+  Montserrat, the author's choice after seeing each on the cards. The file
+  is upstream's static ExtraBold (JulietaUla/Montserrat), bundled unmodified
+  under the OFL. The ranks drawn outside `cards.py` -- the bot's reference
+  hexagon, the team board -- are still Roboto Slab.
 - **The strip diagram is what a card can say that a die face cannot**, so it
   carries the geometry and the effect text carries the wording. A basic card is
   drawn on the standard seven-space board with the ball on the third space,
