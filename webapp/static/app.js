@@ -217,7 +217,6 @@ function draw(state) {
   drawReveal(state);
   drawFullTime(state);
   drawTable(state);
-  drawRoom(state);
   drawStats(state);
   followRematch(state);
   if (state.refusal) showRefusal(state.refusal, state.refusal_law);
@@ -454,10 +453,14 @@ function drawYouMenu(state) {
     }, { danger: true }));
   }
   if (room.may_abandon) items.push(item("Abandon the game", abandonGame, { danger: true }));
+  /* How many are watching: the one thing the old room panel said that
+     nothing else in a game does (the jumbotron names the coaches). */
+  const watching = room.observers === 1 ? "1 watching" : `${room.observers} watching`;
   el("you-menu").replaceChildren(
     h("div", { class: "menu-head" },
       h("strong", {}, me ? me.name : "You"),
-      h("span", { class: "quiet" }, youAre, room.admin ? " · admin" : "")),
+      h("span", { class: "quiet" }, youAre, room.admin ? " · admin" : ""),
+      h("span", { class: "quiet" }, watching)),
     ...items,
   );
 }
@@ -472,62 +475,6 @@ function openYouMenu() {
 function closeYouMenu() {
   el("you-menu").hidden = true;
   el("you").setAttribute("aria-expanded", "false");
-}
-
-// -- The room -------------------------------------------------------------
-
-/* The two seats as the server names them -- Coach 1 and Coach 2 until
-   the coin, then Home and Visitors -- with what this reader may do to
-   each. Whether a move stands is the record's; a refused one comes
-   back with its sentence. */
-function drawRoom(state) {
-  const room = state.room;
-  /* Before kickoff the table's seat cards and sideline are the room. */
-  el("room").hidden = Boolean(state.table);
-  const seated = room.seats.some((seat) => seat.yours);
-  el("seats").replaceChildren(
-    ...room.seats.map((seat) => {
-      const buttons = [];
-      if (seat.yours) {
-        buttons.push(h("button", {
-          type: "button", class: "btn",
-          onclick: () => roomMove("/seat/leave"),
-        }, "Leave"));
-      } else if (seat.free && !seated) {
-        buttons.push(h("button", {
-          type: "button", class: "btn",
-          onclick: () => roomMove("/seat/take", { seat: seat.number }),
-        }, "Take"));
-      } else if (seat.free && seated) {
-        /* Anybody seated may hand the other side to the AI. */
-        buttons.push(h("button", {
-          type: "button", class: "btn",
-          onclick: () => roomMove("/seat/ai", { seat: seat.number }),
-        }, "Put Dinky in"));
-      }
-      if (room.admin && seat.name && !seat.yours) {
-        buttons.push(h("button", {
-          type: "button", class: "btn",
-          onclick: () => kickSeat(seat),
-        }, "Kick"));
-      }
-      return h("div", { class: `seat${seat.yours ? " yours" : ""}` },
-        h("span", { class: "seat-label" }, seat.label),
-        h("span", { class: `seat-name${seat.name ? "" : " empty"}` },
-          seat.name || "Empty", seat.yours ? " (you)" : ""),
-        ...buttons,
-      );
-    }),
-  );
-  el("watching").textContent =
-    room.observers === 1 ? "1 watching" : `${room.observers} watching`;
-  el("become-admin").hidden = room.admin;
-  el("drop-admin").hidden = !room.admin;
-  /* A seat may abandon a game that has kicked off and is not over (the
-     record refuses one that is, and the route refuses anybody unseated,
-     an admin included). Before kickoff the table's "Close this room" is
-     the one way out, so the two are never offered together. */
-  el("abandon").hidden = !room.may_abandon;
 }
 
 // -- A finished game's numbers --------------------------------------------
@@ -3526,7 +3473,6 @@ function abandonGame() {
     roomMove("/abandon");
   }
 }
-el("abandon").addEventListener("click", abandonGame);
 el("you").addEventListener("click", () => (el("you-menu").hidden ? openYouMenu() : closeYouMenu()));
 document.addEventListener("click", (event) => {
   if (!el("you-menu").hidden && !el("you-menu").contains(event.target) && !el("you").contains(event.target)) closeYouMenu();
@@ -3550,9 +3496,6 @@ async function copyLink(event) {
     window.prompt("The room's link:", link);
   }
 }
-el("become-admin").addEventListener("click", becomeAdmin);
-el("drop-admin").addEventListener("click", dropAdmin);
-el("copy-link").addEventListener("click", copyLink);
 el("take-free-seat").addEventListener("click", () => roomMove("/seat/take"));
 el("dismiss").addEventListener("click", () => { el("refusal").hidden = true; });
 el("viewer-close").addEventListener("click", () => el("viewer").close());

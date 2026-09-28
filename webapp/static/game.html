@@ -154,21 +154,6 @@
           <div id="sideline-strip" class="panel sideline-strip"></div>
         </section>
 
-        <!-- Who holds the two seats, and who is watching. The seats
-             are the game record's; the admin role is the web app's own
-             (webapp/rooms.py). -->
-        <section id="room" class="panel room-panel" aria-label="The room" hidden>
-          <div class="panel-label">Room</div>
-          <div id="seats" class="seats"></div>
-          <div class="room-foot">
-            <span id="watching" class="quiet"></span>
-            <button type="button" class="linkish" id="copy-link">Copy the room's link</button>
-            <button type="button" class="linkish" id="become-admin">Become admin</button>
-            <button type="button" class="linkish" id="drop-admin" hidden>Give up admin</button>
-            <button type="button" class="linkish danger-link" id="abandon" hidden>Abandon the game</button>
-          </div>
-        </section>
-
         <!-- A phone held upright: the sideline, in the sheet under the
              question rather than under a field too narrow for it. -->
         <div id="sheet-benches" class="benches sheet-benches" hidden></div>
