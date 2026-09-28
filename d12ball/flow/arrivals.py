@@ -140,6 +140,33 @@ def check_for_smooth(
     return continue_smooth(engine, game, match)
 
 
+def check_for_smooth_after_contest(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    resume: dict,
+) -> Optional[StepResult]:
+    """
+    A contest has been won: may a Telekinetic sharing the winner's
+    space take the ball over from them (Law 20.4.11)? The same
+    contract as the arrival gate -- a `StepResult` when somebody is
+    offered one, `None` to go on to `resume`.
+
+    **It is this gate rather than the arrival gate** because the
+    contest moved the ball nowhere and the path was spent before it
+    began; there is no movement to read and no pull owed, only a
+    teammate who is now holding the ball. The offer goes on
+    `pending_smooth` like any other, so taking it, declining it, a
+    restart and the AI are all the Smooth the arrival gate offers.
+    """
+    candidates = engine.smooth_candidates_after_contest(game, match)
+    if not candidates:
+        return None
+    match.pending_smooth = candidates
+    match.pending_smooth_resume = resume
+    return continue_smooth(engine, game, match)
+
+
 def check_for_mind_pull(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1118,7 +1145,7 @@ def resolve_unopposed_loose_ball(
             after_the_contest(
                 engine, game, match, player_id,
                 match.pending_loose_ball_is_high_pass, turnover,
-                distance_moved,
+                distance_moved, contested=False,
             ),
         ).next,
     )
