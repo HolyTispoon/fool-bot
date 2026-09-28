@@ -202,17 +202,13 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   - **A gambit has no time pill; the tie box took its place** (the author).
     A gambit's clock is the same as its basic card's, and the basic card,
     which is always in the same deck, still carries it.
-- **The rank is set in Montserrat ExtraBold** (the author, 2026-09-28), in
-  the header's badge, the matchup band and the back's hexagon --
-  `cards.rank_font` over `render.load_rank_font`. Roboto Slab's O is the
-  width of its 0, so "O1" read as "01"; Montserrat's O is a full circle
-  beside a narrow oval zero. Nine faces were compared (Roboto Slab, DejaVu
-  Sans, Racing Sans One, Poppins, Montserrat, Jost, Outfit, Lexend, Archivo
-  Black); the geometric sans faces were the ones that told the two apart.
-  The file is upstream's static ExtraBold (JulietaUla/Montserrat), bundled
-  unmodified under the OFL. Nothing else on a card changed face, and the
-  ranks drawn outside `cards.py` -- the bot's reference hexagon, the team
-  board -- are still Roboto Slab.
+- **The rank is Roboto Slab Bold, like everything else on the card**
+  (`cards.rank_font`). Roboto Slab's O is the width of its 0, so "O1" can
+  read as "01", and on 2026-09-28 Montserrat ExtraBold was tried for the
+  rank alone -- its O a full circle beside a narrow oval zero, picked from
+  nine faces compared side by side. The author read it as the wrong font
+  beside the slab and put the rank back the same day. The O-and-zero
+  question is still open; a different face was not the answer.
 - **The strip diagram is what a card can say that a die face cannot**, so it
   carries the geometry and the effect text carries the wording. A basic card is
   drawn on the standard seven-space board with the ball on the third space,

@@ -4162,7 +4162,6 @@ class D12BallFontTests(unittest.TestCase):
             "RobotoSlab-Regular.ttf",
             "RobotoSlab-Bold.ttf",
             "RacingSansOne-Regular.ttf",
-            "Montserrat-ExtraBold.ttf",
         ):
             self.assertTrue(
                 (FONT_DIR / file_name).is_file(),

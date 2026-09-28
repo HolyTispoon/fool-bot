@@ -46,7 +46,6 @@ from d12ball.render import (
     arrowhead_triangle,
     draw_dashed_line,
     load_font,
-    load_rank_font,
     wrap_text,
 )
 
@@ -192,11 +191,12 @@ def font(size: int, bold: bool = False) -> ImageFont.ImageFont:
 def rank_font(size: int) -> ImageFont.ImageFont:
     """
     The face a rank -- O1, D2 -- is drawn in, wherever a card draws one:
-    the header's badge, the matchup band and the back's hexagon. It is
-    not the card's own face because Roboto Slab's O reads as a zero;
-    see `render.load_rank_font`.
+    the header's badge, the matchup band and the back's hexagon. Roboto
+    Slab Bold, the card's own (the author, 2026-09-28): Montserrat
+    ExtraBold was tried for a rounder O and read as the wrong font
+    beside everything else on the card.
     """
-    return load_rank_font(size * SUPERSAMPLE)
+    return font(size, bold=True)
 
 
 def px(value: float) -> float:
@@ -670,6 +670,13 @@ class StripGeometry(NamedTuple):
         return self.center(self.ball_space + offset * self.forward)
 
 
+# The legend across the strip's top -- "H handler  C challenger",
+# "offense attacks" -- and the room above the diagram it takes. 24 since
+# the author read 19 as too small (2026-09-28).
+STRIP_LEGEND_SIZE = 24
+STRIP_LEGEND_ROOM = 54
+
+
 def strip_geometry(
     maneuver: ManeuverDefinition,
     top: float,
@@ -719,7 +726,11 @@ def strip_geometry(
     # Centred in whatever room is spare, and never pushed up into the
     # legend when there is none: the panel grows instead
     # (`strip_panel_height`).
-    strip_top = top + 46 + max(0.0, ((height - 54) - block) / 2) - ink_above
+    strip_top = (
+        top + STRIP_LEGEND_ROOM
+        + max(0.0, ((height - STRIP_LEGEND_ROOM - 8) - block) / 2)
+        - ink_above
+    )
 
     return StripGeometry(
         left=left,
@@ -967,14 +978,14 @@ def draw_strip_legend(pen: Pen, geo: StripGeometry, top: float) -> None:
     pen.text(
         (geo.right, top + 16),
         f"offense attacks {'→' if ATTACK_RIGHT else '←'}",
-        font(19),
+        font(STRIP_LEGEND_SIZE),
         MUTED,
         anchor="ra",
     )
     pen.text(
         (geo.left, top + 16),
         "H handler   C challenger",
-        font(19),
+        font(STRIP_LEGEND_SIZE),
         MUTED,
         anchor="la",
     )
