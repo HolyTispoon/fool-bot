@@ -49,7 +49,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.boards import DEFAULT_PAPER, PAPERS  # noqa: E402
-from d12ball.cards import DUPLEX_COLUMNS  # noqa: E402
+from d12ball.cards import AVERY_95328_CARDS, DUPLEX_COLUMNS  # noqa: E402
 from d12ball.components import load_player_catalog  # noqa: E402
 from d12ball.game import COLOR_TEAMS, team_display_name  # noqa: E402
 from d12ball.token_sheet import TOKEN_COUNTS  # noqa: E402
@@ -209,12 +209,13 @@ alongside its PNG, and `--zip` to also bundle the whole kit into
 # them.
 PLAYER_AVERY = """
   The same cards come a second way, for Avery Presta 95328 stock (see
-  above): `<team>-avery-1.png` and `<team>-avery-2.png` are the
-  standard sides, six and then three, and
-  `<team>-advanced-avery-1.png` and `-2.png` their advanced sides --
-  print page 1 with its advanced page 1, and page 2 with page 2."""
+  above), every page full, so a page may hold two teams:
+  `avery-1.png` to `avery-{avery_pages}.png` are the standard sides,
+  team after team in roster order, and `advanced-avery-1.png` to
+  `advanced-avery-{avery_pages}.png` their advanced sides -- print each
+  page with its advanced page of the same number."""
 PLAYER_AVERY_STOCK = """ and the player
-cards' `-avery-` pages,"""
+cards' `avery-` pages,"""
 
 
 def write_readme(
@@ -222,7 +223,12 @@ def write_readme(
 ) -> None:
     width, height = PAPERS[paper]
     readme = README_TEMPLATE.format(
-        player_avery=PLAYER_AVERY if player_avery else "",
+        player_avery=(
+            PLAYER_AVERY.format(
+                avery_pages=-(-(len(COLOR_TEAMS) * players_per_team) // AVERY_95328_CARDS)
+            )
+            if player_avery else ""
+        ),
         player_avery_stock=PLAYER_AVERY_STOCK if player_avery else "",
         generated=date.today().isoformat(),
         sheet_columns=DUPLEX_COLUMNS,

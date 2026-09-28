@@ -624,11 +624,15 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   each drawn corner. The player cards, nine a team, stay on
   `print_sheet`, and come as Avery pages as well, beside the sheets
   rather than instead of them (the author, 2026-09-28):
-  `avery_95328_pages` cuts any number of cards into pages of six --
-  a team is a page and a half -- and with `backs` puts each page's
-  backs in `duplex_order` on their own, so a back lands behind its
-  front on the same sheet of stock. They are `<team>-avery-<n>.png`
-  and `<team>-advanced-avery-<n>.png`. The landing page's kit is built
+  `avery_95328_pages` cuts any number of cards into pages of six, and
+  with `backs` puts each page's backs in `duplex_order` on their own,
+  so a back lands behind its front on the same sheet of stock. **The
+  Avery pages run on from one team into the next**, team order and
+  then roster order, so every page is full -- the four colour teams'
+  36 are six pages of six, where a page per team would be a page and a
+  half each and twelve blank cards (the author, the same day). They
+  are `avery-<n>.png` and `advanced-avery-<n>.png`, so the only
+  player files not named for one team. The landing page's kit is built
   with `--no-avery-players` and leaves them out, as the same cards a
   second way ([landing-pages.md](landing-pages.md)).
 
