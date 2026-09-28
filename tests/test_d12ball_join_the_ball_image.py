@@ -21,10 +21,11 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from cogs.d12ball_views import JoinTheBallView, PlayerActionView
-from d12ball.components import TeamSide, catalog_player_id
+from d12ball.components import SPECIES_OOZE, TeamSide, catalog_player_id
 from d12ball.game import AIOpponent, GameMode
 from d12ball.personal_abilities import PERSONAL_ABILITIES, PersonalAbility
 from d12ball.prompts import PromptKind
+from roster import fielded_of_species
 from save_patches import suppressed_cog_saves
 from test_d12ball_challenger_choice import build_cog, build_game
 
@@ -68,8 +69,9 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
     def build(self, joiner_side: TeamSide, **game_overrides):
         """
         Home on the ball at flat space 3, one visiting defender on it
-        -- the challenger, walked in for nothing -- and a joiner of
-        `joiner_side` beside it at 2. Everybody else stands at 0.
+        -- the challenger, walked in for nothing -- and an Ooze of
+        `joiner_side` beside it at 2, who Merges once they join.
+        Everybody else stands at 0.
         """
         cog = build_cog()
         # That fixture stubs the walk-in, which this test is about.
@@ -82,8 +84,9 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
 
         home = match.home.field_players
         visiting = match.visiting.field_players
-        handler, challenger = home[0], visiting[0]
-        joiner = (home if joiner_side is TeamSide.HOME else visiting)[1]
+        joiner = fielded_of_species(match, SPECIES_OOZE, joiner_side)
+        handler = next(player for player in home if player != joiner)
+        challenger = next(player for player in visiting if player != joiner)
         for player_id in home + visiting:
             match.move_meeple(
                 player_id, *match.board.position_at_flat_index(0),
@@ -106,8 +109,13 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
         """The challenge image and each prompt put up, into `record`
         beside the messages."""
 
-        async def image(interaction, match, challenger_id, text, game=None):
+        self.captions = []
+
+        async def image(
+            interaction, match, challenger_id, text, game=None, caption="",
+        ):
             record.append(("image", challenger_id))
+            self.captions.append(caption)
 
         async def prompt(interaction, game, match, pending, lead_in=""):
             if lead_in:
@@ -145,6 +153,17 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
                 ("prompt", PromptKind.MANEUVER_ACTION),
             ],
         )
+        # The two players, and the Ooze who stepped on adding to the
+        # side on the ball.
+        [caption] = self.captions
+        match = cog.engine.load_match_state(game)
+        merge = cog.engine.skills(game, joiner).of("offense")
+        self.assertEqual(
+            caption,
+            f"{cog.player_id_label(match, match.active_player_id)} "
+            f"(+{merge} by Merge) against "
+            f"{cog.player_id_label(match, challenger)}",
+        )
 
     async def test_the_image_goes_up_under_the_ai_s_answer(self) -> None:
         cog, game, challenger, _ = self.build(
@@ -166,6 +185,9 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             record[-1], ("prompt", PromptKind.MANEUVER_ACTION),
         )
+        # Dinky let it pass, so nobody Merges.
+        self.assertNotIn("Merge", self.captions[0])
+        self.assertIn(" against ", self.captions[0])
 
     async def test_without_an_offer_the_image_rides_on_the_walk_in(
         self,
@@ -184,6 +206,7 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
                 ("prompt", PromptKind.MANEUVER_ACTION),
             ],
         )
+        self.assertEqual(self.captions, [""])
 
 
 if __name__ == "__main__":

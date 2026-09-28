@@ -17,6 +17,7 @@ from typing import Callable, Optional
 from d12ball.components import (
     MatchState,
     TeamSetup,
+    TeamSide,
     load_species_abilities,
 )
 from d12ball.engine import IgnitedRoll
@@ -247,19 +248,62 @@ class PresentationMixin:
         defender_id: str,
         walk_in_text: str,
         game: Optional[D12BallGame] = None,
+        caption: str = "",
     ) -> None:
         """
         Post the matchup image, with the challenger's walk-in above it
         rather than below: the image is meant to sit directly on top of
         the maneuver prompt, which is the message a coach is reading it
-        for.
+        for. `caption` is the image message's own text, where it has
+        one (`challenge_caption`).
         """
         await self.post_walk_in(interaction, walk_in_text)
+        image = await self.build_maneuver_challenge_file(
+            match, defender_id, game,
+        )
+        if not caption:
+            await send_new_prompt(interaction, file=image)
+            return
         await send_new_prompt(
             interaction,
-            file=await self.build_maneuver_challenge_file(
-                match, defender_id, game,
+            caption,
+            file=image,
+            allowed_mentions=discord.AllowedMentions(
+                users=False, roles=False, everyone=False,
             ),
+        )
+
+    def challenge_caption(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        challenger_id: str,
+    ) -> str:
+        """
+        The caption on a challenge image that Glompex's offer held back
+        (the author, 2026-09-28): the two players, each with what their
+        side adds by Merge where anybody does (Law 20.5). The image
+        draws the two and not the Oozes beside them, and whoever just
+        stepped on is the reason the image waited.
+
+        The sums are `RulesEngine.merge_bonus`'s, asked the way the
+        skill test asks it: offense for the side on the ball, defense
+        for the other, with the two contesting players struck out.
+        """
+        handler_id = match.active_player_id
+        rolling = (handler_id, challenger_id)
+
+        def named(player_id: str, side: TeamSide, skill: str) -> str:
+            merge, _, _ = self.engine.merge_bonus(
+                game, match, side, rolling, skill,
+            )
+            label = self.player_id_label(match, player_id)
+            return f"{label} (+{merge} by Merge)" if merge else label
+
+        return (
+            f"{named(handler_id, match.ball.possession, 'offense')} "
+            "against "
+            f"{named(challenger_id, match.defending_side(), 'defense')}"
         )
 
     async def post_walk_in(

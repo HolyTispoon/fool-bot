@@ -1544,7 +1544,14 @@ class CoreMixin:
 
         async def post_challenge_image() -> None:
             await self.announce_maneuver_challenge(
-                interaction, result.match, challenger_id, "", game,
+                interaction,
+                result.match,
+                challenger_id,
+                "",
+                game,
+                caption=self.challenge_caption(
+                    game, result.match, challenger_id,
+                ),
             )
 
         if image_after == -1:

@@ -396,7 +396,13 @@ offer when that is in the same result, or, when a coach answered
 everything that answer's result posts -- which is always the cards,
 so the challenger read off `result.match` there is still the one in
 place. Never while an offer is up, which is also what keeps two
-Glompexes (one per side) to one image. This is the frontend's
+Glompexes (one per side) to one image. That held-back image carries
+a caption (`challenge_caption`; the author, 2026-09-28) -- the two
+players, each with what their side adds by Merge where anybody does,
+off `RulesEngine.merge_bonus` asked as the skill test asks it -- since
+the image draws the two and not the Oozes beside them, and whoever
+just stepped on is why it waited. The walk-in's own image keeps no
+caption. This is the frontend's
 placement of its own picture: nothing in the model changed, and the
 web app, which lays out its own situation per prompt, is untouched.
 `tests/test_d12ball_join_the_ball_image.py` covers a coach's
