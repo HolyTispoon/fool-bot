@@ -189,7 +189,9 @@ own goal "where the handler is already on the space closest to their own goal". 
 always rolled for one whenever the push of 2 could not be made in full -- the handler on the
 last space **or on the one next to it** -- and the 2026-09-20 entry calls that an "overshooting
 Double Team". Written as "where the push reaches the handler's own goal zone" the paragraph says
-exactly that, and names both spaces. Flagged for the author on the PR rather than assumed.
+exactly that, and names both spaces. Confirmed by the author on PR #395: *"When Double team
+succeeds in space 2, pushing home team twice backwards - they should risk an own goal because
+the ball reached the goal zone."*
 
 **The Learn to Play's first run back was miscounted.** With the codes as numbers it read "walks
 from space 6 to space 4 and exhausts 1 for the one space"; that is two spaces and two tokens,
