@@ -2627,6 +2627,66 @@ def print_sheet(
 DUPLEX_COLUMNS = 3
 
 
+# **The six-card sheets print on Avery Presta 95328** (the author,
+# 2026-09-28): pre-cut rounded-corner cards, six poker cards on a
+# letter page held landscape, three across and two down. The geometry
+# is Avery's own template's, read off its PDF in points and written
+# here at 300dpi: each card 2.5 x 3.5in, their left edges at 0.75,
+# 4.25 and 7.75in, their tops at 0.5 and 4.5in. The page is symmetric
+# about both centre lines, so `duplex_order`'s reversed rows still land
+# every back behind its front -- flipped on the page's **short** edge,
+# since the page is landscape.
+AVERY_95328_PAGE = (3300, 2550)
+AVERY_95328_LEFTS = (225, 1275, 2325)
+AVERY_95328_TOPS = (150, 1350)
+AVERY_95328_CARDS = len(AVERY_95328_LEFTS) * len(AVERY_95328_TOPS)
+
+
+def avery_95328_sheet(cards: list[Image.Image]) -> Image.Image:
+    """
+    Up to six cards on one Avery Presta 95328 page, each centred on
+    its die-cut card, so a card with a bleed lets the bleed run into
+    the gap round it. A short sheet leaves the last cells blank, as
+    `print_sheet` does.
+    """
+    if len(cards) > AVERY_95328_CARDS:
+        raise ValueError(
+            f"an Avery 95328 page holds {AVERY_95328_CARDS} cards, "
+            f"not {len(cards)}"
+        )
+    columns = len(AVERY_95328_LEFTS)
+    page = Image.new("RGB", AVERY_95328_PAGE, CARD_FACE)
+    for index, card in enumerate(cards):
+        left = AVERY_95328_LEFTS[index % columns]
+        top = AVERY_95328_TOPS[index // columns]
+        page.paste(
+            card,
+            (
+                left - (card.width - CARD_WIDTH) // 2,
+                top - (card.height - CARD_HEIGHT) // 2,
+            ),
+        )
+    return page
+
+
+def avery_95328_pages(
+    cards: list[Image.Image], backs: bool = False
+) -> list[Image.Image]:
+    """
+    Any number of cards as Avery 95328 pages, six a page and the last
+    one short where it has to be -- a team's nine is a page and a half.
+    With `backs`, each page's cards go in `duplex_order`, page by page,
+    so a back lands behind its front on the same sheet of stock.
+    """
+    pages = []
+    for start in range(0, len(cards), AVERY_95328_CARDS):
+        page = cards[start:start + AVERY_95328_CARDS]
+        if backs:
+            page = duplex_order(page, len(AVERY_95328_LEFTS))
+        pages.append(avery_95328_sheet(page))
+    return pages
+
+
 def duplex_order(
     cards: list[Image.Image], columns: int = DUPLEX_COLUMNS
 ) -> list[Image.Image]:
@@ -2647,7 +2707,7 @@ def duplex_order(
     (`print_sheet` pads at the end), so their backs belong in the
     rightmost; reversing the row as it stood and letting `print_sheet`
     pad it would put them on the left again, behind the wrong cells.
-    Four reference cards three across is the case that meets it.
+    Four reference cards three across was the case that met it.
     """
     blank = Image.new(cards[0].mode, cards[0].size, CARD_FACE)
     padded = list(cards) + [blank] * (-len(cards) % columns)

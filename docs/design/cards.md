@@ -606,6 +606,35 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     back's row. Until 2026-09-28 it reversed the short row as it stood, which
     put those backs behind the wrong cells -- a team's nine never had a short
     row, so it first mattered for the four reference cards.
+- **The six-card sheets are Avery Presta 95328 pages, not `print_sheet`
+  grids** (the author, 2026-09-28): the two maneuver pairs and the
+  reference pair, which are exactly six cards a side, print onto that
+  stock's pre-cut rounded-corner cards, so nobody cuts them.
+  `avery_95328_sheet` places each card where Avery's own template puts
+  it -- a letter page held landscape, three across and two down, the
+  numbers read off the template's PDF in points and written at 300dpi
+  as `AVERY_95328_*` -- rather than on the even grid a splitter
+  divides. The page is symmetric about both its centre lines, so
+  `duplex_order`'s reversed rows still land each back behind its front;
+  the printer flips it on the **short** edge, the landscape page's
+  equivalent of the portrait sheets' long-edge flip. A card with a
+  bleed is centred on its die cut, so the bleed runs into the gap. The
+  die cut's corner is a 0.375in radius where the card draws its own
+  outline at `CORNER`, a tighter one, so the cut takes a sliver off
+  each drawn corner. The player cards, nine a team, stay on
+  `print_sheet`, and come as Avery pages as well, beside the sheets
+  rather than instead of them (the author, 2026-09-28):
+  `avery_95328_pages` cuts any number of cards into pages of six, and
+  with `backs` puts each page's backs in `duplex_order` on their own,
+  so a back lands behind its front on the same sheet of stock. **The
+  Avery pages run on from one team into the next**, team order and
+  then roster order, so every page is full -- the four colour teams'
+  36 are six pages of six, where a page per team would be a page and a
+  half each and twelve blank cards (the author, the same day). They
+  are `avery-<n>.png` and `advanced-avery-<n>.png`, so the only
+  player files not named for one team. The landing page's kit is built
+  with `--no-avery-players` and leaves them out, as the same cards a
+  second way ([landing-pages.md](landing-pages.md)).
 
 ## The species cards
 
@@ -975,7 +1004,8 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   author, 2026-09-27), never a PNG per card, **and every card is printed
   double-sided** (2026-09-28): each set is a front sheet and a back sheet,
   three across (`DUPLEX_COLUMNS`), the back in `duplex_order`, printed
-  duplex. A team's pair is its cards' standard sides and their advanced
+  duplex -- the six-card ones on Avery Presta 95328 pages
+  (`avery_95328_sheet`, above). A team's pair is its cards' standard sides and their advanced
   sides, so each printed card is standard on one face and advanced on
   the other, and the player cards are all four colour teams'. The
   printed game has no species-team cards; a colour team's card carries
@@ -994,11 +1024,16 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   author's call for the printed deck.
 - **The reference cards share one pair, and the tokens have their own**
   (the author, 2026-09-27; as a pair, 2026-09-28).
-  `render_reference_cards.py` puts the three species cards' and the role
-  card's fronts on one sheet and their backs on the other -- four cards,
-  a row of three and one, which is the short row `duplex_order` pads
-  before it reverses. They were one sheet of eight faces, each front
-  beside its back, cut out and glued. `render_token_sheet.py` is the condition tokens as a front sheet and a
+  `render_reference_cards.py` puts the species cards' and the role
+  cards' fronts on one sheet and their backs on the other -- six cards,
+  two full rows: the three species cards, a fourth that is the first
+  turned over (Mind Pull and Slimey on its front, Volatile and Lithium
+  powered on its back), and the role card twice (the author,
+  2026-09-28; the sheet had been four cards, a row of three and one,
+  which left two cells blank). The extra cards are the kit's alone:
+  `CARD_FACES` is still three cards, and `render_species_cards.py` and
+  `render_role_cards.py` still render one of each. They were one sheet
+  of eight faces, each front beside its back, cut out and glued. `render_token_sheet.py` is the condition tokens as a front sheet and a
   back sheet printed duplex ([printed-tokens.md](printed-tokens.md), "Paper tokens"). So the
   kit prints everything a table needs but the meeples and the dice. The three card scripts take
   `--sheets-only` for this, and the kit passes it and a `--team` per

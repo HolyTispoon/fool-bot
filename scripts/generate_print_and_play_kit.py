@@ -49,7 +49,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.boards import DEFAULT_PAPER, PAPERS  # noqa: E402
-from d12ball.cards import DUPLEX_COLUMNS  # noqa: E402
+from d12ball.cards import AVERY_95328_CARDS, DUPLEX_COLUMNS  # noqa: E402
 from d12ball.components import load_player_catalog  # noqa: E402
 from d12ball.game import COLOR_TEAMS, team_display_name  # noqa: E402
 from d12ball.token_sheet import TOKEN_COUNTS  # noqa: E402
@@ -86,6 +86,11 @@ each set is a front sheet and a back sheet. Print the pair duplex
 it -- a back sheet's rows are laid out reversed so they land back to
 back.
 
+The maneuver and reference sheets, six cards each,{player_avery_stock} are laid out for **Avery Presta 95328** (rounded-corner, pre-cut, 2.5 x 3.5in, six to a
+letter page): load that stock, print each pair duplex at actual size
+(100%, no fit-to-page) with the page landscape, and **flip on the
+short edge**. The cards need no cutting.
+
 - **maneuver-cards/** -- the twelve maneuver cards, as two pairs of
   sheets, six cards a sheet. `basic-front-sheet.png` is the six basic
   maneuvers and `basic-back-sheet.png` the standard back, with one
@@ -102,11 +107,11 @@ back.
   player's special ability in its place, and for a few players higher
   skills.
   `<team>-sheet.png` is the standard sides and
-  `<team>-advanced-sheet.png` the advanced sides, printed as a pair.
+  `<team>-advanced-sheet.png` the advanced sides, printed as a pair.{player_avery}
 - **reference-cards/** -- the reference cards: the three double-sided
   species-ability cards (every pairing of the four species appears on
-  one face) and the double-sided role-ability card (the six basic
-  roles). `front-sheet.png` is each card's front and `back-sheet.png`
+  one face), a fourth that is the first turned over, and two copies of
+  the double-sided role-ability card (the six basic roles). `front-sheet.png` is each card's front and `back-sheet.png`
   its back, printed as a pair.
 - **tokens/** -- the condition tokens, double-sided, on one piece of
   letter paper: {token_counts}. `front-sheet.png` is every token's
@@ -199,9 +204,32 @@ alongside its PNG, and `--zip` to also bundle the whole kit into
 """
 
 
-def write_readme(out_dir: Path, paper: str, players_per_team: int) -> None:
+# What the README says of the player cards' Avery pages, where the kit
+# has them: `--no-avery-players` leaves the pages out, and these with
+# them.
+PLAYER_AVERY = """
+  The same cards come a second way, for Avery Presta 95328 stock (see
+  above), every page full, so a page may hold two teams:
+  `avery-1.png` to `avery-{avery_pages}.png` are the standard sides,
+  team after team in roster order, and `advanced-avery-1.png` to
+  `advanced-avery-{avery_pages}.png` their advanced sides -- print each
+  page with its advanced page of the same number."""
+PLAYER_AVERY_STOCK = """ and the player
+cards' `avery-` pages,"""
+
+
+def write_readme(
+    out_dir: Path, paper: str, players_per_team: int, player_avery: bool,
+) -> None:
     width, height = PAPERS[paper]
     readme = README_TEMPLATE.format(
+        player_avery=(
+            PLAYER_AVERY.format(
+                avery_pages=-(-(len(COLOR_TEAMS) * players_per_team) // AVERY_95328_CARDS)
+            )
+            if player_avery else ""
+        ),
+        player_avery_stock=PLAYER_AVERY_STOCK if player_avery else "",
         generated=date.today().isoformat(),
         sheet_columns=DUPLEX_COLUMNS,
         team_count=len(COLOR_TEAMS),
@@ -264,6 +292,14 @@ def main() -> None:
         help="Also write a PDF of each board.",
     )
     parser.add_argument(
+        "--no-avery-players",
+        action="store_true",
+        help=(
+            "Leave out the player cards' Avery Presta 95328 pages, which "
+            "are the sheets' cards a second way (the landing page's kit)."
+        ),
+    )
+    parser.add_argument(
         "--zip",
         action="store_true",
         help="Also bundle the finished kit into <out>.zip.",
@@ -284,6 +320,8 @@ def main() -> None:
     player_args = ["--out", str(args.out / "player-cards"), "--sheets-only", *bleed_flag]
     for team in COLOR_TEAMS:
         player_args += ["--team", team.value]
+    if args.no_avery_players:
+        player_args.append("--no-avery")
     run("render_player_cards.py", player_args)
 
     run(
@@ -308,7 +346,9 @@ def main() -> None:
 
     catalog = load_player_catalog()
     players_per_team = len(catalog.teams[COLOR_TEAMS[0]].players)
-    write_readme(args.out, args.paper, players_per_team)
+    write_readme(
+        args.out, args.paper, players_per_team, not args.no_avery_players
+    )
 
     if args.zip:
         zip_kit(args.out)

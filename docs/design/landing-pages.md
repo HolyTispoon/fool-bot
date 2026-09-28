@@ -250,7 +250,10 @@ into a temporary folder and zips it as `KIT_DOWNLOADS` says:
   teams each, Orange and Teal, then Purple and Slime (about 15 MB each).
 
 Every part holds one folder, `d12ball-print-and-play/`, so unzipped together
-they are the one kit. The card links each and says what is in it.
+they are the one kit -- built with `--no-avery-players`, so without the
+player cards' Avery Presta 95328 pages, which are the sheets' cards a second
+way (the author, 2026-09-28). The maneuver and reference sheets are Avery
+pages only, and are in `/kit`. The card links each and says what is in it.
 
 Why: a single file on Cloudflare Pages may be 25 MB. The kit was 128 MB
 (2026-09-27), because it wrote every card of all eight teams as a PNG of its

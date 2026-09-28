@@ -12,7 +12,8 @@ maneuvers carry the standard back -- the hexagon with one name on each
 node -- and the six advanced maneuvers the advanced back, whose hexagon
 carries both tiers (`render_maneuver_card_back`'s `tier`). `--sheet`
 writes each tier as a front sheet and a back sheet, six cards to a
-sheet, three across, printed duplex.
+sheet on one Avery Presta 95328 page, printed duplex (flip on the short
+edge: the page is landscape).
 
 The layout itself lives in `d12ball/cards.py`, because the bot draws
 from it too -- `--hands` writes exactly the images a coach is shown
@@ -28,9 +29,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.cards import (  # noqa: E402
     DUPLEX_COLUMNS,
+    avery_95328_sheet,
     duplex_order,
     maneuver_hand_combinations,
-    print_sheet,
     render_maneuver_card,
     render_maneuver_card_back,
     render_maneuver_hands,
@@ -64,8 +65,8 @@ def main() -> None:
         action="store_true",
         help=(
             "Also write <tier>-front-sheet.png and <tier>-back-sheet.png "
-            "for the basic and the advanced tier: its six cards "
-            f"{DUPLEX_COLUMNS} across, and their backs in duplex order."
+            "for the basic and the advanced tier: its six cards on an "
+            "Avery Presta 95328 page, and their backs in duplex order."
         ),
     )
     parser.add_argument(
@@ -113,14 +114,11 @@ def main() -> None:
 
         if args.sheet:
             front_path = args.out / f"{word}-front-sheet.png"
-            print_sheet(fronts, columns=DUPLEX_COLUMNS).save(
-                front_path, dpi=(300, 300)
-            )
+            avery_95328_sheet(fronts).save(front_path, dpi=(300, 300))
             print(f"wrote {front_path}")
             back_sheet = args.out / f"{word}-back-sheet.png"
-            print_sheet(
+            avery_95328_sheet(
                 duplex_order([back] * len(fronts), DUPLEX_COLUMNS),
-                columns=DUPLEX_COLUMNS,
             ).save(back_sheet, dpi=(300, 300))
             print(f"wrote {back_sheet}")
 

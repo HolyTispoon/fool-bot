@@ -30,7 +30,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from d12ball.cards import print_sheet  # noqa: E402
+from d12ball.cards import avery_95328_pages, print_sheet  # noqa: E402
 from d12ball.components import Team, load_player_catalog  # noqa: E402
 from d12ball.player_cards import (  # noqa: E402
     TEAM_SHEET_COLUMNS,
@@ -70,8 +70,14 @@ def main() -> None:
             "Also write <team>-sheet.png and <team>-advanced-sheet.png: "
             f"that team's nine in an even grid {TEAM_SHEET_COLUMNS} "
             "across, each centred in its own cell, the backs in duplex "
-            "order."
+            "order; and every team's cards together as full Avery "
+            "Presta 95328 pages, avery-<n>.png and advanced-avery-<n>.png."
         ),
+    )
+    parser.add_argument(
+        "--no-avery",
+        action="store_true",
+        help="With --sheet, skip the Avery Presta 95328 pages.",
     )
     parser.add_argument(
         "--fronts-only",
@@ -94,6 +100,12 @@ def main() -> None:
     )
     args.out.mkdir(parents=True, exist_ok=True)
 
+    # Every team's cards, in team order and roster order, for the Avery
+    # pages -- which run on from one team into the next so every page
+    # is full (the author, 2026-09-28): the four colour teams' 36 are
+    # six pages of six.
+    all_fronts = []
+    all_backs = []
     for team in teams:
         fronts = []
         backs = []
@@ -136,6 +148,23 @@ def main() -> None:
                     columns=TEAM_SHEET_COLUMNS,
                 ).save(back_sheet, dpi=(300, 300))
                 print(f"wrote {back_sheet}")
+
+        all_fronts += fronts
+        all_backs += backs
+
+    if args.sheet and not args.no_avery:
+        # The same cards on Avery Presta 95328 stock, beside the sheets
+        # rather than instead of them (the author, 2026-09-28).
+        for number, page in enumerate(avery_95328_pages(all_fronts), start=1):
+            page_path = args.out / f"avery-{number}.png"
+            page.save(page_path, dpi=(300, 300))
+            print(f"wrote {page_path}")
+        for number, page in enumerate(
+            avery_95328_pages(all_backs, backs=True), start=1
+        ):
+            page_path = args.out / f"advanced-avery-{number}.png"
+            page.save(page_path, dpi=(300, 300))
+            print(f"wrote {page_path}")
 
 
 if __name__ == "__main__":
