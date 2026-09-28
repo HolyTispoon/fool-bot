@@ -236,7 +236,7 @@ async def apply_setup_pass(cog, interaction: discord.Interaction, game: D12BallG
 
 
 async def apply_setup_pass_out(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:
-    result = setup_pass_out_step(match)
+    result = setup_pass_out_step(cog.engine, match)
     await cog.dispatch_step_result(interaction, game, match, result)
 
 

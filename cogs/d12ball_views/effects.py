@@ -59,9 +59,9 @@ class LowPassChoiceView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
-        # Which card is being resolved -- a Skilled Pass reaches any
+        # Which card is being resolved -- a Pinpoint reaches any
         # teammate within 3 spaces, ahead or behind -- and whether the
-        # pass is the free one Skilled Pass's cost hands the defense
+        # pass is the free one Pinpoint's cost hands the defense
         # are the prompt's: the destinations offered already account
         # for both, and the driver reads them back off the position.
         game, match = self.load_match()
@@ -355,7 +355,7 @@ def _add_runner_buttons(view, cog, options, name: str) -> None:
 
 class SetupPassChoiceView(SafeView):
     """
-    Where a won **Setup Pass** lands: 0, 1 or 3 spaces, and the
+    Where a won **Cross** lands: 0, 1 or 3 spaces, and the
     teammate standing there takes a scoring opportunity.
 
     Reconstructible on restart from match state, the same as every
@@ -454,7 +454,8 @@ class SetupPassChoiceView(SafeView):
         await interaction.response.edit_message(
             content=(
                 f"**{coach}** picks "
-                f"out a **Setup Pass** of {distance}."
+                f"out a **{self.cog.engine.maneuver_name('setup_pass')}** "
+                f"of {distance}."
             ),
             view=None,
             attachments=[],
@@ -464,7 +465,7 @@ class SetupPassChoiceView(SafeView):
 
 class SetupPassPushBackView(SafeView):
     """
-    **Setup Pass's cost**, put to the coach who beat it: how far back
+    **Cross's cost**, put to the coach who beat it: how far back
     the ball is driven -- 1, 2 or 3 spaces -- before it is left loose.
 
     The choice belongs to the *defending* side, which is the side that
@@ -530,7 +531,8 @@ class SetupPassPushBackView(SafeView):
 
         if not self.may_act_for_defense(interaction, game, match):
             await interaction.response.send_message(
-                "Only the coach who beat the Setup Pass can choose.",
+                "Only the coach who beat the "
+                f"{self.cog.engine.maneuver_name('setup_pass')} can choose.",
                 ephemeral=True,
             )
             return
@@ -670,7 +672,7 @@ class SetUpAttemptChoiceView(SafeView):
     views are -- match state doesn't record which maneuver offered
     this choice or who the shooter is, the same narrow crash-window
     gap D12Ball.build_effect_choice_view already accepts for a
-    Playmaker's Dribble Advance.
+    Playmaker's Dribble.
     """
 
     def __init__(
@@ -776,8 +778,8 @@ class SetUpAttemptChoiceView(SafeView):
 
 class DribbleAdvanceChoiceView(SafeView):
     """
-    Playmaker-only: may advance 1 or 2 spaces on a won Dribble
-    Advance. Every other role has no choice to make, so
+    Playmaker-only: may advance 1 or 2 spaces on a won
+    Dribble. Every other role has no choice to make, so
     D12Ball.resolve_dribble_advance never even shows this.
     """
 
@@ -868,7 +870,7 @@ class DribbleAdvanceChoiceView(SafeView):
 
 class DribbleBurstChoiceView(SafeView):
     """
-    How far a won Dribble Burst runs: 1 up to
+    How far a won Burst runs: 1 up to
     `DRIBBLE_BURST_MAX_DISTANCE` (one more for a Playmaker), less
     anything the end of the field takes away. Shaped like DribbleAdvanceChoiceView, which is the
     other dribble that asks a distance, and reconstructible on restart
@@ -958,7 +960,7 @@ class DribbleBurstChoiceView(SafeView):
 
 class SpeedDeltaChoiceView(SafeView):
     """
-    Ball-speed manipulation for Dribble Advance (offense skill) or
+    Ball-speed manipulation for Dribble (offense skill) or
     Steal Intercept (defense skill, chosen by the intercepting player
     even though possession has already flipped to their side by the
     time this is shown -- `player_id` pins down whose skill and whose

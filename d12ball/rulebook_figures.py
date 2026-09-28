@@ -305,19 +305,19 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
     away_mf = fielded(match, catalog, PlayerRole.MIDFIELDER, TeamSide.VISITING)
     sketches: list[Sketch] = []
 
-    # Beat 1: Dribble Advance beats Deflect; the Playmaker carries the
+    # Beat 1: Dribble beats Deflect; the Playmaker carries the
     # ball two spaces, M2 -> V1.
     match.move_meeple(home_pm, *parse_space("V1"))
     match.set_ball_space(*parse_space("V1"))
     match.set_ball_carrier(home_pm)
     match.ball.speed = 3
     sketches.append(Sketch(
-        title="Figure 5 - Beat 1: Dribble Advance beats Deflect",
+        title="Figure 5 - Beat 1: Dribble beats Deflect",
         match=MatchState.from_dict(match.to_dict(), load_basic_ruleset()),
-        arrows=[Arrow("M2", "V1", "Dribble Advance, 2 spaces")],
+        arrows=[Arrow("M2", "V1", "Dribble, 2 spaces")],
         markers=[Marker("V1", 1)],
         notes=[
-            "Home played Dribble Advance and the visitors played Deflect. Dribble Advance beats Deflect on rank "
+            "Home played Dribble and the visitors played Deflect. Dribble beats Deflect on rank "
             "alone, so nothing was rolled. The Playmaker carried the ball from M2 to V1 - two spaces, "
             "the Playmaker's own ability - and set its speed.",
             "V1 is inside home's shooting range, so next turn a shot would be offered.",
@@ -351,7 +351,7 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
     ))
 
     # Beat 3: home sends the Playmaker M2 -> M3 to challenge; Pressure
-    # beats Dribble Advance; handler and ball go back to V1 and the
+    # beats Dribble; handler and ball go back to V1 and the
     # challenger follows onto it.
     match.move_meeple(away_mf, *parse_space("V1"))
     match.set_ball_space(*parse_space("V1"))
@@ -367,7 +367,7 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         markers=[Marker("V1", 1)],
         notes=[
             "Nobody of home's was standing on the ball at M3, so home sent the nearest player to it - the "
-            "Playmaker from M2, one token for the one space. The visitors played Dribble Advance and home "
+            "Playmaker from M2, one token for the one space. The visitors played Dribble and home "
             "played Pressure, which beats it: the handler and the ball are shoved back one space to V1, "
             "and the challenger moves forward onto them. Possession does not change.",
         ],

@@ -163,6 +163,33 @@ offense, so the import no longer carries an advanced offense for him and he keep
 his advanced defense stays 8. In an advanced game he now adds 1 wherever he rolls on offense --
 the own-goal roll is where the advanced golden meets it.
 
+### 2026-09-28 (renames) -- author and sheet, four maneuvers renamed: Dribble, Pinpoint, Burst, Cross
+
+The author, in a Claude Code session: *"I am changing the names of some maneuvers: Dribble
+advance -> Dribble, Skilled pass -> Pinpoint, Dribble Burst -> Burst, Setup pass -> Cross"*,
+and the sheet changed first. **No change to play** -- a card's name, and nothing it does.
+
+| Rank | Was | Now |
+| --- | --- | --- |
+| O2 basic | Dribble Advance | **Dribble** |
+| O1 advanced | Skilled Pass | **Pinpoint** |
+| O2 advanced | Dribble Burst | **Burst** |
+| O3 advanced | Setup Pass | **Cross** |
+
+- **The Charter and the Learn to Play** say the new names throughout, the headings of 6.6,
+  19.5, 19.6 and 19.7 with them (the anchors move with the headings; no number moves).
+- **The Playmaker's ability** was *"when resolving Dribble maneuvers"*, which named both cards
+  while both were Dribbles; it now reads *"when resolving Dribble and Burst"* on the sheet, and
+  *"a Dribble or a Burst"* in the Charter's role table.
+- **The sheet** re-imported with it: Clear's effect says *"vs Cross"*, Emberdash's ability is
+  *"Dribble up to 3, Burst with no exhaustion."* and Quantor's *"Before resolving High Pass or
+  Cross"*. Every `Defeats` cell names the new cards, and an advanced row now names **both**
+  cards on the rank it beats (*"Pressure, Double Team"*); the importer reads that as one rank
+  and refuses two. `maneuvers.json` steps to data_version 14.
+- **The keys stay** -- `dribble_advance`, `skilled_pass`, `dribble_burst`, `setup_pass` -- so
+  no saved game and no dispatch table moves; `PINNED_MANEUVER_KEYS` is why
+  ([maneuvers.md](design/maneuvers.md)).
+
 ### 2026-09-28 -- author, the clock advances when an action's outcome is decided
 
 The author, in a Claude Code session: *"When a maneuver resolution decides which side wins - either

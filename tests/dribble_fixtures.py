@@ -2,8 +2,8 @@
 A match standing in each branch the two dribbles resolve through, and
 what that resolution should produce.
 
-Rank O2 of Phase 3 of docs/design/model-discord-split.md moves Dribble
-Advance's and Dribble Burst's own resolution out of the cog and into
+Rank O2 of Phase 3 of docs/design/model-discord-split.md moves
+Dribble's and Burst's own resolution out of the cog and into
 `d12ball/flow/effects.py`. The thing worth asserting about a move like
 that is that **not one branch changed what it said or what it did
 next**, and that needs one table standing in every branch rather than
@@ -227,7 +227,7 @@ def stand_a_beaten_clear(match: MatchState, key: str) -> str:
     return challenger
 
 
-# -- Dribble Advance ---------------------------------------------------
+# -- Dribble ---------------------------------------------------
 
 
 def advance_plain() -> DribbleFixture:
@@ -247,7 +247,7 @@ def advance_plain() -> DribbleFixture:
         key="dribble_advance",
         distance=1,
         narration=(
-            f"**Dribble Advance:** {label(match, handler)} and the "
+            f"**Dribble:** {label(match, handler)} and the "
             "ball move forward 1 space."
         ),
         follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
@@ -274,7 +274,7 @@ def advance_playmaker_two() -> DribbleFixture:
         key="dribble_advance",
         distance=2,
         narration=(
-            f"**Dribble Advance:** {label(match, handler)} and the "
+            f"**Dribble:** {label(match, handler)} and the "
             "ball move forward 2 spaces (Playmaker ability)."
         ),
         follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
@@ -302,7 +302,7 @@ def advance_playmaker_one() -> DribbleFixture:
         key="dribble_advance",
         distance=1,
         narration=(
-            f"**Dribble Advance:** {label(match, handler)} and the "
+            f"**Dribble:** {label(match, handler)} and the "
             "ball move forward 1 space."
         ),
         follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
@@ -329,7 +329,7 @@ def advance_clamped_at_the_far_end() -> DribbleFixture:
         key="dribble_advance",
         distance=1,
         narration=(
-            f"**Dribble Advance:** {label(match, handler)} and the "
+            f"**Dribble:** {label(match, handler)} and the "
             "ball move forward 0 spaces."
         ),
         follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
@@ -370,7 +370,7 @@ def advance_beats_a_clear() -> DribbleFixture:
         key="dribble_advance",
         distance=1,
         narration=(
-            f"**Dribble Advance:** {label(match, handler)} and the "
+            f"**Dribble:** {label(match, handler)} and the "
             "ball move forward 1 space."
             "\n\n**Clear** was beaten -- exhaust 2.\n"
             f"{label(match, defender)} exhausts 2 "
@@ -385,7 +385,7 @@ def advance_beats_a_clear() -> DribbleFixture:
     )
 
 
-# -- Dribble Burst -----------------------------------------------------
+# -- Burst -----------------------------------------------------
 
 
 def burst_plain() -> DribbleFixture:
@@ -405,7 +405,7 @@ def burst_plain() -> DribbleFixture:
         key="dribble_burst",
         distance=3,
         narration=(
-            f"**Dribble Burst:** {label(match, handler)} bursts 3 "
+            f"**Burst:** {label(match, handler)} bursts 3 "
             "spaces forward, past everyone in the way."
             f"\n{label(match, handler)} exhausts 3 "
             f"{EXHAUST * 3} (now 3 total)."
@@ -442,7 +442,7 @@ def burst_playmaker_ordinary_distance() -> DribbleFixture:
         key="dribble_burst",
         distance=3,
         narration=(
-            f"**Dribble Burst:** {label(match, handler)} bursts 3 "
+            f"**Burst:** {label(match, handler)} bursts 3 "
             "spaces forward, past everyone in the way."
             f"\n{label(match, handler)} exhausts 3 "
             f"{EXHAUST * 3} (now 3 total)."
@@ -461,8 +461,8 @@ def burst_playmaker_ordinary_distance() -> DribbleFixture:
 def burst_playmaker_extra_space() -> DribbleFixture:
     """
     Role ability -- since 2026-09-26 a Playmaker may run one more
-    space than `DRIBBLE_BURST_MAX_DISTANCE`, same as their Dribble
-    Advance's extra space and charged the same token a space as
+    space than `DRIBBLE_BURST_MAX_DISTANCE`, same as their
+    Dribble's extra space and charged the same token a space as
     everybody else (reversing the 2026-08-19/2026-08-26 reading that
     put this ability on the cost instead -- see
     docs/design/maneuvers.md, "Maneuvers"). Placed in their own goal
@@ -483,7 +483,7 @@ def burst_playmaker_extra_space() -> DribbleFixture:
         key="dribble_burst",
         distance=5,
         narration=(
-            f"**Dribble Burst:** {label(match, handler)} bursts 5 "
+            f"**Burst:** {label(match, handler)} bursts 5 "
             "spaces forward, past everyone in the way (Playmaker "
             "ability)."
             f"\n{label(match, handler)} exhausts 5 "
@@ -519,7 +519,7 @@ def burst_with_nowhere_to_go() -> DribbleFixture:
         key="dribble_burst",
         distance=0,
         narration=(
-            f"**Dribble Burst:** {label(match, handler)} is already as "
+            f"**Burst:** {label(match, handler)} is already as "
             "far forward as the field goes, so the ball stays where it "
             "is."
             f" {BURST_SPEED_LINE}"
@@ -554,7 +554,7 @@ def burst_beats_a_clear() -> DribbleFixture:
         key="dribble_burst",
         distance=2,
         narration=(
-            f"**Dribble Burst:** {label(match, handler)} bursts 2 "
+            f"**Burst:** {label(match, handler)} bursts 2 "
             "spaces forward, past everyone in the way."
             f"\n{label(match, handler)} exhausts 2 "
             f"{EXHAUST * 2} (now 2 total)."
@@ -593,7 +593,7 @@ def burst_with_the_ball_already_at_twelve() -> DribbleFixture:
         key="dribble_burst",
         distance=1,
         narration=(
-            f"**Dribble Burst:** {label(match, handler)} bursts 1 "
+            f"**Burst:** {label(match, handler)} bursts 1 "
             "space forward, past everyone in the way."
             f"\n{label(match, handler)} exhausts 1 "
             f"{EXHAUST} (now 1 total)."

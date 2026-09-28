@@ -165,7 +165,7 @@ the two paths that did not pass it kept the old behaviour.
     (`DRIVER_STOPS`), and `stop_draws_the_board` skips the ordinary write in
     front of it. Keyed to the step, so every caller inherits it; see
     "Discord's rate limits" in [rate-limits.md](rate-limits.md).
-  - **A failed Setup Pass gambit rides inside the deflection**, so its
+  - **A failed Cross gambit rides inside the deflection**, so its
     prompt is skipped too (`PROMPTS_DRAWN_LATER`). Since 2026-09-27
     `offer_setup_pass_push_back` asks the coach who beat the pass how far
     back the ball goes *before* the deflection moves it -- once, 1-3 for a

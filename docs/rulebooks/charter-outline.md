@@ -145,7 +145,7 @@ what the ball is left with.
 - 6.5 **Low Pass.** Destinations; nearer blocks farther; a different
   player; the passer's step across a shared space; speed +1; the ball
   is left with the receiver; no legal destination; *Winger*.
-- 6.6 **Dribble Advance.** One space with the ball; the speed change;
+- 6.6 **Dribble.** One space with the ball; the speed change;
   *Playmaker*.
 - 6.7 **High Pass.** 2 or 3, a Fullback's 4; offered distances; the
   three landings (table); a 2 short of range is still received; the
@@ -166,9 +166,9 @@ what the ball is left with.
 lists only the four basic changes.
 
 - 7.1 The speed and its modifier (table).
-- 7.2 What changes it in training mode: Low Pass, Deflect, Dribble
-  Advance, Steal.
-- 7.3 Every turnover resets it to 1. (The Dribble Burst exception is
+- 7.2 What changes it in training mode: Low Pass, Deflect,
+  Dribble, Steal.
+- 7.3 Every turnover resets it to 1. (The Burst exception is
   stated at 19.6, not here.)
 - 7.4 Where the modifier is added, and nowhere else: the score attempt,
   the defense's Steal, the High Pass contest. Never where the ball
@@ -329,7 +329,7 @@ paragraph of Gambits.
 - 18.2 A rule in Part II wins over Part I in a game playing the module
   it belongs to; in training mode Part II does not exist.
 - 18.3 The exceptions Part II makes to Part I, in one table, each with
-  both numbers: the Dribble Burst's speed (7.3 / 19.6), the Cyborg's
+  both numbers: the Burst's speed (7.3 / 19.6), the Cyborg's
   threshold (15.2 / 20.3), Damaged for Injured (15.4 / 20.3), Mind
   Pull's and Overdrive's tokens (15.1 / 20.4, 20.3), the second
   challenger's skill (6.4 / 19.10), Intercept's modifier (6.4 / 19.9).
@@ -348,7 +348,7 @@ paragraph of Gambits.
 - 19.4 **When a gambit's effect fires.** The cards decide (table:
   won, lost, tied); the three consequences, each its own lettered
   sub-paragraph.
-- 19.5 Skilled Pass. 19.6 Dribble Burst. 19.7 Setup Pass. 19.8 Clear.
+- 19.5 Pinpoint. 19.6 Burst. 19.7 Cross. 19.8 Clear.
   19.9 Intercept. 19.10 Double Team. Each in the six-part shape: rank
   line; effect; role ability; what the ball is left with; *beaten*;
   what it changes in Part I (with the number).

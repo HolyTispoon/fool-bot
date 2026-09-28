@@ -172,7 +172,7 @@ COACHING_PROMPT_KINDS = frozenset({
 
 
 #: Prompts the board is **not** written in front of, because the
-#: answer draws it a moment later. A failed Setup Pass gambit's push
+#: answer draws it a moment later. A failed Cross gambit's push
 #: back is the one ball move whose distance is asked before it is made
 #: (Law 19.7.7), and every answer ends in a loose ball or the
 #: challenger's shot, each announced with the board under it. So what

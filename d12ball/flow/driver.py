@@ -1123,7 +1123,7 @@ def _answer_setup_pass_push_back(
     *,
     distance: int,
 ) -> StepResult:
-    """A failed Setup Pass gambit, spent: how far back the ball goes."""
+    """A failed Cross gambit, spent: how far back the ball goes."""
     if distance not in prompt.options.distances:
         _refuse("That distance is not one of the choices.")
     return effects.setup_pass_push_back_step(
@@ -1554,8 +1554,8 @@ def _answer_low_pass_choice(
     receiver_id: Optional[str] = None,
 ) -> StepResult:
     """
-    A won Low Pass, Skilled Pass, or the free pass a beaten Skilled
-    Pass hands the defense -- which card it is and whether it is free
+    A won Low Pass, Pinpoint, or the free pass a beaten
+    Pinpoint hands the defense -- which card it is and whether it is free
     are the prompt's, read back off the position.
 
     `receiver_id` is the one argument a *second* question asks, where
@@ -1651,7 +1651,7 @@ def _answer_setup_pass_choice(
     runner: bool = False,
 ) -> StepResult:
     """
-    Setup Pass's second half: where the ball goes -- with Quantor
+    Cross's second half: where the ball goes -- with Quantor
     running onto it where `runner` says so (`_run_onto`).
 
     A pass with nowhere to go at all is the card's one way out of play,
@@ -1662,8 +1662,11 @@ def _answer_setup_pass_choice(
     distances = prompt.options.distances
     if distance is None:
         if distances:
-            _refuse("This Setup Pass still has somewhere to go.")
-        return effects.setup_pass_out_step(match)
+            _refuse(
+                f"This {engine.maneuver_name('setup_pass')} still has "
+                "somewhere to go."
+            )
+        return effects.setup_pass_out_step(engine, match)
     if distance not in distances:
         _refuse(
             "That distance is not on offer any more -- 0 spaces needs "
@@ -1726,9 +1729,12 @@ def _answer_dribble_advance_choice(
     *,
     distance: int,
 ) -> StepResult:
-    """A Playmaker's won Dribble Advance: one space or two."""
+    """A Playmaker's won Dribble: one space or two."""
     if distance not in prompt.options.distances:
-        _refuse("A Dribble Advance is one space or two.")
+        _refuse(
+            f"A {engine.maneuver_name('dribble_advance')} is one space "
+            "or two."
+        )
     _rail(prompt.options.railed, distance)
     return effects.dribble_advance_step(engine, game, match, distance)
 
@@ -1742,7 +1748,7 @@ def _answer_dribble_burst_choice(
     *,
     distance: int,
 ) -> StepResult:
-    """A won Dribble Burst: how far, at a token a space."""
+    """A won Burst: how far, at a token a space."""
     if distance not in prompt.options.distances:
         _refuse("That distance is no longer available.")
     return effects.dribble_burst_step(engine, game, match, distance)

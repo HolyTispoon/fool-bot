@@ -587,6 +587,10 @@ def maneuver_rows(catalog: ManeuverCatalog, tiers: Sequence[str]) -> list[dict]:
                 "name": maneuver.name,
                 "tier": maneuver.tier,
                 "gambit": maneuver.is_gambit,
+                # What the tag beside an advanced card says -- the
+                # tier's word, never "gambit": the card is an advanced
+                # maneuver and a gambit is playing one (the author).
+                "tier_word": MANEUVER_TIER_WORDS[maneuver.tier],
                 "beats": " / ".join(
                     one.name
                     for one in catalog.side(opposing)
@@ -819,7 +823,8 @@ def references_html(offered: dict) -> str:
         f'<tr><th>{html.escape(table["name"])}</th><th>Beats</th><th>Effect</th></tr>'
         + "".join(
             f'<tr><td><span class="ability-name">{html.escape(one["name"])}</span>'
-            + ('<span class="tier-tag">Gambit</span>' if one["gambit"] else "")
+            + (f'<span class="tier-tag">{html.escape(one["tier_word"])}</span>'
+               if one["gambit"] else "")
             + f'<span class="maneuver-time">{html.escape(one["time"])}</span></td>'
             f'<td class="beats">{html.escape(one["beats"])}</td>'
             f'<td class="ability">{html.escape(one["effect"])}</td></tr>'

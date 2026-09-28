@@ -140,7 +140,7 @@
           h("tr", {},
             h("td", {},
               h("span", { class: "ability-name" }, one.name),
-              one.gambit ? h("span", { class: "tier-tag" }, "Gambit") : null,
+              one.gambit ? h("span", { class: "tier-tag" }, one.tier_word) : null,
               h("span", { class: "maneuver-time" }, one.time)),
             h("td", { class: "beats" }, one.beats),
             h("td", { class: "ability" }, one.effect)))));

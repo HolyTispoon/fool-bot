@@ -1,7 +1,7 @@
 """
 The Midfielder's role ability (Law 6.4): +3 on a skill test for their
 own Low Pass or their own Steal, and by rank for the two gambits on
-those ranks, Skilled Pass and Intercept (Law 18.3). It was Pressure's
+those ranks, Pinpoint and Intercept (Law 18.3). It was Pressure's
 and Double Team's until 2026-09-27 (docs/rules-log.md).
 """
 
