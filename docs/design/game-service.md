@@ -385,6 +385,33 @@ the walk-in's image of the `challenger_id` the step named rather than
 of whoever `match.challenger_id` happens to hold by the time the
 group is rendered.
 
+**Glompex's offer holds the challenge image back** (Law 21; the
+author, 2026-09-28). The image is what the coaches pick their cards
+over, and Glompex may step onto the ball's space before the cards, so
+while that offer is outstanding the walk-in goes up alone and the
+image waits. `challenge_placement` in `cogs/d12ball/core.py` reads
+where it goes off the result alone: after the AI's answer to the last
+offer when that is in the same result, or, when a coach answered
+(`JoinTheBallView` passes `present(challenge_owed=True)`), in front of
+everything that answer's result posts -- which is always the cards,
+so the challenger read off `result.match` there is still the one in
+place. Never while an offer is up, which is also what keeps two
+Glompexes (one per side) to one image. That held-back image carries
+a caption (`challenge_caption`; the author, 2026-09-28) -- the two
+players, then each Ooze who adds by Merge, named with their role and
+what they add, a line apiece. The Ooze is named rather than a side's
+total put beside the player rolling, which read as that player's own
+bonus (the author, 2026-09-28). Who Merges is
+`RulesEngine.merge_contributions`, the reading `merge_bonus` totals,
+asked as the skill test asks it -- since the image draws the two and
+not the Oozes beside them, and whoever just stepped on is why it
+waited. The walk-in's own image keeps no
+caption. This is the frontend's
+placement of its own picture: nothing in the model changed, and the
+web app, which lays out its own situation per prompt, is untouched.
+`tests/test_d12ball_join_the_ball_image.py` covers a coach's
+answer, the AI's, and no offer at all.
+
 ## What a test does now
 
 `tests/cog_steps.py` holds the ninety-odd cog wrappers the tests
