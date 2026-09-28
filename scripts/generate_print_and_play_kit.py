@@ -3,7 +3,7 @@
 
     python3 scripts/generate_print_and_play_kit.py
     python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
-    python3 scripts/generate_print_and_play_kit.py --teams --paper a3
+    python3 scripts/generate_print_and_play_kit.py --paper a3
 
 This is the thing to hand somebody before a meetup, a playtest table or
 a con booth: every printable component in one folder (or one zip),
@@ -108,9 +108,9 @@ printer, {sheet_columns} cards to a row.
 - **boards/** -- the field board at every size the ruleset defines
   (7 and 9 spaces), each also as a `-top` and `-bottom` half for a
   letter printer; the jumbotron board (clock, score, token supplies);
-  and the team board (a coach's die and maneuvers, the bench, the
+  and the team board (the bench, the back bench, the maneuvers, the
   formation strip -- one sheet holds both coaches' panels, cut in
-  half).
+  half), as the standard board and in each colour team's colour.
 
 ## Paper and cutting
 
@@ -162,8 +162,7 @@ The two rulebooks, as PDFs on letter paper, are in **rulebooks/**:
     python3 scripts/generate_print_and_play_kit.py
 
 Add `--bleed` for a print shop, `--pdf` for a PDF of each board
-alongside its PNG, `--teams` for a team board per team colour rather
-than one uncoloured one, and `--zip` to also bundle the whole kit into
+alongside its PNG, and `--zip` to also bundle the whole kit into
 `<out>.zip` for handing to somebody who does not want a folder. See `--help` for the rest.
 """
 
@@ -223,14 +222,6 @@ def main() -> None:
         ),
     )
     parser.add_argument(
-        "--teams",
-        action="store_true",
-        help=(
-            "Render a team board per team colour instead of one "
-            "uncoloured board."
-        ),
-    )
-    parser.add_argument(
         "--bleed",
         action="store_true",
         help="Add the print-shop 1/8in bleed to every component.",
@@ -277,8 +268,6 @@ def main() -> None:
     ]
     if args.pdf:
         board_args.append("--pdf")
-    if args.teams:
-        board_args.append("--teams")
     run("render_boards.py", board_args)
 
     # The two rulebooks as the PDFs a table reads, on letter paper

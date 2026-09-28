@@ -11,7 +11,7 @@ it and neither board has a field on it to pay for a bigger sheet. See
 `d12ball/boards.py`:
 
     python3 scripts/render_boards.py --out print/boards
-    python3 scripts/render_boards.py --teams --bleed --pdf
+    python3 scripts/render_boards.py --bleed --pdf
     python3 scripts/render_boards.py --board-size 9
 
 Every field board the ruleset defines is written unless --board-size
@@ -19,7 +19,11 @@ narrows it to one, so a print run comes out with the 7- and 9-space
 fields, the jumbotron, and the team board -- **twice**: one
 board on its own (`team-board.png`, half a letter sheet) and a letter
 page carrying two of them to be cut apart, one for each coach
-(`team-board-2up.png`).
+(`team-board-2up.png`). The team board comes out five times over: the
+standard board, in ink and naming no team, and one in each colour
+team's colour with its name (`team-board-orange.png`, ...). The
+species teams get none: the print game has no cards for them, and each
+shares its colour team's hex.
 
 A field board also comes out **three ways**: whole on the tabloid
 sheet (`field-board-7.png`), and as its own top and bottom halves on
@@ -63,7 +67,7 @@ from d12ball.components import (  # noqa: E402
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.game import Team  # noqa: E402
+from d12ball.game import COLOR_TEAMS  # noqa: E402
 
 
 def save(image: Image.Image, path: Path, pdf: bool) -> None:
@@ -101,14 +105,6 @@ def main() -> None:
         help=(
             "Render only this field board. Every size the ruleset "
             "defines is written otherwise."
-        ),
-    )
-    parser.add_argument(
-        "--teams",
-        action="store_true",
-        help=(
-            "Render a team board per team colour instead of one "
-            "uncoloured board."
         ),
     )
     parser.add_argument(
@@ -201,8 +197,7 @@ def main() -> None:
         args.pdf,
     )
 
-    teams = tuple(Team) if args.teams else (None,)
-    for team in teams:
+    for team in (None, *COLOR_TEAMS):
         suffix = f"-{team.value}" if team else ""
         # Two files per team: the board itself, and the page a match's
         # two coaches are cut from. They are the same board -- the page
