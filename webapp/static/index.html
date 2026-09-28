@@ -90,6 +90,18 @@
           <div id="open-list" class="room-list"></div>
         </section>
 
+        <!-- Every other room still being played, both seats held: open
+             one to watch -- or, seated in it on another device, to
+             become its admin and take the seat over from the menu
+             under the pill. -->
+        <section id="full" hidden>
+          <div class="list-head">
+            <span class="field-label">ROOMS IN PLAY</span>
+            <span class="quiet faint">seated on another device? become admin and take your seat over</span>
+          </div>
+          <div id="full-list" class="room-list"></div>
+        </section>
+
         <p id="no-rooms" class="quiet" hidden>
           No rooms yet. Open one on the left and send its link.
         </p>

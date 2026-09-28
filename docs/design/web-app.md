@@ -323,6 +323,21 @@ room with an empty seat rather than seating Dinky in it. A test
 game's one coach holds both seats and may not leave them once it has
 started.
 
+**A seat is taken over in one move** (the author, 2026-09-27): a coach
+seated on one device who opens the room on another is, as far as the
+room knows, somebody new -- an observer. So they become the room's
+admin there and take the seat over: `D12BallGame.take_over_seat`,
+through `GameService.take_over_seat` (`POST /api/room/{id}/seat/
+takeover`), the kick and the take judged whole -- whoever holds the
+seat, a person or the AI, out, and the reader in -- so a takeover the
+record refuses leaves the seat as it was rather than empty, and the
+match is written once. It refuses somebody already seated (they would
+hold two seats), a one-player game's second seat, and wherever the
+kick would be refused (a test game's seats once it has started), each
+before anything moves. The route is an admin's, as a kick is; the
+room offers it (`room.take_over`, asked of a copy) only to an admin
+who is watching.
+
 **Roles are the frontend's, in its own file.** Who is admin in a room,
 who has been in and what each was last called (the table's sideline,
 step 9 of [../web-app-redesign.md](../web-app-redesign.md)), is
@@ -362,8 +377,16 @@ two seats claimed and the first prompt, and the rematch at the end.
 
 **The front door** (`/`), which the author named **the Master
 Lobby** on 2026-09-27, lists the reader's rooms by where each
-stands -- the lobby, the rest of setup, playing, finished -- and the
-rooms with a seat free (`GET /api/rooms`), and opens a room the one
+stands -- the lobby, the rest of setup, playing, finished -- then
+every other room still being played, those with a seat free above
+the full ones (`GET /api/rooms`: `mine`, `open`, `full`), and opens a
+room the one way. The full rooms are there because a coach on another
+device is another person (the author, 2026-09-27: "if I'm in a game
+in one browser, and want to jump in from a different device -- I
+can't see the game"); they open it, become its admin and take their
+seat over. Somebody else's finished room is not listed, and a room
+nobody has had open for a day leaves both of the others' lists
+(`OPEN_ROOM_IDLE`, below). A room is opened the one
 way: `POST /api/rooms` is always `create_game(in_lobby=True,
 ai_seats=[])`, the creator in seat 1. A room that never started may be
 closed (`DELETE /api/room/{id}`, `discard_game`, whose refusal answers
@@ -383,9 +406,12 @@ the card and on the table's "Close this room" alike -- the author,
 `may_close` is `_may_close`, the same reading as the table's, and
 `may_abandon` is a seat in a game in progress, the room page's rule --
 so the front door offers exactly what the room does, and the route
-judges again. A card in "Rooms with a seat free" carries neither: its
-reader holds no seat. **A room nobody has had open for a day leaves
-"Rooms with a seat free"** (`OPEN_ROOM_IDLE`): it is not closed, and
+judges again. A card of the reader's own also carries **Leave seat** wherever
+`vacate_seat` would stand (`may_leave`, asked of a copy) -- the same
+route the room's menu calls, asked first while the game is under way,
+since the side then waits, empty, for whoever takes it. A card in
+the other two lists carries none of them: its reader holds no seat. **A room nobody has had open for a day leaves
+the rooms with a seat free and the rooms in play** (`OPEN_ROOM_IDLE`): it is not closed, and
 its coaches still see it in their own list, where its card closes it.
 "Open" is any poll of the room's state, kept in memory
 (`_looked_at`), so a restart counts every room from the restart --
@@ -535,11 +561,26 @@ its sideline.
   Copy the room's link / Become admin / Close this room as neutral
   controls.
 
-**The top bar says who the reader is as one pill**: "You are Coach 1"
-(gold edge) before the toss, "You are the Home coach · <team>" (the
-team's colour) after it, "You are an observer" otherwise, with "Take
-the free seat" beside it when there is one -- all off `room.role`,
-the record's `home_player_number` read. The room's number and its
+**The top bar says who the reader is as one pill**, their name first
+(the author, 2026-09-27): "<name> · Coach 1" (gold edge) before the
+toss, "<name> · Home coach · <team>" (the team's colour) after it,
+"<name> · Observer" otherwise, with "Take the free seat" beside it
+when there is one -- all off `room.role`, the record's
+`home_player_number` read. **The pill is the room's menu**: a click
+opens everything the reader may do to the room from anywhere in it
+-- take the free seat, take a seat over (an admin who is watching),
+leave their own, kick the other (an admin; the AI, anybody seated),
+put Dinky in an empty seat, become or give up admin, copy the link,
+and the way out -- Close before kickoff, Abandon after. Which of them
+is offered is the server's (`room.may_leave`, `room.take_over`,
+`room.may_abandon`, the table's `may_close`), each route judges
+again, and a kick is still asked first. An observer who is not an
+admin is told how a seat on another device is taken back. **On a
+phone held upright the pill fits the bar**: the name is cut short,
+never away; the team's name and "coach" are dropped for the team's
+emoji and the edge; "Take the free seat" is only in the menu; and
+the pill takes at most half the bar, so the room's number and a stub
+of its topic -- where the game is renamed -- stay. The room's number and its
 topic (`game.topic`: the room's name, or the coaches and their teams)
 share a baseline.
 

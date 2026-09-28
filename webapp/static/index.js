@@ -3,8 +3,9 @@
  * the server made up on the first visit (webapp/identity.py,
  * `guest_name`) and nobody else holds (webapp/names.py), and a click on
  * it the menu to rename or delete every game you sit in -- this
- * reader's rooms and
- * the rooms with a seat free as cards (`GET /api/rooms`), and a new
+ * reader's rooms, then every other room still being played (those
+ * with a seat free above the full ones) as cards (`GET /api/rooms`),
+ * and a new
  * room in its lobby (`POST /api/rooms`) -- always a room of two. The
  * two ticks under it are the table's own moves, made in sequence
  * straight after: Dinky put in seat 2 (`POST /api/room/{id}/seat/ai`,
@@ -97,9 +98,31 @@ function roomCard(room, { renamable = false } = {}) {
       onclick: (event) => { event.preventDefault(); event.stopPropagation(); renameRoom(room); },
     }, "Name"));
   }
+  if (room.may_leave) card.querySelector(".card-head").append(leaveSeat(room));
   const out = wayOut(room);
   if (out) card.querySelector(".card-head").append(out);
   return card;
+}
+
+/* The reader's seat left from outside the room -- the route the
+   room's own menu calls (`/seat/leave`), offered where the record
+   would take it (`may_leave`). Mid-game the side waits, empty, for
+   whoever takes it, so that is asked first. */
+function leaveSeat(room) {
+  return h("button", {
+    type: "button",
+    class: "linkish",
+    title: "Leave your seat in this room",
+    onclick: async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (room.status === "in_progress"
+          && !confirm("Leave your seat? Your side waits for whoever takes it.")) return;
+      const refused = await tableMove(room.id, "/seat/leave");
+      if (refused) refuse(refused);
+      listRooms();
+    },
+  }, "Leave seat");
 }
 
 /* A dead room cleared from the list without opening it: Close for a
@@ -174,9 +197,12 @@ async function listRooms() {
       ...mine.map((room) => roomCard(room, { renamable: true })),
     );
     document.getElementById("mine").hidden = !mine.length;
+    const full = rooms.full || [];
     document.getElementById("open-list").replaceChildren(...rooms.open.map((room) => roomCard(room)));
     document.getElementById("open").hidden = !rooms.open.length;
-    document.getElementById("no-rooms").hidden = Boolean(mine.length || rooms.open.length);
+    document.getElementById("full-list").replaceChildren(...full.map((room) => roomCard(room)));
+    document.getElementById("full").hidden = !full.length;
+    document.getElementById("no-rooms").hidden = Boolean(mine.length || rooms.open.length || full.length);
   } catch (failure) {
     /* The lists are a convenience; the new room still works. */
   }
