@@ -64,7 +64,13 @@ for itself.** Concretely, `landing/build.py` reads:
   stylesheet; the two surfaces a section and a card sit on are `color-mix`es of
   the ground and the edge;
 - the pictures from the renderers: the night banner (`render_banner`, in
-  1500 and 3000 wide for `srcset`), the night cover (`render_box_cover`), the
+  1500 and 3000 wide for `srcset`, with `subtitle=HERO_SUBTITLE`: the hero
+  sets the strapline as its own headline right under the banner, and the
+  banner saying it too put the same sentence on the screen twice, so the
+  banner carries a line of the author's own instead, in italics -- Roboto
+  Slab has none, so `draw_slanted` shears the upright face seven degrees
+  (2026-09-28); the
+  studio's card takes the same banner), the night cover (`render_box_cover`), the
   Screentop-sized night banner as the Open Graph image -- 16:9, because a link
   preview crops a 2.5:1 banner to a sliver -- the four species icons through
   `render.species_icon` in their colour team's hex (`species_cards.SPECIES_TEAM`),

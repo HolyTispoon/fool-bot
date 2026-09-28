@@ -36,7 +36,7 @@ nothing and prints nothing.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import atan2, cos, hypot, sin, sqrt
+from math import atan2, cos, hypot, radians, sin, sqrt, tan
 from typing import Optional, Sequence
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
@@ -931,14 +931,53 @@ def draw_wrapped(
     fill: str,
     bold: bool = False,
     leading: float = 1.35,
+    italic: bool = False,
 ) -> float:
     """A paragraph, wrapped to `width`. Returns the y below its last line."""
     face = print_font(size_inches, bold=bold)
     step = inches(size_inches * leading)
     for line in wrap_text(sheet.draw, text, face, round(width)):
-        sheet.text((left, top), line, face, fill)
+        if italic:
+            draw_slanted(sheet, (left, top), line, face, fill)
+        else:
+            sheet.text((left, top), line, face, fill)
         top += step
     return top
+
+
+# How far an italic line leans, as its run across per unit of height:
+# seven degrees, the author's (2026-09-28).
+ITALIC_SLANT = tan(radians(7))
+
+
+def draw_slanted(
+    sheet: Sheet,
+    position: tuple[float, float],
+    text: str,
+    face,
+    fill: str,
+) -> None:
+    """
+    One line leaned into an italic, from its top-left like `Sheet.text`.
+
+    Roboto Slab has no italic, so the upright face is sheared instead:
+    drawn on a layer of its own, leaned with its foot where the upright
+    line's foot would be, and pasted over the sheet.
+    """
+    x0, y0, x1, y1 = sheet.draw.textbbox((0, 0), text, font=face)
+    height = y1
+    lean = ITALIC_SLANT * height
+    layer = Image.new("RGBA", (round(x1 + lean) + 2, height + 2), (0, 0, 0, 0))
+    ImageDraw.Draw(layer).text((0, 0), text, font=face, fill=fill)
+    # Output (x, y) reads the upright line at (x - lean * (1 - y/h), y):
+    # the top moves right by the whole lean, the foot not at all.
+    layer = layer.transform(
+        layer.size,
+        Image.Transform.AFFINE,
+        (1, ITALIC_SLANT, -lean, 0, 1, 0),
+        resample=Image.Resampling.BICUBIC,
+    )
+    paste_rgba(sheet, layer, position)
 
 
 def draw_centered(
@@ -1380,6 +1419,8 @@ def render_banner(
     bleed: bool = False,
     palette: CoverPalette = NIGHT_COVER,
     size: tuple[float, float] = BANNER_INCHES,
+    subtitle: Optional[str] = STRAPLINE,
+    subtitle_italic: bool = False,
 ) -> Image.Image:
     """
     The cover's art at banner proportions: the four on the right, the
@@ -1397,6 +1438,11 @@ def render_banner(
     for a Screentop table. It defaults to the night palette, because a
     banner is read on a screen and never printed; `PAGE_COVER` gives
     the white one for a page that wants it.
+
+    `subtitle` is the line under the title: the strapline unless a page
+    names its own, and `None` for none; `subtitle_italic` leans it. The d12ball page sets the
+    strapline as its own headline under the banner, so it names a
+    different line rather than say the strapline twice.
     """
     catalog = catalog or load_player_catalog()
     rules = rules or load_basic_ruleset()
@@ -1495,16 +1541,18 @@ def render_banner(
         ),
         fill=palette.accent,
     )
-    draw_wrapped(
-        sheet,
-        left,
-        panel.y(height * 0.635),
-        inches(words),
-        STRAPLINE,
-        height * 0.042,
-        palette.muted,
-        leading=1.3,
-    )
+    if subtitle:
+        draw_wrapped(
+            sheet,
+            left,
+            panel.y(height * 0.635),
+            inches(words),
+            subtitle,
+            height * 0.042,
+            palette.muted,
+            leading=1.3,
+            italic=subtitle_italic,
+        )
     return sheet.image
 
 
