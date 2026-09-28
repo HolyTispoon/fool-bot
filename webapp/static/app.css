@@ -407,6 +407,7 @@ img { display: block; }
   align-items: center;
   gap: 10px;
 }
+.situation-row.single { grid-template-columns: minmax(0, 1fr); }
 .situation-vs {
   font-family: "Goal", "Board", sans-serif;
   font-size: 18px;

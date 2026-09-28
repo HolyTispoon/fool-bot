@@ -1653,6 +1653,88 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
             ENGINE.personal_ability_text(fixture.game, joiner),
         )
 
+    def test_a_contest_for_the_ball_is_its_two_contestants(self) -> None:
+        # The loose ball's roll has a window too (the author,
+        # 2026-09-28): the two sent, the side on the ball's offensive
+        # skill against the other's defensive, nothing for an injured
+        # one, and the species abilities that reach a contest.
+        from d12ball.components import SPECIES_CYBORG, SPECIES_FIRE_DEMON
+        from d12ball.player_cards import species_ability
+
+        for injured in (False, True):
+            with self.subTest(injured=injured):
+                def stage(match):
+                    if injured:
+                        match.injured.add(match.loose_ball_offense_player)
+
+                fixture, got = self.situation_in(
+                    "loose ball roll", GameMode.STANDARD, stage,
+                )
+                match, game = fixture.match, fixture.game
+                offense, defense = got["sides"]
+                self.assertEqual(
+                    self.names(offense), [match.loose_ball_offense_player],
+                )
+                self.assertEqual(
+                    self.names(defense), [match.loose_ball_defense_player],
+                )
+                self.assertEqual(
+                    offense["skill"],
+                    "Offensive skill +0 (injured)" if injured else
+                    "Offensive skill "
+                    f"+{ENGINE.skills(game, offense['players'][0]['id']).offense}",
+                )
+                self.assertEqual(
+                    defense["skill"],
+                    "Defensive skill "
+                    f"+{ENGINE.skills(game, defense['players'][0]['id']).defense}",
+                )
+                for side in (offense, defense):
+                    (player,) = side["players"]
+                    self.assertEqual(
+                        [
+                            note["name"] for note in player["abilities"]
+                            if note["kind"] == "species"
+                        ],
+                        [
+                            species_ability(kind)["name"]
+                            for kind in (SPECIES_FIRE_DEMON, SPECIES_CYBORG)
+                            if ENGINE.has_species_ability(
+                                game, player["id"], kind,
+                            )
+                        ],
+                    )
+
+    def test_a_set_up_off_zytheris_s_ability_names_it(self) -> None:
+        # A scoring opportunity Zytheris's special ability offered has a
+        # window naming it (the author, 2026-09-28); any other set-up is
+        # the ask's to say, and has none.
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+
+        fixture, bare = self.situation_in("set-up attempt", GameMode.ADVANCED)
+        self.assertIsNone(bare)
+        shooter = fixture.match.pending_scoring_opportunity["shooter_id"]
+        with mock.patch.dict(
+            PERSONAL_ABILITIES,
+            {
+                catalog_player_id(shooter):
+                (PersonalAbility.SHOOTS_OFF_ANY_PASS, "test"),
+            },
+        ):
+            _, got = self.situation_in("set-up attempt", GameMode.ADVANCED)
+        (side,) = got["sides"]
+        (player,) = side["players"]
+        self.assertEqual(player["id"], shooter)
+        self.assertIn(
+            "Special ability", [note["name"] for note in player["abilities"]],
+        )
+
     def test_an_advanced_score_is_named_where_the_roll_adds_it(self) -> None:
         # The wall adds defensive skill, so a defender whose card line is
         # a raised defensive score has it named, and one whose line is

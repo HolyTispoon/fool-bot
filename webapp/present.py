@@ -82,7 +82,11 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball.prompts import PendingPrompt, PromptKind, asked_sides
-from d12ball.dice_brief import maneuver_challenge_brief, score_attempt_brief
+from d12ball.dice_brief import (
+    challenge_side,
+    maneuver_challenge_brief,
+    score_attempt_brief,
+)
 from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
 from d12ball.personal_abilities import PersonalAbility
 from d12ball.player_cards import species_ability
@@ -2282,6 +2286,32 @@ BEARINGS: Mapping[str, Bearing] = {
         },
         "defense",
     ),
+    # A contest for the ball -- a loose ball's, or a long High Pass's:
+    # the same dice as a skill test's, and Slitheron's win without one
+    # is the reason there was no roll when a contest is skipped.
+    "contest_attack": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {
+            PersonalAbility.SPEED_ROLLS, PersonalAbility.WINS_CONTESTS,
+        },
+        "offense",
+    ),
+    "contest_defence": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {
+            PersonalAbility.SPEED_ROLLS, PersonalAbility.WINS_CONTESTS,
+        },
+        "defense",
+    ),
+    # A scoring opportunity offered off a pass: whatever bears on the
+    # shot, and the ability that offered it (Zytheris).
+    "set_up": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {
+            PersonalAbility.CLEAR_SHOT, PersonalAbility.SHOOTS_OFF_ANY_PASS,
+        },
+        "offense",
+    ),
     "shot_attack": Bearing(
         (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
         _ON_THE_DIE | _IGNITES | {PersonalAbility.CLEAR_SHOT},
@@ -2799,6 +2829,106 @@ def _shot_situation(
     }
 
 
+def _contest_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    A contest for the ball about to be rolled (Law 10) -- a loose
+    ball's, or a long High Pass's (Law 10.4): the two sent, each with
+    what the roll adds for them, as `score_loose_ball` adds it. The
+    side on the ball adds offensive skill and the other defensive,
+    nothing for an injured contestant; the thrower's side of a High
+    Pass contest adds the ball speed modifier, signed; Zorch his own
+    elsewhere; Merge on both sides; and whatever Overdrive or Boost is
+    already declared.
+    """
+    offense_id = match.loose_ball_offense_player
+    defense_id = match.loose_ball_defense_player
+    if offense_id is None or defense_id is None:
+        return None
+    high_pass = match.pending_loose_ball_is_high_pass
+    rolling = (offense_id, defense_id)
+
+    def contestant(player_id, attacking, bearing, team_side, skill_kind):
+        side = _situation_side(
+            engine, game, match, match.team_for_player(player_id),
+            [(player_id, challenge_side(
+                engine, player_id, match.team_for_player(player_id),
+                attacking=attacking, game=game,
+            ))],
+            with_ability=False, bearing=bearing,
+        )
+        if player_id in match.injured:
+            # An injured contestant adds no skill of their own (Law
+            # 15.4); the die and everything else still count.
+            side["skill"] = (
+                f"{'Offensive' if attacking else 'Defensive'} skill +0 "
+                "(injured)"
+            )
+        extra = list(engine.overdrive_details(match, player_id))
+        if attacking and high_pass:
+            extra.append(
+                f"{match.ball_speed_modifier():+d} ball speed modifier",
+            )
+        else:
+            _, speed_line = engine.speed_roll_bonus(game, match, player_id)
+            extra.extend(filter(None, [speed_line]))
+        side["modifiers"] = [*side["modifiers"], *extra]
+        return _merged(
+            engine, game, match, side, team_side, rolling, skill_kind,
+        )
+
+    return {
+        "title": "High Pass contest" if high_pass else "Contest for the ball",
+        "where": _where(match, match.ball.zone, match.ball.space_index),
+        "sides": [
+            contestant(
+                offense_id, True, BEARINGS["contest_attack"],
+                match.ball.possession, "offense",
+            ),
+            contestant(
+                defense_id, False, BEARINGS["contest_defence"],
+                match.defending_side(), "defense",
+            ),
+        ],
+        "roll": None,
+    }
+
+
+def _set_up_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    A scoring opportunity offered off a pass, where it is Zytheris's
+    special ability that offered it (Law 21; the author, 2026-09-28):
+    the shooter, with the ability named. Any other set-up -- a Winger's,
+    a High Pass reaching the goal -- is the ask's to say and has none.
+    """
+    shooter = prompt.player_id
+    if shooter is None or not engine.has_personal_ability(
+        game, shooter, PersonalAbility.SHOOTS_OFF_ANY_PASS,
+    ):
+        return None
+    skill = engine.skills(game, shooter).offense
+    return {
+        "title": "Scoring opportunity",
+        "where": _player_where(match, shooter),
+        "sides": [
+            _roller(
+                engine, game, match, shooter,
+                f"Offensive skill {skill:+d}", (), BEARINGS["set_up"],
+            ),
+        ],
+        "roll": None,
+    }
+
+
 #: The situation a prompt is asked over, by its kind: the two matchups,
 #: and the three rolls a player makes alone -- the injury check, the
 #: own-goal roll and the Mind Pull on offer (the author, 2026-09-28). A
@@ -2813,6 +2943,8 @@ SITUATIONS: Mapping[
     PromptKind.SCORE_ATTEMPT: _shot_situation,
     PromptKind.MANEUVER_ACTION: _challenge_situation,
     PromptKind.JOIN_THE_BALL: _join_situation,
+    PromptKind.LOOSE_BALL_SKILL_TEST: _contest_situation,
+    PromptKind.SET_UP_ATTEMPT: _set_up_situation,
     PromptKind.INJURY_TEST: _injury_situation,
     PromptKind.OWN_GOAL_ROLL: _own_goal_situation,
     PromptKind.MIND_PULL: _mind_pull_situation,

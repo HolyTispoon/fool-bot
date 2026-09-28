@@ -1894,7 +1894,9 @@ function drawSituation(prompt) {
   box.hidden = !situation;
   if (!situation) return;
   const [first, second] = situation.sides;
-  box.append(
+  /* `append` is the DOM's, which writes a null as the word "null":
+     the rows that are not there are left out first. */
+  box.append(...[
     h("div", { class: "situation-head" },
       h("span", { class: "situation-title" }, situation.title),
       h("span", { class: "situation-where" }, situation.where)),
@@ -1903,7 +1905,9 @@ function drawSituation(prompt) {
         situationSide(first),
         h("div", { class: "situation-vs", "aria-hidden": "true" }, "vs"),
         situationSide(second))
-      : h("div", { class: "situation-row" },
+      : !situation.roll
+        ? h("div", { class: "situation-row single" }, situationSide(first))
+        : h("div", { class: "situation-row" },
         situationSide(first),
         h("div", { class: "situation-vs arrow", "aria-hidden": "true" }, "\u2192"),
         situationRoll(situation.roll, first.colour)),
@@ -1913,7 +1917,7 @@ function drawSituation(prompt) {
           class: "situation-ability-line personal", style: `--side: ${note.colour}`,
         }, h("strong", {}, `${note.short} · ${note.name}`), " ", note.text)))
       : null,
-  );
+  ].filter(Boolean));
 }
 
 /* What a roll nobody contests needs -- an injury check, an own-goal

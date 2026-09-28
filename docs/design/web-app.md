@@ -1696,6 +1696,26 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   repeat him. A note -- the situation's `notes` -- is a special ability
   of somebody who is not rolling, with whose it is, edged in their
   team's colour.
+- **A contest for the ball has a situation** (the author,
+  2026-09-28): the loose ball's roll, or a long High Pass's
+  (`LOOSE_BALL_SKILL_TEST`), as the two sent with what the roll adds
+  for each, as `score_loose_ball` adds it -- the side on the ball's
+  offensive skill, the other's defensive, nothing for an injured one
+  (Law 15.4), the High Pass's signed ball speed modifier, Merge on both
+  sides, anything already declared -- and the abilities that reach a
+  contest, Slitheron's among them. A contest Slitheron skips has no
+  prompt, so it has no window: the model's line says why there was no
+  roll.
+- **Zytheris's scoring opportunity has a situation** where it is his
+  special ability that offered it (`SET_UP_ATTEMPT` with a shooter who
+  holds it): the shooter, with the ability named. Any other set-up is
+  the ask's to say.
+- **An ability that acts when a player takes the ball is said by the
+  model when it acts** -- Inferno's speed, Pulsar's Charge-up,
+  Slitheron's contest without a roll, Zytheris's offer off a Low Pass
+  -- each line naming it as their special ability, so the log (and
+  Discord) says why the speed jumped or the roll never came. There is
+  no question at that moment, so nothing for a window to hang on.
 - **It is a strip, not a panel** (the author, 2026-09-28: "takes too
   much space ... no need for the black background"). Nothing sits
   behind it: the title and the space on one line, then each side as a
