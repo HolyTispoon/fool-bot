@@ -223,6 +223,19 @@ class VacateSeatTests(SeatHarness):
 
         self.assertIn("test game", sentence)
 
+    def test_a_test_game_s_seats_are_not_taken_over(self) -> None:
+        """A kick the record would refuse refuses the takeover before
+        anything moves."""
+        game = self.room()
+        self.service.configure(game.game_id, "test")
+        self.service.start_lobby(game.game_id)
+
+        for seat in (1, 2):
+            with self.subTest(seat=seat):
+                self.refused(
+                    self.service.take_over_seat, game.game_id, seat, WATCHER, "Three",
+                )
+
     def test_a_lobby_with_seat_one_empty_does_not_start(self) -> None:
         game = self.room()
         self.service.vacate_seat(game.game_id, CREATOR)
@@ -504,6 +517,45 @@ class MidMatchTests(SeatHarness):
 
         self.assertFalse(self.game.is_solo_game)
         self.assertEqual(ENGINE.side_for_user(self.game, NEW_DEVICE), TeamSide.VISITING)
+
+    def test_a_takeover_hands_the_seat_on_in_one_move(self) -> None:
+        """Somebody seated on one device takes their seat back from
+        another: the old id out, the new in, one save, and the side
+        asked what it was asked."""
+        before = self.asked()
+        side = ENGINE.side_for_user(self.game, CREATOR)
+        saves = self.saves
+
+        self.service.take_over_seat(self.game.game_id, 1, NEW_DEVICE, "One, phone")
+
+        self.assertEqual(self.saves, saves + 1)
+        self.assertEqual(self.asked(), before)
+        self.assertEqual(ENGINE.side_for_user(self.game, NEW_DEVICE), side)
+        self.assertIsNone(ENGINE.side_for_user(self.game, CREATOR))
+        self.assertEqual(self.game.player_2_id, JOINER)
+
+    def test_a_takeover_from_the_ai(self) -> None:
+        self.service.vacate_seat(self.game.game_id, JOINER)
+        self.service.seat_ai(self.game.game_id, 2)
+
+        self.service.take_over_seat(self.game.game_id, 2, NEW_DEVICE, "Two")
+
+        self.assertFalse(self.game.ai_holds(2))
+        self.assertEqual(ENGINE.side_for_user(self.game, NEW_DEVICE), TeamSide.VISITING)
+
+    def test_a_takeover_by_somebody_seated_is_refused_whole(self) -> None:
+        sentence = self.refused(
+            self.service.take_over_seat, self.game.game_id, 1, JOINER, "Two",
+        )
+
+        self.assertEqual(sentence, "You already hold a seat in this game.")
+
+    def test_a_takeover_of_an_empty_seat_takes_it(self) -> None:
+        self.service.vacate_seat(self.game.game_id, CREATOR)
+
+        self.service.take_over_seat(self.game.game_id, 1, NEW_DEVICE, "One")
+
+        self.assertEqual(self.game.player_1_id, NEW_DEVICE)
 
     def test_the_sides_stay_with_the_numbers(self) -> None:
         self.service.vacate_seat(self.game.game_id, CREATOR)
