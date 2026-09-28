@@ -16,7 +16,7 @@ copy-shop printer actually stocks, and "The jumbotron's own paper" for why
 only one board still needs it.
 
 ```bash
-python3 scripts/render_boards.py --out print/          # every field size
+python3 scripts/render_boards.py                     # every field size, into print/boards/
 python3 scripts/render_boards.py --teams --bleed --pdf
 python3 scripts/render_boards.py --board-size 9        # just the one field
 python3 scripts/render_boards.py --no-halves           # tabloid sheets only
@@ -176,7 +176,8 @@ The field board comes out three times, whole and as two halves. See below.
   `card_slot_inches` and `cell_inches` ask how a layout comes out without
   drawing it. **The team board is the exception and measures in inches**
   throughout -- see "The team board".
-- `print/` is generated output and is gitignored, like `cards/`.
+- `print/boards/` is generated output and is gitignored, like everything
+  under `print/` ([cards.md](cards.md), "Where printed output goes").
 
 ## The jumbotron's own paper
 

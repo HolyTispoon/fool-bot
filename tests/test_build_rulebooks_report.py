@@ -26,17 +26,17 @@ class BuildRulebooksReportTests(unittest.TestCase):
         cls.script = load_script()
 
     def test_in_repo_path_is_shown_relative_to_the_repository(self):
-        path = PROJECT_ROOT / "print" / "charter.pdf"
-        self.assertEqual(self.script.shown(path), os.path.join("print", "charter.pdf"))
+        path = PROJECT_ROOT / "print" / "rulebooks" / "charter.pdf"
+        self.assertEqual(self.script.shown(path), os.path.join("print", "rulebooks", "charter.pdf"))
 
     def test_relative_path_is_resolved_against_the_working_directory(self):
         before = os.getcwd()
         os.chdir(PROJECT_ROOT)
         try:
-            shown = self.script.shown(Path("print") / "learn-to-play.pdf")
+            shown = self.script.shown(Path("print") / "rulebooks" / "learn-to-play.pdf")
         finally:
             os.chdir(before)
-        self.assertEqual(shown, os.path.join("print", "learn-to-play.pdf"))
+        self.assertEqual(shown, os.path.join("print", "rulebooks", "learn-to-play.pdf"))
 
     def test_out_of_repo_path_is_shown_absolute(self):
         with tempfile.TemporaryDirectory() as folder:

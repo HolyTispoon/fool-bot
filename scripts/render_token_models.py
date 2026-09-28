@@ -7,11 +7,12 @@ Three tokens, each a different piece of art on each face:
     exhausted        EXHAUSTED (blue)        /  INJURED (red)
     drained          DRAINED (teal)          /  DAMAGED (amber)
 
-    python3 scripts/render_token_models.py --out /tmp/tokens
-    python3 scripts/render_token_models.py --out /tmp/tokens --size 20 --thickness 3
+    python3 scripts/render_token_models.py
+    python3 scripts/render_token_models.py --size 20 --thickness 3
 
-It writes three ways to print each token into `--out`, and a README.txt
-that says which is which and how to slice it:
+It writes three ways to print each token into `--out` (default
+`print/tokens-3d/`), and a README.txt that says which is which and how
+to slice it:
 
 - `<token>.3mf` -- **one piece, flush faces**, for a printer that changes
   filament by itself (an AMS, an MMU, a tool changer). One object of three
@@ -351,7 +352,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--out", type=Path, default=PROJECT_ROOT / "print" / "tokens-3d",
+        help="Directory to write into (default: ./print/tokens-3d).",
+    )
     parser.add_argument("--size", type=float, default=19.0, help="mm across (default 19)")
     parser.add_argument("--thickness", type=float, default=3.0, help="one-piece token, mm (default 3.0)")
     parser.add_argument("--inlay", type=float, default=0.6, help="colour depth per face, mm (default 0.6)")

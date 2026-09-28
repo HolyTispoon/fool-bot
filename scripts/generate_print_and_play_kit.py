@@ -24,8 +24,8 @@ change, an import, or an art fix reaches the kit exactly the way it
 reaches each of those on its own -- by re-running this -- and there is
 nothing here for a future rule to drift out of step with.
 
-The kit is print-ready output and is gitignored, like `cards/` and
-`print/`; run this again whenever the game underneath it changes rather
+The kit is print-ready output and is gitignored, like everything
+else under `print/`; run this again whenever the game underneath it changes rather
 than keeping a stale copy around.
 
 **What is not in the box.** The kit prints every card, every board and
@@ -210,8 +210,8 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "print-and-play",
-        help="Directory to write the kit into (default: ./print-and-play)",
+        default=PROJECT_ROOT / "print" / "print-and-play",
+        help="Directory to write the kit into (default: ./print/print-and-play)",
     )
     parser.add_argument(
         "--paper",

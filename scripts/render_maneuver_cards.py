@@ -3,7 +3,7 @@
 
 Twelve faces and one shared back, print-ready at 2.5 x 3.5 inches (poker size):
 
-    python3 scripts/render_maneuver_cards.py --out cards/
+    python3 scripts/render_maneuver_cards.py --out print/maneuver-cards
     python3 scripts/render_maneuver_cards.py --bleed --sheet
     python3 scripts/render_maneuver_cards.py --hands
 
@@ -43,7 +43,7 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "cards",
+        default=PROJECT_ROOT / "print" / "maneuver-cards",
         help="Directory to write the PNGs into (default: ./cards)",
     )
     parser.add_argument(

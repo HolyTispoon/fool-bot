@@ -65,7 +65,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FONT_DIR = PROJECT_ROOT / "d12ball" / "fonts"
 DOCS_DIR = PROJECT_ROOT / "docs"
 RULEBOOKS_DIR = DOCS_DIR / "rulebooks"
-PRINT_DIR = PROJECT_ROOT / "print"
+PRINT_DIR = PROJECT_ROOT / "print" / "rulebooks"
 
 PAPERS = {"letter": letter, "a4": A4}
 DEFAULT_PAPER = "letter"

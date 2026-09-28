@@ -7,7 +7,7 @@ are [living-rules.md](../living-rules.md).
 rather than in it, and `scripts/render_box_art.py` is its CLI:
 
 ```bash
-python3 scripts/render_box_art.py --out box/
+python3 scripts/render_box_art.py                 # into print/box/
 python3 scripts/render_box_art.py --bleed --pdf
 python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 ```
@@ -31,9 +31,9 @@ Every piece that comes in two grounds follows one spelling: `<name>.png` is
 the page one and `<name>-night.png` the screen one -- the cover, the wide
 banner and the Screentop banner all come in both.
 
-`box/` is generated output and is gitignored, like `cards/`, `print/` and
-`print-and-play/`. Run it again when the game under it changes; don't keep a
-stale copy.
+`print/box/` is generated output and is gitignored, like everything under
+`print/` ([cards.md](cards.md), "Where printed output goes"). Run it again
+when the game under it changes; don't keep a stale copy.
 
 ## Everything is printed on white, and nothing is printed dark
 
@@ -511,7 +511,7 @@ panel without a word.
 
 Nothing tests any of it, so the render is the only check. **Look at the
 image** --
-`scripts/render_box_art.py --out box/` writes all twelve files -- six printed
+`scripts/render_box_art.py` writes all twelve files -- six printed
 panels, the night cover, the original cast's two covers and the three
 banners -- and reports the box's own
 dimensions, the QR's module size, and that the playing time and the age are

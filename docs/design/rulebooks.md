@@ -142,8 +142,8 @@ checked by reading the PDF.
   `renumber` wrote them, rather than numbered by the page.
 - **Letter by default, A4 by `--paper`; no bleed.** Nothing in either
   book reaches the edge, and the Learn to Play is imposed as a booklet
-  by the print shop, not the script. Output goes to `print/`, which is
-  gitignored like the boards'.
+  by the print shop, not the script. Output goes to `print/rulebooks/`,
+  which is gitignored like the boards'.
 - **The figures are the bot's own renderer, annotated.**
   `d12ball/rulebook_figures.py` builds a real `MatchState` for every
   board in a figure and renders it with `render.render_field_image`;

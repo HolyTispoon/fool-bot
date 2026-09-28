@@ -223,8 +223,8 @@ Why a second repository and not the kit's gitignored folder:
   that, and a branch URL is exactly not; the builder takes the tag and
   bakes it into every URL in the save.
 - **Generated output never enters `fool-bot`'s history.** `print/`,
-  `cards/` and the kit are gitignored today for that reason, and a
-  hundred-odd PNGs plus a mesh re-rendered on every art fix would bury
+  where the cards, the boards and the kit are written, is gitignored
+  today for that reason, and a hundred-odd PNGs plus a mesh re-rendered on every art fix would bury
   the code's history under binaries. The asset repository is *only*
   history of that kind, which is what it is for.
 - **The Workshop item points at one tag.** Publishing is: build from

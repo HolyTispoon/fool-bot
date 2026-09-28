@@ -1,9 +1,9 @@
 # The 3D-printed tokens
 
 `scripts/render_token_models.py` turns the condition-token art into
-models for a 3D printer. It writes nothing into the tree (`--out` is
-required, and printed output is not tracked, like the boards and the
-rulebooks), and nothing about it is tested -- it is checked with
+models for a 3D printer. It writes into `print/tokens-3d/` unless `--out`
+names somewhere else -- gitignored, like the boards and the rulebooks
+-- and nothing about it is tested -- it is checked with
 `--preview` and by looking, like everything else that is printed.
 
 ## Three tokens, two faces each
