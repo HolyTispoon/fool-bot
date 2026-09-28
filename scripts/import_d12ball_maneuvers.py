@@ -121,10 +121,20 @@ def import_maneuvers(rows: Iterable[dict[str, str]]) -> dict:
         if not effect:
             raise ValueError(f"{name}: Effect is required.")
 
-        try:
-            rank = int(rank_raw)
-        except ValueError as error:
-            raise ValueError(f"{name}: Rank must be a number.") from error
+        # The sheet writes a rank as the card prints it -- `O1`, `D3` --
+        # since 2026-09-27, and as a bare number before that. Both read
+        # as the number; a letter has to agree with the Type column.
+        rank_match = re.fullmatch(r"([OD]?)\s*(\d+)", rank_raw.upper())
+        if rank_match is None:
+            raise ValueError(
+                f"{name}: Rank must be a number, or O/D and a number."
+            )
+        side_letter, rank_digits = rank_match.groups()
+        if side_letter and side_letter != maneuver_type[0].upper():
+            raise ValueError(
+                f"{name}: Rank {rank_raw!r} is not a {maneuver_type} rank."
+            )
+        rank = int(rank_digits)
 
         # The die values are retained but no longer validated for
         # uniqueness: a gambit sits on its basic counterpart's

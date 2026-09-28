@@ -154,6 +154,26 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-27 (after the gambits) -- sheet, the advanced cards say which gambit; four upstream rows close
+
+Re-imported all three tabs after the author's edit for the entry below. **No change to play**:
+every rules change here is already in the Charter, and this is the sheet catching up.
+
+- **The six advanced maneuvers** now read *"Successful gambit: ... Failed gambit: ..."*, and the
+  Setup Pass's failed gambit is *"opponent picks 1-2-3 spaces for the ball to go back (Clear:
+  2-3-4)"*. Dribble Burst now says the ball speed *"goes to 12"*, as Law 19.6.4 always has
+  (it read "adjust ball speed up to 12"). `maneuvers.json` steps to data_version 13.
+- **The maneuvers tab's `Rank` column** now reads as the card prints it -- `O1`, `D3` -- where it
+  held a bare number. The importer reads both, and a letter has to agree with the `Type` column;
+  the JSON is unchanged.
+- **Dravox, Hexis and Synapse** are reworded in the new terms (*"Defensive gambits succeed when
+  won on a skill test."*, and so on), and `personal_abilities.py`'s sheet sentences with them.
+- **The species tab** catches up too: blaze and burn for surge and backfire (2026-09-22),
+  *drain 3* for Overdrive, *exhaust 1* for Mind Pull, and Smooth offered only where the ball
+  comes to rest (2026-09-24). Five rows of "Where upstream is behind" close with this pull --
+  Lithium Powered's drain, the *exhaust* verb (Dribble Burst, Clear and Mind Pull), Smooth, and
+  the two this morning's entry opened.
+
 ### 2026-09-27 (end of day) -- author, the gambit is the play, not the card; a beaten Setup Pass goes back once
 
 The author: *"instead of calling Advanced maneuvers Gambits, we'll now call their special
@@ -3108,8 +3128,6 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | "Place the ball ... on the space 3 of the home team" | The kickoff space, by board size |
 | Cleanup restarts "from the middle (back of the midfield)" | The same kickoff space rule, for every restart |
 | "Clash" / "clash roll" | Skill test |
-| Lithium Powered: "can gain 3 drain tokens to add +5", "3 drain → +5" (the sheet) | Drain 3 for +5 -- *drain* is the verb for gaining drain |
-| Dribble Burst "adding exhaustion per space", Clear "if defeated, add 2 exhaustion", Mind Pull "take 1 exhaustion" (both columns) (the sheet) | Exhausting 1 per space, exhaust 2, exhaust 1 -- *exhaust* is the verb for gaining exhaustion |
 | Volatile: "When a Fire Demon rolls a natural 6 or 7", on any roll (the sheet) | Only a skill test, a contest, a score attempt's shooter and a shootout test ignite; never an injury check or an own-goal roll |
 | A score attempt's "each player rolls a d12" | Exactly two dice, one per coach; the defence sums intervening meeples |
 | Every meeple in the way adds its whole defensive skill | Full on the ball's own space, half rounded up beyond it |
@@ -3149,9 +3167,6 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Two 15-minute periods, each clocked 0 to 15 | One running clock: 00-15 in the first half, 16-30 in the second, and it keeps counting past a period's last minute for as long as last possession runs |
 | The maneuvers sheet has a "Die value" column, and the component data two head-coach d6s | Maneuvers are chosen from the cards; the selection dice are not part of the rules at all (2026-08-17). The column and `head_coach_dice` are still imported, so a fresh pull rewrites them |
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
-| Setup Pass: "If defeated, opponent picks 1-2-3 spaces back" (the `maneuvers` tab), which the bot read as a push on top of the Deflect's or Clear's own | The ball goes back once, the beating coach's choice: 1, 2 or 3 for a Deflect, 2, 3 or 4 for a Clear, each 1 more for a Fullback (2026-09-27) |
-| Dravox and Hexis: "Resolves defensive (offensive) gambit's bonuses"; Synapse: "resolve maneuver as a gambit" (the `advanced_abilities` tab) | The card is an advanced maneuver and playing it is making a gambit; what those three resolve is the advanced maneuver's successful outcome (2026-09-27) |
-| Smooth: "the ball moves to or through your space" (the `spec_abilities` tab, and so `species.json` and the printed species cards) | Only where the ball comes to rest -- a Telekinetic it passes through is offered nothing (2026-09-24) |
 
 ---
 

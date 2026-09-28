@@ -79,7 +79,7 @@
       "role": "defender",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "Resolves defensive gambit's bonuses when winning with skill test.",
+      "advanced_ability": "Defensive gambits succeed when won on a skill test.",
       "advanced_skills": {}
     },
     "emberdash_playmaker": {
@@ -159,7 +159,7 @@
       "role": "playmaker",
       "species": "telekinetic",
       "stat_overrides": {},
-      "advanced_ability": "Resolves offensive gambit's bonuses when winning with skill test.",
+      "advanced_ability": "Offensive gambits succeed when won on a skill test.",
       "advanced_skills": {}
     },
     "inferno_defender": {
@@ -274,7 +274,7 @@
       "role": "playmaker",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "When wins with overdrive, resolve maneuver as a gambit.",
+      "advanced_ability": "When wins a skill test while using overdrive, resolve as successful gambit.",
       "advanced_skills": {}
     },
     "tachyon_striker": {
