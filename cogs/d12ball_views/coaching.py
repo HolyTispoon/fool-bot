@@ -541,13 +541,19 @@ class CoachingHubView(CoachingView):
             )
             return
 
-        await interaction.response.send_message(
-            "\n\n".join(
-                self.cog.build_team_roster_section(game, match, setup)
-                for setup in setups
-            ),
-            ephemeral=True,
-        )
+        # A team at a time, and as many messages as each takes: one
+        # advanced roster with the live bot's emoji can pass Discord's
+        # 2000 characters on its own, and a test game's two never fit.
+        messages = [
+            message
+            for setup in setups
+            for message in self.cog.build_team_roster_messages(
+                game, match, setup,
+            )
+        ]
+        await interaction.response.send_message(messages[0], ephemeral=True)
+        for message in messages[1:]:
+            await interaction.followup.send(message, ephemeral=True)
 
     async def finish(self, interaction: discord.Interaction) -> None:
         game, match = await self.claim(interaction)

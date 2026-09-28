@@ -65,10 +65,15 @@
           <div id="pick-up"></div>
         </section>
 
+        <!-- The situation: the matchup the question is asked over --
+             the challenge over the maneuver pick, the shot over its
+             roll -- drawn on the page in words and portraits
+             (`present.situation`), above the question it goes with. -->
+        <section id="situation" class="situation" aria-label="The situation" hidden></section>
+
         <!-- The question box (docs/design/web-app.md, "The question
              box"): the state tag, the outcome, the ask, what is lit on
-             the board, and the picture the question is asked over on
-             the right. -->
+             the board. -->
         <section id="prompt" class="panel prompt qbox" hidden>
           <div class="qbox-main">
             <div><span id="prompt-state" class="state-tag"></span></div>
@@ -119,11 +124,6 @@
             <ol id="keys" class="keys" aria-label="Answers, by number"></ol>
             <p id="rematch-note" class="note-line" hidden></p>
           </div>
-          <!-- The matchup the cog posts with the same question: the
-               shot, or the challenge over the maneuver pick. -->
-          <aside id="prompt-aside" class="qbox-aside" hidden>
-            <img id="prompt-picture" class="prompt-picture" alt="">
-          </aside>
         </section>
 
         <!-- A finished game's numbers: /d12ball stats game, over the

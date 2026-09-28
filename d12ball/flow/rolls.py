@@ -331,8 +331,14 @@ def score_skill_test(
         + defense_overdrive
     )
 
+    # Umbrik adds his defensive skill over his own High Pass (Law 21),
+    # and the line says which skill it is.
     offense_detail = contestant_detail(
-        offense_player, "Offensive", offense_skill,
+        offense_player,
+        engine.attacking_skill_name(
+            game, match, offense_player.player_id, "skill_test",
+        ),
+        offense_skill,
     )
     defense_detail = contestant_detail(
         defense_player, "Defensive", defense_skill,

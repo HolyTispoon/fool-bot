@@ -30,6 +30,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, GameMode, Team, team_display_name
+from d12ball.rules_doc import DISCORD_MESSAGE_LIMIT
 from space_codes import code
 
 
@@ -278,6 +279,43 @@ class CoachingRosterButtonTests(unittest.IsolatedAsyncioTestCase):
             team_display_name(match.visiting.team), content[0],
         )
 
+    async def test_a_test_game_s_two_rosters_are_sent_a_message_each(
+        self,
+    ) -> None:
+        # Joined, the two advanced rosters were one message Discord
+        # refused (400, "Must be 2000 or fewer in length").
+        cog, game, match = self.build_open_window()
+        game.mode = GameMode.ADVANCED
+        game.test_game = True
+        view = CoachingHubView(cog, game.game_id)
+
+        interaction = SimpleNamespace(
+            user=SimpleNamespace(id=game.player_1_id),
+            response=SimpleNamespace(send_message=mock.AsyncMock()),
+            followup=SimpleNamespace(send=mock.AsyncMock()),
+        )
+        await view.show_roster(interaction)
+
+        first, keywords = interaction.response.send_message.await_args
+        self.assertTrue(keywords["ephemeral"])
+        rest = interaction.followup.send.await_args_list
+        self.assertTrue(rest)
+        for call in rest:
+            self.assertTrue(call.kwargs["ephemeral"])
+        messages = [first[0]] + [call.args[0] for call in rest]
+        for message in messages:
+            self.assertLessEqual(len(message), DISCORD_MESSAGE_LIMIT)
+        self.assertIn(team_display_name(match.home.team), messages[0])
+        self.assertNotIn(team_display_name(match.visiting.team), messages[0])
+        self.assertTrue(
+            any(
+                message.startswith(
+                    f"**{team_display_name(match.visiting.team)}"
+                )
+                for message in messages
+            )
+        )
+
     async def test_the_waiting_coach_can_read_theirs_too(self) -> None:
         # Reading a roster is not acting on the window, so it is not
         # gated on holding it -- see CoachingHubView.show_roster.
@@ -387,32 +425,109 @@ class PersonalAbilityRosterTests(unittest.TestCase):
                     self.entry(game, self.holder),
                 )
 
-    def test_every_advanced_roster_fits_in_one_discord_message(
+    def long_emoji(self):
+        """
+        The live bot's emoji at their own length rather than the
+        fallbacks': an application emoji is written `<:name:id>`, some
+        thirty-odd characters where a fallback is one or two, and a
+        roster line carries three or four. Measuring against the
+        fallbacks is how a roster came to be sent that Discord refused.
+        """
+        emoji = "<:application_emoji:1234567890123456789>"
+        label = self.cog.player_label
+        return (
+            mock.patch.object(
+                self.cog,
+                "player_label",
+                side_effect=lambda match, player: (
+                    f"{emoji} {emoji} {label(match, player)}"
+                ),
+            ),
+            mock.patch.object(
+                self.cog,
+                "token_word_and_emoji",
+                return_value=("exhaustion", emoji),
+            ),
+        )
+
+    def test_every_advanced_roster_is_sent_in_messages_discord_accepts(
         self,
     ) -> None:
-        # Both abilities is the longest a section gets, and it is sent
-        # as a single message.
+        # Both abilities is the longest a section gets.
         game = build_game(mode=GameMode.ADVANCED)
-        for home, visiting in (
-            (Team.ORANGE, Team.PURPLE),
-            (Team.FIRE_DEMONS, Team.CYBORGS),
-            (Team.TELEKINETICS, Team.OOZES),
-            (Team.TEAL, Team.SLIME),
-        ):
-            match = MatchState.standard(
-                catalog=self.catalog,
-                ruleset=self.rules,
-                board_size=7,
-                home_team=home,
-                visiting_team=visiting,
-            )
-            for setup in (match.home, match.visiting):
-                with self.subTest(team=setup.team):
-                    text = self.cog.build_team_roster_section(
-                        game, match, setup, show_role_abilities=True,
-                    )
-                    self.assertLess(len(text), 2000)
+        label_patch, token_patch = self.long_emoji()
+        with label_patch, token_patch:
+            for home, visiting in (
+                (Team.ORANGE, Team.PURPLE),
+                (Team.FIRE_DEMONS, Team.CYBORGS),
+                (Team.TELEKINETICS, Team.OOZES),
+                (Team.TEAL, Team.SLIME),
+            ):
+                match = MatchState.standard(
+                    catalog=self.catalog,
+                    ruleset=self.rules,
+                    board_size=7,
+                    home_team=home,
+                    visiting_team=visiting,
+                )
+                for setup in (match.home, match.visiting):
+                    with self.subTest(team=setup.team):
+                        messages = self.cog.build_team_roster_messages(
+                            game, match, setup, show_role_abilities=True,
+                        )
+                        for message in messages:
+                            self.assertLessEqual(
+                                len(message), DISCORD_MESSAGE_LIMIT,
+                            )
 
+    def test_a_roster_breaks_between_players_and_loses_nothing(
+        self,
+    ) -> None:
+        game = build_game(mode=GameMode.ADVANCED)
+        match = self.match
+        setup = match.home
+        section = self.cog.build_team_roster_section(
+            game, match, setup, show_role_abilities=True,
+        )
+        messages = self.cog.build_team_roster_messages(
+            game, match, setup, show_role_abilities=True, limit=400,
+        )
+
+        self.assertGreater(len(messages), 1)
+        for message in messages:
+            self.assertLessEqual(len(message), 400)
+            self.assertFalse(message.startswith("\n"))
+            # No message ends on a place's heading with nobody under it.
+            self.assertFalse(message.rstrip().endswith("__"))
+        for _, members in self.cog.engine.roster_places(match, setup):
+            for player_id, location in members:
+                entry = self.cog.format_team_roster_entry(
+                    game, match, player_id, location=location,
+                    show_role_abilities=True,
+                )
+                with self.subTest(player=player_id):
+                    self.assertEqual(
+                        sum(entry in message for message in messages), 1,
+                    )
+        # Put back together, it is the section it was cut from, bar the
+        # blank line a heading loses at the top of a message.
+        self.assertEqual(
+            "\n".join(messages).replace("\n", ""),
+            section.replace("\n", ""),
+        )
+
+    def test_a_short_roster_is_one_message(self) -> None:
+        game = build_game(mode=GameMode.STANDARD)
+        self.assertEqual(
+            self.cog.build_team_roster_messages(
+                game, self.match, self.match.home,
+            ),
+            [
+                self.cog.build_team_roster_section(
+                    game, self.match, self.match.home,
+                ),
+            ],
+        )
 
 if __name__ == "__main__":
     unittest.main()

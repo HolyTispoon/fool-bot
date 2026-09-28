@@ -36,6 +36,7 @@ from d12ball.render import (
     render_score_attempt,
 )
 from d12ball.role_cards import render_role_reference
+from d12ball.rules_doc import DISCORD_MESSAGE_LIMIT
 from d12ball.species_cards import render_species_reference
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
@@ -381,13 +382,76 @@ class PresentationMixin:
         show_role_abilities: bool = False,
         show_advanced_abilities: bool = True,
     ) -> str:
-        lines = [f"**{format_team_side_label(setup)}**"]
-        for heading, members in self.engine.roster_places(match, setup):
-            lines.append(f"\n__{heading}__")
-            if not members:
-                lines.append("*nobody*")
+        return "\n".join(
+            self.team_roster_units(
+                game, match, setup,
+                show_role_abilities=show_role_abilities,
+                show_advanced_abilities=show_advanced_abilities,
+            )
+        )
+
+    def build_team_roster_messages(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        setup: TeamSetup,
+        show_role_abilities: bool = False,
+        show_advanced_abilities: bool = True,
+        limit: int = DISCORD_MESSAGE_LIMIT,
+    ) -> list[str]:
+        """
+        `build_team_roster_section` cut into messages Discord accepts,
+        each break falling between two players, never inside one.
+
+        A standard roster is one message. An advanced one is about a
+        thousand characters with the emoji fallbacks, and the live
+        bot's application emoji (`<:name:id>`, three or four to a
+        player's line) can take it past 2000 -- see "The roster shows
+        them" in docs/design/species-abilities.md.
+        """
+        messages: list[str] = []
+        current = ""
+        for unit in self.team_roster_units(
+            game, match, setup,
+            show_role_abilities=show_role_abilities,
+            show_advanced_abilities=show_advanced_abilities,
+        ):
+            joined = f"{current}\n{unit}" if current else unit
+            if len(joined) <= limit:
+                current = joined
                 continue
-            lines.extend(
+            if current:
+                messages.append(current)
+            # A zone heading carries a blank line above it, which a new
+            # message does not need.
+            current = unit.lstrip("\n")
+            # One player longer than a message on their own is cut
+            # rather than refused, which only a sheet gone wrong could
+            # produce.
+            while len(current) > limit:
+                messages.append(current[:limit])
+                current = current[limit:]
+        if current:
+            messages.append(current)
+        return messages
+
+    def team_roster_units(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        setup: TeamSetup,
+        show_role_abilities: bool = False,
+        show_advanced_abilities: bool = True,
+    ) -> list[str]:
+        """
+        A roster as the pieces a message may break between: the team's
+        heading, then one per player, a place's heading riding on its
+        first player (or on the "*nobody*" under it) so that it never
+        ends a message with nothing below it.
+        """
+        units = [f"**{format_team_side_label(setup)}**"]
+        for heading, members in self.engine.roster_places(match, setup):
+            entries = [
                 self.format_team_roster_entry(
                     game,
                     match,
@@ -397,8 +461,10 @@ class PresentationMixin:
                     show_advanced_abilities=show_advanced_abilities,
                 )
                 for player_id, location in members
-            )
-        return "\n".join(lines)
+            ] or ["*nobody*"]
+            units.append(f"\n__{heading}__\n{entries[0]}")
+            units.extend(entries[1:])
+        return units
 
     async def build_role_reference_file(self) -> discord.File:
         """

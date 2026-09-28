@@ -101,17 +101,16 @@ from webapp.board import (
     DEFENDED_ENDS, board_layout, clock_note, period_name, side_colour,
 )
 from webapp.present import (
-    PROMPT_PICTURES,
     Viewer,
     controls_for,
     full_time,
     hand_table,
     lit_line,
     plain_text,
-    prompt_picture_key,
     render_text,
     reveal,
     shootout_sides,
+    situation,
     split_footnote,
     still_to_answer,
     waiting_on,
@@ -318,9 +317,6 @@ class WebApp:
                 web.get(
                     "/api/room/{game_id}/detail/{entry_id}.png", self.dice,
                 ),
-                web.get(
-                    "/api/room/{game_id}/prompt.png", self.prompt_picture,
-                ),
                 web.delete("/api/room/{game_id}/admin", self.drop_admin),
                 web.get("/api/game/{game_id}", self.state),
                 web.post("/api/game/{game_id}/action", self.act),
@@ -328,6 +324,10 @@ class WebApp:
                 web.get("/api/game/{game_id}/board.png", self.board),
                 web.get(
                     "/api/game/{game_id}/card/{card_id}.png", self.player_card,
+                ),
+                web.get(
+                    "/api/game/{game_id}/portrait/{card_id}.png",
+                    self.portrait,
                 ),
                 web.get(
                     "/api/game/{game_id}/maneuver/{key}.png",
@@ -1390,44 +1390,27 @@ class WebApp:
             headers={"Cache-Control": "public, max-age=31536000"},
         )
 
-    async def prompt_picture(self, request: web.Request) -> web.Response:
+    async def portrait(self, request: web.Request) -> web.Response:
         """
-        The picture the prompt the match is waiting on is asked over,
-        as a PNG -- read-only, like the board: the shot over its roll or
-        the challenge over the maneuver pick, by the prompt's kind
-        (`present.PROMPT_PICTURES`), drawn in a worker thread by the
-        function the cog calls for the same picture.
-
-        What is drawn is the prompt the match is on *now*, whatever the
-        URL says: its `v` and `p` are there so a browser asks again
-        when the position or the question has moved, and the picture
-        is kept with the boards under the same two.
+        One player's portrait, the painting the matchup images draw
+        (`render.load_player_portrait`), for the situation window over
+        the maneuver pick and the shot (`present.situation`). Read-only,
+        and the same for everybody: a portrait is the catalog's.
         """
         game = self._game(request)
         match = self._match(game)
-        waiting = None if match is None else pending(self.engine, game, match)
-        prompt = waiting if isinstance(waiting, PendingPrompt) else None
-        picture = prompt_picture_key(prompt, match)
-        if picture is None:
-            raise web.HTTPNotFound(text="This prompt has no picture.")
-        key = (
-            game.game_id,
-            "prompt",
-            self.journal(game.game_id).board_version,
-            picture,
-        )
-        png = self._boards.get(key)
-        if png is None:
-            png = await asyncio.to_thread(
-                PROMPT_PICTURES[prompt.kind], self.engine, game, match, prompt,
-            )
-            self._boards[key] = png
-            while len(self._boards) > BOARD_CACHE:
-                self._boards.pop(next(iter(self._boards)))
-        return web.Response(
-            body=png,
-            content_type="image/png",
-            headers={"Cache-Control": "public, max-age=31536000"},
+        if match is None:
+            raise web.HTTPNotFound(text="This game has no cards yet.")
+        card_id = request.match_info["card_id"]
+        try:
+            match.team_for_player(card_id)
+            name = self.engine.get_player_definition(card_id).name
+        except (KeyError, ValueError):
+            raise web.HTTPNotFound(text="No such player in this game.")
+        if not pictures.has_portrait(name):
+            raise web.HTTPNotFound(text="No portrait for this player.")
+        return await self._card(
+            ("portrait", name), lambda: pictures.portrait_png(name),
         )
 
     async def player_card(self, request: web.Request) -> web.Response:
@@ -1805,7 +1788,7 @@ class WebApp:
         prompt = waiting if isinstance(waiting, PendingPrompt) else None
         owed = waiting is not None and prompt is None
         return {
-            **self._prompt_state(game, match, prompt, viewer, journal),
+            **self._prompt_state(game, match, prompt, viewer),
             "game": {
                 "id": game.game_id,
                 "number": game.game_number,
@@ -1891,7 +1874,6 @@ class WebApp:
         match: Optional[MatchState],
         prompt: Optional[PendingPrompt],
         viewer: Viewer,
-        journal: Journal,
     ) -> dict:
         """
         The question, as the page is handed it -- read off
@@ -1918,12 +1900,12 @@ class WebApp:
                 # The Spreadable reminder, said under the whistle rather
                 # than under the title (`present.split_footnote`).
                 "footnote": render_text(game, footnote) if footnote else None,
-                # What the cog puts under the same kind, or null: the
-                # same for a coach and an observer, since it is the
-                # position's and holds nobody's hand.
-                "picture": self._prompt_picture_url(
-                    game, match, prompt, journal.board_version,
-                ),
+                # The matchup the cog posts a picture of with the same
+                # kind, as words and portraits for the page to lay out
+                # (`present.situation`), or null: the same for a coach
+                # and an observer, since it is the position's and holds
+                # nobody's hand.
+                "situation": situation(self.engine, game, match, prompt),
                 "controls": controls,
                 # What is lit on the board and why, and what is dark:
                 # read off the controls just built, for the question
@@ -2030,21 +2012,6 @@ class WebApp:
                 f"?at={entry.at}"
             ),
         }
-
-    def _prompt_picture_url(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        prompt: PendingPrompt,
-        version: int,
-    ) -> Optional[str]:
-        picture = prompt_picture_key(prompt, match)
-        if picture is None:
-            return None
-        return (
-            f"/api/room/{game.game_id}/prompt.png"
-            f"?v={version}&p={picture}"
-        )
 
     def _room(
         self,

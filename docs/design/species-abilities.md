@@ -248,6 +248,11 @@ their own (below).
     defensive on the first two only; the High Pass contest stays
     offensive (the author, 2026-09-26), and the contest sites still ask
     here so every attacking roll reads one place.
+    `attacking_skill_name` is the word for the same answer, over the
+    same reading, so a line never names one skill and adds the other:
+    the own-goal arithmetic, the skill test's detail line and the web
+    app's situation window all say "defensive" where Umbrik's is the
+    one added (the author, 2026-09-28).
   - *Kindlefinger* -- `injury_ignite` and `settle_injury_ignite`, the
     token moved before the check is compared (the author, 2026-09-26). The
     ignite is `ignite`'s own, so its die and sentence are Volatile's;
@@ -314,6 +319,16 @@ their own (below).
   wording, never a rule. It is shown without italics, which is how the
   role's reads, and because a sheet sentence may carry markdown of its
   own (Gearclaw's `*Boost*`).
+  - **A roster is as many messages as it takes**
+    (`build_team_roster_messages`, breaking between players and never
+    inside one), for the command and the Coaching Choice's button
+    alike. The sentences made one team's roster about a thousand
+    characters with the emoji fallbacks, and the live bot's
+    application emoji (`<:name:id>`, three or four to a line) take it
+    past Discord's 2000; the button, which joined a test game's two
+    teams into one message, was refused outright (2026-09-28). A test
+    that measures a roster measures it with emoji at their live
+    length, not the fallbacks'.
 - **The advanced golden plays some of them.** Its game is Telekinetics
   against Fire Demons, so Noxar, Quillon and Spectra, and the four Fire
   Demons with personal lines, are on the field; the seed was re-swept

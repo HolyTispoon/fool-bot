@@ -1194,23 +1194,16 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 404)
 
 
-class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
+class SituationTests(unittest.IsolatedAsyncioTestCase):
     """
-    The picture a question is asked over (step 8 of
-    docs/web-app-next.md): the two matchups the cog posts with the same
-    question -- the shot over its roll, the challenge over the maneuver
-    pick -- served for the prompt the match is on, and drawn by the
-    renderer the cog calls, off the same brief. The field strip and the
-    coach's half-field are not drawn: the board is beside the prompt.
+    The situation a question is asked over (docs/design/web-app.md,
+    "The situation"): the two matchups the cog posts a PNG of with the
+    same question -- the shot over its roll, the challenge over the
+    maneuver pick -- handed to the page as the same brief's words and
+    the players' portraits, for it to lay out on its own background.
+    The field strip and the coach's half-field are not drawn: the board
+    is beside the prompt.
     """
-
-    #: The fixture, and the renderer the cog calls for its picture --
-    #: named here rather than read off `present.PROMPT_PICTURES`, so a
-    #: wrong pick in the table is caught.
-    PICTURES = (
-        ("score attempt", "render_score_attempt"),
-        ("maneuver picks", "render_maneuver_challenge"),
-    )
 
     async def open(self, name: str):
         fixture = case(name)
@@ -1234,77 +1227,589 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         return await response.json()
 
-    def spy(self, renderer: str, drawn: list):
-        from PIL import Image
-
-        from d12ball import render
-
-        real = getattr(render, renderer)
-
-        def spy(*args, **kwargs):
-            image = real(*args, **kwargs)
-            drawn.append((Image.open(image).size, args))
-            image.seek(0)
-            return image
-
-        return mock.patch(f"webapp.pictures.{renderer}", spy)
-
-    async def test_each_matchup_is_served_as_the_cog_draws_it(self) -> None:
-        from PIL import Image
-
-        for name, renderer in self.PICTURES:
-            with self.subTest(name):
-                ENGINE.rng.seed(11)
-                client, fixture = await self.open(name)
-                game = fixture.game
-                coach = await self.get_state(
-                    client, game, as_coach(game.player_1_id),
-                )
-                watcher = await self.get_state(
-                    client, game, as_coach(STRANGER),
-                )
-                url = coach["prompt"]["picture"]
-                self.assertIsNotNone(url)
-                # The position's picture, so nobody's hand: an observer
-                # is handed the same one.
-                self.assertEqual(watcher["prompt"]["picture"], url)
-
-                drawn = []
-                with self.spy(renderer, drawn):
-                    response = await client.get(url)
-                    body = await response.read()
-
-                self.assertEqual(response.status, 200)
-                self.assertEqual(response.content_type, "image/png")
-                self.assertTrue(body.startswith(b"\x89PNG"))
-                self.assertEqual(
-                    [size for size, _ in drawn],
-                    [Image.open(io.BytesIO(body)).size],
-                )
+    def names(self, side: dict) -> list[str]:
+        return [player["id"] for player in side["players"]]
 
     async def test_the_challenge_is_the_ball_against_the_challenger(
         self,
     ) -> None:
+        from d12ball.dice_brief import maneuver_challenge_brief
+
         ENGINE.rng.seed(11)
         client, fixture = await self.open("maneuver picks")
-        match = fixture.match
+        match, game = fixture.match, fixture.game
+        coach = await self.get_state(client, game, as_coach(game.player_1_id))
+        watcher = await self.get_state(client, game, as_coach(STRANGER))
+        situation = coach["prompt"]["situation"]
+        # The position's, so nobody's hand: an observer is handed the
+        # same one.
+        self.assertEqual(watcher["prompt"]["situation"], situation)
+
+        offense, defense, where = maneuver_challenge_brief(
+            ENGINE, match, match.challenger_id, game,
+        )
+        attack, defence = situation["sides"]
+        self.assertEqual(situation["where"], where)
+        self.assertEqual(self.names(attack), [match.active_player_id])
+        self.assertEqual(self.names(defence), [match.challenger_id])
+        # The numbers are the brief's, the one the PNG is drawn from.
+        self.assertEqual(
+            attack["skill"], f"{offense.skill_name} skill +{offense.skill}",
+        )
+        self.assertEqual(
+            defence["skill"], f"{defense.skill_name} skill +{defense.skill}",
+        )
+        self.assertEqual(attack["ability"], offense.ability)
+        self.assertEqual(defence["ability"], defense.ability)
+        # A player is named with their role.
+        label = attack["players"][0]["label"]
+        self.assertIn(
+            ENGINE.get_player_definition(match.active_player_id).name, label,
+        )
+        self.assertIn("badge", label)
+
+    async def test_the_shot_is_the_shooter_against_the_wall(self) -> None:
+        from d12ball.dice_brief import score_attempt_brief
+
+        ENGINE.rng.seed(11)
+        client, fixture = await self.open("score attempt")
+        match, game = fixture.match, fixture.game
+        state = await self.get_state(client, game, as_coach(STRANGER))
+        situation = state["prompt"]["situation"]
+
+        shooter, defenders, where = score_attempt_brief(ENGINE, match, game)
+        attack, defence = situation["sides"]
+        self.assertEqual(situation["where"], where)
+        self.assertEqual(self.names(attack), [match.active_player_id])
+        self.assertEqual(
+            self.names(defence),
+            [
+                defender.player.player_id
+                for defender in ENGINE.intervening_defenders(match, game)
+            ],
+        )
+        self.assertEqual(
+            [player["value"] for player in defence["players"]],
+            [defender.value for defender in defenders],
+        )
+        self.assertEqual(
+            [player["halved"] for player in defence["players"]],
+            [defender.halved for defender in defenders],
+        )
+        self.assertEqual(attack["modifiers"], list(shooter.modifiers))
+        # A shot weighs numbers, not abilities, as the PNG does.
+        self.assertIsNone(attack["ability"])
+        self.assertIsNone(defence["ability"])
+        if len(defenders) > 1:
+            self.assertTrue(
+                defence["skill"].endswith(
+                    f"= {sum(defender.value for defender in defenders)}",
+                ),
+            )
+        elif not defenders:
+            self.assertEqual(defence["empty"], "No one in the way")
+
+    async def open_staged(self, name: str, stage):
+        """A fixture with the position moved on first, where the fixture
+        alone is barer than any game reaches (no tokens on a player who
+        owes an injury check, nobody on the ball at an own-goal roll)."""
+        fixture = case(name)
+        stage(fixture.match)
+        fixture.game.match_state = fixture.match.to_dict()
+        service = GameService(
+            ENGINE,
+            {fixture.game.game_id: fixture.game},
+            batching=server.WEB_BATCHING,
+            save=lambda games: None,
+        )
+        web = WebApp(service, GameLocks())
+        web.watch()
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        self.addAsyncCleanup(web.stop)
         state = await self.get_state(client, fixture.game, as_coach(STRANGER))
-        drawn = []
+        return fixture, state["prompt"]["situation"]
 
-        with self.spy("render_maneuver_challenge", drawn):
-            await client.get(state["prompt"]["picture"])
+    async def test_an_injury_check_needs_more_than_the_tokens(self) -> None:
+        def seven_tokens(match):
+            match.exhaustion[match.pending_injury_tests[0]] = 7
 
-        (_, (offense, defense, _)), = drawn
+        ENGINE.rng.seed(11)
+        fixture, situation = await self.open_staged("injury test", seven_tokens)
+        hurt = fixture.match.pending_injury_tests[0]
+        (roller,) = situation["sides"]
+        self.assertEqual(self.names(roller), [hurt])
+        self.assertEqual(roller["skill"], "Carries 7 exhaustion tokens")
         self.assertEqual(
-            offense.name,
-            ENGINE.get_player_definition(match.active_player_id).name,
+            situation["roll"]["target"],
+            ENGINE.injury_test_target(fixture.match, hurt),
         )
+        self.assertEqual(situation["roll"]["face"], 8)
+        self.assertEqual(situation["roll"]["dice"], 1)
+        self.assertEqual(situation["title"], "INJURY TEST")
+
+    async def test_an_own_goal_needs_the_safe_total_less_the_skill(
+        self,
+    ) -> None:
+        from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
+
+        def on_the_ball(match):
+            match.active_player_id = match.eligible_ball_handlers()[0]
+
+        ENGINE.rng.seed(11)
+        fixture, situation = await self.open_staged("own goal", on_the_ball)
+        match, game = fixture.match, fixture.game
+        skill = ENGINE.attacking_skill(
+            game, match, match.active_player_id, "own_goal",
+        )
+        (roller,) = situation["sides"]
+        self.assertEqual(self.names(roller), [match.active_player_id])
+        self.assertEqual(situation["roll"]["dice"], 2)
+        self.assertEqual(situation["roll"]["target"], OWN_GOAL_SAFE_TOTAL)
         self.assertEqual(
-            defense.name,
-            ENGINE.get_player_definition(match.challenger_id).name,
+            situation["roll"]["face"],
+            min(max(OWN_GOAL_SAFE_TOTAL - skill, 1), 12),
         )
 
-    async def test_every_other_question_has_no_picture(self) -> None:
+    def test_umbrik_s_own_goal_names_his_defensive_skill(self) -> None:
+        # Umbrik adds his defensive skill avoiding an own goal (Law 21),
+        # and the window says so, in an advanced game only (the author,
+        # 2026-09-28). Granted by the ability, never named by the player.
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+        from d12ball.prompts import pending
+        from webapp.present import situation
+
+        for mode, word in (
+            (GameMode.STANDARD, "Offensive"), (GameMode.ADVANCED, "Defensive"),
+        ):
+            with self.subTest(mode):
+                fixture = case("own goal")
+                fixture.game.mode = mode
+                handler = take_the_ball(fixture.match)
+                with mock.patch.dict(
+                    PERSONAL_ABILITIES,
+                    {
+                        catalog_player_id(handler):
+                        (PersonalAbility.DEFENSIVE_THROW, "test"),
+                    },
+                ):
+                    skill = ENGINE.attacking_skill(
+                        fixture.game, fixture.match, handler, "own_goal",
+                    )
+                    got = situation(
+                        ENGINE, fixture.game, fixture.match,
+                        pending(ENGINE, fixture.game, fixture.match),
+                    )
+                (roller,) = got["sides"]
+                self.assertEqual(roller["skill"], f"{word} skill {skill:+d}")
+
+    def situation_in(self, name: str, mode, stage=lambda match: None):
+        from d12ball.prompts import pending
+        from webapp.present import situation
+
+        fixture = case(name)
+        fixture.game.mode = mode
+        stage(fixture.match)
+        return fixture, situation(
+            ENGINE, fixture.game, fixture.match,
+            pending(ENGINE, fixture.game, fixture.match),
+        )
+
+    def test_the_species_abilities_that_bear_on_the_roll_are_named(
+        self,
+    ) -> None:
+        # Volatile and Lithium Powered on whoever rolls a skill test,
+        # Lithium Powered alone on an injury check or an own-goal roll
+        # (Laws 20.2.3, 20.3.5) -- and in no game that does not play
+        # the species abilities (the author, 2026-09-28).
+        from d12ball.components import SPECIES_CYBORG, SPECIES_FIRE_DEMON
+        from d12ball.player_cards import species_ability
+
+        rolls = (
+            ("maneuver picks", (SPECIES_FIRE_DEMON, SPECIES_CYBORG)),
+            ("injury test", (SPECIES_CYBORG,)),
+        )
+        for name, bearing in rolls:
+            for mode in (GameMode.TRAINING, GameMode.STANDARD):
+                with self.subTest(name=name, mode=mode):
+                    fixture, got = self.situation_in(name, mode)
+                    for side in got["sides"]:
+                        for player in side["players"]:
+                            named = [
+                                note["name"] for note in player["abilities"]
+                                if note["kind"] == "species"
+                            ]
+                            self.assertEqual(named, [
+                                species_ability(kind)["name"]
+                                for kind in bearing
+                                if ENGINE.has_species_ability(
+                                    fixture.game, player["id"], kind,
+                                )
+                            ])
+
+    def test_merge_is_the_model_s_own_line_in_the_modifiers(self) -> None:
+        # An Ooze of each side stood on the ball, neither rolling: what
+        # each adds is `merge_bonus`'s line, as the dice list it.
+        from d12ball.components import SPECIES_OOZE
+
+        def oozes_on_the_ball(match):
+            for setup in (match.home, match.visiting):
+                ooze = next(
+                    player_id for player_id in setup.field_players
+                    if ENGINE.species_of(player_id) == SPECIES_OOZE
+                    and player_id not in (
+                        match.active_player_id, match.challenger_id,
+                    )
+                )
+                match.move_meeple(
+                    ooze, match.ball.zone, match.ball.space_index,
+                )
+
+        fixture, got = self.situation_in(
+            "maneuver picks", GameMode.STANDARD, oozes_on_the_ball,
+        )
+        match, game = fixture.match, fixture.game
+        rolling = (match.active_player_id, match.challenger_id)
+        attack, defence = got["sides"]
+        for side, team_side, skill in (
+            (attack, match.ball.possession, "offense"),
+            (defence, match.defending_side(), "defense"),
+        ):
+            _, lines, _ = ENGINE.merge_bonus(
+                game, match, team_side, rolling, skill,
+            )
+            self.assertTrue(lines)
+            self.assertEqual(side["modifiers"][-len(lines):], lines)
+
+    def test_a_personal_ability_is_named_only_where_it_bears(self) -> None:
+        # In an advanced game only, and only the abilities that apply to
+        # the roll (the author, 2026-09-28): a shooter's clear shot is,
+        # a dribble is not. Granted by the ability, never named by the
+        # player; the line itself is the card's.
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+
+        def shooter_holding(ability):
+            fixture = case("score attempt")
+            shooter = fixture.match.active_player_id
+            return shooter, mock.patch.dict(
+                PERSONAL_ABILITIES,
+                {catalog_player_id(shooter): (ability, "test")},
+            )
+
+        for mode, ability, shown in (
+            (GameMode.ADVANCED, PersonalAbility.CLEAR_SHOT, True),
+            (GameMode.ADVANCED, PersonalAbility.FREE_BURST, False),
+            (GameMode.STANDARD, PersonalAbility.CLEAR_SHOT, False),
+        ):
+            with self.subTest(mode=mode, ability=ability):
+                shooter, holding = shooter_holding(ability)
+                with holding:
+                    fixture, got = self.situation_in("score attempt", mode)
+                (player,) = got["sides"][0]["players"]
+                personal = [
+                    note for note in player["abilities"]
+                    if note["kind"] == "personal"
+                ]
+                self.assertEqual(bool(personal), shown)
+
+    def test_a_maneuver_s_ability_is_named_on_the_side_that_plays_it(
+        self,
+    ) -> None:
+        # On the maneuver challenge the coach is choosing a maneuver, so
+        # what one does once won is named too, on the attack alone (the
+        # author, 2026-09-28); a run on is a teammate's pass, never the
+        # roller's; a drain threshold is named on every roll.
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+
+        cases = (
+            (0, PersonalAbility.FREE_BURST, True),
+            (1, PersonalAbility.FREE_BURST, False),
+            (0, PersonalAbility.PRESSURE_SHOT, True),
+            (1, PersonalAbility.PRESSURE_SHOT, False),
+            # A teammate's pass, so never a roll the player is in.
+            (0, PersonalAbility.RUN_ON, False),
+            (1, PersonalAbility.RUN_ON, False),
+            # Bulwark's threshold, on every roll.
+            (0, PersonalAbility.HIGH_DRAIN_THRESHOLD, True),
+            (1, PersonalAbility.HIGH_DRAIN_THRESHOLD, True),
+        )
+        for side, ability, shown in cases:
+            with self.subTest(side=side, ability=ability):
+                fixture = case("maneuver picks")
+                player_id = (
+                    fixture.match.active_player_id,
+                    fixture.match.challenger_id,
+                )[side]
+                with mock.patch.dict(
+                    PERSONAL_ABILITIES,
+                    {catalog_player_id(player_id): (ability, "test")},
+                ):
+                    _, got = self.situation_in(
+                        "maneuver picks", GameMode.ADVANCED,
+                    )
+                (player,) = got["sides"][side]["players"]
+                named = [
+                    note["name"] for note in player["abilities"]
+                    if note["kind"] == "personal"
+                ]
+                self.assertEqual(named, ["Special ability"] if shown else [])
+
+    def test_a_pass_runner_is_noted_while_a_teammate_is_on_the_ball(
+        self,
+    ) -> None:
+        # Quantor may run onto any teammate's pass, so the challenge says
+        # so while a teammate is on the ball and he is on the field --
+        # not when he is the one passing, and not outside an advanced
+        # game (the author, 2026-09-28).
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+
+        fixture = case("maneuver picks")
+        match = fixture.match
+        teammate = next(
+            player_id
+            for player_id in match.setup_for_side(match.ball.possession)
+            .field_players
+            if player_id != match.active_player_id
+        )
+        for mode, runner, noted in (
+            (GameMode.ADVANCED, teammate, True),
+            (GameMode.ADVANCED, match.active_player_id, False),
+            (GameMode.STANDARD, teammate, False),
+        ):
+            with self.subTest(mode=mode, noted=noted):
+                with mock.patch.dict(
+                    PERSONAL_ABILITIES,
+                    {
+                        catalog_player_id(runner):
+                        (PersonalAbility.RUN_ON, "test"),
+                    },
+                    clear=False,
+                ):
+                    # Nobody else on the side holds it for this test.
+                    for player_id, (ability, _) in list(
+                        PERSONAL_ABILITIES.items(),
+                    ):
+                        if (
+                            ability is PersonalAbility.RUN_ON
+                            and player_id != catalog_player_id(runner)
+                        ):
+                            del PERSONAL_ABILITIES[player_id]
+                    _, got = self.situation_in("maneuver picks", mode)
+                self.assertEqual(
+                    [note["id"] for note in got["notes"]],
+                    [runner] if noted else [],
+                )
+
+    def test_the_join_offer_is_the_challenge_with_the_joiner_noted(
+        self,
+    ) -> None:
+        # Glompex is offered the ball before the cards are chosen, so his
+        # ability is said there, over the challenge he would step into.
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+
+        fixture = case("join the ball")
+        fixture.game.mode = GameMode.ADVANCED
+        joiner = fixture.match.pending_join[0]
+        with mock.patch.dict(
+            PERSONAL_ABILITIES,
+            {catalog_player_id(joiner): (PersonalAbility.JOINS_THE_BALL, "test")},
+        ):
+            _, got = self.situation_in("join the ball", GameMode.ADVANCED)
+        self.assertEqual(got["title"], "MANEUVER CHALLENGE")
+        self.assertEqual(got["notes"][0]["id"], joiner)
+        self.assertEqual(
+            got["notes"][0]["text"],
+            ENGINE.personal_ability_text(fixture.game, joiner),
+        )
+
+    def test_a_contest_for_the_ball_is_its_two_contestants(self) -> None:
+        # The loose ball's roll has a window too (the author,
+        # 2026-09-28): the two sent, the side on the ball's offensive
+        # skill against the other's defensive, nothing for an injured
+        # one, and the species abilities that reach a contest.
+        from d12ball.components import SPECIES_CYBORG, SPECIES_FIRE_DEMON
+        from d12ball.player_cards import species_ability
+
+        for injured in (False, True):
+            with self.subTest(injured=injured):
+                def stage(match):
+                    if injured:
+                        match.injured.add(match.loose_ball_offense_player)
+
+                fixture, got = self.situation_in(
+                    "loose ball roll", GameMode.STANDARD, stage,
+                )
+                match, game = fixture.match, fixture.game
+                offense, defense = got["sides"]
+                self.assertEqual(
+                    self.names(offense), [match.loose_ball_offense_player],
+                )
+                self.assertEqual(
+                    self.names(defense), [match.loose_ball_defense_player],
+                )
+                self.assertEqual(
+                    offense["skill"],
+                    "Offensive skill +0 (injured)" if injured else
+                    "Offensive skill "
+                    f"+{ENGINE.skills(game, offense['players'][0]['id']).offense}",
+                )
+                self.assertEqual(
+                    defense["skill"],
+                    "Defensive skill "
+                    f"+{ENGINE.skills(game, defense['players'][0]['id']).defense}",
+                )
+                for side in (offense, defense):
+                    (player,) = side["players"]
+                    self.assertEqual(
+                        [
+                            note["name"] for note in player["abilities"]
+                            if note["kind"] == "species"
+                        ],
+                        [
+                            species_ability(kind)["name"]
+                            for kind in (SPECIES_FIRE_DEMON, SPECIES_CYBORG)
+                            if ENGINE.has_species_ability(
+                                game, player["id"], kind,
+                            )
+                        ],
+                    )
+
+    def test_a_set_up_off_zytheris_s_ability_names_it(self) -> None:
+        # A scoring opportunity Zytheris's special ability offered has a
+        # window naming it (the author, 2026-09-28); any other set-up is
+        # the ask's to say, and has none.
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+
+        fixture, bare = self.situation_in("set-up attempt", GameMode.ADVANCED)
+        self.assertIsNone(bare)
+        shooter = fixture.match.pending_scoring_opportunity["shooter_id"]
+        with mock.patch.dict(
+            PERSONAL_ABILITIES,
+            {
+                catalog_player_id(shooter):
+                (PersonalAbility.SHOOTS_OFF_ANY_PASS, "test"),
+            },
+        ):
+            _, got = self.situation_in("set-up attempt", GameMode.ADVANCED)
+        (side,) = got["sides"]
+        (player,) = side["players"]
+        self.assertEqual(player["id"], shooter)
+        self.assertIn(
+            "Special ability", [note["name"] for note in player["abilities"]],
+        )
+
+    def test_an_advanced_score_is_named_where_the_roll_adds_it(self) -> None:
+        # The wall adds defensive skill, so a defender whose card line is
+        # a raised defensive score has it named, and one whose line is
+        # about something else does not.
+        from d12ball.personal_abilities import PersonalAbility
+
+        fixture, got = self.situation_in("score attempt", GameMode.ADVANCED)
+        game = fixture.game
+        wall = got["sides"][1]["players"]
+        for player in wall:
+            raised = (
+                ENGINE.skills(game, player["id"]).defense
+                != ENGINE.skills(None, player["id"]).defense
+            )
+            blocks = ENGINE.has_personal_ability(
+                game, player["id"], PersonalAbility.FULL_BLOCK,
+            )
+            named = any(
+                note["kind"] == "personal" for note in player["abilities"]
+            )
+            self.assertEqual(named, raised or blocks, player["short"])
+        self.assertTrue(any(
+            note["kind"] == "personal"
+            for player in wall for note in player["abilities"]
+        ))
+
+    async def test_a_mind_pull_needs_its_minimum_and_costs_its_token(
+        self,
+    ) -> None:
+        ENGINE.rng.seed(11)
+        fixture, situation = await self.open_staged(
+            "mind pull", lambda match: None,
+        )
+        match, game = fixture.match, fixture.game
+        puller = match.pending_mind_pull[0]
+        (roller,) = situation["sides"]
+        self.assertEqual(self.names(roller), [puller])
+        self.assertEqual(
+            situation["roll"]["target"],
+            ENGINE.mind_pull_minimum(game, puller),
+        )
+        self.assertIn(
+            f"Costs {ENGINE.mind_pull_cost(game, puller)}", roller["skill"],
+        )
+
+    async def test_every_portrait_is_served(self) -> None:
+        for name in ("maneuver picks", "score attempt"):
+            with self.subTest(name):
+                ENGINE.rng.seed(11)
+                client, fixture = await self.open(name)
+                state = await self.get_state(
+                    client, fixture.game, as_coach(STRANGER),
+                )
+                players = [
+                    player
+                    for side in state["prompt"]["situation"]["sides"]
+                    for player in side["players"]
+                ]
+                self.assertTrue(players)
+                for player in players:
+                    response = await client.get(player["portrait"])
+                    body = await response.read()
+                    self.assertEqual(response.status, 200, player["id"])
+                    self.assertEqual(response.content_type, "image/png")
+                    self.assertTrue(body.startswith(b"\x89PNG"))
+
+    async def test_a_player_not_in_the_game_has_no_portrait(self) -> None:
+        ENGINE.rng.seed(11)
+        client, fixture = await self.open("maneuver picks")
+        response = await client.get(
+            f"/api/game/{fixture.game.game_id}/portrait/nobody.png",
+        )
+        self.assertEqual(response.status, 404)
+
+    async def test_every_other_question_has_no_situation(self) -> None:
         # The distance questions and the Coaching Choice among them:
         # the board beside the prompt is the field.
         for name in (
@@ -1317,12 +1822,15 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
                 state = await self.get_state(
                     client, fixture.game, as_coach(fixture.game.player_1_id),
                 )
-                response = await client.get(
-                    f"/api/room/{fixture.game.game_id}/prompt.png?v=1",
-                )
+                self.assertIsNone(state["prompt"]["situation"])
 
-                self.assertIsNone(state["prompt"]["picture"])
-                self.assertEqual(response.status, 404)
+    async def test_an_own_goal_with_nobody_on_the_ball_has_none(self) -> None:
+        # The bare fixture: a position no game reaches, answered with no
+        # situation rather than an error.
+        ENGINE.rng.seed(11)
+        client, fixture = await self.open("own goal")
+        state = await self.get_state(client, fixture.game, as_coach(STRANGER))
+        self.assertIsNone(state["prompt"]["situation"])
 
     async def test_the_log_says_the_challenge_in_words(self) -> None:
         # Sending a challenger walks one in. On Discord the challenge
@@ -1355,7 +1863,7 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(played["refusal"])
         self.assertEqual(played["prompt"]["kind"], "maneuver_action")
-        self.assertIsNotNone(played["prompt"]["picture"])
+        self.assertIsNotNone(played["prompt"]["situation"])
         said = [
             line
             for entry in played["entries"]
@@ -2642,7 +3150,7 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(
                         set(state["prompt"]),
                         {
-                            "kind", "ask", "footnote", "picture", "controls",
+                            "kind", "ask", "footnote", "situation", "controls",
                             "lit", "yours", "state", "waiting_on",
                             "reference", "hand", "shootout",
                         },
