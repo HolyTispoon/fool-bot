@@ -2239,13 +2239,21 @@ _IGNITES = frozenset({
 #: number, whether it is rolled, or what winning it means -- and on the
 #: maneuver challenge also what a maneuver does once it has won, since
 #: the coach is choosing one there (the author, 2026-09-28): Emberdash's
-#: dribble, Quantor's run on and Vorix's set-up on the attack, which
-#: plays the dribbles and passes, Acidel's pressure on the defence. Zorch
+#: dribble, Vorix's set-up and Acidel's pressure, each on the attack
+#: alone. Quantor's run on is never here: it is for a teammate's pass,
+#: so it does not apply to a roll Quantor is in (the author,
+#: 2026-09-28). Bulwark's drain threshold applies to every roll he is
+#: in (`ALWAYS_BEARS`). Zorch
 #: adds the speed modifier to every roll but the shot, which adds it
 #: already (`speed_roll_bonus`). Merge is not here: it is a number
 #: another player adds, the model's own line in the side's modifiers
 #: (`merge_bonus`); and a Mind Pull is the Telekinetics' ability
 #: already, which the window says.
+#: The personal abilities named on every roll the player is in: Bulwark
+#: is only Drained at 10, which is what his tokens mean on any of them
+#: (the author, 2026-09-28).
+ALWAYS_BEARS = frozenset({PersonalAbility.HIGH_DRAIN_THRESHOLD})
+
 BEARINGS: Mapping[str, Bearing] = {
     "skill_test_attack": Bearing(
         (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
@@ -2256,10 +2264,11 @@ BEARINGS: Mapping[str, Bearing] = {
             PersonalAbility.DEFENSIVE_THROW,
             PersonalAbility.SPEED_ROLLS,
             # What an attacking card does once won -- the dribble, the
-            # High Pass and Set-up Pass -- since the coach is choosing it.
+            # High Pass, the Pressure into the goal zone -- since the
+            # coach is choosing it (the author, 2026-09-28).
             PersonalAbility.FREE_BURST,
-            PersonalAbility.RUN_ON,
             PersonalAbility.LONG_SET_UP,
+            PersonalAbility.PRESSURE_SHOT,
         },
         "offense",
     ),
@@ -2270,8 +2279,6 @@ BEARINGS: Mapping[str, Bearing] = {
             PersonalAbility.DEFENSIVE_GAMBITS,
             PersonalAbility.FORCES_THE_TEST,
             PersonalAbility.SPEED_ROLLS,
-            # A Pressure or Double Team that would risk an own goal.
-            PersonalAbility.PRESSURE_SHOT,
         },
         "defense",
     ),
@@ -2354,7 +2361,7 @@ def _personal_bears(
     this roll adds, read as the game plays it against the role's."""
     if any(
         engine.has_personal_ability(game, player_id, ability)
-        for ability in bearing.personal
+        for ability in bearing.personal | ALWAYS_BEARS
     ):
         return True
     if bearing.skill is None:

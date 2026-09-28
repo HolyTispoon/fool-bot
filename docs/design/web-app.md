@@ -1675,10 +1675,12 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     Hexis's gambits and Synapse's upgrade on a skill test, Scorchit's
     forced test. On the maneuver challenge, what a maneuver does once
     it has won is named too, since the coach is choosing one there (the
-    author, 2026-09-28): Emberdash's dribble, Quantor's run on and
-    Vorix's set-up on the attack, which plays the dribbles and passes,
-    Acidel's pressure on the defence -- never on the side that cannot
-    play the card. The five players whose line is an advanced skill score
+    author, 2026-09-28): Emberdash's dribble, Vorix's set-up and
+    Acidel's pressure, each on the attack alone. Quantor's run on is
+    never named: it is for a teammate's pass, so it does not apply to a
+    roll Quantor is in. Bulwark's drain threshold is named on every roll
+    he is in (`ALWAYS_BEARS`). Kindlefinger's ignite is the injury
+    check's alone, never a maneuver's. The five players whose line is an advanced skill score
     ("High defensive skill.") have it named where the roll adds that
     skill, read as `skills` under the game against the role's. Which
     ability goes with which part of which roll is `BEARINGS`; whether

@@ -1529,9 +1529,9 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         # On the maneuver challenge the coach is choosing a maneuver, so
-        # what one does once won is named too (the author, 2026-09-28):
-        # a pass on the attack, a pressure on the defence -- and not on
-        # the side that cannot play that card.
+        # what one does once won is named too, on the attack alone (the
+        # author, 2026-09-28); a run on is a teammate's pass, never the
+        # roller's; a drain threshold is named on every roll.
         from unittest import mock
 
         from d12ball.components import catalog_player_id
@@ -1541,10 +1541,16 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         )
 
         cases = (
-            (0, PersonalAbility.RUN_ON, True),
+            (0, PersonalAbility.FREE_BURST, True),
+            (1, PersonalAbility.FREE_BURST, False),
+            (0, PersonalAbility.PRESSURE_SHOT, True),
+            (1, PersonalAbility.PRESSURE_SHOT, False),
+            # A teammate's pass, so never a roll the player is in.
+            (0, PersonalAbility.RUN_ON, False),
             (1, PersonalAbility.RUN_ON, False),
-            (1, PersonalAbility.PRESSURE_SHOT, True),
-            (0, PersonalAbility.PRESSURE_SHOT, False),
+            # Bulwark's threshold, on every roll.
+            (0, PersonalAbility.HIGH_DRAIN_THRESHOLD, True),
+            (1, PersonalAbility.HIGH_DRAIN_THRESHOLD, True),
         )
         for side, ability, shown in cases:
             with self.subTest(side=side, ability=ability):
